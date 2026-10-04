@@ -150,3 +150,11 @@ been running for a while. Without that step the first requests measured disk rea
 copied seconds earlier (p99 up to 230 ms on the same queries that take 0.2 ms warm). Cold-start
 latency after a restart is real, but it is not what the per-request budgets describe. Raw-SQL probes of the hot queries run alongside the
 operation scenarios, to separate database time from service overhead.
+
+**WAL checkpoints run on a worker thread, not inside requests.** With SQLite's default
+auto-checkpoint, the commit that grows the WAL past 1,000 pages also copies them into the
+database file and fsyncs it: on the 2.6 GB benchmark database that single write took
+0.6–1.7 s (p99 of the same writes: 3 ms). The server turns auto-checkpointing off and runs a
+PASSIVE checkpoint every second on a separate thread and connection (`startCheckpointer`),
+which never blocks readers or writers. Processes that do not start it keep SQLite's default.
+The benchmark runs with the checkpointer, as production does.

@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { closeContext, createContext } from "@sermo/core";
+import { closeContext, createContext, startCheckpointer } from "@sermo/core";
 import { BUDGETS, createEnv, type Scenario } from "./harness";
 import { Rng } from "./rng";
 import { benchDir, ensureSeed } from "./seed";
@@ -57,6 +57,8 @@ function warmFileCache(path: string): void {
 }
 
 const ctx = createContext({ path: workPath });
+// As in the server: WAL checkpoints run on a worker thread, not inside requests.
+const stopCheckpointer = startCheckpointer(ctx);
 const env = createEnv(ctx, meta, new Rng(42));
 
 const scenarioDir = join(import.meta.dir, "scenarios");
@@ -115,6 +117,7 @@ for (const scenario of selected) {
   if (r.max > BUDGETS.max) r.failures.push(`max ${r.max.toFixed(2)} ms > ${BUDGETS.max} ms`);
   results.push(r);
 }
+await stopCheckpointer();
 closeContext(ctx);
 
 const pad = (s: string, n: number) => s.padEnd(n);

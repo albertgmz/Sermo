@@ -1,6 +1,7 @@
 export * from "./actor";
 export * from "./context";
 export * as contracts from "./contracts";
+export { startCheckpointer } from "./db/checkpointer";
 export type { Db } from "./db/connection";
 export { openDatabase, runMigrations } from "./db/connection";
 export * as schema from "./db/schema";
