@@ -53,15 +53,15 @@ export const participantsSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id";
 export const messagesSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
-const messageByIdSql =
-  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts FROM conversation_messages WHERE id = ?1";
+export const activeSql =
+  "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
+export const reactableSql =
+  "SELECT m.user_id, m.state FROM conversation_messages m JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id WHERE m.id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 
 function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
   const user = requireAuthenticated(actor);
   const row = prepared(ctx, "conversations.active", () =>
-    ctx.sqlite.prepare<ConversationRow, [number, number]>(
-      "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'",
-    ),
+    ctx.sqlite.prepare<ConversationRow, [number, number]>(activeSql),
   ).get(id, user.userId);
   if (!row) throw new NotFoundError();
   return row;
@@ -122,11 +122,23 @@ function messages(ctx: Ctx, actor: Actor, rows: MessageRow[]) {
   }));
 }
 
-function messageById(ctx: Ctx, actor: Actor, id: number) {
-  const row = prepared(ctx, "conversations.messageById", () =>
-    ctx.sqlite.prepare<MessageRow, [number]>(messageByIdSql),
-  ).get(id)!;
-  return messages(ctx, actor, [row])[0]!;
+function newMessage(
+  id: number,
+  conversationId: number,
+  author: ReturnType<typeof loadUserSummaries>,
+  authorId: number,
+  now: number,
+  html: string,
+) {
+  return {
+    id,
+    conversationId,
+    author: author(authorId),
+    state: "visible" as const,
+    createdAt: iso(now),
+    bodyHtml: html,
+    reactions: { counts: {}, total: 0, mine: null },
+  };
 }
 
 export const conversationsListOp = implement(conversationsList, (ctx, actor, input) => {
@@ -169,37 +181,60 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       .map((r) => r.id),
   );
   const missing = ids.filter((id) => !found.has(id));
-  if (missing.length) throw new ValidationError(`Unknown recipient IDs: ${missing.join(", ")}.`);
+  if (missing.length) {
+    const message = `Unknown recipient IDs: ${missing.join(", ")}.`;
+    throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
+  }
   const html = renderMarkdown(input.body);
   const now = ctx.now();
   const { conversationId, messageId } = writeTx(ctx, () => {
     const conversationId = Number(
-      ctx.sqlite
-        .prepare(
+      prepared(ctx, "conversations.insertConversation", () =>
+        ctx.sqlite.prepare(
           "INSERT INTO conversations (title, user_id, created_at, last_message_at, last_message_user_id, message_count, participant_count) VALUES (?1, ?2, ?3, ?3, ?2, 1, ?4)",
-        )
-        .run(input.title, starter.userId, now, ids.length + 1).lastInsertRowid,
+        ),
+      ).run(input.title, starter.userId, now, ids.length + 1).lastInsertRowid,
     );
     const messageId = Number(
-      ctx.sqlite
-        .prepare(
+      prepared(ctx, "conversations.insertMessage", () =>
+        ctx.sqlite.prepare(
           "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, 'visible', ?3, ?4, ?5)",
-        )
-        .run(conversationId, starter.userId, now, input.body, html).lastInsertRowid,
+        ),
+      ).run(conversationId, starter.userId, now, input.body, html).lastInsertRowid,
     );
-    ctx.sqlite
-      .prepare("UPDATE conversations SET last_message_id = ?1 WHERE id = ?2")
-      .run(messageId, conversationId);
-    const insert = ctx.sqlite.prepare(
-      "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?3, ?4)",
+    prepared(ctx, "conversations.setFirstMessage", () =>
+      ctx.sqlite.prepare("UPDATE conversations SET last_message_id = ?1 WHERE id = ?2"),
+    ).run(messageId, conversationId);
+    const insert = prepared(ctx, "conversations.insertParticipant", () =>
+      ctx.sqlite.prepare(
+        "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?3, ?4)",
+      ),
     );
     insert.run(conversationId, starter.userId, now, messageId);
     for (const id of ids) insert.run(conversationId, id, now, 0);
     return { conversationId, messageId };
   });
+  const participantIds = [starter.userId, ...ids].sort((a, b) => a - b);
+  const user = loadUserSummaries(ctx, participantIds);
+  const row: ConversationRow = {
+    id: conversationId,
+    title: input.title,
+    user_id: starter.userId,
+    created_at: now,
+    last_message_at: now,
+    last_message_id: messageId,
+    last_message_user_id: starter.userId,
+    message_count: 1,
+    participant_count: participantIds.length,
+    last_read_message_id: messageId,
+  };
   return {
-    conversation: fullConversation(ctx, activeConversation(ctx, actor, conversationId)),
-    message: messageById(ctx, actor, messageId),
+    conversation: {
+      ...summary(row, user),
+      participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
+      canReply: true,
+    },
+    message: newMessage(messageId, conversationId, user, starter.userId, now, html),
   };
 });
 
@@ -211,30 +246,31 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   const messageId = writeTx(ctx, () => {
     activeConversation(ctx, actor, input.conversationId);
     const id = Number(
-      ctx.sqlite
-        .prepare(
+      prepared(ctx, "conversations.insertMessage", () =>
+        ctx.sqlite.prepare(
           "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, 'visible', ?3, ?4, ?5)",
-        )
-        .run(input.conversationId, user.userId, now, input.body, html).lastInsertRowid,
+        ),
+      ).run(input.conversationId, user.userId, now, input.body, html).lastInsertRowid,
     );
-    ctx.sqlite
-      .prepare(
+    prepared(ctx, "conversations.updateLastMessage", () =>
+      ctx.sqlite.prepare(
         "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1 WHERE id = ?4",
-      )
-      .run(now, id, user.userId, input.conversationId);
-    ctx.sqlite
-      .prepare(
-        "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2",
-      )
-      .run(now, input.conversationId);
-    ctx.sqlite
-      .prepare(
+      ),
+    ).run(now, id, user.userId, input.conversationId);
+    prepared(ctx, "conversations.updateParticipantActivity", () =>
+      ctx.sqlite.prepare(
+        "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2 AND state = 'active'",
+      ),
+    ).run(now, input.conversationId);
+    prepared(ctx, "conversations.updateReadState", () =>
+      ctx.sqlite.prepare(
         "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
-      )
-      .run(id, input.conversationId, user.userId);
+      ),
+    ).run(id, input.conversationId, user.userId);
     return id;
   });
-  return messageById(ctx, actor, messageId);
+  const author = loadUserSummaries(ctx, [user.userId]);
+  return newMessage(messageId, input.conversationId, author, user.userId, now, html);
 });
 
 export const conversationsListMessagesOp = implement(
@@ -260,11 +296,11 @@ export const conversationsMarkReadOp = implement(conversationsMarkRead, (ctx, ac
   const user = requireAuthenticated(actor);
   writeTx(ctx, () => {
     const row = activeConversation(ctx, actor, input.conversationId);
-    ctx.sqlite
-      .prepare(
+    prepared(ctx, "conversations.updateReadState", () =>
+      ctx.sqlite.prepare(
         "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
-      )
-      .run(row.last_message_id, row.id, user.userId);
+      ),
+    ).run(row.last_message_id, row.id, user.userId);
   });
   return { ok: true as const };
 });
@@ -273,14 +309,16 @@ export const conversationsLeaveOp = implement(conversationsLeave, (ctx, actor, i
   const user = requireAuthenticated(actor);
   writeTx(ctx, () => {
     activeConversation(ctx, actor, input.conversationId);
-    ctx.sqlite
-      .prepare(
+    prepared(ctx, "conversations.markLeft", () =>
+      ctx.sqlite.prepare(
         "UPDATE conversation_participants SET state = 'left' WHERE conversation_id = ?1 AND user_id = ?2",
-      )
-      .run(input.conversationId, user.userId);
-    ctx.sqlite
-      .prepare("UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1")
-      .run(input.conversationId);
+      ),
+    ).run(input.conversationId, user.userId);
+    prepared(ctx, "conversations.decrementParticipants", () =>
+      ctx.sqlite.prepare(
+        "UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1",
+      ),
+    ).run(input.conversationId);
   });
   return { ok: true as const };
 });
@@ -292,12 +330,9 @@ export function reactableConversationMessage(
   messageId: number,
 ): { authorId: number; isVisible: boolean } {
   if (actor.kind === "guest") throw new NotFoundError();
-  const user = actor;
   const row = prepared(ctx, "conversations.reactable", () =>
-    ctx.sqlite.prepare<{ user_id: number; state: string }, [number, number]>(
-      "SELECT m.user_id, m.state FROM conversation_messages m JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id WHERE m.id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'",
-    ),
-  ).get(messageId, user.userId);
+    ctx.sqlite.prepare<{ user_id: number; state: string }, [number, number]>(reactableSql),
+  ).get(messageId, actor.userId);
   if (!row) throw new NotFoundError();
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }
