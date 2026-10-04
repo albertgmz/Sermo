@@ -8,7 +8,7 @@ import {
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
-import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
+import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
 import {
   operations,
@@ -30,6 +30,8 @@ import {
   reactableProfilePost,
   usersSearchOp,
 } from "./index";
+import { prefixSuccessor, USER_SEARCH_SQL, USER_SEARCH_TAIL_SQL } from "./posts";
+import { COMMENTS_SQL, LATEST_COMMENTS_SQL, WALL_SQL } from "./shared";
 
 function fixture() {
   const ctx = createTestContext();
@@ -91,6 +93,13 @@ describe("profiles", () => {
   });
   test("profile get, update, visibility, and prefix search", async () => {
     const f = fixture();
+    f.ctx.sqlite
+      .prepare("UPDATE users SET post_count = 7, reaction_score = 9 WHERE id = ?1")
+      .run(f.wall.id);
+    const profile = await execute(f.ctx, profilesGetOp, GUEST, { userId: f.wall.id });
+    expect(profile.groupTitle).toBe("Member");
+    expect(profile.postCount).toBe(7);
+    expect(profile.reactionScore).toBe(9);
     expect((await execute(f.ctx, profilesGetOp, GUEST, { userId: f.wall.id })).canPostOnWall).toBe(
       false,
     );
@@ -124,11 +133,11 @@ describe("profiles", () => {
     ).toHaveLength(1);
     f.ctx.sqlite.run("UPDATE groups SET can_view_profiles = 0 WHERE id = 2");
     invalidate(f.ctx, "permissions");
-    await expect(
-      execute(f.ctx, profilesUpdateOp, f.authorActor, { about: "blocked" }),
-    ).rejects.toThrow(ForbiddenError);
+    expect(
+      (await execute(f.ctx, profilesUpdateOp, f.authorActor, { about: "allowed" })).about,
+    ).toBe("allowed");
     expect((await execute(f.ctx, profilesGetOp, f.adminActor, { userId: f.author.id })).about).toBe(
-      "<plain>",
+      "allowed",
     );
     await expect(
       execute(f.ctx, profilePostsListOp, f.authorActor, { userId: f.wall.id }),
@@ -427,33 +436,285 @@ describe("profiles", () => {
       execute(f.ctx, profileCommentsListOp, f.wallActor, { profilePostId: post.id }),
     ).rejects.toThrow(ForbiddenError);
   });
+  test("search successor includes astral and U+FFFF characters", async () => {
+    const f = fixture();
+    const names = ["abA", "ab\uffffx", "ab😀x", "across", "\u{10ffff}", "\u{10ffff}x"];
+    for (const username of names) insertUser(f.ctx, { username });
+    expect(prefixSuccessor("ab")).toBe("ac");
+    expect(prefixSuccessor("ab\uffff")).toBe("ab\u{10000}");
+    expect(prefixSuccessor("\u{10ffff}")).toBeNull();
+    expect(
+      (await execute(f.ctx, usersSearchOp, GUEST, { prefix: "AB" })).items.map((u) => u.username),
+    ).toEqual(names.slice(0, 3));
+    expect(
+      (await execute(f.ctx, usersSearchOp, GUEST, { prefix: "ab\uffff" })).items.map(
+        (u) => u.username,
+      ),
+    ).toEqual(["ab\uffffx"]);
+    expect(
+      (await execute(f.ctx, usersSearchOp, GUEST, { prefix: "\u{10ffff}" })).items.map(
+        (u) => u.username,
+      ),
+    ).toEqual(["\u{10ffff}", "\u{10ffff}x"]);
+  });
+  test("wall pages batch and group the latest comments by visibility", async () => {
+    const f = fixture();
+    const expectedGuest = new Map<number, number[]>();
+    const expectedAuthor = new Map<number, number[]>();
+    const expectedMod = new Map<number, number[]>();
+    for (let p = 0; p < 3; p++) {
+      const post = await execute(f.ctx, profilePostsCreateOp, f.wallActor, {
+        userId: f.wall.id,
+        body: `post ${p}`,
+      });
+      const ids: number[] = [];
+      for (let c = 0; c < 6; c++) {
+        const creator = c === 3 ? f.authorActor : f.strangerActor;
+        ids.push(
+          (
+            await execute(f.ctx, profileCommentsCreateOp, creator, {
+              profilePostId: post.id,
+              body: `comment ${p}-${c}`,
+            })
+          ).id,
+        );
+      }
+      f.ctx.sqlite
+        .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id IN (?1, ?2)")
+        .run(ids[3]!, ids[4]!);
+      f.ctx.sqlite
+        .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
+        .run(ids[5]!);
+      f.ctx.sqlite
+        .prepare(
+          "UPDATE profile_posts SET comment_count = 3, last_comment_at = (SELECT created_at FROM profile_post_comments WHERE id = ?2) WHERE id = ?1",
+        )
+        .run(post.id, ids[2]!);
+      expectedGuest.set(post.id, ids.slice(0, 3));
+      expectedAuthor.set(post.id, [ids[1]!, ids[2]!, ids[3]!]);
+      expectedMod.set(post.id, ids.slice(3));
+    }
+    for (const [actor, expected] of [
+      [GUEST, expectedGuest],
+      [f.authorActor, expectedAuthor],
+      [f.modActor, expectedMod],
+    ] as const) {
+      const page = await execute(f.ctx, profilePostsListOp, actor, {
+        userId: f.wall.id,
+        limit: 10,
+      });
+      expect(page.items).toHaveLength(3);
+      for (const post of page.items)
+        expect(post.latestComments.map((comment) => comment.id)).toEqual(expected.get(post.id)!);
+    }
+  });
+  test("keyset pages skip hidden rows for ordinary viewers", async () => {
+    const f = fixture();
+    const postIds: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const actor = i === 2 ? f.strangerActor : f.authorActor;
+      postIds.push(
+        (
+          await execute(f.ctx, profilePostsCreateOp, actor, {
+            userId: f.wall.id,
+            body: `post ${i}`,
+          })
+        ).id,
+      );
+    }
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET state = 'moderated' WHERE id IN (?1, ?2)")
+      .run(postIds[1]!, postIds[2]!);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET state = 'deleted' WHERE id = ?1")
+      .run(postIds[3]!);
+    async function collectPosts(actor: typeof GUEST) {
+      const ids: number[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await execute(f.ctx, profilePostsListOp, actor, {
+          userId: f.wall.id,
+          limit: 2,
+          cursor,
+        });
+        ids.push(...page.items.map((row) => row.id));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+      return ids;
+    }
+    expect(await collectPosts(GUEST)).toEqual([postIds[5]!, postIds[4]!, postIds[0]!]);
+    expect(await collectPosts(f.authorActor)).toEqual([
+      postIds[5]!,
+      postIds[4]!,
+      postIds[1]!,
+      postIds[0]!,
+    ]);
+    expect(await collectPosts(f.modActor)).toEqual(postIds.toReversed());
+
+    const commentIds: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const actor = i === 2 ? f.strangerActor : f.authorActor;
+      commentIds.push(
+        (
+          await execute(f.ctx, profileCommentsCreateOp, actor, {
+            profilePostId: postIds[0]!,
+            body: `comment ${i}`,
+          })
+        ).id,
+      );
+    }
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id IN (?1, ?2)")
+      .run(commentIds[1]!, commentIds[2]!);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
+      .run(commentIds[3]!);
+    async function collectComments(actor: typeof GUEST) {
+      const ids: number[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await execute(f.ctx, profileCommentsListOp, actor, {
+          profilePostId: postIds[0]!,
+          limit: 2,
+          cursor,
+        });
+        ids.push(...page.items.map((row) => row.id));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+      return ids;
+    }
+    expect(await collectComments(GUEST)).toEqual([commentIds[5]!, commentIds[4]!, commentIds[0]!]);
+    expect(await collectComments(f.authorActor)).toEqual([
+      commentIds[5]!,
+      commentIds[4]!,
+      commentIds[1]!,
+      commentIds[0]!,
+    ]);
+    expect(await collectComments(f.adminActor)).toEqual(commentIds.toReversed());
+  });
+  test("state changes keep comment counters through hidden and repeated transitions", async () => {
+    const f = fixture();
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    const first = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "first",
+    });
+    f.ctx.clock.advance(1000);
+    const second = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "second",
+    });
+    recount(f.ctx, post.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id = ?1")
+      .run(first.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET comment_count = comment_count - 1 WHERE id = ?1")
+      .run(post.id);
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profileCommentsDeleteOp, f.modActor, { commentId: first.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profileCommentsDeleteOp, f.modActor, { commentId: first.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profileCommentsDeleteOp, f.modActor, { commentId: second.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profilePostsDeleteOp, f.authorActor, { profilePostId: post.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profileCommentsRestoreOp, f.modActor, { commentId: first.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profilePostsRestoreOp, f.modActor, { profilePostId: post.id });
+    recount(f.ctx, post.id);
+    await execute(f.ctx, profileCommentsRestoreOp, f.modActor, { commentId: first.id });
+    recount(f.ctx, post.id);
+  });
+  test("hidden visibility and flags for guests, moderators, and admins", async () => {
+    const f = fixture();
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    for (const actor of [f.modActor, f.adminActor]) {
+      const value = await execute(f.ctx, profilePostsGetOp, actor, { profilePostId: post.id });
+      expect(value.canEdit).toBe(true);
+      expect(value.canDelete).toBe(true);
+      expect(value.canComment).toBe(true);
+    }
+    const comment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: post.id,
+      body: "comment",
+    });
+    f.ctx.sqlite.prepare("UPDATE profile_posts SET state = 'moderated' WHERE id = ?1").run(post.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id = ?1")
+      .run(comment.id);
+    for (const actor of [GUEST, f.wallActor]) {
+      await expect(
+        execute(f.ctx, profilePostsGetOp, actor, { profilePostId: post.id }),
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        execute(f.ctx, profileCommentsGetOp, actor, { commentId: comment.id }),
+      ).rejects.toThrow(NotFoundError);
+    }
+    for (const actor of [f.modActor, f.adminActor]) {
+      const value = await execute(f.ctx, profilePostsGetOp, actor, { profilePostId: post.id });
+      expect(value.state).toBe("moderated");
+      expect(value.canEdit).toBe(true);
+      expect(value.canDelete).toBe(true);
+      expect(value.canComment).toBe(false);
+      const child = await execute(f.ctx, profileCommentsGetOp, actor, { commentId: comment.id });
+      expect(child.canEdit).toBe(true);
+      expect(child.canDelete).toBe(true);
+    }
+    f.ctx.sqlite.prepare("UPDATE profile_posts SET state = 'deleted' WHERE id = ?1").run(post.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
+      .run(comment.id);
+    for (const actor of [GUEST, f.authorActor]) {
+      await expect(
+        execute(f.ctx, profilePostsGetOp, actor, { profilePostId: post.id }),
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        execute(f.ctx, profileCommentsGetOp, actor, { commentId: comment.id }),
+      ).rejects.toThrow(NotFoundError);
+    }
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.adminActor, { profilePostId: post.id })).state,
+    ).toBe("deleted");
+  });
+  test("unknown walls, invalid cursors, and hidden reaction targets", async () => {
+    const f = fixture();
+    await expect(
+      execute(f.ctx, profilePostsCreateOp, f.authorActor, { userId: 999999, body: "post" }),
+    ).rejects.toThrow(NotFoundError);
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    expect(f.ctx.statements.has("profiles.latestComments")).toBe(false);
+    const comment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: post.id,
+      body: "comment",
+    });
+    await expect(
+      execute(f.ctx, profilePostsListOp, GUEST, { userId: f.wall.id, cursor: "garbage" }),
+    ).rejects.toThrow(ValidationError);
+    await expect(
+      execute(f.ctx, profileCommentsListOp, GUEST, { profilePostId: post.id, cursor: "garbage" }),
+    ).rejects.toThrow(ValidationError);
+    f.ctx.sqlite.run("UPDATE groups SET can_view_profiles = 0 WHERE id = 2");
+    invalidate(f.ctx, "permissions");
+    expect(() => reactableProfilePost(f.ctx, f.authorActor, post.id)).toThrow(NotFoundError);
+    expect(() => reactableProfileComment(f.ctx, f.authorActor, comment.id)).toThrow(NotFoundError);
+  });
   test("hot query plans use indexes", () => {
     const f = fixture();
-    expectNoTableScan(
-      f.ctx,
-      "SELECT * FROM profile_posts WHERE profile_user_id = ?1 AND id < ?2 " +
-        "AND (state = 'visible' OR ?3 = 1 OR (state = 'moderated' AND user_id = ?4)) ORDER BY id DESC LIMIT ?5",
-      [f.wall.id, 1000, 0, f.author.id, 20],
-    );
-    expectNoTableScan(
-      f.ctx,
-      "SELECT * FROM profile_post_comments WHERE profile_post_id = ?1 AND id < ?2 " +
-        "AND (state = 'visible' OR ?3 = 1 OR (state = 'moderated' AND user_id = ?4)) ORDER BY id DESC LIMIT ?5",
-      [1, 1000, 0, f.author.id, 20],
-    );
-    expectNoTableScan(
-      f.ctx,
-      "SELECT id, username FROM users WHERE username_key >= ?1 AND username_key < ?2 ORDER BY username_key LIMIT ?3",
-      ["a", "b", 10],
-    );
-    expectNoTableScan(
-      f.ctx,
-      "SELECT id, profile_post_id, user_id, state, created_at, edited_at, body_source, body_html, reaction_counts FROM (" +
-        "SELECT c.*, row_number() OVER (PARTITION BY profile_post_id ORDER BY id DESC) AS rn " +
-        "FROM profile_post_comments c WHERE profile_post_id IN (SELECT value FROM json_each(?1)) " +
-        "AND (state = 'visible' OR ?2 = 1 OR (state = 'moderated' AND user_id = ?3))) WHERE rn <= 3",
-      ["[1,2]", 0, f.author.id],
-      { allowTempBTree: true },
-    );
+    expectNoTableScan(f.ctx, WALL_SQL, [f.wall.id, 1000, 0, f.author.id, 20]);
+    expectNoTableScan(f.ctx, COMMENTS_SQL, [1, 1000, 0, f.author.id, 20]);
+    expectNoTableScan(f.ctx, USER_SEARCH_SQL, ["a", "b", 10]);
+    expectNoTableScan(f.ctx, USER_SEARCH_TAIL_SQL, ["a", 10]);
+    expectNoTableScan(f.ctx, LATEST_COMMENTS_SQL, ["[1,2]", 0, f.author.id]);
   });
 });

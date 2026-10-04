@@ -17,6 +17,7 @@ import { renderMarkdown } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import { getGlobalPermissions } from "../permissions";
 import {
+  COMMENTS_SQL,
   type CommentRow,
   changeCommentCount,
   commentValue,
@@ -32,10 +33,7 @@ export const profileCommentsListOp = implement(profileCommentsList, (ctx, actor,
     : Number.MAX_SAFE_INTEGER;
   const flags = getGlobalPermissions(ctx, actor);
   const rows = prepared(ctx, "profiles.commentList", () =>
-    ctx.sqlite.prepare<CommentRow, [number, number, number, number, number]>(
-      "SELECT * FROM profile_post_comments WHERE profile_post_id = ?1 AND id < ?2 " +
-        "AND (state = 'visible' OR ?3 = 1 OR (state = 'moderated' AND user_id = ?4)) ORDER BY id DESC LIMIT ?5",
-    ),
+    ctx.sqlite.prepare<CommentRow, [number, number, number, number, number]>(COMMENTS_SQL),
   ).all(post.id, cursor, Number(flags.isModerator), actorUserId(actor) ?? 0, input.limit + 1);
   const page = rows.slice(0, input.limit);
   const user = loadUserSummaries(
@@ -61,16 +59,17 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
   const comment = writeTx(ctx, () => {
-    const row = ctx.sqlite
-      .prepare<CommentRow, [number, number, number, string, string]>(
+    if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
+    const row = prepared(ctx, "profiles.insertComment", () =>
+      ctx.sqlite.prepare<CommentRow, [number, number, number, string, string]>(
         "INSERT INTO profile_post_comments (profile_post_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *",
-      )
-      .get(post.id, user.userId, ctx.now(), input.body, html)!;
-    ctx.sqlite
-      .prepare(
+      ),
+    ).get(post.id, user.userId, ctx.now(), input.body, html)!;
+    prepared(ctx, "profiles.incrementCommentCount", () =>
+      ctx.sqlite.prepare<unknown, [number, number]>(
         "UPDATE profile_posts SET comment_count = comment_count + 1, last_comment_at = ?1 WHERE id = ?2",
-      )
-      .run(row.created_at, post.id);
+      ),
+    ).run(row.created_at, post.id);
     return row;
   });
   return {
@@ -85,11 +84,11 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
   writeTx(ctx, () =>
-    ctx.sqlite
-      .prepare(
+    prepared(ctx, "profiles.updateComment", () =>
+      ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
-      )
-      .run(input.body, html, ctx.now(), comment.id),
+      ),
+    ).run(input.body, html, ctx.now(), comment.id),
   );
   return profileCommentsGetOp.run(ctx, actor, input);
 });
@@ -103,10 +102,17 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
   )
     throw new ForbiddenError();
   writeTx(ctx, () => {
-    ctx.sqlite
-      .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
-      .run(comment.id);
-    if (comment.state === "visible") changeCommentCount(ctx, post.id, -1);
+    const current = prepared(ctx, "profiles.commentState", () =>
+      ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
+        "SELECT state FROM profile_post_comments WHERE id = ?1",
+      ),
+    ).get(comment.id)!;
+    const result = prepared(ctx, "profiles.deleteComment", () =>
+      ctx.sqlite.prepare<unknown, [number, string]>(
+        "UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1 AND state = ?2",
+      ),
+    ).run(comment.id, current.state);
+    if (result.changes === 1 && current.state === "visible") changeCommentCount(ctx, post.id, -1);
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
 });
@@ -115,10 +121,17 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
   const { comment, post } = requireComment(ctx, actor, input.commentId);
   if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
   writeTx(ctx, () => {
-    ctx.sqlite
-      .prepare("UPDATE profile_post_comments SET state = 'visible' WHERE id = ?1")
-      .run(comment.id);
-    if (comment.state !== "visible") changeCommentCount(ctx, post.id, 1);
+    const current = prepared(ctx, "profiles.commentState", () =>
+      ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
+        "SELECT state FROM profile_post_comments WHERE id = ?1",
+      ),
+    ).get(comment.id)!;
+    const result = prepared(ctx, "profiles.restoreComment", () =>
+      ctx.sqlite.prepare<unknown, [number, string]>(
+        "UPDATE profile_post_comments SET state = 'visible' WHERE id = ?1 AND state = ?2",
+      ),
+    ).run(comment.id, current.state);
+    if (result.changes === 1 && current.state !== "visible") changeCommentCount(ctx, post.id, 1);
   });
   return commentValue(ctx, actor, { ...comment, state: "visible" }, post.profile_user_id);
 });

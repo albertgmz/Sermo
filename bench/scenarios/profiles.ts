@@ -109,18 +109,21 @@ export const scenarios: Scenario[] = [
       }),
   },
   {
-    name: "profilePosts.delete + restore",
+    name: "profilePosts.delete / restore",
     kind: "write",
     setup(env) {
       restorablePostId = env.ctx.sqlite
         .prepare<{ id: number }, []>("SELECT id FROM profile_posts WHERE state = 'visible' LIMIT 1")
         .get()!.id;
     },
-    async run(env) {
-      await env.call("profilePosts.delete", env.actors.admin, { profilePostId: restorablePostId });
-      return env.call("profilePosts.restore", env.actors.admin, {
-        profilePostId: restorablePostId,
-      });
+    run(env, i) {
+      return env.call(
+        i % 2 === 0 ? "profilePosts.delete" : "profilePosts.restore",
+        env.actors.admin,
+        {
+          profilePostId: restorablePostId,
+        },
+      );
     },
   },
 ];

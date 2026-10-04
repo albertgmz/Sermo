@@ -1,4 +1,4 @@
-export {
+import {
   profileCommentsCreateOp,
   profileCommentsDeleteOp,
   profileCommentsGetOp,
@@ -6,7 +6,7 @@ export {
   profileCommentsRestoreOp,
   profileCommentsUpdateOp,
 } from "./comments";
-export {
+import {
   profilePostsCreateOp,
   profilePostsDeleteOp,
   profilePostsGetOp,
@@ -17,17 +17,16 @@ export {
   profilesUpdateOp,
   usersSearchOp,
 } from "./posts";
+
 export { reactableProfileComment, reactableProfilePost } from "./shared";
 
-import {
+export {
   profileCommentsCreateOp,
   profileCommentsDeleteOp,
   profileCommentsGetOp,
   profileCommentsListOp,
   profileCommentsRestoreOp,
   profileCommentsUpdateOp,
-} from "./comments";
-import {
   profilePostsCreateOp,
   profilePostsDeleteOp,
   profilePostsGetOp,
@@ -37,7 +36,7 @@ import {
   profilesGetOp,
   profilesUpdateOp,
   usersSearchOp,
-} from "./posts";
+};
 
 export const operations = [
   profilesGetOp,

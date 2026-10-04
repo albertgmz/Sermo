@@ -33,6 +33,19 @@ export type CommentRow = {
   reaction_counts: string;
 };
 
+export const WALL_SQL =
+  "SELECT * FROM profile_posts WHERE profile_user_id = ?1 AND id < ?2 " +
+  "AND (state = 'visible' OR ?3 = 1 OR (state = 'moderated' AND user_id = ?4)) ORDER BY id DESC LIMIT ?5";
+export const COMMENTS_SQL =
+  "SELECT * FROM profile_post_comments WHERE profile_post_id = ?1 AND id < ?2 " +
+  "AND (state = 'visible' OR ?3 = 1 OR (state = 'moderated' AND user_id = ?4)) ORDER BY id DESC LIMIT ?5";
+export const LATEST_COMMENTS_SQL =
+  "SELECT c.* FROM json_each(?1) AS j CROSS JOIN profile_post_comments AS c " +
+  "WHERE c.id IN (SELECT c2.id FROM profile_post_comments AS c2 " +
+  "WHERE c2.profile_post_id = j.value " +
+  "AND (c2.state = 'visible' OR ?2 = 1 OR (c2.state = 'moderated' AND c2.user_id = ?3)) " +
+  "ORDER BY c2.id DESC LIMIT 3)";
+
 export function requireView(ctx: Ctx, actor: Actor) {
   const flags = getGlobalPermissions(ctx, actor);
   if (!flags.canViewProfiles) throw new ForbiddenError();
@@ -73,6 +86,7 @@ export function reactableProfilePost(
   actor: Actor,
   profilePostId: number,
 ): { authorId: number; isVisible: boolean } {
+  if (!getGlobalPermissions(ctx, actor).canViewProfiles) throw new NotFoundError();
   const row = requirePost(ctx, actor, profilePostId);
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }
@@ -81,6 +95,7 @@ export function reactableProfileComment(
   actor: Actor,
   commentId: number,
 ): { authorId: number; isVisible: boolean } {
+  if (!getGlobalPermissions(ctx, actor).canViewProfiles) throw new NotFoundError();
   const { comment, post } = requireComment(ctx, actor, commentId);
   return {
     authorId: comment.user_id,
@@ -92,12 +107,7 @@ export function latestComments(ctx: Ctx, actor: Actor, rows: PostRow[]): Comment
   if (!rows.length) return [];
   const flags = getGlobalPermissions(ctx, actor);
   return prepared(ctx, "profiles.latestComments", () =>
-    ctx.sqlite.prepare<CommentRow, [string, number, number]>(
-      "SELECT id, profile_post_id, user_id, state, created_at, edited_at, body_source, body_html, reaction_counts FROM (" +
-        "SELECT c.*, row_number() OVER (PARTITION BY profile_post_id ORDER BY id DESC) AS rn " +
-        "FROM profile_post_comments c WHERE profile_post_id IN (SELECT value FROM json_each(?1)) " +
-        "AND (state = 'visible' OR ?2 = 1 OR (state = 'moderated' AND user_id = ?3))) WHERE rn <= 3",
-    ),
+    ctx.sqlite.prepare<CommentRow, [string, number, number]>(LATEST_COMMENTS_SQL),
   ).all(
     JSON.stringify(rows.map((row) => row.id)),
     Number(flags.isModerator),
@@ -184,10 +194,10 @@ export function commentValue(ctx: Ctx, actor: Actor, row: CommentRow, wallOwnerI
   return commentValues(ctx, actor, [row], wallOwnerId, user)[0]!;
 }
 export function changeCommentCount(ctx: Ctx, postId: number, delta: number) {
-  ctx.sqlite
-    .prepare(
+  prepared(ctx, "profiles.changeCommentCount", () =>
+    ctx.sqlite.prepare<unknown, [number, number]>(
       "UPDATE profile_posts SET comment_count = comment_count + ?2, " +
         "last_comment_at = (SELECT created_at FROM profile_post_comments WHERE profile_post_id = ?1 AND state = 'visible' ORDER BY id DESC LIMIT 1) WHERE id = ?1",
-    )
-    .run(postId, delta);
+    ),
+  ).run(postId, delta);
 }
