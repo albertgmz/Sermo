@@ -1,0 +1,14 @@
+{
+  "name": "@sermo/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "@sermo/core": "workspace:*",
+    "zod": "4.6.5"
+  }
+}

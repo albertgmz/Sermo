@@ -1,0 +1,25 @@
+{
+  "name": "sermo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "biome check --error-on-warnings .",
+    "format": "biome check --write .",
+    "test": "bun test",
+    "seed": "bun bench/seed.ts",
+    "bench": "bun bench/run.ts",
+    "db:generate": "cd packages/core && drizzle-kit generate",
+    "check": "bun run typecheck && bun run lint && bun run test && bun run bench",
+    "check:fast": "bun run typecheck && bun run lint && bun run test"
+  },
+  "devDependencies": {
+    "@sermo/core": "workspace:*",
+    "@biomejs/biome": "2.5.15",
+    "@types/bun": "1.4.2",
+    "typescript": "7.0.2"
+  }
+}

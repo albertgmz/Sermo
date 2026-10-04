@@ -134,3 +134,17 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Agent configuration (never committed)
+CLAUDE.md
+.claude/
+.codex/
+.orca/
+AGENTS.md
+
+# Sermo local data
+data/
+*.db
+*.db-wal
+*.db-shm
+.bench/
