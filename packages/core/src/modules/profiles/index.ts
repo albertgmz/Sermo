@@ -1,4 +1,57 @@
-import type { AnyOperation } from "../../operation";
+import {
+  profileCommentsCreateOp,
+  profileCommentsDeleteOp,
+  profileCommentsGetOp,
+  profileCommentsListOp,
+  profileCommentsRestoreOp,
+  profileCommentsUpdateOp,
+} from "./comments";
+import {
+  profilePostsCreateOp,
+  profilePostsDeleteOp,
+  profilePostsGetOp,
+  profilePostsListOp,
+  profilePostsRestoreOp,
+  profilePostsUpdateOp,
+  profilesGetOp,
+  profilesUpdateOp,
+  usersSearchOp,
+} from "./posts";
 
-/** Operations implemented by this module. Filled in by its milestone. */
-export const operations: AnyOperation[] = [];
+export { reactableProfileComment, reactableProfilePost } from "./shared";
+
+export {
+  profileCommentsCreateOp,
+  profileCommentsDeleteOp,
+  profileCommentsGetOp,
+  profileCommentsListOp,
+  profileCommentsRestoreOp,
+  profileCommentsUpdateOp,
+  profilePostsCreateOp,
+  profilePostsDeleteOp,
+  profilePostsGetOp,
+  profilePostsListOp,
+  profilePostsRestoreOp,
+  profilePostsUpdateOp,
+  profilesGetOp,
+  profilesUpdateOp,
+  usersSearchOp,
+};
+
+export const operations = [
+  profilesGetOp,
+  profilesUpdateOp,
+  usersSearchOp,
+  profilePostsListOp,
+  profilePostsGetOp,
+  profilePostsCreateOp,
+  profilePostsUpdateOp,
+  profilePostsDeleteOp,
+  profilePostsRestoreOp,
+  profileCommentsListOp,
+  profileCommentsGetOp,
+  profileCommentsCreateOp,
+  profileCommentsUpdateOp,
+  profileCommentsDeleteOp,
+  profileCommentsRestoreOp,
+];
