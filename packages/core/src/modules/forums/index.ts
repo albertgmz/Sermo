@@ -1,3 +1,4 @@
+import type { SQLQueryBindings } from "bun:sqlite";
 import * as z from "zod";
 import type { Actor } from "../../actor";
 import { actorUserId, requireAuthenticated } from "../../actor";
@@ -39,7 +40,7 @@ type PostRow = {
   created_at: number;
   edited_at: number | null;
   reaction_counts: string;
-  body_html: string;
+  body_html?: string;
   body_source?: string;
 };
 type NodeRow = {
@@ -56,23 +57,60 @@ type ReadRow = { thread_id: number; last_read_post_id: number; last_read_positio
 const threadColumns =
   "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id";
 const postColumns =
-  "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts, b.body_html, b.body_source";
+  "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts";
+const nodeColumns =
+  "id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
+/** SQL shared by the hot paths and their query-plan tests. */
+export const forumSql = {
+  sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?3)) ORDER BY last_post_at DESC, id DESC`,
+  threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?6)) AND (last_post_at, id) < (?3, ?4) ORDER BY last_post_at DESC, id DESC LIMIT ?5`,
+  postPage: (cursor: boolean) =>
+    `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position, p.id) ${cursor ? ">" : ">="} (?2, ?3) AND (?5 = 1 OR p.state = 'visible' OR (p.state = 'moderated' AND p.user_id = ?6)) ORDER BY p.position, p.id LIMIT ?4`,
+  readBatch:
+    "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
+  nodeLast:
+    "SELECT id, title, last_post_at, last_post_id, last_poster_id FROM threads WHERE node_id = ?1 AND is_sticky = ?2 AND state = 'visible' ORDER BY last_post_at DESC, id DESC LIMIT 1",
+  threadLast:
+    "SELECT id, user_id, created_at FROM posts WHERE thread_id = ?1 AND state = 'visible' ORDER BY position DESC, id DESC LIMIT 1",
+  authorAdjustment:
+    "UPDATE users SET post_count = post_count + ?1 * authors.n FROM (SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors WHERE users.id = authors.user_id",
+  readPost:
+    "SELECT id FROM posts WHERE thread_id = ?1 AND position = ?2 AND state = 'visible' ORDER BY id LIMIT 1",
+  readPosition: "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
+  shiftDown: "UPDATE posts SET position = position - 1 WHERE thread_id = ?1 AND position > ?2",
+  shiftUp:
+    "UPDATE posts SET position = position + 1 WHERE thread_id = ?1 AND (position > ?2 OR (position = ?2 AND id > ?3))",
+} as const;
+function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
+  return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
+}
+function forumDb(ctx: Ctx) {
+  return prepared(ctx, "forums.statementAccessor", () => ({
+    prepare<Row, Params extends SQLQueryBindings[]>(sql: string) {
+      return prepared(ctx, `forums.${sql}`, () => ctx.sqlite.prepare<Row, Params>(sql));
+    },
+  }));
+}
 const cursorPair = z.tuple([z.number().int().nonnegative(), z.number().int().positive()]);
 const threadCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 
 function threadRow(ctx: Ctx, id: number): ThreadRow | undefined {
   return (
     prepared(ctx, "forums.thread", () =>
-      ctx.sqlite.prepare<ThreadRow, [number]>(`SELECT ${threadColumns} FROM threads WHERE id = ?1`),
+      forumDb(ctx).prepare<ThreadRow, [number]>(
+        `SELECT ${threadColumns} FROM threads WHERE id = ?1`,
+      ),
     ).get(id) ?? undefined
   );
 }
-function postRow(ctx: Ctx, id: number): PostRow | undefined {
+function postRow(ctx: Ctx, id: number, withBody = false): PostRow | undefined {
   return (
-    prepared(ctx, "forums.post", () =>
-      ctx.sqlite.prepare<PostRow, [number]>(
-        `SELECT ${postColumns} FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id = ?1`,
-      ),
+    statement<PostRow, [number]>(
+      ctx,
+      withBody ? "postDetail" : "post",
+      withBody
+        ? `SELECT ${postColumns}, b.body_html, b.body_source FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id = ?1`
+        : `SELECT ${postColumns} FROM posts p WHERE p.id = ?1`,
     ).get(id) ?? undefined
   );
 }
@@ -92,8 +130,8 @@ function requireThread(ctx: Ctx, actor: Actor, id: number) {
   if (!visible(row.state, row.user_id, actor, access.moderate)) throw new NotFoundError();
   return { row, node, access };
 }
-function requirePost(ctx: Ctx, actor: Actor, id: number) {
-  const post = postRow(ctx, id);
+function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
+  const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
   const thread = requireThread(ctx, actor, post.thread_id);
   if (!visible(post.state, post.user_id, actor, thread.access.moderate)) throw new NotFoundError();
@@ -106,11 +144,10 @@ function readRows(ctx: Ctx, actor: Actor, ids: number[]): Map<number, ReadRow> {
   const result = new Map<number, ReadRow>();
   const userId = actorUserId(actor);
   if (userId == null || ids.length === 0) return result;
-  const rows = prepared(ctx, "forums.readBatch", () =>
-    ctx.sqlite.prepare<ReadRow, [number, string]>(
-      "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
-    ),
-  ).all(userId, JSON.stringify(ids));
+  const rows = statement<ReadRow, [number, string]>(ctx, "readBatch", forumSql.readBatch).all(
+    userId,
+    JSON.stringify(ids),
+  );
   for (const row of rows) result.set(row.thread_id, row);
   return result;
 }
@@ -179,7 +216,7 @@ function postValues(
     state: row.state,
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
-    bodyHtml: row.body_html,
+    bodyHtml: row.body_html!,
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
     canEdit: mayEdit(actor, row.user_id, locked, moderate),
     canDelete:
@@ -189,19 +226,21 @@ function postValues(
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
-function nodeRows(ctx: Ctx): Map<number, NodeRow> {
+function nodeRows(ctx: Ctx, id?: number): Map<number, NodeRow> {
   return new Map(
-    ctx.sqlite
-      .prepare<NodeRow, []>(
-        "SELECT id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id FROM nodes",
-      )
-      .all()
-      .map((r) => [r.id, r]),
+    (id === undefined
+      ? statement<NodeRow, []>(ctx, "allNodeRows", `SELECT ${nodeColumns} FROM nodes`).all()
+      : statement<NodeRow, [number]>(
+          ctx,
+          "oneNodeRow",
+          `SELECT ${nodeColumns} FROM nodes WHERE id = ?1`,
+        ).all(id)
+    ).map((r) => [r.id, r]),
   );
 }
 function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
   const tree = getNodeTree(ctx);
-  const rows = nodeRows(ctx);
+  const rows = nodeRows(ctx, ids.length === 1 ? ids[0] : undefined);
   const users = loadUserSummaries(
     ctx,
     [...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
@@ -237,7 +276,7 @@ function threadValue(ctx: Ctx, actor: Actor, id: number) {
   return threadValues(ctx, actor, [threadRow(ctx, id)!])[0]!;
 }
 function postValue(ctx: Ctx, actor: Actor, id: number, detail = false) {
-  const post = postRow(ctx, id)!;
+  const post = postRow(ctx, id, true)!;
   const thread = threadRow(ctx, post.thread_id)!;
   return postValues(
     ctx,
@@ -250,15 +289,18 @@ function postValue(ctx: Ctx, actor: Actor, id: number, detail = false) {
   )[0]!;
 }
 
-export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => ({
-  items: nodeValues(
-    ctx,
-    actor,
-    getNodeTree(ctx)
-      .entries.filter((n) => getNodeAccess(ctx, actor)(n.id).view)
-      .map((n) => n.id),
-  ),
-}));
+export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
+  const access = getNodeAccess(ctx, actor);
+  return {
+    items: nodeValues(
+      ctx,
+      actor,
+      getNodeTree(ctx)
+        .entries.filter((n) => access(n.id).view)
+        .map((n) => n.id),
+    ),
+  };
+});
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
   requireNode(ctx, actor, input.nodeId);
   return {
@@ -272,7 +314,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
   requireAdmin(ctx, actor);
   const id = writeTx(ctx, () => {
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
-    const row = ctx.sqlite
+    const row = forumDb(ctx)
       .prepare<{ id: number }, [number | null, string, string, string, number]>(
         "INSERT INTO nodes (parent_id, type, title, description, position) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id",
       )
@@ -291,7 +333,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
       throw new NotFoundError();
     if (input.parentId != null && tree.subtreeIds(input.nodeId).includes(input.parentId))
       throw new ValidationError("A node cannot be its own descendant.");
-    ctx.sqlite
+    forumDb(ctx)
       .prepare(
         "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4 WHERE id = ?5",
       )
@@ -311,26 +353,26 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   const { node, access } = requireNode(ctx, actor, input.nodeId);
   if (node.type !== "forum") throw new ValidationError("Threads can only be listed in forums.");
   const userId = actorUserId(actor) ?? -1;
-  const filter = " AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?6))";
   const cursor = input.cursor ? decodeCursor(input.cursor, threadCursor) : null;
   const sticky = cursor
     ? []
-    : ctx.sqlite
-        .prepare<ThreadRow, [number, number, number]>(
-          `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?3)) ORDER BY last_post_at DESC, id DESC`,
-        )
-        .all(input.nodeId, Number(access.moderate), userId);
-  const sql = `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0${filter} AND (last_post_at, id) < (?3, ?4) ORDER BY last_post_at DESC, id DESC LIMIT ?5`;
-  const rows = ctx.sqlite
-    .prepare<ThreadRow, [number, number, number, number, number, number]>(sql)
-    .all(
-      input.nodeId,
-      Number(access.moderate),
-      cursor?.[0] ?? Number.MAX_SAFE_INTEGER,
-      cursor?.[1] ?? Number.MAX_SAFE_INTEGER,
-      input.limit + 1,
-      userId,
-    );
+    : statement<ThreadRow, [number, number, number]>(ctx, "sticky", forumSql.sticky).all(
+        input.nodeId,
+        Number(access.moderate),
+        userId,
+      );
+  const rows = statement<ThreadRow, [number, number, number, number, number, number]>(
+    ctx,
+    "threadPage",
+    forumSql.threadPage,
+  ).all(
+    input.nodeId,
+    Number(access.moderate),
+    cursor?.[0] ?? Number.MAX_SAFE_INTEGER,
+    cursor?.[1] ?? Number.MAX_SAFE_INTEGER,
+    input.limit + 1,
+    userId,
+  );
   const page = rows.slice(0, input.limit);
   const values = threadValues(ctx, actor, [...sticky, ...page]);
   const nextCursor =
@@ -355,20 +397,18 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
   const { row, access } = requireThread(ctx, actor, input.threadId);
   const cursor = input.cursor ? decodeCursor(input.cursor, cursorPair) : null;
   const start = (input.page ?? 1) * input.limit - input.limit;
-  const filter =
-    " AND (?5 = 1 OR p.state = 'visible' OR (p.state = 'moderated' AND p.user_id = ?6))";
-  const comparator = cursor ? ">" : ">=";
-  const sql = `SELECT ${postColumns} FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position, p.id) ${comparator} (?2, ?3)${filter} ORDER BY p.position, p.id LIMIT ?4`;
-  const rows = ctx.sqlite
-    .prepare<PostRow, [number, number, number, number, number, number]>(sql)
-    .all(
-      input.threadId,
-      cursor?.[0] ?? start,
-      cursor?.[1] ?? 0,
-      input.limit + 1,
-      Number(access.moderate),
-      actorUserId(actor) ?? -1,
-    );
+  const rows = statement<PostRow, [number, number, number, number, number, number]>(
+    ctx,
+    cursor ? "postPageCursor" : "postPageStart",
+    forumSql.postPage(!!cursor),
+  ).all(
+    input.threadId,
+    cursor?.[0] ?? start,
+    cursor?.[1] ?? 0,
+    input.limit + 1,
+    Number(access.moderate),
+    actorUserId(actor) ?? -1,
+  );
   const page = rows.slice(0, input.limit);
   return {
     items: postValues(ctx, actor, page, row.is_locked, access.moderate, row.first_post_id),
@@ -377,8 +417,16 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
   };
 });
 export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
-  requirePost(ctx, actor, input.postId);
-  return postValue(ctx, actor, input.postId, true) as z.infer<typeof contracts.PostDetail>;
+  const { post, thread } = requirePost(ctx, actor, input.postId, true);
+  return postValues(
+    ctx,
+    actor,
+    [post],
+    thread.row.is_locked,
+    thread.access.moderate,
+    thread.row.first_post_id,
+    true,
+  )[0]! as z.infer<typeof contracts.PostDetail>;
 });
 
 /** For reactions: returns a visible post's author and reaction eligibility. */
@@ -396,19 +444,17 @@ export function reactablePost(
 
 function updateNodeLast(ctx: Ctx, nodeId: number): void {
   const stmt = prepared(ctx, "forums.nodeLast", () =>
-    ctx.sqlite.prepare<
+    forumDb(ctx).prepare<
       Pick<ThreadRow, "id" | "title" | "last_post_at" | "last_post_id" | "last_poster_id">,
       [number, number]
-    >(
-      "SELECT id, title, last_post_at, last_post_id, last_poster_id FROM threads WHERE node_id = ?1 AND is_sticky = ?2 AND state = 'visible' ORDER BY last_post_at DESC, id DESC LIMIT 1",
-    ),
+    >(forumSql.nodeLast),
   );
   const regular = stmt.get(nodeId, 0);
   const sticky = stmt.get(nodeId, 1);
   const best = [regular, sticky]
     .filter((r) => r != null)
     .sort((a, b) => b!.last_post_at - a!.last_post_at || b!.id - a!.id)[0];
-  ctx.sqlite
+  forumDb(ctx)
     .prepare(
       "UPDATE nodes SET last_post_at = ?1, last_post_id = ?2, last_thread_id = ?3, last_thread_title = ?4, last_poster_id = ?5 WHERE id = ?6",
     )
@@ -423,12 +469,12 @@ function updateNodeLast(ctx: Ctx, nodeId: number): void {
 }
 function updateThreadLast(ctx: Ctx, threadId: number): void {
   const last = prepared(ctx, "forums.threadLast", () =>
-    ctx.sqlite.prepare<{ id: number; user_id: number; created_at: number }, [number]>(
-      "SELECT id, user_id, created_at FROM posts WHERE thread_id = ?1 AND state = 'visible' ORDER BY position DESC, id DESC LIMIT 1",
+    forumDb(ctx).prepare<{ id: number; user_id: number; created_at: number }, [number]>(
+      forumSql.threadLast,
     ),
   ).get(threadId);
   if (!last) throw new Error("A thread must have a visible first post.");
-  ctx.sqlite
+  forumDb(ctx)
     .prepare(
       "UPDATE threads SET last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
     )
@@ -441,7 +487,7 @@ function markRead(
   postId: number,
   position: number,
 ): number {
-  ctx.sqlite
+  forumDb(ctx)
     .prepare(
       "INSERT INTO thread_reads (user_id, thread_id, last_read_post_id, last_read_position, read_at) VALUES (?1, ?2, ?3, ?4, ?5) " +
         "ON CONFLICT (user_id, thread_id) DO UPDATE SET last_read_post_id = excluded.last_read_post_id, last_read_position = excluded.last_read_position, read_at = excluded.read_at " +
@@ -449,28 +495,21 @@ function markRead(
     )
     .run(userId, threadId, postId, position, ctx.now());
   return prepared(ctx, "forums.readPosition", () =>
-    ctx.sqlite.prepare<{ last_read_position: number }, [number, number]>(
-      "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
-    ),
+    forumDb(ctx).prepare<{ last_read_position: number }, [number, number]>(forumSql.readPosition),
   ).get(userId, threadId)!.last_read_position;
 }
 function adjustThreadAuthors(ctx: Ctx, threadId: number, delta: number): void {
-  ctx.sqlite
-    .prepare(
-      "UPDATE users SET post_count = post_count + ?1 * authors.n FROM " +
-        "(SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors " +
-        "WHERE users.id = authors.user_id",
-    )
-    .run(delta, threadId);
+  forumDb(ctx).prepare(forumSql.authorAdjustment).run(delta, threadId);
 }
-function changeThreadState(ctx: Ctx, row: ThreadRow, state: State): void {
+function changeThreadState(ctx: Ctx, id: number, state: State): void {
+  const row = threadRow(ctx, id)!;
   if (row.state === state) return;
   const before = row.state === "visible";
   const after = state === "visible";
-  ctx.sqlite.prepare("UPDATE threads SET state = ?1 WHERE id = ?2").run(state, row.id);
+  forumDb(ctx).prepare("UPDATE threads SET state = ?1 WHERE id = ?2").run(state, row.id);
   if (before !== after) {
     const delta = after ? 1 : -1;
-    ctx.sqlite
+    forumDb(ctx)
       .prepare(
         "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
       )
@@ -488,29 +527,29 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
   const html = renderMarkdown(input.body);
   const ids = writeTx(ctx, () => {
     const now = ctx.now();
-    const thread = ctx.sqlite
+    const thread = forumDb(ctx)
       .prepare<{ id: number }, [number, number, string, number, number]>(
         "INSERT INTO threads (node_id, user_id, title, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, ?3, ?4, ?5, ?2) RETURNING id",
       )
       .get(input.nodeId, user.userId, input.title, now, now)!;
-    const post = ctx.sqlite
+    const post = forumDb(ctx)
       .prepare<{ id: number }, [number, number, number]>(
         "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, 0, ?3) RETURNING id",
       )
       .get(thread.id, user.userId, now)!;
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
       .run(post.id, input.body, html);
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
       .run(post.id, thread.id);
-    ctx.sqlite
+    forumDb(ctx)
       .prepare(
         "UPDATE nodes SET thread_count = thread_count + 1, post_count = post_count + 1 WHERE id = ?1",
       )
       .run(input.nodeId);
     updateNodeLast(ctx, input.nodeId);
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
       .run(user.userId);
     markRead(ctx, user.userId, thread.id, post.id, 0);
@@ -530,25 +569,25 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     const current = threadRow(ctx, row.id)!;
     const position = current.reply_count + 1;
     const now = ctx.now();
-    const post = ctx.sqlite
+    const post = forumDb(ctx)
       .prepare<{ id: number }, [number, number, number, number]>(
         "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, ?3, ?4) RETURNING id",
       )
       .get(row.id, user.userId, position, now)!;
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
       .run(post.id, input.body, html);
-    ctx.sqlite
+    forumDb(ctx)
       .prepare(
         "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
       )
       .run(now, post.id, user.userId, row.id);
     if (current.state === "visible") {
-      ctx.sqlite
+      forumDb(ctx)
         .prepare("UPDATE nodes SET post_count = post_count + 1 WHERE id = ?1")
-        .run(row.node_id);
-      updateNodeLast(ctx, row.node_id);
-      ctx.sqlite
+        .run(current.node_id);
+      updateNodeLast(ctx, current.node_id);
+      forumDb(ctx)
         .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
         .run(user.userId);
     }
@@ -558,26 +597,29 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
   return postValue(ctx, actor, id, true) as z.infer<typeof contracts.PostDetail>;
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   if (!mayEdit(actor, row.user_id, row.is_locked, access.moderate)) throw new ForbiddenError();
   writeTx(ctx, () => {
-    ctx.sqlite.prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
-    ctx.sqlite
+    const current = threadRow(ctx, row.id)!;
+    forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
+    forumDb(ctx)
       .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
-      .run(input.title, row.node_id, row.id);
+      .run(input.title, current.node_id, row.id);
   });
   return threadValue(ctx, actor, row.id);
 });
 export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
   if (!mayEdit(actor, post.user_id, thread.row.is_locked, thread.access.moderate))
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
   writeTx(ctx, () => {
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
       .run(input.body, html, post.id);
-    ctx.sqlite.prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
+    forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
   });
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
 });
@@ -586,27 +628,29 @@ function requireModeration(access: { moderate: boolean }): void {
   if (!access.moderate) throw new ForbiddenError();
 }
 export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
   writeTx(ctx, () => {
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
       .run(Number(input.isSticky), row.id);
-    if (row.state === "visible") updateNodeLast(ctx, row.node_id);
   });
   return threadValue(ctx, actor, row.id);
 });
 export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
   writeTx(ctx, () =>
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
       .run(Number(input.isLocked), row.id),
   );
   return threadValue(ctx, actor, row.id);
 });
 export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
   const target = requireNode(ctx, actor, input.nodeId);
@@ -614,67 +658,66 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
   if (target.node.type !== "forum")
     throw new ValidationError("Threads can only be moved to forums.");
   writeTx(ctx, () => {
-    if (row.node_id === input.nodeId) return;
-    ctx.sqlite.prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(input.nodeId, row.id);
-    if (row.state === "visible") {
-      ctx.sqlite
+    const current = threadRow(ctx, row.id)!;
+    if (current.node_id === input.nodeId) return;
+    forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(input.nodeId, row.id);
+    if (current.state === "visible") {
+      forumDb(ctx)
         .prepare(
           "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
         )
-        .run(-1, -(row.reply_count + 1), row.node_id);
-      ctx.sqlite
+        .run(-1, -(current.reply_count + 1), current.node_id);
+      forumDb(ctx)
         .prepare(
           "UPDATE nodes SET thread_count = thread_count + ?1, post_count = post_count + ?2 WHERE id = ?3",
         )
-        .run(1, row.reply_count + 1, input.nodeId);
-      updateNodeLast(ctx, row.node_id);
+        .run(1, current.reply_count + 1, input.nodeId);
+      updateNodeLast(ctx, current.node_id);
       updateNodeLast(ctx, input.nodeId);
     }
   });
   return threadValue(ctx, actor, row.id);
 });
 export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
-  writeTx(ctx, () => changeThreadState(ctx, row, "deleted"));
+  writeTx(ctx, () => changeThreadState(ctx, row.id, "deleted"));
   return threadValue(ctx, actor, row.id);
 });
 export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
-  writeTx(ctx, () => changeThreadState(ctx, row, "visible"));
+  writeTx(ctx, () => changeThreadState(ctx, row.id, "visible"));
   return threadValue(ctx, actor, row.id);
 });
 
-function changePostState(ctx: Ctx, post: PostRow, thread: ThreadRow, state: State): void {
+function changePostState(ctx: Ctx, id: number, state: State): void {
+  const post = postRow(ctx, id)!;
+  const thread = threadRow(ctx, post.thread_id)!;
   if (post.state === state) return;
   const before = post.state === "visible";
   const after = state === "visible";
   if (before !== after) {
     if (after) {
-      ctx.sqlite
-        .prepare(
-          "UPDATE posts SET position = position + 1 WHERE thread_id = ?1 AND (position > ?2 OR (position = ?2 AND id > ?3))",
-        )
-        .run(thread.id, post.position, post.id);
+      forumDb(ctx).prepare(forumSql.shiftUp).run(thread.id, post.position, post.id);
     } else {
-      ctx.sqlite
-        .prepare("UPDATE posts SET position = position - 1 WHERE thread_id = ?1 AND position > ?2")
-        .run(thread.id, post.position);
+      forumDb(ctx).prepare(forumSql.shiftDown).run(thread.id, post.position);
     }
   }
-  ctx.sqlite.prepare("UPDATE posts SET state = ?1 WHERE id = ?2").run(state, post.id);
+  forumDb(ctx).prepare("UPDATE posts SET state = ?1 WHERE id = ?2").run(state, post.id);
   if (before !== after) {
     const delta = after ? 1 : -1;
-    ctx.sqlite
+    forumDb(ctx)
       .prepare("UPDATE threads SET reply_count = reply_count + ?1 WHERE id = ?2")
       .run(delta, thread.id);
     updateThreadLast(ctx, thread.id);
     if (thread.state === "visible") {
-      ctx.sqlite
+      forumDb(ctx)
         .prepare("UPDATE nodes SET post_count = post_count + ?1 WHERE id = ?2")
         .run(delta, thread.node_id);
-      ctx.sqlite
+      forumDb(ctx)
         .prepare("UPDATE users SET post_count = post_count + ?1 WHERE id = ?2")
         .run(delta, post.user_id);
       updateNodeLast(ctx, thread.node_id);
@@ -682,29 +725,29 @@ function changePostState(ctx: Ctx, post: PostRow, thread: ThreadRow, state: Stat
   }
 }
 export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
-  if (post.id === thread.row.first_post_id) throw new ValidationError("Delete the thread instead.");
   if (!mayEdit(actor, post.user_id, thread.row.is_locked, thread.access.moderate))
     throw new ForbiddenError();
+  if (post.id === thread.row.first_post_id) throw new ValidationError("Delete the thread instead.");
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
-  writeTx(ctx, () => changePostState(ctx, post, thread.row, "deleted"));
+  writeTx(ctx, () => changePostState(ctx, post.id, "deleted"));
   return postValue(ctx, actor, post.id);
 });
 export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, input) => {
+  requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
   requireModeration(thread.access);
-  writeTx(ctx, () => changePostState(ctx, post, thread.row, "visible"));
+  writeTx(ctx, () => changePostState(ctx, post.id, "visible"));
   return postValue(ctx, actor, post.id);
 });
 export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   return writeTx(ctx, () => {
-    const position = Math.min(input.position, row.reply_count);
-    const post = ctx.sqlite
-      .prepare<{ id: number }, [number, number]>(
-        "SELECT id FROM posts WHERE thread_id = ?1 AND position = ?2 AND state = 'visible' ORDER BY id LIMIT 1",
-      )
+    const position = Math.min(input.position, threadRow(ctx, row.id)!.reply_count);
+    const post = forumDb(ctx)
+      .prepare<{ id: number }, [number, number]>(forumSql.readPost)
       .get(row.id, position);
     if (!post) throw new Error("Visible post missing at read position.");
     return { readPosition: markRead(ctx, user.userId, row.id, post.id, position) };

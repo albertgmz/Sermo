@@ -11,6 +11,7 @@ import { invalidate } from "../../context";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
 import {
+  forumSql,
   nodesCreateOp,
   nodesGetOp,
   nodesListOp,
@@ -197,47 +198,21 @@ describe("forums", () => {
 
   test("hot query plans use indexes", () => {
     const ctx = createTestContext();
-    expectNoTableScan(
-      ctx,
-      "SELECT id FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND (last_post_at, id) < (?2, ?3) ORDER BY last_post_at DESC, id DESC LIMIT ?4",
-      [1, 100, 100, 20],
-    );
-    expectNoTableScan(
-      ctx,
-      "SELECT id FROM threads WHERE node_id = ?1 AND is_sticky = 1 ORDER BY last_post_at DESC, id DESC",
-      [1],
-    );
-    expectNoTableScan(
-      ctx,
-      "SELECT id FROM posts WHERE thread_id = ?1 AND (position, id) >= (?2, ?3) ORDER BY position, id LIMIT ?4",
-      [1, 0, 0, 20],
-    );
-    expectNoTableScan(
-      ctx,
-      "SELECT thread_id FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
-      [1, "[1]"],
-    );
-    expectNoTableScan(
-      ctx,
-      "SELECT id FROM threads WHERE node_id = ?1 AND is_sticky = ?2 AND state = 'visible' ORDER BY last_post_at DESC, id DESC LIMIT 1",
-      [1, 0],
-    );
-    expectNoTableScan(
-      ctx,
-      "SELECT user_id FROM posts WHERE thread_id = ?1 AND state = 'visible' GROUP BY user_id",
-      [1],
-      { allowTempBTree: true },
-    );
-    expectNoTableScan(
-      ctx,
-      "UPDATE posts SET position = position - 1 WHERE thread_id = ?1 AND position > ?2",
-      [1, 1],
-    );
-    expectNoTableScan(
-      ctx,
-      "UPDATE posts SET position = position + 1 WHERE thread_id = ?1 AND (position > ?2 OR (position = ?2 AND id > ?3))",
-      [1, 1, 1],
-    );
+    expectNoTableScan(ctx, forumSql.threadPage, [1, 0, 100, 100, 20, 1]);
+    expectNoTableScan(ctx, forumSql.sticky, [1, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postPage(false), [1, 0, 0, 20, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postPage(true), [1, 0, 1, 20, 0, 1]);
+    expectNoTableScan(ctx, forumSql.readBatch, [1, "[1]"]);
+    expectNoTableScan(ctx, forumSql.nodeLast, [1, 0]);
+    expectNoTableScan(ctx, forumSql.threadLast, [1]);
+    expectNoTableScan(ctx, forumSql.authorAdjustment, [1, 1], {
+      allow: ["authors"],
+      allowTempBTree: true,
+    });
+    expectNoTableScan(ctx, forumSql.readPost, [1, 0]);
+    expectNoTableScan(ctx, forumSql.readPosition, [1, 1]);
+    expectNoTableScan(ctx, forumSql.shiftDown, [1, 1]);
+    expectNoTableScan(ctx, forumSql.shiftUp, [1, 1, 1]);
   });
 
   test("keyset pages cover tied thread activity without duplicates", async () => {

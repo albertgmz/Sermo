@@ -14,6 +14,7 @@ let movable = 0;
 let sourceNode = 0;
 let targetNode = 0;
 let deepCursor: string | null = null;
+let getPostIds: number[] = [];
 
 function prepare(env: BenchEnv) {
   typical = ids(
@@ -36,6 +37,14 @@ function prepare(env: BenchEnv) {
     .prepare<{ node_id: number }, [number]>("SELECT node_id FROM threads WHERE id = ?1")
     .get(movable)!.node_id;
   targetNode = env.meta.forumIds.find((id) => id !== sourceNode)!;
+}
+function preparePostsGet(env: BenchEnv) {
+  getPostIds = env.ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "SELECT p.id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.state = 'visible' AND t.state = 'visible' LIMIT 500",
+    )
+    .all()
+    .map((r) => r.id);
 }
 
 export const scenarios: Scenario[] = [
@@ -138,9 +147,10 @@ export const scenarios: Scenario[] = [
   {
     name: "posts.get",
     kind: "read",
+    setup: preparePostsGet,
     run: (env, i) =>
       env.call("posts.get", env.actors.member(i), {
-        postId: env.meta.postAuthors[i % env.meta.postAuthors.length]![0],
+        postId: choose(getPostIds, i),
       }),
   },
   {
@@ -183,13 +193,19 @@ export const scenarios: Scenario[] = [
       }),
   },
   {
-    name: "posts.delete+restore huge start",
+    name: "posts.delete/restore huge start",
     kind: "write",
     setup: prepare,
     iterations: 30,
-    async run(env) {
-      await env.call("posts.delete", env.actors.moderator(0), { postId: hugePost });
-      return env.call("posts.restore", env.actors.moderator(0), { postId: hugePost });
+    run(env) {
+      const state = env.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM posts WHERE id = ?1")
+        .get(hugePost)!.state;
+      return env.call(
+        state === "visible" ? "posts.delete" : "posts.restore",
+        env.actors.moderator(0),
+        { postId: hugePost },
+      );
     },
   },
   {
@@ -205,34 +221,45 @@ export const scenarios: Scenario[] = [
     name: "threads.move",
     kind: "write",
     setup: prepare,
-    async run(env) {
-      await env.call("threads.move", env.actors.moderator(0), {
-        threadId: movable,
-        nodeId: targetNode,
-      });
+    run(env) {
+      const node = env.ctx.sqlite
+        .prepare<{ node_id: number }, [number]>("SELECT node_id FROM threads WHERE id = ?1")
+        .get(movable)!.node_id;
       return env.call("threads.move", env.actors.moderator(0), {
         threadId: movable,
-        nodeId: sourceNode,
+        nodeId: node === sourceNode ? targetNode : sourceNode,
       });
     },
   },
   {
-    name: "threads.delete+restore typical",
+    name: "threads.delete/restore typical",
     kind: "write",
     setup: prepare,
-    async run(env) {
-      await env.call("threads.delete", env.actors.moderator(0), { threadId: movable });
-      return env.call("threads.restore", env.actors.moderator(0), { threadId: movable });
+    run(env) {
+      const state = env.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(movable)!.state;
+      return env.call(
+        state === "visible" ? "threads.delete" : "threads.restore",
+        env.actors.moderator(0),
+        { threadId: movable },
+      );
     },
   },
   {
-    name: "threads.delete+restore huge",
+    name: "threads.delete/restore huge",
     kind: "write",
     setup: prepare,
     iterations: 20,
-    async run(env) {
-      await env.call("threads.delete", env.actors.moderator(0), { threadId: hugeThread });
-      return env.call("threads.restore", env.actors.moderator(0), { threadId: hugeThread });
+    run(env) {
+      const state = env.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(hugeThread)!.state;
+      return env.call(
+        state === "visible" ? "threads.delete" : "threads.restore",
+        env.actors.moderator(0),
+        { threadId: hugeThread },
+      );
     },
   },
 ];
