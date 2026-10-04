@@ -154,8 +154,8 @@ function permissionCache(ctx: Ctx): PermissionCache {
     const globals = new Map<number, GlobalPermissionsValue>();
     const nodes = new Map<number, Map<number, NodeAccess>>();
     for (const group of groupRows(ctx)) {
-      const admin = !!group.is_admin,
-        guest = group.id === GROUP_IDS.guest;
+      const guest = group.id === GROUP_IDS.guest;
+      const admin = !guest && !!group.is_admin;
       globals.set(group.id, {
         isAdmin: admin,
         isModerator: admin || (!guest && !!group.is_moderator),
@@ -220,10 +220,9 @@ export function getGlobalPermissions(ctx: Ctx, actor: Actor): GlobalPermissionsV
   );
 }
 export function viewableNodeIds(ctx: Ctx, actor: Actor): readonly number[] {
-  const access = getNodeAccess(ctx, actor);
-  return getNodeTree(ctx)
-    .entries.filter((entry) => access(entry.id).view)
-    .map((entry) => entry.id);
+  const cache = permissionCache(ctx);
+  const access = cache.nodes.get(actorGroupId(actor));
+  return cache.tree.entries.filter((entry) => access?.get(entry.id)?.view).map((entry) => entry.id);
 }
 export function requireAdmin(ctx: Ctx, actor: Actor): void {
   requireAuthenticated(actor);
@@ -239,7 +238,21 @@ export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
   return writeTx(ctx, () => {
     const previous = groupRows(ctx).find((g) => g.id === input.groupId);
     if (!previous) throw new NotFoundError();
-    const next = { ...groupValue(previous), ...input };
+    const editable = new Set([
+      "title",
+      "isAdmin",
+      "isModerator",
+      "canViewNodes",
+      "canPost",
+      "canViewProfiles",
+      "canPostProfile",
+      "canStartConversations",
+      "canReact",
+    ]);
+    const changes = Object.fromEntries(
+      Object.entries(input).filter(([key, value]) => editable.has(key) && value !== undefined),
+    );
+    const next = { ...groupValue(previous), ...changes };
     if (
       input.groupId === GROUP_IDS.guest &&
       (next.isAdmin ||
@@ -303,7 +316,6 @@ export const usersSetGroupOp = implement(usersSetGroup, (ctx, actor, input) => {
     ctx.sqlite
       .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
       .run(input.groupId, input.userId);
-    invalidate(ctx, "permissions");
     return { ok: true };
   });
 });

@@ -1,17 +1,20 @@
 import type { Scenario } from "../harness";
 import { SEED_PASSWORD } from "../seed";
 
+let loginNames: string[] = [];
 export const scenarios: Scenario[] = [
   {
     name: "auth.login",
     kind: "write",
+    setup(env) {
+      const byId = env.ctx.sqlite.prepare<{ username: string }, [number]>(
+        "SELECT username FROM users WHERE id = ?1",
+      );
+      loginNames = env.meta.memberIds.map((id) => byId.get(id)!.username);
+    },
     async run(env, i) {
-      const id = env.meta.memberIds[i % env.meta.memberIds.length]!;
-      const row = env.ctx.sqlite
-        .prepare<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?1")
-        .get(id)!;
       return env.call("auth.login", env.actors.guest, {
-        login: row.username,
+        login: loginNames[i % loginNames.length]!,
         password: SEED_PASSWORD,
       });
     },

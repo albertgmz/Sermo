@@ -200,5 +200,120 @@ describe("authentication", () => {
       "SELECT t.id, t.user_id, u.group_id FROM api_tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?1 AND (t.expires_at IS NULL OR t.expires_at > ?2)",
       ["hash", ctx.now()],
     );
+    expectNoTableScan(
+      ctx,
+      "SELECT id, username, email, group_id, created_at, password_hash FROM users WHERE username_key = ?1 OR email = ?2 LIMIT 1",
+      ["alice", "alice"],
+    );
+    expectNoTableScan(
+      ctx,
+      "SELECT id, name, created_at, expires_at FROM api_tokens WHERE user_id = ?1 ORDER BY id DESC",
+      [1],
+    );
+    expectNoTableScan(ctx, "SELECT id FROM sessions WHERE expires_at <= ?1", [ctx.now()]);
+    expectNoTableScan(
+      ctx,
+      "SELECT id FROM api_tokens WHERE expires_at IS NOT NULL AND expires_at <= ?1",
+      [ctx.now()],
+    );
+  });
+
+  test("registration reports the conflicting field for case-folded credentials", async () => {
+    const ctx = createTestContext();
+    await execute(ctx, authRegisterOp, GUEST, registerInput);
+    await expect(
+      execute(ctx, authRegisterOp, GUEST, {
+        ...registerInput,
+        username: "ALICE",
+        email: "other@example.com",
+      }),
+    ).rejects.toThrow("Username");
+    await expect(
+      execute(ctx, authRegisterOp, GUEST, {
+        ...registerInput,
+        username: "Other",
+        email: "ALICE@EXAMPLE.COM",
+      }),
+    ).rejects.toThrow("Email");
+  });
+
+  test("logging out leaves the user's other sessions valid", async () => {
+    const ctx = createTestContext();
+    const first = await execute(ctx, authRegisterOp, GUEST, registerInput);
+    const second = await execute(ctx, authLoginOp, GUEST, {
+      login: "Alice",
+      password: registerInput.password,
+    });
+    await execute(ctx, authLogoutOp, resolveSessionToken(ctx, first.session.token)!, {});
+    expect(resolveSessionToken(ctx, first.session.token)).toBeNull();
+    expect(resolveSessionToken(ctx, second.session.token)?.kind).toBe("user");
+  });
+
+  test("me returns exact group permissions and rejects an orphaned actor", async () => {
+    const ctx = createTestContext();
+    const permissions = [
+      {
+        isAdmin: false,
+        isModerator: false,
+        canViewProfiles: true,
+        canPostProfile: false,
+        canStartConversations: false,
+        canReact: false,
+      },
+      {
+        isAdmin: false,
+        isModerator: false,
+        canViewProfiles: true,
+        canPostProfile: true,
+        canStartConversations: true,
+        canReact: true,
+      },
+      {
+        isAdmin: false,
+        isModerator: true,
+        canViewProfiles: true,
+        canPostProfile: true,
+        canStartConversations: true,
+        canReact: true,
+      },
+      {
+        isAdmin: true,
+        isModerator: true,
+        canViewProfiles: true,
+        canPostProfile: true,
+        canStartConversations: true,
+        canReact: true,
+      },
+    ];
+    expect((await execute(ctx, authMeOp, GUEST, {})).permissions).toEqual(permissions[0]!);
+    for (const groupId of [2, 3, 4]) {
+      const actor = userActor(insertUser(ctx, { groupId }));
+      expect((await execute(ctx, authMeOp, actor, {})).permissions).toEqual(
+        permissions[groupId - 1]!,
+      );
+    }
+    await expect(execute(ctx, authMeOp, userActor({ id: 999, groupId: 2 }), {})).rejects.toThrow(
+      UnauthenticatedError,
+    );
+  });
+
+  test("token expiry is based on the test clock and listing is private", async () => {
+    const ctx = createTestContext();
+    const first = await execute(ctx, authRegisterOp, GUEST, registerInput);
+    const owner = resolveSessionToken(ctx, first.session.token)!;
+    const expiring = await execute(ctx, authCreateTokenOp, owner, {
+      name: "short",
+      expiresInDays: 3,
+    });
+    const permanent = await execute(ctx, authCreateTokenOp, owner, { name: "permanent" });
+    expect(expiring.apiToken.expiresAt).toBe(new Date(ctx.now() + 3 * 86_400_000).toISOString());
+    expect(permanent.apiToken.expiresAt).toBeNull();
+    const other = userActor(insertUser(ctx));
+    expect((await execute(ctx, authListTokensOp, other, {})).items).toEqual([]);
+    expect((await execute(ctx, authListTokensOp, owner, {})).items.map((item) => item.id)).toEqual([
+      permanent.apiToken.id,
+      expiring.apiToken.id,
+    ]);
+    await expect(execute(ctx, authListTokensOp, GUEST, {})).rejects.toThrow(UnauthenticatedError);
   });
 });

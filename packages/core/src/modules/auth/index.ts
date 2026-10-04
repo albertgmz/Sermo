@@ -1,5 +1,5 @@
 import type { Actor } from "../../actor";
-import { type Ctx, invalidate, prepared } from "../../context";
+import { type Ctx, prepared } from "../../context";
 import {
   authCreateToken,
   authListTokens,
@@ -26,8 +26,15 @@ type UserRow = {
 };
 type CredentialRow = { id: number; user_id: number; group_id: number };
 type TokenRow = { id: number; name: string; created_at: number; expires_at: number | null };
-const DUMMY_HASH =
-  "$argon2id$v=19$m=19456,t=2,p=1$XqiDiQuATbWmrhh51O/EXqSStQiwsID1xZOOXkyE/sM$qMOYvqqdv3r3AuUoWGEwwqCpITkFcKybcZ1IcYeHaok";
+const dummyHashes = new WeakMap<Ctx, Promise<string>>();
+function dummyHash(ctx: Ctx): Promise<string> {
+  let hash = dummyHashes.get(ctx);
+  if (!hash) {
+    hash = Bun.password.hash("dummy-password", ctx.config.passwordHash);
+    dummyHashes.set(ctx, hash);
+  }
+  return hash;
+}
 const DAY = 86_400_000;
 const self = (row: UserRow) => ({
   id: row.id,
@@ -53,11 +60,11 @@ function hashToken(token: string): string {
 function session(ctx: Ctx, userId: number) {
   const token = newToken("sess_");
   const expiresAt = ctx.now() + ctx.config.sessionTtlMs;
-  ctx.sqlite
-    .prepare(
+  prepared(ctx, "auth.createSession", () =>
+    ctx.sqlite.prepare(
       "INSERT INTO sessions (user_id, token_hash, created_at, expires_at) VALUES (?1, ?2, ?3, ?4)",
-    )
-    .run(userId, hashToken(token), ctx.now(), expiresAt);
+    ),
+  ).run(userId, hashToken(token), ctx.now(), expiresAt);
   return { token, expiresAt: iso(expiresAt) };
 }
 function requireSession(actor: Actor): Extract<Actor, { kind: "user" }> {
@@ -75,9 +82,17 @@ function userById(ctx: Ctx, id: number): UserRow | null {
   );
 }
 function duplicate(ctx: Ctx, usernameKey: string, email: string): never {
-  if (ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1").get(usernameKey))
+  if (
+    prepared(ctx, "auth.usernameExists", () =>
+      ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1"),
+    ).get(usernameKey)
+  )
     throw new ConflictError("Username is already in use.");
-  if (ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1").get(email))
+  if (
+    prepared(ctx, "auth.emailExists", () =>
+      ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1"),
+    ).get(email)
+  )
     throw new ConflictError("Email is already in use.");
   throw new ConflictError("Username or email is already in use.");
 }
@@ -144,7 +159,6 @@ export async function ensureAdmin(
       ctx.sqlite
         .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
         .run(GROUP_IDS.admin, user.id);
-      invalidate(ctx, "permissions");
       return { userId: user.id, created: false };
     }
     const email = input.email.toLowerCase();
@@ -155,7 +169,6 @@ export async function ensureAdmin(
         "INSERT INTO users (username, username_key, email, password_hash, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
       )
       .get(input.username, usernameKey, email, passwordHash!, GROUP_IDS.admin, ctx.now())!;
-    invalidate(ctx, "permissions");
     return { userId: created.id, created: true };
   });
 }
@@ -165,23 +178,31 @@ export const authRegisterOp = implement(authRegister, async (ctx, actor, input) 
   const usernameKey = input.username.toLowerCase(),
     email = input.email.toLowerCase();
   if (
-    ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1").get(usernameKey) ||
-    ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1").get(email)
+    prepared(ctx, "auth.usernameExists", () =>
+      ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1"),
+    ).get(usernameKey) ||
+    prepared(ctx, "auth.emailExists", () =>
+      ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1"),
+    ).get(email)
   )
     duplicate(ctx, usernameKey, email);
   const passwordHash = await Bun.password.hash(input.password, ctx.config.passwordHash);
   return writeTx(ctx, () => {
     if (
-      ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1").get(usernameKey) ||
-      ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1").get(email)
+      prepared(ctx, "auth.usernameExists", () =>
+        ctx.sqlite.prepare("SELECT id FROM users WHERE username_key = ?1"),
+      ).get(usernameKey) ||
+      prepared(ctx, "auth.emailExists", () =>
+        ctx.sqlite.prepare("SELECT id FROM users WHERE email = ?1"),
+      ).get(email)
     )
       duplicate(ctx, usernameKey, email);
-    const row = ctx.sqlite
-      .prepare<{ id: number }, [string, string, string, string, number, number]>(
-        "INSERT INTO users (username, username_key, email, password_hash, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
-      )
-      .get(input.username, usernameKey, email, passwordHash, GROUP_IDS.member, ctx.now())!;
-    return { user: self(userById(ctx, row.id)!), session: session(ctx, row.id) };
+    const row = prepared(ctx, "auth.registerInsert", () =>
+      ctx.sqlite.prepare<UserRow, [string, string, string, string, number, number]>(
+        "INSERT INTO users (username, username_key, email, password_hash, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id, username, email, group_id, created_at, password_hash",
+      ),
+    ).get(input.username, usernameKey, email, passwordHash, GROUP_IDS.member, ctx.now())!;
+    return { user: self(row), session: session(ctx, row.id) };
   });
 });
 export const authLoginOp = implement(authLogin, async (ctx, _actor, input) => {
@@ -193,7 +214,7 @@ export const authLoginOp = implement(authLogin, async (ctx, _actor, input) => {
   ).get(login, login);
   let valid = false;
   try {
-    valid = await Bun.password.verify(input.password, row?.password_hash ?? DUMMY_HASH);
+    valid = await Bun.password.verify(input.password, row?.password_hash ?? (await dummyHash(ctx)));
   } catch {
     /* Invalid stored hash is never a valid login. */
   }
@@ -211,7 +232,7 @@ export const authLogoutOp = implement(authLogout, (ctx, actor) => {
 });
 export const authMeOp = implement(authMe, (ctx, actor) => {
   const row = actor.kind === "guest" ? null : userById(ctx, actor.userId);
-  if (actor.kind !== "guest" && !row) throw new NotFoundError();
+  if (actor.kind !== "guest" && !row) throw new UnauthenticatedError();
   return { user: row ? self(row) : null, permissions: getGlobalPermissions(ctx, actor) };
 });
 export const authCreateTokenOp = implement(authCreateToken, (ctx, actor, input) => {
