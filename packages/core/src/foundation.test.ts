@@ -6,6 +6,7 @@ import * as z from "zod";
 import { GUEST } from "./actor";
 import { cached, closeContext, createContext, invalidate } from "./context";
 import * as contracts from "./contracts";
+import { startCheckpointer } from "./db/checkpointer";
 import { writeTx } from "./db/tx";
 import { ValidationError } from "./errors";
 import { defineContract, execute, implement } from "./operation";
@@ -313,5 +314,29 @@ describe("review regressions", () => {
     expect(() =>
       expectNoTableScan(ctx, "SELECT id FROM posts WHERE thread_id = ?1 ORDER BY created_at", [1]),
     ).toThrow();
+  });
+});
+
+describe("checkpointer", () => {
+  test("turns off auto-checkpoint and checkpoints the WAL on a worker thread", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    const stop = startCheckpointer(ctx, { intervalMs: 20 });
+    const pragma = () =>
+      (ctx.sqlite.query("PRAGMA wal_autocheckpoint").get() as { wal_autocheckpoint: number })
+        .wal_autocheckpoint;
+    expect(pragma()).toBe(0);
+    for (let i = 0; i < 200; i++) insertUser(ctx);
+    const walSize = () => Bun.file(`${path}-wal`).size;
+    expect(walSize()).toBeGreaterThan(0);
+    // Once the worker has checkpointed, the next write restarts the WAL from the beginning
+    // instead of appending, so its size stops growing.
+    await Bun.sleep(200);
+    const before = walSize();
+    for (let i = 0; i < 200; i++) insertUser(ctx);
+    expect(walSize()).toBe(before);
+    await stop();
+    expect(pragma()).toBe(1000);
+    closeContext(ctx);
   });
 });
