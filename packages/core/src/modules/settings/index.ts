@@ -4,6 +4,7 @@ import { type Ctx, prepared } from "../../context";
 import { SiteSettings, settingsGet, settingsUpdate } from "../../contracts/settings";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
+import { appendModeratorLog } from "../moderation";
 import { requireAdmin } from "../permissions";
 
 export type SiteSettingsValue = z.infer<typeof SiteSettings>;
@@ -32,6 +33,7 @@ const defaults: SiteSettingsValue = {
   },
   firstPostsToModerate: 0,
   moderateLinksFromNewMembers: false,
+  newMemberDays: 7,
   warningBanThreshold: 0,
   warningBanDays: 7,
   threadTitleTemplate: "{title} | {site}",
@@ -62,6 +64,9 @@ export function updateSiteSettings(
         "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       )
       .run(JSON.stringify(next), ctx.now());
+    appendModeratorLog(ctx, actor, "settings.update", "settings", 1, "", {
+      changedKeys: Object.keys(changes),
+    });
     return next;
   });
 }

@@ -26,6 +26,7 @@ export {
   startJobWorker,
   startScheduler,
 } from "./modules/jobs";
+export { registerModerationJobs } from "./modules/moderation";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
 export type { StorageConfig, StorageDriver } from "./modules/storage";
 export {

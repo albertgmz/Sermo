@@ -9,6 +9,23 @@ export interface ApiRoute {
 }
 
 const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
+  ["POST", "/reports", "reports.create", 201],
+  ["GET", "/reports", "reports.list"],
+  ["GET", "/reports/{groupId}", "reports.get"],
+  ["PUT", "/reports/{groupId}/state", "reports.setState"],
+  ["GET", "/approval-queue", "approvals.list"],
+  ["PUT", "/moderation/state", "moderation.setState"],
+  ["POST", "/moderation/bulk", "moderation.bulk"],
+  ["GET", "/moderation/log", "moderatorLog.list"],
+  ["GET", "/moderation/word-filters", "wordFilters.list"],
+  ["PUT", "/moderation/word-filters", "wordFilters.upsert"],
+  ["DELETE", "/moderation/word-filters/{filterId}", "wordFilters.remove"],
+  ["POST", "/users/{userId}/warnings", "warnings.create", 201],
+  ["GET", "/users/{userId}/warnings", "warnings.list"],
+  ["POST", "/users/{userId}/bans", "bans.create", 201],
+  ["POST", "/bans/{banId}/lift", "bans.lift"],
+  ["GET", "/posts/{postId}/revisions", "postRevisions.list"],
+  ["POST", "/users/{userId}/spam-cleanup", "spamCleanup.start", 201],
   ["GET", "/settings", "settings.get"],
   ["PATCH", "/settings", "settings.update"],
   ["GET", "/files/{fileId}/metadata", "files.get"],

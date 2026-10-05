@@ -10,12 +10,18 @@ import {
   profileCommentsUpdate,
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError } from "../../errors";
+import { ConflictError, ForbiddenError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
+import {
+  appendModeratorLog,
+  moderateEditedContent,
+  prepareModeratedContent,
+  withSpamCheck,
+} from "../moderation";
 import { getGlobalPermissions } from "../permissions";
 import {
   COMMENTS_SQL,
@@ -58,48 +64,70 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
   const post = requirePost(ctx, actor, input.profilePostId);
   if (!getGlobalPermissions(ctx, actor).canPostProfile || post.state !== "visible")
     throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
-  const comment = writeTx(ctx, () => {
-    if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
-    const row = prepared(ctx, "profiles.insertComment", () =>
-      ctx.sqlite.prepare<CommentRow, [number, number, number, string, string]>(
-        "INSERT INTO profile_post_comments (profile_post_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *",
-      ),
-    ).get(post.id, user.userId, ctx.now(), input.body, html)!;
-    prepared(ctx, "profiles.incrementCommentCount", () =>
-      ctx.sqlite.prepare<unknown, [number, number]>(
-        "UPDATE profile_posts SET comment_count = comment_count + 1, last_comment_at = ?1 WHERE id = ?2",
-      ),
-    ).run(row.created_at, post.id);
-    publishEvent(ctx, {
-      type: "content.created",
-      targetType: "profile_post_comment",
-      targetId: row.id,
+  return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, false);
+    const html = renderMarkdown(content.source);
+    const comment = writeTx(ctx, () => {
+      if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
+      const decision = prepareModeratedContent(ctx, actor, input.body, false);
+      if (decision.source !== content.source)
+        throw new ConflictError("Moderation rules changed; retry.");
+      const row = prepared(ctx, "profiles.insertComment", () =>
+        ctx.sqlite.prepare<CommentRow, [number, number, string, number, string, string]>(
+          "INSERT INTO profile_post_comments (profile_post_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
+        ),
+      ).get(
+        post.id,
+        user.userId,
+        decision.moderated || spam ? "moderated" : "visible",
+        ctx.now(),
+        content.source,
+        html,
+      )!;
+      if (!decision.moderated && !spam)
+        prepared(ctx, "profiles.incrementCommentCount", () =>
+          ctx.sqlite.prepare<unknown, [number, number]>(
+            "UPDATE profile_posts SET comment_count = comment_count + 1, last_comment_at = ?1 WHERE id = ?2",
+          ),
+        ).run(row.created_at, post.id);
+      publishEvent(ctx, {
+        type: "content.created",
+        targetType: "profile_post_comment",
+        targetId: row.id,
+      });
+      return row;
     });
-    return row;
+    return {
+      ...commentValue(ctx, actor, comment, post.profile_user_id),
+      bodySource: comment.body_source,
+    };
   });
-  return {
-    ...commentValue(ctx, actor, comment, post.profile_user_id),
-    bodySource: comment.body_source,
-  };
 });
 export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment } = requireComment(ctx, actor, input.commentId);
   if (comment.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
     throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
+  const content = prepareModeratedContent(ctx, actor, input.body, false);
+  const html = renderMarkdown(content.source);
   writeTx(ctx, () => {
+    const decision = prepareModeratedContent(ctx, actor, input.body, false);
+    if (decision.source !== content.source)
+      throw new ConflictError("Moderation rules changed; retry.");
     prepared(ctx, "profiles.updateComment", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
-    ).run(input.body, html, ctx.now(), comment.id);
+    ).run(content.source, html, ctx.now(), comment.id);
+    if (decision.moderated)
+      moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "profile_post_comment",
       targetId: comment.id,
     });
+    if (getGlobalPermissions(ctx, actor).isModerator)
+      appendModeratorLog(ctx, actor, "profile_comment.edit", "profile_post_comment", comment.id);
   });
   return profileCommentsGetOp.run(ctx, actor, input);
 });
@@ -130,6 +158,8 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
         targetType: "profile_post_comment",
         targetId: comment.id,
       });
+    if (getGlobalPermissions(ctx, actor).isModerator)
+      appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
 });
@@ -155,6 +185,7 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
         targetType: "profile_post_comment",
         targetId: comment.id,
       });
+    appendModeratorLog(ctx, actor, "profile_comment.restore", "profile_post_comment", comment.id);
   });
   return commentValue(ctx, actor, { ...comment, state: "visible" }, post.profile_user_id);
 });

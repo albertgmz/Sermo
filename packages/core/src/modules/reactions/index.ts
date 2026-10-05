@@ -20,6 +20,7 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
+import { appendModeratorLog } from "../moderation";
 import { getGlobalPermissions, requireAdmin } from "../permissions";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
 
@@ -135,6 +136,7 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
       )
       .get(input.title, input.emoji, input.score, input.position, Number(input.isActive))!;
     invalidate(ctx, "reaction_types");
+    appendModeratorLog(ctx, actor, "reaction_type.create", "reaction_type", row.id);
     return typeValue(row);
   });
 });
@@ -156,6 +158,7 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
         old.id,
       )!;
     invalidate(ctx, "reaction_types");
+    appendModeratorLog(ctx, actor, "reaction_type.update", "reaction_type", row.id);
     return typeValue(row);
   });
 });

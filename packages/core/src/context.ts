@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import { type Db, openDatabase, runMigrations } from "./db/connection";
+import type { SpamChecker } from "./modules/moderation/spam";
 
 /** Header the HTTP adapter sets to the client IP it determined (never taken from the client). */
 export const CLIENT_IP_HEADER = "x-sermo-client-ip";
@@ -27,6 +28,8 @@ export interface CoreConfig {
   auth?: AuthConfig;
   /** Optional origin that proxies public profile and node images. */
   publicFileBaseURL?: string;
+  /** Optional external spam checker; absent by default. */
+  spamChecker?: SpamChecker;
   /** Validate every operation's output against its contract (on in tests, off in production). */
   validateOutput: boolean;
 }

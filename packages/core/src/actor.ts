@@ -12,12 +12,15 @@ export type Actor =
       readonly userId: number;
       readonly groupId: number;
       readonly sessionId: number;
+      /** Trusted client IP supplied by the HTTP actor resolver when available. */
+      readonly clientIp?: string;
     }
   | {
       readonly kind: "token";
       readonly userId: number;
       readonly groupId: number;
       readonly tokenId: number;
+      readonly clientIp?: string;
     };
 
 export type AuthenticatedActor = Exclude<Actor, { kind: "guest" }>;

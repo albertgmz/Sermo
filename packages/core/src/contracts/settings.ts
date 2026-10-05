@@ -15,6 +15,7 @@ export const SiteSettings = z
     groupUploadLimitBytes: z.record(z.string().regex(/^[1-4]$/), z.number().int().min(0)),
     firstPostsToModerate: z.number().int().min(0).max(100),
     moderateLinksFromNewMembers: z.boolean(),
+    newMemberDays: z.number().int().min(1).max(365).default(7),
     warningBanThreshold: z.number().int().min(0).max(1000),
     warningBanDays: z.number().int().min(1).max(3650),
     threadTitleTemplate: z.string().min(1).max(200),

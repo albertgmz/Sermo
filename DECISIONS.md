@@ -360,3 +360,18 @@ write transaction. Newly added files must be unattached uploads owned by the act
 file revokes its access immediately and queues permanent storage deletion. This keeps the API
 small and can be changed with a later dedicated attachment operation. The owner should review
 whether edit removal should instead retain files for an undo window.
+
+**Global bans and private message moderation require an administrator.** Per-node moderators
+can act on forum content; global bans and private conversations have no node scope. Restricting
+those actions to administrators avoids granting a node moderator access to unrelated private
+content. This privilege boundary needs owner review.
+
+**Optional spam checks hold new content for approval.** Registration is rejected when an enabled
+checker returns spam; new forum, profile, and conversation content enters the existing moderated
+state. The checker receives only the trusted client IP supplied by the HTTP adapter. A checker
+error fails the submission, allowing retries without silently bypassing the configured check.
+The checker is disabled by default and every adapter test uses a mock response.
+
+**The new-member approval window defaults to seven days.** The setting can change it without a
+migration. Link moderation applies only within that window, while the first-post rule counts
+forum posts against the configured threshold.

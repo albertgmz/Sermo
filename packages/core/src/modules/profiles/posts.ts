@@ -13,13 +13,19 @@ import {
   usersSearch,
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, NotFoundError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
+import {
+  appendModeratorLog,
+  moderateEditedContent,
+  prepareModeratedContent,
+  withSpamCheck,
+} from "../moderation";
 import { getGlobalPermissions } from "../permissions";
 import { resolvedFileUrl } from "../storage/url";
 import {
@@ -140,42 +146,62 @@ export const profilePostsGetOp = implement(profilePostsGet, (ctx, actor, input) 
 export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   if (!requireView(ctx, actor).canPostProfile) throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
-  const row = writeTx(ctx, () => {
-    if (
-      !prepared(ctx, "profiles.userExists", () =>
-        ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),
-      ).get(input.userId)
-    )
-      throw new NotFoundError();
-    const post = prepared(ctx, "profiles.insertPost", () =>
-      ctx.sqlite.prepare<PostRow, [number, number, number, string, string]>(
-        "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *",
-      ),
-    ).get(input.userId, user.userId, ctx.now(), input.body, html)!;
-    setAttachments(ctx, user.userId, "profile_post", post.id, input.attachmentIds ?? []);
-    validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
-    post.attachment_count = input.attachmentIds?.length ?? 0;
-    publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
-    return post;
+  return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, false);
+    const html = renderMarkdown(content.source);
+    const row = writeTx(ctx, () => {
+      const decision = prepareModeratedContent(ctx, actor, input.body, false);
+      if (decision.source !== content.source)
+        throw new ConflictError("Moderation rules changed; retry.");
+      if (
+        !prepared(ctx, "profiles.userExists", () =>
+          ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),
+        ).get(input.userId)
+      )
+        throw new NotFoundError();
+      const post = prepared(ctx, "profiles.insertPost", () =>
+        ctx.sqlite.prepare<PostRow, [number, number, string, number, string, string]>(
+          "INSERT INTO profile_posts (profile_user_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
+        ),
+      ).get(
+        input.userId,
+        user.userId,
+        decision.moderated || spam ? "moderated" : "visible",
+        ctx.now(),
+        content.source,
+        html,
+      )!;
+      setAttachments(ctx, user.userId, "profile_post", post.id, input.attachmentIds ?? []);
+      validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
+      post.attachment_count = input.attachmentIds?.length ?? 0;
+      publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
+      return post;
+    });
+    return { ...postValues(ctx, actor, [row])[0]!, bodySource: row.body_source };
   });
-  return { ...postValues(ctx, actor, [row])[0]!, bodySource: row.body_source };
 });
 export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
   if (row.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
     throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
+  const content = prepareModeratedContent(ctx, actor, input.body, false);
+  const html = renderMarkdown(content.source);
   writeTx(ctx, () => {
+    const decision = prepareModeratedContent(ctx, actor, input.body, false);
+    if (decision.source !== content.source)
+      throw new ConflictError("Moderation rules changed; retry.");
     setAttachments(ctx, actorUserId(actor)!, "profile_post", row.id, input.attachmentIds);
     validateEmbeddedAttachments(ctx, "profile_post", row.id, html);
     prepared(ctx, "profiles.updatePost", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
-    ).run(input.body, html, ctx.now(), row.id);
+    ).run(content.source, html, ctx.now(), row.id);
+    if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
     publishEvent(ctx, { type: "content.edited", targetType: "profile_post", targetId: row.id });
+    if (getGlobalPermissions(ctx, actor).isModerator)
+      appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
   });
   return profilePostsGetOp.run(ctx, actor, input);
 });
@@ -196,6 +222,8 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
     ).run(row.id);
     if (result.changes)
       publishEvent(ctx, { type: "content.deleted", targetType: "profile_post", targetId: row.id });
+    if (getGlobalPermissions(ctx, actor).isModerator)
+      appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
   });
   return postValue(ctx, actor, { ...row, state: "deleted" });
 });
@@ -215,6 +243,7 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
         targetType: "profile_post",
         targetId: row.id,
       });
+    appendModeratorLog(ctx, actor, "profile_post.restore", "profile_post", row.id);
   });
   return postValue(ctx, actor, { ...row, state: "visible" });
 });

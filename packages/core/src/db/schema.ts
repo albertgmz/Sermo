@@ -608,7 +608,10 @@ export const wordFilters = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (t) => [uniqueIndex("word_filters_term").on(t.term)],
+  (t) => [
+    uniqueIndex("word_filters_term").on(t.term),
+    index("word_filters_active").on(t.isActive, t.id),
+  ],
 );
 
 export const postRevisions = sqliteTable(

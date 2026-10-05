@@ -12,6 +12,7 @@ import { NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { enqueueJob } from "../jobs/queue";
+import { appendModeratorLog } from "../moderation";
 import { requireAdmin } from "../permissions";
 import { fileUrl } from "../storage/url";
 
@@ -69,6 +70,8 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number, slot: ImageSlot, nodeI
       targetType: nodeId === undefined ? "profile" : "node",
       targetId: nodeId ?? user.userId,
     });
+    if (nodeId !== undefined)
+      appendModeratorLog(ctx, actor, `node.${slot}`, "node", nodeId, "", { fileId });
     return { fileId, url: fileUrl(fileId) };
   });
 }

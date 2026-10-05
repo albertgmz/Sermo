@@ -3,6 +3,7 @@ export * from "./common";
 export * from "./conversations";
 export * from "./forums";
 export * from "./images";
+export * from "./moderation";
 export * from "./permissions";
 export * from "./profiles";
 export * from "./reactions";

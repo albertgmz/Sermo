@@ -14,6 +14,7 @@ import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
+import { appendModeratorLog } from "../moderation";
 
 export interface NodeTreeEntry {
   id: number;
@@ -291,6 +292,7 @@ export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
         input.groupId,
       );
     invalidate(ctx, "permissions");
+    appendModeratorLog(ctx, actor, "group.update", "group", input.groupId);
     return next;
   });
 });
@@ -316,6 +318,9 @@ export const usersSetGroupOp = implement(usersSetGroup, (ctx, actor, input) => {
     ctx.sqlite
       .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
       .run(input.groupId, input.userId);
+    appendModeratorLog(ctx, actor, "user.group", "user", input.userId, "", {
+      groupId: input.groupId,
+    });
     return { ok: true };
   });
 });
@@ -356,6 +361,9 @@ export const permissionsSetNodeOp = implement(permissionsSetNode, (ctx, actor, i
           input.canModerate == null ? null : Number(input.canModerate),
         );
     invalidate(ctx, "permissions");
+    appendModeratorLog(ctx, actor, "node.permission", "node", input.nodeId, "", {
+      groupId: input.groupId,
+    });
     return input;
   });
 });

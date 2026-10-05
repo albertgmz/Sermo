@@ -18,6 +18,7 @@ import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { getGlobalPermissions } from "../permissions";
 import { requirePost as requireProfilePost } from "../profiles/shared";
 import { fileUrl, resolvedFileUrl } from "./url";
 
@@ -191,9 +192,15 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
   try {
     if (link.content_type === "post") reactablePost(ctx, actor, link.content_id);
     else if (link.content_type === "profile_post") requireProfilePost(ctx, actor, link.content_id);
-    else if (link.content_type === "conversation_message")
-      reactableConversationMessage(ctx, actor, link.content_id);
-    else return false;
+    else if (link.content_type === "conversation_message") {
+      const message = reactableConversationMessage(ctx, actor, link.content_id);
+      if (
+        !message.isVisible &&
+        message.authorId !== actorUserId(actor) &&
+        !getGlobalPermissions(ctx, actor).isAdmin
+      )
+        return false;
+    } else return false;
     return true;
   } catch {
     return false;

@@ -5,7 +5,7 @@ import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, invalidate, prepared } from "../../context";
 import * as contracts from "../../contracts/forums";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -14,6 +14,13 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
+import {
+  appendModeratorLog,
+  moderateEditedContent,
+  prepareModeratedContent,
+  recordPostRevision,
+  withSpamCheck,
+} from "../moderation";
 import { getNodeAccess, getNodeTree, requireAdmin } from "../permissions";
 import { resolvedFileUrl } from "../storage/url";
 
@@ -354,6 +361,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
       .get(input.parentId, input.type, input.title, input.description, input.position)!;
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
+    appendModeratorLog(ctx, actor, "node.create", "node", row.id);
     return row.id;
   });
   return nodeValues(ctx, actor, [id])[0]!;
@@ -380,6 +388,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
       );
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
+    appendModeratorLog(ctx, actor, "node.update", "node", input.nodeId);
   });
   return nodeValues(ctx, actor, [input.nodeId])[0]!;
 });
@@ -559,89 +568,107 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
   const { node, access } = requireNode(ctx, actor, input.nodeId);
   if (!access.post) throw new ForbiddenError();
   if (node.type !== "forum") throw new ValidationError("Categories cannot hold threads.");
-  const html = renderMarkdown(input.body);
-  const ids = writeTx(ctx, () => {
-    const now = ctx.now();
-    const thread = forumDb(ctx)
-      .prepare<{ id: number }, [number, number, string, number, number]>(
-        "INSERT INTO threads (node_id, user_id, title, created_at, last_post_at, last_poster_id, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?2, ?4) RETURNING id",
-      )
-      .get(input.nodeId, user.userId, input.title, now, now)!;
-    const post = forumDb(ctx)
-      .prepare<{ id: number }, [number, number, number]>(
-        "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, 0, ?3) RETURNING id",
-      )
-      .get(thread.id, user.userId, now)!;
-    forumDb(ctx)
-      .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-      .run(post.id, input.body, html);
-    setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
-    validateEmbeddedAttachments(ctx, "post", post.id, html);
-    forumDb(ctx)
-      .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
-      .run(post.id, thread.id);
-    forumDb(ctx)
-      .prepare(
-        "UPDATE nodes SET thread_count = thread_count + 1, post_count = post_count + 1 WHERE id = ?1",
-      )
-      .run(input.nodeId);
-    updateNodeLast(ctx, input.nodeId);
-    forumDb(ctx)
-      .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
-      .run(user.userId);
-    markRead(ctx, user.userId, thread.id, post.id, 0);
-    publishEvent(ctx, { type: "content.created", targetType: "thread", targetId: thread.id });
-    publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
-    return { threadId: thread.id, postId: post.id };
+  return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, true);
+    const html = renderMarkdown(content.source);
+    const ids = writeTx(ctx, () => {
+      const decision = prepareModeratedContent(ctx, actor, input.body, true);
+      if (decision.source !== content.source)
+        throw new ConflictError("Moderation rules changed; retry.");
+      const state = decision.moderated || spam ? "moderated" : "visible";
+      const now = ctx.now();
+      const thread = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, string, string, number]>(
+          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5) RETURNING id",
+        )
+        .get(input.nodeId, user.userId, input.title, state, now)!;
+      const post = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, number]>(
+          "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, 0, ?3) RETURNING id",
+        )
+        .get(thread.id, user.userId, now)!;
+      forumDb(ctx)
+        .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
+        .run(post.id, content.source, html);
+      setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
+      validateEmbeddedAttachments(ctx, "post", post.id, html);
+      forumDb(ctx)
+        .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
+        .run(post.id, thread.id);
+      if (state === "visible") {
+        forumDb(ctx)
+          .prepare(
+            "UPDATE nodes SET thread_count = thread_count + 1, post_count = post_count + 1 WHERE id = ?1",
+          )
+          .run(input.nodeId);
+        updateNodeLast(ctx, input.nodeId);
+        forumDb(ctx)
+          .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
+          .run(user.userId);
+      }
+      markRead(ctx, user.userId, thread.id, post.id, 0);
+      publishEvent(ctx, { type: "content.created", targetType: "thread", targetId: thread.id });
+      publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
+      return { threadId: thread.id, postId: post.id };
+    });
+    return {
+      thread: threadValue(ctx, actor, ids.threadId),
+      post: postValue(ctx, actor, ids.postId, true) as z.infer<typeof contracts.PostDetail>,
+    };
   });
-  return {
-    thread: threadValue(ctx, actor, ids.threadId),
-    post: postValue(ctx, actor, ids.postId, true) as z.infer<typeof contracts.PostDetail>,
-  };
 });
 export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   if (!access.post || (row.is_locked && !access.moderate)) throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
-  const id = writeTx(ctx, () => {
-    const current = threadRow(ctx, row.id)!;
-    const position =
-      (statement<{ position: number }, [number]>(
-        ctx,
-        "maxPostPosition",
-        forumSql.maxPostPosition,
-      ).get(row.id)?.position ?? -1) + 1;
-    const now = ctx.now();
-    const post = forumDb(ctx)
-      .prepare<{ id: number }, [number, number, number, number]>(
-        "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, ?3, ?4) RETURNING id",
-      )
-      .get(row.id, user.userId, position, now)!;
-    forumDb(ctx)
-      .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-      .run(post.id, input.body, html);
-    setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
-    validateEmbeddedAttachments(ctx, "post", post.id, html);
-    forumDb(ctx)
-      .prepare(
-        "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3, content_updated_at = ?1 WHERE id = ?4",
-      )
-      .run(now, post.id, user.userId, row.id);
-    if (current.state === "visible") {
+  return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, true);
+    const html = renderMarkdown(content.source);
+    const id = writeTx(ctx, () => {
+      const decision = prepareModeratedContent(ctx, actor, input.body, true);
+      if (decision.source !== content.source)
+        throw new ConflictError("Moderation rules changed; retry.");
+      const state = decision.moderated || spam ? "moderated" : "visible";
+      const current = threadRow(ctx, row.id)!;
+      const position =
+        (statement<{ position: number }, [number]>(
+          ctx,
+          "maxPostPosition",
+          forumSql.maxPostPosition,
+        ).get(row.id)?.position ?? -1) + 1;
+      const now = ctx.now();
+      const post = forumDb(ctx)
+        .prepare<{ id: number }, [number, number, number, string, number]>(
+          "INSERT INTO posts (thread_id, user_id, position, state, created_at) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id",
+        )
+        .get(row.id, user.userId, position, state, now)!;
       forumDb(ctx)
-        .prepare("UPDATE nodes SET post_count = post_count + 1 WHERE id = ?1")
-        .run(current.node_id);
-      updateNodeLast(ctx, current.node_id);
-      forumDb(ctx)
-        .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
-        .run(user.userId);
-    }
-    markRead(ctx, user.userId, row.id, post.id, position);
-    publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
-    return post.id;
+        .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
+        .run(post.id, content.source, html);
+      setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
+      validateEmbeddedAttachments(ctx, "post", post.id, html);
+      if (state === "visible") {
+        forumDb(ctx)
+          .prepare(
+            "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3, content_updated_at = ?1 WHERE id = ?4",
+          )
+          .run(now, post.id, user.userId, row.id);
+      }
+      if (current.state === "visible" && state === "visible") {
+        forumDb(ctx)
+          .prepare("UPDATE nodes SET post_count = post_count + 1 WHERE id = ?1")
+          .run(current.node_id);
+        updateNodeLast(ctx, current.node_id);
+        forumDb(ctx)
+          .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
+          .run(user.userId);
+      }
+      markRead(ctx, user.userId, row.id, post.id, position);
+      publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
+      return post.id;
+    });
+    return postValue(ctx, actor, id, true) as z.infer<typeof contracts.PostDetail>;
   });
-  return postValue(ctx, actor, id, true) as z.infer<typeof contracts.PostDetail>;
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
@@ -656,6 +683,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
       .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
       .run(input.title, current.node_id, row.id);
     publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
+    if (access.moderate) appendModeratorLog(ctx, actor, "thread.update", "thread", row.id);
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -664,18 +692,26 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   const { post, thread } = requirePost(ctx, actor, input.postId);
   if (!mayEdit(actor, post.user_id, thread.row.is_locked, thread.access.moderate))
     throw new ForbiddenError();
-  const html = renderMarkdown(input.body);
+  const content = prepareModeratedContent(ctx, actor, input.body, false);
+  const html = renderMarkdown(content.source);
   writeTx(ctx, () => {
+    const decision = prepareModeratedContent(ctx, actor, input.body, false);
+    if (decision.source !== content.source)
+      throw new ConflictError("Moderation rules changed; retry.");
+    recordPostRevision(ctx, actor, post.id);
     setAttachments(ctx, actorUserId(actor)!, "post", post.id, input.attachmentIds);
     validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
-      .run(input.body, html, post.id);
+      .run(content.source, html, post.id);
+    if (decision.moderated) moderateEditedContent(ctx, actor, { type: "post", id: post.id });
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)
       .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
       .run(ctx.now(), post.thread_id);
     publishEvent(ctx, { type: "content.edited", targetType: "post", targetId: post.id });
+    if (thread.access.moderate && post.user_id === actorUserId(actor))
+      appendModeratorLog(ctx, actor, "post.edit", "post", post.id);
   });
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
 });
@@ -692,6 +728,9 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
       .run(Number(input.isSticky), row.id);
     publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
+    appendModeratorLog(ctx, actor, "thread.sticky", "thread", row.id, "", {
+      isSticky: input.isSticky,
+    });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -704,6 +743,9 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
       .run(Number(input.isLocked), row.id);
     publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
+    appendModeratorLog(ctx, actor, "thread.lock", "thread", row.id, "", {
+      isLocked: input.isLocked,
+    });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -717,7 +759,13 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
     throw new ValidationError("Threads can only be moved to forums.");
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
-    if (current.node_id === input.nodeId) return;
+    if (current.node_id === input.nodeId) {
+      appendModeratorLog(ctx, actor, "thread.move", "thread", row.id, "", {
+        nodeId: input.nodeId,
+        changed: false,
+      });
+      return;
+    }
     forumDb(ctx).prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2").run(input.nodeId, row.id);
     if (current.state === "visible") {
       forumDb(ctx)
@@ -734,6 +782,7 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
       updateNodeLast(ctx, input.nodeId);
     }
     publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
+    appendModeratorLog(ctx, actor, "thread.move", "thread", row.id, "", { nodeId: input.nodeId });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -744,6 +793,7 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   writeTx(ctx, () => {
     if (changeThreadState(ctx, row.id, "deleted"))
       publishEvent(ctx, { type: "content.deleted", targetType: "thread", targetId: row.id });
+    appendModeratorLog(ctx, actor, "thread.delete", "thread", row.id);
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -754,6 +804,7 @@ export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor,
   writeTx(ctx, () => {
     if (changeThreadState(ctx, row.id, "visible"))
       publishEvent(ctx, { type: "content.state_changed", targetType: "thread", targetId: row.id });
+    appendModeratorLog(ctx, actor, "thread.restore", "thread", row.id);
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -796,6 +847,7 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
   writeTx(ctx, () => {
     if (changePostState(ctx, post.id, "deleted"))
       publishEvent(ctx, { type: "content.deleted", targetType: "post", targetId: post.id });
+    if (thread.access.moderate) appendModeratorLog(ctx, actor, "post.delete", "post", post.id);
   });
   return postValue(ctx, actor, post.id);
 });
@@ -806,6 +858,7 @@ export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, inp
   writeTx(ctx, () => {
     if (changePostState(ctx, post.id, "visible"))
       publishEvent(ctx, { type: "content.state_changed", targetType: "post", targetId: post.id });
+    appendModeratorLog(ctx, actor, "post.restore", "post", post.id);
   });
   return postValue(ctx, actor, post.id);
 });

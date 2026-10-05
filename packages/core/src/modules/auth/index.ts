@@ -76,7 +76,7 @@ function buildAuth(ctx: Ctx) {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => {
+          before: async (user, hookContext) => {
             const username = typeof user.username === "string" ? user.username : null;
             if (!username)
               throw new APIError("BAD_REQUEST", {
@@ -98,6 +98,28 @@ function buildAuth(ctx: Ctx) {
                 message: "Username is already taken.",
                 code: "USERNAME_IS_ALREADY_TAKEN",
               });
+            if (ctx.config.spamChecker) {
+              const headerName = ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip";
+              const ip = (hookContext as { headers?: Headers } | undefined)?.headers?.get(
+                headerName,
+              );
+              if (!ip)
+                throw new APIError("BAD_REQUEST", {
+                  message: "Client IP is required for spam checks.",
+                  code: "SPAM_IP_REQUIRED",
+                });
+              const verdict = await ctx.config.spamChecker.check({
+                ip,
+                email: typeof user.email === "string" ? user.email : undefined,
+                username,
+                kind: "signup",
+              });
+              if (verdict.spam)
+                throw new APIError("BAD_REQUEST", {
+                  message: "Registration requires review.",
+                  code: "SPAM_REJECTED",
+                });
+            }
           },
           after: async (user) => {
             const normalized = typeof user.username === "string" ? user.username : null;
@@ -275,6 +297,7 @@ export async function resolveActor(
   const bearer = authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
   if (authorization !== null && !bearer) throw new UnauthenticatedError();
   const key = bearer ?? headers.get("x-api-key");
+  const clientIp = headers.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip") ?? undefined;
   if (key !== null && key !== undefined) {
     const hash = await defaultKeyHasher(key);
     const row = prepared(ctx, "auth.apiKey", () =>
@@ -291,7 +314,7 @@ export async function resolveActor(
     const groupId = groupFor(ctx, userId);
     assertNotBanned(ctx, userId);
     return {
-      actor: { kind: "token", userId, groupId, tokenId: row.id },
+      actor: { kind: "token", userId, groupId, tokenId: row.id, ...(clientIp ? { clientIp } : {}) },
       setCookies: [],
     };
   }
@@ -313,7 +336,7 @@ export async function resolveActor(
   const groupId = groupFor(ctx, userId);
   assertNotBanned(ctx, userId);
   return {
-    actor: { kind: "user", userId, groupId, sessionId },
+    actor: { kind: "user", userId, groupId, sessionId, ...(clientIp ? { clientIp } : {}) },
     setCookies: result.headers.getSetCookie(),
   };
 }

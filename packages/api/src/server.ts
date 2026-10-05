@@ -9,6 +9,7 @@ import {
   flushViewCounts,
   localDriver,
   registerJobHandlers,
+  registerModerationJobs,
   registerStorageJobs,
   s3Driver,
   startCheckpointer,
@@ -164,6 +165,7 @@ async function main(): Promise<void> {
             : {}),
         });
   registerStorageJobs(ctx, { driver, tempDir: join(dirname(config.path), "upload-temp") });
+  registerModerationJobs(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },

@@ -1,6 +1,6 @@
 import * as z from "zod";
 import type { Actor } from "../../actor";
-import { requireAuthenticated } from "../../actor";
+import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import {
   conversationsCreate,
@@ -12,7 +12,7 @@ import {
   conversationsReply,
 } from "../../contracts/conversations";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -21,6 +21,7 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
+import { prepareModeratedContent, withSpamCheck } from "../moderation";
 import { getGlobalPermissions } from "../permissions";
 
 interface ConversationRow {
@@ -56,6 +57,8 @@ export const participantsSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id";
 export const messagesSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
+export const visibleMessagesSql =
+  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id LIMIT ?3";
 export const activeSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 export const reactableSql =
@@ -139,13 +142,14 @@ function newMessage(
   authorId: number,
   now: number,
   html: string,
+  state: "visible" | "moderated",
   attachments: ReturnType<typeof loadAttachments>,
 ) {
   return {
     id,
     conversationId,
     author: author(authorId),
-    state: "visible" as const,
+    state,
     createdAt: iso(now),
     bodyHtml: html,
     attachmentCount: attachments.get(id)?.length ?? 0,
@@ -198,130 +202,167 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
     const message = `Unknown recipient IDs: ${missing.join(", ")}.`;
     throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
   }
-  const html = renderMarkdown(input.body);
-  const now = ctx.now();
-  const { conversationId, messageId } = writeTx(ctx, () => {
-    const conversationId = Number(
-      prepared(ctx, "conversations.insertConversation", () =>
+  return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, false);
+    const html = renderMarkdown(content.source);
+    const now = ctx.now();
+    const { conversationId, messageId } = writeTx(ctx, () => {
+      const decision = prepareModeratedContent(ctx, actor, input.body, false);
+      if (decision.source !== content.source || decision.moderated !== content.moderated)
+        throw new ConflictError("Moderation rules changed; retry.");
+      const conversationId = Number(
+        prepared(ctx, "conversations.insertConversation", () =>
+          ctx.sqlite.prepare(
+            "INSERT INTO conversations (title, user_id, created_at, last_message_at, last_message_user_id, message_count, participant_count) VALUES (?1, ?2, ?3, ?3, ?2, ?4, ?5)",
+          ),
+        ).run(
+          input.title,
+          starter.userId,
+          now,
+          Number(!decision.moderated && !spam),
+          ids.length + 1,
+        ).lastInsertRowid,
+      );
+      const messageId = Number(
+        prepared(ctx, "conversations.insertMessage", () =>
+          ctx.sqlite.prepare(
+            "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+          ),
+        ).run(
+          conversationId,
+          starter.userId,
+          decision.moderated || spam ? "moderated" : "visible",
+          now,
+          content.source,
+          html,
+        ).lastInsertRowid,
+      );
+      setAttachments(
+        ctx,
+        starter.userId,
+        "conversation_message",
+        messageId,
+        input.attachmentIds ?? [],
+      );
+      validateEmbeddedAttachments(ctx, "conversation_message", messageId, html);
+      prepared(ctx, "conversations.setFirstMessage", () =>
+        ctx.sqlite.prepare("UPDATE conversations SET last_message_id = ?1 WHERE id = ?2"),
+      ).run(messageId, conversationId);
+      const insert = prepared(ctx, "conversations.insertParticipant", () =>
         ctx.sqlite.prepare(
-          "INSERT INTO conversations (title, user_id, created_at, last_message_at, last_message_user_id, message_count, participant_count) VALUES (?1, ?2, ?3, ?3, ?2, 1, ?4)",
+          "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?3, ?4)",
         ),
-      ).run(input.title, starter.userId, now, ids.length + 1).lastInsertRowid,
-    );
-    const messageId = Number(
-      prepared(ctx, "conversations.insertMessage", () =>
-        ctx.sqlite.prepare(
-          "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, 'visible', ?3, ?4, ?5)",
-        ),
-      ).run(conversationId, starter.userId, now, input.body, html).lastInsertRowid,
-    );
-    setAttachments(
-      ctx,
-      starter.userId,
-      "conversation_message",
-      messageId,
-      input.attachmentIds ?? [],
-    );
-    validateEmbeddedAttachments(ctx, "conversation_message", messageId, html);
-    prepared(ctx, "conversations.setFirstMessage", () =>
-      ctx.sqlite.prepare("UPDATE conversations SET last_message_id = ?1 WHERE id = ?2"),
-    ).run(messageId, conversationId);
-    const insert = prepared(ctx, "conversations.insertParticipant", () =>
-      ctx.sqlite.prepare(
-        "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?3, ?4)",
-      ),
-    );
-    insert.run(conversationId, starter.userId, now, messageId);
-    for (const id of ids) insert.run(conversationId, id, now, 0);
-    publishEvent(ctx, {
-      type: "content.created",
-      targetType: "conversation_message",
-      targetId: messageId,
-      payload: { conversationId },
+      );
+      insert.run(conversationId, starter.userId, now, messageId);
+      for (const id of ids)
+        insert.run(conversationId, id, now, decision.moderated || spam ? messageId : 0);
+      publishEvent(ctx, {
+        type: "content.created",
+        targetType: "conversation_message",
+        targetId: messageId,
+        payload: { conversationId },
+      });
+      return { conversationId, messageId };
     });
-    return { conversationId, messageId };
+    const participantIds = [starter.userId, ...ids].sort((a, b) => a - b);
+    const user = loadUserSummaries(ctx, participantIds);
+    const row: ConversationRow = {
+      id: conversationId,
+      title: input.title,
+      user_id: starter.userId,
+      created_at: now,
+      last_message_at: now,
+      last_message_id: messageId,
+      last_message_user_id: starter.userId,
+      message_count: content.moderated || spam ? 0 : 1,
+      participant_count: participantIds.length,
+      last_read_message_id: messageId,
+    };
+    return {
+      conversation: {
+        ...summary(row, user),
+        participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
+        canReply: true,
+      },
+      message: newMessage(
+        messageId,
+        conversationId,
+        user,
+        starter.userId,
+        now,
+        html,
+        content.moderated || spam ? "moderated" : "visible",
+        loadAttachments(ctx, "conversation_message", [messageId]),
+      ),
+    };
   });
-  const participantIds = [starter.userId, ...ids].sort((a, b) => a - b);
-  const user = loadUserSummaries(ctx, participantIds);
-  const row: ConversationRow = {
-    id: conversationId,
-    title: input.title,
-    user_id: starter.userId,
-    created_at: now,
-    last_message_at: now,
-    last_message_id: messageId,
-    last_message_user_id: starter.userId,
-    message_count: 1,
-    participant_count: participantIds.length,
-    last_read_message_id: messageId,
-  };
-  return {
-    conversation: {
-      ...summary(row, user),
-      participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
-      canReply: true,
-    },
-    message: newMessage(
-      messageId,
-      conversationId,
-      user,
-      starter.userId,
-      now,
-      html,
-      loadAttachments(ctx, "conversation_message", [messageId]),
-    ),
-  };
 });
 
 export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   activeConversation(ctx, actor, input.conversationId);
-  const html = renderMarkdown(input.body);
-  const now = ctx.now();
-  const messageId = writeTx(ctx, () => {
-    activeConversation(ctx, actor, input.conversationId);
-    const id = Number(
-      prepared(ctx, "conversations.insertMessage", () =>
-        ctx.sqlite.prepare(
-          "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, 'visible', ?3, ?4, ?5)",
-        ),
-      ).run(input.conversationId, user.userId, now, input.body, html).lastInsertRowid,
-    );
-    setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
-    validateEmbeddedAttachments(ctx, "conversation_message", id, html);
-    prepared(ctx, "conversations.updateLastMessage", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1 WHERE id = ?4",
-      ),
-    ).run(now, id, user.userId, input.conversationId);
-    prepared(ctx, "conversations.updateParticipantActivity", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2 AND state = 'active'",
-      ),
-    ).run(now, input.conversationId);
-    prepared(ctx, "conversations.updateReadState", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
-      ),
-    ).run(id, input.conversationId, user.userId);
-    publishEvent(ctx, {
-      type: "content.created",
-      targetType: "conversation_message",
-      targetId: id,
-      payload: { conversationId: input.conversationId },
+  return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
+    const content = prepareModeratedContent(ctx, actor, input.body, false);
+    const html = renderMarkdown(content.source);
+    const now = ctx.now();
+    const messageId = writeTx(ctx, () => {
+      activeConversation(ctx, actor, input.conversationId);
+      const decision = prepareModeratedContent(ctx, actor, input.body, false);
+      if (decision.source !== content.source || decision.moderated !== content.moderated)
+        throw new ConflictError("Moderation rules changed; retry.");
+      const id = Number(
+        prepared(ctx, "conversations.insertMessage", () =>
+          ctx.sqlite.prepare(
+            "INSERT INTO conversation_messages (conversation_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+          ),
+        ).run(
+          input.conversationId,
+          user.userId,
+          decision.moderated || spam ? "moderated" : "visible",
+          now,
+          content.source,
+          html,
+        ).lastInsertRowid,
+      );
+      setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
+      validateEmbeddedAttachments(ctx, "conversation_message", id, html);
+      if (!decision.moderated && !spam) {
+        prepared(ctx, "conversations.updateLastMessage", () =>
+          ctx.sqlite.prepare(
+            "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1 WHERE id = ?4",
+          ),
+        ).run(now, id, user.userId, input.conversationId);
+        prepared(ctx, "conversations.updateParticipantActivity", () =>
+          ctx.sqlite.prepare(
+            "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2 AND state = 'active'",
+          ),
+        ).run(now, input.conversationId);
+        prepared(ctx, "conversations.updateReadState", () =>
+          ctx.sqlite.prepare(
+            "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
+          ),
+        ).run(id, input.conversationId, user.userId);
+      }
+      publishEvent(ctx, {
+        type: "content.created",
+        targetType: "conversation_message",
+        targetId: id,
+        payload: { conversationId: input.conversationId },
+      });
+      return id;
     });
-    return id;
+    const author = loadUserSummaries(ctx, [user.userId]);
+    return newMessage(
+      messageId,
+      input.conversationId,
+      author,
+      user.userId,
+      now,
+      html,
+      content.moderated || spam ? "moderated" : "visible",
+      loadAttachments(ctx, "conversation_message", [messageId]),
+    );
   });
-  const author = loadUserSummaries(ctx, [user.userId]);
-  return newMessage(
-    messageId,
-    input.conversationId,
-    author,
-    user.userId,
-    now,
-    html,
-    loadAttachments(ctx, "conversation_message", [messageId]),
-  );
 });
 
 export const conversationsListMessagesOp = implement(
@@ -332,8 +373,14 @@ export const conversationsListMessagesOp = implement(
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
       : 0;
     const rows = prepared(ctx, "conversations.messages", () =>
-      ctx.sqlite.prepare<MessageRow, [number, number, number]>(messagesSql),
-    ).all(input.conversationId, id, input.limit + 1);
+      ctx.sqlite.prepare<MessageRow, [number, number, number, number, number]>(visibleMessagesSql),
+    ).all(
+      input.conversationId,
+      id,
+      input.limit + 1,
+      actorUserId(actor) ?? 0,
+      Number(getGlobalPermissions(ctx, actor).isAdmin),
+    );
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);
     return {
@@ -385,6 +432,8 @@ export function reactableConversationMessage(
     ctx.sqlite.prepare<{ user_id: number; state: string }, [number, number]>(reactableSql),
   ).get(messageId, actor.userId);
   if (!row) throw new NotFoundError();
+  if (row.state === "deleted" && !getGlobalPermissions(ctx, actor).isAdmin)
+    throw new NotFoundError();
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }
 
