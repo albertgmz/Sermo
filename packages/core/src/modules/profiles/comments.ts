@@ -11,6 +11,7 @@ import {
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
@@ -70,6 +71,11 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
         "UPDATE profile_posts SET comment_count = comment_count + 1, last_comment_at = ?1 WHERE id = ?2",
       ),
     ).run(row.created_at, post.id);
+    publishEvent(ctx, {
+      type: "content.created",
+      targetType: "profile_post_comment",
+      targetId: row.id,
+    });
     return row;
   });
   return {
@@ -83,13 +89,18 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
   if (comment.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
-  writeTx(ctx, () =>
+  writeTx(ctx, () => {
     prepared(ctx, "profiles.updateComment", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
-    ).run(input.body, html, ctx.now(), comment.id),
-  );
+    ).run(input.body, html, ctx.now(), comment.id);
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: "profile_post_comment",
+      targetId: comment.id,
+    });
+  });
   return profileCommentsGetOp.run(ctx, actor, input);
 });
 export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, actor, input) => {
@@ -113,6 +124,12 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
       ),
     ).run(comment.id, current.state);
     if (result.changes === 1 && current.state === "visible") changeCommentCount(ctx, post.id, -1);
+    if (result.changes)
+      publishEvent(ctx, {
+        type: "content.deleted",
+        targetType: "profile_post_comment",
+        targetId: comment.id,
+      });
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
 });
@@ -132,6 +149,12 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
       ),
     ).run(comment.id, current.state);
     if (result.changes === 1 && current.state !== "visible") changeCommentCount(ctx, post.id, 1);
+    if (result.changes)
+      publishEvent(ctx, {
+        type: "content.state_changed",
+        targetType: "profile_post_comment",
+        targetId: comment.id,
+      });
   });
   return commentValue(ctx, actor, { ...comment, state: "visible" }, post.profile_user_id);
 });

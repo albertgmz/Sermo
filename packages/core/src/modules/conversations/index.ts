@@ -13,6 +13,7 @@ import {
 } from "../../contracts/conversations";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
@@ -212,6 +213,12 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
     );
     insert.run(conversationId, starter.userId, now, messageId);
     for (const id of ids) insert.run(conversationId, id, now, 0);
+    publishEvent(ctx, {
+      type: "content.created",
+      targetType: "conversation_message",
+      targetId: messageId,
+      payload: { conversationId },
+    });
     return { conversationId, messageId };
   });
   const participantIds = [starter.userId, ...ids].sort((a, b) => a - b);
@@ -267,6 +274,12 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
         "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
       ),
     ).run(id, input.conversationId, user.userId);
+    publishEvent(ctx, {
+      type: "content.created",
+      targetType: "conversation_message",
+      targetId: id,
+      payload: { conversationId: input.conversationId },
+    });
     return id;
   });
   const author = loadUserSummaries(ctx, [user.userId]);

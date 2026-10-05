@@ -14,6 +14,7 @@ import {
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
@@ -63,11 +64,12 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
 });
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  writeTx(ctx, () =>
+  writeTx(ctx, () => {
     prepared(ctx, "profiles.updateAbout", () =>
       ctx.sqlite.prepare<unknown, [string, number]>("UPDATE users SET about = ?1 WHERE id = ?2"),
-    ).run(input.about, user.userId),
-  );
+    ).run(input.about, user.userId);
+    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
+  });
   return readProfile(ctx, actor, user.userId);
 });
 export const USER_SEARCH_SQL =
@@ -134,11 +136,13 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
       ).get(input.userId)
     )
       throw new NotFoundError();
-    return prepared(ctx, "profiles.insertPost", () =>
+    const post = prepared(ctx, "profiles.insertPost", () =>
       ctx.sqlite.prepare<PostRow, [number, number, number, string, string]>(
         "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *",
       ),
     ).get(input.userId, user.userId, ctx.now(), input.body, html)!;
+    publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
+    return post;
   });
   return { ...postValues(ctx, actor, [row])[0]!, bodySource: row.body_source };
 });
@@ -148,13 +152,14 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
   if (row.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
-  writeTx(ctx, () =>
+  writeTx(ctx, () => {
     prepared(ctx, "profiles.updatePost", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
-    ).run(input.body, html, ctx.now(), row.id),
-  );
+    ).run(input.body, html, ctx.now(), row.id);
+    publishEvent(ctx, { type: "content.edited", targetType: "profile_post", targetId: row.id });
+  });
   return profilePostsGetOp.run(ctx, actor, input);
 });
 export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, input) => {
@@ -166,25 +171,33 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
     !getGlobalPermissions(ctx, actor).isModerator
   )
     throw new ForbiddenError();
-  writeTx(ctx, () =>
-    prepared(ctx, "profiles.deletePost", () =>
+  writeTx(ctx, () => {
+    const result = prepared(ctx, "profiles.deletePost", () =>
       ctx.sqlite.prepare<unknown, [number]>(
         "UPDATE profile_posts SET state = 'deleted' WHERE id = ?1 AND state != 'deleted'",
       ),
-    ).run(row.id),
-  );
+    ).run(row.id);
+    if (result.changes)
+      publishEvent(ctx, { type: "content.deleted", targetType: "profile_post", targetId: row.id });
+  });
   return postValue(ctx, actor, { ...row, state: "deleted" });
 });
 export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
   if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
-  writeTx(ctx, () =>
-    prepared(ctx, "profiles.restorePost", () =>
+  writeTx(ctx, () => {
+    const result = prepared(ctx, "profiles.restorePost", () =>
       ctx.sqlite.prepare<unknown, [number]>(
         "UPDATE profile_posts SET state = 'visible' WHERE id = ?1 AND state != 'visible'",
       ),
-    ).run(row.id),
-  );
+    ).run(row.id);
+    if (result.changes)
+      publishEvent(ctx, {
+        type: "content.state_changed",
+        targetType: "profile_post",
+        targetId: row.id,
+      });
+  });
   return postValue(ctx, actor, { ...row, state: "visible" });
 });

@@ -6,6 +6,7 @@ import { type Ctx, invalidate, prepared } from "../../context";
 import * as contracts from "../../contracts/forums";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
@@ -332,6 +333,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
       )
       .get(input.parentId, input.type, input.title, input.description, input.position)!;
     invalidate(ctx, "node_tree");
+    publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
     return row.id;
   });
   return nodeValues(ctx, actor, [id])[0]!;
@@ -357,6 +359,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         input.nodeId,
       );
     invalidate(ctx, "node_tree");
+    publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
   });
   return nodeValues(ctx, actor, [input.nodeId])[0]!;
 });
@@ -510,12 +513,14 @@ function markRead(
 function adjustThreadAuthors(ctx: Ctx, threadId: number, delta: number): void {
   forumDb(ctx).prepare(forumSql.authorAdjustment).run(delta, threadId);
 }
-function changeThreadState(ctx: Ctx, id: number, state: State): void {
+function changeThreadState(ctx: Ctx, id: number, state: State): boolean {
   const row = threadRow(ctx, id)!;
-  if (row.state === state) return;
+  if (row.state === state) return false;
   const before = row.state === "visible";
   const after = state === "visible";
-  forumDb(ctx).prepare("UPDATE threads SET state = ?1 WHERE id = ?2").run(state, row.id);
+  forumDb(ctx)
+    .prepare("UPDATE threads SET state = ?1, content_updated_at = ?2 WHERE id = ?3")
+    .run(state, ctx.now(), row.id);
   if (before !== after) {
     const delta = after ? 1 : -1;
     forumDb(ctx)
@@ -526,6 +531,7 @@ function changeThreadState(ctx: Ctx, id: number, state: State): void {
     adjustThreadAuthors(ctx, row.id, delta);
     updateNodeLast(ctx, row.node_id);
   }
+  return true;
 }
 
 export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, input) => {
@@ -538,7 +544,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
     const now = ctx.now();
     const thread = forumDb(ctx)
       .prepare<{ id: number }, [number, number, string, number, number]>(
-        "INSERT INTO threads (node_id, user_id, title, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, ?3, ?4, ?5, ?2) RETURNING id",
+        "INSERT INTO threads (node_id, user_id, title, created_at, last_post_at, last_poster_id, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?2, ?4) RETURNING id",
       )
       .get(input.nodeId, user.userId, input.title, now, now)!;
     const post = forumDb(ctx)
@@ -562,6 +568,8 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       .prepare("UPDATE users SET post_count = post_count + 1 WHERE id = ?1")
       .run(user.userId);
     markRead(ctx, user.userId, thread.id, post.id, 0);
+    publishEvent(ctx, { type: "content.created", targetType: "thread", targetId: thread.id });
+    publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
     return { threadId: thread.id, postId: post.id };
   });
   return {
@@ -593,7 +601,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
       .run(post.id, input.body, html);
     forumDb(ctx)
       .prepare(
-        "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
+        "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3, content_updated_at = ?1 WHERE id = ?4",
       )
       .run(now, post.id, user.userId, row.id);
     if (current.state === "visible") {
@@ -606,6 +614,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
         .run(user.userId);
     }
     markRead(ctx, user.userId, row.id, post.id, position);
+    publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
     return post.id;
   });
   return postValue(ctx, actor, id, true) as z.infer<typeof contracts.PostDetail>;
@@ -616,10 +625,13 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
   if (!mayEdit(actor, row.user_id, row.is_locked, access.moderate)) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
-    forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
+    forumDb(ctx)
+      .prepare("UPDATE threads SET title = ?1, content_updated_at = ?2 WHERE id = ?3")
+      .run(input.title, ctx.now(), row.id);
     forumDb(ctx)
       .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
       .run(input.title, current.node_id, row.id);
+    publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -634,6 +646,10 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
       .run(input.body, html, post.id);
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
+    forumDb(ctx)
+      .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
+      .run(ctx.now(), post.thread_id);
+    publishEvent(ctx, { type: "content.edited", targetType: "post", targetId: post.id });
   });
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
 });
@@ -649,6 +665,7 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
     forumDb(ctx)
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
       .run(Number(input.isSticky), row.id);
+    publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -656,11 +673,12 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
   requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
-  writeTx(ctx, () =>
+  writeTx(ctx, () => {
     forumDb(ctx)
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
-      .run(Number(input.isLocked), row.id),
-  );
+      .run(Number(input.isLocked), row.id);
+    publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
+  });
   return threadValue(ctx, actor, row.id);
 });
 export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input) => {
@@ -689,6 +707,7 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
       updateNodeLast(ctx, current.node_id);
       updateNodeLast(ctx, input.nodeId);
     }
+    publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
   });
   return threadValue(ctx, actor, row.id);
 });
@@ -696,24 +715,33 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
-  writeTx(ctx, () => changeThreadState(ctx, row.id, "deleted"));
+  writeTx(ctx, () => {
+    if (changeThreadState(ctx, row.id, "deleted"))
+      publishEvent(ctx, { type: "content.deleted", targetType: "thread", targetId: row.id });
+  });
   return threadValue(ctx, actor, row.id);
 });
 export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row, access } = requireThread(ctx, actor, input.threadId);
   requireModeration(access);
-  writeTx(ctx, () => changeThreadState(ctx, row.id, "visible"));
+  writeTx(ctx, () => {
+    if (changeThreadState(ctx, row.id, "visible"))
+      publishEvent(ctx, { type: "content.state_changed", targetType: "thread", targetId: row.id });
+  });
   return threadValue(ctx, actor, row.id);
 });
 
-function changePostState(ctx: Ctx, id: number, state: State): void {
+function changePostState(ctx: Ctx, id: number, state: State): boolean {
   const post = postRow(ctx, id)!;
   const thread = threadRow(ctx, post.thread_id)!;
-  if (post.state === state) return;
+  if (post.state === state) return false;
   const before = post.state === "visible";
   const after = state === "visible";
   forumDb(ctx).prepare("UPDATE posts SET state = ?1 WHERE id = ?2").run(state, post.id);
+  forumDb(ctx)
+    .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
+    .run(ctx.now(), thread.id);
   if (before !== after) {
     const delta = after ? 1 : -1;
     forumDb(ctx)
@@ -730,6 +758,7 @@ function changePostState(ctx: Ctx, id: number, state: State): void {
       updateNodeLast(ctx, thread.node_id);
     }
   }
+  return true;
 }
 export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
@@ -738,14 +767,20 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
     throw new ForbiddenError();
   if (post.id === thread.row.first_post_id) throw new ValidationError("Delete the thread instead.");
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
-  writeTx(ctx, () => changePostState(ctx, post.id, "deleted"));
+  writeTx(ctx, () => {
+    if (changePostState(ctx, post.id, "deleted"))
+      publishEvent(ctx, { type: "content.deleted", targetType: "post", targetId: post.id });
+  });
   return postValue(ctx, actor, post.id);
 });
 export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
   requireModeration(thread.access);
-  writeTx(ctx, () => changePostState(ctx, post.id, "visible"));
+  writeTx(ctx, () => {
+    if (changePostState(ctx, post.id, "visible"))
+      publishEvent(ctx, { type: "content.state_changed", targetType: "post", targetId: post.id });
+  });
   return postValue(ctx, actor, post.id);
 });
 export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, actor, input) => {
