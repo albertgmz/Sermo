@@ -3,17 +3,24 @@ import sanitizeHtml from "sanitize-html";
 import { ValidationError } from "./errors";
 
 /**
- * Markdown -> sanitized HTML. Called once at write time; reads serve the stored HTML.
- * Raw HTML in the source is escaped (shown literally), then the output is passed through an
- * allowlist sanitizer as a second line of defence.
+ * Markdown -> sanitized HTML: the one function every content type (posts, profile posts,
+ * profile post comments, conversation messages) uses at write time; reads serve the stored HTML.
+ * Raw HTML in the source is escaped by sanitize-html (shown literally), and the rendered output
+ * then passes through sanitize-html with the allowlist below.
  */
+const ESCAPE_ALL: sanitizeHtml.IOptions = {
+  allowedTags: [],
+  allowedAttributes: {},
+  disallowedTagsMode: "recursiveEscape",
+};
+
 const marked = new Marked({
   gfm: true,
   breaks: true,
   async: false,
   renderer: {
     html({ text }) {
-      return escapeHtml(text);
+      return sanitizeHtml(text, ESCAPE_ALL);
     },
   },
 });
@@ -97,12 +104,4 @@ export function renderMarkdown(source: string): string {
     throw error;
   }
   return sanitizeHtml(html, SANITIZE_OPTIONS).trim();
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
