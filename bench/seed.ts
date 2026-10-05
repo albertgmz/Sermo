@@ -71,7 +71,7 @@ export interface SeedMeta {
   conversationMembers: [number, number][];
   /** Users in the most active conversations. */
   busyConversationUserIds: number[];
-  /** Visible posts with their author, random: [postId, authorId]. */
+  /** Visible posts in visible threads, random: [postId, authorId]. */
   postAuthors: [number, number][];
   searchTerms: { common: string[]; medium: string[]; rare: string[] };
 }
@@ -740,7 +740,7 @@ function buildMeta(db: Database, vocab: string[], forumIds: number[]): SeedMeta 
     ),
     postAuthors: db
       .query<{ id: number; u: number }, []>(
-        "SELECT id, user_id AS u FROM posts WHERE state = 'visible' ORDER BY (id * 2654435761) % 1000003 LIMIT 500",
+        "SELECT p.id, p.user_id AS u FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.state = 'visible' AND t.state = 'visible' ORDER BY (p.id * 2654435761) % 1000003 LIMIT 500",
       )
       .all()
       .map((r) => [r.id, r.u]),
