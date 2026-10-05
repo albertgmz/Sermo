@@ -84,6 +84,7 @@ interface Result {
   p99: number;
   max: number;
   failures: string[];
+  exempt?: string;
 }
 const results: Result[] = [];
 
@@ -113,8 +114,12 @@ for (const scenario of selected) {
     failures: [],
   };
   const p95Budget = scenario.kind === "read" ? BUDGETS.readP95 : BUDGETS.writeP95;
-  if (r.p95 > p95Budget) r.failures.push(`p95 ${r.p95.toFixed(2)} ms > ${p95Budget} ms`);
-  if (r.max > BUDGETS.max) r.failures.push(`max ${r.max.toFixed(2)} ms > ${BUDGETS.max} ms`);
+  if (scenario.budgetExempt) {
+    r.exempt = scenario.budgetExempt;
+  } else {
+    if (r.p95 > p95Budget) r.failures.push(`p95 ${r.p95.toFixed(2)} ms > ${p95Budget} ms`);
+    if (r.max > BUDGETS.max) r.failures.push(`max ${r.max.toFixed(2)} ms > ${BUDGETS.max} ms`);
+  }
   results.push(r);
 }
 await stopCheckpointer();
@@ -125,7 +130,11 @@ const num = (x: number) => x.toFixed(2).padStart(8);
 const width = Math.max(...results.map((r) => r.name.length), 10) + 2;
 console.log(`\n${pad("scenario", width)}kind      n      p50      p95      p99      max`);
 for (const r of results) {
-  const flag = r.failures.length ? `  FAIL: ${r.failures.join("; ")}` : "";
+  const flag = r.failures.length
+    ? `  FAIL: ${r.failures.join("; ")}`
+    : r.exempt
+      ? `  (exempt: ${r.exempt})`
+      : "";
   console.log(
     `${pad(r.name, width)}${pad(r.kind, 6)}${String(r.n).padStart(5)}${num(r.p50)}${num(r.p95)}${num(r.p99)}${num(r.max)}${flag}`,
   );

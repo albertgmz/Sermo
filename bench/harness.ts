@@ -28,6 +28,11 @@ export interface Scenario {
   kind: "read" | "write";
   /** Measured iterations (default 200 for reads, 100 for writes). */
   iterations?: number;
+  /**
+   * Reported but never failed against the budgets, with the reason shown in the report. Only for
+   * costs the product requirements exempt: password hashing.
+   */
+  budgetExempt?: "password hashing";
   setup?(env: BenchEnv): void | Promise<void>;
   /** One request. `i` is the iteration number, useful to vary inputs deterministically. */
   run(env: BenchEnv, i: number): unknown | Promise<unknown>;

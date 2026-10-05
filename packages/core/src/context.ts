@@ -1,17 +1,30 @@
 import type { Database } from "bun:sqlite";
 import { type Db, openDatabase, runMigrations } from "./db/connection";
 
+export interface AuthConfig {
+  /** BETTER_AUTH_SECRET: signs session cookies; at least 32 random characters. */
+  secret: string;
+  /** Public origin of the server, e.g. https://forum.example.com. Always a trusted origin. */
+  baseURL: string;
+  /** Extra origins allowed to make cookie-authenticated requests (e.g. the frontend). */
+  trustedOrigins: string[];
+  /** Headers carrying the client IP behind a reverse proxy (e.g. ["x-forwarded-for"]). */
+  ipAddressHeaders: string[];
+}
+
 export interface CoreConfig {
-  /** Options for Bun.password.hash. */
+  /** Options for Bun.password.hash. Production uses Bun's defaults; only tests lower the cost. */
   passwordHash: Bun.Password.Argon2Algorithm | Bun.Password.BCryptAlgorithm;
   sessionTtlMs: number;
+  /** Required by the auth module; the server reads it from the environment. */
+  auth?: AuthConfig;
   /** Validate every operation's output against its contract (on in tests, off in production). */
   validateOutput: boolean;
 }
 
 export const DEFAULT_CONFIG: CoreConfig = {
-  // OWASP minimum for argon2id: 19 MiB, 2 iterations.
-  passwordHash: { algorithm: "argon2id", memoryCost: 19456, timeCost: 2 },
+  // Bun's default argon2id cost. Password hashing is exempt from the latency budgets.
+  passwordHash: { algorithm: "argon2id" },
   sessionTtlMs: 30 * 24 * 60 * 60 * 1000,
   validateOutput: false,
 };

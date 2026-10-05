@@ -17,6 +17,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { auth_user } from "./auth-schema";
 
 export const CONTENT_STATES = ["visible", "moderated", "deleted"] as const;
 export type ContentStateValue = (typeof CONTENT_STATES)[number];
@@ -38,7 +39,7 @@ const state = () => text("state", { enum: CONTENT_STATES }).notNull().default("v
 const reactionCounts = () => text("reaction_counts").notNull().default("{}");
 
 // ---------------------------------------------------------------------------
-// Users, groups, credentials
+// Users and groups
 
 /** Fixed group ids created by the seed migration. */
 export const GROUP_IDS = { guest: 1, member: 2, moderator: 3, admin: 4 } as const;
@@ -57,16 +58,21 @@ export const groups = sqliteTable("groups", {
   canReact: bool("can_react").notNull().default(false),
 });
 
+/**
+ * Forum data about a user. Identity and credentials (email, password, sessions, API keys) belong
+ * to Better Auth's tables (auth-schema.ts); `id` is the auth_user id, so auth upgrades never touch
+ * forum data. A row is created when Better Auth creates the user.
+ */
 export const users = sqliteTable(
   "users",
   {
-    id: integer("id").primaryKey(),
+    id: integer("id")
+      .primaryKey()
+      .references(() => auth_user.id, { onDelete: "cascade" }),
+    /** Display form of the username (Better Auth's displayUsername), used on every page. */
     username: text("username").notNull(),
     /** Lowercased username; unique, and used for prefix search. */
     usernameKey: text("username_key").notNull(),
-    /** Stored lowercased. */
-    email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
     groupId: integer("group_id")
       .notNull()
       .references(() => groups.id),
@@ -75,50 +81,7 @@ export const users = sqliteTable(
     postCount: counter("post_count"),
     reactionScore: counter("reaction_score"),
   },
-  (t) => [
-    uniqueIndex("users_username_key").on(t.usernameKey),
-    uniqueIndex("users_email").on(t.email),
-  ],
-);
-
-export const sessions = sqliteTable(
-  "sessions",
-  {
-    id: integer("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
-    /** SHA-256 hex of the session token. The plaintext token is never stored. */
-    tokenHash: text("token_hash").notNull(),
-    createdAt: integer("created_at").notNull(),
-    expiresAt: integer("expires_at").notNull(),
-  },
-  (t) => [
-    uniqueIndex("sessions_token_hash").on(t.tokenHash),
-    index("sessions_expires_at").on(t.expiresAt),
-    index("sessions_user").on(t.userId),
-  ],
-);
-
-export const apiTokens = sqliteTable(
-  "api_tokens",
-  {
-    id: integer("id").primaryKey(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id),
-    name: text("name").notNull(),
-    /** SHA-256 hex of the token. */
-    tokenHash: text("token_hash").notNull(),
-    createdAt: integer("created_at").notNull(),
-    /** Null means the token does not expire. */
-    expiresAt: integer("expires_at"),
-  },
-  (t) => [
-    uniqueIndex("api_tokens_token_hash").on(t.tokenHash),
-    index("api_tokens_user").on(t.userId),
-    index("api_tokens_expires_at").on(t.expiresAt),
-  ],
+  (t) => [uniqueIndex("users_username_key").on(t.usernameKey)],
 );
 
 // ---------------------------------------------------------------------------

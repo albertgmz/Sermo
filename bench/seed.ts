@@ -42,7 +42,7 @@ export const SIZES = {
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 2;
+const SEED_VERSION = 3;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -292,20 +292,37 @@ async function generate(path: string): Promise<SeedMeta> {
 
   // Write users, nodes, threads --------------------------------------------------
   tx(db, () => {
+    // Identity in Better Auth's tables (auth_user + a credential account with the password
+    // hash), forum data in Sermo's users table, as the auth module does on sign-up.
+    const insertAuthUser = db.prepare(
+      "INSERT INTO auth_user (id, name, email, email_verified, username, display_username, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?, ?, ?)",
+    );
+    const insertAccount = db.prepare(
+      "INSERT INTO auth_account (account_id, provider_id, user_id, password, created_at, updated_at) VALUES (?, 'credential', ?, ?, ?, ?)",
+    );
     const insertUser = db.prepare(
-      "INSERT INTO users (id, username, username_key, email, password_hash, group_id, about, created_at, post_count) VALUES (?, ?, ?, ?, ?, ?, '', ?, ?)",
+      "INSERT INTO users (id, username, username_key, group_id, about, created_at, post_count) VALUES (?, ?, ?, ?, '', ?, ?)",
     );
     for (let id = 1; id <= U; id++) {
       const w = vocab[(id * 7919) % vocab.length]!;
       const username = `${w.charAt(0).toUpperCase()}${w.slice(1)}${id}`;
+      const createdAt = T0 - rng.int(0, 365) * DAY;
+      insertAuthUser.run(
+        id,
+        username,
+        `user${id}@example.test`,
+        username.toLowerCase(),
+        username,
+        createdAt,
+        createdAt,
+      );
+      insertAccount.run(String(id), id, passwordHash, createdAt, createdAt);
       insertUser.run(
         id,
         username,
         username.toLowerCase(),
-        `user${id}@example.test`,
-        passwordHash,
         userGroup[id]!,
-        T0 - rng.int(0, 365) * DAY,
+        createdAt,
         userPostCount[id]!,
       );
     }

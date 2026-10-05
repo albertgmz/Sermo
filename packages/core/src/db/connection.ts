@@ -2,7 +2,10 @@ import { Database } from "bun:sqlite";
 import { fileURLToPath } from "node:url";
 import { type BunSQLiteDatabase, drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import * as schema from "./schema";
+import * as authSchema from "./auth-schema";
+import * as sermoSchema from "./schema";
+
+const schema = { ...sermoSchema, ...authSchema };
 
 export type Db = BunSQLiteDatabase<typeof schema> & { $client: Database };
 

@@ -35,6 +35,12 @@ export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { 
     config: {
       passwordHash: { algorithm: "argon2id", memoryCost: 8, timeCost: 1 },
       validateOutput: true,
+      auth: {
+        secret: "test-secret-for-sermo-tests-0123456789abcdef",
+        baseURL: "http://localhost:3000",
+        trustedOrigins: [],
+        ipAddressHeaders: [],
+      },
     },
   });
   return Object.assign(ctx, { clock });
@@ -43,8 +49,8 @@ export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { 
 let fixtureCounter = 0;
 
 /**
- * Inserts a user row directly (no password hashing). The password hash is a dummy value, so
- * fixture users cannot log in; use auth.register for login tests.
+ * Inserts a user directly into Better Auth's `auth_user` table and Sermo's `users` table, without
+ * a credential account, so fixture users cannot sign in. Use the auth module for sign-in tests.
  */
 export function insertUser(
   ctx: Ctx,
@@ -53,19 +59,24 @@ export function insertUser(
   fixtureCounter += 1;
   const username = fields.username ?? `user${fixtureCounter}`;
   const groupId = fields.groupId ?? GROUP_IDS.member;
+  const now = ctx.now();
   const row = ctx.sqlite
-    .query<{ id: number }, [string, string, string, string, number, number]>(
-      "INSERT INTO users (username, username_key, email, password_hash, group_id, created_at) " +
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
+    .query<{ id: number }, [string, string, string, string, number]>(
+      "INSERT INTO auth_user (name, email, email_verified, username, display_username, created_at, updated_at) " +
+        "VALUES (?1, ?2, 0, ?3, ?4, ?5, ?5) RETURNING id",
     )
     .get(
       username,
-      username.toLowerCase(),
       fields.email ?? `${username.toLowerCase()}@example.test`,
-      "fixture:no-login",
-      groupId,
-      ctx.now(),
+      username.toLowerCase(),
+      username,
+      now,
     );
+  ctx.sqlite
+    .query(
+      "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+    )
+    .run(row!.id, username, username.toLowerCase(), groupId, now);
   return { id: row!.id, username, groupId };
 }
 
