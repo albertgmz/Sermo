@@ -179,6 +179,8 @@ export const threads = sqliteTable(
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
     index("threads_node_list").on(t.nodeId, t.isSticky, t.lastPostAt, t.id),
+    index("threads_state_id").on(t.state, t.id),
+    index("threads_user_id").on(t.userId, t.id),
   ],
 );
 
@@ -209,6 +211,8 @@ export const posts = sqliteTable(
     index("posts_thread_position").on(t.threadId, t.position),
     // Counter rebuild: a user's visible posts (joined to their thread's state), index-only.
     index("posts_user").on(t.userId, t.state, t.threadId),
+    index("posts_state_id").on(t.state, t.id),
+    index("posts_user_id").on(t.userId, t.id),
   ],
 );
 
@@ -274,6 +278,8 @@ export const profilePosts = sqliteTable(
   (t) => [
     // profilePosts.list: WHERE profile_user_id = ? ORDER BY id DESC
     index("profile_posts_wall").on(t.profileUserId, t.id),
+    index("profile_posts_state_id").on(t.state, t.id),
+    index("profile_posts_user_id").on(t.userId, t.id),
   ],
 );
 
@@ -297,6 +303,8 @@ export const profilePostComments = sqliteTable(
   (t) => [
     // comments of a profile post, by id
     index("profile_post_comments_post").on(t.profilePostId, t.id),
+    index("profile_post_comments_state_id").on(t.state, t.id),
+    index("profile_post_comments_user_id").on(t.userId, t.id),
   ],
 );
 
@@ -368,7 +376,11 @@ export const conversationMessages = sqliteTable(
     reactionCounts: reactionCounts(),
     attachmentCount: counter("attachment_count"),
   },
-  (t) => [index("conversation_messages_conv").on(t.conversationId, t.id)],
+  (t) => [
+    index("conversation_messages_conv").on(t.conversationId, t.id),
+    index("conversation_messages_state_id").on(t.state, t.id),
+    index("conversation_messages_user_id").on(t.userId, t.id),
+  ],
 );
 
 // ---------------------------------------------------------------------------
