@@ -5,7 +5,13 @@ import { registerJobHandlers } from "./rebuild";
 
 export const operations: AnyOperation[] = [];
 export type { EnqueueOptions, JobHandler } from "./queue";
-export { enqueueJob, flushViewCounts, registerJobHandler, runDueJobs } from "./queue";
+export {
+  enqueueJob,
+  flushDownloadCounts,
+  flushViewCounts,
+  registerJobHandler,
+  runDueJobs,
+} from "./queue";
 export { type RebuildProgress, rebuildCountersChunk, registerJobHandlers } from "./rebuild";
 export { startScheduler } from "./scheduler";
 

@@ -5,6 +5,7 @@ import {
   closeContext,
   createContext,
   ensureAdmin,
+  flushDownloadCounts,
   flushViewCounts,
   localDriver,
   registerJobHandlers,
@@ -178,6 +179,7 @@ async function main(): Promise<void> {
       stopAccepting: () => server.stop(),
       flushViewCounts: () => {
         flushViewCounts(ctx);
+        flushDownloadCounts(ctx);
       },
       stopScheduler,
       stopWorker,

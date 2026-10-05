@@ -18,6 +18,7 @@ export {
 } from "./modules/auth";
 export {
   enqueueJob,
+  flushDownloadCounts,
   flushViewCounts,
   registerJobHandler,
   registerJobHandlers,

@@ -5,6 +5,7 @@ import { ForbiddenError, NotFoundError } from "../../errors";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
+import { loadAttachments } from "../attachments";
 import { getGlobalPermissions } from "../permissions";
 
 export type State = "visible" | "moderated" | "deleted";
@@ -18,6 +19,7 @@ export type PostRow = {
   body_source: string;
   body_html: string;
   reaction_counts: string;
+  attachment_count: number;
   comment_count: number;
   last_comment_at: number | null;
 };
@@ -148,6 +150,11 @@ export function commentValues(
   }));
 }
 export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: CommentRow[] = []) {
+  const attachments = loadAttachments(
+    ctx,
+    "profile_post",
+    rows.map((row) => row.id),
+  );
   const viewer = actorUserId(actor);
   const flags = getGlobalPermissions(ctx, actor);
   const user = loadUserSummaries(ctx, [
@@ -176,6 +183,8 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
     bodyHtml: row.body_html,
+    attachmentCount: row.attachment_count,
+    attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
     commentCount: row.comment_count,
     latestComments: commentsByPost.get(row.id) ?? [],

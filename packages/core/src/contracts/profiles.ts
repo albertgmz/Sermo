@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
+import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
   ContentState,
@@ -56,6 +57,8 @@ export const ProfilePost = z
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
     bodyHtml: z.string(),
+    attachmentCount: z.number().int().nonnegative(),
+    attachments: z.array(Attachment),
     reactions: ReactionSummary,
     commentCount: z.number().int().nonnegative(),
     /** Up to the 3 newest comments the viewer can see, oldest first. */
@@ -121,7 +124,7 @@ export const profilePostsCreate = defineContract({
   name: "profilePosts.create",
   summary: "Post on a user's profile wall.",
   kind: "write",
-  input: z.object({ userId: Id, body: Body }),
+  input: z.object({ userId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: ProfilePostDetail,
 });
 
@@ -129,7 +132,7 @@ export const profilePostsUpdate = defineContract({
   name: "profilePosts.update",
   summary: "Edit a profile post. Author or moderator.",
   kind: "write",
-  input: z.object({ profilePostId: Id, body: Body }),
+  input: z.object({ profilePostId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: ProfilePostDetail,
 });
 

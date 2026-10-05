@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { PARTICIPANT_STATES } from "../db/schema";
 import { defineContract } from "../operation";
+import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
   ContentState,
@@ -41,6 +42,8 @@ export const Message = z
     state: ContentState,
     createdAt: Timestamp,
     bodyHtml: z.string(),
+    attachmentCount: z.number().int().nonnegative(),
+    attachments: z.array(Attachment),
     reactions: ReactionSummary,
   })
   .meta({ id: "Message" });
@@ -69,6 +72,7 @@ export const conversationsCreate = defineContract({
     title: Title,
     recipientIds: z.array(Id).min(1).max(50),
     body: Body,
+    attachmentIds: AttachmentIds,
   }),
   output: z.object({ conversation: Conversation, message: Message }),
 });
@@ -77,7 +81,7 @@ export const conversationsReply = defineContract({
   name: "conversations.reply",
   summary: "Add a message to a conversation. Active participants only.",
   kind: "write",
-  input: z.object({ conversationId: Id, body: Body }),
+  input: z.object({ conversationId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: Message,
 });
 

@@ -20,6 +20,7 @@ import { renderMarkdown } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { getGlobalPermissions } from "../permissions";
 
 interface ConversationRow {
@@ -46,6 +47,7 @@ interface MessageRow {
   created_at: number;
   body_html: string;
   reaction_counts: string;
+  attachment_count: number;
 }
 
 export const inboxSql =
@@ -53,7 +55,7 @@ export const inboxSql =
 export const participantsSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id";
 export const messagesSql =
-  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
+  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
 export const activeSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 export const reactableSql =
@@ -112,6 +114,11 @@ function messages(ctx: Ctx, actor: Actor, rows: MessageRow[]) {
     "conversation_message",
     rows.map((r) => r.id),
   );
+  const attachments = loadAttachments(
+    ctx,
+    "conversation_message",
+    rows.map((r) => r.id),
+  );
   return rows.map((r) => ({
     id: r.id,
     conversationId: r.conversation_id,
@@ -119,6 +126,8 @@ function messages(ctx: Ctx, actor: Actor, rows: MessageRow[]) {
     state: r.state,
     createdAt: iso(r.created_at),
     bodyHtml: r.body_html,
+    attachmentCount: r.attachment_count,
+    attachments: attachments.get(r.id) ?? [],
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
   }));
 }
@@ -130,6 +139,7 @@ function newMessage(
   authorId: number,
   now: number,
   html: string,
+  attachments: ReturnType<typeof loadAttachments>,
 ) {
   return {
     id,
@@ -138,6 +148,8 @@ function newMessage(
     state: "visible" as const,
     createdAt: iso(now),
     bodyHtml: html,
+    attachmentCount: attachments.get(id)?.length ?? 0,
+    attachments: attachments.get(id) ?? [],
     reactions: { counts: {}, total: 0, mine: null },
   };
 }
@@ -203,6 +215,14 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
         ),
       ).run(conversationId, starter.userId, now, input.body, html).lastInsertRowid,
     );
+    setAttachments(
+      ctx,
+      starter.userId,
+      "conversation_message",
+      messageId,
+      input.attachmentIds ?? [],
+    );
+    validateEmbeddedAttachments(ctx, "conversation_message", messageId, html);
     prepared(ctx, "conversations.setFirstMessage", () =>
       ctx.sqlite.prepare("UPDATE conversations SET last_message_id = ?1 WHERE id = ?2"),
     ).run(messageId, conversationId);
@@ -241,7 +261,15 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
       canReply: true,
     },
-    message: newMessage(messageId, conversationId, user, starter.userId, now, html),
+    message: newMessage(
+      messageId,
+      conversationId,
+      user,
+      starter.userId,
+      now,
+      html,
+      loadAttachments(ctx, "conversation_message", [messageId]),
+    ),
   };
 });
 
@@ -259,6 +287,8 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
         ),
       ).run(input.conversationId, user.userId, now, input.body, html).lastInsertRowid,
     );
+    setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
+    validateEmbeddedAttachments(ctx, "conversation_message", id, html);
     prepared(ctx, "conversations.updateLastMessage", () =>
       ctx.sqlite.prepare(
         "UPDATE conversations SET last_message_at = ?1, last_message_id = ?2, last_message_user_id = ?3, message_count = message_count + 1 WHERE id = ?4",
@@ -283,7 +313,15 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
     return id;
   });
   const author = loadUserSummaries(ctx, [user.userId]);
-  return newMessage(messageId, input.conversationId, author, user.userId, now, html);
+  return newMessage(
+    messageId,
+    input.conversationId,
+    author,
+    user.userId,
+    now,
+    html,
+    loadAttachments(ctx, "conversation_message", [messageId]),
+  );
 });
 
 export const conversationsListMessagesOp = implement(

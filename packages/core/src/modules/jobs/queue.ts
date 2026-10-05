@@ -155,3 +155,21 @@ export function flushViewCounts(ctx: Ctx): number {
   }
   return batch.length;
 }
+
+export function flushDownloadCounts(ctx: Ctx): number {
+  const batch = [...ctx.downloads];
+  ctx.downloads.clear();
+  if (!batch.length) return 0;
+  try {
+    writeTx(ctx, () => {
+      const update = prepared(ctx, "jobs.flushDownloads", () =>
+        ctx.sqlite.prepare("UPDATE files SET download_count = download_count + ?1 WHERE id = ?2"),
+      );
+      for (const [id, count] of batch) update.run(count, id);
+    });
+  } catch (error) {
+    for (const [id, count] of batch) ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + count);
+    throw error;
+  }
+  return batch.length;
+}

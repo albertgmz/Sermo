@@ -13,6 +13,7 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { iso } from "../../time";
+import { setAttachments } from "../attachments";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { processImage } from "../images/process";
@@ -451,17 +452,13 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
         else contentOwner = reactableConversationMessage(ctx, actor, contentId).authorId;
         if (contentOwner !== user.userId) throw new ForbiddenError();
         const visibility = contentType === "conversation_message" ? "private" : "public";
-        ctx.sqlite
-          .prepare(
-            "INSERT INTO attachments (file_id, content_type, content_id, created_at) VALUES (?1, ?2, ?3, ?4)",
+        const old = ctx.sqlite
+          .prepare<{ file_id: number }, [string, number]>(
+            "SELECT file_id FROM attachments WHERE content_type = ?1 AND content_id = ?2 ORDER BY position",
           )
-          .run(fileId, contentType, contentId, ctx.now());
-        ctx.sqlite
-          .prepare("UPDATE files SET visibility = ?1, attached_at = ?2 WHERE id = ?3")
-          .run(visibility, ctx.now(), fileId);
-        ctx.sqlite
-          .prepare("UPDATE files SET visibility = ?1, attached_at = ?2 WHERE parent_file_id = ?3")
-          .run(visibility, ctx.now(), fileId);
+          .all(contentType, contentId)
+          .map((link) => link.file_id);
+        setAttachments(ctx, user.userId, contentType, contentId, [...old, fileId]);
         return { id: fileId, url: fileUrl(fileId), visibility };
       });
     },
@@ -469,6 +466,8 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       const row = getFileRecord(ctx, actor, id);
       if (row.driver !== driver.name) throw new ValidationError("Storage driver is unavailable.");
       const blob = driver.read(row.storage_key);
+      if (row.purpose === "attachment" && row.parent_file_id === null)
+        ctx.downloads.set(id, (ctx.downloads.get(id) ?? 0) + 1);
       const disposition = safeInline.has(row.content_type) ? "inline" : "attachment";
       return new Response(blob, {
         headers: {

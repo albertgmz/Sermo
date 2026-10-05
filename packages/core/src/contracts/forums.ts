@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { NODE_TYPES } from "../db/schema";
 import { defineContract } from "../operation";
+import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
   ContentState,
@@ -95,6 +96,8 @@ export const Post = z
     createdAt: Timestamp,
     editedAt: Timestamp.nullable(),
     bodyHtml: z.string(),
+    attachmentCount: z.number().int().nonnegative(),
+    attachments: z.array(Attachment),
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
@@ -184,7 +187,7 @@ export const threadsCreate = defineContract({
   name: "threads.create",
   summary: "Start a thread in a forum.",
   kind: "write",
-  input: z.object({ nodeId: Id, title: Title, body: Body }),
+  input: z.object({ nodeId: Id, title: Title, body: Body, attachmentIds: AttachmentIds }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });
 
@@ -273,7 +276,7 @@ export const postsCreate = defineContract({
   name: "posts.create",
   summary: "Reply to a thread. Locked threads accept replies from moderators only.",
   kind: "write",
-  input: z.object({ threadId: Id, body: Body }),
+  input: z.object({ threadId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: PostDetail,
 });
 
@@ -281,7 +284,7 @@ export const postsUpdate = defineContract({
   name: "posts.update",
   summary: "Edit a post. Author (while the thread is unlocked) or moderator.",
   kind: "write",
-  input: z.object({ postId: Id, body: Body }),
+  input: z.object({ postId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: PostDetail,
 });
 

@@ -13,6 +13,7 @@ import { renderMarkdown } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
+import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { getNodeAccess, getNodeTree, requireAdmin } from "../permissions";
 import { resolvedFileUrl } from "../storage/url";
 
@@ -42,6 +43,7 @@ type PostRow = {
   created_at: number;
   edited_at: number | null;
   reaction_counts: string;
+  attachment_count: number;
   body_html?: string;
   body_source?: string;
 };
@@ -61,7 +63,7 @@ type ReadRow = { thread_id: number; last_read_post_id: number; last_read_positio
 const threadColumns =
   "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id";
 const postColumns =
-  "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts";
+  "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count";
 const nodeColumns =
   "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
 /** SQL shared by the hot paths and their query-plan tests. */
@@ -224,6 +226,11 @@ function postValues(
     "post",
     rows.map((r) => r.id),
   );
+  const attachments = loadAttachments(
+    ctx,
+    "post",
+    rows.map((r) => r.id),
+  );
   return rows.map((row) => ({
     id: row.id,
     threadId: row.thread_id,
@@ -233,6 +240,8 @@ function postValues(
     createdAt: iso(row.created_at),
     editedAt: isoOrNull(row.edited_at),
     bodyHtml: row.body_html!,
+    attachmentCount: row.attachment_count,
+    attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
     canEdit: mayEdit(actor, row.user_id, locked, moderate),
     canDelete:
@@ -566,6 +575,8 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
     forumDb(ctx)
       .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
       .run(post.id, input.body, html);
+    setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
+    validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
       .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
       .run(post.id, thread.id);
@@ -610,6 +621,8 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     forumDb(ctx)
       .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
       .run(post.id, input.body, html);
+    setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
+    validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
       .prepare(
         "UPDATE threads SET reply_count = reply_count + 1, last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3, content_updated_at = ?1 WHERE id = ?4",
@@ -653,6 +666,8 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
   writeTx(ctx, () => {
+    setAttachments(ctx, actorUserId(actor)!, "post", post.id, input.attachmentIds);
+    validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
       .run(input.body, html, post.id);

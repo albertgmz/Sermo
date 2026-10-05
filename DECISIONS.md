@@ -353,3 +353,10 @@ returned for profile and node media at read time; it must proxy the same Sermo f
 Attachments always retain the stable Sermo path and `private, no-store` response caching,
 because a soft delete or permission change must hide them immediately. Neither database rows
 nor rendered post bodies contain a driver URL.
+
+**Attachment edits use an optional complete file list.** Omitting `attachmentIds` keeps the
+current attachments. Supplying the list replaces their order and membership in the same content
+write transaction. Newly added files must be unattached uploads owned by the actor; removing a
+file revokes its access immediately and queues permanent storage deletion. This keeps the API
+small and can be changed with a later dedicated attachment operation. The owner should review
+whether edit removal should instead retain files for an undo window.

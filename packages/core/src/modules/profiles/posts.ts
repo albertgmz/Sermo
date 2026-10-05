@@ -19,6 +19,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
+import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { getGlobalPermissions } from "../permissions";
 import { resolvedFileUrl } from "../storage/url";
 import {
@@ -152,6 +153,9 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
         "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING *",
       ),
     ).get(input.userId, user.userId, ctx.now(), input.body, html)!;
+    setAttachments(ctx, user.userId, "profile_post", post.id, input.attachmentIds ?? []);
+    validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
+    post.attachment_count = input.attachmentIds?.length ?? 0;
     publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
     return post;
   });
@@ -164,6 +168,8 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     throw new ForbiddenError();
   const html = renderMarkdown(input.body);
   writeTx(ctx, () => {
+    setAttachments(ctx, actorUserId(actor)!, "profile_post", row.id, input.attachmentIds);
+    validateEmbeddedAttachments(ctx, "profile_post", row.id, html);
     prepared(ctx, "profiles.updatePost", () =>
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",

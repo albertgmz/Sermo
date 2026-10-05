@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { purgeExpiredCredentials } from "../auth";
-import { enqueueJob, flushViewCounts } from "./queue";
+import { enqueueJob, flushDownloadCounts, flushViewCounts } from "./queue";
 import { registerJobHandlers } from "./rebuild";
 
 export const SCHEDULES = {
@@ -21,7 +21,9 @@ export const purgeSql = {
 };
 
 export function runViewsTask(ctx: Ctx): number {
-  return flushViewCounts(ctx);
+  const views = flushViewCounts(ctx);
+  flushDownloadCounts(ctx);
+  return views;
 }
 
 export function runHourlyTasks(ctx: Ctx): void {
