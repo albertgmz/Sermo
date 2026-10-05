@@ -87,13 +87,61 @@ serves stale permissions.
 (`threads.markRead`, `conversations.markRead`), not a side effect of fetching it. Thread views
 are counted in memory and flushed by a scheduled job.
 
-**Sessions have a fixed 30-day lifetime** with no sliding refresh, since refreshing would mean
-writing during reads. Session and API tokens are 256-bit random values; only their SHA-256 is
-stored (fast lookups, and safe because the tokens have full entropy).
+**Authentication is Better Auth (1.7.7), replacing the first custom implementation.** The owner
+asked for maintained libraries in security-sensitive code, with social login, 2FA and passkeys
+available later without a rewrite. Better Auth owns identity and credentials in its own tables
+(`auth_user`, `auth_session`, `auth_account`, `auth_verification`, `auth_apikey`) on the same
+SQLite database through its Drizzle adapter; Sermo's `users` table keeps forum data only
+(display username, group, about, counters), keyed by the `auth_user` id, so auth upgrades never
+touch forum data. Email and password plus the username plugin (sign-in by username) and the API
+key plugin (for MCP and external clients) are enabled; social login, 2FA, passkeys, email
+verification and password reset are not, but need only configuration and new tables.
 
-**Passwords: argon2id, 19 MiB, 2 iterations** (the OWASP minimum). Bun's default (64 MiB)
-takes longer than the 50 ms write budget allows for login and registration. Tests use the
-cheapest settings.
+**Better Auth uses serial integer ids** (`advanced.database.generateId: "serial"`), so every
+existing integer foreign key to a user stays valid. Its API returns ids as strings; the auth
+module converts them at the boundary. The API key owner column (`reference_id`) must stay TEXT
+(the plugin compares it with string ids), so a trigger deletes a user's keys when the user is
+deleted.
+
+**Pre-Better-Auth databases are not migrated.** No deployment existed when the switch was made,
+so migrations 0002–0004 assume an empty database (they recreate `users` and drop the old
+credential tables). Running them on a database that already has users fails.
+
+**Sessions: 30 days, no sliding refresh, 5-minute cookie cache.** Refreshing a session on read
+would write during a read. The cookie cache serves an authenticated request without a session
+query; its cost is that a revoked session keeps working until its cache cookie expires
+(at most 5 minutes). The auth module returns the refreshed cache cookie to the HTTP adapter.
+
+**API keys are verified read-only.** Better Auth's API key plugin writes two UPDATEs on every
+request it verifies, and that cannot be turned off with database storage; that conflicts with
+"a read never writes". The plugin still creates, lists and deletes keys; `resolveActor` verifies
+them itself with the plugin's own exported hasher (SHA-256), checking `enabled` and expiry. We
+give up the plugin's per-key usage counters and rate limits.
+
+**The actor's group costs one primary-key lookup per authenticated request.** The cookie cache
+removes the session query, but the group lives in Sermo's `users` table (forum data stays out of
+Better Auth's tables) and must reflect group changes immediately, including from another
+process.
+
+**Passwords: argon2id at Bun's default cost** (64 MiB, 2 iterations), through Better Auth's
+custom hash/verify options. The first implementation lowered this to 19 MiB to fit the 50 ms
+write budget; that was wrong. Password hashing is exempt from the latency budgets: the benchmark
+reports sign-in and sign-up (about 60–70 ms) without failing them. Tests use the cheapest
+settings.
+
+**Sign-up is not atomic.** Better Auth's adapter cannot run its async transactions on the
+synchronous SQLite driver, so the user, credential account and Sermo `users` row are written in
+separate statements. If the `users` row is missing, `resolveActor` creates it on first use.
+
+**Rate limiting of auth endpoints is Better Auth's built-in limiter** (in memory, strict rules
+for sign-in and sign-up), keyed by the client IP from one header that only the HTTP adapter sets.
+If that header were missing, every request would share one bucket, so the adapter sets it on
+every request (from the socket, or from the trusted proxy header when configured) and drops any
+value the client sent.
+
+**The admin bootstrap runs once at startup in the single server process.** `ensureAdmin`
+creates or promotes the configured admin only if no admin exists, and reuses an existing
+account only when both its email and password match. It is not designed for concurrent callers.
 
 **Search: one contentless FTS5 table maintained by triggers.** Post bodies are indexed per post,
 and each thread title is indexed on its first post's row, so one index covers "titles and
@@ -107,8 +155,8 @@ took 0.05–0.2 ms. Results are filtered for visibility after matching, and the 
 candidates examined per request is capped, so a page may be short while `nextCursor` is
 non-null.
 
-**API tokens cannot create or revoke tokens, or log out sessions.** A leaked token should not be
-able to mint more credentials.
+**API keys cannot create or revoke keys.** Better Auth's key management endpoints require a
+session, so a leaked key cannot mint more credentials.
 
 **Guests can never post or react**, regardless of permission overrides, since content needs an
 author.

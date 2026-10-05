@@ -6,19 +6,41 @@ import type { Actor } from "../../actor";
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { authMe } from "../../contracts/auth";
-import { authPlugins, authSchemaOptions } from "../../db/auth-options";
+import { authPlugins, authSchemaOptions, USERNAME_PATTERN } from "../../db/auth-options";
 import * as schema from "../../db/auth-schema";
 import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { UnauthenticatedError } from "../../errors";
+import { ConflictError, UnauthenticatedError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
 import { iso } from "../../time";
 import { getGlobalPermissions } from "../permissions";
+
+function userConstraintError(error: unknown): APIError | null {
+  if (!(error instanceof Error) || !/^UNIQUE constraint failed: users\./.test(error.message))
+    return null;
+  return /users\.username_key/.test(error.message)
+    ? new APIError("BAD_REQUEST", {
+        message: "Username is already taken.",
+        code: "USERNAME_IS_ALREADY_TAKEN",
+      })
+    : new APIError("BAD_REQUEST", {
+        message: "Forum profile already exists.",
+        code: "USER_CONFLICT",
+      });
+}
 
 function buildAuth(ctx: Ctx) {
   const config = ctx.config.auth;
   if (!config) throw new Error("Better Auth requires ctx.config.auth.");
   const plugins = authPlugins();
+  const usernamePlugin = plugins.find((plugin) => plugin.id === "username") as
+    | ReturnType<typeof username>
+    | undefined;
+  const apiKeyPlugin = plugins.find((plugin) => plugin.id === "api-key") as
+    | ReturnType<typeof apiKey>
+    | undefined;
+  if (!usernamePlugin || !apiKeyPlugin)
+    throw new Error("Better Auth username and API key plugins are required.");
   return betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -28,7 +50,8 @@ function buildAuth(ctx: Ctx) {
     advanced: {
       ...authSchemaOptions.advanced,
       cookiePrefix: "sermo",
-      ipAddress: { ipAddressHeaders: config.ipAddressHeaders },
+      ipAddress: { ipAddressHeaders: [config.clientIpHeader] },
+      disableOriginCheck: false,
     },
     emailAndPassword: {
       enabled: true,
@@ -49,60 +72,125 @@ function buildAuth(ctx: Ctx) {
     rateLimit: {
       enabled: true,
       storage: "memory",
-      customRules: {
-        "/sign-in/email": { window: 60, max: 10 },
-        "/sign-in/username": { window: 60, max: 10 },
-        "/sign-up/email": { window: 60, max: 10 },
-      },
     },
     databaseHooks: {
       user: {
         create: {
           before: async (user) => {
-            if (!user.username)
-              throw new APIError("BAD_REQUEST", { message: "Username is required." });
+            const username = typeof user.username === "string" ? user.username : null;
+            if (!username)
+              throw new APIError("BAD_REQUEST", {
+                message: "Username is required.",
+                code: "USERNAME_REQUIRED",
+              });
+            const display =
+              typeof user.displayUsername === "string" ? user.displayUsername : username;
+            if (!USERNAME_PATTERN.test(display) || display.toLowerCase() !== username.toLowerCase())
+              throw new APIError("BAD_REQUEST", {
+                message: "Display username must match username apart from letter case.",
+                code: "INVALID_DISPLAY_USERNAME",
+              });
+            const existing = ctx.sqlite
+              .prepare("SELECT id FROM users WHERE username_key = ?1")
+              .get(username.toLowerCase());
+            if (existing)
+              throw new APIError("BAD_REQUEST", {
+                message: "Username is already taken.",
+                code: "USERNAME_IS_ALREADY_TAKEN",
+              });
           },
           after: async (user) => {
-            const username =
-              typeof user.displayUsername === "string" ? user.displayUsername : user.username;
-            if (typeof username !== "string" || !username)
-              throw new APIError("BAD_REQUEST", { message: "Username is required." });
-            ctx.sqlite
-              .prepare(
-                "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-              )
-              .run(Number(user.id), username, username.toLowerCase(), GROUP_IDS.member, ctx.now());
+            const normalized = typeof user.username === "string" ? user.username : null;
+            const display =
+              typeof user.displayUsername === "string" ? user.displayUsername : normalized;
+            if (!normalized || !display || display.toLowerCase() !== normalized)
+              throw new APIError("BAD_REQUEST", {
+                message: "Username is required.",
+                code: "USERNAME_REQUIRED",
+              });
+            try {
+              ctx.sqlite
+                .prepare(
+                  "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                )
+                .run(Number(user.id), display, normalized, GROUP_IDS.member, ctx.now());
+            } catch (error) {
+              const mapped = userConstraintError(error);
+              if (mapped) throw mapped;
+              throw error;
+            }
           },
         },
         update: {
+          before: async (user, context) => {
+            if ("username" in user && user.username === null)
+              throw new APIError("BAD_REQUEST", {
+                message: "Username cannot be cleared.",
+                code: "USERNAME_REQUIRED",
+              });
+            if ("displayUsername" in user && user.displayUsername === null)
+              throw new APIError("BAD_REQUEST", {
+                message: "Display username cannot be cleared.",
+                code: "INVALID_DISPLAY_USERNAME",
+              });
+            const typedUsername =
+              typeof context?.body?.username === "string"
+                ? context.body.username
+                : typeof user.username === "string"
+                  ? user.username
+                  : null;
+            const requested = typedUsername?.toLowerCase() ?? null;
+            const display =
+              typeof user.displayUsername === "string" ? user.displayUsername : typedUsername;
+            if (!requested && !display) return;
+            const currentId = Number(context?.context?.session?.user?.id);
+            const current =
+              Number.isSafeInteger(currentId) && currentId > 0
+                ? ctx.sqlite
+                    .prepare<{ username: string }, [number]>(
+                      "SELECT username FROM auth_user WHERE id = ?1",
+                    )
+                    .get(currentId)
+                : null;
+            const normalized = requested ?? current?.username;
+            if (
+              !normalized ||
+              (display && (!USERNAME_PATTERN.test(display) || display.toLowerCase() !== normalized))
+            )
+              throw new APIError("BAD_REQUEST", {
+                message: "Display username must match username apart from letter case.",
+                code: "INVALID_DISPLAY_USERNAME",
+              });
+            const existing = ctx.sqlite
+              .prepare<{ id: number }, [string]>("SELECT id FROM users WHERE username_key = ?1")
+              .get(normalized);
+            if (existing && existing.id !== currentId)
+              throw new APIError("BAD_REQUEST", {
+                message: "Username is already taken.",
+                code: "USERNAME_IS_ALREADY_TAKEN",
+              });
+            if (typedUsername && user.displayUsername === undefined)
+              return { data: { ...user, displayUsername: typedUsername } };
+          },
           after: async (user) => {
-            const current = ctx.sqlite
-              .prepare<{ username_key: string }, [number]>(
-                "SELECT username_key FROM users WHERE id = ?1",
-              )
-              .get(Number(user.id));
             const normalized = typeof user.username === "string" ? user.username : null;
             const display = typeof user.displayUsername === "string" ? user.displayUsername : null;
-            let username = display ?? normalized;
-            if (
-              normalized &&
-              current?.username_key !== normalized &&
-              display?.toLowerCase() !== normalized
-            )
-              username = normalized;
-            if (username)
+            if (!normalized) return;
+            const username = display?.toLowerCase() === normalized ? display : normalized;
+            try {
               ctx.sqlite
                 .prepare("UPDATE users SET username = ?1, username_key = ?2 WHERE id = ?3")
-                .run(username, username.toLowerCase(), Number(user.id));
+                .run(username, normalized, Number(user.id));
+            } catch (error) {
+              const mapped = userConstraintError(error);
+              if (mapped) throw mapped;
+              throw error;
+            }
           },
         },
       },
     },
-    plugins: [
-      plugins[0] as ReturnType<typeof username>,
-      plugins[1] as ReturnType<typeof apiKey>,
-      openAPI(),
-    ],
+    plugins: [usernamePlugin, apiKeyPlugin, openAPI()],
   });
 }
 
@@ -142,23 +230,30 @@ function groupFor(ctx: Ctx, userId: number): number {
       >("SELECT username, display_username, name, created_at FROM auth_user WHERE id = ?1"),
     ).get(userId);
     if (!identity) throw new UnauthenticatedError();
-    const username = identity.display_username ?? identity.username ?? identity.name;
+    const normalized = identity.username;
+    if (!normalized) throw new UnauthenticatedError();
+    const username =
+      identity.display_username?.toLowerCase() === normalized
+        ? identity.display_username
+        : normalized;
     ctx.sqlite
       .prepare(
         "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
       )
-      .run(userId, username, username.toLowerCase(), GROUP_IDS.member, identity.created_at);
+      .run(userId, username, normalized, GROUP_IDS.member, identity.created_at);
     return GROUP_IDS.member;
   });
 }
 
 /** Resolves API keys and session cookies to one actor for every caller. */
-export async function resolveActor(ctx: Ctx, headers: Headers): Promise<Actor> {
+export async function resolveActor(
+  ctx: Ctx,
+  headers: Headers,
+): Promise<{ actor: Actor; setCookies: string[] }> {
   const authorization = headers.get("authorization");
-  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const bearer = authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (authorization !== null && !bearer) throw new UnauthenticatedError();
   const key = bearer ?? headers.get("x-api-key");
-  if (authorization?.toLowerCase().startsWith("bearer") && !bearer)
-    throw new UnauthenticatedError();
   if (key !== null && key !== undefined) {
     const hash = await defaultKeyHasher(key);
     const row = prepared(ctx, "auth.apiKey", () =>
@@ -167,22 +262,34 @@ export async function resolveActor(ctx: Ctx, headers: Headers): Promise<Actor> {
         [string]
       >("SELECT id, reference_id, enabled, expires_at FROM auth_apikey WHERE key = ?1"),
     ).get(hash);
-    if (!row?.enabled || (row.expires_at !== null && row.expires_at <= ctx.now()))
+    if (!row?.enabled || (row.expires_at !== null && row.expires_at <= Date.now()))
       throw new UnauthenticatedError();
+    if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
     const userId = Number(row.reference_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
-    return { kind: "token", userId, groupId: groupFor(ctx, userId), tokenId: row.id };
+    return {
+      actor: { kind: "token", userId, groupId: groupFor(ctx, userId), tokenId: row.id },
+      setCookies: [],
+    };
   }
   const cookie = headers.get("cookie");
-  if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie)) return GUEST;
-  const session = await getAuth(ctx).api.getSession({ headers });
+  if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie))
+    return { actor: GUEST, setCookies: [] };
+  const result = await getAuth(ctx).api.getSession({ headers, returnHeaders: true });
+  const session = result.response;
   if (!session) throw new UnauthenticatedError();
   const userId = Number(session.user.id);
+  const sessionId = Number(session.session.id);
+  if (
+    !Number.isSafeInteger(userId) ||
+    userId <= 0 ||
+    !Number.isSafeInteger(sessionId) ||
+    sessionId <= 0
+  )
+    throw new UnauthenticatedError();
   return {
-    kind: "user",
-    userId,
-    groupId: groupFor(ctx, userId),
-    sessionId: Number(session.session.id),
+    actor: { kind: "user", userId, groupId: groupFor(ctx, userId), sessionId },
+    setCookies: result.headers.getSetCookie(),
   };
 }
 
@@ -218,20 +325,30 @@ export async function ensureAdmin(
     )
     .get();
   if (admin) return { userId: admin.id, created: false };
-  let row = ctx.sqlite
-    .prepare<{ id: number }, [string]>("SELECT id FROM users WHERE username_key = ?1")
+  const existing = ctx.sqlite
+    .prepare<{ id: number; email: string }, [string]>(
+      "SELECT id, email FROM auth_user WHERE username = ?1",
+    )
     .get(input.username.toLowerCase());
-  if (!row) {
-    const identity = ctx.sqlite
-      .prepare<{ id: number }, [string]>("SELECT id FROM auth_user WHERE username = ?1")
-      .get(input.username.toLowerCase());
-    if (identity) {
-      groupFor(ctx, identity.id);
-      row = identity;
-    }
-  }
   let created = false;
-  if (!row) {
+  let targetId: number;
+  let verifiedHash: string | null = null;
+  if (existing) {
+    const account = ctx.sqlite
+      .prepare<{ password: string | null }, [number]>(
+        "SELECT password FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential' LIMIT 1",
+      )
+      .get(existing.id);
+    if (
+      existing.email.toLowerCase() !== input.email.toLowerCase() ||
+      !account?.password ||
+      !(await Bun.password.verify(input.password, account.password))
+    )
+      throw new ConflictError("Admin bootstrap conflicts with an existing account.");
+    verifiedHash = account.password;
+    targetId = existing.id;
+    groupFor(ctx, targetId);
+  } else {
     const result = await getAuth(ctx).api.signUpEmail({
       body: {
         name: input.username,
@@ -240,23 +357,38 @@ export async function ensureAdmin(
         password: input.password,
       },
     });
-    row = { id: Number(result.user.id) };
+    targetId = Number(result.user.id);
     created = true;
   }
-  const targetId = row.id;
-  writeTx(ctx, () => {
+  const userId = writeTx(ctx, () => {
     const current = ctx.sqlite
       .prepare<{ id: number }, []>(
         "SELECT u.id FROM users u JOIN groups g ON g.id = u.group_id WHERE g.is_admin = 1 LIMIT 1",
       )
       .get();
-    if (!current)
-      ctx.sqlite
-        .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
-        .run(GROUP_IDS.admin, targetId);
-    else row = current;
+    if (current) return current.id;
+    if (verifiedHash) {
+      const identity = ctx.sqlite
+        .prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1")
+        .get(targetId);
+      const account = ctx.sqlite
+        .prepare<{ password: string | null }, [number]>(
+          "SELECT password FROM auth_account WHERE user_id = ?1 AND provider_id = 'credential' LIMIT 1",
+        )
+        .get(targetId);
+      if (
+        identity?.email.toLowerCase() !== input.email.toLowerCase() ||
+        account?.password !== verifiedHash
+      )
+        throw new ConflictError("Admin bootstrap conflicts with an existing account.");
+    }
+    const changed = ctx.sqlite
+      .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
+      .run(GROUP_IDS.admin, targetId).changes;
+    if (!changed) throw new ConflictError("Admin bootstrap account is missing its forum profile.");
+    return targetId;
   });
-  return { userId: row.id, created };
+  return { userId, created };
 }
 
 export const authMeOp = implement(authMe, (ctx, actor) => {

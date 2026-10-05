@@ -14,7 +14,7 @@ async function setup(env: Parameters<NonNullable<Scenario["setup"]>>[0]) {
     secret: "benchmark-secret-for-sermo-0123456789abcdef",
     baseURL: "http://localhost:3000",
     trustedOrigins: [],
-    ipAddressHeaders: [],
+    clientIpHeader: "x-sermo-client-ip",
   };
   const user = env.ctx.sqlite
     .prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1")
