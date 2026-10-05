@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { defaultKeyHasher } from "@better-auth/api-key";
 import {
   createTestContext,
   expectNoTableScan,
@@ -387,6 +388,21 @@ test("API keys resolve read-only, and revoked, disabled and expired keys reject"
   await expect(resolveActor(ctx, new Headers({ "x-api-key": created.key }))).rejects.toBeInstanceOf(
     UnauthenticatedError,
   );
+});
+
+test("API key storage format remains compatible with read-only verification", async () => {
+  const ctx = createTestContext();
+  const { cookie } = await signUp(ctx);
+  const created = await getAuth(ctx).api.createApiKey({
+    headers: new Headers({ cookie }),
+    body: { name: "format" },
+  });
+  const stored = ctx.sqlite
+    .prepare<{ key: string }, [number]>("SELECT key FROM auth_apikey WHERE id = ?1")
+    .get(Number(created.id));
+  expect(stored?.key).toBe(await defaultKeyHasher(created.key));
+  expect(stored?.key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  expect(await defaultKeyHasher("sermo_test")).toBe("-LFMOVrBHOBBnXofq4Eb6JUdERYlDZ6VR7-oT-EuBPg");
 });
 
 test("API key reference ids require decimal safe positive integers", async () => {
