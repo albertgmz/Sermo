@@ -64,8 +64,11 @@ const nodeColumns =
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?3)) ORDER BY last_post_at DESC, id DESC`,
   threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?6)) AND (last_post_at, id) < (?3, ?4) ORDER BY last_post_at DESC, id DESC LIMIT ?5`,
-  postPage: (cursor: boolean) =>
-    `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position, p.id) ${cursor ? ">" : ">="} (?2, ?3) AND (?5 = 1 OR p.state = 'visible' OR (p.state = 'moderated' AND p.user_id = ?6)) ORDER BY p.position, p.id LIMIT ?4`,
+  postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (?4 = 1 OR p.state = 'visible' OR (p.state = 'moderated' AND p.user_id = ?5)) ORDER BY p.position`,
+  postBeyond:
+    "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (?3 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?4)) ORDER BY position LIMIT 1",
+  maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
+  lastPostPositions: "SELECT id, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   readBatch:
     "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
   nodeLast:
@@ -75,11 +78,8 @@ export const forumSql = {
   authorAdjustment:
     "UPDATE users SET post_count = post_count + ?1 * authors.n FROM (SELECT user_id, count(*) AS n FROM posts WHERE thread_id = ?2 AND state = 'visible' GROUP BY user_id) AS authors WHERE users.id = authors.user_id",
   readPost:
-    "SELECT id FROM posts WHERE thread_id = ?1 AND position = ?2 AND state = 'visible' ORDER BY id LIMIT 1",
+    "SELECT id, position FROM posts WHERE thread_id = ?1 AND position <= ?2 AND state = 'visible' ORDER BY position DESC LIMIT 1",
   readPosition: "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
-  shiftDown: "UPDATE posts SET position = position - 1 WHERE thread_id = ?1 AND position > ?2",
-  shiftUp:
-    "UPDATE posts SET position = position + 1 WHERE thread_id = ?1 AND (position > ?2 OR (position = ?2 AND id > ?3))",
 } as const;
 function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
@@ -91,7 +91,7 @@ function forumDb(ctx: Ctx) {
     },
   }));
 }
-const cursorPair = z.tuple([z.number().int().nonnegative(), z.number().int().positive()]);
+const postCursor = z.tuple([z.number().int().nonnegative()]);
 const threadCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 
 function threadRow(ctx: Ctx, id: number): ThreadRow | undefined {
@@ -152,6 +152,17 @@ function readRows(ctx: Ctx, actor: Actor, ids: number[]): Map<number, ReadRow> {
   return result;
 }
 function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
+  const positions = new Map(
+    rows.length === 0
+      ? []
+      : statement<{ id: number; position: number }, [string]>(
+          ctx,
+          "lastPostPositions",
+          forumSql.lastPostPositions,
+        )
+          .all(JSON.stringify(rows.map((r) => r.last_post_id)))
+          .map((r) => [r.id, r.position] as const),
+  );
   const users = loadUserSummaries(
     ctx,
     rows.flatMap((r) => [r.user_id, r.last_poster_id]),
@@ -178,6 +189,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       firstPostId: row.first_post_id,
       lastPost: {
         postId: row.last_post_id,
+        position: positions.get(row.last_post_id)!,
         postedAt: iso(row.last_post_at),
         user: users(row.last_poster_id),
       },
@@ -395,25 +407,22 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
 
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
   const { row, access } = requireThread(ctx, actor, input.threadId);
-  const cursor = input.cursor ? decodeCursor(input.cursor, cursorPair) : null;
-  const start = (input.page ?? 1) * input.limit - input.limit;
-  const rows = statement<PostRow, [number, number, number, number, number, number]>(
+  const cursor = input.cursor ? decodeCursor(input.cursor, postCursor) : null;
+  const start = cursor?.[0] ?? ((input.page ?? 1) - 1) * input.limit;
+  const end = start + input.limit - 1;
+  const rows = statement<PostRow, [number, number, number, number, number]>(
     ctx,
-    cursor ? "postPageCursor" : "postPageStart",
-    forumSql.postPage(!!cursor),
-  ).all(
-    input.threadId,
-    cursor?.[0] ?? start,
-    cursor?.[1] ?? 0,
-    input.limit + 1,
-    Number(access.moderate),
-    actorUserId(actor) ?? -1,
-  );
-  const page = rows.slice(0, input.limit);
+    "postPage",
+    forumSql.postPage,
+  ).all(input.threadId, start, end, Number(access.moderate), actorUserId(actor) ?? -1);
+  const beyond = statement<{ id: number }, [number, number, number, number]>(
+    ctx,
+    "postBeyond",
+    forumSql.postBeyond,
+  ).get(input.threadId, end, Number(access.moderate), actorUserId(actor) ?? -1);
   return {
-    items: postValues(ctx, actor, page, row.is_locked, access.moderate, row.first_post_id),
-    nextCursor:
-      rows.length > input.limit ? encodeCursor([page.at(-1)!.position, page.at(-1)!.id]) : null,
+    items: postValues(ctx, actor, rows, row.is_locked, access.moderate, row.first_post_id),
+    nextCursor: beyond ? encodeCursor([end + 1]) : null,
   };
 });
 export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
@@ -567,7 +576,12 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
   const html = renderMarkdown(input.body);
   const id = writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
-    const position = current.reply_count + 1;
+    const position =
+      (statement<{ position: number }, [number]>(
+        ctx,
+        "maxPostPosition",
+        forumSql.maxPostPosition,
+      ).get(row.id)?.position ?? -1) + 1;
     const now = ctx.now();
     const post = forumDb(ctx)
       .prepare<{ id: number }, [number, number, number, number]>(
@@ -699,13 +713,6 @@ function changePostState(ctx: Ctx, id: number, state: State): void {
   if (post.state === state) return;
   const before = post.state === "visible";
   const after = state === "visible";
-  if (before !== after) {
-    if (after) {
-      forumDb(ctx).prepare(forumSql.shiftUp).run(thread.id, post.position, post.id);
-    } else {
-      forumDb(ctx).prepare(forumSql.shiftDown).run(thread.id, post.position);
-    }
-  }
   forumDb(ctx).prepare("UPDATE posts SET state = ?1 WHERE id = ?2").run(state, post.id);
   if (before !== after) {
     const delta = after ? 1 : -1;
@@ -745,12 +752,11 @@ export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, acto
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
   return writeTx(ctx, () => {
-    const position = Math.min(input.position, threadRow(ctx, row.id)!.reply_count);
     const post = forumDb(ctx)
-      .prepare<{ id: number }, [number, number]>(forumSql.readPost)
-      .get(row.id, position);
+      .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
+      .get(row.id, input.position);
     if (!post) throw new Error("Visible post missing at read position.");
-    return { readPosition: markRead(ctx, user.userId, row.id, post.id, position) };
+    return { readPosition: markRead(ctx, user.userId, row.id, post.id, post.position) };
   });
 });
 

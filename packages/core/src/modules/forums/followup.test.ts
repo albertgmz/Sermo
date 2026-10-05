@@ -338,8 +338,8 @@ describe("forum follow-up coverage", () => {
       limit: 2,
     });
     const modPage = await call(ctx, postsListOp, mod, { threadId: t.thread.id, page: 2, limit: 2 });
-    expect(memberPage.items.map((p) => p.position)).toEqual([2, 3]);
-    expect(modPage.items.map((p) => p.position)).toEqual([2, 2]);
+    expect(memberPage.items.map((p) => p.position)).toEqual([3]);
+    expect(modPage.items.map((p) => p.position)).toEqual([2, 3]);
     await call(ctx, postsRestoreOp, mod, { postId: replies[4]!.id });
     await call(ctx, postsRestoreOp, mod, { postId: replies[1]!.id });
     expect(
@@ -367,6 +367,101 @@ describe("forum follow-up coverage", () => {
     expect(
       (await call(ctx, postsListOp, member, { threadId: t.thread.id, page: 100 })).items,
     ).toEqual([]);
+  });
+
+  test("positions stay fixed through state changes and moves while pages respect visibility", async () => {
+    const { ctx, forum, target, member, other, mod } = setup();
+    const t = await call(ctx, threadsCreateOp, member, { nodeId: forum.id, title: "T", body: "B" });
+    const replies = [];
+    for (let i = 1; i <= 4; i++)
+      replies.push(
+        await call(ctx, postsCreateOp, member, { threadId: t.thread.id, body: `R${i}` }),
+      );
+    const positions = () =>
+      ctx.sqlite
+        .prepare<{ id: number; position: number }, [number]>(
+          "SELECT id, position FROM posts WHERE thread_id = ?1 ORDER BY id",
+        )
+        .all(t.thread.id);
+    const original = positions();
+    expect(original.map((p) => p.position)).toEqual([0, 1, 2, 3, 4]);
+    expect(t.thread.lastPost.position).toBe(0);
+    expect(
+      (await call(ctx, threadsGetOp, other, { threadId: t.thread.id })).thread.lastPost.position,
+    ).toBe(4);
+
+    await call(ctx, postsDeleteOp, member, { postId: replies[0]!.id });
+    expect(positions()).toEqual(original);
+    const first = await call(ctx, postsListOp, other, { threadId: t.thread.id, limit: 2 });
+    expect(first.items.map((p) => p.position)).toEqual([0]);
+    expect(first.nextCursor).not.toBeNull();
+    expect(
+      (
+        await call(ctx, postsListOp, other, {
+          threadId: t.thread.id,
+          page: 99,
+          limit: 2,
+          cursor: first.nextCursor!,
+        })
+      ).items.map((p) => p.position),
+    ).toEqual([2, 3]);
+    expect(
+      (await call(ctx, postsListOp, mod, { threadId: t.thread.id, limit: 2 })).items.map(
+        (p) => p.position,
+      ),
+    ).toEqual([0, 1]);
+
+    for (const reply of replies.slice(1))
+      await call(ctx, postsDeleteOp, member, { postId: reply.id });
+    expect(positions()).toEqual(original);
+    expect(
+      (await call(ctx, threadsGetOp, other, { threadId: t.thread.id })).thread.lastPost.position,
+    ).toBe(0);
+    expect(
+      (await call(ctx, postsListOp, other, { threadId: t.thread.id, limit: 2 })).nextCursor,
+    ).toBeNull();
+    expect(
+      (await call(ctx, postsListOp, mod, { threadId: t.thread.id, limit: 2 })).nextCursor,
+    ).not.toBeNull();
+    expect(
+      (await call(ctx, threadsMarkReadOp, other, { threadId: t.thread.id, position: 99 }))
+        .readPosition,
+    ).toBe(0);
+    expect(
+      ctx.sqlite
+        .prepare<{ last_read_post_id: number }, [number, number]>(
+          "SELECT last_read_post_id FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
+        )
+        .get(actorUserId(other)!, t.thread.id)!.last_read_post_id,
+    ).toBe(t.post.id);
+
+    const newReply = await call(ctx, postsCreateOp, member, {
+      threadId: t.thread.id,
+      body: "Later",
+    });
+    expect(newReply.position).toBe(5);
+    await call(ctx, postsRestoreOp, mod, { postId: replies[1]!.id });
+    expect(
+      (await call(ctx, threadsMarkReadOp, other, { threadId: t.thread.id, position: 4 }))
+        .readPosition,
+    ).toBe(2);
+    await call(ctx, postsDeleteOp, member, { postId: newReply.id });
+    const withNew = positions();
+
+    ctx.sqlite.prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1").run(replies[0]!.id);
+    await call(ctx, postsDeleteOp, member, { postId: replies[0]!.id });
+    expect(positions()).toEqual(withNew);
+    await call(ctx, threadsMoveOp, mod, { threadId: t.thread.id, nodeId: target.id });
+    expect(positions()).toEqual(withNew);
+    await call(ctx, threadsDeleteOp, mod, { threadId: t.thread.id });
+    expect(positions()).toEqual(withNew);
+    await call(ctx, threadsRestoreOp, mod, { threadId: t.thread.id });
+    expect(positions()).toEqual(withNew);
+    await call(ctx, postsRestoreOp, mod, { postId: newReply.id });
+    expect(positions()).toEqual(withNew);
+    expect(
+      (await call(ctx, threadsGetOp, other, { threadId: t.thread.id })).thread.lastPost.position,
+    ).toBe(5);
   });
 
   test("moderated posts retain position when deleted and authors can see their own", async () => {

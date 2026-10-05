@@ -115,10 +115,10 @@ describe("forums", () => {
     await call(ctx, postsDeleteOp, author, { postId: a.id });
     expect(
       (await call(ctx, postsListOp, author, { threadId: id })).items.map((p) => p.position),
-    ).toEqual([0, 1, 2]);
+    ).toEqual([0, 2, 3]);
     expect(
       (await call(ctx, postsListOp, mod, { threadId: id })).items.map((p) => p.position),
-    ).toEqual([0, 1, 1, 2]);
+    ).toEqual([0, 1, 2, 3]);
     await call(ctx, postsDeleteOp, other, { postId: c.id });
     await call(ctx, postsRestoreOp, mod, { postId: a.id });
     await call(ctx, postsRestoreOp, mod, { postId: c.id });
@@ -200,8 +200,10 @@ describe("forums", () => {
     const ctx = createTestContext();
     expectNoTableScan(ctx, forumSql.threadPage, [1, 0, 100, 100, 20, 1]);
     expectNoTableScan(ctx, forumSql.sticky, [1, 0, 1]);
-    expectNoTableScan(ctx, forumSql.postPage(false), [1, 0, 0, 20, 0, 1]);
-    expectNoTableScan(ctx, forumSql.postPage(true), [1, 0, 1, 20, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postPage, [1, 0, 19, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postBeyond, [1, 19, 0, 1]);
+    expectNoTableScan(ctx, forumSql.maxPostPosition, [1]);
+    expectNoTableScan(ctx, forumSql.lastPostPositions, ["[1]"]);
     expectNoTableScan(ctx, forumSql.readBatch, [1, "[1]"]);
     expectNoTableScan(ctx, forumSql.nodeLast, [1, 0]);
     expectNoTableScan(ctx, forumSql.threadLast, [1]);
@@ -211,8 +213,6 @@ describe("forums", () => {
     });
     expectNoTableScan(ctx, forumSql.readPost, [1, 0]);
     expectNoTableScan(ctx, forumSql.readPosition, [1, 1]);
-    expectNoTableScan(ctx, forumSql.shiftDown, [1, 1]);
-    expectNoTableScan(ctx, forumSql.shiftUp, [1, 1, 1]);
   });
 
   test("keyset pages cover tied thread activity without duplicates", async () => {

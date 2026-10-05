@@ -77,12 +77,12 @@ test("seeded forum writes preserve counters, last pointers and post positions", 
         last.user_id,
       ]);
       let position = 0;
-      for (const post of rows<{ id: number; position: number; state: string }>(
-        "SELECT id, position, state FROM posts WHERE thread_id = ?1 ORDER BY id",
+      for (const post of rows<{ id: number; position: number }>(
+        "SELECT id, position FROM posts WHERE thread_id = ?1 ORDER BY id",
         thread.id,
       )) {
         expect(post.position).toBe(position);
-        if (post.state === "visible") position++;
+        position++;
       }
     }
     for (const node of rows<{
