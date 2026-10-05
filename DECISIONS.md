@@ -200,8 +200,12 @@ counts follow heavy-tailed distributions (the largest threads have ~10,500 repli
 inserted in time order so ids grow with time, like a live forum. In addition to the required
 counts it creates 200,000 thread-read rows, so unread markers are measured realistically.
 
-**What the benchmark measures:** each scenario's wall time around one request, server-side:
-input validation, the service, and JSON serialization, and the HTTP adapter once it exists.
+**What the benchmark measures:** each scenario's wall time around one HTTP request, server-side,
+through the full app with every middleware enabled: secure headers, client IP, actor resolution
+(Better Auth API key, or the session cookie with its cache in the session scenarios), rate
+limiting (enforced, with limits set out of reach so the benchmark measures cost rather than
+429s), CSRF, routing, input coercion and validation, the operation, and JSON serialization.
+Requests go through `app.request`, so the network itself is not included.
 Each scenario warms up before measuring. Before any scenario runs, the runner reads the freshly
 copied database file once, so it sits in the OS page cache like the data of a server that has
 been running for a while. Without that step the first requests measured disk reads of a file

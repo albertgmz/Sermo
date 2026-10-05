@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { closeContext, createContext, startCheckpointer } from "@sermo/core";
+import { CLIENT_IP_HEADER, closeContext, createContext, startCheckpointer } from "@sermo/core";
 import { BUDGETS, createEnv, type Scenario } from "./harness";
 import { Rng } from "./rng";
 import { benchDir, ensureSeed } from "./seed";
@@ -56,10 +56,20 @@ function warmFileCache(path: string): void {
   closeSync(fd);
 }
 
-const ctx = createContext({ path: workPath });
+const ctx = createContext({
+  path: workPath,
+  config: {
+    auth: {
+      secret: "benchmark-secret-not-for-production-0123456789",
+      baseURL: "http://localhost:3000",
+      trustedOrigins: [],
+      clientIpHeader: CLIENT_IP_HEADER,
+    },
+  },
+});
 // As in the server: WAL checkpoints run on a worker thread, not inside requests.
 const stopCheckpointer = startCheckpointer(ctx);
-const env = createEnv(ctx, meta, new Rng(42));
+const env = await createEnv(ctx, meta, new Rng(42));
 
 const scenarioDir = join(import.meta.dir, "scenarios");
 const scenarios: Scenario[] = [];
