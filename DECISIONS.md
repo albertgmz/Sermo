@@ -243,3 +243,47 @@ transaction would risk overwriting concurrent updates.
 marks are dropped by both the query parser and the index tokenizer, so in scripts that use them
 (for example Devanagari) a query can match part of a longer word. Excerpts are plain text cut on
 code points.
+
+## Milestones 8–9: HTTP surface and deployment
+
+**One Hono app serves everything:** Better Auth at `/api/auth/*`, the REST API at `/api/v1`,
+MCP at `/mcp`, `/health`, and the OpenAPI document at `/api/v1/openapi.json`. The REST route
+table is data; the router, the OpenAPI generator and the benchmark all read it, and a test fails
+if any operation lacks a route.
+
+**The OpenAPI document is generated** from the route table and the Zod contracts (OpenAPI 3.1,
+shared schemas as components) and merged with Better Auth's own document, so it covers every
+endpoint including sign-up, sign-in and API keys. It is built once per process.
+
+**Security middleware uses maintained libraries.** Hono's `secureHeaders` on every response (CSP
+`default-src 'none'; frame-ancestors 'none'`, and `Referrer-Policy:
+strict-origin-when-cross-origin` because `no-referrer` can make browsers send `Origin: null`,
+which Better Auth's origin check rejects). Hono's `csrf` on cookie-authenticated state-changing
+REST requests. Hono's CSRF middleware only inspects form-like content types, so cookie-
+authenticated writes must also be `application/json` (415 otherwise): a cross-site JSON request
+then needs a CORS preflight, which `/api/v1` never grants. API-key requests carry no cookie and
+are exempt. Better Auth protects its own routes with its origin check.
+
+**Rate limiting uses hono-rate-limiter (0.5.4), in memory.** Per 60-second window: 300 reads
+(GET and HEAD), 60 writes, 30 searches, 60 MCP requests, keyed by API key, signed-in user, or
+client IP for guests; a 429 carries the error envelope and `Retry-After`. Limits are per process,
+which suits the single-container deployment. The client IP comes from the socket, or from the
+last value of a configured trusted proxy header (correct with exactly one proxy that appends to
+it), and is passed on in one header that clients cannot set.
+
+**MCP uses the SDK's low-level `Server`, not `McpServer.registerTool`.** `McpServer` validates
+arguments itself and answers with its own error text before our code runs; with the low-level
+server every call goes through `execute`, so MCP and REST return the same error envelope. The
+tool list (one tool per operation, names with `_` instead of `.`) and its JSON Schemas are built
+once. The transport is stateless: a new server and transport per HTTP request (about 0.1 ms).
+
+**Shutdown drains requests first:** stop accepting connections and wait for in-flight requests,
+then flush buffered views, stop the scheduler, job worker and checkpointer, and close the
+database. `docker stop` completes in about half a second.
+
+**Docker: one container, database on a named volume.** Multi-stage build on
+`oven/bun:1.4.2-slim` (FTS5 verified in it), production dependencies only, non-root user, health
+check through Bun (the slim image has no curl). Bun links each workspace package's dependencies
+in that package's own `node_modules`, so the runtime stage copies those too. Backups use
+`VACUUM INTO` through Bun's SQLite binding (no `sqlite3` binary in the image) or a copy after a
+graceful stop.
