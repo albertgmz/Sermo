@@ -174,9 +174,9 @@ export const posts = sqliteTable(
       .notNull()
       .references(() => users.id),
     /**
-     * 0-based index among the thread's visible posts. A non-visible post keeps the position it
-     * had when it was hidden, so it shares that number with the next visible post
-     * (see DECISIONS.md "Post positions").
+     * 0-based position in the thread in creation order (the first post is 0). Never changes:
+     * hiding or restoring a post leaves every position as it is (see DECISIONS.md
+     * "Post positions").
      */
     position: integer("position").notNull(),
     state: state(),
@@ -185,14 +185,13 @@ export const posts = sqliteTable(
     reactionCounts: reactionCounts(),
   },
   (t) => [
-    // posts.list: WHERE thread_id = ? AND (position, id) >= (?, ?) ORDER BY position, id
+    // posts.list: WHERE thread_id = ? AND position BETWEEN ? AND ? ORDER BY position
     index("posts_thread_position").on(t.threadId, t.position),
   ],
 );
 
 /**
- * Post bodies, kept out of `posts` so position shifts (hiding or restoring a post rewrites the
- * positions of every later post in the thread) only rewrite narrow rows.
+ * Post bodies, kept out of `posts` so the hot listing and counter queries touch narrow rows.
  * Insert the `posts` row first, then its body. The search triggers hang off this table.
  */
 export const postBodies = sqliteTable("post_bodies", {

@@ -42,7 +42,7 @@ export const SIZES = {
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -268,6 +268,7 @@ async function generate(path: string): Promise<SeedMeta> {
   const threadLastPost = new Uint32Array(T + 1);
   const threadLastAt = new Float64Array(T + 1);
   const threadLastPoster = new Uint32Array(T + 1);
+  const threadLastPosition = new Uint32Array(T + 1);
   for (let rank = 0; rank < P; rank++) {
     const k = postOrder[rank]!;
     const t = postThread[k]!;
@@ -276,7 +277,8 @@ async function generate(path: string): Promise<SeedMeta> {
     threadSeen[t]!++;
     postAuthor[k] = isFirst ? threadAuthor[t]! : activeUser();
     postState[k] = isFirst ? 0 : rng.chance(0.01) ? 2 : rng.chance(0.003) ? 1 : 0;
-    postPosition[k] = threadVisible[t]!;
+    // Positions follow creation order and never change (hidden posts keep theirs).
+    postPosition[k] = threadSeen[t]! - 1;
     postBody[k] = rng.int(0, bodies.length - 1);
     if (isFirst) threadFirstPost[t] = postId;
     if (postState[k] === 0) {
@@ -284,6 +286,7 @@ async function generate(path: string): Promise<SeedMeta> {
       threadLastPost[t] = postId;
       threadLastAt[t] = postTime[k]!;
       threadLastPoster[t] = postAuthor[k]!;
+      threadLastPosition[t] = postPosition[k]!;
       if (threadState[t] === 0) userPostCount[postAuthor[k]!]!++;
     }
   }
@@ -650,7 +653,7 @@ async function generate(path: string): Promise<SeedMeta> {
         seen.add(t);
         // Half fully read, half read only up to the first post.
         if (rng.chance(0.5)) {
-          insertRead.run(userId, t, threadLastPost[t]!, threadVisible[t]! - 1, threadLastAt[t]!);
+          insertRead.run(userId, t, threadLastPost[t]!, threadLastPosition[t]!, threadLastAt[t]!);
         } else {
           insertRead.run(userId, t, threadFirstPost[t]!, 0, threadCreated[t]!);
         }

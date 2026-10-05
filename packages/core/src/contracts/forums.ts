@@ -58,11 +58,14 @@ export const Thread = z
     /** Stored views plus views still buffered in memory. */
     viewCount: z.number().int().nonnegative(),
     firstPostId: Id,
-    lastPost: z.object({ postId: Id, postedAt: Timestamp, user: UserSummary }),
-    /**
-     * Position of the newest post the viewer marked read (a jump target; approximate after
-     * deletions), or null if never read / guest.
-     */
+    /** Newest visible post; `position` gives the number of pages: floor(position / limit) + 1. */
+    lastPost: z.object({
+      postId: Id,
+      position: z.number().int().nonnegative(),
+      postedAt: Timestamp,
+      user: UserSummary,
+    }),
+    /** Position of the newest post the viewer marked read, or null if never read / guest. */
     readPosition: z.number().int().nonnegative().nullable(),
     /**
      * Signed-in viewers only: the thread's last post is newer than the newest post the viewer
@@ -77,8 +80,8 @@ export const Post = z
     id: Id,
     threadId: Id,
     /**
-     * 0-based position among visible posts; page n holds positions [(n-1)*limit, n*limit).
-     * A hidden post keeps its position, so it shares it with the next visible post.
+     * 0-based position in the thread in creation order; it never changes. Page n holds positions
+     * [(n-1)*limit, n*limit). Posts the viewer may not see leave gaps in that range.
      */
     position: z.number().int().nonnegative(),
     author: UserSummary,
@@ -230,8 +233,8 @@ export const threadsRestore = defineContract({
 export const threadsMarkRead = defineContract({
   name: "threads.markRead",
   summary:
-    "Record that the viewer has read the thread up to the visible post at `position` (clamped " +
-    "to the last post). Never moves backwards. Signed-in only.",
+    "Record that the viewer has read the thread up to the post at `position` (clamped to the " +
+    "last visible post). Never moves backwards. Signed-in only.",
   kind: "write",
   input: z.object({ threadId: Id, position: z.number().int().nonnegative() }),
   output: z.object({ readPosition: z.number().int().nonnegative() }),
@@ -242,11 +245,11 @@ export const threadsMarkRead = defineContract({
 export const postsList = defineContract({
   name: "posts.list",
   summary:
-    "Posts of a thread ordered by (position, id), at most `limit` per call. `page` (1-based) " +
-    "starts at position (page-1)*limit; `cursor` continues after the last post of the previous " +
-    "call and takes precedence over `page`. Moderators also receive hidden posts (and authors " +
-    "their own unapproved ones), so their pages can end before the page's last position; " +
-    "`nextCursor` continues from there.",
+    "One page of a thread's posts: positions [(page-1)*limit, page*limit), in position order. " +
+    "`cursor` (from the previous page) takes precedence over `page`. Posts the viewer may not " +
+    "see are left out, so a page can hold fewer than `limit` posts (moderators see every " +
+    "state; authors also see their own unapproved posts). `nextCursor` is null after the last " +
+    "page.",
   kind: "read",
   input: z.object({ threadId: Id, page: z.number().int().min(1).optional(), ...pageInput }),
   output: Page(Post),

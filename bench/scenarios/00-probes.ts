@@ -63,8 +63,8 @@ export const scenarios: Scenario[] = [
         "postsPage",
         "SELECT p.id, p.user_id, p.position, p.state, p.created_at, p.edited_at, b.body_html, p.reaction_counts " +
           "FROM posts p JOIN post_bodies b ON b.post_id = p.id " +
-          "WHERE p.thread_id = ?1 AND (p.position, p.id) >= (?2, 0) AND p.state = 'visible' ORDER BY p.position, p.id LIMIT 21",
-      ).all(threadId, start);
+          "WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND p.state = 'visible' ORDER BY p.position",
+      ).all(threadId, start, start + 19);
       users(
         env,
         rows.map((r) => r.user_id),

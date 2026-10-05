@@ -44,14 +44,16 @@ naturally, and a future editor can emit it. Rendered once at write time with `ma
 HTML escaped, then passed through a `sanitize-html` allowlist. Links get
 `rel="nofollow ugc noopener"`. Profile "about" text is plain text (clients escape it).
 
-**Post positions.** Positions count visible posts only. A hidden post keeps its number and
-later posts shift down by one (see the `posts.position` comment in
-`packages/core/src/db/schema.ts`). Any page is then a single index range. Hiding or restoring a
-post rewrites the positions of the rest of that thread, so post bodies live in a separate
-`post_bodies` table: shifting 10,500 rows that carry their bodies measured 400–870 ms, while
-narrow rows shift in single-digit milliseconds. Pages are capped at `limit` rows and continue
-with a `(position, id)` cursor, so a moderator's view of a thread full of deleted spam stays
-bounded.
+**Post positions are stable.** A post's position is its 0-based place in the thread in creation
+order and never changes; page n is `WHERE thread_id = ? AND position BETWEEN (n-1)*L AND n*L-1`.
+Posts a viewer may not see (deleted, or unapproved and not theirs) leave gaps, so a member's page
+can hold fewer than L posts. The first version renumbered later posts whenever a post was hidden
+or restored, so that every page held exactly L visible posts. A thread's posts are scattered
+across the table (posts are stored in time order across all threads), so renumbering a
+10,500-reply thread rewrote about 2,000 pages and 8 MB of WAL per moderator action, and those
+requests reached 350–600 ms. With stable positions hiding or restoring a post is a one-row
+write. The owner chose this trade-off. Post bodies stay in `post_bodies` so listing and counter
+queries touch narrow rows.
 
 **Unread state uses post and message ids, not positions or timestamps.** Positions shift when
 posts are hidden or restored, and timestamps can tie; ids only grow. Threads whose last post is
