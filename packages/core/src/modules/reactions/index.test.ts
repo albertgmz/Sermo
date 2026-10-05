@@ -135,7 +135,11 @@ describe("reactions", () => {
         "reactions.list",
       ].sort(),
     );
+    const initial = (await execute(f.ctx, reactionTypesListOp, GUEST, {})).items;
     const first = await createType(f, 1, 10);
+    expect((await execute(f.ctx, reactionTypesListOp, GUEST, {})).items).toHaveLength(
+      initial.length + 1,
+    );
     const second = await createType(f, 2, 0);
     const ordered = (await execute(f.ctx, reactionTypesListOp, GUEST, {})).items;
     expect(ordered[0]?.id).toBe(second.id);
@@ -151,6 +155,15 @@ describe("reactions", () => {
     ).rejects.toThrow(UnauthenticatedError);
     await expect(
       execute(f.ctx, reactionTypesCreateOp, userActor(f.reactor), { title: "A", emoji: "A" }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(
+      execute(f.ctx, reactionTypesUpdateOp, GUEST, { reactionTypeId: first.id, title: "A" }),
+    ).rejects.toThrow(UnauthenticatedError);
+    await expect(
+      execute(f.ctx, reactionTypesUpdateOp, userActor(f.reactor), {
+        reactionTypeId: first.id,
+        title: "A",
+      }),
     ).rejects.toThrow(ForbiddenError);
     await expect(
       execute(f.ctx, reactionTypesUpdateOp, userActor(f.admin), {
@@ -174,7 +187,31 @@ describe("reactions", () => {
         reactionTypeId: one.id,
         score: 9,
       });
+      const storedBefore = f.ctx.sqlite
+        .prepare<{ id: number; score: number; created_at: number }, [string, number, number]>(
+          "SELECT id, score, created_at FROM reactions WHERE content_type = ?1 AND content_id = ?2 AND user_id = ?3",
+        )
+        .get(ref.contentType, f[ref.key], f.reactor.id)!;
+      const authorScoreBefore = f.ctx.sqlite
+        .prepare<{ reaction_score: number }, [number]>(
+          "SELECT reaction_score FROM users WHERE id = ?1",
+        )
+        .get(f.author.id)!.reaction_score;
       await execute(f.ctx, reactionsSetOp, actor, { ...target, reactionTypeId: one.id });
+      expect(
+        f.ctx.sqlite
+          .prepare<{ id: number; score: number; created_at: number }, [string, number, number]>(
+            "SELECT id, score, created_at FROM reactions WHERE content_type = ?1 AND content_id = ?2 AND user_id = ?3",
+          )
+          .get(ref.contentType, f[ref.key], f.reactor.id),
+      ).toEqual(storedBefore);
+      expect(
+        f.ctx.sqlite
+          .prepare<{ reaction_score: number }, [number]>(
+            "SELECT reaction_score FROM users WHERE id = ?1",
+          )
+          .get(f.author.id)?.reaction_score,
+      ).toBe(authorScoreBefore);
       checkCounters(f, ref);
       expect(
         (await execute(f.ctx, reactionsSetOp, actor, { ...target, reactionTypeId: two.id })).counts,
@@ -218,13 +255,17 @@ describe("reactions", () => {
       const f = fixture();
       const type = await createType(f, 1);
       const target = { contentType: ref.contentType, contentId: f[ref.key] };
-      const users = [f.reactor, f.mod, f.admin];
+      const users = [
+        f.reactor,
+        f.mod,
+        f.admin,
+        ...Array.from({ length: 4 }, () => insertUser(f.ctx)),
+      ];
       if (ref.contentType === "conversation_message") {
-        f.ctx.sqlite
-          .prepare(
-            "INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_message_at) VALUES (?1, ?2, ?3, ?3)",
-          )
-          .run(f.conversation, f.admin.id, f.ctx.now());
+        const addParticipant = f.ctx.sqlite.prepare(
+          "INSERT INTO conversation_participants (conversation_id, user_id, joined_at, last_message_at) VALUES (?1, ?2, ?3, ?3)",
+        );
+        for (const user of users.slice(2)) addParticipant.run(f.conversation, user.id, f.ctx.now());
       }
       for (const user of users)
         await execute(f.ctx, reactionsSetOp, userActor(user), {
@@ -232,25 +273,55 @@ describe("reactions", () => {
           reactionTypeId: type.id,
         });
       const ids: number[] = [];
+      const pageSizes: number[] = [];
       let cursor: string | undefined;
       do {
-        const page = await execute(f.ctx, reactionsListOp, userActor(f.reactor), {
-          ...target,
-          limit: 1,
-          ...(cursor ? { cursor } : {}),
-        });
+        const page = await execute(
+          f.ctx,
+          reactionsListOp,
+          ref.contentType === "conversation_message" ? userActor(f.reactor) : GUEST,
+          {
+            ...target,
+            limit: 2,
+            ...(cursor ? { cursor } : {}),
+          },
+        );
+        pageSizes.push(page.items.length);
         ids.push(...page.items.map((item) => item.user.id));
         cursor = page.nextCursor ?? undefined;
       } while (cursor);
+      expect(pageSizes).toEqual([2, 2, 2, 1]);
       expect(ids).toEqual(users.map((user) => user.id).sort((a, b) => a - b));
       expectNoTableScan(f.ctx, existingSql, [ref.contentType, f[ref.key], f.reactor.id]);
       expectNoTableScan(f.ctx, listSql, [ref.contentType, f[ref.key], 0, 2]);
+    });
+    test(`${ref.contentType}: removing one reaction retains the other type`, async () => {
+      const f = fixture();
+      const one = await createType(f, 1);
+      const two = await createType(f, 2);
+      const target = { contentType: ref.contentType, contentId: f[ref.key] };
+      await execute(f.ctx, reactionsSetOp, userActor(f.reactor), {
+        ...target,
+        reactionTypeId: one.id,
+      });
+      await execute(f.ctx, reactionsSetOp, userActor(f.mod), { ...target, reactionTypeId: two.id });
+      expect(
+        (await execute(f.ctx, reactionsRemoveOp, userActor(f.reactor), target)).counts,
+      ).toEqual({
+        [two.id]: 1,
+      });
+      checkCounters(f, ref);
     });
   }
   test("rejects disabled groups and hidden content", async () => {
     const f = fixture();
     const type = await createType(f, 1);
     const actor = userActor(f.reactor);
+    await execute(f.ctx, reactionsSetOp, actor, {
+      contentType: "post",
+      contentId: f.post,
+      reactionTypeId: type.id,
+    });
     f.ctx.sqlite.prepare("UPDATE groups SET can_react = 0 WHERE id = 2").run();
     f.ctx.sqlite
       .prepare(
@@ -263,6 +334,9 @@ describe("reactions", () => {
         contentId: f.post,
         reactionTypeId: type.id,
       }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(
+      execute(f.ctx, reactionsRemoveOp, actor, { contentType: "post", contentId: f.post }),
     ).rejects.toThrow(ForbiddenError);
     f.ctx.sqlite.prepare("UPDATE groups SET can_react = 1 WHERE id = 2").run();
     f.ctx.sqlite
@@ -313,6 +387,69 @@ describe("reactions", () => {
       execute(f.ctx, reactionsListOp, userActor(f.other), {
         contentType: "conversation_message",
         contentId: f.message,
+      }),
+    ).rejects.toThrow(NotFoundError);
+  });
+  test("Guest group cannot react even with its flag forced on", async () => {
+    const f = fixture();
+    const type = await createType(f, 1);
+    f.ctx.sqlite.prepare("UPDATE groups SET can_react = 1 WHERE id = 1").run();
+    f.ctx.sqlite
+      .prepare(
+        "INSERT INTO cache_versions (key, version) VALUES ('permissions', 1) ON CONFLICT (key) DO UPDATE SET version = version + 1",
+      )
+      .run();
+    await expect(
+      execute(f.ctx, reactionsSetOp, GUEST, {
+        contentType: "post",
+        contentId: f.post,
+        reactionTypeId: type.id,
+      }),
+    ).rejects.toThrow(UnauthenticatedError);
+    await expect(
+      execute(f.ctx, reactionsRemoveOp, GUEST, { contentType: "post", contentId: f.post }),
+    ).rejects.toThrow(UnauthenticatedError);
+  });
+  test("hidden threads, profile permissions and conversation membership", async () => {
+    const f = fixture();
+    const type = await createType(f, 1);
+    const actor = userActor(f.reactor);
+    for (const state of ["moderated", "deleted"]) {
+      f.ctx.sqlite.prepare("UPDATE threads SET state = ?1 WHERE id = ?2").run(state, f.thread);
+      await expect(
+        execute(f.ctx, reactionsSetOp, actor, {
+          contentType: "post",
+          contentId: f.post,
+          reactionTypeId: type.id,
+        }),
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        execute(f.ctx, reactionsSetOp, userActor(f.mod), {
+          contentType: "post",
+          contentId: f.post,
+          reactionTypeId: type.id,
+        }),
+      ).rejects.toThrow(ForbiddenError);
+    }
+    f.ctx.sqlite.prepare("UPDATE groups SET can_view_profiles = 0 WHERE id = 2").run();
+    f.ctx.sqlite
+      .prepare(
+        "INSERT INTO cache_versions (key, version) VALUES ('permissions', 1) ON CONFLICT (key) DO UPDATE SET version = version + 1",
+      )
+      .run();
+    for (const target of [
+      { contentType: "profile_post", contentId: f.profile },
+      { contentType: "profile_post_comment", contentId: f.comment },
+    ] as const) {
+      await expect(
+        execute(f.ctx, reactionsSetOp, actor, { ...target, reactionTypeId: type.id }),
+      ).rejects.toThrow(NotFoundError);
+    }
+    await expect(
+      execute(f.ctx, reactionsSetOp, userActor(f.other), {
+        contentType: "conversation_message",
+        contentId: f.message,
+        reactionTypeId: type.id,
       }),
     ).rejects.toThrow(NotFoundError);
   });
