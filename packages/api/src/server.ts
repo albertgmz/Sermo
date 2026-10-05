@@ -1,12 +1,15 @@
 import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import {
   CLIENT_IP_HEADER,
   closeContext,
   createContext,
   ensureAdmin,
   flushViewCounts,
+  localDriver,
   registerJobHandlers,
+  registerStorageJobs,
+  s3Driver,
   startCheckpointer,
   startJobWorker,
   startScheduler,
@@ -78,10 +81,25 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     siteURL.password
   )
     throw new Error("SERMO_SITE_URL must be an HTTP(S) origin without a path or credentials.");
+  const storageDriver = source.SERMO_STORAGE_DRIVER ?? "local";
+  if (storageDriver !== "local" && storageDriver !== "s3")
+    throw new Error("SERMO_STORAGE_DRIVER must be local or s3.");
+  if (storageDriver === "s3" && !source.SERMO_S3_BUCKET)
+    throw new Error("SERMO_S3_BUCKET is required for S3 storage.");
   return {
     path: source.SERMO_DB_PATH ?? "./data/sermo.db",
     port,
     siteBaseURL: siteURL.origin,
+    storage: {
+      driver: storageDriver,
+      directory:
+        source.SERMO_FILES_DIR ?? join(dirname(source.SERMO_DB_PATH ?? "./data/sermo.db"), "files"),
+      bucket: source.SERMO_S3_BUCKET,
+      endpoint: source.SERMO_S3_ENDPOINT,
+      region: source.SERMO_S3_REGION,
+      accessKeyId: source.SERMO_S3_ACCESS_KEY_ID,
+      secretAccessKey: source.SERMO_S3_SECRET_ACCESS_KEY,
+    },
     trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
     auth: {
       secret,
@@ -112,7 +130,23 @@ async function main(): Promise<void> {
   registerJobHandlers(ctx);
   const stopWorker = startJobWorker(ctx);
   const stopScheduler = startScheduler(ctx);
-  const app = createApp(ctx, { trustedProxyHeader: config.trustedProxyHeader });
+  const driver =
+    config.storage.driver === "local"
+      ? localDriver(config.storage.directory)
+      : s3Driver({
+          bucket: config.storage.bucket!,
+          ...(config.storage.endpoint ? { endpoint: config.storage.endpoint } : {}),
+          ...(config.storage.region ? { region: config.storage.region } : {}),
+          ...(config.storage.accessKeyId ? { accessKeyId: config.storage.accessKeyId } : {}),
+          ...(config.storage.secretAccessKey
+            ? { secretAccessKey: config.storage.secretAccessKey }
+            : {}),
+        });
+  registerStorageJobs(ctx, { driver, tempDir: join(dirname(config.path), "upload-temp") });
+  const app = createApp(ctx, {
+    trustedProxyHeader: config.trustedProxyHeader,
+    storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },
+  });
   const server = Bun.serve({ port: config.port, fetch: app.fetch });
   console.info(`Sermo listening on ${server.url}`);
 

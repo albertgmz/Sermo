@@ -2,10 +2,13 @@ import {
   type Actor,
   CLIENT_IP_HEADER,
   type Ctx,
+  createStorage,
   execute,
   getAuth,
+  readSiteSettings,
   resolveActor,
   SermoError,
+  type StorageConfig,
 } from "@sermo/core";
 import { createMcpHandler } from "@sermo/mcp";
 import { type Context, Hono } from "hono";
@@ -18,10 +21,12 @@ import * as z from "zod";
 import type { JSONSchema } from "zod/v4/core";
 import { buildOpenApiDocument } from "./openapi";
 import { routeOperations, routes } from "./routes";
+import { uploadMultipart } from "./upload";
 
 export const RATE_LIMITS = { read: 300, write: 60, search: 30, mcp: 60 } as const;
 export interface AppOptions {
   trustedProxyHeader: string | null;
+  storage?: StorageConfig;
   /** Override the fixed window in tests. */
   rateLimitWindowMs?: number;
   /** Override the quotas in tests. */
@@ -225,6 +230,33 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   app.get("/api/v1/openapi.json", async (c) => {
     openApiDocument ??= buildOpenApiDocument(ctx);
     return c.json(await openApiDocument);
+  });
+
+  app.post("/api/v1/files", async (c) => {
+    if (!options.storage)
+      return c.json(errorBody("unavailable", "File storage is unavailable."), 503);
+    const settings = readSiteSettings(ctx);
+    const uploaded = await uploadMultipart(
+      ctx,
+      c.get("actor"),
+      c.req.raw,
+      {
+        ...options.storage,
+        maxBytes: settings.maxUploadBytes,
+        allowedTypesByPurpose: settings.allowedUploadTypes,
+        groupUploadLimitBytes: settings.groupUploadLimitBytes,
+      },
+      new URL(c.req.url).searchParams.get("purpose") ?? "attachment",
+    );
+    return c.json(uploaded, 201);
+  });
+  app.get("/api/v1/files/:fileId", (c) => {
+    if (!options.storage)
+      return c.json(errorBody("unavailable", "File storage is unavailable."), 503);
+    const fileId = Number(c.req.param("fileId"));
+    if (!Number.isSafeInteger(fileId) || fileId < 1)
+      return c.json(errorBody("validation", "Invalid file ID."), 400);
+    return createStorage(ctx, options.storage).serve(c.get("actor"), fileId);
   });
 
   for (const { route, op } of routeOperations) {

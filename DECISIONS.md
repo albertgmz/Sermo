@@ -327,3 +327,15 @@ thread-position index when a whole thread is hidden or restored. The general hot
 no counts, but this exact synchronous operation was already measured at about 11 ms p95 on a
 10,500-reply thread and preserves user counters in the same transaction. Moderation reuses that
 query rather than allowing eventually consistent counters.
+
+**Storage uploads use streaming multipart parsing.** `busboy` 1.6.0 parses one file part from
+the request stream; core meters bytes into a temporary file before copying them to the selected
+local or Bun S3 driver. The temporary file bounds memory while content signatures and UTF-8
+text are checked. Upload quotas count live bytes owned by the user and are checked in the file
+record's insert transaction. All public responses use the Sermo file path, and attached files
+repeat the content permission check on every read so soft deletion takes effect immediately.
+
+**File deletion claims a row before removing bytes.** `deleted_at = -1` means a queued deletion
+has claimed the file and prevents a concurrent attachment. A retry can finish an interrupted
+storage deletion; successful deletion replaces the marker with the actual time. This sentinel
+is confined to storage code and should be reviewed if more deletion states are introduced.

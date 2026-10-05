@@ -26,6 +26,14 @@ export {
   startScheduler,
 } from "./modules/jobs";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
+export type { StorageConfig, StorageDriver } from "./modules/storage";
+export {
+  createStorage,
+  fileUrl,
+  localDriver,
+  registerStorageJobs,
+  s3Driver,
+} from "./modules/storage";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";
 export { decodeCursor, encodeCursor } from "./pagination";

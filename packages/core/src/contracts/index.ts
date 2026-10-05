@@ -7,3 +7,4 @@ export * from "./profiles";
 export * from "./reactions";
 export * from "./search";
 export * from "./settings";
+export * from "./storage";

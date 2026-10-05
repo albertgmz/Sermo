@@ -134,6 +134,53 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     if (!paths[path]) paths[path] = {};
     paths[path][route.method.toLowerCase()] = endpoint;
   }
+  paths["/api/v1/files"] = {
+    post: {
+      operationId: "files.upload",
+      summary: "Upload one file as multipart form data.",
+      tags: ["files"],
+      security: [{ sessionCookie: [] }, { secureSessionCookie: [] }, { bearerApiKey: [] }],
+      parameters: [
+        {
+          name: "purpose",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["attachment", "avatar", "cover", "node_icon", "node_cover"],
+          },
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["file"],
+              properties: { file: { type: "string", format: "binary" } },
+            },
+          },
+        },
+      },
+      responses: {
+        201: { description: "Uploaded file metadata" },
+        400: { description: "Invalid upload" },
+        401: { description: "Authentication required" },
+        403: { description: "Origin rejected" },
+      },
+    },
+  };
+  paths["/api/v1/files/{fileId}"] = {
+    get: {
+      operationId: "files.download",
+      summary: "Serve a file after checking the attached content's visibility.",
+      tags: ["files"],
+      parameters: [
+        { name: "fileId", in: "path", required: true, schema: { type: "integer", minimum: 1 } },
+      ],
+      responses: { 200: { description: "File bytes" }, 404: { description: "File not visible" } },
+    },
+  };
   paths["/api/v1/openapi.json"] = {
     get: {
       operationId: "getOpenApiDocument",

@@ -1,12 +1,16 @@
 import { afterEach, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, ensureAdmin, operations } from "@sermo/core";
+import { closeContext, ensureAdmin, localDriver, operations } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
 import { coerceQueryValues, createApp } from "./app";
 import { buildOpenApiDocument } from "./openapi";
 import { routes } from "./routes";
 
 const contexts: Ctx[] = [];
+const uploadDirs: string[] = [];
 let nextIp = 1;
 function setup(options: Parameters<typeof createApp>[1] = { trustedProxyHeader: null }) {
   const ctx = createTestContext();
@@ -17,8 +21,9 @@ function setup(options: Parameters<typeof createApp>[1] = { trustedProxyHeader: 
   const request = (path: string, init: RequestInit = {}) => app.request(path, init, env);
   return { ctx, app, request, env };
 }
-afterEach(() => {
+afterEach(async () => {
   for (const ctx of contexts.splice(0)) closeContext(ctx);
+  for (const dir of uploadDirs.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 
 function sessionCookies(response: Response): string {
@@ -304,6 +309,33 @@ test("cross-site multipart upload with a session cookie is rejected", async () =
   });
   expect(sameSite.status).not.toBe(403);
   expect(sameSite.status).not.toBe(415);
+});
+
+test("multipart upload streams through the API and serves with nosniff", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
+  uploadDirs.push(dir);
+  const { request } = setup({
+    trustedProxyHeader: null,
+    storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
+  });
+  const { cookie } = await register(request, "fileowner");
+  const form = new FormData();
+  form.append("file", new Blob(["hello from storage"], { type: "text/plain" }), "note.txt");
+  const upload = await request("/api/v1/files", {
+    method: "POST",
+    headers: { cookie, origin: "http://localhost:3000" },
+    body: form,
+  });
+  expect(upload.status).toBe(201);
+  const file = (await upload.json()) as { id: number; url: string };
+  expect(file.url).toBe(`/api/v1/files/${file.id}`);
+  const hidden = await request(file.url);
+  expect(hidden.status).toBe(404);
+  const served = await request(file.url, { headers: { cookie } });
+  expect(served.status).toBe(200);
+  expect(served.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(served.headers.get("content-disposition")).toContain("attachment");
+  expect(await served.text()).toBe("hello from storage");
 });
 
 test("rate limits preserve headers and separate guest IPs", async () => {

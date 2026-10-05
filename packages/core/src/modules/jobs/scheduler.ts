@@ -62,6 +62,7 @@ export function runHourlyTasks(ctx: Ctx): void {
 }
 
 export function runDailyTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(
     ctx,
     "rebuild-counters",

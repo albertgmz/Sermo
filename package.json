@@ -22,6 +22,10 @@
     "@sermo/api": "workspace:*",
     "@sermo/core": "workspace:*",
     "@types/bun": "1.4.2",
+    "@types/busboy": "1.5.4",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "busboy": "1.6.0"
   }
 }
