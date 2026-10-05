@@ -81,6 +81,21 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     siteURL.password
   )
     throw new Error("SERMO_SITE_URL must be an HTTP(S) origin without a path or credentials.");
+  const publicFilesURL = source.SERMO_PUBLIC_FILES_URL
+    ? new URL(source.SERMO_PUBLIC_FILES_URL)
+    : null;
+  if (
+    publicFilesURL &&
+    (!["http:", "https:"].includes(publicFilesURL.protocol) ||
+      publicFilesURL.pathname !== "/" ||
+      publicFilesURL.search ||
+      publicFilesURL.hash ||
+      publicFilesURL.username ||
+      publicFilesURL.password)
+  )
+    throw new Error(
+      "SERMO_PUBLIC_FILES_URL must be an HTTP(S) origin without a path or credentials.",
+    );
   const storageDriver = source.SERMO_STORAGE_DRIVER ?? "local";
   if (storageDriver !== "local" && storageDriver !== "s3")
     throw new Error("SERMO_STORAGE_DRIVER must be local or s3.");
@@ -90,10 +105,11 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     path: source.SERMO_DB_PATH ?? "./data/sermo.db",
     port,
     siteBaseURL: siteURL.origin,
+    publicFileBaseURL: publicFilesURL?.origin,
     storage: {
       driver: storageDriver,
       directory:
-        source.SERMO_FILES_DIR ?? join(dirname(source.SERMO_DB_PATH ?? "./data/sermo.db"), "files"),
+        source.SERMO_FILES_DIR || join(dirname(source.SERMO_DB_PATH ?? "./data/sermo.db"), "files"),
       bucket: source.SERMO_S3_BUCKET,
       endpoint: source.SERMO_S3_ENDPOINT,
       region: source.SERMO_S3_REGION,
@@ -124,7 +140,11 @@ export function readConfiguration(source: Record<string, string | undefined> = p
 async function main(): Promise<void> {
   const config = readConfiguration();
   mkdirSync(dirname(config.path), { recursive: true });
-  const ctx = createContext({ path: config.path, migrate: true, config: { auth: config.auth } });
+  const ctx = createContext({
+    path: config.path,
+    migrate: true,
+    config: { auth: config.auth, publicFileBaseURL: config.publicFileBaseURL },
+  });
   if (config.admin) await ensureAdmin(ctx, config.admin);
   const stopCheckpointer = startCheckpointer(ctx);
   registerJobHandlers(ctx);

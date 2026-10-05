@@ -318,7 +318,7 @@ test("multipart upload streams through the API and serves with nosniff", async (
     trustedProxyHeader: null,
     storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
   });
-  const { cookie } = await register(request, "fileowner");
+  const { cookie, data } = await register(request, "fileowner");
   const form = new FormData();
   form.append("file", new Blob(["hello from storage"], { type: "text/plain" }), "note.txt");
   const upload = await request("/api/v1/files", {
@@ -336,6 +336,28 @@ test("multipart upload streams through the API and serves with nosniff", async (
   expect(served.headers.get("x-content-type-options")).toBe("nosniff");
   expect(served.headers.get("content-disposition")).toContain("attachment");
   expect(await served.text()).toBe("hello from storage");
+
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const avatarForm = new FormData();
+  avatarForm.append("file", new Blob([png], { type: "image/png" }), "avatar.png");
+  const avatarUpload = await request("/api/v1/files?purpose=avatar", {
+    method: "POST",
+    headers: { cookie, origin: "http://localhost:3000" },
+    body: avatarForm,
+  });
+  expect(avatarUpload.status).toBe(201);
+  const avatar = (await avatarUpload.json()) as { id: number };
+  const set = await request("/api/v1/profile/avatar", {
+    method: "PUT",
+    headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+    body: JSON.stringify({ fileId: avatar.id }),
+  });
+  expect(set.status).toBe(200);
+  const profile = await request(`/api/v1/users/${data.user.id}`);
+  expect(((await profile.json()) as { avatar: { fileId: number } }).avatar.fileId).toBe(avatar.id);
 });
 
 test("rate limits preserve headers and separate guest IPs", async () => {

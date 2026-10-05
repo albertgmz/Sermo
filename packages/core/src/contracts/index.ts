@@ -2,6 +2,7 @@ export * from "./auth";
 export * from "./common";
 export * from "./conversations";
 export * from "./forums";
+export * from "./images";
 export * from "./permissions";
 export * from "./profiles";
 export * from "./reactions";

@@ -20,6 +20,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { getGlobalPermissions } from "../permissions";
+import { resolvedFileUrl } from "../storage/url";
 import {
   latestComments,
   type PostRow,
@@ -38,12 +39,14 @@ type ProfileRow = {
   about: string;
   post_count: number;
   reaction_score: number;
+  avatar_file_id: number | null;
+  cover_file_id: number | null;
 };
 function readProfile(ctx: Ctx, actor: Actor, userId: number) {
   const flags = getGlobalPermissions(ctx, actor);
   const row = prepared(ctx, "profiles.profile", () =>
     ctx.sqlite.prepare<ProfileRow, [number]>(
-      "SELECT u.id, u.username, g.title AS group_title, u.created_at, u.about, u.post_count, u.reaction_score FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1",
+      "SELECT u.id, u.username, g.title AS group_title, u.created_at, u.about, u.post_count, u.reaction_score, u.avatar_file_id, u.cover_file_id FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1",
     ),
   ).get(userId);
   if (!row) throw new NotFoundError();
@@ -53,6 +56,14 @@ function readProfile(ctx: Ctx, actor: Actor, userId: number) {
     groupTitle: row.group_title,
     createdAt: iso(row.created_at),
     about: row.about,
+    avatar:
+      row.avatar_file_id === null
+        ? null
+        : { fileId: row.avatar_file_id, url: resolvedFileUrl(ctx, row.avatar_file_id, true) },
+    cover:
+      row.cover_file_id === null
+        ? null
+        : { fileId: row.cover_file_id, url: resolvedFileUrl(ctx, row.cover_file_id, true) },
     postCount: row.post_count,
     reactionScore: row.reaction_score,
     canPostOnWall: actorUserId(actor) !== null && flags.canViewProfiles && flags.canPostProfile,

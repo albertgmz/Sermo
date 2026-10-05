@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { createApp, routes } from "@sermo/api";
 import { type Actor, type Ctx, GUEST, getAuth } from "@sermo/core";
 import type { Rng } from "./rng";
@@ -27,6 +28,7 @@ export interface BenchEnv {
   call(operation: string, actor: Actor, input: unknown): Promise<unknown>;
   /** Sends a raw request through the same app (for cookie-authenticated scenarios). */
   request(path: string, init?: RequestInit): Promise<Response>;
+  authHeader(actor: Actor): Promise<string>;
 }
 
 export interface Scenario {
@@ -39,7 +41,7 @@ export interface Scenario {
    * Reported but never failed against the budgets, with the reason shown in the report. Only for
    * costs the product requirements exempt: password hashing.
    */
-  budgetExempt?: "password hashing";
+  budgetExempt?: "password hashing" | "file transfer" | "image processing" | "sitemap generation";
   setup?(env: BenchEnv): void | Promise<void>;
   /** One request. `i` is the iteration number, useful to vary inputs deterministically. */
   run(env: BenchEnv, i: number): unknown | Promise<unknown>;
@@ -53,6 +55,17 @@ export async function createEnv(ctx: Ctx, meta: SeedMeta, rng: Rng): Promise<Ben
   const app = createApp(ctx, {
     trustedProxyHeader: null,
     rateLimits: { read: UNREACHABLE, write: UNREACHABLE, search: UNREACHABLE, mcp: UNREACHABLE },
+    storage: {
+      driver: {
+        name: "fake",
+        async put() {},
+        read() {
+          return new Blob();
+        },
+        async delete() {},
+      },
+      tempDir: join(process.cwd(), ".bench-upload-temp"),
+    },
   });
   const connInfo = {
     requestIP: () => ({ address: "127.0.0.1", family: "IPv4" as const, port: 1 }),
@@ -98,6 +111,10 @@ export async function createEnv(ctx: Ctx, meta: SeedMeta, rng: Rng): Promise<Ben
       admin: user(meta.adminId),
     },
     request,
+    async authHeader(actor) {
+      if (actor.kind === "guest") throw new Error("A guest has no API key.");
+      return `Bearer ${await keyFor(actor.userId)}`;
+    },
     async call(operation, actor, input) {
       const route = routeByOperation.get(operation);
       if (!route) throw new Error(`No route for ${operation}`);

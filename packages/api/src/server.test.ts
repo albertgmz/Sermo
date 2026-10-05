@@ -98,4 +98,12 @@ test("site base URL is resolved and validated independently of the auth origin",
   expect(() =>
     readConfiguration({ ...base, SERMO_SITE_URL: "https://forum.example.test/sub" }),
   ).toThrow("SERMO_SITE_URL");
+  expect(
+    readConfiguration({ ...base, SERMO_PUBLIC_FILES_URL: "https://cdn.example.test" })
+      .publicFileBaseURL,
+  ).toBe("https://cdn.example.test");
+  expect(() =>
+    readConfiguration({ ...base, SERMO_PUBLIC_FILES_URL: "https://cdn.example.test/path" }),
+  ).toThrow("SERMO_PUBLIC_FILES_URL");
+  expect(readConfiguration({ ...base, SERMO_FILES_DIR: "" }).storage.directory).toContain("files");
 });

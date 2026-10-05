@@ -339,3 +339,17 @@ repeat the content permission check on every read so soft deletion takes effect 
 has claimed the file and prevents a concurrent attachment. A retry can finish an interrupted
 storage deletion; successful deletion replaces the marker with the actual time. This sentinel
 is confined to storage code and should be reviewed if more deletion states are introduced.
+
+**Image processing uses sharp 0.35.5 behind one core function.** Bun 1.4.2 has `Bun.Image`,
+and it can orient and re-encode images, but its documented resize modes do not crop to square.
+Avatars and node icons need square crops without stretching faces, so `processImage` uses sharp's
+`cover` resize. Every accepted image is decoded and re-encoded before storage. Decoding is
+limited to 16 million pixels, and the function rejects animated GIF and WebP rather than
+silently flattening them. Static GIF is accepted and converted to PNG. This animation policy is
+easy to relax later and needs owner review.
+
+**Public image URLs may use a configured proxy origin.** `SERMO_PUBLIC_FILES_URL` changes URLs
+returned for profile and node media at read time; it must proxy the same Sermo file path.
+Attachments always retain the stable Sermo path and `private, no-store` response caching,
+because a soft delete or permission change must hide them immediately. Neither database rows
+nor rendered post bodies contain a driver URL.

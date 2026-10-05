@@ -14,6 +14,7 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { getNodeAccess, getNodeTree, requireAdmin } from "../permissions";
+import { resolvedFileUrl } from "../storage/url";
 
 type State = "visible" | "moderated" | "deleted";
 type ThreadRow = {
@@ -46,6 +47,8 @@ type PostRow = {
 };
 type NodeRow = {
   id: number;
+  icon_file_id: number | null;
+  cover_file_id: number | null;
   thread_count: number;
   post_count: number;
   last_post_at: number | null;
@@ -60,7 +63,7 @@ const threadColumns =
 const postColumns =
   "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts";
 const nodeColumns =
-  "id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
+  "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?3)) ORDER BY last_post_at DESC, id DESC`,
@@ -275,6 +278,14 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     const permission = access(id);
     return {
       ...entry,
+      icon:
+        row.icon_file_id === null
+          ? null
+          : { fileId: row.icon_file_id, url: resolvedFileUrl(ctx, row.icon_file_id, true) },
+      cover:
+        row.cover_file_id === null
+          ? null
+          : { fileId: row.cover_file_id, url: resolvedFileUrl(ctx, row.cover_file_id, true) },
       threadCount: row.thread_count,
       postCount: row.post_count,
       lastPost,

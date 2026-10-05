@@ -1,6 +1,7 @@
 import { operations as auth } from "./modules/auth";
 import { operations as conversations } from "./modules/conversations";
 import { operations as forums } from "./modules/forums";
+import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
 import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
@@ -22,6 +23,7 @@ export const operations: readonly AnyOperation[] = [
   ...jobs,
   ...settings,
   ...storage,
+  ...images,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

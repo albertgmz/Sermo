@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +20,7 @@ import { createStorage, fileUrl, localDriver, type StorageDriver, storageSql } f
 
 const png = Uint8Array.from(
   Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/WZkAAAAASUVORK5CYII=",
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
     "base64",
   ),
 );
@@ -43,11 +44,21 @@ describe("storage", () => {
       const uploaded = await storage.upload(owner, stream(png), "image/png");
       expect(uploaded.url).toBe(fileUrl(uploaded.id));
       const record = storage.get(owner, uploaded.id);
-      expect(record.byte_size).toBe(png.byteLength);
+      const stored = await storage.download(owner, uploaded.id);
+      expect(record.byte_size).toBe(stored.byteLength);
+      expect(record.width).toBe(1);
+      expect(record.height).toBe(1);
       expect(record.sha256).toHaveLength(64);
+      expect(record.sha256).toBe(createHash("sha256").update(stored).digest("hex"));
       expect(record.visibility).toBe("unattached");
       expect(record.storage_key).not.toContain("/");
-      expect(await storage.download(owner, uploaded.id)).toEqual(png);
+      const variants = ctx.sqlite
+        .prepare<{ id: number; variant: string }, [number]>(
+          "SELECT id, variant FROM files WHERE parent_file_id = ?1",
+        )
+        .all(uploaded.id);
+      expect(variants).toHaveLength(1);
+      expect(variants[0]?.variant).toBe("thumbnail");
       expect(storage.serve(owner, uploaded.id).headers.get("x-content-type-options")).toBe(
         "nosniff",
       );
@@ -126,7 +137,7 @@ describe("storage", () => {
       const storage = createStorage(ctx, { driver: fakeS3, tempDir: dir });
       const uploaded = await storage.upload(owner, stream(png), "image/png");
       expect(storage.get(owner, uploaded.id).driver).toBe("s3");
-      expect(objects.size).toBe(1);
+      expect(objects.size).toBe(2);
       const conversation = await execute(ctx, conversationsCreateOp, owner, {
         title: "Private file",
         recipientIds: [recipient.kind === "guest" ? 0 : recipient.userId],
@@ -173,6 +184,10 @@ describe("storage", () => {
       await execute(ctx, postsDeleteOp, owner, { postId: post.id });
       expect(() => storage.get(GUEST, uploaded.id)).toThrow(NotFoundError);
       expect(() => storage.get(owner, uploaded.id)).toThrow(NotFoundError);
+      const variant = ctx.sqlite
+        .prepare<{ id: number }, [number]>("SELECT id FROM files WHERE parent_file_id = ?1")
+        .get(uploaded.id)!;
+      expect(() => storage.get(GUEST, variant.id)).toThrow(NotFoundError);
     } finally {
       ctx.sqlite.close(true);
       await rm(dir, { recursive: true, force: true });

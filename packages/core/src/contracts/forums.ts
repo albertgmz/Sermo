@@ -13,6 +13,7 @@ import {
   Title,
   UserSummary,
 } from "./common";
+import { ImageReference } from "./images";
 
 export const NodeType = z.enum(NODE_TYPES);
 
@@ -23,6 +24,8 @@ export const Node = z
     type: NodeType,
     title: z.string(),
     description: z.string(),
+    icon: ImageReference,
+    cover: ImageReference,
     position: z.number().int(),
     /** Depth in the tree; root nodes are 0. */
     depth: z.number().int().nonnegative(),

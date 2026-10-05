@@ -25,6 +25,8 @@ export interface CoreConfig {
   sessionTtlMs: number;
   /** Required by the auth module; the server reads it from the environment. */
   auth?: AuthConfig;
+  /** Optional origin that proxies public profile and node images. */
+  publicFileBaseURL?: string;
   /** Validate every operation's output against its contract (on in tests, off in production). */
   validateOutput: boolean;
 }

@@ -13,6 +13,15 @@ export const FileMetadata = z.object({
   purpose: z.enum(FILE_PURPOSES),
   visibility: z.enum(FILE_VISIBILITIES),
   createdAt: Timestamp,
+  variants: z.array(
+    z.object({
+      variant: z.string(),
+      fileId: Id,
+      url: z.string(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    }),
+  ),
 });
 
 export const filesGet = defineContract({

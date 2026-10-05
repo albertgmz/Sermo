@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, open, rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -15,8 +15,12 @@ import { implement } from "../../operation";
 import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
+import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { requirePost as requireProfilePost } from "../profiles/shared";
+import { fileUrl, resolvedFileUrl } from "./url";
+
+export { fileUrl } from "./url";
 
 export interface StorageDriver {
   readonly name: string;
@@ -83,13 +87,15 @@ export interface FileRecord {
   created_at: number;
   attached_at: number | null;
   deleted_at: number | null;
+  parent_file_id: number | null;
+  variant: string | null;
 }
 export const storageSql = {
   byId: "SELECT * FROM files WHERE id = ?1 AND deleted_at IS NULL",
   stale:
-    "SELECT id FROM files WHERE visibility = 'unattached' AND created_at < ?1 AND deleted_at IS NULL ORDER BY created_at, id LIMIT ?2",
+    "SELECT id FROM files WHERE visibility = 'unattached' AND parent_file_id IS NULL AND created_at < ?1 AND deleted_at IS NULL ORDER BY created_at, id LIMIT ?2",
   stalePage:
-    "SELECT id, created_at FROM files WHERE visibility = 'unattached' AND created_at < ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) ORDER BY created_at, id LIMIT 1000",
+    "SELECT id, created_at FROM files WHERE visibility = 'unattached' AND parent_file_id IS NULL AND created_at < ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) ORDER BY created_at, id LIMIT 1000",
   attachment: "SELECT content_type, content_id FROM attachments WHERE file_id = ?1",
 } as const;
 
@@ -104,33 +110,10 @@ const allowedTypes = new Set([
 ]);
 const maxBytesDefault = 25 * 1024 * 1024;
 
-function imageDimensions(
-  bytes: Uint8Array,
-  mime: string,
-): { width: number; height: number } | null {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (mime === "image/png" && bytes.length >= 24)
-    return { width: view.getUint32(16), height: view.getUint32(20) };
-  if (mime === "image/gif" && bytes.length >= 10)
-    return { width: view.getUint16(6, true), height: view.getUint16(8, true) };
-  if (mime === "image/jpeg") {
-    let offset = 2;
-    while (offset + 9 < bytes.length) {
-      if (bytes[offset] !== 0xff) break;
-      const marker = bytes[offset + 1]!;
-      if (marker === 0xd9 || marker === 0xda) break;
-      const length = view.getUint16(offset + 2);
-      if (length < 2) break;
-      if (
-        [0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(
-          marker,
-        )
-      )
-        return { width: view.getUint16(offset + 7), height: view.getUint16(offset + 5) };
-      offset += length + 2;
-    }
-  }
-  return null;
+async function fileHash(path: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest("hex");
 }
 
 export function registerStorageJobs(ctx: Ctx, config: StorageConfig): void {
@@ -140,6 +123,12 @@ export function registerStorageJobs(ctx: Ctx, config: StorageConfig): void {
     if (!Number.isSafeInteger(id) || Number(id) < 1)
       throw new ValidationError("Invalid file deletion job.");
     await storage.deleteQueued(Number(id), true);
+  });
+  registerJobHandler(ctx, "storage.deletePermanent", async (_ctx, payload) => {
+    const id = (payload as { id?: unknown })?.id;
+    if (!Number.isSafeInteger(id) || Number(id) < 1)
+      throw new ValidationError("Invalid permanent file deletion job.");
+    await storage.deleteQueued(Number(id));
   });
   registerJobHandler(ctx, "storage.cleanup", () => {
     const cutoff = ctx.now() - 24 * 60 * 60_000;
@@ -166,10 +155,6 @@ export function registerStorageJobs(ctx: Ctx, config: StorageConfig): void {
   });
 }
 
-export function fileUrl(id: number): string {
-  return `/api/v1/files/${id}`;
-}
-
 export interface StorageConfig {
   driver: StorageDriver;
   tempDir: string;
@@ -193,6 +178,10 @@ function attachment(ctx: Ctx, id: number) {
 }
 
 function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
+  if (record.parent_file_id !== null) {
+    const parent = byId(ctx, record.parent_file_id);
+    return parent !== null && canRead(ctx, actor, parent);
+  }
   const link = attachment(ctx, record.id);
   if (!link) {
     if (record.visibility === "unattached") return actorUserId(actor) === record.uploader_id;
@@ -219,9 +208,18 @@ export function getFileRecord(ctx: Ctx, actor: Actor, id: number): FileRecord {
 export const operations = [
   implement(filesGet, (ctx, actor, input) => {
     const row = getFileRecord(ctx, actor, input.fileId);
+    const variants = prepared(ctx, "storage.variants", () =>
+      ctx.sqlite.prepare<{ id: number; variant: string; width: number; height: number }, [number]>(
+        "SELECT id, variant, width, height FROM files WHERE parent_file_id = ?1 AND deleted_at IS NULL ORDER BY variant",
+      ),
+    ).all(row.id);
     return {
       id: row.id,
-      url: fileUrl(row.id),
+      url: resolvedFileUrl(
+        ctx,
+        row.id,
+        row.visibility === "public" && row.purpose !== "attachment",
+      ),
       byteSize: row.byte_size,
       contentType: row.content_type,
       width: row.width,
@@ -229,6 +227,17 @@ export const operations = [
       purpose: row.purpose,
       visibility: row.visibility,
       createdAt: iso(row.created_at),
+      variants: variants.map((variant) => ({
+        variant: variant.variant,
+        fileId: variant.id,
+        url: resolvedFileUrl(
+          ctx,
+          variant.id,
+          row.visibility === "public" && row.purpose !== "attachment",
+        ),
+        width: variant.width,
+        height: variant.height,
+      })),
     };
   }),
 ];
@@ -258,6 +267,14 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       const tempPath = join(tempDir, `sermo-${randomUUID()}`);
       const hash = createHash("sha256");
       let size = 0;
+      let processed: {
+        path: string;
+        contentType: string;
+        width: number | null;
+        height: number | null;
+        byteSize: number;
+        variant: string | null;
+      }[] = [];
       try {
         const meter = new Transform({
           transform(chunk: Buffer, _encoding, callback) {
@@ -279,13 +296,6 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           throw new ValidationError("File type does not match its content.");
         if (!detected && !knownText.has(declaredType))
           throw new ValidationError("File type could not be verified.");
-        const handle = await open(tempPath, "r");
-        const header = Buffer.alloc(Math.min(size, 65_536));
-        try {
-          await handle.read(header, 0, header.length, 0);
-        } finally {
-          await handle.close();
-        }
         if (!detected) {
           let tail = "";
           try {
@@ -307,15 +317,36 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             throw new ValidationError("File type could not be verified.");
           }
         }
-        const dimensions = imageDimensions(header, declaredType);
-        const key = randomUUID();
+        processed = safeInline.has(declaredType)
+          ? await processImage(tempPath, declaredType, purpose, tempDir)
+          : [
+              {
+                path: tempPath,
+                contentType: declaredType,
+                width: null,
+                height: null,
+                byteSize: size,
+                variant: null,
+              },
+            ];
+        const artifacts = await Promise.all(
+          processed.map(async (item) => ({
+            ...item,
+            storageKey: randomUUID(),
+            sha256: item.path === tempPath ? hash.digest("hex") : await fileHash(item.path),
+          })),
+        );
+        const stored: string[] = [];
         try {
-          await driver.put(key, tempPath, declaredType);
-        } catch (error) {
-          await driver.delete(key).catch(() => {});
-          throw error;
-        }
-        try {
+          for (const item of artifacts) {
+            try {
+              await driver.put(item.storageKey, item.path, item.contentType);
+            } catch (error) {
+              await driver.delete(item.storageKey).catch(() => {});
+              throw error;
+            }
+            stored.push(item.storageKey);
+          }
           const row = writeTx(ctx, () => {
             const quota = config.groupUploadLimitBytes?.[user.groupId];
             if (quota != null) {
@@ -324,9 +355,11 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                   "SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL",
                 )
                 .get(user.userId)!.bytes;
-              if (used + size > quota) throw new ValidationError("Upload quota exceeded.");
+              if (used + artifacts.reduce((total, item) => total + item.byteSize, 0) > quota)
+                throw new ValidationError("Upload quota exceeded.");
             }
-            return ctx.sqlite
+            const main = artifacts[0]!;
+            const created = ctx.sqlite
               .prepare<
                 { id: number },
                 [
@@ -346,23 +379,53 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
               )
               .get(
                 driver.name,
-                key,
-                size,
-                declaredType,
-                hash.digest("hex"),
-                dimensions?.width ?? null,
-                dimensions?.height ?? null,
+                main.storageKey,
+                main.byteSize,
+                main.contentType,
+                main.sha256,
+                main.width,
+                main.height,
                 user.userId,
                 purpose,
                 ctx.now(),
               )!;
+            for (const variant of artifacts.slice(1))
+              ctx.sqlite
+                .prepare(
+                  "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, parent_file_id, variant, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'unattached', ?10, ?11, ?12)",
+                )
+                .run(
+                  driver.name,
+                  variant.storageKey,
+                  variant.byteSize,
+                  variant.contentType,
+                  variant.sha256,
+                  variant.width,
+                  variant.height,
+                  user.userId,
+                  purpose,
+                  created.id,
+                  variant.variant,
+                  ctx.now(),
+                );
+            return created;
           });
-          return { id: row.id, url: fileUrl(row.id), byteSize: size, contentType: declaredType };
+          return {
+            id: row.id,
+            url: fileUrl(row.id),
+            byteSize: artifacts[0]!.byteSize,
+            contentType: artifacts[0]!.contentType,
+          };
         } catch (error) {
-          await driver.delete(key);
+          await Promise.all(stored.map((key) => driver.delete(key).catch(() => {})));
           throw error;
         }
       } finally {
+        await Promise.all(
+          processed
+            .filter((item) => item.path !== tempPath)
+            .map((item) => rm(item.path, { force: true, maxRetries: 5, retryDelay: 50 })),
+        );
         await rm(tempPath, { force: true });
       }
     },
@@ -375,7 +438,11 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       const user = requireAuthenticated(actor);
       return writeTx(ctx, () => {
         const row = byId(ctx, fileId);
-        if (row?.visibility !== "unattached" || row.uploader_id !== user.userId)
+        if (
+          row?.visibility !== "unattached" ||
+          row.uploader_id !== user.userId ||
+          row.parent_file_id !== null
+        )
           throw new NotFoundError();
         let contentOwner: number;
         if (contentType === "post") contentOwner = reactablePost(ctx, actor, contentId).authorId;
@@ -391,6 +458,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           .run(fileId, contentType, contentId, ctx.now());
         ctx.sqlite
           .prepare("UPDATE files SET visibility = ?1, attached_at = ?2 WHERE id = ?3")
+          .run(visibility, ctx.now(), fileId);
+        ctx.sqlite
+          .prepare("UPDATE files SET visibility = ?1, attached_at = ?2 WHERE parent_file_id = ?3")
           .run(visibility, ctx.now(), fileId);
         return { id: fileId, url: fileUrl(fileId), visibility };
       });
@@ -409,7 +479,9 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           "X-Content-Type-Options": "nosniff",
           "Content-Disposition": `${disposition}; filename="file-${row.id}"`,
           "Cache-Control":
-            row.visibility === "public" ? "public, max-age=3600" : "private, no-store",
+            row.visibility === "public" && row.purpose !== "attachment"
+              ? "public, max-age=3600"
+              : "private, no-store",
         },
       });
     },
@@ -436,6 +508,12 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       });
       if (!row) return;
       if (row.driver !== driver.name) throw new ValidationError("Storage driver is unavailable.");
+      if (row.parent_file_id === null) {
+        const variants = ctx.sqlite
+          .prepare<{ id: number }, [number]>("SELECT id FROM files WHERE parent_file_id = ?1")
+          .all(id);
+        for (const variant of variants) await this.deleteQueued(variant.id, onlyUnattached);
+      }
       await driver.delete(row.storage_key);
       ctx.sqlite
         .prepare("UPDATE files SET deleted_at = ?1 WHERE id = ?2 AND deleted_at = -1")

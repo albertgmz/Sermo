@@ -10,6 +10,7 @@ import {
   Timestamp,
   UserSummary,
 } from "./common";
+import { ImageReference } from "./images";
 
 export const Profile = z
   .object({
@@ -19,6 +20,8 @@ export const Profile = z
     createdAt: Timestamp,
     /** Plain text; clients must escape it. */
     about: z.string(),
+    avatar: ImageReference,
+    cover: ImageReference,
     postCount: z.number().int().nonnegative(),
     reactionScore: z.number().int(),
     canPostOnWall: z.boolean(),
