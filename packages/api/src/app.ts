@@ -1,0 +1,237 @@
+import { type Actor, CLIENT_IP_HEADER, type Ctx, execute, SermoError } from "@sermo/core";
+import { type Context, Hono } from "hono";
+import { getConnInfo } from "hono/bun";
+import { csrf } from "hono/csrf";
+import { HTTPException } from "hono/http-exception";
+import { secureHeaders } from "hono/secure-headers";
+import { rateLimiter } from "hono-rate-limiter";
+import * as z from "zod";
+import type { JSONSchema } from "zod/v4/core";
+import { getAuth, resolveActor } from "../../core/src/modules/auth";
+import { createMcpHandler } from "../../mcp/src";
+import { buildOpenApiDocument } from "./openapi";
+import { routeOperations, routes } from "./routes";
+
+export const RATE_LIMITS = { read: 300, write: 60, search: 30, mcp: 60 } as const;
+export interface AppOptions {
+  trustedProxyHeader: string | null;
+  /** Override the fixed window in tests. */
+  rateLimitWindowMs?: number;
+  /** Override the quotas in tests. */
+  rateLimits?: Partial<Record<keyof typeof RATE_LIMITS, number>>;
+}
+
+type Variables = { actor: Actor; clientIp: string; setCookies: string[] };
+type ApiContext = Context<{ Variables: Variables }>;
+type Schema = Record<string, unknown>;
+const statuses = {
+  validation: 400,
+  unauthenticated: 401,
+  forbidden: 403,
+  not_found: 404,
+  conflict: 409,
+} as const;
+
+function errorBody(
+  code: string,
+  message: string,
+  issues?: { path: (string | number)[]; message: string }[],
+) {
+  return { error: { code, message, ...(issues ? { issues } : {}) } };
+}
+
+function hasSessionCookie(c: ApiContext): boolean {
+  return /(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(c.req.header("cookie") ?? "");
+}
+
+function coerce(value: string, schema: Schema | undefined): unknown {
+  if (!schema) return value;
+  if (schema.type === "integer" || schema.type === "number") {
+    const number = Number(value);
+    return value.trim() !== "" && Number.isFinite(number) ? number : value;
+  }
+  if (schema.type === "boolean") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+  return value;
+}
+
+function schemaProperties(schema: JSONSchema.JSONSchema): Record<string, Schema> {
+  return (schema.properties ?? {}) as Record<string, Schema>;
+}
+
+function routePattern(path: string): RegExp {
+  return new RegExp(`^/api/v1${path.replace(/\{[^}]+\}/g, "[^/]+")}$`);
+}
+
+export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
+  const app = new Hono<{ Variables: Variables }>();
+  const mcpActors = new WeakMap<Request, Actor>();
+  const limits = { ...RATE_LIMITS, ...options.rateLimits };
+  const windowMs = options.rateLimitWindowMs ?? 60_000;
+  let loggedUnknownIp = false;
+
+  app.use(
+    "*",
+    secureHeaders({
+      contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+      referrerPolicy: "strict-origin-when-cross-origin",
+    }),
+  );
+  app.use("*", async (c, next) => {
+    let ip: string | undefined;
+    if (options.trustedProxyHeader) {
+      ip = c.req.header(options.trustedProxyHeader)?.split(",").at(-1)?.trim();
+    } else {
+      try {
+        ip = getConnInfo(c).remote.address;
+      } catch {
+        /* app.request has no socket */
+      }
+    }
+    if (!ip) {
+      ip = "unknown";
+      if (!loggedUnknownIp) {
+        loggedUnknownIp = true;
+        console.warn("Client IP is unavailable; using the unknown rate-limit bucket.");
+      }
+    }
+    const headers = new Headers(c.req.raw.headers);
+    headers.delete(CLIENT_IP_HEADER);
+    headers.set(CLIENT_IP_HEADER, ip);
+    c.req.raw = new Request(c.req.raw, { headers });
+    c.set("clientIp", ip);
+    await next();
+  });
+
+  app.onError((error, c) => {
+    if (error instanceof SermoError)
+      return c.json(errorBody(error.code, error.message, error.issues), statuses[error.code]);
+    if (error instanceof HTTPException && error.status === 403)
+      return c.json(errorBody("csrf_rejected", "Cross-site request rejected."), 403);
+    console.error("API request failed", error);
+    return c.json(errorBody("internal", "Internal server error."), 500);
+  });
+
+  app.all("/api/auth/*", (c) => getAuth(ctx).handler(c.req.raw));
+
+  const resolve = async (c: ApiContext, next: () => Promise<void>) => {
+    const result = await resolveActor(ctx, c.req.raw.headers);
+    c.set("actor", result.actor);
+    c.set("setCookies", result.setCookies);
+    if (c.req.path === "/mcp") mcpActors.set(c.req.raw, result.actor);
+    await next();
+    for (const cookie of result.setCookies) c.res.headers.append("Set-Cookie", cookie);
+  };
+  app.use("/api/v1/*", resolve);
+  app.use("/mcp", resolve);
+
+  const key = (c: ApiContext) => {
+    const actor = c.get("actor");
+    return actor.kind === "guest"
+      ? `ip:${c.get("clientIp")}`
+      : actor.kind === "token"
+        ? `key:${actor.tokenId}`
+        : `user:${actor.userId}`;
+  };
+  const limiter = (limit: number) =>
+    rateLimiter({
+      windowMs,
+      limit,
+      standardHeaders: "draft-6",
+      keyGenerator: key,
+      handler: (c) => c.json(errorBody("rate_limited", "Too many requests."), 429),
+    });
+  const readLimiter = limiter(limits.read);
+  const writeLimiter = limiter(limits.write);
+  const searchLimiter = limiter(limits.search);
+  const mcpLimiter = limiter(limits.mcp);
+  app.use("/api/v1/*", (c, next) => {
+    if (c.req.method === "GET")
+      return (c.req.path === "/api/v1/search" ? searchLimiter : readLimiter)(c, next);
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method)) return writeLimiter(c, next);
+    return next();
+  });
+  app.use("/mcp", mcpLimiter);
+
+  const authConfig = ctx.config.auth;
+  const allowedOrigins = authConfig
+    ? [new URL(authConfig.baseURL).origin, ...authConfig.trustedOrigins]
+    : [];
+  const csrfMiddleware = csrf({ origin: allowedOrigins });
+  app.use("/api/v1/*", (c, next) => {
+    if (!["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method) || !hasSessionCookie(c))
+      return next();
+    return csrfMiddleware(c, next);
+  });
+  app.use("/api/v1/*", async (c, next) => {
+    if (
+      ["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method) &&
+      hasSessionCookie(c) &&
+      !/^application\/json(?:\s*;|$)/i.test(c.req.header("content-type") ?? "")
+    )
+      return c.json(
+        errorBody("unsupported_media_type", "Content-Type must be application/json."),
+        415,
+      );
+    await next();
+  });
+
+  const mcp = createMcpHandler({
+    ctx,
+    resolveActor: async (request) => {
+      const actor = mcpActors.get(request);
+      if (!actor) throw new Error("MCP actor was not resolved by the request middleware.");
+      return actor;
+    },
+  });
+  app.all("/mcp", (c) => mcp(c.req.raw));
+  app.get("/health", (c) => {
+    try {
+      ctx.sqlite.query("SELECT 1").get();
+      return c.json({ status: "ok" });
+    } catch {
+      return c.json({ status: "unavailable" }, 503);
+    }
+  });
+  app.get("/api/v1/openapi.json", async (c) => c.json(await buildOpenApiDocument(ctx)));
+
+  for (const { route, op } of routeOperations) {
+    const path = `/api/v1${route.path.replace(/\{([^}]+)\}/g, ":$1")}`;
+    const properties = schemaProperties(z.toJSONSchema(op.input, { io: "input" }));
+    app.on(route.method, path, async (c) => {
+      const raw: Record<string, unknown> = {};
+      if (route.method === "GET" || route.method === "DELETE") {
+        for (const [name, value] of new URL(c.req.url).searchParams)
+          raw[name] = coerce(value, properties[name]);
+      } else {
+        const body = await c.req.raw.text();
+        if (body) {
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(body);
+          } catch {
+            return c.json(errorBody("validation", "Malformed JSON body."), 400);
+          }
+          if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+            return c.json(errorBody("validation", "JSON body must be an object."), 400);
+          Object.assign(raw, parsed);
+        }
+      }
+      for (const [name, value] of Object.entries(c.req.param()))
+        raw[name] = coerce(String(value), properties[name]);
+      return c.json(await execute(ctx, op, c.get("actor"), raw), route.status);
+    });
+  }
+  app.notFound((c) => {
+    const path = c.req.path;
+    if (
+      routes.some((route) => routePattern(route.path).test(path)) ||
+      path === "/api/v1/openapi.json"
+    )
+      return c.json(errorBody("method_not_allowed", "Method not allowed."), 405);
+    return c.json(errorBody("not_found", "The requested route could not be found."), 404);
+  });
+  return app;
+}
