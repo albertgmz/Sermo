@@ -308,3 +308,8 @@ subscriber later.
 **Benchmark file records use a fake driver.** The extended seed has metadata and attachment
 links without creating 300,000 physical files; transfer and image processing have separate
 exempt measurements when those services exist.
+
+**Second-pass libraries are pinned.** `file-type` 22.1.1 detects binary signatures,
+`@sindresorhus/slugify` 3.0.1 generates cosmetic slugs, and `schema-dts` 2.1.0 types JSON-LD.
+The pinned Bun 1.4.2 exposes `Bun.Image`; the image milestone will validate its behavior before
+choosing it for decoding and re-encoding.
