@@ -6,6 +6,7 @@ import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
 import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
+import { operations as settings } from "./modules/settings";
 import type { AnyOperation } from "./operation";
 
 /** Every implemented operation. Adapters (REST, MCP) and benchmarks consume this list. */
@@ -18,6 +19,7 @@ export const operations: readonly AnyOperation[] = [
   ...reactions,
   ...search,
   ...jobs,
+  ...settings,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

@@ -9,6 +9,8 @@ export interface ApiRoute {
 }
 
 const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
+  ["GET", "/settings", "settings.get"],
+  ["PATCH", "/settings", "settings.update"],
   ["GET", "/me", "auth.me"],
   ["GET", "/groups", "groups.list"],
   ["PATCH", "/groups/{groupId}", "groups.update"],

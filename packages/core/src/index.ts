@@ -24,6 +24,7 @@ export {
   startJobWorker,
   startScheduler,
 } from "./modules/jobs";
+export { readSiteSettings, updateSiteSettings } from "./modules/settings";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";
 export { decodeCursor, encodeCursor } from "./pagination";

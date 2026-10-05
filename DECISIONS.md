@@ -313,3 +313,10 @@ exempt measurements when those services exist.
 `@sindresorhus/slugify` 3.0.1 generates cosmetic slugs, and `schema-dts` 2.1.0 types JSON-LD.
 The pinned Bun 1.4.2 exposes `Bun.Image`; the image milestone will validate its behavior before
 choosing it for decoding and re-encoding.
+
+**Admin settings use one validated JSON row.** The `settings.get` and `settings.update`
+operations expose storage limits, moderation rules, SEO title templates, and the optional
+IndexNow key. Defaults apply when the row does not exist, so old databases upgrade without a
+settings backfill. Group upload limits mean total bytes retained per user, with zero denying
+uploads. The single row is simple to change while the settings set is small; services read it
+through the indexed key on each operation so changes from another process take effect at once.
