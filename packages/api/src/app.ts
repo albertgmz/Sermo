@@ -187,10 +187,16 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     return csrfMiddleware(c, next);
   });
   app.use("/api/v1/*", async (c, next) => {
+    const upload = c.req.method === "POST" && c.req.path === "/api/v1/files";
+    if (upload && hasSessionCookie(c) && !allowedOrigins.includes(c.req.header("origin") ?? ""))
+      return c.json(errorBody("forbidden", "The request origin is not allowed."), 403);
     if (
       ["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method) &&
       hasSessionCookie(c) &&
-      !/^application\/json(?:\s*;|$)/i.test(c.req.header("content-type") ?? "")
+      !(
+        /^application\/json(?:\s*;|$)/i.test(c.req.header("content-type") ?? "") ||
+        (upload && /^multipart\/form-data\s*;/i.test(c.req.header("content-type") ?? ""))
+      )
     )
       return c.json(
         errorBody("unsupported_media_type", "Content-Type must be application/json."),

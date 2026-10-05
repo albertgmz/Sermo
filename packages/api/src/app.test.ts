@@ -284,6 +284,28 @@ test("cookie writes enforce CSRF and JSON while API keys can write", async () =>
   ).toBe(200);
 });
 
+test("cross-site multipart upload with a session cookie is rejected", async () => {
+  const { request } = setup();
+  const { cookie } = await register(request, "uploader");
+  const form = new FormData();
+  form.append("file", new Blob(["file data"], { type: "text/plain" }), "note.txt");
+  for (const origin of ["https://evil.example", undefined]) {
+    const response = await request("/api/v1/files", {
+      method: "POST",
+      headers: { cookie, ...(origin ? { origin } : {}) },
+      body: form,
+    });
+    expect(response.status).toBe(403);
+  }
+  const sameSite = await request("/api/v1/files", {
+    method: "POST",
+    headers: { cookie, origin: "http://localhost:3000" },
+    body: form,
+  });
+  expect(sameSite.status).not.toBe(403);
+  expect(sameSite.status).not.toBe(415);
+});
+
 test("rate limits preserve headers and separate guest IPs", async () => {
   const { request } = setup({
     trustedProxyHeader: "x-forwarded-for",
