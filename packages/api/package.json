@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@sermo/core": "workspace:*",
+    "@sermo/mcp": "workspace:*",
     "hono": "4.13.13",
     "zod": "4.6.5",
     "hono-rate-limiter": "0.5.4"
