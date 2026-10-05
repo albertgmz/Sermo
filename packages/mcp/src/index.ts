@@ -1,9 +1,11 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import {
   type Actor,
   type Ctx,
   execute,
+  NotFoundError,
   operations,
   SermoError,
   UnauthenticatedError,
@@ -33,61 +35,56 @@ function toolError(error: unknown) {
 export function createMcpHandler(options: {
   ctx: Ctx;
   /** Resolves the caller from the HTTP request (API key or session cookie); rejects with UnauthenticatedError. */
-  resolveActor: (request: Request) => Promise<Actor>;
+  resolveActor: (request: Request) => Promise<{ actor: Actor; setCookies: string[] }>;
 }): (request: Request) => Promise<Response> {
-  const definitions = operations.map((op) => ({
-    op,
+  const tools = operations.map((op) => ({
     name: op.name.replaceAll(".", "_"),
-    config: {
-      title: op.name,
-      description: op.summary,
-      inputSchema: op.input,
-      // A named root object becomes a $ref in the SDK's JSON Schema output. MCP requires
-      // an object at the root, so reuse the contract's shape without its root metadata.
-      outputSchema: z.object(op.output.shape),
-      annotations: { readOnlyHint: op.kind === "read", destructiveHint: false },
-    },
+    description: op.summary,
+    inputSchema: z.toJSONSchema(op.input, { io: "input" }),
+    // Named output objects become root $refs; MCP requires an object at the root.
+    outputSchema: z.toJSONSchema(z.object(op.output.shape), { io: "output" }),
+    annotations: { readOnlyHint: op.kind === "read", destructiveHint: false },
   }));
+  const byToolName = new Map(operations.map((op) => [op.name.replaceAll(".", "_"), op]));
 
   return async (request) => {
     if (request.method !== "POST") return rpcError(405, -32000, "Method not allowed.");
 
-    let actor: Actor;
+    let resolved: { actor: Actor; setCookies: string[] };
     try {
-      actor = await options.resolveActor(request);
+      resolved = await options.resolveActor(request);
     } catch (error) {
       if (error instanceof UnauthenticatedError)
         return rpcError(401, -32001, error.message, { "WWW-Authenticate": "Bearer" });
       return rpcError(500, -32603, "An internal error occurred.");
     }
 
-    const server = new McpServer({ name: "sermo", version: "0.1.0" });
-    for (const { op, name, config } of definitions) {
-      server.registerTool(name, config, async (input: unknown) => {
-        try {
-          const output = await execute(options.ctx, op, actor, input);
-          return {
-            structuredContent: output,
-            content: [{ type: "text" as const, text: JSON.stringify(output) }],
-          };
-        } catch (error) {
-          return toolError(error);
-        }
-      });
-    }
+    const server = new Server({ name: "sermo", version: "0.1.0" }, { capabilities: { tools: {} } });
+    server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
+    server.setRequestHandler(CallToolRequestSchema, async (call) => {
+      try {
+        const op = byToolName.get(call.params.name);
+        if (!op) throw new NotFoundError("The requested tool could not be found.");
+        const output = await execute(options.ctx, op, resolved.actor, call.params.arguments);
+        return {
+          structuredContent: output,
+          content: [{ type: "text" as const, text: JSON.stringify(output) }],
+        };
+      } catch (error) {
+        return toolError(error);
+      }
+    });
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
     });
     try {
       await server.connect(transport);
-      return await transport.handleRequest(request, {
-        authInfo: {
-          token: "",
-          clientId: actor.kind === "guest" ? "guest" : String(actor.userId),
-          scopes: [],
-        },
-      });
+      const response = await transport.handleRequest(request);
+      if (!resolved.setCookies.length) return response;
+      const headers = new Headers(response.headers);
+      for (const cookie of resolved.setCookies) headers.append("Set-Cookie", cookie);
+      return new Response(response.body, { status: response.status, headers });
     } finally {
       await server.close();
     }
