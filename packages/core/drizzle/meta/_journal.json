@@ -36,6 +36,13 @@
       "when": 1791160063441,
       "tag": "0004_apikey_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1791164434989,
+      "tag": "0005_rebuild_indexes",
+      "breakpoints": true
     }
   ]
 }

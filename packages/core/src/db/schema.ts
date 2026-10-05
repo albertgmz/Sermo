@@ -187,6 +187,8 @@ export const posts = sqliteTable(
   (t) => [
     // posts.list: WHERE thread_id = ? AND position BETWEEN ? AND ? ORDER BY position
     index("posts_thread_position").on(t.threadId, t.position),
+    // Counter rebuild: a user's visible posts (joined to their thread's state), index-only.
+    index("posts_user").on(t.userId, t.state, t.threadId),
   ],
 );
 
@@ -385,6 +387,8 @@ export const reactions = sqliteTable(
     // One reaction per user per item; also serves the viewer batch lookup and
     // reactions.list (ordered by user_id).
     uniqueIndex("reactions_content_user").on(t.contentType, t.contentId, t.userId),
+    // Counter rebuild: the reaction score a user received, index-only.
+    index("reactions_recipient").on(t.contentUserId, t.score),
   ],
 );
 
