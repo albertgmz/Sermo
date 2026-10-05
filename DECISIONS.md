@@ -216,3 +216,26 @@ database file and fsyncs it: on the 2.6 GB benchmark database that single write 
 PASSIVE checkpoint every second on a separate thread and connection (`startCheckpointer`),
 which never blocks readers or writers. Processes that do not start it keep SQLite's default.
 The benchmark runs with the checkpointer, as production does.
+
+## Milestone 7: jobs, scheduler, search
+
+**Scheduling uses croner (10.0.1); the job queue stays custom.** Periodic tasks (view flush every
+5 s; hourly credential and stale read-marker purges; daily counter rebuild and `PRAGMA optimize`)
+are croner jobs with overlap protection and error capture. Durable work goes through the `jobs`
+table, which supports several processes on one database: jobs are claimed with a lease inside an
+immediate transaction, handlers run outside it, failures back off (30 s, 2 min, 10 min, 1 h)
+and fail after 5 attempts, including jobs whose lease keeps expiring.
+
+**The counter rebuild is a chain of short jobs.** Each stage (threads, nodes, users, profile
+posts, conversations, and the reaction counts of every content type) walks its table by id in
+chunks sized so a chunk holds the write lock for a few milliseconds, writes only rows that differ,
+and enqueues the next chunk. Two covering indexes exist for it (`posts_user`,
+`reactions_recipient`). The worst chunk on the benchmark data is one conversation with 13,000
+messages: about 28 ms with a cold cache. It runs once a day in the background and a request
+waiting behind it still meets its budget, so it was accepted; recomputing outside the write
+transaction would risk overwriting concurrent updates.
+
+**Search tokenizes like FTS5's `unicode61`.** Words are runs of letters and digits; combining
+marks are dropped by both the query parser and the index tokenizer, so in scripts that use them
+(for example Devanagari) a query can match part of a longer word. Excerpts are plain text cut on
+code points.
