@@ -11,6 +11,7 @@ import { type Ctx, prepared } from "../../context";
 import { filesGet } from "../../contracts/storage";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { consumeEvents } from "../../events";
 import { implement } from "../../operation";
 import { iso } from "../../time";
 import { setAttachments } from "../attachments";
@@ -155,6 +156,39 @@ export function registerStorageJobs(ctx: Ctx, config: StorageConfig): void {
       afterId = rows.at(-1)!.id;
     }
   });
+  registerJobHandler(ctx, "storage.events", async () => {
+    const count = await consumeEvents(
+      ctx,
+      "storage.files",
+      (event) => {
+        const payload = event.payload;
+        const candidates = payload.permanent === true ? payload.fileIds : payload.removedFileIds;
+        if (!Array.isArray(candidates)) return;
+        for (const id of candidates) {
+          if (!Number.isSafeInteger(id) || Number(id) < 1) continue;
+          const file = prepared(ctx, "storage.eventFile", () =>
+            ctx.sqlite.prepare<{ deleted_at: number | null }, [number]>(
+              "SELECT deleted_at FROM files WHERE id=?1",
+            ),
+          ).get(Number(id));
+          if (!file || (file.deleted_at !== null && file.deleted_at !== -1)) continue;
+          enqueueJob(
+            ctx,
+            "storage.deletePermanent",
+            { id },
+            { uniqueKey: `storage.deletePermanent.${id}` },
+          );
+        }
+      },
+      1000,
+    );
+    if (count === 1000)
+      enqueueJob(ctx, "storage.events", {}, { uniqueKey: `storage.events.next.${ctx.now()}` });
+  });
+}
+
+export function queueStorageEvents(ctx: Ctx): number | null {
+  return enqueueJob(ctx, "storage.events", {}, { uniqueKey: "storage.events" });
 }
 
 export interface StorageConfig {

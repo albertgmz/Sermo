@@ -51,7 +51,9 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number, slot: ImageSlot, nodeI
         .get(nodeId);
       if (!row) throw new NotFoundError();
       previous = row.previous;
-      ctx.sqlite.prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`).run(fileId, nodeId);
+      ctx.sqlite
+        .prepare(`UPDATE nodes SET ${column} = ?1, content_updated_at = ?3 WHERE id = ?2`)
+        .run(fileId, nodeId, ctx.now());
     }
     ctx.sqlite
       .prepare(
@@ -70,6 +72,10 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number, slot: ImageSlot, nodeI
       targetType: nodeId === undefined ? "profile" : "node",
       targetId: nodeId ?? user.userId,
     });
+    if (nodeId === undefined)
+      ctx.sqlite
+        .prepare("UPDATE users SET content_updated_at = ?1 WHERE id = ?2")
+        .run(ctx.now(), user.userId);
     if (nodeId !== undefined)
       appendModeratorLog(ctx, actor, `node.${slot}`, "node", nodeId, "", { fileId });
     return { fileId, url: fileUrl(fileId) };

@@ -3,6 +3,8 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { purgeExpiredCredentials } from "../auth";
+import { queueSeoEvents } from "../seo/delivery";
+import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushDownloadCounts, flushViewCounts } from "./queue";
 import { registerJobHandlers } from "./rebuild";
 
@@ -28,6 +30,8 @@ export function runViewsTask(ctx: Ctx): number {
 
 export function runHourlyTasks(ctx: Ctx): void {
   purgeExpiredCredentials(ctx);
+  queueSeoEvents(ctx);
+  queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;
   const readBatch = prepared(ctx, "jobs.expiredReads", () =>
     ctx.sqlite.prepare<{ id: number; last_post_at: number }, [number]>(purgeSql.reads),

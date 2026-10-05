@@ -181,6 +181,42 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       responses: { 200: { description: "File bytes" }, 404: { description: "File not visible" } },
     },
   };
+  for (const [path, operationId, mime] of [
+    ["/robots.txt", "seo.robots", "text/plain"],
+    ["/sitemap.xml", "seo.sitemapIndex", "application/xml"],
+    ["/sitemaps/{name}", "seo.sitemapShard", "application/xml"],
+    ["/feed.atom", "seo.siteFeed", "application/atom+xml"],
+    ["/nodes/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
+    ["/{key}.txt", "seo.indexNowKey", "text/plain"],
+  ] as const) {
+    paths[path] = {
+      get: {
+        operationId,
+        tags: ["seo"],
+        parameters: path.includes("{name}")
+          ? [{ name: "name", in: "path", required: true, schema: { type: "string" } }]
+          : path.includes("{key}")
+            ? [{ name: "key", in: "path", required: true, schema: { type: "string" } }]
+            : path.includes("{nodeId}")
+              ? [
+                  {
+                    name: "nodeId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer", minimum: 1 },
+                  },
+                ]
+              : [],
+        responses: {
+          200: {
+            description: "Public SEO document",
+            content: { [mime]: { schema: { type: "string" } } },
+          },
+          404: { description: "Not found" },
+        },
+      },
+    };
+  }
   paths["/api/v1/openapi.json"] = {
     get: {
       operationId: "getOpenApiDocument",

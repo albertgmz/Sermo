@@ -8,5 +8,6 @@ export * from "./permissions";
 export * from "./profiles";
 export * from "./reactions";
 export * from "./search";
+export * from "./seo";
 export * from "./settings";
 export * from "./storage";

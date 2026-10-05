@@ -375,3 +375,20 @@ The checker is disabled by default and every adapter test uses a mock response.
 **The new-member approval window defaults to seven days.** The setting can change it without a
 migration. Link moderation applies only within that window, while the first-post rule counts
 forum posts against the configured threshold.
+
+**SEO paths use cosmetic slugs after numeric ids.** A supplied path is compared with the
+canonical URL and the metadata includes a redirect flag. The existing server configuration
+already allowed `SERMO_SITE_URL` to fall back to `BETTER_AUTH_URL`; that behavior was kept even
+though the second-pass request described the site URL as required. The public origin is passed
+to core so REST, MCP, feeds, and sitemaps agree.
+
+**A profile is indexable when its public about text or visible wall posts exist.** Forum post
+counters can include posts in nodes hidden from guests, so they do not establish public profile
+content. This conservative rule can be broadened later with a separate public-content counter.
+
+**IndexNow uses a durable pending table behind the event subscriber.** Each public content
+event yields a canonical URL record with the event id as its idempotency key. The jobs queue
+sends up to 10,000 distinct URLs at once and retries failed submissions. While no key is set,
+events advance without submission. A later key enables future events only. File cleanup also
+subscribes to content events, while immediate attachment removal keeps its existing deletion job
+for prompt cleanup.

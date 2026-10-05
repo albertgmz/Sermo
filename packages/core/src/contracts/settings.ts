@@ -21,7 +21,10 @@ export const SiteSettings = z
     threadTitleTemplate: z.string().min(1).max(200),
     nodeTitleTemplate: z.string().min(1).max(200),
     profileTitleTemplate: z.string().min(1).max(200),
-    indexNowKey: z.string().min(8).max(128).nullable(),
+    indexNowKey: z
+      .string()
+      .regex(/^[A-Za-z0-9-]{8,128}$/)
+      .nullable(),
   })
   .meta({ id: "SiteSettings" });
 

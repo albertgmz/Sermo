@@ -9,6 +9,11 @@ import { loadAttachments } from "../attachments";
 import { getGlobalPermissions } from "../permissions";
 
 export type State = "visible" | "moderated" | "deleted";
+export function touchProfile(ctx: Ctx, userId: number): void {
+  prepared(ctx, "profiles.touchPublicContent", () =>
+    ctx.sqlite.prepare("UPDATE users SET content_updated_at = ?1 WHERE id = ?2"),
+  ).run(ctx.now(), userId);
+}
 export type PostRow = {
   id: number;
   profile_user_id: number;

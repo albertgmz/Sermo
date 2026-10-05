@@ -15,6 +15,7 @@ import {
   UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
+import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
 
@@ -123,6 +124,7 @@ export const nodesGet = defineContract({
   input: z.object({ nodeId: Id }),
   output: z.object({
     node: Node,
+    seo: SeoMetadata,
     breadcrumbs: z.array(z.object({ id: Id, title: z.string(), type: NodeType })),
   }),
 });
@@ -174,6 +176,7 @@ export const threadsGet = defineContract({
   input: z.object({ threadId: Id }),
   output: z.object({
     thread: Thread,
+    seo: SeoMetadata,
     node: z.object({ id: Id, title: z.string() }),
     permissions: z.object({
       canReply: z.boolean(),

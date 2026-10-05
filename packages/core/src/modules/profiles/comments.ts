@@ -31,6 +31,7 @@ import {
   commentValues,
   requireComment,
   requirePost,
+  touchProfile,
 } from "./shared";
 
 export const profileCommentsListOp = implement(profileCommentsList, (ctx, actor, input) => {
@@ -90,6 +91,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
             "UPDATE profile_posts SET comment_count = comment_count + 1, last_comment_at = ?1 WHERE id = ?2",
           ),
         ).run(row.created_at, post.id);
+      if (row.state === "visible") touchProfile(ctx, post.profile_user_id);
       publishEvent(ctx, {
         type: "content.created",
         targetType: "profile_post_comment",
@@ -105,7 +107,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
 });
 export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { comment } = requireComment(ctx, actor, input.commentId);
+  const { comment, post } = requireComment(ctx, actor, input.commentId);
   if (comment.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
@@ -121,6 +123,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     ).run(content.source, html, ctx.now(), comment.id);
     if (decision.moderated)
       moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
+    if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "profile_post_comment",
@@ -152,11 +155,14 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
       ),
     ).run(comment.id, current.state);
     if (result.changes === 1 && current.state === "visible") changeCommentCount(ctx, post.id, -1);
+    if (result.changes === 1 && current.state === "visible")
+      touchProfile(ctx, post.profile_user_id);
     if (result.changes)
       publishEvent(ctx, {
         type: "content.deleted",
         targetType: "profile_post_comment",
         targetId: comment.id,
+        payload: { previousState: current.state },
       });
     if (getGlobalPermissions(ctx, actor).isModerator)
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
@@ -179,6 +185,7 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
       ),
     ).run(comment.id, current.state);
     if (result.changes === 1 && current.state !== "visible") changeCommentCount(ctx, post.id, 1);
+    if (result.changes === 1) touchProfile(ctx, post.profile_user_id);
     if (result.changes)
       publishEvent(ctx, {
         type: "content.state_changed",

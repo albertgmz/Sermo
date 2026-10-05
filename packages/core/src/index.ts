@@ -27,6 +27,14 @@ export {
   startScheduler,
 } from "./modules/jobs";
 export { registerModerationJobs } from "./modules/moderation";
+export {
+  atomFeed,
+  queueSeoEvents,
+  registerSeoJobs,
+  robotsTxt,
+  sitemapIndex,
+  sitemapShard,
+} from "./modules/seo";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
 export type { StorageConfig, StorageDriver } from "./modules/storage";
 export {

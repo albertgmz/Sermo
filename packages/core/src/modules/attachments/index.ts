@@ -1,6 +1,7 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { NotFoundError, ValidationError } from "../../errors";
+import { publishEvent } from "../../events";
 import { enqueueJob } from "../jobs";
 import { fileUrl } from "../storage/url";
 
@@ -96,12 +97,19 @@ export function setAttachments(
     ctx.sqlite
       .prepare("UPDATE files SET visibility = 'private' WHERE id = ?1 OR parent_file_id = ?1")
       .run(fileId);
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: type,
+      targetId: contentId,
+      payload: { removedFileIds: [fileId] },
+    });
     enqueueJob(
       ctx,
       "storage.deletePermanent",
       { id: fileId },
       { uniqueKey: `storage.deletePermanent.${fileId}` },
     );
+    enqueueJob(ctx, "storage.events", {}, { uniqueKey: "storage.events" });
   }
   const reorder = ctx.sqlite.prepare("UPDATE attachments SET position = ?1 WHERE file_id = ?2");
   ids.forEach((id, position) => {

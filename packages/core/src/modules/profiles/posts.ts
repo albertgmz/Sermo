@@ -27,6 +27,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { getGlobalPermissions } from "../permissions";
+import { seoForProfile } from "../seo";
 import { resolvedFileUrl } from "../storage/url";
 import {
   latestComments,
@@ -35,6 +36,7 @@ import {
   postValues,
   requirePost,
   requireView,
+  touchProfile,
   WALL_SQL,
 } from "./shared";
 
@@ -78,14 +80,16 @@ function readProfile(ctx: Ctx, actor: Actor, userId: number) {
 }
 export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
   requireView(ctx, actor);
-  return readProfile(ctx, actor, input.userId);
+  return { ...readProfile(ctx, actor, input.userId), seo: seoForProfile(ctx, actor, input.userId) };
 });
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   writeTx(ctx, () => {
     prepared(ctx, "profiles.updateAbout", () =>
-      ctx.sqlite.prepare<unknown, [string, number]>("UPDATE users SET about = ?1 WHERE id = ?2"),
-    ).run(input.about, user.userId);
+      ctx.sqlite.prepare<unknown, [string, number, number]>(
+        "UPDATE users SET about = ?1, content_updated_at = ?3 WHERE id = ?2",
+      ),
+    ).run(input.about, user.userId, ctx.now());
     publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
   });
   return readProfile(ctx, actor, user.userId);
@@ -174,6 +178,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
       setAttachments(ctx, user.userId, "profile_post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
       post.attachment_count = input.attachmentIds?.length ?? 0;
+      if (post.state === "visible") touchProfile(ctx, input.userId);
       publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
       return post;
     });
@@ -199,6 +204,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
       ),
     ).run(content.source, html, ctx.now(), row.id);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
+    if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, { type: "content.edited", targetType: "profile_post", targetId: row.id });
     if (getGlobalPermissions(ctx, actor).isModerator)
       appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
@@ -221,7 +227,13 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
       ),
     ).run(row.id);
     if (result.changes)
-      publishEvent(ctx, { type: "content.deleted", targetType: "profile_post", targetId: row.id });
+      publishEvent(ctx, {
+        type: "content.deleted",
+        targetType: "profile_post",
+        targetId: row.id,
+        payload: { previousState: row.state },
+      });
+    if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (getGlobalPermissions(ctx, actor).isModerator)
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
   });
@@ -243,6 +255,7 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
         targetType: "profile_post",
         targetId: row.id,
       });
+    if (result.changes) touchProfile(ctx, row.profile_user_id);
     appendModeratorLog(ctx, actor, "profile_post.restore", "profile_post", row.id);
   });
   return postValue(ctx, actor, { ...row, state: "visible" });

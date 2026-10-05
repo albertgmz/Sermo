@@ -64,6 +64,13 @@
       "when": 1791230000000,
       "tag": "0008_word_filters_active",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791231000000,
+      "tag": "0009_seo_delivery",
+      "breakpoints": true
     }
   ]
 }

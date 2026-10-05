@@ -553,6 +553,14 @@ function stateChange(ctx: Ctx, target: Content, state: ContentStateValue) {
     conversation_message: "conversation_messages",
   }[target.type];
   exec(ctx, `state.${table}`, `UPDATE ${table} SET state = ?1 WHERE id = ?2`, state, row.id);
+  if (delta !== 0 && (target.type === "profile_post" || target.type === "profile_post_comment"))
+    exec(
+      ctx,
+      "touchModeratedProfile",
+      "UPDATE users SET content_updated_at = ?1 WHERE id = ?2",
+      ctx.now(),
+      row.profile_user_id,
+    );
   publishEvent(ctx, {
     type: state === "deleted" ? "content.deleted" : "content.state_changed",
     targetType: target.type,

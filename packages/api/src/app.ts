@@ -1,5 +1,6 @@
 import {
   type Actor,
+  atomFeed,
   CLIENT_IP_HEADER,
   type Ctx,
   createStorage,
@@ -7,8 +8,11 @@ import {
   getAuth,
   readSiteSettings,
   resolveActor,
+  robotsTxt,
   SermoError,
   type StorageConfig,
+  sitemapIndex,
+  sitemapShard,
 } from "@sermo/core";
 import { createMcpHandler } from "@sermo/mcp";
 import { type Context, Hono } from "hono";
@@ -227,6 +231,45 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       return c.json({ status: "unavailable" }, 503);
     }
   });
+  const siteURL = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+  app.get("/robots.txt", (c) =>
+    c.text(robotsTxt(siteURL), 200, { "content-type": "text/plain; charset=utf-8" }),
+  );
+  app.get("/sitemap.xml", (c) =>
+    c.text(sitemapIndex(ctx, siteURL), 200, { "content-type": "application/xml; charset=utf-8" }),
+  );
+  app.get("/sitemaps/:name", (c) => {
+    const parsed = /^(node|thread|profile)-(\d+)\.xml$/.exec(c.req.param("name"));
+    if (!parsed) return c.json(errorBody("not_found", "Unknown sitemap."), 404);
+    const kind = parsed[1] as "node" | "thread" | "profile";
+    const shard = Number(parsed[2]);
+    if (!Number.isSafeInteger(shard) || shard < 1)
+      return c.json(errorBody("validation", "Invalid sitemap shard."), 400);
+    return c.text(sitemapShard(ctx, siteURL, kind, shard), 200, {
+      "content-type": "application/xml; charset=utf-8",
+    });
+  });
+  app.get("/feed.atom", (c) =>
+    c.text(atomFeed(ctx, siteURL, "Sermo"), 200, {
+      "content-type": "application/atom+xml; charset=utf-8",
+    }),
+  );
+  app.get("/nodes/:nodeId/feed.atom", (c) => {
+    const match = /^(\d+)(?:-[^/]+)?$/.exec(c.req.param("nodeId"));
+    const id = Number(match?.[1]);
+    if (!Number.isSafeInteger(id) || id < 1)
+      return c.json(errorBody("validation", "Invalid node ID."), 400);
+    return c.text(atomFeed(ctx, siteURL, "Sermo", id), 200, {
+      "content-type": "application/atom+xml; charset=utf-8",
+    });
+  });
+  app.get("/:name", (c) => {
+    const matched = /^(.+)\.txt$/.exec(c.req.param("name"));
+    const key = readSiteSettings(ctx).indexNowKey;
+    if (!key || matched?.[1] !== key)
+      return c.json(errorBody("not_found", "Key unavailable."), 404);
+    return c.text(key, 200, { "content-type": "text/plain; charset=utf-8" });
+  });
   app.get("/api/v1/openapi.json", async (c) => {
     openApiDocument ??= buildOpenApiDocument(ctx);
     return c.json(await openApiDocument);
@@ -287,6 +330,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       }
       for (const [name, value] of Object.entries(c.req.param()))
         raw[name] = coerce(String(value), properties[name]);
+      if (op.name === "search.query") c.header("X-Robots-Tag", "noindex, follow");
       return c.json(await execute(ctx, op, c.get("actor"), raw), route.status);
     });
   }

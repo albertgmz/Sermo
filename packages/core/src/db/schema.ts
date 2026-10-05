@@ -93,6 +93,7 @@ export const users = sqliteTable(
     reactionScore: counter("reaction_score"),
     avatarFileId: integer("avatar_file_id"),
     coverFileId: integer("cover_file_id"),
+    contentUpdatedAt: integer("content_updated_at"),
     bannedUntil: integer("banned_until"),
     bannedPermanently: bool("banned_permanently").notNull().default(false),
   },
@@ -122,6 +123,7 @@ export const nodes = sqliteTable(
     lastPosterId: integer("last_poster_id"),
     iconFileId: integer("icon_file_id"),
     coverFileId: integer("cover_file_id"),
+    contentUpdatedAt: integer("content_updated_at"),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
@@ -179,6 +181,8 @@ export const threads = sqliteTable(
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
     index("threads_node_list").on(t.nodeId, t.isSticky, t.lastPostAt, t.id),
+    index("threads_public_feed").on(t.state, t.lastPostAt, t.id),
+    index("threads_node_feed").on(t.nodeId, t.state, t.lastPostAt, t.id),
     index("threads_state_id").on(t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
   ],

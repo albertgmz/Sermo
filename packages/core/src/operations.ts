@@ -8,6 +8,7 @@ import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
 import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
+import { operations as seo } from "./modules/seo";
 import { operations as settings } from "./modules/settings";
 import { operations as storage } from "./modules/storage";
 import type { AnyOperation } from "./operation";
@@ -26,6 +27,7 @@ export const operations: readonly AnyOperation[] = [
   ...storage,
   ...images,
   ...moderation,
+  ...seo,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

@@ -88,6 +88,10 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/reactions/{contentType}/{contentId}", "reactions.set"],
   ["DELETE", "/reactions/{contentType}/{contentId}", "reactions.remove"],
   ["GET", "/search", "search.query"],
+  ["GET", "/seo/nodes/{nodeId}", "seo.node"],
+  ["GET", "/seo/threads/{threadId}", "seo.thread"],
+  ["GET", "/seo/users/{userId}", "seo.profile"],
+  ["GET", "/seo/search", "seo.search"],
 ];
 
 export const routes: readonly ApiRoute[] = definitions.map(([method, path, operation, status]) => ({

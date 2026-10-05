@@ -10,6 +10,7 @@ import {
   localDriver,
   registerJobHandlers,
   registerModerationJobs,
+  registerSeoJobs,
   registerStorageJobs,
   s3Driver,
   startCheckpointer,
@@ -145,7 +146,11 @@ async function main(): Promise<void> {
   const ctx = createContext({
     path: config.path,
     migrate: true,
-    config: { auth: config.auth, publicFileBaseURL: config.publicFileBaseURL },
+    config: {
+      auth: config.auth,
+      publicFileBaseURL: config.publicFileBaseURL,
+      siteBaseURL: config.siteBaseURL,
+    },
   });
   if (config.admin) await ensureAdmin(ctx, config.admin);
   const stopCheckpointer = startCheckpointer(ctx);
@@ -166,6 +171,7 @@ async function main(): Promise<void> {
         });
   registerStorageJobs(ctx, { driver, tempDir: join(dirname(config.path), "upload-temp") });
   registerModerationJobs(ctx);
+  registerSeoJobs(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },

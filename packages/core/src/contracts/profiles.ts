@@ -12,6 +12,7 @@ import {
   UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
+import { SeoMetadata } from "./seo";
 
 export const Profile = z
   .object({
@@ -80,7 +81,7 @@ export const profilesGet = defineContract({
   summary: "A user's public profile.",
   kind: "read",
   input: z.object({ userId: Id }),
-  output: Profile,
+  output: Profile.extend({ seo: SeoMetadata }),
 });
 
 export const profilesUpdate = defineContract({

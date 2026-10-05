@@ -22,6 +22,8 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { getNodeAccess, getNodeTree, requireAdmin } from "../permissions";
+import { seoForNode, seoForThread } from "../seo";
+import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
 
 type State = "visible" | "moderated" | "deleted";
@@ -345,6 +347,7 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
   requireNode(ctx, actor, input.nodeId);
   return {
     node: nodeValues(ctx, actor, [input.nodeId])[0]!,
+    seo: seoForNode(ctx, actor, input.nodeId),
     breadcrumbs: getNodeTree(ctx)
       .ancestors(input.nodeId)
       .map(({ id, title, type }) => ({ id, title, type })),
@@ -355,10 +358,10 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
   const id = writeTx(ctx, () => {
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
     const row = forumDb(ctx)
-      .prepare<{ id: number }, [number | null, string, string, string, number]>(
-        "INSERT INTO nodes (parent_id, type, title, description, position) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id",
+      .prepare<{ id: number }, [number | null, string, string, string, number, number]>(
+        "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
       )
-      .get(input.parentId, input.type, input.title, input.description, input.position)!;
+      .get(input.parentId, input.type, input.title, input.description, input.position, ctx.now())!;
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
     appendModeratorLog(ctx, actor, "node.create", "node", row.id);
@@ -377,7 +380,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
       throw new ValidationError("A node cannot be its own descendant.");
     forumDb(ctx)
       .prepare(
-        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4 WHERE id = ?5",
+        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4, content_updated_at = ?6 WHERE id = ?5",
       )
       .run(
         input.parentId === undefined ? current.parentId : input.parentId,
@@ -385,6 +388,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         input.description ?? current.description,
         input.position ?? current.position,
         input.nodeId,
+        ctx.now(),
       );
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
@@ -428,6 +432,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
   return {
     thread: threadValue(ctx, actor, row.id),
+    seo: seoForThread(ctx, actor, row.id),
     node: { id: node.id, title: node.title },
     permissions: {
       canReply: access.post && (!row.is_locked || access.moderate),
@@ -578,10 +583,17 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       const state = decision.moderated || spam ? "moderated" : "visible";
       const now = ctx.now();
       const thread = forumDb(ctx)
-        .prepare<{ id: number }, [number, number, string, string, number]>(
-          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5) RETURNING id",
+        .prepare<{ id: number }, [number, number, string, string, number, string]>(
+          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6) RETURNING id",
         )
-        .get(input.nodeId, user.userId, input.title, state, now)!;
+        .get(
+          input.nodeId,
+          user.userId,
+          input.title,
+          state,
+          now,
+          excerptFromMarkdown(content.source),
+        )!;
       const post = forumDb(ctx)
         .prepare<{ id: number }, [number, number, number]>(
           "INSERT INTO posts (thread_id, user_id, position, created_at) VALUES (?1, ?2, 0, ?3) RETURNING id",
@@ -709,6 +721,10 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     forumDb(ctx)
       .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
       .run(ctx.now(), post.thread_id);
+    if (post.id === thread.row.first_post_id)
+      forumDb(ctx)
+        .prepare("UPDATE threads SET excerpt = ?1 WHERE id = ?2")
+        .run(excerptFromMarkdown(content.source), post.thread_id);
     publishEvent(ctx, { type: "content.edited", targetType: "post", targetId: post.id });
     if (thread.access.moderate && post.user_id === actorUserId(actor))
       appendModeratorLog(ctx, actor, "post.edit", "post", post.id);
@@ -792,7 +808,12 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   requireModeration(access);
   writeTx(ctx, () => {
     if (changeThreadState(ctx, row.id, "deleted"))
-      publishEvent(ctx, { type: "content.deleted", targetType: "thread", targetId: row.id });
+      publishEvent(ctx, {
+        type: "content.deleted",
+        targetType: "thread",
+        targetId: row.id,
+        payload: { previousState: row.state },
+      });
     appendModeratorLog(ctx, actor, "thread.delete", "thread", row.id);
   });
   return threadValue(ctx, actor, row.id);
@@ -846,7 +867,12 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
   writeTx(ctx, () => {
     if (changePostState(ctx, post.id, "deleted"))
-      publishEvent(ctx, { type: "content.deleted", targetType: "post", targetId: post.id });
+      publishEvent(ctx, {
+        type: "content.deleted",
+        targetType: "post",
+        targetId: post.id,
+        payload: { previousState: post.state },
+      });
     if (thread.access.moderate) appendModeratorLog(ctx, actor, "post.delete", "post", post.id);
   });
   return postValue(ctx, actor, post.id);

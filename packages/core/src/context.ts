@@ -28,6 +28,8 @@ export interface CoreConfig {
   auth?: AuthConfig;
   /** Optional origin that proxies public profile and node images. */
   publicFileBaseURL?: string;
+  /** Public origin used for canonical URLs and feeds. */
+  siteBaseURL?: string;
   /** Optional external spam checker; absent by default. */
   spamChecker?: SpamChecker;
   /** Validate every operation's output against its contract (on in tests, off in production). */
