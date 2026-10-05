@@ -32,6 +32,17 @@ export const REACTION_CONTENT_TYPES = [
 ] as const;
 export type ReactionContentType = (typeof REACTION_CONTENT_TYPES)[number];
 export const JOB_STATUSES = ["pending", "running", "done", "failed"] as const;
+export const FILE_VISIBILITIES = ["unattached", "public", "private"] as const;
+export const FILE_PURPOSES = ["attachment", "avatar", "cover", "node_icon", "node_cover"] as const;
+export const ATTACHMENT_CONTENT_TYPES = ["post", "profile_post", "conversation_message"] as const;
+export const REPORT_TARGET_TYPES = [
+  "post",
+  "profile_post",
+  "profile_post_comment",
+  "conversation_message",
+  "user",
+] as const;
+export const REPORT_STATES = ["open", "assigned", "resolved", "rejected"] as const;
 
 const bool = (name: string) => integer(name, { mode: "boolean" });
 const counter = (name: string) => integer(name).notNull().default(0);
@@ -80,6 +91,10 @@ export const users = sqliteTable(
     createdAt: integer("created_at").notNull(),
     postCount: counter("post_count"),
     reactionScore: counter("reaction_score"),
+    avatarFileId: integer("avatar_file_id"),
+    coverFileId: integer("cover_file_id"),
+    bannedUntil: integer("banned_until"),
+    bannedPermanently: bool("banned_permanently").notNull().default(false),
   },
   (t) => [uniqueIndex("users_username_key").on(t.usernameKey)],
 );
@@ -105,6 +120,8 @@ export const nodes = sqliteTable(
     lastThreadId: integer("last_thread_id"),
     lastThreadTitle: text("last_thread_title"),
     lastPosterId: integer("last_poster_id"),
+    iconFileId: integer("icon_file_id"),
+    coverFileId: integer("cover_file_id"),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
@@ -156,6 +173,8 @@ export const threads = sqliteTable(
     lastPostAt: integer("last_post_at").notNull(),
     lastPostId: integer("last_post_id"),
     lastPosterId: integer("last_poster_id").notNull(),
+    excerpt: text("excerpt").notNull().default(""),
+    contentUpdatedAt: integer("content_updated_at"),
   },
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
@@ -183,6 +202,7 @@ export const posts = sqliteTable(
     createdAt: integer("created_at").notNull(),
     editedAt: integer("edited_at"),
     reactionCounts: reactionCounts(),
+    attachmentCount: counter("attachment_count"),
   },
   (t) => [
     // posts.list: WHERE thread_id = ? AND position BETWEEN ? AND ? ORDER BY position
@@ -246,6 +266,7 @@ export const profilePosts = sqliteTable(
     bodySource: text("body_source").notNull(),
     bodyHtml: text("body_html").notNull(),
     reactionCounts: reactionCounts(),
+    attachmentCount: counter("attachment_count"),
     /** Visible comments. */
     commentCount: counter("comment_count"),
     lastCommentAt: integer("last_comment_at"),
@@ -345,6 +366,7 @@ export const conversationMessages = sqliteTable(
     bodySource: text("body_source").notNull(),
     bodyHtml: text("body_html").notNull(),
     reactionCounts: reactionCounts(),
+    attachmentCount: counter("attachment_count"),
   },
   (t) => [index("conversation_messages_conv").on(t.conversationId, t.id)],
 );
@@ -432,3 +454,215 @@ export const cacheVersions = sqliteTable(
   },
   (t) => [uniqueIndex("cache_versions_key").on(t.key)],
 );
+
+// ---------------------------------------------------------------------------
+// Files, attachments, and transfer accounting
+
+export const files = sqliteTable(
+  "files",
+  {
+    id: integer("id").primaryKey(),
+    driver: text("driver").notNull(),
+    storageKey: text("storage_key").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    contentType: text("content_type").notNull(),
+    sha256: text("sha256").notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    uploaderId: integer("uploader_id")
+      .notNull()
+      .references(() => users.id),
+    purpose: text("purpose", { enum: FILE_PURPOSES }).notNull(),
+    visibility: text("visibility", { enum: FILE_VISIBILITIES }).notNull().default("unattached"),
+    parentFileId: integer("parent_file_id"),
+    variant: text("variant"),
+    downloadCount: counter("download_count"),
+    createdAt: integer("created_at").notNull(),
+    attachedAt: integer("attached_at"),
+    deletedAt: integer("deleted_at"),
+  },
+  (t) => [
+    uniqueIndex("files_driver_key").on(t.driver, t.storageKey),
+    index("files_unattached_cleanup").on(t.visibility, t.createdAt, t.id),
+    index("files_uploader").on(t.uploaderId, t.createdAt, t.id),
+    uniqueIndex("files_variant").on(t.parentFileId, t.variant),
+  ],
+);
+
+export const attachments = sqliteTable(
+  "attachments",
+  {
+    id: integer("id").primaryKey(),
+    fileId: integer("file_id")
+      .notNull()
+      .references(() => files.id),
+    contentType: text("content_type", { enum: ATTACHMENT_CONTENT_TYPES }).notNull(),
+    contentId: integer("content_id").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("attachments_file").on(t.fileId),
+    index("attachments_content").on(t.contentType, t.contentId, t.position),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Moderation
+
+export const reportGroups = sqliteTable(
+  "report_groups",
+  {
+    id: integer("id").primaryKey(),
+    targetType: text("target_type", { enum: REPORT_TARGET_TYPES }).notNull(),
+    targetId: integer("target_id").notNull(),
+    state: text("state", { enum: REPORT_STATES }).notNull().default("open"),
+    assignedToId: integer("assigned_to_id").references(() => users.id),
+    reportCount: counter("report_count"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    resolvedAt: integer("resolved_at"),
+  },
+  (t) => [
+    uniqueIndex("report_groups_target").on(t.targetType, t.targetId),
+    index("report_groups_queue").on(t.state, t.updatedAt, t.id),
+    index("report_groups_assignee").on(t.assignedToId, t.state, t.updatedAt),
+  ],
+);
+
+export const reports = sqliteTable(
+  "reports",
+  {
+    id: integer("id").primaryKey(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => reportGroups.id),
+    reporterId: integer("reporter_id")
+      .notNull()
+      .references(() => users.id),
+    reason: text("reason").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("reports_group").on(t.groupId, t.id),
+    index("reports_reporter").on(t.reporterId, t.createdAt),
+  ],
+);
+
+export const warnings = sqliteTable(
+  "warnings",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    moderatorId: integer("moderator_id")
+      .notNull()
+      .references(() => users.id),
+    points: integer("points").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at"),
+  },
+  (t) => [index("warnings_user_expiry").on(t.userId, t.expiresAt, t.id)],
+);
+
+export const bans = sqliteTable(
+  "bans",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    moderatorId: integer("moderator_id")
+      .notNull()
+      .references(() => users.id),
+    reason: text("reason").notNull(),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at"),
+    liftedAt: integer("lifted_at"),
+  },
+  (t) => [index("bans_user_active").on(t.userId, t.liftedAt, t.expiresAt)],
+);
+
+export const wordFilters = sqliteTable(
+  "word_filters",
+  {
+    id: integer("id").primaryKey(),
+    term: text("term").notNull(),
+    action: text("action", { enum: ["replace", "moderate"] }).notNull(),
+    replacement: text("replacement"),
+    isActive: bool("is_active").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("word_filters_term").on(t.term)],
+);
+
+export const postRevisions = sqliteTable(
+  "post_revisions",
+  {
+    id: integer("id").primaryKey(),
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id),
+    editorId: integer("editor_id")
+      .notNull()
+      .references(() => users.id),
+    bodySource: text("body_source").notNull(),
+    bodyHtml: text("body_html").notNull(),
+    editedAt: integer("edited_at").notNull(),
+  },
+  (t) => [index("post_revisions_post").on(t.postId, t.id)],
+);
+
+export const moderatorLog = sqliteTable(
+  "moderator_log",
+  {
+    id: integer("id").primaryKey(),
+    actorId: integer("actor_id")
+      .notNull()
+      .references(() => users.id),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: integer("target_id").notNull(),
+    reason: text("reason").notNull().default(""),
+    details: text("details").notNull().default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("moderator_log_recent").on(t.createdAt, t.id),
+    index("moderator_log_actor").on(t.actorId, t.id),
+    index("moderator_log_target").on(t.targetType, t.targetId, t.id),
+  ],
+);
+
+// Site settings are intentionally rows, so admins can change rules without restarting the server.
+export const siteSettings = sqliteTable("site_settings", {
+  id: integer("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+// Durable events are written in the same transaction as the domain change. Job subscribers
+// consume them after commit; a future federation subscriber can use the same ordered stream.
+export const domainEvents = sqliteTable(
+  "domain_events",
+  {
+    id: integer("id").primaryKey(),
+    type: text("type").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: integer("target_id").notNull(),
+    payload: text("payload").notNull().default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("domain_events_target").on(t.targetType, t.targetId, t.id)],
+);
+
+export const eventSubscribers = sqliteTable("event_subscribers", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  lastEventId: integer("last_event_id").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+});

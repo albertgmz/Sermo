@@ -7,6 +7,7 @@ export { openDatabase, runMigrations } from "./db/connection";
 export * as schema from "./db/schema";
 export { type Tx, writeTx } from "./db/tx";
 export * from "./errors";
+export * from "./events";
 export {
   ensureAdmin,
   getAuth,

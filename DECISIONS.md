@@ -287,3 +287,24 @@ check through Bun (the slim image has no curl). Bun links each workspace package
 in that package's own `node_modules`, so the runtime stage copies those too. Backups use
 `VACUUM INTO` through Bun's SQLite binding (no `sqlite3` binary in the image) or a copy after a
 graceful stop.
+
+## Milestone 10: second-pass foundation
+
+**File identity is a database id, with driver and key stored separately.** Content can refer to
+the id through a stable Sermo URL. A variant is another file row linked to its source by
+`parent_file_id` and a unique variant name. This keeps generated sizes immutable and makes a
+driver migration a metadata update after the bytes are copied.
+
+**Existing content gets additive defaults.** Attachment counts start at zero; thread excerpts
+start empty and can be filled when content is edited or by a later backfill. The migration adds
+columns and tables without rebuilding or dropping any existing table.
+
+**Domain events are a durable ordered stream.** A content write appends an event in its own
+transaction. Each named subscriber keeps a cursor and retries an event when its handler fails.
+Handlers must be idempotent because a process may die after an effect but before the cursor is
+saved. This is a small local outbox that can serve IndexNow and file cleanup now and a future
+subscriber later.
+
+**Benchmark file records use a fake driver.** The extended seed has metadata and attachment
+links without creating 300,000 physical files; transfer and image processing have separate
+exempt measurements when those services exist.

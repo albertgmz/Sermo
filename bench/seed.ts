@@ -39,10 +39,14 @@ export const SIZES = {
     conversation_message: 200_000,
   },
   threadReads: 200_000,
+  attachments: 300_000,
+  reportGroups: 20_000,
+  warnings: 10_000,
+  moderatorLog: 200_000,
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -668,6 +672,51 @@ async function generate(path: string): Promise<SeedMeta> {
   );
   for (const t of triggers) db.run(t.sql);
   log("search index", started);
+
+  // The fake driver exercises metadata and attachment queries without allocating 300k files.
+  // File ids match their attached post ids, giving a deterministic join key.
+  const insertFile = db.prepare(
+    "INSERT INTO files (id, driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, created_at, attached_at) SELECT id, 'fake', 'bench/' || id, 4096, 'image/jpeg', 'bench-' || id, 640, 480, user_id, 'attachment', 'public', created_at, created_at FROM posts WHERE id = ?1",
+  );
+  const insertAttachment = db.prepare(
+    "INSERT INTO attachments (file_id, content_type, content_id, position, created_at) SELECT id, 'post', id, 0, created_at FROM posts WHERE id = ?1",
+  );
+  batched(db, SIZES.attachments, (i) => {
+    const id = i + 1;
+    insertFile.run(id);
+    insertAttachment.run(id);
+  });
+  db.run(`UPDATE posts SET attachment_count = 1 WHERE id <= ${SIZES.attachments}`);
+  log("fake attachments", started);
+
+  const insertGroup = db.prepare(
+    "INSERT INTO report_groups (id, target_type, target_id, state, assigned_to_id, report_count, created_at, updated_at) VALUES (?1, 'post', ?1, ?2, ?3, 1, ?4, ?4)",
+  );
+  const insertReport = db.prepare(
+    "INSERT INTO reports (group_id, reporter_id, reason, created_at) VALUES (?1, ?2, 'Seeded report', ?3)",
+  );
+  batched(db, SIZES.reportGroups, (i) => {
+    const id = i + 1;
+    const state = i % 8 === 0 ? "resolved" : i % 5 === 0 ? "assigned" : "open";
+    const at = T0 + i * 1000;
+    insertGroup.run(id, state, state === "assigned" ? 2 + (i % 20) : null, at);
+    insertReport.run(id, 22 + (i % (U - 21)), at);
+  });
+  const insertWarning = db.prepare(
+    "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, expires_at) VALUES (?1, ?2, ?3, 'Seeded warning', ?4, ?5)",
+  );
+  batched(db, SIZES.warnings, (i) => {
+    const at = T0 + i * 1000;
+    insertWarning.run(22 + (i % (U - 21)), 2 + (i % 20), 1 + (i % 5), at, at + 30 * DAY);
+  });
+  const insertLog = db.prepare(
+    "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, created_at) VALUES (?1, 'post.review', 'post', ?2, 'Seeded action', ?3)",
+  );
+  batched(db, SIZES.moderatorLog, (i) => {
+    insertLog.run(2 + (i % 20), 1 + (i % P), T0 + i * 1000);
+  });
+  log("moderation queues", started);
+
   db.run("ANALYZE");
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   log("analyze", started);
