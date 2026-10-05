@@ -44,6 +44,7 @@ export {
   registerStorageJobs,
   s3Driver,
 } from "./modules/storage";
+export { migrateStorageFiles } from "./modules/storage/migrate";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";
 export { decodeCursor, encodeCursor } from "./pagination";

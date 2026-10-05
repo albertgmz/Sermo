@@ -29,6 +29,7 @@ export interface StorageDriver {
   readonly name: string;
   put(key: string, path: string, type: string): Promise<void>;
   read(key: string): Blob;
+  exists?(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
 }
 
@@ -50,6 +51,9 @@ export function localDriver(root: string): StorageDriver {
     read(key) {
       return Bun.file(pathFor(key));
     },
+    exists(key) {
+      return Bun.file(pathFor(key)).exists();
+    },
     async delete(key) {
       await rm(pathFor(key), { force: true });
     },
@@ -65,6 +69,9 @@ export function s3Driver(options: ConstructorParameters<typeof Bun.S3Client>[0])
     },
     read(key) {
       return client.file(key);
+    },
+    exists(key) {
+      return client.exists(key);
     },
     async delete(key) {
       await client.delete(key);

@@ -24,7 +24,8 @@ COPY --chown=bun:bun packages/core/src packages/core/src
 COPY --chown=bun:bun packages/core/drizzle packages/core/drizzle
 COPY --chown=bun:bun packages/api/src packages/api/src
 COPY --chown=bun:bun packages/mcp/src packages/mcp/src
-RUN mkdir /data && chown bun:bun /data
+COPY --chown=bun:bun scripts scripts
+RUN mkdir -p /data/files && chown -R bun:bun /data
 
 USER bun
 EXPOSE 3000

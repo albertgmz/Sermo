@@ -11,7 +11,7 @@ Sermo is a forum backend with a REST API and an MCP tool endpoint. It runs on Bu
 3. Run `docker compose up -d --build`.
 4. Check `http://localhost:3000/health` for `{"status":"ok"}`. The API description is at `http://localhost:3000/api/v1/openapi.json`.
 
-Compose mounts a named volume at `/data`; the database is `/data/sermo.db`. Startup applies migrations to a new volume. `docker compose down` keeps the volume; `docker compose down -v` removes it and its data.
+Compose mounts a named volume at `/data`; the database is `/data/sermo.db` and local uploads are under `/data/files`. Startup applies migrations to a new volume. `docker compose down` keeps the volume; `docker compose down -v` removes it and its data. Set `SERMO_STORAGE_DRIVER=s3` and the `SERMO_S3_*` values in `.env` to use Amazon S3 or Cloudflare R2 on a new installation; no image change is needed.
 
 To verify SQLite FTS5 in the image, run:
 
@@ -89,7 +89,24 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | `SERMO_ADMIN_USERNAME`, `SERMO_ADMIN_EMAIL`, `SERMO_ADMIN_PASSWORD` | Optional administrator bootstrap; set all three together. |
 | `PORT` | Listening port; keep `3000` with the supplied Compose mapping and health check. |
 | `SERMO_DB_PATH` | SQLite file path; Compose sets `/data/sermo.db`, local default is `./data/sermo.db`. |
+| `SERMO_FILES_DIR` | Local upload directory. Keep it under `/data` with Compose so the named volume persists files. |
+| `SERMO_STORAGE_DRIVER` | `local` (default) or `s3`. |
+| `SERMO_S3_BUCKET`, `SERMO_S3_ENDPOINT`, `SERMO_S3_REGION`, `SERMO_S3_ACCESS_KEY_ID`, `SERMO_S3_SECRET_ACCESS_KEY` | Bucket configuration. Use the R2 endpoint for Cloudflare R2; the endpoint is optional for Amazon S3. |
+| `SERMO_PUBLIC_FILES_URL` | Optional proxy or CDN origin for public profile and node images; it must forward Sermo file paths to this API. |
 | `SERMO_BENCH_DIR` | Optional benchmark seed directory; default is `~/.cache/sermo-bench`. |
+
+## Moving stored files
+
+Stop the API before a driver migration. The command streams and hashes each live file, verifies the destination bytes, then switches that file's database record. It keeps the source bytes for rollback. If interrupted, rerun the same command; records already switched are skipped and a completed destination copy is reused.
+
+For a Compose installation moving from local files to a bucket, set the `SERMO_S3_*` values in `.env`, then run:
+
+```sh
+docker compose stop sermo
+docker compose run --rm sermo bun run storage:migrate --from local --to s3
+```
+
+When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `docker compose up -d`. Keep the API stopped until the command completes. Use `--from s3 --to local` to reverse the move. Local installations can run `bun run storage:migrate --from local --to s3` with the same environment variables. The command refuses unfinished file deletions; let the jobs worker finish those before stopping the API. Back up the database and local files before a move.
 
 ## Backups
 

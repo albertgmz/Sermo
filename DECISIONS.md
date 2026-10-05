@@ -392,3 +392,9 @@ sends up to 10,000 distinct URLs at once and retries failed submissions. While n
 events advance without submission. A later key enables future events only. File cleanup also
 subscribes to content events, while immediate attachment removal keeps its existing deletion job
 for prompt cleanup.
+
+**Storage migration is an offline per-file copy.** The command verifies source and destination
+hashes before changing each live file's driver record. It checks the destination for a completed
+copy on retry and leaves source bytes in place after success, making rollback possible without
+an immediate destructive cleanup. The server must stay stopped until all records are switched;
+the owner should decide when to remove the retained source copies.

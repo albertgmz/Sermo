@@ -7,6 +7,7 @@ services:
       - .env
     environment:
       SERMO_DB_PATH: /data/sermo.db
+      SERMO_FILES_DIR: ${SERMO_FILES_DIR:-/data/files}
     volumes:
       - sermo_data:/data
     restart: unless-stopped
