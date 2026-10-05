@@ -68,9 +68,20 @@ export function readConfiguration(source: Record<string, string | undefined> = p
   const secret = required(source, "BETTER_AUTH_SECRET");
   const baseURL = required(source, "BETTER_AUTH_URL");
   new URL(baseURL);
+  const siteURL = new URL(source.SERMO_SITE_URL || baseURL);
+  if (
+    !["http:", "https:"].includes(siteURL.protocol) ||
+    siteURL.pathname !== "/" ||
+    siteURL.search ||
+    siteURL.hash ||
+    siteURL.username ||
+    siteURL.password
+  )
+    throw new Error("SERMO_SITE_URL must be an HTTP(S) origin without a path or credentials.");
   return {
     path: source.SERMO_DB_PATH ?? "./data/sermo.db",
     port,
+    siteBaseURL: siteURL.origin,
     trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
     auth: {
       secret,

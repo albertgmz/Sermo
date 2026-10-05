@@ -83,6 +83,7 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | --- | --- |
 | `BETTER_AUTH_SECRET` | Required signing secret; generate at least 32 random bytes as shown above. |
 | `BETTER_AUTH_URL` | Required public server URL and trusted origin; use HTTPS for a public deployment. |
+| `SERMO_SITE_URL` | Public site origin for canonical links, sitemaps and feeds; defaults to `BETTER_AUTH_URL`. |
 | `SERMO_TRUSTED_ORIGINS` | Additional comma-separated origins allowed for cookie requests. |
 | `SERMO_TRUSTED_PROXY_HEADER` | Client IP header, such as `x-forwarded-for`; the adapter uses its last comma-separated value. Set it only with exactly one trusted proxy in front of Sermo that appends to this header; leave empty for direct connections. |
 | `SERMO_ADMIN_USERNAME`, `SERMO_ADMIN_EMAIL`, `SERMO_ADMIN_PASSWORD` | Optional administrator bootstrap; set all three together. |

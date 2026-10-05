@@ -82,3 +82,20 @@ test("startup settings reject invalid port and partial admin credentials before 
   );
   expect(readConfiguration({ ...base, PORT: "3001" }).port).toBe(3001);
 });
+
+test("site base URL is resolved and validated independently of the auth origin", () => {
+  const base = {
+    BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
+    BETTER_AUTH_URL: "https://api.example.test",
+  };
+  expect(readConfiguration(base).siteBaseURL).toBe("https://api.example.test");
+  expect(
+    readConfiguration({ ...base, SERMO_SITE_URL: "https://forum.example.test" }).siteBaseURL,
+  ).toBe("https://forum.example.test");
+  expect(() => readConfiguration({ ...base, SERMO_SITE_URL: "javascript:alert(1)" })).toThrow(
+    "SERMO_SITE_URL",
+  );
+  expect(() =>
+    readConfiguration({ ...base, SERMO_SITE_URL: "https://forum.example.test/sub" }),
+  ).toThrow("SERMO_SITE_URL");
+});
