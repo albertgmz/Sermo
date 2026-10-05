@@ -1,9 +1,31 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
-import { registerJobHandler } from "./index";
+import { registerJobHandler } from "./queue";
 
-const CHUNK_SIZE = 50;
+export const REBUILD_CHUNK_SIZES = {
+  threads: 50,
+  nodes: 1,
+  users: 10,
+  profile_posts: 100,
+  conversations: 50,
+  posts: 500,
+  profile_post_comments: 500,
+  conversation_messages: 500,
+} as const;
+const columns = {
+  threads:
+    "id, created_at, user_id, first_post_id, reply_count, last_post_at, last_post_id, last_poster_id",
+  nodes:
+    "id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id",
+  users: "id, post_count, reaction_score",
+  profile_posts: "id, comment_count, last_comment_at, reaction_counts",
+  conversations:
+    "id, created_at, user_id, message_count, participant_count, last_message_at, last_message_id, last_message_user_id",
+  posts: "id, reaction_counts",
+  profile_post_comments: "id, reaction_counts",
+  conversation_messages: "id, reaction_counts",
+} as const;
 const stages = [
   "threads",
   "nodes",
@@ -204,7 +226,7 @@ function updateChanged(ctx: Ctx, stage: Stage, row: Row, values: Record<string, 
     prepared(ctx, "jobs.rebuild.participantCopy", () =>
       ctx.sqlite.prepare(
         "UPDATE conversation_participants SET last_message_at = ?1 " +
-          "WHERE conversation_id = ?2 AND last_message_at IS NOT ?1",
+          "WHERE conversation_id = ?2 AND state = 'active' AND last_message_at IS NOT ?1",
       ),
     ).run(values.last_message_at ?? null, row.id);
   }
@@ -215,6 +237,7 @@ function updateChanged(ctx: Ctx, stage: Stage, row: Row, values: Record<string, 
 export function rebuildCountersChunk(
   ctx: Ctx,
   progress: RebuildProgress = { stage: "threads", after: 0 },
+  options: { enqueueNext?: boolean } = {},
 ): number {
   if (
     !stages.includes(progress.stage) ||
@@ -223,44 +246,45 @@ export function rebuildCountersChunk(
   )
     throw new TypeError("Invalid counter rebuild progress.");
   return writeTx(ctx, () => {
+    const chunkSize = REBUILD_CHUNK_SIZES[progress.stage];
     const rows = all<Row>(
       ctx,
       `page.${progress.stage}`,
-      `SELECT * FROM ${progress.stage} WHERE id > ?1 ORDER BY id LIMIT ?2`,
+      `SELECT ${columns[progress.stage]} FROM ${progress.stage} WHERE id > ?1 ORDER BY id LIMIT ?2`,
       progress.after,
-      CHUNK_SIZE,
+      chunkSize,
     );
     let changed = 0;
     for (const row of rows)
       if (updateChanged(ctx, progress.stage, row, expected(ctx, progress.stage, row))) changed++;
     const nextStageIndex = stages.indexOf(progress.stage) + 1;
     const next: RebuildProgress | null =
-      rows.length === CHUNK_SIZE
+      rows.length === chunkSize
         ? { stage: progress.stage, after: rows.at(-1)!.id }
         : nextStageIndex < stages.length
           ? { stage: stages[nextStageIndex]!, after: 0 }
           : null;
-    if (next) {
+    if (next && options.enqueueNext !== false) {
       const now = ctx.now();
       // The current running job relinquishes the key before the successor takes it.
-      ctx.sqlite
-        .prepare(
+      prepared(ctx, "jobs.rebuild.releaseKey", () =>
+        ctx.sqlite.prepare(
           "UPDATE jobs SET unique_key = NULL WHERE unique_key = 'rebuild-counters' AND status = 'running'",
-        )
-        .run();
-      ctx.sqlite
-        .prepare(
+        ),
+      ).run();
+      prepared(ctx, "jobs.rebuild.enqueueNext", () =>
+        ctx.sqlite.prepare(
           "INSERT INTO jobs (type, payload, run_at, unique_key, created_at, updated_at) " +
             "VALUES ('rebuild-counters', ?1, ?2, 'rebuild-counters', ?2, ?2) " +
             "ON CONFLICT (unique_key) DO NOTHING",
-        )
-        .run(JSON.stringify(next), now);
+        ),
+      ).run(JSON.stringify(next), now);
     }
     return changed;
   });
 }
 
-export function registerCounterRebuild(ctx: Ctx): void {
+export function registerJobHandlers(ctx: Ctx): void {
   registerJobHandler(ctx, "rebuild-counters", (context, payload) => {
     rebuildCountersChunk(context, payload as RebuildProgress);
   });

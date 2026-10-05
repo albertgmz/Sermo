@@ -10,6 +10,7 @@ import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { NotFoundError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
+import { encodeCursor } from "../../pagination";
 import {
   postsCreateOp,
   postsDeleteOp,
@@ -175,5 +176,76 @@ describe("search.query", () => {
     expectNoTableScan(ctx, searchSql.candidates, ['"needle"', Number.MAX_SAFE_INTEGER, 101]);
     expectNoTableScan(ctx, searchSql.details, ["[1]"]);
     expectNoTableScan(ctx, searchSql.bodies, ["[1]"]);
+  });
+
+  test("FTS operators are literal words, extra words are capped, and bad cursors reject", async () => {
+    const { ctx, author, forum } = fixture();
+    const words = "one two three four five six seven eight nine ten";
+    const made = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Title",
+      body: `${words} body`,
+    });
+    expect(
+      (await search(ctx, GUEST, `^ ${words} absent`)).items.map((item) => item.post.id),
+    ).toEqual([made.post.id]);
+    expect((await search(ctx, GUEST, "title:")).items.map((item) => item.post.id)).toEqual([
+      made.post.id,
+    ]);
+    expect((await search(ctx, GUEST, "{title body}:")).items.map((item) => item.post.id)).toEqual([
+      made.post.id,
+    ]);
+    await expect(search(ctx, GUEST, "title", { cursor: "garbage" })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+  });
+
+  test("well-formed cursors with invalid search positions reject", async () => {
+    const { ctx } = fixture();
+    for (const values of [[0], [-1], ["1"], [1, 2]]) {
+      await expect(
+        search(ctx, GUEST, "needle", { cursor: encodeCursor(values) }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
+  });
+
+  test("25 matches paginate without gaps and excerpts preserve text and code points", async () => {
+    const { ctx, author, forum } = fixture();
+    const made = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "T",
+      body: "needle",
+    });
+    const ids = [made.post.id];
+    for (let i = 0; i < 24; i++) {
+      ids.push(
+        (await execute(ctx, postsCreateOp, author, { threadId: made.thread.id, body: "needle" }))
+          .id,
+      );
+    }
+    const found: number[] = [];
+    let cursor: string | null = null;
+    do {
+      const page = await search(ctx, GUEST, "needle", { limit: 4, cursor: cursor ?? undefined });
+      found.push(...page.items.map((item) => item.post.id));
+      cursor = page.nextCursor;
+    } while (cursor);
+    expect(found).toEqual(ids.reverse());
+    const decorated = await execute(ctx, postsCreateOp, author, {
+      threadId: made.thread.id,
+      body: "needle <b>C#</b> snake_case 15! **bold** [link](https://example.test)",
+    });
+    const excerpt = (await search(ctx, GUEST, "needle")).items.find(
+      (item) => item.post.id === decorated.id,
+    )?.post.excerpt;
+    expect(excerpt).toBe("needle C# snake_case 15! bold link");
+    const long = await execute(ctx, postsCreateOp, author, {
+      threadId: made.thread.id,
+      body: `needle ${"a".repeat(192)}😀Z`,
+    });
+    const tail = (await search(ctx, GUEST, "needle")).items.find((item) => item.post.id === long.id)
+      ?.post.excerpt;
+    expect(Array.from(tail ?? "")).toHaveLength(200);
+    expect(tail?.endsWith("😀")).toBe(true);
   });
 });

@@ -34,13 +34,16 @@ type Detail = {
 };
 
 function excerpt(source: string): string {
-  return source
+  const plain = source
+    .replace(/<\/?[A-Za-z][^>]*>/g, " ")
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[`*_~#>!|\\[\](){}]/g, "")
+    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)/gm, "")
+    .replace(/(?<!\w)(`+)(.+?)\1(?!\w)/g, "$2")
+    .replace(/(?<!\w)(\*{1,3}|_{1,3}|~~)(?=\S)(.+?)(?<=\S)\1(?!\w)/g, "$2")
     .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 200);
+    .trim();
+  return Array.from(plain).slice(0, 200).join("");
 }
 
 export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {

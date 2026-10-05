@@ -13,7 +13,14 @@ import {
 import { closeContext, createContext } from "../../context";
 import { execute } from "../../operation";
 import { threadsCreateOp } from "../forums";
-import { enqueueJob, flushViewCounts, jobSql, registerJobHandler, runDueJobs } from "./index";
+import {
+  enqueueJob,
+  flushViewCounts,
+  registerJobHandler,
+  runDueJobs,
+  startJobWorker,
+} from "./index";
+import { jobSql } from "./queue";
 
 const row = (ctx: ReturnType<typeof createTestContext>, id: number) =>
   ctx.sqlite
@@ -57,7 +64,7 @@ describe("jobs", () => {
       if (attempt < 5) {
         expect(row(ctx, id)).toMatchObject({
           status: "pending",
-          run_at: now + 1000 * 2 ** (attempt - 1),
+          run_at: now + [30_000, 120_000, 600_000, 3_600_000][attempt - 1]!,
           unique_key: "bad",
         });
         expect(await runDueJobs(ctx)).toBe(0);
@@ -137,15 +144,15 @@ describe("jobs", () => {
       body: "body",
     });
     const id = thread.thread.id;
-    const old = new Map([[id, 3]]);
-    old[Symbol.iterator] = function* () {
-      yield [id, 3] as [number, number];
+    ctx.views.set(id, 3);
+    const clear = ctx.views.clear.bind(ctx.views);
+    ctx.views.clear = () => {
+      clear();
       ctx.views.set(id, 2);
-      return undefined;
     };
-    (ctx as { views: Map<number, number> }).views = old;
     expect(flushViewCounts(ctx)).toBe(1);
     expect(ctx.views.get(id)).toBe(2);
+    ctx.views.clear = clear;
     expect(flushViewCounts(ctx)).toBe(1);
     expect(
       ctx.sqlite
@@ -158,5 +165,47 @@ describe("jobs", () => {
     const ctx = createTestContext();
     expectNoTableScan(ctx, jobSql.pending, [ctx.now()]);
     expectNoTableScan(ctx, jobSql.expired, [ctx.now()]);
+  });
+
+  test("expired leases take priority and stop after five attempts", async () => {
+    const ctx = createTestContext();
+    registerJobHandler(ctx, "sample", () => {});
+    const pending = enqueueJob(ctx, "sample", {})!;
+    const expired = enqueueJob(ctx, "sample", {}, { uniqueKey: "lease" })!;
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', attempts = 1, locked_until = ?1 WHERE id = ?2")
+      .run(ctx.now() - 1, expired);
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(row(ctx, expired).status).toBe("done");
+    expect(row(ctx, pending).status).toBe("pending");
+    const exhausted = enqueueJob(ctx, "sample", {}, { uniqueKey: "exhausted" })!;
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', attempts = 5, locked_until = ?1 WHERE id = ?2")
+      .run(ctx.now() - 1, exhausted);
+    expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
+    expect(row(ctx, exhausted)).toMatchObject({ status: "failed", attempts: 5, unique_key: null });
+    expect(row(ctx, exhausted).last_error).toContain("Lease expired");
+    expect(row(ctx, pending).status).toBe("done");
+  });
+
+  test("worker registers built-in handlers and stops polling", async () => {
+    const ctx = createTestContext();
+    const id = enqueueJob(
+      ctx,
+      "rebuild-counters",
+      { stage: "threads", after: 0 },
+      { uniqueKey: "rebuild-counters" },
+    )!;
+    const stop = startJobWorker(ctx, { pollMs: 5 });
+    try {
+      for (let i = 0; i < 100 && row(ctx, id).status !== "done"; i++) await Bun.sleep(5);
+      expect(row(ctx, id).status).toBe("done");
+    } finally {
+      stop();
+    }
+    registerJobHandler(ctx, "sample", () => {});
+    const after = enqueueJob(ctx, "sample", {})!;
+    await Bun.sleep(25);
+    expect(row(ctx, after).status).toBe("pending");
   });
 });
