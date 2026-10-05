@@ -14,7 +14,14 @@ import * as authSchema from "../../db/auth-schema";
 import * as forumSchema from "../../db/schema";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
-import { authMeOp, ensureAdmin, getAuth, purgeExpiredCredentials, resolveActor } from "./index";
+import {
+  authMeOp,
+  ensureAdmin,
+  getAuth,
+  purgeExpiredCredentials,
+  resolveActor,
+  revokeUserCredentials,
+} from "./index";
 
 const identity = {
   name: "Alice",
@@ -426,6 +433,32 @@ test("a ban is enforced on the next cookie and API-key request", async () => {
   expect((await resolveActor(ctx, new Headers({ cookie }))).actor.kind).toBe("user");
   ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(userId);
   await expect(resolveActor(ctx, new Headers({ cookie }))).rejects.toBeInstanceOf(ForbiddenError);
+});
+
+test("credential revocation uses Better Auth adapters for sessions and API keys", async () => {
+  const ctx = createTestContext();
+  const { cookie, user } = await signUp(ctx);
+  const key = await getAuth(ctx).api.createApiKey({
+    headers: new Headers({ cookie }),
+    body: { name: "revoke" },
+  });
+  const userId = Number(user.user.id);
+  await revokeUserCredentials(ctx, userId);
+  expect(
+    ctx.sqlite
+      .prepare<{ n: number }, [number]>("SELECT count(*) AS n FROM auth_session WHERE user_id = ?1")
+      .get(userId)?.n,
+  ).toBe(0);
+  expect(
+    ctx.sqlite
+      .prepare<{ n: number }, [string]>(
+        "SELECT count(*) AS n FROM auth_apikey WHERE reference_id = ?1",
+      )
+      .get(String(userId))?.n,
+  ).toBe(0);
+  await expect(resolveActor(ctx, new Headers({ "x-api-key": key.key }))).rejects.toBeInstanceOf(
+    UnauthenticatedError,
+  );
 });
 
 test("API key reference ids require decimal safe positive integers", async () => {

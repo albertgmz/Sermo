@@ -207,6 +207,16 @@ export function getAuth(ctx: Ctx): SermoAuth {
   return auth;
 }
 
+/** Revoke a banned user's Better Auth sessions and API keys through Better Auth's adapters. */
+export async function revokeUserCredentials(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
+  await authContext.internalAdapter.deleteUserSessions(String(userId));
+  await authContext.adapter.deleteMany({
+    model: "apikey",
+    where: [{ field: "referenceId", value: String(userId) }],
+  });
+}
+
 type ForumUser = { group_id: number };
 function assertNotBanned(ctx: Ctx, userId: number): void {
   const row = prepared(ctx, "auth.banStatus", () =>

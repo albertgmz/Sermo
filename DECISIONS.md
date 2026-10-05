@@ -320,3 +320,10 @@ IndexNow key. Defaults apply when the row does not exist, so old databases upgra
 settings backfill. Group upload limits mean total bytes retained per user, with zero denying
 uploads. The single row is simple to change while the settings set is small; services read it
 through the indexed key on each operation so changes from another process take effect at once.
+
+**Huge-thread author counters keep the measured first-pass exception.** The first-pass
+`forumSql.authorAdjustment` groups visible posts by author with `count(*)` through the
+thread-position index when a whole thread is hidden or restored. The general hot-path rule says
+no counts, but this exact synchronous operation was already measured at about 11 ms p95 on a
+10,500-reply thread and preserves user counters in the same transaction. Moderation reuses that
+query rather than allowing eventually consistent counters.

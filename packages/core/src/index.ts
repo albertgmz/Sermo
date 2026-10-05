@@ -13,6 +13,7 @@ export {
   getAuth,
   purgeExpiredCredentials,
   resolveActor,
+  revokeUserCredentials,
   type SermoAuth,
 } from "./modules/auth";
 export {
