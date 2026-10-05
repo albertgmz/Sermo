@@ -1,6 +1,9 @@
 import type { Database } from "bun:sqlite";
 import { type Db, openDatabase, runMigrations } from "./db/connection";
 
+/** Header the HTTP adapter sets to the client IP it determined (never taken from the client). */
+export const CLIENT_IP_HEADER = "x-sermo-client-ip";
+
 export interface AuthConfig {
   /** BETTER_AUTH_SECRET: signs session cookies; at least 32 random characters. */
   secret: string;
@@ -8,8 +11,12 @@ export interface AuthConfig {
   baseURL: string;
   /** Extra origins allowed to make cookie-authenticated requests (e.g. the frontend). */
   trustedOrigins: string[];
-  /** Headers carrying the client IP behind a reverse proxy (e.g. ["x-forwarded-for"]). */
-  ipAddressHeaders: string[];
+  /**
+   * Request header that carries the client IP for rate limiting. The HTTP adapter always sets it
+   * itself (from the socket, or from the configured trusted proxy header) and drops any value the
+   * client sent, so it can be trusted. Defaults to CLIENT_IP_HEADER.
+   */
+  clientIpHeader: string;
 }
 
 export interface CoreConfig {

@@ -17,6 +17,9 @@ export function authPlugins() {
       minUsernameLength: 3,
       maxUsernameLength: 32,
       usernameValidator: (value) => USERNAME_PATTERN.test(value),
+      // The display form becomes the forum identity (users.username), so it obeys the same rule.
+      // The auth module also requires it to equal the username apart from letter case.
+      displayUsernameValidator: (value) => USERNAME_PATTERN.test(value),
     }),
     apiKey({
       schema: { apikey: { modelName: "auth_apikey" } },

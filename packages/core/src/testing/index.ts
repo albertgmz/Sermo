@@ -39,7 +39,7 @@ export function createTestContext(options: { clock?: TestClock } = {}): Ctx & { 
         secret: "test-secret-for-sermo-tests-0123456789abcdef",
         baseURL: "http://localhost:3000",
         trustedOrigins: [],
-        ipAddressHeaders: [],
+        clientIpHeader: "x-sermo-client-ip",
       },
     },
   });
