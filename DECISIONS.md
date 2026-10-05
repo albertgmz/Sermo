@@ -60,6 +60,14 @@ timestamps can tie; ids only grow. Threads whose last post is
 older than 30 days count as read, so a new account does not see the whole forum as unread and
 old `thread_reads` rows can be purged.
 
+**HTML sanitizing is sanitize-html only.** Every content type renders through one function,
+`renderMarkdown`: raw HTML in the source is escaped by sanitize-html (all tags disallowed,
+recursive escape) and the rendered Markdown passes through sanitize-html with an explicit
+allowlist of tags, attributes and URL schemes. An earlier hand-written escaper was removed. The
+only regex left in that path rejects quotes nested more than 10 levels deep before parsing, a
+guard against the Markdown parser's stack overflow rather than a sanitizer. A test suite feeds
+known XSS payloads through every content type and checks the stored HTML with a parser.
+
 **Post bodies are limited to 10,000 characters** (XenForo's default). Markdown rendering cost
 grows faster than linearly on adversarial input: the worst inputs measured took ~45 ms at
 10,000 characters and ~120 ms at 20,000. Quotes nested more than 10 levels deep are rejected
