@@ -1,68 +1,133 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { CLIENT_IP_HEADER, closeContext, createContext, startCheckpointer } from "@sermo/core";
-import { ensureAdmin } from "../../core/src/modules/auth";
 import {
+  CLIENT_IP_HEADER,
+  closeContext,
+  createContext,
+  ensureAdmin,
   flushViewCounts,
   registerJobHandlers,
+  startCheckpointer,
   startJobWorker,
   startScheduler,
-} from "../../core/src/modules/jobs";
+} from "@sermo/core";
 import { createApp } from "./app";
 
-function required(name: string): string {
-  const value = process.env[name];
+export interface ShutdownDependencies {
+  stopAccepting(): void | Promise<void>;
+  flushViewCounts(): void | Promise<void>;
+  stopScheduler(): void | Promise<void>;
+  stopWorker(): void | Promise<void>;
+  stopCheckpointer(): void | Promise<void>;
+  closeContext(): void;
+}
+
+/** Finish active requests before closing their database, even when cleanup fails. */
+export async function shutdown(deps: ShutdownDependencies): Promise<void> {
+  const failures: unknown[] = [];
+  try {
+    for (const step of [
+      deps.stopAccepting,
+      deps.flushViewCounts,
+      deps.stopScheduler,
+      deps.stopWorker,
+      deps.stopCheckpointer,
+    ]) {
+      try {
+        await step();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+  } finally {
+    try {
+      deps.closeContext();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, "Server shutdown failed.");
+}
+
+function required(source: Record<string, string | undefined>, name: string): string {
+  const value = source[name];
   if (!value) throw new Error(`${name} is required.`);
   return value;
 }
 
-const path = process.env.SERMO_DB_PATH ?? "./data/sermo.db";
-mkdirSync(dirname(path), { recursive: true });
-const ctx = createContext({
-  path,
-  migrate: true,
-  config: {
+export function readConfiguration(source: Record<string, string | undefined> = process.env) {
+  const port = Number(source.PORT ?? "3000");
+  if (!Number.isInteger(port) || port < 0 || port > 65535)
+    throw new Error("PORT must be a valid port number.");
+  const adminNames = ["SERMO_ADMIN_USERNAME", "SERMO_ADMIN_EMAIL", "SERMO_ADMIN_PASSWORD"] as const;
+  const presentAdminNames = adminNames.filter((name) => Boolean(source[name]));
+  if (presentAdminNames.length > 0 && presentAdminNames.length !== adminNames.length)
+    throw new Error(
+      "SERMO_ADMIN_USERNAME, SERMO_ADMIN_EMAIL, and SERMO_ADMIN_PASSWORD must all be set together.",
+    );
+  const secret = required(source, "BETTER_AUTH_SECRET");
+  const baseURL = required(source, "BETTER_AUTH_URL");
+  new URL(baseURL);
+  return {
+    path: source.SERMO_DB_PATH ?? "./data/sermo.db",
+    port,
+    trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
     auth: {
-      secret: required("BETTER_AUTH_SECRET"),
-      baseURL: required("BETTER_AUTH_URL"),
-      trustedOrigins: (process.env.SERMO_TRUSTED_ORIGINS ?? "")
+      secret,
+      baseURL,
+      trustedOrigins: (source.SERMO_TRUSTED_ORIGINS ?? "")
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean),
       clientIpHeader: CLIENT_IP_HEADER,
     },
-  },
-});
-const adminNames = ["SERMO_ADMIN_USERNAME", "SERMO_ADMIN_EMAIL", "SERMO_ADMIN_PASSWORD"] as const;
-if (adminNames.every((name) => process.env[name])) {
-  await ensureAdmin(ctx, {
-    username: required("SERMO_ADMIN_USERNAME"),
-    email: required("SERMO_ADMIN_EMAIL"),
-    password: required("SERMO_ADMIN_PASSWORD"),
-  });
+    admin:
+      presentAdminNames.length === adminNames.length
+        ? {
+            username: required(source, "SERMO_ADMIN_USERNAME"),
+            email: required(source, "SERMO_ADMIN_EMAIL"),
+            password: required(source, "SERMO_ADMIN_PASSWORD"),
+          }
+        : null,
+  };
 }
-const stopCheckpointer = startCheckpointer(ctx);
-registerJobHandlers(ctx);
-const stopWorker = startJobWorker(ctx);
-const stopScheduler = startScheduler(ctx);
-const port = Number(process.env.PORT ?? "3000");
-if (!Number.isInteger(port) || port < 0 || port > 65535)
-  throw new Error("PORT must be a valid port number.");
-const app = createApp(ctx, { trustedProxyHeader: process.env.SERMO_TRUSTED_PROXY_HEADER ?? null });
-const server = Bun.serve({ port, fetch: app.fetch });
-console.info(`Sermo listening on ${server.url}`);
 
-let stopping = false;
-async function shutdown() {
-  if (stopping) return;
-  stopping = true;
-  server.stop();
-  flushViewCounts(ctx);
-  stopWorker();
-  stopScheduler();
-  await stopCheckpointer();
-  closeContext(ctx);
-  process.exit(0);
+async function main(): Promise<void> {
+  const config = readConfiguration();
+  mkdirSync(dirname(config.path), { recursive: true });
+  const ctx = createContext({ path: config.path, migrate: true, config: { auth: config.auth } });
+  if (config.admin) await ensureAdmin(ctx, config.admin);
+  const stopCheckpointer = startCheckpointer(ctx);
+  registerJobHandlers(ctx);
+  const stopWorker = startJobWorker(ctx);
+  const stopScheduler = startScheduler(ctx);
+  const app = createApp(ctx, { trustedProxyHeader: config.trustedProxyHeader });
+  const server = Bun.serve({ port: config.port, fetch: app.fetch });
+  console.info(`Sermo listening on ${server.url}`);
+
+  let stopping = false;
+  const onSignal = () => {
+    if (stopping) return;
+    stopping = true;
+    void shutdown({
+      stopAccepting: () => server.stop(),
+      flushViewCounts: () => {
+        flushViewCounts(ctx);
+      },
+      stopScheduler,
+      stopWorker,
+      stopCheckpointer,
+      closeContext: () => closeContext(ctx),
+    }).then(
+      () => process.exit(0),
+      (error) => {
+        console.error("Server shutdown failed", error);
+        process.exit(1);
+      },
+    );
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
 }
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+
+if (import.meta.main) await main();

@@ -1,6 +1,5 @@
-import type { Ctx } from "@sermo/core";
+import { type Ctx, getAuth } from "@sermo/core";
 import * as z from "zod";
-import { getAuth } from "../../core/src/modules/auth";
 import { routeOperations } from "./routes";
 
 type JsonObject = Record<string, unknown>;
@@ -114,7 +113,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       summary: op.summary,
       operationId: op.name,
       tags: [op.name.split(".")[0]],
-      security: [{ sessionCookie: [] }, { bearerApiKey: [] }],
+      security: [{ sessionCookie: [] }, { secureSessionCookie: [] }, { bearerApiKey: [] }],
       parameters,
       responses,
     };
@@ -156,6 +155,11 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       securitySchemes: {
         ...authDocument.components?.securitySchemes,
         sessionCookie: { type: "apiKey", in: "cookie", name: "sermo.session_token" },
+        secureSessionCookie: {
+          type: "apiKey",
+          in: "cookie",
+          name: "__Secure-sermo.session_token",
+        },
         bearerApiKey: { type: "http", scheme: "bearer" },
       },
     },

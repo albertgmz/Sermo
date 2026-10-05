@@ -1,4 +1,13 @@
-import { type Actor, CLIENT_IP_HEADER, type Ctx, execute, SermoError } from "@sermo/core";
+import {
+  type Actor,
+  CLIENT_IP_HEADER,
+  type Ctx,
+  execute,
+  getAuth,
+  resolveActor,
+  SermoError,
+} from "@sermo/core";
+import { createMcpHandler } from "@sermo/mcp";
 import { type Context, Hono } from "hono";
 import { getConnInfo } from "hono/bun";
 import { csrf } from "hono/csrf";
@@ -7,8 +16,6 @@ import { secureHeaders } from "hono/secure-headers";
 import { rateLimiter } from "hono-rate-limiter";
 import * as z from "zod";
 import type { JSONSchema } from "zod/v4/core";
-import { getAuth, resolveActor } from "../../core/src/modules/auth";
-import { createMcpHandler } from "../../mcp/src";
 import { buildOpenApiDocument } from "./openapi";
 import { routeOperations, routes } from "./routes";
 
@@ -24,6 +31,8 @@ export interface AppOptions {
 type Variables = { actor: Actor; clientIp: string; setCookies: string[] };
 type ApiContext = Context<{ Variables: Variables }>;
 type Schema = Record<string, unknown>;
+type Resolution = { actor: Actor; setCookies: string[] };
+const MCP_RESOLUTION = Symbol("mcpResolution");
 const statuses = {
   validation: 400,
   unauthenticated: 401,
@@ -44,9 +53,20 @@ function hasSessionCookie(c: ApiContext): boolean {
   return /(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(c.req.header("cookie") ?? "");
 }
 
+export function coerceQueryValues(values: string[], schema: Schema | undefined): unknown {
+  if (schema?.type === "array")
+    return values.map((value) => coerce(value, schema.items as Schema | undefined));
+  return coerce(values.at(-1) ?? "", schema);
+}
+
 function coerce(value: string, schema: Schema | undefined): unknown {
   if (!schema) return value;
-  if (schema.type === "integer" || schema.type === "number") {
+  if (schema.type === "integer") {
+    if (!/^-?\d+$/.test(value)) return value;
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? number : value;
+  }
+  if (schema.type === "number") {
     const number = Number(value);
     return value.trim() !== "" && Number.isFinite(number) ? number : value;
   }
@@ -67,7 +87,7 @@ function routePattern(path: string): RegExp {
 
 export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
   const app = new Hono<{ Variables: Variables }>();
-  const mcpActors = new WeakMap<Request, Actor>();
+  let openApiDocument: Promise<object> | undefined;
   const limits = { ...RATE_LIMITS, ...options.rateLimits };
   const windowMs = options.rateLimitWindowMs ?? 60_000;
   let loggedUnknownIp = false;
@@ -109,7 +129,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     if (error instanceof SermoError)
       return c.json(errorBody(error.code, error.message, error.issues), statuses[error.code]);
     if (error instanceof HTTPException && error.status === 403)
-      return c.json(errorBody("csrf_rejected", "Cross-site request rejected."), 403);
+      return c.json(errorBody("forbidden", "The request origin was rejected."), 403);
     console.error("API request failed", error);
     return c.json(errorBody("internal", "Internal server error."), 500);
   });
@@ -120,9 +140,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const result = await resolveActor(ctx, c.req.raw.headers);
     c.set("actor", result.actor);
     c.set("setCookies", result.setCookies);
-    if (c.req.path === "/mcp") mcpActors.set(c.req.raw, result.actor);
+    if (c.req.path === "/mcp") Reflect.set(c.req.raw, MCP_RESOLUTION, result);
     await next();
-    for (const cookie of result.setCookies) c.res.headers.append("Set-Cookie", cookie);
+    if (c.req.path !== "/mcp")
+      for (const cookie of result.setCookies) c.res.headers.append("Set-Cookie", cookie);
   };
   app.use("/api/v1/*", resolve);
   app.use("/mcp", resolve);
@@ -148,7 +169,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   const searchLimiter = limiter(limits.search);
   const mcpLimiter = limiter(limits.mcp);
   app.use("/api/v1/*", (c, next) => {
-    if (c.req.method === "GET")
+    if (c.req.method === "GET" || c.req.method === "HEAD")
       return (c.req.path === "/api/v1/search" ? searchLimiter : readLimiter)(c, next);
     if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method)) return writeLimiter(c, next);
     return next();
@@ -181,9 +202,9 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   const mcp = createMcpHandler({
     ctx,
     resolveActor: async (request) => {
-      const actor = mcpActors.get(request);
-      if (!actor) throw new Error("MCP actor was not resolved by the request middleware.");
-      return actor;
+      const resolved = Reflect.get(request, MCP_RESOLUTION) as Resolution | undefined;
+      if (!resolved) throw new Error("MCP actor was not resolved by the request middleware.");
+      return resolved;
     },
   });
   app.all("/mcp", (c) => mcp(c.req.raw));
@@ -195,16 +216,20 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       return c.json({ status: "unavailable" }, 503);
     }
   });
-  app.get("/api/v1/openapi.json", async (c) => c.json(await buildOpenApiDocument(ctx)));
+  app.get("/api/v1/openapi.json", async (c) => {
+    openApiDocument ??= buildOpenApiDocument(ctx);
+    return c.json(await openApiDocument);
+  });
 
   for (const { route, op } of routeOperations) {
     const path = `/api/v1${route.path.replace(/\{([^}]+)\}/g, ":$1")}`;
     const properties = schemaProperties(z.toJSONSchema(op.input, { io: "input" }));
     app.on(route.method, path, async (c) => {
-      const raw: Record<string, unknown> = {};
+      const raw: Record<string, unknown> = Object.create(null);
       if (route.method === "GET" || route.method === "DELETE") {
-        for (const [name, value] of new URL(c.req.url).searchParams)
-          raw[name] = coerce(value, properties[name]);
+        const params = new URL(c.req.url).searchParams;
+        for (const name of new Set(params.keys()))
+          raw[name] = coerceQueryValues(params.getAll(name), properties[name]);
       } else {
         const body = await c.req.raw.text();
         if (body) {
@@ -216,7 +241,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
           }
           if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
             return c.json(errorBody("validation", "JSON body must be an object."), 400);
-          Object.assign(raw, parsed);
+          for (const [name, value] of Object.entries(parsed)) {
+            if (name !== "__proto__" && name !== "constructor" && name !== "prototype")
+              raw[name] = value;
+          }
         }
       }
       for (const [name, value] of Object.entries(c.req.param()))
@@ -226,11 +254,15 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   }
   app.notFound((c) => {
     const path = c.req.path;
-    if (
-      routes.some((route) => routePattern(route.path).test(path)) ||
-      path === "/api/v1/openapi.json"
-    )
+    const methods: string[] = routes
+      .filter((route) => routePattern(route.path).test(path))
+      .map((route) => route.method);
+    if (path === "/api/v1/openapi.json") methods.push("GET");
+    if (methods.length) {
+      if (methods.includes("GET")) methods.push("HEAD");
+      c.header("Allow", [...new Set(methods)].join(", "));
       return c.json(errorBody("method_not_allowed", "Method not allowed."), 405);
+    }
     return c.json(errorBody("not_found", "The requested route could not be found."), 404);
   });
   return app;
