@@ -58,7 +58,10 @@ export const Thread = z
     /** Stored views plus views still buffered in memory. */
     viewCount: z.number().int().nonnegative(),
     firstPostId: Id,
-    /** Newest visible post; `position` gives the number of pages: floor(position / limit) + 1. */
+    /**
+     * Newest visible post. `floor(position / limit) + 1` is the number of pages a member sees;
+     * moderators (and authors of later unapproved posts) follow `nextCursor` past it.
+     */
     lastPost: z.object({
       postId: Id,
       position: z.number().int().nonnegative(),

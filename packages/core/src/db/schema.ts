@@ -216,7 +216,7 @@ export const threadReads = sqliteTable(
       .references(() => threads.id),
     /** Newest post id the user has read. Unread = threads.last_post_id > this. */
     lastReadPostId: integer("last_read_post_id").notNull(),
-    /** Position of that post when it was read; a jump target, approximate after deletions. */
+    /** Position of that post (a jump target for "continue reading"). */
     lastReadPosition: integer("last_read_position").notNull(),
     readAt: integer("read_at").notNull(),
   },

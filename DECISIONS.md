@@ -55,8 +55,8 @@ requests reached 350–600 ms. With stable positions hiding or restoring a post 
 write. The owner chose this trade-off. Post bodies stay in `post_bodies` so listing and counter
 queries touch narrow rows.
 
-**Unread state uses post and message ids, not positions or timestamps.** Positions shift when
-posts are hidden or restored, and timestamps can tie; ids only grow. Threads whose last post is
+**Unread state uses post and message ids, not positions or timestamps.** Positions are jump targets and
+timestamps can tie; ids only grow. Threads whose last post is
 older than 30 days count as read, so a new account does not see the whole forum as unread and
 old `thread_reads` rows can be purged.
 
