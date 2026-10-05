@@ -12,7 +12,7 @@ import { GUEST } from "../../actor";
 import { DEFAULT_CONFIG } from "../../context";
 import * as authSchema from "../../db/auth-schema";
 import * as forumSchema from "../../db/schema";
-import { ConflictError, UnauthenticatedError } from "../../errors";
+import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
 import { authMeOp, ensureAdmin, getAuth, purgeExpiredCredentials, resolveActor } from "./index";
 
@@ -405,6 +405,29 @@ test("API key storage format remains compatible with read-only verification", as
   expect(await defaultKeyHasher("sermo_test")).toBe("-LFMOVrBHOBBnXofq4Eb6JUdERYlDZ6VR7-oT-EuBPg");
 });
 
+test("a ban is enforced on the next cookie and API-key request", async () => {
+  const ctx = createTestContext();
+  const { cookie, user } = await signUp(ctx);
+  const key = await getAuth(ctx).api.createApiKey({
+    headers: new Headers({ cookie }),
+    body: { name: "ban-check" },
+  });
+  const userId = Number(user.user.id);
+  expect((await resolveActor(ctx, new Headers({ cookie }))).actor.kind).toBe("user");
+  expect((await resolveActor(ctx, new Headers({ "x-api-key": key.key }))).actor.kind).toBe("token");
+  ctx.sqlite
+    .prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2")
+    .run(ctx.now() + 1_000, userId);
+  await expect(resolveActor(ctx, new Headers({ cookie }))).rejects.toBeInstanceOf(ForbiddenError);
+  await expect(resolveActor(ctx, new Headers({ "x-api-key": key.key }))).rejects.toBeInstanceOf(
+    ForbiddenError,
+  );
+  ctx.sqlite.prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2").run(ctx.now() - 1, userId);
+  expect((await resolveActor(ctx, new Headers({ cookie }))).actor.kind).toBe("user");
+  ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(userId);
+  await expect(resolveActor(ctx, new Headers({ cookie }))).rejects.toBeInstanceOf(ForbiddenError);
+});
+
 test("API key reference ids require decimal safe positive integers", async () => {
   const ctx = createTestContext();
   const { cookie } = await signUp(ctx);
@@ -689,6 +712,7 @@ test("hot credential and self lookups use indexes", () => {
     ["hash"],
   );
   expectNoTableScan(ctx, "SELECT group_id FROM users WHERE id = ?1", [1]);
+  expectNoTableScan(ctx, "SELECT banned_until, banned_permanently FROM users WHERE id = ?1", [1]);
   expectNoTableScan(
     ctx,
     "SELECT u.id, u.username, a.email, u.group_id, u.created_at FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",

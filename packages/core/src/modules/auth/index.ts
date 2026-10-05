@@ -10,7 +10,7 @@ import { authPlugins, authSchemaOptions, USERNAME_PATTERN } from "../../db/auth-
 import * as schema from "../../db/auth-schema";
 import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ConflictError, UnauthenticatedError } from "../../errors";
+import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
 import { iso } from "../../time";
 import { getGlobalPermissions } from "../permissions";
@@ -208,6 +208,17 @@ export function getAuth(ctx: Ctx): SermoAuth {
 }
 
 type ForumUser = { group_id: number };
+function assertNotBanned(ctx: Ctx, userId: number): void {
+  const row = prepared(ctx, "auth.banStatus", () =>
+    ctx.sqlite.prepare<{ banned_until: number | null; banned_permanently: number }, [number]>(
+      "SELECT banned_until, banned_permanently FROM users WHERE id = ?1",
+    ),
+  ).get(userId);
+  if (!row) throw new UnauthenticatedError();
+  if (row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now()))
+    throw new ForbiddenError("This account is banned.");
+}
+
 function groupFor(ctx: Ctx, userId: number): number {
   const row = prepared(ctx, "auth.forumUser", () =>
     ctx.sqlite.prepare<ForumUser, [number]>("SELECT group_id FROM users WHERE id = ?1"),
@@ -267,8 +278,10 @@ export async function resolveActor(
     if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
     const userId = Number(row.reference_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
+    const groupId = groupFor(ctx, userId);
+    assertNotBanned(ctx, userId);
     return {
-      actor: { kind: "token", userId, groupId: groupFor(ctx, userId), tokenId: row.id },
+      actor: { kind: "token", userId, groupId, tokenId: row.id },
       setCookies: [],
     };
   }
@@ -287,8 +300,10 @@ export async function resolveActor(
     sessionId <= 0
   )
     throw new UnauthenticatedError();
+  const groupId = groupFor(ctx, userId);
+  assertNotBanned(ctx, userId);
   return {
-    actor: { kind: "user", userId, groupId: groupFor(ctx, userId), sessionId },
+    actor: { kind: "user", userId, groupId, sessionId },
     setCookies: result.headers.getSetCookie(),
   };
 }
