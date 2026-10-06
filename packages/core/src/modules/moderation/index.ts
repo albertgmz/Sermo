@@ -370,6 +370,12 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
       "UPDATE report_groups SET report_count = report_count + 1 WHERE id = ?1",
       group.id,
     );
+    publishEvent(ctx, {
+      type: "report.created",
+      targetType: "report_group",
+      targetId: group.id,
+      payload: { reporterId: userId, nodeId: targetRow(ctx, target).node_id ?? null },
+    });
     return { id, groupId: group.id };
   });
 }

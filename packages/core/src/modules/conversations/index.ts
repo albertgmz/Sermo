@@ -284,6 +284,12 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       for (const id of ids)
         insert.run(conversationId, id, now, decision.moderated || spam ? messageId : 0);
       publishEvent(ctx, {
+        type: "conversation.participants_added",
+        targetType: "conversation",
+        targetId: conversationId,
+        payload: { userIds: ids, actorId: starter.userId },
+      });
+      publishEvent(ctx, {
         type: "content.created",
         targetType: "conversation_message",
         targetId: messageId,

@@ -143,7 +143,12 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
     ).run(refs.source, html, ctx.now(), comment.id);
-    storeContentReferences(ctx, "profile_post_comment", comment.id, refs);
+    const { newlyMentioned } = storeContentReferences(
+      ctx,
+      "profile_post_comment",
+      comment.id,
+      refs,
+    );
     if (decision.moderated)
       moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
     if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);
@@ -151,7 +156,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       type: "content.edited",
       targetType: "profile_post_comment",
       targetId: comment.id,
-      payload: noticeForOther(actor, comment.user_id, input),
+      payload: { ...noticeForOther(actor, comment.user_id, input), newlyMentioned },
     });
     if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_comment.edit", "profile_post_comment", comment.id);
@@ -186,7 +191,11 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
         type: "content.deleted",
         targetType: "profile_post_comment",
         targetId: comment.id,
-        payload: { previousState: current.state, ...noticeForOther(actor, comment.user_id, input) },
+        payload: {
+          previousState: current.state,
+          state: "deleted",
+          ...noticeForOther(actor, comment.user_id, input),
+        },
       });
     if (can(ctx, actor, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
@@ -216,7 +225,11 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
         type: "content.state_changed",
         targetType: "profile_post_comment",
         targetId: comment.id,
-        payload: noticeForOther(actor, comment.user_id, input),
+        payload: {
+          ...noticeForOther(actor, comment.user_id, input),
+          previousState: current.state,
+          state: "visible",
+        },
       });
     appendModeratorLog(ctx, actor, "profile_comment.restore", "profile_post_comment", comment.id);
   });

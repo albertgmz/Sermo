@@ -15,6 +15,7 @@ import {
   registerEmailTypes,
   registerJobHandlers,
   registerModerationJobs,
+  registerNotificationJobs,
   registerPromotionJobs,
   registerSeoJobs,
   registerSocialJobs,
@@ -295,6 +296,7 @@ async function main(): Promise<void> {
         });
   registerStorageJobs(ctx, { driver, tempDir: join(dirname(config.path), "upload-temp") });
   registerModerationJobs(ctx);
+  registerNotificationJobs(ctx);
   registerPromotionJobs(ctx);
   registerSeoJobs(ctx);
   registerSocialJobs(ctx);

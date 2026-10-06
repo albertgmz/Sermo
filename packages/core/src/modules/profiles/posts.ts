@@ -271,14 +271,14 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
         "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
     ).run(refs.source, html, ctx.now(), row.id);
-    storeContentReferences(ctx, "profile_post", row.id, refs);
+    const { newlyMentioned } = storeContentReferences(ctx, "profile_post", row.id, refs);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
     if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "profile_post",
       targetId: row.id,
-      payload: noticeForOther(actor, row.user_id, input),
+      payload: { ...noticeForOther(actor, row.user_id, input), newlyMentioned },
     });
     if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
@@ -305,7 +305,11 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
         type: "content.deleted",
         targetType: "profile_post",
         targetId: row.id,
-        payload: { previousState: row.state, ...noticeForOther(actor, row.user_id, input) },
+        payload: {
+          previousState: row.state,
+          state: "deleted",
+          ...noticeForOther(actor, row.user_id, input),
+        },
       });
     if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (can(ctx, actor, "profilePost.deleteAny"))
@@ -335,7 +339,11 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
         type: "content.state_changed",
         targetType: "profile_post",
         targetId: row.id,
-        payload: noticeForOther(actor, row.user_id, input),
+        payload: {
+          ...noticeForOther(actor, row.user_id, input),
+          previousState: current.state,
+          state: "visible",
+        },
       });
     if (result.changes) touchProfile(ctx, row.profile_user_id);
     appendModeratorLog(ctx, actor, "profile_post.restore", "profile_post", row.id);

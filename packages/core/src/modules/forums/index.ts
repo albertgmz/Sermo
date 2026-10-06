@@ -136,6 +136,9 @@ export const forumSql = {
   readPost:
     "SELECT id, position FROM posts WHERE thread_id = ?1 AND position <= ?2 AND state = 'visible' ORDER BY position DESC LIMIT 1",
   readPosition: "SELECT last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id = ?2",
+  // Unread state uses post ids: reading a post clears notices for it and every older post.
+  clearThreadNotices:
+    "UPDATE notifications INDEXED BY notifications_user_thread SET read_at = ?1 WHERE user_id = ?2 AND thread_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?2) AND read_at IS NULL AND type IN ('thread.watched', 'node.thread', 'node.post', 'content.quoted', 'content.mentioned', 'member.thread') AND (content_type = 'thread' OR (content_type = 'post' AND content_id <= ?4))",
 } as const;
 function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
@@ -1018,7 +1021,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     forumDb(ctx)
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
       .run(refs.source, html, post.id);
-    storeContentReferences(ctx, "post", post.id, refs);
+    const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "post", id: post.id });
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)
@@ -1032,7 +1035,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       type: "content.edited",
       targetType: "post",
       targetId: post.id,
-      payload: moderationPayload(actor, post.user_id, input),
+      payload: { ...moderationPayload(actor, post.user_id, input), newlyMentioned },
     });
     if (
       can(ctx, actor, "forum.editAny", { nodeId: thread.row.node_id }) &&
@@ -1363,6 +1366,17 @@ export const threadsMarkReadOp = implement(contracts.threadsMarkRead, (ctx, acto
       .prepare<{ id: number; position: number }, [number, number]>(forumSql.readPost)
       .get(row.id, input.position);
     if (!post) throw new Error("Visible post missing at read position.");
+    const cleared = statement<unknown, [number, number, number, number]>(
+      ctx,
+      "clearThreadNotices",
+      forumSql.clearThreadNotices,
+    ).run(ctx.now(), user.userId, row.id, post.id).changes;
+    if (cleared)
+      forumDb(ctx)
+        .prepare(
+          "UPDATE users SET unread_notification_count = unread_notification_count - ?1 WHERE id = ?2",
+        )
+        .run(cleared, user.userId);
     return { readPosition: markRead(ctx, user.userId, row.id, post.id, post.position) };
   });
 });

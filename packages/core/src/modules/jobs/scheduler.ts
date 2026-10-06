@@ -34,6 +34,12 @@ export function runViewsTask(ctx: Ctx): number {
 
 export function runHourlyTasks(ctx: Ctx): void {
   purgeExpiredCredentials(ctx);
+  enqueueJob(
+    ctx,
+    "notifications.retention",
+    {},
+    { uniqueKey: `notification-retention:${Math.floor(ctx.now() / 3_600_000)}` },
+  );
   queueSeoEvents(ctx);
   queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;

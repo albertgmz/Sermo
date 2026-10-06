@@ -5,6 +5,7 @@ import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
 import { operations as moderation } from "./modules/moderation";
+import { operations as notifications } from "./modules/notifications";
 import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
 import { operations as promotions } from "./modules/promotions";
@@ -34,6 +35,7 @@ export const operations: readonly AnyOperation[] = [
   ...storage,
   ...images,
   ...moderation,
+  ...notifications,
   ...seo,
   ...social,
 ];
