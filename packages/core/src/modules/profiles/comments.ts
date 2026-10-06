@@ -14,6 +14,7 @@ import { ConflictError, ForbiddenError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { can, permissionsOf, requirePermission } from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import {
@@ -22,7 +23,6 @@ import {
   prepareModeratedContent,
   withSpamCheck,
 } from "../moderation";
-import { getGlobalPermissions } from "../permissions";
 import {
   COMMENTS_SQL,
   type CommentRow,
@@ -39,10 +39,17 @@ export const profileCommentsListOp = implement(profileCommentsList, (ctx, actor,
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
-  const flags = getGlobalPermissions(ctx, actor);
+  const permissions = permissionsOf(ctx, actor);
   const rows = prepared(ctx, "profiles.commentList", () =>
-    ctx.sqlite.prepare<CommentRow, [number, number, number, number, number]>(COMMENTS_SQL),
-  ).all(post.id, cursor, Number(flags.isModerator), actorUserId(actor) ?? 0, input.limit + 1);
+    ctx.sqlite.prepare<CommentRow, [number, number, number, number, number, number]>(COMMENTS_SQL),
+  ).all(
+    post.id,
+    cursor,
+    Number(permissions.can("profilePost.viewModerated")),
+    Number(permissions.can("profilePost.viewDeleted")),
+    actorUserId(actor) ?? 0,
+    input.limit + 1,
+  );
   const page = rows.slice(0, input.limit);
   const user = loadUserSummaries(
     ctx,
@@ -63,8 +70,8 @@ export const profileCommentsGetOp = implement(profileCommentsGet, (ctx, actor, i
 export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const post = requirePost(ctx, actor, input.profilePostId);
-  if (!getGlobalPermissions(ctx, actor).canPostProfile || post.state !== "visible")
-    throw new ForbiddenError();
+  requirePermission(ctx, actor, "profilePost.comment");
+  if (post.state !== "visible") throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
@@ -108,7 +115,10 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
 export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
-  if (comment.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
+  if (
+    !can(ctx, actor, "profilePost.editAny") &&
+    !can(ctx, actor, "profilePost.editOwn", { ownerId: comment.user_id })
+  )
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const html = renderMarkdown(content.source);
@@ -129,7 +139,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       targetType: "profile_post_comment",
       targetId: comment.id,
     });
-    if (getGlobalPermissions(ctx, actor).isModerator)
+    if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_comment.edit", "profile_post_comment", comment.id);
   });
   return profileCommentsGetOp.run(ctx, actor, input);
@@ -138,9 +148,9 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
   if (
-    comment.user_id !== actorUserId(actor) &&
-    post.profile_user_id !== actorUserId(actor) &&
-    !getGlobalPermissions(ctx, actor).isModerator
+    !can(ctx, actor, "profilePost.deleteAny") &&
+    !can(ctx, actor, "profilePost.deleteOwn", { ownerId: comment.user_id }) &&
+    !can(ctx, actor, "profilePost.manageOwnWall", { ownerId: post.profile_user_id })
   )
     throw new ForbiddenError();
   writeTx(ctx, () => {
@@ -164,7 +174,7 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
         targetId: comment.id,
         payload: { previousState: current.state },
       });
-    if (getGlobalPermissions(ctx, actor).isModerator)
+    if (can(ctx, actor, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
   });
   return commentValue(ctx, actor, { ...comment, state: "deleted" }, post.profile_user_id);
@@ -172,13 +182,14 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
 export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
-  if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = prepared(ctx, "profiles.commentState", () =>
       ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
         "SELECT state FROM profile_post_comments WHERE id = ?1",
       ),
     ).get(comment.id)!;
+    if (current.state === "deleted") requirePermission(ctx, actor, "profilePost.undelete");
+    else requirePermission(ctx, actor, "profilePost.approve");
     const result = prepared(ctx, "profiles.restoreComment", () =>
       ctx.sqlite.prepare<unknown, [number, string]>(
         "UPDATE profile_post_comments SET state = 'visible' WHERE id = ?1 AND state = ?2",

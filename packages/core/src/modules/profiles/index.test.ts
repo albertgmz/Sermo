@@ -69,7 +69,323 @@ function recount(ctx: ReturnType<typeof createTestContext>, id: number) {
   expect(row.last_comment_at).toBe(actual.last_at);
 }
 
+function setProfilePermission(
+  ctx: ReturnType<typeof createTestContext>,
+  groupId: number,
+  key: string,
+  value: number,
+) {
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = ?1), 0, ?2, 0, ?3) ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+    )
+    .run(key, groupId, value);
+  invalidate(ctx, "permissions");
+}
+
+function addCustomGroup(ctx: ReturnType<typeof createTestContext>, userId: number, title: string) {
+  const groupId = ctx.sqlite
+    .prepare<{ id: number }, [string]>(
+      "INSERT INTO groups (title, rank) VALUES (?1, 10) RETURNING id",
+    )
+    .get(title)!.id;
+  ctx.sqlite
+    .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+    .run(userId, groupId);
+  return groupId;
+}
+
 describe("profiles", () => {
+  test("specific profile permissions control deletion and hidden visibility", async () => {
+    const f = fixture();
+    const custom = addCustomGroup(f.ctx, f.stranger.id, "Profile managers");
+    setProfilePermission(f.ctx, custom, "profilePost.deleteAny", 1);
+    const first = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "first",
+    });
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: first.id }))
+        .canDelete,
+    ).toBe(true);
+    expect(
+      (await execute(f.ctx, profilePostsDeleteOp, f.strangerActor, { profilePostId: first.id }))
+        .state,
+    ).toBe("deleted");
+
+    const second = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "second",
+    });
+    const wallRestricted = addCustomGroup(f.ctx, f.wall.id, "Restricted wall owner");
+    setProfilePermission(f.ctx, wallRestricted, "profilePost.manageOwnWall", -1);
+    await expect(
+      execute(f.ctx, profilePostsDeleteOp, f.wallActor, { profilePostId: second.id }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.wallActor, { profilePostId: second.id }))
+        .canDelete,
+    ).toBe(false);
+
+    setProfilePermission(f.ctx, custom, "profilePost.viewDeleted", 1);
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: first.id })).state,
+    ).toBe("deleted");
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET state = 'moderated' WHERE id = ?1")
+      .run(second.id);
+    await expect(
+      execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: second.id }),
+    ).rejects.toThrow(NotFoundError);
+    expect(
+      (await execute(f.ctx, profilePostsListOp, f.strangerActor, { userId: f.wall.id })).items.map(
+        (post) => post.id,
+      ),
+    ).toEqual([first.id]);
+  });
+  test("profile posting and editing respect custom denials", async () => {
+    const f = fixture();
+    const group = addCustomGroup(f.ctx, f.author.id, "Restricted profile writer");
+    expect(
+      (await execute(f.ctx, profilesGetOp, f.authorActor, { userId: f.wall.id })).canPostOnWall,
+    ).toBe(true);
+    setProfilePermission(f.ctx, group, "profilePost.post", -1);
+    expect(
+      (await execute(f.ctx, profilesGetOp, f.authorActor, { userId: f.wall.id })).canPostOnWall,
+    ).toBe(false);
+    await expect(
+      execute(f.ctx, profilePostsCreateOp, f.authorActor, { userId: f.wall.id, body: "blocked" }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(
+      (await execute(f.ctx, profilesUpdateOp, f.authorActor, { about: "allowed" })).about,
+    ).toBe("allowed");
+    setProfilePermission(f.ctx, group, "profile.editOwn", -1);
+    await expect(
+      execute(f.ctx, profilesUpdateOp, f.authorActor, { about: "blocked" }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(
+      (await execute(f.ctx, profilesGetOp, f.authorActor, { userId: f.author.id })).about,
+    ).toBe("allowed");
+  });
+  test("comment deletion uses comment author and parent wall owner", async () => {
+    const f = fixture();
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    const wallComment = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "wall owner may delete",
+    });
+    expect(
+      (await execute(f.ctx, profileCommentsDeleteOp, f.wallActor, { commentId: wallComment.id }))
+        .state,
+    ).toBe("deleted");
+    const ownComment = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "author may delete",
+    });
+    expect(
+      (await execute(f.ctx, profileCommentsDeleteOp, f.strangerActor, { commentId: ownComment.id }))
+        .state,
+    ).toBe("deleted");
+
+    const wallRestricted = addCustomGroup(f.ctx, f.wall.id, "No wall management");
+    setProfilePermission(f.ctx, wallRestricted, "profilePost.manageOwnWall", -1);
+    const blockedWallComment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: post.id,
+      body: "wall owner blocked",
+    });
+    expect(
+      (
+        await execute(f.ctx, profileCommentsGetOp, f.wallActor, {
+          commentId: blockedWallComment.id,
+        })
+      ).canDelete,
+    ).toBe(false);
+    await expect(
+      execute(f.ctx, profileCommentsDeleteOp, f.wallActor, { commentId: blockedWallComment.id }),
+    ).rejects.toThrow(ForbiddenError);
+
+    const authorRestricted = addCustomGroup(f.ctx, f.stranger.id, "No own deletion");
+    setProfilePermission(f.ctx, authorRestricted, "profilePost.deleteOwn", -1);
+    const blockedOwnComment = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "author blocked",
+    });
+    expect(
+      (
+        await execute(f.ctx, profileCommentsGetOp, f.strangerActor, {
+          commentId: blockedOwnComment.id,
+        })
+      ).canDelete,
+    ).toBe(false);
+    await expect(
+      execute(f.ctx, profileCommentsDeleteOp, f.strangerActor, { commentId: blockedOwnComment.id }),
+    ).rejects.toThrow(ForbiddenError);
+  });
+  test("custom editAny grant edits another member's post and comment", async () => {
+    const f = fixture();
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    const comment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: post.id,
+      body: "comment",
+    });
+    await expect(
+      execute(f.ctx, profilePostsUpdateOp, f.strangerActor, { profilePostId: post.id, body: "no" }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(
+      execute(f.ctx, profileCommentsUpdateOp, f.strangerActor, {
+        commentId: comment.id,
+        body: "no",
+      }),
+    ).rejects.toThrow(ForbiddenError);
+    const editors = addCustomGroup(f.ctx, f.stranger.id, "Profile editors");
+    setProfilePermission(f.ctx, editors, "profilePost.editAny", 1);
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: post.id }))
+        .canEdit,
+    ).toBe(true);
+    expect(
+      (await execute(f.ctx, profileCommentsGetOp, f.strangerActor, { commentId: comment.id }))
+        .canEdit,
+    ).toBe(true);
+    expect(
+      (
+        await execute(f.ctx, profilePostsUpdateOp, f.strangerActor, {
+          profilePostId: post.id,
+          body: "edited post",
+        })
+      ).bodySource,
+    ).toBe("edited post");
+    expect(
+      (
+        await execute(f.ctx, profileCommentsUpdateOp, f.strangerActor, {
+          commentId: comment.id,
+          body: "edited comment",
+        })
+      ).bodySource,
+    ).toBe("edited comment");
+  });
+  test("viewModerated alone does not reveal deleted posts or comments", async () => {
+    const f = fixture();
+    const visible = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "visible parent",
+    });
+    const moderatedPost = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "moderated post",
+    });
+    const deletedPost = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "deleted post",
+    });
+    const moderatedComment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: visible.id,
+      body: "moderated comment",
+    });
+    const deletedComment = await execute(f.ctx, profileCommentsCreateOp, f.authorActor, {
+      profilePostId: visible.id,
+      body: "deleted comment",
+    });
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET state = 'moderated' WHERE id = ?1")
+      .run(moderatedPost.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_posts SET state = 'deleted' WHERE id = ?1")
+      .run(deletedPost.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id = ?1")
+      .run(moderatedComment.id);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
+      .run(deletedComment.id);
+    const viewers = addCustomGroup(f.ctx, f.stranger.id, "Moderated viewers");
+    setProfilePermission(f.ctx, viewers, "profilePost.viewModerated", 1);
+    expect(
+      (await execute(f.ctx, profilePostsListOp, f.strangerActor, { userId: f.wall.id })).items.map(
+        (row) => row.id,
+      ),
+    ).toEqual([moderatedPost.id, visible.id]);
+    expect(
+      (
+        await execute(f.ctx, profileCommentsListOp, f.strangerActor, { profilePostId: visible.id })
+      ).items.map((row) => row.id),
+    ).toEqual([moderatedComment.id]);
+    expect(
+      (
+        await execute(f.ctx, profilePostsGetOp, f.strangerActor, {
+          profilePostId: moderatedPost.id,
+        })
+      ).state,
+    ).toBe("moderated");
+    await expect(
+      execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: deletedPost.id }),
+    ).rejects.toThrow(NotFoundError);
+    await expect(
+      execute(f.ctx, profileCommentsGetOp, f.strangerActor, { commentId: deletedComment.id }),
+    ).rejects.toThrow(NotFoundError);
+  });
+  test("comment and restore permissions are independent", async () => {
+    const f = fixture();
+    const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
+      userId: f.wall.id,
+      body: "post",
+    });
+    setProfilePermission(f.ctx, 2, "profilePost.comment", -1);
+    expect(
+      (await execute(f.ctx, profilePostsGetOp, f.strangerActor, { profilePostId: post.id }))
+        .canComment,
+    ).toBe(false);
+    await expect(
+      execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+        profilePostId: post.id,
+        body: "blocked",
+      }),
+    ).rejects.toThrow(ForbiddenError);
+    setProfilePermission(f.ctx, 2, "profilePost.comment", 1);
+    const comment = await execute(f.ctx, profileCommentsCreateOp, f.strangerActor, {
+      profilePostId: post.id,
+      body: "allowed",
+    });
+    setProfilePermission(f.ctx, 2, "profilePost.editOwn", -1);
+    await expect(
+      execute(f.ctx, profileCommentsUpdateOp, f.strangerActor, {
+        commentId: comment.id,
+        body: "blocked",
+      }),
+    ).rejects.toThrow(ForbiddenError);
+    setProfilePermission(f.ctx, 2, "profilePost.editOwn", 1);
+    expect(
+      (await execute(f.ctx, profileCommentsGetOp, f.strangerActor, { commentId: comment.id }))
+        .canEdit,
+    ).toBe(true);
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'moderated' WHERE id = ?1")
+      .run(comment.id);
+    setProfilePermission(f.ctx, 2, "profilePost.viewModerated", 1);
+    setProfilePermission(f.ctx, 2, "profilePost.approve", 1);
+    expect(
+      (await execute(f.ctx, profileCommentsRestoreOp, f.wallActor, { commentId: comment.id }))
+        .state,
+    ).toBe("visible");
+    f.ctx.sqlite
+      .prepare("UPDATE profile_post_comments SET state = 'deleted' WHERE id = ?1")
+      .run(comment.id);
+    setProfilePermission(f.ctx, 2, "profilePost.viewDeleted", 1);
+    await expect(
+      execute(f.ctx, profileCommentsRestoreOp, f.wallActor, { commentId: comment.id }),
+    ).rejects.toThrow(ForbiddenError);
+    setProfilePermission(f.ctx, 2, "profilePost.undelete", 1);
+    expect(
+      (await execute(f.ctx, profileCommentsRestoreOp, f.wallActor, { commentId: comment.id }))
+        .state,
+    ).toBe("visible");
+  });
   test("all contracts are registered", () => {
     expect(operations.map((op) => op.name).sort()).toEqual(
       [
@@ -711,10 +1027,11 @@ describe("profiles", () => {
   });
   test("hot query plans use indexes", () => {
     const f = fixture();
-    expectNoTableScan(f.ctx, WALL_SQL, [f.wall.id, 1000, 0, f.author.id, 20]);
-    expectNoTableScan(f.ctx, COMMENTS_SQL, [1, 1000, 0, f.author.id, 20]);
+    expectNoTableScan(f.ctx, WALL_SQL, [f.wall.id, 1000, 0, 0, f.author.id, 20]);
+    expectNoTableScan(f.ctx, COMMENTS_SQL, [1, 1000, 0, 0, f.author.id, 20]);
     expectNoTableScan(f.ctx, USER_SEARCH_SQL, ["a", "b", 10]);
     expectNoTableScan(f.ctx, USER_SEARCH_TAIL_SQL, ["a", 10]);
-    expectNoTableScan(f.ctx, LATEST_COMMENTS_SQL, ["[1,2]", 0, f.author.id]);
+    expectNoTableScan(f.ctx, LATEST_COMMENTS_SQL, ["[1,2]", 0, 0, f.author.id]);
+    expectNoTableScan(f.ctx, "SELECT state FROM profile_posts WHERE id = ?1", [1]);
   });
 });

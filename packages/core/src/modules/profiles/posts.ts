@@ -17,6 +17,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { can, permissionsOf, requirePermission } from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
@@ -26,7 +27,6 @@ import {
   prepareModeratedContent,
   withSpamCheck,
 } from "../moderation";
-import { getGlobalPermissions } from "../permissions";
 import { seoForProfile } from "../seo";
 import { resolvedFileUrl } from "../storage/url";
 import {
@@ -52,7 +52,7 @@ type ProfileRow = {
   cover_file_id: number | null;
 };
 function readProfile(ctx: Ctx, actor: Actor, userId: number) {
-  const flags = getGlobalPermissions(ctx, actor);
+  const permissions = permissionsOf(ctx, actor);
   const row = prepared(ctx, "profiles.profile", () =>
     ctx.sqlite.prepare<ProfileRow, [number]>(
       "SELECT u.id, u.username, g.title AS group_title, u.created_at, u.about, u.post_count, u.reaction_score, u.avatar_file_id, u.cover_file_id FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1",
@@ -75,7 +75,10 @@ function readProfile(ctx: Ctx, actor: Actor, userId: number) {
         : { fileId: row.cover_file_id, url: resolvedFileUrl(ctx, row.cover_file_id, true) },
     postCount: row.post_count,
     reactionScore: row.reaction_score,
-    canPostOnWall: actorUserId(actor) !== null && flags.canViewProfiles && flags.canPostProfile,
+    canPostOnWall:
+      actorUserId(actor) !== null &&
+      permissions.can("profile.view") &&
+      permissions.can("profilePost.post"),
   };
 }
 export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
@@ -84,6 +87,7 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
 });
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
+  requirePermission(ctx, actor, "profile.editOwn");
   writeTx(ctx, () => {
     prepared(ctx, "profiles.updateAbout", () =>
       ctx.sqlite.prepare<unknown, [string, number, number]>(
@@ -133,10 +137,17 @@ export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
-  const flags = getGlobalPermissions(ctx, actor);
+  const permissions = permissionsOf(ctx, actor);
   const rows = prepared(ctx, "profiles.wall", () =>
-    ctx.sqlite.prepare<PostRow, [number, number, number, number, number]>(WALL_SQL),
-  ).all(input.userId, cursor, Number(flags.isModerator), actorUserId(actor) ?? 0, input.limit + 1);
+    ctx.sqlite.prepare<PostRow, [number, number, number, number, number, number]>(WALL_SQL),
+  ).all(
+    input.userId,
+    cursor,
+    Number(permissions.can("profilePost.viewModerated")),
+    Number(permissions.can("profilePost.viewDeleted")),
+    actorUserId(actor) ?? 0,
+    input.limit + 1,
+  );
   const page = rows.slice(0, input.limit);
   return {
     items: postValues(ctx, actor, page, latestComments(ctx, actor, page)),
@@ -149,7 +160,8 @@ export const profilePostsGetOp = implement(profilePostsGet, (ctx, actor, input) 
 });
 export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  if (!requireView(ctx, actor).canPostProfile) throw new ForbiddenError();
+  requireView(ctx, actor);
+  requirePermission(ctx, actor, "profilePost.post");
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
@@ -188,7 +200,10 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
 export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
-  if (row.user_id !== actorUserId(actor) && !getGlobalPermissions(ctx, actor).isModerator)
+  if (
+    !can(ctx, actor, "profilePost.editAny") &&
+    !can(ctx, actor, "profilePost.editOwn", { ownerId: row.user_id })
+  )
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const html = renderMarkdown(content.source);
@@ -206,7 +221,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
     if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, { type: "content.edited", targetType: "profile_post", targetId: row.id });
-    if (getGlobalPermissions(ctx, actor).isModerator)
+    if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
   });
   return profilePostsGetOp.run(ctx, actor, input);
@@ -215,9 +230,9 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
   if (
-    row.user_id !== actorUserId(actor) &&
-    row.profile_user_id !== actorUserId(actor) &&
-    !getGlobalPermissions(ctx, actor).isModerator
+    !can(ctx, actor, "profilePost.deleteAny") &&
+    !can(ctx, actor, "profilePost.deleteOwn", { ownerId: row.user_id }) &&
+    !can(ctx, actor, "profilePost.manageOwnWall", { ownerId: row.profile_user_id })
   )
     throw new ForbiddenError();
   writeTx(ctx, () => {
@@ -234,7 +249,7 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
         payload: { previousState: row.state },
       });
     if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
-    if (getGlobalPermissions(ctx, actor).isModerator)
+    if (can(ctx, actor, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
   });
   return postValue(ctx, actor, { ...row, state: "deleted" });
@@ -242,13 +257,20 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
 export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
-  if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
   writeTx(ctx, () => {
-    const result = prepared(ctx, "profiles.restorePost", () =>
-      ctx.sqlite.prepare<unknown, [number]>(
-        "UPDATE profile_posts SET state = 'visible' WHERE id = ?1 AND state != 'visible'",
+    const current = prepared(ctx, "profiles.postState", () =>
+      ctx.sqlite.prepare<{ state: PostRow["state"] }, [number]>(
+        "SELECT state FROM profile_posts WHERE id = ?1",
       ),
-    ).run(row.id);
+    ).get(row.id);
+    if (!current) throw new NotFoundError();
+    if (current.state === "deleted") requirePermission(ctx, actor, "profilePost.undelete");
+    else requirePermission(ctx, actor, "profilePost.approve");
+    const result = prepared(ctx, "profiles.restorePost", () =>
+      ctx.sqlite.prepare<unknown, [number, string]>(
+        "UPDATE profile_posts SET state = 'visible' WHERE id = ?1 AND state = ?2",
+      ),
+    ).run(row.id, current.state);
     if (result.changes)
       publishEvent(ctx, {
         type: "content.state_changed",
