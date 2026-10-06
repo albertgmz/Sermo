@@ -1077,6 +1077,12 @@ export function addWarning(
       points,
       expiresAt,
     });
+    publishEvent(ctx, {
+      type: "member.warned",
+      targetType: "user",
+      targetId: userId,
+      payload: { moderatorId: actorUserId(actor), points, reason, warningId: id },
+    });
     const activePoints = read<{ n: number }>(
       ctx,
       "activePoints",

@@ -10,6 +10,7 @@ import {
   localDriver,
   registerJobHandlers,
   registerModerationJobs,
+  registerPromotionJobs,
   registerSeoJobs,
   registerStorageJobs,
   s3Driver,
@@ -171,6 +172,7 @@ async function main(): Promise<void> {
         });
   registerStorageJobs(ctx, { driver, tempDir: join(dirname(config.path), "upload-temp") });
   registerModerationJobs(ctx);
+  registerPromotionJobs(ctx);
   registerSeoJobs(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,

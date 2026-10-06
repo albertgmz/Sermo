@@ -13,6 +13,7 @@ import {
 import type { ReactionContentType } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { requirePermission } from "../../permissions";
@@ -204,6 +205,12 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
         "UPDATE users SET reaction_score = reaction_score + ?1 WHERE id = ?2",
       ),
     ).run(type.score - (previous?.score ?? 0), target.authorId);
+    publishEvent(ctx, {
+      type: "reaction.added",
+      targetType: input.contentType,
+      targetId: input.contentId,
+      payload: { userId: user.userId, contentUserId: target.authorId, reactionTypeId: type.id },
+    });
     return reactionSummary(updated, type.id);
   });
 });

@@ -25,7 +25,6 @@ const PENDING_MODULES = new Set<string>();
  * permissions from this list when the checks land; the list must end empty.
  */
 const PENDING_PERMISSIONS = new Set<string>([
-  "admin.promotions",
   // Markdown extensions (milestone 21)
   "mention.maxPerItem",
   // Watching, following, ignoring (milestone 22)

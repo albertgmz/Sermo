@@ -9,6 +9,16 @@ export interface ApiRoute {
 }
 
 const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
+  ["GET", "/promotions/criteria", "promotions.criteria"],
+  ["GET", "/promotions/log", "promotions.log"],
+  ["POST", "/promotions/run", "promotions.run", 201],
+  ["GET", "/promotions", "promotions.list"],
+  ["POST", "/promotions", "promotions.create", 201],
+  ["GET", "/promotions/{promotionId}", "promotions.get"],
+  ["PATCH", "/promotions/{promotionId}", "promotions.update"],
+  ["DELETE", "/promotions/{promotionId}", "promotions.delete"],
+  ["GET", "/users/{userId}/promotions", "promotions.memberStatus"],
+  ["PUT", "/users/{userId}/promotions/{promotionId}", "promotions.apply"],
   ["POST", "/reports", "reports.create", 201],
   ["GET", "/reports", "reports.list"],
   ["GET", "/reports/{groupId}", "reports.get"],
