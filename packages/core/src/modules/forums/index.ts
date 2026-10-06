@@ -13,11 +13,12 @@ import {
   can,
   getNodeTree,
   permissionsOf,
+  permissionValue,
   requirePermission,
   resolvedPermissions,
   viewableNodeIds,
 } from "../../permissions";
-import { renderMarkdown } from "../../render";
+import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -681,7 +682,9 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
-    const html = renderMarkdown(content.source);
+    permissionValue(ctx, actor, "mention.maxPerItem");
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const ids = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
       if (decision.source !== content.source)
@@ -707,7 +710,8 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
         .get(thread.id, user.userId, now)!;
       forumDb(ctx)
         .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-        .run(post.id, content.source, html);
+        .run(post.id, refs.source, html);
+      storeContentReferences(ctx, "post", post.id, refs);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "post", post.id, html);
       forumDb(ctx)
@@ -747,7 +751,8 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const id = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
       if (decision.source !== content.source)
@@ -768,7 +773,8 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
         .get(row.id, user.userId, position, state, now)!;
       forumDb(ctx)
         .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
-        .run(post.id, content.source, html);
+        .run(post.id, refs.source, html);
+      storeContentReferences(ctx, "post", post.id, refs);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "post", post.id, html);
       if (state === "visible") {
@@ -819,7 +825,10 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
   if (!mayEdit(permissions, thread.row.node_id, post, thread.row.is_locked))
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
-  const html = renderMarkdown(content.source);
+  const refs = renderContent(ctx, actor, content.source, {
+    edit: { contentType: "post", contentId: post.id, authorId: post.user_id },
+  });
+  const html = refs.html;
   writeTx(ctx, () => {
     if (input.attachmentIds?.length) {
       const attached = new Set(
@@ -842,7 +851,8 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     validateEmbeddedAttachments(ctx, "post", post.id, html);
     forumDb(ctx)
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
-      .run(content.source, html, post.id);
+      .run(refs.source, html, post.id);
+    storeContentReferences(ctx, "post", post.id, refs);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "post", id: post.id });
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)

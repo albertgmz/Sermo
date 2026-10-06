@@ -17,7 +17,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, permissionsOf, requirePermission } from "../../permissions";
-import { renderMarkdown } from "../../render";
+import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
@@ -228,7 +228,8 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
       if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
@@ -258,10 +259,11 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
           starter.userId,
           decision.moderated || spam ? "moderated" : "visible",
           now,
-          content.source,
+          refs.source,
           html,
         ).lastInsertRowid,
       );
+      storeContentReferences(ctx, "conversation_message", messageId, refs);
       setAttachments(
         ctx,
         starter.userId,
@@ -329,7 +331,8 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   requirePermission(ctx, actor, "conversation.reply");
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
       activeConversation(ctx, actor, input.conversationId);
@@ -346,10 +349,11 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
           user.userId,
           decision.moderated || spam ? "moderated" : "visible",
           now,
-          content.source,
+          refs.source,
           html,
         ).lastInsertRowid,
       );
+      storeContentReferences(ctx, "conversation_message", id, refs);
       setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
       if (!decision.moderated && !spam) {
