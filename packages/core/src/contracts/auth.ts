@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
-import { Empty, Id, ResolvedPermissions, Timestamp } from "./common";
+import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
 
 /*
  * Registration, sign-in, sign-out, sessions and API keys are served by Better Auth's own
@@ -26,6 +26,7 @@ export const SelfUser = z
     email: z.string(),
     groupId: Id,
     createdAt: Timestamp,
+    displayGroup: DisplayGroup.nullable(),
   })
   .meta({ id: "SelfUser" });
 

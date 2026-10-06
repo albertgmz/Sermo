@@ -13,6 +13,7 @@ import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../error
 import { type AnyOperation, implement } from "../../operation";
 import {
   combinationsGranting,
+  memberDisplay,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionsOf,
@@ -498,6 +499,8 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
+  // The actor's own principal: no further lookup.
+  const display = memberDisplay(ctx, actor);
   return {
     user: {
       id: row.id,
@@ -505,6 +508,12 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       email: row.email,
       groupId: row.group_id,
       createdAt: iso(row.created_at),
+      displayGroup: display && {
+        id: display.groupId,
+        title: display.title,
+        userTitle: display.userTitle,
+        badge: display.badge,
+      },
     },
     permissions,
     resolvedPermissions: resolved,

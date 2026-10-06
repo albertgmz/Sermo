@@ -4,6 +4,7 @@ import { Attachment, AttachmentIds } from "./attachments";
 import {
   Body,
   ContentState,
+  DisplayGroup,
   Id,
   Page,
   pageInput,
@@ -18,7 +19,9 @@ export const Profile = z
   .object({
     id: Id,
     username: z.string(),
+    /** Title of the member's primary group. */
     groupTitle: z.string(),
+    displayGroup: DisplayGroup.nullable(),
     createdAt: Timestamp,
     /** Plain text; clients must escape it. */
     about: z.string(),

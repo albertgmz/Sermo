@@ -17,7 +17,16 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, permissionsOf, requirePermission } from "../../permissions";
+import {
+  can,
+  memberActor,
+  memberDisplay,
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  permissionsOf,
+  requestVersions,
+  requirePermission,
+} from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
@@ -40,22 +49,35 @@ import {
   WALL_SQL,
 } from "./shared";
 
-type ProfileRow = {
+type ProfileRow = PrincipalRow & {
   id: number;
   username: string;
+  group_id: number;
   group_title: string;
-  created_at: number;
   about: string;
-  post_count: number;
   reaction_score: number;
   avatar_file_id: number | null;
   cover_file_id: number | null;
 };
+function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
+  const display = memberDisplay(
+    ctx,
+    memberActor(row.id, row.group_id, row, requestVersions(ctx, viewer)),
+  );
+  return (
+    display && {
+      id: display.groupId,
+      title: display.title,
+      userTitle: display.userTitle,
+      badge: display.badge,
+    }
+  );
+}
 function readProfile(ctx: Ctx, actor: Actor, userId: number) {
   const permissions = permissionsOf(ctx, actor);
   const row = prepared(ctx, "profiles.profile", () =>
     ctx.sqlite.prepare<ProfileRow, [number]>(
-      "SELECT u.id, u.username, g.title AS group_title, u.created_at, u.about, u.post_count, u.reaction_score, u.avatar_file_id, u.cover_file_id FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1",
+      `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.reaction_score, u.avatar_file_id, u.cover_file_id, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`,
     ),
   ).get(userId);
   if (!row) throw new NotFoundError();
@@ -63,6 +85,7 @@ function readProfile(ctx: Ctx, actor: Actor, userId: number) {
     id: row.id,
     username: row.username,
     groupTitle: row.group_title,
+    displayGroup: displayGroupOf(ctx, actor, row),
     createdAt: iso(row.created_at),
     about: row.about,
     avatar:

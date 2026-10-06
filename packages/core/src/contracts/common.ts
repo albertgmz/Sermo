@@ -39,6 +39,14 @@ export const ResolvedPermissions = z
   .record(z.string(), z.union([z.boolean(), z.number().int()]))
   .meta({ id: "ResolvedPermissions" });
 
+/**
+ * The group whose title and badge a member displays: their highest-ranked group. Rank is display
+ * and hierarchy only, never permissions.
+ */
+export const DisplayGroup = z
+  .object({ id: Id, title: z.string(), userTitle: z.string(), badge: z.string() })
+  .meta({ id: "DisplayGroup" });
+
 export const Ok = z.object({ ok: z.literal(true) });
 export const Empty = z.object({});
 

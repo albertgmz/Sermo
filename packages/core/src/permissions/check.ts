@@ -356,6 +356,15 @@ export function memberStanding(
   return { maxRank: combination.maxRank, displayGroupId: combination.displayGroupId };
 }
 
+/**
+ * The cache versions a request already holds (its actor's principal), so building another
+ * member's actor for a decision or a display costs no lookup. Falls back to reading them.
+ */
+export function requestVersions(ctx: Ctx, actor: Actor): PermissionVersions {
+  if (actor.kind === "guest") return actor.versions ?? currentVersions(ctx);
+  return actor.principal?.versions ?? currentVersions(ctx);
+}
+
 /** The group whose title and badge a member displays (their highest-ranked group). */
 export function memberDisplay(
   ctx: Ctx,

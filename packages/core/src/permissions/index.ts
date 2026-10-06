@@ -14,6 +14,7 @@ export {
   permissionsOf,
   permissionValue,
   principalFromRow,
+  requestVersions,
   requirePermission,
   resolvedPermissions,
   viewableNodeIds,

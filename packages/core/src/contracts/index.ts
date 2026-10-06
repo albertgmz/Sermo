@@ -6,6 +6,7 @@ export * from "./images";
 export * from "./moderation";
 export * from "./permissions";
 export * from "./profiles";
+export * from "./promotions";
 export * from "./reactions";
 export * from "./search";
 export * from "./seo";

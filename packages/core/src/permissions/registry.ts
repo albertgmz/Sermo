@@ -312,6 +312,7 @@ export const PERMISSIONS = {
   "admin.groups": globalAdmin("admin"),
   "admin.members": { ...globalAdmin("admin"), hierarchy: true },
   "admin.permissions": globalAdmin("admin"),
+  "admin.promotions": globalAdmin("admin"),
   "admin.settings": globalAdmin("admin"),
   "admin.reactionTypes": globalAdmin("admin"),
 } as const satisfies Record<string, PermissionDefinition>;
