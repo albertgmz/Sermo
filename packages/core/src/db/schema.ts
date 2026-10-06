@@ -429,9 +429,9 @@ export const posts = sqliteTable(
       .notNull()
       .references(() => users.id),
     /**
-     * 0-based position in the thread in creation order (the first post is 0). Never changes:
-     * hiding or restoring a post leaves every position as it is (see DECISIONS.md
-     * "Post positions").
+     * 0-based position in the thread in creation order (the first post is 0). Hiding, restoring
+     * or moving content never changes it (see DECISIONS.md "Post positions"); merging and
+     * splitting threads are the only operations that renumber positions.
      */
     position: integer("position").notNull(),
     state: state(),
