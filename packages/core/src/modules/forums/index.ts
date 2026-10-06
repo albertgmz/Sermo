@@ -7,9 +7,16 @@ import * as contracts from "../../contracts/forums";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
-import { implement } from "../../operation";
+import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { resolvedPermissions } from "../../permissions";
+import {
+  can,
+  getNodeTree,
+  permissionsOf,
+  requirePermission,
+  resolvedPermissions,
+  viewableNodeIds,
+} from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
@@ -22,7 +29,6 @@ import {
   recordPostRevision,
   withSpamCheck,
 } from "../moderation";
-import { getNodeAccess, getNodeTree, requireAdmin } from "../permissions";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
@@ -43,6 +49,7 @@ type ThreadRow = {
   last_post_at: number;
   last_post_id: number;
   last_poster_id: number;
+  thread_banned?: number;
 };
 type PostRow = {
   id: number;
@@ -78,11 +85,12 @@ const nodeColumns =
   "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
-  sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?3)) ORDER BY last_post_at DESC, id DESC`,
-  threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND (?2 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?6)) AND (last_post_at, id) < (?3, ?4) ORDER BY last_post_at DESC, id DESC LIMIT ?5`,
-  postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (?4 = 1 OR p.state = 'visible' OR (p.state = 'moderated' AND p.user_id = ?5)) ORDER BY p.position`,
+  sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY last_post_at DESC, id DESC`,
+  threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (last_post_at, id) < (?4, ?5) ORDER BY last_post_at DESC, id DESC LIMIT ?6`,
+  postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
   postBeyond:
-    "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (?3 = 1 OR state = 'visible' OR (state = 'moderated' AND user_id = ?4)) ORDER BY position LIMIT 1",
+    "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
+  threadDetail: `SELECT ${threadColumns}, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t WHERE t.id = ?1`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
   lastPostPositions: "SELECT id, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   readBatch:
@@ -110,13 +118,13 @@ function forumDb(ctx: Ctx) {
 const postCursor = z.tuple([z.number().int().nonnegative()]);
 const threadCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 
-function threadRow(ctx: Ctx, id: number): ThreadRow | undefined {
+function threadRow(ctx: Ctx, id: number, viewerId = 0): ThreadRow | undefined {
   return (
-    prepared(ctx, "forums.thread", () =>
-      forumDb(ctx).prepare<ThreadRow, [number]>(
-        `SELECT ${threadColumns} FROM threads WHERE id = ?1`,
-      ),
-    ).get(id) ?? undefined
+    statement<ThreadRow, [number, number, number]>(ctx, "threadDetail", forumSql.threadDetail).get(
+      id,
+      viewerId,
+      ctx.now(),
+    ) ?? undefined
   );
 }
 function postRow(ctx: Ctx, id: number, withBody = false): PostRow | undefined {
@@ -130,31 +138,70 @@ function postRow(ctx: Ctx, id: number, withBody = false): PostRow | undefined {
     ).get(id) ?? undefined
   );
 }
-function visible(state: State, owner: number, actor: Actor, moderate: boolean): boolean {
-  return state === "visible" || moderate || (state === "moderated" && owner === actorUserId(actor));
+function visible(ctx: Ctx, state: State, owner: number, actor: Actor, nodeId: number): boolean {
+  if (state === "visible") return true;
+  if (state === "moderated")
+    return owner === actorUserId(actor) || can(ctx, actor, "forum.viewModerated", { nodeId });
+  return can(ctx, actor, "forum.viewDeleted", { nodeId });
 }
 function requireNode(ctx: Ctx, actor: Actor, id: number) {
   const node = getNodeTree(ctx).get(id);
-  const access = getNodeAccess(ctx, actor)(id);
-  if (!node || !access.view) throw new NotFoundError();
-  return { node, access };
+  if (!node) throw new NotFoundError();
+  requirePermission(ctx, actor, "node.view", { nodeId: id }, { notFound: true });
+  return { node };
 }
 function requireThread(ctx: Ctx, actor: Actor, id: number) {
-  const row = threadRow(ctx, id);
+  const row = threadRow(ctx, id, actorUserId(actor) ?? 0);
   if (!row) throw new NotFoundError();
-  const { node, access } = requireNode(ctx, actor, row.node_id);
-  if (!visible(row.state, row.user_id, actor, access.moderate)) throw new NotFoundError();
-  return { row, node, access };
+  const { node } = requireNode(ctx, actor, row.node_id);
+  if (!visible(ctx, row.state, row.user_id, actor, row.node_id)) throw new NotFoundError();
+  return { row, node };
 }
 function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
   const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
   const thread = requireThread(ctx, actor, post.thread_id);
-  if (!visible(post.state, post.user_id, actor, thread.access.moderate)) throw new NotFoundError();
+  if (!visible(ctx, post.state, post.user_id, actor, thread.row.node_id)) throw new NotFoundError();
   return { post, thread };
 }
-function mayEdit(actor: Actor, authorId: number, locked: number, moderate: boolean): boolean {
-  return moderate || (actorUserId(actor) === authorId && !locked);
+function mayEdit(
+  permissions: ReturnType<typeof permissionsOf>,
+  nodeId: number,
+  post: PostRow,
+  locked: number,
+): boolean {
+  return (
+    permissions.can("forum.editAny", { nodeId }) ||
+    (!locked &&
+      permissions.can("forum.editOwn", {
+        nodeId,
+        ownerId: post.user_id,
+        createdAt: post.created_at,
+      }))
+  );
+}
+function mayEditTitle(ctx: Ctx, actor: Actor, row: ThreadRow): boolean {
+  return (
+    can(ctx, actor, "forum.editAny", { nodeId: row.node_id }) ||
+    (!row.is_locked &&
+      can(ctx, actor, "forum.editOwnThreadTitle", { nodeId: row.node_id, ownerId: row.user_id }))
+  );
+}
+function mayDelete(
+  permissions: ReturnType<typeof permissionsOf>,
+  nodeId: number,
+  ownerId: number,
+  locked: number,
+): boolean {
+  return (
+    permissions.can("forum.deleteAny", { nodeId }) ||
+    (!locked && permissions.can("forum.deleteOwn", { nodeId, ownerId }))
+  );
+}
+function canModerate(ctx: Ctx, actor: Actor, nodeId: number): boolean {
+  return (
+    can(ctx, actor, "forum.deleteAny", { nodeId }) || can(ctx, actor, "forum.approve", { nodeId })
+  );
 }
 function readRows(ctx: Ctx, actor: Actor, ids: number[]): Map<number, ReadRow> {
   const result = new Map<number, ReadRow>();
@@ -222,7 +269,7 @@ function postValues(
   actor: Actor,
   rows: PostRow[],
   locked: number,
-  moderate: boolean,
+  nodeId: number,
   firstPostId: number,
   detail = false,
 ) {
@@ -236,11 +283,14 @@ function postValues(
     "post",
     rows.map((r) => r.id),
   );
-  const attachments = loadAttachments(
-    ctx,
-    "post",
-    rows.map((r) => r.id),
-  );
+  const permissions = permissionsOf(ctx, actor);
+  const attachments = permissions.can("forum.viewAttachments", { nodeId })
+    ? loadAttachments(
+        ctx,
+        "post",
+        rows.map((r) => r.id),
+      )
+    : new Map();
   return rows.map((row) => ({
     id: row.id,
     threadId: row.thread_id,
@@ -253,11 +303,11 @@ function postValues(
     attachmentCount: row.attachment_count,
     attachments: attachments.get(row.id) ?? [],
     reactions: reactionSummary(row.reaction_counts, reactions.get(row.id)),
-    canEdit: mayEdit(actor, row.user_id, locked, moderate),
+    canEdit: mayEdit(permissions, nodeId, row, locked),
     canDelete:
       row.id !== firstPostId &&
       row.state !== "deleted" &&
-      mayEdit(actor, row.user_id, locked, moderate),
+      mayDelete(permissions, nodeId, row.user_id, locked),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
@@ -280,7 +330,7 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     ctx,
     [...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
   );
-  const access = getNodeAccess(ctx, actor);
+  const permissions = permissionsOf(ctx, actor);
   return ids.map((id) => {
     const entry = tree.get(id)!;
     const row = rows.get(id)!;
@@ -294,7 +344,6 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
             postedAt: iso(row.last_post_at!),
             user: users(row.last_poster_id!),
           };
-    const permission = access(id);
     return {
       ...entry,
       icon:
@@ -309,8 +358,10 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
       postCount: row.post_count,
       lastPost,
       permissions: {
-        canPost: permission.post && entry.type === "forum",
-        canModerate: permission.moderate,
+        canPost: permissions.can("forum.createThread", { nodeId: id }) && entry.type === "forum",
+        canModerate:
+          permissions.can("forum.deleteAny", { nodeId: id }) ||
+          permissions.can("forum.approve", { nodeId: id }),
       },
     };
   });
@@ -326,22 +377,15 @@ function postValue(ctx: Ctx, actor: Actor, id: number, detail = false) {
     actor,
     [post],
     thread.is_locked,
-    getNodeAccess(ctx, actor)(thread.node_id).moderate,
+    thread.node_id,
     thread.first_post_id,
     detail,
   )[0]!;
 }
 
 export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
-  const access = getNodeAccess(ctx, actor);
   return {
-    items: nodeValues(
-      ctx,
-      actor,
-      getNodeTree(ctx)
-        .entries.filter((n) => access(n.id).view)
-        .map((n) => n.id),
-    ),
+    items: nodeValues(ctx, actor, viewableNodeIds(ctx, actor)),
   };
 });
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
@@ -356,7 +400,8 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
   };
 });
 export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input) => {
-  requireAdmin(ctx, actor);
+  requireAuthenticated(actor);
+  requirePermission(ctx, actor, "admin.nodes");
   const id = writeTx(ctx, () => {
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
     const row = forumDb(ctx)
@@ -372,7 +417,8 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
   return nodeValues(ctx, actor, [id])[0]!;
 });
 export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input) => {
-  requireAdmin(ctx, actor);
+  requireAuthenticated(actor);
+  requirePermission(ctx, actor, "admin.nodes");
   writeTx(ctx, () => {
     const tree = getNodeTree(ctx);
     const current = tree.get(input.nodeId);
@@ -400,24 +446,29 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
 });
 
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
-  const { node, access } = requireNode(ctx, actor, input.nodeId);
+  const { node } = requireNode(ctx, actor, input.nodeId);
   if (node.type !== "forum") throw new ValidationError("Threads can only be listed in forums.");
   const userId = actorUserId(actor) ?? -1;
+  const permissions = permissionsOf(ctx, actor);
+  const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: input.nodeId }));
+  const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: input.nodeId }));
   const cursor = input.cursor ? decodeCursor(input.cursor, threadCursor) : null;
   const sticky = cursor
     ? []
-    : statement<ThreadRow, [number, number, number]>(ctx, "sticky", forumSql.sticky).all(
+    : statement<ThreadRow, [number, number, number, number]>(ctx, "sticky", forumSql.sticky).all(
         input.nodeId,
-        Number(access.moderate),
+        viewModerated,
+        viewDeleted,
         userId,
       );
-  const rows = statement<ThreadRow, [number, number, number, number, number, number]>(
+  const rows = statement<ThreadRow, [number, number, number, number, number, number, number]>(
     ctx,
     "threadPage",
     forumSql.threadPage,
   ).all(
     input.nodeId,
-    Number(access.moderate),
+    viewModerated,
+    viewDeleted,
     cursor?.[0] ?? Number.MAX_SAFE_INTEGER,
     cursor?.[1] ?? Number.MAX_SAFE_INTEGER,
     input.limit + 1,
@@ -430,38 +481,46 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   return { sticky: values.slice(0, sticky.length), items: values.slice(sticky.length), nextCursor };
 });
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
-  const { row, node, access } = requireThread(ctx, actor, input.threadId);
+  const { row, node } = requireThread(ctx, actor, input.threadId);
   ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
   return {
     thread: threadValue(ctx, actor, row.id),
     seo: seoForThread(ctx, actor, row.id),
     node: { id: node.id, title: node.title },
     permissions: {
-      canReply: access.post && (!row.is_locked || access.moderate),
-      canEditTitle: mayEdit(actor, row.user_id, row.is_locked, access.moderate),
-      canModerate: access.moderate,
+      canReply:
+        can(ctx, actor, "forum.reply", {
+          nodeId: node.id,
+          threadBanned: !!row.thread_banned,
+        }) &&
+        (!row.is_locked || can(ctx, actor, "forum.replyLocked", { nodeId: node.id })),
+      canEditTitle: mayEditTitle(ctx, actor, row),
+      canModerate: canModerate(ctx, actor, node.id),
     },
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: node.id }),
   };
 });
 
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
-  const { row, access } = requireThread(ctx, actor, input.threadId);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  const permissions = permissionsOf(ctx, actor);
+  const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: row.node_id }));
+  const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: row.node_id }));
   const cursor = input.cursor ? decodeCursor(input.cursor, postCursor) : null;
   const start = cursor?.[0] ?? ((input.page ?? 1) - 1) * input.limit;
   const end = start + input.limit - 1;
-  const rows = statement<PostRow, [number, number, number, number, number]>(
+  const rows = statement<PostRow, [number, number, number, number, number, number]>(
     ctx,
     "postPage",
     forumSql.postPage,
-  ).all(input.threadId, start, end, Number(access.moderate), actorUserId(actor) ?? -1);
-  const beyond = statement<{ id: number }, [number, number, number, number]>(
+  ).all(input.threadId, start, end, viewModerated, viewDeleted, actorUserId(actor) ?? -1);
+  const beyond = statement<{ id: number }, [number, number, number, number, number]>(
     ctx,
     "postBeyond",
     forumSql.postBeyond,
-  ).get(input.threadId, end, Number(access.moderate), actorUserId(actor) ?? -1);
+  ).get(input.threadId, end, viewModerated, viewDeleted, actorUserId(actor) ?? -1);
   return {
-    items: postValues(ctx, actor, rows, row.is_locked, access.moderate, row.first_post_id),
+    items: postValues(ctx, actor, rows, row.is_locked, row.node_id, row.first_post_id),
     nextCursor: beyond ? encodeCursor([end + 1]) : null,
   };
 });
@@ -472,24 +531,27 @@ export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
     actor,
     [post],
     thread.row.is_locked,
-    thread.access.moderate,
+    thread.row.node_id,
     thread.row.first_post_id,
     true,
   )[0]! as z.infer<typeof contracts.PostDetail>;
 });
 
 /** For reactions: returns a visible post's author and reaction eligibility. */
-export function reactablePost(
-  ctx: Ctx,
-  actor: Actor,
-  postId: number,
-): { authorId: number; isVisible: boolean } {
-  const { post, thread } = requirePost(ctx, actor, postId);
-  return {
-    authorId: post.user_id,
-    isVisible: post.state === "visible" && thread.row.state === "visible",
-  };
-}
+export const reactablePost = markPublic(
+  "Visibility is checked here; callers decide reaction permission.",
+  function reactablePost(
+    ctx: Ctx,
+    actor: Actor,
+    postId: number,
+  ): { authorId: number; isVisible: boolean } {
+    const { post, thread } = requirePost(ctx, actor, postId);
+    return {
+      authorId: post.user_id,
+      isVisible: post.state === "visible" && thread.row.state === "visible",
+    };
+  },
+);
 
 function updateNodeLast(ctx: Ctx, nodeId: number): void {
   const stmt = prepared(ctx, "forums.nodeLast", () =>
@@ -573,9 +635,11 @@ function changeThreadState(ctx: Ctx, id: number, state: State): boolean {
 
 export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  const { node, access } = requireNode(ctx, actor, input.nodeId);
-  if (!access.post) throw new ForbiddenError();
+  const { node } = requireNode(ctx, actor, input.nodeId);
+  requirePermission(ctx, actor, "forum.createThread", { nodeId: input.nodeId });
   if (node.type !== "forum") throw new ValidationError("Categories cannot hold threads.");
+  if (input.attachmentIds?.length)
+    requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
     const html = renderMarkdown(content.source);
@@ -634,8 +698,14 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
 });
 export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  if (!access.post || (row.is_locked && !access.moderate)) throw new ForbiddenError();
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.reply", {
+    nodeId: row.node_id,
+    threadBanned: !!row.thread_banned,
+  });
+  if (row.is_locked) requirePermission(ctx, actor, "forum.replyLocked", { nodeId: row.node_id });
+  if (input.attachmentIds?.length)
+    requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
     const html = renderMarkdown(content.source);
@@ -687,8 +757,8 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  if (!mayEdit(actor, row.user_id, row.is_locked, access.moderate)) throw new ForbiddenError();
+  const { row } = requireThread(ctx, actor, input.threadId);
+  if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
     forumDb(ctx)
@@ -698,18 +768,33 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
       .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
       .run(input.title, current.node_id, row.id);
     publishEvent(ctx, { type: "content.edited", targetType: "thread", targetId: row.id });
-    if (access.moderate) appendModeratorLog(ctx, actor, "thread.update", "thread", row.id);
+    if (can(ctx, actor, "forum.editAny", { nodeId: row.node_id }))
+      appendModeratorLog(ctx, actor, "thread.update", "thread", row.id);
   });
   return threadValue(ctx, actor, row.id);
 });
 export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
-  if (!mayEdit(actor, post.user_id, thread.row.is_locked, thread.access.moderate))
+  const permissions = permissionsOf(ctx, actor);
+  if (!mayEdit(permissions, thread.row.node_id, post, thread.row.is_locked))
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
   const html = renderMarkdown(content.source);
   writeTx(ctx, () => {
+    if (input.attachmentIds?.length) {
+      const attached = new Set(
+        statement<{ file_id: number }, [number]>(
+          ctx,
+          "postAttachmentIds",
+          "SELECT file_id FROM attachments WHERE content_type = 'post' AND content_id = ?1 ORDER BY position",
+        )
+          .all(post.id)
+          .map((row) => row.file_id),
+      );
+      if (input.attachmentIds.some((id) => !attached.has(id)))
+        requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: thread.row.node_id });
+    }
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
       throw new ConflictError("Moderation rules changed; retry.");
@@ -729,19 +814,19 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
         .prepare("UPDATE threads SET excerpt = ?1 WHERE id = ?2")
         .run(excerptFromMarkdown(content.source), post.thread_id);
     publishEvent(ctx, { type: "content.edited", targetType: "post", targetId: post.id });
-    if (thread.access.moderate && post.user_id === actorUserId(actor))
+    if (
+      can(ctx, actor, "forum.editAny", { nodeId: thread.row.node_id }) &&
+      post.user_id === actorUserId(actor)
+    )
       appendModeratorLog(ctx, actor, "post.edit", "post", post.id);
   });
   return postValue(ctx, actor, post.id, true) as z.infer<typeof contracts.PostDetail>;
 });
 
-function requireModeration(access: { moderate: boolean }): void {
-  if (!access.moderate) throw new ForbiddenError();
-}
 export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  requireModeration(access);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.stick", { nodeId: row.node_id });
   writeTx(ctx, () => {
     forumDb(ctx)
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
@@ -755,8 +840,8 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
 });
 export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  requireModeration(access);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.lock", { nodeId: row.node_id });
   writeTx(ctx, () => {
     forumDb(ctx)
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
@@ -770,10 +855,10 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
 });
 export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  requireModeration(access);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.move", { nodeId: row.node_id });
   const target = requireNode(ctx, actor, input.nodeId);
-  requireModeration(target.access);
+  requirePermission(ctx, actor, "forum.move", { nodeId: input.nodeId });
   if (target.node.type !== "forum")
     throw new ValidationError("Threads can only be moved to forums.");
   writeTx(ctx, () => {
@@ -807,8 +892,8 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
 });
 export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  requireModeration(access);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  requirePermission(ctx, actor, "forum.deleteAny", { nodeId: row.node_id });
   writeTx(ctx, () => {
     if (changeThreadState(ctx, row.id, "deleted"))
       publishEvent(ctx, {
@@ -823,8 +908,16 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
 });
 export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  const { row, access } = requireThread(ctx, actor, input.threadId);
-  requireModeration(access);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  if (row.state === "moderated")
+    requirePermission(ctx, actor, "forum.approve", { nodeId: row.node_id });
+  else if (row.state === "deleted")
+    requirePermission(ctx, actor, "forum.undelete", { nodeId: row.node_id });
+  else if (
+    !can(ctx, actor, "forum.undelete", { nodeId: row.node_id }) &&
+    !can(ctx, actor, "forum.approve", { nodeId: row.node_id })
+  )
+    throw new ForbiddenError();
   writeTx(ctx, () => {
     if (changeThreadState(ctx, row.id, "visible"))
       publishEvent(ctx, { type: "content.state_changed", targetType: "thread", targetId: row.id });
@@ -864,7 +957,7 @@ function changePostState(ctx: Ctx, id: number, state: State): boolean {
 export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
-  if (!mayEdit(actor, post.user_id, thread.row.is_locked, thread.access.moderate))
+  if (!mayDelete(permissionsOf(ctx, actor), thread.row.node_id, post.user_id, thread.row.is_locked))
     throw new ForbiddenError();
   if (post.id === thread.row.first_post_id) throw new ValidationError("Delete the thread instead.");
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
@@ -876,14 +969,22 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
         targetId: post.id,
         payload: { previousState: post.state },
       });
-    if (thread.access.moderate) appendModeratorLog(ctx, actor, "post.delete", "post", post.id);
+    if (can(ctx, actor, "forum.deleteAny", { nodeId: thread.row.node_id }))
+      appendModeratorLog(ctx, actor, "post.delete", "post", post.id);
   });
   return postValue(ctx, actor, post.id);
 });
 export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
-  requireModeration(thread.access);
+  const nodeId = thread.row.node_id;
+  if (post.state === "moderated") requirePermission(ctx, actor, "forum.approve", { nodeId });
+  else if (post.state === "deleted") requirePermission(ctx, actor, "forum.undelete", { nodeId });
+  else if (
+    !can(ctx, actor, "forum.undelete", { nodeId }) &&
+    !can(ctx, actor, "forum.approve", { nodeId })
+  )
+    throw new ForbiddenError();
   writeTx(ctx, () => {
     if (changePostState(ctx, post.id, "visible"))
       publishEvent(ctx, { type: "content.state_changed", targetType: "post", targetId: post.id });

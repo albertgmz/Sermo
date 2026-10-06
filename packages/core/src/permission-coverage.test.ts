@@ -22,7 +22,6 @@ const PENDING_MODULES = new Set<string>([
   "attachments",
   "auth",
   "conversations",
-  "forums",
   "images",
   "moderation",
   "permissions",

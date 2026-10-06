@@ -198,10 +198,11 @@ describe("forums", () => {
 
   test("hot query plans use indexes", () => {
     const ctx = createTestContext();
-    expectNoTableScan(ctx, forumSql.threadPage, [1, 0, 100, 100, 20, 1]);
-    expectNoTableScan(ctx, forumSql.sticky, [1, 0, 1]);
-    expectNoTableScan(ctx, forumSql.postPage, [1, 0, 19, 0, 1]);
-    expectNoTableScan(ctx, forumSql.postBeyond, [1, 19, 0, 1]);
+    expectNoTableScan(ctx, forumSql.threadDetail, [1, 2, 1_000]);
+    expectNoTableScan(ctx, forumSql.threadPage, [1, 0, 0, 100, 100, 20, 1]);
+    expectNoTableScan(ctx, forumSql.sticky, [1, 0, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postPage, [1, 0, 19, 0, 0, 1]);
+    expectNoTableScan(ctx, forumSql.postBeyond, [1, 19, 0, 0, 1]);
     expectNoTableScan(ctx, forumSql.maxPostPosition, [1]);
     expectNoTableScan(ctx, forumSql.lastPostPositions, ["[1]"]);
     expectNoTableScan(ctx, forumSql.readBatch, [1, "[1]"]);
