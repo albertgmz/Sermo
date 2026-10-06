@@ -48,13 +48,15 @@ const CHECKS = new Set([
 ]);
 /** Permissions a check function decides by itself. */
 const IMPLIED: Record<string, string[]> = { viewableNodeIds: ["node.view"] };
-/** Legacy helpers and fields services may no longer use. */
+/**
+ * Legacy helpers services may no longer use. (GROUP_IDS stays importable: assigning a built-in
+ * group, as sign-up does, is not a permission decision.)
+ */
 const LEGACY_IMPORTS = new Set([
   "getNodeAccess",
   "getGlobalPermissions",
   "requireAdmin",
   "actorGroupId",
-  "GROUP_IDS",
 ]);
 const LEGACY_SQL =
   /\b(is_admin|is_moderator|can_view_nodes|can_post|can_view_profiles|can_post_profile|can_start_conversations|can_react|node_permissions)\b/;
