@@ -65,6 +65,10 @@ test("route table has exactly one entry for each operation", () => {
 
 test("query coercion handles booleans, integer arrays, and strict integer syntax", () => {
   expect(coerceQueryValues(["true"], { type: "boolean" })).toBe(true);
+  const nullableId = { anyOf: [{ type: "integer" }, { type: "null" }] };
+  expect(coerceQueryValues(["12"], nullableId)).toBe(12);
+  expect(coerceQueryValues(["null"], nullableId)).toBeNull();
+  expect(coerceQueryValues(["x"], nullableId)).toBe("x");
   expect(coerceQueryValues(["false"], { type: "boolean" })).toBe(false);
   expect(coerceQueryValues(["1", "2"], { type: "array", items: { type: "integer" } })).toEqual([
     1, 2,

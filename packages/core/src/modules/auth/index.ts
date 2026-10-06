@@ -264,6 +264,8 @@ function memberFor(ctx: Ctx, userId: number): { groupId: number; principal: Prin
   if (!row) throw new UnauthenticatedError();
   if (row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now()))
     throw new ForbiddenError("This account is banned.");
+  // Buffered, never written during the request (see flushActivity).
+  ctx.activity.set(userId, ctx.now());
   return {
     groupId,
     principal: principalFromRow(row, { permissions: row.pv ?? 0, nodeTree: row.tv ?? 0 }),
