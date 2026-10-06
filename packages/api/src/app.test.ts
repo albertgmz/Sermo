@@ -92,6 +92,15 @@ test("OpenAPI covers REST and Better Auth routes with resolvable references", as
     );
   expect(document.paths["/api/auth/sign-up/email"]?.post).toBeDefined();
   expect(document.paths["/api/auth/api-key/create"]?.post).toBeDefined();
+  for (const [path, method] of [
+    ["/api/auth/send-verification-email", "post"],
+    ["/api/auth/verify-email", "get"],
+    ["/api/auth/request-password-reset", "post"],
+    ["/api/auth/reset-password", "post"],
+    ["/api/auth/change-password", "post"],
+    ["/api/auth/change-email", "post"],
+  ] as const)
+    expect(document.paths[path]?.[method]).toBeDefined();
   expect(document.components.securitySchemes.sessionCookie?.name).toBe("sermo.session_token");
   expect(document.components.securitySchemes.secureSessionCookie?.name).toBe(
     "__Secure-sermo.session_token",

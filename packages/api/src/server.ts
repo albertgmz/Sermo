@@ -11,6 +11,7 @@ import {
   flushViewCounts,
   isLoopbackHost,
   localDriver,
+  registerAccountEmailJobs,
   registerEmailJobs,
   registerEmailTypes,
   registerJobHandlers,
@@ -277,11 +278,8 @@ async function main(): Promise<void> {
     },
   });
   configurePush(ctx, { vapid: config.vapid });
-  if (config.admin) await ensureAdmin(ctx, config.admin);
   const stopCheckpointer = startCheckpointer(ctx);
   registerJobHandlers(ctx);
-  const stopWorker = startJobWorker(ctx);
-  const stopScheduler = startScheduler(ctx);
   const driver =
     config.storage.driver === "local"
       ? localDriver(config.storage.directory)
@@ -326,6 +324,10 @@ async function main(): Promise<void> {
         },
     emailTypes,
   );
+  registerAccountEmailJobs(ctx);
+  if (config.admin) await ensureAdmin(ctx, config.admin);
+  const stopWorker = startJobWorker(ctx);
+  const stopScheduler = startScheduler(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },

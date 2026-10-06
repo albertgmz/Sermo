@@ -1,6 +1,7 @@
 import { type apiKey, defaultKeyHasher } from "@better-auth/api-key";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { openAPI, type username } from "better-auth/plugins";
 import { type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
@@ -10,6 +11,7 @@ import * as schema from "../../db/auth-schema";
 import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
+import { publishEvent } from "../../events";
 import { type AnyOperation, implement } from "../../operation";
 import {
   combinationsGranting,
@@ -21,6 +23,38 @@ import {
   resolvedPermissions,
 } from "../../permissions";
 import { iso } from "../../time";
+import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+
+function verificationClaim(request: Request | undefined): { email?: string; updateTo?: string } {
+  const token = request ? new URL(request.url).searchParams.get("token") : null;
+  if (!token) return {};
+  try {
+    return JSON.parse(atob(token.split(".")[1]!)) as { email?: string; updateTo?: string };
+  } catch {
+    return {};
+  }
+}
+
+function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
+  return writeTx(ctx, () => {
+    const changed =
+      ctx.sqlite
+        .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2 AND group_id = ?3")
+        .run(GROUP_IDS.member, userId, GROUP_IDS.unconfirmed).changes > 0;
+    if (changed)
+      publishEvent(ctx, {
+        type: "member.groups_changed",
+        targetType: "user",
+        targetId: userId,
+        payload: {
+          added: [GROUP_IDS.member],
+          removed: [GROUP_IDS.unconfirmed],
+          source: "verification",
+        },
+      });
+    return changed;
+  });
+}
 
 function userConstraintError(error: unknown): APIError | null {
   if (!(error instanceof Error) || !/^UNIQUE constraint failed: users\./.test(error.message))
@@ -48,6 +82,8 @@ function buildAuth(ctx: Ctx) {
     | undefined;
   if (!usernamePlugin || !apiKeyPlugin)
     throw new Error("Better Auth username and API key plugins are required.");
+  const mailEnabled = accountEmailEnabled(ctx);
+  const emailChangeVerification = new WeakMap<Request, boolean>();
   return betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
@@ -62,6 +98,32 @@ function buildAuth(ctx: Ctx) {
     },
     emailAndPassword: {
       enabled: true,
+      revokeSessionsOnPasswordReset: true,
+      ...(mailEnabled
+        ? {
+            sendResetPassword: async ({
+              user,
+              url,
+            }: {
+              user: { id: string; email: string };
+              url: string;
+            }) => {
+              queueAccountEmail(ctx, {
+                kind: "reset",
+                userId: Number(user.id),
+                email: user.email,
+                url,
+              });
+            },
+            onPasswordReset: async ({ user }: { user: { id: string; email: string } }) => {
+              queueAccountEmail(ctx, {
+                kind: "passwordChanged",
+                userId: Number(user.id),
+                email: user.email,
+              });
+            },
+          }
+        : {}),
       minPasswordLength: 8,
       maxPasswordLength: 256,
       password: {
@@ -74,11 +136,107 @@ function buildAuth(ctx: Ctx) {
       expiresIn: ctx.config.sessionTtlMs / 1000,
       disableSessionRefresh: true,
       deferSessionRefresh: true,
-      cookieCache: { enabled: true, maxAge: 300 },
+      // Password resets revoke sessions in the database; cached session cookies would remain
+      // usable until their signature expires, so use database-backed sessions with mail enabled.
+      cookieCache: { enabled: !mailEnabled, maxAge: 300 },
     },
     rateLimit: {
       enabled: true,
       storage: "memory",
+      customRules: {
+        "/send-verification-email": { window: 3_600, max: 5 },
+        "/request-password-reset": { window: 3_600, max: 5 },
+        "/change-email": { window: 3_600, max: 5 },
+      },
+    },
+    user: { ...authSchemaOptions.user, changeEmail: { enabled: mailEnabled } },
+    ...(mailEnabled
+      ? {
+          emailVerification: {
+            sendOnSignUp: true,
+            sendVerificationEmail: async ({
+              user,
+              url,
+            }: {
+              user: { id: string; email: string };
+              url: string;
+            }) => {
+              const claim = verificationClaim(new Request(url));
+              queueAccountEmail(
+                ctx,
+                {
+                  kind: claim.updateTo ? "changeEmail" : "verify",
+                  userId: Number(user.id),
+                  email: user.email,
+                  url,
+                },
+                `email.account.verify.${url}`,
+              );
+            },
+            afterEmailVerification: async (
+              user: { id: string; email: string },
+              request?: Request,
+            ) => {
+              const userId = Number(user.id);
+              const claim = verificationClaim(request);
+              const wasUnverified = request ? emailChangeVerification.get(request) === true : false;
+              if (request) emailChangeVerification.delete(request);
+              if (claim.updateTo && claim.email && claim.updateTo === user.email) {
+                const promoted = wasUnverified && promoteVerifiedMember(ctx, userId);
+                for (const email of new Set([claim.email, user.email]))
+                  queueAccountEmail(ctx, { kind: "emailChanged", userId, email });
+                if (promoted)
+                  queueAccountEmail(ctx, { kind: "welcome", userId, email: user.email });
+                return;
+              }
+              const promoted = promoteVerifiedMember(ctx, userId);
+              if (promoted) queueAccountEmail(ctx, { kind: "welcome", userId, email: user.email });
+            },
+          },
+        }
+      : {}),
+    hooks: {
+      before: createAuthMiddleware(async (hook) => {
+        if (!mailEnabled || hook.path !== "/verify-email" || !hook.request) return;
+        const claim = verificationClaim(hook.request);
+        if (!claim.updateTo || !claim.email) return;
+        const old = ctx.sqlite
+          .prepare<{ email_verified: number }, [string]>(
+            "SELECT email_verified FROM auth_user WHERE email = ?1",
+          )
+          .get(claim.email);
+        if (old) emailChangeVerification.set(hook.request, old.email_verified === 0);
+      }),
+      after: createAuthMiddleware(async (hook) => {
+        if (hook.path === "/verify-email" && hook.request)
+          emailChangeVerification.delete(hook.request);
+        if (!mailEnabled) return;
+        if (hook.context.returned instanceof APIError) return;
+        if (hook.context.returned instanceof Response && !hook.context.returned.ok) return;
+        if (hook.path === "/change-password") {
+          const user = hook.context.session?.user;
+          if (user)
+            queueAccountEmail(ctx, {
+              kind: "passwordChanged",
+              userId: Number(user.id),
+              email: user.email,
+            });
+        }
+        if (hook.path === "/api-key/create") {
+          const result = hook.context.returned as { id?: string; referenceId?: string } | undefined;
+          const userId = Number(result?.referenceId);
+          if (!result?.id || !Number.isSafeInteger(userId)) return;
+          const user = ctx.sqlite
+            .prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1")
+            .get(userId);
+          if (user)
+            queueAccountEmail(
+              ctx,
+              { kind: "apiKeyCreated", userId, email: user.email },
+              `email.account.key.${result.id}`,
+            );
+        }
+      }),
     },
     databaseHooks: {
       user: {
@@ -142,7 +300,13 @@ function buildAuth(ctx: Ctx) {
                 .prepare(
                   "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
                 )
-                .run(Number(user.id), display, normalized, GROUP_IDS.member, ctx.now());
+                .run(
+                  Number(user.id),
+                  display,
+                  normalized,
+                  mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
+                  ctx.now(),
+                );
             } catch (error) {
               const mapped = userConstraintError(error);
               if (mapped) throw mapped;
@@ -224,16 +388,17 @@ function buildAuth(ctx: Ctx) {
 }
 
 export type SermoAuth = ReturnType<typeof buildAuth>;
-const instances = new WeakMap<Ctx, SermoAuth>();
+const instances = new WeakMap<Ctx, { auth: SermoAuth; mailEnabled: boolean }>();
 
 /** The Better Auth instance for this context. */
 export function getAuth(ctx: Ctx): SermoAuth {
-  let auth = instances.get(ctx);
-  if (!auth) {
-    auth = buildAuth(ctx);
-    instances.set(ctx, auth);
+  const mailEnabled = accountEmailEnabled(ctx);
+  let instance = instances.get(ctx);
+  if (!instance || instance.mailEnabled !== mailEnabled) {
+    instance = { auth: buildAuth(ctx), mailEnabled };
+    instances.set(ctx, instance);
   }
-  return auth;
+  return instance.auth;
 }
 
 /** Revoke a banned user's Better Auth sessions and API keys through Better Auth's adapters. */
@@ -290,9 +455,12 @@ function groupFor(ctx: Ctx, userId: number): number {
           display_username: string | null;
           name: string;
           created_at: number;
+          email_verified: number;
         },
         [number]
-      >("SELECT username, display_username, name, created_at FROM auth_user WHERE id = ?1"),
+      >(
+        "SELECT username, display_username, name, created_at, email_verified FROM auth_user WHERE id = ?1",
+      ),
     ).get(userId);
     if (!identity) throw new UnauthenticatedError();
     const normalized = identity.username;
@@ -301,12 +469,16 @@ function groupFor(ctx: Ctx, userId: number): number {
       identity.display_username?.toLowerCase() === normalized
         ? identity.display_username
         : normalized;
+    const repairedGroup =
+      accountEmailEnabled(ctx) && !identity.email_verified
+        ? GROUP_IDS.unconfirmed
+        : GROUP_IDS.member;
     ctx.sqlite
       .prepare(
         "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
       )
-      .run(userId, username, normalized, GROUP_IDS.member, identity.created_at);
-    return GROUP_IDS.member;
+      .run(userId, username, normalized, repairedGroup, identity.created_at);
+    return repairedGroup;
   });
 }
 

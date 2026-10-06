@@ -568,7 +568,7 @@ async function notificationMessage(
   };
 }
 
-function undeliverable(ctx: Ctx, email: string): boolean {
+export function undeliverable(ctx: Ctx, email: string): boolean {
   return !!prepared(ctx, "email.undeliverable", () =>
     ctx.sqlite.prepare<{ id: number }, [string]>(
       "SELECT id FROM undeliverable_emails WHERE email = ?1",
@@ -624,7 +624,7 @@ async function digestMessage(
   };
 }
 
-function recordFailure(
+export function recordFailure(
   ctx: Ctx,
   userId: number,
   email: string,
@@ -714,7 +714,7 @@ export function enhancedStatus(response: string): string | null {
   return response.match(/^\d{3}[ -](\d\.\d{1,3}\.\d{1,3})/m)?.[1] ?? null;
 }
 
-function mailboxRejected(error: unknown): boolean {
+export function mailboxRejected(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const details = error as { responseCode?: unknown; command?: unknown; response?: unknown };
   if (details.command !== "RCPT TO" || ![550, 551, 553].includes(Number(details.responseCode)))
@@ -796,6 +796,11 @@ export function registerEmailJobs(
     }
   });
   return capture;
+}
+
+/** Account mail uses the same configured transport as notification mail. */
+export function accountMailState(ctx: Ctx): { mailer: Mailer; config: MailConfig } | null {
+  return state.get(ctx) ?? null;
 }
 
 /** Closes the mail transport (graceful shutdown). */

@@ -1052,6 +1052,14 @@ describe("notification recipients", () => {
     });
     expect(await types(ctx, f.recipient)).toEqual(["member.groups"]);
     expect(await types(ctx, f.other)).toEqual([]);
+    await clear(ctx, f.recipient);
+    await send(ctx, "member.groups_changed", "user", f.recipient.id, {
+      actorId: f.moderator.id,
+      added: [2],
+      removed: [5],
+      source: "verification",
+    });
+    expect(await types(ctx, f.recipient)).toEqual([]);
   });
 
   test("reports and pending approvals go to moderators; resolution goes to reporters", async () => {

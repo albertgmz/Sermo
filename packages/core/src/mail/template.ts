@@ -19,6 +19,53 @@ export interface TemplateInput {
   unsubscribe?: { typeUrl: string; allUrl: string };
 }
 
+export type AccountTemplate =
+  | "verify"
+  | "welcome"
+  | "reset"
+  | "passwordChanged"
+  | "changeEmail"
+  | "emailChanged"
+  | "apiKeyCreated"
+  | "banned";
+
+/** Security mail shares the layout but never includes unsubscribe links. */
+export function renderAccountEmail(input: {
+  kind: AccountTemplate;
+  language: Language;
+  site: string;
+  url?: string;
+  reason?: string;
+  expiresAt?: string | null;
+}) {
+  const { kind, language, site } = input;
+  const expiry = input.expiresAt
+    ? new Intl.DateTimeFormat(language, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+        timeZoneName: "short",
+      }).format(new Date(input.expiresAt))
+    : phrase(language, "email.account.banned.permanent");
+  const values = {
+    site,
+    reason: input.reason ?? "",
+    expiresAt: expiry,
+  };
+  return renderEmail({
+    language,
+    site,
+    subject: phrase(language, `email.account.${kind}.subject`, values),
+    body: phrase(language, `email.account.${kind}.body`, values),
+    ...(input.url
+      ? { links: [{ label: phrase(language, `email.account.${kind}.link`), url: input.url }] }
+      : {}),
+  });
+}
+
 export async function renderEmail(
   input: TemplateInput,
 ): Promise<{ subject: string; html: string; text: string }> {

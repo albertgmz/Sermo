@@ -27,6 +27,7 @@ export {
   registerEmailTypes,
   runWeeklyDigest,
 } from "./modules/email";
+export { registerAccountEmailJobs } from "./modules/email/account";
 export {
   enqueueJob,
   flushDownloadCounts,
