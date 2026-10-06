@@ -29,12 +29,6 @@ const PENDING_PERMISSIONS = new Set<string>([
   // Notifications (milestone 23)
   "notification.view",
   "admin.announcements",
-  // Moderation additions (milestone 26)
-  "forum.merge",
-  "forum.split",
-  "forum.threadBan",
-  "forum.bypassNodeRules",
-  "forum.viewLog",
 ]);
 
 const SRC = import.meta.dir;

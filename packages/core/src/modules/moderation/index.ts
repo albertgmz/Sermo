@@ -19,11 +19,12 @@ import {
   type PrincipalRow,
   permissionsOf,
   requirePermission,
+  viewableNodeIds,
 } from "../../permissions";
 import { iso } from "../../time";
 import { revokeUserCredentials } from "../auth";
-import { forumSql } from "../forums";
-import { enqueueJob, registerJobHandler } from "../jobs";
+import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
+import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { mayViewProfile } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
@@ -110,6 +111,7 @@ type ReportGroup = {
   created_at: number;
   updated_at: number;
   resolved_at: number | null;
+  node_id: number | null;
 };
 type QueueTarget = {
   type: ContentType | "user";
@@ -175,8 +177,8 @@ function principalMember(ctx: Ctx, userId: number): Actor {
 function targetRow(ctx: Ctx, target: Target | Content): Row {
   const { type, id } = target;
   const sql = {
-    thread: "SELECT * FROM threads WHERE id = ?1",
-    post: "SELECT p.*, t.node_id, t.state AS thread_state, t.first_post_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+    thread: "SELECT * FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+    post: "SELECT p.*, t.node_id, t.state AS thread_state, t.first_post_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1 AND t.merged_into_id IS NULL",
     profile_post: "SELECT * FROM profile_posts WHERE id = ?1",
     profile_post_comment:
       "SELECT c.*, p.profile_user_id, p.state AS parent_state FROM profile_post_comments c JOIN profile_posts p ON p.id = c.profile_post_id WHERE c.id = ?1",
@@ -306,13 +308,14 @@ export const appendModeratorLog = markPublic(
     targetId: number,
     reason = "",
     details: Record<string, unknown> = {},
+    nodeId: number | null = null,
   ): number {
     const actorId = requireAuthenticated(actor).userId;
     return Number(
       exec(
         ctx,
         "logInsert",
-        "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at, node_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         actorId,
         action,
         targetType,
@@ -320,6 +323,7 @@ export const appendModeratorLog = markPublic(
         reason,
         JSON.stringify(details),
         ctx.now(),
+        nodeId,
       ).lastInsertRowid,
     );
   },
@@ -331,15 +335,16 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
   requirePermission(ctx, actor, "report.create");
   visibleTarget(ctx, actor, target);
   return writeTx(ctx, () => {
-    visibleTarget(ctx, actor, target);
+    const visible = visibleTarget(ctx, actor, target);
     const now = ctx.now();
     exec(
       ctx,
       "groupUpsert",
-      "INSERT INTO report_groups (target_type, target_id, state, report_count, created_at, updated_at) VALUES (?1, ?2, 'open', 0, ?3, ?3) ON CONFLICT(target_type, target_id) DO UPDATE SET state = 'open', assigned_to_id = NULL, resolved_at = NULL, updated_at = excluded.updated_at",
+      "INSERT INTO report_groups (target_type, target_id, state, report_count, created_at, updated_at, node_id) VALUES (?1, ?2, 'open', 0, ?3, ?3, ?4) ON CONFLICT(target_type, target_id) DO UPDATE SET state = 'open', assigned_to_id = NULL, resolved_at = NULL, updated_at = excluded.updated_at, node_id = excluded.node_id",
       target.type,
       target.id,
       now,
+      visible.node_id ?? null,
     );
     const group = read<ReportGroup>(
       ctx,
@@ -374,6 +379,7 @@ export function listReports(
   actor: Actor,
   input: {
     state?: "open" | "assigned" | "resolved" | "rejected";
+    nodeId?: number;
     cursor?: string | null;
     limit?: number;
   } = {},
@@ -383,7 +389,9 @@ export function listReports(
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const rows = query<
+  if (input.nodeId !== undefined)
+    requirePermission(ctx, actor, "forum.manageReports", { nodeId: input.nodeId });
+  const queue = query<
     ReportGroup & {
       type: TargetType;
       node_id: number | null;
@@ -392,22 +400,62 @@ export function listReports(
     }
   >(
     ctx,
-    "reportQueue",
-    "SELECT g.*, g.target_type AS type, pt.node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE g.state = ?1 AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4",
-  ).all(input.state ?? "open", at, id, limit + 1);
-  const items = filterModeratable(ctx, actor, rows.slice(0, limit), "reports").map(
-    ({
-      type: _type,
-      node_id: _nodeId,
-      conversation_id: _conversationId,
-      target_exists: _exists,
-      ...group
-    }) => group,
+    input.nodeId === undefined ? "reportQueue" : "reportNodeQueue",
+    `SELECT g.id, g.target_type, g.target_id, g.state, g.assigned_to_id, g.report_count, g.created_at, g.updated_at, g.resolved_at, g.target_type AS type, coalesce(g.node_id, pt.node_id) AS node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE ${input.nodeId === undefined ? "g.state = ?1" : "g.node_id = ?5 AND g.state = ?1"} AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4`,
   );
-  const last = rows[limit - 1];
+  type ReportQueueRow = ReportGroup & {
+    type: TargetType;
+    node_id: number | null;
+    conversation_id: number | null;
+    target_exists: number | null;
+  };
+  const allowed: ReportQueueRow[] = [];
+  let cursorAt = at;
+  let cursorId = id;
+  let examined = 0;
+  let exhausted = false;
+  const cap = limit * 4;
+  while (allowed.length <= limit && examined < cap) {
+    const batchSize = Math.min(limit + 1, cap - examined);
+    const rows = queue.all(
+      input.state ?? "open",
+      cursorAt,
+      cursorId,
+      batchSize,
+      ...(input.nodeId === undefined ? [] : [input.nodeId]),
+    );
+    for (const row of rows) {
+      examined++;
+      cursorAt = row.updated_at;
+      cursorId = row.id;
+      if (filterModeratable(ctx, actor, [row], "reports").length) allowed.push(row);
+      if (allowed.length > limit) break;
+    }
+    if (rows.length < batchSize) {
+      exhausted = true;
+      break;
+    }
+  }
+  const items = allowed
+    .slice(0, limit)
+    .map(
+      ({
+        type: _type,
+        node_id: _nodeId,
+        conversation_id: _conversationId,
+        target_exists: _exists,
+        ...group
+      }) => group,
+    );
+  const last = allowed[limit - 1];
   return {
     items,
-    nextCursor: rows.length > limit && last ? encodeCursor([last.updated_at, last.id]) : null,
+    nextCursor:
+      allowed.length > limit && last
+        ? encodeCursor([last.updated_at, last.id])
+        : !exhausted && examined > 0
+          ? encodeCursor([cursorAt, cursorId])
+          : null,
   };
 }
 
@@ -468,9 +516,16 @@ export function setReportState(
       state === "assigned" ? null : now,
       groupId,
     );
-    appendModeratorLog(ctx, actor, `report.${state}`, group.target_type, group.target_id, reason, {
-      groupId,
-    });
+    appendModeratorLog(
+      ctx,
+      actor,
+      `report.${state}`,
+      group.target_type,
+      group.target_id,
+      reason,
+      { groupId },
+      group.node_id,
+    );
     publishEvent(ctx, {
       type: "report.state_changed",
       targetType: "report_group",
@@ -495,81 +550,164 @@ export function setReportState(
 }
 
 export const approvalSql =
-  "SELECT p.id, p.thread_id, p.user_id, p.created_at, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
+  "SELECT p.id, p.thread_id, p.user_id, p.created_at, t.node_id FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
 export function listApprovals(
   ctx: Ctx,
   actor: Actor,
-  input: { cursor?: string | null; limit?: number } = {},
+  input: { cursor?: string | null; limit?: number; nodeId?: number } = {},
 ) {
   requireAuthenticated(actor);
+  if (input.nodeId !== undefined)
+    requirePermission(ctx, actor, "forum.approve", { nodeId: input.nodeId });
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
-  const [cursorId, cursorType] = input.cursor
+  let [cursorId, cursorType] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive(), z.string()]))
     : [Number.MAX_SAFE_INTEGER, "~"];
-  const rows: (Row & { type: ContentType })[] = [
-    ...query<Row>(ctx, "approvalQueue", approvalSql)
-      .all(cursorId, limit + 1)
-      .map((r) => ({ ...r, type: "post" as const })),
-    ...query<Row>(
-      ctx,
-      "approvalThreads",
-      "SELECT id, user_id, node_id, created_at, state FROM threads WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-    )
-      .all(cursorId, limit + 1)
-      .map((r) => ({ ...r, type: "thread" as const })),
-    ...query<Row>(
-      ctx,
-      "approvalProfilePosts",
-      "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-    )
-      .all(cursorId, limit + 1)
-      .map((r) => ({ ...r, type: "profile_post" as const })),
-    ...query<Row>(
-      ctx,
-      "approvalProfileComments",
-      "SELECT id, user_id, profile_post_id, created_at, state FROM profile_post_comments WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-    )
-      .all(cursorId, limit + 1)
-      .map((r) => ({ ...r, type: "profile_post_comment" as const })),
-    ...query<Row>(
-      ctx,
-      "approvalMessages",
-      "SELECT id, user_id, conversation_id, created_at, state FROM conversation_messages WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-    )
-      .all(cursorId, limit + 1)
-      .map((r) => ({ ...r, type: "conversation_message" as const })),
-  ];
-  const candidates = rows
-    .filter((row) => row.id < cursorId || (row.id === cursorId && row.type < cursorType))
-    .sort((a, b) => b.id - a.id || b.type.localeCompare(a.type));
-  const page = candidates.slice(0, limit);
-  const items = filterModeratable(ctx, actor, page, "approvals");
-  const last = page.at(-1);
+  const allowed: (Row & { type: ContentType })[] = [];
+  let examined = 0;
+  let exhausted = false;
+  const cap = limit * 4;
+  while (allowed.length <= limit && examined < cap) {
+    const fetchLimit = Math.min(limit + 2, cap - examined + 2);
+    const rows: (Row & { type: ContentType })[] = [
+      ...query<Row>(
+        ctx,
+        input.nodeId === undefined ? "approvalQueue" : "approvalNodeQueue",
+        approvalSql,
+      )
+        .all(cursorId, fetchLimit)
+        .map((r) => ({ ...r, type: "post" as const })),
+      ...query<Row>(
+        ctx,
+        input.nodeId === undefined ? "approvalThreads" : "approvalNodeThreads",
+        "SELECT id, user_id, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
+      )
+        .all(cursorId, fetchLimit)
+        .map((r) => ({ ...r, type: "thread" as const })),
+      ...(input.nodeId === undefined
+        ? [
+            ...query<Row>(
+              ctx,
+              "approvalProfilePosts",
+              "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
+            )
+              .all(cursorId, fetchLimit)
+              .map((r) => ({ ...r, type: "profile_post" as const })),
+            ...query<Row>(
+              ctx,
+              "approvalProfileComments",
+              "SELECT id, user_id, profile_post_id, created_at, state FROM profile_post_comments WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
+            )
+              .all(cursorId, fetchLimit)
+              .map((r) => ({ ...r, type: "profile_post_comment" as const })),
+            ...query<Row>(
+              ctx,
+              "approvalMessages",
+              "SELECT id, user_id, conversation_id, created_at, state FROM conversation_messages INDEXED BY conversation_messages_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
+            )
+              .all(cursorId, fetchLimit)
+              .map((r) => ({ ...r, type: "conversation_message" as const })),
+          ]
+        : []),
+    ];
+    const candidates = rows
+      .filter((row) => row.id < cursorId || (row.id === cursorId && row.type < cursorType))
+      .sort((a, b) => b.id - a.id || b.type.localeCompare(a.type));
+    const page = candidates.slice(0, Math.min(limit + 1, cap - examined));
+    for (const row of page) {
+      examined++;
+      cursorId = row.id;
+      cursorType = row.type;
+      if (
+        (input.nodeId === undefined || row.node_id === input.nodeId) &&
+        filterModeratable(ctx, actor, [row], "approvals").length
+      )
+        allowed.push(row);
+      if (allowed.length > limit) break;
+    }
+    if (examined >= cap) break;
+    if (page.length < fetchLimit - 1) {
+      exhausted = true;
+      break;
+    }
+  }
+  const items = allowed.slice(0, limit);
+  const last = items.at(-1);
   return {
     items,
-    nextCursor: candidates.length > limit && last ? encodeCursor([last.id, last.type]) : null,
+    nextCursor:
+      allowed.length > limit && last
+        ? encodeCursor([last.id, last.type])
+        : !exhausted && examined > 0
+          ? encodeCursor([cursorId, cursorType])
+          : null,
   };
 }
 
 export function listModeratorLog(
   ctx: Ctx,
   actor: Actor,
-  input: { cursor?: string | null; limit?: number } = {},
+  input: { cursor?: string | null; limit?: number; nodeId?: number } = {},
 ) {
-  requireGlobal(ctx, actor, "moderatorLog.view");
+  requireAuthenticated(actor);
+  const global = can(ctx, actor, "moderatorLog.view");
+  if (input.nodeId !== undefined && !global)
+    requirePermission(ctx, actor, "forum.viewLog", { nodeId: input.nodeId });
+  if (
+    input.nodeId === undefined &&
+    !global &&
+    !viewableNodeIds(ctx, actor).some((nodeId) => can(ctx, actor, "forum.viewLog", { nodeId }))
+  )
+    throw new ForbiddenError();
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const rows = query<{ id: number; created_at: number }>(
+  const queue = query<{ id: number; created_at: number; node_id: number | null }>(
     ctx,
-    "logList",
-    "SELECT * FROM moderator_log WHERE (created_at, id) < (?1, ?2) ORDER BY created_at DESC, id DESC LIMIT ?3",
-  ).all(at, id, limit + 1);
+    input.nodeId === undefined ? "logList" : "logNodeList",
+    input.nodeId === undefined
+      ? "SELECT * FROM moderator_log WHERE (created_at, id) < (?1, ?2) ORDER BY created_at DESC, id DESC LIMIT ?3"
+      : "SELECT * FROM moderator_log WHERE node_id = ?4 AND id < ?2 ORDER BY id DESC LIMIT ?3",
+  );
+  const allowed: { id: number; created_at: number; node_id: number | null }[] = [];
+  let cursorAt = at;
+  let cursorId = id;
+  let examined = 0;
+  let exhausted = false;
+  const cap = limit * 4;
+  while (allowed.length <= limit && examined < cap) {
+    const batchSize = Math.min(limit + 1, cap - examined);
+    const rows = queue.all(
+      cursorAt,
+      cursorId,
+      batchSize,
+      ...(input.nodeId === undefined ? [] : [input.nodeId]),
+    );
+    for (const row of rows) {
+      examined++;
+      cursorAt = row.created_at;
+      cursorId = row.id;
+      if (
+        global ||
+        (row.node_id != null && can(ctx, actor, "forum.viewLog", { nodeId: row.node_id }))
+      )
+        allowed.push(row);
+      if (allowed.length > limit) break;
+    }
+    if (rows.length < batchSize) {
+      exhausted = true;
+      break;
+    }
+  }
   return {
-    items: rows.slice(0, limit),
+    items: allowed.slice(0, limit),
     nextCursor:
-      rows.length > limit ? encodeCursor([rows[limit - 1]!.created_at, rows[limit - 1]!.id]) : null,
+      allowed.length > limit
+        ? encodeCursor([allowed[limit - 1]!.created_at, allowed[limit - 1]!.id])
+        : !exhausted && examined > 0
+          ? encodeCursor([cursorAt, cursorId])
+          : null,
   };
 }
 
@@ -628,6 +766,7 @@ function stateChange(
   row = targetRow(ctx, target),
   notice?: Notice & { actor: Actor },
 ) {
+  if (target.type === "thread") assertThreadTransferIdle(ctx, target.id);
   if (row.state === state) return false;
   if (target.type === "post" && row.id === row.first_post_id)
     throw new ValidationError("Change the thread state instead of its first post.");
@@ -768,7 +907,16 @@ export function moderateContent(
       row,
     );
     const changed = stateChange(ctx, target, state, row, { actor, reason, ...notice });
-    appendModeratorLog(ctx, actor, `content.${state}`, target.type, target.id, reason, { changed });
+    appendModeratorLog(
+      ctx,
+      actor,
+      `content.${state}`,
+      target.type,
+      target.id,
+      reason,
+      { changed },
+      row.node_id,
+    );
     return { changed };
   });
 }
@@ -814,6 +962,7 @@ export function bulkModerate(
     let changed = 0;
     for (const target of targets) {
       const current = targetRow(ctx, target);
+      if (target.type === "thread") assertThreadTransferIdle(ctx, target.id);
       const permissionAction =
         action === "restore" && current.state === "moderated"
           ? "approve"
@@ -822,14 +971,42 @@ export function bulkModerate(
             : action;
       const row = requireContentModerator(ctx, actor, target, permissionAction, current);
       if (action === "move") {
+        assertThreadTransferIdle(ctx, row.id);
         if (row.node_id === nodeId) {
-          appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
-            nodeId,
-            changed: false,
-          });
+          appendModeratorLog(
+            ctx,
+            actor,
+            `bulk.${action}`,
+            target.type,
+            target.id,
+            reason,
+            { nodeId, changed: false },
+            row.node_id ?? null,
+          );
           continue;
         }
         exec(ctx, "moveThread", "UPDATE threads SET node_id = ?1 WHERE id = ?2", nodeId, row.id);
+        exec(
+          ctx,
+          "moveThreadEntryLog",
+          "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'thread' AND target_id = ?2",
+          nodeId,
+          row.id,
+        );
+        exec(
+          ctx,
+          "moveThreadReports",
+          "UPDATE report_groups SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
+          nodeId,
+          row.id,
+        );
+        exec(
+          ctx,
+          "moveThreadLog",
+          "UPDATE moderator_log SET node_id = ?1 WHERE target_type = 'post' AND target_id IN (SELECT id FROM posts WHERE thread_id = ?2)",
+          nodeId,
+          row.id,
+        );
         publishEvent(ctx, {
           type: "content.edited",
           targetType: "thread",
@@ -862,9 +1039,16 @@ export function bulkModerate(
         }
       } else if (action === "lock" || action === "unlock") {
         if (!!row.is_locked === (action === "lock")) {
-          appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
-            changed: false,
-          });
+          appendModeratorLog(
+            ctx,
+            actor,
+            `bulk.${action}`,
+            target.type,
+            target.id,
+            reason,
+            { changed: false },
+            row.node_id ?? null,
+          );
           continue;
         }
         exec(
@@ -893,9 +1077,16 @@ export function bulkModerate(
             ...notice,
           })
         ) {
-          appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
-            changed: false,
-          });
+          appendModeratorLog(
+            ctx,
+            actor,
+            `bulk.${action}`,
+            target.type,
+            target.id,
+            reason,
+            { changed: false },
+            row.node_id ?? null,
+          );
           continue;
         }
       }
@@ -907,6 +1098,7 @@ export function bulkModerate(
         target.id,
         reason,
         action === "move" ? { nodeId } : {},
+        action === "move" ? nodeId : row.node_id,
       );
       changed++;
     }
@@ -1055,7 +1247,6 @@ export function recordPostRevision(ctx: Ctx, actor: Actor, postId: number): numb
       ctx.now(),
     ).lastInsertRowid,
   );
-  if (post.user_id !== editorId) appendModeratorLog(ctx, actor, "post.edit", "post", postId);
   return id;
 }
 
@@ -1344,10 +1535,15 @@ export type SpamCursor = { stage: SpamStage; before: number };
 export type SpamCleanupJob = {
   actorId: number;
   userId: number;
-  cursor: SpamCursor;
+  cursor: SpamCursor | null;
   limit: number;
   reason: string;
+  /** While waiting for a pending thread transfer: when to stop waiting. */
+  waitUntil?: number;
 };
+/** At most one cleanup per member waits for a pending thread transfer, for at most a day. */
+const spamTransferWaitKey = (userId: number) => `spam-cleanup:${userId}:transfer`;
+const SPAM_TRANSFER_WAIT_MS = 86_400_000;
 
 /** Process one bounded batch. The job handler must pass the queued cursor back here. */
 export function resumeSpamCleanup(
@@ -1357,6 +1553,7 @@ export function resumeSpamCleanup(
   cursor: SpamCursor | null,
   limit = 100,
   reason = "Spam cleanup",
+  waitUntil?: number,
 ) {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.spamCleanup", { target: principalMember(ctx, userId) });
@@ -1371,6 +1568,42 @@ export function resumeSpamCleanup(
     throw new ValidationError("Invalid spam cleanup cursor.");
   return writeTx(ctx, () => {
     requirePermission(ctx, actor, "member.spamCleanup", { target: principalMember(ctx, userId) });
+    // Content in a thread being merged or split is skipped. A pending transfer is waited for,
+    // up to a deadline; a failed one (which needs a moderator's retry) or one still pending at
+    // the deadline is logged once and left alone. The guard table is tiny, so it drives this.
+    const guard = () =>
+      read<{ failed: number }>(
+        ctx,
+        "spamGuardedTransfer",
+        "SELECT x.failed_at IS NOT NULL AS failed FROM thread_transfers x WHERE EXISTS (SELECT 1 FROM threads t WHERE t.id = x.thread_id AND t.user_id = ?1 AND t.state != 'deleted') OR EXISTS (SELECT 1 FROM posts p WHERE p.user_id = ?1 AND p.state IN ('visible', 'moderated') AND p.thread_id = x.thread_id) ORDER BY failed LIMIT 1",
+        userId,
+      );
+    const deadline = waitUntil ?? ctx.now() + SPAM_TRANSFER_WAIT_MS;
+    // A held key means another run is already waiting for this member.
+    const waitAgain = () =>
+      enqueueJob(
+        ctx,
+        "moderation.cleanupSpam",
+        {
+          actorId: actorUserId(actor)!,
+          userId,
+          cursor: null,
+          limit,
+          reason,
+          waitUntil: deadline,
+        } satisfies SpamCleanupJob,
+        { runAt: ctx.now() + 60_000, uniqueKey: spamTransferWaitKey(userId) },
+      );
+    // A waiting run only checks the guard until it clears or the wait ends.
+    if (
+      cursor === null &&
+      waitUntil !== undefined &&
+      ctx.now() < deadline &&
+      guard()?.failed === 0
+    ) {
+      waitAgain();
+      return { changed: 0, nextCursor: null };
+    }
     if (cursor === null) {
       const prior = read<{ id: number }>(
         ctx,
@@ -1388,8 +1621,8 @@ export function resumeSpamCleanup(
       const stage = spamStages[stageIndex]!;
       const sql = {
         thread:
-          "SELECT id FROM threads WHERE user_id = ?1 AND id < ?2 AND state != 'deleted' ORDER BY id DESC LIMIT ?3",
-        post: "SELECT p.id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.user_id = ?1 AND p.id < ?2 AND p.state != 'deleted' AND p.id != t.first_post_id ORDER BY p.id DESC LIMIT ?3",
+          "SELECT id FROM threads WHERE user_id = ?1 AND id < ?2 AND state != 'deleted' AND merged_into_id IS NULL AND NOT EXISTS (SELECT 1 FROM thread_transfers WHERE thread_id = threads.id) ORDER BY id DESC LIMIT ?3",
+        post: "SELECT p.id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.user_id = ?1 AND p.id < ?2 AND p.state != 'deleted' AND p.id != t.first_post_id AND t.merged_into_id IS NULL AND NOT EXISTS (SELECT 1 FROM thread_transfers WHERE thread_id = t.id) ORDER BY p.id DESC LIMIT ?3",
         profile_post:
           "SELECT id FROM profile_posts WHERE user_id = ?1 AND id < ?2 AND state != 'deleted' ORDER BY id DESC LIMIT ?3",
         profile_post_comment:
@@ -1435,6 +1668,14 @@ export function resumeSpamCleanup(
         { uniqueKey: `spam-cleanup:${userId}:${nextCursor.stage}:${nextCursor.before}` },
       );
     }
+    if (cursor === null) {
+      const blocked = guard();
+      if (blocked?.failed === 0 && ctx.now() < deadline) waitAgain();
+      else if (blocked)
+        appendModeratorLog(ctx, actor, "spam.cleanup.skipped", "user", userId, reason, {
+          transfer: blocked.failed ? "failed" : "still pending",
+        });
+    }
     appendModeratorLog(ctx, actor, "spam.cleanup.batch", "user", userId, reason, {
       changed,
       nextCursor,
@@ -1478,6 +1719,181 @@ const page = <T extends { items: unknown[]; nextCursor: string | null }>(value: 
 });
 
 export const operations = [
+  implement(contracts.threadBansCreate, (ctx, actor, input) => {
+    const moderatorId = requireAuthenticated(actor).userId;
+    const thread = read<{ node_id: number }>(
+      ctx,
+      "threadBanThread",
+      "SELECT node_id FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+      input.threadId,
+    );
+    if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
+      throw new NotFoundError();
+    const target = principalMember(ctx, input.userId);
+    requirePermission(ctx, actor, "forum.threadBan", { nodeId: thread.node_id, target });
+    const expiresAt = input.expiresAt ? Date.parse(input.expiresAt) : null;
+    if (expiresAt !== null && expiresAt <= ctx.now())
+      throw new ValidationError("Expiry must be in the future.");
+    return writeTx(ctx, () => {
+      const current = read<{ node_id: number }>(
+        ctx,
+        "threadBanThread",
+        "SELECT node_id FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+        input.threadId,
+      );
+      if (!current || current.node_id !== thread.node_id)
+        throw new ConflictError("Thread changed; retry.");
+      requirePermission(ctx, actor, "forum.threadBan", {
+        nodeId: current.node_id,
+        target: principalMember(ctx, input.userId),
+      });
+      const now = ctx.now();
+      const row = read<{ id: number }>(
+        ctx,
+        "threadBanUpsert",
+        "INSERT INTO thread_bans (thread_id, user_id, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT(thread_id, user_id) DO UPDATE SET moderator_id = excluded.moderator_id, reason = excluded.reason, created_at = excluded.created_at, expires_at = excluded.expires_at RETURNING id",
+        input.threadId,
+        input.userId,
+        moderatorId,
+        input.reason,
+        now,
+        expiresAt,
+      )!;
+      appendModeratorLog(
+        ctx,
+        actor,
+        "thread_ban.create",
+        "thread",
+        input.threadId,
+        input.reason,
+        { userId: input.userId },
+        thread.node_id,
+      );
+      publishEvent(ctx, {
+        type: "member.thread_banned",
+        targetType: "user",
+        targetId: input.userId,
+        payload: {
+          moderatorId,
+          threadId: input.threadId,
+          reason: input.reason,
+          expiresAt: input.expiresAt,
+          notify: input.notify,
+          message: input.message,
+        },
+      });
+      return {
+        id: row.id,
+        threadId: input.threadId,
+        userId: input.userId,
+        moderatorId,
+        reason: input.reason,
+        createdAt: iso(now),
+        expiresAt: input.expiresAt,
+      };
+    });
+  }),
+  implement(contracts.threadBansLift, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    const thread = read<{ node_id: number }>(
+      ctx,
+      "threadBanThread",
+      "SELECT node_id FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+      input.threadId,
+    );
+    if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
+      throw new NotFoundError();
+    requirePermission(ctx, actor, "forum.threadBan", {
+      nodeId: thread.node_id,
+      target: principalMember(ctx, input.userId),
+    });
+    return writeTx(ctx, () => {
+      const current = read<{ node_id: number }>(
+        ctx,
+        "threadBanThread",
+        "SELECT node_id FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+        input.threadId,
+      );
+      if (!current || current.node_id !== thread.node_id)
+        throw new ConflictError("Thread changed; retry.");
+      requirePermission(ctx, actor, "forum.threadBan", {
+        nodeId: current.node_id,
+        target: principalMember(ctx, input.userId),
+      });
+      const removed = exec(
+        ctx,
+        "threadBanDelete",
+        "DELETE FROM thread_bans WHERE thread_id = ?1 AND user_id = ?2",
+        input.threadId,
+        input.userId,
+      );
+      if (!removed.changes) return { ok: true as const };
+      appendModeratorLog(
+        ctx,
+        actor,
+        "thread_ban.lift",
+        "thread",
+        input.threadId,
+        input.reason,
+        { userId: input.userId },
+        thread.node_id,
+      );
+      publishEvent(ctx, {
+        type: "member.thread_banned",
+        targetType: "user",
+        targetId: input.userId,
+        payload: {
+          moderatorId: actorUserId(actor),
+          threadId: input.threadId,
+          lifted: true,
+          reason: input.reason,
+          notify: input.notify,
+          message: input.message,
+        },
+      });
+      return { ok: true as const };
+    });
+  }),
+  implement(contracts.threadBansList, (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    const thread = read<{ node_id: number }>(
+      ctx,
+      "threadBanThread",
+      "SELECT node_id FROM threads WHERE id = ?1 AND merged_into_id IS NULL",
+      input.threadId,
+    );
+    if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
+      throw new NotFoundError();
+    requirePermission(ctx, actor, "forum.threadBan", {
+      nodeId: thread.node_id,
+      target: { kind: "guest" },
+    });
+    return {
+      items: query<{
+        id: number;
+        thread_id: number;
+        user_id: number;
+        moderator_id: number;
+        reason: string;
+        created_at: number;
+        expires_at: number | null;
+      }>(
+        ctx,
+        "threadBanList",
+        "SELECT * FROM thread_bans WHERE thread_id = ?1 AND (expires_at IS NULL OR expires_at > ?2) ORDER BY id",
+      )
+        .all(input.threadId, ctx.now())
+        .map((row) => ({
+          id: row.id,
+          threadId: row.thread_id,
+          userId: row.user_id,
+          moderatorId: row.moderator_id,
+          reason: row.reason,
+          createdAt: iso(row.created_at),
+          expiresAt: row.expires_at === null ? null : iso(row.expires_at),
+        })),
+    };
+  }),
   implement(contracts.reportsCreate, (ctx, actor, input) =>
     createReport(ctx, actor, input.target, input.reason),
   ),
@@ -1625,20 +2041,15 @@ export const operations = [
 ];
 
 export function registerModerationJobs(ctx: Ctx): void {
+  registerForumTransferJobs(ctx);
   registerJobHandler(ctx, "moderation.revokeCredentials", async (_ctx, payload) => {
     const userId = (payload as { userId?: unknown })?.userId;
     if (!Number.isSafeInteger(userId) || Number(userId) < 1)
       throw new ValidationError("Invalid credential revocation job.");
     await revokeUserCredentials(ctx, Number(userId));
   });
-  registerJobHandler(ctx, "moderation.cleanupSpam", (_ctx, payload) => {
-    const job = payload as {
-      actorId: number;
-      userId: number;
-      cursor: SpamCursor | null;
-      limit: number;
-      reason: string;
-    };
+  registerJobHandler(ctx, "moderation.cleanupSpam", (_ctx, payload, claimed) => {
+    const job = payload as SpamCleanupJob;
     const user = read<PrincipalRow & { id: number; group_id: number }>(
       ctx,
       "spamActor",
@@ -1647,6 +2058,10 @@ export function registerModerationJobs(ctx: Ctx): void {
     );
     if (!user) throw new NotFoundError();
     const actor = memberActor(user.id, user.group_id, user, currentVersions(ctx));
-    resumeSpamCleanup(ctx, actor, job.userId, job.cursor, job.limit, job.reason);
+    writeTx(ctx, () => {
+      // Completing with the batch frees the job's key, so a waiting run can wait again.
+      if (!completeRunningJob(ctx, claimed)) return;
+      resumeSpamCleanup(ctx, actor, job.userId, job.cursor, job.limit, job.reason, job.waitUntil);
+    });
   });
 }

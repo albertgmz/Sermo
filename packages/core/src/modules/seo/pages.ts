@@ -127,6 +127,16 @@ export function threadSeo(
 ): SeoPage {
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1)
     throw new RangeError("Invalid thread page");
+  const requestedId = id;
+  for (let hops = 0; hops < 16; hops++) {
+    const merged = prepared(ctx, "seo.mergedTarget", () =>
+      ctx.sqlite.prepare<{ merged_into_id: number | null }, [number]>(
+        "SELECT merged_into_id FROM threads WHERE id = ?1",
+      ),
+    ).get(id);
+    if (!merged?.merged_into_id) break;
+    id = merged.merged_into_id;
+  }
   const thread = prepared(ctx, "seo.thread", () =>
     ctx.sqlite.prepare<Thread, [number]>(
       "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id FROM threads WHERE id=?1",
@@ -213,7 +223,7 @@ export function threadSeo(
     title: fill(templates.threadTitle ?? "{title} | {siteName}", values),
     description: fill(templates.threadDescription ?? "{description}", values),
     canonical: pageCanonical,
-    redirect: requestedPath.length > 0 && requested.href !== pageCanonical,
+    redirect: requestedId !== id || (requestedPath.length > 0 && requested.href !== pageCanonical),
     robots: indexable ? "index,follow" : "noindex,follow",
     jsonLd: posting ? [posting, breadcrumb] : [],
   };

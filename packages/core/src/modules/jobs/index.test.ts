@@ -11,16 +11,18 @@ import {
   userActor,
 } from "@sermo/core/testing";
 import { closeContext, createContext } from "../../context";
+import { writeTx } from "../../db/tx";
 import { execute } from "../../operation";
 import { threadsCreateOp } from "../forums";
 import {
+  completeRunningJob,
   enqueueJob,
   flushViewCounts,
   registerJobHandler,
   runDueJobs,
   startJobWorker,
 } from "./index";
-import { jobSql } from "./queue";
+import { jobSql, LEASE_MS } from "./queue";
 
 const row = (ctx: ReturnType<typeof createTestContext>, id: number) =>
   ctx.sqlite
@@ -186,6 +188,90 @@ describe("jobs", () => {
     expect(row(ctx, exhausted)).toMatchObject({ status: "failed", attempts: 5, unique_key: null });
     expect(row(ctx, exhausted).last_error).toContain("Lease expired");
     expect(row(ctx, pending).status).toBe("done");
+  });
+
+  test("failure hooks run once per permanent failure, by error or by lease expiry", async () => {
+    const ctx = createTestContext();
+    const failures: { id: number; payload: unknown; error: string }[] = [];
+    registerJobHandler(
+      ctx,
+      "hooked",
+      () => {
+        throw new Error("boom");
+      },
+      { onFailed: (_ctx, job) => failures.push(job) },
+    );
+    registerJobHandler(ctx, "plain", () => {
+      throw new Error("plain");
+    });
+    const thrown = enqueueJob(ctx, "hooked", { n: 1 })!;
+    const plain = enqueueJob(ctx, "plain", {})!;
+    ctx.sqlite.prepare("UPDATE jobs SET attempts = 4").run();
+    expect(await runDueJobs(ctx)).toBe(2);
+    expect(row(ctx, plain).status).toBe("failed");
+    expect(failures).toEqual([{ id: thrown, payload: { n: 1 }, error: "boom" }]);
+    const leased = enqueueJob(ctx, "hooked", { n: 2 })!;
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', attempts = 5, locked_until = ?1 WHERE id = ?2")
+      .run(ctx.now() - 1, leased);
+    await runDueJobs(ctx);
+    expect(row(ctx, leased).status).toBe("failed");
+    expect(failures.at(-1)).toMatchObject({ id: leased, payload: { n: 2 } });
+    expect(failures.at(-1)!.error).toContain("Lease expired");
+    expect(failures).toHaveLength(2);
+  });
+
+  test("a running job completes itself with its chunk and frees its key for a successor", async () => {
+    const ctx = createTestContext();
+    const seen: number[] = [];
+    registerJobHandler(ctx, "chain", (context, payload, job) => {
+      const { n } = payload as { n: number };
+      writeTx(context, () => {
+        if (!completeRunningJob(context, job)) return;
+        seen.push(n);
+        if (n < 3) enqueueJob(context, "chain", { n: n + 1 }, { uniqueKey: "chain" });
+      });
+    });
+    const first = enqueueJob(ctx, "chain", { n: 1 }, { uniqueKey: "chain" })!;
+    await runDueJobs(ctx);
+    expect(seen).toEqual([1, 2, 3]);
+    expect(row(ctx, first)).toMatchObject({ status: "done", unique_key: null });
+  });
+
+  test("a run whose lease expired cannot complete the reclaimed job or its successor", async () => {
+    const ctx = createTestContext();
+    const gates: (() => void)[] = [];
+    const outcomes: string[] = [];
+    registerJobHandler(ctx, "chain", async (context, payload, job) => {
+      const { n } = payload as { n: number };
+      await new Promise<void>((resolve) => gates.push(resolve));
+      writeTx(context, () => {
+        if (!completeRunningJob(context, job)) {
+          outcomes.push(`stale ${n}`);
+          return;
+        }
+        outcomes.push(`ran ${n}`);
+        if (n < 2) enqueueJob(context, "chain", { n: n + 1 }, { uniqueKey: "chain" });
+      });
+    });
+    enqueueJob(ctx, "chain", { n: 1 }, { uniqueKey: "chain" });
+    const stale = runDueJobs(ctx, { limit: 1 });
+    expect(gates).toHaveLength(1);
+    ctx.clock.set(ctx.now() + LEASE_MS + 1);
+    // Another run reclaims the job, completes it and claims its successor under the same key.
+    const reclaimed = runDueJobs(ctx, { limit: 2 });
+    gates[1]!();
+    while (gates.length < 3) await new Promise((resolve) => setTimeout(resolve, 1));
+    gates[0]!();
+    await stale;
+    gates[2]!();
+    await reclaimed;
+    expect(outcomes).toEqual(["ran 1", "stale 1", "ran 2"]);
+    expect(
+      ctx.sqlite
+        .prepare<{ n: number }, []>("SELECT count(*) AS n FROM jobs WHERE status != 'done'")
+        .get()!.n,
+    ).toBe(0);
   });
 
   test("worker registers built-in handlers and stops polling", async () => {

@@ -1,3 +1,4 @@
+import { registerModerationJobs, runDueJobs } from "@sermo/core";
 import type { BenchEnv, Scenario } from "../harness";
 
 const ids = (env: BenchEnv, sql: string, value?: number): number[] =>
@@ -15,6 +16,8 @@ let sourceNode = 0;
 let targetNode = 0;
 let deepCursor: string | null = null;
 let getPostIds: number[] = [];
+let warmupThreads: number[] = [];
+let largestTransferTarget = 0;
 
 function prepare(env: BenchEnv) {
   typical = ids(
@@ -45,6 +48,74 @@ function preparePostsGet(env: BenchEnv) {
     )
     .all()
     .map((r) => r.id);
+}
+
+function prepareTransfers(env: BenchEnv) {
+  prepare(env);
+  warmupThreads = [];
+  const sourceId = env.meta.bigThreadIds[0]!;
+  for (let i = 0; i < 2; i++) {
+    const cloneId = Number(
+      env.ctx.sqlite
+        .prepare(
+          "INSERT INTO threads (node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, last_post_at, last_poster_id, excerpt) SELECT node_id, user_id, title || ' benchmark clone', state, is_sticky, is_locked, created_at, reply_count, last_post_at, last_poster_id, excerpt FROM threads WHERE id = ?1",
+        )
+        .run(sourceId).lastInsertRowid,
+    );
+    env.ctx.sqlite
+      .prepare(
+        "INSERT INTO posts (thread_id, user_id, position, state, created_at, edited_at, reaction_counts, attachment_count) SELECT ?1, user_id, position, state, created_at, edited_at, reaction_counts, attachment_count FROM posts WHERE thread_id = ?2 ORDER BY position",
+      )
+      .run(cloneId, sourceId);
+    env.ctx.sqlite
+      .prepare(
+        "INSERT INTO post_bodies (post_id, body_source, body_html) SELECT id, 'Benchmark body', '<p>Benchmark body</p>' FROM posts WHERE thread_id = ?1",
+      )
+      .run(cloneId);
+    env.ctx.sqlite
+      .prepare(
+        "UPDATE threads SET first_post_id = (SELECT id FROM posts WHERE thread_id = ?1 ORDER BY position LIMIT 1), last_post_id = (SELECT id FROM posts WHERE thread_id = ?1 AND state = 'visible' ORDER BY position DESC LIMIT 1) WHERE id = ?1",
+      )
+      .run(cloneId);
+    env.ctx.sqlite
+      .prepare(
+        "UPDATE nodes SET thread_count = thread_count + 1, post_count = post_count + (SELECT reply_count + 1 FROM threads WHERE id = ?1) WHERE id = (SELECT node_id FROM threads WHERE id = ?1)",
+      )
+      .run(cloneId);
+    warmupThreads.push(cloneId);
+  }
+}
+const transferSource = (env: BenchEnv, i: number) =>
+  i < 10 ? env.meta.bigThreadIds[i]! : warmupThreads[i - 10]!;
+
+async function completeTransfers(env: BenchEnv, kind: "merge" | "split") {
+  registerModerationJobs(env.ctx);
+  const start = performance.now();
+  let largestReported = false;
+  for (let i = 0; i < 5000; i++) {
+    const active = env.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM jobs WHERE type IN ('forums.merge', 'forums.mergeFinalize', 'forums.split') AND status IN ('pending', 'running')",
+      )
+      .get()!.n;
+    if (!active) break;
+    if (!(await runDueJobs(env.ctx, { limit: 1 }))) throw new Error(`${kind} work stalled`);
+    const largestActive = env.ctx.sqlite
+      .prepare<{ n: number }, [number]>(
+        "SELECT count(*) AS n FROM jobs WHERE type IN ('forums.merge', 'forums.mergeFinalize', 'forums.split') AND status IN ('pending', 'running') AND json_extract(payload, '$.targetId') = ?1",
+      )
+      .get(largestTransferTarget)!.n;
+    if (!largestReported && !largestActive) {
+      console.log(`${kind} largest completion: ${(performance.now() - start).toFixed(2)} ms`);
+      largestReported = true;
+    }
+  }
+  const failed = env.ctx.sqlite
+    .prepare<{ n: number }, []>(
+      "SELECT count(*) AS n FROM jobs WHERE type IN ('forums.merge', 'forums.mergeFinalize', 'forums.split') AND status = 'failed'",
+    )
+    .get()!.n;
+  if (failed) throw new Error(`${kind} transfer jobs failed: ${failed}`);
 }
 
 export const scenarios: Scenario[] = [
@@ -232,6 +303,21 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    name: "threads.move largest",
+    kind: "write",
+    iterations: 20,
+    setup: prepare,
+    run(env) {
+      const node = env.ctx.sqlite
+        .prepare<{ node_id: number }, [number]>("SELECT node_id FROM threads WHERE id = ?1")
+        .get(hugeThread)!.node_id;
+      return env.call("threads.move", env.actors.moderator(0), {
+        threadId: hugeThread,
+        nodeId: node === sourceNode ? targetNode : sourceNode,
+      });
+    },
+  },
+  {
     name: "threads.delete/restore typical",
     kind: "write",
     setup: prepare,
@@ -260,6 +346,55 @@ export const scenarios: Scenario[] = [
         env.actors.moderator(0),
         { threadId: hugeThread },
       );
+    },
+  },
+  {
+    name: "threads.merge largest request",
+    kind: "write",
+    iterations: 10,
+    setup: prepareTransfers,
+    teardown: (env) => completeTransfers(env, "merge"),
+    run: (env, i) => {
+      const targetId = typical.filter((id) => !env.meta.bigThreadIds.includes(id))[i]!;
+      if (i === 0) largestTransferTarget = targetId;
+      return env.call("threads.merge", env.actors.moderator(0), {
+        threadId: targetId,
+        sourceThreadIds: [transferSource(env, i)],
+      });
+    },
+  },
+  {
+    name: "threads.split 100 posts",
+    kind: "write",
+    iterations: 10,
+    setup: prepareTransfers,
+    run: (env, i) =>
+      env.call("threads.split", env.actors.moderator(0), {
+        threadId: transferSource(env, i),
+        postIds: ids(
+          env,
+          "SELECT id FROM posts WHERE thread_id = ?1 AND position BETWEEN 1 AND 100 ORDER BY position",
+          transferSource(env, i),
+        ),
+        title: "Benchmark split",
+        nodeId: sourceNode,
+      }),
+  },
+  {
+    name: "threads.split largest range request",
+    kind: "write",
+    iterations: 10,
+    setup: prepareTransfers,
+    teardown: (env) => completeTransfers(env, "split"),
+    async run(env, i) {
+      const response = await env.call("threads.split", env.actors.moderator(0), {
+        threadId: transferSource(env, i),
+        fromPosition: 1,
+        title: "Benchmark range split",
+        nodeId: sourceNode,
+      });
+      if (i === 0) largestTransferTarget = JSON.parse(response as string).thread.id;
+      return response;
     },
   },
 ];

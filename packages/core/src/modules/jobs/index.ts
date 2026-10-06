@@ -4,8 +4,9 @@ import { startJobWorker as startPollingWorker } from "./queue";
 import { registerJobHandlers } from "./rebuild";
 
 export const operations: AnyOperation[] = [];
-export type { EnqueueOptions, JobHandler } from "./queue";
+export type { ClaimedJob, EnqueueOptions, JobFailureHook, JobHandler } from "./queue";
 export {
+  completeRunningJob,
   enqueueJob,
   flushActivity,
   flushDownloadCounts,

@@ -5,10 +5,18 @@ export interface EnqueueOptions {
   runAt?: number;
   uniqueKey?: string;
 }
-export type JobHandler = (ctx: Ctx, payload: unknown) => void | Promise<void>;
+/** The run that claimed a job: its lease identifies it against later claims of the same job. */
+export type ClaimedJob = { id: number; lockedUntil: number };
+export type JobHandler = (ctx: Ctx, payload: unknown, job: ClaimedJob) => void | Promise<void>;
+/** Runs inside the transaction that marks a job permanently failed. */
+export type JobFailureHook = (
+  ctx: Ctx,
+  job: { id: number; payload: unknown; error: string },
+) => void;
 export const MAX_ATTEMPTS = 5;
 export const LEASE_MS = 300_000;
 const handlers = new WeakMap<Ctx, Map<string, JobHandler>>();
+const failureHooks = new WeakMap<Ctx, Map<string, JobFailureHook>>();
 type Job = { id: number; type: string; payload: string; attempts: number; locked_until: number };
 type Candidate = { id: number; attempts: number };
 
@@ -40,10 +48,49 @@ export function enqueueJob(
   });
 }
 
-export function registerJobHandler(ctx: Ctx, type: string, handler: JobHandler): void {
+export function registerJobHandler(
+  ctx: Ctx,
+  type: string,
+  handler: JobHandler,
+  options: { onFailed?: JobFailureHook } = {},
+): void {
   const map = handlers.get(ctx) ?? new Map<string, JobHandler>();
   map.set(type, handler);
   handlers.set(ctx, map);
+  if (options.onFailed) {
+    const hooks = failureHooks.get(ctx) ?? new Map<string, JobFailureHook>();
+    hooks.set(type, options.onFailed);
+    failureHooks.set(ctx, hooks);
+  }
+}
+
+/**
+ * Marks this run's job done inside the caller's transaction, so a chunked job's write, its
+ * successor and its completion commit together: a crash in between cannot run the chunk twice,
+ * and the job's key is free for the successor. Returns false when the run no longer owns the job
+ * (it completed already, or its lease expired and another run claimed it), which must then do
+ * nothing.
+ */
+export function completeRunningJob(ctx: Ctx, job: ClaimedJob): boolean {
+  return (
+    prepared(ctx, "jobs.completeRunning", () =>
+      ctx.sqlite.prepare(
+        "UPDATE jobs SET status = 'done', unique_key = NULL, locked_until = NULL, run_at = ?1, updated_at = ?1 " +
+          "WHERE id = ?2 AND status = 'running' AND locked_until = ?3",
+      ),
+    ).run(ctx.now(), job.id, job.lockedUntil).changes > 0
+  );
+}
+
+function notifyFailed(ctx: Ctx, type: string, id: number, payload: string, error: string): void {
+  const hook = failureHooks.get(ctx)?.get(type);
+  if (!hook) return;
+  try {
+    // A savepoint: a throwing hook must not undo the failure itself and wedge the queue.
+    writeTx(ctx, () => hook(ctx, { id, payload: JSON.parse(payload), error }));
+  } catch (cause) {
+    console.error("[jobs.onFailed]", cause);
+  }
 }
 
 function claim(ctx: Ctx): Job | "expired" | null {
@@ -53,12 +100,14 @@ function claim(ctx: Ctx): Job | "expired" | null {
       ctx.sqlite.prepare<Candidate, [number]>(jobSql.expired),
     ).get(now);
     if (expired && expired.attempts >= MAX_ATTEMPTS) {
-      prepared(ctx, "jobs.expiredFailed", () =>
-        ctx.sqlite.prepare(
+      const error = `Lease expired after ${expired.attempts} attempts.`;
+      const failed = prepared(ctx, "jobs.expiredFailed", () =>
+        ctx.sqlite.prepare<{ type: string; payload: string }, [string, number, number]>(
           "UPDATE jobs SET status = 'failed', unique_key = NULL, locked_until = NULL, " +
-            "last_error = ?1, updated_at = ?2 WHERE id = ?3 AND status = 'running'",
+            "last_error = ?1, updated_at = ?2 WHERE id = ?3 AND status = 'running' RETURNING type, payload",
         ),
-      ).run(`Lease expired after ${expired.attempts} attempts.`, now, expired.id);
+      ).get(error, now, expired.id);
+      if (failed) notifyFailed(ctx, failed.type, expired.id, failed.payload, error);
       return "expired";
     }
     const pending = expired
@@ -93,7 +142,7 @@ export async function runDueJobs(ctx: Ctx, options: { limit?: number } = {}): Pr
     if (!handler) error = `Unknown job type: ${job.type}`;
     else {
       try {
-        await handler(ctx, JSON.parse(job.payload));
+        await handler(ctx, JSON.parse(job.payload), { id: job.id, lockedUntil: job.locked_until });
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
       }
@@ -110,7 +159,7 @@ export async function runDueJobs(ctx: Ctx, options: { limit?: number } = {}): Pr
       } else {
         const failed = !handler || job.attempts >= MAX_ATTEMPTS;
         const backoff = [30_000, 120_000, 600_000, 3_600_000][Math.min(job.attempts - 1, 3)]!;
-        prepared(ctx, "jobs.fail", () =>
+        const { changes } = prepared(ctx, "jobs.fail", () =>
           ctx.sqlite.prepare(
             "UPDATE jobs SET status = ?1, run_at = ?2, last_error = ?3, " +
               "unique_key = CASE WHEN ?1 = 'failed' THEN NULL ELSE unique_key END, " +
@@ -118,6 +167,7 @@ export async function runDueJobs(ctx: Ctx, options: { limit?: number } = {}): Pr
               "WHERE id = ?5 AND status = 'running' AND locked_until = ?6",
           ),
         ).run(failed ? "failed" : "pending", now + backoff, error, now, job.id, job.locked_until);
+        if (failed && changes) notifyFailed(ctx, job.type, job.id, job.payload, error);
       }
     });
   }
