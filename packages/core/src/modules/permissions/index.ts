@@ -17,6 +17,7 @@ import {
 import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import {
   combinationsGranting,
@@ -210,6 +211,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) =>
   return writeTx(ctx, () => {
     const target = getMember(ctx, input.userId);
     requirePermission(ctx, actor, "admin.members", { target });
+    const before = memberGroups(ctx, input.userId);
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
       (id): id is number => id !== undefined,
     );
@@ -234,7 +236,32 @@ export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) =>
     }
     assertAdministrator(ctx);
     appendModeratorLog(ctx, actor, "user.groups", "user", input.userId);
-    return memberGroups(ctx, input.userId);
+    const after = memberGroups(ctx, input.userId);
+    const oldIds = new Set([
+      before.primaryGroupId,
+      ...before.secondaryGroupIds,
+      ...before.promotionGroupIds,
+    ]);
+    const newIds = new Set([
+      after.primaryGroupId,
+      ...after.secondaryGroupIds,
+      ...after.promotionGroupIds,
+    ]);
+    const added = [...newIds].filter((id) => !oldIds.has(id));
+    const removed = [...oldIds].filter((id) => !newIds.has(id));
+    if (added.length || removed.length)
+      publishEvent(ctx, {
+        type: "member.groups_changed",
+        targetType: "user",
+        targetId: input.userId,
+        payload: {
+          added,
+          removed,
+          source: "admin",
+          actorId: actor.kind === "guest" ? null : actor.userId,
+        },
+      });
+    return after;
   });
 });
 

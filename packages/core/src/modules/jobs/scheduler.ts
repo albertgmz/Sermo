@@ -71,6 +71,7 @@ export function runHourlyTasks(ctx: Ctx): void {
 }
 
 export function runDailyTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "promotions.sweep", { after: 0 }, { uniqueKey: "promotions.sweep" });
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(
     ctx,

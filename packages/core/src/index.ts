@@ -27,6 +27,7 @@ export {
   startScheduler,
 } from "./modules/jobs";
 export { registerModerationJobs } from "./modules/moderation";
+export { registerPromotionJobs } from "./modules/promotions";
 export {
   atomFeed,
   queueSeoEvents,
