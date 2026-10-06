@@ -1032,6 +1032,8 @@ export const userFollows = sqliteTable(
   (t) => [
     uniqueIndex("user_follows_pair").on(t.userId, t.followedId),
     index("user_follows_followed").on(t.followedId, t.userId),
+    index("user_follows_followed_recent").on(t.followedId, t.id),
+    index("user_follows_follower_recent").on(t.userId, t.id),
   ],
 );
 
@@ -1050,6 +1052,7 @@ export const userIgnores = sqliteTable(
   (t) => [
     uniqueIndex("user_ignores_pair").on(t.userId, t.ignoredId),
     index("user_ignores_ignored").on(t.ignoredId, t.userId),
+    index("user_ignores_user_recent").on(t.userId, t.id),
   ],
 );
 
