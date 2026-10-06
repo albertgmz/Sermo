@@ -10,6 +10,7 @@ import {
   Page,
   pageInput,
   ReactionSummary,
+  ResolvedPermissions,
   Timestamp,
   Title,
   UserSummary,
@@ -126,6 +127,8 @@ export const nodesGet = defineContract({
     node: Node,
     seo: SeoMetadata,
     breadcrumbs: z.array(z.object({ id: Id, title: z.string(), type: NodeType })),
+    /** The viewer's node permissions here. */
+    resolvedPermissions: ResolvedPermissions,
   }),
 });
 
@@ -183,6 +186,8 @@ export const threadsGet = defineContract({
       canEditTitle: z.boolean(),
       canModerate: z.boolean(),
     }),
+    /** The viewer's node permissions in the thread's node. */
+    resolvedPermissions: ResolvedPermissions,
   }),
 });
 

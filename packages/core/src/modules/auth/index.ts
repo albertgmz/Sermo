@@ -11,7 +11,12 @@ import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
-import { PRINCIPAL_COLUMNS, type PrincipalRow, principalFromRow } from "../../permissions";
+import {
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  principalFromRow,
+  resolvedPermissions,
+} from "../../permissions";
 import { iso } from "../../time";
 import { getGlobalPermissions } from "../permissions";
 
@@ -466,7 +471,8 @@ export async function ensureAdmin(
 
 export const authMeOp = implement(authMe, (ctx, actor) => {
   const permissions = getGlobalPermissions(ctx, actor);
-  if (actor.kind === "guest") return { user: null, permissions };
+  const resolved = resolvedPermissions(ctx, actor);
+  if (actor.kind === "guest") return { user: null, permissions, resolvedPermissions: resolved };
   const row = prepared(ctx, "auth.me", () =>
     ctx.sqlite.prepare<
       { id: number; username: string; email: string; group_id: number; created_at: number },
@@ -485,6 +491,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       createdAt: iso(row.created_at),
     },
     permissions,
+    resolvedPermissions: resolved,
   };
 });
 

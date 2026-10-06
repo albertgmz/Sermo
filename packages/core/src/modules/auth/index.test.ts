@@ -599,7 +599,8 @@ test("display-only case changes preserve the normalized username", async () => {
 
 test("auth.me returns guest, member, moderator, admin and token permissions", async () => {
   const ctx = createTestContext();
-  expect(await execute(ctx, authMeOp, GUEST, {})).toEqual({
+  const guest = await execute(ctx, authMeOp, GUEST, {});
+  expect(guest).toEqual({
     user: null,
     permissions: {
       isAdmin: false,
@@ -609,6 +610,13 @@ test("auth.me returns guest, member, moderator, admin and token permissions", as
       canStartConversations: false,
       canReact: false,
     },
+    resolvedPermissions: expect.any(Object),
+  });
+  expect(guest.resolvedPermissions).toMatchObject({
+    "profile.view": true,
+    "search.use": true,
+    "reaction.react": false,
+    "admin.permissions": false,
   });
   for (const groupId of [2, 3, 4]) {
     const user = insertUser(ctx, { groupId });

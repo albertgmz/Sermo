@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
-import { Empty, Id, Timestamp } from "./common";
+import { Empty, Id, ResolvedPermissions, Timestamp } from "./common";
 
 /*
  * Registration, sign-in, sign-out, sessions and API keys are served by Better Auth's own
@@ -31,8 +31,14 @@ export const SelfUser = z
 
 export const authMe = defineContract({
   name: "auth.me",
-  summary: "The current user (null for guests) and their group-level permissions.",
+  summary:
+    "The current user (null for guests), a summary of their permissions, and every global " +
+    "permission resolved for them.",
   kind: "read",
   input: Empty,
-  output: z.object({ user: SelfUser.nullable(), permissions: GlobalPermissions }),
+  output: z.object({
+    user: SelfUser.nullable(),
+    permissions: GlobalPermissions,
+    resolvedPermissions: ResolvedPermissions,
+  }),
 });

@@ -210,9 +210,6 @@ export const PERMISSIONS = {
   "forum.replyLocked": nodeModerator(),
   "forum.stick": nodeModerator(),
   "forum.move": nodeModerator(),
-  "forum.merge": nodeModerator(),
-  "forum.split": nodeModerator(),
-  "forum.threadBan": { ...nodeModerator(), hierarchy: true },
   "forum.manageReports": nodeModerator(),
 
   // Profile posts -----------------------------------------------------------------------
@@ -315,7 +312,6 @@ export const PERMISSIONS = {
   "admin.groups": globalAdmin("admin"),
   "admin.members": { ...globalAdmin("admin"), hierarchy: true },
   "admin.permissions": globalAdmin("admin"),
-  "admin.promotions": globalAdmin("admin"),
   "admin.settings": globalAdmin("admin"),
   "admin.reactionTypes": globalAdmin("admin"),
 } as const satisfies Record<string, PermissionDefinition>;

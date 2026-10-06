@@ -9,6 +9,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { resolvedPermissions } from "../../permissions";
 import { renderMarkdown } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
@@ -351,6 +352,7 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
     breadcrumbs: getNodeTree(ctx)
       .ancestors(input.nodeId)
       .map(({ id, title, type }) => ({ id, title, type })),
+    resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: input.nodeId }),
   };
 });
 export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input) => {
@@ -439,6 +441,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
       canEditTitle: mayEdit(actor, row.user_id, row.is_locked, access.moderate),
       canModerate: access.moderate,
     },
+    resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: node.id }),
   };
 });
 

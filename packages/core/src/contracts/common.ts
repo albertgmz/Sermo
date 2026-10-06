@@ -29,6 +29,16 @@ export const ReactionSummary = z
   })
   .meta({ id: "ReactionSummary" });
 
+/**
+ * The current actor's permissions for a context, keyed by permission id (see
+ * permissions.definitions): yes/no permissions as booleans, integers with -1 meaning unlimited.
+ * Own-content, time-window and hierarchy conditions are not applied; clients use the map to hide
+ * controls, and the server checks every action anyway.
+ */
+export const ResolvedPermissions = z
+  .record(z.string(), z.union([z.boolean(), z.number().int()]))
+  .meta({ id: "ResolvedPermissions" });
+
 export const Ok = z.object({ ok: z.literal(true) });
 export const Empty = z.object({});
 

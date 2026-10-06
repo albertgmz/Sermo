@@ -21,6 +21,8 @@ export interface Contract<I extends z.ZodType = z.ZodType, O extends z.ZodType =
 export interface Operation<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType>
   extends Contract<I, O> {
   readonly run: (ctx: Ctx, actor: Actor, input: z.output<I>) => z.input<O> | Promise<z.input<O>>;
+  /** Why this operation needs no permission check, when it is deliberately open to anyone. */
+  readonly public?: string;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: heterogeneous registry of operations
@@ -32,11 +34,26 @@ export function defineContract<I extends z.ZodType, O extends z.ZodType>(
   return contract;
 }
 
+/**
+ * Pairs a contract with its implementation. The run function must decide through the permission
+ * check (src/permissions); an operation open to anyone says so with `{ public: "<why>" }`. The
+ * permission coverage test enforces this.
+ */
 export function implement<I extends z.ZodType, O extends z.ZodType>(
   contract: Contract<I, O>,
   run: Operation<I, O>["run"],
+  options: { public?: string } = {},
 ): Operation<I, O> {
-  return { ...contract, run };
+  return { ...contract, run, ...(options.public ? { public: options.public } : {}) };
+}
+
+/**
+ * Marks an exported service function that takes an actor but deliberately makes no permission
+ * decision (a helper whose callers decide). Returns `fn` unchanged; the permission coverage test
+ * recognises the marker.
+ */
+export function markPublic<T extends (...args: never[]) => unknown>(_reason: string, fn: T): T {
+  return fn;
 }
 
 /**

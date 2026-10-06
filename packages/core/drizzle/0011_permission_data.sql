@@ -27,9 +27,6 @@ INSERT INTO permission_definitions (key, scope, value_type, created_at) VALUES
   ('forum.replyLocked', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('forum.stick', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('forum.move', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
-  ('forum.merge', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
-  ('forum.split', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
-  ('forum.threadBan', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('forum.manageReports', 'node', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('profilePost.post', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('profilePost.comment', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
@@ -61,7 +58,6 @@ INSERT INTO permission_definitions (key, scope, value_type, created_at) VALUES
   ('admin.groups', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('admin.members', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('admin.permissions', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
-  ('admin.promotions', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('admin.settings', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER)),
   ('admin.reactionTypes', 'global', 'flag', CAST(unixepoch('subsec') * 1000 AS INTEGER));
 --> statement-breakpoint
@@ -71,7 +67,7 @@ SELECT d.id, 0, g.id, 0, 1 FROM groups g JOIN permission_definitions d ON d.valu
 WHERE g.is_admin = 1;
 --> statement-breakpoint
 INSERT OR IGNORE INTO permission_entries (permission_id, node_id, group_id, user_id, value)
-SELECT d.id, 0, g.id, 0, 1 FROM groups g JOIN permission_definitions d ON d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'wordFilter.view')
+SELECT d.id, 0, g.id, 0, 1 FROM groups g JOIN permission_definitions d ON d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'wordFilter.view')
 WHERE g.is_moderator = 1 AND g.is_admin = 0;
 --> statement-breakpoint
 INSERT OR IGNORE INTO permission_entries (permission_id, node_id, group_id, user_id, value)
@@ -345,7 +341,7 @@ SELECT d.id, np.node_id, np.group_id, 0, CASE WHEN d.key = 'node.view' THEN np.c
 FROM node_permissions np JOIN groups g ON g.id = np.group_id JOIN permission_definitions d
   ON (d.key = 'node.view' AND np.can_view IS NOT NULL)
   OR (d.key IN ('forum.createThread', 'forum.reply') AND np.can_post IS NOT NULL)
-  OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports') AND np.can_moderate IS NOT NULL)
+  OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports') AND np.can_moderate IS NOT NULL)
 WHERE g.is_admin = 0;
 --> statement-breakpoint
 INSERT INTO permission_combinations (user_id, group_ids, created_at) VALUES (0, '1', CAST(unixepoch('subsec') * 1000 AS INTEGER));
@@ -470,13 +466,13 @@ END;
 CREATE TRIGGER groups_legacy_flags AFTER UPDATE OF is_admin, is_moderator, can_view_nodes, can_post, can_view_profiles, can_post_profile, can_start_conversations, can_react ON groups BEGIN
   DELETE FROM permission_entries WHERE group_id = new.id AND user_id = 0 AND node_id = 0 AND permission_id IN (
     SELECT id FROM permission_definitions
-    WHERE key IN ('profile.view', 'reaction.react', 'node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports', 'profilePost.post', 'profilePost.comment', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'conversation.start', 'conversation.viewHidden', 'conversation.moderate', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'member.ban', 'member.spamCleanup', 'member.immuneToAutoBan', 'wordFilter.view', 'wordFilter.manage', 'moderatorLog.view', 'admin.nodes', 'admin.groups', 'admin.members', 'admin.permissions', 'admin.promotions', 'admin.settings', 'admin.reactionTypes') OR (old.is_admin = 1 AND new.is_admin = 0 AND value_type = 'flag')
+    WHERE key IN ('profile.view', 'reaction.react', 'node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports', 'profilePost.post', 'profilePost.comment', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'conversation.start', 'conversation.viewHidden', 'conversation.moderate', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'member.ban', 'member.spamCleanup', 'member.immuneToAutoBan', 'wordFilter.view', 'wordFilter.manage', 'moderatorLog.view', 'admin.nodes', 'admin.groups', 'admin.members', 'admin.permissions', 'admin.settings', 'admin.reactionTypes') OR (old.is_admin = 1 AND new.is_admin = 0 AND value_type = 'flag')
   );
   INSERT OR REPLACE INTO permission_entries (permission_id, node_id, group_id, user_id, value)
     SELECT id, 0, new.id, 0, 1 FROM permission_definitions WHERE new.is_admin = 1 AND value_type = 'flag';
   INSERT OR IGNORE INTO permission_entries (permission_id, node_id, group_id, user_id, value)
     SELECT id, 0, new.id, 0, 1 FROM permission_definitions WHERE new.is_admin = 0 AND (
-      (new.is_moderator = 1 AND key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'wordFilter.view'))
+      (new.is_moderator = 1 AND key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports', 'profilePost.viewModerated', 'profilePost.viewDeleted', 'profilePost.editAny', 'profilePost.deleteAny', 'profilePost.undelete', 'profilePost.approve', 'moderation.access', 'report.manageProfiles', 'warning.view', 'member.warn', 'wordFilter.view'))
       OR (new.can_view_nodes = 1 AND key IN ('node.view'))
       OR (new.can_post = 1 AND key IN ('forum.createThread', 'forum.reply'))
       OR (new.can_view_profiles = 1 AND key IN ('profile.view'))
@@ -491,31 +487,31 @@ END;
 --> statement-breakpoint
 CREATE TRIGGER node_permissions_legacy_insert AFTER INSERT ON node_permissions WHEN (SELECT is_admin FROM groups WHERE id = new.group_id) = 0 BEGIN
   DELETE FROM permission_entries WHERE group_id = new.group_id AND user_id = 0 AND node_id = new.node_id
-    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports'));
+    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports'));
   INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value)
     SELECT d.id, new.node_id, new.group_id, 0,
       CASE WHEN d.key = 'node.view' THEN new.can_view WHEN d.key IN ('forum.createThread', 'forum.reply') THEN new.can_post ELSE new.can_moderate END
     FROM permission_definitions d
     WHERE (d.key = 'node.view' AND new.can_view IS NOT NULL)
       OR (d.key IN ('forum.createThread', 'forum.reply') AND new.can_post IS NOT NULL)
-      OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports') AND new.can_moderate IS NOT NULL);
+      OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports') AND new.can_moderate IS NOT NULL);
 END;
 --> statement-breakpoint
 CREATE TRIGGER node_permissions_legacy_update AFTER UPDATE ON node_permissions WHEN (SELECT is_admin FROM groups WHERE id = new.group_id) = 0 BEGIN
   DELETE FROM permission_entries WHERE group_id = old.group_id AND user_id = 0 AND node_id = old.node_id
-    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports'));
+    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports'));
   DELETE FROM permission_entries WHERE group_id = new.group_id AND user_id = 0 AND node_id = new.node_id
-    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports'));
+    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports'));
   INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value)
     SELECT d.id, new.node_id, new.group_id, 0,
       CASE WHEN d.key = 'node.view' THEN new.can_view WHEN d.key IN ('forum.createThread', 'forum.reply') THEN new.can_post ELSE new.can_moderate END
     FROM permission_definitions d
     WHERE (d.key = 'node.view' AND new.can_view IS NOT NULL)
       OR (d.key IN ('forum.createThread', 'forum.reply') AND new.can_post IS NOT NULL)
-      OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports') AND new.can_moderate IS NOT NULL);
+      OR (d.key IN ('forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports') AND new.can_moderate IS NOT NULL);
 END;
 --> statement-breakpoint
 CREATE TRIGGER node_permissions_legacy_delete AFTER DELETE ON node_permissions WHEN (SELECT is_admin FROM groups WHERE id = old.group_id) = 0 BEGIN
   DELETE FROM permission_entries WHERE group_id = old.group_id AND user_id = 0 AND node_id = old.node_id
-    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.merge', 'forum.split', 'forum.threadBan', 'forum.manageReports'));
+    AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN ('node.view', 'forum.createThread', 'forum.reply', 'forum.viewModerated', 'forum.viewDeleted', 'forum.editAny', 'forum.deleteAny', 'forum.undelete', 'forum.approve', 'forum.viewHistory', 'forum.lock', 'forum.replyLocked', 'forum.stick', 'forum.move', 'forum.manageReports'));
 END;
