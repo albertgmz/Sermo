@@ -17,7 +17,8 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  * - `reaction.added`: target the reacted content (targetType is the reaction content type);
  *   payload { userId, contentUserId, reactionTypeId }.
  * - `member.groups_changed`: target the member (targetType "user"); payload { added, removed,
- *   source: "promotion" | "admin", promotionId?, actorId? }.
+ *   source: "promotion" | "admin" | "verification", promotionId?, actorId? }; "verification"
+ *   is a confirmed email moving the member from Unconfirmed to Member.
  * - `member.followed`: target the followed member; payload { followerId }.
  * - `member.warned`, `member.banned`, `member.restricted`, `member.thread_banned`: target the
  *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }. Lifting a
