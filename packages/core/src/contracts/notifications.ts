@@ -130,13 +130,21 @@ export const notificationsUnsubscribe = defineContract({
   output: z.object({ scope: z.string() }),
 });
 
+export const PUSH_SUBSCRIPTIONS_PER_MEMBER = 10;
+
 export const pushSubscribe = defineContract({
   name: "push.subscribe",
-  summary: "Store a Web Push subscription for this device. Signed-in members.",
+  summary:
+    "Store a Web Push subscription for this device. Signed-in members. Push service hosts " +
+    `only; the oldest subscription is replaced past ${PUSH_SUBSCRIPTIONS_PER_MEMBER}.`,
   kind: "write",
   input: z.object({
     endpoint: z.url().max(2000),
-    keys: z.object({ p256dh: z.string().min(1).max(200), auth: z.string().min(1).max(100) }),
+    keys: z.object({
+      // base64url of an uncompressed P-256 point (65 bytes starting 0x04) and a 16-byte secret.
+      p256dh: z.string().regex(/^B[A-Za-z0-9_-]{86}=?$/),
+      auth: z.string().regex(/^[A-Za-z0-9_-]{21}[AQgw](==)?$/),
+    }),
     userAgent: z.string().max(500).default(""),
   }),
   output: Ok,
@@ -148,6 +156,16 @@ export const pushUnsubscribe = defineContract({
   kind: "write",
   input: z.object({ endpoint: z.url().max(2000) }),
   output: Ok,
+});
+
+export const pushList = defineContract({
+  name: "push.list",
+  summary: `Your Web Push subscriptions (at most ${PUSH_SUBSCRIPTIONS_PER_MEMBER}), oldest first.`,
+  kind: "read",
+  input: z.object({}),
+  output: z.object({
+    items: z.array(z.object({ endpoint: z.string(), userAgent: z.string(), createdAt: Timestamp })),
+  }),
 });
 
 export const pushPublicKey = defineContract({
