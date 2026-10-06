@@ -40,8 +40,6 @@ const PENDING_PERMISSIONS = new Set<string>([
   "forum.threadBan",
   "forum.bypassNodeRules",
   "forum.viewLog",
-  "member.restrict",
-  "profile.bypassPrivacy",
 ]);
 
 const SRC = import.meta.dir;

@@ -36,14 +36,20 @@ import {
   prepareModeratedContent,
   withSpamCheck,
 } from "../moderation";
-import { seoForProfile } from "../seo";
+import { noticeForOther } from "../moderation/notify";
+import { profileSeo } from "../seo/pages";
+import { readSiteSettings } from "../settings";
 import { resolvedFileUrl } from "../storage/url";
 import {
   latestComments,
+  mayPostOnWall,
   type PostRow,
+  type ProfileAccess,
   postValue,
   postValues,
+  profileAccess,
   requirePost,
+  requireProfileView,
   requireView,
   touchProfile,
   WALL_SQL,
@@ -73,7 +79,7 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-function readProfile(ctx: Ctx, actor: Actor, userId: number) {
+function readProfile(ctx: Ctx, actor: Actor, userId: number, access?: ProfileAccess) {
   const permissions = permissionsOf(ctx, actor);
   const row = prepared(ctx, "profiles.profile", () =>
     ctx.sqlite.prepare<ProfileRow, [number]>(
@@ -98,15 +104,31 @@ function readProfile(ctx: Ctx, actor: Actor, userId: number) {
         : { fileId: row.cover_file_id, url: resolvedFileUrl(ctx, row.cover_file_id, true) },
     postCount: row.post_count,
     reactionScore: row.reaction_score,
-    canPostOnWall:
-      actorUserId(actor) !== null &&
-      permissions.can("profile.view") &&
-      permissions.can("profilePost.post"),
+    canPostOnWall: permissions.can("profile.view") && mayPostOnWall(ctx, actor, userId, access),
   };
 }
 export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
-  requireView(ctx, actor);
-  return { ...readProfile(ctx, actor, input.userId), seo: seoForProfile(ctx, actor, input.userId) };
+  const access = profileAccess(ctx, actor, input.userId);
+  requireProfileView(ctx, actor, input.userId, access);
+  const settings = readSiteSettings(ctx);
+  const seo = profileSeo(
+    ctx,
+    actor,
+    ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000",
+    input.userId,
+    "",
+    {
+      siteName: "Sermo",
+      nodeTitle: settings.nodeTitleTemplate,
+      threadTitle: settings.threadTitleTemplate,
+      profileTitle: settings.profileTitleTemplate,
+    },
+    access,
+  );
+  return {
+    ...readProfile(ctx, actor, input.userId, access),
+    seo,
+  };
 });
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
@@ -150,7 +172,7 @@ export const usersSearchOp = implement(usersSearch, (ctx, actor, input) => {
   return { items };
 });
 export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input) => {
-  requireView(ctx, actor);
+  requireProfileView(ctx, actor, input.userId);
   if (
     !prepared(ctx, "profiles.userExists", () =>
       ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),
@@ -183,8 +205,9 @@ export const profilePostsGetOp = implement(profilePostsGet, (ctx, actor, input) 
 });
 export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  requireView(ctx, actor);
+  requireProfileView(ctx, actor, input.userId);
   requirePermission(ctx, actor, "profilePost.post");
+  if (!mayPostOnWall(ctx, actor, input.userId)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
@@ -198,6 +221,8 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
         ).get(input.userId)
       )
         throw new NotFoundError();
+      requireProfileView(ctx, actor, input.userId);
+      if (!mayPostOnWall(ctx, actor, input.userId)) throw new ForbiddenError();
       const post = prepared(ctx, "profiles.insertPost", () =>
         ctx.sqlite.prepare<PostRow, [number, number, string, number, string, string]>(
           "INSERT INTO profile_posts (profile_user_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
@@ -243,7 +268,12 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     ).run(content.source, html, ctx.now(), row.id);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
     if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
-    publishEvent(ctx, { type: "content.edited", targetType: "profile_post", targetId: row.id });
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: "profile_post",
+      targetId: row.id,
+      payload: noticeForOther(actor, row.user_id, input),
+    });
     if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_post.edit", "profile_post", row.id);
   });
@@ -269,7 +299,7 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
         type: "content.deleted",
         targetType: "profile_post",
         targetId: row.id,
-        payload: { previousState: row.state },
+        payload: { previousState: row.state, ...noticeForOther(actor, row.user_id, input) },
       });
     if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (can(ctx, actor, "profilePost.deleteAny"))
@@ -299,6 +329,7 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
         type: "content.state_changed",
         targetType: "profile_post",
         targetId: row.id,
+        payload: noticeForOther(actor, row.user_id, input),
       });
     if (result.changes) touchProfile(ctx, row.profile_user_id);
     appendModeratorLog(ctx, actor, "profile_post.restore", "profile_post", row.id);

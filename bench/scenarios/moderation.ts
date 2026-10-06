@@ -2,6 +2,18 @@ import type { Scenario } from "../harness";
 
 export const scenarios: Scenario[] = [
   {
+    name: "moderation.restrictions.create",
+    kind: "write",
+    iterations: 50,
+    run: (env, i) =>
+      env.call("restrictions.create", env.actors.admin, {
+        userId: env.meta.memberIds[i % env.meta.memberIds.length]!,
+        kind: "posting",
+        reason: "Benchmark restriction",
+        notify: false,
+      }),
+  },
+  {
     name: "moderation.reportQueue20k",
     kind: "read",
     setup: (env) => {

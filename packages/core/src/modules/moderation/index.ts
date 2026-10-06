@@ -24,7 +24,11 @@ import { iso } from "../../time";
 import { revokeUserCredentials } from "../auth";
 import { forumSql } from "../forums";
 import { enqueueJob, registerJobHandler } from "../jobs";
+import { mayViewProfile } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
+import { reportsViewConversationMessageOp } from "./conversation-reports";
+import { type Notice, noticeForOther } from "./notify";
+import { restrictionsCreateOp, restrictionsLiftOp, restrictionsListOp } from "./restrictions";
 
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
 export { akismetChecker, disabledSpamChecker, stopForumSpamChecker } from "./spam";
@@ -208,7 +212,8 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
     if (!visible(row.state, row.user_id)) throw new NotFoundError();
   } else if (target.type === "profile_post" || target.type === "profile_post_comment") {
     const grants = permissionsOf(ctx, actor);
-    if (!grants.can("profile.view")) throw new NotFoundError();
+    if (!grants.can("profile.view") || !mayViewProfile(ctx, actor, row.profile_user_id!))
+      throw new NotFoundError();
     const visible = (state: ContentStateValue, ownerId: number) =>
       state === "visible" ||
       (state === "moderated"
@@ -431,6 +436,7 @@ export function setReportState(
   state: "assigned" | "resolved" | "rejected",
   reason = "",
   assigneeId?: number,
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
   const actorId = requireAuthenticated(actor).userId;
   return writeTx(ctx, () => {
@@ -464,6 +470,19 @@ export function setReportState(
     );
     appendModeratorLog(ctx, actor, `report.${state}`, group.target_type, group.target_id, reason, {
       groupId,
+    });
+    publishEvent(ctx, {
+      type: "report.state_changed",
+      targetType: "report_group",
+      targetId: groupId,
+      payload: {
+        state,
+        moderatorId: actorId,
+        contentUserId: targetRow(ctx, { type: group.target_type, id: group.target_id }).user_id,
+        reason,
+        notify: notice.notify,
+        message: notice.message,
+      },
     });
     return {
       ...group,
@@ -607,6 +626,7 @@ function stateChange(
   target: Content,
   state: ContentStateValue,
   row = targetRow(ctx, target),
+  notice?: Notice & { actor: Actor },
 ) {
   if (row.state === state) return false;
   if (target.type === "post" && row.id === row.first_post_id)
@@ -632,7 +652,11 @@ function stateChange(
     type: state === "deleted" ? "content.deleted" : "content.state_changed",
     targetType: target.type,
     targetId: target.id,
-    payload: { previousState: row.state, state },
+    payload: {
+      previousState: row.state,
+      state,
+      ...(notice ? noticeForOther(notice.actor, row.user_id, notice) : {}),
+    },
   });
   if (target.type === "post" && delta !== 0) {
     exec(
@@ -731,6 +755,7 @@ export function moderateContent(
   target: Content,
   state: ContentStateValue,
   reason = "",
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
   requireAuthenticated(actor);
   return writeTx(ctx, () => {
@@ -742,7 +767,7 @@ export function moderateContent(
       state === "deleted" ? "delete" : row.state === "deleted" ? "restore" : "approve",
       row,
     );
-    const changed = stateChange(ctx, target, state, row);
+    const changed = stateChange(ctx, target, state, row, { actor, reason, ...notice });
     appendModeratorLog(ctx, actor, `content.${state}`, target.type, target.id, reason, { changed });
     return { changed };
   });
@@ -767,6 +792,7 @@ export function bulkModerate(
   action: "delete" | "restore" | "approve" | "move" | "lock" | "unlock",
   reason = "",
   nodeId?: number,
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
   requireAuthenticated(actor);
   if (targets.length === 0 || targets.length > 100)
@@ -808,7 +834,10 @@ export function bulkModerate(
           type: "content.edited",
           targetType: "thread",
           targetId: row.id,
-          payload: { movedToNodeId: nodeId },
+          payload: {
+            movedToNodeId: nodeId,
+            ...noticeForOther(actor, row.user_id, { reason, ...notice }),
+          },
         });
         if (row.state === "visible") {
           const n = row.reply_count! + 1;
@@ -849,12 +878,21 @@ export function bulkModerate(
           type: "content.edited",
           targetType: "thread",
           targetId: row.id,
-          payload: { isLocked: action === "lock" },
+          payload: {
+            isLocked: action === "lock",
+            ...noticeForOther(actor, row.user_id, { reason, ...notice }),
+          },
         });
       } else {
         if (action === "approve" && row.state !== "moderated")
           throw new ConflictError("Only moderated content can be approved.");
-        if (!stateChange(ctx, target, action === "delete" ? "deleted" : "visible", row)) {
+        if (
+          !stateChange(ctx, target, action === "delete" ? "deleted" : "visible", row, {
+            actor,
+            reason,
+            ...notice,
+          })
+        ) {
           appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
             changed: false,
           });
@@ -1050,6 +1088,7 @@ export function addWarning(
   points: number,
   reason: string,
   expiresAt: number | null = null,
+  notice?: Pick<Notice, "notify" | "message">,
 ) {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.warn", { target: principalMember(ctx, userId) });
@@ -1081,7 +1120,7 @@ export function addWarning(
       type: "member.warned",
       targetType: "user",
       targetId: userId,
-      payload: { moderatorId: actorUserId(actor), points, reason, warningId: id },
+      payload: { moderatorId: actorUserId(actor), points, reason, warningId: id, ...notice },
     });
     const activePoints = read<{ n: number }>(
       ctx,
@@ -1117,6 +1156,19 @@ export function addWarning(
         banId,
         activePoints,
       });
+      publishEvent(ctx, {
+        type: "member.banned",
+        targetType: "user",
+        targetId: userId,
+        payload: {
+          moderatorId: actorUserId(actor),
+          reason,
+          banId,
+          lifted: false,
+          expiresAt: iso(expires),
+          ...notice,
+        },
+      });
       enqueueJob(
         ctx,
         "moderation.revokeCredentials",
@@ -1134,6 +1186,7 @@ export function banUser(
   userId: number,
   reason: string,
   expiresAt: number | null,
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.ban", { target: principalMember(ctx, userId) });
@@ -1143,7 +1196,7 @@ export function banUser(
     const target = principalMember(ctx, userId);
     requirePermission(ctx, actor, "member.ban", { target });
     if (userId === actorUserId(actor)) throw new ForbiddenError();
-    return insertBan(ctx, actor, userId, reason, expiresAt);
+    return insertBan(ctx, actor, userId, reason, expiresAt, notice);
   });
 }
 
@@ -1153,6 +1206,7 @@ function insertBan(
   userId: number,
   reason: string,
   expiresAt: number | null,
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
   const now = ctx.now();
   const id = Number(
@@ -1169,6 +1223,19 @@ function insertBan(
   );
   refreshBanState(ctx, userId, now);
   appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
+  publishEvent(ctx, {
+    type: "member.banned",
+    targetType: "user",
+    targetId: userId,
+    payload: {
+      moderatorId: actorUserId(actor),
+      reason,
+      expiresAt: expiresAt === null ? null : iso(expiresAt),
+      banId: id,
+      lifted: false,
+      ...notice,
+    },
+  });
   enqueueJob(
     ctx,
     "moderation.revokeCredentials",
@@ -1221,13 +1288,19 @@ export function listWarnings(
   };
 }
 
-export function liftBan(ctx: Ctx, actor: Actor, banId: number, reason: string) {
+export function liftBan(
+  ctx: Ctx,
+  actor: Actor,
+  banId: number,
+  reason: string,
+  notice: Pick<Notice, "notify" | "message"> = { notify: true },
+) {
   requireAuthenticated(actor);
   return writeTx(ctx, () => {
-    const ban = read<{ user_id: number; lifted_at: number | null }>(
+    const ban = read<{ user_id: number; lifted_at: number | null; expires_at: number | null }>(
       ctx,
       "banById",
-      "SELECT user_id, lifted_at FROM bans WHERE id = ?1",
+      "SELECT user_id, lifted_at, expires_at FROM bans WHERE id = ?1",
       banId,
     );
     if (!ban) throw new NotFoundError();
@@ -1237,6 +1310,19 @@ export function liftBan(ctx: Ctx, actor: Actor, banId: number, reason: string) {
     exec(ctx, "liftBan", "UPDATE bans SET lifted_at = ?1 WHERE id = ?2", now, banId);
     refreshBanState(ctx, ban.user_id, now);
     appendModeratorLog(ctx, actor, "ban.lift", "user", ban.user_id, reason, { banId });
+    publishEvent(ctx, {
+      type: "member.banned",
+      targetType: "user",
+      targetId: ban.user_id,
+      payload: {
+        moderatorId: actorUserId(actor),
+        reason,
+        banId,
+        lifted: true,
+        ...notice,
+        notify: ban.expires_at !== null && ban.expires_at <= now ? false : notice.notify,
+      },
+    });
     return { ok: true };
   });
 }
@@ -1408,7 +1494,10 @@ export const operations = [
   implement(contracts.reportsSetState, (ctx, actor, input) =>
     contracts.reportsSetState.output.parse(
       publicRow(
-        setReportState(ctx, actor, input.groupId, input.state, input.reason, input.assigneeId),
+        setReportState(ctx, actor, input.groupId, input.state, input.reason, input.assigneeId, {
+          notify: input.notify,
+          message: input.message,
+        }),
       ),
     ),
   ),
@@ -1425,10 +1514,16 @@ export const operations = [
     });
   }),
   implement(contracts.moderationSetState, (ctx, actor, input) =>
-    moderateContent(ctx, actor, input.target, input.state, input.reason),
+    moderateContent(ctx, actor, input.target, input.state, input.reason, {
+      notify: input.notify,
+      message: input.message,
+    }),
   ),
   implement(contracts.moderationBulk, (ctx, actor, input) =>
-    bulkModerate(ctx, actor, input.targets, input.action, input.reason, input.nodeId),
+    bulkModerate(ctx, actor, input.targets, input.action, input.reason, input.nodeId, {
+      notify: input.notify,
+      message: input.message,
+    }),
   ),
   implement(contracts.moderatorLogList, (ctx, actor, input) =>
     contracts.moderatorLogList.output.parse(page(listModeratorLog(ctx, actor, input))),
@@ -1453,6 +1548,7 @@ export const operations = [
       input.points,
       input.reason,
       input.expiresAt ? Date.parse(input.expiresAt) : null,
+      { notify: input.notify, message: input.message },
     ),
   ),
   implement(contracts.warningsList, (ctx, actor, input) =>
@@ -1465,11 +1561,16 @@ export const operations = [
       input.userId,
       input.reason,
       input.expiresAt ? Date.parse(input.expiresAt) : null,
+      { notify: input.notify, message: input.message },
     ),
   ),
   implement(
     contracts.bansLift,
-    (ctx, actor, input) => liftBan(ctx, actor, input.banId, input.reason) as { ok: true },
+    (ctx, actor, input) =>
+      liftBan(ctx, actor, input.banId, input.reason, {
+        notify: input.notify,
+        message: input.message,
+      }) as { ok: true },
   ),
   implement(contracts.postRevisionsList, (ctx, actor, input) =>
     contracts.postRevisionsList.output.parse(
@@ -1494,7 +1595,10 @@ export const operations = [
         `moderation.cleanupSpam.${input.userId}`,
       );
       if (existing) throw new ConflictError("Spam cleanup is already queued.");
-      insertBan(ctx, actor, input.userId, input.reason, null);
+      insertBan(ctx, actor, input.userId, input.reason, null, {
+        notify: input.notify,
+        message: input.message,
+      });
       const jobId = enqueueJob(
         ctx,
         "moderation.cleanupSpam",
@@ -1514,6 +1618,10 @@ export const operations = [
       return { jobId };
     });
   }),
+  restrictionsCreateOp,
+  restrictionsLiftOp,
+  restrictionsListOp,
+  reportsViewConversationMessageOp,
 ];
 
 export function registerModerationJobs(ctx: Ctx): void {

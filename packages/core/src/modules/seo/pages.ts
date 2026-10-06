@@ -4,6 +4,7 @@ import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, permissionsOf } from "../../permissions";
+import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
 import { canonicalUrl, resolveCanonical } from "./paths";
 
 export interface SeoTemplates {
@@ -225,8 +226,11 @@ export function profileSeo(
   id: number,
   requestedPath: string,
   templates: SeoTemplates,
+  access?: ProfileAccess,
 ): SeoPage {
   if (!can(ctx, actor, "profile.view")) throw new NotFoundError();
+  const relation = access ?? profileAccess(ctx, actor, id);
+  if (!mayViewProfile(ctx, actor, id, relation)) throw new NotFoundError();
   const profile = prepared(ctx, "seo.profile", () =>
     ctx.sqlite.prepare<Profile, [number]>(
       "SELECT id,username,about,created_at,content_updated_at,post_count,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id=?1",
@@ -236,6 +240,7 @@ export function profileSeo(
   const canonical = resolveCanonical(requestedPath, baseURL, "profile", id, profile.username);
   const indexable =
     can(ctx, GUEST, "profile.view") &&
+    relation.profile_view_privacy === "everyone" &&
     (profile.has_public_wall === 1 || profile.about.trim().length > 0);
   const values = {
     siteName: templates.siteName,
