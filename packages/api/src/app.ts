@@ -287,7 +287,6 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         ...options.storage,
         maxBytes: settings.maxUploadBytes,
         allowedTypesByPurpose: settings.allowedUploadTypes,
-        groupUploadLimitBytes: settings.groupUploadLimitBytes,
       },
       new URL(c.req.url).searchParams.get("purpose") ?? "attachment",
     );

@@ -13,13 +13,13 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { consumeEvents } from "../../events";
 import { implement } from "../../operation";
+import { can, permissionValue } from "../../permissions";
 import { iso } from "../../time";
 import { setAttachments } from "../attachments";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
-import { getGlobalPermissions } from "../permissions";
 import { requirePost as requireProfilePost } from "../profiles/shared";
 import { fileUrl, resolvedFileUrl } from "./url";
 
@@ -106,7 +106,8 @@ export const storageSql = {
     "SELECT id FROM files WHERE visibility = 'unattached' AND parent_file_id IS NULL AND created_at < ?1 AND deleted_at IS NULL ORDER BY created_at, id LIMIT ?2",
   stalePage:
     "SELECT id, created_at FROM files WHERE visibility = 'unattached' AND parent_file_id IS NULL AND created_at < ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) ORDER BY created_at, id LIMIT 1000",
-  attachment: "SELECT content_type, content_id FROM attachments WHERE file_id = ?1",
+  attachment:
+    "SELECT a.content_type, a.content_id, t.node_id FROM attachments a LEFT JOIN posts p ON a.content_type = 'post' AND p.id = a.content_id LEFT JOIN threads t ON t.id = p.thread_id WHERE a.file_id = ?1",
 } as const;
 
 const safeInline = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -203,7 +204,6 @@ export interface StorageConfig {
   tempDir: string;
   maxBytes?: number;
   allowedTypesByPurpose?: Partial<Record<Purpose, readonly string[]>>;
-  groupUploadLimitBytes?: Record<number, number>;
 }
 
 function byId(ctx: Ctx, id: number) {
@@ -214,9 +214,10 @@ function byId(ctx: Ctx, id: number) {
 
 function attachment(ctx: Ctx, id: number) {
   return prepared(ctx, "storage.attachment", () =>
-    ctx.sqlite.prepare<{ content_type: string; content_id: number }, [number]>(
-      storageSql.attachment,
-    ),
+    ctx.sqlite.prepare<
+      { content_type: string; content_id: number; node_id: number | null },
+      [number]
+    >(storageSql.attachment),
   ).get(id);
 }
 
@@ -231,14 +232,21 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
     return record.visibility === "public";
   }
   try {
-    if (link.content_type === "post") reactablePost(ctx, actor, link.content_id);
-    else if (link.content_type === "profile_post") requireProfilePost(ctx, actor, link.content_id);
+    if (link.content_type === "post") {
+      reactablePost(ctx, actor, link.content_id);
+      if (
+        link.node_id === null ||
+        !can(ctx, actor, "forum.viewAttachments", { nodeId: link.node_id })
+      )
+        return false;
+    } else if (link.content_type === "profile_post")
+      requireProfilePost(ctx, actor, link.content_id);
     else if (link.content_type === "conversation_message") {
       const message = reactableConversationMessage(ctx, actor, link.content_id);
       if (
         !message.isVisible &&
         message.authorId !== actorUserId(actor) &&
-        !getGlobalPermissions(ctx, actor).isAdmin
+        !can(ctx, actor, "conversation.viewHidden")
       )
         return false;
     } else return false;
@@ -397,8 +405,8 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             stored.push(item.storageKey);
           }
           const row = writeTx(ctx, () => {
-            const quota = config.groupUploadLimitBytes?.[user.groupId];
-            if (quota != null) {
+            const quota = permissionValue(ctx, actor, "attachment.storageQuota");
+            if (quota !== -1) {
               const used = ctx.sqlite
                 .prepare<{ bytes: number }, [number]>(
                   "SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL",

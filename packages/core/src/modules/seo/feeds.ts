@@ -1,7 +1,7 @@
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
-import { getNodeAccess, getNodeTree } from "../permissions";
+import { can, getNodeTree, viewableNodeIds } from "../../permissions";
 import { canonicalPath, canonicalUrl, requireBaseURL } from "./paths";
 
 const xml = (value: string) =>
@@ -30,15 +30,10 @@ export function atomFeed(
 ): string {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
     throw new RangeError("Invalid feed limit");
-  const access = getNodeAccess(ctx, GUEST);
   const node = nodeId == null ? undefined : getNodeTree(ctx).get(nodeId);
-  if (nodeId != null && (!node || !access(nodeId).view)) throw new NotFoundError();
-  const publicNodeIds =
-    nodeId == null
-      ? getNodeTree(ctx)
-          .entries.filter((entry) => access(entry.id).view)
-          .map((entry) => entry.id)
-      : [];
+  if (nodeId != null && (!node || !can(ctx, GUEST, "node.view", { nodeId })))
+    throw new NotFoundError();
+  const publicNodeIds = nodeId == null ? viewableNodeIds(ctx, GUEST) : [];
   const rows =
     nodeId == null
       ? prepared(ctx, "seo.atomSite", () =>

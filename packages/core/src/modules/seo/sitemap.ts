@@ -1,6 +1,6 @@
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { getGlobalPermissions, getNodeAccess } from "../permissions";
+import { permissionsOf } from "../../permissions";
 import { canonicalUrl, requireBaseURL } from "./paths";
 
 export type SitemapKind = "node" | "thread" | "profile";
@@ -24,8 +24,8 @@ export function* sitemapEntries(
 ): Generator<SitemapEntry> {
   requireBaseURL(baseURL);
   let after = 0;
+  const guest = permissionsOf(ctx, GUEST);
   if (kind === "node") {
-    const access = getNodeAccess(ctx, GUEST);
     const rows = prepared(ctx, "seo.sitemapNodes", () =>
       ctx.sqlite.prepare<
         {
@@ -44,7 +44,7 @@ export function* sitemapEntries(
       if (!batch.length) return;
       for (const row of batch) {
         after = row.id;
-        if (access(row.id).view)
+        if (guest.can("node.view", { nodeId: row.id }))
           yield {
             id: row.id,
             url: canonicalUrl(baseURL, "node", row.id, row.title),
@@ -60,7 +60,6 @@ export function* sitemapEntries(
     }
   }
   if (kind === "thread") {
-    const access = getNodeAccess(ctx, GUEST);
     const rows = prepared(ctx, "seo.sitemapThreads", () =>
       ctx.sqlite.prepare<
         {
@@ -81,7 +80,7 @@ export function* sitemapEntries(
       if (!batch.length) return;
       for (const row of batch) {
         after = row.id;
-        if (access(row.node_id).view)
+        if (guest.can("node.view", { nodeId: row.node_id }))
           yield {
             id: row.id,
             url: canonicalUrl(baseURL, "thread", row.id, row.title),
@@ -92,7 +91,7 @@ export function* sitemapEntries(
       }
     }
   }
-  if (!getGlobalPermissions(ctx, GUEST).canViewProfiles) return;
+  if (!guest.can("profile.view")) return;
   const rows = prepared(ctx, "seo.sitemapProfiles", () =>
     ctx.sqlite.prepare<
       {

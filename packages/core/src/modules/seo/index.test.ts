@@ -25,6 +25,7 @@ import { runDueJobs } from "../jobs";
 import { profilesGetOp, profilesUpdateOp } from "../profiles";
 import { updateSiteSettings } from "../settings";
 import {
+  atomFeed,
   canonicalPath,
   indexNowBatches,
   queueSeoEvents,
@@ -33,6 +34,106 @@ import {
   sitemapIndex,
   sitemapShard,
 } from ".";
+
+function setPermission(
+  ctx: ReturnType<typeof createTestContext>,
+  groupId: number,
+  key: string,
+  value: number,
+  nodeId = 0,
+) {
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id,node_id,group_id,user_id,value) VALUES ((SELECT id FROM permission_definitions WHERE key=?1),?2,?3,0,?4) ON CONFLICT(permission_id,node_id,group_id,user_id) DO UPDATE SET value=excluded.value",
+    )
+    .run(key, nodeId, groupId, value);
+}
+
+test("SEO uses node, profile, and state-specific thread permissions", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, { title: "Restricted" });
+  invalidate(ctx, "node_tree");
+  const author = userActor(insertUser(ctx));
+  const made = await execute(ctx, threadsCreateOp, author, {
+    nodeId: node.id,
+    title: "Reviewable",
+    body: "Body",
+  });
+  const groupId = ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title,rank) VALUES ('SEO reviewers',10) RETURNING id",
+    )
+    .get()!.id;
+  const viewer = userActor(insertUser(ctx, { groupId }));
+  const threadInput = { threadId: made.thread.id };
+  await expect(
+    execute(ctx, getOperation("seo.thread"), viewer, threadInput),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  setPermission(ctx, groupId, "node.view", 1, node.id);
+  expect(
+    (await execute(ctx, getOperation("seo.node"), viewer, { nodeId: node.id })).title,
+  ).toContain("Restricted");
+  ctx.sqlite.prepare("UPDATE threads SET state='moderated' WHERE id=?1").run(made.thread.id);
+  await expect(
+    execute(ctx, getOperation("seo.thread"), viewer, threadInput),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  setPermission(ctx, groupId, "forum.viewModerated", 1, node.id);
+  expect((await execute(ctx, getOperation("seo.thread"), viewer, threadInput)).title).toContain(
+    "Reviewable",
+  );
+  ctx.sqlite.prepare("UPDATE threads SET state='deleted' WHERE id=?1").run(made.thread.id);
+  await expect(
+    execute(ctx, getOperation("seo.thread"), viewer, threadInput),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  setPermission(ctx, groupId, "forum.viewDeleted", 1, node.id);
+  expect((await execute(ctx, getOperation("seo.thread"), viewer, threadInput)).title).toContain(
+    "Reviewable",
+  );
+  expect((await execute(ctx, getOperation("seo.thread"), author, threadInput)).title).toContain(
+    "Reviewable",
+  );
+  await expect(
+    execute(ctx, getOperation("seo.profile"), viewer, { userId: made.thread.author.id }),
+  ).rejects.toBeInstanceOf(NotFoundError);
+  setPermission(ctx, groupId, "profile.view", 1);
+  expect(
+    (await execute(ctx, getOperation("seo.profile"), viewer, { userId: made.thread.author.id }))
+      .title,
+  ).toBeTruthy();
+  const visible = await execute(ctx, threadsCreateOp, author, {
+    nodeId: node.id,
+    title: "Guest-hidden visible thread",
+    body: "Public state, hidden node",
+  });
+  expect(atomFeed(ctx, "https://forum.example.test", "Forum")).toContain(
+    "Guest-hidden visible thread",
+  );
+  setPermission(ctx, 1, "node.view", -1, node.id);
+  expect(
+    [...sitemapEntries(ctx, "https://forum.example.test", "node")].map((row) => row.id),
+  ).not.toContain(node.id);
+  expect(atomFeed(ctx, "https://forum.example.test", "Forum")).not.toContain(
+    "Guest-hidden visible thread",
+  );
+  expect(
+    [...sitemapEntries(ctx, "https://forum.example.test", "thread")].map((row) => row.id),
+  ).not.toContain(visible.thread.id);
+  expect(() => atomFeed(ctx, "https://forum.example.test", "Forum", node.id)).toThrow(
+    NotFoundError,
+  );
+  ctx.config.siteBaseURL = "https://forum.example.test";
+  updateSiteSettings(ctx, userActor(insertUser(ctx, { groupId: 4 })), {
+    indexNowKey: "seo-test-key",
+  });
+  let submissions = 0;
+  registerSeoJobs(ctx, (async () => {
+    submissions++;
+    return new Response("ok");
+  }) as unknown as typeof fetch);
+  queueSeoEvents(ctx);
+  await runDueJobs(ctx);
+  expect(submissions).toBe(0);
+});
 
 test("accented slugs are cosmetic and detail responses include complete structured data", async () => {
   const ctx = createTestContext();

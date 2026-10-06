@@ -627,6 +627,32 @@ test("auth.me returns guest, member, moderator, admin and token permissions", as
   }
 });
 
+test("auth.me summary follows specific permission entries", async () => {
+  const ctx = createTestContext();
+  const adminPermission = ctx.sqlite
+    .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+    .get("admin.permissions")!.id;
+  const customGroup = ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Helpers', 10) RETURNING id",
+    )
+    .get()!.id;
+  const helper = insertUser(ctx, { groupId: customGroup });
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+    )
+    .run(adminPermission, customGroup);
+  expect((await execute(ctx, authMeOp, userActor(helper), {})).permissions.isAdmin).toBe(true);
+  ctx.sqlite
+    .prepare(
+      "UPDATE permission_entries SET value = -1 WHERE permission_id = ?1 AND node_id = 0 AND group_id = 4 AND user_id = 0",
+    )
+    .run(adminPermission);
+  const denied = insertUser(ctx, { groupId: 4 });
+  expect((await execute(ctx, authMeOp, userActor(denied), {})).permissions.isAdmin).toBe(false);
+});
+
 test("ensureAdmin creates once or promotes an existing account", async () => {
   const ctx = createTestContext();
   const input = { username: "Admin_1", email: "admin@example.test", password: "password123" };
@@ -652,6 +678,59 @@ test("ensureAdmin creates once or promotes an existing account", async () => {
   const account = await signUp(broken, { ...input, name: "Admin" });
   broken.sqlite.prepare("DELETE FROM users WHERE id = ?1").run(Number(account.user.user.id));
   expect((await ensureAdmin(broken, input)).userId).toBe(Number(account.user.user.id));
+});
+
+test("ensureAdmin accepts a member granted admin.permissions by a custom group", async () => {
+  const ctx = createTestContext();
+  const groupId = ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Operators', 10) RETURNING id",
+    )
+    .get()!.id;
+  const member = insertUser(ctx, { groupId });
+  const permissionId = ctx.sqlite
+    .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+    .get("admin.permissions")!.id;
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+    )
+    .run(permissionId, groupId);
+  expect(
+    await ensureAdmin(ctx, {
+      username: "Missing",
+      email: "missing@example.test",
+      password: "password123",
+    }),
+  ).toEqual({ userId: member.id, created: false });
+});
+
+test("ensureAdmin ignores a member whose custom group denies admin.permissions", async () => {
+  const ctx = createTestContext();
+  const groupId = ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Restricted', 10) RETURNING id",
+    )
+    .get()!.id;
+  const member = insertUser(ctx, { groupId: 4 });
+  ctx.sqlite
+    .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, ?3)")
+    .run(member.id, groupId, ctx.now());
+  const permissionId = ctx.sqlite
+    .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+    .get("admin.permissions")!.id;
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, -1)",
+    )
+    .run(permissionId, groupId);
+  const result = await ensureAdmin(ctx, {
+    username: "NewAdmin",
+    email: "new-admin@example.test",
+    password: "password123",
+  });
+  expect(result.created).toBe(true);
+  expect(result.userId).not.toBe(member.id);
 });
 
 test("purgeExpiredCredentials keeps live rows", async () => {

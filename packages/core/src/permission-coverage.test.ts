@@ -18,16 +18,7 @@ import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permis
  * Modules not yet converted to the permission check. Converted modules are removed; the list
  * must end empty.
  */
-const PENDING_MODULES = new Set<string>([
-  "attachments",
-  "auth",
-  "images",
-  "permissions",
-  "search",
-  "seo",
-  "settings",
-  "storage",
-]);
+const PENDING_MODULES = new Set<string>(["permissions"]);
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */
