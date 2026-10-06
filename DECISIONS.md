@@ -576,8 +576,9 @@ event does not enqueue a job, so job counts asserted by existing tests are uncha
 ## Milestone 21: Markdown extensions
 
 **Directives use a small tokenizer of our own, not `marked-directive`.** Mentions (`@name`),
-quotes (`[quote=...]`-style blocks) and spoilers are marked extensions; the published directive
-plugin could not nest quotes inside spoilers and the reverse. Rendering stays on write, and
+quote and spoiler containers (`:::quote{post=N}` / `:::spoiler{title="..."}`, closed by `:::`)
+and inline `>!spoilers!<` are marked extensions; the published directive plugin could not nest
+quotes inside spoilers and the reverse. Rendering stays on write, and
 `content_mentions` / `content_quotes` are stored in the same transaction as the content.
 
 **Mention and quote limits come from the author's permissions** (`mention.maxPerItem`; new
