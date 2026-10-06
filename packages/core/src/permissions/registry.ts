@@ -336,7 +336,7 @@ export const PERMISSIONS = {
   "conversation.moderate": globalAdmin("conversation"),
 
   // Moderation (global) -----------------------------------------------------------------
-  /** Open the report and approval queues (each item is still checked). */
+  /** Marks the member as a moderator (`auth.me` isModerator); queue items are checked one by one. */
   "moderation.access": globalModerator("moderation"),
   /** Handle reports on profile content and on members. */
   "report.manageProfiles": globalModerator("moderation"),

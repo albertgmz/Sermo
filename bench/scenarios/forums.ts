@@ -16,7 +16,7 @@ let sourceNode = 0;
 let targetNode = 0;
 let deepCursor: string | null = null;
 let getPostIds: number[] = [];
-let warmupThreads: number[] = [];
+let transferThreads: number[] = [];
 let largestTransferTarget = 0;
 
 function prepare(env: BenchEnv) {
@@ -52,9 +52,12 @@ function preparePostsGet(env: BenchEnv) {
 
 function prepareTransfers(env: BenchEnv) {
   prepare(env);
-  warmupThreads = [];
-  const sourceId = env.meta.bigThreadIds[0]!;
-  for (let i = 0; i < 2; i++) {
+  // Transfers run on clones so the seeded big threads stay intact for the scenarios that follow:
+  // the ten measured iterations use clones of the ten big threads, the two warmups clones of the
+  // largest.
+  transferThreads = [];
+  const big = env.meta.bigThreadIds;
+  for (const sourceId of [...big.slice(0, 10), big[0]!, big[0]!]) {
     const cloneId = Number(
       env.ctx.sqlite
         .prepare(
@@ -82,11 +85,10 @@ function prepareTransfers(env: BenchEnv) {
         "UPDATE nodes SET thread_count = thread_count + 1, post_count = post_count + (SELECT reply_count + 1 FROM threads WHERE id = ?1) WHERE id = (SELECT node_id FROM threads WHERE id = ?1)",
       )
       .run(cloneId);
-    warmupThreads.push(cloneId);
+    transferThreads.push(cloneId);
   }
 }
-const transferSource = (env: BenchEnv, i: number) =>
-  i < 10 ? env.meta.bigThreadIds[i]! : warmupThreads[i - 10]!;
+const transferSource = (_env: BenchEnv, i: number) => transferThreads[i]!;
 
 async function completeTransfers(env: BenchEnv, kind: "merge" | "split") {
   registerModerationJobs(env.ctx);

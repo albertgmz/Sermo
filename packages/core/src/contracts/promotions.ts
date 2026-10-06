@@ -134,7 +134,8 @@ export const promotionsApply = defineContract({
     "Change one member's promotion by hand: `promote` grants its groups and keeps them whatever " +
     "the criteria say; `demote` removes them and keeps the member out of it (as `exempt` does); " +
     "`exempt` excludes the member from the rule; `reset` returns the member to automatic " +
-    "evaluation, which runs immediately. Requires admin.promotions over the member (hierarchy).",
+    "evaluation, which runs immediately. Requires admin.promotions, and admin.members over the " +
+    "member (hierarchy).",
   kind: "write",
   input: z.object({
     userId: Id,
