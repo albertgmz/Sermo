@@ -12,6 +12,7 @@ import {
   registerModerationJobs,
   registerPromotionJobs,
   registerSeoJobs,
+  registerSocialJobs,
   registerStorageJobs,
   s3Driver,
   startCheckpointer,
@@ -174,6 +175,7 @@ async function main(): Promise<void> {
   registerModerationJobs(ctx);
   registerPromotionJobs(ctx);
   registerSeoJobs(ctx);
+  registerSocialJobs(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },

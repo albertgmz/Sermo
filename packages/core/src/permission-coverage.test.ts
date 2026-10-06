@@ -28,9 +28,6 @@ const PENDING_PERMISSIONS = new Set<string>([
   // Markdown extensions (milestone 21)
   "mention.maxPerItem",
   // Watching, following, ignoring (milestone 22)
-  "member.follow",
-  "member.ignore",
-  "member.ignorable",
   // Notifications (milestone 23)
   "notification.view",
   "admin.announcements",

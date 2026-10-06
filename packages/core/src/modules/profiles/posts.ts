@@ -181,10 +181,21 @@ export const profilePostsGetOp = implement(profilePostsGet, (ctx, actor, input) 
   const row = requirePost(ctx, actor, input.profilePostId);
   return { ...postValue(ctx, actor, row), bodySource: row.body_source };
 });
+function ignoredByWall(ctx: Ctx, actor: Actor, wallId: number, authorId: number): boolean {
+  return (
+    can(ctx, actor, "member.ignorable") &&
+    !!prepared(ctx, "profiles.wallIgnored", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, number]>(
+        "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+      ),
+    ).get(wallId, authorId)
+  );
+}
 export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requireView(ctx, actor);
   requirePermission(ctx, actor, "profilePost.post");
+  if (ignoredByWall(ctx, actor, input.userId, user.userId)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
@@ -198,6 +209,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
         ).get(input.userId)
       )
         throw new NotFoundError();
+      if (ignoredByWall(ctx, actor, input.userId, user.userId)) throw new ForbiddenError();
       const post = prepared(ctx, "profiles.insertPost", () =>
         ctx.sqlite.prepare<PostRow, [number, number, string, number, string, string]>(
           "INSERT INTO profile_posts (profile_user_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",

@@ -188,6 +188,17 @@ export const conversationsGetOp = implement(conversationsGet, (ctx, actor, input
   fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId)),
 );
 
+function ignoredByRecipient(ctx: Ctx, actor: Actor, starterId: number, ids: number[]): boolean {
+  return (
+    can(ctx, actor, "member.ignorable") &&
+    !!prepared(ctx, "conversations.ignoredRecipients", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, string]>(
+        "SELECT id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) LIMIT 1",
+      ),
+    ).get(starterId, JSON.stringify(ids))
+  );
+}
+
 export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor, input) => {
   const starter = requireAuthenticated(actor);
   const permissions = permissionsOf(ctx, actor);
@@ -214,11 +225,13 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
     const message = `Unknown recipient IDs: ${missing.join(", ")}.`;
     throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
   }
+  if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
+      if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
