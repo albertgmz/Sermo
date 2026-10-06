@@ -2,8 +2,7 @@ import { type apiKey, defaultKeyHasher } from "@better-auth/api-key";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { openAPI, type username } from "better-auth/plugins";
-import type { Actor } from "../../actor";
-import { GUEST } from "../../actor";
+import { type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { authMe } from "../../contracts/auth";
 import { authPlugins, authSchemaOptions, USERNAME_PATTERN } from "../../db/auth-options";
@@ -12,6 +11,7 @@ import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
+import { PRINCIPAL_COLUMNS, type PrincipalRow, principalFromRow } from "../../permissions";
 import { iso } from "../../time";
 import { getGlobalPermissions } from "../permissions";
 
@@ -240,15 +240,28 @@ export async function revokeUserCredentials(ctx: Ctx, userId: number): Promise<v
 }
 
 type ForumUser = { group_id: number };
-function assertNotBanned(ctx: Ctx, userId: number): void {
-  const row = prepared(ctx, "auth.banStatus", () =>
-    ctx.sqlite.prepare<{ banned_until: number | null; banned_permanently: number }, [number]>(
-      "SELECT banned_until, banned_permanently FROM users WHERE id = ?1",
-    ),
+type MemberRow = PrincipalRow & { pv: number | null; tv: number | null };
+const MEMBER_SQL =
+  `SELECT ${PRINCIPAL_COLUMNS}, ` +
+  "(SELECT version FROM cache_versions WHERE key = 'permissions') AS pv, " +
+  "(SELECT version FROM cache_versions WHERE key = 'node_tree') AS tv FROM users u WHERE u.id = ?1";
+
+/**
+ * The member's primary group (repairing a missing forum row), then their permission principal
+ * (combination, ban and restriction state, cache versions) in one lookup. Refuses banned accounts.
+ */
+function memberFor(ctx: Ctx, userId: number): { groupId: number; principal: Principal } {
+  const groupId = groupFor(ctx, userId);
+  const row = prepared(ctx, "auth.member", () =>
+    ctx.sqlite.prepare<MemberRow, [number]>(MEMBER_SQL),
   ).get(userId);
   if (!row) throw new UnauthenticatedError();
   if (row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now()))
     throw new ForbiddenError("This account is banned.");
+  return {
+    groupId,
+    principal: principalFromRow(row, { permissions: row.pv ?? 0, nodeTree: row.tv ?? 0 }),
+  };
 }
 
 function groupFor(ctx: Ctx, userId: number): number {
@@ -311,10 +324,16 @@ export async function resolveActor(
     if (!/^\d+$/.test(row.reference_id)) throw new UnauthenticatedError();
     const userId = Number(row.reference_id);
     if (!Number.isSafeInteger(userId) || userId <= 0) throw new UnauthenticatedError();
-    const groupId = groupFor(ctx, userId);
-    assertNotBanned(ctx, userId);
+    const { groupId, principal } = memberFor(ctx, userId);
     return {
-      actor: { kind: "token", userId, groupId, tokenId: row.id, ...(clientIp ? { clientIp } : {}) },
+      actor: {
+        kind: "token",
+        userId,
+        groupId,
+        tokenId: row.id,
+        principal,
+        ...(clientIp ? { clientIp } : {}),
+      },
       setCookies: [],
     };
   }
@@ -333,10 +352,16 @@ export async function resolveActor(
     sessionId <= 0
   )
     throw new UnauthenticatedError();
-  const groupId = groupFor(ctx, userId);
-  assertNotBanned(ctx, userId);
+  const { groupId, principal } = memberFor(ctx, userId);
   return {
-    actor: { kind: "user", userId, groupId, sessionId, ...(clientIp ? { clientIp } : {}) },
+    actor: {
+      kind: "user",
+      userId,
+      groupId,
+      sessionId,
+      principal,
+      ...(clientIp ? { clientIp } : {}),
+    },
     setCookies: result.headers.getSetCookie(),
   };
 }

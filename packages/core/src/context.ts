@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { type Db, openDatabase, runMigrations } from "./db/connection";
 import type { SpamChecker } from "./modules/moderation/spam";
+import { syncPermissionRegistry } from "./permissions/sync";
 
 /** Header the HTTP adapter sets to the client IP it determined (never taken from the client). */
 export const CLIENT_IP_HEADER = "x-sermo-client-ip";
@@ -73,7 +74,7 @@ export interface CreateContextOptions {
 export function createContext(options: CreateContextOptions): Ctx {
   const db = openDatabase(options.path);
   if (options.migrate) runMigrations(db);
-  return {
+  const ctx: Ctx = {
     db,
     sqlite: db.$client,
     config: { ...DEFAULT_CONFIG, ...options.config },
@@ -83,6 +84,9 @@ export function createContext(options: CreateContextOptions): Ctx {
     caches: new Map(),
     statements: new Map(),
   };
+  // Permissions added to the registry since the last start get their definition and defaults.
+  if (options.migrate) syncPermissionRegistry(ctx);
+  return ctx;
 }
 
 /**

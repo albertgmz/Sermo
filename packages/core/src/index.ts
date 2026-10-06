@@ -48,5 +48,22 @@ export { migrateStorageFiles } from "./modules/storage/migrate";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";
 export { decodeCursor, encodeCursor } from "./pagination";
+export {
+  can,
+  explainPermission,
+  type FlagPermissionId,
+  type IntegerPermissionId,
+  PERMISSION_IDS,
+  PERMISSIONS,
+  type PermissionContext,
+  type PermissionId,
+  permissionState,
+  permissionsOf,
+  permissionValue,
+  requirePermission,
+  resolveAllCombinations,
+  resolvedPermissions,
+  syncPermissionRegistry,
+} from "./permissions";
 export { renderMarkdown } from "./render";
 export { iso, isoOrNull } from "./time";

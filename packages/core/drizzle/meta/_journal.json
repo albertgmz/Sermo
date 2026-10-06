@@ -78,6 +78,13 @@
       "when": 1791232000000,
       "tag": "0010_third_pass_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1791233000000,
+      "tag": "0011_permission_data",
+      "breakpoints": true
     }
   ]
 }

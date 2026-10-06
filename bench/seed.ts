@@ -59,7 +59,7 @@ export const SIZES = {
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 6;
+const SEED_VERSION = 7;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -694,7 +694,6 @@ async function generate(path: string): Promise<SeedMeta> {
   db.run(
     "INSERT INTO search_fts (rowid, title, body) SELECT p.id, CASE WHEN t.first_post_id = p.id THEN t.title ELSE '' END, b.body_source FROM posts p JOIN threads t ON t.id = p.thread_id JOIN post_bodies b ON b.post_id = p.id",
   );
-  for (const t of triggers) db.run(t.sql);
   log("search index", started);
 
   // The fake driver exercises metadata and attachment queries without allocating 300k files.
@@ -764,6 +763,7 @@ async function generate(path: string): Promise<SeedMeta> {
     forumIds,
   });
   log("third pass: groups, watches, follows, notifications", started);
+  for (const t of triggers) db.run(t.sql);
 
   db.run("ANALYZE");
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
@@ -911,9 +911,14 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const order = shuffle(rng, range(1, totalUsers));
   for (let i = 0; i < totalUsers; i++)
     userSet[order[i]!] = i < sets.length ? i : setSampler.sample(rng);
+  // Member-specific moderators: each moderates one forum through their own entries, which gives
+  // them a private combination (user_id set), as the triggers would.
+  const nodeModerators = new Map<number, number>();
+  while (nodeModerators.size < 30)
+    nodeModerators.set(rng.int(22, totalUsers), rng.pick(input.forumIds));
   const combinationIds = new Map<string, number>();
-  const combinationFor = (primary: number, set: number[]) => {
-    const key = [...new Set([primary, ...set])].sort((a, b) => a - b).join(",");
+  const combinationFor = (owner: number, primary: number, set: number[]) => {
+    const key = `${owner}|${[...new Set([primary, ...set])].sort((a, b) => a - b).join(",")}`;
     let id = combinationIds.get(key);
     if (id === undefined) {
       id = combinationIds.size + 1;
@@ -921,8 +926,9 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     }
     return id;
   };
-  combinationFor(1, []); // the guest combination
+  combinationFor(0, 1, []); // the guest combination
   tx(db, () => {
+    db.run("DELETE FROM permission_combinations");
     const primaryOf = db.prepare<{ group_id: number }, [number]>(
       "SELECT group_id FROM users WHERE id = ?1",
     );
@@ -935,12 +941,83 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
     for (let id = 1; id <= totalUsers; id++) {
       const set = sets[userSet[id]!]!;
       for (const groupId of set) insertMembership.run(id, groupId, now);
-      setCombination.run(combinationFor(primaryOf.get(id)!.group_id, set), id);
+      const owner = nodeModerators.has(id) ? id : 0;
+      setCombination.run(combinationFor(owner, primaryOf.get(id)!.group_id, set), id);
     }
     const insertCombination = db.prepare(
-      "INSERT INTO permission_combinations (id, user_id, group_ids, created_at) VALUES (?1, 0, ?2, ?3)",
+      "INSERT INTO permission_combinations (id, user_id, group_ids, created_at) VALUES (?1, ?2, ?3, ?4)",
     );
-    for (const [key, id] of combinationIds) insertCombination.run(id, key, now);
+    for (const [key, id] of combinationIds) {
+      const [owner, groupIds] = key.split("|") as [string, string];
+      insertCombination.run(id, Number(owner), groupIds, now);
+    }
+  });
+
+  // Permission entries on top of the migrated defaults: custom groups add permissions (never
+  // only on permissions no benchmark actor exercises), a third of the nodes carry overrides,
+  // and the member-specific moderators get the moderator set on their forum.
+  const definitionIds = new Map(
+    db
+      .query<{ id: number; key: string }, []>("SELECT id, key FROM permission_definitions")
+      .all()
+      .map((row) => [row.key, row.id]),
+  );
+  const additive = [
+    "forum.uploadAttachments",
+    "conversation.start",
+    "reaction.react",
+    "profilePost.post",
+    "profilePost.comment",
+    "report.create",
+    "search.use",
+    "forum.viewAttachments",
+  ];
+  const harmlessNever = [
+    "conversation.viewHidden",
+    "wordFilter.view",
+    "member.immuneToAutoBan",
+    "moderatorLog.view",
+  ];
+  const moderatorSet = [
+    "forum.viewModerated",
+    "forum.viewDeleted",
+    "forum.editAny",
+    "forum.deleteAny",
+    "forum.undelete",
+    "forum.approve",
+    "forum.lock",
+    "forum.stick",
+    "forum.move",
+  ];
+  const pickSome = (items: string[], min: number, max: number) =>
+    shuffle(rng, items).slice(0, rng.int(min, max));
+  tx(db, () => {
+    const insertEntry = db.prepare(
+      "INSERT OR IGNORE INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, ?2, ?3, ?4, ?5)",
+    );
+    const entry = (key: string, nodeId: number, groupId: number, userId: number, value: number) =>
+      insertEntry.run(definitionIds.get(key)!, nodeId, groupId, userId, value);
+    for (const groupId of customGroupIds) {
+      for (const key of pickSome(additive, 3, 8)) entry(key, 0, groupId, 0, 1);
+      if (rng.chance(0.3)) entry(rng.pick(harmlessNever), 0, groupId, 0, -1);
+      if (rng.chance(0.4)) {
+        entry("attachment.storageQuota", 0, groupId, 0, rng.int(2, 20) * 100 * 1024 * 1024);
+        entry("conversation.maxRecipients", 0, groupId, 0, rng.int(1, 10) * 10);
+      }
+    }
+    const nodeIds = db
+      .query<{ id: number }, []>("SELECT id FROM nodes ORDER BY id")
+      .all()
+      .map((row) => row.id);
+    for (const nodeId of nodeIds.filter((id) => id % 3 === 0)) {
+      entry("node.view", nodeId, 2, 0, 1);
+      entry("forum.createThread", nodeId, 2, 0, 1);
+      for (const groupId of shuffle(rng, customGroupIds).slice(0, rng.int(2, 5)))
+        for (const key of pickSome(moderatorSet, 2, 5))
+          entry(key, nodeId, groupId, 0, rng.chance(0.8) ? 1 : 0);
+    }
+    for (const [userId, forumId] of nodeModerators)
+      for (const key of moderatorSet) entry(key, forumId, 0, userId, 1);
   });
 
   // Promotions: criteria from the criteria registry; each adds one or two custom groups.

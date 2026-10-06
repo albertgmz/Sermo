@@ -111,6 +111,7 @@ for (const scenario of selected) {
     await scenario.run(env, i);
     times[i] = performance.now() - start;
   }
+  await scenario.teardown?.(env);
   times.sort();
   const q = (p: number) => times[Math.min(iterations - 1, Math.ceil(p * iterations) - 1)]!;
   const r: Result = {

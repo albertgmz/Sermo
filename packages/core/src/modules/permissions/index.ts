@@ -1,7 +1,7 @@
 import type * as z from "zod";
 import type { Actor } from "../../actor";
-import { actorGroupId, requireAuthenticated } from "../../actor";
-import { type Ctx, cached, invalidate, prepared } from "../../context";
+import { requireAuthenticated } from "../../actor";
+import { type Ctx, invalidate, prepared } from "../../context";
 import type { GlobalPermissions } from "../../contracts/auth";
 import {
   groupsList,
@@ -14,23 +14,12 @@ import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
+import { getNodeTree, permissionsOf, viewableNodeIds } from "../../permissions";
 import { appendModeratorLog } from "../moderation";
 
-export interface NodeTreeEntry {
-  id: number;
-  parentId: number | null;
-  type: "category" | "forum";
-  title: string;
-  description: string;
-  position: number;
-  depth: number;
-}
-export interface NodeTree {
-  readonly entries: readonly NodeTreeEntry[];
-  get(id: number): NodeTreeEntry | undefined;
-  ancestors(id: number): readonly NodeTreeEntry[];
-  subtreeIds(id: number): readonly number[];
-}
+export type { NodeTree, NodeTreeEntry } from "../../permissions";
+export { getNodeTree } from "../../permissions";
+
 export interface NodeAccess {
   view: boolean;
   post: boolean;
@@ -56,7 +45,6 @@ type OverrideRow = {
   can_post: number | null;
   can_moderate: number | null;
 };
-const denied: NodeAccess = Object.freeze({ view: false, post: false, moderate: false });
 const groupRows = (ctx: Ctx) =>
   prepared(ctx, "permissions.groups", () =>
     ctx.sqlite.prepare<GroupRow, []>("SELECT * FROM groups ORDER BY id"),
@@ -81,150 +69,26 @@ const overrideValue = (r: OverrideRow) => ({
   canModerate: r.can_moderate == null ? null : !!r.can_moderate,
 });
 
-export function getNodeTree(ctx: Ctx): NodeTree {
-  return cached(ctx, "node_tree", () => {
-    const rows = ctx.sqlite
-      .prepare<Omit<NodeTreeEntry, "depth">, []>(
-        "SELECT id, parent_id AS parentId, type, title, description, position FROM nodes ORDER BY position, id",
-      )
-      .all();
-    const children = new Map<number | null, typeof rows>();
-    for (const row of rows) {
-      const list = children.get(row.parentId) ?? [];
-      list.push(row);
-      children.set(row.parentId, list);
-    }
-    const entries: NodeTreeEntry[] = [];
-    const byId = new Map<number, NodeTreeEntry>();
-    const walk = (parent: number | null, depth: number) => {
-      for (const row of children.get(parent) ?? []) {
-        const entry = { ...row, depth };
-        entries.push(entry);
-        byId.set(entry.id, entry);
-        walk(entry.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    return {
-      entries,
-      get: (id: number) => byId.get(id),
-      ancestors(id: number) {
-        const result: NodeTreeEntry[] = [];
-        let parent = byId.get(id)?.parentId;
-        while (parent != null) {
-          const entry = byId.get(parent);
-          if (!entry) break;
-          result.unshift(entry);
-          parent = entry.parentId;
-        }
-        return result;
-      },
-      subtreeIds(id: number) {
-        if (!byId.has(id)) return [];
-        const result: number[] = [];
-        const visit = (nodeId: number) => {
-          result.push(nodeId);
-          for (const child of children.get(nodeId) ?? []) visit(child.id);
-        };
-        visit(id);
-        return result;
-      },
-    };
+export function getNodeAccess(ctx: Ctx, actor: Actor): (nodeId: number) => NodeAccess {
+  const permissions = permissionsOf(ctx, actor);
+  return (nodeId) => ({
+    view: permissions.can("node.view", { nodeId }),
+    post: permissions.can("forum.createThread", { nodeId }),
+    moderate: permissions.can("forum.deleteAny", { nodeId }),
   });
 }
-
-type PermissionCache = {
-  tree: NodeTree;
-  globals: Map<number, GlobalPermissionsValue>;
-  nodes: Map<number, Map<number, NodeAccess>>;
-};
-function permissionCache(ctx: Ctx): PermissionCache {
-  const tree = getNodeTree(ctx);
-  const build = (): PermissionCache => {
-    const overrides = ctx.sqlite
-      .prepare<OverrideRow, []>(
-        "SELECT node_id, group_id, can_view, can_post, can_moderate FROM node_permissions",
-      )
-      .all();
-    const byGroup = new Map<number, Map<number, OverrideRow>>();
-    for (const row of overrides) {
-      const map = byGroup.get(row.group_id) ?? new Map();
-      map.set(row.node_id, row);
-      byGroup.set(row.group_id, map);
-    }
-    const globals = new Map<number, GlobalPermissionsValue>();
-    const nodes = new Map<number, Map<number, NodeAccess>>();
-    for (const group of groupRows(ctx)) {
-      const guest = group.id === GROUP_IDS.guest;
-      const admin = !guest && !!group.is_admin;
-      globals.set(group.id, {
-        isAdmin: admin,
-        isModerator: admin || (!guest && !!group.is_moderator),
-        canViewProfiles: admin || !!group.can_view_profiles,
-        canPostProfile: !guest && (admin || !!group.can_post_profile),
-        canStartConversations: !guest && (admin || !!group.can_start_conversations),
-        canReact: !guest && (admin || !!group.can_react),
-      });
-      const access = new Map<number, NodeAccess>();
-      const raw = new Map<number, NodeAccess>();
-      for (const node of tree.entries) {
-        const parentRaw = node.parentId == null ? undefined : raw.get(node.parentId);
-        const parentAccess = node.parentId == null ? undefined : access.get(node.parentId);
-        const override = byGroup.get(group.id)?.get(node.id);
-        const values = {
-          view:
-            override?.can_view == null
-              ? (parentRaw?.view ?? !!group.can_view_nodes)
-              : !!override.can_view,
-          post:
-            override?.can_post == null
-              ? (parentRaw?.post ?? !!group.can_post)
-              : !!override.can_post,
-          moderate:
-            override?.can_moderate == null
-              ? (parentRaw?.moderate ?? !!group.is_moderator)
-              : !!override.can_moderate,
-        };
-        raw.set(node.id, values);
-        const view = admin || (values.view && (parentAccess?.view ?? true));
-        access.set(node.id, {
-          view,
-          post: admin || (!guest && view && values.post),
-          moderate: admin || (!guest && view && values.moderate),
-        });
-      }
-      nodes.set(group.id, access);
-    }
-    return { tree, globals, nodes };
-  };
-  const result = cached(ctx, "permissions", build);
-  if (result.tree === tree) return result;
-  const refreshed = build();
-  const entry = ctx.caches.get("permissions");
-  if (entry) entry.value = refreshed;
-  return refreshed;
-}
-export function getNodeAccess(ctx: Ctx, actor: Actor): (nodeId: number) => NodeAccess {
-  const access = permissionCache(ctx).nodes.get(actorGroupId(actor));
-  return (nodeId) => access?.get(nodeId) ?? denied;
-}
 export function getGlobalPermissions(ctx: Ctx, actor: Actor): GlobalPermissionsValue {
-  return (
-    permissionCache(ctx).globals.get(actorGroupId(actor)) ?? {
-      isAdmin: false,
-      isModerator: false,
-      canViewProfiles: false,
-      canPostProfile: false,
-      canStartConversations: false,
-      canReact: false,
-    }
-  );
+  const permissions = permissionsOf(ctx, actor);
+  return {
+    isAdmin: permissions.can("admin.permissions"),
+    isModerator: permissions.can("moderation.access"),
+    canViewProfiles: permissions.can("profile.view"),
+    canPostProfile: permissions.can("profilePost.post"),
+    canStartConversations: permissions.can("conversation.start"),
+    canReact: permissions.can("reaction.react"),
+  };
 }
-export function viewableNodeIds(ctx: Ctx, actor: Actor): readonly number[] {
-  const cache = permissionCache(ctx);
-  const access = cache.nodes.get(actorGroupId(actor));
-  return cache.tree.entries.filter((entry) => access?.get(entry.id)?.view).map((entry) => entry.id);
-}
+export { viewableNodeIds };
 export function requireAdmin(ctx: Ctx, actor: Actor): void {
   requireAuthenticated(actor);
   if (!getGlobalPermissions(ctx, actor).isAdmin) throw new ForbiddenError();

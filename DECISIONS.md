@@ -431,3 +431,66 @@ original content is unchanged by the random sequence. The extended seed adds 35 
 most one unread row per group key), 440,000 thread watches (20,006 on one thread), 60,000 node
 watches (50,033 on one forum), 100,000 follows and 50,000 ignores, with every denormalized counter
 computed as the services maintain it. Seeding takes about 72 s and 3.2 GB.
+
+## Milestone 18: permission core
+
+**Permissions are data, resolved like XenForo's.** `src/permissions/registry.ts` declares every
+permission once: scope (global or node), type (yes/no or integer), defaults for the built-in
+groups, and its conditions (needs an account, restriction kind, own content, time window, rank
+hierarchy, thread ban). Entries (`permission_entries`) target one group or one member, globally
+or on a node. Per group, the nearest node entry wins (node, then ancestors, then global); across
+groups any `never` denies, otherwise any `allow` grants; `no` only clears an inherited allow for
+that group. Integers take the highest value, -1 meaning unlimited. Nothing in a node is
+permitted without view there, and a node needs its ancestors' view. Bans and restrictions are
+checked first and override every grant. Rank never affects resolution.
+
+**One check API.** `can`, `requirePermission`, `permissionValue`, `permissionsOf` (resolve once
+for a page of checks), `resolvedPermissions` and `explainPermission`. A check whose context lacks
+a field its permission declares (node, owner, creation time, target, thread ban) throws, so a
+condition cannot be skipped silently.
+
+**Combinations, as in XenForo.** A combination is a sorted set of group ids plus, for members with
+member-specific entries, their user id (a private combination). `users.permission_combination_id`
+is maintained by SQLite triggers on users, secondary groups, promotion grants and member entries,
+so every writer (services, another process, raw SQL) keeps it correct.
+
+**Checks run no query.** Actor resolution reads the principal (combination, ban and restriction
+state, account age, post count, cache versions) with the member row; checks are in-memory bit
+lookups. Resolution keeps the existing `SELECT group_id FROM users` lookup and replaces the ban
+lookup with the principal lookup, so a signed-in request still costs two primary-key lookups.
+Guests and internal actors without a principal read the two cache versions in one lookup per
+resolve, fewer than the two version lookups per call before.
+
+**Rebuilds touch only what changed and never block a request on all combinations.** Entries load
+per layer (one group's or one member's entries) and each layer resolves node inheritance once.
+Every entry change bumps its layer's version (triggers); when the `permissions` cache version
+moves, a process reloads only the layers whose version changed and drops the combinations built
+from them. Combinations resolve lazily on first use (microseconds) and in background batches of
+100 that yield to the event loop. A full rebuild of every layer and all 3,050 seeded
+combinations takes about 15 ms; reads while every layer is invalidated every 10 ms stay at p95
+0.6 ms. The state is never stored from inside a transaction.
+
+**The data migration is generated from the registry.** `0011_permission_data.sql` stores the
+definitions as of this pass, translates the legacy group flags (`is_admin` became every yes/no
+permission; `is_moderator`, `can_post` and the others map to the permissions listed with that
+flag in the registry), node overrides (`can_view`/`can_post`/`can_moderate` become node entries,
+true as allow and false as `no`), and the upload quota setting (a missing group key meant no
+quota, now -1). Overrides on administrator groups had no effect and are not translated. Later
+registry additions are stored at startup by `syncPermissionRegistry`, which applies their
+built-in defaults once and never touches existing entries. A test checks that the migrated
+built-in groups hold exactly the registry defaults.
+
+**Legacy columns are write-through shims.** The old `groups` flag columns and `node_permissions`
+rows stay, and triggers mirror writes to them into entries. Existing tests write them directly,
+and they must keep passing unchanged; nothing reads the old columns. Removing them (and those
+test setups) is a later cleanup for the owner to schedule.
+
+**Hierarchy applies to actions aimed at a member** (warn, ban, spam cleanup, thread ban, changing
+groups, and restrictions in phase 2): the actor's highest rank must be strictly above the
+target's. Routine content moderation inside a node a moderator moderates is not rank-checked;
+reading "moderate anyone" as covering every post would stop moderators handling each other's
+posts. Needs owner review.
+
+**Permission ids are flat strings grouped by area** (`forum.reply`, `profilePost.editAny`,
+`admin.permissions`). Phrase keys for labels and descriptions are `permission.<id>` and
+`permission.<id>.description`.
