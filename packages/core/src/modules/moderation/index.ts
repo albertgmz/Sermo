@@ -8,55 +8,70 @@ import type { ContentStateValue } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
-import { implement } from "../../operation";
+import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import {
+  can,
+  currentVersions,
+  type FlagPermissionId,
+  memberActor,
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  permissionsOf,
+  requirePermission,
+} from "../../permissions";
 import { iso } from "../../time";
 import { revokeUserCredentials } from "../auth";
 import { forumSql } from "../forums";
 import { enqueueJob, registerJobHandler } from "../jobs";
-import { getGlobalPermissions, getNodeAccess } from "../permissions";
 import { readSiteSettings } from "../settings";
 
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
 export { akismetChecker, disabledSpamChecker, stopForumSpamChecker } from "./spam";
 
 /** Optional external verdict, obtained before the synchronous content transaction. */
-export async function checkContentSpam(
-  ctx: Ctx,
-  actor: Actor,
-  body: string,
-  kind: "forum-post" | "reply" | "message",
-): Promise<boolean> {
-  const checker = ctx.config.spamChecker;
-  if (!checker) return false;
-  const user = requireAuthenticated(actor);
-  if (!user.clientIp) throw new ValidationError("A client IP is required for spam checks.");
-  const identity = ctx.sqlite
-    .prepare<{ username: string; email: string }, [number]>(
-      "SELECT u.username, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
-    )
-    .get(user.userId);
-  if (!identity) throw new NotFoundError();
-  const verdict = await checker.check({
-    ip: user.clientIp,
-    username: identity.username,
-    email: identity.email,
-    body,
-    kind,
-  });
-  return verdict.spam;
-}
+export const checkContentSpam = markPublic(
+  "Content callers authorize submissions before spam checks.",
+  async function checkContentSpam(
+    ctx: Ctx,
+    actor: Actor,
+    body: string,
+    kind: "forum-post" | "reply" | "message",
+  ): Promise<boolean> {
+    const checker = ctx.config.spamChecker;
+    if (!checker) return false;
+    const user = requireAuthenticated(actor);
+    if (!user.clientIp) throw new ValidationError("A client IP is required for spam checks.");
+    const identity = ctx.sqlite
+      .prepare<{ username: string; email: string }, [number]>(
+        "SELECT u.username, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+      )
+      .get(user.userId);
+    if (!identity) throw new NotFoundError();
+    const verdict = await checker.check({
+      ip: user.clientIp,
+      username: identity.username,
+      email: identity.email,
+      body,
+      kind,
+    });
+    return verdict.spam;
+  },
+);
 
-export function withSpamCheck<T>(
-  ctx: Ctx,
-  actor: Actor,
-  body: string,
-  kind: "forum-post" | "reply" | "message",
-  write: (spam: boolean) => T,
-): T | Promise<T> {
-  if (!ctx.config.spamChecker) return write(false);
-  return checkContentSpam(ctx, actor, body, kind).then(write);
-}
+export const withSpamCheck = markPublic(
+  "Content callers authorize submissions before spam checks.",
+  function withSpamCheck<T>(
+    ctx: Ctx,
+    actor: Actor,
+    body: string,
+    kind: "forum-post" | "reply" | "message",
+    write: (spam: boolean) => T,
+  ): T | Promise<T> {
+    if (!ctx.config.spamChecker) return write(false);
+    return checkContentSpam(ctx, actor, body, kind).then(write);
+  },
+);
 
 export type TargetType =
   | "post"
@@ -100,15 +115,27 @@ type QueueTarget = {
   target_exists?: number | null;
 };
 
-function filterModeratable<T extends QueueTarget>(ctx: Ctx, actor: Actor, rows: T[]): T[] {
-  const flags = getGlobalPermissions(ctx, actor);
-  const nodeAccess = getNodeAccess(ctx, actor);
+function filterModeratable<T extends QueueTarget>(
+  ctx: Ctx,
+  actor: Actor,
+  rows: T[],
+  queue: "reports" | "approvals",
+): T[] {
+  const grants = permissionsOf(ctx, actor);
   return rows.filter((row) => {
     if (row.target_exists === null) return false;
     if (row.type === "thread" || row.type === "post")
-      return row.node_id != null && nodeAccess(row.node_id).moderate;
-    if (row.type === "conversation_message") return flags.isAdmin && row.conversation_id != null;
-    return flags.isModerator;
+      return (
+        row.node_id != null &&
+        grants.can(queue === "reports" ? "forum.manageReports" : "forum.approve", {
+          nodeId: row.node_id,
+        })
+      );
+    if (row.type === "conversation_message")
+      return row.conversation_id != null && grants.can("conversation.moderate");
+    return grants.can(
+      queue === "reports" || row.type === "user" ? "report.manageProfiles" : "profilePost.approve",
+    );
   });
 }
 
@@ -126,15 +153,20 @@ function read<T>(
 function exec(ctx: Ctx, key: string, sql: string, ...args: (SQLQueryBindings | undefined)[]) {
   return query(ctx, key, sql).run(...args.map((arg) => arg ?? null));
 }
-function moderator(ctx: Ctx, actor: Actor): number {
+function requireGlobal(ctx: Ctx, actor: Actor, id: FlagPermissionId): number {
   const user = requireAuthenticated(actor);
-  if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
+  requirePermission(ctx, actor, id);
   return user.userId;
 }
-function admin(ctx: Ctx, actor: Actor): number {
-  const user = requireAuthenticated(actor);
-  if (!getGlobalPermissions(ctx, actor).isAdmin) throw new ForbiddenError();
-  return user.userId;
+function principalMember(ctx: Ctx, userId: number): Actor {
+  const row = read<PrincipalRow & { id: number; group_id: number }>(
+    ctx,
+    "principalMember",
+    `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
+    userId,
+  );
+  if (!row) throw new NotFoundError();
+  return memberActor(row.id, row.group_id, row, currentVersions(ctx));
 }
 function targetRow(ctx: Ctx, target: Target | Content): Row {
   const { type, id } = target;
@@ -161,39 +193,32 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
       "SELECT state, user_id FROM threads WHERE id = ?1",
       row.thread_id,
     );
-    const access = getNodeAccess(ctx, actor)(row.node_id!);
+    const grants = permissionsOf(ctx, actor);
+    const visible = (state: ContentStateValue, ownerId: number) =>
+      state === "visible" ||
+      (state === "moderated"
+        ? ownerId === viewer || grants.can("forum.viewModerated", { nodeId: row.node_id! })
+        : grants.can("forum.viewDeleted", { nodeId: row.node_id! }));
     if (
-      !access.view ||
+      !grants.can("node.view", { nodeId: row.node_id! }) ||
       !thread ||
-      (!access.moderate &&
-        thread.state !== "visible" &&
-        !(thread.state === "moderated" && thread.user_id === viewer))
+      !visible(thread.state, thread.user_id)
     )
       throw new NotFoundError();
-    if (
-      !access.moderate &&
-      row.state !== "visible" &&
-      !(row.state === "moderated" && row.user_id === viewer)
-    )
-      throw new NotFoundError();
+    if (!visible(row.state, row.user_id)) throw new NotFoundError();
   } else if (target.type === "profile_post" || target.type === "profile_post_comment") {
-    const flags = getGlobalPermissions(ctx, actor);
-    if (!flags.canViewProfiles) throw new NotFoundError();
+    const grants = permissionsOf(ctx, actor);
+    if (!grants.can("profile.view")) throw new NotFoundError();
+    const visible = (state: ContentStateValue, ownerId: number) =>
+      state === "visible" ||
+      (state === "moderated"
+        ? ownerId === viewer || grants.can("profilePost.viewModerated")
+        : grants.can("profilePost.viewDeleted"));
     if (target.type === "profile_post_comment") {
       const parent = targetRow(ctx, { type: "profile_post", id: row.profile_post_id! });
-      if (
-        !flags.isModerator &&
-        parent.state !== "visible" &&
-        !(parent.state === "moderated" && parent.user_id === viewer)
-      )
-        throw new NotFoundError();
+      if (!visible(parent.state, parent.user_id)) throw new NotFoundError();
     }
-    if (
-      !flags.isModerator &&
-      row.state !== "visible" &&
-      !(row.state === "moderated" && row.user_id === viewer)
-    )
-      throw new NotFoundError();
+    if (!visible(row.state, row.user_id)) throw new NotFoundError();
   } else if (target.type === "conversation_message") {
     if (
       viewer == null ||
@@ -208,52 +233,97 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
       throw new NotFoundError();
     if (row.state !== "visible" && row.user_id !== viewer) throw new NotFoundError();
   }
-  if (target.type === "user" && !getGlobalPermissions(ctx, actor).canViewProfiles)
-    throw new NotFoundError();
+  if (target.type === "user" && !can(ctx, actor, "profile.view")) throw new NotFoundError();
   return row;
 }
-function requireContentModerator(ctx: Ctx, actor: Actor, target: Content | Target): Row {
-  const row = targetRow(ctx, target);
+type ContentAction =
+  | "report"
+  | "delete"
+  | "restore"
+  | "approve"
+  | "edit"
+  | "history"
+  | "move"
+  | "lock";
+function requireContentModerator(
+  ctx: Ctx,
+  actor: Actor,
+  target: Content | Target,
+  action: ContentAction,
+  row = targetRow(ctx, target),
+): Row {
   if (target.type === "user") {
-    if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
+    requirePermission(ctx, actor, "report.manageProfiles");
   } else if (target.type === "post" || target.type === "thread") {
-    if (!getNodeAccess(ctx, actor)(row.node_id!).moderate) throw new NotFoundError();
+    const id =
+      action === "report"
+        ? "forum.manageReports"
+        : action === "delete"
+          ? "forum.deleteAny"
+          : action === "restore"
+            ? "forum.undelete"
+            : action === "approve"
+              ? "forum.approve"
+              : action === "edit"
+                ? "forum.editAny"
+                : action === "history"
+                  ? "forum.viewHistory"
+                  : action === "move"
+                    ? "forum.move"
+                    : "forum.lock";
+    requirePermission(ctx, actor, id, { nodeId: row.node_id! }, { notFound: true });
   } else if (target.type === "conversation_message") {
-    if (!getGlobalPermissions(ctx, actor).isAdmin) throw new ForbiddenError();
-  } else if (!getGlobalPermissions(ctx, actor).isModerator) throw new ForbiddenError();
+    requirePermission(ctx, actor, "conversation.moderate");
+  } else {
+    const id =
+      action === "report"
+        ? "report.manageProfiles"
+        : action === "delete"
+          ? "profilePost.deleteAny"
+          : action === "restore"
+            ? "profilePost.undelete"
+            : action === "approve"
+              ? "profilePost.approve"
+              : "profilePost.editAny";
+    requirePermission(ctx, actor, id);
+  }
   return row;
 }
 
 /** Append within the caller's write transaction. This function never updates or deletes log rows. */
-export function appendModeratorLog(
-  ctx: Ctx,
-  actor: Actor,
-  action: string,
-  targetType: string,
-  targetId: number,
-  reason = "",
-  details: Record<string, unknown> = {},
-): number {
-  const actorId = requireAuthenticated(actor).userId;
-  return Number(
-    exec(
-      ctx,
-      "logInsert",
-      "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-      actorId,
-      action,
-      targetType,
-      targetId,
-      reason,
-      JSON.stringify(details),
-      ctx.now(),
-    ).lastInsertRowid,
-  );
-}
+export const appendModeratorLog = markPublic(
+  "Callers authorize the action before writing its audit entry.",
+  function appendModeratorLog(
+    ctx: Ctx,
+    actor: Actor,
+    action: string,
+    targetType: string,
+    targetId: number,
+    reason = "",
+    details: Record<string, unknown> = {},
+  ): number {
+    const actorId = requireAuthenticated(actor).userId;
+    return Number(
+      exec(
+        ctx,
+        "logInsert",
+        "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        actorId,
+        action,
+        targetType,
+        targetId,
+        reason,
+        JSON.stringify(details),
+        ctx.now(),
+      ).lastInsertRowid,
+    );
+  },
+);
 
 export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: string) {
   const userId = requireAuthenticated(actor).userId;
   if (!reason.trim()) throw new ValidationError("A report reason is required.");
+  requirePermission(ctx, actor, "report.create");
   visibleTarget(ctx, actor, target);
   return writeTx(ctx, () => {
     visibleTarget(ctx, actor, target);
@@ -320,7 +390,7 @@ export function listReports(
     "reportQueue",
     "SELECT g.*, g.target_type AS type, pt.node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE g.state = ?1 AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4",
   ).all(input.state ?? "open", at, id, limit + 1);
-  const items = filterModeratable(ctx, actor, rows.slice(0, limit)).map(
+  const items = filterModeratable(ctx, actor, rows.slice(0, limit), "reports").map(
     ({
       type: _type,
       node_id: _nodeId,
@@ -345,7 +415,7 @@ export function getReportGroup(ctx: Ctx, actor: Actor, groupId: number) {
     groupId,
   );
   if (!group) throw new NotFoundError();
-  requireContentModerator(ctx, actor, { type: group.target_type, id: group.target_id });
+  requireContentModerator(ctx, actor, { type: group.target_type, id: group.target_id }, "report");
   const items = query<{ id: number; reporter_id: number; reason: string; created_at: number }>(
     ctx,
     "reportDetails",
@@ -371,22 +441,15 @@ export function setReportState(
       groupId,
     );
     if (!group) throw new NotFoundError();
-    requireContentModerator(ctx, actor, { type: group.target_type, id: group.target_id });
+    requireContentModerator(ctx, actor, { type: group.target_type, id: group.target_id }, "report");
     if (state === "assigned" && assigneeId != null) {
-      const assignee = read<{ id: number; group_id: number }>(
+      const assignedActor = principalMember(ctx, assigneeId);
+      requireContentModerator(
         ctx,
-        "assignee",
-        "SELECT id, group_id FROM users WHERE id = ?1",
-        assigneeId,
+        assignedActor,
+        { type: group.target_type, id: group.target_id },
+        "report",
       );
-      if (!assignee) throw new NotFoundError();
-      const assignedActor: Actor = {
-        kind: "user",
-        userId: assignee.id,
-        groupId: assignee.group_id,
-        sessionId: 0,
-      };
-      requireContentModerator(ctx, assignedActor, { type: group.target_type, id: group.target_id });
     }
     const now = ctx.now();
     exec(
@@ -461,7 +524,7 @@ export function listApprovals(
     .filter((row) => row.id < cursorId || (row.id === cursorId && row.type < cursorType))
     .sort((a, b) => b.id - a.id || b.type.localeCompare(a.type));
   const page = candidates.slice(0, limit);
-  const items = filterModeratable(ctx, actor, page);
+  const items = filterModeratable(ctx, actor, page, "approvals");
   const last = page.at(-1);
   return {
     items,
@@ -474,7 +537,7 @@ export function listModeratorLog(
   actor: Actor,
   input: { cursor?: string | null; limit?: number } = {},
 ) {
-  admin(ctx, actor);
+  requireGlobal(ctx, actor, "moderatorLog.view");
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
@@ -539,8 +602,12 @@ function refreshNodeLast(ctx: Ctx, nodeId: number) {
     nodeId,
   );
 }
-function stateChange(ctx: Ctx, target: Content, state: ContentStateValue) {
-  const row = targetRow(ctx, target);
+function stateChange(
+  ctx: Ctx,
+  target: Content,
+  state: ContentStateValue,
+  row = targetRow(ctx, target),
+) {
   if (row.state === state) return false;
   if (target.type === "post" && row.id === row.first_post_id)
     throw new ValidationError("Change the thread state instead of its first post.");
@@ -667,8 +734,15 @@ export function moderateContent(
 ) {
   requireAuthenticated(actor);
   return writeTx(ctx, () => {
-    requireContentModerator(ctx, actor, target);
-    const changed = stateChange(ctx, target, state);
+    const row = targetRow(ctx, target);
+    requireContentModerator(
+      ctx,
+      actor,
+      target,
+      state === "deleted" ? "delete" : row.state === "deleted" ? "restore" : "approve",
+      row,
+    );
+    const changed = stateChange(ctx, target, state, row);
     appendModeratorLog(ctx, actor, `content.${state}`, target.type, target.id, reason, { changed });
     return { changed };
   });
@@ -678,15 +752,11 @@ export function moderateContent(
 export function moderateEditedContent(ctx: Ctx, actor: Actor, target: Content): void {
   const userId = requireAuthenticated(actor).userId;
   const row = targetRow(ctx, target);
-  if (row.user_id !== userId) requireContentModerator(ctx, actor, target);
-  if (row.state === "visible")
-    stateChange(
-      ctx,
-      target.type === "post" && row.id === row.first_post_id
-        ? { type: "thread", id: row.thread_id! }
-        : target,
-      "moderated",
-    );
+  if (row.user_id !== userId) requireContentModerator(ctx, actor, target, "edit", row);
+  if (row.state !== "visible") return;
+  if (target.type === "post" && row.id === row.first_post_id)
+    stateChange(ctx, { type: "thread", id: row.thread_id! }, "moderated");
+  else stateChange(ctx, target, "moderated", row);
 }
 
 /** All items are validated and changed in one transaction; an invalid item rolls back the batch. */
@@ -710,14 +780,21 @@ export function bulkModerate(
     if (action === "move") {
       if (
         nodeId == null ||
-        !getNodeAccess(ctx, actor)(nodeId).moderate ||
+        !can(ctx, actor, "forum.move", { nodeId }) ||
         !read(ctx, "forumNode", "SELECT id FROM nodes WHERE id = ?1 AND type = 'forum'", nodeId)
       )
         throw new NotFoundError();
     }
     let changed = 0;
     for (const target of targets) {
-      const row = requireContentModerator(ctx, actor, target);
+      const current = targetRow(ctx, target);
+      const permissionAction =
+        action === "restore" && current.state === "moderated"
+          ? "approve"
+          : action === "unlock"
+            ? "lock"
+            : action;
+      const row = requireContentModerator(ctx, actor, target, permissionAction, current);
       if (action === "move") {
         if (row.node_id === nodeId) {
           appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
@@ -777,7 +854,7 @@ export function bulkModerate(
       } else {
         if (action === "approve" && row.state !== "moderated")
           throw new ConflictError("Only moderated content can be approved.");
-        if (!stateChange(ctx, target, action === "delete" ? "deleted" : "visible")) {
+        if (!stateChange(ctx, target, action === "delete" ? "deleted" : "visible", row)) {
           appendModeratorLog(ctx, actor, `bulk.${action}`, target.type, target.id, reason, {
             changed: false,
           });
@@ -831,44 +908,42 @@ export function applyWordFilters(ctx: Ctx, source: string): { source: string; mo
 export const applyWordFilter = applyWordFilters;
 
 /** Evaluate configurable approval rules before rendering, then recheck the decision in the write transaction. */
-export function prepareModeratedContent(
-  ctx: Ctx,
-  actor: Actor,
-  source: string,
-  forumPost: boolean,
-) {
-  const userId = requireAuthenticated(actor).userId;
-  const filtered = applyWordFilters(ctx, source);
-  const settings = readSiteSettings(ctx);
-  const user = read<{ created_at: number }>(
-    ctx,
-    "authorCreated",
-    "SELECT created_at FROM users WHERE id = ?1",
-    userId,
-  );
-  if (!user) throw new NotFoundError();
-  const newMember = user.created_at > ctx.now() - settings.newMemberDays * 86_400_000;
-  const firstPosts =
-    forumPost &&
-    settings.firstPostsToModerate > 0 &&
-    query<{ id: number }>(
+export const prepareModeratedContent = markPublic(
+  "Content callers authorize submissions before approval rules.",
+  function prepareModeratedContent(ctx: Ctx, actor: Actor, source: string, forumPost: boolean) {
+    const userId = requireAuthenticated(actor).userId;
+    const filtered = applyWordFilters(ctx, source);
+    const settings = readSiteSettings(ctx);
+    const user = read<{ created_at: number }>(
       ctx,
-      "authorPostSample",
-      "SELECT id FROM posts WHERE user_id = ?1 ORDER BY id LIMIT ?2",
-    ).all(userId, settings.firstPostsToModerate).length < settings.firstPostsToModerate;
-  return {
-    source: filtered.source,
-    moderated:
-      filtered.moderated ||
-      firstPosts ||
-      (settings.moderateLinksFromNewMembers &&
-        newMember &&
-        /(?:https?:\/\/|www\.)/i.test(filtered.source)),
-  };
-}
+      "authorCreated",
+      "SELECT created_at FROM users WHERE id = ?1",
+      userId,
+    );
+    if (!user) throw new NotFoundError();
+    const newMember = user.created_at > ctx.now() - settings.newMemberDays * 86_400_000;
+    const firstPosts =
+      forumPost &&
+      settings.firstPostsToModerate > 0 &&
+      query<{ id: number }>(
+        ctx,
+        "authorPostSample",
+        "SELECT id FROM posts WHERE user_id = ?1 ORDER BY id LIMIT ?2",
+      ).all(userId, settings.firstPostsToModerate).length < settings.firstPostsToModerate;
+    return {
+      source: filtered.source,
+      moderated:
+        filtered.moderated ||
+        firstPosts ||
+        (settings.moderateLinksFromNewMembers &&
+          newMember &&
+          /(?:https?:\/\/|www\.)/i.test(filtered.source)),
+    };
+  },
+);
 
 export function upsertWordFilter(ctx: Ctx, actor: Actor, filter: Filter) {
-  admin(ctx, actor);
+  requireGlobal(ctx, actor, "wordFilter.manage");
   const term = filter.term.trim();
   if (!term) throw new ValidationError("A filter term is required.");
   if (filter.action === "replace" && filter.replacement == null)
@@ -897,7 +972,7 @@ export function upsertWordFilter(ctx: Ctx, actor: Actor, filter: Filter) {
 }
 
 export function removeWordFilter(ctx: Ctx, actor: Actor, id: number) {
-  admin(ctx, actor);
+  requireGlobal(ctx, actor, "wordFilter.manage");
   return writeTx(ctx, () => {
     const row = read<{ id: number }>(
       ctx,
@@ -913,7 +988,7 @@ export function removeWordFilter(ctx: Ctx, actor: Actor, id: number) {
 }
 
 export function listWordFilters(ctx: Ctx, actor: Actor) {
-  moderator(ctx, actor);
+  requireGlobal(ctx, actor, "wordFilter.view");
   return { items: query(ctx, "allFilters", "SELECT * FROM word_filters ORDER BY id").all() };
 }
 
@@ -921,7 +996,8 @@ export function listWordFilters(ctx: Ctx, actor: Actor) {
 export function recordPostRevision(ctx: Ctx, actor: Actor, postId: number): number {
   const editorId = requireAuthenticated(actor).userId;
   const post = targetRow(ctx, { type: "post", id: postId });
-  if (post.user_id !== editorId) requireContentModerator(ctx, actor, { type: "post", id: postId });
+  if (post.user_id !== editorId)
+    requireContentModerator(ctx, actor, { type: "post", id: postId }, "edit", post);
   const body = read<{ body_source: string; body_html: string }>(
     ctx,
     "revisionSource",
@@ -951,7 +1027,7 @@ export function listPostRevisions(
   postId: number,
   input: { cursor?: string | null; limit?: number } = {},
 ) {
-  requireContentModerator(ctx, actor, { type: "post", id: postId });
+  requireContentModerator(ctx, actor, { type: "post", id: postId }, "history");
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
@@ -975,18 +1051,13 @@ export function addWarning(
   reason: string,
   expiresAt: number | null = null,
 ) {
-  moderator(ctx, actor);
+  requireAuthenticated(actor);
+  requirePermission(ctx, actor, "member.warn", { target: principalMember(ctx, userId) });
   if (!Number.isInteger(points) || points <= 0 || !reason.trim())
     throw new ValidationError("Positive points and a reason are required.");
   return writeTx(ctx, () => {
-    const target = read<{ id: number; is_admin: number }>(
-      ctx,
-      "warningTarget",
-      "SELECT u.id, g.is_admin FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1",
-      userId,
-    );
-    if (!target) throw new NotFoundError();
-    if (target.is_admin && !getGlobalPermissions(ctx, actor).isAdmin) throw new ForbiddenError();
+    const target = principalMember(ctx, userId);
+    requirePermission(ctx, actor, "member.warn", { target });
     const now = ctx.now();
     const id = Number(
       exec(
@@ -1015,7 +1086,7 @@ export function addWarning(
     )!.n;
     const settings = readSiteSettings(ctx);
     const threshold = settings.warningBanThreshold;
-    if (threshold > 0 && activePoints >= threshold && !target.is_admin) {
+    if (threshold > 0 && activePoints >= threshold && !can(ctx, target, "member.immuneToAutoBan")) {
       const expires = now + settings.warningBanDays * 86_400_000;
       exec(
         ctx,
@@ -1058,36 +1129,47 @@ export function banUser(
   reason: string,
   expiresAt: number | null,
 ) {
-  admin(ctx, actor);
+  requireAuthenticated(actor);
+  requirePermission(ctx, actor, "member.ban", { target: principalMember(ctx, userId) });
   if (!reason.trim() || (expiresAt != null && expiresAt <= ctx.now()))
     throw new ValidationError("A reason and future expiry are required.");
   return writeTx(ctx, () => {
-    if (!read(ctx, "userExists", "SELECT id FROM users WHERE id = ?1", userId))
-      throw new NotFoundError();
+    const target = principalMember(ctx, userId);
+    requirePermission(ctx, actor, "member.ban", { target });
     if (userId === actorUserId(actor)) throw new ForbiddenError();
-    const now = ctx.now();
-    const id = Number(
-      exec(
-        ctx,
-        "banInsert",
-        "INSERT INTO bans (user_id, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        userId,
-        actorUserId(actor),
-        reason,
-        now,
-        expiresAt,
-      ).lastInsertRowid,
-    );
-    refreshBanState(ctx, userId, now);
-    appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
-    enqueueJob(
-      ctx,
-      "moderation.revokeCredentials",
-      { userId },
-      { uniqueKey: `moderation.revokeCredentials.${id}` },
-    );
-    return { id };
+    return insertBan(ctx, actor, userId, reason, expiresAt);
   });
+}
+
+function insertBan(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  reason: string,
+  expiresAt: number | null,
+) {
+  const now = ctx.now();
+  const id = Number(
+    exec(
+      ctx,
+      "banInsert",
+      "INSERT INTO bans (user_id, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      userId,
+      actorUserId(actor),
+      reason,
+      now,
+      expiresAt,
+    ).lastInsertRowid,
+  );
+  refreshBanState(ctx, userId, now);
+  appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
+  enqueueJob(
+    ctx,
+    "moderation.revokeCredentials",
+    { userId },
+    { uniqueKey: `moderation.revokeCredentials.${id}` },
+  );
+  return { id };
 }
 
 function refreshBanState(ctx: Ctx, userId: number, now: number) {
@@ -1115,8 +1197,7 @@ export function listWarnings(
   input: { cursor?: string | null; limit?: number } = {},
 ) {
   const viewer = requireAuthenticated(actor).userId;
-  if (viewer !== userId && !getGlobalPermissions(ctx, actor).isModerator)
-    throw new ForbiddenError();
+  if (viewer !== userId && !can(ctx, actor, "warning.view")) throw new ForbiddenError();
   if (!read(ctx, "userExists", "SELECT id FROM users WHERE id = ?1", userId))
     throw new NotFoundError();
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
@@ -1135,7 +1216,7 @@ export function listWarnings(
 }
 
 export function liftBan(ctx: Ctx, actor: Actor, banId: number, reason: string) {
-  admin(ctx, actor);
+  requireAuthenticated(actor);
   return writeTx(ctx, () => {
     const ban = read<{ user_id: number; lifted_at: number | null }>(
       ctx,
@@ -1144,6 +1225,7 @@ export function liftBan(ctx: Ctx, actor: Actor, banId: number, reason: string) {
       banId,
     );
     if (!ban) throw new NotFoundError();
+    requirePermission(ctx, actor, "member.ban", { target: principalMember(ctx, ban.user_id) });
     if (ban.lifted_at != null) throw new ConflictError("This ban was already lifted.");
     const now = ctx.now();
     exec(ctx, "liftBan", "UPDATE bans SET lifted_at = ?1 WHERE id = ?2", now, banId);
@@ -1169,7 +1251,6 @@ const spamStages: SpamStage[] = [
 export type SpamCursor = { stage: SpamStage; before: number };
 export type SpamCleanupJob = {
   actorId: number;
-  actorGroupId: number;
   userId: number;
   cursor: SpamCursor;
   limit: number;
@@ -1185,7 +1266,8 @@ export function resumeSpamCleanup(
   limit = 100,
   reason = "Spam cleanup",
 ) {
-  admin(ctx, actor);
+  requireAuthenticated(actor);
+  requirePermission(ctx, actor, "member.spamCleanup", { target: principalMember(ctx, userId) });
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
     throw new ValidationError("Limit must be between 1 and 100.");
   if (
@@ -1196,8 +1278,7 @@ export function resumeSpamCleanup(
   )
     throw new ValidationError("Invalid spam cleanup cursor.");
   return writeTx(ctx, () => {
-    if (!read(ctx, "userExists", "SELECT id FROM users WHERE id = ?1", userId))
-      throw new NotFoundError();
+    requirePermission(ctx, actor, "member.spamCleanup", { target: principalMember(ctx, userId) });
     if (cursor === null) {
       const prior = read<{ id: number }>(
         ctx,
@@ -1205,7 +1286,7 @@ export function resumeSpamCleanup(
         "SELECT id FROM bans WHERE user_id = ?1 AND expires_at IS NULL AND lifted_at IS NULL LIMIT 1",
         userId,
       );
-      if (!prior) banUser(ctx, actor, userId, "Spam cleanup", null);
+      if (!prior) insertBan(ctx, actor, userId, "Spam cleanup", null);
     }
     const targets: Content[] = [];
     let stageIndex = cursor ? spamStages.indexOf(cursor.stage) : 0;
@@ -1234,16 +1315,19 @@ export function resumeSpamCleanup(
       stageIndex++;
       before = Number.MAX_SAFE_INTEGER;
     }
-    const publicTargets = targets.filter((target) => target.type !== "conversation_message");
-    let changed = publicTargets.length
-      ? bulkModerate(ctx, actor, publicTargets, "delete", reason).changed
-      : 0;
+    let changed = 0;
     for (const target of targets) {
-      if (target.type !== "conversation_message") continue;
       const row = targetRow(ctx, target);
       if (row.user_id !== userId) throw new ConflictError("Spam cleanup target changed.");
-      if (stateChange(ctx, target, "deleted")) changed++;
-      appendModeratorLog(ctx, actor, "spam.cleanup.message", target.type, target.id, reason);
+      if (stateChange(ctx, target, "deleted", row)) changed++;
+      appendModeratorLog(
+        ctx,
+        actor,
+        target.type === "conversation_message" ? "spam.cleanup.message" : "bulk.delete",
+        target.type,
+        target.id,
+        reason,
+      );
     }
     if (nextCursor) {
       enqueueJob(
@@ -1251,7 +1335,6 @@ export function resumeSpamCleanup(
         "moderation.cleanupSpam",
         {
           actorId: actorUserId(actor)!,
-          actorGroupId: actor.kind === "user" ? actor.groupId : 0,
           userId,
           cursor: nextCursor,
           limit,
@@ -1388,16 +1471,15 @@ export const operations = [
     ),
   ),
   implement(contracts.spamCleanupStart, (ctx, actor, input) => {
-    admin(ctx, actor);
-    const target = read<{ id: number }>(
-      ctx,
-      "spamTarget",
-      "SELECT id FROM users WHERE id = ?1",
-      input.userId,
-    );
-    if (!target) throw new NotFoundError();
-    if (actorUserId(actor) === input.userId) throw new ForbiddenError();
+    requireAuthenticated(actor);
+    requirePermission(ctx, actor, "member.spamCleanup", {
+      target: principalMember(ctx, input.userId),
+    });
     return writeTx(ctx, () => {
+      requirePermission(ctx, actor, "member.spamCleanup", {
+        target: principalMember(ctx, input.userId),
+      });
+      if (actorUserId(actor) === input.userId) throw new ForbiddenError();
       const actorId = requireAuthenticated(actor).userId;
       const existing = read<{ id: number }>(
         ctx,
@@ -1406,7 +1488,7 @@ export const operations = [
         `moderation.cleanupSpam.${input.userId}`,
       );
       if (existing) throw new ConflictError("Spam cleanup is already queued.");
-      banUser(ctx, actor, input.userId, input.reason, null);
+      insertBan(ctx, actor, input.userId, input.reason, null);
       const jobId = enqueueJob(
         ctx,
         "moderation.cleanupSpam",
@@ -1443,19 +1525,14 @@ export function registerModerationJobs(ctx: Ctx): void {
       limit: number;
       reason: string;
     };
-    const user = read<{ group_id: number }>(
+    const user = read<PrincipalRow & { id: number; group_id: number }>(
       ctx,
       "spamActor",
-      "SELECT group_id FROM users WHERE id = ?1",
+      `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
       job.actorId,
     );
     if (!user) throw new NotFoundError();
-    const actor: Actor = {
-      kind: "user",
-      userId: job.actorId,
-      groupId: user.group_id,
-      sessionId: 0,
-    };
+    const actor = memberActor(user.id, user.group_id, user, currentVersions(ctx));
     resumeSpamCleanup(ctx, actor, job.userId, job.cursor, job.limit, job.reason);
   });
 }
