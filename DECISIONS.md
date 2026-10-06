@@ -398,3 +398,36 @@ hashes before changing each live file's driver record. It checks the destination
 copy on retry and leaves source bytes in place after success, making rollback possible without
 an immediate destructive cleanup. The server must stay stopped until all records are switched;
 the owner should decide when to remove the retained source copies.
+
+## Milestone 17: third-pass schema, seed and benchmarks
+
+**One additive migration holds the schema for the whole pass** (`0010_third_pass_schema`): groups
+gain rank, user title, badge and a built-in key; users gain the permission combination id,
+activity, follow and notification counters, language, auto-watch preferences, profile privacy,
+restriction expiries and the email cap window; new tables cover permission definitions, entries,
+combinations and layer versions, secondary groups, promotions, mentions, quotes, watches, follows,
+ignores, notifications and their preferences, announcements, email failures, undeliverable
+addresses, push subscriptions, thread bans and restrictions. No existing table is rebuilt.
+
+**A built-in Unconfirmed group (id 5) exists from this migration on.** The migration test that
+listed the four default groups now lists five; that assertion was extended, not relaxed.
+
+**Permission entries use 0 instead of NULL for "no node / no group / no member".** SQLite treats
+NULLs as distinct in unique indexes, so a sentinel keeps one entry per (group or member, node,
+permission). Flags store 1 allow, 0 no, -1 never; a missing row is unset/inherit. Integers store
+the value with -1 for unlimited.
+
+**A merged thread keeps its row as a tombstone** (`merged_into_id`, state `deleted`). Deleting the
+row would let SQLite reuse its id (no AUTOINCREMENT), which would break the redirect.
+
+**Restrictions are denormalized onto the member row** (`restricted_*_until`, with a year-9999
+sentinel for no expiry) so actor resolution reads them in the same lookup as the ban state;
+`user_restrictions` keeps the history.
+
+**The seed grows to 60,000 members.** A node with 50,000 watchers needs at least that many. The
+50,000 extra members are low-activity accounts generated after all earlier content, so the
+original content is unchanged by the random sequence. The extended seed adds 35 custom groups,
+3,019 distinct member group combinations, 50 promotions, 2,000,000 notifications (85% read, at
+most one unread row per group key), 440,000 thread watches (20,006 on one thread), 60,000 node
+watches (50,033 on one forum), 100,000 follows and 50,000 ignores, with every denormalized counter
+computed as the services maintain it. Seeding takes about 72 s and 3.2 GB.

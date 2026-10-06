@@ -43,6 +43,18 @@ export const REPORT_TARGET_TYPES = [
   "user",
 ] as const;
 export const REPORT_STATES = ["open", "assigned", "resolved", "rejected"] as const;
+export const PERMISSION_SCOPES = ["global", "node"] as const;
+export const PERMISSION_VALUE_TYPES = ["flag", "integer"] as const;
+export const USER_PROMOTION_STATES = ["auto", "manual", "exempt"] as const;
+export const PROMOTION_LOG_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
+export const AUTO_WATCH_MODES = ["none", "watch", "watch_email"] as const;
+export const PROFILE_VIEW_PRIVACY = ["everyone", "members", "followed", "self"] as const;
+export const PROFILE_POST_PRIVACY = ["members", "followed", "self"] as const;
+export const NODE_WATCH_MODES = ["threads", "posts"] as const;
+export const RESTRICTION_KINDS = ["posting", "conversations", "profile_posts"] as const;
+export type RestrictionKind = (typeof RESTRICTION_KINDS)[number];
+/** Stored in users.restricted_*_until for a restriction without expiry (year 9999). */
+export const RESTRICTION_PERMANENT = 253_402_300_799_999;
 
 const bool = (name: string) => integer(name, { mode: "boolean" });
 const counter = (name: string) => integer(name).notNull().default(0);
@@ -52,22 +64,37 @@ const reactionCounts = () => text("reaction_counts").notNull().default("{}");
 // ---------------------------------------------------------------------------
 // Users and groups
 
-/** Fixed group ids created by the seed migration. */
-export const GROUP_IDS = { guest: 1, member: 2, moderator: 3, admin: 4 } as const;
+/** Fixed ids of the built-in groups created by the migrations. */
+export const GROUP_IDS = { guest: 1, member: 2, moderator: 3, admin: 4, unconfirmed: 5 } as const;
+export const BUILTIN_GROUPS = ["guest", "unconfirmed", "registered", "moderator", "admin"] as const;
+export type BuiltinGroup = (typeof BUILTIN_GROUPS)[number];
 
-export const groups = sqliteTable("groups", {
-  id: integer("id").primaryKey(),
-  title: text("title").notNull(),
-  isAdmin: bool("is_admin").notNull().default(false),
-  isModerator: bool("is_moderator").notNull().default(false),
-  /** Default node permissions; per-node overrides live in node_permissions. */
-  canViewNodes: bool("can_view_nodes").notNull().default(true),
-  canPost: bool("can_post").notNull().default(false),
-  canViewProfiles: bool("can_view_profiles").notNull().default(true),
-  canPostProfile: bool("can_post_profile").notNull().default(false),
-  canStartConversations: bool("can_start_conversations").notNull().default(false),
-  canReact: bool("can_react").notNull().default(false),
-});
+export const groups = sqliteTable(
+  "groups",
+  {
+    id: integer("id").primaryKey(),
+    title: text("title").notNull(),
+    /**
+     * Legacy flags, kept only as write-through shims: triggers mirror writes to them into
+     * permission_entries. Nothing reads them; permissions come from permission_entries.
+     */
+    isAdmin: bool("is_admin").notNull().default(false),
+    isModerator: bool("is_moderator").notNull().default(false),
+    canViewNodes: bool("can_view_nodes").notNull().default(true),
+    canPost: bool("can_post").notNull().default(false),
+    canViewProfiles: bool("can_view_profiles").notNull().default(true),
+    canPostProfile: bool("can_post_profile").notNull().default(false),
+    canStartConversations: bool("can_start_conversations").notNull().default(false),
+    canReact: bool("can_react").notNull().default(false),
+    description: text("description").notNull().default(""),
+    /** Display and hierarchy only; never used to resolve permissions. */
+    rank: integer("rank").notNull().default(0),
+    userTitle: text("user_title").notNull().default(""),
+    badge: text("badge").notNull().default(""),
+    builtin: text("builtin", { enum: BUILTIN_GROUPS }),
+  },
+  (t) => [uniqueIndex("groups_builtin").on(t.builtin)],
+);
 
 /**
  * Forum data about a user. Identity and credentials (email, password, sessions, API keys) belong
@@ -96,8 +123,199 @@ export const users = sqliteTable(
     contentUpdatedAt: integer("content_updated_at"),
     bannedUntil: integer("banned_until"),
     bannedPermanently: bool("banned_permanently").notNull().default(false),
+    /**
+     * The permission combination this member's permissions are cached under. Maintained by
+     * triggers whenever the member's groups or member-specific entries change.
+     */
+    permissionCombinationId: integer("permission_combination_id").notNull().default(0),
+    /** Buffered in memory by requests and flushed by the scheduler. */
+    lastActivityAt: integer("last_activity_at"),
+    followerCount: counter("follower_count"),
+    followingCount: counter("following_count"),
+    unreadNotificationCount: counter("unread_notification_count"),
+    /** BCP 47 language tag; null uses the site default. */
+    language: text("language"),
+    watchOnCreate: text("watch_on_create", { enum: AUTO_WATCH_MODES }).notNull().default("watch"),
+    watchOnReply: text("watch_on_reply", { enum: AUTO_WATCH_MODES }).notNull().default("watch"),
+    profileViewPrivacy: text("profile_view_privacy", { enum: PROFILE_VIEW_PRIVACY })
+      .notNull()
+      .default("everyone"),
+    profilePostPrivacy: text("profile_post_privacy", { enum: PROFILE_POST_PRIVACY })
+      .notNull()
+      .default("members"),
+    /** Active restriction expiry per kind; null = none, RESTRICTION_PERMANENT = no expiry. */
+    restrictedPostingUntil: integer("restricted_posting_until"),
+    restrictedConversationsUntil: integer("restricted_conversations_until"),
+    restrictedProfilePostsUntil: integer("restricted_profile_posts_until"),
+    emailWindowStart: counter("email_window_start"),
+    emailWindowCount: counter("email_window_count"),
+    lastDigestAt: integer("last_digest_at"),
   },
-  (t) => [uniqueIndex("users_username_key").on(t.usernameKey)],
+  (t) => [
+    uniqueIndex("users_username_key").on(t.usernameKey),
+    index("users_permission_combination").on(t.permissionCombinationId),
+  ],
+);
+
+/** Secondary groups assigned by hand. */
+export const userGroups = sqliteTable(
+  "user_groups",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_groups_user_group").on(t.userId, t.groupId),
+    index("user_groups_group").on(t.groupId, t.userId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Permissions (see src/permissions)
+
+/** Every permission the code registry declares, added when it first appears. */
+export const permissionDefinitions = sqliteTable(
+  "permission_definitions",
+  {
+    id: integer("id").primaryKey(),
+    key: text("key").notNull(),
+    scope: text("scope", { enum: PERMISSION_SCOPES }).notNull(),
+    valueType: text("value_type", { enum: PERMISSION_VALUE_TYPES }).notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("permission_definitions_key").on(t.key)],
+);
+
+/**
+ * One value for one permission, for exactly one group or one member (the other id is 0), at the
+ * global scope (node_id = 0) or on a node. Flags: 1 allow, 0 no (nodes only), -1 never; a
+ * missing row is unset / inherit. Integers: the value, -1 meaning unlimited.
+ */
+export const permissionEntries = sqliteTable(
+  "permission_entries",
+  {
+    id: integer("id").primaryKey(),
+    permissionId: integer("permission_id")
+      .notNull()
+      .references(() => permissionDefinitions.id),
+    nodeId: integer("node_id").notNull().default(0),
+    groupId: integer("group_id").notNull().default(0),
+    userId: integer("user_id").notNull().default(0),
+    value: integer("value").notNull(),
+  },
+  (t) => [
+    uniqueIndex("permission_entries_target").on(t.groupId, t.userId, t.nodeId, t.permissionId),
+    index("permission_entries_node").on(t.nodeId),
+  ],
+);
+
+/** A distinct set of groups, private to one member when they have member-specific entries. */
+export const permissionCombinations = sqliteTable(
+  "permission_combinations",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id").notNull().default(0),
+    /** Sorted, comma-separated group ids. */
+    groupIds: text("group_ids").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("permission_combinations_key").on(t.userId, t.groupIds)],
+);
+
+/** Version of each layer (one group's entries, or one member's entries). */
+export const permissionLayerVersions = sqliteTable(
+  "permission_layer_versions",
+  {
+    id: integer("id").primaryKey(),
+    groupId: integer("group_id").notNull().default(0),
+    userId: integer("user_id").notNull().default(0),
+    version: integer("version").notNull().default(0),
+  },
+  (t) => [uniqueIndex("permission_layer_versions_layer").on(t.groupId, t.userId)],
+);
+
+// ---------------------------------------------------------------------------
+// Promotions
+
+export const promotions = sqliteTable("promotions", {
+  id: integer("id").primaryKey(),
+  title: text("title").notNull(),
+  isActive: bool("is_active").notNull().default(true),
+  /** JSON array of {criterion, value}; all must hold. */
+  criteria: text("criteria").notNull().default("[]"),
+  /** JSON array of secondary group ids to add. */
+  groupIds: text("group_ids").notNull().default("[]"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/** 'auto' (applied by evaluation), 'manual' (promoted by hand), 'exempt' (never applied). */
+export const userPromotions = sqliteTable(
+  "user_promotions",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    promotionId: integer("promotion_id")
+      .notNull()
+      .references(() => promotions.id, { onDelete: "cascade" }),
+    state: text("state", { enum: USER_PROMOTION_STATES }).notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_promotions_user_promotion").on(t.userId, t.promotionId),
+    index("user_promotions_promotion").on(t.promotionId, t.userId),
+  ],
+);
+
+/** Secondary groups granted by an applied promotion (separate from hand-assigned groups). */
+export const userGroupGrants = sqliteTable(
+  "user_group_grants",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    promotionId: integer("promotion_id")
+      .notNull()
+      .references(() => promotions.id, { onDelete: "cascade" }),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_group_grants_key").on(t.userId, t.promotionId, t.groupId),
+    index("user_group_grants_group").on(t.groupId, t.userId),
+  ],
+);
+
+export const promotionLog = sqliteTable(
+  "promotion_log",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    promotionId: integer("promotion_id").notNull(),
+    action: text("action", { enum: PROMOTION_LOG_ACTIONS }).notNull(),
+    /** Null for automatic changes. */
+    actorId: integer("actor_id"),
+    groupIds: text("group_ids").notNull().default("[]"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("promotion_log_user").on(t.userId, t.id),
+    index("promotion_log_recent").on(t.createdAt, t.id),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -124,11 +342,19 @@ export const nodes = sqliteTable(
     iconFileId: integer("icon_file_id"),
     coverFileId: integer("cover_file_id"),
     contentUpdatedAt: integer("content_updated_at"),
+    requireThreadApproval: bool("require_thread_approval").notNull().default(false),
+    requireReplyApproval: bool("require_reply_approval").notNull().default(false),
+    isReadOnly: bool("is_read_only").notNull().default(false),
+    minAccountAgeDays: counter("min_account_age_days"),
+    minPostCount: counter("min_post_count"),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
 
-/** Per-node, per-group overrides. Null means inherit from the parent node (or group default). */
+/**
+ * Legacy per-node, per-group overrides (null = inherit), kept only as a write-through shim:
+ * triggers mirror writes into permission_entries. Nothing reads it.
+ */
 export const nodePermissions = sqliteTable(
   "node_permissions",
   {
@@ -177,6 +403,8 @@ export const threads = sqliteTable(
     lastPosterId: integer("last_poster_id").notNull(),
     excerpt: text("excerpt").notNull().default(""),
     contentUpdatedAt: integer("content_updated_at"),
+    /** Set on a merged thread's tombstone (state 'deleted'): the thread its id resolves to. */
+    mergedIntoId: integer("merged_into_id"),
   },
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
@@ -538,11 +766,14 @@ export const reportGroups = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     resolvedAt: integer("resolved_at"),
+    /** Node of the reported forum content; null for profile content, members and messages. */
+    nodeId: integer("node_id"),
   },
   (t) => [
     uniqueIndex("report_groups_target").on(t.targetType, t.targetId),
     index("report_groups_queue").on(t.state, t.updatedAt, t.id),
     index("report_groups_assignee").on(t.assignedToId, t.state, t.updatedAt),
+    index("report_groups_node_queue").on(t.nodeId, t.state, t.updatedAt, t.id),
   ],
 );
 
@@ -648,11 +879,281 @@ export const moderatorLog = sqliteTable(
     reason: text("reason").notNull().default(""),
     details: text("details").notNull().default("{}"),
     createdAt: integer("created_at").notNull(),
+    /** Node the action concerns, so the log can be filtered and scoped by node. */
+    nodeId: integer("node_id"),
   },
   (t) => [
     index("moderator_log_recent").on(t.createdAt, t.id),
     index("moderator_log_actor").on(t.actorId, t.id),
     index("moderator_log_target").on(t.targetType, t.targetId, t.id),
+    index("moderator_log_node").on(t.nodeId, t.id),
+  ],
+);
+
+export const threadBans = sqliteTable(
+  "thread_bans",
+  {
+    id: integer("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    moderatorId: integer("moderator_id")
+      .notNull()
+      .references(() => users.id),
+    reason: text("reason").notNull().default(""),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at"),
+  },
+  (t) => [
+    uniqueIndex("thread_bans_thread_user").on(t.threadId, t.userId),
+    index("thread_bans_user").on(t.userId, t.id),
+  ],
+);
+
+/** History of restrictions; users.restricted_*_until holds the active expiry per kind. */
+export const userRestrictions = sqliteTable(
+  "user_restrictions",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: RESTRICTION_KINDS }).notNull(),
+    moderatorId: integer("moderator_id")
+      .notNull()
+      .references(() => users.id),
+    reason: text("reason").notNull().default(""),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at"),
+    liftedAt: integer("lifted_at"),
+  },
+  (t) => [index("user_restrictions_user").on(t.userId, t.kind, t.id)],
+);
+
+// ---------------------------------------------------------------------------
+// Markdown extensions
+
+/** Mentions resolved to user ids on write, so renames never break them. */
+export const contentMentions = sqliteTable(
+  "content_mentions",
+  {
+    id: integer("id").primaryKey(),
+    contentType: text("content_type").notNull(),
+    contentId: integer("content_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("content_mentions_content_user").on(t.contentType, t.contentId, t.userId),
+    index("content_mentions_user").on(t.userId, t.id),
+  ],
+);
+
+export const contentQuotes = sqliteTable(
+  "content_quotes",
+  {
+    id: integer("id").primaryKey(),
+    contentType: text("content_type").notNull(),
+    contentId: integer("content_id").notNull(),
+    quotedPostId: integer("quoted_post_id").notNull(),
+    quotedUserId: integer("quoted_user_id").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("content_quotes_content_post").on(t.contentType, t.contentId, t.quotedPostId),
+    index("content_quotes_post").on(t.quotedPostId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Watching, following, ignoring
+
+export const threadWatches = sqliteTable(
+  "thread_watches",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    email: bool("email").notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("thread_watches_thread_user").on(t.threadId, t.userId),
+    index("thread_watches_user").on(t.userId, t.id),
+  ],
+);
+
+export const nodeWatches = sqliteTable(
+  "node_watches",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    nodeId: integer("node_id")
+      .notNull()
+      .references(() => nodes.id),
+    mode: text("mode", { enum: NODE_WATCH_MODES }).notNull(),
+    email: bool("email").notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("node_watches_node_user").on(t.nodeId, t.userId),
+    index("node_watches_user").on(t.userId, t.id),
+  ],
+);
+
+export const userFollows = sqliteTable(
+  "user_follows",
+  {
+    id: integer("id").primaryKey(),
+    /** The follower. */
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followedId: integer("followed_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_follows_pair").on(t.userId, t.followedId),
+    index("user_follows_followed").on(t.followedId, t.userId),
+  ],
+);
+
+export const userIgnores = sqliteTable(
+  "user_ignores",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ignoredId: integer("ignored_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("user_ignores_pair").on(t.userId, t.ignoredId),
+    index("user_ignores_ignored").on(t.ignoredId, t.userId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Notifications, email, push
+// Partial indexes on notifications are declared in migration 0010, not here.
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    contentType: text("content_type").notNull(),
+    contentId: integer("content_id").notNull(),
+    /** Thread the content belongs to, so reading a thread clears its notifications. */
+    threadId: integer("thread_id"),
+    /** Most recent actor; null for system notifications. */
+    actorId: integer("actor_id"),
+    actorCount: integer("actor_count").notNull().default(1),
+    /** JSON array of the most recent actor ids, newest first. */
+    actorIds: text("actor_ids").notNull().default("[]"),
+    /** Unread notifications with the same key are merged; null never merges. */
+    groupKey: text("group_key"),
+    data: text("data").notNull().default("{}"),
+    /** Highest domain event merged into this row; replays of older events are ignored. */
+    lastEventId: integer("last_event_id").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    readAt: integer("read_at"),
+  },
+  (t) => [
+    index("notifications_user_recent").on(t.userId, t.updatedAt, t.id),
+    index("notifications_content").on(t.contentType, t.contentId),
+  ],
+);
+
+/** Per member, per type overrides of the admin defaults; null columns use the default. */
+export const notificationPreferences = sqliteTable(
+  "notification_preferences",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    inApp: bool("in_app"),
+    email: bool("email"),
+    push: bool("push"),
+  },
+  (t) => [uniqueIndex("notification_preferences_user_type").on(t.userId, t.type)],
+);
+
+export const announcements = sqliteTable("announcements", {
+  id: integer("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  bodySource: text("body_source").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const emailFailures = sqliteTable(
+  "email_failures",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id"),
+    email: text("email").notNull(),
+    template: text("template").notNull(),
+    error: text("error").notNull(),
+    permanent: bool("permanent").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("email_failures_recent").on(t.createdAt, t.id)],
+);
+
+/** Addresses the receiving server rejected outright; nothing more is sent to them. */
+export const undeliverableEmails = sqliteTable(
+  "undeliverable_emails",
+  {
+    id: integer("id").primaryKey(),
+    email: text("email").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("undeliverable_emails_email").on(t.email)],
+);
+
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent").notNull().default(""),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint").on(t.endpoint),
+    index("push_subscriptions_user").on(t.userId, t.id),
   ],
 );
 

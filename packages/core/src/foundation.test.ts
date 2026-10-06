@@ -46,6 +46,7 @@ describe("database connection", () => {
       { id: 2, title: "Member" },
       { id: 3, title: "Moderator" },
       { id: 4, title: "Administrator" },
+      { id: 5, title: "Unconfirmed" },
     ]);
     const types = ctx.sqlite.query("SELECT count(*) AS n FROM reaction_types").get() as {
       n: number;

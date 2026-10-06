@@ -104,8 +104,8 @@ describe("permissions", () => {
     const moderator = userActor(insertUser(ctx, { groupId: 3 }));
     const node = insertNode(ctx, {});
     invalidate(ctx, "node_tree");
-    expect((await execute(ctx, groupsListOp, admin, {})).items).toHaveLength(4);
-    expect((await execute(ctx, groupsListOp, tokenActor(adminUser), {})).items).toHaveLength(4);
+    expect((await execute(ctx, groupsListOp, admin, {})).items).toHaveLength(5);
+    expect((await execute(ctx, groupsListOp, tokenActor(adminUser), {})).items).toHaveLength(5);
     await expect(
       execute(ctx, groupsUpdateOp, tokenActor(insertUser(ctx)), { groupId: 2, title: "No" }),
     ).rejects.toThrow(ForbiddenError);

@@ -71,6 +71,13 @@
       "when": 1791231000000,
       "tag": "0009_seo_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791232000000,
+      "tag": "0010_third_pass_schema",
+      "breakpoints": true
     }
   ]
 }

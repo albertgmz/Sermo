@@ -43,10 +43,23 @@ export const SIZES = {
   reportGroups: 20_000,
   warnings: 10_000,
   moderatorLog: 200_000,
+  /** Low-activity members added after the content, so one node can have 50,000 watchers. */
+  lurkers: 50_000,
+  /** Built-in groups included. */
+  groups: 40,
+  groupCombinations: 3_000,
+  promotions: 50,
+  notifications: 2_000_000,
+  threadWatches: 440_000,
+  nodeWatches: 60_000,
+  hotThreadWatchers: 20_000,
+  hotNodeWatchers: 50_000,
+  follows: 100_000,
+  ignores: 50_000,
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 5;
+const SEED_VERSION = 6;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -78,6 +91,17 @@ export interface SeedMeta {
   /** Visible posts in visible threads, random: [postId, authorId]. */
   postAuthors: [number, number][];
   searchTerms: { common: string[]; medium: string[]; rare: string[] };
+  /** Admin-created groups (ids above the built-in ones). */
+  customGroupIds: number[];
+  promotionIds: number[];
+  /** The thread with SIZES.hotThreadWatchers watchers (visible, unlocked). */
+  hotWatchedThreadId: number;
+  /** The forum with SIZES.hotNodeWatchers watchers (mode 'posts'). */
+  hotWatchedNodeId: number;
+  /** Members with the most notifications, most first. */
+  notificationHeavyUserIds: number[];
+  /** Members with the most followers, most first. */
+  popularUserIds: number[];
 }
 
 export function benchDir(): string {
@@ -717,11 +741,35 @@ async function generate(path: string): Promise<SeedMeta> {
   });
   log("moderation queues", started);
 
+  // Third pass: groups, combinations, promotions, watches, follows, notifications --------
+  // Runs after all earlier content so the random sequence that produced it is unchanged.
+  const threadOfPost = new Uint32Array(P + 1);
+  for (let rank = 0; rank < P; rank++) threadOfPost[rank + 1] = postThread[postOrder[rank]!]!;
+  let hotThread = 0;
+  for (let t = 1; t <= T; t++) {
+    if (threadState[t] !== 0 || threadLocked[t]) continue;
+    if (!hotThread || threadPostTotal[t]! > threadPostTotal[hotThread]!) hotThread = t;
+  }
+  const thirdPass = seedThirdPass(db, rng, {
+    users: U,
+    threads: T,
+    passwordHash,
+    vocab,
+    threadState,
+    threadOfPost,
+    postAuthorById: (id) => postAuthor[postOrder[id - 1]!]!,
+    activeUser,
+    hotThread,
+    hotNode: forumOrder[0]!,
+    forumIds,
+  });
+  log("third pass: groups, watches, follows, notifications", started);
+
   db.run("ANALYZE");
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   log("analyze", started);
 
-  const meta = buildMeta(db, vocab, forumIds);
+  const meta = { ...buildMeta(db, vocab, forumIds), ...thirdPass };
   closeContext(ctx);
   for (const suffix of ["-wal", "-shm"]) rmSync(path + suffix, { force: true });
   return meta;
@@ -767,7 +815,361 @@ function makeReactor(rng: Rng, insert: Statement, scores: Int32Array) {
   };
 }
 
-function buildMeta(db: Database, vocab: string[], forumIds: number[]): SeedMeta {
+interface ThirdPassInput {
+  /** Original (active) member count; lurkers get the ids after it. */
+  users: number;
+  threads: number;
+  passwordHash: string;
+  vocab: string[];
+  threadState: Uint8Array;
+  threadOfPost: Uint32Array;
+  postAuthorById: (postId: number) => number;
+  activeUser: () => number;
+  hotThread: number;
+  hotNode: number;
+  forumIds: number[];
+}
+
+type ThirdPassMeta = Pick<
+  SeedMeta,
+  | "customGroupIds"
+  | "promotionIds"
+  | "hotWatchedThreadId"
+  | "hotWatchedNodeId"
+  | "notificationHeavyUserIds"
+  | "popularUserIds"
+>;
+
+/**
+ * Groups and combinations, promotions, lurker members, watches, follows, ignores and
+ * notifications. Every denormalized counter it touches (follower counts, unread notification
+ * counts, combination ids) is computed here as the services maintain it. Permission entries are
+ * added by the permission-core seed step.
+ */
+function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPassMeta {
+  const firstLurker = input.users + 1;
+  const totalUsers = input.users + SIZES.lurkers;
+  const now = T1;
+
+  // Groups: 35 admin-created groups beside the five built-in ones.
+  const customGroupIds: number[] = [];
+  tx(db, () => {
+    const insertGroup = db.prepare(
+      "INSERT INTO groups (id, title, can_view_nodes, can_post, can_view_profiles, can_post_profile, can_start_conversations, can_react, description, rank, user_title, badge) VALUES (?1, ?2, 1, 1, 1, 1, 1, 1, '', ?3, ?2, ?4)",
+    );
+    for (let id = 6; id <= SIZES.groups; id++) {
+      const w = input.vocab[(id * 104_729) % input.vocab.length]!;
+      const title = `${w.charAt(0).toUpperCase()}${w.slice(1)} ${id}`;
+      insertGroup.run(id, title, 10 + (id % 30), id % 4 === 0 ? `badge-${id}` : "");
+      customGroupIds.push(id);
+    }
+  });
+
+  // Lurkers: registered, few or no posts; inserted with explicit ids after the content.
+  const insertLurkerIdentity = db.prepare(
+    "INSERT INTO auth_user (id, name, email, email_verified, username, display_username, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?2, ?6, ?6)",
+  );
+  const insertLurkerAccount = db.prepare(
+    "INSERT INTO auth_account (account_id, provider_id, user_id, password, created_at, updated_at) VALUES (?1, 'credential', ?2, ?3, ?4, ?4)",
+  );
+  const insertLurker = db.prepare(
+    "INSERT INTO users (id, username, username_key, group_id, about, created_at) VALUES (?1, ?2, ?3, 2, '', ?4)",
+  );
+  batched(db, SIZES.lurkers, (i) => {
+    const id = firstLurker + i;
+    const w = input.vocab[(id * 7919) % input.vocab.length]!;
+    const username = `${w.charAt(0).toUpperCase()}${w.slice(1)}${id}`;
+    const createdAt = T0 + rng.int(0, Math.floor((T1 - T0) / DAY)) * DAY;
+    insertLurkerIdentity.run(
+      id,
+      username,
+      `user${id}@example.test`,
+      rng.chance(0.7) ? 1 : 0,
+      username.toLowerCase(),
+      createdAt,
+    );
+    insertLurkerAccount.run(String(id), id, input.passwordHash, createdAt);
+    insertLurker.run(id, username, username.toLowerCase(), createdAt);
+  });
+
+  // Combinations: 3,000 distinct sets of secondary groups. Set 0 (no secondary groups) is the
+  // most common, then a Zipf tail; every set is used by at least one member.
+  const sets: number[][] = [[]];
+  const seen = new Set<string>([""]);
+  while (sets.length < SIZES.groupCombinations) {
+    const k = rng.int(1, 4);
+    const chosen = new Set<number>();
+    while (chosen.size < k) chosen.add(rng.pick(customGroupIds));
+    const set = [...chosen].sort((a, b) => a - b);
+    const key = set.join(",");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sets.push(set);
+  }
+  const setSampler = new ZipfSampler(sets.length, 1.1);
+  const userSet = new Uint16Array(totalUsers + 1);
+  const order = shuffle(rng, range(1, totalUsers));
+  for (let i = 0; i < totalUsers; i++)
+    userSet[order[i]!] = i < sets.length ? i : setSampler.sample(rng);
+  const combinationIds = new Map<string, number>();
+  const combinationFor = (primary: number, set: number[]) => {
+    const key = [...new Set([primary, ...set])].sort((a, b) => a - b).join(",");
+    let id = combinationIds.get(key);
+    if (id === undefined) {
+      id = combinationIds.size + 1;
+      combinationIds.set(key, id);
+    }
+    return id;
+  };
+  combinationFor(1, []); // the guest combination
+  tx(db, () => {
+    const primaryOf = db.prepare<{ group_id: number }, [number]>(
+      "SELECT group_id FROM users WHERE id = ?1",
+    );
+    const insertMembership = db.prepare(
+      "INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, ?3)",
+    );
+    const setCombination = db.prepare(
+      "UPDATE users SET permission_combination_id = ?1 WHERE id = ?2",
+    );
+    for (let id = 1; id <= totalUsers; id++) {
+      const set = sets[userSet[id]!]!;
+      for (const groupId of set) insertMembership.run(id, groupId, now);
+      setCombination.run(combinationFor(primaryOf.get(id)!.group_id, set), id);
+    }
+    const insertCombination = db.prepare(
+      "INSERT INTO permission_combinations (id, user_id, group_ids, created_at) VALUES (?1, 0, ?2, ?3)",
+    );
+    for (const [key, id] of combinationIds) insertCombination.run(id, key, now);
+  });
+
+  // Promotions: criteria from the criteria registry; each adds one or two custom groups.
+  const promotionIds: number[] = [];
+  tx(db, () => {
+    const insert = db.prepare(
+      "INSERT INTO promotions (id, title, is_active, criteria, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+    );
+    for (let id = 1; id <= SIZES.promotions; id++) {
+      const criteria = [
+        { criterion: "post_count", value: rng.int(1, 40) * 25 },
+        { criterion: "days_registered", value: rng.int(1, 36) * 30 },
+      ];
+      if (id % 3 === 0) criteria.push({ criterion: "reaction_score", value: rng.int(1, 50) * 20 });
+      if (id % 5 === 0) criteria.push({ criterion: "email_verified", value: 1 });
+      if (id % 7 === 0) criteria.push({ criterion: "warning_points_below", value: rng.int(1, 10) });
+      const groupIds = [rng.pick(customGroupIds)];
+      if (id % 4 === 0) groupIds.push(rng.pick(customGroupIds.filter((g) => g !== groupIds[0])));
+      insert.run(
+        id,
+        `Promotion ${id}`,
+        id % 10 === 0 ? 0 : 1,
+        JSON.stringify(criteria),
+        JSON.stringify(groupIds),
+        now,
+      );
+      promotionIds.push(id);
+    }
+  });
+
+  // Recent activity for a third of the members.
+  tx(db, () => {
+    const update = db.prepare("UPDATE users SET last_activity_at = ?1 WHERE id = ?2");
+    for (let id = 1; id <= totalUsers; id++)
+      if (id <= input.users || rng.chance(0.2)) update.run(T1 - rng.int(0, 120) * DAY, id);
+  });
+
+  // Watches: one hot thread and one hot node, then a long tail.
+  const anyMember = () => rng.int(2, totalUsers);
+  const pairs = new Set<number>();
+  const threadWatch = db.prepare(
+    "INSERT INTO thread_watches (user_id, thread_id, email, created_at) VALUES (?1, ?2, ?3, ?4)",
+  );
+  const watchThread = (userId: number, threadId: number) => {
+    const key = threadId * 100_000 + userId;
+    if (pairs.has(key)) return false;
+    pairs.add(key);
+    threadWatch.run(userId, threadId, rng.chance(0.3) ? 1 : 0, now - rng.int(0, 900) * DAY);
+    return true;
+  };
+  tx(db, () => {
+    const hotWatchers = shuffle(rng, range(2, totalUsers)).slice(0, SIZES.hotThreadWatchers);
+    for (const userId of hotWatchers) watchThread(userId, input.hotThread);
+  });
+  {
+    const threadSampler = new ZipfSampler(input.threads, 0.6);
+    const threadOrder = shuffle(rng, range(1, input.threads));
+    let placed = SIZES.hotThreadWatchers;
+    while (placed < SIZES.threadWatches) {
+      tx(db, () => {
+        for (let n = 0; n < 50_000 && placed < SIZES.threadWatches; ) {
+          const threadId = threadOrder[threadSampler.sample(rng)]!;
+          if (input.threadState[threadId] !== 0) continue;
+          if (watchThread(input.activeUser(), threadId)) {
+            placed++;
+            n++;
+          }
+        }
+      });
+    }
+  }
+  tx(db, () => {
+    const nodeWatch = db.prepare(
+      "INSERT INTO node_watches (user_id, node_id, mode, email, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+    );
+    const nodePairs = new Set<number>();
+    const watchNode = (userId: number, nodeId: number) => {
+      const key = nodeId * 100_000 + userId;
+      if (nodePairs.has(key)) return false;
+      nodePairs.add(key);
+      nodeWatch.run(
+        userId,
+        nodeId,
+        rng.chance(0.5) ? "posts" : "threads",
+        rng.chance(0.2) ? 1 : 0,
+        now,
+      );
+      return true;
+    };
+    for (const userId of shuffle(rng, range(2, totalUsers)).slice(0, SIZES.hotNodeWatchers))
+      watchNode(userId, input.hotNode);
+    for (let placed = SIZES.hotNodeWatchers; placed < SIZES.nodeWatches; )
+      if (watchNode(anyMember(), rng.pick(input.forumIds))) placed++;
+  });
+
+  // Follows (popular members are followed most) and ignores, with denormalized counts.
+  const followerCount = new Uint32Array(totalUsers + 1);
+  const followingCount = new Uint32Array(totalUsers + 1);
+  const followPairs = new Set<number>();
+  const insertFollow = db.prepare(
+    "INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, ?3)",
+  );
+  batched(db, SIZES.follows, () => {
+    for (;;) {
+      const follower = anyMember();
+      const followed = input.activeUser();
+      const key = follower * 100_000 + followed;
+      if (follower === followed || followPairs.has(key)) continue;
+      followPairs.add(key);
+      followerCount[followed]!++;
+      followingCount[follower]!++;
+      insertFollow.run(follower, followed, now - rng.int(0, 900) * DAY);
+      return;
+    }
+  });
+  const ignorePairs = new Set<number>();
+  const insertIgnore = db.prepare(
+    "INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)",
+  );
+  batched(db, SIZES.ignores, () => {
+    for (;;) {
+      const userId = anyMember();
+      const ignored = input.activeUser();
+      const key = userId * 100_000 + ignored;
+      if (userId === ignored || ignorePairs.has(key)) continue;
+      ignorePairs.add(key);
+      insertIgnore.run(userId, ignored, now - rng.int(0, 900) * DAY);
+      return;
+    }
+  });
+  tx(db, () => {
+    const update = db.prepare(
+      "UPDATE users SET follower_count = ?1, following_count = ?2 WHERE id = ?3",
+    );
+    for (let id = 1; id <= totalUsers; id++)
+      if (followerCount[id] || followingCount[id])
+        update.run(followerCount[id]!, followingCount[id]!, id);
+  });
+
+  // Notifications: a heavy-tailed number per member, mostly read; grouped types keep at most
+  // one unread row per group key, as the notification service does.
+  const unreadCount = new Uint32Array(totalUsers + 1);
+  const unreadKeys = new Set<string>();
+  const recipientOrder = shuffle(rng, range(2, totalUsers));
+  const recipientSampler = new ZipfSampler(recipientOrder.length, 0.9);
+  const postCount = SIZES.posts;
+  const times = sortedUniform(rng, SIZES.notifications, T1 - 365 * DAY, T1);
+  const insertNotification = db.prepare(
+    "INSERT INTO notifications (user_id, type, content_type, content_id, thread_id, actor_id, actor_count, actor_ids, group_key, data, last_event_id, created_at, updated_at, read_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '{}', 0, ?10, ?10, ?11)",
+  );
+  batched(db, SIZES.notifications, (i) => {
+    const userId = recipientOrder[recipientSampler.sample(rng)]!;
+    const at = times[i]!;
+    const postId = rng.int(1, postCount);
+    const threadId = input.threadOfPost[postId]!;
+    let actorId = input.postAuthorById(postId);
+    if (actorId === userId) actorId = input.activeUser();
+    const r = rng.next();
+    let type: string;
+    let contentType = "post";
+    let contentId = postId;
+    let groupKey: string | null = null;
+    let actorCount = 1;
+    if (r < 0.4) {
+      type = "thread.reply";
+      contentType = "thread";
+      contentId = threadId;
+      groupKey = `thread:${threadId}`;
+    } else if (r < 0.65) {
+      type = "reaction";
+      groupKey = `reaction:post:${postId}`;
+      actorCount = rng.int(1, 6);
+    } else if (r < 0.75) type = "mention";
+    else if (r < 0.82) type = "quote";
+    else if (r < 0.9) {
+      type = "node.thread";
+      contentType = "thread";
+      contentId = threadId;
+    } else if (r < 0.95) {
+      type = "member.followed";
+      contentType = "user";
+      contentId = actorId;
+    } else type = "member.thread";
+    let readAt: number | null = rng.chance(0.85) ? at + rng.int(1, 30) * 3_600_000 : null;
+    if (readAt === null && groupKey !== null) {
+      const key = `${userId}:${groupKey}`;
+      if (unreadKeys.has(key)) readAt = at + 3_600_000;
+      else unreadKeys.add(key);
+    }
+    if (readAt === null) unreadCount[userId]!++;
+    insertNotification.run(
+      userId,
+      type,
+      contentType,
+      contentId,
+      contentType === "user" ? null : threadId,
+      actorId,
+      actorCount,
+      JSON.stringify([actorId]),
+      groupKey,
+      at,
+      readAt,
+    );
+  });
+  tx(db, () => {
+    const update = db.prepare("UPDATE users SET unread_notification_count = ?1 WHERE id = ?2");
+    for (let id = 1; id <= totalUsers; id++) if (unreadCount[id]) update.run(unreadCount[id]!, id);
+  });
+
+  const ids = (sql: string) =>
+    db
+      .query<{ id: number }, []>(sql)
+      .all()
+      .map((r) => r.id);
+  return {
+    customGroupIds,
+    promotionIds,
+    hotWatchedThreadId: input.hotThread,
+    hotWatchedNodeId: input.hotNode,
+    notificationHeavyUserIds: recipientOrder.slice(0, 10),
+    popularUserIds: ids("SELECT id FROM users ORDER BY follower_count DESC LIMIT 10"),
+  };
+}
+
+function buildMeta(
+  db: Database,
+  vocab: string[],
+  forumIds: number[],
+): Omit<SeedMeta, keyof ThirdPassMeta> {
   const ids = (sql: string) =>
     db
       .query<{ id: number }, []>(sql)
