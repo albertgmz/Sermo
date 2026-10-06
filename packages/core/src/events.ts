@@ -31,8 +31,8 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   state?, moderatorId?, nodeId? }.
  * - `conversation.participants_added`: target the conversation; payload { userIds, actorId }.
  * - `announcement.published`: target the announcement; payload { userId }.
- * - `notification.created`: target the notification; payload { userId, type } (for future
- *   real-time delivery).
+ * - `notification.created`: one per fan-out batch, target the first notification; payload
+ *   { notificationIds, userIds } (for future real-time delivery).
  */
 export const EVENT_TYPES = [
   ...CONTENT_EVENT_TYPES,
