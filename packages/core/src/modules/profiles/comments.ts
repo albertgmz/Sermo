@@ -15,7 +15,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, permissionsOf, requirePermission } from "../../permissions";
-import { renderMarkdown } from "../../render";
+import { renderContent, storeContentReferences } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import {
   appendModeratorLog,
@@ -74,7 +74,8 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
   if (post.state !== "visible") throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const comment = writeTx(ctx, () => {
       if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
@@ -89,9 +90,10 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
         user.userId,
         decision.moderated || spam ? "moderated" : "visible",
         ctx.now(),
-        content.source,
+        refs.source,
         html,
       )!;
+      storeContentReferences(ctx, "profile_post_comment", row.id, refs);
       if (!decision.moderated && !spam)
         prepared(ctx, "profiles.incrementCommentCount", () =>
           ctx.sqlite.prepare<unknown, [number, number]>(
@@ -121,7 +123,10 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
   )
     throw new ForbiddenError();
   const content = prepareModeratedContent(ctx, actor, input.body, false);
-  const html = renderMarkdown(content.source);
+  const refs = renderContent(ctx, actor, content.source, {
+    edit: { contentType: "profile_post_comment", contentId: comment.id, authorId: comment.user_id },
+  });
+  const html = refs.html;
   writeTx(ctx, () => {
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
@@ -130,7 +135,8 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       ctx.sqlite.prepare<unknown, [string, string, number, number]>(
         "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
       ),
-    ).run(content.source, html, ctx.now(), comment.id);
+    ).run(refs.source, html, ctx.now(), comment.id);
+    storeContentReferences(ctx, "profile_post_comment", comment.id, refs);
     if (decision.moderated)
       moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
     if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);

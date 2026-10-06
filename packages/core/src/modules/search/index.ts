@@ -7,6 +7,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { maskMarkupForExcerpt } from "../seo/excerpt";
 
 const CANDIDATE_CAP = 1000;
 const BATCH_SIZE = 100;
@@ -34,7 +35,7 @@ type Detail = {
 };
 
 function excerpt(source: string): string {
-  const plain = source
+  const plain = maskMarkupForExcerpt(source)
     .replace(/<\/?[A-Za-z][^>]*>/g, " ")
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
