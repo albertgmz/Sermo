@@ -21,13 +21,11 @@ import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permis
 const PENDING_MODULES = new Set<string>([
   "attachments",
   "auth",
-  "conversations",
   "forums",
   "images",
   "moderation",
   "permissions",
   "profiles",
-  "reactions",
   "search",
   "seo",
   "settings",

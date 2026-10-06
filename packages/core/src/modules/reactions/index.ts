@@ -15,13 +15,13 @@ import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { requirePermission } from "../../permissions";
 import { parseReactionCounts, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { appendModeratorLog } from "../moderation";
-import { getGlobalPermissions, requireAdmin } from "../permissions";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
 
 type TypeRow = {
@@ -112,23 +112,27 @@ function adjustCounts(json: string, oldType: number | null, newType: number | nu
 }
 function requireReactPermission(ctx: Ctx, actor: Actor) {
   const user = requireAuthenticated(actor);
-  if (!getGlobalPermissions(ctx, actor).canReact) throw new ForbiddenError();
+  requirePermission(ctx, actor, "reaction.react");
   return user;
 }
 
-export const reactionTypesListOp = implement(reactionTypesList, (ctx) => ({
-  items: cached(ctx, "reaction_types", () =>
-    prepared(ctx, "reactions.types", () =>
-      ctx.sqlite.prepare<TypeRow, []>(
-        "SELECT id, title, emoji, score, position, is_active FROM reaction_types ORDER BY position, id",
-      ),
-    )
-      .all()
-      .map(typeValue),
-  ),
-}));
+export const reactionTypesListOp = implement(
+  reactionTypesList,
+  (ctx) => ({
+    items: cached(ctx, "reaction_types", () =>
+      prepared(ctx, "reactions.types", () =>
+        ctx.sqlite.prepare<TypeRow, []>(
+          "SELECT id, title, emoji, score, position, is_active FROM reaction_types ORDER BY position, id",
+        ),
+      )
+        .all()
+        .map(typeValue),
+    ),
+  }),
+  { public: "Reaction types are visible to everyone." },
+);
 export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor, input) => {
-  requireAdmin(ctx, actor);
+  requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
     const row = ctx.sqlite
       .prepare<TypeRow, [string, string, number, number, number]>(
@@ -141,7 +145,7 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
   });
 });
 export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor, input) => {
-  requireAdmin(ctx, actor);
+  requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
     const old = typeRow(ctx, input.reactionTypeId);
     if (!old) throw new NotFoundError();
@@ -224,28 +228,32 @@ export const reactionsRemoveOp = implement(reactionsRemove, (ctx, actor, input) 
     return reactionSummary(updated, undefined);
   });
 });
-export const reactionsListOp = implement(reactionsList, (ctx, actor, input) => {
-  reactables[input.contentType](ctx, actor, input.contentId);
-  const after = input.cursor
-    ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
-    : 0;
-  const rows = prepared(ctx, "reactions.list", () =>
-    ctx.sqlite.prepare<ReactionRow, [string, number, number, number]>(listSql),
-  ).all(input.contentType, input.contentId, after, input.limit + 1);
-  const page = rows.slice(0, input.limit);
-  const user = loadUserSummaries(
-    ctx,
-    page.map((row) => row.user_id),
-  );
-  return {
-    items: page.map((row) => ({
-      user: user(row.user_id),
-      reactionTypeId: row.reaction_type_id,
-      createdAt: iso(row.created_at),
-    })),
-    nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.user_id]) : null,
-  };
-});
+export const reactionsListOp = implement(
+  reactionsList,
+  (ctx, actor, input) => {
+    reactables[input.contentType](ctx, actor, input.contentId);
+    const after = input.cursor
+      ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
+      : 0;
+    const rows = prepared(ctx, "reactions.list", () =>
+      ctx.sqlite.prepare<ReactionRow, [string, number, number, number]>(listSql),
+    ).all(input.contentType, input.contentId, after, input.limit + 1);
+    const page = rows.slice(0, input.limit);
+    const user = loadUserSummaries(
+      ctx,
+      page.map((row) => row.user_id),
+    );
+    return {
+      items: page.map((row) => ({
+        user: user(row.user_id),
+        reactionTypeId: row.reaction_type_id,
+        createdAt: iso(row.created_at),
+      })),
+      nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.user_id]) : null,
+    };
+  },
+  { public: "Content visibility is checked by the reactable helper." },
+);
 
 export const operations = [
   reactionTypesListOp,
