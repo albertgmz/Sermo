@@ -114,6 +114,91 @@ describe("storage", () => {
     }
   });
 
+  test("upload quota resolves the highest value across a member's groups", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-storage-"));
+    const ctx = createTestContext();
+    try {
+      const group = ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "INSERT INTO groups (title, rank) VALUES ('Small uploads', 10) RETURNING id",
+        )
+        .get()!.id;
+      const definition = ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "SELECT id FROM permission_definitions WHERE key = 'attachment.storageQuota'",
+        )
+        .get()!.id;
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1000)",
+        )
+        .run(definition, group);
+      const member = insertUser(ctx, { groupId: group });
+      const actor = userActor(member);
+      const storage = createStorage(ctx, { driver: localDriver(join(dir, "files")), tempDir: dir });
+      const bytes = new TextEncoder().encode("x".repeat(1001));
+      await expect(storage.upload(actor, stream(bytes), "text/plain")).rejects.toThrow(
+        "Upload quota exceeded.",
+      );
+      ctx.sqlite
+        .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 2, 0)")
+        .run(member.id);
+      const uploaded = await storage.upload(actor, stream(bytes), "text/plain");
+      expect(storage.get(actor, uploaded.id).byte_size).toBe(1001);
+      ctx.sqlite
+        .prepare(
+          "UPDATE permission_entries SET value = 1000 WHERE permission_id = ?1 AND node_id = 0 AND group_id = 2 AND user_id = 0",
+        )
+        .run(definition);
+      await expect(storage.upload(actor, stream(bytes), "text/plain")).rejects.toThrow(
+        "Upload quota exceeded.",
+      );
+      ctx.sqlite
+        .prepare(
+          "UPDATE permission_entries SET value = -1 WHERE permission_id = ?1 AND node_id = 0 AND group_id = 2 AND user_id = 0",
+        )
+        .run(definition);
+      const unlimited = await storage.upload(actor, stream(bytes), "text/plain");
+      expect(storage.get(actor, unlimited.id).byte_size).toBe(1001);
+    } finally {
+      ctx.sqlite.close(true);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("upload quota counts generated image variants", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-storage-"));
+    const ctx = createTestContext();
+    try {
+      const reference = userActor(insertUser(ctx));
+      const storage = createStorage(ctx, { driver: localDriver(join(dir, "files")), tempDir: dir });
+      const sample = await storage.upload(reference, stream(png), "image/png");
+      const variant = ctx.sqlite
+        .prepare<{ byte_size: number }, [number]>(
+          "SELECT byte_size FROM files WHERE parent_file_id = ?1",
+        )
+        .get(sample.id)!;
+      expect(variant.byte_size).toBeGreaterThan(0);
+      const group = ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "INSERT INTO groups (title, rank) VALUES ('Image quota', 10) RETURNING id",
+        )
+        .get()!.id;
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'attachment.storageQuota'), 0, ?1, 0, ?2)",
+        )
+        .run(group, storage.get(reference, sample.id).byte_size);
+      const actor = userActor(insertUser(ctx, { groupId: group }));
+      await expect(storage.upload(actor, stream(png), "image/png")).rejects.toThrow(
+        "Upload quota exceeded.",
+      );
+    } finally {
+      ctx.sqlite.close(true);
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("S3-shaped driver and private conversation access", async () => {
     const objects = new Map<string, Uint8Array>();
     const fakeS3: StorageDriver = {
@@ -153,6 +238,22 @@ describe("storage", () => {
       expect(storage.get(owner, uploaded.id).id).toBe(uploaded.id);
       expect(storage.get(recipient, uploaded.id).id).toBe(uploaded.id);
       expect(() => storage.get(outsider, uploaded.id)).toThrow(NotFoundError);
+      ctx.sqlite
+        .prepare("UPDATE conversation_messages SET state = 'moderated' WHERE id = ?1")
+        .run(conversation.message.id);
+      expect(storage.get(owner, uploaded.id).id).toBe(uploaded.id);
+      expect(() => storage.get(recipient, uploaded.id)).toThrow(NotFoundError);
+      const definition = ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "SELECT id FROM permission_definitions WHERE key = 'conversation.viewHidden'",
+        )
+        .get()!.id;
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, 0, ?2, 1)",
+        )
+        .run(definition, recipient.kind === "guest" ? 0 : recipient.userId);
+      expect(storage.get(recipient, uploaded.id).id).toBe(uploaded.id);
       await storage.deleteQueued(uploaded.id);
       expect(objects.size).toBe(0);
     } finally {
@@ -180,6 +281,25 @@ describe("storage", () => {
       });
       const uploaded = await storage.upload(owner, stream(png), "image/png");
       storage.attach(owner, uploaded.id, "post", post.id);
+      expect(storage.get(GUEST, uploaded.id).id).toBe(uploaded.id);
+      expect((await storage.download(GUEST, uploaded.id)).byteLength).toBeGreaterThan(0);
+      const attachmentPermission = ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "SELECT id FROM permission_definitions WHERE key = 'forum.viewAttachments'",
+        )
+        .get()!.id;
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, ?2, 1, 0, -1)",
+        )
+        .run(attachmentPermission, node.id);
+      expect(() => storage.get(GUEST, uploaded.id)).toThrow(NotFoundError);
+      await expect(storage.download(GUEST, uploaded.id)).rejects.toThrow(NotFoundError);
+      ctx.sqlite
+        .prepare(
+          "DELETE FROM permission_entries WHERE permission_id = ?1 AND node_id = ?2 AND group_id = 1 AND user_id = 0",
+        )
+        .run(attachmentPermission, node.id);
       expect(storage.get(GUEST, uploaded.id).id).toBe(uploaded.id);
       await execute(ctx, postsDeleteOp, owner, { postId: post.id });
       expect(() => storage.get(GUEST, uploaded.id)).toThrow(NotFoundError);

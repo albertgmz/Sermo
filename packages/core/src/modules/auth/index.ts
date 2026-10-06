@@ -12,13 +12,14 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
 import {
+  combinationsGranting,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
+  permissionsOf,
   principalFromRow,
   resolvedPermissions,
 } from "../../permissions";
 import { iso } from "../../time";
-import { getGlobalPermissions } from "../permissions";
 
 function userConstraintError(error: unknown): APIError | null {
   if (!(error instanceof Error) || !/^UNIQUE constraint failed: users\./.test(error.message))
@@ -392,17 +393,26 @@ export function purgeExpiredCredentials(ctx: Ctx): {
   });
 }
 
+/** Finds a member whose resolved permission combination grants administrator access. */
+function administratorId(ctx: Ctx): number | null {
+  const combinations = combinationsGranting(ctx, "admin.permissions");
+  if (combinations.length === 0) return null;
+  return (
+    prepared(ctx, "auth.administrator", () =>
+      ctx.sqlite.prepare<{ id: number }, [string]>(
+        "SELECT id FROM users WHERE permission_combination_id IN (SELECT value FROM json_each(?1)) LIMIT 1",
+      ),
+    ).get(JSON.stringify(combinations))?.id ?? null
+  );
+}
+
 /** Creates or promotes the first administrator, then remains idempotent. */
 export async function ensureAdmin(
   ctx: Ctx,
   input: { username: string; email: string; password: string },
 ): Promise<{ userId: number; created: boolean }> {
-  const admin = ctx.sqlite
-    .prepare<{ id: number }, []>(
-      "SELECT u.id FROM users u JOIN groups g ON g.id = u.group_id WHERE g.is_admin = 1 LIMIT 1",
-    )
-    .get();
-  if (admin) return { userId: admin.id, created: false };
+  const admin = administratorId(ctx);
+  if (admin !== null) return { userId: admin, created: false };
   const existing = ctx.sqlite
     .prepare<{ id: number; email: string }, [string]>(
       "SELECT id, email FROM auth_user WHERE username = ?1",
@@ -439,12 +449,8 @@ export async function ensureAdmin(
     created = true;
   }
   const userId = writeTx(ctx, () => {
-    const current = ctx.sqlite
-      .prepare<{ id: number }, []>(
-        "SELECT u.id FROM users u JOIN groups g ON g.id = u.group_id WHERE g.is_admin = 1 LIMIT 1",
-      )
-      .get();
-    if (current) return current.id;
+    const current = administratorId(ctx);
+    if (current !== null) return current;
     if (verifiedHash) {
       const identity = ctx.sqlite
         .prepare<{ email: string }, [number]>("SELECT email FROM auth_user WHERE id = ?1")
@@ -470,7 +476,15 @@ export async function ensureAdmin(
 }
 
 export const authMeOp = implement(authMe, (ctx, actor) => {
-  const permissions = getGlobalPermissions(ctx, actor);
+  const checks = permissionsOf(ctx, actor);
+  const permissions = {
+    isAdmin: checks.can("admin.permissions"),
+    isModerator: checks.can("moderation.access"),
+    canViewProfiles: checks.can("profile.view"),
+    canPostProfile: checks.can("profilePost.post"),
+    canStartConversations: checks.can("conversation.start"),
+    canReact: checks.can("reaction.react"),
+  };
   const resolved = resolvedPermissions(ctx, actor);
   if (actor.kind === "guest") return { user: null, permissions, resolvedPermissions: resolved };
   const row = prepared(ctx, "auth.me", () =>

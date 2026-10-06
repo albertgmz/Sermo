@@ -3,8 +3,8 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { consumeEvents, type DomainEvent } from "../../events";
+import { permissionsOf } from "../../permissions";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
-import { getGlobalPermissions, getNodeAccess } from "../permissions";
 import { readSiteSettings } from "../settings";
 import { indexNowBatches, sendIndexNow } from "./indexnow";
 import { canonicalUrl } from "./paths";
@@ -15,14 +15,16 @@ type EventRow = { state: string; thread_id: number; profile_user_id: number };
 
 function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null {
   if (event.type === "content.deleted" && event.payload.previousState !== "visible") return null;
-  const access = getNodeAccess(ctx, GUEST);
+  const guest = permissionsOf(ctx, GUEST);
   if (event.targetType === "node") {
     const node = prepared(ctx, "seo.eventNode", () =>
       ctx.sqlite.prepare<{ id: number; title: string }, [number]>(
         "SELECT id,title FROM nodes WHERE id=?1",
       ),
     ).get(event.targetId);
-    return node && access(node.id).view ? canonicalUrl(baseURL, "node", node.id, node.title) : null;
+    return node && guest.can("node.view", { nodeId: node.id })
+      ? canonicalUrl(baseURL, "node", node.id, node.title)
+      : null;
   }
   if (event.targetType === "thread" || event.targetType === "post") {
     const thread =
@@ -37,7 +39,7 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
               "SELECT t.id,t.title,t.node_id,t.state,p.state AS post_state FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id=?1",
             ),
           ).get(event.targetId);
-    if (!thread || !access(thread.node_id).view) return null;
+    if (!thread || !guest.can("node.view", { nodeId: thread.node_id })) return null;
     if (thread.state !== "visible" && event.targetType !== "thread") return null;
     if (thread.state !== "visible" && event.type !== "content.deleted") return null;
     if (
@@ -49,7 +51,7 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
       return null;
     return canonicalUrl(baseURL, "thread", thread.id, thread.title);
   }
-  if (!getGlobalPermissions(ctx, GUEST).canViewProfiles) return null;
+  if (!guest.can("profile.view")) return null;
   let userId: number | null = null;
   if (event.targetType === "profile") userId = event.targetId;
   else if (event.targetType === "profile_post") {

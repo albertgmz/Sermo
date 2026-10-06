@@ -4,9 +4,9 @@ import { searchQuery } from "../../contracts/search";
 import { NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
-import { getNodeTree, viewableNodeIds } from "../permissions";
 
 const CANDIDATE_CAP = 1000;
 const BATCH_SIZE = 100;
@@ -47,6 +47,7 @@ function excerpt(source: string): string {
 }
 
 export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
+  requirePermission(ctx, actor, "search.use");
   const words = input.q.match(/[\p{L}\p{N}]+/gu)?.slice(0, 10) ?? [];
   if (words.length === 0) throw new ValidationError("Search query needs a word.");
   const expression = words.map((word) => `"${word}"`).join(" AND ");
