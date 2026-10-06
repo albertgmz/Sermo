@@ -532,3 +532,43 @@ changed `groups.list`, `groups.update` (`PATCH /groups/{groupId}`) and `permissi
 `groups.delete`, `users.getGroups`, `users.setGroups`, `permissions.definitions`,
 `permissions.list`, `permissions.set` and `permissions.explain`. `auth.me`, `nodes.get` and
 `threads.get` gained `resolvedPermissions` (additive).
+
+## Milestone 20: promotions, rank, display
+
+**Promotions grant secondary groups through their own table.** `user_group_grants` holds groups
+added by promotions, separate from hand-assigned `user_groups`, so a promotion never touches a
+group an admin assigned (a group both granted and assigned survives demotion), and the
+combination triggers take the union. A member's state per promotion is `auto` (applied by
+evaluation), `manual` (promoted by hand, kept whatever the criteria) or `exempt` (demoted or
+excluded by hand, never applied).
+
+**Criteria are a registry like permissions**: post count, days registered, reaction score,
+verified email, avatar, active within N days, inactive for N days, active warning points below N.
+Boolean criteria take 1 (must hold) or 0 (must not hold). Adding a criterion is one entry plus
+an evaluator.
+
+**Evaluation runs after relevant events and in a daily sweep, with one decision function.** The
+promotions subscriber evaluates the member behind `content.created` (posts, threads, profile
+posts, comments), `reaction.added`, `member.warned`, avatar changes and admin group changes; it
+ignores its own group-change events. The sweep walks members in chunks of 200 (one short
+transaction each, resumable through a chained job with a unique key). Both are idempotent and
+log only real changes. Deleting a promotion deactivates it and removes its grants in chunks.
+
+**Rank rules for promotions** mirror groups: nobody creates, edits, applies or deletes a
+promotion granting a group ranked at or above their own highest rank, and applying a promotion
+by hand also needs `admin.members` over the member.
+
+**Measured:** a cold sweep of 60,000 members against 50 promotions takes about 0.9 s (largest
+chunk 18 ms); reads while sweeps run continuously stay at p95 13 ms, max 21 ms.
+
+**Member activity is buffered in memory** (`ctx.activity`, written by actor resolution) and
+flushed with thread views every five seconds, so a read never writes. `last_activity_at` feeds
+the activity criteria and the weekly digest.
+
+**Display group:** profiles and `auth.me` return the member's highest-ranked group (ties: lowest
+id) with its user title and badge. `Profile.groupTitle` still names the primary group.
+
+**Events are delivered to registered subscribers every second.** `dispatchEvents` (scheduled
+each second, overlap-protected) feeds each subscriber in batches of 100, yielding between
+batches. Subscribers keep the existing durable cursors and must be idempotent. Publishing an
+event does not enqueue a job, so job counts asserted by existing tests are unchanged.
