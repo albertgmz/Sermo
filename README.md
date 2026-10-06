@@ -127,3 +127,16 @@ docker compose start
 ```
 
 A graceful stop folds the WAL into the main file. After a crash, also copy `sermo.db-wal` before starting the service. Keep backups outside the Compose volume and protect them like the live database.
+
+## Web Push
+
+Web Push is disabled until all three VAPID settings are set. Generate a permanent key pair with
+`bunx web-push generate-vapid-keys --json`, then set `SERMO_VAPID_PUBLIC_KEY` and
+`SERMO_VAPID_PRIVATE_KEY` from the output. Set `SERMO_VAPID_SUBJECT` to a contact URI such as
+`mailto:admin@example.com` (or an HTTPS URL). Keep the private key secret and retain the same
+pair across restarts so existing browser subscriptions stay valid. Clients can read the public key
+from `GET /api/v1/push/public-key`, register devices with `PUT /api/v1/push/subscriptions`,
+list their devices with `GET /api/v1/push/subscriptions`, and remove one with
+`DELETE /api/v1/push/subscriptions`. Subscriptions are limited to ten per member; the oldest is
+replaced when an eleventh device is registered. Endpoints must belong to the supported Google,
+Mozilla, Microsoft, or Apple push services.
