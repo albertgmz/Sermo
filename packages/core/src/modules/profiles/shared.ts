@@ -2,11 +2,93 @@ import type { Actor } from "../../actor";
 import { actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
+import { markPublic } from "../../operation";
 import { can, permissionsOf, requirePermission } from "../../permissions";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
+import { readSiteSettings } from "../settings";
+
+export type ProfileAccess = {
+  profile_view_privacy: "everyone" | "members" | "followed" | "self";
+  profile_post_privacy: "members" | "followed" | "self";
+  follows: number;
+};
+export const profileAccess = markPublic(
+  "Callers enforce profile visibility before returning content.",
+  function profileAccess(ctx: Ctx, actor: Actor, userId: number): ProfileAccess {
+    const row = prepared(ctx, "profiles.privacy", () =>
+      ctx.sqlite.prepare<ProfileAccess, [number, number]>(
+        "SELECT profile_view_privacy, profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = ?1 AND followed_id = ?2) AS follows FROM users WHERE id = ?1",
+      ),
+    ).get(userId, actorUserId(actor) ?? 0);
+    if (!row) throw new NotFoundError();
+    return row;
+  },
+);
+export function mayViewProfile(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  access?: ProfileAccess,
+): boolean {
+  const viewerId = actorUserId(actor);
+  if (viewerId === userId || can(ctx, actor, "profile.bypassPrivacy")) return true;
+  const row = access ?? profileAccess(ctx, actor, userId);
+  const mode = row.profile_view_privacy;
+  return (
+    mode === "everyone" ||
+    (viewerId !== null && (mode === "members" || (mode === "followed" && row.follows === 1)))
+  );
+}
+export function requireProfileView(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  access?: ProfileAccess,
+): void {
+  requireView(ctx, actor);
+  if (!mayViewProfile(ctx, actor, userId, access)) throw new NotFoundError();
+}
+function wallAllows(ctx: Ctx, actor: Actor, ownerId: number, access?: ProfileAccess): boolean {
+  const viewerId = actorUserId(actor);
+  if (viewerId === null || !readSiteSettings(ctx).profilePostsEnabled) return false;
+  const row = access ?? profileAccess(ctx, actor, ownerId);
+  if (!mayViewProfile(ctx, actor, ownerId, row)) return false;
+  // An ignore applies only while the author can be ignored (staff cannot).
+  if (
+    viewerId !== ownerId &&
+    can(ctx, actor, "member.ignorable") &&
+    prepared(ctx, "profiles.ownerIgnores", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, number]>(
+        "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+      ),
+    ).get(ownerId, viewerId)
+  )
+    return false;
+  if (can(ctx, actor, "profile.bypassPrivacy")) return true;
+  const mode = row.profile_post_privacy;
+  if (mode === "self" && viewerId !== ownerId) return false;
+  if (mode === "followed" && viewerId !== ownerId && row.follows !== 1) return false;
+  return true;
+}
+export function mayPostOnWall(
+  ctx: Ctx,
+  actor: Actor,
+  ownerId: number,
+  access?: ProfileAccess,
+): boolean {
+  return can(ctx, actor, "profilePost.post") && wallAllows(ctx, actor, ownerId, access);
+}
+export function mayCommentOnWall(
+  ctx: Ctx,
+  actor: Actor,
+  ownerId: number,
+  access?: ProfileAccess,
+): boolean {
+  return can(ctx, actor, "profilePost.comment") && wallAllows(ctx, actor, ownerId, access);
+}
 
 export type State = "visible" | "moderated" | "deleted";
 export function touchProfile(ctx: Ctx, userId: number): void {
@@ -64,12 +146,19 @@ export function maySee(ctx: Ctx, state: State, authorId: number, actor: Actor) {
     (state === "deleted" && can(ctx, actor, "profilePost.viewDeleted"))
   );
 }
-export function requirePost(ctx: Ctx, actor: Actor, id: number): PostRow {
+export function requirePost(
+  ctx: Ctx,
+  actor: Actor,
+  id: number,
+  ownCommentAuthorId?: number,
+): PostRow {
   requireView(ctx, actor);
   const row = prepared(ctx, "profiles.post", () =>
     ctx.sqlite.prepare<PostRow, [number]>("SELECT * FROM profile_posts WHERE id = ?1"),
   ).get(id);
   if (!row || !maySee(ctx, row.state, row.user_id, actor)) throw new NotFoundError();
+  if (actorUserId(actor) !== row.user_id && actorUserId(actor) !== ownCommentAuthorId)
+    requireProfileView(ctx, actor, row.profile_user_id);
   return row;
 }
 export function requireComment(
@@ -84,7 +173,12 @@ export function requireComment(
     requireView(ctx, actor);
     throw new NotFoundError();
   }
-  const post = requirePost(ctx, actor, comment.profile_post_id);
+  const post = requirePost(
+    ctx,
+    actor,
+    comment.profile_post_id,
+    actorUserId(actor) === comment.user_id ? comment.user_id : undefined,
+  );
   if (!maySee(ctx, comment.state, comment.user_id, actor)) throw new NotFoundError();
   return { comment, post };
 }
@@ -182,6 +276,9 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     "profile_post",
     rows.map((row) => row.id),
   );
+  const commentAccess = new Map<number, boolean>();
+  for (const ownerId of new Set(rows.map((row) => row.profile_user_id)))
+    commentAccess.set(ownerId, mayCommentOnWall(ctx, actor, ownerId));
   return rows.map((row) => ({
     id: row.id,
     profileUserId: row.profile_user_id,
@@ -202,7 +299,7 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
       permissions.can("profilePost.deleteAny") ||
       permissions.can("profilePost.deleteOwn", { ownerId: row.user_id }) ||
       permissions.can("profilePost.manageOwnWall", { ownerId: row.profile_user_id }),
-    canComment: permissions.can("profilePost.comment") && row.state === "visible",
+    canComment: commentAccess.get(row.profile_user_id) === true && row.state === "visible",
   }));
 }
 export function postValue(ctx: Ctx, actor: Actor, row: PostRow) {

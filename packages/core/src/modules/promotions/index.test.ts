@@ -616,6 +616,7 @@ describe("promotions", () => {
       points: 1,
       reason: "Rule break",
       warningId: warning.id,
+      notify: true,
     });
     await dispatchEvents(ctx);
     expect(

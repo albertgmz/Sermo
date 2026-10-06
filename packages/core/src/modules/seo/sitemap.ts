@@ -104,7 +104,7 @@ export function* sitemapEntries(
       },
       [number]
     >(
-      "SELECT id,username,created_at,content_updated_at,about,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id>?1 ORDER BY id LIMIT 500",
+      "SELECT id,username,created_at,content_updated_at,about,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id>?1 AND profile_view_privacy='everyone' ORDER BY id LIMIT 500",
     ),
   );
   for (;;) {

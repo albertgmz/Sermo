@@ -1,6 +1,6 @@
 import * as z from "zod";
-import { type Actor, actorUserId, requireAuthenticated } from "../../actor";
-import { type Ctx, prepared } from "../../context";
+import { actorUserId, requireAuthenticated } from "../../actor";
+import { prepared } from "../../context";
 import {
   profileCommentsCreate,
   profileCommentsDelete,
@@ -23,12 +23,14 @@ import {
   prepareModeratedContent,
   withSpamCheck,
 } from "../moderation";
+import { noticeForOther } from "../moderation/notify";
 import {
   COMMENTS_SQL,
   type CommentRow,
   changeCommentCount,
   commentValue,
   commentValues,
+  mayCommentOnWall,
   requireComment,
   requirePost,
   touchProfile,
@@ -67,29 +69,20 @@ export const profileCommentsGetOp = implement(profileCommentsGet, (ctx, actor, i
     bodySource: comment.body_source,
   };
 });
-function ignoredByCommentWall(ctx: Ctx, actor: Actor, wallId: number, authorId: number): boolean {
-  return (
-    can(ctx, actor, "member.ignorable") &&
-    !!prepared(ctx, "profiles.commentWallIgnored", () =>
-      ctx.sqlite.prepare<{ id: number }, [number, number]>(
-        "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
-      ),
-    ).get(wallId, authorId)
-  );
-}
 export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const post = requirePost(ctx, actor, input.profilePostId);
   requirePermission(ctx, actor, "profilePost.comment");
+  if (!mayCommentOnWall(ctx, actor, post.profile_user_id)) throw new ForbiddenError();
   if (post.state !== "visible") throw new ForbiddenError();
-  if (ignoredByCommentWall(ctx, actor, post.profile_user_id, user.userId))
-    throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
     const comment = writeTx(ctx, () => {
-      if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
-      if (ignoredByCommentWall(ctx, actor, post.profile_user_id, user.userId))
+      if (
+        requirePost(ctx, actor, post.id).state !== "visible" ||
+        !mayCommentOnWall(ctx, actor, post.profile_user_id)
+      )
         throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
@@ -152,6 +145,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       type: "content.edited",
       targetType: "profile_post_comment",
       targetId: comment.id,
+      payload: noticeForOther(actor, comment.user_id, input),
     });
     if (can(ctx, actor, "profilePost.editAny"))
       appendModeratorLog(ctx, actor, "profile_comment.edit", "profile_post_comment", comment.id);
@@ -186,7 +180,7 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
         type: "content.deleted",
         targetType: "profile_post_comment",
         targetId: comment.id,
-        payload: { previousState: current.state },
+        payload: { previousState: current.state, ...noticeForOther(actor, comment.user_id, input) },
       });
     if (can(ctx, actor, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_comment.delete", "profile_post_comment", comment.id);
@@ -216,6 +210,7 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
         type: "content.state_changed",
         targetType: "profile_post_comment",
         targetId: comment.id,
+        payload: noticeForOther(actor, comment.user_id, input),
       });
     appendModeratorLog(ctx, actor, "profile_comment.restore", "profile_post_comment", comment.id);
   });
