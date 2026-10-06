@@ -11,9 +11,48 @@ export const CONTENT_EVENT_TYPES = [
 
 export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
 
+/**
+ * Every event type. Content events carry the content as target. The others, with their target
+ * and payload:
+ * - `reaction.added`: target the reacted content (targetType is the reaction content type);
+ *   payload { userId, contentUserId, reactionTypeId }.
+ * - `member.groups_changed`: target the member (targetType "user"); payload { added, removed,
+ *   source: "promotion" | "admin", promotionId?, actorId? }.
+ * - `member.followed`: target the followed member; payload { followerId }.
+ * - `member.warned`, `member.banned`, `member.restricted`, `member.thread_banned`: target the
+ *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }.
+ * - `moderation.action`: target the content acted on; payload { action, moderatorId,
+ *   contentUserId, reason, notify, message?, ...details } (approved, rejected, edited, moved,
+ *   merged, locked, deleted).
+ * - `report.created`, `report.state_changed`: target the report group; payload { reporterId?,
+ *   state?, moderatorId?, nodeId? }.
+ * - `conversation.participants_added`: target the conversation; payload { userIds, actorId }.
+ * - `announcement.published`: target the announcement; payload { userId }.
+ * - `notification.created`: target the notification; payload { userId, type } (for future
+ *   real-time delivery).
+ */
+export const EVENT_TYPES = [
+  ...CONTENT_EVENT_TYPES,
+  "reaction.added",
+  "member.groups_changed",
+  "member.followed",
+  "member.warned",
+  "member.banned",
+  "member.restricted",
+  "member.thread_banned",
+  "moderation.action",
+  "report.created",
+  "report.state_changed",
+  "conversation.participants_added",
+  "announcement.published",
+  "notification.created",
+] as const;
+
+export type EventType = (typeof EVENT_TYPES)[number];
+
 export interface DomainEvent {
   id: number;
-  type: ContentEventType;
+  type: EventType;
   targetType: string;
   targetId: number;
   payload: Record<string, unknown>;
@@ -63,7 +102,7 @@ export async function consumeEvents(
     ctx.sqlite.prepare<
       {
         id: number;
-        type: ContentEventType;
+        type: EventType;
         target_type: string;
         target_id: number;
         payload: string;
@@ -92,4 +131,39 @@ export async function consumeEvents(
     });
   }
   return rows.length;
+}
+
+type EventHandler = (event: DomainEvent) => void | Promise<void>;
+const subscribers = new WeakMap<Ctx, Map<string, EventHandler>>();
+
+/**
+ * Registers a subscriber that `dispatchEvents` feeds promptly (the server dispatches every
+ * second). The name is its durable cursor; handlers must be idempotent.
+ */
+export function registerEventSubscriber(ctx: Ctx, name: string, handler: EventHandler): void {
+  const map = subscribers.get(ctx) ?? new Map<string, EventHandler>();
+  map.set(name, handler);
+  subscribers.set(ctx, map);
+}
+
+/**
+ * Feeds new events to every registered subscriber in batches, yielding to the event loop between
+ * batches so requests are never held up, until each is caught up or the time budget is spent.
+ * Returns the number of events handled.
+ */
+export async function dispatchEvents(
+  ctx: Ctx,
+  options: { budgetMs?: number } = {},
+): Promise<number> {
+  const deadline = performance.now() + (options.budgetMs ?? 500);
+  let handled = 0;
+  for (const [name, handler] of subscribers.get(ctx) ?? []) {
+    while (performance.now() < deadline) {
+      const count = await consumeEvents(ctx, name, handler, 100);
+      handled += count;
+      await new Promise((resolve) => setImmediate(resolve));
+      if (count < 100) break;
+    }
+  }
+  return handled;
 }

@@ -57,6 +57,8 @@ export interface Ctx {
   readonly views: Map<number, number>;
   /** Buffered attachment downloads, flushed with thread views. */
   readonly downloads: Map<number, number>;
+  /** Buffered member activity (userId -> latest request time), flushed with thread views. */
+  readonly activity: Map<number, number>;
   /** Internal: versioned in-memory caches. Use `cached` / `invalidate`. */
   readonly caches: Map<string, { version: number; value: unknown }>;
   /** Internal: prepared statements. Use `prepared`. */
@@ -81,6 +83,7 @@ export function createContext(options: CreateContextOptions): Ctx {
     now: options.now ?? Date.now,
     views: new Map(),
     downloads: new Map(),
+    activity: new Map(),
     caches: new Map(),
     statements: new Map(),
   };

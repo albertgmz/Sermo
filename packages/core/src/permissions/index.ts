@@ -5,6 +5,7 @@ export {
   isRestricted,
   type LayerExplanation,
   memberActor,
+  memberDisplay,
   memberStanding,
   type PermissionContext,
   type PermissionExplanation,

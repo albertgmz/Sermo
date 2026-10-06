@@ -18,6 +18,7 @@ import {
   type PermissionId,
 } from "./registry";
 import {
+  allCombinations,
   type Combination,
   combinationById,
   combinationKey,
@@ -138,8 +139,13 @@ function resolve(ctx: Ctx, actor: Actor): Resolved {
   }
   const id = principal.combinationId;
   let combination = id > 0 ? combinationById(state, id) : undefined;
-  if (!combination && id > 0 && loadCombinationDef(ctx, state, id))
-    combination = combinationById(state, id);
+  if (!combination && id > 0) {
+    const def = loadCombinationDef(ctx, state, id);
+    if (def)
+      combination = ctx.sqlite.inTransaction
+        ? computeCombination(state, id, def)
+        : combinationById(state, id);
+  }
   if (!combination) combination = syntheticCombination(state, 0, [actor.groupId]);
   return { principal, combination, state };
 }
@@ -350,15 +356,25 @@ export function memberStanding(
   return { maxRank: combination.maxRank, displayGroupId: combination.displayGroupId };
 }
 
+/** The group whose title and badge a member displays (their highest-ranked group). */
+export function memberDisplay(
+  ctx: Ctx,
+  actor: Actor,
+): { groupId: number; title: string; userTitle: string; badge: string } | null {
+  const { combination, state } = resolve(ctx, actor);
+  const group =
+    combination.displayGroupId === null ? undefined : state.groups.get(combination.displayGroupId);
+  return group
+    ? { groupId: group.id, title: group.title, userTitle: group.userTitle, badge: group.badge }
+    : null;
+}
+
 /** Combinations (resolved now, including inside a transaction) that grant a global flag. */
 export function combinationsGranting(ctx: Ctx, id: FlagPermissionId): number[] {
   const state = permissionState(ctx);
-  const ids: number[] = [];
-  for (const combinationId of state.combinationDefs.keys()) {
-    const combination = combinationById(state, combinationId);
-    if (combination && flagAt(combination, id, -1)) ids.push(combinationId);
-  }
-  return ids;
+  return allCombinations(ctx, state)
+    .filter((combination) => flagAt(combination, id, -1))
+    .map((combination) => combination.id);
 }
 
 // Explain ----------------------------------------------------------------------------------

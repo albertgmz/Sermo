@@ -173,3 +173,24 @@ export function flushDownloadCounts(ctx: Ctx): number {
   }
   return batch.length;
 }
+
+/** Writes buffered member activity (`users.last_activity_at`), never moving it backwards. */
+export function flushActivity(ctx: Ctx): number {
+  const batch = [...ctx.activity];
+  ctx.activity.clear();
+  if (!batch.length) return 0;
+  try {
+    writeTx(ctx, () => {
+      const update = prepared(ctx, "jobs.flushActivity", () =>
+        ctx.sqlite.prepare(
+          "UPDATE users SET last_activity_at = ?1 WHERE id = ?2 AND (last_activity_at IS NULL OR last_activity_at < ?1)",
+        ),
+      );
+      for (const [id, at] of batch) update.run(at, id);
+    });
+  } catch (error) {
+    for (const [id, at] of batch) ctx.activity.set(id, Math.max(ctx.activity.get(id) ?? 0, at));
+    throw error;
+  }
+  return batch.length;
+}

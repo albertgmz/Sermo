@@ -595,18 +595,55 @@ export function combinationById(state: PermissionState, id: number): Combination
   return combination;
 }
 
-/** Loads a combination definition created after the state was built (one lookup, once). */
-export function loadCombinationDef(ctx: Ctx, state: PermissionState, id: number): boolean {
+/**
+ * Loads a combination created after the state was built (a membership change creates one without
+ * a permission version change). It is kept in the state only outside a transaction: an
+ * uncommitted row can be rolled back and its id reused for another set of groups.
+ */
+export function loadCombinationDef(
+  ctx: Ctx,
+  state: PermissionState,
+  id: number,
+): CombinationDef | null {
   const row = ctx.sqlite
     .prepare<{ user_id: number; group_ids: string }, [number]>(
       "SELECT user_id, group_ids FROM permission_combinations WHERE id = ?1",
     )
     .get(id);
-  if (!row) return false;
-  const groupIds = row.group_ids === "" ? [] : row.group_ids.split(",").map(Number);
-  state.combinationDefs.set(id, { userId: row.user_id, groupIds });
-  state.combinationByKey.set(combinationKey(row.user_id, groupIds), id);
-  return true;
+  if (!row) return null;
+  const def = {
+    userId: row.user_id,
+    groupIds: row.group_ids === "" ? [] : row.group_ids.split(",").map(Number),
+  };
+  if (!ctx.sqlite.inTransaction) {
+    state.combinationDefs.set(id, def);
+    state.combinationByKey.set(combinationKey(def.userId, def.groupIds), id);
+    if (id > state.maxCombinationId) state.maxCombinationId = id;
+  }
+  return def;
+}
+
+/** Every combination, including ones created after the state was built (same rule). */
+export function allCombinations(ctx: Ctx, state: PermissionState): Combination[] {
+  const result: Combination[] = [];
+  for (const id of state.combinationDefs.keys()) result.push(combinationById(state, id)!);
+  const newer = ctx.sqlite
+    .prepare<{ id: number; user_id: number; group_ids: string }, [number]>(
+      "SELECT id, user_id, group_ids FROM permission_combinations WHERE id > ?1 ORDER BY id",
+    )
+    .all(state.maxCombinationId);
+  for (const row of newer) {
+    const def = {
+      userId: row.user_id,
+      groupIds: row.group_ids === "" ? [] : row.group_ids.split(",").map(Number),
+    };
+    if (ctx.sqlite.inTransaction) result.push(computeCombination(state, row.id, def));
+    else {
+      loadCombinationDef(ctx, state, row.id);
+      result.push(combinationById(state, row.id)!);
+    }
+  }
+  return result;
 }
 
 /**

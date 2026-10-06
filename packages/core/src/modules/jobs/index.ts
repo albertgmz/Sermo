@@ -7,6 +7,7 @@ export const operations: AnyOperation[] = [];
 export type { EnqueueOptions, JobHandler } from "./queue";
 export {
   enqueueJob,
+  flushActivity,
   flushDownloadCounts,
   flushViewCounts,
   registerJobHandler,

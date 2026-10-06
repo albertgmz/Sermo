@@ -8,6 +8,7 @@ import { GROUP_IDS, RESTRICTION_PERMANENT } from "../db/schema";
 import { createTestContext, insertNode, insertUser, type TestClock, userActor } from "../testing";
 import {
   can,
+  combinationsGranting,
   explainPermission,
   memberActor,
   memberStanding,
@@ -575,6 +576,41 @@ describe("permission state", () => {
       ),
     ).toThrow("rollback");
     expect(can(ctx, actor, "search.use")).toBe(true);
+  });
+
+  test("combinations created after the state was built are found", () => {
+    const ctx = createTestContext();
+    const user = insertUser(ctx);
+    expect(combinationsGranting(ctx, "admin.permissions")).toEqual([]);
+    // A membership change creates a combination without a permission version change.
+    ctx.sqlite.prepare("UPDATE users SET group_id = 4 WHERE id = ?1").run(user.id);
+    const granting = combinationsGranting(ctx, "admin.permissions");
+    expect(granting).toHaveLength(1);
+    expect(can(ctx, loadedActor(ctx, user.id), "admin.permissions")).toBe(true);
+  });
+
+  test("a combination read inside a rolled-back transaction never poisons the state", () => {
+    const ctx = createTestContext();
+    const first = insertUser(ctx);
+    const second = insertUser(ctx);
+    const helpers = createGroup(ctx, "Helpers");
+    const staff = createGroup(ctx, "Staff");
+    setEntry(ctx, { groupId: staff }, "admin.settings", "allow");
+    expect(can(ctx, userActor(first), "search.use")).toBe(true);
+    expect(() =>
+      ctx.db.transaction(
+        () => {
+          addToGroup(ctx, first.id, helpers);
+          expect(can(ctx, loadedActor(ctx, first.id), "admin.settings")).toBe(false);
+          throw new Error("rollback");
+        },
+        { behavior: "immediate" },
+      ),
+    ).toThrow("rollback");
+    // The rolled-back combination id is reused for a different set of groups.
+    addToGroup(ctx, second.id, staff);
+    expect(can(ctx, loadedActor(ctx, second.id), "admin.settings")).toBe(true);
+    expect(can(ctx, loadedActor(ctx, first.id), "admin.settings")).toBe(false);
   });
 
   test("combinations are precomputed in the background in yielding batches", async () => {

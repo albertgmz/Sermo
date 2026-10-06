@@ -2,13 +2,15 @@ import { Cron } from "croner";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
+import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentials } from "../auth";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
-import { enqueueJob, flushDownloadCounts, flushViewCounts } from "./queue";
+import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
 import { registerJobHandlers } from "./rebuild";
 
 export const SCHEDULES = {
+  events: "* * * * * *",
   views: "*/5 * * * * *",
   hourly: "0 0 * * * *",
   daily: "0 0 3 * * *",
@@ -25,6 +27,7 @@ export const purgeSql = {
 export function runViewsTask(ctx: Ctx): number {
   const views = flushViewCounts(ctx);
   flushDownloadCounts(ctx);
+  flushActivity(ctx);
   return views;
 }
 
@@ -82,6 +85,10 @@ export function startScheduler(ctx: Ctx): () => void {
   registerJobHandlers(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
+    // Prompt delivery of domain events to registered subscribers (promotions, notifications).
+    new Cron(SCHEDULES.events, { name: "jobs.events", protect: true, catch: onError }, async () => {
+      await dispatchEvents(ctx);
+    }),
     new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, () => {
       runViewsTask(ctx);
     }),

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { Ctx } from "./context";
 import { invalidate } from "./context";
 import { writeTx } from "./db/tx";
-import { consumeEvents, publishEvent } from "./events";
+import { consumeEvents, dispatchEvents, publishEvent, registerEventSubscriber } from "./events";
 import { postsCreateOp, postsDeleteOp, postsRestoreOp, threadsCreateOp } from "./modules/forums";
 import { execute } from "./operation";
 import { createTestContext, insertNode, insertUser, userActor } from "./testing";
@@ -87,5 +87,32 @@ describe("durable domain events", () => {
       )
       .get(created.thread.id);
     expect(updated?.content_updated_at).toBe(ctx.now());
+  });
+
+  test("registered subscribers are fed in batches until caught up", async () => {
+    const ctx = createTestContext();
+    contexts.push(ctx);
+    writeTx(ctx, () => {
+      for (let i = 1; i <= 250; i++)
+        publishEvent(ctx, { type: "reaction.added", targetType: "post", targetId: i });
+    });
+    const first: number[] = [];
+    const second: number[] = [];
+    registerEventSubscriber(ctx, "first", (event) => {
+      first.push(event.targetId);
+    });
+    registerEventSubscriber(ctx, "second", (event) => {
+      second.push(event.targetId);
+    });
+    expect(await dispatchEvents(ctx)).toBe(500);
+    expect(first).toHaveLength(250);
+    expect(second).toEqual(first);
+    expect(await dispatchEvents(ctx)).toBe(0);
+    // A zero budget hands nothing over; nothing is lost.
+    writeTx(ctx, () => {
+      publishEvent(ctx, { type: "member.followed", targetType: "user", targetId: 7 });
+    });
+    expect(await dispatchEvents(ctx, { budgetMs: 0 })).toBe(0);
+    expect(await dispatchEvents(ctx)).toBe(2);
   });
 });
