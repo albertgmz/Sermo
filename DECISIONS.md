@@ -572,3 +572,70 @@ id) with its user title and badge. `Profile.groupTitle` still names the primary 
 each second, overlap-protected) feeds each subscriber in batches of 100, yielding between
 batches. Subscribers keep the existing durable cursors and must be idempotent. Publishing an
 event does not enqueue a job, so job counts asserted by existing tests are unchanged.
+
+## Milestone 21: Markdown extensions
+
+**Directives use a small tokenizer of our own, not `marked-directive`.** Mentions (`@name`),
+quotes (`[quote=...]`-style blocks) and spoilers are marked extensions; the published directive
+plugin could not nest quotes inside spoilers and the reverse. Rendering stays on write, and
+`content_mentions` / `content_quotes` are stored in the same transaction as the content.
+
+**Mention and quote limits come from the author's permissions** (`mention.maxPerItem`; new
+members get `newMemberMentionLimit`). An edit keeps the mention ids it already had, so editing an
+old post never re-notifies or drops members; only `newlyMentioned` ids reach notifications.
+Quoting a post the reader cannot see is accepted (the quote shows the stored excerpt), and stored
+quotes stay valid on edit.
+
+## Milestone 22: watching, following, ignoring
+
+Watches, follows and ignores are rows with recency indexes and denormalized follower/following
+counts maintained in the write transaction. Ignoring applies only while the ignored member holds
+`member.ignorable`, so staff cannot be ignored; banned members can be. One rule
+(`profiles/shared.wallAllows`) decides every ignore check. `watch_on_create` and
+`watch_on_reply` default per member.
+
+## Milestone 26: moderation additions
+
+**Hierarchy applies to member-directed actions only** (warn, ban, restrict, spam cleanup, member
+admin): nobody acts on a member whose highest group ranks at or above their own, and moderators
+cannot warn themselves. Content moderation is not ranked. Owner review.
+
+**Privacy denials look like missing content** (NotFound), so profile privacy cannot be probed.
+Authors keep access to their own posts on walls that became private.
+
+**Queues stay open to members with a per-item filter.** Report and approval queues and the
+moderator log scan at most four times the requested limit per request, so a page can be short
+and still carry a `nextCursor`, as search pages do. The approval queue walks the state indexes
+newest first and checks each candidate's node through its thread.
+
+**Thread merge and split are the only operations that renumber post positions.** They run as
+chunked background jobs guarded by `thread_transfers` (one primary-key lookup on every reply and
+reorganization). The target's first post keeps position 0; the other posts interleave by
+`(created_at, id)`. Each chunk completes its own job and queues its successor in the same
+transaction, matching the claimed job's id and lease, so a replayed or reclaimed chunk does
+nothing. A failed transfer sets `failed_at`; repeating the same merge or split resets the real
+failed jobs. Replies and moderation of either thread return a conflict while a transfer is
+pending. Split copies the source's active thread bans; watches are not copied.
+
+**Unread state keeps using post ids after a merge**, so moved posts older than the reader's
+marker count as read.
+
+**Moderation events carry `{actorId, reason, notify, message}`** plus `previousState`/`state` in
+the existing `content.*` payloads; only merge and split publish `moderation.action`. Lifting a
+ban or restriction publishes the same event type with `lifted: true`.
+
+## Milestone 27: push groundwork
+
+**Push endpoints are limited to the browser push services** (`fcm.googleapis.com`,
+`*.push.services.mozilla.com`, `*.notify.windows.com`, `*.push.apple.com`) on the default HTTPS
+port, without userinfo, checked at subscribe and again at send time. Any other host would let
+members make the server POST to internal addresses. Self-hosted push services are not supported;
+owner review.
+
+**Delivery is one job per (notification, subscription)**, queued with one `INSERT ... SELECT`
+inside the notification batch, so one failing device never causes re-sends to the others.
+Requests are built with `web-push` and sent with `fetch` under a 10 s deadline. 404/410 remove
+the subscription; 3xx/400/403/413 drop the job (403 usually means our VAPID keys are wrong, and
+deleting on it would wipe every subscriber); anything else retries. Members keep at most ten
+subscriptions (the oldest is replaced). An endpoint moves to another member only when they present
+the same `auth` secret, which only the browser holding the subscription has.
