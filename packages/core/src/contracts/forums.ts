@@ -340,8 +340,8 @@ export const postsRestore = defineContract({
 export const threadsMerge = defineContract({
   name: "threads.merge",
   summary:
-    "Merge threads into a target thread: their posts follow the target's posts in their own " +
-    "order; each merged thread's id keeps resolving to the target. Requires forum.merge on the " +
+    "Merge threads into a target thread: the target's first post stays first and the other " +
+    "posts are ordered by creation time; each merged thread's id keeps resolving to the target. Requires forum.merge on the " +
     "target's node and on each source's node. Very large merges finish in the background.",
   kind: "write",
   input: z.object({

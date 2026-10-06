@@ -584,8 +584,8 @@ quotes inside spoilers and the reverse. Rendering stays on write, and
 **Mention and quote limits come from the author's permissions** (`mention.maxPerItem`; new
 members get `newMemberMentionLimit`). An edit keeps the mention ids it already had, so editing an
 old post never re-notifies or drops members; only `newlyMentioned` ids reach notifications.
-Quoting a post the reader cannot see is accepted (the quote shows the stored excerpt), and stored
-quotes stay valid on edit.
+Quoting a post the author cannot see is rejected; quotes already stored in the content stay valid
+on edit even if the quoted post became invisible since.
 
 ## Milestone 22: watching, following, ignoring
 
