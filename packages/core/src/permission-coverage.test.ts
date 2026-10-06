@@ -15,10 +15,16 @@ import * as walk from "acorn-walk";
 import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permissions/registry";
 
 /**
- * Modules not yet converted to the permission check. Converted modules are removed; the list
- * must end empty.
+ * Modules not yet converted to the permission check. Every module was converted in milestone
+ * 19; the list stays empty.
  */
-const PENDING_MODULES = new Set<string>(["permissions"]);
+const PENDING_MODULES = new Set<string>();
+
+/**
+ * Registered permissions whose feature is still being built. A feature's worker removes its
+ * permissions from this list when the checks land; the list must end empty.
+ */
+const PENDING_PERMISSIONS = new Set<string>();
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */
@@ -118,6 +124,26 @@ function publicOption(call: AnyNode): boolean {
   );
 }
 
+/**
+ * The strings an argument can evaluate to: a literal, either branch of a conditional or logical
+ * expression, or a local variable initialized that way.
+ */
+function stringLeaves(node: AnyNode, locals: Map<string, string[]>): string[] {
+  if (node.type === "Literal") return typeof node.value === "string" ? [node.value] : [];
+  if (node.type === "ConditionalExpression")
+    return [
+      ...stringLeaves(node.consequent as AnyNode, locals),
+      ...stringLeaves(node.alternate as AnyNode, locals),
+    ];
+  if (node.type === "LogicalExpression")
+    return [
+      ...stringLeaves(node.left as AnyNode, locals),
+      ...stringLeaves(node.right as AnyNode, locals),
+    ];
+  if (node.type === "Identifier") return locals.get(node.name as string) ?? [];
+  return [];
+}
+
 function analyze() {
   const files = [
     ...sourceFiles(join(SRC, "modules")),
@@ -204,6 +230,23 @@ function analyze() {
     };
     for (const [name, node] of decls) {
       const binding = bindings.get(key(file, name))!;
+      // String literals a local variable can hold (`const id = cond ? "a.b" : "c.d"`).
+      const locals = new Map<string, string[]>();
+      walk.full(node as acorn.Node, (n) => {
+        const any = n as AnyNode;
+        if (
+          any.type === "VariableDeclarator" &&
+          (any.id as AnyNode).type === "Identifier" &&
+          any.init
+        ) {
+          // Block-scoped variables can share a name within one function: keep every value.
+          const local = (any.id as AnyNode).name as string;
+          locals.set(local, [
+            ...(locals.get(local) ?? []),
+            ...stringLeaves(any.init as AnyNode, locals),
+          ]);
+        }
+      });
       walk.full(node as acorn.Node, (n) => {
         const any = n as AnyNode;
         if (any.type === "Identifier") {
@@ -214,9 +257,7 @@ function analyze() {
             binding.checks = true;
         }
         if (any.type === "CallExpression") {
-          const literals = (any.arguments as AnyNode[])
-            .filter((a) => a.type === "Literal" && typeof a.value === "string")
-            .map((a) => a.value as string);
+          const literals = (any.arguments as AnyNode[]).flatMap((a) => stringLeaves(a, locals));
           const callee = any.callee as AnyNode;
           let calleeKey: string | null = null;
           if (callee.type === "Identifier") {
@@ -299,7 +340,10 @@ describe("permission coverage", () => {
       const def = PERMISSIONS[id as keyof typeof PERMISSIONS] as PermissionDefinition | undefined;
       if (def?.type === "flag" && def.timeLimit) checked.add(def.timeLimit);
     }
-    const unchecked = PERMISSION_IDS.filter((id) => !checked.has(id));
+    const unchecked = PERMISSION_IDS.filter(
+      (id) => !checked.has(id) && !PENDING_PERMISSIONS.has(id),
+    );
+    for (const id of PENDING_PERMISSIONS) expect(PERMISSION_IDS).toContain(id as never);
     if (PENDING_MODULES.size > 0) return;
     expect(unchecked).toEqual([]);
   });

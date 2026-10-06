@@ -510,14 +510,14 @@ test("REST maps forbidden and conflict errors and path fields override JSON", as
     title: "Renamed members",
   });
   expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
-  const conflict = await request("/api/v1/groups/4", {
-    method: "PATCH",
+  // Built-in groups cannot be deleted: the replaced groups API's conflict case.
+  const conflict = await request("/api/v1/groups/2", {
+    method: "DELETE",
     headers: {
       cookie: adminCookie,
       origin: "http://localhost:3000",
       "content-type": "application/json",
     },
-    body: JSON.stringify({ isAdmin: false }),
   });
   expect(conflict.status).toBe(409);
   expect(((await conflict.json()) as { error: { code: string } }).error.code).toBe("conflict");

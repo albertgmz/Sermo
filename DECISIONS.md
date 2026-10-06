@@ -494,3 +494,41 @@ posts. Needs owner review.
 **Permission ids are flat strings grouped by area** (`forum.reply`, `profilePost.editAny`,
 `admin.permissions`). Phrase keys for labels and descriptions are `permission.<id>` and
 `permission.<id>.description`.
+
+## Milestone 19: services converted to the permission check
+
+**Every service decides through `src/permissions`, enforced statically.**
+`permission-coverage.test.ts` transpiles each module with Bun's transpiler, parses it with acorn
+(8.19.0, with acorn-walk 8.3.5, dev dependencies) and follows calls across files: every
+operation and every exported function taking an `actor` must reach `can`,
+`requirePermission`, `permissionValue`, `permissionsOf`, `viewableNodeIds` or
+`resolvedPermissions`, or be marked public (`implement(..., { public: "why" })`,
+`markPublic("why", fn)`); every registered permission must be passed as a literal to a check;
+modules may not import the legacy helpers or read the legacy flag columns. TypeScript 7 ships no
+JavaScript compiler API, hence acorn on transpiled output.
+
+**Default permissions reproduce the old behavior, with these deliberate exceptions:**
+- Hierarchy: nobody warns, bans, spam-cleans, thread-bans or changes the groups of a member whose
+  highest rank is equal to or above their own. An administrator can no longer warn or ban another
+  administrator, and a moderator can no longer warn themselves.
+- `search.use` is new; guests and members have it by default. A denied search is Forbidden.
+- The Unconfirmed group (new in this pass) has an upload quota of 0.
+- Integer permissions with no entry in any of a member's groups resolve to 0. For
+  `conversation.maxRecipients` that means no recipients; for `attachment.storageQuota`, no
+  uploads; built-in groups always have entries.
+
+**The report and approval queues stay open to every signed-in member and filter per item**, as
+before, so a group that moderates only some nodes can list its own queue.
+
+**The upload quota setting is a view over permission entries.** `settings.groupUploadLimitBytes`
+(groups 1-4) keeps its public shape; it is read from and written to the
+`attachment.storageQuota` entries of those groups in the settings operations only. A missing
+entry reads as 0, -1 (no quota) is omitted.
+
+**Replaced API (the one public API change the pass allows):** removed `users.setGroup`
+(`PUT /users/{userId}/group`) and `permissions.setNode` (`PUT /nodes/{nodeId}/permissions/{groupId}`);
+changed `groups.list`, `groups.update` (`PATCH /groups/{groupId}`) and `permissions.listNode`
+(`GET /nodes/{nodeId}/permissions`) to the new shapes; added `groups.get`, `groups.create`,
+`groups.delete`, `users.getGroups`, `users.setGroups`, `permissions.definitions`,
+`permissions.list`, `permissions.set` and `permissions.explain`. `auth.me`, `nodes.get` and
+`threads.get` gained `resolvedPermissions` (additive).
