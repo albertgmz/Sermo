@@ -6,9 +6,10 @@ import * as z from "zod";
 import { GUEST } from "./actor";
 import { cached, closeContext, createContext, invalidate } from "./context";
 import * as contracts from "./contracts";
-import { startCheckpointer } from "./db/checkpointer";
+import { holdCheckpoints, startCheckpointer } from "./db/checkpointer";
 import { writeTx } from "./db/tx";
 import { ValidationError } from "./errors";
+import { enqueueJob, registerJobHandler, runDueJobs } from "./modules/jobs/queue";
 import { defineContract, execute, implement } from "./operation";
 import { decodeCursor, encodeCursor } from "./pagination";
 import { renderMarkdown } from "./render";
@@ -338,6 +339,58 @@ describe("checkpointer", () => {
     expect(walSize()).toBe(before);
     await stop();
     expect(pragma()).toBe(1000);
+    closeContext(ctx);
+  });
+
+  test("defers checkpoints while background work holds them", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    const stop = startCheckpointer(ctx, { intervalMs: 20 });
+    const walSize = () => Bun.file(`${path}-wal`).size;
+    const release = holdCheckpoints(ctx);
+    for (let i = 0; i < 200; i++) insertUser(ctx);
+    await Bun.sleep(200);
+    // Nothing was checkpointed, so further writes keep appending.
+    const held = walSize();
+    for (let i = 0; i < 200; i++) insertUser(ctx);
+    expect(walSize()).toBeGreaterThan(held);
+    release();
+    await Bun.sleep(200);
+    const released = walSize();
+    for (let i = 0; i < 200; i++) insertUser(ctx);
+    expect(walSize()).toBe(released);
+    await stop();
+    closeContext(ctx);
+  });
+
+  test("back-to-back jobs cannot hold checkpoints past the limit", async () => {
+    const path = tempDbPath();
+    const ctx = createContext({ path, migrate: true });
+    ctx.sqlite.run("CREATE TABLE junk (id INTEGER PRIMARY KEY, v BLOB)");
+    const stop = startCheckpointer(ctx, { intervalMs: 10, testMaxHoldMs: 50 });
+    const insert = ctx.sqlite.prepare("INSERT INTO junk (v) VALUES (randomblob(2000))");
+    const rows = 20;
+    registerJobHandler(ctx, "test.write", async () => {
+      for (let i = 0; i < rows; i++) insert.run();
+      await Bun.sleep(20);
+    });
+    const jobs = 60;
+    for (let i = 0; i < jobs; i++) enqueueJob(ctx, "test.write", {});
+    // Wait until the worker checkpoints (a write then reuses the WAL instead of growing it), so
+    // the limit counts from a recent checkpoint.
+    const walSize = () => Bun.file(`${path}-wal`).size;
+    for (let size = -1; size !== walSize(); ) {
+      size = walSize();
+      await Bun.sleep(50);
+      insert.run();
+    }
+    // A hold is active for nearly the whole run. Every insert commits at least one WAL frame, so
+    // without checkpoints the WAL would hold at least jobs * rows frames; checkpoints during the
+    // run restart it, leaving only the frames written since the last restart.
+    expect(await runDueJobs(ctx, { limit: jobs })).toBe(jobs);
+    const { log } = ctx.sqlite.query("PRAGMA wal_checkpoint(PASSIVE)").get() as { log: number };
+    expect(log).toBeLessThan((jobs * rows) / 2);
+    await stop();
     closeContext(ctx);
   });
 });

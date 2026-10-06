@@ -11,6 +11,8 @@ import {
   flushViewCounts,
   isLoopbackHost,
   localDriver,
+  notificationChannels,
+  notificationPushPhrase,
   registerAccountEmailJobs,
   registerEmailJobs,
   registerEmailTypes,
@@ -18,6 +20,7 @@ import {
   registerModerationJobs,
   registerNotificationJobs,
   registerPromotionJobs,
+  registerPushJobs,
   registerSeoJobs,
   registerSocialJobs,
   registerStorageJobs,
@@ -299,8 +302,11 @@ async function main(): Promise<void> {
   registerSeoJobs(ctx);
   registerSocialJobs(ctx);
   const emailTypes = {
-    defaults: { "digest.weekly": { inApp: false, email: true, push: false } },
-    securityTypes: new Set<string>(),
+    ...notificationChannels,
+    defaults: {
+      ...notificationChannels.defaults,
+      "digest.weekly": { inApp: false, email: true, push: false },
+    },
   };
   registerEmailTypes(ctx, emailTypes);
   registerEmailJobs(
@@ -324,6 +330,7 @@ async function main(): Promise<void> {
         },
     emailTypes,
   );
+  registerPushJobs(ctx, { renderPhrase: notificationPushPhrase(ctx) });
   registerAccountEmailJobs(ctx);
   if (config.admin) await ensureAdmin(ctx, config.admin);
   const stopWorker = startJobWorker(ctx);

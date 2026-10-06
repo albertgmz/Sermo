@@ -41,6 +41,8 @@ const defaults: StoredSiteSettingsValue = {
   newMemberMentionLimit: 3,
   profilePostsEnabled: true,
   notificationRetentionDays: 90,
+  // Per-type channel defaults. An email value for a watch type (thread.watched, node.thread,
+  // node.post) does not affect delivery: the watch's own email flag decides.
   notificationDefaults: {},
   emailHourlyCap: 20,
   conversationEmailIncludesBody: false,

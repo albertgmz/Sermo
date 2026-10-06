@@ -6,9 +6,12 @@ let deepCursor = "";
 let hotAuthor = 0;
 let background: Promise<void> | null = null;
 let markAllUsers: number[] = [];
-let fanoutStart = 0;
-let fanoutEnd = 0;
-let fanoutEventId = 0;
+/** performance.now() times: the background reply returned, its fan-out drained, measured reads. */
+let fanoutPosted = 0;
+let fanoutDrained = 0;
+let firstRead = 0;
+let lastRead = 0;
+let fanoutPostId = 0;
 let expectedRecipients = 0;
 
 function author(env: BenchEnv, threadId: number): number {
@@ -239,9 +242,11 @@ export const scenarios: Scenario[] = [
     setup(env) {
       registerNotificationJobs(env.ctx);
       heavy = env.meta.notificationHeavyUserIds[0]!;
-      fanoutStart = 0;
-      fanoutEnd = 0;
-      fanoutEventId = 0;
+      fanoutPosted = 0;
+      fanoutDrained = 0;
+      firstRead = 0;
+      lastRead = 0;
+      fanoutPostId = 0;
       background = (async () => {
         const post = JSON.parse(
           (await env.call(
@@ -253,33 +258,31 @@ export const scenarios: Scenario[] = [
             },
           )) as string,
         ) as { id: number };
-        fanoutEventId = env.ctx.sqlite
-          .prepare<{ id: number }, [number]>(
-            "SELECT id FROM domain_events WHERE type = 'content.created' AND target_type = 'post' AND target_id = ?1 ORDER BY id DESC LIMIT 1",
-          )
-          .get(post.id)!.id;
+        fanoutPosted = performance.now();
+        fanoutPostId = post.id;
         await drain(env);
+        fanoutDrained = performance.now();
       })();
     },
-    async run(env, i) {
+    async run(env) {
       await new Promise((resolve) => setImmediate(resolve));
-      const response = await env.call("notifications.list", env.actors.user(heavy), { limit: 20 });
-      if ((i === 0 || i === 199) && fanoutEventId) {
-        const count = env.ctx.sqlite
-          .prepare<{ n: number }, [number]>(
-            "SELECT count(*) AS n FROM notifications WHERE last_event_id = ?1",
-          )
-          .get(fanoutEventId)!.n;
-        if (i === 0) fanoutStart = count;
-        else fanoutEnd = count;
-      }
-      return response;
+      // Timestamps only: the progress checks run unmeasured in teardown.
+      lastRead = performance.now();
+      if (!firstRead) firstRead = lastRead;
+      return env.call("notifications.list", env.actors.user(heavy), { limit: 20 });
     },
-    async teardown() {
+    async teardown(env) {
       await background;
-      if (fanoutEnd <= fanoutStart)
-        throw new Error("Fan-out did not progress during measured reads.");
       background = null;
+      if (!(fanoutPosted < lastRead && fanoutDrained > firstRead))
+        throw new Error("Fan-out did not overlap the measured reads.");
+      // Merged group rows keep their id, so count the rows the event wrote, not the newest id.
+      const delivered = env.ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM notifications WHERE last_event_id = (SELECT id FROM domain_events WHERE type = 'content.created' AND target_type = 'post' AND target_id = ?1 ORDER BY id DESC LIMIT 1)",
+        )
+        .get(fanoutPostId)!.n;
+      if (!delivered) throw new Error("The background fan-out delivered nothing.");
     },
   },
 ];

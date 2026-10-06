@@ -14,7 +14,7 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { enqueueJob } from "../jobs";
 import { readSiteSettings } from "../settings";
-import { notificationTypes, typeById } from "./types";
+import { notificationChannels, notificationTypes, typeById } from "./types";
 
 interface Row {
   id: number;
@@ -227,12 +227,19 @@ export const notificationsMarkReadOp = implement(
   },
 );
 
+/**
+ * A type's channel defaults as delivery applies them. For watch types, email with no stored
+ * preference is on (the watch's own email flag decides), so an admin email default for a watch
+ * type has no effect on delivery and is reported as on.
+ */
 function effectiveDefaults(
   adminDefaults: ReturnType<typeof readSiteSettings>["notificationDefaults"],
   type: string,
 ) {
   const definition = typeById.get(type)!;
-  return definition.required ? definition.defaults : (adminDefaults[type] ?? definition.defaults);
+  if (definition.required) return definition.defaults;
+  const defaults = adminDefaults[type] ?? definition.defaults;
+  return notificationChannels.watchTypes.has(type) ? { ...defaults, email: true } : defaults;
 }
 
 export const notificationsTypesOp = implement(contracts.notificationsTypes, (ctx, actor) => {
@@ -366,3 +373,5 @@ export const operations = [
   announcementsCreateOp,
 ];
 export { purgeReadNotifications, registerNotificationJobs } from "./delivery";
+export { notificationPushPhrase } from "./phrases";
+export { notificationChannels } from "./types";

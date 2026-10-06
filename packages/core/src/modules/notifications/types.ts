@@ -66,3 +66,13 @@ export const notificationTypes: readonly NotificationDefinition[] = [
 ];
 
 export const typeById = new Map(notificationTypes.map((type) => [type.id, type]));
+
+/**
+ * The channel registry the email and push modules expect. Required types are security mail
+ * (never opt-out, never capped); watch types email only when the member's watch asks for email.
+ */
+export const notificationChannels = {
+  defaults: Object.fromEntries(notificationTypes.map((type) => [type.id, type.defaults])),
+  securityTypes: new Set(notificationTypes.filter((type) => type.required).map((type) => type.id)),
+  watchTypes: new Set(["thread.watched", "node.thread", "node.post"]),
+};

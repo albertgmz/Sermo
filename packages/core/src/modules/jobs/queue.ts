@@ -1,5 +1,6 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
+import { holdCheckpoints } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
 export interface EnqueueOptions {
   runAt?: number;
@@ -144,10 +145,13 @@ export async function runDueJobs(
     let error: string | null = null;
     if (!handler) error = `Unknown job type: ${job.type}`;
     else {
+      const release = holdCheckpoints(ctx);
       try {
         await handler(ctx, JSON.parse(job.payload), { id: job.id, lockedUntil: job.locked_until });
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
+      } finally {
+        release();
       }
     }
     writeTx(ctx, () => {

@@ -56,6 +56,7 @@ type Notification = {
   content_id: number;
   thread_id: number | null;
   actor_id: number | null;
+  actor_count: number;
   data: string;
   read_at: number | null;
   epoch: number;
@@ -124,7 +125,7 @@ function notification(ctx: Ctx, id: number): Notification | null {
   return (
     prepared(ctx, "email.notification", () =>
       ctx.sqlite.prepare<Notification, [number]>(
-        "SELECT n.id, n.user_id, n.type, n.content_type, n.content_id, n.thread_id, n.actor_id, n.data, n.read_at, n.epoch, n.email_sent_at, u.notification_epoch FROM notifications n JOIN users u ON u.id = n.user_id WHERE n.id = ?1",
+        "SELECT n.id, n.user_id, n.type, n.content_type, n.content_id, n.thread_id, n.actor_id, n.actor_count, n.data, n.read_at, n.epoch, n.email_sent_at, u.notification_epoch FROM notifications n JOIN users u ON u.id = n.user_id WHERE n.id = ?1",
       ),
     ).get(id) ?? null
   );
@@ -176,11 +177,11 @@ function enabled(
   type: string,
 ): boolean {
   if (isSecurity(registry, type)) return true;
-  return Boolean(
-    preferences.get(`${userId}:${type}`) ??
-      settings.notificationDefaults[type]?.email ??
-      registry.defaults[type]?.email,
-  );
+  const stored = preferences.get(`${userId}:${type}`);
+  if (stored !== undefined && stored !== null) return Boolean(stored);
+  // A watch's email flag decides (see watchAllows) unless the member turned the type's email off.
+  if (isWatchType(registry, type)) return true;
+  return Boolean(settings.notificationDefaults[type]?.email ?? registry.defaults[type]?.email);
 }
 
 function isSecurity(registry: EmailRegistry, type: string): boolean {
@@ -223,8 +224,9 @@ function watchAllows(
  */
 export function deliverEmail(ctx: Ctx, items: EmailItem[], registry: EmailRegistry): void {
   const current = state.get(ctx);
-  if (current) current.registry = registry;
-  if (current?.config.driver === "none" || !items.length) return;
+  // Nothing to queue without registered email jobs: they would fail as an unknown type.
+  if (!current || current.config.driver === "none" || !items.length) return;
+  current.registry = registry;
   writeTx(ctx, () => {
     const settings = readSiteSettings(ctx);
     const now = ctx.now();
@@ -513,11 +515,12 @@ async function notificationMessage(
   const siteUrl = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
   const t = row.thread_id === null ? null : thread(ctx, row.thread_id);
   const contentTitle = t?.title ?? "";
+  const values = { site, title: contentTitle, count: row.actor_count };
   let body = phraseOr(
     language,
     `notification.${row.type}.body`,
     contentTitle || phrase(language, "email.notification.body"),
-    { title: contentTitle },
+    values,
   );
   if (row.content_type === "conversation_message") {
     body = phrase(language, "email.conversation.body");
@@ -543,7 +546,7 @@ async function notificationMessage(
       language,
       `notification.${row.type}.title`,
       phrase(language, "email.notification.subject", { site }),
-      { site, title: contentTitle },
+      values,
     ),
     body,
     ...(unsubscribe ? { unsubscribe } : {}),

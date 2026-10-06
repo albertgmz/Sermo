@@ -17,9 +17,11 @@ import {
   permissionState,
 } from "../../permissions";
 import { allCombinations, flagAt } from "../../permissions/state";
+import { deliverEmail, type EmailItem } from "../email";
 import { enqueueJob, registerJobHandler } from "../jobs";
+import { deliverPush, type PushItem } from "../push/delivery";
 import { readSiteSettings } from "../settings";
-import { typeById } from "./types";
+import { notificationChannels, typeById } from "./types";
 
 type Content = {
   type: string;
@@ -880,16 +882,19 @@ function deliverBatch(
         );
   const prefs = new Map(
     prepared(ctx, "notifications.preferences", () =>
-      ctx.sqlite.prepare<{ user_id: number; in_app: number | null }, [string, string]>(
-        "SELECT user_id, in_app FROM notification_preferences WHERE user_id IN (SELECT value FROM json_each(?1)) AND type = ?2",
+      ctx.sqlite.prepare<
+        { user_id: number; in_app: number | null; email: number | null; push: number | null },
+        [string, string]
+      >(
+        "SELECT user_id, in_app, email, push FROM notification_preferences WHERE user_id IN (SELECT value FROM json_each(?1)) AND type = ?2",
       ),
     )
       .all(encoded, stage.type)
-      .map((row) => [row.user_id, row.in_app]),
+      .map((row) => [row.user_id, row]),
   );
-  const defaultInApp =
-    readSiteSettings(ctx).notificationDefaults[stage.type]?.inApp ??
-    typeById.get(stage.type)!.defaults.inApp;
+  const definition = typeById.get(stage.type)!;
+  const adminDefaults = readSiteSettings(ctx).notificationDefaults[stage.type];
+  const defaultInApp = adminDefaults?.inApp ?? definition.defaults.inApp;
   const now = ctx.now();
   const versions = currentVersions(ctx);
   // Unread state uses post ids: a member who has read this post (or a later one) has seen it.
@@ -982,9 +987,13 @@ function deliverBatch(
     eventId: number;
     now: number;
   }> = [];
+  // The notice each member got in this batch (merged into their open group row, or inserted).
+  const merged = new Map<number, { id: number; data: Record<string, unknown> }>();
+  const insertedData = new Map<number, Record<string, unknown>>();
   for (const row of recipients) {
     if (row.id === actorId || delivered.has(row.id)) continue;
-    if (!(prefs.get(row.id) ?? defaultInApp)) continue;
+    // In-app off for a type turns off every channel of it: email and push need the notice row.
+    if (!(prefs.get(row.id)?.in_app ?? defaultInApp)) continue;
     const recipient = memberActor(row.id, row.group_id, row, versions);
     if (row.banned_permanently || (row.banned_until !== null && row.banned_until > now)) continue;
     if (!can(ctx, recipient, "notification.view")) continue;
@@ -1028,6 +1037,7 @@ function deliverBatch(
               ...(JSON.parse(previous.actor_ids) as number[]).filter((id) => id !== actorId),
             ].slice(0, 5);
       if (actorId !== null && !seen.includes(actorId)) seen.push(actorId);
+      merged.set(row.id, { id: previous.id, data: { ...oldData, _actorIds: seen } });
       updates.push({
         id: previous.id,
         actorId,
@@ -1054,6 +1064,7 @@ function deliverBatch(
       // The first reply of a thread group, so deleting the newest reply can fall back to it.
       ...(stage.type === "thread.watched" ? { _firstPostId: contentId } : {}),
     };
+    insertedData.set(row.id, data);
     inserts.push({
       userId: row.id,
       epoch: row.notification_epoch,
@@ -1076,12 +1087,20 @@ function deliverBatch(
         "UPDATE notifications SET actor_id = json_extract(b.value, '$.actorId'), actor_count = json_extract(b.value, '$.actorCount'), actor_ids = json_extract(b.value, '$.actorIds'), data = json_extract(b.value, '$.data'), content_id = json_extract(b.value, '$.contentId'), content_type = json_extract(b.value, '$.contentType'), type = json_extract(b.value, '$.type'), updated_at = json_extract(b.value, '$.now'), last_event_id = json_extract(b.value, '$.eventId') FROM json_each(?1) AS b WHERE notifications.id = json_extract(b.value, '$.id')",
       ),
     ).run(JSON.stringify(updates));
+  const notices = [...merged].map(([userId, notice]) => ({ userId, ...notice, inserted: false }));
   if (inserts.length) {
     const created = prepared(ctx, "notifications.insert", () =>
       ctx.sqlite.prepare<{ id: number; user_id: number }, [string]>(
         "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, thread_id, actor_id, actor_count, actor_ids, group_key, data, last_event_id, created_at, updated_at) SELECT json_extract(value, '$.userId'), json_extract(value, '$.epoch'), json_extract(value, '$.type'), json_extract(value, '$.contentType'), json_extract(value, '$.contentId'), json_extract(value, '$.threadId'), json_extract(value, '$.actorId'), 1, json_extract(value, '$.actorIds'), json_extract(value, '$.groupKey'), json_extract(value, '$.data'), json_extract(value, '$.eventId'), json_extract(value, '$.now'), json_extract(value, '$.now') FROM json_each(?1) RETURNING id, user_id",
       ),
     ).all(JSON.stringify(inserts));
+    for (const row of created)
+      notices.push({
+        userId: row.user_id,
+        id: row.id,
+        data: insertedData.get(row.user_id)!,
+        inserted: true,
+      });
     prepared(ctx, "notifications.countUp", () =>
       ctx.sqlite.prepare<unknown, [string]>(
         "UPDATE users SET unread_notification_count = unread_notification_count + 1 WHERE id IN (SELECT value FROM json_each(?1))",
@@ -1097,6 +1116,37 @@ function deliverBatch(
       },
     });
   }
+  // Hand the batch's notices to the other channels, only for members who have them enabled; the
+  // channels re-check preferences, watches, caps and visibility themselves.
+  // A watch that asks for email is enough unless the member turned the type's email off.
+  const defaultEmail = notificationChannels.watchTypes.has(stage.type)
+    ? true
+    : (adminDefaults?.email ?? definition.defaults.email);
+  const defaultPush = adminDefaults?.push ?? definition.defaults.push;
+  const emailItems: EmailItem[] = [];
+  const pushItems: PushItem[] = [];
+  for (const notice of notices) {
+    const pref = prefs.get(notice.userId);
+    const wantsEmail = definition.required || (pref?.email ?? defaultEmail);
+    // Like email (sent once per row), push alerts once per unread group: a reply merged into a
+    // group the member has not read yet updates the row without alerting the device again.
+    const wantsPush = notice.inserted && (pref?.push ?? defaultPush);
+    if (!wantsEmail && !wantsPush) continue;
+    const channelItem = {
+      notificationId: notice.id,
+      userId: notice.userId,
+      type: stage.type,
+      contentType,
+      contentId,
+      threadId: item?.threadId ?? null,
+      actorId,
+      data: notice.data,
+    };
+    if (wantsEmail) emailItems.push(channelItem);
+    if (wantsPush) pushItems.push(channelItem);
+  }
+  if (emailItems.length) deliverEmail(ctx, emailItems, notificationChannels);
+  if (pushItems.length) deliverPush(ctx, pushItems, notificationChannels.defaults);
 }
 
 type UnreadRow = { id: number; user_id: number; epoch: number; current_epoch: number };
