@@ -14,6 +14,7 @@ export const SCHEDULES = {
   views: "*/5 * * * * *",
   hourly: "0 0 * * * *",
   daily: "0 0 3 * * *",
+  weekly: "0 0 4 * * 1",
 } as const;
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -82,6 +83,10 @@ export function runDailyTasks(ctx: Ctx): void {
   ctx.sqlite.exec("PRAGMA optimize");
 }
 
+export function runWeeklyTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "email.digest.sweep", {}, { uniqueKey: "email.digest.sweep" });
+}
+
 export function startScheduler(ctx: Ctx): () => void {
   registerJobHandlers(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
@@ -100,6 +105,11 @@ export function startScheduler(ctx: Ctx): () => void {
       SCHEDULES.daily,
       { name: "jobs.daily", protect: true, catch: onError, timezone: "UTC" },
       () => runDailyTasks(ctx),
+    ),
+    new Cron(
+      SCHEDULES.weekly,
+      { name: "jobs.weekly", protect: true, catch: onError, timezone: "UTC" },
+      () => runWeeklyTasks(ctx),
     ),
   ];
   return () => {

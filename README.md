@@ -93,6 +93,11 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | `SERMO_STORAGE_DRIVER` | `local` (default) or `s3`. |
 | `SERMO_S3_BUCKET`, `SERMO_S3_ENDPOINT`, `SERMO_S3_REGION`, `SERMO_S3_ACCESS_KEY_ID`, `SERMO_S3_SECRET_ACCESS_KEY` | Bucket configuration. Use the R2 endpoint for Cloudflare R2; the endpoint is optional for Amazon S3. |
 | `SERMO_PUBLIC_FILES_URL` | Optional proxy or CDN origin for public profile and node images; it must forward Sermo file paths to this API. |
+| `SERMO_MAIL_DRIVER` | `none` (default), `capture` (in-memory development), or `smtp`. |
+| `SERMO_MAIL_FROM`, `SERMO_MAIL_REPLY_TO` | Sender address (required for SMTP) and optional reply-to address. |
+| `SERMO_SMTP_HOST`, `SERMO_SMTP_PORT`, `SERMO_SMTP_SECURE` | SMTP host, port (default 587), and TLS-on-connect flag (default false). |
+| `SERMO_SMTP_REQUIRE_TLS` | `true` or `false`. By default STARTTLS is required unless `SERMO_SMTP_SECURE=true` or the host is loopback (`localhost`, `127.0.0.0/8`, `::1`). Set `false` only for a plain-text relay on a private network, such as a sidecar container. |
+| `SERMO_SMTP_USER`, `SERMO_SMTP_PASSWORD` | Optional SMTP authentication credentials. |
 | `SERMO_BENCH_DIR` | Optional benchmark seed directory; default is `~/.cache/sermo-bench`. |
 
 ## Moving stored files
@@ -107,6 +112,12 @@ docker compose run --rm sermo bun run storage:migrate --from local --to s3
 ```
 
 When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `docker compose up -d`. Keep the API stopped until the command completes. Use `--from s3 --to local` to reverse the move. Local installations can run `bun run storage:migrate --from local --to s3` with the same environment variables. The command refuses unfinished file deletions; let the jobs worker finish those before stopping the API. Back up the database and local files before a move.
+
+## Deliverability
+
+For public email delivery, use a dedicated sending domain and configure SPF, DKIM, DMARC, and reverse DNS with the SMTP provider. Monitor rejections and the `email_failures` and `undeliverable_emails` tables. Only synchronous SMTP rejections are recorded; asynchronous bounces after SMTP acceptance are not processed. Unsubscribe-all writes explicit preferences for the notification types registered at that time. Types added later follow the site defaults and can be changed in notification preferences.
+
+Each email is marked as sent before it is handed to the SMTP server, so a crash can lose an email (delivery is at most once as far as the process is concerned; a server reply lost after the server accepted the message can still cause a resend); a graceful stop (`SIGTERM`, `docker compose stop`) waits up to 30 seconds for the job in progress. If the process crashes or is killed between marking and sending, those emails are not sent: a notification email is lost, and up to 5 members (the group of the digest batch being sent) miss that week's digest. Failures the server reports are recorded in `email_failures`. An address is marked undeliverable only when the server refuses it at `RCPT TO` with 550, 551 or 553 and an enhanced status of 5.1.x or 5.2.1; a bare 550 (for example "Relaying denied") is not enough. A notification email is otherwise retried up to five times. In the weekly digest, failures are classified: a connection, authentication or sender failure, or any temporary (4xx) reply, resumes the digest from that member later, and a member whose delivery still fails that way after five attempts is skipped so the digest reaches everyone else. A policy refusal (any 5.7.x status, or a refused message without a 5.1.x or 5.2.x status, such as a DMARC failure) concerns the sending account, so the digest is resumed later in the same way but nobody is skipped: if it persists, the digest stops after five attempts. A member whose message cannot be built, or whose address or message the server refuses for their own reasons (5.1.x, 5.2.x, or a bare 5xx reply to the recipient), is recorded and skipped. Digests are not counted against the hourly email cap.
 
 ## Backups
 

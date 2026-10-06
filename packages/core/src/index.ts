@@ -8,6 +8,8 @@ export * as schema from "./db/schema";
 export { type Tx, writeTx } from "./db/tx";
 export * from "./errors";
 export * from "./events";
+export type { MailConfig, Mailer, MailMessage, SendResult } from "./mail";
+export { CaptureMailer, isLoopbackHost, smtpMailer } from "./mail";
 export {
   ensureAdmin,
   getAuth,
@@ -16,6 +18,15 @@ export {
   revokeUserCredentials,
   type SermoAuth,
 } from "./modules/auth";
+export {
+  closeEmail,
+  deliverEmail,
+  type EmailItem,
+  type EmailRegistry,
+  registerEmailJobs,
+  registerEmailTypes,
+  runWeeklyDigest,
+} from "./modules/email";
 export {
   enqueueJob,
   flushDownloadCounts,

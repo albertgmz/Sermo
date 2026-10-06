@@ -1,5 +1,6 @@
 import { operations as auth } from "./modules/auth";
 import { operations as conversations } from "./modules/conversations";
+import { operations as email } from "./modules/email";
 import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
@@ -25,6 +26,7 @@ export const operations: readonly AnyOperation[] = [
   ...promotions,
   ...push,
   ...conversations,
+  ...email,
   ...reactions,
   ...search,
   ...jobs,

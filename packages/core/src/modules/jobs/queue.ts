@@ -128,11 +128,14 @@ function claim(ctx: Ctx): Job | "expired" | null {
   });
 }
 
-export async function runDueJobs(ctx: Ctx, options: { limit?: number } = {}): Promise<number> {
+export async function runDueJobs(
+  ctx: Ctx,
+  options: { limit?: number; stopped?: () => boolean } = {},
+): Promise<number> {
   const limit = options.limit ?? 100;
   if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError("Invalid job limit.");
   let ran = 0;
-  while (ran < limit) {
+  while (ran < limit && !options.stopped?.()) {
     const job = claim(ctx);
     if (!job) break;
     if (job === "expired") continue;
@@ -174,18 +177,41 @@ export async function runDueJobs(ctx: Ctx, options: { limit?: number } = {}): Pr
   return ran;
 }
 
-export function startJobWorker(ctx: Ctx, options: { pollMs?: number } = {}): () => void {
-  let busy = false;
+/**
+ * Polls for due jobs. The returned stop function claims no further job and resolves once the job
+ * in progress has finished, or after `stopWaitMs` (default 30 s) if it has not.
+ */
+export function startJobWorker(
+  ctx: Ctx,
+  options: { pollMs?: number; stopWaitMs?: number } = {},
+): () => Promise<void> {
+  let running: Promise<void> | null = null;
+  let stopped = false;
   const timer = setInterval(() => {
-    if (busy) return;
-    busy = true;
-    void runDueJobs(ctx)
-      .catch((error: unknown) => console.error("[jobs.worker]", error))
+    if (running) return;
+    running = runDueJobs(ctx, { stopped: () => stopped })
+      .then(
+        () => {},
+        (error: unknown) => console.error("[jobs.worker]", error),
+      )
       .finally(() => {
-        busy = false;
+        running = null;
       });
   }, options.pollMs ?? 1000);
-  return () => clearInterval(timer);
+  return async () => {
+    stopped = true;
+    clearInterval(timer);
+    if (!running) return;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const waited = await Promise.race([
+      running.then(() => true),
+      new Promise<false>((resolve) => {
+        timeout = setTimeout(() => resolve(false), options.stopWaitMs ?? 30_000);
+      }),
+    ]);
+    clearTimeout(timeout);
+    if (!waited) console.error("[jobs.worker] stopped while a job was still running");
+  };
 }
 
 export function flushViewCounts(ctx: Ctx): number {

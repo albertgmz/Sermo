@@ -287,11 +287,53 @@ describe("jobs", () => {
       for (let i = 0; i < 100 && row(ctx, id).status !== "done"; i++) await Bun.sleep(5);
       expect(row(ctx, id).status).toBe("done");
     } finally {
-      stop();
+      await stop();
     }
     registerJobHandler(ctx, "sample", () => {});
     const after = enqueueJob(ctx, "sample", {})!;
     await Bun.sleep(25);
     expect(row(ctx, after).status).toBe("pending");
+  });
+
+  test("stopping the worker waits for the job in progress and claims no other", async () => {
+    const ctx = createTestContext();
+    let release!: () => void;
+    const started = Promise.withResolvers<void>();
+    registerJobHandler(ctx, "slow", async () => {
+      started.resolve();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    });
+    const slow = enqueueJob(ctx, "slow", {})!;
+    const next = enqueueJob(ctx, "slow", { second: true })!;
+    const stop = startJobWorker(ctx, { pollMs: 5 });
+    await started.promise;
+    let stopped = false;
+    const stopping = stop().then(() => {
+      stopped = true;
+    });
+    await Bun.sleep(20);
+    expect(stopped).toBe(false);
+    release();
+    await stopping;
+    expect(row(ctx, slow).status).toBe("done");
+    expect(row(ctx, next).status).toBe("pending");
+  });
+
+  test("stopping the worker gives up on a job that outlasts the wait", async () => {
+    const ctx = createTestContext();
+    const started = Promise.withResolvers<void>();
+    registerJobHandler(ctx, "stuck", async () => {
+      started.resolve();
+      await new Promise<void>(() => {});
+    });
+    const id = enqueueJob(ctx, "stuck", {})!;
+    const stop = startJobWorker(ctx, { pollMs: 5, stopWaitMs: 20 });
+    await started.promise;
+    const begin = performance.now();
+    await stop();
+    expect(performance.now() - begin).toBeLessThan(1_000);
+    expect(row(ctx, id).status).toBe("running");
   });
 });

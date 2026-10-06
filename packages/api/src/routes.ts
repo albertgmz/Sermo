@@ -9,6 +9,7 @@ export interface ApiRoute {
 }
 
 const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
+  ["POST", "/unsubscribe", "notifications.unsubscribe"],
   ["PUT", "/push/subscriptions", "push.subscribe"],
   ["DELETE", "/push/subscriptions", "push.unsubscribe"],
   ["GET", "/push/subscriptions", "push.list"],
