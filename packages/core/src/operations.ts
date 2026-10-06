@@ -7,6 +7,7 @@ import { operations as moderation } from "./modules/moderation";
 import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
 import { operations as promotions } from "./modules/promotions";
+import { operations as push } from "./modules/push";
 import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
 import { operations as seo } from "./modules/seo";
@@ -22,6 +23,7 @@ export const operations: readonly AnyOperation[] = [
   ...forums,
   ...profiles,
   ...promotions,
+  ...push,
   ...conversations,
   ...reactions,
   ...search,

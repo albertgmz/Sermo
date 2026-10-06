@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import {
   CLIENT_IP_HEADER,
   closeContext,
+  configurePush,
   createContext,
   ensureAdmin,
   flushDownloadCounts,
@@ -18,6 +19,7 @@ import {
   startCheckpointer,
   startJobWorker,
   startScheduler,
+  validatePushVapid,
 } from "@sermo/core";
 import { createApp } from "./app";
 
@@ -106,6 +108,27 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     throw new Error("SERMO_STORAGE_DRIVER must be local or s3.");
   if (storageDriver === "s3" && !source.SERMO_S3_BUCKET)
     throw new Error("SERMO_S3_BUCKET is required for S3 storage.");
+  const vapidNames = [
+    "SERMO_VAPID_PUBLIC_KEY",
+    "SERMO_VAPID_PRIVATE_KEY",
+    "SERMO_VAPID_SUBJECT",
+  ] as const;
+  const vapidPresent = vapidNames.filter((name) => Boolean(source[name]));
+  if (vapidPresent.length > 0 && vapidPresent.length !== vapidNames.length)
+    throw new Error(
+      "SERMO_VAPID_PUBLIC_KEY, SERMO_VAPID_PRIVATE_KEY, and SERMO_VAPID_SUBJECT must all be set together.",
+    );
+  const vapid =
+    vapidPresent.length === vapidNames.length
+      ? {
+          publicKey: required(source, "SERMO_VAPID_PUBLIC_KEY"),
+          privateKey: required(source, "SERMO_VAPID_PRIVATE_KEY"),
+          subject: required(source, "SERMO_VAPID_SUBJECT"),
+        }
+      : null;
+  if (vapid && !/^(mailto:.+@.+|https:\/\/[^/]+.*)$/.test(vapid.subject))
+    throw new Error("SERMO_VAPID_SUBJECT must be a mailto: address or HTTPS URL.");
+  validatePushVapid(vapid);
   return {
     path: source.SERMO_DB_PATH ?? "./data/sermo.db",
     port,
@@ -122,6 +145,7 @@ export function readConfiguration(source: Record<string, string | undefined> = p
       secretAccessKey: source.SERMO_S3_SECRET_ACCESS_KEY,
     },
     trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
+    vapid,
     auth: {
       secret,
       baseURL,
@@ -154,6 +178,7 @@ async function main(): Promise<void> {
       siteBaseURL: config.siteBaseURL,
     },
   });
+  configurePush(ctx, { vapid: config.vapid });
   if (config.admin) await ensureAdmin(ctx, config.admin);
   const stopCheckpointer = startCheckpointer(ctx);
   registerJobHandlers(ctx);

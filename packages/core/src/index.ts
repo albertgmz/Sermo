@@ -28,6 +28,7 @@ export {
 } from "./modules/jobs";
 export { registerModerationJobs } from "./modules/moderation";
 export { registerPromotionJobs } from "./modules/promotions";
+export { configurePush, registerPushJobs, validatePushVapid } from "./modules/push";
 export {
   atomFeed,
   queueSeoEvents,
