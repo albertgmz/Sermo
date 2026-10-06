@@ -37,6 +37,7 @@ export {
   sitemapShard,
 } from "./modules/seo";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
+export { registerSocialJobs } from "./modules/social";
 export type { StorageConfig, StorageDriver } from "./modules/storage";
 export {
   createStorage,

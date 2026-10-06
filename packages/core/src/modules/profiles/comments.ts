@@ -1,6 +1,6 @@
 import * as z from "zod";
-import { actorUserId, requireAuthenticated } from "../../actor";
-import { prepared } from "../../context";
+import { type Actor, actorUserId, requireAuthenticated } from "../../actor";
+import { type Ctx, prepared } from "../../context";
 import {
   profileCommentsCreate,
   profileCommentsDelete,
@@ -67,16 +67,30 @@ export const profileCommentsGetOp = implement(profileCommentsGet, (ctx, actor, i
     bodySource: comment.body_source,
   };
 });
+function ignoredByCommentWall(ctx: Ctx, actor: Actor, wallId: number, authorId: number): boolean {
+  return (
+    can(ctx, actor, "member.ignorable") &&
+    !!prepared(ctx, "profiles.commentWallIgnored", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, number]>(
+        "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+      ),
+    ).get(wallId, authorId)
+  );
+}
 export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const post = requirePost(ctx, actor, input.profilePostId);
   requirePermission(ctx, actor, "profilePost.comment");
   if (post.state !== "visible") throw new ForbiddenError();
+  if (ignoredByCommentWall(ctx, actor, post.profile_user_id, user.userId))
+    throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const html = renderMarkdown(content.source);
     const comment = writeTx(ctx, () => {
       if (requirePost(ctx, actor, post.id).state !== "visible") throw new ForbiddenError();
+      if (ignoredByCommentWall(ctx, actor, post.profile_user_id, user.userId))
+        throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
