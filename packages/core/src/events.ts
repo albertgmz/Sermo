@@ -20,7 +20,8 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   source: "promotion" | "admin", promotionId?, actorId? }.
  * - `member.followed`: target the followed member; payload { followerId }.
  * - `member.warned`, `member.banned`, `member.restricted`, `member.thread_banned`: target the
- *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }.
+ *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }. Lifting a
+ *   ban or restriction publishes the same type with `lifted: true`.
  * - Moderation actions on content that already publish a `content.*` event (delete, restore,
  *   approve, edit, move, lock) add { actorId, reason, notify, message? } to that event's payload
  *   instead of publishing a second event.
