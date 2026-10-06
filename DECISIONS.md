@@ -640,3 +640,82 @@ the subscription; 3xx/400/403/413 drop the job (403 usually means our VAPID keys
 deleting on it would wipe every subscriber); anything else retries. Members keep at most ten
 subscriptions (the oldest is replaced). An endpoint moves to another member only when they present
 the same `auth` secret, which only the browser holding the subscription has.
+
+## Milestone 23: notifications
+
+**Fan-out runs in background batches of 40 recipients.** Each domain event queues one unique
+`notify:<eventId>` job; recipient keysets advance with the cursor in the same transaction as the
+batch's notification writes, and the job yields between batches and re-reads the content (primary
+key) in every batch, so content hidden or moved mid-fan-out stops reaching members who can no
+longer see it. Replays are idempotent (per-member checks bounded by the event time minus one hour,
+so a clock step cannot cause duplicates). `notification.created` is published once per batch.
+
+**Unread counts are exact and mark-all is constant time.** `users.unread_notification_count` is
+maintained in every write; unread means `read_at IS NULL` and the row's epoch equals the member's
+`notification_epoch`. Mark-all bumps the epoch and zeroes the count in one short transaction; a
+chunked job stamps `read_at` on older rows later.
+
+**Reason precedence:** a member gets at most one notice per event, from the first reason that
+actually delivers to them (mention, quote, then watches and follows), so turning one reason off
+falls through to the next. Ignoring a member suppresses their notices except moderator duty
+notices (reports, approvals), which are cleared for every moderator once handled. Approvals count
+as new content only if the item was never visible; mentions added by an edit into moderation are
+delivered on approval. Thread reads clear notices up to the read post id (post ids, as for unread
+state). Ban notices stay email-only (the account email); verification-driven group changes create
+no notice.
+
+**Channels:** turning in-app off for a type stops email and push for it too (notice rows feed every
+channel). Email and push go out once per unread group. For watched threads and forums the watch's
+email flag decides unless the member turned that type's email off; an admin `notificationDefaults`
+email value for those types has no effect. Owner review: independent channels would need notice
+rows for members with in-app off.
+
+## Milestone 24: mailer, notification email, digest
+
+Nodemailer (pooled SMTP, STARTTLS required except on loopback unless `SERMO_SMTP_REQUIRE_TLS=false`,
+30 s timeouts) or an in-memory capture driver; MJML layouts with a plain-text part; English and
+Spanish ICU catalogs (`intl-messageformat`). One-click unsubscribe (RFC 8058) uses an HMAC token
+derived from the auth secret with a purpose label, binding the member's current email without
+putting it in the link; unsubscribe-all writes explicit per-type email preferences for the
+registered non-security types (visible and reversible; later types follow site defaults). Owner
+review.
+
+**Refusals are classified by sender policy and mailbox status.** Only RCPT 550/551/553 with an
+explicit 5.1.x or 5.2.1 enhanced code marks an address undeliverable. Policy refusals (5.7.x
+anywhere, DATA 5xx without a mailbox code) concern every member, so they defer with backoff and
+mark nobody. Other 5xx skip that member and are recorded. Asynchronous bounces from relay
+providers are not processed.
+
+**`notifications.email_sent_at`** (migration 0015) is claimed conditionally before a send, so a
+grouped notice is emailed once and retries never double-send.
+
+**The weekly digest sends in small, time-boxed batches** from one self-continuing job (claims in
+groups of five, members re-read when their digest is built, threshold six days to absorb start
+jitter), so it never monopolizes the serial job queue; it is exempt from the hourly cap. Graceful
+shutdown waits up to 30 s for the running job; a crash can lose at most five members' digests for
+that week (at-most-once).
+
+## Milestone 25: account emails
+
+With a mailer configured, sign-ups join Unconfirmed; verifying the email (or a change-email
+verification of a never-verified account) moves them to Member and publishes
+`member.groups_changed` with source `"verification"`. Existing members are not moved on upgrade.
+Without a mailer, sign-ups join Member as before. Verification, welcome, password reset, password
+changed, email changed (to both addresses), API key created and ban emails are security emails: no
+unsubscribe, exempt from the cap, still suppressed for undeliverable addresses. The ban email
+respects the moderator's `notify` flag and prefers their message; its subscriber starts at the
+newest event, so upgrading sends no historical ban mail. A password reset revokes sessions; with a
+mailer configured the session cookie cache is off so revocation takes effect immediately (about
+0.07 ms per request); without one the 5-minute cache stays. Reset requests need a trusted
+`redirectTo`. Verification, reset and change-email requests are limited to five per hour per
+client IP (not per address; open item).
+
+## WAL checkpoints during background jobs
+
+A PASSIVE checkpoint running beside a stream of commits stalled single commits for 0.3–6 s on this
+Windows machine (reproduced with a standalone bun:sqlite script, independent of database size,
+mmap, the checkpointer's synchronous setting, interval, and thread versus process; once on Linux
+under an extreme write rate). Background jobs now hold checkpoints while they run; the checkpointer
+still runs at least every 30 s and keeps checkpointing until the WAL stops growing. Notification
+reads during a 20,000-recipient fan-out went from max 81–134 ms to 7–10 ms. Request writes do not
+hold checkpoints, so a request write can still meet a checkpoint; owner review.
