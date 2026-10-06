@@ -897,6 +897,25 @@ export const moderatorLog = sqliteTable(
   ],
 );
 
+/** Threads with a merge or split transfer pending or failed; guards replies and reorganization. */
+export const threadTransfers = sqliteTable(
+  "thread_transfers",
+  {
+    id: integer("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    role: text("role", {
+      enum: ["merge_target", "merge_source", "split_source", "split_target"],
+    }).notNull(),
+    otherThreadId: integer("other_thread_id").notNull(),
+    jobKey: text("job_key").notNull(),
+    createdAt: integer("created_at").notNull(),
+    failedAt: integer("failed_at"),
+  },
+  (t) => [uniqueIndex("thread_transfers_thread").on(t.threadId)],
+);
+
 export const threadBans = sqliteTable(
   "thread_bans",
   {
