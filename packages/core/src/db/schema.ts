@@ -1107,6 +1107,8 @@ export const notifications = sqliteTable(
     lastEventId: integer("last_event_id").notNull().default(0),
     /** The recipient's notification epoch when written; older epochs count as read. */
     epoch: integer("epoch").notNull().default(0),
+    /** When the email for this row was sent; a grouped row is emailed at most once. */
+    emailSentAt: integer("email_sent_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     readAt: integer("read_at"),
