@@ -66,6 +66,11 @@ type PostRow = {
 };
 type NodeRow = {
   id: number;
+  require_thread_approval: number;
+  require_reply_approval: number;
+  is_read_only: number;
+  min_account_age_days: number;
+  min_post_count: number;
   icon_file_id: number | null;
   cover_file_id: number | null;
   thread_count: number;
@@ -82,7 +87,7 @@ const threadColumns =
 const postColumns =
   "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count";
 const nodeColumns =
-  "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id";
+  "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY last_post_at DESC, id DESC`,
@@ -363,6 +368,13 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
           permissions.can("forum.deleteAny", { nodeId: id }) ||
           permissions.can("forum.approve", { nodeId: id }),
       },
+      settings: {
+        requireThreadApproval: !!row.require_thread_approval,
+        requireReplyApproval: !!row.require_reply_approval,
+        isReadOnly: !!row.is_read_only,
+        minAccountAgeDays: row.min_account_age_days,
+        minPostCount: row.min_post_count,
+      },
     };
   });
 }
@@ -399,6 +411,31 @@ export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: input.nodeId }),
   };
 });
+/** Applies the given node settings (inside the node write's transaction). */
+function writeNodeSettings(
+  ctx: Ctx,
+  nodeId: number,
+  settings:
+    | z.infer<typeof contracts.NodeSettings>
+    | Partial<z.infer<typeof contracts.NodeSettings>>
+    | undefined,
+): void {
+  if (!settings) return;
+  const columns: [keyof z.infer<typeof contracts.NodeSettings>, string][] = [
+    ["requireThreadApproval", "require_thread_approval"],
+    ["requireReplyApproval", "require_reply_approval"],
+    ["isReadOnly", "is_read_only"],
+    ["minAccountAgeDays", "min_account_age_days"],
+    ["minPostCount", "min_post_count"],
+  ];
+  for (const [key, column] of columns) {
+    const value = settings[key];
+    if (value === undefined) continue;
+    forumDb(ctx)
+      .prepare(`UPDATE nodes SET ${column} = ?1 WHERE id = ?2`)
+      .run(typeof value === "boolean" ? Number(value) : value, nodeId);
+  }
+}
 export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
@@ -409,6 +446,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
         "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
       )
       .get(input.parentId, input.type, input.title, input.description, input.position, ctx.now())!;
+    writeNodeSettings(ctx, row.id, input.settings);
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
     appendModeratorLog(ctx, actor, "node.create", "node", row.id);
@@ -438,6 +476,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         input.nodeId,
         ctx.now(),
       );
+    writeNodeSettings(ctx, input.nodeId, input.settings);
     invalidate(ctx, "node_tree");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
     appendModeratorLog(ctx, actor, "node.update", "node", input.nodeId);

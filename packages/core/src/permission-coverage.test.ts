@@ -24,7 +24,26 @@ const PENDING_MODULES = new Set<string>();
  * Registered permissions whose feature is still being built. A feature's worker removes its
  * permissions from this list when the checks land; the list must end empty.
  */
-const PENDING_PERMISSIONS = new Set<string>(["admin.promotions"]);
+const PENDING_PERMISSIONS = new Set<string>([
+  "admin.promotions",
+  // Markdown extensions (milestone 21)
+  "mention.maxPerItem",
+  // Watching, following, ignoring (milestone 22)
+  "member.follow",
+  "member.ignore",
+  "member.ignorable",
+  // Notifications (milestone 23)
+  "notification.view",
+  "admin.announcements",
+  // Moderation additions (milestone 26)
+  "forum.merge",
+  "forum.split",
+  "forum.threadBan",
+  "forum.bypassNodeRules",
+  "forum.viewLog",
+  "member.restrict",
+  "profile.bypassPrivacy",
+]);
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */

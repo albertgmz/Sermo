@@ -47,6 +47,16 @@ export const DisplayGroup = z
   .object({ id: Id, title: z.string(), userTitle: z.string(), badge: z.string() })
   .meta({ id: "DisplayGroup" });
 
+/**
+ * Fields every moderation action accepts: whether to notify the member it concerns, an optional
+ * message to them, and the reason (actions that already require a reason keep their own).
+ */
+export const moderationNotice = {
+  notify: z.boolean().default(true).describe("Notify the member this action concerns."),
+  message: z.string().trim().max(1000).optional().describe("A message to that member."),
+  reason: z.string().trim().max(1000).default(""),
+};
+
 export const Ok = z.object({ ok: z.literal(true) });
 export const Empty = z.object({});
 

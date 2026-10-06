@@ -6,6 +6,7 @@ import {
   ContentState,
   DisplayGroup,
   Id,
+  moderationNotice,
   Page,
   pageInput,
   ReactionSummary,
@@ -136,7 +137,12 @@ export const profilePostsUpdate = defineContract({
   name: "profilePosts.update",
   summary: "Edit a profile post. Author or moderator.",
   kind: "write",
-  input: z.object({ profilePostId: Id, body: Body, attachmentIds: AttachmentIds }),
+  input: z.object({
+    ...moderationNotice,
+    profilePostId: Id,
+    body: Body,
+    attachmentIds: AttachmentIds,
+  }),
   output: ProfilePostDetail,
 });
 
@@ -144,7 +150,7 @@ export const profilePostsDelete = defineContract({
   name: "profilePosts.delete",
   summary: "Soft-delete a profile post. Author, wall owner or moderator.",
   kind: "write",
-  input: z.object({ profilePostId: Id }),
+  input: z.object({ ...moderationNotice, profilePostId: Id }),
   output: ProfilePost,
 });
 
@@ -152,7 +158,7 @@ export const profilePostsRestore = defineContract({
   name: "profilePosts.restore",
   summary: "Make a deleted or unapproved profile post visible again. Moderators only.",
   kind: "write",
-  input: z.object({ profilePostId: Id }),
+  input: z.object({ ...moderationNotice, profilePostId: Id }),
   output: ProfilePost,
 });
 
@@ -186,7 +192,7 @@ export const profileCommentsUpdate = defineContract({
   name: "profileComments.update",
   summary: "Edit a comment. Author or moderator.",
   kind: "write",
-  input: z.object({ commentId: Id, body: Body }),
+  input: z.object({ ...moderationNotice, commentId: Id, body: Body }),
   output: ProfileCommentDetail,
 });
 
@@ -194,7 +200,7 @@ export const profileCommentsDelete = defineContract({
   name: "profileComments.delete",
   summary: "Soft-delete a comment. Author, wall owner or moderator.",
   kind: "write",
-  input: z.object({ commentId: Id }),
+  input: z.object({ ...moderationNotice, commentId: Id }),
   output: ProfileComment,
 });
 
@@ -202,6 +208,6 @@ export const profileCommentsRestore = defineContract({
   name: "profileComments.restore",
   summary: "Make a deleted or unapproved comment visible again. Moderators only.",
   kind: "write",
-  input: z.object({ commentId: Id }),
+  input: z.object({ ...moderationNotice, commentId: Id }),
   output: ProfileComment,
 });

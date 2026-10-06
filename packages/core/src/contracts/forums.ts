@@ -7,6 +7,8 @@ import {
   ContentState,
   Empty,
   Id,
+  moderationNotice,
+  Ok,
   Page,
   pageInput,
   ReactionSummary,
@@ -19,6 +21,22 @@ import { ImageReference } from "./images";
 import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
+
+/** Posting rules of a node; forum.bypassNodeRules exempts moderators. */
+export const NodeSettings = z
+  .object({
+    /** New threads wait for approval. */
+    requireThreadApproval: z.boolean(),
+    /** New replies wait for approval. */
+    requireReplyApproval: z.boolean(),
+    /** Nobody can start threads or reply. */
+    isReadOnly: z.boolean(),
+    /** Minimum account age in days to post here. */
+    minAccountAgeDays: z.number().int().min(0).max(3650),
+    /** Minimum post count to post here. */
+    minPostCount: z.number().int().min(0).max(1_000_000),
+  })
+  .meta({ id: "NodeSettings" });
 
 export const Node = z
   .object({
@@ -47,6 +65,7 @@ export const Node = z
       .nullable(),
     /** What the viewer may do here. */
     permissions: z.object({ canPost: z.boolean(), canModerate: z.boolean() }),
+    settings: NodeSettings,
   })
   .meta({ id: "Node" });
 
@@ -142,6 +161,7 @@ export const nodesCreate = defineContract({
     title: z.string().trim().min(1).max(100),
     description: z.string().trim().max(2000).default(""),
     position: z.number().int().default(0),
+    settings: NodeSettings.partial().optional(),
   }),
   output: Node,
 });
@@ -156,6 +176,7 @@ export const nodesUpdate = defineContract({
     title: z.string().trim().min(1).max(100).optional(),
     description: z.string().trim().max(2000).optional(),
     position: z.number().int().optional(),
+    settings: NodeSettings.partial().optional(),
   }),
   output: Node,
 });
@@ -203,7 +224,7 @@ export const threadsUpdate = defineContract({
   name: "threads.update",
   summary: "Change a thread's title. Author (while unlocked) or moderator.",
   kind: "write",
-  input: z.object({ threadId: Id, title: Title }),
+  input: z.object({ ...moderationNotice, threadId: Id, title: Title }),
   output: Thread,
 });
 
@@ -211,7 +232,7 @@ export const threadsSetSticky = defineContract({
   name: "threads.setSticky",
   summary: "Stick or unstick a thread. Moderators only.",
   kind: "write",
-  input: z.object({ threadId: Id, isSticky: z.boolean() }),
+  input: z.object({ ...moderationNotice, threadId: Id, isSticky: z.boolean() }),
   output: Thread,
 });
 
@@ -219,7 +240,7 @@ export const threadsSetLocked = defineContract({
   name: "threads.setLocked",
   summary: "Lock or unlock a thread. Moderators only.",
   kind: "write",
-  input: z.object({ threadId: Id, isLocked: z.boolean() }),
+  input: z.object({ ...moderationNotice, threadId: Id, isLocked: z.boolean() }),
   output: Thread,
 });
 
@@ -227,7 +248,7 @@ export const threadsMove = defineContract({
   name: "threads.move",
   summary: "Move a thread to another forum. Moderator of both source and target.",
   kind: "write",
-  input: z.object({ threadId: Id, nodeId: Id }),
+  input: z.object({ ...moderationNotice, threadId: Id, nodeId: Id }),
   output: Thread,
 });
 
@@ -235,7 +256,7 @@ export const threadsDelete = defineContract({
   name: "threads.delete",
   summary: "Soft-delete a thread. Moderators only.",
   kind: "write",
-  input: z.object({ threadId: Id }),
+  input: z.object({ ...moderationNotice, threadId: Id }),
   output: Thread,
 });
 
@@ -243,7 +264,7 @@ export const threadsRestore = defineContract({
   name: "threads.restore",
   summary: "Make a deleted or unapproved thread visible again. Moderators only.",
   kind: "write",
-  input: z.object({ threadId: Id }),
+  input: z.object({ ...moderationNotice, threadId: Id }),
   output: Thread,
 });
 
@@ -292,7 +313,7 @@ export const postsUpdate = defineContract({
   name: "posts.update",
   summary: "Edit a post. Author (while the thread is unlocked) or moderator.",
   kind: "write",
-  input: z.object({ postId: Id, body: Body, attachmentIds: AttachmentIds }),
+  input: z.object({ ...moderationNotice, postId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: PostDetail,
 });
 
@@ -302,7 +323,7 @@ export const postsDelete = defineContract({
     "Soft-delete a post. Author (while unlocked) or moderator. The first post cannot be " +
     "deleted on its own; delete the thread instead.",
   kind: "write",
-  input: z.object({ postId: Id }),
+  input: z.object({ ...moderationNotice, postId: Id }),
   output: Post,
 });
 
@@ -310,6 +331,51 @@ export const postsRestore = defineContract({
   name: "posts.restore",
   summary: "Make a deleted or unapproved post visible again. Moderators only.",
   kind: "write",
-  input: z.object({ postId: Id }),
+  input: z.object({ ...moderationNotice, postId: Id }),
   output: Post,
+});
+
+// Thread merge and split, node moderators -------------------------------------------------------
+
+export const threadsMerge = defineContract({
+  name: "threads.merge",
+  summary:
+    "Merge threads into a target thread: their posts follow the target's posts in their own " +
+    "order; each merged thread's id keeps resolving to the target. Requires forum.merge on the " +
+    "target's node and on each source's node. Very large merges finish in the background.",
+  kind: "write",
+  input: z.object({
+    ...moderationNotice,
+    threadId: Id.describe("The target thread."),
+    sourceThreadIds: z.array(Id).min(1).max(10),
+  }),
+  output: z.object({ thread: Thread, completed: z.boolean() }),
+});
+
+export const threadsSplit = defineContract({
+  name: "threads.split",
+  summary:
+    "Move posts (given ids, or every post from a position on) into a new thread in a forum. The " +
+    "first post cannot move. Requires forum.split on the source and destination nodes. Very " +
+    "large splits finish in the background.",
+  kind: "write",
+  input: z.object({
+    ...moderationNotice,
+    threadId: Id,
+    postIds: z.array(Id).min(1).max(500).optional(),
+    fromPosition: z.number().int().min(1).optional(),
+    title: Title,
+    nodeId: Id,
+  }),
+  output: z.object({ thread: Thread, completed: z.boolean() }),
+});
+
+export const nodesSetModerator = defineContract({
+  name: "nodes.setModerator",
+  summary:
+    "Make a member moderator of a node and everything under it (member-specific entries for the " +
+    "standard moderator set), or remove that. Requires admin.permissions.",
+  kind: "write",
+  input: z.object({ nodeId: Id, userId: Id, remove: z.boolean().default(false) }),
+  output: Ok,
 });

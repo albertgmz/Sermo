@@ -478,7 +478,11 @@ export const threadReads = sqliteTable(
     lastReadPosition: integer("last_read_position").notNull(),
     readAt: integer("read_at").notNull(),
   },
-  (t) => [uniqueIndex("thread_reads_user_thread").on(t.userId, t.threadId)],
+  (t) => [
+    uniqueIndex("thread_reads_user_thread").on(t.userId, t.threadId),
+    // Readers of one thread (thread merges and splits).
+    index("thread_reads_thread").on(t.threadId, t.userId),
+  ],
 );
 
 // ---------------------------------------------------------------------------

@@ -113,6 +113,42 @@ export const PERMISSIONS = {
     defaults: MEMBERS,
     requiresAccount: true,
   },
+  /** Mentions that link and notify per item (-1 unlimited); new members also have a site limit. */
+  "mention.maxPerItem": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "count",
+    defaults: { unconfirmed: 10, registered: 10, moderator: -1, admin: -1 },
+  },
+  "member.follow": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  "member.ignore": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** Held by the member others want to ignore: staff cannot be ignored by default. */
+  "member.ignorable": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: { unconfirmed: "allow", registered: "allow", moderator: "never", admin: "never" },
+  },
+  "notification.view": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
   "attachment.storageQuota": {
     scope: "global",
     category: "general",
@@ -211,6 +247,13 @@ export const PERMISSIONS = {
   "forum.stick": nodeModerator(),
   "forum.move": nodeModerator(),
   "forum.manageReports": nodeModerator(),
+  "forum.merge": nodeModerator(),
+  "forum.split": nodeModerator(),
+  "forum.threadBan": { ...nodeModerator(), hierarchy: true },
+  /** Post despite the node's read-only, approval, account-age and post-count settings. */
+  "forum.bypassNodeRules": nodeModerator(),
+  /** See the moderator log for this node. */
+  "forum.viewLog": nodeModerator(),
 
   // Profile posts -----------------------------------------------------------------------
   "profilePost.post": {
@@ -298,6 +341,9 @@ export const PERMISSIONS = {
   /** Handle reports on profile content and on members. */
   "report.manageProfiles": globalModerator("moderation"),
   "warning.view": globalModerator("moderation"),
+  "member.restrict": { ...globalModerator("moderation"), hierarchy: true },
+  /** See and post on profiles regardless of their owners' privacy settings. */
+  "profile.bypassPrivacy": globalModerator("profile"),
   "member.warn": { ...globalModerator("moderation"), hierarchy: true },
   "member.ban": { ...globalAdmin("moderation"), hierarchy: true },
   "member.spamCleanup": { ...globalAdmin("moderation"), hierarchy: true },
@@ -313,6 +359,7 @@ export const PERMISSIONS = {
   "admin.members": { ...globalAdmin("admin"), hierarchy: true },
   "admin.permissions": globalAdmin("admin"),
   "admin.promotions": globalAdmin("admin"),
+  "admin.announcements": globalAdmin("admin"),
   "admin.settings": globalAdmin("admin"),
   "admin.reactionTypes": globalAdmin("admin"),
 } as const satisfies Record<string, PermissionDefinition>;

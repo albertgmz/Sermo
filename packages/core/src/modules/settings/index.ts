@@ -36,6 +36,15 @@ const defaults: StoredSiteSettingsValue = {
   nodeTitleTemplate: "{title} | {site}",
   profileTitleTemplate: "{username} | {site}",
   indexNowKey: null,
+  siteName: "Sermo",
+  defaultLanguage: "en",
+  newMemberMentionLimit: 3,
+  profilePostsEnabled: true,
+  notificationRetentionDays: 90,
+  notificationDefaults: {},
+  emailHourlyCap: 20,
+  conversationEmailIncludesBody: false,
+  digestInactiveDays: 3,
 };
 
 export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {

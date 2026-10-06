@@ -21,9 +21,11 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  * - `member.followed`: target the followed member; payload { followerId }.
  * - `member.warned`, `member.banned`, `member.restricted`, `member.thread_banned`: target the
  *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }.
- * - `moderation.action`: target the content acted on; payload { action, moderatorId,
- *   contentUserId, reason, notify, message?, ...details } (approved, rejected, edited, moved,
- *   merged, locked, deleted).
+ * - Moderation actions on content that already publish a `content.*` event (delete, restore,
+ *   approve, edit, move, lock) add { actorId, reason, notify, message? } to that event's payload
+ *   instead of publishing a second event.
+ * - `moderation.action`: only for actions without a content event (merge, split): target the
+ *   content; payload { action, moderatorId, contentUserId, reason, notify, message?, ... }.
  * - `report.created`, `report.state_changed`: target the report group; payload { reporterId?,
  *   state?, moderatorId?, nodeId? }.
  * - `conversation.participants_added`: target the conversation; payload { userIds, actorId }.
