@@ -133,6 +133,8 @@ export const users = sqliteTable(
     followerCount: counter("follower_count"),
     followingCount: counter("following_count"),
     unreadNotificationCount: counter("unread_notification_count"),
+    /** Bumped by "mark all read": unread notifications of older epochs count as read. */
+    notificationEpoch: counter("notification_epoch"),
     /** BCP 47 language tag; null uses the site default. */
     language: text("language"),
     watchOnCreate: text("watch_on_create", { enum: AUTO_WATCH_MODES }).notNull().default("watch"),
@@ -539,6 +541,7 @@ export const profilePostComments = sqliteTable(
   (t) => [
     // comments of a profile post, by id
     index("profile_post_comments_post").on(t.profilePostId, t.id),
+    index("profile_post_comments_post_user").on(t.profilePostId, t.userId),
     index("profile_post_comments_state_id").on(t.state, t.id),
     index("profile_post_comments_user_id").on(t.userId, t.id),
   ],
@@ -970,6 +973,7 @@ export const contentQuotes = sqliteTable(
   },
   (t) => [
     uniqueIndex("content_quotes_content_post").on(t.contentType, t.contentId, t.quotedPostId),
+    index("content_quotes_content_user").on(t.contentType, t.contentId, t.quotedUserId),
     index("content_quotes_post").on(t.quotedPostId),
   ],
 );
@@ -1082,6 +1086,8 @@ export const notifications = sqliteTable(
     data: text("data").notNull().default("{}"),
     /** Highest domain event merged into this row; replays of older events are ignored. */
     lastEventId: integer("last_event_id").notNull().default(0),
+    /** The recipient's notification epoch when written; older epochs count as read. */
+    epoch: integer("epoch").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     readAt: integer("read_at"),
