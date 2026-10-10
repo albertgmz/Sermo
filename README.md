@@ -42,6 +42,10 @@ Add `--reuse` on later runs to retain the scratch database between runs.
 
 Better Auth handles registration, sign-in, sessions, and API keys under `/api/auth`. Register with `POST /api/auth/sign-up/email` and a JSON body containing `email`, `password`, `name`, and `username`. The username is required, 3–32 characters long, and may contain letters, numbers, spaces, `.`, `-`, and `_`; use a letter or number at either end. An optional `displayUsername` must match the username apart from letter case; `name` is free text. Passwords must be 8–256 characters. Sign in with `POST /api/auth/sign-in/email` (email and password) or `POST /api/auth/sign-in/username` (username and password).
 
+When `SERMO_MAIL_DRIVER` is `capture` or `smtp`, new accounts join the Unconfirmed group. Better Auth emails a link to verify the address; following it moves the account to Member and sends a welcome email. Unconfirmed permissions determine what the account can do. With `SERMO_MAIL_DRIVER=none`, registration joins Member directly. Existing accounts keep their groups when email delivery is enabled. Better Auth also provides `POST /api/auth/send-verification-email`, `POST /api/auth/request-password-reset`, `POST /api/auth/reset-password`, `POST /api/auth/change-password`, and `POST /api/auth/change-email`. Email changes require confirmation at the new address. Password and email changes, API key creation, and bans send security notices. These messages cannot be unsubscribed from and do not count against the notification email cap. Verification, reset, and change-email requests are limited per client IP.
+
+Clients requesting a password reset must pass `redirectTo` in the `POST /api/auth/request-password-reset` body, using a trusted origin. Better Auth embeds it in the reset link and redirects there after the token is checked. A successful reset revokes the account's existing sessions.
+
 Browser clients use the session cookie. REST and MCP clients can send an API key as `Authorization: Bearer <key>` or `x-api-key: <key>`. Keys have the same permissions as their owner. Requests without credentials run as a guest. Cookie-carrying POST requests to `/api/auth/*`, including API key creation, need an `Origin` header equal to `BETTER_AUTH_URL`; Better Auth rejects a missing origin. Cookie-authenticated REST writes also need `Content-Type: application/json`.
 
 To create a key for an MCP client, sign in with an account (the bootstrapped admin is one option), then call the key creation endpoint with that session. For example, after setting `SERMO_USERNAME` and `SERMO_PASSWORD` in a POSIX shell with the default `BETTER_AUTH_URL`:
@@ -75,6 +79,12 @@ A client configuration that supports Streamable HTTP can use the following shape
 
 REST routes and their request and response schemas are documented at `/api/v1/openapi.json`.
 
+## Administration
+
+[docs/administration.md](docs/administration.md) is the guide for forum operators: groups,
+permissions and promotions, moderation tools, notifications, email, Web Push, member formatting,
+and background jobs.
+
 ## Security and configuration
 
 Markdown is rendered and sanitized before storage. Cookie-authenticated REST writes enforce origin based CSRF checks and JSON content type. The HTTP adapter sets secure headers and applies 60-second, in-memory limits: 300 reads (GET/HEAD), 60 writes, 30 searches, and 60 MCP requests. Buckets are per API key, per signed-in user, or per IP for guests. Better Auth limits its own sign-in and sign-up endpoints separately. The adapter discards client-supplied `x-sermo-client-ip` and sets that header from the socket or configured proxy header.
@@ -93,6 +103,11 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | `SERMO_STORAGE_DRIVER` | `local` (default) or `s3`. |
 | `SERMO_S3_BUCKET`, `SERMO_S3_ENDPOINT`, `SERMO_S3_REGION`, `SERMO_S3_ACCESS_KEY_ID`, `SERMO_S3_SECRET_ACCESS_KEY` | Bucket configuration. Use the R2 endpoint for Cloudflare R2; the endpoint is optional for Amazon S3. |
 | `SERMO_PUBLIC_FILES_URL` | Optional proxy or CDN origin for public profile and node images; it must forward Sermo file paths to this API. |
+| `SERMO_MAIL_DRIVER` | `none` (default), `capture` (in-memory development), or `smtp`. |
+| `SERMO_MAIL_FROM`, `SERMO_MAIL_REPLY_TO` | Sender address (required for SMTP) and optional reply-to address. |
+| `SERMO_SMTP_HOST`, `SERMO_SMTP_PORT`, `SERMO_SMTP_SECURE` | SMTP host, port (default 587), and TLS-on-connect flag (default false). |
+| `SERMO_SMTP_REQUIRE_TLS` | `true` or `false`. By default STARTTLS is required unless `SERMO_SMTP_SECURE=true` or the host is loopback (`localhost`, `127.0.0.0/8`, `::1`). Set `false` only for a plain-text relay on a private network, such as a sidecar container. |
+| `SERMO_SMTP_USER`, `SERMO_SMTP_PASSWORD` | Optional SMTP authentication credentials. |
 | `SERMO_BENCH_DIR` | Optional benchmark seed directory; default is `~/.cache/sermo-bench`. |
 
 ## Moving stored files
@@ -107,6 +122,12 @@ docker compose run --rm sermo bun run storage:migrate --from local --to s3
 ```
 
 When it reports completion, set `SERMO_STORAGE_DRIVER=s3` in `.env` and run `docker compose up -d`. Keep the API stopped until the command completes. Use `--from s3 --to local` to reverse the move. Local installations can run `bun run storage:migrate --from local --to s3` with the same environment variables. The command refuses unfinished file deletions; let the jobs worker finish those before stopping the API. Back up the database and local files before a move.
+
+## Deliverability
+
+For public email delivery, use a dedicated sending domain and configure SPF, DKIM, DMARC, and reverse DNS with the SMTP provider. Monitor rejections and the `email_failures` and `undeliverable_emails` tables. Only synchronous SMTP rejections are recorded; asynchronous bounces after SMTP acceptance are not processed. Unsubscribe-all writes explicit preferences for the notification types registered at that time. Types added later follow the site defaults and can be changed in notification preferences.
+
+Each email is marked as sent before it is handed to the SMTP server, so a crash can lose an email (delivery is at most once as far as the process is concerned; a server reply lost after the server accepted the message can still cause a resend); a graceful stop (`SIGTERM`, `docker compose stop`) waits up to 30 seconds for the job in progress. If the process crashes or is killed between marking and sending, those emails are not sent: a notification email is lost, and up to 5 members (the group of the digest batch being sent) miss that week's digest. Failures the server reports are recorded in `email_failures`. An address is marked undeliverable only when the server refuses it at `RCPT TO` with 550, 551 or 553 and an enhanced status of 5.1.x or 5.2.1; a bare 550 (for example "Relaying denied") is not enough. A notification email is otherwise retried up to five times. In the weekly digest, failures are classified: a connection, authentication or sender failure, or any temporary (4xx) reply, resumes the digest from that member later, and a member whose delivery still fails that way after five attempts is skipped so the digest reaches everyone else. A policy refusal (any 5.7.x status, or a refused message without a 5.1.x or 5.2.x status, such as a DMARC failure) concerns the sending account, so the digest is resumed later in the same way but nobody is skipped: if it persists, the digest stops after five attempts. A member whose message cannot be built, or whose address or message the server refuses for their own reasons (5.1.x, 5.2.x, or a bare 5xx reply to the recipient), is recorded and skipped. Digests are not counted against the hourly email cap.
 
 ## Backups
 
@@ -127,3 +148,16 @@ docker compose start
 ```
 
 A graceful stop folds the WAL into the main file. After a crash, also copy `sermo.db-wal` before starting the service. Keep backups outside the Compose volume and protect them like the live database.
+
+## Web Push
+
+Web Push is disabled until all three VAPID settings are set. Generate a permanent key pair with
+`bunx web-push generate-vapid-keys --json`, then set `SERMO_VAPID_PUBLIC_KEY` and
+`SERMO_VAPID_PRIVATE_KEY` from the output. Set `SERMO_VAPID_SUBJECT` to a contact URI such as
+`mailto:admin@example.com` (or an HTTPS URL). Keep the private key secret and retain the same
+pair across restarts so existing browser subscriptions stay valid. Clients can read the public key
+from `GET /api/v1/push/public-key`, register devices with `PUT /api/v1/push/subscriptions`,
+list their devices with `GET /api/v1/push/subscriptions`, and remove one with
+`DELETE /api/v1/push/subscriptions`. Subscriptions are limited to ten per member; the oldest is
+replaced when an eleventh device is registered. Endpoints must belong to the supported Google,
+Mozilla, Microsoft, or Apple push services.

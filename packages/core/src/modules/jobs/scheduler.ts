@@ -2,16 +2,19 @@ import { Cron } from "croner";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
+import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentials } from "../auth";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
-import { enqueueJob, flushDownloadCounts, flushViewCounts } from "./queue";
+import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
 import { registerJobHandlers } from "./rebuild";
 
 export const SCHEDULES = {
+  events: "* * * * * *",
   views: "*/5 * * * * *",
   hourly: "0 0 * * * *",
   daily: "0 0 3 * * *",
+  weekly: "0 0 4 * * 1",
 } as const;
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -25,11 +28,18 @@ export const purgeSql = {
 export function runViewsTask(ctx: Ctx): number {
   const views = flushViewCounts(ctx);
   flushDownloadCounts(ctx);
+  flushActivity(ctx);
   return views;
 }
 
 export function runHourlyTasks(ctx: Ctx): void {
   purgeExpiredCredentials(ctx);
+  enqueueJob(
+    ctx,
+    "notifications.retention",
+    {},
+    { uniqueKey: `notification-retention:${Math.floor(ctx.now() / 3_600_000)}` },
+  );
   queueSeoEvents(ctx);
   queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;
@@ -68,6 +78,7 @@ export function runHourlyTasks(ctx: Ctx): void {
 }
 
 export function runDailyTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "promotions.sweep", { after: 0 }, { uniqueKey: "promotions.sweep" });
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(
     ctx,
@@ -78,10 +89,18 @@ export function runDailyTasks(ctx: Ctx): void {
   ctx.sqlite.exec("PRAGMA optimize");
 }
 
+export function runWeeklyTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "email.digest.sweep", {}, { uniqueKey: "email.digest.sweep" });
+}
+
 export function startScheduler(ctx: Ctx): () => void {
   registerJobHandlers(ctx);
   const onError = (error: unknown, job: Cron) => console.error(`[cron:${job.name}]`, error);
   const jobs = [
+    // Prompt delivery of domain events to registered subscribers (promotions, notifications).
+    new Cron(SCHEDULES.events, { name: "jobs.events", protect: true, catch: onError }, async () => {
+      await dispatchEvents(ctx);
+    }),
     new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, () => {
       runViewsTask(ctx);
     }),
@@ -92,6 +111,11 @@ export function startScheduler(ctx: Ctx): () => void {
       SCHEDULES.daily,
       { name: "jobs.daily", protect: true, catch: onError, timezone: "UTC" },
       () => runDailyTasks(ctx),
+    ),
+    new Cron(
+      SCHEDULES.weekly,
+      { name: "jobs.weekly", protect: true, catch: onError, timezone: "UTC" },
+      () => runWeeklyTasks(ctx),
     ),
   ];
   return () => {

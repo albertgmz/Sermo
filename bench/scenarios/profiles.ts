@@ -9,6 +9,22 @@ let searchPrefix = "";
 
 export const scenarios: Scenario[] = [
   {
+    name: "profiles.get privacy",
+    kind: "read",
+    setup(env) {
+      env.ctx.sqlite
+        .prepare("UPDATE users SET profile_view_privacy = 'members' WHERE id = ?1")
+        .run(env.meta.bigWallUserIds[0]!);
+    },
+    run: (env) =>
+      env.call("profiles.get", env.actors.member(0), { userId: env.meta.bigWallUserIds[0]! }),
+    teardown(env) {
+      env.ctx.sqlite
+        .prepare("UPDATE users SET profile_view_privacy = 'everyone' WHERE id = ?1")
+        .run(env.meta.bigWallUserIds[0]!);
+    },
+  },
+  {
     name: "profiles.get",
     kind: "read",
     run: (env, i) =>

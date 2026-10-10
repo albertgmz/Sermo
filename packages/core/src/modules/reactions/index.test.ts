@@ -123,6 +123,81 @@ function checkCounters(f: ReturnType<typeof fixture>, ref: (typeof refs)[number]
 }
 
 describe("reactions", () => {
+  test("a never entry overrides an allowing secondary group", async () => {
+    const f = fixture();
+    const type = await createType(f, 1);
+    const target = { contentType: "post" as const, contentId: f.post };
+    const actor = userActor(f.reactor);
+    const addGroup = (title: string, value: number) => {
+      const groupId = f.ctx.sqlite
+        .prepare<{ id: number }, [string]>(
+          "INSERT INTO groups (title, rank) VALUES (?1, 10) RETURNING id",
+        )
+        .get(title)!.id;
+      f.ctx.sqlite
+        .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+        .run(f.reactor.id, groupId);
+      f.ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'reaction.react'), 0, ?1, 0, ?2)",
+        )
+        .run(groupId, value);
+      return groupId;
+    };
+    addGroup("Allow reactions", 1);
+    const denyingGroup = addGroup("Deny reactions", -1);
+    f.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    await expect(
+      execute(f.ctx, reactionsSetOp, actor, { ...target, reactionTypeId: type.id }),
+    ).rejects.toThrow(ForbiddenError);
+    await expect(execute(f.ctx, reactionsRemoveOp, actor, target)).rejects.toThrow(ForbiddenError);
+    f.ctx.sqlite
+      .prepare("DELETE FROM user_groups WHERE user_id = ?1 AND group_id = ?2")
+      .run(f.reactor.id, denyingGroup);
+    f.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    expect(
+      (await execute(f.ctx, reactionsSetOp, actor, { ...target, reactionTypeId: type.id })).mine,
+    ).toBe(type.id);
+    expect((await execute(f.ctx, reactionsRemoveOp, actor, target)).mine).toBeNull();
+  });
+  test("reaction type management accepts a specific custom permission", async () => {
+    const f = fixture();
+    const input = { title: "Custom", emoji: "C", score: 1, position: 10 };
+    const actor = userActor(f.reactor);
+    await expect(execute(f.ctx, reactionTypesCreateOp, actor, input)).rejects.toThrow(
+      ForbiddenError,
+    );
+    const groupId = f.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Reaction managers', 10) RETURNING id",
+      )
+      .get()!.id;
+    f.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(f.reactor.id, groupId);
+    f.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'admin.reactionTypes'), 0, ?1, 0, 1)",
+      )
+      .run(groupId);
+    f.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    const type = await execute(f.ctx, reactionTypesCreateOp, actor, input);
+    expect(type.title).toBe("Custom");
+    expect(
+      (
+        await execute(f.ctx, reactionTypesUpdateOp, actor, {
+          reactionTypeId: type.id,
+          title: "Updated",
+        })
+      ).title,
+    ).toBe("Updated");
+  });
   test("registers all contracts and manages ordered cached types", async () => {
     const f = fixture();
     expect(operations.map((op) => op.name).sort()).toEqual(

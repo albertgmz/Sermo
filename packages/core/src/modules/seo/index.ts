@@ -57,5 +57,7 @@ export const operations = [
   implement(seoProfile, (ctx, actor, input) =>
     seoForProfile(ctx, actor, input.userId, input.requestedPath),
   ),
-  implement(seoSearch, () => ({ robots: "noindex,follow" as const })),
+  implement(seoSearch, () => ({ robots: "noindex,follow" as const }), {
+    public: "Search SEO metadata contains no private content",
+  }),
 ];

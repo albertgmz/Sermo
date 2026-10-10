@@ -8,7 +8,7 @@ import {
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
-import { NotFoundError, ValidationError } from "../../errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
 import { encodeCursor } from "../../pagination";
 import {
@@ -37,6 +37,39 @@ const search = (
 ) => execute(ctx, searchQueryOp, actor, { q, ...more });
 
 describe("search.query", () => {
+  test("search.use controls guests and custom groups", async () => {
+    const { ctx } = fixture();
+    const guest = ctx.sqlite
+      .prepare<{ id: number }, []>("SELECT id FROM permission_definitions WHERE key = 'search.use'")
+      .get()!.id;
+    expect((await search(ctx, GUEST, "needle")).items).toEqual([]);
+    ctx.sqlite
+      .prepare(
+        "UPDATE permission_entries SET value = -1 WHERE permission_id = ?1 AND node_id = 0 AND group_id = 1 AND user_id = 0",
+      )
+      .run(guest);
+    await expect(search(ctx, GUEST, "needle")).rejects.toBeInstanceOf(ForbiddenError);
+
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Search members', 10) RETURNING id",
+      )
+      .get()!.id;
+    const member = userActor(insertUser(ctx, { groupId }));
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+      )
+      .run(guest, groupId);
+    expect((await search(ctx, member, "needle")).items).toEqual([]);
+    ctx.sqlite
+      .prepare(
+        "UPDATE permission_entries SET value = -1 WHERE permission_id = ?1 AND node_id = 0 AND group_id = ?2 AND user_id = 0",
+      )
+      .run(guest, groupId);
+    await expect(search(ctx, member, "needle")).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
   test("whole words, accents, title restriction, edits, and literal FTS punctuation", async () => {
     const { ctx, author, forum } = fixture();
     const made = await execute(ctx, threadsCreateOp, author, {

@@ -65,6 +65,10 @@ test("route table has exactly one entry for each operation", () => {
 
 test("query coercion handles booleans, integer arrays, and strict integer syntax", () => {
   expect(coerceQueryValues(["true"], { type: "boolean" })).toBe(true);
+  const nullableId = { anyOf: [{ type: "integer" }, { type: "null" }] };
+  expect(coerceQueryValues(["12"], nullableId)).toBe(12);
+  expect(coerceQueryValues(["null"], nullableId)).toBeNull();
+  expect(coerceQueryValues(["x"], nullableId)).toBe("x");
   expect(coerceQueryValues(["false"], { type: "boolean" })).toBe(false);
   expect(coerceQueryValues(["1", "2"], { type: "array", items: { type: "integer" } })).toEqual([
     1, 2,
@@ -88,6 +92,15 @@ test("OpenAPI covers REST and Better Auth routes with resolvable references", as
     );
   expect(document.paths["/api/auth/sign-up/email"]?.post).toBeDefined();
   expect(document.paths["/api/auth/api-key/create"]?.post).toBeDefined();
+  for (const [path, method] of [
+    ["/api/auth/send-verification-email", "post"],
+    ["/api/auth/verify-email", "get"],
+    ["/api/auth/request-password-reset", "post"],
+    ["/api/auth/reset-password", "post"],
+    ["/api/auth/change-password", "post"],
+    ["/api/auth/change-email", "post"],
+  ] as const)
+    expect(document.paths[path]?.[method]).toBeDefined();
   expect(document.components.securitySchemes.sessionCookie?.name).toBe("sermo.session_token");
   expect(document.components.securitySchemes.secureSessionCookie?.name).toBe(
     "__Secure-sermo.session_token",
@@ -506,14 +519,14 @@ test("REST maps forbidden and conflict errors and path fields override JSON", as
     title: "Renamed members",
   });
   expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
-  const conflict = await request("/api/v1/groups/4", {
-    method: "PATCH",
+  // Built-in groups cannot be deleted: the replaced groups API's conflict case.
+  const conflict = await request("/api/v1/groups/2", {
+    method: "DELETE",
     headers: {
       cookie: adminCookie,
       origin: "http://localhost:3000",
       "content-type": "application/json",
     },
-    body: JSON.stringify({ isAdmin: false }),
   });
   expect(conflict.status).toBe(409);
   expect(((await conflict.json()) as { error: { code: string } }).error.code).toBe("conflict");

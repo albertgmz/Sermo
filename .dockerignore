@@ -17,4 +17,5 @@ coverage
 *.db-wal
 *.db-shm
 **/*.test.ts
+packages/core/src/modules/push/fixtures/
 **/drizzle/meta/*_snapshot.json

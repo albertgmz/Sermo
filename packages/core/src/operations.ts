@@ -1,15 +1,20 @@
 import { operations as auth } from "./modules/auth";
 import { operations as conversations } from "./modules/conversations";
+import { operations as email } from "./modules/email";
 import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
 import { operations as moderation } from "./modules/moderation";
+import { operations as notifications } from "./modules/notifications";
 import { operations as permissions } from "./modules/permissions";
 import { operations as profiles } from "./modules/profiles";
+import { operations as promotions } from "./modules/promotions";
+import { operations as push } from "./modules/push";
 import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
 import { operations as seo } from "./modules/seo";
 import { operations as settings } from "./modules/settings";
+import { operations as social } from "./modules/social";
 import { operations as storage } from "./modules/storage";
 import type { AnyOperation } from "./operation";
 
@@ -19,7 +24,10 @@ export const operations: readonly AnyOperation[] = [
   ...permissions,
   ...forums,
   ...profiles,
+  ...promotions,
+  ...push,
   ...conversations,
+  ...email,
   ...reactions,
   ...search,
   ...jobs,
@@ -27,7 +35,9 @@ export const operations: readonly AnyOperation[] = [
   ...storage,
   ...images,
   ...moderation,
+  ...notifications,
   ...seo,
+  ...social,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

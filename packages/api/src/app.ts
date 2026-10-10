@@ -70,6 +70,13 @@ export function coerceQueryValues(values: string[], schema: Schema | undefined):
 
 function coerce(value: string, schema: Schema | undefined): unknown {
   if (!schema) return value;
+  // Nullable fields are `anyOf: [T, { type: "null" }]`: "null" is null, anything else is a T.
+  const variants = schema.anyOf as Schema[] | undefined;
+  if (variants) {
+    if (value === "null" && variants.some((variant) => variant.type === "null")) return null;
+    const inner = variants.find((variant) => variant.type !== "null");
+    return inner ? coerce(value, inner) : value;
+  }
   if (schema.type === "integer") {
     if (!/^-?\d+$/.test(value)) return value;
     const number = Number(value);
@@ -287,7 +294,6 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         ...options.storage,
         maxBytes: settings.maxUploadBytes,
         allowedTypesByPurpose: settings.allowedUploadTypes,
-        groupUploadLimitBytes: settings.groupUploadLimitBytes,
       },
       new URL(c.req.url).searchParams.get("purpose") ?? "attachment",
     );

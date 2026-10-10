@@ -3,7 +3,8 @@ import type { Actor } from "../../actor";
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
-import { getGlobalPermissions, getNodeAccess, getNodeTree } from "../permissions";
+import { can, getNodeTree, permissionsOf } from "../../permissions";
+import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
 import { canonicalUrl, resolveCanonical } from "./paths";
 
 export interface SeoTemplates {
@@ -85,7 +86,7 @@ export function nodeSeo(
   templates: SeoTemplates,
 ): SeoPage {
   const node = getNodeTree(ctx).get(id);
-  if (!node || !getNodeAccess(ctx, actor)(id).view) throw new NotFoundError();
+  if (!node || !can(ctx, actor, "node.view", { nodeId: id })) throw new NotFoundError();
   const canonical = resolveCanonical(requestedPath, baseURL, "node", id, node.title);
   const ancestors = [...getNodeTree(ctx).ancestors(id), node];
   const breadcrumb: WithContext<BreadcrumbList> = {
@@ -109,7 +110,7 @@ export function nodeSeo(
     description: fill(templates.nodeDescription ?? "{description}", values),
     canonical: canonical.canonical,
     redirect: canonical.redirect,
-    robots: getNodeAccess(ctx, GUEST)(id).view ? "index,follow" : "noindex,follow",
+    robots: can(ctx, GUEST, "node.view", { nodeId: id }) ? "index,follow" : "noindex,follow",
     jsonLd: [breadcrumb],
   };
 }
@@ -126,19 +127,31 @@ export function threadSeo(
 ): SeoPage {
   if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(pageSize) || pageSize < 1)
     throw new RangeError("Invalid thread page");
+  const requestedId = id;
+  for (let hops = 0; hops < 16; hops++) {
+    const merged = prepared(ctx, "seo.mergedTarget", () =>
+      ctx.sqlite.prepare<{ merged_into_id: number | null }, [number]>(
+        "SELECT merged_into_id FROM threads WHERE id = ?1",
+      ),
+    ).get(id);
+    if (!merged?.merged_into_id) break;
+    id = merged.merged_into_id;
+  }
   const thread = prepared(ctx, "seo.thread", () =>
     ctx.sqlite.prepare<Thread, [number]>(
       "SELECT id,node_id,user_id,title,state,created_at,last_post_at,content_updated_at,excerpt,reply_count,view_count,first_post_id FROM threads WHERE id=?1",
     ),
   ).get(id);
+  if (!thread || !can(ctx, actor, "node.view", { nodeId: thread.node_id }))
+    throw new NotFoundError();
+  const viewer = permissionsOf(ctx, actor);
   if (
-    !thread ||
-    !getNodeAccess(ctx, actor)(thread.node_id).view ||
-    (thread.state !== "visible" &&
-      !(
-        getNodeAccess(ctx, actor)(thread.node_id).moderate ||
-        (actor.kind !== "guest" && actor.userId === thread.user_id)
-      ))
+    thread.state !== "visible" &&
+    !(actor.kind !== "guest" && actor.userId === thread.user_id) &&
+    !(
+      thread.state === "moderated" && viewer.can("forum.viewModerated", { nodeId: thread.node_id })
+    ) &&
+    !(thread.state === "deleted" && viewer.can("forum.viewDeleted", { nodeId: thread.node_id }))
   )
     throw new NotFoundError();
   const node = getNodeTree(ctx).get(thread.node_id);
@@ -159,7 +172,8 @@ export function threadSeo(
             "SELECT p.id,p.user_id,p.position,b.body_source,p.created_at,p.edited_at,u.username FROM posts p JOIN post_bodies b ON b.post_id=p.id JOIN users u ON u.id=p.user_id WHERE p.id=?1 AND p.state='visible'",
           ),
         ).get(thread.first_post_id ?? 0);
-  const guestVisible = thread.state === "visible" && getNodeAccess(ctx, GUEST)(thread.node_id).view;
+  const guestVisible =
+    thread.state === "visible" && can(ctx, GUEST, "node.view", { nodeId: thread.node_id });
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
   const description = thread.excerpt || first?.body_source.slice(0, 200) || "";
@@ -209,7 +223,7 @@ export function threadSeo(
     title: fill(templates.threadTitle ?? "{title} | {siteName}", values),
     description: fill(templates.threadDescription ?? "{description}", values),
     canonical: pageCanonical,
-    redirect: requestedPath.length > 0 && requested.href !== pageCanonical,
+    redirect: requestedId !== id || (requestedPath.length > 0 && requested.href !== pageCanonical),
     robots: indexable ? "index,follow" : "noindex,follow",
     jsonLd: posting ? [posting, breadcrumb] : [],
   };
@@ -222,8 +236,11 @@ export function profileSeo(
   id: number,
   requestedPath: string,
   templates: SeoTemplates,
+  access?: ProfileAccess,
 ): SeoPage {
-  if (!getGlobalPermissions(ctx, actor).canViewProfiles) throw new NotFoundError();
+  if (!can(ctx, actor, "profile.view")) throw new NotFoundError();
+  const relation = access ?? profileAccess(ctx, actor, id);
+  if (!mayViewProfile(ctx, actor, id, relation)) throw new NotFoundError();
   const profile = prepared(ctx, "seo.profile", () =>
     ctx.sqlite.prepare<Profile, [number]>(
       "SELECT id,username,about,created_at,content_updated_at,post_count,EXISTS(SELECT 1 FROM profile_posts WHERE profile_user_id=users.id AND state='visible' LIMIT 1) AS has_public_wall FROM users WHERE id=?1",
@@ -232,7 +249,8 @@ export function profileSeo(
   if (!profile) throw new NotFoundError();
   const canonical = resolveCanonical(requestedPath, baseURL, "profile", id, profile.username);
   const indexable =
-    getGlobalPermissions(ctx, GUEST).canViewProfiles &&
+    can(ctx, GUEST, "profile.view") &&
+    relation.profile_view_privacy === "everyone" &&
     (profile.has_public_wall === 1 || profile.about.trim().length > 0);
   const values = {
     siteName: templates.siteName,

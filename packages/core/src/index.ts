@@ -8,6 +8,8 @@ export * as schema from "./db/schema";
 export { type Tx, writeTx } from "./db/tx";
 export * from "./errors";
 export * from "./events";
+export type { MailConfig, Mailer, MailMessage, SendResult } from "./mail";
+export { CaptureMailer, isLoopbackHost, smtpMailer } from "./mail";
 export {
   ensureAdmin,
   getAuth,
@@ -16,6 +18,16 @@ export {
   revokeUserCredentials,
   type SermoAuth,
 } from "./modules/auth";
+export {
+  closeEmail,
+  deliverEmail,
+  type EmailItem,
+  type EmailRegistry,
+  registerEmailJobs,
+  registerEmailTypes,
+  runWeeklyDigest,
+} from "./modules/email";
+export { registerAccountEmailJobs } from "./modules/email/account";
 export {
   enqueueJob,
   flushDownloadCounts,
@@ -28,6 +40,13 @@ export {
 } from "./modules/jobs";
 export { registerModerationJobs } from "./modules/moderation";
 export {
+  notificationChannels,
+  notificationPushPhrase,
+  registerNotificationJobs,
+} from "./modules/notifications";
+export { registerPromotionJobs } from "./modules/promotions";
+export { configurePush, registerPushJobs, validatePushVapid } from "./modules/push";
+export {
   atomFeed,
   queueSeoEvents,
   registerSeoJobs,
@@ -36,6 +55,7 @@ export {
   sitemapShard,
 } from "./modules/seo";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
+export { registerSocialJobs } from "./modules/social";
 export type { StorageConfig, StorageDriver } from "./modules/storage";
 export {
   createStorage,
@@ -48,5 +68,22 @@ export { migrateStorageFiles } from "./modules/storage/migrate";
 export * from "./operation";
 export { getOperation, operations, operationsByName } from "./operations";
 export { decodeCursor, encodeCursor } from "./pagination";
+export {
+  can,
+  explainPermission,
+  type FlagPermissionId,
+  type IntegerPermissionId,
+  PERMISSION_IDS,
+  PERMISSIONS,
+  type PermissionContext,
+  type PermissionId,
+  permissionState,
+  permissionsOf,
+  permissionValue,
+  requirePermission,
+  resolveAllCombinations,
+  resolvedPermissions,
+  syncPermissionRegistry,
+} from "./permissions";
 export { renderMarkdown } from "./render";
 export { iso, isoOrNull } from "./time";

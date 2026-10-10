@@ -16,13 +16,13 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { renderMarkdown } from "../../render";
+import { can, permissionsOf, requirePermission } from "../../permissions";
+import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { prepareModeratedContent, withSpamCheck } from "../moderation";
-import { getGlobalPermissions } from "../permissions";
 
 interface ConversationRow {
   id: number;
@@ -90,7 +90,8 @@ function summary(row: ConversationRow, user: ReturnType<typeof loadUserSummaries
   };
 }
 
-function fullConversation(ctx: Ctx, row: ConversationRow) {
+function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
+  const permissions = permissionsOf(ctx, actor);
   const participants = prepared(ctx, "conversations.participants", () =>
     ctx.sqlite.prepare<ParticipantRow, [number]>(participantsSql),
   ).all(row.id);
@@ -102,7 +103,7 @@ function fullConversation(ctx: Ctx, row: ConversationRow) {
   return {
     ...summary(row, user),
     participants: participants.map((p) => ({ user: user(p.user_id), state: p.state })),
-    canReply: true,
+    canReply: permissions.can("conversation.reply"),
   };
 }
 
@@ -158,36 +159,58 @@ function newMessage(
   };
 }
 
-export const conversationsListOp = implement(conversationsList, (ctx, actor, input) => {
-  const user = requireAuthenticated(actor);
-  const [at, id] = input.cursor
-    ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
-    : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const rows = prepared(ctx, "conversations.inbox", () =>
-    ctx.sqlite.prepare<ConversationRow, [number, number, number, number]>(inboxSql),
-  ).all(user.userId, at, id, input.limit + 1);
-  const page = rows.slice(0, input.limit);
-  const users = loadUserSummaries(
-    ctx,
-    page.flatMap((r) => [r.user_id, r.last_message_user_id]),
-  );
-  const last = page.at(-1);
-  return {
-    items: page.map((r) => summary(r, users)),
-    nextCursor:
-      rows.length > input.limit && last ? encodeCursor([last.last_message_at, last.id]) : null,
-  };
-});
+export const conversationsListOp = implement(
+  conversationsList,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    const [at, id] = input.cursor
+      ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
+      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+    const rows = prepared(ctx, "conversations.inbox", () =>
+      ctx.sqlite.prepare<ConversationRow, [number, number, number, number]>(inboxSql),
+    ).all(user.userId, at, id, input.limit + 1);
+    const page = rows.slice(0, input.limit);
+    const users = loadUserSummaries(
+      ctx,
+      page.flatMap((r) => [r.user_id, r.last_message_user_id]),
+    );
+    const last = page.at(-1);
+    return {
+      items: page.map((r) => summary(r, users)),
+      nextCursor:
+        rows.length > input.limit && last ? encodeCursor([last.last_message_at, last.id]) : null,
+    };
+  },
+  { public: "A member's inbox is limited to active participation." },
+);
 
 export const conversationsGetOp = implement(conversationsGet, (ctx, actor, input) =>
-  fullConversation(ctx, activeConversation(ctx, actor, input.conversationId)),
+  fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId)),
 );
+
+function ignoredByRecipient(ctx: Ctx, actor: Actor, starterId: number, ids: number[]): boolean {
+  return (
+    can(ctx, actor, "member.ignorable") &&
+    !!prepared(ctx, "conversations.ignoredRecipients", () =>
+      ctx.sqlite.prepare<{ id: number }, [number, string]>(
+        "SELECT id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) LIMIT 1",
+      ),
+    ).get(starterId, JSON.stringify(ids))
+  );
+}
 
 export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor, input) => {
   const starter = requireAuthenticated(actor);
-  if (!getGlobalPermissions(ctx, actor).canStartConversations) throw new ForbiddenError();
+  const permissions = permissionsOf(ctx, actor);
+  if (!permissions.can("conversation.start")) throw new ForbiddenError();
   const ids = [...new Set(input.recipientIds)].filter((id) => id !== starter.userId);
   if (!ids.length) throw new ValidationError("At least one other recipient is required.");
+  const maxRecipients = permissions.value("conversation.maxRecipients");
+  // Zero means this member cannot add recipients; -1 is unlimited.
+  if (maxRecipients !== -1 && ids.length > maxRecipients) {
+    const message = `You can add at most ${maxRecipients} recipients.`;
+    throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
+  }
   const found = new Set(
     prepared(ctx, "conversations.recipientIds", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
@@ -202,11 +225,14 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
     const message = `Unknown recipient IDs: ${missing.join(", ")}.`;
     throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
   }
+  if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
+      if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
@@ -233,10 +259,11 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
           starter.userId,
           decision.moderated || spam ? "moderated" : "visible",
           now,
-          content.source,
+          refs.source,
           html,
         ).lastInsertRowid,
       );
+      storeContentReferences(ctx, "conversation_message", messageId, refs);
       setAttachments(
         ctx,
         starter.userId,
@@ -256,6 +283,12 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       insert.run(conversationId, starter.userId, now, messageId);
       for (const id of ids)
         insert.run(conversationId, id, now, decision.moderated || spam ? messageId : 0);
+      publishEvent(ctx, {
+        type: "conversation.participants_added",
+        targetType: "conversation",
+        targetId: conversationId,
+        payload: { userIds: ids, actorId: starter.userId },
+      });
       publishEvent(ctx, {
         type: "content.created",
         targetType: "conversation_message",
@@ -282,7 +315,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       conversation: {
         ...summary(row, user),
         participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
-        canReply: true,
+        canReply: permissions.can("conversation.reply"),
       },
       message: newMessage(
         messageId,
@@ -301,9 +334,11 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
 export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   activeConversation(ctx, actor, input.conversationId);
+  requirePermission(ctx, actor, "conversation.reply");
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const html = renderMarkdown(content.source);
+    const refs = renderContent(ctx, actor, content.source);
+    const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
       activeConversation(ctx, actor, input.conversationId);
@@ -320,10 +355,11 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
           user.userId,
           decision.moderated || spam ? "moderated" : "visible",
           now,
-          content.source,
+          refs.source,
           html,
         ).lastInsertRowid,
       );
+      storeContentReferences(ctx, "conversation_message", id, refs);
       setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
       if (!decision.moderated && !spam) {
@@ -379,7 +415,7 @@ export const conversationsListMessagesOp = implement(
       id,
       input.limit + 1,
       actorUserId(actor) ?? 0,
-      Number(getGlobalPermissions(ctx, actor).isAdmin),
+      Number(can(ctx, actor, "conversation.viewHidden")),
     );
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);
@@ -390,36 +426,44 @@ export const conversationsListMessagesOp = implement(
   },
 );
 
-export const conversationsMarkReadOp = implement(conversationsMarkRead, (ctx, actor, input) => {
-  const user = requireAuthenticated(actor);
-  writeTx(ctx, () => {
-    const row = activeConversation(ctx, actor, input.conversationId);
-    prepared(ctx, "conversations.updateReadState", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
-      ),
-    ).run(row.last_message_id, row.id, user.userId);
-  });
-  return { ok: true as const };
-});
+export const conversationsMarkReadOp = implement(
+  conversationsMarkRead,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    writeTx(ctx, () => {
+      const row = activeConversation(ctx, actor, input.conversationId);
+      prepared(ctx, "conversations.updateReadState", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
+        ),
+      ).run(row.last_message_id, row.id, user.userId);
+    });
+    return { ok: true as const };
+  },
+  { public: "Only active participants can mark their own conversation read." },
+);
 
-export const conversationsLeaveOp = implement(conversationsLeave, (ctx, actor, input) => {
-  const user = requireAuthenticated(actor);
-  writeTx(ctx, () => {
-    activeConversation(ctx, actor, input.conversationId);
-    prepared(ctx, "conversations.markLeft", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversation_participants SET state = 'left' WHERE conversation_id = ?1 AND user_id = ?2",
-      ),
-    ).run(input.conversationId, user.userId);
-    prepared(ctx, "conversations.decrementParticipants", () =>
-      ctx.sqlite.prepare(
-        "UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1",
-      ),
-    ).run(input.conversationId);
-  });
-  return { ok: true as const };
-});
+export const conversationsLeaveOp = implement(
+  conversationsLeave,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    writeTx(ctx, () => {
+      activeConversation(ctx, actor, input.conversationId);
+      prepared(ctx, "conversations.markLeft", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversation_participants SET state = 'left' WHERE conversation_id = ?1 AND user_id = ?2",
+        ),
+      ).run(input.conversationId, user.userId);
+      prepared(ctx, "conversations.decrementParticipants", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversations SET participant_count = participant_count - 1 WHERE id = ?1",
+        ),
+      ).run(input.conversationId);
+    });
+    return { ok: true as const };
+  },
+  { public: "Only active participants can leave their own conversation." },
+);
 
 /** For reactions: return the message only to active participants. */
 export function reactableConversationMessage(
@@ -432,7 +476,7 @@ export function reactableConversationMessage(
     ctx.sqlite.prepare<{ user_id: number; state: string }, [number, number]>(reactableSql),
   ).get(messageId, actor.userId);
   if (!row) throw new NotFoundError();
-  if (row.state === "deleted" && !getGlobalPermissions(ctx, actor).isAdmin)
+  if (row.state === "deleted" && !can(ctx, actor, "conversation.viewHidden"))
     throw new NotFoundError();
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }

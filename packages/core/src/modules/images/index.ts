@@ -11,9 +11,9 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
+import { requirePermission } from "../../permissions";
 import { enqueueJob } from "../jobs/queue";
 import { appendModeratorLog } from "../moderation";
-import { requireAdmin } from "../permissions";
 import { fileUrl } from "../storage/url";
 
 export type { ImagePurpose, ProcessedImage } from "./process";
@@ -23,7 +23,7 @@ type ImageSlot = "avatar" | "cover" | "node_icon" | "node_cover";
 
 function setImage(ctx: Ctx, actor: Actor, fileId: number, slot: ImageSlot, nodeId?: number) {
   const user = requireAuthenticated(actor);
-  if (nodeId !== undefined) requireAdmin(ctx, actor);
+  if (nodeId !== undefined) requirePermission(ctx, actor, "admin.nodes");
   return writeTx(ctx, () => {
     const file = ctx.sqlite
       .prepare<{ id: number }, [number, number, string]>(

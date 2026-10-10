@@ -44,6 +44,10 @@ const payloads = [
   ],
   ["VBScript URL", "[x](vbscript:msgbox(1))"],
   ["image data URL", "![x](data:image/svg+xml,<svg onload=alert(1)>)"],
+  ["spoiler title HTML", ':::spoiler{title="<img src=x onerror=alert(1)>"}\nsecret\n:::'],
+  ["spoiler title JavaScript URL", ':::spoiler{title="javascript:alert(1)"}\nsecret\n:::'],
+  ["inline spoiler HTML", ">!<svg onload=alert(1)>!<"],
+  ["mention inside link", "[@Nobody](javascript:alert(1))"],
 ] as const;
 
 const forbiddenTags = new Set([
@@ -69,6 +73,7 @@ function expectSafeHtml(html: string): void {
         expect(attribute).not.toBe("style");
         if (attribute === "href" || attribute === "src") {
           expect(value.startsWith("//")).toBe(false);
+          if (attribute === "href" && /^\/(?:members|posts)\/\d+$/.test(value)) continue;
           let protocol: string;
           try {
             protocol = new URL(value).protocol;
@@ -231,5 +236,31 @@ describe("stored content HTML rejects XSS", () => {
       expect(html).toContain("<li>one</li>");
       expect(html).toContain("<li>two</li>");
     }
+  });
+
+  test("nested spoilers in quotes and forged directive attributes stay safe", async () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const author = userActor(insertUser(ctx, { username: "Alice" }));
+    const reader = userActor(insertUser(ctx));
+    const forum = await execute(ctx, nodesCreateOp, admin, {
+      parentId: null,
+      type: "forum",
+      title: "Forum",
+    });
+    const quoted = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Source",
+      body: "Original",
+    });
+    const payload = `:::quote{post=${quoted.post.id} author="<img src=x onerror=alert(1)>"}\n:::spoiler{title="<svg onload=alert(1)>"}\n[bad](javascript:alert(1))\n:::\n:::`;
+    const post = await execute(ctx, postsCreateOp, reader, {
+      threadId: quoted.thread.id,
+      body: payload,
+    });
+    const html = storedHtml(ctx, "post_bodies", "post_id", post.id);
+    expectSafeHtml(html);
+    expect(html).toContain("Alice</a> wrote:");
+    expect(html).not.toContain("onerror=");
   });
 });

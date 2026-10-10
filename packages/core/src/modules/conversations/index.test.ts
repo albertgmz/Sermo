@@ -48,7 +48,170 @@ const start = (recipientIds: number[]) => ({
   body: "**hello**",
 });
 
+function setGroupPermission(
+  ctx: ReturnType<typeof createTestContext>,
+  groupId: number,
+  key: string,
+  value: number,
+) {
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = ?1), 0, ?2, 0, ?3)",
+    )
+    .run(key, groupId, value);
+  ctx.sqlite
+    .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+    .run();
+}
+
 describe("conversations", () => {
+  test("recipient limit applies to a custom group", async () => {
+    const { ctx, b, c } = fixture();
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Two recipients', 10) RETURNING id",
+      )
+      .get()!.id;
+    const a = insertUser(ctx, { groupId });
+    const d = insertUser(ctx);
+    setGroupPermission(ctx, groupId, "conversation.start", 1);
+    setGroupPermission(ctx, groupId, "conversation.maxRecipients", 2);
+    const recipients = [b.kind === "guest" ? 0 : b.userId, c.kind === "guest" ? 0 : c.userId, d.id];
+    const error = await execute(ctx, conversationsCreateOp, userActor(a), start(recipients)).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(ValidationError);
+    expect((error as ValidationError).message).toBe("You can add at most 2 recipients.");
+    expect((error as ValidationError).issues?.[0]?.path).toEqual(["recipientIds"]);
+    expect(
+      (await execute(ctx, conversationsCreateOp, b, start([a.id, recipients[1]!, d.id])))
+        .conversation.participantCount,
+    ).toBe(4);
+    expect(
+      (
+        await execute(
+          ctx,
+          conversationsCreateOp,
+          userActor(a),
+          start([recipients[0]!, recipients[0]!, recipients[1]!, a.id]),
+        )
+      ).conversation.participantCount,
+    ).toBe(3);
+  });
+
+  test("an unset recipient limit of zero reports its limit", async () => {
+    const { ctx, b } = fixture();
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('No recipients', 10) RETURNING id",
+      )
+      .get()!.id;
+    const starter = insertUser(ctx, { groupId });
+    setGroupPermission(ctx, groupId, "conversation.start", 1);
+    const bId = b.kind === "guest" ? 0 : b.userId;
+    const error = await execute(ctx, conversationsCreateOp, userActor(starter), start([bId])).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(ValidationError);
+    expect((error as ValidationError).message).toBe("You can add at most 0 recipients.");
+    expect((error as ValidationError).issues?.[0]?.path).toEqual(["recipientIds"]);
+  });
+
+  test("custom group grants hidden message visibility only to participants", async () => {
+    const { ctx, a, b, c } = fixture();
+    const idOf = (actor: typeof a) => (actor.kind === "guest" ? 0 : actor.userId);
+    const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+    const reply = await execute(ctx, conversationsReplyOp, b, {
+      conversationId: made.conversation.id,
+      body: "hidden",
+    });
+    ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'moderated' WHERE id = ?1")
+      .run(reply.id);
+    expect(reactableConversationMessage(ctx, a, reply.id)).toEqual({
+      authorId: idOf(b),
+      isVisible: false,
+    });
+    expect(reactableConversationMessage(ctx, b, reply.id)).toEqual({
+      authorId: idOf(b),
+      isVisible: false,
+    });
+    ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1")
+      .run(reply.id);
+    const input = { conversationId: made.conversation.id, limit: 10 };
+    expect(
+      (await execute(ctx, conversationsListMessagesOp, a, input)).items.map((r) => r.id),
+    ).toEqual([made.message.id]);
+    expect(() => reactableConversationMessage(ctx, a, reply.id)).toThrow(NotFoundError);
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Hidden messages', 10) RETURNING id",
+      )
+      .get()!.id;
+    ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(idOf(a), groupId);
+    ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(idOf(c), groupId);
+    setGroupPermission(ctx, groupId, "conversation.viewHidden", 1);
+    expect(
+      (await execute(ctx, conversationsListMessagesOp, a, input)).items.map((r) => r.id),
+    ).toEqual([made.message.id, reply.id]);
+    expect(reactableConversationMessage(ctx, a, reply.id)).toEqual({
+      authorId: idOf(b),
+      isVisible: false,
+    });
+    ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'moderated' WHERE id = ?1")
+      .run(reply.id);
+    expect(
+      (await execute(ctx, conversationsListMessagesOp, a, input)).items.map((r) => r.id),
+    ).toEqual([made.message.id, reply.id]);
+    await expect(execute(ctx, conversationsListMessagesOp, c, input)).rejects.toThrow(
+      NotFoundError,
+    );
+    expect(() => reactableConversationMessage(ctx, c, reply.id)).toThrow(NotFoundError);
+  });
+
+  test("reply permission can deny an active participant", async () => {
+    const { ctx, a, b, c } = fixture();
+    const bId = b.kind === "guest" ? 0 : b.userId;
+    const cId = c.kind === "guest" ? 0 : c.userId;
+    const made = await execute(ctx, conversationsCreateOp, a, start([bId]));
+    const input = { conversationId: made.conversation.id, body: "reply" };
+    expect((await execute(ctx, conversationsReplyOp, b, input)).state).toBe("visible");
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('No replies', 10) RETURNING id",
+      )
+      .get()!.id;
+    ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(bId, groupId);
+    ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+      .run(cId, groupId);
+    setGroupPermission(ctx, groupId, "conversation.reply", -1);
+    expect(
+      (await execute(ctx, conversationsGetOp, b, { conversationId: made.conversation.id }))
+        .canReply,
+    ).toBe(false);
+    expect(
+      (await execute(ctx, conversationsGetOp, a, { conversationId: made.conversation.id }))
+        .canReply,
+    ).toBe(true);
+    await expect(execute(ctx, conversationsReplyOp, b, input)).rejects.toThrow(ForbiddenError);
+    await expect(execute(ctx, conversationsReplyOp, c, input)).rejects.toThrow(NotFoundError);
+    const created = await execute(
+      ctx,
+      conversationsCreateOp,
+      b,
+      start([a.kind === "guest" ? 0 : a.userId]),
+    );
+    expect(created.conversation.canReply).toBe(false);
+  });
   test("create validates recipients, permissions, rendering and initial read state", async () => {
     const { ctx, a, b, c } = fixture();
     const bId = b.kind === "guest" ? 0 : b.userId;

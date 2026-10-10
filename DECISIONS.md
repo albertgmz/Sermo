@@ -398,3 +398,324 @@ hashes before changing each live file's driver record. It checks the destination
 copy on retry and leaves source bytes in place after success, making rollback possible without
 an immediate destructive cleanup. The server must stay stopped until all records are switched;
 the owner should decide when to remove the retained source copies.
+
+## Milestone 17: third-pass schema, seed and benchmarks
+
+**One additive migration holds the schema for the whole pass** (`0010_third_pass_schema`): groups
+gain rank, user title, badge and a built-in key; users gain the permission combination id,
+activity, follow and notification counters, language, auto-watch preferences, profile privacy,
+restriction expiries and the email cap window; new tables cover permission definitions, entries,
+combinations and layer versions, secondary groups, promotions, mentions, quotes, watches, follows,
+ignores, notifications and their preferences, announcements, email failures, undeliverable
+addresses, push subscriptions, thread bans and restrictions. No existing table is rebuilt.
+
+**A built-in Unconfirmed group (id 5) exists from this migration on.** The migration test that
+listed the four default groups now lists five; that assertion was extended, not relaxed.
+
+**Permission entries use 0 instead of NULL for "no node / no group / no member".** SQLite treats
+NULLs as distinct in unique indexes, so a sentinel keeps one entry per (group or member, node,
+permission). Flags store 1 allow, 0 no, -1 never; a missing row is unset/inherit. Integers store
+the value with -1 for unlimited.
+
+**A merged thread keeps its row as a tombstone** (`merged_into_id`, state `deleted`). Deleting the
+row would let SQLite reuse its id (no AUTOINCREMENT), which would break the redirect.
+
+**Restrictions are denormalized onto the member row** (`restricted_*_until`, with a year-9999
+sentinel for no expiry) so actor resolution reads them in the same lookup as the ban state;
+`user_restrictions` keeps the history.
+
+**The seed grows to 60,000 members.** A node with 50,000 watchers needs at least that many. The
+50,000 extra members are low-activity accounts generated after all earlier content, so the
+original content is unchanged by the random sequence. The extended seed adds 35 custom groups,
+3,019 distinct member group combinations, 50 promotions, 2,000,000 notifications (85% read, at
+most one unread row per group key), 440,000 thread watches (20,006 on one thread), 60,000 node
+watches (50,033 on one forum), 100,000 follows and 50,000 ignores, with every denormalized counter
+computed as the services maintain it. Seeding takes about 72 s and 3.2 GB.
+
+## Milestone 18: permission core
+
+**Permissions are data, resolved like XenForo's.** `src/permissions/registry.ts` declares every
+permission once: scope (global or node), type (yes/no or integer), defaults for the built-in
+groups, and its conditions (needs an account, restriction kind, own content, time window, rank
+hierarchy, thread ban). Entries (`permission_entries`) target one group or one member, globally
+or on a node. Per group, the nearest node entry wins (node, then ancestors, then global); across
+groups any `never` denies, otherwise any `allow` grants; `no` only clears an inherited allow for
+that group. Integers take the highest value, -1 meaning unlimited. Nothing in a node is
+permitted without view there, and a node needs its ancestors' view. Bans and restrictions are
+checked first and override every grant. Rank never affects resolution.
+
+**One check API.** `can`, `requirePermission`, `permissionValue`, `permissionsOf` (resolve once
+for a page of checks), `resolvedPermissions` and `explainPermission`. A check whose context lacks
+a field its permission declares (node, owner, creation time, target, thread ban) throws, so a
+condition cannot be skipped silently.
+
+**Combinations, as in XenForo.** A combination is a sorted set of group ids plus, for members with
+member-specific entries, their user id (a private combination). `users.permission_combination_id`
+is maintained by SQLite triggers on users, secondary groups, promotion grants and member entries,
+so every writer (services, another process, raw SQL) keeps it correct.
+
+**Checks run no query.** Actor resolution reads the principal (combination, ban and restriction
+state, account age, post count, cache versions) with the member row; checks are in-memory bit
+lookups. Resolution keeps the existing `SELECT group_id FROM users` lookup and replaces the ban
+lookup with the principal lookup, so a signed-in request still costs two primary-key lookups.
+Guests and internal actors without a principal read the two cache versions in one lookup per
+resolve, fewer than the two version lookups per call before.
+
+**Rebuilds touch only what changed and never block a request on all combinations.** Entries load
+per layer (one group's or one member's entries) and each layer resolves node inheritance once.
+Every entry change bumps its layer's version (triggers); when the `permissions` cache version
+moves, a process reloads only the layers whose version changed and drops the combinations built
+from them. Combinations resolve lazily on first use (microseconds) and in background batches of
+100 that yield to the event loop. A full rebuild of every layer and all 3,050 seeded
+combinations takes about 15 ms; reads while every layer is invalidated every 10 ms stay at p95
+0.6 ms. The state is never stored from inside a transaction.
+
+**The data migration is generated from the registry.** `0011_permission_data.sql` stores the
+definitions as of this pass, translates the legacy group flags (`is_admin` became every yes/no
+permission; `is_moderator`, `can_post` and the others map to the permissions listed with that
+flag in the registry), node overrides (`can_view`/`can_post`/`can_moderate` become node entries,
+true as allow and false as `no`), and the upload quota setting (a missing group key meant no
+quota, now -1). Overrides on administrator groups had no effect and are not translated. Later
+registry additions are stored at startup by `syncPermissionRegistry`, which applies their
+built-in defaults once and never touches existing entries. A test checks that the migrated
+built-in groups hold exactly the registry defaults.
+
+**Legacy columns are write-through shims.** The old `groups` flag columns and `node_permissions`
+rows stay, and triggers mirror writes to them into entries. Existing tests write them directly,
+and they must keep passing unchanged; nothing reads the old columns. Removing them (and those
+test setups) is a later cleanup for the owner to schedule.
+
+**Hierarchy applies to actions aimed at a member** (warn, ban, spam cleanup, thread ban, changing
+groups, and restrictions in phase 2): the actor's highest rank must be strictly above the
+target's. Routine content moderation inside a node a moderator moderates is not rank-checked;
+reading "moderate anyone" as covering every post would stop moderators handling each other's
+posts. Needs owner review.
+
+**Permission ids are flat strings grouped by area** (`forum.reply`, `profilePost.editAny`,
+`admin.permissions`). Phrase keys for labels and descriptions are `permission.<id>` and
+`permission.<id>.description`.
+
+## Milestone 19: services converted to the permission check
+
+**Every service decides through `src/permissions`, enforced statically.**
+`permission-coverage.test.ts` transpiles each module with Bun's transpiler, parses it with acorn
+(8.19.0, with acorn-walk 8.3.5, dev dependencies) and follows calls across files: every
+operation and every exported function taking an `actor` must reach `can`,
+`requirePermission`, `permissionValue`, `permissionsOf`, `viewableNodeIds` or
+`resolvedPermissions`, or be marked public (`implement(..., { public: "why" })`,
+`markPublic("why", fn)`); every registered permission must be passed as a literal to a check;
+modules may not import the legacy helpers or read the legacy flag columns. TypeScript 7 ships no
+JavaScript compiler API, hence acorn on transpiled output.
+
+**Default permissions reproduce the old behavior, with these deliberate exceptions:**
+- Hierarchy: nobody warns, bans, spam-cleans, thread-bans or changes the groups of a member whose
+  highest rank is equal to or above their own. An administrator can no longer warn or ban another
+  administrator, and a moderator can no longer warn themselves.
+- `search.use` is new; guests and members have it by default. A denied search is Forbidden.
+- The Unconfirmed group (new in this pass) has an upload quota of 0.
+- Integer permissions with no entry in any of a member's groups resolve to 0. For
+  `conversation.maxRecipients` that means no recipients; for `attachment.storageQuota`, no
+  uploads; built-in groups always have entries.
+
+**The report and approval queues stay open to every signed-in member and filter per item**, as
+before, so a group that moderates only some nodes can list its own queue.
+
+**The upload quota setting is a view over permission entries.** `settings.groupUploadLimitBytes`
+(groups 1-4) keeps its public shape; it is read from and written to the
+`attachment.storageQuota` entries of those groups in the settings operations only. A missing
+entry reads as 0, -1 (no quota) is omitted.
+
+**Replaced API (the one public API change the pass allows):** removed `users.setGroup`
+(`PUT /users/{userId}/group`) and `permissions.setNode` (`PUT /nodes/{nodeId}/permissions/{groupId}`);
+changed `groups.list`, `groups.update` (`PATCH /groups/{groupId}`) and `permissions.listNode`
+(`GET /nodes/{nodeId}/permissions`) to the new shapes; added `groups.get`, `groups.create`,
+`groups.delete`, `users.getGroups`, `users.setGroups`, `permissions.definitions`,
+`permissions.list`, `permissions.set` and `permissions.explain`. `auth.me`, `nodes.get` and
+`threads.get` gained `resolvedPermissions` (additive).
+
+## Milestone 20: promotions, rank, display
+
+**Promotions grant secondary groups through their own table.** `user_group_grants` holds groups
+added by promotions, separate from hand-assigned `user_groups`, so a promotion never touches a
+group an admin assigned (a group both granted and assigned survives demotion), and the
+combination triggers take the union. A member's state per promotion is `auto` (applied by
+evaluation), `manual` (promoted by hand, kept whatever the criteria) or `exempt` (demoted or
+excluded by hand, never applied).
+
+**Criteria are a registry like permissions**: post count, days registered, reaction score,
+verified email, avatar, active within N days, inactive for N days, active warning points below N.
+Boolean criteria take 1 (must hold) or 0 (must not hold). Adding a criterion is one entry plus
+an evaluator.
+
+**Evaluation runs after relevant events and in a daily sweep, with one decision function.** The
+promotions subscriber evaluates the member behind `content.created` (posts, threads, profile
+posts, comments), `reaction.added`, `member.warned`, avatar changes and admin group changes; it
+ignores its own group-change events. The sweep walks members in chunks of 200 (one short
+transaction each, resumable through a chained job with a unique key). Both are idempotent and
+log only real changes. Deleting a promotion deactivates it and removes its grants in chunks.
+
+**Rank rules for promotions** mirror groups: nobody creates, edits, applies or deletes a
+promotion granting a group ranked at or above their own highest rank, and applying a promotion
+by hand also needs `admin.members` over the member.
+
+**Measured:** a cold sweep of 60,000 members against 50 promotions takes about 0.9 s (largest
+chunk 18 ms); reads while sweeps run continuously stay at p95 13 ms, max 21 ms.
+
+**Member activity is buffered in memory** (`ctx.activity`, written by actor resolution) and
+flushed with thread views every five seconds, so a read never writes. `last_activity_at` feeds
+the activity criteria and the weekly digest.
+
+**Display group:** profiles and `auth.me` return the member's highest-ranked group (ties: lowest
+id) with its user title and badge. `Profile.groupTitle` still names the primary group.
+
+**Events are delivered to registered subscribers every second.** `dispatchEvents` (scheduled
+each second, overlap-protected) feeds each subscriber in batches of 100, yielding between
+batches. Subscribers keep the existing durable cursors and must be idempotent. Publishing an
+event does not enqueue a job, so job counts asserted by existing tests are unchanged.
+
+## Milestone 21: Markdown extensions
+
+**Directives use a small tokenizer of our own, not `marked-directive`.** Mentions (`@name`),
+quote and spoiler containers (`:::quote{post=N}` / `:::spoiler{title="..."}`, closed by `:::`)
+and inline `>!spoilers!<` are marked extensions; the published directive plugin could not nest
+quotes inside spoilers and the reverse. Rendering stays on write, and
+`content_mentions` / `content_quotes` are stored in the same transaction as the content.
+
+**Mention and quote limits come from the author's permissions** (`mention.maxPerItem`; new
+members get `newMemberMentionLimit`). An edit keeps the mention ids it already had, so editing an
+old post never re-notifies or drops members; only `newlyMentioned` ids reach notifications.
+Quoting a post the author cannot see is rejected; quotes already stored in the content stay valid
+on edit even if the quoted post became invisible since.
+
+## Milestone 22: watching, following, ignoring
+
+Watches, follows and ignores are rows with recency indexes and denormalized follower/following
+counts maintained in the write transaction. Ignoring applies only while the ignored member holds
+`member.ignorable`, so staff cannot be ignored; banned members can be. One rule
+(`profiles/shared.wallAllows`) decides every ignore check. `watch_on_create` and
+`watch_on_reply` default per member.
+
+## Milestone 26: moderation additions
+
+**Hierarchy applies to member-directed actions only** (warn, ban, restrict, spam cleanup, member
+admin): nobody acts on a member whose highest group ranks at or above their own, and moderators
+cannot warn themselves. Content moderation is not ranked. Owner review.
+
+**Privacy denials look like missing content** (NotFound), so profile privacy cannot be probed.
+Authors keep access to their own posts on walls that became private.
+
+**Queues stay open to members with a per-item filter.** Report and approval queues and the
+moderator log scan at most four times the requested limit per request, so a page can be short
+and still carry a `nextCursor`, as search pages do. The approval queue walks the state indexes
+newest first and checks each candidate's node through its thread.
+
+**Thread merge and split are the only operations that renumber post positions.** They run as
+chunked background jobs guarded by `thread_transfers` (one primary-key lookup on every reply and
+reorganization). The target's first post keeps position 0; the other posts interleave by
+`(created_at, id)`. Each chunk completes its own job and queues its successor in the same
+transaction, matching the claimed job's id and lease, so a replayed or reclaimed chunk does
+nothing. A failed transfer sets `failed_at`; repeating the same merge or split resets the real
+failed jobs. Replies and moderation of either thread return a conflict while a transfer is
+pending. Split copies the source's active thread bans; watches are not copied.
+
+**Unread state keeps using post ids after a merge**, so moved posts older than the reader's
+marker count as read.
+
+**Moderation events carry `{actorId, reason, notify, message}`** plus `previousState`/`state` in
+the existing `content.*` payloads; only merge and split publish `moderation.action`. Lifting a
+ban or restriction publishes the same event type with `lifted: true`.
+
+## Milestone 27: push groundwork
+
+**Push endpoints are limited to the browser push services** (`fcm.googleapis.com`,
+`*.push.services.mozilla.com`, `*.notify.windows.com`, `*.push.apple.com`) on the default HTTPS
+port, without userinfo, checked at subscribe and again at send time. Any other host would let
+members make the server POST to internal addresses. Self-hosted push services are not supported;
+owner review.
+
+**Delivery is one job per (notification, subscription)**, queued with one `INSERT ... SELECT`
+inside the notification batch, so one failing device never causes re-sends to the others.
+Requests are built with `web-push` and sent with `fetch` under a 10 s deadline. 404/410 remove
+the subscription; 3xx/400/403/413 drop the job (403 usually means our VAPID keys are wrong, and
+deleting on it would wipe every subscriber); anything else retries. Members keep at most ten
+subscriptions (the oldest is replaced). An endpoint moves to another member only when they present
+the same `auth` secret, which only the browser holding the subscription has.
+
+## Milestone 23: notifications
+
+**Fan-out runs in background batches of 40 recipients.** Each domain event queues one unique
+`notify:<eventId>` job; recipient keysets advance with the cursor in the same transaction as the
+batch's notification writes, and the job yields between batches and re-reads the content (primary
+key) in every batch, so content hidden or moved mid-fan-out stops reaching members who can no
+longer see it. Replays are idempotent (per-member checks bounded by the event time minus one hour,
+so a clock step cannot cause duplicates). `notification.created` is published once per batch.
+
+**Unread counts are exact and mark-all is constant time.** `users.unread_notification_count` is
+maintained in every write; unread means `read_at IS NULL` and the row's epoch equals the member's
+`notification_epoch`. Mark-all bumps the epoch and zeroes the count in one short transaction; a
+chunked job stamps `read_at` on older rows later.
+
+**Reason precedence:** a member gets at most one notice per event, from the first reason that
+actually delivers to them (mention, quote, then watches and follows), so turning one reason off
+falls through to the next. Ignoring a member suppresses their notices except moderator duty
+notices (reports, approvals), which are cleared for every moderator once handled. Approvals count
+as new content only if the item was never visible; mentions added by an edit into moderation are
+delivered on approval. Thread reads clear notices up to the read post id (post ids, as for unread
+state). Ban notices stay email-only (the account email); verification-driven group changes create
+no notice.
+
+**Channels:** turning in-app off for a type stops email and push for it too (notice rows feed every
+channel). Email and push go out once per unread group. For watched threads and forums the watch's
+email flag decides unless the member turned that type's email off; an admin `notificationDefaults`
+email value for those types has no effect. Owner review: independent channels would need notice
+rows for members with in-app off.
+
+## Milestone 24: mailer, notification email, digest
+
+Nodemailer (pooled SMTP, STARTTLS required except on loopback unless `SERMO_SMTP_REQUIRE_TLS=false`,
+30 s timeouts) or an in-memory capture driver; MJML layouts with a plain-text part; English and
+Spanish ICU catalogs (`intl-messageformat`). One-click unsubscribe (RFC 8058) uses an HMAC token
+derived from the auth secret with a purpose label, binding the member's current email without
+putting it in the link; unsubscribe-all writes explicit per-type email preferences for the
+registered non-security types (visible and reversible; later types follow site defaults). Owner
+review.
+
+**Refusals are classified by sender policy and mailbox status.** Only RCPT 550/551/553 with an
+explicit 5.1.x or 5.2.1 enhanced code marks an address undeliverable. Policy refusals (5.7.x
+anywhere, DATA 5xx without a mailbox code) concern every member, so they defer with backoff and
+mark nobody. Other 5xx skip that member and are recorded. Asynchronous bounces from relay
+providers are not processed.
+
+**`notifications.email_sent_at`** (migration 0015) is claimed conditionally before a send, so a
+grouped notice is emailed once and retries never double-send.
+
+**The weekly digest sends in small, time-boxed batches** from one self-continuing job (claims in
+groups of five, members re-read when their digest is built, threshold six days to absorb start
+jitter), so it never monopolizes the serial job queue; it is exempt from the hourly cap. Graceful
+shutdown waits up to 30 s for the running job; a crash can lose at most five members' digests for
+that week (at-most-once).
+
+## Milestone 25: account emails
+
+With a mailer configured, sign-ups join Unconfirmed; verifying the email (or a change-email
+verification of a never-verified account) moves them to Member and publishes
+`member.groups_changed` with source `"verification"`. Existing members are not moved on upgrade.
+Without a mailer, sign-ups join Member as before. Verification, welcome, password reset, password
+changed, email changed (to both addresses), API key created and ban emails are security emails: no
+unsubscribe, exempt from the cap, still suppressed for undeliverable addresses. The ban email
+respects the moderator's `notify` flag and prefers their message; its subscriber starts at the
+newest event, so upgrading sends no historical ban mail. A password reset revokes sessions; with a
+mailer configured the session cookie cache is off so revocation takes effect immediately (about
+0.07 ms per request); without one the 5-minute cache stays. Reset requests need a trusted
+`redirectTo`. Verification, reset and change-email requests are limited to five per hour per
+client IP (not per address; open item).
+
+## WAL checkpoints during background jobs
+
+A PASSIVE checkpoint running beside a stream of commits stalled single commits for 0.3–6 s on this
+Windows machine (reproduced with a standalone bun:sqlite script, independent of database size,
+mmap, the checkpointer's synchronous setting, interval, and thread versus process; once on Linux
+under an extreme write rate). Background jobs now hold checkpoints while they run; the checkpointer
+still runs at least every 30 s and keeps checkpointing until the WAL stops growing. Notification
+reads during a 20,000-recipient fan-out went from max 81–134 ms to 7–10 ms. Request writes do not
+hold checkpoints, so a request write can still meet a checkpoint; owner review.
