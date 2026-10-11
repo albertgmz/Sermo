@@ -1,0 +1,18 @@
+export const prose = {
+  root: "text-sm leading-relaxed [overflow-wrap:anywhere] [&>*+*]:mt-3",
+  h1: "text-xl leading-snug font-semibold tracking-tight",
+  h2: "text-lg leading-snug font-semibold tracking-tight",
+  h3: "text-base leading-snug font-semibold",
+  ul: "list-disc space-y-1 pl-5 marker:text-muted-foreground",
+  ol: "list-decimal space-y-1 pl-5 marker:text-muted-foreground",
+  li: "pl-0.5",
+  nestedLi: "list-none",
+  blockquote: "border-l-2 border-primary pl-3 text-muted-foreground",
+  a: "font-medium text-primary underline underline-offset-4 hover:no-underline",
+  strong: "font-semibold",
+  em: "italic",
+  del: "text-muted-foreground line-through",
+  code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.85em]",
+  pre: "block overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-[0.8125rem] leading-relaxed whitespace-pre",
+  hr: "border-border",
+};

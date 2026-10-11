@@ -1,0 +1,100 @@
+import { Markdown } from "@/components/forum/markdown";
+import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
+import { type LinkUser, UserLink } from "@/components/forum/user-link";
+import { cn } from "@/lib/utils";
+
+export function MessageRow({
+  id,
+  author,
+  badge,
+  context,
+  time,
+  actions,
+  footer,
+  compact = false,
+  className,
+  children,
+}: {
+  id?: string;
+  author: AvatarUser & LinkUser;
+  badge?: React.ReactNode;
+  context?: React.ReactNode;
+  time: React.ReactNode;
+  actions?: React.ReactNode;
+  footer?: React.ReactNode;
+  compact?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <article
+      id={id}
+      className={cn(
+        "flex scroll-mt-4",
+        compact ? "gap-2" : "gap-3 px-4 pt-4",
+        !compact && (actions && !footer ? "pb-2" : "pb-4"),
+        className,
+      )}
+    >
+      <UserAvatar
+        user={author}
+        size={compact ? "sm" : "lg"}
+        className={
+          compact ? "relative after:absolute after:-inset-2" : undefined
+        }
+      />
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "text-muted-foreground [overflow-wrap:anywhere]",
+            compact ? "text-xs leading-6" : "text-sm",
+          )}
+        >
+          <UserLink user={author} />
+          {badge && <> {badge}</>}
+          {context && (
+            <>
+              <span aria-hidden="true"> · </span>
+              {context}
+            </>
+          )}{" "}
+          <span className="text-xs whitespace-nowrap">
+            <span aria-hidden="true">· </span>
+            {time}
+          </span>
+        </p>
+        <div className={compact ? undefined : "mt-1"}>{children}</div>
+        {actions && (
+          <div className="mt-1 -ml-2 flex items-center gap-1">{actions}</div>
+        )}
+        {footer}
+      </div>
+    </article>
+  );
+}
+
+export function MessageBody({
+  children,
+  clamp = false,
+  className,
+}: {
+  children: string;
+  clamp?: boolean;
+  className?: string;
+}) {
+  const long =
+    clamp && (children.length > 280 || children.split("\n").length > 6);
+  return (
+    <Markdown
+      className={cn(
+        long &&
+          "max-h-28 overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
+        className,
+      )}
+    >
+      {children}
+    </Markdown>
+  );
+}
+
+export { messageActionClass } from "@/components/forum/message-action";
