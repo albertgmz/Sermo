@@ -29,6 +29,7 @@ import {
   registerSeoJobs,
   registerShopJobs,
   registerSocialJobs,
+  registerStandingJobs,
   registerStorageJobs,
   s3Driver,
   startCheckpointer,
@@ -449,6 +450,7 @@ async function main(): Promise<void> {
   registerAwardJobs(ctx);
   registerShopJobs(ctx);
   registerRankingJobs(ctx);
+  registerStandingJobs(ctx);
   const emailTypes = {
     ...notificationChannels,
     defaults: {

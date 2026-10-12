@@ -160,6 +160,10 @@ export const groups = sqliteTable(
     userTitle: text("user_title").notNull().default(""),
     badge: text("badge").notNull().default(""),
     builtin: text("builtin", { enum: BUILTIN_GROUPS }),
+    /** A palette_colors row of kind `name`: members of the group show their name in it. */
+    nameColorId: integer("name_color_id"),
+    /** Its members are listed as staff. */
+    isStaff: bool("is_staff").notNull().default(false),
   },
   (t) => [uniqueIndex("groups_builtin").on(t.builtin)],
 );
@@ -232,6 +236,25 @@ export const users = sqliteTable(
     frameId: integer("frame_id"),
     /** A cover from the gallery; shown instead of an uploaded cover while set. */
     coverPresetId: integer("cover_preset_id"),
+    /** Shown under the name while the member holds profile.customTitle. */
+    customTitle: text("custom_title"),
+    signatureSource: text("signature_source"),
+    signatureHtml: text("signature_html"),
+    location: text("location").notNull().default(""),
+    website: text("website").notNull().default(""),
+    /** `MM-DD`; the year is optional and kept apart, so "whose birthday is today" is one seek. */
+    birthdayMonthDay: text("birthday_md"),
+    birthYear: integer("birth_year"),
+    socialDiscord: text("social_discord").notNull().default(""),
+    socialTelegram: text("social_telegram").notNull().default(""),
+    socialX: text("social_x").notNull().default(""),
+    /** The member who brought this one; set once, in the first days of the account. */
+    referredBy: integer("referred_by"),
+    referredAt: integer("referred_at"),
+    /** Members whose referred_by is this member. */
+    referralCount: counter("referral_count"),
+    /** Awards currently held, counting each grant (the sum of member_award_totals.count). */
+    awardCount: counter("award_count"),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
@@ -241,6 +264,19 @@ export const users = sqliteTable(
     index("users_name_color").on(t.nameColorId).where(sql`name_color_id IS NOT NULL`),
     index("users_frame").on(t.frameId).where(sql`frame_id IS NOT NULL`),
     index("users_cover_preset").on(t.coverPresetId).where(sql`cover_preset_id IS NOT NULL`),
+    // users.list: one index per sort, each ORDER BY <column> DESC, id ASC.
+    index("users_post_count").on(desc(t.postCount), t.id),
+    index("users_reaction_score").on(desc(t.reactionScore), t.id),
+    index("users_award_xp").on(desc(t.awardXp), t.id),
+    index("users_credits").on(desc(t.credits), t.id),
+    index("users_award_count").on(desc(t.awardCount), t.id),
+    index("users_referral_count").on(desc(t.referralCount), t.id),
+    // users.birthdays: WHERE birthday_md = ? ORDER BY id
+    index("users_birthday").on(t.birthdayMonthDay, t.id).where(sql`birthday_md IS NOT NULL`),
+    // users.staff: the members whose primary group is one of the staff groups.
+    index("users_group").on(t.groupId, t.id),
+    // The month's referrals, for the standings job.
+    index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
   ],
 );
 
@@ -1837,3 +1873,45 @@ export const staticPages = sqliteTable(
   },
   (t) => [uniqueIndex("static_pages_slug").on(t.slug)],
 );
+
+// ---------------------------------------------------------------------------
+// Member of the month
+
+/**
+ * What each member did in one calendar month (UTC), recomputed by a background job for the
+ * month in progress and fixed when the month ends. `month` is year * 100 + month (202610).
+ * `points_tenths` is the score times ten, so it sorts as an integer.
+ */
+export const memberMonthStats = sqliteTable(
+  "member_month_stats",
+  {
+    id: integer("id").primaryKey(),
+    month: integer("month").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    posts: integer("posts").notNull().default(0),
+    reactions: integer("reactions").notNull().default(0),
+    referrals: integer("referrals").notNull().default(0),
+    pointsTenths: integer("points_tenths").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("member_month_stats_member").on(t.month, t.userId),
+    // standings.month: WHERE month = ? ORDER BY points_tenths DESC, posts DESC, user_id
+    index("member_month_stats_standing").on(t.month, desc(t.pointsTenths), desc(t.posts), t.userId),
+  ],
+);
+
+/** The member of the month of each finished month that had one. Never rewritten. */
+export const monthWinners = sqliteTable("month_winners", {
+  /** year * 100 + month. */
+  month: integer("month").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  posts: integer("posts").notNull(),
+  reactions: integer("reactions").notNull(),
+  referrals: integer("referrals").notNull(),
+  pointsTenths: integer("points_tenths").notNull(),
+  decidedAt: integer("decided_at").notNull(),
+});

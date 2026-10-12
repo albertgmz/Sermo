@@ -14,6 +14,7 @@ import {
   profilePostsRestoreOp,
   profilePostsUpdateOp,
   profilesGetOp,
+  profilesSelfOp,
   profilesUpdateOp,
   usersSearchOp,
 } from "./posts";
@@ -44,6 +45,7 @@ export {
   profilePostsRestoreOp,
   profilePostsUpdateOp,
   profilesGetOp,
+  profilesSelfOp,
   profilesUpdateOp,
   usersSearchOp,
 };
@@ -51,6 +53,7 @@ export {
 export const operations = [
   profilesGetOp,
   profilesUpdateOp,
+  profilesSelfOp,
   usersSearchOp,
   profilePostsListOp,
   profilePostsGetOp,

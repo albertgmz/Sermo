@@ -103,12 +103,15 @@ export async function runHourlyTasks(
   }
 }
 
-/** Temporary shop items end within a minute of their expiry; rankings refresh every five. */
+/** Temporary shop items end within a minute of their expiry; rankings refresh every five and the standings every ten. */
 export function runMinuteTasks(ctx: Ctx): void {
   enqueueJob(ctx, "shop.expire", {}, { uniqueKey: "shop.expire" });
   // Thread and feed rankings: every fifth minute.
   if (Math.floor(ctx.now() / 60_000) % 5 === 0)
     enqueueJob(ctx, "rankings.refresh", {}, { uniqueKey: "rankings.refresh" });
+  // Member of the month standings: every tenth minute.
+  if (Math.floor(ctx.now() / 60_000) % 10 === 0)
+    enqueueJob(ctx, "standings.refresh", {}, { uniqueKey: "standings.refresh" });
 }
 
 export function runDailyTasks(ctx: Ctx): void {

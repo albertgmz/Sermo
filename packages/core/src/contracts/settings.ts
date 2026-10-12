@@ -61,6 +61,36 @@ export const SiteSettings = z
     /** The weekly digest goes to members who have not visited for at least this many days. */
     digestInactiveDays: z.number().int().min(1).max(365).default(3),
     /**
+     * Levels come from the XP of the awards a member holds. Each level costs `levelStep` more XP
+     * than the one before: level n starts at levelStep * n * (n - 1) / 2.
+     */
+    levelStep: z.number().int().min(1).max(1_000_000).default(100),
+    /** The title of a level is the entry with the highest `level` not above it. */
+    levelTitles: z
+      .array(
+        z.object({
+          level: z.number().int().min(1).max(10_000),
+          title: z.string().trim().min(1).max(40),
+        }),
+      )
+      .max(50)
+      .default([
+        { level: 1, title: "New member" },
+        { level: 2, title: "Member" },
+        { level: 4, title: "Senior member" },
+      ]),
+    /** Limits of a signature (profile.signature) and of a custom title (profile.customTitle). */
+    signatureMaxLength: z.number().int().min(1).max(2000).default(300),
+    signatureMaxLines: z.number().int().min(1).max(20).default(4),
+    customTitleMaxLength: z.number().int().min(1).max(100).default(40),
+    /**
+     * Member of the month: points = posts * standingPostPoints
+     * + reactions received / standingReactionsPerPoint + referrals * standingReferralPoints.
+     */
+    standingPostPoints: z.number().int().min(0).max(1000).default(1),
+    standingReactionsPerPoint: z.number().int().min(1).max(1000).default(10),
+    standingReferralPoints: z.number().int().min(0).max(1000).default(20),
+    /**
      * The site's own pictures: an unattached file the actor uploaded with the purpose
      * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the
      * previous file; null removes it.

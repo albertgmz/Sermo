@@ -47,7 +47,13 @@ export function grantAward(
     award.credits,
     now,
   )!;
-  run(ctx, "addXp", "UPDATE users SET award_xp = award_xp + ?1 WHERE id = ?2", award.xp, userId);
+  run(
+    ctx,
+    "addXp",
+    "UPDATE users SET award_xp = award_xp + ?1, award_count = award_count + 1 WHERE id = ?2",
+    award.xp,
+    userId,
+  );
   run(ctx, "addCount", "UPDATE awards SET grant_count = grant_count + 1 WHERE id = ?1", award.id);
   if (award.credits > 0)
     moveCredits(ctx, [
@@ -90,7 +96,7 @@ export function revokeAward(ctx: Ctx, id: number, actorId: number, reason: strin
   run(
     ctx,
     "removeXp",
-    "UPDATE users SET award_xp = award_xp - ?1 WHERE id = ?2",
+    "UPDATE users SET award_xp = award_xp - ?1, award_count = max(award_count - 1, 0) WHERE id = ?2",
     grant.xp,
     grant.user_id,
   );

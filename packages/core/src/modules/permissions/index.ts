@@ -50,6 +50,8 @@ type GroupRow = {
   user_title: string;
   badge: string;
   builtin: "guest" | "unconfirmed" | "registered" | "moderator" | "admin" | null;
+  name_color_id: number | null;
+  is_staff: number;
 };
 type EntryRow = {
   group_id: number;
@@ -67,11 +69,23 @@ const groupValue = (g: GroupRow) => ({
   userTitle: g.user_title,
   badge: g.badge,
   builtin: g.builtin,
+  nameColorId: g.name_color_id,
+  isStaff: !!g.is_staff,
 });
+/** A group's name colour must be an active colour of the `name` catalog. */
+const requireNameColor = (ctx: Ctx, id: number) => {
+  const color = ctx.sqlite
+    .prepare<{ kind: string; is_active: number }, [number]>(
+      "SELECT kind, is_active FROM palette_colors WHERE id = ?1",
+    )
+    .get(id);
+  if (color?.kind !== "name" || !color.is_active)
+    throw new ValidationError("The name colour must be an active colour of the name catalog.");
+};
 const getGroup = (ctx: Ctx, id: number) =>
   prepared(ctx, "permissions.group", () =>
     ctx.sqlite.prepare<GroupRow, [number]>(
-      "SELECT id, title, description, rank, user_title, badge, builtin FROM groups WHERE id = ?1",
+      "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups WHERE id = ?1",
     ),
   ).get(id);
 const getMember = (ctx: Ctx, id: number) => {
@@ -151,7 +165,7 @@ export const groupsListOp = implement(groupsList, (ctx, actor) =>
     return {
       items: prepared(ctx, "permissions.groups", () =>
         ctx.sqlite.prepare<GroupRow, []>(
-          "SELECT id, title, description, rank, user_title, badge, builtin FROM groups ORDER BY rank DESC, id",
+          "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups ORDER BY rank DESC, id",
         ),
       )
         .all()
@@ -172,13 +186,21 @@ export const groupsCreateOp = implement(groupsCreate, (ctx, actor, input) => {
   return writeTx(ctx, () => {
     const current = adminNow(ctx, actor, "admin.groups");
     assertRank(input.rank, memberStanding(ctx, current).maxRank);
+    if (input.nameColorId !== null) requireNameColor(ctx, input.nameColorId);
     const id = Number(
       ctx.sqlite
         .prepare(
-          "INSERT INTO groups (title, description, rank, user_title, badge) VALUES (?1, ?2, ?3, ?4, ?5)",
+          "INSERT INTO groups (title, description, rank, user_title, badge, name_color_id, is_staff) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         )
-        .run(input.title, input.description, input.rank, input.userTitle, input.badge)
-        .lastInsertRowid,
+        .run(
+          input.title,
+          input.description,
+          input.rank,
+          input.userTitle,
+          input.badge,
+          input.nameColorId,
+          Number(input.isStaff),
+        ).lastInsertRowid,
     );
     appendModeratorLog(ctx, actor, "group.create", "group", id);
     return groupValue(getGroup(ctx, id)!);
@@ -193,9 +215,12 @@ export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
     const ceiling = memberStanding(ctx, current).maxRank;
     assertRank(old.rank, ceiling);
     assertRank(input.rank ?? old.rank, ceiling);
+    const nameColorId = input.nameColorId === undefined ? old.name_color_id : input.nameColorId;
+    if (nameColorId !== null && nameColorId !== old.name_color_id)
+      requireNameColor(ctx, nameColorId);
     ctx.sqlite
       .prepare(
-        "UPDATE groups SET title = ?1, description = ?2, rank = ?3, user_title = ?4, badge = ?5 WHERE id = ?6",
+        "UPDATE groups SET title = ?1, description = ?2, rank = ?3, user_title = ?4, badge = ?5, name_color_id = ?7, is_staff = ?8 WHERE id = ?6",
       )
       .run(
         input.title ?? old.title,
@@ -204,6 +229,8 @@ export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
         input.userTitle ?? old.user_title,
         input.badge ?? old.badge,
         old.id,
+        nameColorId,
+        Number(input.isStaff ?? !!old.is_staff),
       );
     appendModeratorLog(ctx, actor, "group.update", "group", old.id);
     return groupValue(getGroup(ctx, old.id)!);

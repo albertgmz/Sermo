@@ -7,6 +7,7 @@ export * from "./credits";
 export * from "./feed";
 export * from "./forums";
 export * from "./images";
+export * from "./members";
 export * from "./moderation";
 export * from "./navigation";
 export * from "./notifications";

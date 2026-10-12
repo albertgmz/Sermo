@@ -18,6 +18,10 @@ export const Group = z
     badge: z.string(),
     /** Set on the built-in groups, which cannot be deleted. */
     builtin: z.enum(BUILTIN_GROUPS).nullable(),
+    /** A colour of the `name` catalog: members show their name in it unless they chose one. */
+    nameColorId: Id.nullable(),
+    /** Its members are listed as staff (users.staff). */
+    isStaff: z.boolean(),
   })
   .meta({ id: "Group" });
 
@@ -31,6 +35,9 @@ const GroupFields = {
     .trim()
     .regex(/^[a-z0-9-]*$/)
     .max(30),
+  /** An active colour of the `name` catalog, or null for none. */
+  nameColorId: Id.nullable(),
+  isStaff: z.boolean(),
 };
 
 export const groupsList = defineContract({
@@ -61,6 +68,8 @@ export const groupsCreate = defineContract({
     rank: GroupFields.rank.default(10),
     userTitle: GroupFields.userTitle.default(""),
     badge: GroupFields.badge.default(""),
+    nameColorId: GroupFields.nameColorId.default(null),
+    isStaff: GroupFields.isStaff.default(false),
   }),
   output: Group,
 });
@@ -78,6 +87,8 @@ export const groupsUpdate = defineContract({
     rank: GroupFields.rank.optional(),
     userTitle: GroupFields.userTitle.optional(),
     badge: GroupFields.badge.optional(),
+    nameColorId: GroupFields.nameColorId.optional(),
+    isStaff: GroupFields.isStaff.optional(),
   }),
   output: Group,
 });

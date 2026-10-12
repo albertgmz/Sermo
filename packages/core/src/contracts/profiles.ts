@@ -14,6 +14,7 @@ import {
   UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
+import { MemberCard } from "./members";
 import { SeoMetadata } from "./seo";
 
 export const Profile = z
@@ -31,6 +32,38 @@ export const Profile = z
     postCount: z.number().int().nonnegative(),
     reactionScore: z.number().int(),
     canPostOnWall: z.boolean(),
+    /** How the member is drawn next to their name (users.cards returns the same). */
+    card: MemberCard,
+    /** The member's own title, whether or not they may currently show it. */
+    customTitle: z.string().nullable(),
+    /** Rendered signature; null when there is none or the member may not show one. */
+    signatureHtml: z.string().nullable(),
+    /** Plain text; clients must escape it. */
+    location: z.string(),
+    /** An http(s) URL, or empty. */
+    website: z.string(),
+    /** Day and month only: the year is never published. */
+    birthday: z.object({ month: z.number().int(), day: z.number().int() }).nullable(),
+    /** Handles on other networks; empty where none is set. */
+    socials: z.object({ discord: z.string(), telegram: z.string(), x: z.string() }),
+    followerCount: z.number().int().nonnegative(),
+    followingCount: z.number().int().nonnegative(),
+    credits: z.number().int(),
+    /** XP of the awards held, and the level it gives under the site's level settings. */
+    awardXp: z.number().int().nonnegative(),
+    level: z.object({
+      level: z.number().int().positive(),
+      /** XP at which this level starts and at which the next one does. */
+      currentLevelXp: z.number().int().nonnegative(),
+      nextLevelXp: z.number().int().positive(),
+    }),
+    /** How many awards the member shows next to their name (profile.awardSlots). */
+    awardSlots: z.number().int().nonnegative(),
+    referralCount: z.number().int().nonnegative(),
+    /** Last request of the member, to the minute; null if never seen. */
+    lastActivityAt: Timestamp.nullable(),
+    /** The signed-in viewer's relation to this member; both false for guests and for oneself. */
+    viewer: z.object({ isFollowing: z.boolean(), isIgnoring: z.boolean() }),
   })
   .meta({ id: "Profile" });
 
@@ -88,12 +121,66 @@ export const profilesGet = defineContract({
   output: Profile.extend({ seo: SeoMetadata }),
 });
 
+const Handle = z
+  .string()
+  .trim()
+  .max(40)
+  .regex(/^[A-Za-z0-9_.#-]*$/, "Use letters, digits, dots, underscores, hyphens and #.");
+
 export const profilesUpdate = defineContract({
   name: "profiles.update",
-  summary: "Update the current user's own profile.",
+  summary:
+    "Update the current user's own profile; only the fields sent change. `customTitle` needs " +
+    "profile.customTitle and `signature` needs profile.signature (also to clear them), within " +
+    "the site's length and line limits; a signature is Markdown, rendered when saved. " +
+    "`website` is an http(s) URL or empty. `birthday: null` removes it.",
   kind: "write",
-  input: z.object({ about: z.string().trim().max(5000) }),
+  input: z.object({
+    about: z.string().trim().max(5000).optional(),
+    location: z.string().trim().max(100).optional(),
+    website: z
+      .string()
+      .trim()
+      .max(200)
+      .regex(/^(?:https?:\/\/\S+)?$/i, "Use an http(s) URL.")
+      .optional(),
+    birthday: z
+      .object({
+        year: z.number().int().min(1900).max(2100).optional(),
+        month: z.number().int().min(1).max(12),
+        day: z.number().int().min(1).max(31),
+      })
+      .nullable()
+      .optional(),
+    socials: z.object({ discord: Handle, telegram: Handle, x: Handle }).partial().optional(),
+    customTitle: z.string().trim().max(100).nullable().optional(),
+    signature: z.string().trim().max(2000).nullable().optional(),
+  }),
   output: Profile,
+});
+
+export const profilesSelf = defineContract({
+  name: "profiles.self",
+  summary:
+    "The signed-in member's own profile as they edit it: the public profile, the Markdown " +
+    "source of the signature, the year of the birthday, what they may currently set, and the " +
+    "site's limits. Requires an account.",
+  kind: "read",
+  input: z.object({}),
+  output: z.object({
+    profile: Profile,
+    signatureSource: z.string().nullable(),
+    birthYear: z.number().int().nullable(),
+    /** Who referred this member, if anyone, and whether they may still name a referrer. */
+    referrerId: Id.nullable(),
+    canSetReferrer: z.boolean(),
+    may: z.object({ setSignature: z.boolean(), setCustomTitle: z.boolean() }),
+    limits: z.object({
+      signatureMaxLength: z.number().int(),
+      signatureMaxLines: z.number().int(),
+      customTitleMaxLength: z.number().int(),
+    }),
+  }),
 });
 
 export const usersSearch = defineContract({

@@ -97,6 +97,30 @@ export const PERMISSIONS = {
     defaults: EVERYONE,
     legacy: "can_view_profiles",
   },
+  /** Show a signature under one's posts. */
+  "profile.signature": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
+  /** Show a title of one's own under the name instead of the group or level title. */
+  "profile.customTitle": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
+  /** How many awards a member shows next to their name. */
+  "profile.awardSlots": {
+    scope: "global",
+    category: "profile",
+    type: "integer",
+    unit: "count",
+    defaults: { unconfirmed: 5, registered: 5, moderator: 6, admin: 6 },
+  },
   "profile.editOwn": {
     scope: "global",
     category: "profile",

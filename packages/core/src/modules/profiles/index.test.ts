@@ -390,6 +390,7 @@ describe("profiles", () => {
     expect(operations.map((op) => op.name).sort()).toEqual(
       [
         "profiles.get",
+        "profiles.self",
         "profiles.update",
         "users.search",
         "profilePosts.list",
