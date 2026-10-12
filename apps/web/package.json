@@ -9,7 +9,6 @@
     "lint": "biome check",
     "test": "bun test",
     "format": "biome format --write",
-    "db:reset": "bun -e \"require('node:fs').copyFileSync('data/seed.json', 'data/db.json')\"",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
