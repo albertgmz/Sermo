@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
 import { formatNumber } from "@/lib/format";
 import type { Level } from "@/lib/levels";
@@ -10,6 +11,7 @@ export function LevelBadge({
   level: Pick<Level, "level">;
   className?: string;
 }) {
+  const t = useTranslations("forum.level");
   return (
     <span
       className={cn(
@@ -17,7 +19,7 @@ export function LevelBadge({
         className,
       )}
     >
-      LVL
+      {t("badge")}
       <span className="text-foreground tabular-nums">{level.level}</span>
     </span>
   );
@@ -32,12 +34,17 @@ export function XpBar({
   label?: boolean;
   className?: string;
 }) {
-  const xp = `${formatNumber(level.xp)} XP`;
+  const t = useTranslations("forum.level");
+  const xp = t("xp", { xp: formatNumber(level.xp) });
   return (
     <div className="inline-flex items-center gap-2">
       <Progress
         value={level.progress * 100}
-        aria-label={`Level ${level.level}, ${xp} of ${formatNumber(level.nextLevelXp)} for the next level`}
+        aria-label={t("aria.progress", {
+          level: level.level,
+          xp: formatNumber(level.xp),
+          next: formatNumber(level.nextLevelXp),
+        })}
         className={cn("w-12", className)}
       />
       {label && (

@@ -1,6 +1,8 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export function UnreadDot({ className }: { className?: string }) {
+  const t = useTranslations("forum.unreadDot");
   return (
     <span
       className={cn(
@@ -8,7 +10,7 @@ export function UnreadDot({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="sr-only">Unread</span>
+      <span className="sr-only">{t("aria.label")}</span>
     </span>
   );
 }

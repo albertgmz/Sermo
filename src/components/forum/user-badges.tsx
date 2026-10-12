@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { RoleBadge } from "@/components/forum/role-badge";
 import {
   Tooltip,
@@ -17,9 +18,10 @@ export function RankBadge({
   rank: Pick<Rank, "name" | "headline">;
   className?: string;
 }) {
+  const t = useTranslations("forum.userBadges");
   return (
     <span
-      title={`${rank.name} rank`}
+      title={t("rank.title", { name: rank.name })}
       className={cn(
         "inline-flex h-4 shrink-0 items-center rounded-sm border px-1 text-(length:--text-tiny) leading-none font-semibold tracking-wide whitespace-nowrap uppercase",
         nameColor(rank.headline.nameColor)?.text ?? "text-muted-foreground",
@@ -27,19 +29,20 @@ export function RankBadge({
       )}
     >
       {rank.name}
-      <span className="sr-only"> rank</span>
+      <span className="sr-only"> {t("rank.suffix")}</span>
     </span>
   );
 }
 
 export function DonorBadge({ className }: { className?: string }) {
+  const t = useTranslations("forum.userBadges");
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <span
             role="img"
-            aria-label="Donor"
+            aria-label={t("donor")}
             className={cn(
               "inline-flex size-4 shrink-0 items-center justify-center text-name-rose",
               className,
@@ -49,7 +52,7 @@ export function DonorBadge({ className }: { className?: string }) {
       >
         <Heart aria-hidden="true" className="size-3 fill-current" />
       </TooltipTrigger>
-      <TooltipContent>Donor</TooltipContent>
+      <TooltipContent>{t("donor")}</TooltipContent>
     </Tooltip>
   );
 }

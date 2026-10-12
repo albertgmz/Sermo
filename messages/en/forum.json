@@ -1,5 +1,130 @@
 {
   "relativeTime": {
     "title": "{date} at {time}"
+  },
+  "forumCard": {
+    "newBadge": "New",
+    "threads": "{count, plural, one {# thread} other {# threads}}",
+    "empty": "No posts yet"
+  },
+  "memberCard": {
+    "emptyAwards": "No awards yet",
+    "postsLabel": "Posts",
+    "reactionsLabel": "Reactions",
+    "joinedLabel": "Joined",
+    "profile": "View profile"
+  },
+  "memberCardTrigger": {
+    "aria": {
+      "label": "{name}'s member card"
+    }
+  },
+  "threadHoverCard": {
+    "lastReply": "Last reply",
+    "aria": {
+      "replies": "Replies",
+      "views": "Views"
+    }
+  },
+  "roleBadge": {
+    "admin": "Admin",
+    "moderator": "Mod"
+  },
+  "shareButton": {
+    "aria": {
+      "copied": "Link copied",
+      "copy": "Copy link"
+    }
+  },
+  "unreadDot": {
+    "aria": {
+      "label": "Unread"
+    }
+  },
+  "userStats": {
+    "messagesLabel": "Messages",
+    "reactionsLabel": "Reactions received",
+    "summary": "<sr>{label}: </sr>{value}"
+  },
+  "awardIcon": {
+    "aria": {
+      "count": "{count, plural, one {# award} other {# awards}}"
+    }
+  },
+  "clientIcons": {
+    "label": "{browser} on {system}",
+    "unknownBrowser": "Unknown browser",
+    "unknownSystem": "unknown system"
+  },
+  "credits": {
+    "aria": {
+      "unit": "credits"
+    }
+  },
+  "leaderboard": {
+    "xp": "XP",
+    "xpTitle": "{xp} XP",
+    "titles": {
+      "credits": "{count, plural, one {# credit} other {# credits}}",
+      "posts": "{count, plural, one {# post} other {# posts}}",
+      "reactions": "{count, plural, one {# reaction} other {# reactions}}",
+      "awards": "{count, plural, one {# award} other {# awards}}",
+      "referrals": "{count, plural, one {# referral} other {# referrals}}"
+    },
+    "aria": {
+      "units": {
+        "credits": "{count, plural, one {credit} other {credits}}",
+        "posts": "{count, plural, one {post} other {posts}}",
+        "reactions": "{count, plural, one {reaction} other {reactions}}",
+        "awards": "{count, plural, one {award} other {awards}}",
+        "referrals": "{count, plural, one {referral} other {referrals}}"
+      }
+    }
+  },
+  "level": {
+    "badge": "LVL",
+    "xp": "{xp} XP",
+    "aria": {
+      "progress": "Level {level}, {xp} XP of {next} for the next level"
+    }
+  },
+  "podium": {
+    "empty": "No members yet.",
+    "aria": {
+      "top": "Top three",
+      "rank": "Rank"
+    }
+  },
+  "reactionButton": {
+    "aria": {
+      "login": "Log in to react, {count, plural, one {{count} reaction} other {{count} reactions}}",
+      "state": "{label}, {count, plural, one {{count} reaction} other {{count} reactions}}",
+      "choose": "Choose a reaction"
+    }
+  },
+  "reactionSummary": {
+    "total": "{count, plural, one {{count} reaction} other {{count} reactions}}",
+    "aria": {
+      "trigger": "{total}, show who reacted"
+    }
+  },
+  "userBadges": {
+    "rank": {
+      "title": "{name} rank",
+      "suffix": "rank"
+    },
+    "donor": "Donor"
+  },
+  "standing": {
+    "heading": "Member of the month",
+    "totalPoints": "Total points",
+    "pts": "pts",
+    "pointsEqual": "= {points} pts",
+    "formula": "1 post = {postPoints, plural, one {# point} other {# points}} · {reactions, plural, one {# reaction} other {# reactions}} = 1 point · 1 referral = {referralPoints, plural, one {# point} other {# points}}",
+    "parts": {
+      "posts": "Posts",
+      "reactions": "Reactions received",
+      "referrals": "Referrals"
+    }
   }
 }

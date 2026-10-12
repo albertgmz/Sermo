@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { startTransition, useRef, useState } from "react";
 import { loadMemberCard } from "@/components/forum/member-card-action";
 import {
@@ -24,6 +25,7 @@ export function MemberCardTrigger({
   className?: string;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("forum.memberCardTrigger");
   const [open, setOpen] = useState(false);
   // undefined until the first open has loaded it, null for an unknown member
   const [card, setCard] = useState<React.ReactNode>();
@@ -96,7 +98,7 @@ export function MemberCardTrigger({
         {children}
       </PopoverTrigger>
       <PopoverContent
-        aria-label={`${name}'s member card`}
+        aria-label={t("aria.label", { name })}
         align="start"
         className="max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] overflow-y-auto p-0"
         initialFocus={(type) => type === "touch" || type === "pen"}

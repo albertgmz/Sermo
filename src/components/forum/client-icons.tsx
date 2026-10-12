@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   Tooltip,
   TooltipContent,
@@ -5,6 +6,7 @@ import {
 } from "@/components/ui/tooltip";
 import type { Browser, ClientInfo, Os } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import messages from "../../../messages/en/forum.json";
 
 const FILLED = {
   fill: "currentColor",
@@ -19,7 +21,10 @@ const APPLE = (
   />
 );
 
-const BROWSERS: Record<Browser, { label: string; glyph: React.ReactNode }> = {
+const BROWSERS: Record<
+  Browser,
+  { label: string | null; glyph: React.ReactNode }
+> = {
   chrome: {
     label: "Chrome",
     glyph: (
@@ -70,7 +75,7 @@ const BROWSERS: Record<Browser, { label: string; glyph: React.ReactNode }> = {
     ),
   },
   other: {
-    label: "Unknown browser",
+    label: null,
     glyph: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -81,7 +86,7 @@ const BROWSERS: Record<Browser, { label: string; glyph: React.ReactNode }> = {
   },
 };
 
-const SYSTEMS: Record<Os, { label: string; glyph: React.ReactNode }> = {
+const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
   windows: {
     label: "Windows",
     glyph: (
@@ -112,7 +117,7 @@ const SYSTEMS: Record<Os, { label: string; glyph: React.ReactNode }> = {
   },
   ios: { label: "iOS", glyph: APPLE },
   other: {
-    label: "unknown system",
+    label: null,
     glyph: (
       <>
         <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -122,8 +127,24 @@ const SYSTEMS: Record<Os, { label: string; glyph: React.ReactNode }> = {
   },
 };
 
+type Translate = ReturnType<typeof useTranslations<"forum.clientIcons">>;
+
+function label(client: ClientInfo, t: Translate): string {
+  return t("label", {
+    browser: BROWSERS[client.browser].label ?? t("unknownBrowser"),
+    system: SYSTEMS[client.os].label ?? t("unknownSystem"),
+  });
+}
+
+// Plain-text label for callers that cannot use the hook (the styleguide).
 export function clientLabel(client: ClientInfo): string {
-  return `${BROWSERS[client.browser].label} on ${SYSTEMS[client.os].label}`;
+  const { clientIcons } = messages;
+  return clientIcons.label
+    .replace(
+      "{browser}",
+      BROWSERS[client.browser].label ?? clientIcons.unknownBrowser,
+    )
+    .replace("{system}", SYSTEMS[client.os].label ?? clientIcons.unknownSystem);
 }
 
 function Glyph({ children }: { children: React.ReactNode }) {
@@ -150,14 +171,15 @@ export function ClientIcons({
   client: ClientInfo;
   className?: string;
 }) {
-  const label = clientLabel(client);
+  const t = useTranslations("forum.clientIcons");
+  const text = label(client, t);
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <span
             role="img"
-            aria-label={label}
+            aria-label={text}
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 align-middle text-muted-foreground",
               className,
@@ -168,7 +190,7 @@ export function ClientIcons({
         <Glyph>{BROWSERS[client.browser].glyph}</Glyph>
         <Glyph>{SYSTEMS[client.os].glyph}</Glyph>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>{text}</TooltipContent>
     </Tooltip>
   );
 }

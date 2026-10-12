@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   Leaderboard,
   LeaderboardScore,
@@ -17,10 +18,11 @@ export function Podium({
   by: LeaderboardKind;
   viewerId?: number;
 }) {
+  const t = useTranslations("forum.podium");
   if (members.length === 0) {
     return (
       <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-        No members yet.
+        {t("empty")}
       </p>
     );
   }
@@ -28,7 +30,7 @@ export function Podium({
   return (
     <div className="divide-y divide-border">
       <ol
-        aria-label="Top three"
+        aria-label={t("aria.top")}
         className={cn(
           "grid grid-cols-3 items-end gap-1 px-3 pt-2",
           members.length === 2 && "grid-cols-2",
@@ -66,7 +68,7 @@ export function Podium({
                   index === 2 && "h-5 border-tier-bronze/30 bg-tier-bronze/10",
                 )}
               >
-                <span className="sr-only">Rank </span>
+                <span className="sr-only">{t("aria.rank")} </span>
                 <RankNumber rank={index + 1} />
               </div>
             </div>
