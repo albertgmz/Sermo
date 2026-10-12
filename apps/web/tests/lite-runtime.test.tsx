@@ -51,7 +51,12 @@ mock.module("@/lib/sermo/viewer", () => ({
     return token
       ? {
           user: { username: `member${token}` },
-          permissions: { isAdmin: token === "102" },
+          resolvedPermissions: {},
+          staff: {
+            panel: token === "102",
+            moderatesEverywhere: false,
+            moderatedNodeIds: [],
+          },
         }
       : null;
   },

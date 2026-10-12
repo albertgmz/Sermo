@@ -11,6 +11,7 @@ import {
   seoThread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
+import { isStaffPath, mayOpenPath } from "@/app/(staff)/registry";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -233,9 +234,12 @@ async function handleRequest(request: NextRequest) {
   }
   const [, section, id, action] = pathname.split("/");
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
-  if (section === "admin") {
+  // The panel does not advertise itself: whoever may not open an address of it, a guest included,
+  // gets the 404 of an address that does not exist. One `auth.me` read decides, and only for a
+  // visitor with a session.
+  if (isStaffPath(pathname)) {
     const viewer = hasSession ? await viewerOf(request.headers) : null;
-    if (!viewer?.permissions.isAdmin) return notFound(request);
+    if (!viewer || !mayOpenPath(viewer, pathname)) return notFound(request);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
   if (membersOnly && !hasSession) {
