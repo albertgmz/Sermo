@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { isHexColor } from "@/lib/css-color";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,11 @@ export async function GroupList({
                   <p className="flex flex-wrap items-center gap-2">
                     <span
                       className="text-sm font-semibold [overflow-wrap:anywhere]"
-                      style={colour ? { color: colour.color } : undefined}
+                      style={
+                        colour && isHexColor(colour.color)
+                          ? { color: colour.color }
+                          : undefined
+                      }
                     >
                       {group.title}
                     </span>
@@ -82,7 +87,11 @@ export async function GroupList({
                             <span
                               aria-hidden="true"
                               className="size-3 rounded-full border"
-                              style={{ backgroundColor: colour.color }}
+                              style={
+                                isHexColor(colour.color)
+                                  ? { backgroundColor: colour.color }
+                                  : undefined
+                              }
                             />
                             {colour.name}
                           </>
