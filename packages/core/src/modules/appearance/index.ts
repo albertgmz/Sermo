@@ -313,6 +313,7 @@ export const operations = [
         logo: publicPicture(ctx, settings.logoFileId),
         icon: publicPicture(ctx, settings.iconFileId),
         backdrop: publicPicture(ctx, settings.backdropFileId),
+        socialLinks: settings.socialLinks,
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,

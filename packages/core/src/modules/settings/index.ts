@@ -49,6 +49,7 @@ const defaults: StoredSiteSettingsValue = {
   emailHourlyCap: 20,
   conversationEmailIncludesBody: false,
   digestInactiveDays: 3,
+  socialLinks: { discord: null, telegram: null, x: null },
   logoFileId: null,
   iconFileId: null,
   backdropFileId: null,
