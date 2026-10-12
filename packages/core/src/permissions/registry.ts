@@ -113,6 +113,22 @@ export const PERMISSIONS = {
     defaults: STAFF,
     requiresAccount: true,
   },
+  /** Choose a profile cover from the gallery. */
+  "profile.coverPreset": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
+  /** Change one's own username without spending a shop item. */
+  "profile.renameFree": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
   /** How many awards a member shows next to their name. */
   "profile.awardSlots": {
     scope: "global",

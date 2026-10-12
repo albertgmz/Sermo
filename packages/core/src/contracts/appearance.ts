@@ -188,3 +188,54 @@ export const paletteColorsDelete = defineContract({
   input: z.object({ colorId: Id }),
   output: z.object({ ok: z.literal(true), deactivated: z.boolean() }),
 });
+
+// What a member wears ------------------------------------------------------------------------
+
+export const MemberAppearance = z
+  .object({
+    /** What the member wears now; null where nothing is chosen. */
+    accentId: Id.nullable(),
+    nameColorId: Id.nullable(),
+    frameId: Id.nullable(),
+    coverPresetId: Id.nullable(),
+    /** What the member may choose from right now. */
+    available: z.object({
+      /** Every active accent: accents are free. */
+      accents: z.array(PaletteColor),
+      /** The name colours the member holds through an active or unused shop item. */
+      nameColors: z.array(PaletteColor),
+      /** The frames the member holds through an active or unused shop item. */
+      frames: z.array(CatalogImage),
+      /** Every active profile cover when the member holds profile.coverPreset, else none. */
+      covers: z.array(CatalogImage),
+    }),
+  })
+  .meta({ id: "MemberAppearance" });
+
+export const appearanceGet = defineContract({
+  name: "appearance.get",
+  summary:
+    "The signed-in member's appearance: what they wear and what they may choose from. Requires " +
+    "an account.",
+  kind: "read",
+  input: z.object({}),
+  output: MemberAppearance,
+});
+
+export const appearanceSet = defineContract({
+  name: "appearance.set",
+  summary:
+    "Choose what to wear; only the keys sent change and null takes a thing off. An accent is any " +
+    "active accent. A name colour or a frame must be one the member holds through a shop item " +
+    "that is active or has units left. A cover from the gallery needs profile.coverPreset and " +
+    "replaces an uploaded cover while set. Something the member stops holding (an item that " +
+    "expires or is used up) comes off by itself.",
+  kind: "write",
+  input: z.object({
+    accentId: Id.nullable().optional(),
+    nameColorId: Id.nullable().optional(),
+    frameId: Id.nullable().optional(),
+    coverPresetId: Id.nullable().optional(),
+  }),
+  output: MemberAppearance,
+});
