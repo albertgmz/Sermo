@@ -177,7 +177,7 @@ export async function AppearancePanel({
             <ul className="flex flex-wrap gap-2">
               {[null, ...available.nameColors].map((color) => {
                 const shown = userNameProps({
-                  nameColor: color?.color ?? member.nameColor,
+                  nameColor: color?.color ?? null,
                 });
                 return (
                   <li key={color?.id ?? "none"} className="max-w-full">
