@@ -19,6 +19,7 @@
     "noResultsTitle": "No results for “{query}”",
     "filteredDescription": "Try fewer words or remove some filters. Words match whole, so “tomato” does not find “tomatoes”.",
     "noResultsDescription": "Check the spelling or try fewer words. Words match whole, so “tomato” does not find “tomatoes”.",
+    "noPostsTitle": "No posts for “{query}”",
     "noAuthorTitle": "No member named “{author}”",
     "noAuthorDescription": "Type the full username of the member, then search again.",
     "refusedTitle": "This search could not be made",

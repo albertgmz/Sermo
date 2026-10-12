@@ -159,7 +159,10 @@ export async function Results({
         nextCursor ? null : (
           <EmptyState
             icon={SearchX}
-            title={t("noResultsTitle", { query })}
+            title={t(
+              matches.items.length > 0 ? "noPostsTitle" : "noResultsTitle",
+              { query },
+            )}
             description={
               titlesOnly || forum || prefix || author
                 ? t("filteredDescription")
