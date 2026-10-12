@@ -24,7 +24,8 @@ mock.module("next-intl/server", () => ({
 const { getSite } = await import("./site");
 
 const palette = { accents: [], nameColors: [], prefixColors: [] };
-const socialLinks = { discord: null, telegram: null, x: null };
+const noSocialLinks = { discord: null, telegram: null, x: null };
+const socialLinks = { ...noSocialLinks, discord: "https://discord.gg/example" };
 
 test("the site is read without the visitor and keeps only its identity", async () => {
   const seen: Headers[] = [];
@@ -45,6 +46,7 @@ test("the site is read without the visitor and keeps only its identity", async (
     logo: { fileId: 3, url: "/api/v1/files/3" },
     icon: null,
     backdrop: null,
+    socialLinks,
   });
   assert.equal(seen[0].get("cookie"), null);
   assert.equal(seen[0].get("x-forwarded-for"), null);
@@ -74,6 +76,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       logo: null,
       icon: null,
       backdrop: null,
+      socialLinks: noSocialLinks,
     });
     assert.equal(logged.mock.calls.length, 1);
 

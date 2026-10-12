@@ -7,8 +7,15 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
 import { Logo } from "@/components/layout/logo";
+import {
+  hasHref,
+  type LinkItem,
+  linkProps,
+  toNavItems,
+} from "@/components/layout/nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getLiteState } from "@/lib/lite-mode";
+import { getNavigation } from "@/lib/sermo/navigation";
 import { getSite } from "@/lib/sermo/site";
 import { getCurrentUser } from "@/lib/session";
 
@@ -18,33 +25,15 @@ const SOCIALS = [
   { network: "x", label: "X" },
 ] as const;
 
-const COLUMNS = [
-  {
-    title: "community",
-    links: [
-      { label: "forums", href: "/forums" },
-      { label: "members", href: "/members" },
-      { label: "awards", href: "/awards" },
-    ],
-  },
-  {
-    title: "useful",
-    links: [
-      { label: "credits", href: "/credits" },
-      { label: "upgrade", href: "/upgrade" },
-      { label: "styleguide", href: "/ui" },
-    ],
-  },
-  {
-    title: "legal",
-    links: [
-      { label: "terms", href: "/terms" },
-      { label: "privacy", href: "/privacy" },
-      { label: "legal", href: "/legal" },
-      { label: "contact", href: "/contact" },
-    ],
-  },
-] as const;
+// What the loading state draws: the three columns of three links the site ships with.
+const PLACEHOLDER_COLUMNS = [
+  { column: 1, links: [1, 2, 3] },
+  { column: 2, links: [1, 2] },
+  { column: 3, links: [1, 2, 3, 4] },
+];
+
+const COLUMN_GRID =
+  "grid gap-6 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]";
 
 export function SiteFooter() {
   const t = useTranslations("layout.siteFooter");
@@ -58,22 +47,9 @@ export function SiteFooter() {
             <p className="mt-1 max-w-xs text-pretty text-muted-foreground">
               {t("tagline")}
             </p>
-            <ul className="mt-2 -ml-2.5 flex items-center">
-              {SOCIALS.map(({ network, label }) => (
-                <li key={network}>
-                  <Link
-                    href="#"
-                    aria-label={label}
-                    className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <SocialIcon
-                      network={network}
-                      className="size-(--spacing-inline-icon)"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <Suspense>
+              <FooterSocials />
+            </Suspense>
             <Suspense
               fallback={
                 <LoadingRegion label={lite("loadingLabel")}>
@@ -86,27 +62,31 @@ export function SiteFooter() {
               <FooterLiteLink />
             </Suspense>
           </div>
-          <div className="grid gap-6 sm:grid-cols-3">
-            {COLUMNS.map(({ title, links }) => (
-              <nav key={title} aria-label={t(`columns.${title}`)}>
-                <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  {t(`columns.${title}`)}
-                </h2>
-                <ul className="mt-1">
-                  {links.map(({ label, href }) => (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        className="inline-flex h-10 items-center rounded-md font-medium transition-colors hover:text-primary md:h-8"
-                      >
-                        {t(`links.${label}`)}
-                      </Link>
-                    </li>
+          <Suspense
+            fallback={
+              <LoadingRegion label={t("loadingLinks")}>
+                <div className={COLUMN_GRID}>
+                  {PLACEHOLDER_COLUMNS.map(({ column, links }) => (
+                    <div key={column}>
+                      <Skeleton className="h-4 w-24" />
+                      <div className="mt-1">
+                        {links.map((link) => (
+                          <div
+                            key={link}
+                            className="flex h-10 items-center md:h-8"
+                          >
+                            <Skeleton className="h-4 w-20" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              </nav>
-            ))}
-          </div>
+                </div>
+              </LoadingRegion>
+            }
+          >
+            <FooterColumns />
+          </Suspense>
         </div>
         <Suspense
           fallback={
@@ -119,6 +99,88 @@ export function SiteFooter() {
         </Suspense>
       </Container>
     </footer>
+  );
+}
+
+export async function FooterSocials() {
+  const { socialLinks } = await getSite();
+  const links = SOCIALS.flatMap((social) => {
+    const href = socialLinks[social.network];
+    return href ? [{ ...social, href }] : [];
+  });
+  if (links.length === 0) return null;
+  return (
+    <ul className="mt-2 -ml-2.5 flex items-center">
+      {links.map(({ network, label, href }) => (
+        <li key={network}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <SocialIcon
+              network={network}
+              className="size-(--spacing-inline-icon)"
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const FOOTER_LINK =
+  "inline-flex h-10 items-center rounded-md font-medium transition-colors hover:text-primary md:h-8";
+
+function FooterLink({ link }: { link: LinkItem }) {
+  return (
+    <Link {...linkProps(link)} className={FOOTER_LINK}>
+      {link.title}
+    </Link>
+  );
+}
+
+// A heading with links is a column. Entries that are links on their own share the last column.
+export async function FooterColumns() {
+  const [t, navigation] = await Promise.all([
+    getTranslations("layout.siteFooter"),
+    getNavigation(),
+  ]);
+  const entries = toNavItems(navigation.footer);
+  const columns = entries.filter((entry) => entry.children.length > 0);
+  const singles = entries.filter(
+    (entry) => entry.children.length === 0 && hasHref(entry),
+  );
+  return (
+    <div className={COLUMN_GRID}>
+      {columns.map((column) => (
+        <nav key={column.id} aria-label={column.title}>
+          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            {column.title}
+          </h2>
+          <ul className="mt-1">
+            {column.children.filter(hasHref).map((link) => (
+              <li key={link.id}>
+                <FooterLink link={link} />
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))}
+      {singles.length > 0 && (
+        <nav aria-label={t("aria.more")}>
+          <ul>
+            {singles.filter(hasHref).map((link) => (
+              <li key={link.id}>
+                <FooterLink link={link} />
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </div>
   );
 }
 

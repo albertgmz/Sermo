@@ -14,6 +14,7 @@ import {
   SearchPanel,
 } from "@/components/layout/header-panels";
 import { Logo } from "@/components/layout/logo";
+import { accountItems, toNavItems } from "@/components/layout/nav";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { getConversations, getNotifications, getUnreadCounts } from "@/lib/db";
 import { titleKeyForLevel } from "@/lib/levels";
 import { getLiteState } from "@/lib/lite-mode";
 import { can } from "@/lib/permissions";
+import { getNavigation } from "@/lib/sermo/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -67,10 +69,7 @@ export function SiteHeader() {
             </div>
           }
         >
-          <MobileMenu
-            className="-ml-2 md:hidden"
-            logo={<Logo className="-ml-2 px-2" />}
-          />
+          <MenuNavigation />
         </Suspense>
         <Logo markOnly className="w-10 justify-center md:hidden" />
         <Logo className="hidden md:inline-flex" />
@@ -87,7 +86,7 @@ export function SiteHeader() {
             </div>
           }
         >
-          <HeaderNav className="hidden md:flex" />
+          <HeaderNavigation />
         </Suspense>
         <div className="ml-auto flex items-center gap-1 md:gap-2">
           <IconLink href="/search" label={t("search")}>
@@ -109,8 +108,27 @@ export function SiteHeader() {
   );
 }
 
+async function MenuNavigation() {
+  const { header } = await getNavigation();
+  return (
+    <MobileMenu
+      links={toNavItems(header)}
+      className="-ml-2 md:hidden"
+      logo={<Logo className="-ml-2 px-2" />}
+    />
+  );
+}
+
+async function HeaderNavigation() {
+  const { header } = await getNavigation();
+  return <HeaderNav links={toNavItems(header)} className="hidden md:flex" />;
+}
+
 async function AccountTools() {
-  const user = await getCurrentUser();
+  const [user, navigation] = await Promise.all([
+    getCurrentUser(),
+    getNavigation(),
+  ]);
   const t = await getTranslations("layout.siteHeader");
   const levels = await getTranslations("lib.levels");
   const roles = await getTranslations("lib.db.roles");
@@ -139,8 +157,10 @@ async function AccountTools() {
           <UserMenu
             lite={await getLiteState()}
             avatar={<UserAvatar user={user.member} size="md" link={false} />}
+            links={accountItems(
+              toNavItems(navigation.account, `/members/${user.id}`),
+            )}
             user={{
-              id: user.id,
               username: user.username,
               title:
                 (can(user, "customTitle") && user.customTitle) ||

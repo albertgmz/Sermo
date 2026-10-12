@@ -105,6 +105,7 @@ const { UserAvatar } = await import("../src/components/forum/user-avatar");
 const { AwardIcon } = await import("../src/components/forum/award-icon");
 const { ShopIcon } = await import("../src/components/forum/shop-icon");
 const { Markdown } = await import("../src/components/forum/markdown");
+const { HtmlContent } = await import("../src/components/forum/html-content");
 const { SiteIcon } = await import("../src/components/layout/site-icon");
 const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
@@ -570,6 +571,34 @@ test("Markdown rendering gates external images while preserving links and its ro
     expect(hidden).toContain("Before");
     expect(rootClasses(hidden)).toEqual(rootClasses(visible));
   }
+});
+
+test("backend HTML drops its pictures when post images are blocked and gains nothing", async () => {
+  const body =
+    '<h2>Using the site</h2><p>Before <a href="/destination">a link</a> after.</p><p><img src="https://pictures.test/photo.jpg" alt="x"></p>' +
+    '<p style="background:url(https://pictures.test/back.png)">styled</p><ul><li>item</li></ul>';
+  const render = () =>
+    markup(<HtmlContent className="mt-6">{body}</HtmlContent>);
+  cookie = undefined;
+  const visible = await render();
+  expect(visible).toContain("pictures.test/photo.jpg");
+  expect(visible).toContain("pictures.test/back.png");
+  expect(visible).toContain(body);
+  expect(visible).not.toMatch(/<script|<style|<link|on\w+=/i);
+  for (const mode of ["postImages", "all"]) {
+    cookie = mode;
+    const hidden = await render();
+    noArtwork(hidden);
+    expect(hidden).not.toContain("pictures.test");
+    expect(hidden).toContain("LITE MODE");
+    expect(hidden).toContain('<a href="/destination">a link</a>');
+    expect(hidden).toContain("<h2>Using the site</h2>");
+    expect(hidden).not.toMatch(/<script|<style|<link|on\w+=/i);
+    expect(rootClasses(hidden)).toEqual(rootClasses(visible));
+  }
+  // Other categories leave a remote picture alone.
+  cookie = "avatars";
+  expect(await render()).toContain("pictures.test/photo.jpg");
 });
 
 test("a blocked local asset category empties Markdown and editor props", async () => {

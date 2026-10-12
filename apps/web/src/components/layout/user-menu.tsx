@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
+import { ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { logout } from "@/app/(main)/actions";
 import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
+import { iconFor, type LinkItem, linkProps } from "@/components/layout/nav";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,10 +20,12 @@ import type { User } from "@/lib/types";
 
 export function UserMenu({
   user,
+  links,
   avatar,
   lite,
 }: {
-  user: Pick<User, "id" | "username" | "title">;
+  user: Pick<User, "username" | "title">;
+  links: LinkItem[];
   avatar: React.ReactNode;
   lite: LiteState;
 }) {
@@ -46,20 +49,19 @@ export function UserMenu({
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="min-h-10 md:min-h-8"
-          render={<Link href={`/members/${user.id}`} />}
-        >
-          <UserRound />
-          {t("profile")}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="min-h-10 md:min-h-8"
-          render={<Link href="/account" />}
-        >
-          <Settings />
-          {t("account")}
-        </DropdownMenuItem>
+        {links.map((link) => {
+          const Icon = iconFor(link.builtin);
+          return (
+            <DropdownMenuItem
+              key={link.id}
+              className="min-h-10 md:min-h-8"
+              render={<Link {...linkProps(link)} />}
+            >
+              <Icon />
+              {link.title}
+            </DropdownMenuItem>
+          );
+        })}
         <LiteModeToggle state={lite} />
         <DropdownMenuSeparator />
         <DropdownMenuItem

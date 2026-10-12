@@ -39,8 +39,10 @@ const VOID = new Set([
   "wbr",
 ]);
 
+type HtmlChunk = { value: string; offset: number };
+
 function htmlEdits(
-  nodes: RootContent[],
+  nodes: HtmlChunk[],
   state: LiteState,
   label: string,
   origin?: string,
@@ -68,8 +70,7 @@ function htmlEdits(
       });
   }
   for (const node of nodes) {
-    const offset = node.position?.start.offset;
-    if (node.type !== "html" || offset === undefined) continue;
+    const offset = node.offset;
     // Tokenize only Markdown HTML nodes. Inline, fenced and indented code are exempt.
     const tags = /<\/?([a-z][\w:-]*)(?=\s|\/?>)(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
     for (const match of node.value.matchAll(tags)) {
@@ -202,7 +203,16 @@ function filterMarkdown(
     if (removedReferences.has(node.identifier) && !links.has(node.identifier))
       replace(node, "");
   }
-  edits.push(...htmlEdits(html, state, label, origin));
+  const chunks = html.flatMap((node) =>
+    node.type === "html" && node.position?.start.offset !== undefined
+      ? [{ value: node.value, offset: node.position.start.offset }]
+      : [],
+  );
+  edits.push(...htmlEdits(chunks, state, label, origin));
+  return applyEdits(markdown, edits);
+}
+
+function applyEdits(text: string, edits: Edit[]): string {
   // A removed HTML container can enclose other edits; apply its range once.
   const ranges: Edit[] = [];
   for (const edit of edits.sort((a, b) => a.start - b.start || b.end - a.end)) {
@@ -211,8 +221,22 @@ function filterMarkdown(
       previous.end = Math.max(previous.end, edit.end);
     else ranges.push(edit);
   }
-  for (const { start, end, text } of ranges.reverse()) {
-    markdown = markdown.slice(0, start) + text + markdown.slice(end);
+  for (const { start, end, text: replacement } of ranges.reverse()) {
+    text = text.slice(0, start) + replacement + text.slice(end);
   }
-  return markdown;
+  return text;
+}
+
+// For HTML the backend rendered and sanitised: the same rules as for HTML inside Markdown, applied
+// to the whole text. A blocked picture is replaced by the label; nothing else is added or changed.
+export function stripHtmlMedia(
+  html: string,
+  state: LiteState,
+  origin?: string,
+): string {
+  if (!state.master && state.blocked.length === 0) return html;
+  return applyEdits(
+    html,
+    htmlEdits([{ value: html, offset: 0 }], state, LABEL, origin),
+  );
 }

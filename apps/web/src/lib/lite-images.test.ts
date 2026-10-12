@@ -25,6 +25,8 @@ test("image-looking page paths still run their access and id rules", () => {
     "/threads/999999.jpg",
     "/admin/missing.svg::$DATA",
     "/forums/123/missing.svg",
+    "/pages/rules.png",
+    "/pages/rules/photo.jpg",
     "/elsewhere/123/new/missing.svg",
     "/elsewhere%2F123%2Fnew%2Fmissing.svg",
   ];

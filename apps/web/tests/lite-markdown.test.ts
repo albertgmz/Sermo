@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { stripMarkdownImages } from "../src/lib/lite-markdown";
+import { stripHtmlMedia, stripMarkdownImages } from "../src/lib/lite-markdown";
 
 export const PICTURE_MARKDOWN = [
   'Before ![inline](https://pictures.test/a_(b).jpg "caption") after.',
@@ -46,4 +46,25 @@ test("a picture can be dropped without a label, as signatures do", () => {
   expect(output).not.toContain("LITE MODE");
   expect(output).not.toContain("pictures.test");
   expect(output).toContain("Before  after.");
+});
+
+test("HTML filtering replaces pictures and the elements around them, and leaves the rest", () => {
+  const html =
+    '<p>a <a href="https://example.test/x">link</a></p>' +
+    '<picture><source srcset="https://pictures.test/a.webp 1x"><img src="/x.png"></picture>' +
+    '<p>text <img src="https://pictures.test/b.png"> end</p>';
+  const all = { master: true, blocked: [] };
+  const output = stripHtmlMedia(html, all);
+  expect(output).toBe(
+    '<p>a <a href="https://example.test/x">link</a></p>LITE MODE<p>text LITE MODE end</p>',
+  );
+  expect(stripHtmlMedia(html, { master: false, blocked: [] })).toBe(html);
+  // Another category alone does not touch a remote picture.
+  const remote = '<p><img src="https://pictures.test/b.png"></p>';
+  expect(stripHtmlMedia(remote, { master: false, blocked: ["avatars"] })).toBe(
+    remote,
+  );
+  expect(
+    stripHtmlMedia(remote, { master: false, blocked: ["postImages"] }),
+  ).toBe("<p>LITE MODE</p>");
 });

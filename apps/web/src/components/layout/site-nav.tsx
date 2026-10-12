@@ -1,12 +1,23 @@
 "use client";
 
-import { LayoutGrid, Menu, Search } from "lucide-react";
+import { ChevronDown, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { isActivePath, NAV_LINKS, type NavLink } from "@/components/layout/nav";
+import {
+  hasHref,
+  isCurrent,
+  linkProps,
+  type NavItem,
+} from "@/components/layout/nav";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -17,11 +28,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-
-const MENU_LINKS: NavLink[] = [
-  ...NAV_LINKS,
-  { label: "components", href: "/ui" },
-];
 
 export function SearchForm({ className }: { className?: string }) {
   const t = useTranslations("layout.siteNav");
@@ -49,50 +55,117 @@ export function SearchForm({ className }: { className?: string }) {
   );
 }
 
-export function HeaderNav({ className }: { className?: string }) {
-  const t = useTranslations("layout.siteNav");
+const headerLink =
+  "inline-flex h-10 items-center rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+
+function HeaderEntry({ entry }: { entry: NavItem }) {
   const pathname = usePathname();
+  const highlight = entry.highlight && "text-primary hover:text-primary/80";
+  if (entry.children.length > 0) {
+    // A heading has no page of its own: its label opens the children. An entry with a page
+    // keeps it as the first line of the menu.
+    const current =
+      isCurrent(pathname, entry) ||
+      entry.children.some((child) => isCurrent(pathname, child));
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-current={current ? "page" : undefined}
+          className={cn(
+            headerLink,
+            "group gap-1 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            highlight,
+          )}
+        >
+          {entry.title}
+          <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-52">
+          {[entry, ...entry.children].filter(hasHref).map((link) => (
+            <DropdownMenuItem
+              key={link.id}
+              className="min-h-10 md:min-h-8"
+              render={<Link {...linkProps(link)} />}
+            >
+              {link.title}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  if (!hasHref(entry))
+    return (
+      <span className={cn(headerLink, "cursor-default")}>{entry.title}</span>
+    );
+  return (
+    <Link
+      {...linkProps(entry)}
+      aria-current={isCurrent(pathname, entry) ? "page" : undefined}
+      className={cn(headerLink, highlight)}
+    >
+      {entry.title}
+    </Link>
+  );
+}
+
+export function HeaderNav({
+  links,
+  className,
+}: {
+  links: NavItem[];
+  className?: string;
+}) {
+  const t = useTranslations("layout.siteNav");
   return (
     <nav
       aria-label={t("aria.main")}
       className={cn("items-center gap-1", className)}
     >
-      {NAV_LINKS.map((link) => (
-        <Link
-          key={link.label}
-          href={link.href}
-          aria-current={
-            isActivePath(pathname, link.href, link.match) ? "page" : undefined
-          }
-          className={cn(
-            "inline-flex h-10 items-center rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground",
-            link.highlight && "text-primary hover:text-primary/80",
-          )}
-        >
-          {t(`links.${link.label}`)}
-        </Link>
+      {links.map((entry) => (
+        <HeaderEntry key={entry.id} entry={entry} />
       ))}
-      <Link
-        href="/ui"
-        aria-label={t("links.components")}
-        aria-current={isActivePath(pathname, "/ui") ? "page" : undefined}
-        className="inline-flex size-10 items-center justify-center rounded-md border-b-2 border-transparent text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
-      >
-        <LayoutGrid className="size-4" />
-      </Link>
     </nav>
   );
 }
 
+const menuLink =
+  "flex h-11 items-center rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+
+function MenuLink({
+  entry,
+  onNavigate,
+}: {
+  entry: NavItem;
+  onNavigate: () => void;
+}) {
+  const pathname = usePathname();
+  if (!hasHref(entry))
+    return (
+      <span className={cn(menuLink, "cursor-default")}>{entry.title}</span>
+    );
+  return (
+    <Link
+      {...linkProps(entry)}
+      onClick={onNavigate}
+      aria-current={isCurrent(pathname, entry) ? "page" : undefined}
+      className={cn(menuLink, entry.highlight && "text-primary")}
+    >
+      {entry.title}
+    </Link>
+  );
+}
+
 export function MobileMenu({
+  links,
   className,
   logo,
 }: {
+  links: NavItem[];
   className?: string;
   logo: React.ReactNode;
 }) {
   const t = useTranslations("layout.siteNav");
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -122,23 +195,21 @@ export function MobileMenu({
           <SearchForm />
         </div>
         <nav aria-label={t("aria.main")} className="flex flex-col p-2">
-          {MENU_LINKS.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              onClick={() => setOpen(false)}
-              aria-current={
-                isActivePath(pathname, link.href, link.match)
-                  ? "page"
-                  : undefined
-              }
-              className={cn(
-                "flex h-11 items-center rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground",
-                link.highlight && "text-primary",
+          {links.map((entry) => (
+            <div key={entry.id} className="flex flex-col">
+              <MenuLink entry={entry} onNavigate={() => setOpen(false)} />
+              {entry.children.length > 0 && (
+                <div className="ml-3 flex flex-col border-l">
+                  {entry.children.map((child) => (
+                    <MenuLink
+                      key={child.id}
+                      entry={child}
+                      onNavigate={() => setOpen(false)}
+                    />
+                  ))}
+                </div>
               )}
-            >
-              {t(`links.${link.label}`)}
-            </Link>
+            </div>
           ))}
         </nav>
       </SheetContent>
