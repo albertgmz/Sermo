@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthCollage } from "@/app/(auth)/login/auth-collage";
 import { LoginForm } from "@/app/(auth)/login/login-form";
+import { UserLink } from "@/components/forum/user-link";
 import { LogoMark } from "@/components/layout/logo";
 import { getUsers } from "@/lib/db";
 
@@ -28,11 +29,8 @@ export default async function LoginPage() {
           </h1>
           <LoginForm />
           <p className="mt-4 text-xs text-muted-foreground">
-            Demo: log in as{" "}
-            <span className="font-mono text-foreground">{first.username}</span>{" "}
-            or{" "}
-            <span className="font-mono text-foreground">{second.username}</span>{" "}
-            with any password.
+            Demo: log in as <UserLink user={first} className="font-mono" /> or{" "}
+            <UserLink user={second} className="font-mono" /> with any password.
           </p>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             No account yet?{" "}

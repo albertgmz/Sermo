@@ -13,11 +13,7 @@ import {
   WinnerList,
 } from "@/components/forum/standing";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { UserLink } from "@/components/forum/user-link";
 import {
   getBirthdays,
   getCurrentMonthStanding,
@@ -60,20 +56,10 @@ function NewestMembers({ members }: { members: UserView[] }) {
     <ul className="flex flex-wrap gap-2 px-4 py-3">
       {members.map((member) => (
         <li key={member.id}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Link
-                  href={`/members/${member.id}`}
-                  aria-label={member.username}
-                  className="block rounded-full"
-                />
-              }
-            >
-              <UserAvatar user={member} size="lg" link={false} />
-            </TooltipTrigger>
-            <TooltipContent>{member.username}</TooltipContent>
-          </Tooltip>
+          <UserLink user={member} className="rounded-full">
+            <UserAvatar user={member} size="lg" link={false} />
+            <span className="sr-only">{member.username}</span>
+          </UserLink>
         </li>
       ))}
     </ul>

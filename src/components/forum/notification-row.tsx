@@ -3,6 +3,7 @@ import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserLink } from "@/components/forum/user-link";
 import type { NotificationView } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
@@ -18,17 +19,22 @@ export function NotificationRow({
 }) {
   const titleStart = item.text.indexOf("“") + 1;
   return (
-    <Link
-      href={item.href}
+    <div
       className={cn(
-        "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
+        "relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50",
         !item.read && "bg-primary/5",
       )}
     >
       <UserAvatar user={item.actor} size={size} link={false} />
       <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">
-        <span className="font-semibold">{item.actor.username}</span>{" "}
-        <span className={item.read ? "text-muted-foreground" : undefined}>
+        <UserLink user={item.actor} className="relative z-10" />{" "}
+        <Link
+          href={item.href}
+          className={cn(
+            "after:absolute after:inset-0",
+            item.read && "text-muted-foreground",
+          )}
+        >
           {item.prefix && titleStart > 0 ? (
             <>
               {item.text.slice(0, titleStart)}
@@ -41,13 +47,13 @@ export function NotificationRow({
           ) : (
             item.text
           )}
-        </span>
+        </Link>
         <RelativeTime
           date={item.createdAt}
           className="mt-0.5 block text-xs text-muted-foreground"
         />
       </span>
       {!item.read && <UnreadDot className="mt-1.5" />}
-    </Link>
+    </div>
   );
 }

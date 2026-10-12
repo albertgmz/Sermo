@@ -48,16 +48,14 @@ export function MessagesPanel({
         <ul className={listClass}>
           {conversations.map((conversation) => (
             <li key={conversation.id}>
-              <Link
-                href={`/conversations/${conversation.id}`}
-                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-              >
+              <div className="relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50">
                 <ConversationPreview
+                  linked
                   conversation={conversation}
                   viewerId={user.id}
                   ringClassName="ring-popover"
                 />
-              </Link>
+              </div>
             </li>
           ))}
         </ul>

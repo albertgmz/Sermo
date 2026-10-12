@@ -1,35 +1,31 @@
-import Link from "next/link";
-import { nameColor } from "@/lib/appearance";
-import type { Appearance, User } from "@/lib/types";
+import {
+  MemberCard,
+  type MemberCardUser,
+} from "@/components/forum/member-card";
+import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
+import { userLinkClass, userNameClass } from "@/components/forum/user-name";
 import { cn } from "@/lib/utils";
 
-export type LinkUser = Pick<User, "id" | "username" | "role"> & {
-  appearance?: Pick<Appearance, "nameColor">;
-};
-
-// A name colour the member picked wins over the staff colours.
-export function userNameClass(user: Omit<LinkUser, "id" | "username">) {
-  const picked = nameColor(user.appearance?.nameColor);
-  if (picked) return picked.text;
-  if (user.role === "admin") return "text-primary";
-  if (user.role === "moderator") return "text-success";
-}
-
-export const userLinkClass = "font-semibold underline-offset-4 hover:underline";
+export type LinkUser = MemberCardUser;
+export { userLinkClass, userNameClass } from "@/components/forum/user-name";
 
 export function UserLink({
   user,
   className,
+  children,
 }: {
   user: LinkUser;
   className?: string;
+  children?: React.ReactNode;
 }) {
   return (
-    <Link
+    <MemberCardTrigger
       href={`/members/${user.id}`}
+      name={user.username}
       className={cn(userLinkClass, userNameClass(user), className)}
+      card={<MemberCard user={user} className="border-0 bg-transparent" />}
     >
-      {user.username}
-    </Link>
+      {children ?? user.username}
+    </MemberCardTrigger>
   );
 }

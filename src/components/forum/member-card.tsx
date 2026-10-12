@@ -1,18 +1,38 @@
+import Link from "next/link";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
-import { UserLink } from "@/components/forum/user-link";
+import { userNameClass } from "@/components/forum/user-name";
+import { buttonVariants } from "@/components/ui/button";
 import type { UserView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
+export type MemberCardUser = Pick<
+  UserView,
+  | "id"
+  | "username"
+  | "avatar"
+  | "appearance"
+  | "title"
+  | "role"
+  | "rank"
+  | "donor"
+  | "level"
+  | "awards"
+  | "awardSlots"
+  | "postCount"
+  | "reactionCount"
+  | "joinedAt"
+>;
 
 export function MemberCard({
   user,
   className,
 }: {
-  user: UserView;
+  user: MemberCardUser;
   className?: string;
 }) {
   return (
@@ -26,8 +46,15 @@ export function MemberCard({
       <div className="flex items-end gap-5">
         <UserAvatar user={user} size="xl" />
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5">
-            <UserLink user={user} className="truncate text-sm" />
+          <p className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={cn(
+                "max-w-full truncate text-sm font-semibold",
+                userNameClass(user),
+              )}
+            >
+              {user.username}
+            </span>
             <UserBadges user={user} />
           </p>
           <p className="truncate text-xs text-muted-foreground">{user.title}</p>
@@ -43,6 +70,7 @@ export function MemberCard({
             awards={user.awards}
             max={user.awardSlots.desktop}
             maxMobile={user.awardSlots.mobile}
+            className="min-h-10 min-w-10 after:hidden"
           />
         ) : (
           <span className="text-xs text-muted-foreground">No awards yet</span>
@@ -68,6 +96,15 @@ export function MemberCard({
           </dd>
         </div>
       </dl>
+      <Link
+        href={`/members/${user.id}`}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "min-h-10 w-full",
+        )}
+      >
+        View profile
+      </Link>
     </article>
   );
 }

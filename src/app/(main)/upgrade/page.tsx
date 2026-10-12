@@ -7,6 +7,7 @@ import { Credits } from "@/components/forum/credits";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { DonorBadge, RankBadge } from "@/components/forum/user-badges";
+import { UserLink } from "@/components/forum/user-link";
 import { Container } from "@/components/layout/container";
 import {
   heroSubtitleClass,
@@ -81,10 +82,7 @@ function HeroArt({
   award: RankAward;
 }) {
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none relative hidden h-80 w-[26rem] shrink-0 select-none lg:block"
-    >
+    <div className="relative hidden h-80 w-[26rem] shrink-0 select-none lg:block">
       <div className="absolute inset-0 bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_22%,transparent),transparent)]" />
       {award && (
         <div
@@ -108,14 +106,13 @@ function HeroArt({
       >
         <UserAvatar user={user} size="xl" link={false} />
         <p className="mt-3 flex items-center gap-1.5">
-          <span
+          <UserLink
+            user={user}
             className={cn(
               "truncate text-base font-bold",
               nameColor(rank.headline.nameColor)?.text,
             )}
-          >
-            {user.username}
-          </span>
+          />
           <RankBadge rank={rank} />
         </p>
         <p className="truncate text-xs text-muted-foreground">{user.title}</p>
@@ -241,13 +238,11 @@ function RankCard({
   rank,
   award,
   viewer,
-  username,
   recommended,
 }: {
   rank: Rank;
   award: RankAward;
   viewer: UserView | null;
-  username: string;
   recommended: boolean;
 }) {
   const current = viewer?.rank;
@@ -291,7 +286,14 @@ function RankCard({
               nameColor(rank.headline.nameColor)?.text,
             )}
           >
-            {username}
+            {viewer ? (
+              <UserLink
+                user={viewer}
+                className={nameColor(rank.headline.nameColor)?.text}
+              />
+            ) : (
+              "your_name"
+            )}
           </span>
         </Grant>
         {award && (
@@ -454,7 +456,6 @@ export default async function UpgradePage() {
                 rank={rank}
                 award={awardOf(rank)}
                 viewer={viewer}
-                username={viewer?.username ?? "your_name"}
                 recommended={rank.id === recommended.id}
               />
             ))}

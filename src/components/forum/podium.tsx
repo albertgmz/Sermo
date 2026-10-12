@@ -1,11 +1,10 @@
-import Link from "next/link";
 import {
   Leaderboard,
   LeaderboardScore,
   RankNumber,
 } from "@/components/forum/leaderboard";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-link";
+import { UserLink } from "@/components/forum/user-link";
 import type { LeaderboardKind, UserView } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
@@ -45,26 +44,17 @@ export function Podium({
               index === 2 && "col-start-3",
             )}
           >
-            <Link
-              href={`/members/${member.id}`}
+            <div
               className={cn(
                 "group flex min-w-0 flex-col items-center rounded-t-md px-1 pt-2 transition-colors hover:bg-muted/60",
                 member.id === viewerId && "bg-primary/5",
               )}
             >
-              <UserAvatar
+              <UserAvatar user={member} size={index === 0 ? "xl" : "lg"} />
+              <UserLink
                 user={member}
-                size={index === 0 ? "xl" : "lg"}
-                link={false}
+                className="mt-1 block w-full truncate text-center text-sm"
               />
-              <span
-                className={cn(
-                  "mt-1 block w-full truncate text-center text-sm font-semibold group-hover:underline",
-                  userNameClass(member),
-                )}
-              >
-                {member.username}
-              </span>
               <div className="flex min-h-5 w-full justify-center">
                 <LeaderboardScore member={member} by={by} compact />
               </div>
@@ -79,7 +69,7 @@ export function Podium({
                 <span className="sr-only">Rank </span>
                 <RankNumber rank={index + 1} />
               </div>
-            </Link>
+            </div>
           </li>
         ))}
       </ol>

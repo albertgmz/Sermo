@@ -49,6 +49,7 @@ export default async function ConversationsLayout({
                 <li key={conversation.id}>
                   <ConversationLink id={conversation.id}>
                     <ConversationPreview
+                      linked
                       conversation={conversation}
                       viewerId={user.id}
                     />
