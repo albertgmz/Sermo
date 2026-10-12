@@ -193,3 +193,14 @@ test("every Art use explicitly supplies a registered category", () => {
   );
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+// Browser-only behaviour has no DOM test here; pin the pieces it relies on.
+test("tab sync broadcasts committed changes and the member card resets with them", () => {
+  const sync = read("src/components/layout/lite-mode-sync.tsx");
+  expect(sync).toContain("new BroadcastChannel(");
+  expect(sync).toContain("channel?.postMessage(");
+  expect(sync).toContain('addEventListener("focus", check)');
+  const card = read("src/components/forum/member-card-trigger.tsx");
+  expect(card).toContain("useSyncExternalStore(");
+  expect(card).toMatch(/<MemberCardWithPreference\s+key=\{preference\}/);
+});

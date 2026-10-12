@@ -6,8 +6,7 @@ import { Credits } from "@/components/forum/credits";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Badge } from "@/components/ui/badge";
 import type { PermissionView, UserView } from "@/lib/db";
-import { stripMarkdownImages } from "@/lib/lite-markdown";
-import { liteBlocks } from "@/lib/lite-mode";
+import { filterLiteMarkdown } from "@/lib/lite-mode";
 import type { PermissionKey } from "@/lib/permissions";
 
 const linkClass =
@@ -89,9 +88,7 @@ export async function PermissionsPanel({
   const signature = permissions.find(
     (permission) => permission.key === "signature",
   );
-  const signatureText = (await liteBlocks("postImages"))
-    ? stripMarkdownImages(user.signature ?? "")
-    : (user.signature ?? "");
+  const signatureText = await filterLiteMarkdown(user.signature ?? "");
   const t = await getTranslations("account.permissions");
   const labels = await getTranslations("lib.permissions");
 

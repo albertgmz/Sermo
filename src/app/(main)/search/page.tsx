@@ -39,8 +39,7 @@ import {
 } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
 import { titleKeyForLevel } from "@/lib/levels";
-import { stripMarkdownImages } from "@/lib/lite-markdown";
-import { liteBlocks } from "@/lib/lite-mode";
+import { filterLiteMarkdown } from "@/lib/lite-mode";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 
@@ -75,9 +74,7 @@ const BEFORE = 60;
 const AFTER = 100;
 
 async function Excerpt({ body, term }: { body: string; term: string }) {
-  const source = (await liteBlocks("postImages"))
-    ? stripMarkdownImages(body)
-    : body;
+  const source = await filterLiteMarkdown(body);
   const t = await getTranslations("search.search");
   const text = source
     .replace(/[*`>#]/g, "")
