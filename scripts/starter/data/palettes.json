@@ -1,0 +1,114 @@
+{
+  "accent": [
+    {
+      "name": "Red",
+      "color": "#dc2626",
+      "foreground": "#ffffff"
+    },
+    {
+      "name": "Orange",
+      "color": "#ea580c",
+      "foreground": "#1a0a03"
+    },
+    {
+      "name": "Amber",
+      "color": "#f59e0b",
+      "foreground": "#1c1304"
+    },
+    {
+      "name": "Emerald",
+      "color": "#10b981",
+      "foreground": "#022c22"
+    },
+    {
+      "name": "Sky",
+      "color": "#0ea5e9",
+      "foreground": "#03131f"
+    },
+    {
+      "name": "Violet",
+      "color": "#8452f6",
+      "foreground": "#ffffff"
+    }
+  ],
+  "name": [
+    {
+      "name": "Rose",
+      "color": "#fb7185"
+    },
+    {
+      "name": "Coral",
+      "color": "#fb923c"
+    },
+    {
+      "name": "Lime",
+      "color": "#a3e635"
+    },
+    {
+      "name": "Emerald",
+      "color": "#34d399"
+    },
+    {
+      "name": "Cyan",
+      "color": "#22d3ee"
+    },
+    {
+      "name": "Sky",
+      "color": "#60a5fa"
+    },
+    {
+      "name": "Indigo",
+      "color": "#818cf8"
+    },
+    {
+      "name": "Pink",
+      "color": "#f472b6"
+    },
+    {
+      "name": "Silver",
+      "color": "#c4c4cc"
+    },
+    {
+      "name": "Gold",
+      "color": "#eab308"
+    },
+    {
+      "name": "Legendary",
+      "color": "#a78bfa"
+    }
+  ],
+  "prefix": [
+    {
+      "name": "Sky",
+      "color": "#60a5fa"
+    },
+    {
+      "name": "Emerald",
+      "color": "#34d399"
+    },
+    {
+      "name": "Orange",
+      "color": "#fb923c"
+    },
+    {
+      "name": "Violet",
+      "color": "#818cf8"
+    },
+    {
+      "name": "Amber",
+      "color": "#eab308"
+    },
+    {
+      "name": "Cyan",
+      "color": "#22d3ee"
+    },
+    {
+      "name": "Rose",
+      "color": "#fb7185"
+    },
+    {
+      "name": "Lime",
+      "color": "#a3e635"
+    }
+  ]
+}

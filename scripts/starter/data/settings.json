@@ -1,0 +1,81 @@
+{
+  "levelStep": 100,
+  "levelTitles": [
+    {
+      "level": 1,
+      "title": "New member"
+    },
+    {
+      "level": 2,
+      "title": "Member"
+    },
+    {
+      "level": 4,
+      "title": "Senior member"
+    }
+  ],
+  "signatureMaxLength": 300,
+  "signatureMaxLines": 4,
+  "customTitleMaxLength": 40,
+  "standingPostPoints": 1,
+  "standingReactionsPerPoint": 10,
+  "standingReferralPoints": 20,
+  "creditRules": [
+    {
+      "title": "Welcome bonus",
+      "trigger": "registered",
+      "amount": 50,
+      "limit": null
+    },
+    {
+      "title": "Thread started",
+      "trigger": "thread_created",
+      "amount": 5,
+      "limit": {
+        "count": 10,
+        "windowHours": 24
+      }
+    },
+    {
+      "title": "Reply in a forum",
+      "trigger": "reply_posted",
+      "amount": 2,
+      "limit": {
+        "count": 20,
+        "windowHours": 24
+      }
+    },
+    {
+      "title": "Reaction received",
+      "trigger": "reaction_received",
+      "amount": 1,
+      "limit": null
+    }
+  ],
+  "reactionTypes": [
+    {
+      "title": "Like",
+      "emoji": "👍"
+    },
+    {
+      "title": "Love",
+      "emoji": "❤️"
+    },
+    {
+      "title": "Haha",
+      "emoji": "😂"
+    },
+    {
+      "title": "Wow",
+      "emoji": "😮"
+    },
+    {
+      "title": "Sad",
+      "emoji": "😢"
+    },
+    {
+      "title": "Angry",
+      "emoji": "😡"
+    }
+  ]
+}

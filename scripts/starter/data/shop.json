@@ -1,0 +1,1526 @@
+{
+  "categories": [
+    {
+      "name": "Frames",
+      "description": "A frame sits around your avatar everywhere it appears. Each preview shows it on your own picture."
+    },
+    {
+      "name": "Name colours",
+      "description": "Show your username in a colour of your own across the forum."
+    },
+    {
+      "name": "Thread covers",
+      "description": "A thread cover is a photo for one of your own threads. Covers are used up: each one goes on a single thread."
+    },
+    {
+      "name": "Boosts",
+      "description": "Boosts are used up: each one highlights or bumps one of your own threads for a limited time."
+    },
+    {
+      "name": "Permissions",
+      "description": "Permissions unlock features for your account, such as a signature or a profile cover. Most are bought once and kept, and some also come with a rank."
+    },
+    {
+      "name": "Ranks",
+      "description": "A rank is bought once with credits. Upgrading from a lower rank costs the difference."
+    }
+  ],
+  "items": [
+    {
+      "category": "Frames",
+      "name": "Copper Star",
+      "description": "The Copper Star frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Copper Star"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Pine Bridge",
+      "description": "The Pine Bridge frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Pine Bridge"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Peacock Plume",
+      "description": "The Peacock Plume frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Peacock Plume"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Ink Tentacle",
+      "description": "The Ink Tentacle frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Ink Tentacle"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Fox Mask",
+      "description": "The Fox Mask frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Fox Mask"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Jade Rabbit",
+      "description": "The Jade Rabbit frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Jade Rabbit"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Golden Wreath",
+      "description": "The Golden Wreath frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Golden Wreath"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Crimson Seal",
+      "description": "The Crimson Seal frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Crimson Seal"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Harvest Moon",
+      "description": "The Harvest Moon frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Harvest Moon"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Emerald Serpent",
+      "description": "The Emerald Serpent frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Emerald Serpent"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Shrine Gate",
+      "description": "The Shrine Gate frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Shrine Gate"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Silver Shuriken",
+      "description": "The Silver Shuriken frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Silver Shuriken"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Golden Serpent",
+      "description": "The Golden Serpent frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Golden Serpent"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Pearl Shell",
+      "description": "The Pearl Shell frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Pearl Shell"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Camellia Rope",
+      "description": "The Camellia Rope frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Camellia Rope"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Lucky Cat",
+      "description": "The Lucky Cat frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Lucky Cat"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Rabbit Garden",
+      "description": "The Rabbit Garden frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Rabbit Garden"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Autumn Ghost",
+      "description": "The Autumn Ghost frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Autumn Ghost"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Moonlit Bridge",
+      "description": "The Moonlit Bridge frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Moonlit Bridge"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Snowy Plum",
+      "description": "The Snowy Plum frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Snowy Plum"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Blossom Pavilion",
+      "description": "The Blossom Pavilion frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Blossom Pavilion"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Festival Wreath",
+      "description": "The Festival Wreath frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Festival Wreath"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Scarlet Star",
+      "description": "The Scarlet Star frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Scarlet Star"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Wandering Blade",
+      "description": "The Wandering Blade frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Wandering Blade"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sparkler Chick",
+      "description": "The Sparkler Chick frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sparkler Chick"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Lantern Maiden",
+      "description": "The Lantern Maiden frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Lantern Maiden"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Plum Blossom",
+      "description": "The Plum Blossom frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Plum Blossom"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sakura Drum",
+      "description": "The Sakura Drum frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sakura Drum"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Spring Crescent",
+      "description": "The Spring Crescent frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Spring Crescent"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Great Wave",
+      "description": "The Great Wave frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Great Wave"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Vine Circle",
+      "description": "The Vine Circle frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Vine Circle"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Wild Flame",
+      "description": "The Wild Flame frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Wild Flame"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Fortune Scroll",
+      "description": "The Fortune Scroll frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Fortune Scroll"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Comic Burst",
+      "description": "The Comic Burst frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Comic Burst"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Feather Charm",
+      "description": "The Feather Charm frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Feather Charm"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Bat Wing",
+      "description": "The Bat Wing frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Bat Wing"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Koi Banner",
+      "description": "The Koi Banner frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Koi Banner"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Fox Spirit",
+      "description": "The Fox Spirit frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Fox Spirit"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Cloud Knot",
+      "description": "The Cloud Knot frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Cloud Knot"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Frost Pagoda",
+      "description": "The Frost Pagoda frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Frost Pagoda"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Samurai Crest",
+      "description": "The Samurai Crest frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Samurai Crest"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Azure Phoenix",
+      "description": "The Azure Phoenix frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Azure Phoenix"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Demon Flame",
+      "description": "The Demon Flame frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Demon Flame"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Candy Orbs",
+      "description": "The Candy Orbs frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Candy Orbs"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Bear Hug",
+      "description": "The Bear Hug frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Bear Hug"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sake Moon",
+      "description": "The Sake Moon frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sake Moon"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Bone Horn",
+      "description": "The Bone Horn frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Bone Horn"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Ivory Horn",
+      "description": "The Ivory Horn frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Ivory Horn"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Scarlet Oni",
+      "description": "The Scarlet Oni frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Scarlet Oni"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Pale Oni",
+      "description": "The Pale Oni frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Pale Oni"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Gilded Oni",
+      "description": "The Gilded Oni frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Gilded Oni"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Oni Trident",
+      "description": "The Oni Trident frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Oni Trident"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Oni Tassel",
+      "description": "The Oni Tassel frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Oni Tassel"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Royal Oni",
+      "description": "The Royal Oni frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Royal Oni"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Violet Dragon",
+      "description": "The Violet Dragon frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Violet Dragon"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Rose Ribbon",
+      "description": "The Rose Ribbon frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Rose Ribbon"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Iron Warlord",
+      "description": "The Iron Warlord frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Iron Warlord"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Twin Katana",
+      "description": "The Twin Katana frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Twin Katana"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Golden Shogun",
+      "description": "The Golden Shogun frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Golden Shogun"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Rice Harvest",
+      "description": "The Rice Harvest frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Rice Harvest"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sakura Crown",
+      "description": "The Sakura Crown frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sakura Crown"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Jade Gate",
+      "description": "The Jade Gate frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Jade Gate"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Coin Pouch",
+      "description": "The Coin Pouch frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Coin Pouch"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Kitsune Shadow",
+      "description": "The Kitsune Shadow frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Kitsune Shadow"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Maple Year",
+      "description": "The Maple Year frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Maple Year"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Golden Temple",
+      "description": "The Golden Temple frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Golden Temple"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Spirit Gourd",
+      "description": "The Spirit Gourd frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Spirit Gourd"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Imp Horns",
+      "description": "The Imp Horns frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Imp Horns"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Misty Moon",
+      "description": "The Misty Moon frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Misty Moon"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Tidal Star",
+      "description": "The Tidal Star frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Tidal Star"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Steel Shuriken",
+      "description": "The Steel Shuriken frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Steel Shuriken"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Ruby Star",
+      "description": "The Ruby Star frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Ruby Star"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Blossom Dolls",
+      "description": "The Blossom Dolls frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Blossom Dolls"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Pumpkin Night",
+      "description": "The Pumpkin Night frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Pumpkin Night"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Ebony Ring",
+      "description": "The Ebony Ring frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Ebony Ring"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Forest Feast",
+      "description": "The Forest Feast frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Forest Feast"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Scholar Hat",
+      "description": "The Scholar Hat frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Scholar Hat"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Violet Flame",
+      "description": "The Violet Flame frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Violet Flame"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sunset Pagoda",
+      "description": "The Sunset Pagoda frame, shown around your avatar everywhere it appears.",
+      "price": 5000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sunset Pagoda"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Sake Gourd",
+      "description": "The Sake Gourd frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Sake Gourd"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Fan Fortune",
+      "description": "The Fan Fortune frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Fan Fortune"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Golden Bell",
+      "description": "The Golden Bell frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Golden Bell"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Crow Tengu",
+      "description": "The Crow Tengu frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Crow Tengu"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Shiba Rope",
+      "description": "The Shiba Rope frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Shiba Rope"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Frog Prince",
+      "description": "The Frog Prince frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Frog Prince"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Straw Hat",
+      "description": "The Straw Hat frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Straw Hat"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Swan Lake",
+      "description": "The Swan Lake frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Swan Lake"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Fluffy Yokai",
+      "description": "The Fluffy Yokai frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Fluffy Yokai"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Night Tide",
+      "description": "The Night Tide frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Night Tide"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Lacquer Flame",
+      "description": "The Lacquer Flame frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Lacquer Flame"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Nine Tails",
+      "description": "The Nine Tails frame, shown around your avatar everywhere it appears.",
+      "price": 3200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Nine Tails"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Jade Serpent",
+      "description": "The Jade Serpent frame, shown around your avatar everywhere it appears.",
+      "price": 1200,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Jade Serpent"
+      }
+    },
+    {
+      "category": "Frames",
+      "name": "Ink Octopus",
+      "description": "The Ink Octopus frame, shown around your avatar everywhere it appears.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "frame",
+        "name": "Ink Octopus"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Rose name",
+      "description": "Show your username in rose across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-rose.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#fb7185"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Coral name",
+      "description": "Show your username in coral across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-coral.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#fb923c"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Lime name",
+      "description": "Show your username in lime across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-lime.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#a3e635"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Emerald name",
+      "description": "Show your username in emerald across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-emerald.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#34d399"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Cyan name",
+      "description": "Show your username in cyan across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-cyan.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#22d3ee"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Sky name",
+      "description": "Show your username in sky across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-sky.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#60a5fa"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Indigo name",
+      "description": "Show your username in indigo across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-indigo.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#818cf8"
+      }
+    },
+    {
+      "category": "Name colours",
+      "name": "Pink name",
+      "description": "Show your username in pink across the forum.",
+      "price": 1500,
+      "consumable": false,
+      "image": "color-pink.svg",
+      "effect": {
+        "type": "nameColor",
+        "color": "#f472b6"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Summit thread cover",
+      "description": "Snow-covered ridges below a high peak. A photo for one of your own threads, used up when you apply it.",
+      "price": 400,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Summit"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Skyline thread cover",
+      "description": "A lit bridge and a city skyline at night, in black and white. A photo for one of your own threads, used up when you apply it.",
+      "price": 400,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Skyline"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Bokeh thread cover",
+      "description": "Soft, out-of-focus lights in warm colours. A photo for one of your own threads, used up when you apply it.",
+      "price": 300,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Bokeh"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Forest bay thread cover",
+      "description": "Treetops in front of a blue bay and distant hills. A photo for one of your own threads, used up when you apply it.",
+      "price": 300,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Forest bay"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Sunset field thread cover",
+      "description": "A meadow and a row of trees under an orange sky. A photo for one of your own threads, used up when you apply it.",
+      "price": 400,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Sunset field"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Storm bridge thread cover",
+      "description": "A suspension bridge against heavy evening clouds. A photo for one of your own threads, used up when you apply it.",
+      "price": 400,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Storm bridge"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Stage light thread cover",
+      "description": "A lone figure in the haze of the stage lights. A photo for one of your own threads, used up when you apply it.",
+      "price": 300,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Stage light"
+      }
+    },
+    {
+      "category": "Thread covers",
+      "name": "Vinyl thread cover",
+      "description": "A turntable needle on a spinning record. A photo for one of your own threads, used up when you apply it.",
+      "price": 300,
+      "consumable": true,
+      "image": null,
+      "effect": {
+        "type": "threadCover",
+        "name": "Vinyl"
+      }
+    },
+    {
+      "category": "Boosts",
+      "name": "Thread highlight, 3 days",
+      "description": "Make one of your threads stand out in its forum, in the feed and on its opening post for three days.",
+      "price": 250,
+      "consumable": true,
+      "image": "boost-highlight.svg",
+      "effect": {
+        "type": "highlight",
+        "days": 3
+      }
+    },
+    {
+      "category": "Boosts",
+      "name": "Thread highlight, 7 days",
+      "description": "Make one of your threads stand out in its forum, in the feed and on its opening post for a full week.",
+      "price": 500,
+      "consumable": true,
+      "image": "boost-highlight-week.svg",
+      "effect": {
+        "type": "highlight",
+        "days": 7
+      }
+    },
+    {
+      "category": "Boosts",
+      "name": "Thread bump",
+      "description": "Move one of your threads back to the top of its forum.",
+      "price": 300,
+      "consumable": true,
+      "image": "boost-bump.svg",
+      "effect": {
+        "type": "bump"
+      }
+    },
+    {
+      "category": "Permissions",
+      "name": "Signature",
+      "description": "Add a short signature that is shown under your posts.",
+      "price": 750,
+      "consumable": false,
+      "image": "permission-signature.svg",
+      "effect": {
+        "type": "permission",
+        "permission": "profile.signature"
+      }
+    },
+    {
+      "category": "Permissions",
+      "name": "Profile cover",
+      "description": "Pick a photo from the gallery as the cover of your profile, your posts and your member card.",
+      "price": 2500,
+      "consumable": false,
+      "image": "permission-profile-cover.svg",
+      "effect": {
+        "type": "permission",
+        "permission": "profile.coverPreset"
+      }
+    },
+    {
+      "category": "Permissions",
+      "name": "Custom title",
+      "description": "Replace the title under your name with your own text.",
+      "price": 1000,
+      "consumable": false,
+      "image": "permission-custom-title.svg",
+      "effect": {
+        "type": "permission",
+        "permission": "profile.customTitle"
+      }
+    },
+    {
+      "category": "Permissions",
+      "name": "Award showcase slot",
+      "description": "Show one more award next to your name.",
+      "price": 2000,
+      "consumable": false,
+      "image": "permission-award-slot.svg",
+      "effect": {
+        "type": "permission",
+        "permission": "profile.awardSlots",
+        "value": 6
+      }
+    },
+    {
+      "category": "Permissions",
+      "name": "Username change",
+      "description": "Change your username. Each purchase allows one change.",
+      "price": 800,
+      "consumable": true,
+      "image": "permission-username-change.svg",
+      "effect": {
+        "type": "usernameChange"
+      }
+    },
+    {
+      "category": "Ranks",
+      "name": "Ember",
+      "description": "Unlocks: rank badge next to your name; exclusive name colour; exclusive rank award; custom member title; signature under your posts.",
+      "price": 4000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "group",
+        "group": "Ember"
+      }
+    },
+    {
+      "category": "Ranks",
+      "name": "Blaze",
+      "description": "Unlocks: rank badge next to your name; exclusive name colour; exclusive rank award; custom member title; signature under your posts; name colours of the ranks below; profile cover photo.",
+      "price": 10000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "group",
+        "group": "Blaze"
+      }
+    },
+    {
+      "category": "Ranks",
+      "name": "Inferno",
+      "description": "Unlocks: rank badge next to your name; exclusive name colour; exclusive rank award; custom member title; signature under your posts; name colours of the ranks below; profile cover photo; extra award showcase slot.",
+      "price": 22000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "group",
+        "group": "Inferno"
+      }
+    }
+  ],
+  "rankGroups": [
+    {
+      "title": "Ember",
+      "description": "The Ember rank, bought with credits.",
+      "rank": 10,
+      "badge": "outline",
+      "nameColor": "#c4c4cc",
+      "permissions": [
+        {
+          "permission": "profile.customTitle"
+        },
+        {
+          "permission": "profile.signature"
+        }
+      ]
+    },
+    {
+      "title": "Blaze",
+      "description": "The Blaze rank, bought with credits.",
+      "rank": 20,
+      "badge": "outline",
+      "nameColor": "#eab308",
+      "permissions": [
+        {
+          "permission": "profile.customTitle"
+        },
+        {
+          "permission": "profile.signature"
+        },
+        {
+          "permission": "profile.coverPreset"
+        }
+      ]
+    },
+    {
+      "title": "Inferno",
+      "description": "The Inferno rank, bought with credits.",
+      "rank": 30,
+      "badge": "outline",
+      "nameColor": "#a78bfa",
+      "permissions": [
+        {
+          "permission": "profile.customTitle"
+        },
+        {
+          "permission": "profile.signature"
+        },
+        {
+          "permission": "profile.coverPreset"
+        },
+        {
+          "permission": "profile.awardSlots",
+          "value": 6
+        }
+      ]
+    }
+  ]
+}
