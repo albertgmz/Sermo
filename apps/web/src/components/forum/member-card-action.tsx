@@ -5,6 +5,7 @@ import { MemberCard, MemberCardMinimal } from "@/components/forum/member-card";
 import { profileCard } from "@/lib/member-items";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { isRecordId } from "@/lib/sermo/ids";
 
 // A profile the visitor may not open: private, missing, or behind a sign-in.
 const CLOSED = ["not_found", "forbidden", "unauthenticated"];
@@ -13,7 +14,7 @@ const CLOSED = ["not_found", "forbidden", "unauthenticated"];
 // reading the LITE cookie. Only called once a card is first opened. A member whose profile the
 // visitor cannot open gets a card with the name alone.
 export async function loadMemberCard(id: number, name: string) {
-  if (!Number.isInteger(id)) return null;
+  if (!isRecordId(id)) return null;
   try {
     const [profile, held] = await Promise.all([
       call(profilesGet, { userId: id }),

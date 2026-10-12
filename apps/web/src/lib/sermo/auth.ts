@@ -2,6 +2,7 @@ import "server-only";
 
 import { cacheLife } from "next/cache";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import * as z from "zod";
 import { forwardFromRequest } from "./client";
 import { publicUrl } from "./config";
@@ -18,10 +19,14 @@ export type AuthResult = {
 
 type Exchange = { result: AuthResult; payload: unknown };
 
+// `deliver` says whether the cookies of the answer are written to the visitor. Only an action may
+// do that: while a page renders, Next's cookie store refuses writes and throws. A read made for a
+// page therefore ignores them; the backend sends them again on the next action.
 async function exchange(
   method: "GET" | "POST",
   path: string,
   body?: unknown,
+  deliver = true,
 ): Promise<Exchange> {
   const response = await send(
     method,
@@ -30,12 +35,12 @@ async function exchange(
     body === undefined ? undefined : JSON.stringify(body),
   );
   // Every cookie is delivered, also on a failed attempt.
-  const store = await cookies();
+  const store = deliver ? await cookies() : undefined;
   let signedIn = false;
   for (const header of response.headers.getSetCookie()) {
     const parsed = parseSetCookie(header);
     if (!parsed) continue;
-    store.set({ name: parsed.name, value: parsed.value, ...parsed.options });
+    store?.set({ name: parsed.name, value: parsed.value, ...parsed.options });
     if (
       /session_token$/.test(parsed.name) &&
       parsed.value !== "" &&
@@ -122,7 +127,12 @@ const SessionList = z.array(
 export async function listSessions(): Promise<
   AuthResult & { sessions: SessionRecord[] }
 > {
-  const { result, payload } = await exchange("GET", "list-sessions");
+  const { result, payload } = await exchange(
+    "GET",
+    "list-sessions",
+    undefined,
+    false,
+  );
   const parsed = SessionList.safeParse(payload);
   return {
     ...result,
@@ -142,20 +152,24 @@ export type CurrentAccount = {
 };
 
 // The session behind the request and whether its address is confirmed, from the database rather
-// than the cookie cache. Null for a visitor without a live session.
-export async function getCurrentAccount(): Promise<CurrentAccount | null> {
-  const { result, payload } = await exchange(
-    "GET",
-    "get-session?disableCookieCache=true",
-  );
-  const parsed = CurrentSession.safeParse(payload);
-  if (!result.ok || !parsed.success) return null;
-  return {
-    sessionId: parsed.data.session.id,
-    email: parsed.data.user.email,
-    emailVerified: parsed.data.user.emailVerified,
-  };
-}
+// than the cookie cache. Null for a visitor without a live session. Asked once per request.
+export const getCurrentAccount = cache(
+  async (): Promise<CurrentAccount | null> => {
+    const { result, payload } = await exchange(
+      "GET",
+      "get-session?disableCookieCache=true",
+      undefined,
+      false,
+    );
+    const parsed = CurrentSession.safeParse(payload);
+    if (!result.ok || !parsed.success) return null;
+    return {
+      sessionId: parsed.data.session.id,
+      email: parsed.data.user.email,
+      emailVerified: parsed.data.user.emailVerified,
+    };
+  },
+);
 
 export const revokeSession = (token: string) =>
   post("revoke-session", { token });

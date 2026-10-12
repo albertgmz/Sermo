@@ -50,8 +50,9 @@ function backend(response: Response) {
   return asked;
 }
 
-function onPage(referer?: string) {
-  incoming = new Headers(referer ? { referer } : {});
+// The request's own host is the referer's unless the test says otherwise.
+function onPage(referer?: string, host = referer && new URL(referer).host) {
+  incoming = new Headers(referer && host ? { referer, host } : {});
 }
 
 test("a reaction revalidates the page it was made on and nothing else", async () => {
@@ -106,5 +107,35 @@ test("a target the page cannot have sent is ignored without asking the backend",
   onPage();
   const asked = backend(Response.json(SUMMARY));
   expect(await react("thread" as never, 9, 2)).toEqual({});
+  expect(asked).toHaveLength(0);
+});
+
+test("a referer from another host revalidates nothing", async () => {
+  onPage("https://evil.example/threads/5", "forum.example");
+  backend(Response.json(SUMMARY));
+  expect(await react("post", 9, 2)).toEqual({});
+  expect(revalidated).toEqual([]);
+});
+
+test("a page that is not one where reactions are made is not revalidated", async () => {
+  for (const referer of [
+    "http://localhost:3105/account/security",
+    "http://localhost:3105/",
+    "http://localhost:3105/threads",
+  ]) {
+    onPage(referer);
+    backend(Response.json(SUMMARY));
+    await react("post", 9, 2);
+  }
+  expect(revalidated).toEqual([]);
+});
+
+test("an id that cannot be a record is refused before the backend is asked", async () => {
+  onPage("http://localhost:3105/threads/5");
+  const asked = backend(Response.json(SUMMARY));
+  for (const id of [0, -1, 1.5, Number.NaN, ".."] as unknown as number[]) {
+    await expect(react("post", id, 2)).rejects.toThrow();
+  }
+  await expect(react("post", 9, 0)).rejects.toThrow();
   expect(asked).toHaveLength(0);
 });

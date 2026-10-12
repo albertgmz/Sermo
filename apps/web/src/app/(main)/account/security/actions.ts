@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import type { FormState } from "@/app/(auth)/actions";
 import {
   changePassword,
   getCurrentAccount,
@@ -14,7 +15,7 @@ import {
 
 const SECURITY = "/account/security";
 
-export type FormState = { error: string } | null;
+export type { FormState };
 
 // Better Auth's error code to the key under account.security.errors.
 const ERRORS: Record<string, string> = {

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { AuthShell } from "@/app/(auth)/auth-shell";
 import { ResendForm } from "@/app/(auth)/resend-form";
 import { buttonVariants } from "@/components/ui/button";
+import { getCurrentAccount } from "@/lib/sermo/auth";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,8 @@ const first = (value: string | string[] | undefined) =>
 
 // The landing page of every link in the account emails. The links go through Better Auth, which
 // verifies and then redirects here: with `done=1` when it worked, with `error=<code>` when not.
+// Anyone can type that address, so a confirmation is only claimed for a member whose account says
+// the address is confirmed; everyone else is told what to expect.
 export default async function VerifyEmailPage({
   searchParams,
 }: PageProps<"/verify-email">) {
@@ -36,11 +39,14 @@ export default async function VerifyEmailPage({
   const error = first(params.error);
   const resent = first(params.resent);
   if (first(params.done) && !error) {
+    const confirmed = viewer.user
+      ? (await getCurrentAccount())?.emailVerified === true
+      : false;
     return (
-      <AuthShell heading={t("successHeading")}>
+      <AuthShell heading={confirmed ? t("successHeading") : t("doneHeading")}>
         <div className="space-y-4 text-center">
           <p role="status" className="text-sm text-muted-foreground">
-            {t("success")}
+            {confirmed ? t("success") : t("done")}
           </p>
           <Link
             href={viewer.user ? "/" : "/login"}

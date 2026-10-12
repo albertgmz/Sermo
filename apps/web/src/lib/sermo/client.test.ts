@@ -1,6 +1,7 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
+import lib from "../../../messages/en/lib.json";
 import { SermoError } from "./errors";
 
 const realFetch = globalThis.fetch;
@@ -15,7 +16,12 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { read } = await import("./client");
+mock.module("next-intl/server", () => ({
+  getTranslations: async () => (key: string) =>
+    (lib.errors as Record<string, string>)[key],
+}));
+
+const { errorMessage, read } = await import("./client");
 
 const contract = {
   name: "threads.get",
@@ -156,4 +162,46 @@ test("a rate limit carries a digest the error page can tell it by", () => {
     "sermo.rate_limited",
   );
   assert.equal(new SermoError("internal", 500, "x").digest, undefined);
+});
+
+test("a refusal of the backend is worded as the backend worded it", async () => {
+  assert.equal(
+    await errorMessage(
+      new SermoError("forbidden", 403, "You may not do that."),
+    ),
+    "You may not do that.",
+  );
+  assert.equal(
+    await errorMessage(
+      new SermoError("validation", 422, "Invalid", [
+        { message: "Too short" },
+        { message: "Needs a digit" },
+      ]),
+    ),
+    "Too short Needs a digit",
+  );
+});
+
+test("an error of our own side never reaches the visitor, it is logged instead", async () => {
+  const logged: unknown[][] = [];
+  const realError = console.error;
+  console.error = (...args: unknown[]) => {
+    logged.push(args);
+  };
+  try {
+    for (const detail of [
+      "The API could not be reached: connect ECONNREFUSED 10.0.3.7:8787",
+      "The answer of threads.get does not match its contract.",
+      "The API answered 502.",
+    ]) {
+      assert.equal(
+        await errorMessage(new SermoError("internal", 500, detail)),
+        lib.errors.generic,
+      );
+    }
+  } finally {
+    console.error = realError;
+  }
+  assert.equal(logged.length, 3);
+  assert.match(String((logged[0][1] as Error).message), /ECONNREFUSED/);
 });

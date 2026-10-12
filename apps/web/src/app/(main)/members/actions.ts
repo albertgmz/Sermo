@@ -8,6 +8,7 @@ import {
 } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
+import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
@@ -20,6 +21,7 @@ export async function postToWall(
   _previous: WallState,
   formData: FormData,
 ): Promise<WallState> {
+  requireIds(profileUserId);
   const body = String(formData.get("body") ?? "");
   const created = await attempt(returnTo, () =>
     call(profilePostsCreate, { userId: profileUserId, body }),
@@ -34,6 +36,7 @@ export async function commentOnWallPost(
   _previous: WallState,
   formData: FormData,
 ): Promise<WallState> {
+  requireIds(profilePostId);
   const body = String(formData.get("body") ?? "");
   const created = await attempt(returnTo, () =>
     call(profileCommentsCreate, { profilePostId, body }),
@@ -50,6 +53,7 @@ export async function setFollowing(
   _previous: WallState,
   formData: FormData,
 ): Promise<WallState> {
+  requireIds(userId);
   const follow = formData.get("following") === "true";
   const done = await attempt(returnTo, async () => {
     if (follow) await call(usersFollow, { userId });

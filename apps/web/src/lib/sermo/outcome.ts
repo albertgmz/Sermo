@@ -18,6 +18,6 @@ export async function attempt<T>(
     if (error instanceof SermoError && error.code === "unauthenticated") {
       redirect(`/login?next=${encodeURIComponent(returnTo)}`);
     }
-    return { ok: false, error: errorMessage(error) };
+    return { ok: false, error: await errorMessage(error) };
   }
 }

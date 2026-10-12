@@ -38,6 +38,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
+import { parseId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import {
@@ -56,8 +57,8 @@ const filterClass =
 const getNode = cache((nodeId: number) => read(nodesGet, { nodeId }));
 
 function nodeIdOf(raw: string) {
-  const id = Number(raw);
-  if (!Number.isInteger(id) || id < 1) notFound();
+  const id = parseId(raw);
+  if (id === null) notFound();
   return id;
 }
 

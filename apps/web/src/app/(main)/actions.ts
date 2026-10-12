@@ -13,6 +13,7 @@ import {
 } from "@/lib/lite-preferences";
 import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
+import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
@@ -68,14 +69,19 @@ export type ReactionTarget = keyof typeof CONTENT;
 
 export type ReactionState = { error?: string };
 
-// The page the reaction was made on, as the browser names it. Without one the visitor lands on
-// the home page after signing in.
+// The page the reaction was made on, as the browser names it. Without one, or with one that is
+// not on this site, the visitor lands on the home page after signing in.
 async function pageOfRequest(): Promise<string> {
-  const referer = (await headers()).get("referer");
+  const sent = await headers();
+  const referer = sent.get("referer");
   if (!referer || !URL.canParse(referer)) return "/";
-  const { pathname, search } = new URL(referer);
+  const { host, pathname, search } = new URL(referer);
+  if (host !== (sent.get("x-forwarded-host") ?? sent.get("host"))) return "/";
   return safeReturnPath(pathname + search);
 }
+
+// The routes where a reaction can be made: the only pages worth revalidating for one.
+const REACTION_PAGES = /^\/(threads|members|conversations)\/[^/]+(\/|$)/;
 
 export async function react(
   target: ReactionTarget,
@@ -83,6 +89,8 @@ export async function react(
   typeId: number | null,
 ): Promise<ReactionState> {
   if (!Object.hasOwn(CONTENT, target)) return {};
+  requireIds(id);
+  if (typeId !== null) requireIds(typeId);
   const contentType = CONTENT[target];
   const page = await pageOfRequest();
   // The backend refuses what the viewer may not do; a guest is sent to sign in and back.
@@ -97,6 +105,7 @@ export async function react(
   );
   if (!done.ok) return { error: done.error };
   // Only the page the reaction was made on shows it.
-  revalidatePath(page.split(/[?#]/)[0]);
+  const path = page.split(/[?#]/)[0];
+  if (REACTION_PAGES.test(path)) revalidatePath(path);
   return {};
 }

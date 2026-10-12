@@ -11,7 +11,7 @@ import { notificationEntries } from "@/app/(main)/notifications/entries";
 import type { AccentColors } from "@/components/layout/site-accent";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
-import { membersFor } from "@/lib/sermo/members";
+import { membersFor, plainMember } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
 
@@ -46,11 +46,14 @@ export const getCounters = cache(async (): Promise<UnreadCounts> => {
 });
 
 // The signed-in member as they are drawn everywhere: their card, asked for once per render and
-// shared by the header, the account menu and anything else in the shell. A guest has none.
+// shared by the header, the account menu and anything else in the shell. A guest has none. When
+// the card cannot be read the member is drawn from the name the viewer already carries.
 export const getViewerCard = cache(async () => {
   const { user } = await getViewer();
   if (!user) return null;
-  return (await membersFor([user]))(user.id);
+  return orElse(plainMember(user), async () =>
+    (await membersFor([user]))(user.id),
+  );
 });
 
 // The accent the visitor sees: the one a member chose if the palette still offers it, else the
