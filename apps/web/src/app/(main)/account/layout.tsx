@@ -14,9 +14,8 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { titleKeyForLevel } from "@/lib/levels";
-import { can } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/session";
+import { authorsFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
 export default function AccountLayout({
@@ -65,27 +64,21 @@ export default function AccountLayout({
 }
 
 async function AccountHeader() {
-  const user = await getCurrentUser();
+  const { user } = await getViewer();
   if (!user) redirect("/login");
   const t = await getTranslations("account.layout");
-  const levels = await getTranslations("lib.levels");
-  const roles = await getTranslations("lib.db.roles");
-  const title =
-    (can(user, "customTitle") && user.customTitle) ||
-    (user.role === "member"
-      ? levels(titleKeyForLevel(user.level.level))
-      : roles(user.role));
-
-  const name = userNameProps(user.member);
+  const author = (await authorsFor([user]))(user.id);
+  const { member } = author;
+  const name = userNameProps(member);
 
   return (
     <header className="relative isolate flex min-h-40 flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6">
       <CoverBackdrop
-        cover={user.coverPicture}
+        cover={author.cover}
         variant="full"
         className="opacity-45"
       />
-      <UserAvatar user={user.member} size="xl" link={false} />
+      <UserAvatar user={member} size="xl" link={false} />
       <div className="min-w-0 flex-1 basis-36">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {t("heading")}
@@ -97,9 +90,11 @@ async function AccountHeader() {
           )}
           style={name.style}
         >
-          {user.username}
+          {member.username}
         </p>
-        <p className="break-words text-sm text-muted-foreground">{title}</p>
+        <p className="break-words text-sm text-muted-foreground">
+          {member.title}
+        </p>
       </div>
       <Link
         href={`/members/${user.id}`}

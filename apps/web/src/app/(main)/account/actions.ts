@@ -1,118 +1,274 @@
 "use server";
 
+import {
+  appearanceSet,
+  imagesSetAvatar,
+  imagesSetCover,
+  nodesUnwatch,
+  notificationsPreferences,
+  notificationsSetPreferences,
+  notificationsTypes,
+  preferencesUpdate,
+  profilesUpdate,
+  pushPublicKey,
+  threadsUnwatch,
+  usersChangeUsername,
+  usersUnignore,
+} from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  changeUsername,
-  setAppearance,
-  setSignature,
-  setTitle,
-} from "@/lib/db";
-import { can, TITLE_MAX_LENGTH } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/session";
-import type { Appearance } from "@/lib/types";
+import { getTranslations } from "next-intl/server";
+import type { FormState } from "@/app/(main)/account/action-form";
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
+import { upload } from "@/lib/sermo/upload";
 
-const FIELDS = ["accent", "frame", "nameColor", "cover"] as const;
+const ACCOUNT = "/account";
 
-export type AppearanceField = (typeof FIELDS)[number];
+// A mutation that worked: the pages that show the member are read again and the page the form
+// was on opens at the section with a notice.
+function done(notice: string, hash: string, path = ACCOUNT): never {
+  revalidatePath("/", "layout");
+  redirect(`${path}?notice=${notice}#${hash}`);
+}
 
-export type AppearanceState = {
-  error: "not_found" | "invalid" | "not_owned" | "not_allowed";
-} | null;
+// For the buttons that have no form state: a refusal comes back as a notice.
+async function press(
+  path: string,
+  hash: string,
+  notice: string,
+  run: () => Promise<unknown>,
+): Promise<never> {
+  const result = await attempt(path, run);
+  if (!result.ok) redirect(`${path}?notice=failed#${hash}`);
+  return done(notice, hash, path);
+}
+
+function text(formData: FormData, name: string): string {
+  return String(formData.get(name) ?? "");
+}
+
+// Pictures -------------------------------------------------------------------------------------
+
+export async function uploadPicture(
+  kind: "avatar" | "cover",
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    const t = await getTranslations("account.errors");
+    return { error: t("noFile") };
+  }
+  const saved = await attempt(ACCOUNT, async () => {
+    const fileId = await upload(kind, file);
+    await call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
+      fileId,
+    });
+  });
+  if (!saved.ok) return { error: saved.error };
+  return done(kind, kind);
+}
+
+export async function removePicture(kind: "avatar" | "cover") {
+  await press(ACCOUNT, kind, `${kind}Removed`, () =>
+    call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
+      fileId: null,
+    }),
+  );
+}
+
+// Username -------------------------------------------------------------------------------------
+
+export async function renameMember(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (formData.get("confirm") !== "on") {
+    const t = await getTranslations("account.errors");
+    return { error: t("unconfirmed") };
+  }
+  const renamed = await attempt(ACCOUNT, () =>
+    call(usersChangeUsername, { username: text(formData, "username") }),
+  );
+  if (!renamed.ok) return { error: renamed.error };
+  return done("username", "username");
+}
+
+// About and contact -----------------------------------------------------------------------------
+
+export async function saveAbout(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const clearBirthday = formData.get("clear") === "birthday";
+  const hasBirthday =
+    text(formData, "day") !== "" || text(formData, "month") !== "";
+  const year = text(formData, "year");
+  const saved = await attempt(ACCOUNT, () =>
+    call(profilesUpdate, {
+      about: text(formData, "about"),
+      location: text(formData, "location"),
+      website: text(formData, "website"),
+      socials: {
+        discord: text(formData, "discord"),
+        telegram: text(formData, "telegram"),
+        x: text(formData, "x"),
+      },
+      ...(clearBirthday
+        ? { birthday: null }
+        : hasBirthday
+          ? {
+              birthday: {
+                day: Number(text(formData, "day")),
+                month: Number(text(formData, "month")),
+                ...(year ? { year: Number(year) } : {}),
+              },
+            }
+          : {}),
+    }),
+  );
+  if (!saved.ok) return { error: saved.error };
+  return done("about", "about");
+}
+
+// Title and signature: only the fields the form carries are sent; an empty one clears.
+export async function saveTitleAndSignature(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const change: { customTitle?: string | null; signature?: string | null } = {};
+  if (formData.has("customTitle"))
+    change.customTitle = text(formData, "customTitle").trim() || null;
+  if (formData.has("signature"))
+    change.signature = text(formData, "signature").trim() || null;
+  const saved = await attempt(ACCOUNT, () => call(profilesUpdate, change));
+  if (!saved.ok) return { error: saved.error };
+  return done("title", "title");
+}
+
+export async function clearTitle() {
+  await press(ACCOUNT, "title", "titleRemoved", () =>
+    call(profilesUpdate, { customTitle: null }),
+  );
+}
+
+export async function clearSignature() {
+  await press(ACCOUNT, "title", "signatureRemoved", () =>
+    call(profilesUpdate, { signature: null }),
+  );
+}
+
+// Appearance -----------------------------------------------------------------------------------
+
+const WORN = {
+  accent: "accentId",
+  nameColor: "nameColorId",
+  frame: "frameId",
+  cover: "coverPresetId",
+} as const;
+
+export type AppearanceField = keyof typeof WORN;
 
 export async function saveAppearance(
   field: AppearanceField,
-  _previous: AppearanceState,
+  _previous: FormState,
   formData: FormData,
-): Promise<AppearanceState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const raw = formData.get("value");
-  if (!FIELDS.includes(field) || typeof raw !== "string") {
-    return { error: "invalid" };
-  }
-  // An empty value clears the choice.
-  const patch: Partial<Appearance> = { [field]: raw || null };
-  const result = await setAppearance(user.id, patch);
-  if (!result.ok) return { error: result.error };
+): Promise<FormState> {
+  const raw = text(formData, "value");
+  const saved = await attempt("/account/appearance", () =>
+    call(appearanceSet, { [WORN[field]]: raw === "" ? null : Number(raw) }),
+  );
+  if (!saved.ok) return { error: saved.error };
   revalidatePath("/", "layout");
-  redirect(`/account/appearance?saved=${field}`);
+  redirect(`/account/appearance?saved=${field}#${field}`);
 }
 
-export type SignatureState = {
-  error: "not_found" | "not_allowed" | "too_long" | "too_many_lines";
-} | null;
+// Privacy --------------------------------------------------------------------------------------
 
-export async function saveSignature(
-  _previous: SignatureState,
+export async function savePrivacy(
+  _previous: FormState,
   formData: FormData,
-): Promise<SignatureState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const body = formData.has("clear") ? "" : formData.get("signature");
-  const result = await setSignature(user.id, String(body ?? ""));
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect("/account/permissions?saved=signature#signature");
+): Promise<FormState> {
+  const saved = await attempt("/account/privacy", () =>
+    call(preferencesUpdate, {
+      profileViewPrivacy: text(formData, "profileViewPrivacy") as "everyone",
+      profilePostPrivacy: text(formData, "profilePostPrivacy") as "members",
+    }),
+  );
+  if (!saved.ok) return { error: saved.error };
+  return done("privacy", "privacy", "/account/privacy");
 }
 
-export type TitleState = {
-  error: "not_found" | "not_allowed" | "too_long";
-} | null;
+export async function stopIgnoring(userId: number) {
+  await press("/account/privacy", "ignored", "unignored", () =>
+    call(usersUnignore, { userId }),
+  );
+}
 
-export type UsernameState = {
-  error: "not_found" | "not_allowed" | "invalid" | "taken" | "unconfirmed";
-} | null;
+// Notifications --------------------------------------------------------------------------------
 
-export type DetailsState =
-  | { field: "username"; error: NonNullable<UsernameState>["error"] }
-  | {
-      field: "title";
-      error: NonNullable<TitleState>["error"];
-      usernameSaved?: boolean;
-    }
-  | null;
+const CHANNELS = ["inApp", "email", "push"] as const;
 
-export async function saveDetails(
-  _previous: DetailsState,
+// Every cell is a checkbox named "<type>:<channel>". Only the cells that differ from what the
+// member has now are sent, so a type they never touched keeps following its default.
+export async function saveNotifications(
+  _previous: FormState,
   formData: FormData,
-): Promise<DetailsState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const username = String(formData.get("username") ?? user.username).trim();
-  const title = String(formData.get("title") ?? user.customTitle ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  const usernameChanged = username !== user.username;
-  const titleChanged = title !== (user.customTitle ?? "");
+): Promise<FormState> {
+  const path = "/account/notifications";
+  const saved = await attempt(path, async () => {
+    const [{ items: types }, { items: current }, push] = await Promise.all([
+      call(notificationsTypes, {}),
+      call(notificationsPreferences, {}),
+      call(pushPublicKey, {}),
+    ]);
+    const now = new Map(current.map((entry) => [entry.type, entry]));
+    const items = types.flatMap((type) => {
+      if (type.required) return [];
+      const change: Record<string, boolean> = {};
+      for (const channel of CHANNELS) {
+        if (!type.channels.includes(channel)) continue;
+        // The page offers no push cell while push is off, so nothing was chosen for it.
+        if (channel === "push" && push.publicKey === null) continue;
+        const wanted = formData.get(`${type.id}:${channel}`) === "on";
+        if (wanted !== (now.get(type.id)?.[channel] ?? false))
+          change[channel] = wanted;
+      }
+      return Object.keys(change).length ? [{ type: type.id, ...change }] : [];
+    });
+    if (items.length) await call(notificationsSetPreferences, { items });
+  });
+  if (!saved.ok) return { error: saved.error };
+  return done("notifications", "types", path);
+}
 
-  // Validate the title before spending a username change.
-  if (titleChanged) {
-    if (!can(user, "customTitle")) {
-      return { field: "title", error: "not_allowed" };
-    }
-    if (title.length > TITLE_MAX_LENGTH) {
-      return { field: "title", error: "too_long" };
-    }
-  }
-  if (usernameChanged) {
-    if (formData.get("confirm") !== "on") {
-      return { field: "username", error: "unconfirmed" };
-    }
-    const result = await changeUsername(user.id, username);
-    if (!result.ok) return { field: "username", error: result.error };
-  }
-  if (titleChanged) {
-    const result = await setTitle(user.id, title);
-    if (!result.ok) {
-      if (usernameChanged) revalidatePath("/", "layout");
-      return {
-        field: "title",
-        error: result.error,
-        usernameSaved: usernameChanged,
-      };
-    }
-  }
-  revalidatePath("/", "layout");
-  redirect("/account?saved=details");
+// Preferences ----------------------------------------------------------------------------------
+
+export async function savePreferences(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const path = "/account/preferences";
+  const saved = await attempt(path, () =>
+    call(preferencesUpdate, {
+      watchOnCreate: text(formData, "watchOnCreate") as "none",
+      watchOnReply: text(formData, "watchOnReply") as "none",
+      language: text(formData, "language") || null,
+    }),
+  );
+  if (!saved.ok) return { error: saved.error };
+  return done("preferences", "preferences", path);
+}
+
+export async function stopWatchingThread(threadId: number) {
+  await press("/account/preferences", "threads", "threadUnwatched", () =>
+    call(threadsUnwatch, { threadId }),
+  );
+}
+
+export async function stopWatchingForum(nodeId: number) {
+  await press("/account/preferences", "forums", "forumUnwatched", () =>
+    call(nodesUnwatch, { nodeId }),
+  );
 }

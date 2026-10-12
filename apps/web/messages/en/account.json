@@ -1,17 +1,4 @@
 {
-  "account": {
-    "metaTitle": "Account overview",
-    "heading": "Overview",
-    "postsLabel": "Total Posts",
-    "reactionsLabel": "Total Reactions",
-    "followersLabel": "Followers",
-    "reputationLabel": "Total Reputation",
-    "detailsLoading": "Loading account details…",
-    "activityLoading": "Loading posting activity…",
-    "activityHeading": "Posting Activity",
-    "activityDescription": "Your most recent posting activity.",
-    "empty": "You have not posted anything yet."
-  },
   "layout": {
     "notifications": "Notifications",
     "logout": "Log out",
@@ -22,71 +9,136 @@
   "navigation": {
     "accountHeading": "Your account",
     "settingsHeading": "Settings",
-    "overview": "Overview",
+    "profile": "Profile",
     "appearance": "Appearance",
-    "permissions": "Permissions",
+    "privacy": "Privacy",
+    "notifications": "Notifications",
+    "preferences": "Preferences",
+    "perks": "Perks",
     "security": "Security",
     "aria": {
       "label": "Account sections"
     }
   },
-  "accountDetails": {
-    "heading": "Account details",
-    "description": "The name and title shown on your profile and posts."
+  "notices": {
+    "avatar": "Your avatar was saved.",
+    "avatarRemoved": "Your avatar was removed.",
+    "cover": "Your cover was saved.",
+    "coverRemoved": "Your cover was removed.",
+    "username": "Your username was changed.",
+    "about": "Your profile was saved.",
+    "title": "Your title and signature were saved.",
+    "titleRemoved": "Your title was removed.",
+    "signatureRemoved": "Your signature was removed.",
+    "privacy": "Your privacy settings were saved.",
+    "unignored": "You no longer ignore that member.",
+    "notifications": "Your notification settings were saved.",
+    "preferences": "Your preferences were saved.",
+    "failed": "That did not work. Try again.",
+    "threadUnwatched": "You no longer watch that thread.",
+    "forumUnwatched": "You no longer watch that forum."
   },
-  "accountDetailsForm": {
-    "usernameLabel": "Username",
-    "usernameStaffRules": "3 to 20 characters: letters, numbers, underscores and hyphens. Staff can change their username freely.",
-    "changes": "3 to 20 characters: letters, numbers, underscores and hyphens. You have {count, plural, one {# change} other {# changes}} available. Each change uses one.",
-    "usernameLockedRules": "3 to 20 characters: letters, numbers, underscores and hyphens. <shop>Get a username change in the shop</shop>",
-    "confirmation": "I want to change my username to {username}. My profile address stays the same.",
-    "usernameFallback": "my new username",
+  "errors": {
+    "noFile": "Choose a picture first.",
+    "unconfirmed": "Confirm your username change."
+  },
+  "paging": {
+    "label": "Pages",
+    "first": "First page",
+    "next": "Next page"
+  },
+  "profile": {
+    "metaTitle": "Profile",
+    "heading": "Profile",
+    "loading": "Loading your profile…",
+    "postsLabel": "Total Posts",
+    "reputationLabel": "Total Reputation",
+    "followersLabel": "Followers",
+    "followingLabel": "Following"
+  },
+  "pictures": {
+    "heading": "Pictures",
+    "description": "Your avatar and the cover behind your profile.",
+    "avatarLabel": "Avatar",
+    "avatarHelp": "A square picture works best. Choose a new one to replace it.",
+    "coverLabel": "Cover",
+    "coverHelp": "Shown behind your profile, your posts and your member card.",
+    "coverGalleryWorn": "A cover from the gallery is worn, so it shows instead of the one you upload. Take it off in Appearance to show yours.",
+    "upload": "Upload",
+    "remove": "Remove"
+  },
+  "username": {
+    "heading": "Username",
+    "description": "The name shown on your profile and posts.",
+    "label": "Username",
+    "free": "You can change your username freely.",
+    "units": "You have {count, plural, one {# change} other {# changes}} left. Each change uses one.",
+    "none": "You have no username change left. <shop>Get one in the shop</shop>",
+    "confirmation": "I want to change my username to {username}.",
+    "submit": "Change username"
+  },
+  "about": {
+    "heading": "About and contact",
+    "description": "What other members can read on your profile.",
+    "aboutLabel": "About you",
+    "aboutHelp": "Plain text.",
+    "locationLabel": "Location",
+    "websiteLabel": "Website",
+    "websiteHelp": "The address of your site, starting with http:// or https://.",
+    "birthdayLabel": "Birthday",
+    "dayLabel": "Day",
+    "dayPlaceholder": "Day",
+    "monthLabel": "Month",
+    "monthPlaceholder": "Month",
+    "yearLabel": "Year",
+    "yearPlaceholder": "Year",
+    "birthdayHelp": "The year is optional. Only the day and the month show on your profile.",
+    "clearBirthday": "Clear birthday",
+    "discordLabel": "Discord",
+    "telegramLabel": "Telegram",
+    "xLabel": "X",
+    "handlesHelp": "Your handle on each network, without the @.",
+    "submit": "Save profile"
+  },
+  "title": {
+    "heading": "Title and signature",
+    "description": "Shown under your name and at the foot of your posts.",
     "titleLabel": "Custom title",
-    "titlePlaceholder": "Your default title",
-    "titleRules": "Up to {count, plural, one {# character} other {# characters}}. Leave blank to use the title that comes with your level.{access, select, locked { <shop>Unlock a custom title in the shop</shop>} other {}}",
-    "pending": "Saving…",
-    "submit": "Save changes",
-    "partialSaveError": "Your username was saved. {error}",
-    "saved": "Saved",
-    "errors": {
-      "usernameNotFound": "Your account was not found.",
-      "usernameNotAllowed": "You have no username change left.",
-      "usernameInvalid": "Use 3 to 20 letters, numbers, underscores or hyphens.",
-      "usernameTaken": "That username is already taken.",
-      "usernameUnconfirmed": "Confirm your username change.",
-      "titleNotFound": "Your account was not found.",
-      "titleNotAllowed": "You need the custom title permission for that.",
-      "titleTooLong": "A title holds at most {count, plural, one {# character} other {# characters}}."
-    }
+    "titleHelp": "Up to {count, plural, one {# character} other {# characters}}. Leave it empty to use the title that comes with your group or level.",
+    "signatureLabel": "Signature",
+    "signatureHelp": "Written in Markdown. Up to {count, plural, one {# character} other {# characters}} and {lines, plural, one {# line} other {# lines}}. Leave it empty to remove it.",
+    "notShown": "You have this saved, but it is not shown at the moment.",
+    "remove": "Remove",
+    "titleLocked": "A custom title needs a perk. <shop>See what the shop offers</shop>",
+    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>",
+    "submit": "Save"
   },
-  "overviewSkeletons": {
-    "detailsHeading": "Account details",
-    "detailsDescription": "The name and title shown on your profile and posts.",
-    "activityHeading": "Posting Activity",
-    "activityDescription": "Your most recent posting activity."
+  "referral": {
+    "heading": "Invite members",
+    "description": "Members who register through your link count as your referrals.",
+    "linkLabel": "Your link",
+    "count": "{count, plural, one {# member has} other {# members have}} joined through it."
   },
   "appearance": {
     "metaTitle": "Appearance",
     "heading": "Appearance",
+    "loading": "Loading appearance settings…",
     "description": "How the forum looks for you, and how you look to everyone else.",
     "previewHeading": "Preview",
-    "previewDescription": "Your member card with the choices saved right now.",
+    "previewDescription": "Your avatar, name and cover with the choices saved right now.",
     "accentHeading": "Accent colour",
     "accentDescription": "Recolours buttons, links and highlights across the whole forum, only for you.",
+    "accentDefault": "Default",
     "frameHeading": "Avatar frame",
     "frameDescription": "Shown around your picture everywhere it appears.",
-    "frameFallback": "Frame",
-    "frameEmpty": "None",
-    "framesLink": "Get more frames in the shop",
+    "framesEmpty": "You have no frames yet. <shop>Get frames in the shop</shop>",
     "nameColorHeading": "Name colour",
     "nameColorDescription": "The colour of your username in threads, lists and your profile.",
-    "nameColorDefault": "Default",
-    "nameColorsLink": "Get more name colours in the shop",
+    "nameColorsEmpty": "You have no name colours yet. <shop>Get name colours in the shop</shop>",
     "coverHeading": "Profile cover",
-    "coverDescription": "A photo from the gallery behind your profile, your posts and your member card.",
-    "coverLockedDescription": "A photo from the gallery behind your profile, your posts and your member card. It needs the profile cover permission, which comes from the shop or a rank.",
-    "coverLockedLink": "Locked: get the profile cover permission in the shop",
-    "coverEmpty": "None",
+    "coverDescription": "A picture from the gallery behind your profile, your posts and your member card. It shows instead of the cover you uploaded.",
+    "coversEmpty": "The gallery needs a perk. <perks>See your perks</perks>",
+    "none": "None",
     "aria": {
       "frame": "{name} frame",
       "noFrame": "No frame",
@@ -97,46 +149,224 @@
   },
   "appearanceForm": {
     "pending": "Saving…",
-    "saved": "Saved",
-    "errors": {
-      "notFound": "Your account was not found.",
-      "invalid": "That choice is not valid.",
-      "notOwned": "You do not own that yet.",
-      "notAllowed": "You need the profile cover permission for that."
+    "saved": "Saved"
+  },
+  "privacy": {
+    "metaTitle": "Privacy",
+    "heading": "Privacy",
+    "loading": "Loading privacy settings…",
+    "sectionHeading": "Who can see you",
+    "sectionDescription": "Decide who may open your profile and who may post on it.",
+    "viewLegend": "Who can view your profile",
+    "postLegend": "Who can post on your profile",
+    "view": {
+      "everyone": {
+        "label": "Everyone",
+        "help": "Anyone, signed in or not."
+      },
+      "members": {
+        "label": "Members",
+        "help": "Only signed-in members."
+      },
+      "followed": {
+        "label": "Members you follow",
+        "help": "Only members you follow."
+      },
+      "self": {
+        "label": "Only me",
+        "help": "Nobody but you."
+      }
+    },
+    "post": {
+      "members": {
+        "label": "Members",
+        "help": "Any signed-in member who may post."
+      },
+      "followed": {
+        "label": "Members you follow",
+        "help": "Only members you follow."
+      },
+      "self": {
+        "label": "Only me",
+        "help": "Nobody but you."
+      }
+    },
+    "submit": "Save privacy",
+    "ignoredHeading": "Ignored members",
+    "ignoredDescription": "They cannot notify you, start a conversation with you or post on your profile.",
+    "ignoredEmpty": "You are not ignoring anyone.",
+    "since": "Since",
+    "stop": "Stop ignoring"
+  },
+  "notifications": {
+    "metaTitle": "Notifications",
+    "heading": "Notifications",
+    "loading": "Loading notification settings…",
+    "sectionHeading": "What you are told about",
+    "sectionDescription": "Choose where each kind of notification reaches you.",
+    "typeColumn": "Notification",
+    "channels": {
+      "inApp": "In app",
+      "email": "Email",
+      "push": "Push"
+    },
+    "required": "Required",
+    "cell": "{type} by {channel}",
+    "defaultsHelp": "Until you choose, each notification follows the forum's default.",
+    "pushOff": "Push notifications are not set up on this forum.",
+    "submit": "Save notifications",
+    "types": {
+      "thread_watched": {
+        "title": "New posts in a watched thread",
+        "body": "Someone replies in a thread you watch."
+      },
+      "node_thread": {
+        "title": "New threads in a watched forum",
+        "body": "A new thread is started in a forum you watch."
+      },
+      "node_post": {
+        "title": "New posts in a watched forum",
+        "body": "A new post appears in a forum you watch for every post."
+      },
+      "content_quoted": {
+        "title": "Quotes",
+        "body": "Someone quotes your post."
+      },
+      "content_mentioned": {
+        "title": "Mentions",
+        "body": "Someone mentions you."
+      },
+      "content_reaction": {
+        "title": "Reactions",
+        "body": "Someone reacts to your post."
+      },
+      "profile_post": {
+        "title": "Posts on your wall",
+        "body": "Someone posts on your profile."
+      },
+      "profile_comment": {
+        "title": "Comments on your wall",
+        "body": "Someone comments on a post on your profile."
+      },
+      "profile_commented": {
+        "title": "Replies to your comments",
+        "body": "Someone comments after you on a profile post."
+      },
+      "member_thread": {
+        "title": "Threads by members you follow",
+        "body": "A member you follow starts a thread."
+      },
+      "member_followed": {
+        "title": "New followers",
+        "body": "Someone starts following you."
+      },
+      "conversation_added": {
+        "title": "Added to a conversation",
+        "body": "Someone adds you to a conversation."
+      },
+      "conversation_message": {
+        "title": "Conversation messages",
+        "body": "A new message arrives in one of your conversations."
+      },
+      "moderation_content": {
+        "title": "Moderation of your posts",
+        "body": "A moderator edits, removes or restores something you wrote."
+      },
+      "moderation_member": {
+        "title": "Moderation of your account",
+        "body": "A warning, restriction or ban is applied to your account."
+      },
+      "report_resolved": {
+        "title": "Your reports",
+        "body": "A report you made has been handled."
+      },
+      "moderator_report": {
+        "title": "New reports",
+        "body": "A report is waiting for a moderator."
+      },
+      "moderator_approval": {
+        "title": "Posts waiting for approval",
+        "body": "A post is waiting for a moderator to approve it."
+      },
+      "member_groups": {
+        "title": "Group changes",
+        "body": "Your groups change."
+      },
+      "announcement": {
+        "title": "Announcements",
+        "body": "The administrators announce something to every member."
+      },
+      "account_security": {
+        "title": "Account security",
+        "body": "Messages about the safety of your account."
+      }
     }
   },
-  "permissions": {
-    "metaTitle": "Permissions",
-    "heading": "Permissions",
-    "description": "What your account can do, and where each permission comes from. <account>Edit your username and title</account>",
-    "rankSource": "Included in your {rank} rank",
-    "staffSource": "Staff",
-    "purchaseSource": "Purchased",
-    "changes": "{count, plural, one {# change} other {# changes}} available",
-    "lockedDescription": "Locked. <shop>Unlock it in the permissions shop</shop>",
-    "granted": "Granted",
-    "locked": "Locked",
-    "shopLink": "View in the shop<name>: {permission}</name>",
-    "signatureDescription": "Shown under your first post on each thread page and on your profile."
+  "preferences": {
+    "metaTitle": "Preferences",
+    "heading": "Preferences",
+    "loading": "Loading your preferences…",
+    "sectionHeading": "Watching and language",
+    "sectionDescription": "What happens when you post, and the language of the forum for you.",
+    "createLabel": "Threads you start",
+    "createHelp": "Whether you follow the threads you start.",
+    "replyLabel": "Threads you reply to",
+    "replyHelp": "Whether you follow the threads you reply to.",
+    "watch": {
+      "none": "Do not watch",
+      "watch": "Watch",
+      "watch_email": "Watch and email me"
+    },
+    "languageLabel": "Language",
+    "languageDefault": "Site default",
+    "submit": "Save preferences",
+    "threadsHeading": "Watched threads",
+    "threadsDescription": "You are told when someone replies in these.",
+    "threadsEmpty": "You are not watching any thread.",
+    "forumsHeading": "Watched forums",
+    "forumsDescription": "You are told about new threads or posts in these.",
+    "forumsEmpty": "You are not watching any forum.",
+    "mode": {
+      "threads": "New threads",
+      "posts": "Every new post"
+    },
+    "email": "Email",
+    "stop": "Stop watching"
   },
-  "permissionForms": {
-    "saved": "Saved",
-    "legend": "Signature",
-    "currentHeading": "Current signature",
-    "replacementPlaceholder": "Write a replacement signature.",
-    "placeholder": "Write your signature.",
-    "description": "Your current signature stays until you save a replacement or clear it.",
-    "hiddenNotice": "Your current signature contains pictures that LITE mode is hiding, so it is not shown for editing. Saving a new signature replaces it.",
-    "characters": "{used, number}/{count, plural, one {# character} other {# characters}}",
-    "lines": "{used, number}/{count, plural, one {# line} other {# lines}}",
-    "previewHeading": "Preview",
-    "submit": "Save signature",
-    "clear": "Clear",
-    "errors": {
-      "notFound": "Your account was not found.",
-      "notAllowed": "You need the signature permission for that.",
-      "tooLong": "A signature holds at most {count, plural, one {# character} other {# characters}}.",
-      "tooManyLines": "A signature holds at most {count, plural, one {# line} other {# lines}}."
+  "perks": {
+    "metaTitle": "Perks",
+    "heading": "Perks",
+    "loading": "Loading your perks…",
+    "description": "What your account can do beyond the basics.",
+    "granted": "Yours",
+    "locked": "Locked",
+    "use": "Use it",
+    "shop": "See the shop",
+    "slots": "You show up to {count, plural, one {# award} other {# awards}}.",
+    "slotsAll": "You show all your awards.",
+    "renameFree": "You can change it freely.",
+    "renameUnits": "You have {count, plural, one {# change} other {# changes}} left.",
+    "items": {
+      "signature": {
+        "label": "Signature",
+        "description": "A short text under your posts."
+      },
+      "customTitle": {
+        "label": "Custom title",
+        "description": "Your own title under your name."
+      },
+      "coverPreset": {
+        "label": "Cover gallery",
+        "description": "Pick a profile cover from the gallery."
+      },
+      "awardSlots": {
+        "label": "Award showcase",
+        "description": "Awards shown next to your name."
+      },
+      "username": {
+        "label": "Username changes",
+        "description": "Change the name you go by."
+      }
     }
   },
   "security": {
@@ -207,14 +437,6 @@
     }
   },
   "loading": {
-    "overviewLabel": "Loading your account overview…",
-    "overviewHeading": "Overview",
-    "appearanceLabel": "Loading appearance settings…",
-    "appearanceHeading": "Appearance",
-    "appearanceDescription": "How the forum looks for you, and how you look to everyone else.",
-    "permissionsLabel": "Loading permissions…",
-    "permissionsHeading": "Permissions",
-    "permissionsDescription": "What your account can do, and where each permission comes from.",
     "securityLabel": "Loading security settings…",
     "securityHeading": "Security",
     "logoutHeading": "Log out",
