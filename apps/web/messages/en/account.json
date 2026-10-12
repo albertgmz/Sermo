@@ -150,8 +150,62 @@
     "logout": "Log out",
     "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Unknown browser}} on {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {unknown system}}",
     "currentDevice": "This device",
-    "sessionDetails": "Signed in <signedIn>{date}</signedIn><separator> · </separator>Last used <lastUsed>{relativeTime}</lastUsed>",
-    "empty": "No devices are signed in."
+    "sessionDates": "Signed in <createdTime>{created}</createdTime><separator> · </separator>Expires <expiresTime>{expires}</expiresTime>",
+    "sessionIp": "IP address {ip}",
+    "revoke": "Revoke",
+    "revokeLabel": "Revoke {device}",
+    "revokeOthers": "Sign out everywhere else",
+    "revokeOthersDescription": "Ends every session except the one in this browser.",
+    "devicesNotFresh": "For safety, the device list is only available during the first day after you log in. Log out and log in again to see it.",
+    "devicesFailed": "The devices could not be loaded. Try again in a moment.",
+    "empty": "No devices are signed in.",
+    "password": {
+      "heading": "Password",
+      "description": "Choose a new password for your account.",
+      "currentLabel": "Current password",
+      "newLabel": "New password",
+      "newHint": "Use 8 to 256 characters.",
+      "confirmLabel": "Confirm new password",
+      "signOutOthers": "Sign out of all my other devices",
+      "submit": "Change password",
+      "pending": "Changing…"
+    },
+    "email": {
+      "heading": "Email",
+      "description": "The address we use for account messages.",
+      "addressLabel": "Address",
+      "verified": "Confirmed",
+      "unverified": "Not confirmed",
+      "unverifiedHint": "Confirm your address with the link we send you. Some features stay locked until then.",
+      "resend": "Send the confirmation link again",
+      "changeLabel": "New address",
+      "changeHint": "We send a link to the new address. Your address changes when you open it.",
+      "change": "Change email",
+      "unavailable": "Email features are not available on this forum, so the address cannot be confirmed or changed here."
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "rateLimited": "Too many attempts. Wait a while and try again.",
+      "required": "Fill in every field.",
+      "mismatch": "The two new passwords are not the same.",
+      "sameAsCurrent": "Choose a password that is different from the current one.",
+      "wrongCurrent": "The current password is not correct.",
+      "tooShort": "The new password is too short.",
+      "tooLong": "The new password is too long.",
+      "invalidEmail": "Enter a valid email address.",
+      "sameEmail": "That is already your address.",
+      "mailOff": "Email features are not available on this forum."
+    },
+    "notices": {
+      "revoked": "The device was signed out.",
+      "others": "Every other device was signed out.",
+      "revokeFailed": "The device could not be signed out. Try again.",
+      "password": "Your password was changed.",
+      "emailChange": "A confirmation link is on its way to the new address. Your address changes when you open it.",
+      "verification": "A confirmation link is on its way to your address.",
+      "resendFailed": "The link could not be sent. Try again later.",
+      "rateLimited": "Too many attempts. Wait a while and try again."
+    }
   },
   "loading": {
     "overviewLabel": "Loading your account overview…",
@@ -165,6 +219,12 @@
     "securityLabel": "Loading security settings…",
     "securityHeading": "Security",
     "logoutHeading": "Log out",
-    "logoutDescription": "End your session in this browser."
+    "logoutDescription": "End your session in this browser.",
+    "sessionsHeading": "Devices",
+    "sessionsDescription": "Browsers that are signed in to your account.",
+    "passwordHeading": "Password",
+    "passwordDescription": "Choose a new password for your account.",
+    "emailHeading": "Email",
+    "emailDescription": "The address we use for account messages."
   }
 }
