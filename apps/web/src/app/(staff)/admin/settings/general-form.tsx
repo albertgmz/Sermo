@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { saveGeneral } from "./actions";
 import { getSettings } from "./data";
 import { SwitchRow, TextRow } from "./fields";
+import { Shown } from "./shown";
 
 export async function GeneralForm() {
   const [t, f, settings] = await Promise.all([
@@ -35,6 +36,7 @@ export async function GeneralForm() {
         htmlFor="field-defaultLanguage"
         help={f("defaultLanguage.help")}
       >
+        <Shown name="defaultLanguage" />
         <select
           id="field-defaultLanguage"
           name="defaultLanguage"

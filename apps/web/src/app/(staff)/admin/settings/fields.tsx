@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { FieldRow } from "@/components/staff/form-rows";
 import { Input } from "@/components/ui/input";
 import type { messages } from "@/i18n/messages";
+import { Shown } from "./shown";
 
 // The rows of the settings forms. A row is named after its settings key: its label, help and unit
 // are `adminSetup.fields.<key>` in the messages. The value is what the backend returned.
@@ -27,6 +28,7 @@ export async function NumberRow({
       help={t(`${name}.help`)}
     >
       <div className="flex items-center gap-2">
+        <Shown name={name} />
         <Input
           id={id}
           name={name}
@@ -63,6 +65,7 @@ export async function SwitchRow({
       help={t(`${name}.help`)}
     >
       <label className="flex min-h-10 items-center gap-3 text-sm">
+        <Shown name={name} />
         <input
           id={id}
           type="checkbox"
@@ -95,6 +98,7 @@ export async function TextRow({
       htmlFor={id}
       help={t(`${name}.help`)}
     >
+      <Shown name={name} />
       <Input
         id={id}
         name={name}

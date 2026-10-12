@@ -5,8 +5,15 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { invalidArgument } from "@/lib/sermo/outcome";
 import { text, whole } from "../groups/form-errors";
-import { type Parsed, type Spec, saveSettings, scalars } from "./save";
+import {
+  type Parsed,
+  type Spec,
+  saveSettings,
+  scalars,
+  shownKeys,
+} from "./save";
 
 // One action per screen, each sending only the top-level keys its form shows. A key that holds a
 // map or a list is sent whole: the backend replaces it, so what the form leaves alone is taken
@@ -28,6 +35,7 @@ export async function saveGeneral(
   formData: FormData,
 ): Promise<StaffFormState> {
   const parsed = await scalars(GENERAL, formData);
+  if (parsed.refused) return { error: await invalidArgument() };
   const current = (await call(settingsGet, {})).socialLinks;
   const socialLinks: Record<string, string | null> = { ...current };
   for (const network of Object.keys(current)) {
@@ -99,6 +107,7 @@ export async function saveUploads(
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminSetup.errors");
   const parsed: Parsed = await scalars(UPLOADS, formData);
+  if (parsed.refused) return { error: await invalidArgument() };
   const current = await call(settingsGet, {});
 
   // The purposes are the ones the backend returned; a purpose the form did not show keeps its list.
@@ -163,7 +172,8 @@ export async function saveLevels(
   ].sort((a, b) => a - b);
   const titles: { level: number; title: string }[] = [];
   const rows: number[] = [];
-  for (const index of indexes) {
+  const listShown = shownKeys(formData).has("levelTitles");
+  for (const index of listShown ? indexes : []) {
     const level = text(formData, `levelTitles.${index}.level`).trim();
     const title = text(formData, `levelTitles.${index}.title`);
     if (level === "" && title.trim() === "") continue;
@@ -174,7 +184,8 @@ export async function saveLevels(
       rows.push(index);
     }
   }
-  parsed.body.levelTitles = titles;
+  // The list is replaced as a whole, so only by a form that showed it.
+  if (listShown) parsed.body.levelTitles = titles;
 
   return saveSettings(parsed, {
     back: "/admin/settings/levels",

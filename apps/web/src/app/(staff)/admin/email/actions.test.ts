@@ -1,7 +1,8 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { translator } from "@/lib/test-intl";
-import { form, invalid, redirectedTo } from "../content-kit/harness";
+import { invalid, redirectedTo } from "../content-kit/harness";
 import { fakeBackend } from "../groups/test-backend";
+import { settingsForm } from "../settings/test-form";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -66,6 +67,7 @@ const SETTINGS = {
   backdropFileId: null,
 };
 const settings = () => Response.json(SETTINGS);
+const form = settingsForm;
 
 test("the form sends exactly its three keys", async () => {
   backend = fakeBackend({ "settings.update": settings });
@@ -93,10 +95,13 @@ test("an unticked switch is sent as false", async () => {
   await redirectedTo(() =>
     saveEmail(
       null,
-      form([
-        ["emailHourlyCap", "5"],
-        ["digestInactiveDays", "10"],
-      ]),
+      form(
+        [
+          ["emailHourlyCap", "5"],
+          ["digestInactiveDays", "10"],
+        ],
+        "conversationEmailIncludesBody",
+      ),
     ),
   );
   expect(backend.asked[0]?.body).toMatchObject({

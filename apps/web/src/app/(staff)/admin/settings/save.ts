@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
+import { invalidArgument } from "@/lib/sermo/outcome";
 import { text, whole } from "../groups/form-errors";
 import { settingsFailure } from "./failure";
+import { SHOWN } from "./shown";
 
 // What a screen's form edits, key by key, and how each is read from the form.
 //   int       a whole number (its range is the backend's)
@@ -18,16 +20,34 @@ import { settingsFailure } from "./failure";
 export type Kind = "int" | "bool" | "text" | "nullText" | "language";
 export type Spec = Record<string, Kind>;
 
+// `refused`: the request does not look like the form's own (see `shownKeys`) and nothing may be
+// written from it.
 export type Parsed = {
   body: Record<string, unknown>;
   fields: Record<string, string>;
+  refused?: true;
 };
 
+// The settings a form says it showed: every row of a settings form carries a hidden field named
+// `shown` with its key. A key that is not named is not read, so a request that leaves a field out
+// (a hand-made one, a form from an older page) cannot turn it into "off", "0" or "empty".
+export const shownKeys = (formData: FormData): Set<string> =>
+  new Set(
+    formData.getAll(SHOWN).filter((v): v is string => typeof v === "string"),
+  );
+
+// Reads the keys of `spec` that the form showed. A key is absent from the body when the form did
+// not show it; a request that shows none of them, or that shows a key and posts no value for it
+// (but a switch: an unticked box is not posted), is refused.
 export async function scalars(spec: Spec, formData: FormData): Promise<Parsed> {
   const t = await getTranslations("adminSetup.errors");
   const body: Record<string, unknown> = {};
   const fields: Record<string, string> = {};
+  const shown = shownKeys(formData);
+  let refused = !Object.keys(spec).some((key) => shown.has(key));
   for (const [key, kind] of Object.entries(spec)) {
+    if (!shown.has(key)) continue;
+    if (kind !== "bool" && !formData.has(key)) refused = true;
     const raw = text(formData, key);
     if (kind === "int") {
       const value = whole(raw);
@@ -45,7 +65,7 @@ export async function scalars(spec: Spec, formData: FormData): Promise<Parsed> {
       fields[key] = t("language");
     }
   }
-  return { body, fields };
+  return refused ? { body: {}, fields: {}, refused: true } : { body, fields };
 }
 
 // Sends exactly the keys in `body` (the backend merges top-level keys and replaces nested ones,
@@ -60,6 +80,7 @@ export async function saveSettings(
     rename?: (path: (string | number)[]) => (string | number)[];
   },
 ): Promise<StaffFormState> {
+  if (parsed.refused) return { error: await invalidArgument() };
   if (Object.keys(parsed.fields).length > 0) return { fields: parsed.fields };
   try {
     await call(settingsUpdate, parsed.body);

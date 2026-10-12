@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { getSettings } from "../settings/data";
 import { saveNotificationDefaults } from "./actions";
+import { SHOWN_TYPES } from "./grid";
 
 const CHANNELS = ["inApp", "email", "push"] as const;
 const columns = "grid grid-cols-[minmax(0,1fr)_repeat(3,3.5rem)] items-center";
@@ -46,6 +47,9 @@ export async function DefaultsForm() {
         {types.items.map((type) => (
           <div key={type.id} className={`${columns} gap-x-1 px-4 py-2`}>
             <div className="min-w-0 pr-2">
+              {!type.required && (
+                <input type="hidden" name={SHOWN_TYPES} value={type.id} />
+              )}
               <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
                 {label(type.id, "title")}
                 {type.required && (

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { mailAvailable } from "@/lib/sermo/auth";
 import { getSettings } from "../settings/data";
+import { Shown } from "../settings/shown";
 import { saveEmail } from "./actions";
 
 function NumberField({
@@ -24,6 +25,7 @@ function NumberField({
   return (
     <FieldRow name={name} label={label} htmlFor={id} help={help}>
       <div className="flex items-center gap-2">
+        <Shown name={name} />
         <Input
           id={id}
           name={name}
@@ -76,6 +78,7 @@ export async function EmailForm() {
         help={t("conversationEmailIncludesBody.help")}
       >
         <label className="flex min-h-10 items-center gap-3 text-sm">
+          <Shown name="conversationEmailIncludesBody" />
           <input
             id="field-conversationEmailIncludesBody"
             type="checkbox"

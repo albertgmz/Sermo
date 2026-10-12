@@ -2,6 +2,7 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
+import { settingsForm } from "./test-form";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -83,11 +84,7 @@ const SETTINGS = {
 };
 const read = () => Response.json(SETTINGS);
 
-function form(fields: [string, string][]) {
-  const data = new FormData();
-  for (const [name, value] of fields) data.append(name, value);
-  return data;
-}
+const form = settingsForm;
 
 async function redirectedTo(run: () => Promise<unknown>) {
   try {
@@ -116,13 +113,16 @@ test("the general form sends its three keys and the whole social links, and expi
   const digest = await redirectedTo(() =>
     saveGeneral(
       null,
-      form([
-        ["siteName", "Forum"],
-        ["defaultLanguage", "es"],
-        ["socialLinks.discord", "https://d.example"],
-        ["socialLinks.telegram", "https://t.example"],
-        ["socialLinks.x", "  "],
-      ]),
+      form(
+        [
+          ["siteName", "Forum"],
+          ["defaultLanguage", "es"],
+          ["socialLinks.discord", "https://d.example"],
+          ["socialLinks.telegram", "https://t.example"],
+          ["socialLinks.x", "  "],
+        ],
+        "profilePostsEnabled",
+      ),
     ),
   );
   expect(digest).toMatch(/;\/admin\/settings\?notice=saved;/);
@@ -389,4 +389,65 @@ test("text in a number field is refused without a call", async () => {
     fields: { warningBanThreshold: messages.adminSetup.errors.number },
   });
   expect(backend.asked).toEqual([]);
+});
+
+test("a request without the markers of what the form showed is refused and nothing is sent", async () => {
+  backend = fakeBackend({ "settings.get": read, "settings.update": read });
+  const bare = new FormData();
+  bare.append("newMemberDays", "14");
+  bare.append("firstPostsToModerate", "2");
+  expect(await saveMembers(null, bare)).toEqual({
+    error: messages.lib.errors.generic,
+  });
+  expect(await saveGeneral(null, new FormData())).toEqual({
+    error: messages.lib.errors.generic,
+  });
+  expect(backend.asked).toEqual([]);
+});
+
+test("a setting the form did not show is not sent, whatever else it posts", async () => {
+  backend = fakeBackend({ "settings.get": read, "settings.update": read });
+  // Only the site name is marked: the language is not read, and the switch that is not posted is
+  // not taken for "off".
+  const data = new FormData();
+  data.append("shown", "siteName");
+  data.append("siteName", "Forum");
+  data.append("defaultLanguage", "es");
+  await redirectedTo(() => saveGeneral(null, data));
+  const body = sent()?.[0]?.body as Record<string, unknown>;
+  expect(body.siteName).toBe("Forum");
+  expect(body).not.toHaveProperty("defaultLanguage");
+  expect(body).not.toHaveProperty("profilePostsEnabled");
+});
+
+test("a setting the form showed but did not post a value for is refused, but for a switch", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const data = new FormData();
+  data.append("shown", "warningBanThreshold");
+  data.append("shown", "warningBanDays");
+  data.append("warningBanThreshold", "10");
+  expect(await saveWarnings(null, data)).toEqual({
+    error: messages.lib.errors.generic,
+  });
+  expect(backend.asked).toEqual([]);
+});
+
+test("the titles are replaced only by a form that showed them; shown and empty clears them", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() => saveLevels(null, form(LEVEL_FIELDS)));
+  expect(sent()?.[0]?.body).not.toHaveProperty("levelTitles");
+  backend.restore();
+  backend = fakeBackend({ "settings.update": read });
+  // The rows posted without the marker of the list are not taken for it either.
+  const stray = form(LEVEL_FIELDS);
+  stray.delete("shown");
+  for (const [name] of LEVEL_FIELDS) stray.append("shown", name);
+  stray.append("levelTitles.0.level", "1");
+  stray.append("levelTitles.0.title", "X");
+  await redirectedTo(() => saveLevels(null, stray));
+  expect(sent()?.[0]?.body).not.toHaveProperty("levelTitles");
+  backend.restore();
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() => saveLevels(null, form(LEVEL_FIELDS, "levelTitles")));
+  expect(sent()?.[0]?.body).toMatchObject({ levelTitles: [] });
 });

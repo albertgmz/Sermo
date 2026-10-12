@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { saveLevels } from "../actions";
 import { getSettings } from "../data";
 import { NumberRow } from "../fields";
+import { Shown } from "../shown";
 import { Subheading } from "../subheading";
 
 // Empty rows after the stored titles, for adding some.
@@ -23,6 +24,8 @@ export async function LevelsForm() {
     <FormRows action={saveLevels} heading={t("formHeading")}>
       <Subheading heading={t("curve")} description={t("noPreview")} />
       <NumberRow name="levelStep" value={settings.levelStep} />
+      {/* The title rows are one setting: the list is replaced only by a form that shows it. */}
+      <Shown name="levelTitles" />
       {rows.map((entry, index) => (
         <FieldRow
           // biome-ignore lint/suspicious/noArrayIndexKey: rows are positional
