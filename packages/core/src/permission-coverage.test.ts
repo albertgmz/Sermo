@@ -8,7 +8,10 @@
  * acorn, then calls are followed across files through their imports. Only a call counts:
  * naming a check function (or a helper that reaches one) without calling it decides nothing.
  * `.can(...)` and `.value(...)` count only on an object that came from `permissionsOf(...)`,
- * directly, through a local variable, or through a parameter a caller passed it in.
+ * directly, through a local variable, or through a parameter a caller passed it in. Nested
+ * functions are visited only when called, including callbacks reached through inspected local
+ * helpers or the explicitly recognized transaction and collection APIs below. Bindings resolve
+ * lexically, so a parameter or local declaration cannot impersonate an imported check.
  */
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -65,25 +68,56 @@ interface Binding {
   takesActor: boolean;
   isOperation: boolean;
   isPublic: boolean;
-  /** Bindings called from its body ("file#name"). */
-  refs: Set<string>;
-  /** Direct check calls in its body. */
+  /** Checks reached through calls from this binding, with lexical arguments preserved. */
   checks: boolean;
-  /** Calls with string literal arguments: [callee key or check name, literals]. */
-  literalCalls: [string, string[]][];
-  /** Its parameter names by position (null for a destructured one). */
-  params: (string | null)[];
-  /** Parameters of the functions declared inside it, by function name. */
-  localParams: Map<string, (string | null)[]>;
-  /** Names in its body that hold a `permissionsOf(...)` result. */
-  holders: Set<string>;
-  /**
-   * Arguments that may hand such a result on: [callee key, or `local:<name>` for a function
-   * declared inside it; position; the variable passed, or null for a `permissionsOf(...)` call].
-   */
-  passes: [string, number, string | null][];
-  /** `.can(...)` / `.value(...)` calls on a named object: [object name, literals]. */
-  memberCalls: [string, string[]][];
+  permissions: Set<string>;
+}
+
+interface Scope {
+  parent?: Scope;
+  functionScope: boolean;
+  names: Map<string, LexicalBinding>;
+}
+interface LexicalBinding {
+  init?: AnyNode;
+  imported?: { file: string | null; name: string };
+  reassigned?: boolean;
+}
+type Value =
+  | { kind: "function"; node: AnyNode; env: Environment }
+  | { kind: "import"; file: string | null; name: string }
+  | { kind: "permissions" }
+  | { kind: "strings"; strings: string[] }
+  | { kind: "object" }
+  | { kind: "array"; length: number; populated: number }
+  | { kind: "factoryResult" }
+  | undefined;
+type Environment = Map<LexicalBinding, Value>;
+
+/** Acorn produces plain ESTree nodes without parent links. */
+function children(node: AnyNode): AnyNode[] {
+  return Object.values(node).flatMap((value) => {
+    const values = Array.isArray(value) ? value : [value];
+    return values.filter(
+      (child): child is AnyNode =>
+        child !== null && typeof child === "object" && typeof child.type === "string",
+    );
+  });
+}
+
+function patternNames(pattern: AnyNode): AnyNode[] {
+  if (pattern.type === "Identifier") return [pattern];
+  if (pattern.type === "AssignmentPattern") return patternNames(pattern.left as AnyNode);
+  if (pattern.type === "RestElement") return patternNames(pattern.argument as AnyNode);
+  if (pattern.type === "ObjectPattern")
+    return (pattern.properties as AnyNode[]).flatMap((property) =>
+      patternNames((property.value ?? property.argument) as AnyNode),
+    );
+  if (pattern.type === "ArrayPattern")
+    return (pattern.elements as (AnyNode | null)[]).flatMap((item) =>
+      item ? patternNames(item) : [],
+    );
+  return [];
 }
 
 function sourceFiles(dir: string): string[] {
@@ -140,26 +174,6 @@ function publicOption(call: AnyNode): boolean {
   );
 }
 
-/**
- * The strings an argument can evaluate to: a literal, either branch of a conditional or logical
- * expression, or a local variable initialized that way.
- */
-function stringLeaves(node: AnyNode, locals: Map<string, string[]>): string[] {
-  if (node.type === "Literal") return typeof node.value === "string" ? [node.value] : [];
-  if (node.type === "ConditionalExpression")
-    return [
-      ...stringLeaves(node.consequent as AnyNode, locals),
-      ...stringLeaves(node.alternate as AnyNode, locals),
-    ];
-  if (node.type === "LogicalExpression")
-    return [
-      ...stringLeaves(node.left as AnyNode, locals),
-      ...stringLeaves(node.right as AnyNode, locals),
-    ];
-  if (node.type === "Identifier") return locals.get(node.name as string) ?? [];
-  return [];
-}
-
 /** The services, the permission engine and the shared helpers, by absolute path. */
 function readSources(): Map<string, string> {
   const files = [
@@ -172,219 +186,329 @@ function readSources(): Map<string, string> {
 
 function analyze(sources: Map<string, string> = readSources()) {
   const bindings = new Map<string, Binding>();
-  const imports = new Map<string, Map<string, { file: string | null; name: string }>>();
+  const scopes = new Map<AnyNode, Scope>();
+  const modules = new Map<string, Scope>();
+  const handlers = new Map<Binding, AnyNode>();
   const legacyUses: string[] = [];
+  const lookup = (node: AnyNode): LexicalBinding | undefined => {
+    for (let scope = scopes.get(node); scope; scope = scope.parent) {
+      const found = scope.names.get(node.name as string);
+      if (found) return found;
+    }
+  };
+  const declare = (scope: Scope, pattern: AnyNode, init?: AnyNode) => {
+    for (const id of patternNames(pattern)) {
+      scope.names.set(id.name as string, {
+        init: pattern.type === "Identifier" ? init : undefined,
+      });
+    }
+  };
+
   for (const [file, source] of sources) {
-    const code = transpiler.transformSync(source);
-    const program = acorn.parse(code, {
+    const program = acorn.parse(transpiler.transformSync(source), {
       ecmaVersion: "latest",
       sourceType: "module",
     }) as unknown as AnyNode;
-    const local = new Map<string, { file: string | null; name: string }>();
-    imports.set(file, local);
-    const exportedNames = new Set<string>();
+    const module: Scope = { functionScope: true, names: new Map() };
+    modules.set(file, module);
+    // Build all declarations before resolving references: hoisted declarations, parameters,
+    // catch bindings and block/loop bindings must hide outer imports even before their use.
+    const collect = (node: AnyNode, enclosing: Scope) => {
+      if (node.type === "FunctionDeclaration" || node.type === "ClassDeclaration")
+        declare(enclosing, node.id as AnyNode, node);
+      let scope = enclosing;
+      if (
+        isFunction(node) ||
+        [
+          "BlockStatement",
+          "ForStatement",
+          "ForInStatement",
+          "ForOfStatement",
+          "SwitchStatement",
+          "CatchClause",
+          "ClassExpression",
+          "ClassDeclaration",
+        ].includes(node.type)
+      ) {
+        scope = { parent: enclosing, functionScope: isFunction(node), names: new Map() };
+      }
+      scopes.set(node, scope);
+      if (isFunction(node)) {
+        for (const param of node.params as AnyNode[]) declare(scope, param);
+        if (node.type === "FunctionExpression" && node.id) declare(scope, node.id as AnyNode, node);
+      }
+      if (node.type === "CatchClause" && node.param) declare(scope, node.param as AnyNode);
+      if (node.type === "ImportDeclaration") {
+        const target = resolveImport(file, (node.source as AnyNode).value as string, sources);
+        for (const spec of node.specifiers as AnyNode[]) {
+          const name =
+            spec.type === "ImportSpecifier" ? ((spec.imported as AnyNode).name as string) : "*";
+          scope.names.set((spec.local as AnyNode).name as string, {
+            imported: { file: target, name },
+          });
+          if (LEGACY_IMPORTS.has(name)) legacyUses.push(`${relative(SRC, file)} imports ${name}`);
+        }
+      }
+      if (node.type === "VariableDeclaration") {
+        let owner = scope;
+        if (node.kind === "var") while (!owner.functionScope && owner.parent) owner = owner.parent;
+        for (const declaration of node.declarations as AnyNode[])
+          declare(owner, declaration.id as AnyNode, declaration.init as AnyNode | undefined);
+      }
+      for (const child of children(node)) collect(child, scope);
+    };
+    collect(program, module);
+    // Mutable aliases are not proof: even an assignment on an unvisited path invalidates one.
+    walk.full(program as acorn.Node, (node) => {
+      const any = node as AnyNode;
+      if (any.type === "AssignmentExpression" || any.type === "UpdateExpression")
+        for (const id of patternNames((any.left ?? any.argument) as AnyNode)) {
+          const binding = lookup(id);
+          if (binding) binding.reassigned = true;
+        }
+      if (any.type === "Literal" && typeof any.value === "string" && LEGACY_SQL.test(any.value))
+        legacyUses.push(`${relative(SRC, file)} uses legacy column in SQL`);
+      if (
+        any.type === "MemberExpression" &&
+        (any.property as AnyNode).name === "groupId" &&
+        ["actor", "user"].includes((any.object as AnyNode).name as string)
+      )
+        legacyUses.push(`${relative(SRC, file)} reads the actor's group`);
+    });
+    const exported = new Set<string>();
     const decls: [string, AnyNode, AnyNode | undefined][] = [];
     let anonymous = 0;
     for (const statement of program.body as AnyNode[]) {
-      if (statement.type === "ImportDeclaration") {
-        const target = resolveImport(file, (statement.source as AnyNode).value as string, sources);
-        for (const s of statement.specifiers as AnyNode[]) {
-          const imported =
-            s.type === "ImportSpecifier" ? ((s.imported as AnyNode).name as string) : "*";
-          local.set((s.local as AnyNode).name as string, { file: target, name: imported });
-          if (LEGACY_IMPORTS.has(imported))
-            legacyUses.push(`${relative(SRC, file)} imports ${imported}`);
-        }
-        continue;
-      }
-      let declaration = statement;
-      if (statement.type === "ExportNamedDeclaration") {
-        if (statement.declaration) declaration = statement.declaration as AnyNode;
-        for (const s of (statement.specifiers as AnyNode[]) ?? [])
-          exportedNames.add((s.local as AnyNode).name as string);
-        if (!statement.declaration) continue;
-      }
-      const exported = statement.type === "ExportNamedDeclaration";
+      const declaration = (statement.declaration ?? statement) as AnyNode;
+      const isExport = statement.type === "ExportNamedDeclaration";
+      for (const spec of (statement.specifiers as AnyNode[]) ?? [])
+        if (isExport) exported.add((spec.local as AnyNode).name as string);
       if (declaration.type === "FunctionDeclaration") {
         const name = (declaration.id as AnyNode).name as string;
-        if (exported) exportedNames.add(name);
+        if (isExport) exported.add(name);
         decls.push([name, declaration, declaration]);
       } else if (declaration.type === "VariableDeclaration") {
-        for (const d of declaration.declarations as AnyNode[]) {
-          if ((d.id as AnyNode).type !== "Identifier") continue;
-          const name = (d.id as AnyNode).name as string;
-          if (exported) exportedNames.add(name);
-          decls.push([name, d, d.init as AnyNode | undefined]);
-          // implement(...) calls inside an exported array (operations = [implement(...), ...]).
-          if ((d.init as AnyNode)?.type === "ArrayExpression")
-            for (const element of ((d.init as AnyNode).elements as AnyNode[]) ?? [])
+        for (const node of declaration.declarations as AnyNode[]) {
+          if ((node.id as AnyNode).type !== "Identifier") continue;
+          const name = (node.id as AnyNode).name as string;
+          if (isExport) exported.add(name);
+          const init = node.init as AnyNode | undefined;
+          decls.push([name, node, init]);
+          if (init?.type === "ArrayExpression")
+            for (const element of init.elements as AnyNode[])
               if (element?.type === "CallExpression" && calleeName(element) === "implement")
                 decls.push([`<operation ${++anonymous}>`, element, element]);
         }
       }
     }
+    // Methods returned by an exported factory are service entry points of their own. A check
+    // in createStorage(...).upload must cover upload, never the enclosing factory/operation.
+    for (const [name, , init] of [...decls]) {
+      if (!exported.has(name) || !isFunction(init)) continue;
+      const returnedMethods = (node: AnyNode) => {
+        if (isFunction(node)) return;
+        if (
+          node.type === "ReturnStatement" &&
+          (node.argument as AnyNode)?.type === "ObjectExpression"
+        ) {
+          for (const property of (node.argument as AnyNode).properties as AnyNode[]) {
+            const method = property.value as AnyNode;
+            if (!isFunction(method) || property.kind !== "init" || property.computed) continue;
+            const methodName = `${name}.${(property.key as AnyNode).name ?? (property.key as AnyNode).value}`;
+            exported.add(methodName);
+            decls.push([methodName, method, method]);
+          }
+        }
+        for (const child of children(node)) returnedMethods(child);
+      };
+      returnedMethods(init!.body as AnyNode);
+    }
     for (const [name, node, init] of decls) {
       const isOperation = init?.type === "CallExpression" && calleeName(init) === "implement";
       const isMarked = init?.type === "CallExpression" && calleeName(init) === "markPublic";
-      const fn = isOperation || isMarked ? ((init!.arguments as AnyNode[])[1] as AnyNode) : init;
+      const handler = isOperation || isMarked ? (init!.arguments as AnyNode[])[1] : init;
       const binding: Binding = {
         file,
         name,
         node,
-        exported: exportedNames.has(name) || name.startsWith("<operation"),
-        takesActor: takesActor(fn),
+        exported: exported.has(name) || name.startsWith("<operation"),
+        takesActor: takesActor(handler),
         isOperation,
         isPublic: isMarked || (isOperation && publicOption(init!)),
-        refs: new Set(),
         checks: false,
-        literalCalls: [],
-        params: paramNames(fn),
-        localParams: new Map(),
-        holders: new Set(),
-        passes: [],
-        memberCalls: [],
+        permissions: new Set(),
       };
       bindings.set(key(file, name), binding);
-    }
-    // Second pass: references and calls inside each binding.
-    const topLevel = new Set(decls.map(([name]) => name));
-    const target = (name: string): string | null => {
-      if (topLevel.has(name)) return key(file, name);
-      const imported = local.get(name);
-      if (imported?.file) return key(imported.file, imported.name);
-      return null;
-    };
-    /** The check function a call invokes (imported from src/permissions), or null. */
-    const checkCalled = (node: AnyNode | undefined): string | null => {
-      if (node?.type !== "CallExpression") return null;
-      const callee = node.callee as AnyNode;
-      if (callee.type !== "Identifier") return null;
-      const imported = local.get(callee.name as string);
-      return imported?.file?.includes(join(SRC, "permissions")) && CHECKS.has(imported.name)
-        ? imported.name
-        : null;
-    };
-    for (const [name, node, init] of decls) {
-      const binding = bindings.get(key(file, name))!;
-      // A handler given by name (`implement(contract, run)`) is called by the operation.
-      if (binding.isOperation || binding.isPublic) {
-        const handler = (init!.arguments as AnyNode[])[1];
-        const ref = handler?.type === "Identifier" ? target(handler.name as string) : null;
-        if (ref) binding.refs.add(ref);
-      }
-      // String literals a local variable can hold (`const id = cond ? "a.b" : "c.d"`).
-      const locals = new Map<string, string[]>();
-      walk.full(node as acorn.Node, (n) => {
-        const any = n as AnyNode;
-        if (any.type === "FunctionDeclaration" && any !== node && any.id)
-          binding.localParams.set((any.id as AnyNode).name as string, paramNames(any));
-        if (
-          any.type === "VariableDeclarator" &&
-          (any.id as AnyNode).type === "Identifier" &&
-          any.init
-        ) {
-          // Block-scoped variables can share a name within one function: keep every value.
-          const local = (any.id as AnyNode).name as string;
-          locals.set(local, [
-            ...(locals.get(local) ?? []),
-            ...stringLeaves(any.init as AnyNode, locals),
-          ]);
-          if (checkCalled(any.init as AnyNode) === "permissionsOf") binding.holders.add(local);
-          if (any !== node && isFunction(any.init as AnyNode))
-            binding.localParams.set(local, paramNames(any.init as AnyNode));
-        }
-      });
-      walk.full(node as acorn.Node, (n) => {
-        const any = n as AnyNode;
-        if (any.type === "CallExpression") {
-          const args = any.arguments as AnyNode[];
-          const literals = args.flatMap((a) => stringLeaves(a, locals));
-          const callee = any.callee as AnyNode;
-          let calleeKey: string | null = null;
-          if (callee.type === "Identifier") {
-            const check = checkCalled(any);
-            if (check) {
-              calleeKey = `check:${check}`;
-              // Resolving the actor decides nothing until `.can` / `.value` is called on it.
-              if (check !== "permissionsOf") binding.checks = true;
-              for (const id of IMPLIED[check] ?? []) literals.push(id);
-            } else {
-              calleeKey = target(callee.name as string);
-              if (calleeKey && calleeKey !== key(file, name)) binding.refs.add(calleeKey);
-              args.forEach((arg, index) => {
-                const passed =
-                  checkCalled(arg) === "permissionsOf"
-                    ? null
-                    : arg.type === "Identifier"
-                      ? (arg.name as string)
-                      : undefined;
-                if (passed !== undefined)
-                  binding.passes.push([calleeKey ?? `local:${callee.name}`, index, passed]);
-              });
-            }
-          } else if (
-            callee.type === "MemberExpression" &&
-            !callee.computed &&
-            ["can", "value"].includes(((callee.property as AnyNode).name as string) ?? "")
-          ) {
-            const object = callee.object as AnyNode;
-            if (checkCalled(object) === "permissionsOf") {
-              calleeKey = "check:member";
-              binding.checks = true;
-            } else if (object.type === "Identifier")
-              binding.memberCalls.push([object.name as string, literals]);
-          }
-          if (calleeKey && literals.length > 0) binding.literalCalls.push([calleeKey, literals]);
-        }
-        if (any.type === "Literal" && typeof any.value === "string" && LEGACY_SQL.test(any.value))
-          legacyUses.push(`${relative(SRC, file)} (${name}) uses legacy column in SQL`);
-        if (
-          any.type === "MemberExpression" &&
-          (any.property as AnyNode).name === "groupId" &&
-          ((any.object as AnyNode).name === "actor" || (any.object as AnyNode).name === "user")
-        )
-          legacyUses.push(`${relative(SRC, file)} (${name}) reads the actor's group`);
-      });
+      if (handler) handlers.set(binding, handler);
     }
   }
 
-  // Follow each `permissionsOf(...)` result into the helpers it is passed to, until nothing new
-  // is found; then `.can` / `.value` on a name that holds one is a check.
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const b of bindings.values())
-      for (const [callee, index, passed] of b.passes) {
-        if (passed !== null && !b.holders.has(passed)) continue;
-        const inner = callee.startsWith("local:");
-        const receiver = inner ? b : bindings.get(callee);
-        const param = (inner ? b.localParams.get(callee.slice(6)) : receiver?.params)?.[index];
-        if (!receiver || !param || receiver.holders.has(param)) continue;
-        receiver.holders.add(param);
-        changed = true;
-      }
-  }
-  for (const b of bindings.values())
-    for (const [object, literals] of b.memberCalls) {
-      if (!b.holders.has(object)) continue;
-      b.checks = true;
-      if (literals.length > 0) b.literalCalls.push(["check:member", literals]);
-    }
-
-  const memo = new Map<string, boolean>();
-  const reaches = (k: string, seen = new Set<string>()): boolean => {
-    if (k.startsWith("check:")) return true;
-    const cached = memo.get(k);
-    if (cached !== undefined) return cached;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    const b = bindings.get(k);
-    const result = !!b && (b.checks || [...b.refs].some((ref) => reaches(ref, seen)));
-    if (seen.size === 1 || result) memo.set(k, result);
-    return result;
+  // These imported synchronous APIs invoke the indicated callback. Recognizing exact module
+  // paths and imported names preserves aliases without trusting a shadowing local function.
+  const callbackArgument = (value: Extract<Value, { kind: "import" }>): number | undefined => {
+    if (value.file === join(SRC, "db", "tx.ts") && value.name === "writeTx") return 1;
+    if (
+      [join(SRC, "permissions", "index.ts"), join(SRC, "permissions", "check.ts")].includes(
+        value.file ?? "",
+      ) &&
+      value.name === "readWithCurrentActor"
+    )
+      return 2;
   };
+  const importedValue = (
+    value: Extract<Value, { kind: "import" }>,
+    env: Environment,
+    seen: Set<LexicalBinding>,
+  ): Value => {
+    if (value.file && dirname(value.file) === join(SRC, "permissions") && CHECKS.has(value.name))
+      return value;
+    if (callbackArgument(value) !== undefined) return value;
+    const binding = value.file ? modules.get(value.file)?.names.get(value.name) : undefined;
+    return binding ? bindingValue(binding, env, seen) : value;
+  };
+  const bindingValue = (
+    binding: LexicalBinding,
+    env: Environment,
+    seen: Set<LexicalBinding>,
+  ): Value => {
+    if (binding.reassigned || seen.has(binding)) return undefined;
+    if (env.has(binding)) return env.get(binding);
+    seen.add(binding);
+    if (binding.imported) return importedValue({ kind: "import", ...binding.imported }, env, seen);
+    return binding.init ? resolveValue(binding.init, env, seen) : undefined;
+  };
+  const resolveValue = (
+    node: AnyNode | undefined,
+    env: Environment,
+    seen = new Set<LexicalBinding>(),
+  ): Value => {
+    if (!node) return undefined;
+    if (isFunction(node)) return { kind: "function", node, env };
+    if (node.type === "Identifier") {
+      const binding = lookup(node);
+      return binding ? bindingValue(binding, env, seen) : undefined;
+    }
+    if (node.type === "Literal" && typeof node.value === "string")
+      return { kind: "strings", strings: [node.value] };
+    if (node.type === "ConditionalExpression" || node.type === "LogicalExpression") {
+      const values = [node.consequent ?? node.left, node.alternate ?? node.right].map((branch) =>
+        resolveValue(branch as AnyNode, env, new Set(seen)),
+      );
+      return {
+        kind: "strings",
+        strings: values.flatMap((value) => (value?.kind === "strings" ? value.strings : [])),
+      };
+    }
+    if (node.type === "ObjectExpression") return { kind: "object" };
+    if (node.type === "ArrayExpression") {
+      const elements = node.elements as (AnyNode | null)[];
+      // A spread may supply elements even when the literal has none of its own.
+      if (elements.some((element) => element?.type === "SpreadElement")) return undefined;
+      return { kind: "array", length: elements.length, populated: elements.filter(Boolean).length };
+    }
+    if (node.type === "CallExpression") {
+      const callee = resolveValue(node.callee as AnyNode, env, seen);
+      if (
+        callee?.kind === "import" &&
+        callee.file === join(SRC, "operation.ts") &&
+        callee.name === "markPublic"
+      )
+        return resolveValue((node.arguments as AnyNode[])[1], env, seen);
+      if (
+        callee?.kind === "import" &&
+        CHECKS.has(callee.name) &&
+        callee.name === "permissionsOf" &&
+        callee.file &&
+        dirname(callee.file) === join(SRC, "permissions")
+      )
+        return { kind: "permissions" };
+      // A known factory can return an arbitrary object with no-op collection methods. Its
+      // result is not evidence for an array callback unless we can establish its shape.
+      if (callee?.kind === "function") return { kind: "factoryResult" };
+    }
+    return undefined;
+  };
+  // These are the conventional synchronous collection callbacks used by services. This is
+  // syntactic coverage, not a type/control-flow proof: unknown receivers are assumed to use
+  // their standard array methods. Known empty arrays, non-array values and results of local
+  // factories are excluded. No arbitrary callback, getter or returned function is invoked.
+  const collectionCallbacks = new Set([
+    "map",
+    "flatMap",
+    "filter",
+    "forEach",
+    "some",
+    "every",
+    "find",
+    "findIndex",
+    "reduce",
+    "reduceRight",
+  ]);
+  for (const [binding, handler] of handlers) {
+    const active = new Set<AnyNode>();
+    const record = (args: Value[], implied: string[] = []) => {
+      binding.checks = true;
+      for (const id of [
+        ...implied,
+        ...args.flatMap((arg) => (arg?.kind === "strings" ? arg.strings : [])),
+      ])
+        binding.permissions.add(id);
+    };
+    const invoke = (fn: Value, args: Value[]) => {
+      if (fn?.kind === "import") {
+        if (fn.file && dirname(fn.file) === join(SRC, "permissions") && CHECKS.has(fn.name)) {
+          if (fn.name !== "permissionsOf") record(args, IMPLIED[fn.name]);
+        } else {
+          const callback = callbackArgument(fn);
+          if (callback !== undefined) invoke(args[callback], []);
+        }
+        return;
+      }
+      if (fn?.kind !== "function" || active.has(fn.node) || fn.node.generator) return;
+      active.add(fn.node);
+      const env = new Map(fn.env);
+      (fn.node.params as AnyNode[]).forEach((param, index) => {
+        for (const id of patternNames(param)) {
+          const local = lookup(id);
+          if (local) env.set(local, param.type === "Identifier" ? args[index] : undefined);
+        }
+      });
+      visit(fn.node.body as AnyNode, env);
+      active.delete(fn.node);
+    };
+    const visit = (node: AnyNode, env: Environment) => {
+      if (isFunction(node) || node.type === "ClassDeclaration" || node.type === "ClassExpression")
+        return;
+      if (node.type === "CallExpression") {
+        const callee = node.callee as AnyNode;
+        const args = (node.arguments as AnyNode[]).map((arg) => resolveValue(arg, env));
+        invoke(resolveValue(callee, env), args);
+        if (callee.type === "MemberExpression" && !callee.computed) {
+          const object = resolveValue(callee.object as AnyNode, env);
+          const member = (callee.property as AnyNode).name as string;
+          if (object?.kind === "permissions" && ["can", "value"].includes(member)) record(args);
+          if (collectionCallbacks.has(member)) {
+            const visitsHoles = member === "find" || member === "findIndex";
+            const count =
+              object?.kind === "array"
+                ? visitsHoles
+                  ? object.length
+                  : object.populated
+                : undefined;
+            const skipsFirst = ["reduce", "reduceRight"].includes(member) && args.length < 2;
+            if (!object || (count !== undefined && count > Number(skipsFirst))) invoke(args[0], []);
+          }
+        }
+      }
+      for (const child of children(node)) visit(child, env);
+    };
+    const value = resolveValue(handler, new Map());
+    if (value?.kind === "function" || value?.kind === "import") invoke(value, []);
+    else visit(handler, new Map());
+  }
+  const reaches = (name: string) => bindings.get(name)?.checks ?? false;
   return { bindings, reaches, legacyUses };
 }
-
 const moduleOf = (file: string) => {
   const rel = relative(join(SRC, "modules"), file);
   return rel.startsWith("..") ? null : rel.split(/[\\/]/)[0]!;
@@ -406,12 +530,10 @@ function uncheckedFunctions({ bindings, reaches }: Analysis): string[] {
 }
 
 /** Permission ids passed as literals to a check, or to a helper that reaches one. */
-function checkedPermissions({ bindings, reaches }: Analysis): Set<string> {
+function checkedPermissions({ bindings }: Analysis): Set<string> {
   const checked = new Set<string>();
   for (const b of bindings.values())
-    for (const [callee, literals] of b.literalCalls)
-      if (callee.startsWith("check:") || reaches(callee))
-        for (const literal of literals) checked.add(literal);
+    for (const permission of b.permissions) checked.add(permission);
   for (const id of [...checked]) {
     const def = PERMISSIONS[id as keyof typeof PERMISSIONS] as PermissionDefinition | undefined;
     if (def?.type === "flag" && def.timeLimit) checked.add(def.timeLimit);
@@ -492,6 +614,186 @@ describe("the analyzer itself", () => {
         });
       `),
     ).toEqual(["referencedOp", "helperReferencedOp", "passedAlong", "resolvedOnlyOp"]);
+  });
+
+  test("an unused nested check does not guard its operation", () => {
+    expect(
+      unchecked(`
+        export const unusedOp = implement(contract, (ctx, actor) => {
+          const check = () => requirePermission(ctx, actor, "admin.permissions");
+          return { ok: true };
+        });
+      `),
+    ).toEqual(["unusedOp"]);
+  });
+
+  test("a local function shadowing an imported check does not guard its operation", () => {
+    expect(
+      unchecked(`
+        export const shadowedOp = implement(contract, (ctx, actor) => {
+          function requirePermission() {}
+          requirePermission(ctx, actor, "admin.permissions");
+          return { ok: true };
+        });
+      `),
+    ).toEqual(["shadowedOp"]);
+  });
+
+  test("lexical parameters, variables, catch and loop bindings hide imported checks", () => {
+    expect(
+      unchecked(`
+        export const parameterOp = implement(contract, (ctx, actor, requirePermission) => {
+          requirePermission(ctx, actor, "admin.permissions");
+        });
+        export const blockOp = implement(contract, (ctx, actor) => {
+          { const requirePermission = () => {}; requirePermission(); }
+        });
+        export const destructuredOp = implement(contract, (ctx, actor, { requirePermission }) => {
+          requirePermission(ctx, actor, "admin.permissions");
+        });
+        export const catchOp = implement(contract, (ctx, actor) => {
+          try { throw null; } catch (requirePermission) { requirePermission(); }
+        });
+        export const loopOp = implement(contract, (ctx, actor, input) => {
+          for (const requirePermission of input.callbacks) requirePermission();
+        });
+        export const varOp = implement(contract, (ctx, actor) => {
+          if (ctx.flag) { var requirePermission = () => {}; }
+          requirePermission();
+        });
+        export const resolverOp = implement(contract, (ctx, actor) => {
+          const permissionsOf = () => ({ can() { return true; } });
+          permissionsOf(ctx, actor).can("admin.permissions");
+        });
+        export const holderOp = implement(contract, (ctx, actor, input) => {
+          const grants = permissionsOf(ctx, actor);
+          function inspect(grants) { return grants.can("admin.permissions"); }
+          return inspect(input.policy);
+        });
+        export const reassignedOp = implement(contract, (ctx, actor) => {
+          let check = requirePermission;
+          check = () => {};
+          check(ctx, actor, "admin.permissions");
+        });
+      `),
+    ).toEqual([
+      "parameterOp",
+      "blockOp",
+      "destructuredOp",
+      "catchOp",
+      "loopOp",
+      "varOp",
+      "resolverOp",
+      "holderOp",
+      "reassignedOp",
+    ]);
+  });
+
+  test("unused callbacks, methods, generators and foreign transaction wrappers do not count", () => {
+    expect(
+      unchecked(`
+        const discard = (callback) => ({ ok: true });
+        export const discardedOp = implement(contract, (ctx, actor) =>
+          discard(() => requirePermission(ctx, actor, "admin.permissions")));
+        export const returnedOp = implement(contract, (ctx, actor) =>
+          () => requirePermission(ctx, actor, "admin.permissions"));
+        export const methodOp = implement(contract, (ctx, actor) => ({
+          check() { requirePermission(ctx, actor, "admin.permissions"); }
+        }));
+        export const generatorOp = implement(contract, (ctx, actor) => {
+          function* check() { requirePermission(ctx, actor, "admin.permissions"); }
+          check();
+        });
+        export const foreignTxOp = implement(contract, (ctx, actor) => {
+          const writeTx = (ctx, callback) => ({});
+          return writeTx(ctx, () => requirePermission(ctx, actor, "admin.permissions"));
+        });
+        export const fakeMapOp = implement(contract, (ctx, actor) => {
+          const list = { map(callback) { return []; } };
+          return list.map(() => requirePermission(ctx, actor, "admin.permissions"));
+        });
+        export const functionMapOp = implement(contract, (ctx, actor) => {
+          function list() {}
+          list.map = () => [];
+          return list.map(() => requirePermission(ctx, actor, "admin.permissions"));
+        });
+      `),
+    ).toEqual([
+      "discardedOp",
+      "returnedOp",
+      "methodOp",
+      "generatorOp",
+      "foreignTxOp",
+      "fakeMapOp",
+      "functionMapOp",
+    ]);
+  });
+
+  test("invoked nested functions, checked aliases and transaction callbacks count", () => {
+    const analysis = sample(`
+      import { writeTx as transaction } from "../../db/tx";
+      import { readWithCurrentActor } from "../../permissions";
+      import { requirePermission as importedCheck } from "../../permissions";
+      const invoke = (callback) => callback();
+      export const nestedOp = implement(contract, (ctx, actor) => {
+        const check = () => requirePermission(ctx, actor, "admin.permissions");
+        check();
+      });
+      export const invokedOp = implement(contract, (ctx, actor) =>
+        invoke(() => requirePermission(ctx, actor, "admin.groups")));
+      export const aliasOp = implement(contract, (ctx, actor) => {
+        const check = importedCheck;
+        check(ctx, actor, "search.use");
+      });
+      export const txOp = implement(contract, (ctx, actor) =>
+        transaction(ctx, () => requirePermission(ctx, actor, "admin.promotions")));
+      export const readOp = implement(contract, (ctx, actor) =>
+        readWithCurrentActor(ctx, actor, (current) =>
+          requirePermission(ctx, current, "admin.members")));
+    `);
+    expect(uncheckedFunctions(analysis)).toEqual([]);
+    expect([...checkedPermissions(analysis)].sort()).toEqual([
+      "admin.groups",
+      "admin.members",
+      "admin.permissions",
+      "admin.promotions",
+      "forum.reply",
+      "search.use",
+    ]);
+  });
+
+  test("empty arrays and known factory results do not invoke checks", () => {
+    expect(
+      unchecked(`
+        export const emptyMapOp = implement(contract, (ctx, actor) =>
+          [].map(() => requirePermission(ctx, actor, "admin.permissions")));
+        export const emptyFilterOp = implement(contract, (ctx, actor) => {
+          const rows = [];
+          return rows.filter(() => requirePermission(ctx, actor, "admin.permissions"));
+        });
+        export const factoryMapOp = implement(contract, (ctx, actor) => {
+          function ignored() { return { map() { return []; } }; }
+          return ignored().map(() => requirePermission(ctx, actor, "admin.permissions"));
+        });
+        export const sparseMapOp = implement(contract, (ctx, actor) =>
+          [, ,].map(() => requirePermission(ctx, actor, "admin.permissions")));
+        export const singletonReduceOp = implement(contract, (ctx, actor) =>
+          [1].reduce(() => requirePermission(ctx, actor, "admin.permissions")));
+      `),
+    ).toEqual(["emptyMapOp", "emptyFilterOp", "factoryMapOp", "sparseMapOp", "singletonReduceOp"]);
+  });
+
+  test("nonempty literal array methods invoke their callbacks", () => {
+    expect(
+      unchecked(`
+        export const literalMapOp = implement(contract, (ctx, actor) =>
+          [1].map(() => requirePermission(ctx, actor, "admin.permissions")));
+        export const reduceOp = implement(contract, (ctx, actor) =>
+          [1].reduce(() => requirePermission(ctx, actor, "admin.permissions"), 0));
+        export const sparseFindOp = implement(contract, (ctx, actor) =>
+          [, ,].find(() => requirePermission(ctx, actor, "admin.permissions")));
+      `),
+    ).toEqual([]);
   });
 
   test(".can and .value on an object that is not a permissionsOf result are not checks", () => {

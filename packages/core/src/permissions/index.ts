@@ -15,6 +15,7 @@ export {
   permissionsOf,
   permissionValue,
   principalFromRow,
+  readWithCurrentActor,
   requestVersions,
   requirePermission,
   resolvedPermissions,

@@ -10,6 +10,7 @@ import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../e
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  can,
   currentActor,
   currentVersions,
   groupDecidesAdministration,
@@ -17,6 +18,7 @@ import {
   memberStanding,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
+  readWithCurrentActor,
   requirePermission,
 } from "../../permissions";
 import {
@@ -387,18 +389,24 @@ function status(ctx: Ctx, m: MemberRow, p: PromotionRow) {
 }
 
 export const operations = [
-  implement(contracts.promotionsCriteria, (ctx, actor) => {
-    requirePermission(ctx, actor, "admin.promotions");
-    return { items: criterionDefinitions };
-  }),
-  implement(contracts.promotionsList, (ctx, actor) => {
-    requirePermission(ctx, actor, "admin.promotions");
-    return { items: rows(ctx).map(value) };
-  }),
-  implement(contracts.promotionsGet, (ctx, actor, input) => {
-    requirePermission(ctx, actor, "admin.promotions");
-    return value(promotion(ctx, input.promotionId));
-  }),
+  implement(contracts.promotionsCriteria, (ctx, actor) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requirePermission(ctx, current, "admin.promotions");
+      return { items: criterionDefinitions };
+    }),
+  ),
+  implement(contracts.promotionsList, (ctx, actor) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requirePermission(ctx, current, "admin.promotions");
+      return { items: rows(ctx).map(value) };
+    }),
+  ),
+  implement(contracts.promotionsGet, (ctx, actor, input) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requirePermission(ctx, current, "admin.promotions");
+      return value(promotion(ctx, input.promotionId));
+    }),
+  ),
   implement(contracts.promotionsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
     return writeTx(ctx, () => {
@@ -464,21 +472,26 @@ export const operations = [
       return { ok: true };
     });
   }),
-  implement(contracts.promotionsMemberStatus, (ctx, actor, input) => {
-    requirePermission(ctx, actor, "admin.promotions");
-    const m = member(ctx, input.userId);
-    return { items: rows(ctx).map((p) => status(ctx, m, p)) };
-  }),
+  implement(contracts.promotionsMemberStatus, (ctx, actor, input) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requirePermission(ctx, current, "admin.promotions");
+      const m = member(ctx, input.userId);
+      return { items: rows(ctx).map((p) => status(ctx, m, p)) };
+    }),
+  ),
   implement(contracts.promotionsApply, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
       const m = member(ctx, input.userId);
-      requirePermission(ctx, current, "admin.members", { target: target(ctx, m.id) });
+      const affected = target(ctx, m.id);
+      requirePermission(ctx, current, "admin.members", { target: affected });
+      const wasAdministrator = can(ctx, affected, "admin.permissions");
       const p = promotion(ctx, input.promotionId);
       if (groupIds(p).length === 0) {
         reconcile(ctx, m, p, [], null, null, null);
+        assertAdministrator(ctx, { userId: m.id, wasAdministrator });
         return status(ctx, m, p);
       }
       if (input.action === "reset") {
@@ -520,44 +533,49 @@ export const operations = [
           log(ctx, m.id, p, input.action, user.userId, desired);
       }
       // Taking away a group that a promotion stored before the rule still grants.
-      assertAdministrator(ctx);
+      assertAdministrator(ctx, { userId: m.id, wasAdministrator });
       return status(ctx, m, p);
     });
   }),
-  implement(contracts.promotionsLog, (ctx, actor, input) => {
-    requirePermission(ctx, actor, "admin.promotions");
-    const cursor = input.cursor
-      ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
-      : Number.MAX_SAFE_INTEGER;
-    const sql =
-      input.userId === undefined
-        ? "SELECT * FROM promotion_log WHERE id < ?1 ORDER BY id DESC LIMIT ?2"
-        : "SELECT * FROM promotion_log WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3";
-    const records =
-      input.userId === undefined
-        ? all<LogRow>(ctx, "logRecent", sql, cursor, input.limit + 1)
-        : all<LogRow>(ctx, "logUser", sql, input.userId, cursor, input.limit + 1);
-    const page = records.slice(0, input.limit);
-    return {
-      items: page.map((r) => ({
-        id: r.id,
-        userId: r.user_id,
-        promotionId: r.promotion_id,
-        action: r.action,
-        actorId: r.actor_id,
-        groupIds: JSON.parse(r.group_ids) as number[],
-        createdAt: iso(r.created_at),
-      })),
-      nextCursor: records.length > input.limit ? encodeCursor([page.at(-1)!.id]) : null,
-    };
-  }),
+  implement(contracts.promotionsLog, (ctx, actor, input) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requirePermission(ctx, current, "admin.promotions");
+      const cursor = input.cursor
+        ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
+        : Number.MAX_SAFE_INTEGER;
+      const sql =
+        input.userId === undefined
+          ? "SELECT * FROM promotion_log WHERE id < ?1 ORDER BY id DESC LIMIT ?2"
+          : "SELECT * FROM promotion_log WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3";
+      const records =
+        input.userId === undefined
+          ? all<LogRow>(ctx, "logRecent", sql, cursor, input.limit + 1)
+          : all<LogRow>(ctx, "logUser", sql, input.userId, cursor, input.limit + 1);
+      const page = records.slice(0, input.limit);
+      return {
+        items: page.map((r) => ({
+          id: r.id,
+          userId: r.user_id,
+          promotionId: r.promotion_id,
+          action: r.action,
+          actorId: r.actor_id,
+          groupIds: JSON.parse(r.group_ids) as number[],
+          createdAt: iso(r.created_at),
+        })),
+        nextCursor: records.length > input.limit ? encodeCursor([page.at(-1)!.id]) : null,
+      };
+    }),
+  ),
   implement(contracts.promotionsRun, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.promotions");
-    return {
-      queued:
-        enqueueJob(ctx, "promotions.sweep", { after: 0 }, { uniqueKey: "promotions.sweep" }) !==
-        null,
-    };
+    return writeTx(ctx, () => {
+      administratorNow(ctx, actor);
+      return {
+        queued:
+          enqueueJob(ctx, "promotions.sweep", { after: 0 }, { uniqueKey: "promotions.sweep" }) !==
+          null,
+      };
+    });
   }),
 ];
 

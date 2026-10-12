@@ -78,6 +78,14 @@ describe("promotion administrators revoked meanwhile", () => {
       }),
   };
   const attempts: Record<string, (s: Scenario) => Promise<unknown>> = {
+    "promotions.criteria": (s) => execute(s.here, op("promotions.criteria"), s.actor, {}),
+    "promotions.list": (s) => execute(s.here, op("promotions.list"), s.actor, {}),
+    "promotions.get": (s) =>
+      execute(s.here, op("promotions.get"), s.actor, { promotionId: s.promotion.id }),
+    "promotions.memberStatus": (s) =>
+      execute(s.here, op("promotions.memberStatus"), s.actor, { userId: s.member.id }),
+    "promotions.log": (s) => execute(s.here, op("promotions.log"), s.actor, {}),
+    "promotions.run": (s) => execute(s.here, op("promotions.run"), s.actor, {}),
     "promotions.create": (s) => createPromotion(s.here, s.actor, [s.granted.id], "Second"),
     "promotions.update": (s) =>
       execute(s.here, op("promotions.update"), s.actor, {
@@ -100,6 +108,7 @@ describe("promotion administrators revoked meanwhile", () => {
         .all(),
       ctx.sqlite.prepare("SELECT user_id, group_id FROM user_group_grants ORDER BY id").all(),
       ctx.sqlite.prepare("SELECT user_id, state FROM user_promotions ORDER BY user_id").all(),
+      ctx.sqlite.prepare("SELECT type, payload, status, unique_key FROM jobs ORDER BY id").all(),
     ]);
 
   for (const [revoked, revoke] of Object.entries(revocations))

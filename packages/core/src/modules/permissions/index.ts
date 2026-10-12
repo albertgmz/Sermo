@@ -20,6 +20,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import {
+  can,
   combinationsGranting,
   currentActor,
   currentVersions,
@@ -33,6 +34,7 @@ import {
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionPhrases,
+  readWithCurrentActor,
   requirePermission,
 } from "../../permissions";
 import { appendModeratorLog } from "../moderation";
@@ -119,21 +121,20 @@ const grantedByPromotion = (ctx: Ctx, groupId: number) =>
 /**
  * The invariant every change to permissions, groups, memberships and bans keeps: at least one
  * member who is not banned has `admin.permissions`. Call it inside the write transaction, after
- * the change; it throws ConflictError when the change would leave nobody. A ban passes
- * `bannedUserId`: only banning a member who holds `admin.permissions` can break the invariant,
- * so any other ban is never refused.
+ * the change; it throws ConflictError when the change would leave nobody. When only one member
+ * changes, capture their `admin.permissions` before the change, inside the same transaction.
+ * Only a member losing that permission needs the full search for another administrator.
  */
-export const assertAdministrator = (ctx: Ctx, bannedUserId?: number) => {
-  const ids = JSON.stringify(combinationsGranting(ctx, "admin.permissions"));
+export const assertAdministrator = (
+  ctx: Ctx,
+  affected?: { userId: number; wasAdministrator: boolean },
+) => {
   if (
-    bannedUserId !== undefined &&
-    !prepared(ctx, "permissions.isAdministrator", () =>
-      ctx.sqlite.prepare<{ id: number }, [string, number]>(
-        "SELECT id FROM users WHERE id = ?2 AND permission_combination_id IN (SELECT value FROM json_each(?1))",
-      ),
-    ).get(ids, bannedUserId)
+    affected &&
+    (!affected.wasAdministrator || can(ctx, getMember(ctx, affected.userId), "admin.permissions"))
   )
     return;
+  const ids = JSON.stringify(combinationsGranting(ctx, "admin.permissions"));
   if (
     !prepared(ctx, "permissions.activeAdministrator", () =>
       ctx.sqlite.prepare<{ id: number }, [string, number]>(
@@ -144,24 +145,28 @@ export const assertAdministrator = (ctx: Ctx, bannedUserId?: number) => {
     throw new ConflictError("Cannot remove the last administrator.");
 };
 
-export const groupsListOp = implement(groupsList, (ctx, actor) => {
-  admin(ctx, actor, "admin.groups");
-  return {
-    items: prepared(ctx, "permissions.groups", () =>
-      ctx.sqlite.prepare<GroupRow, []>(
-        "SELECT id, title, description, rank, user_title, badge, builtin FROM groups ORDER BY rank DESC, id",
-      ),
-    )
-      .all()
-      .map(groupValue),
-  };
-});
-export const groupsGetOp = implement(groupsGet, (ctx, actor, input) => {
-  admin(ctx, actor, "admin.groups");
-  const group = getGroup(ctx, input.groupId);
-  if (!group) throw new NotFoundError();
-  return groupValue(group);
-});
+export const groupsListOp = implement(groupsList, (ctx, actor) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.groups");
+    return {
+      items: prepared(ctx, "permissions.groups", () =>
+        ctx.sqlite.prepare<GroupRow, []>(
+          "SELECT id, title, description, rank, user_title, badge, builtin FROM groups ORDER BY rank DESC, id",
+        ),
+      )
+        .all()
+        .map(groupValue),
+    };
+  }),
+);
+export const groupsGetOp = implement(groupsGet, (ctx, actor, input) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.groups");
+    const group = getGroup(ctx, input.groupId);
+    if (!group) throw new NotFoundError();
+    return groupValue(group);
+  }),
+);
 export const groupsCreateOp = implement(groupsCreate, (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");
   return writeTx(ctx, () => {
@@ -256,17 +261,20 @@ const memberGroups = (ctx: Ctx, userId: number) => {
     rank: standing.maxRank,
   };
 };
-export const usersGetGroupsOp = implement(usersGetGroups, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.members", { target: GUEST });
-  requirePermission(ctx, actor, "admin.members", { target: getMember(ctx, input.userId) });
-  return memberGroups(ctx, input.userId);
-});
+export const usersGetGroupsOp = implement(usersGetGroups, (ctx, actor, input) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    requirePermission(ctx, current, "admin.members", { target: GUEST });
+    requirePermission(ctx, current, "admin.members", { target: getMember(ctx, input.userId) });
+    return memberGroups(ctx, input.userId);
+  }),
+);
 export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.members", { target: GUEST });
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     const target = getMember(ctx, input.userId);
     requirePermission(ctx, current, "admin.members", { target });
+    const wasAdministrator = can(ctx, target, "admin.permissions");
     const before = memberGroups(ctx, input.userId);
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
       (id): id is number => id !== undefined,
@@ -290,7 +298,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) =>
       );
       for (const id of new Set(input.secondaryGroupIds)) insert.run(input.userId, id, ctx.now());
     }
-    assertAdministrator(ctx);
+    assertAdministrator(ctx, { userId: input.userId, wasAdministrator });
     appendModeratorLog(ctx, actor, "user.groups", "user", input.userId);
     const after = memberGroups(ctx, input.userId);
     const oldIds = new Set([
@@ -323,29 +331,31 @@ export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) =>
   });
 });
 
-export const permissionsDefinitionsOp = implement(permissionsDefinitions, (ctx, actor) => {
-  admin(ctx, actor, "admin.permissions");
-  return {
-    items: PERMISSION_IDS.map((id) => {
-      const def: PermissionDefinition = PERMISSIONS[id];
-      return {
-        id,
-        scope: def.scope,
-        type: def.type,
-        category: def.category,
-        unit: def.type === "integer" ? def.unit : null,
-        ...permissionPhrases(id),
-        defaults: def.defaults,
-        requiresAccount: def.type === "flag" && !!def.requiresAccount,
-        restriction: def.type === "flag" ? (def.restriction ?? null) : null,
-        ownContentOnly: def.type === "flag" && !!def.own,
-        timeLimit: def.type === "flag" ? (def.timeLimit ?? null) : null,
-        hierarchy: def.type === "flag" && !!def.hierarchy,
-        threadBan: def.type === "flag" && !!def.threadBan,
-      };
-    }),
-  };
-});
+export const permissionsDefinitionsOp = implement(permissionsDefinitions, (ctx, actor) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.permissions");
+    return {
+      items: PERMISSION_IDS.map((id) => {
+        const def: PermissionDefinition = PERMISSIONS[id];
+        return {
+          id,
+          scope: def.scope,
+          type: def.type,
+          category: def.category,
+          unit: def.type === "integer" ? def.unit : null,
+          ...permissionPhrases(id),
+          defaults: def.defaults,
+          requiresAccount: def.type === "flag" && !!def.requiresAccount,
+          restriction: def.type === "flag" ? (def.restriction ?? null) : null,
+          ownContentOnly: def.type === "flag" && !!def.own,
+          timeLimit: def.type === "flag" ? (def.timeLimit ?? null) : null,
+          hierarchy: def.type === "flag" && !!def.hierarchy,
+          threadBan: def.type === "flag" && !!def.threadBan,
+        };
+      }),
+    };
+  }),
+);
 const targetIds = (input: { groupId?: number; userId?: number; nodeId?: number | null }) => ({
   groupId: input.groupId ?? 0,
   userId: input.userId ?? 0,
@@ -383,16 +393,25 @@ const validateTarget = (
   if (nodeId) ensureNode(ctx, nodeId);
   return { groupId, userId, nodeId };
 };
-export const permissionsListOp = implement(permissionsList, (ctx, actor, input) => {
-  admin(ctx, actor, "admin.permissions");
-  const { groupId, userId, nodeId } = validateTarget(ctx, input);
-  return entrySet(ctx, groupId, userId, nodeId);
-});
+export const permissionsListOp = implement(permissionsList, (ctx, actor, input) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.permissions");
+    const { groupId, userId, nodeId } = validateTarget(ctx, input);
+    return entrySet(ctx, groupId, userId, nodeId);
+  }),
+);
 export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) => {
   admin(ctx, actor, "admin.permissions");
   return writeTx(ctx, () => {
     adminNow(ctx, actor, "admin.permissions");
     const { groupId, userId, nodeId } = validateTarget(ctx, input);
+    const changesAdministration = input.entries.some(
+      (entry) => entry.permission === "admin.permissions",
+    );
+    const affected =
+      userId && changesAdministration
+        ? { userId, wasAdministrator: can(ctx, getMember(ctx, userId), "admin.permissions") }
+        : undefined;
     const find = prepared(ctx, "permissions.definitionId", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
         "SELECT id FROM permission_definitions WHERE key = ?1",
@@ -438,6 +457,13 @@ export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) =>
         // never that would begin with it. The promotions and shop modules refuse the reverse
         // order (granting or selling a group that already has one).
         if (groupId && entry.permission === "admin.permissions") {
+          // Verification replaces Unconfirmed with Member and must always succeed. The
+          // source group cannot decide administration, and the destination cannot deny it,
+          // regardless of when an administrator configures either group.
+          if (groupId === GROUP_IDS.unconfirmed)
+            throw new ConflictError("The Unconfirmed group cannot decide admin.permissions.");
+          if (groupId === GROUP_IDS.member && entry.value === "never")
+            throw new ConflictError("The Member group cannot deny admin.permissions.");
           if (soldByShop(ctx, groupId)) throw new ConflictError("A shop item sells this group.");
           if (grantedByPromotion(ctx, groupId))
             throw new ConflictError("A promotion grants this group.");
@@ -460,8 +486,7 @@ export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) =>
                 : 0,
         );
     }
-    if (input.entries.some((entry) => entry.permission === "admin.permissions"))
-      assertAdministrator(ctx);
+    if (changesAdministration) assertAdministrator(ctx, affected);
     appendModeratorLog(
       ctx,
       actor,
@@ -474,60 +499,65 @@ export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) =>
     return entrySet(ctx, groupId, userId, nodeId);
   });
 });
-export const permissionsListNodeOp = implement(permissionsListNode, (ctx, actor, input) => {
-  admin(ctx, actor, "admin.permissions");
-  ensureNode(ctx, input.nodeId);
-  const rows = prepared(ctx, "permissions.nodeEntries", () =>
-    ctx.sqlite.prepare<EntryRow, [number]>(
-      "SELECT e.group_id, e.user_id, e.node_id, d.key AS permission, e.value, d.value_type AS type FROM permission_entries e JOIN permission_definitions d ON d.id = e.permission_id WHERE e.node_id = ?1 ORDER BY e.group_id, e.user_id, d.id",
-    ),
-  ).all(input.nodeId);
-  const items: ReturnType<typeof entrySet>[] = [];
-  for (const row of rows) {
-    let current = items.at(-1);
-    if (
-      !current ||
-      current.groupId !== (row.group_id || null) ||
-      current.userId !== (row.user_id || null)
-    ) {
-      current = {
-        groupId: row.group_id || null,
-        userId: row.user_id || null,
-        nodeId: input.nodeId,
-        entries: [],
-      };
-      items.push(current);
+export const permissionsListNodeOp = implement(permissionsListNode, (ctx, actor, input) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.permissions");
+    ensureNode(ctx, input.nodeId);
+    const rows = prepared(ctx, "permissions.nodeEntries", () =>
+      ctx.sqlite.prepare<EntryRow, [number]>(
+        "SELECT e.group_id, e.user_id, e.node_id, d.key AS permission, e.value, d.value_type AS type FROM permission_entries e JOIN permission_definitions d ON d.id = e.permission_id WHERE e.node_id = ?1 ORDER BY e.group_id, e.user_id, d.id",
+      ),
+    ).all(input.nodeId);
+    const items: ReturnType<typeof entrySet>[] = [];
+    for (const row of rows) {
+      let current = items.at(-1);
+      if (
+        !current ||
+        current.groupId !== (row.group_id || null) ||
+        current.userId !== (row.user_id || null)
+      ) {
+        current = {
+          groupId: row.group_id || null,
+          userId: row.user_id || null,
+          nodeId: input.nodeId,
+          entries: [],
+        };
+        items.push(current);
+      }
+      current.entries.push({ permission: row.permission, value: entryValue(row) });
     }
-    current.entries.push({ permission: row.permission, value: entryValue(row) });
-  }
-  return { items };
-});
-export const permissionsExplainOp = implement(permissionsExplain, (ctx, actor, input) => {
-  admin(ctx, actor, "admin.permissions");
-  if (!Object.hasOwn(PERMISSIONS, input.permission))
-    throw new ValidationError(`Unknown permission: ${input.permission}`);
-  const def: PermissionDefinition = PERMISSIONS[input.permission as keyof typeof PERMISSIONS];
-  const fields = {
-    nodeId: def.scope === "node",
-    ownerId: def.type === "flag" && !!def.own,
-    createdAt: def.type === "flag" && !!def.timeLimit,
-    targetUserId: def.type === "flag" && !!def.hierarchy,
-    threadBanned: def.type === "flag" && !!def.threadBan,
-  };
-  for (const [field, required] of Object.entries(fields))
-    if (required && input[field as keyof typeof fields] === undefined)
-      throw new ValidationError(`${field} is required.`);
-  if (input.nodeId) ensureNode(ctx, input.nodeId);
-  const subject = input.userId === null ? GUEST : getMember(ctx, input.userId);
-  const target = input.targetUserId === undefined ? undefined : getMember(ctx, input.targetUserId);
-  return explainPermission(ctx, subject, input.permission as keyof typeof PERMISSIONS, {
-    nodeId: input.nodeId,
-    ownerId: input.ownerId,
-    createdAt: input.createdAt === undefined ? undefined : Date.parse(input.createdAt),
-    target,
-    threadBanned: input.threadBanned,
-  });
-});
+    return { items };
+  }),
+);
+export const permissionsExplainOp = implement(permissionsExplain, (ctx, actor, input) =>
+  readWithCurrentActor(ctx, actor, (current) => {
+    admin(ctx, current, "admin.permissions");
+    if (!Object.hasOwn(PERMISSIONS, input.permission))
+      throw new ValidationError(`Unknown permission: ${input.permission}`);
+    const def: PermissionDefinition = PERMISSIONS[input.permission as keyof typeof PERMISSIONS];
+    const fields = {
+      nodeId: def.scope === "node",
+      ownerId: def.type === "flag" && !!def.own,
+      createdAt: def.type === "flag" && !!def.timeLimit,
+      targetUserId: def.type === "flag" && !!def.hierarchy,
+      threadBanned: def.type === "flag" && !!def.threadBan,
+    };
+    for (const [field, required] of Object.entries(fields))
+      if (required && input[field as keyof typeof fields] === undefined)
+        throw new ValidationError(`${field} is required.`);
+    if (input.nodeId) ensureNode(ctx, input.nodeId);
+    const subject = input.userId === null ? GUEST : getMember(ctx, input.userId);
+    const target =
+      input.targetUserId === undefined ? undefined : getMember(ctx, input.targetUserId);
+    return explainPermission(ctx, subject, input.permission as keyof typeof PERMISSIONS, {
+      nodeId: input.nodeId,
+      ownerId: input.ownerId,
+      createdAt: input.createdAt === undefined ? undefined : Date.parse(input.createdAt),
+      target,
+      threadBanned: input.threadBanned,
+    });
+  }),
+);
 export const operations = [
   groupsListOp,
   groupsGetOp,

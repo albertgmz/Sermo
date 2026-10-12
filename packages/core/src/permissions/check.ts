@@ -98,12 +98,12 @@ export function memberActor(
 /**
  * The actor as the database describes it now: its primary group, combination, ban and
  * restrictions, with the current cache versions. A request's actor was resolved before its
- * write transaction opened, and another process may have changed the member since; an operation
- * that changes permissions, groups or memberships calls this inside its transaction and
- * authorizes with the result, so a revoked member cannot act on what they held a moment ago.
+ * transaction opened, and another process may have changed the member since. Authorization
+ * and the protected read or write share that transaction's snapshot, so a revoked member
+ * cannot act on what they held a moment ago. Writes must acquire the write lock first.
  */
 export function currentActor(ctx: Ctx, actor: Actor): Actor {
-  if (!ctx.sqlite.inTransaction) throw new Error("currentActor requires a write transaction");
+  if (!ctx.sqlite.inTransaction) throw new Error("currentActor requires a transaction");
   if (actor.kind === "guest") return { kind: "guest", versions: currentVersions(ctx) };
   const row = ctx.sqlite
     .prepare<PrincipalRow & { group_id: number }, [number]>(
@@ -116,6 +116,14 @@ export function currentActor(ctx: Ctx, actor: Actor): Actor {
     groupId: row.group_id,
     principal: principalFromRow(row, currentVersions(ctx)),
   };
+}
+
+/** Authorize and read sensitive administration data in one snapshot, without taking a write lock. */
+export function readWithCurrentActor<T>(ctx: Ctx, actor: Actor, read: (current: Actor) => T): T {
+  // Transactional permission state is deliberately private. Warm the reusable state first;
+  // currentActor still reloads versions in the snapshot if another writer commits meanwhile.
+  permissionState(ctx);
+  return ctx.db.transaction(() => read(currentActor(ctx, actor)), { behavior: "deferred" });
 }
 
 interface Resolved {

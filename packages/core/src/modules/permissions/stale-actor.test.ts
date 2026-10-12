@@ -1,16 +1,24 @@
 import { expect, test } from "bun:test";
-import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import type { Actor } from "../../actor";
 import type { Ctx } from "../../context";
 import { ForbiddenError } from "../../errors";
 import { execute } from "../../operation";
-import { can } from "../../permissions";
+import { can, currentVersions } from "../../permissions";
+import type { PermissionState } from "../../permissions/state";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import {
   groupsCreateOp,
   groupsDeleteOp,
+  groupsGetOp,
+  groupsListOp,
   groupsUpdateOp,
+  permissionsDefinitionsOp,
+  permissionsExplainOp,
+  permissionsListNodeOp,
+  permissionsListOp,
   permissionsSetOp,
+  usersGetGroupsOp,
   usersSetGroupsOp,
 } from "./index";
 
@@ -35,12 +43,13 @@ async function scenario() {
   const spare = await execute(fixture, groupsCreateOp, founderActor, { title: "Spare", rank: 5 });
   const staff = insertUser(fixture, { groupId: staffGroup.id });
   const member = insertUser(fixture);
+  const node = insertNode(fixture, {});
   const database = sharedDatabase(fixture);
   const here = database.open();
   const elsewhere = database.open();
   const actor = resolvedActor(here, staff.id);
   expect(can(here, actor, "admin.permissions")).toBe(true);
-  return { database, here, elsewhere, actor, founderActor, staff, staffGroup, spare, member };
+  return { database, here, elsewhere, actor, founderActor, staff, staffGroup, spare, member, node };
 }
 
 type Scenario = Awaited<ReturnType<typeof scenario>>;
@@ -57,6 +66,20 @@ const revocations: Record<string, (s: Scenario) => Promise<unknown>> = {
     }),
 };
 const attempts: Record<string, (ctx: Ctx, actor: Actor, s: Scenario) => Promise<unknown>> = {
+  "groups.list": (ctx, actor) => execute(ctx, groupsListOp, actor, {}),
+  "groups.get": (ctx, actor, s) => execute(ctx, groupsGetOp, actor, { groupId: s.spare.id }),
+  "users.getGroups": (ctx, actor, s) =>
+    execute(ctx, usersGetGroupsOp, actor, { userId: s.member.id }),
+  "permissions.definitions": (ctx, actor) => execute(ctx, permissionsDefinitionsOp, actor, {}),
+  "permissions.list": (ctx, actor, s) =>
+    execute(ctx, permissionsListOp, actor, { groupId: s.staffGroup.id }),
+  "permissions.listNode": (ctx, actor, s) =>
+    execute(ctx, permissionsListNodeOp, actor, { nodeId: s.node.id }),
+  "permissions.explain": (ctx, actor, s) =>
+    execute(ctx, permissionsExplainOp, actor, {
+      userId: s.member.id,
+      permission: "admin.permissions",
+    }),
   "permissions.set": (ctx, actor, s) =>
     execute(ctx, permissionsSetOp, actor, {
       userId: s.staff.id,
@@ -111,4 +134,27 @@ test("an administrator who was not revoked still acts from a second process", as
   } finally {
     s.database.close();
   }
+});
+
+test("administrative reads reuse the permission cache across snapshots and refresh it after edits", async () => {
+  const ctx = createTestContext();
+  const founder = insertUser(ctx, { groupId: 4 });
+  const actor = resolvedActor(ctx, founder.id);
+  const cachedState = () =>
+    ctx.caches.get("permission_state")?.value as PermissionState | undefined;
+  expect(cachedState()).toBeUndefined();
+
+  await execute(ctx, groupsListOp, actor, {});
+  const first = cachedState();
+  expect(first).toBeDefined();
+  await execute(ctx, groupsListOp, actor, {});
+  expect(cachedState()).toBe(first);
+
+  const previousVersion = currentVersions(ctx).permissions;
+  ctx.sqlite.run(
+    "UPDATE permission_entries SET value = 0 WHERE group_id = 2 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'search.use')",
+  );
+  expect(currentVersions(ctx).permissions).toBeGreaterThan(previousVersion);
+  await execute(ctx, groupsListOp, actor, {});
+  expect(cachedState()?.versions.permissions).toBe(currentVersions(ctx).permissions);
 });

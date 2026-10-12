@@ -1330,6 +1330,7 @@ export function addWarning(
     const settings = readSiteSettings(ctx);
     const threshold = settings.warningBanThreshold;
     if (threshold > 0 && activePoints >= threshold && !can(ctx, target, "member.immuneToAutoBan")) {
+      const wasAdministrator = can(ctx, target, "admin.permissions");
       const expires = now + settings.warningBanDays * 86_400_000;
       exec(
         ctx,
@@ -1339,7 +1340,7 @@ export function addWarning(
         userId,
       );
       // The automatic ban obeys the same rule as a manual one (see insertBan).
-      assertAdministrator(ctx, userId);
+      assertAdministrator(ctx, { userId, wasAdministrator });
       const banId = Number(
         exec(
           ctx,
@@ -1408,6 +1409,7 @@ function insertBan(
   expiresAt: number | null,
   notice: Pick<Notice, "notify" | "message"> = { notify: true },
 ) {
+  const wasAdministrator = can(ctx, principalMember(ctx, userId), "admin.permissions");
   const now = ctx.now();
   const id = Number(
     exec(
@@ -1423,7 +1425,7 @@ function insertBan(
   );
   refreshBanState(ctx, userId, now);
   // A ban takes every permission away: it may not leave the forum without an administrator.
-  assertAdministrator(ctx, userId);
+  assertAdministrator(ctx, { userId, wasAdministrator });
   appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
   publishEvent(ctx, {
     type: "member.banned",
