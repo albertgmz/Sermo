@@ -5,7 +5,10 @@ import type { messages } from "@/i18n/messages";
 
 // The rows of the settings forms. A row is named after its settings key: its label, help and unit
 // are `adminSetup.fields.<key>` in the messages. The value is what the backend returned.
-export type FieldKey = keyof typeof messages.adminSetup.fields;
+export type FieldKey = Exclude<
+  keyof typeof messages.adminSetup.fields,
+  "socialLinks"
+>;
 
 export async function NumberRow({
   name,

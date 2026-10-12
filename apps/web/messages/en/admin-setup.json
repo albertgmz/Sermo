@@ -89,18 +89,6 @@
       "help": "Off: nobody can create profile posts or comments.",
       "switch": "Allow profile posts and comments"
     },
-    "socialLinks.discord": {
-      "label": "Discord",
-      "help": "An http(s) address. Leave empty to leave it out."
-    },
-    "socialLinks.telegram": {
-      "label": "Telegram",
-      "help": "An http(s) address. Leave empty to leave it out."
-    },
-    "socialLinks.x": {
-      "label": "X",
-      "help": "An http(s) address. Leave empty to leave it out."
-    },
     "newMemberDays": {
       "label": "New-member period",
       "help": "How long after joining a member counts as new for the mention limit below.",
@@ -190,6 +178,20 @@
       "label": "Points per referral",
       "help": "Points for each member a member brought in.",
       "unit": "points"
+    },
+    "socialLinks": {
+      "discord": {
+        "label": "Discord",
+        "help": "An http(s) address. Leave empty to leave it out."
+      },
+      "telegram": {
+        "label": "Telegram",
+        "help": "An http(s) address. Leave empty to leave it out."
+      },
+      "x": {
+        "label": "X",
+        "help": "An http(s) address. Leave empty to leave it out."
+      }
     }
   },
   "purposes": {
