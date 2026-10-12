@@ -9,14 +9,17 @@ import auth from "../../messages/en/auth.json";
 import awards from "../../messages/en/awards.json";
 import conversations from "../../messages/en/conversations.json";
 import credits from "../../messages/en/credits.json";
+import editor from "../../messages/en/editor.json";
 import forum from "../../messages/en/forum.json";
 import forums from "../../messages/en/forums.json";
 import home from "../../messages/en/home.json";
 import layout from "../../messages/en/layout.json";
 import lib from "../../messages/en/lib.json";
+import lite from "../../messages/en/lite.json";
 import members from "../../messages/en/members.json";
 import notifications from "../../messages/en/notifications.json";
 import search from "../../messages/en/search.json";
+import skeletons from "../../messages/en/skeletons.json";
 import staticMessages from "../../messages/en/static.json";
 import threads from "../../messages/en/threads.json";
 import ui from "../../messages/en/ui.json";
@@ -29,14 +32,17 @@ export const messages = {
   awards,
   conversations,
   credits,
+  editor,
   forum,
   forums,
   home,
   layout,
   lib,
+  lite,
   members,
   notifications,
   search,
+  skeletons,
   static: staticMessages,
   threads,
   ui,
