@@ -160,11 +160,11 @@ export function SearchPanel({ className }: { className?: string }) {
               </Label>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="header-search-member">{t("byMember")}</Label>
+              <Label htmlFor="header-search-author">{t("byAuthor")}</Label>
               <Input
-                id="header-search-member"
-                name="member"
-                placeholder={t("username")}
+                id="header-search-author"
+                name="author"
+                placeholder={t("exactUsername")}
                 autoComplete="off"
               />
             </div>
