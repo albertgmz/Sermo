@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, localDriver, schema } from "@sermo/core";
+import { closeContext, localDriver, readSiteSettings, schema } from "@sermo/core";
 import { createTestContext } from "@sermo/core/testing";
 import { frameGeometry } from "../../core/src/modules/images/frame-geometry";
 import { createApp } from "./app";
@@ -191,4 +191,22 @@ test("the site and its palette are public", async () => {
   expect(created.status).toBe(201);
   const again = (await (await request("/api/v1/site")).json()) as typeof body;
   expect(again.palette.nameColors).toHaveLength(12);
+});
+
+test("a low member upload limit does not cap catalog pictures", async () => {
+  const { ctx, request, admin, member } = await setup();
+  const bytes = png();
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, 0) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    )
+    .run(JSON.stringify({ ...readSiteSettings(ctx), maxUploadBytes: bytes.byteLength - 1 }));
+  const backdrop = await request(
+    ...uploadRequest(admin.cookie, "site_backdrop", bytes, "image/png"),
+  );
+  expect(backdrop.status).toBe(201);
+  const avatar = await request(...uploadRequest(member.cookie, "avatar", bytes, "image/png"));
+  expect(avatar.status).toBe(400);
+  const refused = (await avatar.json()) as { error: { message: string } };
+  expect(refused.error.message).toContain("upload limit");
 });
