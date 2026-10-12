@@ -8,7 +8,11 @@ import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { StaffBar, staffLinks } from "@/components/layout/staff-bar";
+import {
+  pendingBadge,
+  StaffBar,
+  staffLinks,
+} from "@/components/layout/staff-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
@@ -16,11 +20,17 @@ import { getViewer } from "@/lib/sermo/session";
 async function Chrome() {
   const [viewer, accent] = await Promise.all([getViewer(), getAccent()]);
   const links = staffLinks(viewer);
+  // The header reads the counters too, in the same render: one call.
+  const pending = links.moderation ? pendingBadge(await getCounters()) : null;
   return (
     <>
       <ViewerAccent accent={accent} />
       {viewer.user && (links.admin || links.moderation) && (
-        <StaffBar admin={links.admin} moderation={links.moderation} />
+        <StaffBar
+          admin={links.admin}
+          moderation={links.moderation}
+          pending={pending}
+        />
       )}
     </>
   );

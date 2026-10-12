@@ -7,6 +7,7 @@ import {
   notificationsList,
 } from "@sermo/core/contracts";
 import { cache } from "react";
+import type * as z from "zod";
 import { notificationEntries } from "@/app/(main)/notifications/entries";
 import type { AccentColors } from "@/components/layout/site-accent";
 import { call } from "@/lib/sermo/client";
@@ -15,9 +16,14 @@ import { membersFor, plainMember } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
 
-export type UnreadCounts = { conversations: number; notifications: number };
+export type Counters = z.output<typeof authCounters.output>;
 
-const NONE: UnreadCounts = { conversations: 0, notifications: 0 };
+const NONE: Counters = {
+  conversations: 0,
+  notifications: 0,
+  openReports: { count: 0, more: false },
+  pendingApprovals: { count: 0, more: false },
+};
 
 // How many rows the header panels list: a short first page of the pages' own operations.
 const CONVERSATIONS_SHOWN = 5;
@@ -38,8 +44,9 @@ async function orElse<T, F>(
   }
 }
 
-// One call per render, shared by the desktop header and the phone bar. A guest has none.
-export const getCounters = cache(async (): Promise<UnreadCounts> => {
+// One call per render, shared by the desktop header, the phone bar, the staff bar and the panel's
+// pending work. A guest has none.
+export const getCounters = cache(async (): Promise<Counters> => {
   const { user } = await getViewer();
   if (!user) return NONE;
   return orElse(NONE, () => call(authCounters, {}));

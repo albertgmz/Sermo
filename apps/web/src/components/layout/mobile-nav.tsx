@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { UnreadCounts } from "@/components/layout/header-data";
+import type { Counters } from "@/components/layout/header-data";
 import {
   iconFor,
   isCurrent,
@@ -16,7 +16,7 @@ export function MobileNav({
   unread,
 }: {
   items: LinkItem[];
-  unread: UnreadCounts;
+  unread: Pick<Counters, "conversations" | "notifications">;
 }) {
   const t = useTranslations("layout.mobileNav");
   const pathname = usePathname();

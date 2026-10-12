@@ -81,7 +81,8 @@
   },
   "staffBar": {
     "admin": "Admin",
-    "moderation": "Moderation"
+    "moderation": "Moderation",
+    "pending": "({count} pending)"
   },
   "siteFooter": {
     "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
