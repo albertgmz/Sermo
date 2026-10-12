@@ -228,10 +228,19 @@ export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
       [string, number, number]
     >(birthdaySql),
   );
+  // In a year without a 29th, those born on 29 February celebrate on the 28th.
+  const leapDay =
+    day === "02-28" && new Date(Date.UTC(today.getUTCFullYear(), 1, 29)).getUTCMonth() !== 1;
   const scan = scanKeyset({
     before: null as number | null,
     limit: BIRTHDAY_LIMIT,
-    fetch: (before, count) => statement.all(day, before ?? 0, count),
+    fetch: (before, count) => {
+      const rows = statement.all(day, before ?? 0, count);
+      if (!leapDay) return rows;
+      return [...rows, ...statement.all("02-29", before ?? 0, count)]
+        .sort((a, b) => a.id - b.id)
+        .slice(0, count);
+    },
     keyOf: (row) => row.id,
     accept: (rows) => {
       const open = openableProfiles(

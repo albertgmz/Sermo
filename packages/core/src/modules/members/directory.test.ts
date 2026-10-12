@@ -274,6 +274,29 @@ describe("users.birthdays", () => {
     expect(next.items.map((card: { id: number }) => card.id)).toEqual([other.id]);
   });
 
+  test("on 28 February of a year without a 29th, those born on 29 February too", async () => {
+    const w = world();
+    const feb28 = w.user();
+    const feb29 = w.user();
+    const feb27 = w.user();
+    w.set(feb28.id, { birthday_md: "02-28" });
+    w.set(feb29.id, { birthday_md: "02-29" });
+    w.set(feb27.id, { birthday_md: "02-27" });
+    const ids = async () =>
+      (await w.call("users.birthdays", GUEST, {})).items.map((card: { id: number }) => card.id);
+    w.ctx.clock.set(Date.UTC(2026, 1, 28, 12));
+    expect(await ids()).toEqual([feb28.id, feb29.id]);
+    w.ctx.clock.set(Date.UTC(2026, 1, 27, 12));
+    expect(await ids()).toEqual([feb27.id]);
+    w.ctx.clock.set(Date.UTC(2026, 2, 1, 12));
+    expect(await ids()).toEqual([]);
+    // In a leap year the 29th is its own day and the 28th lists only its own.
+    w.ctx.clock.set(Date.UTC(2028, 1, 28, 12));
+    expect(await ids()).toEqual([feb28.id]);
+    w.ctx.clock.set(Date.UTC(2028, 1, 29, 12));
+    expect(await ids()).toEqual([feb29.id]);
+  });
+
   test("at most 50", async () => {
     const w = world();
     for (let i = 0; i < 60; i++) w.set(w.user().id, { birthday_md: "01-01" });
