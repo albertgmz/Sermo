@@ -19,7 +19,7 @@ export function RoleBadge({
   return (
     <Badge
       variant={variant}
-      className={cn("h-4 px-1.5 text-[0.625rem]", className)}
+      className={cn("h-4 px-1.5 text-(length:--text-tiny)", className)}
     >
       {label}
     </Badge>

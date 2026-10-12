@@ -28,7 +28,7 @@ export function CoverControls({
         itemId,
         name,
         quantity,
-        preview: <Art src={src} className="aspect-[5/2] w-full" />,
+        preview: <Art src={src} className="aspect-(--aspect-cover) w-full" />,
       }))}
     />
   );

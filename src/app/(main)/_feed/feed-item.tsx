@@ -111,7 +111,7 @@ function Card({
           </p>
         </div>
         {highlighted && (
-          <span className="inline-flex shrink-0 items-center gap-1 text-[0.6875rem] font-medium text-primary">
+          <span className="inline-flex shrink-0 items-center gap-1 text-(length:--text-caption) font-medium text-primary">
             <Sparkles aria-hidden="true" className="size-3" />
             Highlighted
           </span>

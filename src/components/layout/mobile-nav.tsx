@@ -76,7 +76,7 @@ export function MobileNav({
               aria-current={
                 isActivePath(pathname, href, match) ? "page" : undefined
               }
-              className="flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-[0.6875rem] font-medium text-muted-foreground transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+              className="flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-(length:--text-caption) font-medium text-muted-foreground transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
             >
               <span className="relative">
                 <Icon className="size-5" />

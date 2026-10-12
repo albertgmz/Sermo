@@ -14,7 +14,7 @@ import type { User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const headerIconClass =
-  "relative inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-[1.125rem]";
+  "relative inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-(--spacing-inline-icon)";
 
 const footerClass = "flex items-center justify-between gap-2 border-t p-2";
 

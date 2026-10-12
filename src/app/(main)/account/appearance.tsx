@@ -204,7 +204,7 @@ export function AppearancePanel({
                   aria-label="No cover"
                   className={cn(choiceClass, "flex-col")}
                 >
-                  <span className="aspect-[5/2] w-full bg-muted" />
+                  <span className="aspect-(--aspect-cover) w-full bg-muted" />
                   <span className="flex h-8 items-center text-xs text-muted-foreground">
                     None
                   </span>
@@ -227,7 +227,7 @@ export function AppearancePanel({
                   >
                     <Art
                       src={coverSrc(key)}
-                      className="aspect-[5/2] w-full bg-[position:75%_30%]"
+                      className="aspect-(--aspect-cover) w-full bg-[position:75%_30%]"
                     />
                     <span className="flex h-8 items-center text-xs">
                       {label}

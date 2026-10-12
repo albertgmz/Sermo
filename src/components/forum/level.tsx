@@ -13,7 +13,7 @@ export function LevelBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-4 shrink-0 items-center gap-0.5 rounded-sm border bg-muted px-1 text-[0.625rem] leading-none font-semibold tracking-wide whitespace-nowrap text-muted-foreground",
+        "inline-flex h-4 shrink-0 items-center gap-0.5 rounded-sm border bg-muted px-1 text-(length:--text-tiny) leading-none font-semibold tracking-wide whitespace-nowrap text-muted-foreground",
         className,
       )}
     >

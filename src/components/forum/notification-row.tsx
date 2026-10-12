@@ -40,7 +40,7 @@ export function NotificationRow({
               {item.text.slice(0, titleStart)}
               <PrefixTag
                 prefix={item.prefix}
-                className="mr-1.5 align-[0.0625rem]"
+                className="mr-1.5 align-(--prefix-offset)"
               />
               {item.text.slice(titleStart)}
             </>

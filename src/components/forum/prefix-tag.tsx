@@ -49,7 +49,7 @@ export function PrefixTag({
     <Badge
       variant="outline"
       className={cn(
-        "h-[1.125rem] gap-1 px-1.5 text-[0.6875rem] font-semibold",
+        "h-(--spacing-inline-icon) gap-1 px-1.5 text-(length:--text-caption) font-semibold",
         COLORS[prefix.color] ?? "text-muted-foreground",
         className,
       )}

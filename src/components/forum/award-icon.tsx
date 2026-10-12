@@ -113,7 +113,7 @@ export function AwardRow({
   className?: string;
 }) {
   if (awards.length === 0) return null;
-  const overflowClass = "text-[0.6875rem] font-medium tabular-nums";
+  const overflowClass = "text-(length:--text-caption) font-medium tabular-nums";
   return (
     <Link
       href="/awards"

@@ -117,7 +117,7 @@ export default async function ConversationPage({
         action={sendMessage.bind(null, conversation.id)}
         placeholder="Write a message…"
         submitLabel="Send message"
-        className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3"
+        className="sticky bottom-(--spacing-mobile-nav) z-10 border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3"
       />
     </div>
   );

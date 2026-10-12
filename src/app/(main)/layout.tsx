@@ -30,7 +30,7 @@ async function MobileNavigation() {
 
 export default function MainLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-dvh flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0">
       <Suspense>
         <Chrome />
       </Suspense>
