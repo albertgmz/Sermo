@@ -1,0 +1,21 @@
+// The backend serves a thread in pages of this many positions (its default limit).
+export const POSTS_PER_PAGE = 20;
+
+// The page that holds the post at `position`; positions never change.
+export function pageOf(position: number) {
+  return Math.floor(position / POSTS_PER_PAGE) + 1;
+}
+
+// How many pages a member sees, from the position of the newest visible post.
+export function pageCount(lastPosition: number) {
+  return pageOf(lastPosition);
+}
+
+export function threadHref(
+  threadId: number,
+  position: number,
+  postId?: number,
+) {
+  const page = pageOf(position);
+  return `/threads/${threadId}${page > 1 ? `?page=${page}` : ""}${postId === undefined ? "" : `#post-${postId}`}`;
+}

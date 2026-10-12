@@ -1,17 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { postsCreate, threadsMarkRead } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-import { getClientInfo } from "@/lib/client";
-import {
-  applyThreadCover,
-  createPost,
-  getThread,
-  removeThreadCover,
-  removeThreadCoverAsStaff,
-} from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { threadHref } from "@/app/(main)/threads/[id]/pages";
+import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
+import { attempt } from "@/lib/sermo/outcome";
 
 export type ReplyState = {
   error?: string;
@@ -22,61 +16,21 @@ export async function replyAction(
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const t = await getTranslations("threads.actions.errors");
-
-  const body = String(formData.get("body") ?? "").trim();
-  if (!body) return { error: t("emptyBody") };
-
-  const thread = await getThread(threadId);
-  if (!thread) return { error: t("threadNotFound") };
-
-  const post = await createPost({
-    threadId: thread.id,
-    authorId: user.id,
-    body,
-    client: await getClientInfo(),
-  });
-  revalidatePath(`/threads/${thread.id}`);
-  revalidatePath(`/forums/${thread.forum.id}`);
-  revalidatePath("/forums");
-  redirect(`/threads/${thread.id}#post-${post.id}`);
+  const body = String(formData.get("body") ?? "");
+  const created = await attempt(`/threads/${threadId}`, () =>
+    call(postsCreate, { threadId, body }),
+  );
+  if (!created.ok) return { error: created.error };
+  const { id, position } = created.value;
+  redirect(threadHref(threadId, position, id));
 }
 
-export type CoverState = {
-  error: "no_cover" | "not_found" | "not_owned" | "not_author";
-} | null;
-
-export async function changeCover(
-  threadId: number,
-  _previous: CoverState,
-  formData: FormData,
-): Promise<CoverState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const itemId = Number(formData.get("item"));
-  if (!Number.isInteger(itemId) || itemId < 1) return { error: "no_cover" };
-  const result = await applyThreadCover(user.id, itemId, threadId);
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect(`/threads/${threadId}`);
-}
-
-export async function removeCover(
-  threadId: number,
-  _previous: CoverState,
-  _formData: FormData,
-): Promise<CoverState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const thread = await getThread(threadId);
-  if (!thread) return { error: "not_found" };
-  const result =
-    thread.authorId === user.id
-      ? await removeThreadCover(user.id, threadId)
-      : await removeThreadCoverAsStaff(user.id, threadId);
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect(`/threads/${threadId}`);
+// Called by the page itself once it is shown, so a refusal (a dead session, a thread that
+// vanished) is nothing the visitor needs to hear about.
+export async function markRead(threadId: number, position: number) {
+  try {
+    await call(threadsMarkRead, { threadId, position });
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+  }
 }

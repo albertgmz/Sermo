@@ -1,30 +1,37 @@
-import { PenLine, Reply, Sparkles } from "lucide-react";
+import { postsList, threadsGet } from "@sermo/core/contracts";
+import {
+  Hourglass,
+  Lock,
+  Paperclip,
+  PenLine,
+  Reply,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { useFormatter, useTranslations } from "next-intl";
+import { getFormatter, getTranslations } from "next-intl/server";
+import { cache, Suspense } from "react";
 import { react } from "@/app/(main)/actions";
-import {
-  CoverControls,
-  type OwnedCover,
-} from "@/app/(main)/threads/[id]/cover-controls";
+import { MarkRead } from "@/app/(main)/threads/[id]/mark-read";
+import { pageCount, threadHref } from "@/app/(main)/threads/[id]/pages";
 import { ReplyComposer } from "@/app/(main)/threads/[id]/reply-composer";
 import { Art } from "@/components/forum/art";
 import { AwardRow } from "@/components/forum/award-icon";
-import { ClientIcons } from "@/components/forum/client-icons";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { EmptyState } from "@/components/forum/empty-state";
-import { Markdown } from "@/components/forum/markdown";
+import { HtmlContent } from "@/components/forum/html-content";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
+import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
-import { Signature } from "@/components/forum/signature";
+import { SignatureHtml } from "@/components/forum/signature";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
@@ -32,19 +39,18 @@ import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { threadCoverSrc } from "@/lib/appearance";
-import {
-  getOwnedItems,
-  getPosts,
-  getReactionTypes,
-  getThread,
-  type PostView,
-  type UserView,
-} from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { can } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/session";
+import type { Level } from "@/lib/levels";
+import { call, read } from "@/lib/sermo/client";
+import { authorsFor } from "@/lib/sermo/members";
+import {
+  getReactionTypes,
+  pickerTypes,
+  reactionsView,
+} from "@/lib/sermo/reactions";
+import { getViewer } from "@/lib/sermo/session";
+import { type ApiPost, prefixView } from "@/lib/sermo/threads";
+import type { AuthorView } from "@/lib/sermo/views";
 import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,23 +58,83 @@ const QUIET_ICON =
   "inline-flex size-10 items-center justify-center rounded-md transition-colors hover:text-foreground md:size-7 [&_svg]:size-3.5";
 const LABEL = "sr-only sm:not-sr-only";
 
+// The thread is asked once for the metadata and the page: asking counts a view.
+const getThread = cache((threadId: number) => read(threadsGet, { threadId }));
+
+function threadIdOf(raw: string) {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id < 1) notFound();
+  return id;
+}
+
+// The bounds of the level come from the backend; only the bar's fill is worked out here.
+function levelOf(author: AuthorView): Level {
+  const span = author.nextLevelXp - author.currentLevelXp;
+  return {
+    level: author.member.level,
+    xp: author.xp,
+    currentLevelXp: author.currentLevelXp,
+    nextLevelXp: author.nextLevelXp,
+    progress:
+      span > 0
+        ? Math.min(1, Math.max(0, (author.xp - author.currentLevelXp) / span))
+        : 0,
+  };
+}
+
+// The attachments carry no name of their own: the last part of the address is the best there is.
+function fileName(url: string, fileId: number) {
+  const last = url.split("?")[0].split("/").at(-1);
+  try {
+    return last ? decodeURIComponent(last) : `#${fileId}`;
+  } catch {
+    return last || `#${fileId}`;
+  }
+}
+
+function PostNote({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof Hourglass;
+  children: React.ReactNode;
+}) {
+  return (
+    <p className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      {children}
+    </p>
+  );
+}
+
 function PostItem({
   post,
+  author,
+  byThreadAuthor,
+  noteState,
   highlighted,
   signed,
-  viewer,
+  viewerId,
+  picker,
   reactionTypes,
 }: {
-  post: PostView;
+  post: ApiPost;
+  author: AuthorView;
+  byThreadAuthor: boolean;
+  // Whether the post says it is waiting or deleted; the thread says so already for its own state.
+  noteState: boolean;
   highlighted: boolean;
   signed: boolean;
-  viewer: UserView | null;
-  reactionTypes: ReactionType[];
+  viewerId: number | null;
+  // What the picker offers; none when the viewer may not react to this post.
+  picker: ReactionType[];
+  reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
 }) {
   const t = useTranslations("threads.page");
-  const { author } = post;
-  // The role badge and the level already say what a derived title would.
-  const custom = can(author, "customTitle") ? author.customTitle : null;
+  const format = useFormatter();
+  const { member } = author;
+  const number = post.position + 1;
+  const href = threadHref(post.threadId, post.position, post.id);
 
   return (
     <article
@@ -76,44 +142,40 @@ function PostItem({
       className="relative isolate grid scroll-mt-4 grid-cols-[auto_minmax(0,1fr)] gap-x-3 p-3 md:gap-x-4 md:p-4"
     >
       <CoverBackdrop
-        cover={author.coverPicture}
+        cover={author.cover}
         variant={highlighted ? "full" : "header"}
       />
+      <UserAvatar user={member} size="lg" className="self-start md:hidden" />
       <UserAvatar
-        user={author.member}
-        size="lg"
-        className="self-start md:hidden"
-      />
-      <UserAvatar
-        user={author.member}
+        user={member}
         size="xl"
         className="hidden self-start md:row-span-2 md:block"
       />
       <div className="flex min-w-0 flex-col justify-center gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <UserLink user={author.member} className="[overflow-wrap:anywhere]" />
-          <UserBadges user={author.member} />
-          <AwardRow
-            awards={author.awards}
-            max={author.awardSlots.desktop}
-            maxMobile={author.awardSlots.mobile}
-          />
+          <UserLink user={member} className="[overflow-wrap:anywhere]" />
+          <UserBadges user={member} />
+          <AwardRow awards={author.awards} />
         </div>
         <div className="flex items-center gap-x-3">
-          {custom && (
+          {member.title && (
             <p
-              title={custom}
+              title={member.title}
               className="min-w-0 truncate text-xs text-muted-foreground"
             >
-              {custom}
+              {member.title}
             </p>
           )}
           <UserStats
-            user={author}
+            user={{
+              level: levelOf(author),
+              postCount: author.postCount,
+              reactionCount: author.reactionScore,
+            }}
             className={cn(
               "shrink-0",
               // On a phone the XP bar gives its room to the title.
-              custom && "max-sm:[&_[data-slot=progress]]:hidden",
+              member.title && "max-sm:[&_[data-slot=progress]]:hidden",
             )}
           />
         </div>
@@ -132,7 +194,13 @@ function PostItem({
             >
               {formatDateTime(post.createdAt)}
             </time>
-            <ClientIcons client={post.client} />
+            {post.editedAt && (
+              <span className="shrink-0">
+                {t.rich("edited", {
+                  time: () => <RelativeTime date={post.editedAt ?? ""} />,
+                })}
+              </span>
+            )}
           </div>
           <div className="flex shrink-0 items-center">
             {highlighted && (
@@ -141,7 +209,7 @@ function PostItem({
                 <span className={LABEL}>{t("highlightedLabel")}</span>
               </span>
             )}
-            {post.isThreadAuthor && (
+            {byThreadAuthor && (
               <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
                 <PenLine
                   aria-hidden="true"
@@ -152,29 +220,60 @@ function PostItem({
                 })}
               </span>
             )}
-            <ShareButton
-              href={`/threads/${post.thread.id}#post-${post.id}`}
-              className={QUIET_ICON}
-            />
+            <ShareButton href={href} className={QUIET_ICON} />
             <Link
               href={`#post-${post.id}`}
               className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
             >
-              {t("postNumber", { number: post.number })}
+              {t("postNumber", { number })}
             </Link>
           </div>
         </div>
 
-        <Markdown className="md:mt-1">{post.body}</Markdown>
+        {noteState && post.state === "moderated" && (
+          <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
+        )}
+        {noteState && post.state === "deleted" && (
+          <PostNote icon={Trash2}>{t("deleted")}</PostNote>
+        )}
+
+        <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+
+        {post.attachments.length > 0 && (
+          <ul
+            aria-label={t("aria.attachments")}
+            className="mt-3 flex flex-wrap gap-2"
+          >
+            {post.attachments.map((file) => (
+              <li key={file.fileId} className="min-w-0 max-w-full">
+                <a
+                  href={file.url}
+                  className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm hover:bg-muted md:min-h-8"
+                >
+                  <Paperclip
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">
+                    {fileName(file.url, file.fileId)}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatBytes(format, file.byteSize)}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="mt-2 -mx-2 flex items-center justify-end gap-1">
           <ReactionButton
             action={react.bind(null, "post", post.id)}
             total={post.reactions.total}
-            viewerTypeId={post.reactions.viewerTypeId}
-            types={reactionTypes}
-            viewerId={viewer?.id ?? null}
-            authorId={post.authorId}
+            viewerTypeId={post.reactions.mine}
+            types={picker}
+            viewerId={viewerId}
+            authorId={post.author.id}
           />
           <Link href="#reply" className={messageActionClass}>
             <Reply />
@@ -182,44 +281,70 @@ function PostItem({
           </Link>
         </div>
 
-        <ReactionSummary reactions={post.reactions} className="-ml-1" />
+        <ReactionSummary
+          reactions={reactionsView(post.reactions, reactionTypes)}
+          loadUsers={loadReactionUsers.bind(null, "post", post.id)}
+          className="-ml-1"
+        />
 
-        {signed && author.signature && (
-          <Signature className="mt-2 border-t pt-2">
-            {author.signature}
-          </Signature>
+        {signed && author.signatureHtml && (
+          <SignatureHtml className="mt-2 border-t pt-2">
+            {author.signatureHtml}
+          </SignatureHtml>
         )}
       </div>
     </article>
   );
 }
 
+function formatBytes(format: ReturnType<typeof useFormatter>, bytes: number) {
+  const [unit, size] =
+    bytes < 1024
+      ? (["byte", bytes] as const)
+      : bytes < 1024 * 1024
+        ? (["kilobyte", bytes / 1024] as const)
+        : (["megabyte", bytes / (1024 * 1024)] as const);
+  return format.number(size, {
+    style: "unit",
+    unit,
+    maximumFractionDigits: 1,
+  });
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/threads/[id]">): Promise<Metadata> {
-  const thread = await getThread(Number((await params).id));
+  const { thread } = await getThread(threadIdOf((await params).id));
   const t = await getTranslations("threads.page");
   return {
     title: t("metaTitle", {
-      hasPrefix: String(Boolean(thread?.prefix)),
-      prefix: thread?.prefix?.label ?? "",
-      title: thread?.title ?? t("metaTitleFallback"),
+      hasPrefix: String(Boolean(thread.prefix)),
+      prefix: thread.prefix?.label ?? "",
+      title: thread.title,
     }),
   };
 }
 
 export default async function ThreadPage({
   params,
+  searchParams,
 }: PageProps<"/threads/[id]">) {
-  const id = Number((await params).id);
-  if (!Number.isInteger(id)) notFound();
-  const viewer = await getCurrentUser();
-  const thread = await getThread(id);
-  if (!thread) notFound();
-  const t = await getTranslations("threads.page");
+  const [{ id: raw }, { page: pageParam, cursor }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const id = threadIdOf(raw);
+  const [{ thread, node, permissions }, { user }, t] = await Promise.all([
+    getThread(id),
+    getViewer(),
+    getTranslations("threads.page"),
+  ]);
+  const page = Math.max(1, Math.floor(Number(pageParam)) || 1);
+  const prefix = prefixView(thread.prefix);
+  const highlighted =
+    thread.highlightedUntil !== null &&
+    Date.parse(thread.highlightedUntil) > Date.now();
 
-  const own = viewer?.id === thread.authorId;
-  const staff = viewer !== null && viewer.role !== "member";
   return (
     <PageLayout className="pt-2">
       <header
@@ -227,10 +352,10 @@ export default async function ThreadPage({
           thread.cover && "relative isolate overflow-hidden rounded-lg border",
         )}
       >
-        {thread.coverPicture && (
+        {thread.cover && (
           <Art
             category="threadCovers"
-            src={thread.coverPicture.url}
+            src={thread.cover.url}
             className="absolute inset-0 -z-10"
           />
         )}
@@ -243,62 +368,61 @@ export default async function ThreadPage({
           <PageBreadcrumb
             items={[
               { label: t("home"), href: "/" },
-              {
-                label: thread.forum.categoryTitle,
-                href: `/forums?tab=${thread.forum.tab}`,
-              },
-              {
-                label: thread.forum.title,
-                href: `/forums/${thread.forum.id}`,
-              },
+              { label: node.title, href: `/forums/${node.id}` },
             ]}
           />
           <h1 className="mt-1 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
-            {thread.prefix && (
-              <PrefixTag
-                prefix={thread.prefix}
-                className="mr-2 align-[0.1875rem]"
-              />
+            {prefix && (
+              <PrefixTag prefix={prefix} className="mr-2 align-[0.1875rem]" />
             )}
             {thread.title}
           </h1>
         </div>
       </header>
-      {(own || (staff && thread.cover)) && (
-        <div className="mt-3">
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("aria.loadingControls")}>
-                <Skeleton className="h-10 w-32 md:h-8" />
-              </LoadingRegion>
-            }
-          >
-            <ThreadControls thread={thread} viewer={viewer} own={own} />
-          </Suspense>
-        </div>
+
+      {thread.state === "moderated" && (
+        <PostNote icon={Hourglass}>{t("threadAwaitingApproval")}</PostNote>
+      )}
+      {thread.state === "deleted" && (
+        <PostNote icon={Trash2}>{t("threadDeleted")}</PostNote>
       )}
 
-      <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("aria.loadingPosts")}>
+      <Suspense
+        fallback={
+          <LoadingRegion label={t("aria.loadingPosts")}>
+            <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
               <PostSkeleton />
               <PostSkeleton />
               <PostSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <ThreadPosts id={id} thread={thread} viewer={viewer} />
-        </Suspense>
-      </div>
+            </div>
+          </LoadingRegion>
+        }
+      >
+        <ThreadPosts
+          thread={thread}
+          highlighted={highlighted}
+          page={page}
+          cursor={typeof cursor === "string" ? cursor : undefined}
+          viewerId={user?.id ?? null}
+        />
+      </Suspense>
 
       <section
         id="reply"
         aria-label={t("aria.reply")}
         className="mt-4 scroll-mt-4"
       >
-        {viewer ? (
-          <ReplyComposer threadId={thread.id} />
+        {permissions.canReply ? (
+          <>
+            {thread.isLocked && (
+              <PostNote icon={Lock}>{t("lockedModerators")}</PostNote>
+            )}
+            <ReplyComposer threadId={thread.id} />
+          </>
+        ) : user ? (
+          <PostNote icon={Lock}>
+            {thread.isLocked ? t("locked") : t("cannotReply")}
+          </PostNote>
         ) : (
           <div className="rounded-lg border bg-card">
             <EmptyState
@@ -306,7 +430,7 @@ export default async function ThreadPage({
               description={t("replyDescription")}
             >
               <Link
-                href="/login"
+                href={`/login?next=${encodeURIComponent(`/threads/${thread.id}`)}`}
                 className={cn(
                   buttonVariants({ variant: "outline" }),
                   "h-10 px-4",
@@ -328,76 +452,124 @@ export default async function ThreadPage({
   );
 }
 
-async function ThreadControls({
-  thread,
-  viewer,
-  own,
-}: {
-  thread: NonNullable<Awaited<ReturnType<typeof getThread>>>;
-  viewer: UserView | null;
-  own: boolean;
-}) {
-  const covers: OwnedCover[] =
-    own && viewer
-      ? (await getOwnedItems(viewer.id)).threadCover.flatMap((item) =>
-          item.effect.type === "threadCover"
-            ? [
-                {
-                  itemId: item.id,
-                  name: item.name.replace(/ thread cover$/, ""),
-                  src: threadCoverSrc(item.effect.cover),
-                  quantity: item.quantity,
-                },
-              ]
-            : [],
-        )
-      : [];
-  return (
-    <CoverControls
-      threadId={thread.id}
-      hasCover={thread.cover !== null}
-      own={own}
-      covers={covers}
-    />
-  );
+function pageHref(threadId: number, page: number, cursor?: string) {
+  const params = new URLSearchParams();
+  if (page > 1) params.set("page", String(page));
+  if (cursor) params.set("cursor", cursor);
+  const query = params.toString();
+  return `/threads/${threadId}${query ? `?${query}` : ""}`;
 }
 
 async function ThreadPosts({
-  id,
   thread,
-  viewer,
+  highlighted,
+  page,
+  cursor,
+  viewerId,
 }: {
-  id: number;
-  thread: NonNullable<Awaited<ReturnType<typeof getThread>>>;
-  viewer: UserView | null;
+  thread: Awaited<ReturnType<typeof getThread>>["thread"];
+  highlighted: boolean;
+  page: number;
+  cursor: string | undefined;
+  viewerId: number | null;
 }) {
-  const [posts, reactionTypes] = await Promise.all([
-    getPosts(id, viewer?.id ?? null),
+  const [
+    { items: posts, nextCursor },
+    reactionTypes,
+    { permissions },
+    t,
+    format,
+  ] = await Promise.all([
+    call(
+      postsList,
+      cursor ? { threadId: thread.id, cursor } : { threadId: thread.id, page },
+    ),
     getReactionTypes(),
+    getViewer(),
+    getTranslations("threads.page"),
+    getFormatter(),
   ]);
+  // An empty page past the first is a page that does not exist.
+  if (posts.length === 0 && page > 1) notFound();
+  const author = await authorsFor(posts.map((post) => post.author));
+  const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
   // One signature per member on the page: under their first post.
-  const signedPostIds = new Set(
-    posts
-      .filter(
-        (post, index) =>
-          can(post.author, "signature") &&
-          posts.findIndex((p) => p.authorId === post.authorId) === index,
-      )
-      .map((post) => post.id),
+  const seen = new Set<number>();
+  const firstOfAuthor = new Set(
+    posts.flatMap((post) => {
+      if (seen.has(post.author.id)) return [];
+      seen.add(post.author.id);
+      return [post.id];
+    }),
   );
+  const pages = pageCount(thread.lastPost.position);
+  const lastPosition = posts.at(-1)?.position;
 
   return (
     <>
-      {posts.map((post) => (
-        <PostItem
-          key={post.id}
-          post={post}
-          highlighted={thread.highlighted && post.number === 1}
-          signed={signedPostIds.has(post.id)}
-          viewer={viewer}
-          reactionTypes={reactionTypes}
-        />
-      ))}
+      {viewerId !== null && lastPosition !== undefined && (
+        <MarkRead threadId={thread.id} position={lastPosition} />
+      )}
+      <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
+        {posts.map((post) => (
+          <PostItem
+            key={post.id}
+            post={post}
+            author={author(post.author.id)}
+            byThreadAuthor={post.author.id === thread.author.id}
+            noteState={
+              post.state !== "visible" &&
+              !(post.id === thread.firstPostId && thread.state === post.state)
+            }
+            highlighted={highlighted && post.id === thread.firstPostId}
+            signed={firstOfAuthor.has(post.id)}
+            viewerId={viewerId}
+            picker={post.state === "visible" ? picker : []}
+            reactionTypes={reactionTypes}
+          />
+        ))}
+      </div>
+      {(pages > 1 || page > 1 || nextCursor) && (
+        <nav
+          aria-label={t("aria.pages")}
+          className="mt-4 flex flex-wrap items-center justify-between gap-3"
+        >
+          <p className="text-xs text-muted-foreground">
+            {t("pagination", {
+              page: format.number(page),
+              pages: format.number(Math.max(pages, page)),
+            })}
+          </p>
+          <div className="flex gap-2">
+            {page > 1 && (
+              <Link
+                href={pageHref(thread.id, page - 1)}
+                className={buttonVariants({
+                  variant: "outline",
+                  className: "min-h-10",
+                })}
+              >
+                {t("previous")}
+              </Link>
+            )}
+            {(page < pages || nextCursor) && (
+              <Link
+                href={pageHref(
+                  thread.id,
+                  page + 1,
+                  page < pages ? undefined : (nextCursor ?? undefined),
+                )}
+                className={buttonVariants({
+                  variant: "outline",
+                  className: "min-h-10",
+                })}
+              >
+                {t("next")}
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
     </>
   );
 }
