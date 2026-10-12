@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FRAMES, frameSrc } from "@/lib/frames";
+import { isLiteMode } from "@/lib/lite-mode";
 import type { Appearance, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,7 @@ export type AvatarUser = Pick<User, "username" | "avatar"> & {
   appearance?: Pick<Appearance, "frame">;
 };
 
-export function UserAvatar({
+export async function UserAvatar({
   user,
   size = "md",
   link = true,
@@ -31,6 +33,7 @@ export function UserAvatar({
   link?: boolean;
   className?: string;
 }) {
+  const lite = await isLiteMode();
   const linked = link && user.id !== undefined;
   const { box, text, framed } = SIZES[size];
   const frame = (framed && user.appearance?.frame) || null;
@@ -47,7 +50,12 @@ export function UserAvatar({
         !linked && [className, unringed],
       )}
     >
-      {user.avatar ? (
+      {lite ? (
+        <LitePlaceholder
+          compact={size === "xs" || size === "sm"}
+          className="size-full rounded-full"
+        />
+      ) : user.avatar ? (
         <AvatarImage src={user.avatar} alt="" style={inner} />
       ) : (
         <AvatarFallback
@@ -57,7 +65,7 @@ export function UserAvatar({
           {user.username.slice(0, 2)}
         </AvatarFallback>
       )}
-      {frame && geometry && (
+      {!lite && frame && geometry && (
         <AvatarImage
           src={frameSrc(frame)}
           alt=""

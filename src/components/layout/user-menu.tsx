@@ -3,7 +3,6 @@
 import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/app/(main)/actions";
-import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,8 +16,10 @@ import type { User } from "@/lib/types";
 
 export function UserMenu({
   user,
+  avatar,
 }: {
-  user: AvatarUser & Pick<User, "id" | "title">;
+  user: Pick<User, "id" | "username" | "title">;
+  avatar: React.ReactNode;
 }) {
   return (
     <DropdownMenu>
@@ -26,7 +27,7 @@ export function UserMenu({
         aria-label="Account menu"
         className="group flex h-10 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <UserAvatar user={user} size="md" link={false} />
+        {avatar}
         <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">

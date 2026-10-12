@@ -1,5 +1,6 @@
 import { Bell, Inbox, Search } from "lucide-react";
 import Link from "next/link";
+import { UserAvatar } from "@/components/forum/user-avatar";
 import { Container } from "@/components/layout/container";
 import {
   AlertsPanel,
@@ -7,6 +8,7 @@ import {
   MessagesPanel,
   SearchPanel,
 } from "@/components/layout/header-panels";
+import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import { Logo } from "@/components/layout/logo";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -17,6 +19,7 @@ import type {
   UnreadCounts,
   UserView,
 } from "@/lib/db";
+import { isLiteMode } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 const PANEL = "hidden md:inline-flex";
@@ -46,7 +49,7 @@ function IconLink({
   );
 }
 
-export function SiteHeader({
+export async function SiteHeader({
   user,
   unread,
   conversations,
@@ -57,6 +60,7 @@ export function SiteHeader({
   conversations: ConversationView[];
   notifications: NotificationView[];
 }) {
+  const lite = await isLiteMode();
   return (
     <header className="border-b bg-background">
       <Container className="flex h-14 items-center gap-1 md:gap-4">
@@ -97,12 +101,11 @@ export function SiteHeader({
                 className={PANEL}
               />
               <UserMenu
+                avatar={<UserAvatar user={user} size="md" link={false} />}
                 user={{
                   id: user.id,
                   username: user.username,
                   title: user.title,
-                  avatar: user.avatar,
-                  appearance: { frame: user.appearance.frame },
                 }}
               />
             </>
@@ -126,6 +129,9 @@ export function SiteHeader({
             </>
           )}
         </div>
+      </Container>
+      <Container className="flex justify-end pb-2">
+        <LiteModeToggle enabled={lite} />
       </Container>
     </header>
   );

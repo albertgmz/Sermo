@@ -1,3 +1,4 @@
+import { Art } from "@/components/forum/art";
 import { coverSrc } from "@/lib/appearance";
 import { cn } from "@/lib/utils";
 
@@ -22,14 +23,13 @@ export function CoverBackdrop({
 }) {
   if (!cover) return null;
   return (
-    <div
-      aria-hidden="true"
+    <Art
       className={cn(
         "pointer-events-none absolute -z-10 bg-cover bg-[position:75%_30%]",
         VARIANTS[variant],
         className,
       )}
-      style={{ backgroundImage: `url("${coverSrc(cover)}")` }}
+      src={coverSrc(cover)}
     />
   );
 }

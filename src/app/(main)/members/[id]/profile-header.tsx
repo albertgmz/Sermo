@@ -1,6 +1,7 @@
 import { Ellipsis, Mail, MessagesSquare, Pencil } from "lucide-react";
 import Link from "next/link";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
+import { Art } from "@/components/forum/art";
 import { ClientIcons } from "@/components/forum/client-icons";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SocialIcon } from "@/components/forum/social-icon";
@@ -68,11 +69,9 @@ export function ProfileHeader({
         className="absolute inset-x-0 top-0 h-36 overflow-hidden bg-background md:h-56"
       >
         {user.appearance.cover && (
-          <div
+          <Art
             className="absolute inset-0 bg-cover bg-center opacity-60"
-            style={{
-              backgroundImage: `url("${coverSrc(user.appearance.cover)}")`,
-            }}
+            src={coverSrc(user.appearance.cover)}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
