@@ -51,6 +51,7 @@ import {
   CAN_UNDO_COMMAND,
   CLEAR_EDITOR_COMMAND,
   COMMAND_PRIORITY_LOW,
+  createEditor,
   type EditorState,
   FORMAT_TEXT_COMMAND,
   mergeRegister,
@@ -111,6 +112,19 @@ const CONFIG: InitialConfigType = {
     throw error;
   },
 };
+
+// A function `editorState` is applied by an update that only commits in a
+// microtask, so on the server the placeholder check still sees an empty editor
+// while the first client render sees the content. A serialized state is applied
+// synchronously, so both sides agree.
+function initialEditorState(markdown: string): string | undefined {
+  const scratch = createEditor({ nodes: CONFIG.nodes });
+  scratch.update(() => $convertFromMarkdownString(markdown, TRANSFORMERS), {
+    discrete: true,
+  });
+  const state = scratch.getEditorState();
+  return state.isEmpty() ? undefined : JSON.stringify(state);
+}
 
 type Block = "paragraph" | "heading" | "quote" | "bullet" | "number";
 
@@ -437,18 +451,12 @@ export function Editor({
     [describedBy, invalid ? errorId : undefined].filter(Boolean).join(" ") ||
     undefined;
   const padding = compact ? "px-3 py-2" : "px-4 py-3";
+  const [initialConfig] = useState<InitialConfigType>(() => {
+    const editorState = defaultValue && initialEditorState(defaultValue);
+    return editorState ? { ...CONFIG, editorState } : CONFIG;
+  });
   return (
-    <LexicalComposer
-      initialConfig={
-        defaultValue
-          ? {
-              ...CONFIG,
-              editorState: () =>
-                $convertFromMarkdownString(defaultValue, TRANSFORMERS),
-            }
-          : CONFIG
-      }
-    >
+    <LexicalComposer initialConfig={initialConfig}>
       <div
         className={cn(
           "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",

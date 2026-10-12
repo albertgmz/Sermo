@@ -1,4 +1,5 @@
 import { Bell, Inbox, Search } from "lucide-react";
+import { io } from "next/cache";
 import Link from "next/link";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
@@ -166,6 +167,7 @@ async function AccountTools() {
 }
 
 async function MessageTools({ userId }: { userId: number }) {
+  await io();
   const [conversations, unread] = await Promise.all([
     getConversations(userId),
     getUnreadCounts(userId),
@@ -190,6 +192,7 @@ async function MessageTools({ userId }: { userId: number }) {
 }
 
 async function AlertTools({ userId }: { userId: number }) {
+  await io();
   const [notifications, unread] = await Promise.all([
     getNotifications(userId),
     getUnreadCounts(userId),

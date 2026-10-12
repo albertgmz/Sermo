@@ -153,7 +153,6 @@ const TOKENS = [
   "accent-foreground",
   "destructive",
   "success",
-  "success-foreground",
   "tier-bronze",
   "tier-silver",
   "tier-gold",
@@ -185,14 +184,6 @@ const TOKENS = [
   "chart-3",
   "chart-4",
   "chart-5",
-  "sidebar",
-  "sidebar-foreground",
-  "sidebar-primary",
-  "sidebar-primary-foreground",
-  "sidebar-accent",
-  "sidebar-accent-foreground",
-  "sidebar-border",
-  "sidebar-ring",
 ];
 
 const RADII = [
@@ -200,8 +191,6 @@ const RADII = [
   ["md", "rounded-md"],
   ["lg", "rounded-lg"],
   ["xl", "rounded-xl"],
-  ["2xl", "rounded-2xl"],
-  ["3xl", "rounded-3xl"],
   ["4xl", "rounded-4xl"],
 ] as const;
 
