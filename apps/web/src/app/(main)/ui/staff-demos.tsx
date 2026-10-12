@@ -249,7 +249,8 @@ export function StaffDemos() {
         <p className="max-w-prose text-sm text-muted-foreground">
           Filters are a GET form and show only what the caller passes; rows are
           columns on a desktop and stacked cards on a phone, with the details
-          expanding in place.
+          expanding in place. A parameter chosen elsewhere on the page (a member
+          picked with a picker) is kept through Apply with carry.
         </p>
         <LogTable
           entries={LOG}
@@ -270,6 +271,7 @@ export function StaffDemos() {
               },
             ],
             dates: { from: "from", to: "to" },
+            carry: { member: "1" },
           }}
         />
       </div>

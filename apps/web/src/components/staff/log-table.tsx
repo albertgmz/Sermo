@@ -10,8 +10,10 @@
 //   params      The page's current URL parameters (`searchParams` resolved): they prefill the
 //               filters and are carried on the paging links.
 //   filters     Which filters to show. Only what is passed is rendered: `search` (free text),
-//               `selects` (one select each), `dates` (a from / to range, as date fields). Pass
-//               only the filters the backend read supports. Omit it for a log without filters.
+//               `selects` (one select each), `dates` (a from / to range, as date fields), `carry`
+//               (parameters of the page that are chosen elsewhere, kept through Apply as hidden
+//               fields). Pass only the filters the backend read supports. Omit it for a log
+//               without filters.
 //   empty       Optional { title, description } for the empty state.
 //   label       Accessible name of the log.
 //
@@ -50,6 +52,7 @@ export type LogFilters = {
     options: { value: string; label: string }[];
   }[];
   dates?: { from: string; to: string };
+  carry?: Record<string, string>;
 };
 
 const COLUMNS = "md:grid-cols-[10rem_11rem_10rem_minmax(0,1fr)]";
@@ -67,10 +70,13 @@ async function FilterForm({
   filters: LogFilters;
 }) {
   const t = await getTranslations("admin.logTable");
-  const { search, selects = [], dates } = filters;
+  const { search, selects = [], dates, carry = {} } = filters;
   const field = "grid min-w-0 gap-1.5 text-xs font-medium";
   return (
     <form method="get" action={path} aria-label={t("filters")}>
+      {Object.entries(carry).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {search && (
           <label htmlFor={`filter-${search.name}`} className={field}>
