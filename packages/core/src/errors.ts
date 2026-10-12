@@ -5,7 +5,13 @@
  * Rule: if the actor may not even see a resource, throw NotFoundError (do not leak existence).
  * If they can see it but may not perform the action, throw ForbiddenError.
  */
-export type ErrorCode = "validation" | "unauthenticated" | "forbidden" | "not_found" | "conflict";
+export type ErrorCode =
+  | "validation"
+  | "unauthenticated"
+  | "forbidden"
+  | "not_found"
+  | "conflict"
+  | "rate_limited";
 
 export interface ErrorIssue {
   path: (string | number)[];
@@ -50,5 +56,11 @@ export class NotFoundError extends SermoError {
 export class ConflictError extends SermoError {
   constructor(message: string) {
     super("conflict", message);
+  }
+}
+
+export class RateLimitedError extends SermoError {
+  constructor(message = "Too many attempts. Try again later.") {
+    super("rate_limited", message);
   }
 }

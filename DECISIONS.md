@@ -1274,9 +1274,10 @@ change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`),
 answers in fifteen minutes per member (`admin_password_failures`). Further answers, right ones
 included, are refused until the oldest wrong one leaves the window. A guess is recorded before the
 check, so answers sent together are counted, and a right answer gives its own guess back without
-clearing the earlier wrong ones. The refusal is a `ForbiddenError` (403): core has no
-rate-limit error type for the API to map to 429. **Owner review:** a distinct error needs a new
-error code in `errors.ts` and its status in the API and MCP adapters.
+clearing the earlier wrong ones. The refusal is a `RateLimitedError` (code
+`rate_limited`), which the API answers with 429 and the same body as its own request limiter
+(`{ error: { code: "rate_limited", message } }`), so clients see one kind of 429; MCP reports the
+same code.
 
 **Reaching an administrator takes `admin.permissions`.** Setting a password or address, ending
 sessions or erasing lets an administrator sign in as the member (or close them for good).

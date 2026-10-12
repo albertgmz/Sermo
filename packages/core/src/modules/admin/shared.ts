@@ -1,7 +1,7 @@
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError, RateLimitedError } from "../../errors";
 import { markPublic } from "../../operation";
 import {
   currentVersions,
@@ -103,7 +103,7 @@ function takeGuess(ctx: Ctx, userId: number): number {
       ctx.sqlite.prepare<{ n: number }, [number, number, number]>(passwordGuessSql.recent),
     ).get(userId, since, WRONG_PASSWORD_LIMIT)!.n;
     if (used >= WRONG_PASSWORD_LIMIT)
-      throw new ForbiddenError("Too many wrong passwords. Try again later.");
+      throw new RateLimitedError("Too many wrong passwords. Try again later.");
     return ctx.sqlite
       .prepare<{ id: number }, [number, number]>(passwordGuessSql.add)
       .get(userId, now)!.id;

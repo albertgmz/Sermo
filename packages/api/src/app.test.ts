@@ -55,6 +55,23 @@ async function register(request: ReturnType<typeof setup>["request"], username =
   };
 }
 
+test("the wrong-password limit answers 429 with the body of the request limiter", async () => {
+  const { request } = setup();
+  const { cookie } = await register(request);
+  const verify = () =>
+    request("/api/v1/me/verify-password", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie },
+      body: JSON.stringify({ password: "not-the-password" }),
+    });
+  for (let i = 0; i < 5; i++) expect((await verify()).status).toBe(403);
+  const limited = await verify();
+  expect(limited.status).toBe(429);
+  expect(await limited.json()).toEqual({
+    error: { code: "rate_limited", message: "Too many wrong passwords. Try again later." },
+  });
+});
+
 test("route table has exactly one entry for each operation", () => {
   expect(routes.length).toBe(operations.length);
   expect(new Set(routes.map((route) => route.operation)).size).toBe(routes.length);
