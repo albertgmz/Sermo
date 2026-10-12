@@ -4,10 +4,9 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { execute, GUEST, operations } from "@sermo/core";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
-import * as z from "zod";
 import { getAuth, resolveActor } from "../../core/src/modules/auth";
 import { nodesCreateOp } from "../../core/src/modules/forums";
-import { createMcpHandler } from "./index";
+import { createMcpHandler, toolInputSchema } from "./index";
 
 function setup() {
   const ctx = createTestContext();
@@ -101,10 +100,8 @@ test("API key client lists registry tools and creates and reads a thread and rep
       const tool = tools.find((item) => item.name === op.name.replaceAll(".", "_"))!;
       expect(tool.description).toBe(op.summary);
       expect(tool.annotations?.readOnlyHint).toBe(op.kind === "read");
-      expect(tool.annotations?.destructiveHint).toBe(false);
-      expect(tool.inputSchema).toEqual(
-        z.toJSONSchema(op.input, { io: "input" }) as typeof tool.inputSchema,
-      );
+      expect(tool.annotations?.destructiveHint).not.toBe(false);
+      expect(tool.inputSchema).toEqual(toolInputSchema(op) as typeof tool.inputSchema);
       expect(tool.outputSchema?.type).toBe("object");
     }
     const created = (await mcp.callTool({

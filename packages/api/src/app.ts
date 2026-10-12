@@ -20,11 +20,11 @@ import { getConnInfo } from "hono/bun";
 import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
-import { rateLimiter } from "hono-rate-limiter";
+import { MemoryStore, rateLimiter } from "hono-rate-limiter";
 import * as z from "zod";
 import type { JSONSchema } from "zod/v4/core";
 import { buildOpenApiDocument } from "./openapi";
-import { routeOperations, routes } from "./routes";
+import { routeOperations } from "./routes";
 import { uploadMultipart } from "./upload";
 
 export const RATE_LIMITS = { read: 300, write: 60, search: 30, mcp: 60 } as const;
@@ -40,7 +40,7 @@ export interface AppOptions {
 type Variables = { actor: Actor; clientIp: string; setCookies: string[] };
 type ApiContext = Context<{ Variables: Variables }>;
 type Schema = Record<string, unknown>;
-type Resolution = { actor: Actor; setCookies: string[] };
+type Resolution = { actor: Actor; setCookies: string[]; rateKey: string };
 const MCP_RESOLUTION = Symbol("mcpResolution");
 const statuses = {
   validation: 400,
@@ -97,8 +97,13 @@ function schemaProperties(schema: JSONSchema.JSONSchema): Record<string, Schema>
   return (schema.properties ?? {}) as Record<string, Schema>;
 }
 
+/** Matches the paths of a Hono route (`:param` segments match any one segment). */
 function routePattern(path: string): RegExp {
-  return new RegExp(`^/api/v1${path.replace(/\{[^}]+\}/g, "[^/]+")}$`);
+  const source = path
+    .split("/")
+    .map((segment) => (segment.startsWith(":") ? "[^/]+" : segment.replaceAll(".", "\\.")))
+    .join("/");
+  return new RegExp(`^${source}$`);
 }
 
 export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
@@ -146,23 +151,12 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       return c.json(errorBody(error.code, error.message, error.issues), statuses[error.code]);
     if (error instanceof HTTPException && error.status === 403)
       return c.json(errorBody("forbidden", "The request origin was rejected."), 403);
+    if (error instanceof HTTPException && error.status === 415) return error.getResponse();
     console.error("API request failed", error);
     return c.json(errorBody("internal", "Internal server error."), 500);
   });
 
   app.all("/api/auth/*", (c) => getAuth(ctx).handler(c.req.raw));
-
-  const resolve = async (c: ApiContext, next: () => Promise<void>) => {
-    const result = await resolveActor(ctx, c.req.raw.headers);
-    c.set("actor", result.actor);
-    c.set("setCookies", result.setCookies);
-    if (c.req.path === "/mcp") Reflect.set(c.req.raw, MCP_RESOLUTION, result);
-    await next();
-    if (c.req.path !== "/mcp")
-      for (const cookie of result.setCookies) c.res.headers.append("Set-Cookie", cookie);
-  };
-  app.use("/api/v1/*", resolve);
-  app.use("/mcp", resolve);
 
   const key = (c: ApiContext) => {
     const actor = c.get("actor");
@@ -172,25 +166,45 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         ? `key:${actor.tokenId}`
         : `user:${actor.userId}`;
   };
-  const limiter = (limit: number) =>
-    rateLimiter({
+  const resolve = async (c: ApiContext, next: () => Promise<void>) => {
+    const result = await resolveActor(ctx, c.req.raw.headers);
+    c.set("actor", result.actor);
+    c.set("setCookies", result.setCookies);
+    if (c.req.path === "/mcp")
+      Reflect.set(c.req.raw, MCP_RESOLUTION, { ...result, rateKey: key(c) });
+    await next();
+    for (const cookie of result.setCookies) c.res.headers.append("Set-Cookie", cookie);
+  };
+  app.use("/api/v1/*", resolve);
+  app.use("/mcp", resolve);
+
+  const bucket = (limit: number) => {
+    const store = new MemoryStore<{ Variables: Variables }>();
+    const middleware = rateLimiter({
       windowMs,
       limit,
       standardHeaders: "draft-6",
       keyGenerator: key,
+      store,
       handler: (c) => c.json(errorBody("rate_limited", "Too many requests."), 429),
     });
-  const readLimiter = limiter(limits.read);
-  const writeLimiter = limiter(limits.write);
-  const searchLimiter = limiter(limits.search);
-  const mcpLimiter = limiter(limits.mcp);
+    // Same counting as the middleware: every attempt counts, the ones over the limit fail.
+    // The store hands out its live counter, so read it at once (calls in a batch run concurrently).
+    const allow = (rateKey: string) => store.increment(rateKey).totalHits <= limit;
+    return { middleware, allow };
+  };
+  const readLimiter = bucket(limits.read);
+  const writeLimiter = bucket(limits.write);
+  const searchLimiter = bucket(limits.search);
+  const mcpLimiter = bucket(limits.mcp);
   app.use("/api/v1/*", (c, next) => {
     if (c.req.method === "GET" || c.req.method === "HEAD")
-      return (c.req.path === "/api/v1/search" ? searchLimiter : readLimiter)(c, next);
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method)) return writeLimiter(c, next);
+      return (c.req.path === "/api/v1/search" ? searchLimiter : readLimiter).middleware(c, next);
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method))
+      return writeLimiter.middleware(c, next);
     return next();
   });
-  app.use("/mcp", mcpLimiter);
+  app.use("/mcp", mcpLimiter.middleware);
 
   const authConfig = ctx.config.auth;
   const allowedOrigins = authConfig
@@ -211,7 +225,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       hasSessionCookie(c) &&
       !(
         /^application\/json(?:\s*;|$)/i.test(c.req.header("content-type") ?? "") ||
-        (upload && /^multipart\/form-data\s*;/i.test(c.req.header("content-type") ?? ""))
+        (upload && /^multipart\/form-data\s*(?:;|$)/i.test(c.req.header("content-type") ?? ""))
       )
     )
       return c.json(
@@ -221,13 +235,23 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     await next();
   });
 
+  const mcpResolution = (request: Request): Resolution => {
+    const resolved = Reflect.get(request, MCP_RESOLUTION) as Resolution | undefined;
+    if (!resolved) throw new Error("MCP actor was not resolved by the request middleware.");
+    return resolved;
+  };
   const mcp = createMcpHandler({
     ctx,
-    resolveActor: async (request) => {
-      const resolved = Reflect.get(request, MCP_RESOLUTION) as Resolution | undefined;
-      if (!resolved) throw new Error("MCP actor was not resolved by the request middleware.");
-      return resolved;
-    },
+    // The middleware appends the cookies to every response, so the handler must not.
+    resolveActor: async (request) => ({ ...mcpResolution(request), setCookies: [] }),
+    // Each tool call is charged to the bucket REST uses for the same operation.
+    allowCall: (request, op) =>
+      (op.kind === "write"
+        ? writeLimiter
+        : op.name === "search.query"
+          ? searchLimiter
+          : readLimiter
+      ).allow(mcpResolution(request).rateKey),
   });
   app.all("/mcp", (c) => mcp(c.req.raw));
   app.get("/health", (c) => {
@@ -340,12 +364,14 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       return c.json(await execute(ctx, op, c.get("actor"), raw), route.status);
     });
   }
+  const knownRoutes = app.routes
+    // Middleware is registered for ALL methods; the IndexNow key route matches any single segment.
+    .filter((route) => route.method !== "ALL" && route.path !== "/:name")
+    .map((route) => ({ method: route.method, pattern: routePattern(route.path) }));
   app.notFound((c) => {
-    const path = c.req.path;
-    const methods: string[] = routes
-      .filter((route) => routePattern(route.path).test(path))
+    const methods = knownRoutes
+      .filter((route) => route.pattern.test(c.req.path))
       .map((route) => route.method);
-    if (path === "/api/v1/openapi.json") methods.push("GET");
     if (methods.length) {
       if (methods.includes("GET")) methods.push("HEAD");
       c.header("Allow", [...new Set(methods)].join(", "));

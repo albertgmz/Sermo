@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { type Contract, contracts as c } from "@sermo/core";
-import * as z from "zod";
+import { type Contract, contracts as c, getOperation } from "@sermo/core";
+import { toolInputSchema } from "@sermo/mcp";
 import {
   cleanupEconomy,
   deny,
@@ -720,7 +720,7 @@ test("MCP tools/list over HTTP exposes exactly one tool for each economy contrac
   for (const { contract } of cases) {
     const tool = economy.find(({ name }) => name === contract.name.replaceAll(".", "_"))!;
     expect(tool.description).toBe(contract.summary);
-    expect(tool.inputSchema).toEqual(z.toJSONSchema(contract.input, { io: "input" }));
+    expect(tool.inputSchema).toEqual(toolInputSchema(getOperation(contract.name)));
     expect(tool.outputSchema.type).toBe("object");
     expect(tool.annotations.readOnlyHint).toBe(contract.kind === "read");
   }
