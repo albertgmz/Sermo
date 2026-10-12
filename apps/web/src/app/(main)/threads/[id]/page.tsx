@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
@@ -58,8 +58,13 @@ const QUIET_ICON =
   "inline-flex size-10 items-center justify-center rounded-md transition-colors hover:text-foreground md:size-7 [&_svg]:size-3.5";
 const LABEL = "sr-only sm:not-sr-only";
 
-// The thread is asked once for the metadata and the page: asking counts a view.
-const getThread = cache((threadId: number) => read(threadsGet, { threadId }));
+// The thread is asked once for the metadata and the page: asking counts a view. The backend
+// follows a merge; the proxy sends a page load there already, but a soft navigation reaches this.
+const getThread = cache(async (threadId: number) => {
+  const found = await read(threadsGet, { threadId });
+  if (found.seo.redirect) permanentRedirect(`/threads/${found.thread.id}`);
+  return found;
+});
 
 function threadIdOf(raw: string) {
   const id = Number(raw);

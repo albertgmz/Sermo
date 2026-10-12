@@ -131,3 +131,29 @@ test("what a guest may not read still leads to sign-in, also with a dead cookie"
     /^NEXT_REDIRECT;[a-z]+;\/login\?next=%2Faccount;/,
   );
 });
+
+test("a read that fails validation is a 404: the address asked for what cannot exist", async () => {
+  incoming = new Headers();
+  backend(refusal(400, "validation"));
+  assert.match(
+    await digestOf(read(contract, { threadId: 1 })),
+    /^NEXT_HTTP_ERROR_FALLBACK;404/,
+  );
+});
+
+test("a write that fails validation is still the caller's to report", async () => {
+  incoming = new Headers();
+  backend(refusal(400, "validation"));
+  await assert.rejects(
+    read({ ...contract, name: "threads.create" }, { nodeId: 1 } as never),
+    (error) => error instanceof SermoError && error.code === "validation",
+  );
+});
+
+test("a rate limit carries a digest the error page can tell it by", () => {
+  assert.equal(
+    new SermoError("rate_limited", 429, "slow down").digest,
+    "sermo.rate_limited",
+  );
+  assert.equal(new SermoError("internal", 500, "x").digest, undefined);
+});

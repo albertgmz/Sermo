@@ -6,6 +6,7 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import type * as z from "zod";
 import { isSignedOut, SermoError } from "./errors";
+import { isRead } from "./request";
 import { safeReturnPath } from "./return-path";
 import {
   callWith,
@@ -59,7 +60,9 @@ async function loginPath(): Promise<string> {
   return next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`;
 }
 
-// For pages: a missing record is a 404, a visitor who must sign in goes to the login page.
+// For pages: a missing record is a 404, a visitor who must sign in goes to the login page. A read
+// the backend cannot make sense of (a malformed cursor or page in the address) asks for something
+// that cannot exist, so it is a 404 too; a write that fails validation is the caller's to report.
 export async function read<I extends z.ZodType, O extends z.ZodType>(
   contract: Described<I, O>,
   input: z.input<I>,
@@ -69,6 +72,7 @@ export async function read<I extends z.ZodType, O extends z.ZodType>(
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     if (error.code === "not_found") notFound();
+    if (error.code === "validation" && isRead(contract.name)) notFound();
     if (error.code !== "unauthenticated") throw error;
     redirect(await loginPath());
   }

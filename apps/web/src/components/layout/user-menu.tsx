@@ -16,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { LiteState } from "@/lib/lite-preferences";
-import type { User } from "@/lib/types";
 
 export function UserMenu({
   user,
@@ -24,7 +23,7 @@ export function UserMenu({
   avatar,
   lite,
 }: {
-  user: Pick<User, "username" | "title">;
+  user: { username: string; title: string };
   links: LinkItem[];
   avatar: React.ReactNode;
   lite: LiteState;

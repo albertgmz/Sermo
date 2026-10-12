@@ -1,9 +1,4 @@
-import {
-  nodesList,
-  threadsRanked,
-  usersList,
-  usersListFollowing,
-} from "@sermo/core/contracts";
+import { nodesList, threadsRanked, usersList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
@@ -30,7 +25,7 @@ import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 
 const LIST_SIZE = 5;
 const SUGGESTIONS = 4;
-// How many members are asked for, so that the viewer and the ones they follow can be left out.
+// How many members are asked for, so that the viewer can be left out.
 const CANDIDATES = 12;
 
 const viewAllClass =
@@ -192,18 +187,17 @@ async function LatestThreads() {
   );
 }
 
-// The most reacted-to members, without the viewer and without the ones they follow already.
+// The most reacted-to members, without the viewer. The members they follow already are not left
+// out: a list of follows is paged and the cards carry no follow state, so only part of them could
+// be told apart. Following one again changes nothing.
 async function SuggestedMembers() {
   const { user } = await getViewer();
-  const [{ items }, following] = await Promise.all([
-    read(usersList, { sort: "reactions", limit: CANDIDATES }),
-    user
-      ? read(usersListFollowing, { userId: user.id, limit: 100 })
-      : { items: [] },
-  ]);
-  const followed = new Set(following.items.map((entry) => entry.user.id));
+  const { items } = await read(usersList, {
+    sort: "reactions",
+    limit: CANDIDATES,
+  });
   const suggestions = items
-    .filter(({ card }) => card.id !== user?.id && !followed.has(card.id))
+    .filter(({ card }) => card.id !== user?.id)
     .slice(0, SUGGESTIONS);
   const t = await getTranslations("home.feedSidebar");
   if (suggestions.length === 0) return null;

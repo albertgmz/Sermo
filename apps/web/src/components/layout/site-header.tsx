@@ -7,11 +7,7 @@ import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { Container } from "@/components/layout/container";
-import {
-  getCounters,
-  getRecentConversations,
-  getRecentNotifications,
-} from "@/components/layout/header-data";
+import { getCounters, getViewerCard } from "@/components/layout/header-data";
 import {
   AlertsPanel,
   headerIconClass,
@@ -24,12 +20,9 @@ import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { titleKeyForLevel } from "@/lib/levels";
 import { getLiteState } from "@/lib/lite-mode";
-import { can } from "@/lib/permissions";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
-import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const PANEL = "hidden md:inline-flex";
@@ -130,17 +123,15 @@ async function HeaderNavigation() {
 }
 
 async function AccountTools() {
-  const [user, viewer, navigation] = await Promise.all([
-    getCurrentUser(),
+  const [viewer, card, navigation] = await Promise.all([
     getViewer(),
+    getViewerCard(),
     getNavigation(),
   ]);
   const t = await getTranslations("layout.siteHeader");
-  const levels = await getTranslations("lib.levels");
-  const roles = await getTranslations("lib.db.roles");
   return (
     <>
-      {viewer.user ? (
+      {viewer.user && card ? (
         <>
           <Suspense
             fallback={
@@ -160,24 +151,14 @@ async function AccountTools() {
           >
             <AlertTools />
           </Suspense>
-          {/* The menu still reads the JSON member of the account. */}
-          {user && (
-            <UserMenu
-              lite={await getLiteState()}
-              avatar={<UserAvatar user={user.member} size="md" link={false} />}
-              links={accountItems(
-                toNavItems(navigation.account, `/members/${user.id}`),
-              )}
-              user={{
-                username: user.username,
-                title:
-                  (can(user, "customTitle") && user.customTitle) ||
-                  (user.role === "member"
-                    ? levels(titleKeyForLevel(user.level.level))
-                    : roles(user.role)),
-              }}
-            />
-          )}
+          <UserMenu
+            lite={await getLiteState()}
+            avatar={<UserAvatar user={card} size="md" link={false} />}
+            links={accountItems(
+              toNavItems(navigation.account, `/members/${viewer.user.id}`),
+            )}
+            user={{ username: card.username, title: card.title }}
+          />
         </>
       ) : (
         <>
@@ -205,10 +186,7 @@ async function AccountTools() {
 async function MessageTools() {
   await io();
   const t = await getTranslations("layout.siteHeader");
-  const [recent, unread] = await Promise.all([
-    getRecentConversations(),
-    getCounters(),
-  ]);
+  const unread = await getCounters();
   return (
     <>
       <IconLink
@@ -218,12 +196,7 @@ async function MessageTools() {
       >
         <Inbox />
       </IconLink>
-      <MessagesPanel
-        conversations={recent.items}
-        member={recent.member}
-        unread={unread.conversations}
-        className={PANEL}
-      />
+      <MessagesPanel unread={unread.conversations} className={PANEL} />
     </>
   );
 }
@@ -231,10 +204,7 @@ async function MessageTools() {
 async function AlertTools() {
   await io();
   const t = await getTranslations("layout.siteHeader");
-  const [recent, unread] = await Promise.all([
-    getRecentNotifications(),
-    getCounters(),
-  ]);
+  const unread = await getCounters();
   return (
     <>
       <IconLink
@@ -244,12 +214,7 @@ async function AlertTools() {
       >
         <Bell />
       </IconLink>
-      <AlertsPanel
-        notifications={recent.entries}
-        member={recent.member}
-        unread={unread.notifications}
-        className={PANEL}
-      />
+      <AlertsPanel unread={unread.notifications} className={PANEL} />
     </>
   );
 }

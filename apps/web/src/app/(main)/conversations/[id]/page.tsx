@@ -18,11 +18,10 @@ import { Suspense } from "react";
 import type * as z from "zod";
 import { react } from "@/app/(main)/actions";
 import { ConversationSync } from "@/app/(main)/conversations/[id]/conversation-sync";
+import { LeaveForm } from "@/app/(main)/conversations/[id]/leave-form";
 import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skeleton";
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
-import { leaveAction } from "@/app/(main)/conversations/actions";
 import { HtmlContent } from "@/components/forum/html-content";
-import { PendingButton } from "@/components/forum/pending-button";
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
@@ -76,7 +75,7 @@ function Header({
 }) {
   const t = useTranslations("conversations.conversation");
   return (
-    <header className="flex min-h-14 items-center gap-1 border-b px-2 py-2 lg:px-4">
+    <header className="flex min-h-14 flex-wrap items-center gap-1 border-b px-2 py-2 lg:px-4">
       <Link
         href="/conversations"
         aria-label={t("aria.back")}
@@ -96,16 +95,13 @@ function Header({
           ))}
         </p>
       </div>
-      <form action={leaveAction.bind(null, conversation.id)}>
-        <PendingButton
-          variant="ghost"
-          aria-label={t("aria.leave")}
-          className="h-10 px-2 text-xs text-muted-foreground"
-        >
-          <LogOut />
-          <span className="max-sm:sr-only">{t("leave")}</span>
-        </PendingButton>
-      </form>
+      <LeaveForm
+        conversationId={conversation.id}
+        label={t("leave")}
+        ariaLabel={t("aria.leave")}
+      >
+        <LogOut />
+      </LeaveForm>
     </header>
   );
 }

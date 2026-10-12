@@ -36,7 +36,6 @@ import { UserLink } from "@/components/forum/user-link";
 import { leaderboardMember, standingEntry } from "@/lib/member-items";
 import { read } from "@/lib/sermo/client";
 import type { MemberView } from "@/lib/sermo/views";
-import { monthOf, previousMonth } from "@/lib/standing";
 
 const TOP = 5;
 const RACE = 3;
@@ -83,16 +82,28 @@ function NewestMembers({ members }: { members: MemberView[] }) {
   );
 }
 
+// The last complete month, as the backend counts it.
+const getLastMonth = cache(async () => {
+  const { year, month } = await read(standingsMonth, {
+    month: "previous",
+    limit: 1,
+  });
+  return { year, month };
+});
+
 // The first winner is the member of the month only while it is the last complete month's.
-function isLastMonth(winner: { year: number; month: number }) {
-  const last = previousMonth(monthOf(new Date()));
+function isMonthOf(
+  winner: { year: number; month: number },
+  last: { year: number; month: number },
+) {
   return winner.year === last.year && winner.month === last.month;
 }
 
 async function MemberOfTheMonth() {
   const t = await getTranslations("members.overview");
-  const [latest] = (await getWinners()).items;
-  return latest && isLastMonth(latest) ? (
+  const [winners, last] = await Promise.all([getWinners(), getLastMonth()]);
+  const [latest] = winners.items;
+  return latest && isMonthOf(latest, last) ? (
     <MonthHero
       winner={standingEntry(latest)}
       action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
@@ -111,12 +122,15 @@ async function MemberOfTheMonth() {
 async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
   const t = await getTranslations("members.overview");
   const format = await getFormatter();
-  const [race, winners] = await Promise.all([
+  const [race, winners, last] = await Promise.all([
     read(standingsMonth, { month: "current", limit: RACE }),
     getWinners(),
+    getLastMonth(),
   ]);
   const [latest, ...earlier] = winners.items;
-  const pastWinners = (latest && isLastMonth(latest) ? earlier : winners.items)
+  const pastWinners = (
+    latest && isMonthOf(latest, last) ? earlier : winners.items
+  )
     .slice(0, PAST_WINNERS)
     .map(standingEntry);
 

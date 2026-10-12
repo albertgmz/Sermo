@@ -18,7 +18,10 @@ export function ReactionDemo({
   const [typeId, setTypeId] = useState(initial);
   return (
     <ReactionButton
-      action={async (next) => setTypeId(next)}
+      action={async (next) => {
+        setTypeId(next);
+        return undefined;
+      }}
       total={OTHERS + Number(typeId !== null)}
       viewerTypeId={typeId}
       types={types}

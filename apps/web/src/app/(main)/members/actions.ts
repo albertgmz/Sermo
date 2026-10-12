@@ -6,18 +6,12 @@ import {
   usersFollow,
   usersUnfollow,
 } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { attempt } from "@/lib/sermo/outcome";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
 export type WallState = { error?: string };
-
-// The pages that show walls, follower counts or the feed are read again.
-function refresh() {
-  revalidatePath("/", "layout");
-}
 
 // Posts on the wall of `profileUserId` and goes back to the page the form was on.
 export async function postToWall(
@@ -31,7 +25,6 @@ export async function postToWall(
     call(profilePostsCreate, { userId: profileUserId, body }),
   );
   if (!created.ok) return { error: created.error };
-  refresh();
   redirect(safeReturnPath(returnTo));
 }
 
@@ -46,7 +39,6 @@ export async function commentOnWallPost(
     call(profileCommentsCreate, { profilePostId, body }),
   );
   if (!created.ok) return { error: created.error };
-  refresh();
   redirect(safeReturnPath(returnTo));
 }
 
@@ -64,6 +56,5 @@ export async function setFollowing(
     else await call(usersUnfollow, { userId });
   });
   if (!done.ok) return { error: done.error };
-  refresh();
   redirect(safeReturnPath(returnTo));
 }

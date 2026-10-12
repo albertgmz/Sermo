@@ -1,5 +1,4 @@
 import { HtmlContent } from "@/components/forum/html-content";
-import { SIGNATURE_MAX_LINES } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 // A signature the backend already turned into HTML, drawn like `Signature`: small, muted and
@@ -14,9 +13,8 @@ export function SignatureHtml({
 }) {
   return (
     <div
-      style={{ maxHeight: `${SIGNATURE_MAX_LINES}lh` }}
       className={cn(
-        "overflow-hidden text-xs leading-relaxed text-muted-foreground",
+        "max-h-[4lh] overflow-hidden text-xs leading-relaxed text-muted-foreground",
         className,
       )}
     >

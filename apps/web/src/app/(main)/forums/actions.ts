@@ -1,7 +1,6 @@
 "use server";
 
 import { threadsCreate } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { attempt } from "@/lib/sermo/outcome";
@@ -30,7 +29,6 @@ export async function createThreadAction(
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };
-  revalidatePath("/", "layout");
   // A thread that waits for approval is opened all the same: its author can see it there.
   redirect(`/threads/${created.value.thread.id}`);
 }

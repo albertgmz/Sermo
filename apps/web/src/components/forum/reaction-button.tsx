@@ -2,6 +2,7 @@
 
 import { ChevronDown, Heart } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   useEffect,
@@ -22,6 +23,8 @@ import { cn } from "@/lib/utils";
 const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 250;
 const LONG_PRESS_MS = 450;
+// How long the backend's refusal stays under the button.
+const REFUSAL_MS = 6000;
 
 const SIZES = {
   default: "",
@@ -38,7 +41,8 @@ export function ReactionButton({
   size = "default",
   className,
 }: {
-  action: (typeId: number | null) => Promise<void>;
+  // Resolves with the backend's message when it refused the reaction.
+  action: (typeId: number | null) => Promise<{ error?: string } | undefined>;
   total: number;
   viewerTypeId: number | null;
   types: ReactionType[];
@@ -50,6 +54,9 @@ export function ReactionButton({
   const t = useTranslations("forum.reactionButton");
   const [current, setCurrent] = useOptimistic(viewerTypeId);
   const [, startTransition] = useTransition();
+  const [refusal, setRefusal] = useState<string>();
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -59,6 +66,12 @@ export function ReactionButton({
   const viaTrigger = useRef(false);
 
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  useEffect(() => {
+    if (!refusal) return;
+    const hide = setTimeout(() => setRefusal(undefined), REFUSAL_MS);
+    return () => clearTimeout(hide);
+  }, [refusal]);
 
   const buttonClass = cn(
     messageActionClass,
@@ -84,7 +97,7 @@ export function ReactionButton({
   if (viewerId === null) {
     return (
       <Link
-        href="/login"
+        href={`/login?next=${encodeURIComponent(pathname + (search ? `?${search}` : ""))}`}
         aria-label={t("aria.login", { count })}
         className={cn(buttonClass, className)}
       >
@@ -111,12 +124,14 @@ export function ReactionButton({
     clearTimeout(timer.current);
     if (open && viaTrigger.current) button.current?.focus();
     show(false);
+    setRefusal(undefined);
     startTransition(async () => {
       setCurrent(typeId);
       try {
-        await action(typeId);
-      } catch {
         // The optimistic value reverts when the transition ends.
+        setRefusal((await action(typeId))?.error);
+      } catch {
+        // Nothing more to say than the revert.
       }
     });
   }
@@ -191,6 +206,11 @@ export function ReactionButton({
         >
           <ChevronDown className="size-4" />
         </PopoverTrigger>
+        {refusal && (
+          <span role="alert" className="ml-1 text-xs text-destructive">
+            {refusal}
+          </span>
+        )}
       </span>
       <PopoverContent
         side="top"

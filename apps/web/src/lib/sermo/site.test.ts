@@ -47,9 +47,40 @@ test("the site is read without the visitor and keeps only its identity", async (
     icon: null,
     backdrop: null,
     socialLinks,
+    accents: [],
   });
   assert.equal(seen[0].get("cookie"), null);
   assert.equal(seen[0].get("x-forwarded-for"), null);
+});
+
+test("the palette's accents are kept in display order with their colours", async () => {
+  const accent = (id: number, color: string, foreground: string | null) => ({
+    id,
+    kind: "accent",
+    name: `Accent ${id}`,
+    color,
+    foreground,
+    position: id,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  globalThis.fetch = (async () =>
+    Response.json({
+      name: "Garden Club",
+      logo: null,
+      icon: null,
+      backdrop: null,
+      socialLinks: noSocialLinks,
+      palette: {
+        ...palette,
+        accents: [accent(4, "#0ea5e9", "#03131f"), accent(2, "#dc2626", null)],
+      },
+    })) as unknown as typeof fetch;
+  assert.deepEqual((await getSite()).accents, [
+    { id: 4, color: "#0ea5e9", foreground: "#03131f" },
+    { id: 2, color: "#dc2626", foreground: null },
+  ]);
 });
 
 test("the read is cached for a minute under the site tag", () => {
@@ -77,6 +108,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       icon: null,
       backdrop: null,
       socialLinks: noSocialLinks,
+      accents: [],
     });
     assert.equal(logged.mock.calls.length, 1);
 

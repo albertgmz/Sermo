@@ -7,7 +7,6 @@ import {
   conversationsReply,
   usersSearch,
 } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -25,29 +24,31 @@ export async function replyAction(
     call(conversationsReply, { conversationId, body }),
   );
   if (!sent.ok) return { error: sent.error };
-  // The list, the header and the unread counts are read again.
-  revalidatePath("/", "layout");
+  // The page the member lands on is rendered afresh, with their message on it.
   redirect(`/conversations/${conversationId}`);
 }
 
 // Called by the page itself once the newest message is shown, so a refusal (a dead session, a
-// conversation the member left) is nothing the visitor needs to hear about.
+// conversation the member left) is nothing the visitor needs to hear about. The page stays as it
+// is; the unread counts are right on the next page the member opens.
 export async function markRead(conversationId: number) {
   try {
     await call(conversationsMarkRead, { conversationId });
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
-    return;
   }
-  revalidatePath("/", "layout");
 }
 
-export async function leaveAction(conversationId: number) {
+export type LeaveState = { error?: string };
+
+export async function leaveAction(
+  conversationId: number,
+  _previous: LeaveState,
+): Promise<LeaveState> {
   const left = await attempt(`/conversations/${conversationId}`, () =>
     call(conversationsLeave, { conversationId }),
   );
-  if (!left.ok) redirect(`/conversations/${conversationId}`);
-  revalidatePath("/", "layout");
+  if (!left.ok) return { error: left.error };
   redirect("/conversations");
 }
 
@@ -67,7 +68,6 @@ export async function startConversation(
     call(conversationsCreate, { title, recipientIds, body }),
   );
   if (!created.ok) return { error: created.error, title };
-  revalidatePath("/", "layout");
   redirect(`/conversations/${created.value.conversation.id}`);
 }
 

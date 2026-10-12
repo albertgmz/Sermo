@@ -8,16 +8,30 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { User } from "@/lib/types";
 
 const MODERATOR_LINKS = ["approvalQueue", "reports", "moderatorLog"] as const;
 
 const ITEM =
   "inline-flex h-10 items-center gap-1 rounded-md px-2 font-medium outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-8";
 
-export function StaffBar({ user }: { user: Pick<User, "role"> | null }) {
+type Standing = {
+  permissions: { isModerator: boolean };
+  resolvedPermissions: Record<string, boolean | number>;
+};
+
+// The viewer has staff work when the backend gives them any administration permission or makes
+// them a moderator.
+export function hasStaffWork({ permissions, resolvedPermissions }: Standing) {
+  return (
+    permissions.isModerator ||
+    Object.entries(resolvedPermissions).some(
+      ([id, value]) => id.startsWith("admin.") && value === true,
+    )
+  );
+}
+
+export function StaffBar({ admin }: { admin: boolean }) {
   const t = useTranslations("layout.staffBar");
-  if (!user || user.role === "member") return null;
   return (
     <div className="border-b bg-background text-xs text-muted-foreground">
       <Container className="flex items-center">
@@ -35,7 +49,7 @@ export function StaffBar({ user }: { user: Pick<User, "role"> | null }) {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          {user.role === "admin" && (
+          {admin && (
             <Link href="/admin" className={ITEM}>
               {t("admin")}
             </Link>
