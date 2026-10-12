@@ -35,7 +35,7 @@ export const rankingSql = {
     "SELECT id, reaction_counts FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   /** The first post at or after an id: the probe of the search for the oldest post of the week. */
   postAtOrAfter: "SELECT id, created_at FROM posts WHERE id >= ?1 ORDER BY id LIMIT 1",
-  lastPostId: "SELECT id FROM posts ORDER BY id DESC LIMIT 1",
+  lastPostId: "SELECT max(id) AS id FROM posts",
   /** One slice of the posts of the week, by id range. */
   recentPosts:
     "SELECT id, thread_id, reaction_counts FROM posts WHERE id >= ?1 AND id < ?2 AND state = 'visible' AND created_at >= ?3",
@@ -134,7 +134,7 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
   const probe = prepared(ctx, "feed.rankProbe", () =>
     ctx.sqlite.prepare<{ id: number; created_at: number }, [number]>(rankingSql.postAtOrAfter),
   );
-  const top = ctx.sqlite.prepare<{ id: number }, []>(rankingSql.lastPostId).get()?.id ?? 0;
+  const top = ctx.sqlite.prepare<{ id: number | null }, []>(rankingSql.lastPostId).get()?.id ?? 0;
   let low = 1;
   let high = top + 1;
   while (low < high) {

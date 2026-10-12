@@ -35,15 +35,12 @@ export interface ThreadPresenter {
   node(id: number): { id: number; title: string };
   prefix(id: number | null): PrefixTag | null;
   cover(id: number | null): { fileId: number; url: string } | null;
-  /** The viewer-facing tab of a node (its root category's), for node listings. */
-  tab(nodeId: number): number | null;
 }
 
 export function threadPresenter(ctx: Ctx): ThreadPresenter {
   const tree = getNodeTree(ctx);
   const lists = catalogs(ctx);
   const prefixes = new Map(prefixRows(ctx).map((row) => [row.id, row]));
-  const tabs = nodeTabs(ctx);
   return {
     node(id) {
       const entry = tree.get(id);
@@ -56,7 +53,6 @@ export function threadPresenter(ctx: Ctx): ThreadPresenter {
     cover(id) {
       return id === null ? null : (lists.imageById.get(id)?.image ?? null);
     },
-    tab: (nodeId) => tabs.get(nodeId) ?? null,
   };
 }
 
