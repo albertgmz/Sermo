@@ -1,5 +1,6 @@
 import { Eye, Heart, type LucideIcon, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { Leaderboard, RankNumber } from "@/components/forum/leaderboard";
@@ -25,50 +26,50 @@ type Figure = "replies" | "reactions" | "views";
 
 const FIGURES: Record<
   Figure,
-  { label: string; icon: LucideIcon; value: (thread: ThreadView) => number }
+  { label: Figure; icon: LucideIcon; value: (thread: ThreadView) => number }
 > = {
   replies: {
-    label: "Replies",
+    label: "replies",
     icon: MessageCircle,
     value: (thread) => thread.replyCount,
   },
   reactions: {
-    label: "Reactions",
+    label: "reactions",
     icon: Heart,
     value: (thread) => thread.reactionCount,
   },
-  views: { label: "Views", icon: Eye, value: (thread) => thread.views },
+  views: { label: "views", icon: Eye, value: (thread) => thread.views },
 };
 
 // `figure` is the one the list is about; it stays visible at every width.
 export const STATS_TABS = [
   {
     value: "posts",
-    label: "Latest posts",
+    label: "postsTab",
     list: "latestPosts",
     figure: "replies",
   },
   {
     value: "threads",
-    label: "New threads",
+    label: "threadsTab",
     list: "latestThreads",
     figure: "replies",
   },
   {
     value: "replied",
-    label: "Most replied",
+    label: "repliedTab",
     list: "mostReplied",
     figure: "replies",
   },
   {
     value: "reacted",
-    label: "Most reacted",
+    label: "reactedTab",
     list: "mostReacted",
     figure: "reactions",
   },
   {
     value: "viewed",
-    label: "Most viewed",
+    label: "viewedTab",
     list: "mostViewed",
     figure: "views",
   },
@@ -90,6 +91,7 @@ function ThreadRow({
   rank: number;
   figure: Figure;
 }) {
+  const t = useTranslations("forums.forumStats");
   const last = thread.lastPost;
   return (
     <li className="flex items-center gap-3 px-3 py-2.5 md:px-4">
@@ -112,14 +114,19 @@ function ThreadRow({
           {thread.title}
         </ThreadHoverCard>
         <p className="truncate text-xs text-muted-foreground">
-          <Link
-            href={`/forums/${thread.forum.id}`}
-            className="font-medium underline-offset-4 hover:text-foreground hover:underline"
-          >
-            {thread.forum.title}
-          </Link>{" "}
-          · <RelativeTime date={last.createdAt} /> ·{" "}
-          <UserLink user={last.author} />
+          {t.rich("activity", {
+            forumTitle: thread.forum.title,
+            forum: (chunks) => (
+              <Link
+                href={`/forums/${thread.forum.id}`}
+                className="font-medium underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {chunks}
+              </Link>
+            ),
+            time: () => <RelativeTime date={last.createdAt} />,
+            author: () => <UserLink user={last.author} />,
+          })}
         </p>
       </div>
       <dl className="flex shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -135,7 +142,7 @@ function ThreadRow({
             >
               <dt>
                 <Icon aria-hidden="true" className="size-3.5" />
-                <span className="sr-only">{label}</span>
+                <span className="sr-only">{t(`aria.${label}`)}</span>
               </dt>
               <dd>{formatCompact(value(thread))}</dd>
             </div>
@@ -155,12 +162,13 @@ export function ForumStats({
   hrefFor: (tab: StatsTab) => string;
   viewerId?: number;
 }) {
+  const t = useTranslations("forums.forumStats");
   const tab =
     STATS_TABS.find((entry) => entry.value === active) ?? STATS_TABS[0];
 
   return (
     <CollapsiblePanel
-      title="Forum statistics"
+      title={t("heading")}
       storageKey="forum-stats-open"
       defaultOpen="md"
     >
@@ -169,16 +177,16 @@ export function ForumStats({
           <TabLinks
             tabs={STATS_TABS.map(({ value, label }) => ({
               value,
-              label,
+              label: t(label),
               href: hrefFor(value),
             }))}
             active={tab.value}
-            label="Forum statistics"
+            label={t("aria.statistics")}
             className="px-1"
           />
           <Suspense
             fallback={
-              <LoadingRegion label="Loading forum activity…">
+              <LoadingRegion label={t("aria.loadingActivity")}>
                 <ol className="@container divide-y divide-border">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
                     <li key={row}>
@@ -194,11 +202,11 @@ export function ForumStats({
         </div>
         <div className="min-w-0 border-t lg:border-t-0 lg:border-l">
           <h3 className="flex h-11 items-center border-b px-4 text-sm font-medium">
-            Top posters
+            {t("postersHeading")}
           </h3>
           <Suspense
             fallback={
-              <LoadingRegion label="Loading top posters…">
+              <LoadingRegion label={t("aria.loadingPosters")}>
                 <div className="divide-y">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
                     <MemberRowSkeleton key={row} />
