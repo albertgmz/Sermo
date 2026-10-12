@@ -2,28 +2,30 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 const GROUPS = [
   {
-    title: "Your account",
-    links: [{ label: "Overview", href: "/account" }],
+    title: "accountHeading",
+    links: [{ label: "overview", href: "/account" }],
   },
   {
-    title: "Settings",
+    title: "settingsHeading",
     links: [
-      { label: "Appearance", href: "/account/appearance" },
-      { label: "Permissions", href: "/account/permissions" },
-      { label: "Security", href: "/account/security" },
+      { label: "appearance", href: "/account/appearance" },
+      { label: "permissions", href: "/account/permissions" },
+      { label: "security", href: "/account/security" },
     ],
   },
-];
+] as const;
 
 export function AccountNavigation() {
   const pathname = usePathname();
+  const t = useTranslations("account.navigation");
 
   return (
     <nav
-      aria-label="Account sections"
+      aria-label={t("aria.label")}
       className="relative flex overflow-x-auto rounded-lg border bg-card lg:block lg:overflow-visible"
     >
       {GROUPS.map(({ title, links }) => (
@@ -32,7 +34,7 @@ export function AccountNavigation() {
           className="shrink-0 border-r last:border-r-0 lg:border-r-0 lg:not-first:border-t"
         >
           <h2 className="sr-only lg:not-sr-only lg:border-b lg:px-4 lg:py-3 lg:text-sm lg:font-semibold">
-            {title}
+            {t(title)}
           </h2>
           <ul className="flex gap-1 p-1.5 lg:block lg:space-y-1 lg:p-2">
             {links.map(({ label, href }) => (
@@ -52,7 +54,7 @@ export function AccountNavigation() {
                   aria-current={pathname === href ? "page" : undefined}
                   className="flex min-h-10 items-center rounded-md border border-transparent px-3 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-border aria-[current=page]:bg-muted aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
                 >
-                  {label}
+                  {t(label)}
                 </Link>
               </li>
             ))}

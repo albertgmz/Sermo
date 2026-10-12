@@ -1,5 +1,6 @@
 import { Check } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AppearanceForm } from "@/app/(main)/account/appearance-form";
 import { Art } from "@/components/forum/art";
 import { MemberCard } from "@/components/forum/member-card";
@@ -10,6 +11,8 @@ import {
   COVERS,
   coverSrc,
   DEFAULT_ACCENT,
+  NAME_COLORS,
+  type NameColorKey,
   nameColor,
 } from "@/lib/appearance";
 import type { Unlocks, UserView } from "@/lib/db";
@@ -41,40 +44,44 @@ export function AppearancePanel({
   frameNames: Record<string, string>;
   saved: string | undefined;
 }) {
+  const t = useTranslations("account.appearance");
+  const labels = useTranslations("lib.appearance");
   const { appearance } = user;
   const accent = appearance.accent ?? DEFAULT_ACCENT;
   const frames = [...new Set(unlocks.frames)];
   const colors = [...new Set(unlocks.nameColors)];
   const canSetCover = can(user, "profileCover");
+  const colorLabel = (color: string | null) =>
+    color && color in NAME_COLORS
+      ? labels(`nameColors.${color as NameColorKey}`)
+      : t("nameColorDefault");
 
   return (
     <section id="appearance" className="scroll-mt-4 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h1 className="text-xl font-bold tracking-tight">Appearance</h1>
-        <p className="text-xs text-muted-foreground">
-          How the forum looks for you, and how you look to everyone else.
-        </p>
+        <h1 className="text-xl font-bold tracking-tight">{t("heading")}</h1>
+        <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
       <div className="grid gap-6 p-4 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">
         <div className="min-w-0 xl:col-start-2 xl:row-start-1">
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Preview
+            {t("previewHeading")}
           </p>
           <MemberCard user={user} />
           <p className="mt-2 text-xs text-pretty text-muted-foreground">
-            Your member card with the choices saved right now.
+            {t("previewDescription")}
           </p>
         </div>
 
         <div className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1">
           <AppearanceForm
             field="accent"
-            title="Accent colour"
-            description="Recolours buttons, links and highlights across the whole forum, only for you."
+            title={t("accentHeading")}
+            description={t("accentDescription")}
             saved={saved === "accent"}
           >
             <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {ACCENTS.map(({ key, label }) => (
+              {ACCENTS.map(({ key }) => (
                 <li key={key} data-accent={key}>
                   <button
                     type="submit"
@@ -87,7 +94,7 @@ export function AppearancePanel({
                       aria-hidden="true"
                       className="size-6 rounded-full bg-primary"
                     />
-                    {label}
+                    {labels(`accents.${key}`)}
                     {key === accent && <Selected />}
                   </button>
                 </li>
@@ -97,8 +104,8 @@ export function AppearancePanel({
 
           <AppearanceForm
             field="frame"
-            title="Avatar frame"
-            description="Shown around your picture everywhere it appears."
+            title={t("frameHeading")}
+            description={t("frameDescription")}
             saved={saved === "frame"}
           >
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">
@@ -111,8 +118,10 @@ export function AppearancePanel({
                     aria-pressed={frame === appearance.frame}
                     aria-label={
                       frame
-                        ? `${frameNames[frame] ?? "Frame"} frame`
-                        : "No frame"
+                        ? t("aria.frame", {
+                            name: frameNames[frame] ?? t("frameFallback"),
+                          })
+                        : t("aria.noFrame")
                     }
                     className={cn(choiceClass, "h-28 flex-col gap-1")}
                   >
@@ -123,7 +132,7 @@ export function AppearancePanel({
                     />
                     {!frame && (
                       <span className="text-xs text-muted-foreground">
-                        None
+                        {t("frameEmpty")}
                       </span>
                     )}
                     {frame === appearance.frame && <Selected />}
@@ -132,14 +141,14 @@ export function AppearancePanel({
               ))}
             </ul>
             <Link href="/credits?category=frame" className={shopLinkClass}>
-              Get more frames in the shop
+              {t("framesLink")}
             </Link>
           </AppearanceForm>
 
           <AppearanceForm
             field="nameColor"
-            title="Name colour"
-            description="The colour of your username in threads, lists and your profile."
+            title={t("nameColorHeading")}
+            description={t("nameColorDescription")}
             saved={saved === "nameColor"}
           >
             <ul className="flex flex-wrap gap-2">
@@ -150,7 +159,9 @@ export function AppearancePanel({
                     name="value"
                     value={color ?? ""}
                     aria-pressed={color === appearance.nameColor}
-                    aria-label={`${nameColor(color)?.label ?? "Default"} name colour`}
+                    aria-label={t("aria.nameColor", {
+                      name: colorLabel(color),
+                    })}
                     className={cn(choiceClass, "gap-2 px-3 pr-7")}
                   >
                     <span
@@ -164,7 +175,7 @@ export function AppearancePanel({
                       {user.username}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {nameColor(color)?.label ?? "Default"}
+                      {colorLabel(color)}
                     </span>
                     {color === appearance.nameColor && <Selected />}
                   </button>
@@ -172,17 +183,15 @@ export function AppearancePanel({
               ))}
             </ul>
             <Link href="/credits?category=color" className={shopLinkClass}>
-              Get more name colours in the shop
+              {t("nameColorsLink")}
             </Link>
           </AppearanceForm>
 
           <AppearanceForm
             field="cover"
-            title="Profile cover"
+            title={t("coverHeading")}
             description={
-              canSetCover
-                ? "A photo from the gallery behind your profile, your posts and your member card."
-                : "A photo from the gallery behind your profile, your posts and your member card. It needs the profile cover permission, which comes from the shop or a rank."
+              canSetCover ? t("coverDescription") : t("coverLockedDescription")
             }
             saved={saved === "cover"}
           >
@@ -191,7 +200,7 @@ export function AppearancePanel({
                 href="/credits?category=permission#permission-profileCover"
                 className={shopLinkClass}
               >
-                Locked: get the profile cover permission in the shop
+                {t("coverLockedLink")}
               </Link>
             )}
             <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
@@ -201,17 +210,17 @@ export function AppearancePanel({
                   name="value"
                   value=""
                   aria-pressed={appearance.cover === null}
-                  aria-label="No cover"
+                  aria-label={t("aria.noCover")}
                   className={cn(choiceClass, "flex-col")}
                 >
                   <span className="aspect-(--aspect-cover) w-full bg-muted" />
                   <span className="flex h-8 items-center text-xs text-muted-foreground">
-                    None
+                    {t("coverEmpty")}
                   </span>
                   {appearance.cover === null && <Selected />}
                 </button>
               </li>
-              {COVERS.map(({ key, label }) => (
+              {COVERS.map(({ key }) => (
                 <li key={key}>
                   <button
                     type="submit"
@@ -219,7 +228,9 @@ export function AppearancePanel({
                     value={key}
                     disabled={!canSetCover}
                     aria-pressed={key === appearance.cover}
-                    aria-label={`${label} cover`}
+                    aria-label={t("aria.cover", {
+                      name: labels(`covers.${key}`),
+                    })}
                     className={cn(
                       choiceClass,
                       "flex-col disabled:pointer-events-none disabled:opacity-40",
@@ -231,7 +242,7 @@ export function AppearancePanel({
                       className="aspect-(--aspect-cover) w-full bg-[position:75%_30%]"
                     />
                     <span className="flex h-8 items-center text-xs">
-                      {label}
+                      {labels(`covers.${key}`)}
                     </span>
                     {key === appearance.cover && <Selected />}
                   </button>

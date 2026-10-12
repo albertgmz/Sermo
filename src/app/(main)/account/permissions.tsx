@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { SignatureForm } from "@/app/(main)/account/permission-forms";
 import { Credits } from "@/components/forum/credits";
 import { PermissionIcon } from "@/components/forum/permission-icon";
@@ -15,16 +17,20 @@ function shopHref(key: PermissionKey) {
   return `/credits?category=permission#permission-${key}`;
 }
 
-function sourceLabel(permission: PermissionView, user: UserView) {
+function sourceLabel(
+  permission: PermissionView,
+  user: UserView,
+  t: ReturnType<typeof useTranslations<"account.permissions">>,
+) {
   switch (permission.source) {
     case "rank":
-      return `Included in your ${user.rank?.name} rank`;
+      return t("rankSource", { rank: String(user.rank?.name) });
     case "staff":
-      return "Staff";
+      return t("staffSource");
     case "purchase":
       return permission.quantity === undefined
-        ? "Purchased"
-        : `${permission.quantity} ${permission.quantity === 1 ? "change" : "changes"} available`;
+        ? t("purchaseSource")
+        : t("changes", { count: permission.quantity });
     default:
       return null;
   }
@@ -41,19 +47,26 @@ function Control({
   description: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("account.permissions");
+  const labels = useTranslations("lib.permissions");
   return (
     <div id={id} className="scroll-mt-4 space-y-3">
       <div>
-        <h2 className="text-sm font-semibold">{permission.label}</h2>
+        <h2 className="text-sm font-semibold">
+          {labels(`${permission.key}.label`)}
+        </h2>
         <p className="text-xs text-pretty text-muted-foreground">
           {description}
         </p>
         {!permission.granted && (
           <p className="text-xs text-muted-foreground">
-            Locked.{" "}
-            <Link href={shopHref(permission.key)} className={linkClass}>
-              Unlock it in the permissions shop
-            </Link>
+            {t.rich("lockedDescription", {
+              shop: (chunks) => (
+                <Link href={shopHref(permission.key)} className={linkClass}>
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         )}
       </div>
@@ -79,16 +92,21 @@ export async function PermissionsPanel({
   const signatureText = (await liteBlocks("postImages"))
     ? stripMarkdownImages(user.signature ?? "")
     : (user.signature ?? "");
+  const t = await getTranslations("account.permissions");
+  const labels = await getTranslations("lib.permissions");
 
   return (
     <section id="permissions" className="scroll-mt-4 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h1 className="text-xl font-bold tracking-tight">Permissions</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t("heading")}</h1>
         <p className="text-xs text-muted-foreground">
-          What your account can do, and where each permission comes from.{" "}
-          <Link href="/account" className={linkClass}>
-            Edit your username and title
-          </Link>
+          {t.rich("description", {
+            account: (chunks) => (
+              <Link href="/account" className={linkClass}>
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       </div>
       <ul className="divide-y">
@@ -104,26 +122,30 @@ export async function PermissionsPanel({
               </span>
               <div className="min-w-0 flex-1 basis-48">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
-                  {permission.label}
+                  {labels(`${permission.key}.label`)}
                   {permission.granted ? (
-                    <Badge variant="success">Granted</Badge>
+                    <Badge variant="success">{t("granted")}</Badge>
                   ) : (
-                    <Badge variant="secondary">Locked</Badge>
+                    <Badge variant="secondary">{t("locked")}</Badge>
                   )}
                 </p>
                 <p className="text-xs text-pretty text-muted-foreground">
-                  {permission.description}
+                  {labels(`${permission.key}.description`)}
                 </p>
               </div>
               <p className="flex basis-full flex-wrap items-center gap-x-3 text-xs text-muted-foreground sm:basis-auto sm:justify-end">
                 {permission.granted ? (
-                  sourceLabel(permission, user)
+                  sourceLabel(permission, user, t)
                 ) : (
                   <>
                     {price !== undefined && <Credits value={price} />}
                     <Link href={shopHref(permission.key)} className={linkClass}>
-                      View in the shop
-                      <span className="sr-only">: {permission.label}</span>
+                      {t.rich("shopLink", {
+                        permission: labels(`${permission.key}.label`),
+                        name: (chunks) => (
+                          <span className="sr-only">{chunks}</span>
+                        ),
+                      })}
                     </Link>
                   </>
                 )}
@@ -137,7 +159,7 @@ export async function PermissionsPanel({
           <Control
             id="signature"
             permission={signature}
-            description="Shown under your first post on each thread page and on your profile."
+            description={t("signatureDescription")}
           >
             <SignatureForm
               key={signatureText}

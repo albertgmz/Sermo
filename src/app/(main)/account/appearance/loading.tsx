@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   LoadingRegion,
   MemberCardSkeleton,
@@ -5,13 +6,16 @@ import {
 } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 export default function Loading() {
+  const t = useTranslations("account.loading");
   return (
-    <LoadingRegion label="Loading appearance settings…">
+    <LoadingRegion label={t("appearanceLabel")}>
       <section className="rounded-lg border bg-card">
         <div className="border-b p-4">
-          <h1 className="text-xl font-bold tracking-tight">Appearance</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {t("appearanceHeading")}
+          </h1>
           <p className="text-xs text-muted-foreground">
-            How the forum looks for you, and how you look to everyone else.
+            {t("appearanceDescription")}
           </p>
         </div>
         <div className="grid gap-6 p-4 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start">

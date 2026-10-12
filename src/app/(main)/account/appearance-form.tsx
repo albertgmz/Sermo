@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import {
   type AppearanceField,
@@ -9,11 +10,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const ERRORS = {
-  not_found: "Your account was not found.",
-  invalid: "That choice is not valid.",
-  not_owned: "You do not own that yet.",
-  not_allowed: "You need the profile cover permission for that.",
-};
+  not_found: "errors.notFound",
+  invalid: "errors.invalid",
+  not_owned: "errors.notOwned",
+  not_allowed: "errors.notAllowed",
+} as const;
 
 // One appearance setting: every choice inside is a submit button named
 // "value", so picking one saves it.
@@ -30,15 +31,16 @@ export function AppearanceForm({
   saved: boolean;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("account.appearanceForm");
   const [state, action, pending] = useActionState<AppearanceState, FormData>(
     saveAppearance.bind(null, field),
     null,
   );
 
   let status = "";
-  if (pending) status = "Saving…";
-  else if (state) status = ERRORS[state.error];
-  else if (saved) status = "Saved";
+  if (pending) status = t("pending");
+  else if (state) status = t(ERRORS[state.error]);
+  else if (saved) status = t("saved");
 
   return (
     <form action={action} className="space-y-3">
