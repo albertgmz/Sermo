@@ -12,6 +12,7 @@ import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
   can,
+  currentActor,
   currentVersions,
   type FlagPermissionId,
   memberActor,
@@ -164,6 +165,19 @@ function requireGlobal(ctx: Ctx, actor: Actor, id: FlagPermissionId): number {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, id);
   return user.userId;
+}
+/**
+ * Inside the write transaction: the thread ban check against the moderator as committed now
+ * (the request's actor was resolved before it opened). A moderator who can no longer see the
+ * forum gets not found, as before the transaction.
+ */
+function requireThreadBanner(ctx: Ctx, actor: Actor, nodeId: number, userId: number): void {
+  const current = currentActor(ctx, actor);
+  if (!can(ctx, current, "node.view", { nodeId })) throw new NotFoundError();
+  requirePermission(ctx, current, "forum.threadBan", {
+    nodeId,
+    target: principalMember(ctx, userId),
+  });
 }
 function principalMember(ctx: Ctx, userId: number): Actor {
   const row = read<PrincipalRow & { id: number; group_id: number }>(
@@ -1293,8 +1307,10 @@ export function addWarning(
   if (!Number.isInteger(points) || points <= 0 || !reason.trim())
     throw new ValidationError("Positive points and a reason are required.");
   return writeTx(ctx, () => {
+    // The actor was resolved before this transaction: decide with what is committed now.
+    const current = currentActor(ctx, actor);
     const target = principalMember(ctx, userId);
-    requirePermission(ctx, actor, "member.warn", { target });
+    requirePermission(ctx, current, "member.warn", { target });
     const now = ctx.now();
     const id = Number(
       exec(
@@ -1394,8 +1410,9 @@ export function banUser(
   if (!reason.trim() || (expiresAt != null && expiresAt <= ctx.now()))
     throw new ValidationError("A reason and future expiry are required.");
   return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
     const target = principalMember(ctx, userId);
-    requirePermission(ctx, actor, "member.ban", { target });
+    requirePermission(ctx, current, "member.ban", { target });
     if (userId === actorUserId(actor)) throw new ForbiddenError();
     return insertBan(ctx, actor, userId, reason, expiresAt, notice);
   });
@@ -1508,7 +1525,9 @@ export function liftBan(
       banId,
     );
     if (!ban) throw new NotFoundError();
-    requirePermission(ctx, actor, "member.ban", { target: principalMember(ctx, ban.user_id) });
+    requirePermission(ctx, currentActor(ctx, actor), "member.ban", {
+      target: principalMember(ctx, ban.user_id),
+    });
     if (ban.lifted_at != null) throw new ConflictError("This ban was already lifted.");
     const now = ctx.now();
     exec(ctx, "liftBan", "UPDATE bans SET lifted_at = ?1 WHERE id = ?2", now, banId);
@@ -1580,7 +1599,9 @@ export function resumeSpamCleanup(
   )
     throw new ValidationError("Invalid spam cleanup cursor.");
   return writeTx(ctx, () => {
-    requirePermission(ctx, actor, "member.spamCleanup", { target: principalMember(ctx, userId) });
+    requirePermission(ctx, currentActor(ctx, actor), "member.spamCleanup", {
+      target: principalMember(ctx, userId),
+    });
     // Content in a thread being merged or split is skipped. A pending transfer is waited for,
     // up to a deadline; a failed one (which needs a moderator's retry) or one still pending at
     // the deadline is logged once and left alone. The guard table is tiny, so it drives this.
@@ -1756,10 +1777,7 @@ export const operations = [
       );
       if (!current || current.node_id !== thread.node_id)
         throw new ConflictError("Thread changed; retry.");
-      requirePermission(ctx, actor, "forum.threadBan", {
-        nodeId: current.node_id,
-        target: principalMember(ctx, input.userId),
-      });
+      requireThreadBanner(ctx, actor, current.node_id, input.userId);
       const now = ctx.now();
       const row = read<{ id: number }>(
         ctx,
@@ -1829,10 +1847,7 @@ export const operations = [
       );
       if (!current || current.node_id !== thread.node_id)
         throw new ConflictError("Thread changed; retry.");
-      requirePermission(ctx, actor, "forum.threadBan", {
-        nodeId: current.node_id,
-        target: principalMember(ctx, input.userId),
-      });
+      requireThreadBanner(ctx, actor, current.node_id, input.userId);
       const removed = exec(
         ctx,
         "threadBanDelete",
@@ -2012,7 +2027,7 @@ export const operations = [
       target: principalMember(ctx, input.userId),
     });
     return writeTx(ctx, () => {
-      requirePermission(ctx, actor, "member.spamCleanup", {
+      requirePermission(ctx, currentActor(ctx, actor), "member.spamCleanup", {
         target: principalMember(ctx, input.userId),
       });
       if (actorUserId(actor) === input.userId) throw new ForbiddenError();

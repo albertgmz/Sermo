@@ -844,4 +844,176 @@ describe("the analyzer itself", () => {
       "search.use",
     ]);
   });
+
+  describe("callbacks passed to collection methods", () => {
+    const CHECK = `requirePermission(ctx, actor, "admin.permissions")`;
+    // The receiver is unknown to the analyzer: a parameter of the operation.
+    for (const method of [
+      "map",
+      "flatMap",
+      "filter",
+      "forEach",
+      "some",
+      "every",
+      "find",
+      "findIndex",
+      "reduce",
+      "reduceRight",
+    ])
+      test(`${method} invokes its callback`, () => {
+        expect(
+          unchecked(`
+            export const op = implement(contract, (ctx, actor, input) =>
+              input.rows.${method}(() => ${CHECK}));
+          `),
+        ).toEqual([]);
+      });
+
+    for (const method of ["push", "then", "set", "addListener", "sort"])
+      test(`${method} is not a collection callback method`, () => {
+        expect(
+          unchecked(`
+            export const op = implement(contract, (ctx, actor, input) =>
+              input.rows.${method}(() => ${CHECK}));
+          `),
+        ).toEqual(["op"]);
+      });
+
+    test("a callback stored in a variable counts when it is passed to a collection method", () => {
+      expect(
+        unchecked(`
+          export const arrowOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            return input.rows.forEach(check);
+          });
+          export const declarationOp = implement(contract, (ctx, actor, input) => {
+            function check() { ${CHECK}; }
+            return input.rows.some(check);
+          });
+          export const literalOp = implement(contract, (ctx, actor) => {
+            const check = () => ${CHECK};
+            return [1, 2].every(check);
+          });
+          export const aliasOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            const alias = check;
+            return input.rows.find(alias);
+          });
+          export const wrappedOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            return input.rows.map((row) => check(row));
+          });
+          export const helperOp = implement(contract, (ctx, actor, input) => {
+            const each = (rows, callback) => rows.forEach(callback);
+            return each(input.rows, () => ${CHECK});
+          });
+        `),
+      ).toEqual([]);
+    });
+
+    test("a callback stored in a variable does not count when it is never invoked", () => {
+      expect(
+        unchecked(`
+          export const storedOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            return input.rows.map((row) => row.id);
+          });
+          export const otherOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            const other = () => 1;
+            return input.rows.map(other);
+          });
+          export const pushedOp = implement(contract, (ctx, actor, input) => {
+            const check = () => ${CHECK};
+            return input.rows.push(check);
+          });
+          export const reassignedOp = implement(contract, (ctx, actor, input) => {
+            let check = () => ${CHECK};
+            check = () => 1;
+            return input.rows.map(check);
+          });
+          export const emptyOp = implement(contract, (ctx, actor) => {
+            const check = () => ${CHECK};
+            return [].forEach(check);
+          });
+        `),
+      ).toEqual(["storedOp", "otherOp", "pushedOp", "reassignedOp", "emptyOp"]);
+    });
+
+    test("optional chaining does not hide an invoked callback or an imported check", () => {
+      const analysis = sample(`
+        export const memberOp = implement(contract, (ctx, actor, input) =>
+          input.rows?.map(() => ${CHECK}));
+        export const callOp = implement(contract, (ctx, actor, input) =>
+          input.rows.map?.(() => ${CHECK}));
+        export const bothOp = implement(contract, (ctx, actor, input) => {
+          const check = () => ${CHECK};
+          return input.page?.rows?.forEach?.(check);
+        });
+        export const directOp = implement(contract, (ctx, actor) =>
+          requirePermission?.(ctx, actor, "admin.groups"));
+        export const grantsOp = implement(contract, (ctx, actor) =>
+          permissionsOf(ctx, actor)?.can("admin.members"));
+        export const shadowedOp = implement(contract, (ctx, actor, requirePermission) =>
+          requirePermission?.(ctx, actor, "admin.promotions"));
+        export const emptyOp = implement(contract, (ctx, actor) =>
+          [].map?.(() => ${CHECK}));
+      `);
+      expect(uncheckedFunctions(analysis).map((entry) => entry.split(": ")[1])).toEqual([
+        "shadowedOp",
+        "emptyOp",
+      ]);
+      expect([...checkedPermissions(analysis)].sort()).toEqual([
+        "admin.groups",
+        "admin.members",
+        "admin.permissions",
+        "forum.reply",
+      ]);
+    });
+
+    // Decision: the analysis is not path-sensitive (a check in one branch of an `if` counts), so
+    // a collection that is merely possibly empty counts as invoking its callback. Only a
+    // receiver the analyzer can see is empty (an empty literal, or a local initialised with
+    // one) does not. Anything it cannot see into (a conditional or logical expression included)
+    // is not evidence that the callback runs for a plain array method, and is not counted.
+    test("a possibly empty collection counts, a visibly empty one and an opaque one do not", () => {
+      expect(
+        unchecked(`
+          import { listRows } from "./rows";
+          export const parameterOp = implement(contract, (ctx, actor, input) =>
+            input.ids.map(() => ${CHECK}));
+          export const destructuredOp = implement(contract, (ctx, actor, { ids }) =>
+            ids.map(() => ${CHECK}));
+          export const importedOp = implement(contract, (ctx, actor) =>
+            listRows(ctx).forEach(() => ${CHECK}));
+          export const filledOp = implement(contract, (ctx, actor) => {
+            const rows = [1];
+            return rows.map(() => ${CHECK});
+          });
+          export const emptyOp = implement(contract, (ctx, actor) => {
+            const rows = [];
+            return rows.map(() => ${CHECK});
+          });
+          export const pushedOp = implement(contract, (ctx, actor, input) => {
+            const rows = [];
+            rows.push(...input.rows);
+            return rows.map(() => ${CHECK});
+          });
+          export const fallbackOp = implement(contract, (ctx, actor, input) =>
+            (input.ids ?? []).map(() => ${CHECK}));
+        `),
+      ).toEqual(["emptyOp", "pushedOp", "fallbackOp"]);
+    });
+
+    test("a callback nested in an invoked callback is followed, one in an unused one is not", () => {
+      expect(
+        unchecked(`
+          export const nestedOp = implement(contract, (ctx, actor, input) =>
+            input.groups.map((group) => group.rows.forEach(() => ${CHECK})));
+          export const unusedOp = implement(contract, (ctx, actor, input) =>
+            input.groups.map((group) => () => group.rows.forEach(() => ${CHECK})));
+        `),
+      ).toEqual(["unusedOp"]);
+    });
+  });
 });

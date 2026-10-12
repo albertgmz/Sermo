@@ -7,7 +7,13 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, memberStanding, requirePermission, validatePurchasedGrant } from "../../permissions";
+import {
+  can,
+  currentActor,
+  memberStanding,
+  requirePermission,
+  validatePurchasedGrant,
+} from "../../permissions";
 import {
   type CategoryRow,
   category,
@@ -22,6 +28,15 @@ import {
   statement,
 } from "./data";
 
+/**
+ * Inside the write transaction: the shop manager as committed now (the request's actor was
+ * resolved before it opened). Every later decision of the operation uses the result.
+ */
+function managerNow(ctx: Ctx, actor: Actor): Actor {
+  const current = currentActor(ctx, actor);
+  requirePermission(ctx, current, "admin.shop");
+  return current;
+}
 function grantPermissions(ctx: Ctx, actor: Actor, effect: Effect): void {
   if (effect.type === "permission" || effect.type === "group")
     requirePermission(ctx, actor, "admin.permissions");
@@ -61,18 +76,20 @@ export const categoriesList = implement(
 
 export const categoriesCreate = implement(contracts.shopCategoriesCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
-  return writeTx(ctx, () =>
-    categoryValue(
+  return writeTx(ctx, () => {
+    managerNow(ctx, actor);
+    return categoryValue(
       statement<CategoryRow>(
         ctx,
         "INSERT INTO shop_categories (name, description, position, is_active, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5) RETURNING *",
       ).get(input.name, input.description, input.position, Number(input.isActive), ctx.now())!,
-    ),
-  );
+    );
+  });
 });
 export const categoriesUpdate = implement(contracts.shopCategoriesUpdate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
+    managerNow(ctx, actor);
     const row = category(ctx, input.categoryId);
     return categoryValue(
       statement<CategoryRow>(
@@ -92,6 +109,7 @@ export const categoriesUpdate = implement(contracts.shopCategoriesUpdate, (ctx, 
 export const categoriesDelete = implement(contracts.shopCategoriesDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
+    managerNow(ctx, actor);
     category(ctx, input.categoryId);
     if (statement(ctx, shopSql.categoryItems).get(input.categoryId))
       throw new ConflictError("This category still has items.");
@@ -143,7 +161,8 @@ export const itemsGet = implement(
 export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
-    validateItem(ctx, actor, input);
+    const current = managerNow(ctx, actor);
+    validateItem(ctx, current, input);
     category(ctx, input.categoryId);
     return itemValue(
       statement<ItemRow>(
@@ -170,14 +189,15 @@ export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, inp
 export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
+    const current = managerNow(ctx, actor);
     const previous = itemValue(item(ctx, input.itemId));
-    grantPermissions(ctx, actor, previous.effect);
-    assertGrantRank(ctx, actor, previous.effect);
+    grantPermissions(ctx, current, previous.effect);
+    assertGrantRank(ctx, current, previous.effect);
     const value = {
       ...previous,
       ...Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)),
     } as Item;
-    grantPermissions(ctx, actor, value.effect);
+    grantPermissions(ctx, current, value.effect);
     if (
       (!isDeepStrictEqual(previous.effect, value.effect) ||
         previous.isConsumable !== value.isConsumable ||
@@ -185,7 +205,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
       statement(ctx, shopSql.bought).get(previous.id)
     )
       throw new ConflictError("A purchased item's effect, kind and duration cannot change.");
-    validateItem(ctx, actor, value);
+    validateItem(ctx, current, value);
     category(ctx, value.categoryId);
     return itemValue(
       statement<ItemRow>(
@@ -213,6 +233,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
 export const itemsDelete = implement(contracts.shopItemsDelete, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
+    managerNow(ctx, actor);
     const value = itemValue(item(ctx, input.itemId));
     if (statement(ctx, shopSql.bought).get(value.id))
       throw new ConflictError("A purchased item can only be deactivated.");

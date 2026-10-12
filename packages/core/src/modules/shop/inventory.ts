@@ -6,7 +6,13 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, grantPurchased, requirePermission, revokePurchased } from "../../permissions";
+import {
+  can,
+  currentActor,
+  grantPurchased,
+  requirePermission,
+  revokePurchased,
+} from "../../permissions";
 import { moveCredits } from "../../shared/credits";
 import {
   category,
@@ -24,20 +30,22 @@ import {
 
 export const buy = implement(contracts.shopBuy, (ctx, actor, input) =>
   writeTx(ctx, () => {
-    requirePermission(ctx, actor, "shop.buy");
+    // The actor was resolved before this transaction: a ban or a lost group applies at once.
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "shop.buy");
     const buyer = requireAuthenticated(actor);
     const recipientId = input.recipientId ?? buyer.userId;
     const gift = recipientId !== buyer.userId;
-    if (gift) requirePermission(ctx, actor, "shop.gift");
+    if (gift) requirePermission(ctx, current, "shop.gift");
     const row = item(ctx, input.itemId);
     const value = itemValue(row);
     const unavailable = !row.is_active || !category(ctx, row.category_id).is_active;
-    if (unavailable && !can(ctx, actor, "admin.shop")) throw new NotFoundError();
+    if (unavailable && !can(ctx, current, "admin.shop")) throw new NotFoundError();
     if (gift) {
       if (!value.isGiftable) throw new ForbiddenError("This gift cannot be sent.");
       if (!statement(ctx, shopSql.recipient).get(recipientId)) throw new NotFoundError();
       if (
-        can(ctx, actor, "member.ignorable") &&
+        can(ctx, current, "member.ignorable") &&
         statement(ctx, shopSql.ignored).get(recipientId, buyer.userId)
       )
         throw new ForbiddenError("This gift cannot be sent.");
@@ -160,7 +168,8 @@ export const inventory = implement(contracts.shopInventory, (ctx, actor, input) 
 
 export const use = implement(contracts.shopUse, (ctx, actor, input) =>
   writeTx(ctx, () => {
-    requirePermission(ctx, actor, "shop.buy");
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "shop.buy");
     const member = requireAuthenticated(actor);
     const row = statement<InventoryRow>(ctx, shopSql.ownInventory).get(
       input.inventoryId,
@@ -190,7 +199,7 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
       ).get(input.threadId!);
       if (!thread || thread.user_id !== member.userId || thread.state !== "visible")
         throw new NotFoundError();
-      requirePermission(ctx, actor, "node.view", { nodeId: thread.node_id }, { notFound: true });
+      requirePermission(ctx, current, "node.view", { nodeId: thread.node_id }, { notFound: true });
     }
     let used = row;
     if (value.isConsumable) {
