@@ -1,0 +1,209 @@
+{
+  "tabs": ["General", "Market", "Money"],
+  "categories": [
+    {
+      "title": "News & Announcements",
+      "tab": "General",
+      "forums": [
+        {
+          "title": "Announcements",
+          "description": "Official news, releases and maintenance notices.",
+          "image": "announcements.jpg",
+          "subforums": ["Changelogs", "Important"]
+        },
+        {
+          "title": "Suggestions",
+          "description": "Tell us what would make this place better.",
+          "image": "suggestions.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "General",
+      "tab": "General",
+      "forums": [
+        {
+          "title": "General Discussion",
+          "description": "Anything that does not fit elsewhere.",
+          "image": "general-discussion.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Graphic Discussion",
+          "description": "Design critique, resources and showcases.",
+          "image": "graphic-discussion.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Gaming",
+          "description": "What you are playing and what you are waiting for.",
+          "image": "gaming.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Coding Lounge",
+          "description": "Code review, tooling and war stories.",
+          "image": "coding-lounge.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "Off-Topic",
+      "tab": "General",
+      "forums": [
+        {
+          "title": "Giveaway & Promotions",
+          "description": "Free stuff and honest self promotion.",
+          "image": "giveaways-promotions.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Introduce Yourself",
+          "description": "New here? Say hello.",
+          "image": "introduce-yourself.jpg",
+          "subforums": []
+        },
+        {
+          "title": "News Around The World",
+          "description": "Headlines worth talking about.",
+          "image": "news-around-the-world.jpg",
+          "subforums": []
+        },
+        {
+          "title": "International Lounge",
+          "description": "Conversations in every language.",
+          "image": "international-lounge.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "Marketplace",
+      "tab": "Market",
+      "forums": [
+        {
+          "title": "Digital Goods",
+          "description": "Assets, licenses and downloads for sale.",
+          "image": "digital-goods.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Services",
+          "description": "Design, development and writing for hire.",
+          "image": "services.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Templates & Themes",
+          "description": "Ready made kits and themes.",
+          "image": "templates-themes.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "Trading",
+      "tab": "Market",
+      "forums": [
+        {
+          "title": "Buy Requests",
+          "description": "Looking for something specific? Ask here.",
+          "image": "buy-requests.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Middleman & Escrow",
+          "description": "Trusted third parties for larger deals.",
+          "image": "middleman-escrow.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "Earning",
+      "tab": "Money",
+      "forums": [
+        {
+          "title": "Freelancing",
+          "description": "Clients, contracts and pricing.",
+          "image": "freelancing.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Affiliate Marketing",
+          "description": "Programs, funnels and case studies.",
+          "image": "affiliate-marketing.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Side Hustles",
+          "description": "Small projects that pay for coffee.",
+          "image": "side-hustles.jpg",
+          "subforums": []
+        }
+      ]
+    },
+    {
+      "title": "Investing",
+      "tab": "Money",
+      "forums": [
+        {
+          "title": "Crypto",
+          "description": "Markets, protocols and risk management.",
+          "image": "crypto.jpg",
+          "subforums": []
+        },
+        {
+          "title": "Stocks & ETFs",
+          "description": "Long term investing and portfolio talk.",
+          "image": "stocks-etfs.jpg",
+          "subforums": []
+        }
+      ]
+    }
+  ],
+  "prefixes": [
+    {
+      "label": "Question",
+      "color": "#60a5fa",
+      "icon": "circle-help"
+    },
+    {
+      "label": "Guide",
+      "color": "#34d399",
+      "icon": "book-open"
+    },
+    {
+      "label": "Debate",
+      "color": "#fb923c",
+      "icon": "scale"
+    },
+    {
+      "label": "Showcase",
+      "color": "#818cf8",
+      "icon": "sparkles"
+    },
+    {
+      "label": "Selling",
+      "color": "#eab308",
+      "icon": "tag"
+    },
+    {
+      "label": "Buying",
+      "color": "#22d3ee",
+      "icon": "shopping-cart"
+    },
+    {
+      "label": "News",
+      "color": "#fb7185",
+      "icon": "newspaper"
+    },
+    {
+      "label": "Solved",
+      "color": "#a3e635",
+      "icon": "circle-check"
+    }
+  ]
+}

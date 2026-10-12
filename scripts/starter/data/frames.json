@@ -1,0 +1,932 @@
+[
+  {
+    "file": "569.png",
+    "name": "Copper Star",
+    "placement": {
+      "width": 167.6,
+      "left": -31.2,
+      "top": -29.9,
+      "scale": 97
+    }
+  },
+  {
+    "file": "570.png",
+    "name": "Pine Bridge",
+    "placement": {
+      "width": 157.9,
+      "left": -39.9,
+      "top": -32,
+      "scale": 70
+    }
+  },
+  {
+    "file": "571.png",
+    "name": "Peacock Plume",
+    "placement": {
+      "width": 186.7,
+      "left": -40.7,
+      "top": -36.9,
+      "scale": 100
+    }
+  },
+  {
+    "file": "572.png",
+    "name": "Ink Tentacle",
+    "placement": {
+      "width": 178.7,
+      "left": -38.5,
+      "top": -28,
+      "scale": 87
+    }
+  },
+  {
+    "file": "573.png",
+    "name": "Fox Mask",
+    "placement": {
+      "width": 148.1,
+      "left": -19.8,
+      "top": -31.3,
+      "scale": 70
+    }
+  },
+  {
+    "file": "574.png",
+    "name": "Jade Rabbit",
+    "placement": {
+      "width": 147.5,
+      "left": -22.2,
+      "top": -24.5,
+      "scale": 76
+    }
+  },
+  {
+    "file": "575.png",
+    "name": "Golden Wreath",
+    "placement": {
+      "width": 176.1,
+      "left": -36.2,
+      "top": -34.8,
+      "scale": 96
+    }
+  },
+  {
+    "file": "576.png",
+    "name": "Crimson Seal",
+    "placement": {
+      "width": 174.6,
+      "left": -35.7,
+      "top": -33.3,
+      "scale": 98
+    }
+  },
+  {
+    "file": "577.png",
+    "name": "Harvest Moon",
+    "placement": {
+      "width": 178.5,
+      "left": -35.9,
+      "top": -35.1,
+      "scale": 95
+    }
+  },
+  {
+    "file": "578.png",
+    "name": "Emerald Serpent",
+    "placement": {
+      "width": 179.7,
+      "left": -38.9,
+      "top": -36,
+      "scale": 100
+    }
+  },
+  {
+    "file": "579.png",
+    "name": "Shrine Gate",
+    "placement": {
+      "width": 165.3,
+      "left": -31.8,
+      "top": -32.1,
+      "scale": 90
+    }
+  },
+  {
+    "file": "580.png",
+    "name": "Silver Shuriken",
+    "placement": {
+      "width": 167,
+      "left": -30.7,
+      "top": -29.6,
+      "scale": 96
+    }
+  },
+  {
+    "file": "581.png",
+    "name": "Golden Serpent",
+    "placement": {
+      "width": 151.3,
+      "left": -24.7,
+      "top": -28.3,
+      "scale": 77
+    }
+  },
+  {
+    "file": "582.png",
+    "name": "Pearl Shell",
+    "placement": {
+      "width": 181.4,
+      "left": -38.1,
+      "top": -35.3,
+      "scale": 100
+    }
+  },
+  {
+    "file": "583.png",
+    "name": "Camellia Rope",
+    "placement": {
+      "width": 165.3,
+      "left": -28,
+      "top": -35.4,
+      "scale": 81
+    }
+  },
+  {
+    "file": "584.png",
+    "name": "Lucky Cat",
+    "placement": {
+      "width": 157.3,
+      "left": -23,
+      "top": -33,
+      "scale": 76
+    }
+  },
+  {
+    "file": "585.png",
+    "name": "Rabbit Garden",
+    "placement": {
+      "width": 147.5,
+      "left": -22.2,
+      "top": -24.5,
+      "scale": 76
+    }
+  },
+  {
+    "file": "586.png",
+    "name": "Autumn Ghost",
+    "placement": {
+      "width": 172.8,
+      "left": -36.8,
+      "top": -31.1,
+      "scale": 91
+    }
+  },
+  {
+    "file": "587.png",
+    "name": "Moonlit Bridge",
+    "placement": {
+      "width": 164.6,
+      "left": -33.4,
+      "top": -28,
+      "scale": 70
+    }
+  },
+  {
+    "file": "588.png",
+    "name": "Snowy Plum",
+    "placement": {
+      "width": 181.4,
+      "left": -36.6,
+      "top": -33.2,
+      "scale": 94
+    }
+  },
+  {
+    "file": "589.png",
+    "name": "Blossom Pavilion",
+    "placement": {
+      "width": 151.5,
+      "left": -36.1,
+      "top": -28.3,
+      "scale": 70
+    }
+  },
+  {
+    "file": "590.png",
+    "name": "Festival Wreath",
+    "placement": {
+      "width": 184.6,
+      "left": -41.3,
+      "top": -34.3,
+      "scale": 97
+    }
+  },
+  {
+    "file": "591.png",
+    "name": "Scarlet Star",
+    "placement": {
+      "width": 167,
+      "left": -30.7,
+      "top": -29.6,
+      "scale": 96
+    }
+  },
+  {
+    "file": "592.png",
+    "name": "Wandering Blade",
+    "placement": {
+      "width": 178.5,
+      "left": -35.9,
+      "top": -33.1,
+      "scale": 94
+    }
+  },
+  {
+    "file": "593.png",
+    "name": "Sparkler Chick",
+    "placement": {
+      "width": 170.6,
+      "left": -33.1,
+      "top": -27.3,
+      "scale": 88
+    }
+  },
+  {
+    "file": "594.png",
+    "name": "Lantern Maiden",
+    "placement": {
+      "width": 176.1,
+      "left": -32.9,
+      "top": -32.1,
+      "scale": 90
+    }
+  },
+  {
+    "file": "595.png",
+    "name": "Plum Blossom",
+    "placement": {
+      "width": 189.9,
+      "left": -39.3,
+      "top": -38.2,
+      "scale": 100
+    }
+  },
+  {
+    "file": "596.png",
+    "name": "Sakura Drum",
+    "placement": {
+      "width": 164.6,
+      "left": -25.1,
+      "top": -27.2,
+      "scale": 82
+    }
+  },
+  {
+    "file": "597.png",
+    "name": "Spring Crescent",
+    "placement": {
+      "width": 171.4,
+      "left": -31.2,
+      "top": -28.6,
+      "scale": 92
+    }
+  },
+  {
+    "file": "598.png",
+    "name": "Great Wave",
+    "placement": {
+      "width": 188.6,
+      "left": -40.7,
+      "top": -38.7,
+      "scale": 100
+    }
+  },
+  {
+    "file": "599.png",
+    "name": "Vine Circle",
+    "placement": {
+      "width": 179.7,
+      "left": -38,
+      "top": -37.4,
+      "scale": 100
+    }
+  },
+  {
+    "file": "600.png",
+    "name": "Wild Flame",
+    "placement": {
+      "width": 178.9,
+      "left": -38,
+      "top": -35.6,
+      "scale": 98
+    }
+  },
+  {
+    "file": "601.png",
+    "name": "Fortune Scroll",
+    "placement": {
+      "width": 173.8,
+      "left": -31.7,
+      "top": -35.1,
+      "scale": 80
+    }
+  },
+  {
+    "file": "602.png",
+    "name": "Comic Burst",
+    "placement": {
+      "width": 171.2,
+      "left": -33.4,
+      "top": -28.5,
+      "scale": 88
+    }
+  },
+  {
+    "file": "603.png",
+    "name": "Feather Charm",
+    "placement": {
+      "width": 171.4,
+      "left": -27.8,
+      "top": -29.5,
+      "scale": 85
+    }
+  },
+  {
+    "file": "604.png",
+    "name": "Bat Wing",
+    "placement": {
+      "width": 174.4,
+      "left": -37.3,
+      "top": -31.4,
+      "scale": 94
+    }
+  },
+  {
+    "file": "605.png",
+    "name": "Koi Banner",
+    "placement": {
+      "width": 187.7,
+      "left": -38.4,
+      "top": -38.4,
+      "scale": 92
+    }
+  },
+  {
+    "file": "606.png",
+    "name": "Fox Spirit",
+    "placement": {
+      "width": 172.4,
+      "left": -32.4,
+      "top": -27,
+      "scale": 87
+    }
+  },
+  {
+    "file": "607.png",
+    "name": "Cloud Knot",
+    "placement": {
+      "width": 160.8,
+      "left": -26.5,
+      "top": -27.5,
+      "scale": 86
+    }
+  },
+  {
+    "file": "608.png",
+    "name": "Frost Pagoda",
+    "placement": {
+      "width": 172.8,
+      "left": -31.6,
+      "top": -31.5,
+      "scale": 86
+    }
+  },
+  {
+    "file": "609.png",
+    "name": "Samurai Crest",
+    "placement": {
+      "width": 142.6,
+      "left": -19.5,
+      "top": -24.4,
+      "scale": 71
+    }
+  },
+  {
+    "file": "610.png",
+    "name": "Azure Phoenix",
+    "placement": {
+      "width": 164.8,
+      "left": -27,
+      "top": -29.5,
+      "scale": 87
+    }
+  },
+  {
+    "file": "611.png",
+    "name": "Demon Flame",
+    "placement": {
+      "width": 175.1,
+      "left": -29.3,
+      "top": -27.3,
+      "scale": 84
+    }
+  },
+  {
+    "file": "612.png",
+    "name": "Candy Orbs",
+    "placement": {
+      "width": 158.9,
+      "left": -21.6,
+      "top": -22.8,
+      "scale": 77
+    }
+  },
+  {
+    "file": "613.png",
+    "name": "Bear Hug",
+    "placement": {
+      "width": 143.8,
+      "left": -21.8,
+      "top": -23.7,
+      "scale": 79
+    }
+  },
+  {
+    "file": "614.png",
+    "name": "Sake Moon",
+    "placement": {
+      "width": 157.2,
+      "left": -23.2,
+      "top": -24.1,
+      "scale": 78
+    }
+  },
+  {
+    "file": "615.png",
+    "name": "Bone Horn",
+    "placement": {
+      "width": 146.1,
+      "left": -22.4,
+      "top": -21.1,
+      "scale": 81
+    }
+  },
+  {
+    "file": "616.png",
+    "name": "Ivory Horn",
+    "placement": {
+      "width": 146.4,
+      "left": -22,
+      "top": -20.3,
+      "scale": 80
+    }
+  },
+  {
+    "file": "617.png",
+    "name": "Scarlet Oni",
+    "placement": {
+      "width": 146.1,
+      "left": -21.7,
+      "top": -20.7,
+      "scale": 80
+    }
+  },
+  {
+    "file": "618.png",
+    "name": "Pale Oni",
+    "placement": {
+      "width": 146,
+      "left": -21.5,
+      "top": -19.9,
+      "scale": 80
+    }
+  },
+  {
+    "file": "619.png",
+    "name": "Gilded Oni",
+    "placement": {
+      "width": 146.7,
+      "left": -21.5,
+      "top": -20.1,
+      "scale": 80
+    }
+  },
+  {
+    "file": "620.png",
+    "name": "Oni Trident",
+    "placement": {
+      "width": 147.2,
+      "left": -22,
+      "top": -21.1,
+      "scale": 80
+    }
+  },
+  {
+    "file": "621.png",
+    "name": "Oni Tassel",
+    "placement": {
+      "width": 147.2,
+      "left": -22.7,
+      "top": -19.7,
+      "scale": 80
+    }
+  },
+  {
+    "file": "622.png",
+    "name": "Royal Oni",
+    "placement": {
+      "width": 145.1,
+      "left": -21.4,
+      "top": -18.2,
+      "scale": 78
+    }
+  },
+  {
+    "file": "623.png",
+    "name": "Violet Dragon",
+    "placement": {
+      "width": 161.5,
+      "left": -24,
+      "top": -27,
+      "scale": 78
+    }
+  },
+  {
+    "file": "624.png",
+    "name": "Rose Ribbon",
+    "placement": {
+      "width": 182,
+      "left": -41.9,
+      "top": -35.4,
+      "scale": 88
+    }
+  },
+  {
+    "file": "625.png",
+    "name": "Iron Warlord",
+    "placement": {
+      "width": 170.9,
+      "left": -34.5,
+      "top": -43.8,
+      "scale": 70
+    }
+  },
+  {
+    "file": "626.png",
+    "name": "Twin Katana",
+    "placement": {
+      "width": 185.2,
+      "left": -41.5,
+      "top": -51,
+      "scale": 70
+    }
+  },
+  {
+    "file": "627.png",
+    "name": "Golden Shogun",
+    "placement": {
+      "width": 182.6,
+      "left": -40.7,
+      "top": -48.9,
+      "scale": 70
+    }
+  },
+  {
+    "file": "628.png",
+    "name": "Rice Harvest",
+    "placement": {
+      "width": 164.4,
+      "left": -26.6,
+      "top": -25.4,
+      "scale": 78
+    }
+  },
+  {
+    "file": "629.png",
+    "name": "Sakura Crown",
+    "placement": {
+      "width": 160.6,
+      "left": -21.2,
+      "top": -21.2,
+      "scale": 70
+    }
+  },
+  {
+    "file": "630.png",
+    "name": "Jade Gate",
+    "placement": {
+      "width": 162.4,
+      "left": -30.3,
+      "top": -23.4,
+      "scale": 77
+    }
+  },
+  {
+    "file": "631.png",
+    "name": "Coin Pouch",
+    "placement": {
+      "width": 153.8,
+      "left": -21.6,
+      "top": -19.4,
+      "scale": 81
+    }
+  },
+  {
+    "file": "632.png",
+    "name": "Kitsune Shadow",
+    "placement": {
+      "width": 172.8,
+      "left": -33.6,
+      "top": -31.6,
+      "scale": 92
+    }
+  },
+  {
+    "file": "633.png",
+    "name": "Maple Year",
+    "placement": {
+      "width": 157.7,
+      "left": -24.4,
+      "top": -20.7,
+      "scale": 76
+    }
+  },
+  {
+    "file": "634.png",
+    "name": "Golden Temple",
+    "placement": {
+      "width": 150.7,
+      "left": -23.2,
+      "top": -19.8,
+      "scale": 83
+    }
+  },
+  {
+    "file": "635.png",
+    "name": "Spirit Gourd",
+    "placement": {
+      "width": 146.5,
+      "left": -19.2,
+      "top": -15.2,
+      "scale": 70
+    }
+  },
+  {
+    "file": "636.png",
+    "name": "Imp Horns",
+    "placement": {
+      "width": 181.4,
+      "left": -38.4,
+      "top": -33.4,
+      "scale": 94
+    }
+  },
+  {
+    "file": "637.png",
+    "name": "Misty Moon",
+    "placement": {
+      "width": 161.9,
+      "left": -23.5,
+      "top": -27.4,
+      "scale": 82
+    }
+  },
+  {
+    "file": "638.png",
+    "name": "Tidal Star",
+    "placement": {
+      "width": 167.6,
+      "left": -31.2,
+      "top": -29.9,
+      "scale": 97
+    }
+  },
+  {
+    "file": "639.png",
+    "name": "Steel Shuriken",
+    "placement": {
+      "width": 167,
+      "left": -30.7,
+      "top": -29.6,
+      "scale": 96
+    }
+  },
+  {
+    "file": "640.png",
+    "name": "Ruby Star",
+    "placement": {
+      "width": 167,
+      "left": -30.7,
+      "top": -29.6,
+      "scale": 96
+    }
+  },
+  {
+    "file": "641.png",
+    "name": "Blossom Dolls",
+    "placement": {
+      "width": 170.4,
+      "left": -34.9,
+      "top": -32.4,
+      "scale": 89
+    }
+  },
+  {
+    "file": "642.png",
+    "name": "Pumpkin Night",
+    "placement": {
+      "width": 160.3,
+      "left": -26,
+      "top": -24.6,
+      "scale": 80
+    }
+  },
+  {
+    "file": "643.png",
+    "name": "Ebony Ring",
+    "placement": {
+      "width": 174.7,
+      "left": -36.9,
+      "top": -35.2,
+      "scale": 100
+    }
+  },
+  {
+    "file": "644.png",
+    "name": "Forest Feast",
+    "placement": {
+      "width": 157.7,
+      "left": -25.2,
+      "top": -23,
+      "scale": 79
+    }
+  },
+  {
+    "file": "645.png",
+    "name": "Scholar Hat",
+    "placement": {
+      "width": 156.5,
+      "left": -25.7,
+      "top": -26.1,
+      "scale": 79
+    }
+  },
+  {
+    "file": "646.png",
+    "name": "Violet Flame",
+    "placement": {
+      "width": 165.9,
+      "left": -34.6,
+      "top": -30.5,
+      "scale": 88
+    }
+  },
+  {
+    "file": "647.png",
+    "name": "Sunset Pagoda",
+    "placement": {
+      "width": 141.3,
+      "left": -16.9,
+      "top": -14.7,
+      "scale": 75
+    }
+  },
+  {
+    "file": "648.png",
+    "name": "Sake Gourd",
+    "placement": {
+      "width": 155.3,
+      "left": -22.2,
+      "top": -24,
+      "scale": 82
+    }
+  },
+  {
+    "file": "649.png",
+    "name": "Fan Fortune",
+    "placement": {
+      "width": 168.8,
+      "left": -38.4,
+      "top": -19.9,
+      "scale": 70
+    }
+  },
+  {
+    "file": "650.png",
+    "name": "Golden Bell",
+    "placement": {
+      "width": 164.8,
+      "left": -22.8,
+      "top": -27.9,
+      "scale": 80
+    }
+  },
+  {
+    "file": "651.png",
+    "name": "Crow Tengu",
+    "placement": {
+      "width": 156.1,
+      "left": -23,
+      "top": -25.6,
+      "scale": 83
+    }
+  },
+  {
+    "file": "652.png",
+    "name": "Shiba Rope",
+    "placement": {
+      "width": 154,
+      "left": -22.5,
+      "top": -23.7,
+      "scale": 82
+    }
+  },
+  {
+    "file": "653.png",
+    "name": "Frog Prince",
+    "placement": {
+      "width": 169.6,
+      "left": -33.6,
+      "top": -40,
+      "scale": 85
+    }
+  },
+  {
+    "file": "654.png",
+    "name": "Straw Hat",
+    "placement": {
+      "width": 145.1,
+      "left": -21.5,
+      "top": -23,
+      "scale": 78
+    }
+  },
+  {
+    "file": "655.png",
+    "name": "Swan Lake",
+    "placement": {
+      "width": 144.9,
+      "left": -29.6,
+      "top": -28.3,
+      "scale": 70
+    }
+  },
+  {
+    "file": "656.png",
+    "name": "Fluffy Yokai",
+    "placement": {
+      "width": 178.3,
+      "left": -46.2,
+      "top": -44.5,
+      "scale": 85
+    }
+  },
+  {
+    "file": "657.png",
+    "name": "Night Tide",
+    "placement": {
+      "width": 181.8,
+      "left": -37.3,
+      "top": -31.5,
+      "scale": 92
+    }
+  },
+  {
+    "file": "658.png",
+    "name": "Lacquer Flame",
+    "placement": {
+      "width": 178,
+      "left": -39.4,
+      "top": -33.7,
+      "scale": 100
+    }
+  },
+  {
+    "file": "659.png",
+    "name": "Nine Tails",
+    "placement": {
+      "width": 168.8,
+      "left": -23.2,
+      "top": -28.7,
+      "scale": 70
+    }
+  },
+  {
+    "file": "660.png",
+    "name": "Jade Serpent",
+    "placement": {
+      "width": 179.7,
+      "left": -38.9,
+      "top": -36,
+      "scale": 100
+    }
+  },
+  {
+    "file": "661.png",
+    "name": "Ink Octopus",
+    "placement": {
+      "width": 178.7,
+      "left": -38.5,
+      "top": -28,
+      "scale": 87
+    }
+  }
+]

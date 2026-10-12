@@ -1,0 +1,175 @@
+[
+  {
+    "name": "Founder",
+    "description": "Was here when the first thread was posted.",
+    "icon": "crown",
+    "tier": "legendary",
+    "xp": 1500,
+    "image": "founder.svg",
+    "manual": "granted by hand"
+  },
+  {
+    "name": "Hall of Fame",
+    "description": "Chosen by the staff for outstanding work.",
+    "icon": "star",
+    "tier": "legendary",
+    "xp": 1000,
+    "image": "hall-of-fame.svg",
+    "manual": "chosen by the staff"
+  },
+  {
+    "name": "Top Contributor",
+    "description": "Among the most helpful members of the year.",
+    "icon": "trophy",
+    "tier": "gold",
+    "xp": 600,
+    "image": "top-contributor.svg",
+    "manual": "chosen by the staff"
+  },
+  {
+    "name": "Veteran",
+    "description": "Active in the community for over a year.",
+    "icon": "shield",
+    "tier": "gold",
+    "xp": 500,
+    "image": "veteran.svg",
+    "criteria": [
+      {
+        "criterion": "days_registered",
+        "value": 365
+      }
+    ]
+  },
+  {
+    "name": "Donor",
+    "description": "Donated to keep the forum running. A badge, nothing more.",
+    "icon": "gem",
+    "tier": "gold",
+    "xp": 0,
+    "image": "donor.svg",
+    "manual": "granted by hand to donors"
+  },
+  {
+    "name": "Crowd Favorite",
+    "description": "Received 50 reactions on their messages.",
+    "icon": "flame",
+    "tier": "silver",
+    "xp": 300,
+    "image": "crowd-favorite.svg",
+    "criteria": [
+      {
+        "criterion": "reaction_score",
+        "value": 50
+      }
+    ]
+  },
+  {
+    "name": "Bug Hunter",
+    "description": "Reported a bug that got fixed.",
+    "icon": "bug",
+    "tier": "silver",
+    "xp": 250,
+    "image": "bug-hunter.svg",
+    "manual": "granted by hand"
+  },
+  {
+    "name": "Trusted Trader",
+    "description": "Completed ten vouched trades in the market.",
+    "icon": "handshake",
+    "tier": "silver",
+    "xp": 250,
+    "image": "trusted-trader.svg",
+    "manual": "no criterion counts vouched trades"
+  },
+  {
+    "name": "Helping Hand",
+    "description": "Answered ten questions from other members.",
+    "icon": "life-buoy",
+    "tier": "silver",
+    "xp": 200,
+    "image": "helping-hand.svg",
+    "manual": "no criterion counts answered questions"
+  },
+  {
+    "name": "Guide Author",
+    "description": "Wrote a guide that the staff pinned.",
+    "icon": "book-open",
+    "tier": "silver",
+    "xp": 200,
+    "image": "guide-author.svg",
+    "manual": "granted by hand"
+  },
+  {
+    "name": "Well Liked",
+    "description": "Received 10 reactions on their messages.",
+    "icon": "heart",
+    "tier": "bronze",
+    "xp": 100,
+    "image": "well-liked.svg",
+    "criteria": [
+      {
+        "criterion": "reaction_score",
+        "value": 10
+      }
+    ]
+  },
+  {
+    "name": "Early Bird",
+    "description": "Joined during the first year.",
+    "icon": "sunrise",
+    "tier": "bronze",
+    "xp": 100,
+    "image": "early-bird.svg",
+    "manual": "no criterion compares the registration date with the site's start"
+  },
+  {
+    "name": "Conversation Starter",
+    "description": "Started their first thread.",
+    "icon": "messages-square",
+    "tier": "bronze",
+    "xp": 75,
+    "image": "conversation-starter.svg",
+    "manual": "no criterion counts threads started"
+  },
+  {
+    "name": "First Post",
+    "description": "Posted their first message.",
+    "icon": "message-circle",
+    "tier": "bronze",
+    "xp": 50,
+    "image": "first-post.svg",
+    "criteria": [
+      {
+        "criterion": "post_count",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "name": "Ember",
+    "description": "Reached the Ember rank with forum credits.",
+    "icon": "sparkle",
+    "tier": "silver",
+    "xp": 150,
+    "image": "ember.svg",
+    "rankItem": "Ember"
+  },
+  {
+    "name": "Blaze",
+    "description": "Reached the Blaze rank with forum credits.",
+    "icon": "flame-kindling",
+    "tier": "gold",
+    "xp": 350,
+    "image": "blaze.svg",
+    "rankItem": "Blaze"
+  },
+  {
+    "name": "Inferno",
+    "description": "Reached the Inferno rank with forum credits.",
+    "icon": "zap",
+    "tier": "legendary",
+    "xp": 700,
+    "image": "inferno.svg",
+    "rankItem": "Inferno"
+  }
+]
