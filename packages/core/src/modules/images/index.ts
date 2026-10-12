@@ -13,7 +13,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { appendModeratorLog } from "../moderation";
 import { fileUrl } from "../storage/url";
 import { attachUploadedFile, releaseFile } from "./attach";
@@ -87,6 +87,9 @@ function setArtwork(
 ) {
   const user = requireAuthenticated(actor);
   return writeTx(ctx, () => {
+    // Shop administration re-checks inside its transaction, as the rest of the shop does.
+    if (target.table === "shop_items")
+      requirePermission(ctx, currentActor(ctx, actor), "admin.shop");
     const row = ctx.sqlite
       .prepare<{ previous: number | null }, [number]>(
         `SELECT image_file_id AS previous FROM ${target.table} WHERE id = ?1`,
