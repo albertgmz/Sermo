@@ -486,6 +486,28 @@ describe("catalog pictures", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  test("a cover accepts a null placement on update as no change, and still refuses a real one", async () => {
+    const s = await setup();
+    const image = await addImage(s, "profile_cover");
+    const sent = (await run(s.ctx, "catalogImages.update", s.admin, {
+      imageId: image.id,
+      name: "Echoed",
+      placement: null,
+    })) as { name: string; placement: unknown };
+    expect(sent).toMatchObject({ name: "Echoed", placement: null });
+    const bare = (await run(s.ctx, "catalogImages.update", s.admin, {
+      imageId: image.id,
+      position: 3,
+    })) as { placement: unknown };
+    expect(bare.placement).toBeNull();
+    await expect(
+      run(s.ctx, "catalogImages.update", s.admin, {
+        imageId: image.id,
+        placement: { width: 100, left: 0, top: 0, scale: 100 },
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
   test("a frame's placement can be replaced, measured again, or refused when unmeasurable", async () => {
     const s = await setup();
     const measured = await s.upload(s.admin, "frame", await frameFixture());

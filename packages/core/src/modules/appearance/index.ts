@@ -161,7 +161,7 @@ export const operations = [
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
       const row = imageRow(ctx, input.imageId);
-      if (row.kind !== "frame" && input.placement !== undefined)
+      if (row.kind !== "frame" && input.placement != null)
         throw new ValidationError("Only a frame has a placement.");
       let fileId = row.file_id;
       if (input.fileId !== undefined) {
