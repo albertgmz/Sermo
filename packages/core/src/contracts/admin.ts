@@ -48,7 +48,8 @@ export const adminStaffOnline = defineContract({
   summary:
     "The staff members (members of a group marked as staff) seen in the last fifteen minutes, " +
     "most recent first, at most 50. For anyone who may open any part of the panel (see " +
-    "auth.me `staff`); others get a not-found.",
+    "auth.me `staff`, where a permission that only exempts a member, such as " +
+    "member.immuneToAutoBan, does not make staff); others get a not-found.",
   kind: "read",
   input: Empty,
   output: z.object({

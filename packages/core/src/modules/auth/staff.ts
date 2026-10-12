@@ -38,10 +38,20 @@ export const NODE_MODERATION = flagsWhere((id) => {
 
 const MODERATION_IDS: ReadonlySet<string> = new Set(NODE_MODERATION);
 
+/**
+ * Permissions of the `moderation` category that give no ability to act on anyone: a member who
+ * holds only these is not staff.
+ */
+export const NON_ACTING_STAFF: ReadonlySet<string> = new Set(["member.immuneToAutoBan"]);
+
 /** Permissions of the `moderation` and `admin` categories that apply everywhere. */
 export const GLOBAL_STAFF = flagsWhere((id) => {
   const def: PermissionDefinition = PERMISSIONS[id];
-  return def.scope === "global" && (def.category === "moderation" || def.category === "admin");
+  return (
+    def.scope === "global" &&
+    (def.category === "moderation" || def.category === "admin") &&
+    !NON_ACTING_STAFF.has(id)
+  );
 });
 
 /** Permissions of the `admin` category. */
@@ -51,17 +61,39 @@ export interface StaffAccess {
   panel: boolean;
   moderatesEverywhere: boolean;
   moderatedNodeIds: number[];
+  moderatedNodesTruncated: boolean;
 }
 
 const NOTHING: StaffAccess = Object.freeze({
   panel: false,
   moderatesEverywhere: false,
   moderatedNodeIds: [],
+  moderatedNodesTruncated: false,
 });
 
 export interface NodeModeration {
   everywhere: boolean;
   nodeIds: number[];
+}
+
+/**
+ * Whether the combination's global entries alone allow a moderation permission: some group or
+ * member entry allows it and none, in any layer, is a never. There is no forum to resolve it on.
+ */
+function allowedGlobally(
+  state: ReturnType<typeof permissionState>,
+  combination: NonNullable<ReturnType<typeof combinationById>>,
+): boolean {
+  const verdicts = new Map<string, { allow: boolean; never: boolean }>();
+  for (const key of combination.layerKeys)
+    for (const entry of state.layers.get(key)?.entries ?? []) {
+      if (entry.nodeId !== 0 || !MODERATION_IDS.has(entry.permission)) continue;
+      const verdict = verdicts.get(entry.permission) ?? { allow: false, never: false };
+      if (entry.value === 1) verdict.allow = true;
+      if (entry.value === -1) verdict.never = true;
+      verdicts.set(entry.permission, verdict);
+    }
+  return [...verdicts.values()].some((verdict) => verdict.allow && !verdict.never);
 }
 
 /** Per context, the forums a permission combination moderates, until the permissions or tree change. */
@@ -108,10 +140,13 @@ export function moderationOf(ctx: Ctx, actor: Exclude<Actor, { kind: "guest" }>)
       return NODE_MODERATION.some((id) => here[id] === true);
     })
     .map((entry) => entry.id);
-  const result = {
-    everywhere: (hasGlobal ?? nodeIds.length > 0) && nodeIds.length === forums.length,
-    nodeIds,
-  };
+  // With no forum at all, "every forum" is vacuous: only a global resolution that allows a
+  // moderation permission counts.
+  const everywhere =
+    forums.length === 0
+      ? combination !== undefined && allowedGlobally(state, combination)
+      : (hasGlobal ?? nodeIds.length > 0) && nodeIds.length === forums.length;
+  const result = { everywhere, nodeIds };
   if (key !== null) {
     const cache = moderated.get(ctx) ?? new Map<string, NodeModeration>();
     moderated.set(ctx, cache);
@@ -139,5 +174,6 @@ export function staffAccess(
     panel: heldGlobally || everywhere || nodeIds.length > 0,
     moderatesEverywhere: everywhere,
     moderatedNodeIds: everywhere ? [] : nodeIds.slice(0, MODERATED_NODES_LIMIT),
+    moderatedNodesTruncated: !everywhere && nodeIds.length > MODERATED_NODES_LIMIT,
   };
 }
