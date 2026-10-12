@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Editor } from "@/components/forum/editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
@@ -34,12 +34,15 @@ export function ContactForm() {
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="contact-message">Message</Label>
-        <Textarea
+        <Label id="contact-message-label" htmlFor="contact-message">
+          Message
+        </Label>
+        <Editor
           id="contact-message"
+          aria-labelledby="contact-message-label"
           name="message"
           required
-          className="min-h-32"
+          minHeight={128}
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">
