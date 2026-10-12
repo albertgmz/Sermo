@@ -20,7 +20,7 @@ import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
 /** Posts examined per source per request, at most. */
-export const FEED_EXAMINE_CAP = SCAN_CAP;
+const FEED_EXAMINE_CAP = SCAN_CAP;
 const MIN_BATCH = 10;
 
 type PostCandidate = {
