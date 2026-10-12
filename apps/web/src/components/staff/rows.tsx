@@ -1,3 +1,6 @@
+// The label / control / help rows and the panel around them: the form layout of the account
+// pages and of the administration panel. Server-safe; `FormRows` (form-rows.tsx) adds the form.
+
 import { cn } from "@/lib/utils";
 
 // The label / control / help row of the account forms.

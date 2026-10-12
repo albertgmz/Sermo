@@ -1,133 +1,193 @@
 {
-  "layout": {
-    "metaTitle": "Administration",
+  "shell": {
     "title": "Administration",
-    "subtitle": "A closer look at your community.",
-    "access": "Admin access",
-    "mode": "Demo mode",
-    "description": "Explore real community data. All changes here are demos and will not be stored.",
+    "menuTitle": "Administration",
+    "menuDescription": "The sections and screens of the administration panel.",
     "aria": {
-      "loadingNavigation": "Loading administration navigation…"
+      "navigation": "Administration",
+      "openMenu": "Open the administration menu",
+      "loadingNavigation": "Loading the administration navigation…",
+      "loadingAccount": "Loading your account…",
+      "loadingTitle": "Loading the section…",
+      "loadingPage": "Loading the page…"
     }
   },
-  "navigation": {
-    "dashboard": "Dashboard",
-    "forums": "Forums",
-    "members": "Members",
-    "settings": "Settings",
+  "registry": {
+    "sections": {
+      "home": "Home",
+      "setup": "Setup",
+      "forums": "Forums",
+      "content": "Content",
+      "communication": "Communication",
+      "users": "Users",
+      "groups": "Groups and permissions",
+      "appearance": "Appearance",
+      "economy": "Economy",
+      "moderation": "Moderation",
+      "tools": "Tools and logs"
+    },
+    "groups": {
+      "groups": "Groups",
+      "permissions": "Permissions",
+      "staff": "Staff"
+    },
+    "screens": {
+      "home": "Home",
+      "setupGeneral": "General",
+      "setupMembers": "New members",
+      "setupWarnings": "Warnings and automatic bans",
+      "setupUploads": "Uploads",
+      "setupSeo": "Search engines",
+      "setupIdentity": "Site identity",
+      "setupLevels": "Levels",
+      "setupNavigation": "Public navigation",
+      "forumsTree": "Categories and forums",
+      "forumsPrefixes": "Thread prefixes",
+      "forumsEdit": "Forum",
+      "forumsPermissions": "Forum permissions and moderators",
+      "contentReactions": "Reaction types",
+      "contentWordFilters": "Word filters",
+      "contentPages": "Static pages",
+      "contentPageEdit": "Static page",
+      "communicationAnnouncements": "Announcements",
+      "communicationAnnouncementNew": "New announcement",
+      "communicationNotifications": "Notification defaults",
+      "communicationEmail": "Email policy",
+      "usersList": "Members",
+      "usersBans": "Ban register",
+      "usersEdit": "Member",
+      "usersGroups": "Member groups",
+      "usersProfile": "Member profile",
+      "usersAppearance": "Member appearance",
+      "usersPermissions": "Member permissions",
+      "usersSanctions": "Member sanctions",
+      "usersEconomy": "Member economy",
+      "usersSessions": "Member sessions",
+      "usersHistory": "Member history",
+      "groupsList": "User groups",
+      "groupsEdit": "User group",
+      "groupsPromotions": "Group promotions",
+      "groupsPromotionEdit": "Group promotion",
+      "permissionsGroups": "Group permissions",
+      "permissionsGroupEdit": "Permissions of a group",
+      "permissionsMembers": "Member permissions",
+      "permissionsMemberEdit": "Permissions of a member",
+      "permissionsForums": "Forum permissions",
+      "permissionsExplain": "Analyse permissions",
+      "staffModerators": "Moderators",
+      "staffAdministrators": "Administrators",
+      "appearanceFrames": "Avatar frames",
+      "appearanceCovers": "Profile covers",
+      "appearanceThreadCovers": "Thread covers",
+      "appearanceAccents": "Accents",
+      "appearanceNameColors": "Name colours",
+      "appearancePrefixColors": "Prefix colours",
+      "economyCreditRules": "Credit rules",
+      "economyCredits": "Credit adjustment",
+      "economyAwards": "Award definitions",
+      "economyAwardEdit": "Award",
+      "economyAwardGrants": "Award grants",
+      "economyShopCategories": "Shop categories",
+      "economyShopItems": "Shop items",
+      "economyShopItemEdit": "Shop item",
+      "moderationHome": "Overview",
+      "moderationReports": "Reports",
+      "moderationReportCase": "Report case",
+      "moderationReportMessage": "Reported message",
+      "moderationApprovals": "Approval queue",
+      "moderationApprovalReview": "Item review",
+      "toolsMaintenance": "Maintenance",
+      "toolsModeratorLog": "Moderator log",
+      "toolsPromotionLog": "Promotion history",
+      "toolsCreditLedger": "Credit ledger",
+      "toolsShopPurchases": "Shop purchases",
+      "toolsTasks": "Background tasks"
+    }
+  },
+  "home": {
+    "metaTitle": "Administration",
+    "heading": "Administration",
+    "subtitle": "What needs attention and where to work.",
+    "sectionsHeading": "Sections",
+    "sectionsEmpty": "No screen of the panel is available to you yet.",
+    "sectionsEmptyDescription": "Screens appear here as they are added to the sections you may open.",
     "aria": {
-      "label": "Administration"
+      "loadingPending": "Loading pending work…",
+      "loadingSections": "Loading the sections…",
+      "loadingActivity": "Loading the logged activity…",
+      "loadingStaff": "Loading the staff online…",
+      "loadingJobs": "Loading background work…"
     }
   },
-  "demoNotice": {
-    "heading": "Demo complete",
-    "description": "Your changes passed validation. This is a demo: nothing was stored."
+  "homePending": {
+    "heading": "Pending work",
+    "reports": "Open reports",
+    "approvals": "Waiting for approval",
+    "capped": "{count}+",
+    "open": "Open the queue"
   },
-  "formFooter": {
-    "pending": "Checking changes…",
-    "submit": "Save changes",
-    "description": "Demo only · Changes are not stored"
-  },
-  "actions": {
-    "errors": {
-      "forumNameLength": "Enter a forum name between 2 and 80 characters.",
-      "descriptionLength": "Enter a description between 1 and 300 characters.",
-      "identifierFormat": "Use up to 64 lowercase letters, numbers and single hyphens, starting with a letter. Or leave this blank to use the numeric ID.",
-      "identifierTaken": "Another forum already uses this URL identifier.",
-      "siteNameLength": "Enter a site name between 2 and 60 characters.",
-      "registrationInvalid": "Choose whether new members can register."
+  "homeActivity": {
+    "heading": "Logged activity",
+    "description": "What was logged, per kind, over the last day, week and thirty days.",
+    "day": "24 hours",
+    "week": "7 days",
+    "month": "30 days",
+    "open": "Open the log",
+    "kinds": {
+      "moderation": "Moderator actions",
+      "reports": "Reports filed",
+      "creditAdjustments": "Credit adjustments",
+      "shopPurchases": "Shop purchases",
+      "promotions": "Promotions applied",
+      "registrations": "Registrations"
     }
   },
-  "admin": {
-    "heading": "Dashboard",
-    "aria": {
-      "loadingTotals": "Loading community totals…",
-      "loadingActivity": "Loading recent activity…",
-      "loadingMembers": "Loading newest members…"
-    }
+  "homeStaff": {
+    "heading": "Staff online",
+    "description": "Staff members seen in the last fifteen minutes.",
+    "empty": "No staff member has been seen lately."
   },
-  "adminTotals": {
-    "forumsLabel": "Forums",
-    "membersLabel": "Members",
-    "threadsLabel": "Threads",
-    "postsLabel": "Posts"
+  "homeJobs": {
+    "heading": "Background work",
+    "description": "Jobs the backend runs on its own.",
+    "pending": "Pending",
+    "running": "Running",
+    "failed": "Failed",
+    "oldest": "Oldest pending job, waiting since <when></when>",
+    "failuresHeading": "Recent failures",
+    "noFailures": "No job has failed."
   },
-  "adminActivity": {
-    "title": "Recent activity",
-    "description": "Latest posts across the forums",
-    "byline": "<author></author> · {forum}",
-    "empty": "No activity yet",
-    "emptyDescription": "New forum posts will appear here."
-  },
-  "adminNewestMembers": {
-    "title": "Newest members",
-    "description": "The latest people to join",
-    "empty": "No members yet"
-  },
-  "forums": {
-    "heading": "Forums",
-    "forums": "{count, plural, one {# forum} other {# forums}}",
-    "threads": "{count, plural, one {# thread} other {# threads}}",
-    "posts": "{count, plural, one {# post} other {# posts}}",
-    "counts": "{threads} · {posts}",
-    "edit": "Edit",
-    "emptyCategory": "No forums in this category",
-    "empty": "No forums yet",
-    "emptyDescription": "Forums will appear here when they are available.",
-    "aria": {
-      "edit": "Edit {title}"
-    }
-  },
-  "forum": {
-    "back": "Back to forums",
-    "view": "View forum",
-    "title": "Edit {title}",
-    "description": "{category} · Forum #{id}"
-  },
-  "forumForm": {
-    "nameLabel": "Forum name",
-    "descriptionLabel": "Description",
-    "identifierLabel": "URL identifier",
-    "identifierPlaceholder": "Default: {id}",
-    "identifierTitle": "Start with a lowercase letter. Use lowercase letters, numbers and single hyphens.",
-    "identifierHelp": "Leave blank to use the numeric ID ({id}). For a custom identifier, start with a lowercase letter and use letters, numbers and single hyphens.",
-    "previewLabel": "Resulting URL preview"
-  },
-  "members": {
-    "title": "Members",
-    "members": "{count, plural, one {# member} other {# members}} · Roles and ranks",
-    "roleLabel": "Role",
-    "memberRole": "Member",
-    "rankLabel": "Rank",
-    "unranked": "Unranked",
-    "empty": "No members yet",
-    "pagination": "Page {page} of {pages}",
-    "previous": "Previous",
+  "cursorList": {
+    "nav": "Pages of the list",
     "next": "Next",
-    "aria": {
-      "pages": "Member pages"
-    }
+    "loadMore": "Load more",
+    "first": "Back to the first page",
+    "emptyTitle": "Nothing here",
+    "emptyDescription": "There is nothing to list."
   },
-  "settings": {
-    "title": "General settings",
-    "description": "Try these example options for your community."
+  "formRows": {
+    "save": "Save changes",
+    "saving": "Saving…"
   },
-  "settingsForm": {
-    "defaultDescription": "A community to ask questions, share ideas and learn together.",
-    "nameLabel": "Site name",
-    "descriptionLabel": "Site description",
-    "registrationLabel": "Allow new registrations",
-    "registrationHelp": "Let visitors create a member account. This demo does not change access to the site."
+  "confirmPassword": {
+    "label": "Your password",
+    "help": "Enter your own password to confirm this change. It is checked before anything is saved."
   },
-  "loading": {
-    "dashboardHeading": "Dashboard",
-    "forumsHeading": "Forums",
-    "aria": {
-      "dashboard": "Loading the dashboard…",
-      "forums": "Loading forum administration…",
-      "forum": "Loading forum settings…",
-      "members": "Loading member administration…",
-      "settings": "Loading general settings…"
-    }
+  "logTable": {
+    "filters": "Filters",
+    "apply": "Apply filters",
+    "reset": "Clear filters",
+    "all": "All",
+    "from": "From",
+    "to": "To",
+    "time": "Time",
+    "actor": "Actor",
+    "action": "Action",
+    "target": "Target",
+    "showDetails": "Show details",
+    "system": "System",
+    "emptyTitle": "No entries",
+    "emptyDescription": "No entry matches these filters.",
+    "table": "Log entries"
   }
 }

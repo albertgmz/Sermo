@@ -11,7 +11,7 @@ import {
   noticeOf,
   type SearchParams,
 } from "@/app/(main)/account/notice";
-import { Help, Section } from "@/app/(main)/account/section";
+import { Help, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { read } from "@/lib/sermo/client";

@@ -1,10 +1,9 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Standing } from "@/app/(staff)/registry";
 import { accentCss } from "@/components/layout/site-accent";
-import { hasStaffWork } from "@/components/layout/staff-bar";
-
-const none = { isModerator: false };
+import { staffLinks } from "@/components/layout/staff-bar";
 
 test("an accent becomes the two custom properties on the root", () => {
   expect(accentCss({ color: "#0ea5e9", foreground: "#03131f" })).toBe(
@@ -24,35 +23,34 @@ test("no accent, or a colour that is not #rrggbb, leaves the stylesheet's own", 
   ).toBe(":root{--primary:#0ea5e9;}");
 });
 
-test("staff work is a moderator or any administration permission that is granted", () => {
-  expect(hasStaffWork({ permissions: none, resolvedPermissions: {} })).toBe(
-    false,
-  );
+test("the staff bar links the panel when it holds something and moderation when a moderation screen opens", () => {
+  const standing = (
+    resolvedPermissions: Record<string, boolean | number>,
+    staff: Partial<Standing["staff"]> = {},
+  ): Standing => ({
+    resolvedPermissions,
+    staff: {
+      panel: false,
+      moderatesEverywhere: false,
+      moderatedNodeIds: [],
+      ...staff,
+    },
+  });
+  expect(staffLinks(standing({}))).toEqual({ admin: false, moderation: false });
+  // Granted permissions of other kinds, or a limit, are no staff work.
   expect(
-    hasStaffWork({
-      permissions: none,
-      resolvedPermissions: { "forum.reply": true, "admin.groups": false },
-    }),
-  ).toBe(false);
-  // A number is a limit, not a grant.
+    staffLinks(standing({ "forum.reply": true, "admin.groups": false })),
+  ).toEqual({ admin: false, moderation: false });
   expect(
-    hasStaffWork({
-      permissions: none,
-      resolvedPermissions: { "admin.uploadLimit": 5 },
-    }),
-  ).toBe(false);
+    staffLinks(standing({ "admin.announcements": true }, { panel: true })),
+  ).toEqual({ admin: true, moderation: false });
+  // A moderator of one forum has no global flag: the staff summary shows them.
   expect(
-    hasStaffWork({
-      permissions: none,
-      resolvedPermissions: { "admin.forums": true },
-    }),
-  ).toBe(true);
+    staffLinks(standing({}, { panel: true, moderatedNodeIds: [3] })),
+  ).toEqual({ admin: true, moderation: true });
   expect(
-    hasStaffWork({
-      permissions: { isModerator: true },
-      resolvedPermissions: {},
-    }),
-  ).toBe(true);
+    staffLinks(standing({}, { panel: true, moderatesEverywhere: true })),
+  ).toEqual({ admin: true, moderation: true });
 });
 
 test("the shell reads the viewer from the backend, never from the JSON data", () => {

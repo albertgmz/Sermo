@@ -1,0 +1,13 @@
+{
+  "landing": {
+    "metaTitle": "Moderation",
+    "heading": "Moderation",
+    "subtitle": "Reports and content waiting for a decision.",
+    "screensHeading": "Screens",
+    "screensEmpty": "No moderation screen is available to you yet.",
+    "screensEmptyDescription": "Screens appear here as they are added.",
+    "aria": {
+      "loadingPending": "Loading pending work…"
+    }
+  }
+}

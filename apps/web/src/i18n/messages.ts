@@ -17,6 +17,7 @@ import layout from "../../messages/en/layout.json";
 import lib from "../../messages/en/lib.json";
 import lite from "../../messages/en/lite.json";
 import members from "../../messages/en/members.json";
+import moderation from "../../messages/en/moderation.json";
 import notifications from "../../messages/en/notifications.json";
 import search from "../../messages/en/search.json";
 import skeletons from "../../messages/en/skeletons.json";
@@ -40,6 +41,7 @@ export const messages = {
   lib,
   lite,
   members,
+  moderation,
   notifications,
   search,
   skeletons,

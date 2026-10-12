@@ -14,13 +14,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
-import { AdminNavigation } from "@/app/(main)/admin/navigation";
 import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
 import { discard } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/(main)/ui/lite-menu-demo";
 import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
 import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
+import { StaffDemos } from "@/app/(main)/ui/staff-demos";
 import { Art } from "@/components/forum/art";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
@@ -712,20 +712,22 @@ export default async function StyleguidePage() {
           />
         </Section>
 
-        <Section title="Account and admin navigation">
+        <Section title="Account navigation">
           <p className="max-w-prose text-sm text-muted-foreground">
             Account sections scroll within their bar on small screens and become
-            a grouped sidebar on desktop. Admin sections wrap into two columns
-            on a phone. These links open the real sections. On this page, the
-            account menu has no active section and the admin menu defaults to
-            Dashboard.
+            a grouped sidebar on desktop. These links open the real sections. On
+            this page, the account menu has no active section. The
+            administration panel&apos;s navigation is shown with the panel
+            pieces below.
           </p>
           <PageLayout
             aside={<AccountNavigation />}
             asideSide="start"
             className="px-0 pt-0 pb-0"
           >
-            <AdminNavigation />
+            <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+              The page content sits beside the navigation.
+            </p>
           </PageLayout>
           <p className="max-w-prose text-sm text-muted-foreground">
             The labelled rows in account details belong to its account-saving
@@ -755,8 +757,8 @@ export default async function StyleguidePage() {
           </div>
           <HeaderNav links={NAV_SAMPLES} className="flex flex-wrap" />
           <SearchForm />
-          <StaffBar admin />
-          <StaffBar admin={false} />
+          <StaffBar admin moderation />
+          <StaffBar admin={false} moderation />
           <p className="max-w-prose text-sm text-muted-foreground">
             The site header, footer, page backdrop and fixed mobile navigation
             already surround this page. Search, alerts, messages and the account
@@ -764,6 +766,10 @@ export default async function StyleguidePage() {
             in. They use the current session. The site accent and favicon apply
             to the whole document, so they are not repeated inside a demo.
           </p>
+        </Section>
+
+        <Section title="Administration panel">
+          <StaffDemos />
         </Section>
 
         <Section title="Cards">

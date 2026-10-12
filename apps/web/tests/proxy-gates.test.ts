@@ -2,7 +2,44 @@ import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 
-type Viewer = { user: { username: string }; permissions: { isAdmin: boolean } };
+// The part of the `auth.me` answer the panel's gate reads.
+type Viewer = {
+  user: { username: string };
+  resolvedPermissions: Record<string, boolean>;
+  staff: {
+    panel: boolean;
+    moderatesEverywhere: boolean;
+    moderatedNodeIds: number[];
+  };
+};
+
+const NO_STAFF = {
+  panel: false,
+  moderatesEverywhere: false,
+  moderatedNodeIds: [],
+};
+const viewerWith = (
+  resolvedPermissions: Record<string, boolean>,
+  staff: Partial<Viewer["staff"]> = {},
+): Viewer => ({
+  user: { username: "a" },
+  resolvedPermissions,
+  staff: { ...NO_STAFF, ...staff },
+});
+
+const MEMBER = viewerWith({});
+const SINGLE_FORUM_MODERATOR = viewerWith(
+  {},
+  { panel: true, moderatedNodeIds: [3] },
+);
+const PARTIAL_ADMINISTRATOR = viewerWith(
+  { "admin.announcements": true },
+  { panel: true },
+);
+const FULL_ADMINISTRATOR = viewerWith(
+  { "admin.settings": true, "admin.permissions": true },
+  { panel: true, moderatesEverywhere: true },
+);
 
 // The backend is the only thing replaced; the proxy, the LITE helpers and
 // Next's response classes run unchanged.
@@ -219,33 +256,99 @@ test("the API passes through untouched, even when LITE blocks every category", a
   }
 });
 
-test("/admin is a 404 without a session and the backend is not asked", async () => {
-  for (const path of ["/admin", "/admin/forums"]) {
+test("the panel is a 404 without a session and the backend is not asked", async () => {
+  for (const path of [
+    "/admin",
+    "/admin/anything",
+    "/admin/forums",
+    "/moderation",
+    "/moderation/reports",
+  ]) {
     reset();
     isNotFound(await ask(path));
     assert.equal(state.viewerAsked, 0, path);
   }
 });
 
-test("/admin asks the backend and only an administrator gets in", async () => {
-  for (const path of ["/admin", "/admin/forums"]) {
-    reset({
-      viewer: { user: { username: "a" }, permissions: { isAdmin: false } },
-    });
+test("a member with nothing in the panel gets a 404 on every address of it, one read each", async () => {
+  for (const path of ["/admin", "/admin/anything", "/moderation"]) {
+    reset({ viewer: MEMBER });
     isNotFound(await ask(path, { cookie: SESSION }));
-    assert.equal(state.viewerAsked, 1);
-
-    reset({
-      viewer: { user: { username: "a" }, permissions: { isAdmin: true } },
-    });
-    passes(await ask(path, { cookie: SESSION }));
-    assert.equal(state.viewerAsked, 1);
-
-    // A dead cookie or a banned account: the viewer lookup says null.
-    reset({ viewer: null });
-    isNotFound(await ask(path, { cookie: SESSION }));
-    assert.equal(state.viewerAsked, 1);
+    assert.equal(state.viewerAsked, 1, path);
   }
+  // A dead cookie or a banned account: the viewer lookup says null.
+  reset({ viewer: null });
+  isNotFound(await ask("/admin", { cookie: SESSION }));
+  assert.equal(state.viewerAsked, 1);
+});
+
+test("a moderator of one forum opens the moderation landing and the home, nothing else", async () => {
+  for (const path of ["/admin", "/moderation", "/moderation/"]) {
+    reset({ viewer: SINGLE_FORUM_MODERATOR });
+    passes(await ask(path, { cookie: SESSION }));
+    assert.equal(state.viewerAsked, 1, path);
+  }
+  for (const path of ["/admin/settings", "/admin/does-not-exist"]) {
+    reset({ viewer: SINGLE_FORUM_MODERATOR });
+    isNotFound(await ask(path, { cookie: SESSION }));
+  }
+});
+
+test("a partial administrator opens the home and not the moderation landing", async () => {
+  reset({ viewer: PARTIAL_ADMINISTRATOR });
+  passes(await ask("/admin", { cookie: SESSION }));
+  reset({ viewer: PARTIAL_ADMINISTRATOR });
+  isNotFound(await ask("/moderation", { cookie: SESSION }));
+});
+
+test("a full administrator opens the built screens; unknown and unbuilt addresses are a 404 for them too", async () => {
+  for (const path of ["/admin", "/moderation"]) {
+    reset({ viewer: FULL_ADMINISTRATOR });
+    passes(await ask(path, { cookie: SESSION }));
+    assert.equal(state.viewerAsked, 1, path);
+  }
+  // An address no screen of the registry matches, a record id that cannot be one, a screen the
+  // registry lists but nobody has built yet.
+  for (const path of [
+    "/admin/does-not-exist",
+    "/admin/forums/abc/permissions/x",
+    "/moderation/nothing",
+  ]) {
+    reset({ viewer: FULL_ADMINISTRATOR });
+    isNotFound(await ask(path, { cookie: SESSION }));
+  }
+});
+
+test("an address of the panel that cannot be decoded, or that looks like a picture, is still gated", async () => {
+  for (const path of [
+    "/admin/%E0%A4%A",
+    "/moderation/%FF",
+    "/admin/pages/a.png",
+    "/admin/logo.svg",
+  ]) {
+    reset();
+    isNotFound(await ask(path));
+    reset({ viewer: FULL_ADMINISTRATOR });
+    isNotFound(await ask(path, { cookie: SESSION }));
+  }
+});
+
+test("the panel's gate answers an action's POST and a prefetch like a page load", async () => {
+  reset({ viewer: MEMBER });
+  isNotFound(
+    await ask("/admin", {
+      cookie: SESSION,
+      method: "POST",
+      headers: { "next-action": "abc" },
+    }),
+  );
+  reset({ viewer: MEMBER });
+  isNotFound(
+    await ask("/moderation", {
+      cookie: SESSION,
+      headers: { "sec-fetch-mode": "cors" },
+    }),
+  );
 });
 
 test("a conversation is a 404 when the backend says the visitor has none like it, and only then", async () => {
