@@ -69,10 +69,28 @@ export const settingsGet = defineContract({
   output: SiteSettings,
 });
 
+type WithoutDefaults<S> = { [K in keyof S]: S[K] extends z.ZodDefault<infer T> ? T : S[K] };
+
+/**
+ * The same fields with their defaults taken off. An update names only the keys it changes, and a
+ * default on an optional input is filled in for every key the caller left out: it would silently
+ * put each of those settings back to its default.
+ */
+function withoutDefaults<S extends z.ZodRawShape>(shape: S): WithoutDefaults<S> {
+  return Object.fromEntries(
+    Object.entries(shape).map(([key, field]) => [
+      key,
+      field instanceof z.ZodDefault ? field.unwrap() : field,
+    ]),
+  ) as WithoutDefaults<S>;
+}
+
 export const settingsUpdate = defineContract({
   name: "settings.update",
-  summary: "Update site configuration. Administrators only.",
+  summary:
+    "Update site configuration: only the keys sent change, every other setting keeps its " +
+    "stored value. Administrators only.",
   kind: "write",
-  input: SiteSettings.partial(),
+  input: z.object(withoutDefaults(SiteSettings.shape)).partial(),
   output: SiteSettings,
 });

@@ -93,6 +93,19 @@ describe("the site's own pictures", () => {
       expect(readSiteSettings(ctx)[key]).toBeNull();
     });
 
+  test("an update that does not name a picture leaves it alone", async () => {
+    const { ctx, admin, upload, update, site } = await setup();
+    const logo = await upload(admin, "site_logo");
+    const icon = await upload(admin, "site_icon");
+    await update(admin, { logoFileId: logo, iconFileId: icon });
+    await update(admin, { siteName: "Renamed" });
+    await update(admin, { backdropFileId: null });
+    expect(readSiteSettings(ctx)).toMatchObject({ logoFileId: logo, iconFileId: icon });
+    expect(deletionQueued(ctx, logo)).toBe(false);
+    expect(deletionQueued(ctx, icon)).toBe(false);
+    expect((await site()).logo?.fileId).toBe(logo);
+  });
+
   test("the file must be the actor's own unattached upload of the matching purpose", async () => {
     const { ctx, admin, upload, update } = await setup();
     const logo = await upload(admin, "site_logo");

@@ -96,3 +96,32 @@ test("updating group upload limits changes the permission and omits the stored f
     "2": 0,
   });
 });
+
+test("an update changes only the keys it names", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const update = operations[1]!;
+  // Every setting that has a default, moved off it.
+  const custom = {
+    newMemberDays: 30,
+    siteName: "Garden Club",
+    defaultLanguage: "es" as const,
+    newMemberMentionLimit: 9,
+    profilePostsEnabled: false,
+    notificationRetentionDays: 10,
+    notificationDefaults: { "post.reply": { inApp: true, email: false, push: false } },
+    emailHourlyCap: 5,
+    conversationEmailIncludesBody: true,
+    digestInactiveDays: 14,
+  };
+  await execute(ctx, update, admin, custom);
+  const changed = await execute(ctx, update, admin, { maxUploadBytes: 2048 });
+  expect(changed).toMatchObject({ ...custom, maxUploadBytes: 2048 });
+  expect(readSiteSettings(ctx)).toMatchObject({ ...custom, maxUploadBytes: 2048 });
+  const logged = ctx.sqlite
+    .prepare<{ details: string }, []>(
+      "SELECT details FROM moderator_log WHERE action = 'settings.update' ORDER BY id DESC LIMIT 1",
+    )
+    .get()!;
+  expect(JSON.parse(logged.details).changedKeys).toEqual(["maxUploadBytes"]);
+});
