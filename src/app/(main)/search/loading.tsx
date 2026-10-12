@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   FormRowSkeleton,
@@ -9,10 +10,11 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("search.loading");
   return (
-    <LoadingRegion label="Loading search…">
+    <LoadingRegion label={t("label")}>
       <PageLayout mainClassName="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Search</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
         <div className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3">
           <div className="sm:col-span-3">
             <FormRowSkeleton />
