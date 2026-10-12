@@ -1,4 +1,8 @@
-import { promotionsMemberStatus, usersGetGroups } from "@sermo/core/contracts";
+import {
+  promotionsApply,
+  promotionsMemberStatus,
+  usersGetGroups,
+} from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -86,6 +90,7 @@ async function Groups({
                   {!readOnly && (
                     <PromotionApply
                       action={applyPromotion}
+                      actions={promotionsApply.input.shape.action.options}
                       userId={userId}
                       promotionId={item.promotionId}
                     />

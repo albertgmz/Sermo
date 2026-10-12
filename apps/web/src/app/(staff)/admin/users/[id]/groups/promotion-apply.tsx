@@ -12,8 +12,6 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 
-const ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
-
 function Submit() {
   const t = useTranslations("adminUsers.promotions");
   const { pending } = useFormStatus();
@@ -26,6 +24,7 @@ function Submit() {
 
 export function PromotionApply({
   action,
+  actions,
   userId,
   promotionId,
 }: {
@@ -33,6 +32,8 @@ export function PromotionApply({
     previous: StaffFormState,
     formData: FormData,
   ) => Promise<StaffFormState>;
+  // The actions the backend offers, in its order (the contract's list).
+  actions: readonly string[];
   userId: number;
   promotionId: number;
 }) {
@@ -48,9 +49,9 @@ export function PromotionApply({
           {t("action")}
         </label>
         <select id={id} name="action" className={`${selectClass} sm:w-48`}>
-          {ACTIONS.map((value) => (
+          {actions.map((value) => (
             <option key={value} value={value}>
-              {t(`actions.${value}`)}
+              {t(`actions.${value as "promote"}`)}
             </option>
           ))}
         </select>

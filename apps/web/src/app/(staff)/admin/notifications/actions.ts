@@ -7,9 +7,7 @@ import { call } from "@/lib/sermo/client";
 import { invalidArgument } from "@/lib/sermo/outcome";
 import { text, whole } from "../groups/form-errors";
 import { saveSettings } from "../settings/save";
-import { SHOWN_TYPES } from "./grid";
-
-const CHANNELS = ["inApp", "email", "push"] as const;
+import { CHANNELS, SHOWN_TYPES } from "./grid";
 
 // Sends `notificationDefaults` (a map the backend replaces, so the whole of it) and the retention.
 // The map starts from a fresh read; only the types the form says it showed (`types`, one hidden

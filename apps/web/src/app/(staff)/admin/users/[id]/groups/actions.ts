@@ -14,7 +14,7 @@ import {
 } from "../../../groups/form-errors";
 import { memberOf } from "../../action-helpers";
 
-const PROMOTION_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
+const PROMOTION_ACTIONS = promotionsApply.input.shape.action.options;
 
 // Saves the primary group and the hand-assigned secondary groups (the full list). The
 // administrator's password goes with the write, which checks it first.

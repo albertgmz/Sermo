@@ -8,9 +8,8 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { getSettings } from "../settings/data";
 import { saveNotificationDefaults } from "./actions";
-import { SHOWN_TYPES } from "./grid";
+import { CHANNELS, SHOWN_TYPES } from "./grid";
 
-const CHANNELS = ["inApp", "email", "push"] as const;
 const columns = "grid grid-cols-[minmax(0,1fr)_repeat(3,3.5rem)] items-center";
 
 // The site's default for each notification type and channel, as the backend returns them (its own

@@ -1,5 +1,6 @@
 import {
   bansList,
+  Restriction,
   restrictionsList,
   warningsList,
 } from "@sermo/core/contracts";
@@ -28,7 +29,7 @@ import { lookupThreadBans } from "./thread-bans";
 
 type Params = Record<string, string | string[] | undefined>;
 
-const KINDS = ["posting", "conversations", "profile_posts"] as const;
+const KINDS = Restriction.shape.kind.options;
 
 // Who did it, drawn as a member: the sanctions carry only the id.
 async function moderators(ids: number[]) {

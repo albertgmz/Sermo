@@ -3,6 +3,7 @@
 import {
   bansCreate,
   bansLift,
+  Restriction,
   restrictionsCreate,
   restrictionsLift,
   threadBansLift,
@@ -16,7 +17,7 @@ import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text, whole } from "../../../groups/form-errors";
 import { memberOf, ticked } from "../../action-helpers";
 
-const KINDS = ["posting", "conversations", "profile_posts"] as const;
+const KINDS = Restriction.shape.kind.options;
 const DAY = 24 * 60 * 60 * 1000;
 
 // A number of days typed in a form, as the end of the sanction: undefined for an empty field,
