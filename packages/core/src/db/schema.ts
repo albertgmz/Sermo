@@ -238,6 +238,13 @@ export const users = sqliteTable(
     coverPresetId: integer("cover_preset_id"),
     /** When the username last changed; null if never. */
     usernameChangedAt: integer("username_changed_at"),
+    /** When an administrator erased the account; null if never. An erased member never returns. */
+    erasedAt: integer("erased_at"),
+    /**
+     * When every session of the member was last cut off. A session issued at or before it is
+     * refused, whatever its cookie cache still says.
+     */
+    sessionsRevokedAt: integer("sessions_revoked_at"),
     /** Shown under the name while the member holds profile.customTitle. */
     customTitle: text("custom_title"),
     signatureSource: text("signature_source"),
@@ -281,7 +288,26 @@ export const users = sqliteTable(
     index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
     // users.adminList with state `banned`: the members with a ban column set, newest first.
     index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
+    // users.adminList with state `erased`: the erased members, newest first.
+    index("users_erased").on(t.id).where(sql`erased_at IS NOT NULL`),
   ],
+);
+
+/**
+ * Wrong answers to an administrator's own password prompt (re-entering it before a sensitive
+ * change). A member gets a few per window; rows older than the window are deleted as new ones
+ * are written.
+ */
+export const adminPasswordFailures = sqliteTable(
+  "admin_password_failures",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    at: integer("at").notNull(),
+  },
+  (t) => [index("admin_password_failures_user").on(t.userId, t.at)],
 );
 
 /** Secondary groups assigned by hand. */
@@ -887,6 +913,8 @@ export const jobs = sqliteTable(
   },
   (t) => [
     index("jobs_status_run_at").on(t.status, t.runAt),
+    // admin.jobs: the latest failures.
+    index("jobs_failed_updated").on(t.updatedAt).where(sql`status = 'failed'`),
     uniqueIndex("jobs_unique_key").on(t.uniqueKey),
   ],
 );
