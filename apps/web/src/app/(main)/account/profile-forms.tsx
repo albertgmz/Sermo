@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ActionForm } from "@/app/(main)/account/action-form";
 import {
+  clearBirthday,
   clearSignature,
   clearTitle,
   saveAbout,
@@ -79,7 +80,7 @@ export async function AboutSection({
   const [t, self, notice] = await Promise.all([
     getTranslations("account.about"),
     getSelf(),
-    noticeOf(searchParams, ["about"]),
+    noticeOf(searchParams, ["about", "birthdayRemoved"], ["about"]),
   ]);
   const { profile, birthYear } = self;
   const { birthday } = profile;
@@ -159,8 +160,7 @@ export async function AboutSection({
           <Help>{t("birthdayHelp")}</Help>
           <PendingButton
             variant="outline"
-            name="clear"
-            value="birthday"
+            form="clear-birthday"
             disabled={!birthday}
             className="min-h-10 px-4"
           >
@@ -194,6 +194,8 @@ export async function AboutSection({
           <Help id="profile-x-help">{t("handlesHelp")}</Help>
         </Row>
       </ActionForm>
+      {/* A form of its own, so that Enter in the fields above saves the profile and nothing else. */}
+      <form id="clear-birthday" action={clearBirthday} />
     </Section>
   );
 }
@@ -206,12 +208,11 @@ export async function TitleSection({
   const [t, self, notice] = await Promise.all([
     getTranslations("account.title"),
     getSelf(),
-    noticeOf(searchParams, [
-      "title",
-      "titleRemoved",
-      "signatureRemoved",
-      "failed",
-    ]),
+    noticeOf(
+      searchParams,
+      ["title", "titleRemoved", "signatureRemoved"],
+      ["title"],
+    ),
   ]);
   const { may, limits, customTitle, signatureSource } = self;
   const shop = (chunks: React.ReactNode) => (

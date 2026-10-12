@@ -132,3 +132,9 @@ export async function callWith<I extends z.ZodType, O extends z.ZodType>(
   }
   return parsed.data;
 }
+
+// Whether the request carries a session cookie, which says nothing about whether the backend
+// still accepts it: it is the cheapest thing to ask before a body is read.
+export function hasSessionCookie(cookie: string | undefined): boolean {
+  return /(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie ?? "");
+}

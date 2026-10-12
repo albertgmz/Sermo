@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { errorMessage } from "./client";
 import { SermoError } from "./errors";
 
@@ -20,4 +21,9 @@ export async function attempt<T>(
     }
     return { ok: false, error: await errorMessage(error) };
   }
+}
+
+// For actions: what a client that forged an argument is told. It is not worth an explanation.
+export async function invalidArgument(): Promise<string> {
+  return (await getTranslations("lib.errors"))("generic");
 }

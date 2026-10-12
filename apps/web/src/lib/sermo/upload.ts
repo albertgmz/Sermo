@@ -1,34 +1,52 @@
 import "server-only";
 
-import { visitorForward } from "./client";
 import { apiUrl } from "./config";
 import { SermoError } from "./errors";
 import { type Forward, forwardHeaders } from "./transport";
 
-export type UploadPurpose = "avatar" | "cover";
+// The pictures this app uploads: each is then attached by its own operation (images.setAvatar,
+// images.setCover). The backend knows more purposes; a member's client never asks for them here.
+export const UPLOAD_PURPOSES = ["avatar", "cover"] as const;
+export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number];
 
-// Sends one file to the backend as the visitor and answers the id the file was stored under,
-// which an operation (images.setAvatar, images.setCover) then attaches. An upload is not an
-// operation: it is a multipart POST, and the runtime sets the content type with its boundary.
+export const isUploadPurpose = (value: unknown): value is UploadPurpose =>
+  typeof value === "string" && UPLOAD_PURPOSES.some((p) => p === value);
+
+// The part of an incoming request that is passed on: its body is never read here, only handed on
+// as a stream, so the size of a picture is not a size this app holds in memory.
+export type UploadSource = {
+  body: ReadableStream<Uint8Array> | null;
+  contentType: string | null;
+};
+
+// Sends the visitor's multipart body to the backend as the visitor and answers the id the file
+// was stored under, which an operation then attaches. An upload is not an operation: the
+// content type is the visitor's own, with the boundary its body was written with.
 export async function uploadWith(
   forward: Forward,
   purpose: UploadPurpose,
-  file: Blob,
-  filename: string,
+  source: UploadSource,
 ): Promise<number> {
-  const body = new FormData();
-  body.append("file", file, filename);
+  if (!isUploadPurpose(purpose)) {
+    throw new SermoError("validation", 422, "Not a purpose of upload.");
+  }
+  if (!source.body || !source.contentType) {
+    throw new SermoError("validation", 422, "A file is required.");
+  }
+  const headers = forwardHeaders(forward, false);
+  headers.set("content-type", source.contentType);
   let response: Response;
   try {
     response = await fetch(
       `${apiUrl()}/api/v1/files?purpose=${encodeURIComponent(purpose)}`,
       {
         method: "POST",
-        headers: forwardHeaders(forward, false),
-        body,
+        headers,
+        body: source.body,
+        duplex: "half",
         cache: "no-store",
         redirect: "manual",
-      },
+      } as RequestInit,
     );
   } catch (error) {
     if (!(error instanceof TypeError)) throw error;
@@ -70,11 +88,4 @@ export async function uploadWith(
     );
   }
   return id;
-}
-
-export async function upload(
-  purpose: UploadPurpose,
-  file: File,
-): Promise<number> {
-  return uploadWith(await visitorForward(), purpose, file, file.name);
 }

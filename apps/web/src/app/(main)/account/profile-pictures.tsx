@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { ActionForm } from "@/app/(main)/account/action-form";
-import { removePicture, uploadPicture } from "@/app/(main)/account/actions";
+import { removePicture } from "@/app/(main)/account/actions";
 import { getSelf, getWorn } from "@/app/(main)/account/data";
 import {
   Notice,
@@ -9,13 +8,57 @@ import {
 } from "@/app/(main)/account/notice";
 import { Help, Row, Section } from "@/app/(main)/account/section";
 import { Art } from "@/components/forum/art";
-import { PendingButton } from "@/components/forum/pending-button";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// What the form can state; the backend checks and re-encodes the picture and says why if it
-// refuses it.
-const ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+// The types and the size a picture may have are a setting of the site: the backend checks and
+// re-encodes the picture and says why if it refuses it.
+const ACCEPT = "image/*";
+
+// A picture goes to the route handler of ./picture, which streams it on to the backend: a
+// server action would hold the whole body. The page is left and comes back with the notice, so
+// the form needs no script. Removing is a form of its own: the chosen file must not go with it.
+function PictureForm({
+  kind,
+  submit,
+  remove,
+  canRemove,
+  children,
+}: {
+  kind: "avatar" | "cover";
+  submit: string;
+  remove: string;
+  canRemove: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <form
+        method="post"
+        action={`/account/picture?kind=${kind}`}
+        encType="multipart/form-data"
+      >
+        <div className="divide-y">{children}</div>
+        <div className="flex flex-wrap items-center gap-3 border-t p-4">
+          <Button type="submit" className="min-h-10 px-4">
+            {submit}
+          </Button>
+          <Button
+            type="submit"
+            variant="outline"
+            form={`remove-${kind}`}
+            disabled={!canRemove}
+            className="min-h-10 px-4"
+          >
+            {remove}
+          </Button>
+        </div>
+      </form>
+      <form id={`remove-${kind}`} action={removePicture.bind(null, kind)} />
+    </>
+  );
+}
 
 export async function PicturesSection({
   searchParams,
@@ -26,13 +69,11 @@ export async function PicturesSection({
     getTranslations("account.pictures"),
     getSelf(),
     getWorn(),
-    noticeOf(searchParams, [
-      "avatar",
-      "avatarRemoved",
-      "cover",
-      "coverRemoved",
-      "failed",
-    ]),
+    noticeOf(
+      searchParams,
+      ["avatar", "avatarRemoved", "cover", "coverRemoved"],
+      ["avatar", "cover", "pictures"],
+    ),
   ]);
   const { profile } = self;
   return (
@@ -43,20 +84,11 @@ export async function PicturesSection({
     >
       <Notice notice={notice} />
       <div id="avatar" className="scroll-mt-4">
-        <ActionForm
-          action={uploadPicture.bind(null, "avatar")}
+        <PictureForm
+          kind="avatar"
           submit={t("upload")}
-          extra={
-            <PendingButton
-              variant="outline"
-              className="min-h-10 px-4"
-              disabled={!profile.avatar}
-              formNoValidate
-              formAction={removePicture.bind(null, "avatar")}
-            >
-              {t("remove")}
-            </PendingButton>
-          }
+          remove={t("remove")}
+          canRemove={Boolean(profile.avatar)}
         >
           <Row label={t("avatarLabel")} htmlFor="picture-avatar">
             <UserAvatar user={profile.card} size="2xl" link={false} />
@@ -65,27 +97,19 @@ export async function PicturesSection({
               type="file"
               name="file"
               accept={ACCEPT}
+              required
               aria-describedby="picture-avatar-help"
             />
             <Help id="picture-avatar-help">{t("avatarHelp")}</Help>
           </Row>
-        </ActionForm>
+        </PictureForm>
       </div>
       <div id="cover" className="scroll-mt-4 border-t">
-        <ActionForm
-          action={uploadPicture.bind(null, "cover")}
+        <PictureForm
+          kind="cover"
           submit={t("upload")}
-          extra={
-            <PendingButton
-              variant="outline"
-              className="min-h-10 px-4"
-              disabled={!profile.cover}
-              formNoValidate
-              formAction={removePicture.bind(null, "cover")}
-            >
-              {t("remove")}
-            </PendingButton>
-          }
+          remove={t("remove")}
+          canRemove={Boolean(profile.cover)}
         >
           <Row label={t("coverLabel")} htmlFor="picture-cover">
             {profile.cover ? (
@@ -102,6 +126,7 @@ export async function PicturesSection({
               type="file"
               name="file"
               accept={ACCEPT}
+              required
               aria-describedby="picture-cover-help"
             />
             <Help id="picture-cover-help">
@@ -110,7 +135,7 @@ export async function PicturesSection({
                 : t("coverGalleryWorn")}
             </Help>
           </Row>
-        </ActionForm>
+        </PictureForm>
       </div>
     </Section>
   );

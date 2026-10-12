@@ -27,6 +27,7 @@
     "coverRemoved": "Your cover was removed.",
     "username": "Your username was changed.",
     "about": "Your profile was saved.",
+    "birthdayRemoved": "Your birthday was removed.",
     "title": "Your title and signature were saved.",
     "titleRemoved": "Your title was removed.",
     "signatureRemoved": "Your signature was removed.",
@@ -39,6 +40,7 @@
     "forumUnwatched": "You no longer watch that forum."
   },
   "errors": {
+    "birthdayIncomplete": "Give the day and the month as numbers, with the year if you like, or leave all three empty.",
     "noFile": "Choose a picture first.",
     "unconfirmed": "Confirm your username change."
   },
