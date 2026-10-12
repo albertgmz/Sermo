@@ -174,6 +174,10 @@ function userConstraintError(error: unknown): APIError | null {
       });
 }
 
+function sessionCookieCache(ctx: Ctx): boolean {
+  return ctx.config.auth?.sessionCookieCache !== false;
+}
+
 function buildAuth(ctx: Ctx) {
   const config = ctx.config.auth;
   if (!config) throw new Error("Better Auth requires ctx.config.auth.");
@@ -241,7 +245,7 @@ function buildAuth(ctx: Ctx) {
       deferSessionRefresh: true,
       // Password resets revoke sessions in the database; cached session cookies would remain
       // usable until their signature expires, so use database-backed sessions with mail enabled.
-      cookieCache: { enabled: !mailEnabled, maxAge: 300 },
+      cookieCache: { enabled: sessionCookieCache(ctx) && !mailEnabled, maxAge: 300 },
     },
     rateLimit: {
       enabled: true,
@@ -645,14 +649,18 @@ function buildAuth(ctx: Ctx) {
 }
 
 export type SermoAuth = ReturnType<typeof buildAuth>;
-const instances = new WeakMap<Ctx, { auth: SermoAuth; mailEnabled: boolean }>();
+const instances = new WeakMap<
+  Ctx,
+  { auth: SermoAuth; mailEnabled: boolean; cookieCache: boolean }
+>();
 
 /** The Better Auth instance for this context. */
 export function getAuth(ctx: Ctx): SermoAuth {
   const mailEnabled = accountEmailEnabled(ctx);
   let instance = instances.get(ctx);
-  if (!instance || instance.mailEnabled !== mailEnabled) {
-    instance = { auth: buildAuth(ctx), mailEnabled };
+  const cookieCache = sessionCookieCache(ctx);
+  if (!instance || instance.mailEnabled !== mailEnabled || instance.cookieCache !== cookieCache) {
+    instance = { auth: buildAuth(ctx), mailEnabled, cookieCache };
     instances.set(ctx, instance);
   }
   return instance.auth;

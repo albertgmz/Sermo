@@ -19,6 +19,13 @@ export interface AuthConfig {
    * client sent, so it can be trusted. Defaults to CLIENT_IP_HEADER.
    */
   clientIpHeader: string;
+  /**
+   * Keep a signed copy of the session in a cookie for five minutes (default true). Turn it off
+   * when a caller cannot deliver refreshed cookies (a web app that resolves the visitor while
+   * rendering): every request then checks the session table and a revoked session stops working
+   * at once.
+   */
+  sessionCookieCache?: boolean;
 }
 
 export interface CoreConfig {

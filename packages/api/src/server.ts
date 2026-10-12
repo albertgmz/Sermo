@@ -322,6 +322,11 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     throw new Error("SERMO_SMTP_SECURE must be true or false.");
   if (source.SERMO_SMTP_REQUIRE_TLS && !["true", "false"].includes(source.SERMO_SMTP_REQUIRE_TLS))
     throw new Error("SERMO_SMTP_REQUIRE_TLS must be true or false.");
+  if (
+    source.SERMO_SESSION_COOKIE_CACHE &&
+    !["true", "false"].includes(source.SERMO_SESSION_COOKIE_CACHE)
+  )
+    throw new Error("SERMO_SESSION_COOKIE_CACHE must be true or false.");
   const vapidNames = [
     "SERMO_VAPID_PUBLIC_KEY",
     "SERMO_VAPID_PRIVATE_KEY",
@@ -381,6 +386,7 @@ export function readConfiguration(source: Record<string, string | undefined> = p
         .map((value) => value.trim())
         .filter(Boolean),
       clientIpHeader: CLIENT_IP_HEADER,
+      sessionCookieCache: source.SERMO_SESSION_COOKIE_CACHE !== "false",
     },
     admin:
       presentAdminNames.length === adminNames.length

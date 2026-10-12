@@ -139,6 +139,23 @@ test("startup settings reject invalid port and partial admin credentials before 
   expect(readConfiguration({ ...base, PORT: "3001" }).port).toBe(3001);
 });
 
+test("the session cookie cache defaults to on and accepts only true or false", () => {
+  const base = {
+    BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
+    BETTER_AUTH_URL: "http://localhost:3000",
+  };
+  expect(readConfiguration(base).auth.sessionCookieCache).toBe(true);
+  expect(
+    readConfiguration({ ...base, SERMO_SESSION_COOKIE_CACHE: "true" }).auth.sessionCookieCache,
+  ).toBe(true);
+  expect(
+    readConfiguration({ ...base, SERMO_SESSION_COOKIE_CACHE: "false" }).auth.sessionCookieCache,
+  ).toBe(false);
+  expect(() => readConfiguration({ ...base, SERMO_SESSION_COOKIE_CACHE: "no" })).toThrow(
+    "SERMO_SESSION_COOKIE_CACHE",
+  );
+});
+
 test("site base URL is resolved and validated independently of the auth origin", () => {
   const base = {
     BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
