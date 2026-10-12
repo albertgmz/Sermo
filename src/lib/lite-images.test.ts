@@ -3,7 +3,9 @@ import { test } from "node:test";
 import {
   blocksImageRequest,
   isImageRequest,
+  isUnknownUnsafePath,
   normalizeImagePath,
+  pictureInPageFolder,
 } from "./lite-images";
 import { LITE_CATEGORIES, parseLiteCookie } from "./lite-preferences";
 
@@ -137,5 +139,85 @@ test("the image optimizer fails closed for every selected category", () => {
     for (const { key } of LITE_CATEGORIES) {
       assert.equal(blocksImageRequest(parseLiteCookie(key), path), true, path);
     }
+  }
+});
+
+test("trailing dots and spaces are dropped from every segment", () => {
+  const paths = [
+    "/avatars/tobi.jpg.",
+    "/avatars/tobi.jpg..",
+    "/avatars/tobi.jpg%20",
+    "/avatars/tobi.jpg. .",
+    "/avatars./tobi.jpg",
+    "/avatars%20/tobi.jpg",
+    "/avatars/x/.. /tobi.jpg",
+  ];
+  for (const path of paths) {
+    assert.equal(normalizeImagePath(path), "/avatars/tobi.jpg", path);
+    assert.equal(isImageRequest(path), true, path);
+    assert.equal(blocksImageRequest(parseLiteCookie("all"), path), true, path);
+    assert.equal(
+      blocksImageRequest(parseLiteCookie("avatars"), path),
+      true,
+      path,
+    );
+    assert.equal(
+      blocksImageRequest(parseLiteCookie("shop"), path),
+      false,
+      path,
+    );
+    assert.equal(blocksImageRequest(parseLiteCookie(), path), false, path);
+  }
+  assert.equal(normalizeImagePath("/a/.../b"), "/a/b");
+});
+
+test("unsafe paths outside every picture folder are unknown, not pictures", () => {
+  for (const path of ["/foo:bar", "/foo~1/bar", "/foo/bar~2", "/a:b/c.html"]) {
+    assert.equal(isUnknownUnsafePath(path), true, path);
+    assert.equal(isImageRequest(path), false, path);
+    for (const cookie of [undefined, "all", "avatars"]) {
+      assert.equal(
+        blocksImageRequest(parseLiteCookie(cookie), path),
+        false,
+        path,
+      );
+    }
+  }
+  // Inside a registered folder (also through an alias) they stay pictures,
+  // and page namespaces keep their own rules.
+  for (const path of [
+    "/avatars/tobi.jpg::$DATA",
+    "/THREAD~1/vinyl.jpg",
+    "/logo.svg::$DATA",
+    "/members/1:x",
+    "/elsewhere/1/new/x:y",
+  ]) {
+    assert.equal(isUnknownUnsafePath(path), false, path);
+  }
+  assert.equal(isUnknownUnsafePath("/avatars/tobi.jpg"), false);
+});
+
+test("picture-looking paths in shared page folders are identified for a file check", () => {
+  assert.deepEqual(pictureInPageFolder("/forums/abc.png"), [
+    "forums",
+    "abc.png",
+  ]);
+  assert.deepEqual(pictureInPageFolder("/AWARDS/1.SVG"), ["awards", "1.svg"]);
+  assert.deepEqual(pictureInPageFolder("/forums/1.webp."), [
+    "forums",
+    "1.webp",
+  ]);
+  assert.deepEqual(pictureInPageFolder("/forums/1.webp::$DATA"), [
+    "forums",
+    "1.webp",
+  ]);
+  for (const path of [
+    "/forums/1",
+    "/forums/1/missing.svg",
+    "/avatars/tobi.jpg",
+    "/members/1.jpg",
+    "/logo.svg",
+  ]) {
+    assert.equal(pictureInPageFolder(path), null, path);
   }
 });
