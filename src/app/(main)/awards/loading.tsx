@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   CatalogueSkeleton,
@@ -10,12 +11,10 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("awards.loading");
   return (
-    <LoadingRegion label="Loading awards…">
-      <PageHero
-        title="Awards"
-        subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
-      >
+    <LoadingRegion label={t("label")}>
+      <PageHero title={t("heading")} subtitle={t("description")}>
         <Skeleton className="h-10 w-56" />
       </PageHero>
       <PageLayout

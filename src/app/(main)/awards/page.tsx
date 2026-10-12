@@ -1,6 +1,8 @@
 import { Check, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { TIER_ORDER, TIERS } from "@/app/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
@@ -32,13 +34,15 @@ import { levelForXp, xpForLevel } from "@/lib/levels";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Awards - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("awards.awards");
+  return { title: t("metaTitle") };
+}
 
 const MAX_HOLDER_AVATARS = 4;
 
 function Progress({ viewer, total }: { viewer: UserView; total: number }) {
+  const t = useTranslations("awards.awards");
   const { level } = viewer;
   return (
     <section
@@ -46,38 +50,48 @@ function Progress({ viewer, total }: { viewer: UserView; total: number }) {
       className="rounded-lg border bg-card p-4 md:p-6"
     >
       <h2 id="progress-title" className="text-sm font-semibold">
-        Your progress
+        {t("progressHeading")}
       </h2>
       <div className="mt-4 grid gap-5 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-10">
         <div className="flex items-center gap-4">
           <UserAvatar user={viewer} size="xl" />
           <div>
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Level
+              {t("levelLabel")}
             </p>
             <p className="text-5xl leading-none font-bold tracking-tighter tabular-nums">
-              {level.level}
+              {formatNumber(level.level)}
             </p>
           </div>
         </div>
         <div className="grid gap-2">
           <XpBar level={level} className="w-full" />
           <p className="text-sm text-muted-foreground tabular-nums">
-            <span className="font-semibold text-foreground">
-              {formatNumber(level.xp)}
-            </span>{" "}
-            / {formatNumber(level.nextLevelXp)} XP to level {level.level + 1}
+            {t.rich("xpProgress", {
+              xp: formatNumber(level.xp),
+              nextXp: formatNumber(level.nextLevelXp),
+              level: formatNumber(level.level + 1),
+              current: (chunks) => (
+                <span className="font-semibold text-foreground">{chunks}</span>
+              ),
+            })}
           </p>
         </div>
         <div className="border-t pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-10">
           <p className="text-2xl leading-none font-bold tracking-tight tabular-nums">
-            {viewer.awards.length}
-            <span className="text-base font-medium text-muted-foreground">
-              {" "}
-              / {total}
-            </span>
+            {t.rich("awardsProgress", {
+              earned: formatNumber(viewer.awards.length),
+              total: formatNumber(total),
+              maximum: (chunks) => (
+                <span className="text-base font-medium text-muted-foreground">
+                  {chunks}
+                </span>
+              ),
+            })}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">Awards earned</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("earnedLabel")}
+          </p>
         </div>
       </div>
     </section>
@@ -93,6 +107,7 @@ function AwardCard({
   earnedAt?: string;
   locked: boolean;
 }) {
+  const t = useTranslations("awards.awards");
   const holders = award.holders.length;
   return (
     <li
@@ -135,7 +150,7 @@ function AwardCard({
               locked ? "text-muted-foreground" : TIERS[award.tier].text,
             )}
           >
-            +{formatNumber(award.xp)} XP
+            {t("xpReward", { xp: formatNumber(award.xp) })}
           </span>
         </div>
         <p className="mt-0.5 text-sm text-pretty text-muted-foreground">
@@ -160,21 +175,19 @@ function AwardCard({
               </div>
             )}
             <span className="tabular-nums">
-              {holders === 0
-                ? "No holders yet"
-                : `${formatNumber(holders)} ${holders === 1 ? "holder" : "holders"}`}
+              {t("holders", { count: holders })}
             </span>
           </div>
           {earnedAt && (
             <span className="inline-flex items-center gap-1 font-medium text-success">
               <Check aria-hidden="true" className="size-3.5" />
-              Earned {formatDate(earnedAt)}
+              {t("earnedDate", { date: formatDate(earnedAt) })}
             </span>
           )}
           {locked && (
             <span className="inline-flex items-center gap-1">
               <Lock aria-hidden="true" className="size-3" />
-              Locked
+              {t("lockedLabel")}
             </span>
           )}
         </div>
@@ -190,12 +203,12 @@ function Ladder({
   viewer: UserView | null;
   maxLevel: number;
 }) {
+  const t = useTranslations("awards.awards");
   const levels = Array.from({ length: maxLevel }, (_, index) => index + 1);
   return (
-    <SectionCard title="How levels work">
+    <SectionCard title={t("levelsHeading")}>
       <p className="px-4 py-3 text-sm text-pretty text-muted-foreground">
-        XP comes only from awards: every award you earn adds its XP to your
-        total, and your level follows from that total.
+        {t("levelsDescription")}
       </p>
       <ol
         className="grid grid-flow-col grid-cols-2 gap-1.5 p-3"
@@ -223,8 +236,11 @@ function Ladder({
                 }
               />
               <span className={cn("font-medium", current && "text-foreground")}>
-                {current && <span className="sr-only">Your level: </span>}
-                {formatNumber(xpForLevel(level))} XP
+                {t.rich("levelXp", {
+                  xp: formatNumber(xpForLevel(level)),
+                  current: (chunks) =>
+                    current ? <span className="sr-only">{chunks}</span> : null,
+                })}
               </span>
             </li>
           );
@@ -236,11 +252,12 @@ function Ladder({
 
 async function AwardsContent() {
   const viewer = await getCurrentUser();
+  const t = await getTranslations("awards.awards");
   return (
     <>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading award progress…">
+          <LoadingRegion label={t("loadingProgress")}>
             <Container>
               <Skeleton className="h-40 w-full" />
             </Container>
@@ -255,7 +272,7 @@ async function AwardsContent() {
           <>
             <Suspense
               fallback={
-                <LoadingRegion label="Loading top members…">
+                <LoadingRegion label={t("loadingMembers")}>
                   <MemberListSkeleton rows={10} />
                 </LoadingRegion>
               }
@@ -264,7 +281,7 @@ async function AwardsContent() {
             </Suspense>
             <Suspense
               fallback={
-                <LoadingRegion label="Loading levels…">
+                <LoadingRegion label={t("loadingLevels")}>
                   <CardSkeleton>
                     <div className="space-y-3 p-4">
                       <TextSkeleton />
@@ -281,7 +298,7 @@ async function AwardsContent() {
       >
         <Suspense
           fallback={
-            <LoadingRegion label="Loading award catalogue…">
+            <LoadingRegion label={t("loadingCatalogue")}>
               <CatalogueSkeleton />
             </LoadingRegion>
           }
@@ -295,23 +312,25 @@ async function AwardsContent() {
 
 async function AwardLeaders({ viewerId }: { viewerId?: number }) {
   const leaders = await getLeaderboard("xp", 10);
+  const t = await getTranslations("awards.awards");
   return (
-    <SectionCard title="Top members" description="Ranked by XP">
+    <SectionCard
+      title={t("leadersHeading")}
+      description={t("leadersDescription")}
+    >
       <Leaderboard members={leaders} by="xp" viewerId={viewerId} />
     </SectionCard>
   );
 }
 
 export default function AwardsPage() {
+  const t = useTranslations("awards.awards");
   return (
     <>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading award introduction…">
-            <PageHero
-              title="Awards"
-              subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
-            />
+          <LoadingRegion label={t("loadingIntroduction")}>
+            <PageHero title={t("heading")} subtitle={t("description")} />
           </LoadingRegion>
         }
       >
@@ -319,7 +338,7 @@ export default function AwardsPage() {
       </Suspense>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading awards…">
+          <LoadingRegion label={t("loadingAwards")}>
             <PageLayout
               className="pt-0"
               aside={<MemberListSkeleton rows={10} />}
@@ -337,14 +356,12 @@ export default function AwardsPage() {
 
 async function AwardHero() {
   const viewer = await getCurrentUser();
+  const t = await getTranslations("awards.awards");
   return (
-    <PageHero
-      title="Awards"
-      subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
-    >
+    <PageHero title={t("heading")} subtitle={t("description")}>
       {!viewer && (
         <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>
-          Log in to track your progress
+          {t("login")}
         </Link>
       )}
     </PageHero>
@@ -375,13 +392,15 @@ async function AwardLadder({ viewer }: { viewer: UserView | null }) {
 
 async function AwardCatalogue({ viewer }: { viewer: UserView | null }) {
   const awards = await getAwards();
+  const t = await getTranslations("awards.awards");
+  const tTiers = await getTranslations("awards.tiers");
   const earned = new Map(
     viewer?.awards.map((award) => [award.id, award.awardedAt]),
   );
   return (
     <section aria-labelledby="catalogue-title" className="space-y-6">
       <h2 id="catalogue-title" className="sr-only">
-        All awards
+        {t("catalogueHeading")}
       </h2>
       {TIER_ORDER.map((tier) => {
         const group = awards.filter((award) => award.tier === tier);
@@ -395,12 +414,15 @@ async function AwardCatalogue({ viewer }: { viewer: UserView | null }) {
                   aria-hidden="true"
                   className={cn("size-2 rounded-full", TIERS[tier].dot)}
                 />
-                <span className={TIERS[tier].text}>{TIERS[tier].label}</span>
+                <span className={TIERS[tier].text}>{tTiers(tier)}</span>
               </h3>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {viewer
-                  ? `${owned.length} of ${group.length} earned`
-                  : `${group.length} ${group.length === 1 ? "award" : "awards"}`}
+                  ? t("earnedCount", {
+                      earned: formatNumber(owned.length),
+                      total: formatNumber(group.length),
+                    })
+                  : t("awards", { count: group.length })}
               </p>
             </div>
             <ul className="grid gap-3 sm:grid-cols-2">
