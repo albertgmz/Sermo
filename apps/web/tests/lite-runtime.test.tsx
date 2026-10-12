@@ -71,6 +71,7 @@ mock.module("next/cache", () => ({
 globalThis.fetch = (async () =>
   Response.json({
     ...site,
+    socialLinks: { discord: null, telegram: null, x: null },
     palette: { accents: [], nameColors: [], prefixColors: [] },
   })) as unknown as typeof fetch;
 mock.module("@/lib/db", () => ({

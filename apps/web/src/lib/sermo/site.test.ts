@@ -24,6 +24,7 @@ mock.module("next-intl/server", () => ({
 const { getSite } = await import("./site");
 
 const palette = { accents: [], nameColors: [], prefixColors: [] };
+const socialLinks = { discord: null, telegram: null, x: null };
 
 test("the site is read without the visitor and keeps only its identity", async () => {
   const seen: Headers[] = [];
@@ -34,6 +35,7 @@ test("the site is read without the visitor and keeps only its identity", async (
       logo: { fileId: 3, url: "/api/v1/files/3" },
       icon: null,
       backdrop: null,
+      socialLinks,
       palette,
     });
   }) as unknown as typeof fetch;
