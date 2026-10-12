@@ -79,9 +79,9 @@ export function LoadedPanel({
       unread={unread}
       icon={icon}
       className={className}
-      onOpen={() => {
-        opened.current = true;
-        refresh();
+      onOpenChange={(open) => {
+        opened.current = open;
+        if (open) refresh();
       }}
     >
       {failed && rows === undefined ? (

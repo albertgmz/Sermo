@@ -11,14 +11,14 @@ import {
 import { cn } from "@/lib/utils";
 
 // A header icon that opens a panel under it. Following a link inside the
-// panel closes it. `onOpen` runs each time the panel opens.
+// panel closes it. `onOpenChange` runs each time the panel opens or closes, however it closes.
 export function HeaderPanel({
   label,
   title,
   unread = 0,
   icon,
   className,
-  onOpen,
+  onOpenChange,
   children,
 }: {
   label: string;
@@ -26,19 +26,17 @@ export function HeaderPanel({
   unread?: number;
   icon: React.ReactNode;
   className?: string;
-  onOpen?: () => void;
+  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const t = useTranslations("layout.headerPanel");
   const [open, setOpen] = useState(false);
+  function change(next: boolean) {
+    setOpen(next);
+    onOpenChange?.(next);
+  }
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) onOpen?.();
-      }}
-    >
+    <Popover open={open} onOpenChange={change}>
       <PopoverTrigger
         aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
         className={cn(
@@ -57,7 +55,7 @@ export function HeaderPanel({
         className="w-88 gap-0 p-0"
         onClick={(event) => {
           if (event.defaultPrevented) return;
-          if ((event.target as Element).closest("a")) setOpen(false);
+          if ((event.target as Element).closest("a")) change(false);
         }}
       >
         <PopoverTitle className="border-b px-4 py-3 text-sm font-semibold">
