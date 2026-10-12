@@ -72,25 +72,25 @@ describe("the ranking job", () => {
     expect(stored(w, "mostReplied").map((row) => row.target_id)).toEqual([live.thread.id]);
   });
 
-  test("each ranking keeps 20 threads per forum and a rerun replaces the rows rather than adding", async () => {
+  test("each ranking keeps 40 threads per forum and a rerun replaces the rows rather than adding", async () => {
     const w = world();
     const other = insertNode(w.ctx, { parentId: w.category.id });
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO threads (node_id, user_id, title, state, created_at, reply_count, view_count, last_post_at, last_poster_id) VALUES (?1, ?2, 't', 'visible', ?3, ?4, ?4, ?3, ?2)",
     );
-    for (let i = 0; i < 30; i++) insert.run(w.open.id, w.aliceUser.id, w.ctx.now(), i);
+    for (let i = 0; i < 50; i++) insert.run(w.open.id, w.aliceUser.id, w.ctx.now(), i);
     for (let i = 0; i < 3; i++) insert.run(other.id, w.aliceUser.id, w.ctx.now(), 1000 + i);
     refreshRankings(w.ctx);
     refreshRankings(w.ctx);
     const replied = stored(w, "mostReplied");
     const inOpen = replied.filter((row) => row.node_id === w.open.id);
-    expect(inOpen).toHaveLength(20);
-    expect(inOpen[0]!.score).toBe(29);
+    expect(inOpen).toHaveLength(40);
+    expect(inOpen[0]!.score).toBe(49);
     expect(inOpen.at(-1)!.score).toBe(10);
     expect(inOpen.map((row) => row.position)).toEqual([...inOpen.keys()]);
     const inOther = replied.filter((row) => row.node_id === other.id);
     expect(inOther.map((row) => row.score)).toEqual([1002, 1001, 1000]);
-    expect(stored(w, "mostViewed")).toHaveLength(23);
+    expect(stored(w, "mostViewed")).toHaveLength(43);
     // A forum with nothing gets no rows.
     expect(replied.some((row) => row.node_id === w.secret.id)).toBe(false);
   });
@@ -128,7 +128,7 @@ describe("the ranking job", () => {
     ]);
   });
 
-  test("feedTop keeps the 50 best of each forum", () => {
+  test("feedTop keeps the 100 best of each forum", () => {
     const w = world();
     const thread = w.ctx.sqlite
       .prepare<{ id: number }, [number, number, number]>(
@@ -138,12 +138,12 @@ describe("the ranking job", () => {
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5)",
     );
-    for (let i = 0; i < 80; i++)
+    for (let i = 0; i < 130; i++)
       insert.run(thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 1}}`);
     refreshRankings(w.ctx);
     const top = stored(w, "feedTop");
-    expect(top).toHaveLength(50);
-    expect(top[0]!.score).toBe(80);
+    expect(top).toHaveLength(100);
+    expect(top[0]!.score).toBe(130);
     expect(top.at(-1)!.score).toBe(31);
   });
 
@@ -360,6 +360,50 @@ describe("threads.ranked", () => {
       .prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2")
       .run(w.secret.id, t.thread.id);
     expect(ids(await w.call("threads.ranked", w.bob, { by: "mostReplied" }))).toEqual([]);
+  });
+
+  test("threads deleted after the last refresh are replaced by the next best", async () => {
+    const w = world();
+    const threads = fillThreads(w.ctx, w.open.id, w.aliceUser.id, 35, { replies: (i) => i + 1 });
+    refreshRankings(w.ctx);
+    const mostReplied = threads.slice(15).reverse();
+    expect(ids(await w.call("threads.ranked", GUEST, { by: "mostReplied", limit: 20 }))).toEqual(
+      mostReplied,
+    );
+    const remove = w.ctx.sqlite.prepare("UPDATE threads SET state = 'deleted' WHERE id = ?1");
+    for (const id of mostReplied) remove.run(id);
+    expect(ids(await w.call("threads.ranked", GUEST, { by: "mostReplied", limit: 20 }))).toEqual(
+      threads.slice(0, 15).reverse(),
+    );
+  });
+
+  test("with several forums the merged order stays exact when the best threads are gone", async () => {
+    const w = world();
+    const other = insertNode(w.ctx, { parentId: w.category.id });
+    const inOpen = fillThreads(w.ctx, w.open.id, w.aliceUser.id, 30, {
+      replies: (i) => 100 + i * 2,
+    });
+    const inOther = fillThreads(w.ctx, other.id, w.aliceUser.id, 30, {
+      replies: (i) => 101 + i * 2,
+    });
+    refreshRankings(w.ctx);
+    const remove = w.ctx.sqlite.prepare("UPDATE threads SET state = 'deleted' WHERE id = ?1");
+    for (const id of [...inOpen.slice(20), ...inOther.slice(25)]) remove.run(id);
+    const expected = [...inOpen.slice(0, 20), ...inOther.slice(0, 25)]
+      .map((id) => ({
+        id,
+        replies: w.ctx.sqlite
+          .prepare<{ reply_count: number }, [number]>(
+            "SELECT reply_count FROM threads WHERE id = ?1",
+          )
+          .get(id)!.reply_count,
+      }))
+      .sort((a, b) => b.replies - a.replies)
+      .slice(0, 20)
+      .map((entry) => entry.id);
+    expect(ids(await w.call("threads.ranked", GUEST, { by: "mostReplied", limit: 20 }))).toEqual(
+      expected,
+    );
   });
 
   test("the live queries read their indexes", () => {

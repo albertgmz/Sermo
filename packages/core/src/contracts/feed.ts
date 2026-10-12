@@ -53,7 +53,8 @@ export const feedList = defineContract({
     "follows (the 100 followed most recently, when there are more) and requires an account. " +
     "`top` is the most reacted-to thread posts of the last seven days among the forums the " +
     "viewer can see, at most 50, recomputed every few minutes and not paginated (`nextCursor` is " +
-    "always null). Content of ignored members is left out.",
+    "always null). Content hidden since the last refresh is left out and replaced by the next " +
+    "best, as far as the stored ranking reaches. Content of ignored members is left out.",
   kind: "read",
   input: z.object({ scope: z.enum(FEED_SCOPES).default("latest"), ...pageInput }),
   output: Page(FeedItem),
