@@ -13,7 +13,7 @@ export { CaptureMailer, isLoopbackHost, smtpMailer } from "./mail";
 export {
   ensureAdmin,
   getAuth,
-  purgeExpiredCredentials,
+  purgeExpiredCredentialsBatch,
   resolveActor,
   revokeUserCredentials,
   type SermoAuth,

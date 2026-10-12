@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
-import { purgeExpiredCredentials } from "../auth";
+import { purgeExpiredCredentialsBatch } from "../auth";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
@@ -50,11 +50,9 @@ type CredentialPurgeBatch = (
 /** Yields before credential cleanup and between full maintenance batches. */
 export async function runHourlyTasks(
   ctx: Ctx,
-  purgeCredentials: CredentialPurgeBatch = purgeExpiredCredentials,
+  purgeCredentials: CredentialPurgeBatch = purgeExpiredCredentialsBatch,
 ): Promise<void> {
-  // The auth implementation must bound rows scanned (including live rows), returning the
-  // last scanned ids and `more` for incremental cleanup.
-  // The legacy purge returns only counts and still performs one unbounded synchronous batch.
+  // Each call scans a bounded id range per table and returns the cursor and `more`.
   let credentials: ReturnType<CredentialPurgeBatch> | undefined;
   do {
     await yieldToEventLoop();

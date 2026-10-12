@@ -720,24 +720,57 @@ export async function resolveActor(
   };
 }
 
-/** Removes expired Better Auth credentials. */
-export function purgeExpiredCredentials(ctx: Ctx): {
-  sessions: number;
-  apiKeys: number;
-  verifications: number;
-} {
+export const CREDENTIAL_PURGE_BATCH = 1000;
+
+type CredentialCursor = { sessions: number; apiKeys: number; verifications: number };
+
+/** Keyset scan (primary key) and conditional delete for each purged Better Auth table. */
+export const credentialPurgeSql = {
+  sessions: {
+    scan: `SELECT id FROM auth_session WHERE id > ?1 ORDER BY id LIMIT ${CREDENTIAL_PURGE_BATCH}`,
+    delete:
+      "DELETE FROM auth_session WHERE id IN (SELECT value FROM json_each(?1)) AND expires_at <= ?2",
+  },
+  apiKeys: {
+    scan: `SELECT id FROM auth_apikey WHERE id > ?1 ORDER BY id LIMIT ${CREDENTIAL_PURGE_BATCH}`,
+    delete:
+      "DELETE FROM auth_apikey WHERE id IN (SELECT value FROM json_each(?1)) AND expires_at IS NOT NULL AND expires_at <= ?2",
+  },
+  verifications: {
+    scan: `SELECT id FROM auth_verification WHERE id > ?1 ORDER BY id LIMIT ${CREDENTIAL_PURGE_BATCH}`,
+    delete:
+      "DELETE FROM auth_verification WHERE id IN (SELECT value FROM json_each(?1)) AND expires_at <= ?2",
+  },
+} as const;
+
+/**
+ * Removes expired Better Auth credentials in one short write transaction. Scans at most
+ * `CREDENTIAL_PURGE_BATCH` ids per table after the cursor (so tables full of live rows are
+ * bounded too) and deletes the expired ones among them. `more` is true while any table may
+ * hold unscanned rows; pass `after` back to continue.
+ */
+export function purgeExpiredCredentialsBatch(
+  ctx: Ctx,
+  after: CredentialCursor = { sessions: 0, apiKeys: 0, verifications: 0 },
+): CredentialCursor & { more: boolean; after: CredentialCursor } {
   return writeTx(ctx, () => {
     const now = ctx.now();
-    return {
-      sessions: ctx.sqlite.prepare("DELETE FROM auth_session WHERE expires_at <= ?1").run(now)
-        .changes,
-      apiKeys: ctx.sqlite
-        .prepare("DELETE FROM auth_apikey WHERE expires_at IS NOT NULL AND expires_at <= ?1")
-        .run(now).changes,
-      verifications: ctx.sqlite
-        .prepare("DELETE FROM auth_verification WHERE expires_at <= ?1")
-        .run(now).changes,
-    };
+    const counts = { sessions: 0, apiKeys: 0, verifications: 0 };
+    const next = { ...after };
+    let more = false;
+    for (const table of ["sessions", "apiKeys", "verifications"] as const) {
+      const sql = credentialPurgeSql[table];
+      const ids = prepared(ctx, `auth.purge.${table}.scan`, () =>
+        ctx.sqlite.prepare<{ id: number }, [number]>(sql.scan),
+      ).all(after[table]);
+      if (ids.length === 0) continue;
+      counts[table] = prepared(ctx, `auth.purge.${table}.delete`, () =>
+        ctx.sqlite.prepare(sql.delete),
+      ).run(JSON.stringify(ids.map((row) => row.id)), now).changes;
+      next[table] = ids[ids.length - 1]!.id;
+      if (ids.length === CREDENTIAL_PURGE_BATCH) more = true;
+    }
+    return { ...counts, more, after: next };
   });
 }
 
