@@ -23,7 +23,8 @@
     "catalogueHeading": "All awards",
     "earnedCount": "{earned} of {total} earned",
     "awards": "{count, plural, one {# award} other {# awards}}",
-    "empty": "No awards are offered yet."
+    "empty": "No awards are offered yet.",
+    "restricted": "The awards are shown to members who may view profiles. Log in to see them."
   },
   "award": {
     "metaTitle": "{name}",

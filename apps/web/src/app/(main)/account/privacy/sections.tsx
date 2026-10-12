@@ -120,7 +120,7 @@ export async function IgnoredSection({
   const [t, page, notice] = await Promise.all([
     getTranslations("account.privacy"),
     read(usersListIgnored, { cursor }),
-    noticeOf(searchParams, ["unignored", "failed"]),
+    noticeOf(searchParams, ["unignored"], ["ignored"]),
   ]);
   const member = await membersFor(page.items.map((entry) => entry.user));
   return (

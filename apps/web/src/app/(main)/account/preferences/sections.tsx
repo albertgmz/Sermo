@@ -98,7 +98,7 @@ export async function ThreadWatches({
   const [t, page, notice] = await Promise.all([
     getTranslations("account.preferences"),
     read(watchesListThreads, { cursor }),
-    noticeOf(searchParams, ["threadUnwatched", "failed"]),
+    noticeOf(searchParams, ["threadUnwatched"], ["threads"]),
   ]);
   return (
     <Section
@@ -155,7 +155,7 @@ export async function ForumWatches({
   const [t, page, notice] = await Promise.all([
     getTranslations("account.preferences"),
     read(watchesListNodes, { cursor }),
-    noticeOf(searchParams, ["forumUnwatched", "failed"]),
+    noticeOf(searchParams, ["forumUnwatched"], ["forums"]),
   ]);
   return (
     <Section

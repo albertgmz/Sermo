@@ -47,15 +47,16 @@ async function Control({
   entry,
   appearance,
   threads,
+  returnTo,
 }: {
   entry: Entry;
   appearance: Appearance;
   threads: ThreadOption[];
+  returnTo: string;
 }) {
   const t = await getTranslations("credits.inventory");
   const { item } = entry;
   const { effect } = item;
-  const returnTo = inventoryHref({});
   switch (effect.type) {
     case "frame":
       return (
@@ -133,6 +134,7 @@ async function Rows({
   appearance,
   wearer,
   threads,
+  returnTo,
 }: {
   title: string;
   description: string;
@@ -141,6 +143,7 @@ async function Rows({
   appearance: Appearance;
   wearer: Wearer;
   threads: ThreadOption[];
+  returnTo: string;
 }) {
   const t = await getTranslations("credits.inventory");
   const catalogs = await catalogsFor(list.items.map(({ item }) => item));
@@ -181,7 +184,12 @@ async function Rows({
                 )}
               </p>
             </div>
-            <Control entry={entry} appearance={appearance} threads={threads} />
+            <Control
+              entry={entry}
+              appearance={appearance}
+              threads={threads}
+              returnTo={returnTo}
+            />
           </li>
         ))}
       </ul>
@@ -246,7 +254,13 @@ export async function Inventory({
       ? t("coveredThread", { title: thread.title })
       : thread.title,
   }));
-  const shared = { appearance, wearer: member(viewer.id), threads };
+  // Back to the page of the lists the member was on.
+  const shared = {
+    appearance,
+    wearer: member(viewer.id),
+    threads,
+    returnTo: inventoryHref(cursors),
+  };
 
   return (
     <div className="space-y-4">

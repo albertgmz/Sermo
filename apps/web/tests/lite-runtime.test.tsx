@@ -312,7 +312,21 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
   expect(read("next.config.ts")).toMatch(
     /images\s*:\s*\{\s*unoptimized\s*:\s*true\b/,
   );
-  expect(config.matcher).toEqual(["/:path*"]);
+  // Every path, images included, except the picture upload: the proxy would copy its body.
+  expect(config.matcher).toHaveLength(1);
+  const matches = (path: string) =>
+    new RegExp(`^${config.matcher[0]}$`).test(path);
+  for (const path of [
+    "/",
+    "/_next/image",
+    "/avatars/test.jpg",
+    "/account",
+    "/account/pictures",
+    "/account/picture/extra",
+    "/threads/1",
+  ])
+    expect(matches(path), path).toBe(true);
+  expect(matches("/account/picture")).toBe(false);
   for (const path of [
     "/_next/image?url=%2Favatars%2Ftest.jpg&w=640&q=75",
     "/_next/image?url=https%3A%2F%2Fpictures.test%2Fx.png&w=640&q=75",
@@ -741,17 +755,16 @@ test("a thread excerpt never prints the URL of a blocked picture", async () => {
   }
 });
 
-const stored =
-  "Shop: ![logo](https://pictures.test/l.png) <video> demo below\nline two";
-
 test("the signature field holds the stored source whatever LITE hides", async () => {
   const section = () =>
     markup(<TitleSection searchParams={Promise.resolve({})} />);
-  const escaped = stored.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escaped = storedSignature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   cookie = "postImages";
   const hidden = await section();
   // The field is the source the backend keeps, not filtered text: saving it back loses nothing.
   expect(hidden).toContain(escaped);
+  // Blocked or not, the section draws no picture of its own.
+  expect(hidden).not.toMatch(/<img|url\(/);
   cookie = undefined;
   expect(await section()).toContain(escaped);
 });

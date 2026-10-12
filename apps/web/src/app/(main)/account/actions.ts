@@ -19,9 +19,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { FormState } from "@/app/(main)/account/action-form";
+import { failedPath } from "@/app/(main)/account/notice";
 import { call } from "@/lib/sermo/client";
-import { attempt } from "@/lib/sermo/outcome";
-import { upload } from "@/lib/sermo/upload";
+import { isRecordId, parseId } from "@/lib/sermo/ids";
+import { attempt, invalidArgument } from "@/lib/sermo/outcome";
+import { isUploadPurpose } from "@/lib/sermo/upload";
 
 const ACCOUNT = "/account";
 
@@ -32,7 +34,8 @@ function done(notice: string, hash: string, path = ACCOUNT): never {
   redirect(`${path}?notice=${notice}#${hash}`);
 }
 
-// For the buttons that have no form state: a refusal comes back as a notice.
+// For the buttons that have no form state: a refusal comes back as a notice in the section of the
+// button, with the backend's words.
 async function press(
   path: string,
   hash: string,
@@ -40,8 +43,13 @@ async function press(
   run: () => Promise<unknown>,
 ): Promise<never> {
   const result = await attempt(path, run);
-  if (!result.ok) redirect(`${path}?notice=failed#${hash}`);
+  if (!result.ok) redirect(failedPath(path, hash, result.error));
   return done(notice, hash, path);
+}
+
+// A button whose bound argument is not what the page binds: nothing is asked of the backend.
+async function pressInvalid(path: string, hash: string): Promise<never> {
+  return redirect(failedPath(path, hash, await invalidArgument()));
 }
 
 function text(formData: FormData, name: string): string {
@@ -49,28 +57,11 @@ function text(formData: FormData, name: string): string {
 }
 
 // Pictures -------------------------------------------------------------------------------------
-
-export async function uploadPicture(
-  kind: "avatar" | "cover",
-  _previous: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    const t = await getTranslations("account.errors");
-    return { error: t("noFile") };
-  }
-  const saved = await attempt(ACCOUNT, async () => {
-    const fileId = await upload(kind, file);
-    await call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
-      fileId,
-    });
-  });
-  if (!saved.ok) return { error: saved.error };
-  return done(kind, kind);
-}
+// A picture is uploaded by the route handler in ./picture/route.ts: its body is too large for an
+// action.
 
 export async function removePicture(kind: "avatar" | "cover") {
+  if (!isUploadPurpose(kind)) return pressInvalid(ACCOUNT, "pictures");
   await press(ACCOUNT, kind, `${kind}Removed`, () =>
     call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
       fileId: null,
@@ -97,14 +88,36 @@ export async function renameMember(
 
 // About and contact -----------------------------------------------------------------------------
 
+// Day, month and year are blank together to clear the birthday. Anything else is sent as typed,
+// so the backend says what is wrong with it; only a date the contract cannot express (a year with
+// no day or month, or a day that is not a number) is answered here.
+function birthdayOf(formData: FormData) {
+  const [day, month, year] = ["day", "month", "year"].map((name) =>
+    text(formData, name).trim(),
+  );
+  if (!day && !month && !year) return { birthday: null };
+  const whole = /^\d{1,4}$/;
+  if (!whole.test(day) || !whole.test(month) || (year && !whole.test(year))) {
+    return null;
+  }
+  return {
+    birthday: {
+      day: Number(day),
+      month: Number(month),
+      ...(year ? { year: Number(year) } : {}),
+    },
+  };
+}
+
 export async function saveAbout(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const clearBirthday = formData.get("clear") === "birthday";
-  const hasBirthday =
-    text(formData, "day") !== "" || text(formData, "month") !== "";
-  const year = text(formData, "year");
+  const birthday = birthdayOf(formData);
+  if (!birthday) {
+    const t = await getTranslations("account.errors");
+    return { error: t("birthdayIncomplete") };
+  }
   const saved = await attempt(ACCOUNT, () =>
     call(profilesUpdate, {
       about: text(formData, "about"),
@@ -115,21 +128,17 @@ export async function saveAbout(
         telegram: text(formData, "telegram"),
         x: text(formData, "x"),
       },
-      ...(clearBirthday
-        ? { birthday: null }
-        : hasBirthday
-          ? {
-              birthday: {
-                day: Number(text(formData, "day")),
-                month: Number(text(formData, "month")),
-                ...(year ? { year: Number(year) } : {}),
-              },
-            }
-          : {}),
+      ...birthday,
     }),
   );
   if (!saved.ok) return { error: saved.error };
   return done("about", "about");
+}
+
+export async function clearBirthday() {
+  await press(ACCOUNT, "about", "birthdayRemoved", () =>
+    call(profilesUpdate, { birthday: null }),
+  );
 }
 
 // Title and signature: only the fields the form carries are sent; an empty one clears.
@@ -175,9 +184,12 @@ export async function saveAppearance(
   _previous: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  if (!Object.hasOwn(WORN, field)) return { error: await invalidArgument() };
   const raw = text(formData, "value");
+  const id = raw === "" ? null : parseId(raw);
+  if (raw !== "" && id === null) return { error: await invalidArgument() };
   const saved = await attempt("/account/appearance", () =>
-    call(appearanceSet, { [WORN[field]]: raw === "" ? null : Number(raw) }),
+    call(appearanceSet, { [WORN[field]]: id }),
   );
   if (!saved.ok) return { error: saved.error };
   revalidatePath("/", "layout");
@@ -201,6 +213,7 @@ export async function savePrivacy(
 }
 
 export async function stopIgnoring(userId: number) {
+  if (!isRecordId(userId)) return pressInvalid("/account/privacy", "ignored");
   await press("/account/privacy", "ignored", "unignored", () =>
     call(usersUnignore, { userId }),
   );
@@ -232,8 +245,8 @@ export async function saveNotifications(
         // The page offers no push cell while push is off, so nothing was chosen for it.
         if (channel === "push" && push.publicKey === null) continue;
         const wanted = formData.get(`${type.id}:${channel}`) === "on";
-        if (wanted !== (now.get(type.id)?.[channel] ?? false))
-          change[channel] = wanted;
+        const held = now.get(type.id) ?? type.defaults;
+        if (wanted !== held[channel]) change[channel] = wanted;
       }
       return Object.keys(change).length ? [{ type: type.id, ...change }] : [];
     });
@@ -262,12 +275,18 @@ export async function savePreferences(
 }
 
 export async function stopWatchingThread(threadId: number) {
+  if (!isRecordId(threadId)) {
+    return pressInvalid("/account/preferences", "threads");
+  }
   await press("/account/preferences", "threads", "threadUnwatched", () =>
     call(threadsUnwatch, { threadId }),
   );
 }
 
 export async function stopWatchingForum(nodeId: number) {
+  if (!isRecordId(nodeId)) {
+    return pressInvalid("/account/preferences", "forums");
+  }
   await press("/account/preferences", "forums", "forumUnwatched", () =>
     call(nodesUnwatch, { nodeId }),
   );

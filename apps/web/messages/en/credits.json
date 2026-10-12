@@ -33,8 +33,10 @@
     "emptyCategoryDescription": "Try another category.",
     "stock": "{count, plural, one {# left} other {# left}}",
     "loginToBuy": "Log in to buy",
+    "ranks": "See the ranks",
     "aria": {
-      "categories": "Shop categories"
+      "categories": "Shop categories",
+      "ranks": "See the ranks, including {itemName}"
     }
   },
   "effect": {

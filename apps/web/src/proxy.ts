@@ -292,7 +292,8 @@ async function handleRequest(request: NextRequest) {
 }
 
 // Match before decoding, including image optimizer requests and file aliases.
-// Non-image Next internals return before the existing page access rules.
+// Non-image Next internals return before the existing page access rules. The picture upload is
+// left out: the proxy would copy its body, and the route checks the session before reading any.
 export const config = {
-  matcher: ["/:path*"],
+  matcher: ["/((?!account/picture$).*)"],
 };

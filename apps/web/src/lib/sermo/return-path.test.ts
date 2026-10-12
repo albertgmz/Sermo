@@ -13,6 +13,11 @@ test("only a same-site path is followed", () => {
     "/register",
     `/a${String.fromCharCode(92)}b`,
     "/\nx",
+    "/.//evil.com",
+    "/./",
+    "/a/../b",
+    "/%2e//evil.com",
+    "/a/%2E%2e/b",
     undefined,
     42,
   ]) {

@@ -7,6 +7,7 @@ import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
+import { isHexColor } from "@/lib/css-color";
 import { authorsFor } from "@/lib/sermo/members";
 import { cn } from "@/lib/utils";
 
@@ -92,10 +93,12 @@ export async function AppearancePanel({
                       aria-hidden="true"
                       className={cn(
                         "size-6 rounded-full",
-                        accent ? "bg-(--swatch)" : "border bg-muted",
+                        isHexColor(accent?.color)
+                          ? "bg-(--swatch)"
+                          : "border bg-muted",
                       )}
                       style={
-                        accent
+                        accent && isHexColor(accent.color)
                           ? ({
                               "--swatch": accent.color,
                             } as React.CSSProperties)

@@ -22,8 +22,9 @@ const nextConfig: NextConfig = {
     };
   },
   experimental: {
-    // A picture goes to the backend through a server action; the backend sets the real limit.
-    serverActions: { bodySizeLimit: "26mb" },
+    // The proxy copies a request body to read it twice, up to this size. Actions take 1 MB at the
+    // most and a picture goes through its own route, which the proxy skips.
+    proxyClientMaxBodySize: "1mb",
     instantInsights: {
       validationLevel: "manual-warning",
     },

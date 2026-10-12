@@ -27,7 +27,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
 import { leaderboardMember } from "@/lib/member-items";
-import { read } from "@/lib/sermo/client";
+import { read, readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -37,8 +37,15 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-function listAwards() {
-  return read(awardsList, {});
+// The backend adds the inactive awards for holders of admin.awards; the public page is the same
+// for everyone, so only the active ones are shown (and counted). The list needs the permission to
+// view profiles, which a guest may lack: then the page says so instead of failing.
+async function listAwards() {
+  const listed = await readIfAllowed(awardsList, {});
+  return {
+    items: (listed?.items ?? []).filter(({ isActive }) => isActive),
+    restricted: listed === null,
+  };
 }
 
 type Award = Awaited<ReturnType<typeof listAwards>>["items"][number];
@@ -224,7 +231,7 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
   if (awards.items.length === 0) {
     return (
       <p className="rounded-lg border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-        {t("empty")}
+        {awards.restricted ? t("restricted") : t("empty")}
       </p>
     );
   }
@@ -286,8 +293,10 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
 async function Leaders({ viewerId }: { viewerId?: number }) {
   const [t, leaders] = await Promise.all([
     getTranslations("awards.awards"),
-    read(usersList, { sort: "level", limit: 10 }),
+    readIfAllowed(usersList, { sort: "level", limit: 10 }),
   ]);
+  // The member directory needs a permission a guest may lack: then there is no ranking to show.
+  if (!leaders) return null;
   return (
     <SectionCard
       title={t("leadersHeading")}

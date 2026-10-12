@@ -71,9 +71,10 @@ export async function TypesSection({
               </div>
               {CHANNELS.map((channel) =>
                 type.channels.includes(channel) ? (
-                  <div
+                  // biome-ignore lint/a11y/noLabelWithoutControl: the checkbox is a Base UI root, which an enclosing label names
+                  <label
                     key={channel}
-                    className="flex min-h-10 items-center justify-center"
+                    className="relative flex min-h-10 items-center justify-center"
                   >
                     <Checkbox
                       name={`${type.id}:${channel}`}
@@ -81,12 +82,14 @@ export async function TypesSection({
                       disabled={
                         type.required || (channel === "push" && pushOff)
                       }
-                      aria-label={t("cell", {
+                    />
+                    <span className="sr-only">
+                      {t("cell", {
                         type: words(type.id, "title"),
                         channel: t(`channels.${channel}`),
                       })}
-                    />
-                  </div>
+                    </span>
+                  </label>
                 ) : (
                   <span
                     key={channel}
