@@ -14,7 +14,7 @@ import {
   usersSearch,
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -44,6 +44,7 @@ import { noticeForOther } from "../moderation/notify";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
 import { resolvedFileUrl } from "../storage/url";
+import { profileFieldChanges, storeProfileChanges } from "./fields";
 import {
   latestComments,
   mayPostOnWall,
@@ -58,7 +59,6 @@ import {
   touchProfile,
   WALL_SQL,
 } from "./shared";
-import { renderSignature } from "./signature";
 
 type ProfileRow = PrincipalRow & {
   id: number;
@@ -193,89 +193,21 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
   };
 });
 
-/** The calendar day of a birthday, checked against the month and, with a year, the real calendar. */
-function checkBirthday(now: number, birthday: { year?: number; month: number; day: number }): void {
-  const { year, month, day } = birthday;
-  // Without a year, February 29 is allowed: the member simply has a leap-day birthday.
-  const probe = new Date(Date.UTC(year ?? 2000, month - 1, day));
-  if (probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day)
-    throw new ValidationError("That date does not exist.");
-  if (year !== undefined && probe.getTime() > now)
-    throw new ValidationError("A birthday cannot be in the future.");
-}
-// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are stripped
-const INVISIBLE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\ufeff]/g;
-/** A title with its whitespace collapsed and its control and invisible characters removed. */
-const cleanTitle = (title: string) =>
-  title
-    .replace(/[\t-\r]/g, " ")
-    .replace(INVISIBLE, "")
-    .replace(/\s+/g, " ")
-    .trim();
-const two = (value: number) => String(value).padStart(2, "0");
-
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
-  const settings = readSiteSettings(ctx);
-  const changes: Record<string, string | number | null> = {};
-  if (input.about !== undefined) changes.about = input.about;
-  if (input.location !== undefined) changes.location = input.location;
-  if (input.website !== undefined) changes.website = input.website;
-  if (input.birthday !== undefined) {
-    if (input.birthday === null) {
-      changes.birthday_md = null;
-      changes.birth_year = null;
-    } else {
-      checkBirthday(ctx.now(), input.birthday);
-      changes.birthday_md = `${two(input.birthday.month)}-${two(input.birthday.day)}`;
-      changes.birth_year = input.birthday.year ?? null;
-    }
-  }
-  if (input.socials?.discord !== undefined) changes.social_discord = input.socials.discord;
-  if (input.socials?.telegram !== undefined) changes.social_telegram = input.socials.telegram;
-  if (input.socials?.x !== undefined) changes.social_x = input.socials.x;
-  // Clearing a title or a signature is always allowed; setting one needs its permission.
-  let settingTitle = false;
-  let settingSignature = false;
-  if (input.customTitle !== undefined) {
-    const title = cleanTitle(input.customTitle ?? "");
-    if (title.length > settings.customTitleMaxLength)
-      throw new ValidationError(
-        `A title is at most ${settings.customTitleMaxLength} characters long.`,
-      );
-    settingTitle = title !== "";
-    if (settingTitle) requirePermission(ctx, actor, "profile.customTitle");
-    changes.custom_title = title === "" ? null : title;
-  }
-  if (input.signature !== undefined) {
-    const source = input.signature?.trim() ?? "";
-    settingSignature = source !== "";
-    if (settingSignature) requirePermission(ctx, actor, "profile.signature");
-    if (source.length > settings.signatureMaxLength)
-      throw new ValidationError(
-        `A signature is at most ${settings.signatureMaxLength} characters long.`,
-      );
-    if (source.split(/\r\n|\r|\n/).length > settings.signatureMaxLines)
-      throw new ValidationError(`A signature is at most ${settings.signatureMaxLines} lines long.`);
-    // Rendered before the transaction opens.
-    changes.signature_source = source === "" ? null : source;
-    changes.signature_html = source === "" ? null : renderSignature(source);
-  }
-  const columns = Object.keys(changes);
-  if (columns.length > 0)
+  const { changes, settingTitle, settingSignature } = profileFieldChanges(ctx, input, {
+    customTitle: () => requirePermission(ctx, actor, "profile.customTitle"),
+    signature: () => requirePermission(ctx, actor, "profile.signature"),
+  });
+  if (Object.keys(changes).length > 0)
     writeTx(ctx, () => {
       // The actor may have lost a permission, or been banned, since the request began.
       const current = currentActor(ctx, actor);
       requirePermission(ctx, current, "profile.editOwn");
       if (settingTitle) requirePermission(ctx, current, "profile.customTitle");
       if (settingSignature) requirePermission(ctx, current, "profile.signature");
-      ctx.sqlite
-        .prepare(
-          `UPDATE users SET ${columns.map((column, i) => `${column} = ?${i + 3}`).join(", ")}, content_updated_at = ?2 WHERE id = ?1`,
-        )
-        .run(user.userId, ctx.now(), ...columns.map((column) => changes[column]!));
-      publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
+      storeProfileChanges(ctx, user.userId, changes);
     });
   return readProfile(ctx, actor, user.userId);
 });

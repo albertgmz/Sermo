@@ -281,29 +281,52 @@ export const usersFollowOp = implement(contracts.usersFollow, (ctx, actor, input
   });
   return { following: true as const, followerCount };
 });
+/** Ends one follow and keeps both members' counters right. Inside a write transaction. */
+function removeFollow(ctx: Ctx, followerId: number, followedId: number): void {
+  const removed = query(
+    ctx,
+    "unfollow",
+    "DELETE FROM user_follows WHERE user_id = ?1 AND followed_id = ?2",
+  ).run(followerId, followedId).changes;
+  if (removed) {
+    query(
+      ctx,
+      "decrementFollower",
+      "UPDATE users SET follower_count = follower_count - 1 WHERE id = ?1",
+    ).run(followedId);
+    query(
+      ctx,
+      "decrementFollowing",
+      "UPDATE users SET following_count = following_count - 1 WHERE id = ?1",
+    ).run(followerId);
+  }
+}
+
+const END_FOLLOWS_BATCH = 200;
+/**
+ * Ends every follow a member gave and received, in short transactions of a bounded number of
+ * rows each, through the same code as unfollowing. Safe to run again: it stops when none is left.
+ */
+export function endMemberFollows(ctx: Ctx, userId: number): void {
+  for (;;) {
+    const ended = writeTx(ctx, () => {
+      const pairs = query<{ user_id: number; followed_id: number }, [number, number]>(
+        ctx,
+        "followsOfMember",
+        "SELECT user_id, followed_id FROM user_follows WHERE user_id = ?1 OR followed_id = ?1 LIMIT ?2",
+      ).all(userId, END_FOLLOWS_BATCH);
+      for (const pair of pairs) removeFollow(ctx, pair.user_id, pair.followed_id);
+      return pairs.length;
+    });
+    if (ended < END_FOLLOWS_BATCH) return;
+  }
+}
+
 export const usersUnfollowOp = implement(
   contracts.usersUnfollow,
   (ctx, actor, input) => {
     const user = requireAuthenticated(actor);
-    writeTx(ctx, () => {
-      const removed = query(
-        ctx,
-        "unfollow",
-        "DELETE FROM user_follows WHERE user_id = ?1 AND followed_id = ?2",
-      ).run(user.userId, input.userId).changes;
-      if (removed) {
-        query(
-          ctx,
-          "decrementFollower",
-          "UPDATE users SET follower_count = follower_count - 1 WHERE id = ?1",
-        ).run(input.userId);
-        query(
-          ctx,
-          "decrementFollowing",
-          "UPDATE users SET following_count = following_count - 1 WHERE id = ?1",
-        ).run(user.userId);
-      }
-    });
+    writeTx(ctx, () => removeFollow(ctx, user.userId, input.userId));
     return { ok: true as const };
   },
   { public: "A signed-in member can remove only their own follow row." },

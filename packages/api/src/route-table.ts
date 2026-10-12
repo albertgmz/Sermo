@@ -228,6 +228,23 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/seo/threads/{threadId}", "seo.thread"],
   ["GET", "/seo/users/{userId}", "seo.profile"],
   ["GET", "/seo/search", "seo.search"],
+  ["GET", "/admin/activity", "admin.activity"],
+  ["GET", "/admin/staff-online", "admin.staffOnline"],
+  ["GET", "/admin/jobs", "admin.jobs"],
+  ["GET", "/admin/moderators", "staff.moderators"],
+  ["GET", "/admin/administrators", "staff.administrators"],
+  ["GET", "/admin/users", "users.adminList"],
+  ["GET", "/admin/users/{userId}", "users.adminGet"],
+  ["PATCH", "/admin/users/{userId}/identity", "users.adminUpdateIdentity"],
+  ["PATCH", "/admin/users/{userId}/profile", "users.adminUpdateProfile"],
+  ["GET", "/admin/users/{userId}/sessions", "users.adminSessions"],
+  ["POST", "/admin/users/{userId}/sessions/revoke", "users.adminRevokeSessions"],
+  ["GET", "/admin/users/{userId}/log", "users.adminLog"],
+  ["POST", "/admin/users/{userId}/erase", "users.adminErase"],
+  ["POST", "/me/verify-password", "auth.verifyPassword"],
+  ["GET", "/bans", "bans.list"],
+  ["GET", "/announcements", "announcements.list"],
+  ["POST", "/approval-queue/conversation-message", "approvals.viewConversationMessage"],
 ];
 
 export const routes: readonly ApiRoute[] = definitions.map(([method, path, operation, status]) => ({

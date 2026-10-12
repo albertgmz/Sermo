@@ -141,7 +141,8 @@ function isBanned(ctx: Ctx, userId: number): boolean {
   );
 }
 
-function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
+/** Moves a member whose address is now verified out of the unconfirmed group, if they are in it. */
+export function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
   return writeTx(ctx, () => {
     const changed =
       ctx.sqlite
