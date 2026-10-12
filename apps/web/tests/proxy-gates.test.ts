@@ -296,8 +296,12 @@ test("the legacy LITE cookie is replaced on a page that carries the header", asy
 });
 
 test("a forum is a 404 when the backend says it is not found, and only then", async () => {
-  backend({ "/api/v1/nodes/3": Response.json(NODE) });
+  backend({
+    "/api/v1/nodes/3": Response.json(NODE),
+    "/api/v1/nodes/42": Response.json(NODE),
+  });
   passes(await ask("/forums/3"));
+  passes(await ask("/forums/42"));
   isNotFound(await ask("/forums/4"));
 
   // An outage or a refusal other than not_found lets the page show its own error.
@@ -321,12 +325,18 @@ test("a forum id that is not a plain number is a 404 and the backend is not aske
 test("a thread is proven by one post, never by reading the thread (which counts a view)", async () => {
   const asked = backend({
     "/api/v1/threads/7/posts?limit=1": Response.json(NO_POSTS),
+    "/api/v1/threads/345/posts?limit=1": Response.json(NO_POSTS),
   });
   passes(await ask("/threads/7"));
+  passes(await ask("/threads/345"));
   isNotFound(await ask("/threads/8"));
   assert.deepEqual(
     asked.map((entry) => entry.url.pathname + entry.url.search),
-    ["/api/v1/threads/7/posts?limit=1", "/api/v1/threads/8/posts?limit=1"],
+    [
+      "/api/v1/threads/7/posts?limit=1",
+      "/api/v1/threads/345/posts?limit=1",
+      "/api/v1/threads/8/posts?limit=1",
+    ],
   );
 
   backend({ "/api/v1/threads/7/posts?limit=1": refusal(500, "internal") });

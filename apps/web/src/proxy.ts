@@ -29,7 +29,7 @@ type Finder = (
 ) => Promise<unknown>;
 
 const isId = (id: string) =>
-  /^[1-9]d*$/.test(id) && Number.isSafeInteger(Number(id));
+  /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
 
 const numeric =
   <T>(find: (id: number, viewerId: number) => Promise<T>): Finder =>
