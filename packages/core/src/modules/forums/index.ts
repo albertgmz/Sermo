@@ -124,7 +124,9 @@ export const forumSql = {
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
-  lastPostPositions: "SELECT id, position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
+  /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
+  lastPostPositions:
+    "SELECT id, CASE WHEN position < 0 THEN -position - 1 ELSE position END AS position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
   readBatch:
     "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
   nodeLast:

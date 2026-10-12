@@ -18,7 +18,7 @@ import {
   authMeOp,
   ensureAdmin,
   getAuth,
-  purgeExpiredCredentials,
+  purgeExpiredCredentialsBatch,
   resolveActor,
   revokeUserCredentials,
 } from "./index";
@@ -733,7 +733,7 @@ test("ensureAdmin ignores a member whose custom group denies admin.permissions",
   expect(result.userId).not.toBe(member.id);
 });
 
-test("purgeExpiredCredentials keeps live rows", async () => {
+test("purgeExpiredCredentialsBatch keeps live rows", async () => {
   const ctx = createTestContext();
   const { cookie } = await signUp(ctx);
   const key = await getAuth(ctx).api.createApiKey({
@@ -759,7 +759,12 @@ test("purgeExpiredCredentials keeps live rows", async () => {
     "UPDATE auth_session SET expires_at = 1 WHERE id = (SELECT min(id) FROM auth_session)",
   );
   ctx.sqlite.prepare("UPDATE auth_apikey SET expires_at = 1 WHERE id = ?1").run(Number(key.id));
-  expect(purgeExpiredCredentials(ctx)).toEqual({ sessions: 1, apiKeys: 1, verifications: 1 });
+  expect(purgeExpiredCredentialsBatch(ctx)).toMatchObject({
+    sessions: 1,
+    apiKeys: 1,
+    verifications: 1,
+    more: false,
+  });
   expect(
     ctx.sqlite.query<{ n: number }, []>("SELECT count(*) AS n FROM auth_session").get()?.n,
   ).toBe(1);
