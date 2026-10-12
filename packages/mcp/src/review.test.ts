@@ -852,6 +852,7 @@ const patternSamples: Record<string, string> = {
   "^B[A-Za-z0-9_-]{86}=?$": `B${"A".repeat(86)}`,
   "^[A-Za-z0-9_-]{21}[AQgw](==)?$": `${"A".repeat(21)}A`,
   "^#[0-9a-fA-F]{6}$": "#aabbcc",
+  "^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$": "terms",
 };
 
 /** The smallest input the published schema describes: required properties only. */
@@ -879,6 +880,8 @@ function minimalSample(schema: Json, root: Json): unknown {
       if (schema.format === "date-time") return "2030-01-01T00:00:00.000Z";
       if (schema.pattern !== undefined)
         return patternSamples[schema.pattern] ?? `no sample for ${schema.pattern}`;
+      // A navigation target is checked by a refinement the published schema cannot express.
+      if (String(schema.description).includes("At most 500 characters")) return "/forums";
       // Normalized URL fields move their format into the description.
       if (String(schema.description).includes("Format: uri")) return "https://example.test/push";
       return "x".repeat(Math.max(schema.minLength ?? 0, 1));

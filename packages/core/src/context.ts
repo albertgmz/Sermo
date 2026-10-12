@@ -133,7 +133,8 @@ export type CacheKey =
   | "reaction_types"
   | "appearance"
   | "thread_prefixes"
-  | "node_tabs";
+  | "node_tabs"
+  | "navigation";
 
 /**
  * Returns a cached value for `key`, rebuilding it when the key's version in `cache_versions`
