@@ -102,6 +102,7 @@ function AwardCard({
       )}
     >
       <Art
+        category="awards"
         src={award.image}
         className={cn(
           "absolute inset-y-0 right-0 -z-10 aspect-video [mask-image:linear-gradient(to_left,black,transparent_85%)]",

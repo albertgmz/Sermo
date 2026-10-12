@@ -261,7 +261,11 @@ function ItemPicture({
   }
   return (
     <div className="relative isolate flex aspect-video items-end overflow-hidden border-b p-3">
-      <Art src={item.image} className="absolute inset-0 -z-10" />
+      <Art
+        category={item.category === "threadCover" ? "threadCovers" : "shop"}
+        src={item.image}
+        className="absolute inset-0 -z-10"
+      />
       {effect.type === "nameColor" && (
         <p
           className={cn(
@@ -429,6 +433,7 @@ function PermissionExample({
           {COVERS.slice(0, 3).map(({ key }) => (
             <li key={key}>
               <Art
+                category="profileCovers"
                 src={coverSrc(key)}
                 className="aspect-(--aspect-cover) rounded-sm border"
               />
@@ -583,7 +588,11 @@ function PermissionShop({
               className="scroll-mt-4 overflow-hidden rounded-lg border bg-card sm:grid sm:grid-cols-[9rem_minmax(0,1fr)]"
             >
               <div className="relative isolate flex h-20 items-center justify-center border-b sm:h-auto sm:border-r sm:border-b-0">
-                <Art src={item.image} className="absolute inset-0 -z-10" />
+                <Art
+                  category="shop"
+                  src={item.image}
+                  className="absolute inset-0 -z-10"
+                />
                 <span className="flex size-12 items-center justify-center rounded-full border bg-background/80 text-primary">
                   <PermissionIcon permission={permission} className="size-6" />
                 </span>
@@ -758,7 +767,11 @@ function ItemThumb({ item, preview }: { item: ShopItem; preview: AvatarUser }) {
           link={false}
         />
       ) : (
-        <Art src={item.image} className="absolute inset-0 -z-10" />
+        <Art
+          category={item.category === "threadCover" ? "threadCovers" : "shop"}
+          src={item.image}
+          className="absolute inset-0 -z-10"
+        />
       )}
     </div>
   );

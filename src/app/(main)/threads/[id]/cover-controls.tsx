@@ -28,7 +28,13 @@ export function CoverControls({
         itemId,
         name,
         quantity,
-        preview: <Art src={src} className="aspect-(--aspect-cover) w-full" />,
+        preview: (
+          <Art
+            category="threadCovers"
+            src={src}
+            className="aspect-(--aspect-cover) w-full"
+          />
+        ),
       }))}
     />
   );

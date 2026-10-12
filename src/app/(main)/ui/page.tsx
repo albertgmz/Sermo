@@ -127,7 +127,7 @@ import {
   formatNumber,
   formatRelativeTime,
 } from "@/lib/format";
-import { isLiteMode } from "@/lib/lite-mode";
+import { getLiteState } from "@/lib/lite-mode";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Browser, Os, ShopCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -291,7 +291,7 @@ export default async function StyleguidePage() {
     getCurrentMonthStanding(3),
     getShopItems(),
     getLeaderboard("xp", 6),
-    isLiteMode(),
+    getLiteState(),
   ]);
   const prefixCategory = categories.find((category) =>
     category.forums.some((forum) => forum.lastPost?.prefix),
@@ -710,7 +710,7 @@ export default async function StyleguidePage() {
               <LogoMark />
               Logo mark
             </span>
-            <MobileMenu />
+            <MobileMenu logo={<Logo className="-ml-2 px-2" />} />
           </div>
           <HeaderNav className="flex flex-wrap" />
           <SearchForm />
@@ -1287,7 +1287,11 @@ export default async function StyleguidePage() {
                 key={award.id}
                 className="relative isolate flex aspect-video items-end overflow-hidden rounded-lg border bg-card p-3"
               >
-                <Art src={award.image} className="absolute inset-0 -z-10" />
+                <Art
+                  category="awards"
+                  src={award.image}
+                  className="absolute inset-0 -z-10"
+                />
                 <p className="text-sm font-semibold">{award.name}</p>
               </li>
             ))}
@@ -1301,7 +1305,7 @@ export default async function StyleguidePage() {
             navigation and layout remain available. This switch saves the
             preference and refreshes the page, including the examples here.
           </p>
-          <LiteModeToggle enabled={lite} />
+          <LiteModeToggle enabled={lite.master} />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">

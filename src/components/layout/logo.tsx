@@ -1,7 +1,24 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { liteBlocks } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 export function LogoMark({ className }: { className?: string }) {
+  return (
+    <Suspense fallback={<LogoMarkPlaceholder className={className} />}>
+      <ResolvedLogoMark className={className} />
+    </Suspense>
+  );
+}
+
+export function LogoMarkPlaceholder({ className }: { className?: string }) {
+  return <LitePlaceholder compact className={cn("size-5", className)} />;
+}
+
+async function ResolvedLogoMark({ className }: { className?: string }) {
+  if (await liteBlocks("brand"))
+    return <LogoMarkPlaceholder className={className} />;
   return (
     <svg
       viewBox="0 0 24 24"
@@ -18,14 +35,35 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo({
-  href = "/",
-  markOnly = false,
-  className,
-}: {
+type LogoProps = {
   href?: string;
   markOnly?: boolean;
   className?: string;
+};
+
+export function Logo(props: LogoProps) {
+  return (
+    <LogoLink {...props}>
+      <LogoMark />
+    </LogoLink>
+  );
+}
+
+export function LogoPlaceholder(props: LogoProps) {
+  return (
+    <LogoLink {...props}>
+      <LogoMarkPlaceholder />
+    </LogoLink>
+  );
+}
+
+function LogoLink({
+  href = "/",
+  markOnly = false,
+  className,
+  children,
+}: LogoProps & {
+  children: React.ReactNode;
 }) {
   return (
     <Link
@@ -36,7 +74,7 @@ export function Logo({
         className,
       )}
     >
-      <LogoMark />
+      {children}
       {!markOnly && <span>forum/ui</span>}
     </Link>
   );

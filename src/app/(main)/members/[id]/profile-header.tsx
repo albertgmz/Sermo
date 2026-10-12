@@ -70,6 +70,7 @@ export function ProfileHeader({
       >
         {user.appearance.cover && (
           <Art
+            category="profileCovers"
             className="absolute inset-0 bg-cover bg-center opacity-60"
             src={coverSrc(user.appearance.cover)}
           />

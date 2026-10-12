@@ -82,6 +82,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
     >
       {thread.cover && (
         <Art
+          category="threadCovers"
           src={threadCoverSrc(thread.cover)}
           className="absolute inset-y-0 right-0 -z-10 w-2/3 opacity-25 [mask-image:linear-gradient(to_left,black,transparent)] md:w-1/2"
         />

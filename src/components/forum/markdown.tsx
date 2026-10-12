@@ -2,10 +2,10 @@ import { Suspense } from "react";
 import type { Components } from "react-markdown";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { MarkdownContent } from "@/components/forum/markdown-content";
-import { isLiteMode } from "@/lib/lite-mode";
+import { liteBlocks } from "@/lib/lite-mode";
 
 async function MarkdownImage({ alt, ...props }: React.ComponentProps<"img">) {
-  if (await isLiteMode()) {
+  if (await liteBlocks("postImages")) {
     return <LitePlaceholder className="inline-flex min-h-10 w-full" />;
   }
   // biome-ignore lint/performance/noImgElement: Markdown can contain arbitrary image URLs.

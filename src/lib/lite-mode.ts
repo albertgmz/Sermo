@@ -2,9 +2,21 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { cache } from "react";
+import {
+  blocks,
+  LITE_COOKIE,
+  type LiteCategory,
+  parseLiteCookie,
+} from "@/lib/lite-preferences";
 
-export const LITE_COOKIE = "forum_lite";
+export const getLiteCookieValue = cache(async () => {
+  return (await cookies()).get(LITE_COOKIE)?.value ?? "";
+});
 
-export const isLiteMode = cache(async () => {
-  return (await cookies()).get(LITE_COOKIE)?.value === "1";
+export const getLiteState = cache(async () => {
+  return parseLiteCookie(await getLiteCookieValue());
+});
+
+export const liteBlocks = cache(async (category: LiteCategory) => {
+  return blocks(await getLiteState(), category);
 });

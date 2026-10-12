@@ -4,19 +4,11 @@ import { Send } from "lucide-react";
 import { useActionState } from "react";
 import { discard, echoMarkdown } from "@/app/(main)/ui/actions";
 import { Editor } from "@/components/forum/editor";
-import { LitePlaceholder } from "@/components/forum/lite-placeholder";
-import { MarkdownContent } from "@/components/forum/markdown-content";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-export function EditorDemoClient({
-  lite,
-  defaultValue,
-}: {
-  lite: boolean;
-  defaultValue: string;
-}) {
-  const [markdown, action, pending] = useActionState(echoMarkdown, "");
+export function EditorDemoClient({ defaultValue }: { defaultValue: string }) {
+  const [preview, action, pending] = useActionState(echoMarkdown, null);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <form action={action} className="min-w-0 space-y-3">
@@ -46,20 +38,8 @@ export function EditorDemoClient({
         <p className="mb-3 text-xs font-semibold text-muted-foreground">
           Submitted Markdown
         </p>
-        {markdown ? (
-          <MarkdownContent
-            images={
-              lite
-                ? {
-                    img: () => (
-                      <LitePlaceholder className="inline-flex min-h-10 w-full" />
-                    ),
-                  }
-                : undefined
-            }
-          >
-            {markdown}
-          </MarkdownContent>
+        {preview ? (
+          preview
         ) : (
           <p className="text-sm text-muted-foreground">
             Submit the form to see the rendered result. The editor clears itself

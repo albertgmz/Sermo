@@ -24,6 +24,7 @@ export function CoverBackdrop({
   if (!cover) return null;
   return (
     <Art
+      category="profileCovers"
       className={cn(
         "pointer-events-none absolute -z-10 bg-cover bg-[position:75%_30%]",
         VARIANTS[variant],

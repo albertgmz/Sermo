@@ -1,12 +1,27 @@
+import { Suspense } from "react";
+import { liteBlocks } from "@/lib/lite-mode";
+
 const COLUMNS = Array.from({ length: 17 }, (_, i) => i * 62.5);
 const ROWS = [1, 42, 72, 92];
+const BOX =
+  "pointer-events-none absolute inset-x-0 top-0 -z-10 h-[26rem] overflow-hidden";
 
 export function PageBackdrop() {
   return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[26rem] overflow-hidden"
-    >
+    <Suspense fallback={<PageBackdropPlaceholder />}>
+      <ResolvedPageBackdrop />
+    </Suspense>
+  );
+}
+
+export function PageBackdropPlaceholder() {
+  return <div aria-hidden="true" className={BOX} />;
+}
+
+async function ResolvedPageBackdrop() {
+  if (await liteBlocks("brand")) return <PageBackdropPlaceholder />;
+  return (
+    <div aria-hidden="true" className={BOX}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_70%_at_50%_0%,color-mix(in_oklab,var(--primary)_16%,transparent),transparent_70%)]" />
       <svg
         aria-hidden="true"

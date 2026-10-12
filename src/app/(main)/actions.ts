@@ -4,14 +4,30 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { type ReactionTarget, setReaction } from "@/lib/db";
-import { LITE_COOKIE } from "@/lib/lite-mode";
+import { normalizeImagePath } from "@/lib/lite-images";
+import {
+  LITE_CATEGORIES,
+  LITE_COOKIE,
+  serializeLiteCookie,
+} from "@/lib/lite-preferences";
 import { getCurrentUser, signOut } from "@/lib/session";
 
 export async function setLiteMode(formData: FormData) {
   const store = await cookies();
-  if (formData.get("enabled") === "1") {
-    store.set(LITE_COOKIE, "1", {
-      httpOnly: true,
+  const mode = formData.get("mode");
+  const categories = formData.getAll("category");
+  const value = serializeLiteCookie({
+    master: mode === "all",
+    blocked:
+      mode === "custom"
+        ? LITE_CATEGORIES.filter(({ key }) => categories.includes(key)).map(
+            ({ key }) => key,
+          )
+        : [],
+  });
+  if (value) {
+    store.set(LITE_COOKIE, value, {
+      httpOnly: false,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
@@ -20,8 +36,12 @@ export async function setLiteMode(formData: FormData) {
     store.delete(LITE_COOKIE);
   }
   const returnTo = String(formData.get("returnTo") ?? "/");
+  const path = normalizeImagePath(returnTo.split(/[?#]/)[0]);
   redirect(
-    returnTo.startsWith("/") && !/^\/[\\/]|[\s\\]/.test(returnTo)
+    returnTo.startsWith("/") &&
+      !/^\/[\\/]|[\s\\]/.test(returnTo) &&
+      path !== "/_next" &&
+      !path.startsWith("/_next/")
       ? returnTo
       : "/",
   );

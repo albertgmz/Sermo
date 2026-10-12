@@ -20,11 +20,13 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { liteBlocks } from "@/lib/lite-mode";
 import { AWARD_SLOTS } from "@/lib/permissions";
 import type { Award, AwardTier } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -65,7 +67,7 @@ const SIZES = {
 
 export type AwardIconSize = keyof typeof SIZES;
 
-export function AwardIcon({
+export async function AwardIcon({
   award,
   size = "md",
   className,
@@ -76,6 +78,7 @@ export function AwardIcon({
 }) {
   const Icon = ICONS[award.icon] ?? AwardFallback;
   const [box, glyph] = SIZES[size];
+  const blocked = await liteBlocks("awards");
   return (
     <Tooltip>
       <TooltipTrigger
@@ -92,7 +95,11 @@ export function AwardIcon({
           />
         }
       >
-        <Icon aria-hidden="true" className={glyph} />
+        {blocked ? (
+          <LitePlaceholder compact className={cn("rounded-full", glyph)} />
+        ) : (
+          <Icon aria-hidden="true" className={glyph} />
+        )}
       </TooltipTrigger>
       <TooltipContent>{award.name}</TooltipContent>
     </Tooltip>

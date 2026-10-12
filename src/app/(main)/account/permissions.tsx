@@ -4,6 +4,8 @@ import { Credits } from "@/components/forum/credits";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Badge } from "@/components/ui/badge";
 import type { PermissionView, UserView } from "@/lib/db";
+import { stripMarkdownImages } from "@/lib/lite-markdown";
+import { liteBlocks } from "@/lib/lite-mode";
 import type { PermissionKey } from "@/lib/permissions";
 
 const linkClass =
@@ -60,7 +62,7 @@ function Control({
   );
 }
 
-export function PermissionsPanel({
+export async function PermissionsPanel({
   user,
   permissions,
   prices,
@@ -74,6 +76,9 @@ export function PermissionsPanel({
   const signature = permissions.find(
     (permission) => permission.key === "signature",
   );
+  const signatureText = (await liteBlocks("postImages"))
+    ? stripMarkdownImages(user.signature ?? "")
+    : (user.signature ?? "");
 
   return (
     <section id="permissions" className="scroll-mt-4 rounded-lg border bg-card">
@@ -135,8 +140,8 @@ export function PermissionsPanel({
             description="Shown under your first post on each thread page and on your profile."
           >
             <SignatureForm
-              key={user.signature ?? ""}
-              signature={user.signature ?? ""}
+              key={signatureText}
+              signature={signatureText}
               locked={!signature.granted}
               saved={saved === "signature"}
             />

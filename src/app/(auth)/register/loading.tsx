@@ -3,8 +3,8 @@ import {
   LoadingRegion,
   TextSkeleton,
 } from "@/components/forum/skeletons";
-import { Logo } from "@/components/layout/logo";
-import { PageBackdrop } from "@/components/layout/page-backdrop";
+import { LogoPlaceholder as Logo } from "@/components/layout/logo";
+import { PageBackdropPlaceholder as PageBackdrop } from "@/components/layout/page-backdrop";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {

@@ -6,7 +6,8 @@ import {
   getThread,
   getUserById,
 } from "@/lib/db";
-import { LITE_COOKIE } from "@/lib/lite-mode";
+import { blocksImageRequest, isImageRequest } from "@/lib/lite-images";
+import { LITE_COOKIE, parseLiteCookie } from "@/lib/lite-preferences";
 import { COOKIE } from "@/lib/session";
 
 type Finder = (id: string, viewerId: number) => Promise<unknown>;
@@ -29,29 +30,45 @@ const CONTENT: Record<string, Finder> = {
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
 export async function proxy(request: NextRequest) {
+  const response = await handleRequest(request);
+  // Old installations set an HttpOnly preference. Replace it so tab sync can
+  // observe changes without treating an invisible legacy cookie as a mismatch.
+  if (
+    request.cookies.get(LITE_COOKIE)?.value === "1" &&
+    request.method === "GET"
+  ) {
+    const migrated = response ?? NextResponse.next();
+    migrated.cookies.set(LITE_COOKIE, "all", {
+      httpOnly: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return migrated;
+  }
+  return response;
+}
+
+async function handleRequest(request: NextRequest) {
+  const lite = parseLiteCookie(request.cookies.get(LITE_COOKIE)?.value);
+  if (blocksImageRequest(lite, request.nextUrl.pathname)) {
+    return new NextResponse(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">LITE MODE</text></svg>',
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "image/svg+xml",
+          "Cache-Control": "no-store",
+        },
+      },
+    );
+  }
+  if (isImageRequest(request.nextUrl.pathname)) return;
+  if (request.nextUrl.pathname.startsWith("/_next/")) return;
   let pathname: string;
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
-    return;
-  }
-  const image =
-    /^\/(?:avatars|frames|covers|thread-covers|forums|awards|shop)\/.+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(
-      pathname,
-    ) || ["/logo.svg", "/icon.svg"].includes(pathname);
-  if (image) {
-    if (request.cookies.get(LITE_COOKIE)?.value === "1") {
-      return new NextResponse(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">LITE MODE</text></svg>',
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "image/svg+xml",
-            "Cache-Control": "no-store",
-          },
-        },
-      );
-    }
     return;
   }
   const [, section, id, action] = pathname.split("/");
@@ -79,9 +96,8 @@ export async function proxy(request: NextRequest) {
   }
 }
 
-// Paths are matched before decoding, so an encoded variant of a protected path
-// (/%61dmin, /avatars/a%2ejpg) would slip past a narrow list. Run on everything
-// except Next internals and let the function return early for what it ignores.
+// Match before decoding, including image optimizer requests and file aliases.
+// Non-image Next internals return before the existing page access rules.
 export const config = {
-  matcher: ["/((?!_next/).*)"],
+  matcher: ["/:path*"],
 };

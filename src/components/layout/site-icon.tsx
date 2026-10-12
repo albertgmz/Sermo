@@ -1,8 +1,17 @@
-import { isLiteMode } from "@/lib/lite-mode";
+import { LiteModeSync } from "@/components/layout/lite-mode-sync";
+import { getLiteCookieValue, liteBlocks } from "@/lib/lite-mode";
 
 export async function SiteIcon() {
-  if (await isLiteMode()) return null;
+  const [cookieValue, blocked] = await Promise.all([
+    getLiteCookieValue(),
+    liteBlocks("brand"),
+  ]);
   return (
-    <link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="24x24" />
+    <>
+      <LiteModeSync cookieValue={cookieValue === "1" ? "all" : cookieValue} />
+      {!blocked && (
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="24x24" />
+      )}
+    </>
   );
 }
