@@ -5,6 +5,8 @@
 // rendering file's zone (no common namespace).
 import account from "../../messages/en/account.json";
 import admin from "../../messages/en/admin.json";
+import adminCommunication from "../../messages/en/admin-communication.json";
+import adminContent from "../../messages/en/admin-content.json";
 import adminGroups from "../../messages/en/admin-groups.json";
 import adminSetup from "../../messages/en/admin-setup.json";
 import adminTools from "../../messages/en/admin-tools.json";
@@ -33,6 +35,8 @@ import upgrade from "../../messages/en/upgrade.json";
 export const messages = {
   account,
   admin,
+  adminCommunication,
+  adminContent,
   adminGroups,
   adminSetup,
   adminTools,

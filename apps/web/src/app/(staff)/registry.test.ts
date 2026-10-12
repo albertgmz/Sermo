@@ -158,7 +158,10 @@ test("a partial administrator opens only the sections their permissions name", (
 
 test("the navigation of a member lists only the built screens they may open", () => {
   expect(visibleSections(member)).toEqual([]);
-  expect(visibleSections(announcer).map((s) => s.id)).toEqual(["home"]);
+  expect(visibleSections(announcer).map((s) => s.id)).toEqual([
+    "home",
+    "communication",
+  ]);
   expect(
     visibleSections(singleForumModerator).map((s) => [
       s.id,
