@@ -71,8 +71,13 @@ test("without the session cookie cache nothing is written back and no cache cook
 
 test("without the session cookie cache a revoked session stops working at once", async () => {
   const ctx = contextWith(false);
-  const { userId, token } = await signUpAndIn(ctx);
-  const headers = new Headers({ cookie: token });
+  const { userId, signIn } = await signUpAndIn(ctx);
+  // Every cookie of the sign-in: with the cache on, the cached copy would outlive the session.
+  const cookie = signIn.headers
+    .getSetCookie()
+    .map((value) => value.split(";")[0])
+    .join("; ");
+  const headers = new Headers({ cookie });
   expect((await resolveActor(ctx, headers)).actor.kind).toBe("user");
   ctx.sqlite.prepare("DELETE FROM auth_session WHERE user_id = ?1").run(userId);
   await expect(resolveActor(ctx, headers)).rejects.toBeInstanceOf(UnauthenticatedError);

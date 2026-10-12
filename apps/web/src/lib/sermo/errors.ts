@@ -18,3 +18,9 @@ export class SermoError extends Error {
     this.issues = issues;
   }
 }
+
+// The backend refuses the session itself: the cookie is dead (unauthenticated) or the account is
+// banned (forbidden on auth.me). Either way the visitor is shown the site as a guest.
+export function isSignedOut(error: SermoError): boolean {
+  return error.code === "unauthenticated" || error.code === "forbidden";
+}

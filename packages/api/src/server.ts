@@ -37,7 +37,7 @@ import {
 } from "@sermo/core";
 import { Context } from "hono";
 import { secureHeaders } from "hono/secure-headers";
-import { createApp } from "./app";
+import { createApp, type RATE_LIMITS } from "./app";
 
 const JSON_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i;
 
@@ -377,6 +377,17 @@ export function readConfiguration(source: Record<string, string | undefined> = p
       password: source.SERMO_SMTP_PASSWORD,
     },
     trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
+    rateLimits: Object.fromEntries(
+      (["read", "write", "search", "mcp"] as const).flatMap((bucket) => {
+        const name = `SERMO_RATE_LIMIT_${bucket.toUpperCase()}`;
+        const value = source[name];
+        if (!value) return [];
+        const limit = Number(value);
+        if (!Number.isInteger(limit) || limit < 1)
+          throw new Error(`${name} must be a positive integer.`);
+        return [[bucket, limit]];
+      }),
+    ) as Partial<Record<keyof typeof RATE_LIMITS, number>>,
     vapid,
     auth: {
       secret,
@@ -472,6 +483,7 @@ async function main(): Promise<void> {
   const stopScheduler = startScheduler(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
+    rateLimits: config.rateLimits,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },
   });
   const server = Bun.serve(createServerOptions(app, config.port));

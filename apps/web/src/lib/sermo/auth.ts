@@ -9,7 +9,6 @@ export type AuthResult = {
   ok: boolean;
   // Better Auth's error code, e.g. INVALID_USERNAME_OR_PASSWORD.
   code?: string;
-  status: number;
   // A session cookie came back: the visitor is signed in.
   signedIn: boolean;
 };
@@ -44,7 +43,7 @@ async function post(path: string, body?: unknown): Promise<AuthResult> {
     } catch {}
     if (response.status === 429) code = "RATE_LIMITED";
   }
-  return { ok: response.ok, code, status: response.status, signedIn };
+  return { ok: response.ok, code, signedIn };
 }
 
 export const signInWithUsername = (

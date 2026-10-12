@@ -34,6 +34,12 @@ if (exists) {
   closeContext(ctx);
   process.exit(0);
 }
+// Only an empty database: next to existing accounts the fixture would stop halfway.
+if (ctx.sqlite.prepare("SELECT 1 FROM auth_user LIMIT 1").get()) {
+  console.error("The development fixture only loads into a database without accounts.");
+  closeContext(ctx);
+  process.exit(1);
+}
 
 const GROUP = { member: 2, moderator: 3 };
 const REACTION = { like: 1, love: 2 };
