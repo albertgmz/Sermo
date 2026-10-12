@@ -1549,6 +1549,8 @@ export const shopInventory = sqliteTable(
     index("shop_inventory_user_state").on(t.userId, t.state, t.updatedAt, t.id),
     // The expiry job: active items whose end has passed.
     index("shop_inventory_expiry").on(t.state, t.expiresAt),
+    // Deleting an item checks that no inventory row refers to it.
+    index("shop_inventory_item").on(t.itemId),
   ],
 );
 

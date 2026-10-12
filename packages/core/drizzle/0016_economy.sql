@@ -186,6 +186,8 @@ CREATE INDEX `shop_inventory_user_state` ON `shop_inventory` (`user_id`,`state`,
 --> statement-breakpoint
 CREATE INDEX `shop_inventory_expiry` ON `shop_inventory` (`state`,`expires_at`);
 --> statement-breakpoint
+CREATE INDEX `shop_inventory_item` ON `shop_inventory` (`item_id`);
+--> statement-breakpoint
 CREATE TABLE `shop_purchases` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`item_id` integer NOT NULL,
