@@ -33,7 +33,7 @@ import { renderContent, renderMarkdown, storeContentReferences } from "../../ren
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { loadMemberAuthors } from "../members/cards";
-import { REFERRAL_WINDOW_MS } from "../members/referral";
+import { REFERRAL_WINDOW_MS } from "../members/directory";
 import {
   appendModeratorLog,
   moderateEditedContent,

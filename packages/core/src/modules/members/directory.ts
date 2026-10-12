@@ -12,15 +12,23 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
-import { REFERRAL_WINDOW_MS } from "./referral";
 
 type Sort = (typeof MEMBER_SORTS)[number];
+
+/** A member may name a referrer only while their account is younger than this. */
+export const REFERRAL_WINDOW_MS = 7 * 86_400_000;
+interface ReferralRow {
+  referred_by: number | null;
+  created_at: number;
+  banned_until: number | null;
+  banned_permanently: number;
+}
 
 /** The most members the staff list holds. */
 export const STAFF_LIMIT = 200;
@@ -261,39 +269,41 @@ export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
 
 // users.setReferrer -----------------------------------------------------------------------------
 
-export const usersSetReferrerOp = implement(
-  usersSetReferrer,
-  (ctx, actor, input) => {
-    const user = requireAuthenticated(actor);
-    if (input.userId === user.userId)
-      throw new ValidationError("You cannot name yourself as your referrer.");
-    return writeTx(ctx, () => {
-      const read = (id: number) =>
-        prepared(ctx, "members.referralRow", () =>
-          ctx.sqlite.prepare<{ referred_by: number | null; created_at: number }, [number]>(
-            "SELECT referred_by, created_at FROM users WHERE id = ?1",
-          ),
-        ).get(id);
-      // Re-read inside the transaction: another process may have changed either row.
-      const me = read(user.userId);
-      if (!me) throw new NotFoundError();
-      if (!read(input.userId)) throw new NotFoundError();
-      if (me.referred_by !== null) throw new ConflictError("You already named a referrer.");
-      if (ctx.now() - me.created_at >= REFERRAL_WINDOW_MS)
-        throw new ConflictError("A referrer can only be named in the first seven days.");
-      const changed = prepared(ctx, "members.setReferrer", () =>
-        ctx.sqlite.prepare<unknown, [number, number, number]>(
-          "UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3 AND referred_by IS NULL",
+export const usersSetReferrerOp = implement(usersSetReferrer, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
+  requirePermission(ctx, actor, "profile.editOwn");
+  if (input.userId === user.userId)
+    throw new ValidationError("You cannot name yourself as your referrer.");
+  return writeTx(ctx, () => {
+    // The actor may have lost the permission, or been banned, since the request began.
+    requirePermission(ctx, currentActor(ctx, actor), "profile.editOwn");
+    const read = (id: number) =>
+      prepared(ctx, "members.referralRow", () =>
+        ctx.sqlite.prepare<ReferralRow, [number]>(
+          "SELECT referred_by, created_at, banned_until, banned_permanently FROM users WHERE id = ?1",
         ),
-      ).run(input.userId, ctx.now(), user.userId).changes;
-      if (changed === 0) throw new ConflictError("You already named a referrer.");
-      prepared(ctx, "members.countReferral", () =>
-        ctx.sqlite.prepare<unknown, [number]>(
-          "UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1",
-        ),
-      ).run(input.userId);
-      return { ok: true as const };
-    });
-  },
-  { public: "Any signed-in member may name who brought them; it changes only their own row." },
-);
+      ).get(id);
+    // Re-read inside the transaction: another process may have changed either row.
+    const me = read(user.userId);
+    if (!me) throw new NotFoundError();
+    const referrer = read(input.userId);
+    if (!referrer || isBanned(referrer, ctx.now())) throw new NotFoundError();
+    if (me.referred_by !== null) throw new ConflictError("You already named a referrer.");
+    if (ctx.now() - me.created_at >= REFERRAL_WINDOW_MS)
+      throw new ConflictError("A referrer can only be named in the first seven days.");
+    if (referrer.referred_by === user.userId)
+      throw new ConflictError("That member named you as their referrer.");
+    const changed = prepared(ctx, "members.setReferrer", () =>
+      ctx.sqlite.prepare<unknown, [number, number, number]>(
+        "UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3 AND referred_by IS NULL",
+      ),
+    ).run(input.userId, ctx.now(), user.userId).changes;
+    if (changed === 0) throw new ConflictError("You already named a referrer.");
+    prepared(ctx, "members.countReferral", () =>
+      ctx.sqlite.prepare<unknown, [number]>(
+        "UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1",
+      ),
+    ).run(input.userId);
+    return { ok: true as const };
+  });
+});

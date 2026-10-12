@@ -351,6 +351,46 @@ describe("users.setReferrer", () => {
     expect(row(w, old.id).referred_by).toBeNull();
   });
 
+  test("needs profile.editOwn, and a banned member has lost it", async () => {
+    const w = world();
+    await w.call("permissions.set", w.adminActor, {
+      groupId: 2,
+      entries: [{ permission: "profile.editOwn", value: "never" }],
+    });
+    await expect(refer(w, w.memberActor, w.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    expect(row(w, w.moderator.id).referral_count).toBe(0);
+    const w2 = world();
+    w2.set(w2.member.id, { banned_permanently: 1 });
+    await expect(refer(w2, w2.memberActor, w2.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(row(w2, w2.moderator.id).referral_count).toBe(0);
+  });
+
+  test("a banned member cannot be named: not found, like a member who does not exist", async () => {
+    const w = world();
+    const gone = w.user();
+    const later = w.user();
+    w.set(gone.id, { banned_permanently: 1 });
+    w.set(later.id, { banned_until: w.ctx.now() + 86_400_000 });
+    for (const target of [gone, later])
+      await expect(refer(w, w.memberActor, target.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    w.set(later.id, { banned_until: w.ctx.now() - 1 });
+    await refer(w, w.memberActor, later.id);
+    expect(row(w, later.id).referral_count).toBe(1);
+  });
+
+  test("a member who named you as their referrer cannot be named back", async () => {
+    const w = world();
+    const other = w.user();
+    const otherActor = { kind: "user", userId: other.id, groupId: 2, sessionId: 0 };
+    await refer(w, otherActor, w.member.id);
+    await expect(refer(w, w.memberActor, other.id)).rejects.toBeInstanceOf(ConflictError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    expect(row(w, other.id).referral_count).toBe(0);
+    expect(row(w, w.member.id).referral_count).toBe(1);
+  });
+
   test("the last day of the window still works", async () => {
     const w = world();
     w.ctx.clock.advance(7 * 86_400_000 - 1);
