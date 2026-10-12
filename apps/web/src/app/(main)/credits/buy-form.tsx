@@ -38,7 +38,10 @@ export function BuyForm({
             name="quantity"
             defaultValue={1}
             min={1}
-            max={Math.min(MOST_PER_PURCHASE, left ?? MOST_PER_PURCHASE)}
+            max={Math.max(
+              1,
+              Math.min(MOST_PER_PURCHASE, left ?? MOST_PER_PURCHASE),
+            )}
             inputMode="numeric"
             aria-label={t("aria.quantity", { itemName })}
             className="h-10 w-20 shrink-0"

@@ -9,14 +9,10 @@ import { read } from "@/lib/sermo/client";
 
 export type Rank = z.output<typeof shopItemsList.output>["items"][number];
 
-// A page of 100 is the most the backend gives; a category or inventory beyond this many pages is
-// not a ladder.
-const MOST_PAGES = 5;
-
 async function itemsOf(categoryId: number): Promise<Rank[]> {
   const items: Rank[] = [];
   let cursor: string | undefined;
-  for (let page = 0; page < MOST_PAGES; page++) {
+  for (;;) {
     const listing = await read(shopItemsList, {
       categoryId,
       limit: 100,
@@ -50,7 +46,7 @@ export const getLadder = cache(async () => {
 export async function currentRank(categoryId: number): Promise<Rank | null> {
   let best: Rank | null = null;
   let cursor: string | undefined;
-  for (let page = 0; page < MOST_PAGES; page++) {
+  for (;;) {
     const held = await read(shopInventory, {
       state: "active",
       limit: 100,

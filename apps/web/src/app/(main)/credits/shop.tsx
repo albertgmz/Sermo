@@ -146,9 +146,11 @@ async function ItemCard({
               {item.description}
             </p>
           )}
-          <p className="text-xs font-medium text-pretty [overflow-wrap:anywhere]">
-            <ItemEffect item={item} catalogs={catalogs} />
-          </p>
+          {item.effect.type !== "group" && (
+            <p className="text-xs font-medium text-pretty [overflow-wrap:anywhere]">
+              <ItemEffect item={item} catalogs={catalogs} />
+            </p>
+          )}
         </div>
         <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <Credits value={item.price} className="text-base" />
