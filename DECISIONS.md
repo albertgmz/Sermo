@@ -837,3 +837,10 @@ seconds before midnight, and who is active again before the flush, gets the next
 criteria take thresholds from zero up, so "in debt" is expressed as at most 0. The public catalog
 filters inactive items while walking a category's items in order; categories hold tens of items.
 Seeded temporary items that are still active end in 2100, so benchmarks never expire them.
+
+**A rule never pays for events older than itself.** `credit_rules.created_after_event_id` holds
+the newest event id at creation, and the subscriber skips older events; a timestamp cannot order
+two events of the same millisecond. A rule's limit is evaluated at the event's own time (the
+application takes the event's `created_at`), so processing an event again reaches the same
+decision. No per-event receipt table: it would add a row for every domain event to protect only
+a manual reset of the subscriber cursor.

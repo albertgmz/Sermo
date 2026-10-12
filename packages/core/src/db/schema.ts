@@ -1356,6 +1356,11 @@ export const creditRules = sqliteTable("credit_rules", {
   limitWindowHours: integer("limit_window_hours"),
   /** JSON array of forum ids the rule is restricted to; empty = everywhere. */
   nodeIds: text("node_ids").notNull().default("[]"),
+  /**
+   * The newest domain event when the rule was created. The rule applies only to later events,
+   * so events still waiting to be processed, or replayed, never pay under a rule made after them.
+   */
+  createdAfterEventId: integer("created_after_event_id").notNull().default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
