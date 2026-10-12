@@ -9,6 +9,7 @@ import { Container } from "@/components/layout/container";
 import { Logo } from "@/components/layout/logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getLiteState } from "@/lib/lite-mode";
+import { getSite } from "@/lib/sermo/site";
 import { getCurrentUser } from "@/lib/session";
 
 const SOCIALS = [
@@ -107,15 +108,32 @@ export function SiteFooter() {
             ))}
           </div>
         </div>
-        <p className="mt-8 border-t pt-4 text-xs text-muted-foreground">
-          {t.rich("copyright", {
-            brand: (chunks) => (
-              <span className="text-foreground">{chunks}</span>
-            ),
-          })}
-        </p>
+        <Suspense
+          fallback={
+            <div className="mt-8 border-t pt-4">
+              <Skeleton className="h-4 w-64 max-w-full" />
+            </div>
+          }
+        >
+          <FooterCopyright />
+        </Suspense>
       </Container>
     </footer>
+  );
+}
+
+async function FooterCopyright() {
+  const [t, site] = await Promise.all([
+    getTranslations("layout.siteFooter"),
+    getSite(),
+  ]);
+  return (
+    <p className="mt-8 border-t pt-4 text-xs text-muted-foreground">
+      {t.rich("copyright", {
+        site: site.name,
+        brand: (chunks) => <span className="text-foreground">{chunks}</span>,
+      })}
+    </p>
   );
 }
 

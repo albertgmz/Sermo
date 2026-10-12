@@ -1,7 +1,9 @@
 {
   "layout": {
-    "metaTitle": "forum/ui",
     "metaDescription": "A forum interface kit."
+  },
+  "site": {
+    "defaultName": "Sermo"
   },
   "siteNav": {
     "links": {
@@ -102,7 +104,7 @@
   },
   "siteFooter": {
     "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
-    "copyright": "© 2026 <brand>forum/ui</brand>. All rights reserved.",
+    "copyright": "© 2026 <brand>{site}</brand>. All rights reserved.",
     "columns": {
       "community": "Community",
       "useful": "Useful links",
@@ -123,7 +125,7 @@
   },
   "logo": {
     "aria": {
-      "home": "forum/ui home"
+      "home": "{site} home"
     }
   }
 }

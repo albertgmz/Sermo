@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-export function SettingsForm() {
+export function SettingsForm({ siteName }: { siteName: string }) {
   const t = useTranslations("admin.settingsForm");
   const [state, action, pending] = useActionState(previewSettings, null);
-  const [name, setName] = useState(t("defaultName"));
+  const [name, setName] = useState(siteName);
   const [description, setDescription] = useState(t("defaultDescription"));
   const [registration, setRegistration] = useState(true);
 

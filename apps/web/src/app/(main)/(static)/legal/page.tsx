@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { useFormatter, useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { StaticPage } from "@/app/(main)/(static)/static-page";
+import { getSite } from "@/lib/sermo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("static.legal");
@@ -10,15 +10,21 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function LegalPage() {
-  const t = useTranslations("static.legal");
-  const format = useFormatter();
+export default async function LegalPage() {
+  const [t, format, site] = await Promise.all([
+    getTranslations("static.legal"),
+    getFormatter(),
+    getSite(),
+  ]);
   const CONTENT = `
 ${t("introduction")}
 
 ## ${t("publisherHeading")}
 
-${t.rich("publisherAddress", { strong: (chunks) => `**${chunks}**` })}
+${t.rich("publisherAddress", {
+  site: site.name,
+  strong: (chunks) => `**${chunks}**`,
+})}
 
 ${t("publisherEmail")}
 

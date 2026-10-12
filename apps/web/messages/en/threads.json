@@ -38,7 +38,7 @@
     "authorLabel": "<hidden>Thread </hidden>Author",
     "postNumber": "#{number}",
     "reply": "Reply",
-    "metaTitle": "{hasPrefix, select, true {{prefix} } other {}}{title} - forum/ui",
+    "metaTitle": "{hasPrefix, select, true {{prefix} } other {}}{title}",
     "metaTitleFallback": "Thread",
     "home": "Home",
     "replyTitle": "Log in to reply",
