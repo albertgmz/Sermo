@@ -35,29 +35,6 @@
   --color-destructive: var(--destructive);
   --color-success: var(--success);
 
-  /* Name colours. */
-  --color-name-rose: var(--name-rose);
-  --color-name-coral: var(--name-coral);
-  --color-name-lime: var(--name-lime);
-  --color-name-emerald: var(--name-emerald);
-  --color-name-cyan: var(--name-cyan);
-  --color-name-sky: var(--name-sky);
-  --color-name-indigo: var(--name-indigo);
-  --color-name-pink: var(--name-pink);
-  --color-name-silver: var(--name-silver);
-  --color-name-gold: var(--name-gold);
-  --color-name-legendary: var(--name-legendary);
-
-  /* Prefix colours. */
-  --color-prefix-sky: var(--prefix-sky);
-  --color-prefix-emerald: var(--prefix-emerald);
-  --color-prefix-orange: var(--prefix-orange);
-  --color-prefix-violet: var(--prefix-violet);
-  --color-prefix-amber: var(--prefix-amber);
-  --color-prefix-cyan: var(--prefix-cyan);
-  --color-prefix-rose: var(--prefix-rose);
-  --color-prefix-lime: var(--prefix-lime);
-
   /* Tiers. */
   --color-tier-bronze: var(--tier-bronze);
   --color-tier-silver: var(--tier-silver);
@@ -168,29 +145,6 @@
   --chart-4: #52525b;
   --chart-5: #27272a;
 
-  /* Name colours. */
-  --name-rose: #fb7185;
-  --name-coral: #fb923c;
-  --name-lime: #a3e635;
-  --name-emerald: #34d399;
-  --name-cyan: #22d3ee;
-  --name-sky: #60a5fa;
-  --name-indigo: #818cf8;
-  --name-pink: #f472b6;
-  --name-silver: var(--tier-silver);
-  --name-gold: var(--tier-gold);
-  --name-legendary: var(--tier-legendary);
-
-  /* Prefix colours. */
-  --prefix-sky: var(--name-sky);
-  --prefix-emerald: var(--name-emerald);
-  --prefix-orange: var(--name-coral);
-  --prefix-violet: var(--name-indigo);
-  --prefix-amber: var(--tier-gold);
-  --prefix-cyan: var(--name-cyan);
-  --prefix-rose: var(--name-rose);
-  --prefix-lime: var(--name-lime);
-
   /* Tiers. */
   --tier-bronze: #c2814a;
   --tier-silver: #c4c4cc;
@@ -206,43 +160,11 @@
   --prefix-offset: 0.0625rem;
 }
 
-/* Everything derived from the accent, so a preset only sets two values. */
-:root,
-[data-accent] {
+/*
+ * Everything derived from the accent. A site's accent sets --primary and --primary-foreground on
+ * the root (ViewerAccent); the values above are what shows until the site's data is read.
+ */
+:root {
   --ring: var(--primary);
   --chart-2: var(--primary);
-}
-
-/*
- * Accent presets. data-accent recolours a subtree (previews); data-site-accent
- * on any element recolours the whole document, popups included.
- */
-[data-accent="red"] {
-  --primary: #dc2626;
-  --primary-foreground: #ffffff;
-}
-:root:has([data-site-accent="orange"]),
-[data-accent="orange"] {
-  --primary: #ea580c;
-  --primary-foreground: #1a0a03;
-}
-:root:has([data-site-accent="amber"]),
-[data-accent="amber"] {
-  --primary: #f59e0b;
-  --primary-foreground: #1c1304;
-}
-:root:has([data-site-accent="emerald"]),
-[data-accent="emerald"] {
-  --primary: #10b981;
-  --primary-foreground: #022c22;
-}
-:root:has([data-site-accent="sky"]),
-[data-accent="sky"] {
-  --primary: #0ea5e9;
-  --primary-foreground: #03131f;
-}
-:root:has([data-site-accent="violet"]),
-[data-accent="violet"] {
-  --primary: #8452f6;
-  --primary-foreground: #ffffff;
 }
