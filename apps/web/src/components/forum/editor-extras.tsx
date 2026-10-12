@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 export type MemberHit = { id: number; username: string };
 
 const NONE: MemberHit[] = [];
+const CLOSED = { prefix: "", hits: NONE };
 
 // The text typed after an "@" that starts a word, up to the caret.
 const TYPING = /(?:^|[\s(])@([\p{L}\p{N}._-]{1,32})$/u;
@@ -92,8 +93,6 @@ export function MentionPlugin({
     hits: [],
   });
   const hits = found.prefix === typed ? found.hits : NONE;
-  const setHits = (items: MemberHit[]) =>
-    setFound({ prefix: typed ?? "", hits: items });
   const [active, setActive] = useState(0);
   const open = typed !== null && hits.length > 0;
   const latest = useRef({ open, hits, active });
@@ -160,7 +159,7 @@ export function MentionPlugin({
     };
     const choose = () => {
       insertMention(editor, latest.current.hits[latest.current.active]);
-      setHits([]);
+      setFound(CLOSED);
     };
     const step = (by: number) => () => {
       const count = latest.current.hits.length;
@@ -189,7 +188,7 @@ export function MentionPlugin({
       ),
       editor.registerCommand(
         KEY_ESCAPE_COMMAND,
-        when(() => setHits([])),
+        when(() => setFound(CLOSED)),
         COMMAND_PRIORITY_HIGH,
       ),
     );
@@ -221,7 +220,7 @@ export function MentionPlugin({
               onMouseDown={(event) => {
                 event.preventDefault();
                 insertMention(editor, hit);
-                setHits([]);
+                setFound(CLOSED);
               }}
             >
               {hit.username}
