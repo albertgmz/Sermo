@@ -111,8 +111,10 @@ const threadDetailColumns = threadColumns
   .split(", ")
   .map((column) => `t.${column}`)
   .join(", ");
-const postColumns =
-  "p.id, p.thread_id, p.user_id, p.position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count";
+/** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
+const storedPosition = (column: string) =>
+  `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
+const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
@@ -124,9 +126,7 @@ export const forumSql = {
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
-  /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
-  lastPostPositions:
-    "SELECT id, CASE WHEN position < 0 THEN -position - 1 ELSE position END AS position FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
+  lastPostPositions: `SELECT id, ${storedPosition("position")} AS position FROM posts WHERE id IN (SELECT value FROM json_each(?1))`,
   readBatch:
     "SELECT thread_id, last_read_post_id, last_read_position FROM thread_reads WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2))",
   nodeLast:

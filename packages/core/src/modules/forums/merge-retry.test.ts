@@ -4,7 +4,15 @@ import { type Ctx, invalidate } from "../../context";
 import { execute } from "../../operation";
 import { runDueJobs } from "../jobs";
 import { registerModerationJobs } from "../moderation";
-import { threadsCreateOp, threadsGetOp, threadsListOp, threadsMergeOp } from "./index";
+import { searchQueryOp } from "../search";
+import {
+  postsGetOp,
+  postsListOp,
+  threadsCreateOp,
+  threadsGetOp,
+  threadsListOp,
+  threadsMergeOp,
+} from "./index";
 
 function addPosts(ctx: Ctx, threadId: number, userId: number, count: number, start: number) {
   const insert = ctx.sqlite.prepare(
@@ -111,3 +119,82 @@ for (const phase of ["streams", "flip", "reads"] as const) {
     expect(final.thread.lastPost.position).toBe(701);
   });
 }
+
+test("posts and search results never expose the temporary positions of a merge in progress", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, {});
+  invalidate(ctx, "node_tree");
+  const author = insertUser(ctx);
+  const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+  registerModerationJobs(ctx);
+  const target = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Target",
+    body: "Body",
+  });
+  const source = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Source",
+    body: "Body",
+  });
+  const start = ctx.now() + 1000;
+  addPosts(ctx, target.thread.id, author.id, 100, start);
+  addPosts(ctx, source.thread.id, author.id, 600, start + 5);
+  await execute(ctx, threadsMergeOp, moderator, {
+    threadId: target.thread.id,
+    sourceThreadIds: [source.thread.id],
+  });
+
+  let reached = false;
+  for (let i = 0; i < 60 && !reached; i++) {
+    const job = nextJob(ctx)!;
+    reached =
+      job.type === "forums.mergeFinalize" &&
+      (JSON.parse(job.payload).phase ?? "streams") === "flip";
+    if (!reached) await runDueJobs(ctx, { limit: 1 });
+  }
+  expect(reached).toBe(true);
+  await runDueJobs(ctx, { limit: 1 });
+
+  const stored = ctx.sqlite
+    .prepare<{ id: number; position: number }, [number]>(
+      "SELECT id, position FROM posts WHERE thread_id = ?1",
+    )
+    .all(target.thread.id);
+  const renumbered = stored.filter((post) => post.position < 0);
+  expect(renumbered.length).toBeGreaterThan(0);
+  const expected = new Map(
+    stored.map((post) => [post.id, post.position < 0 ? -post.position - 1 : post.position]),
+  );
+  const probe = renumbered[0]!.id;
+  ctx.sqlite.prepare("UPDATE post_bodies SET body_source = 'needle' WHERE post_id = ?1").run(probe);
+
+  const got = await Promise.all(
+    renumbered.map((post) => execute(ctx, postsGetOp, moderator, { postId: post.id })),
+  );
+  const listed = [];
+  for (let page = 1; page <= 8; page++)
+    listed.push(
+      ...(
+        await execute(ctx, postsListOp, moderator, { threadId: target.thread.id, page, limit: 100 })
+      ).items,
+    );
+  const found = (await execute(ctx, searchQueryOp, moderator, { q: "needle" })).items;
+  expect(listed.length).toBeGreaterThan(0);
+  expect(found.length).toBe(1);
+  const seen = [...got, ...listed].map((post) => [post.id, post.position] as const);
+  seen.push([found[0]!.post.id, found[0]!.post.position]);
+  for (const [id, position] of seen) {
+    expect(position).toBeGreaterThanOrEqual(0);
+    expect(position).toBe(expected.get(id)!);
+  }
+
+  await runDueJobs(ctx);
+  const finalPositions = ctx.sqlite
+    .prepare<{ id: number; position: number }, [number]>(
+      "SELECT id, position FROM posts WHERE thread_id = ?1",
+    )
+    .all(target.thread.id);
+  for (const [id, position] of seen)
+    expect(finalPositions.find((p) => p.id === id)!.position).toBe(position);
+});
