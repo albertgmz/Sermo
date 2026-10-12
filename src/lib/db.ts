@@ -2,6 +2,7 @@ import "server-only";
 
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { getTranslations } from "next-intl/server";
 import { isAccent, isCover } from "@/lib/appearance";
 import { type Level, levelForXp, titleForLevel } from "@/lib/levels";
 import {
@@ -51,6 +52,7 @@ import type {
   Transaction,
   User,
 } from "@/lib/types";
+import messages from "../../messages/en/lib.json";
 
 export type UserAwardView = Award & {
   awardedAt: string;
@@ -302,8 +304,8 @@ function excerpt(markdown: string) {
 }
 
 const STAFF_TITLES: Partial<Record<Role, string>> = {
-  admin: "Administrator",
-  moderator: "Moderator",
+  admin: messages.db.roles.admin,
+  moderator: messages.db.roles.moderator,
 };
 
 function isStaff(user: User) {
@@ -366,7 +368,7 @@ function views(db: Database, viewerId: number | null) {
     const cached = users.get(id);
     if (cached) return cached;
     const base = db.users.find((u) => u.id === id);
-    if (!base) throw new Error(`Unknown user ${id}`);
+    if (!base) throw new Error(`${messages.db.errors.unknownUser} ${id}`);
     const posts = db.posts.filter((p) => p.authorId === id);
     const reactable = [
       ...posts,
@@ -473,7 +475,7 @@ function views(db: Database, viewerId: number | null) {
     const cached = threads.get(id);
     if (cached) return cached;
     const base = db.threads.find((t) => t.id === id);
-    if (!base) throw new Error(`Unknown thread ${id}`);
+    if (!base) throw new Error(`${messages.db.errors.unknownThread} ${id}`);
     const posts = db.posts
       .filter((p) => p.threadId === id)
       .toSorted((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -1183,6 +1185,7 @@ export async function createPost(input: {
   client: ClientInfo;
 }): Promise<PostView> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const thread = db.threads.find((t) => t.id === input.threadId) as Thread;
   const post: Post = {
     id: nextId(db.posts),
@@ -1198,7 +1201,7 @@ export async function createPost(input: {
     userId: thread.authorId,
     actorId: input.authorId,
     type: "reply",
-    text: `replied to your thread “${thread.title}”`,
+    text: t("reply", { title: thread.title }),
     href: `/threads/${thread.id}`,
   });
   await write(db);
@@ -1212,6 +1215,7 @@ export async function createProfilePost(input: {
   client: ClientInfo;
 }): Promise<ProfilePostView> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const post: ProfilePost = {
     id: nextId(db.profilePosts),
     profileUserId: input.profileUserId,
@@ -1227,7 +1231,7 @@ export async function createProfilePost(input: {
     userId: input.profileUserId,
     actorId: input.authorId,
     type: "profile_post",
-    text: "wrote on your profile",
+    text: t("profilePost"),
     href: `/members/${input.profileUserId}`,
   });
   await write(db);
@@ -1241,6 +1245,7 @@ export async function createProfileComment(input: {
   client: ClientInfo;
 }): Promise<ProfileCommentView> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const post = db.profilePosts.find(
     (p) => p.id === input.profilePostId,
   ) as ProfilePost;
@@ -1257,7 +1262,7 @@ export async function createProfileComment(input: {
     userId: post.authorId,
     actorId: input.authorId,
     type: "profile_comment",
-    text: "commented on your profile post",
+    text: t("profileComment"),
     href: `/members/${post.profileUserId}`,
   });
   await write(db);
@@ -1271,7 +1276,7 @@ function findReactable(
   userId: number,
 ): {
   item: { authorId: number; reactions: Reaction[] };
-  what: string;
+  title: string;
   href: string;
 } | null {
   if (target === "post") {
@@ -1280,7 +1285,7 @@ function findReactable(
     return item && thread
       ? {
           item,
-          what: `post in “${thread.title}”`,
+          title: thread.title,
           href: `/threads/${thread.id}#post-${item.id}`,
         }
       : null;
@@ -1295,7 +1300,7 @@ function findReactable(
     return conversation && item
       ? {
           item,
-          what: `message in “${conversation.title}”`,
+          title: conversation.title,
           href: `/conversations/${conversation.id}`,
         }
       : null;
@@ -1310,7 +1315,7 @@ function findReactable(
   return post && item
     ? {
         item,
-        what: target === "profilePost" ? "profile post" : "comment",
+        title: "",
         href: `/members/${post.profileUserId}#profile-post-${post.id}`,
       }
     : null;
@@ -1323,11 +1328,12 @@ export async function setReaction(input: {
   typeId: number | null;
 }): Promise<boolean> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const found = findReactable(db, input.target, input.id, input.userId);
   const type = db.reactionTypes.find((t) => t.id === input.typeId);
   if (!found || found.item.authorId === input.userId) return false;
   if (input.typeId !== null && !type) return false;
-  const { item, what, href } = found;
+  const { item, title, href } = found;
   const existing = item.reactions.find((r) => r.userId === input.userId);
   if (!type) {
     item.reactions = item.reactions.filter((r) => r.userId !== input.userId);
@@ -1352,7 +1358,7 @@ export async function setReaction(input: {
         userId: item.authorId,
         actorId: input.userId,
         type: "reaction",
-        text: `reacted ${type.emoji} to your ${what}`,
+        text: t("reaction", { target: input.target, emoji: type.emoji, title }),
         href,
       });
     }
@@ -1366,6 +1372,7 @@ export async function purchaseItem(
   itemId: number,
 ): Promise<PurchaseResult> {
   const db = await read();
+  const t = await getTranslations("lib.db.transactions");
   const user = db.users.find((u) => u.id === userId);
   const item = db.shopItems.find((i) => i.id === itemId);
   if (!user || !item) return { ok: false, error: "not_found" };
@@ -1392,7 +1399,7 @@ export async function purchaseItem(
     id: nextId(db.transactions),
     userId,
     amount: -item.price,
-    reason: `Purchased ${item.name}`,
+    reason: t("purchase", { name: item.name }),
     createdAt: now,
   });
   await write(db);
@@ -1604,6 +1611,7 @@ export async function purchaseRank(
   rankId: number,
 ): Promise<RankResult> {
   const db = await read();
+  const t = await getTranslations("lib.db.transactions");
   const user = db.users.find((u) => u.id === userId);
   const rank = db.ranks.find((r) => r.id === rankId);
   if (!user || !rank) return { ok: false, error: "not_found" };
@@ -1620,7 +1628,7 @@ export async function purchaseRank(
     id: nextId(db.transactions),
     userId,
     amount: -cost,
-    reason: `Upgraded to ${rank.name}`,
+    reason: t("upgrade", { name: rank.name }),
     createdAt: now,
   });
   const award = db.awards.find((a) => a.slug === rank.headline.award);
@@ -1639,6 +1647,7 @@ export async function toggleFollow(
   followingId: number,
 ): Promise<boolean> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const index = db.follows.findIndex(
     (f) => f.followerId === followerId && f.followingId === followingId,
   );
@@ -1648,7 +1657,7 @@ export async function toggleFollow(
       userId: followingId,
       actorId: followerId,
       type: "follow",
-      text: "started following you",
+      text: t("follow"),
       href: `/members/${followerId}`,
     });
   } else {
@@ -1666,6 +1675,7 @@ export async function createConversation(input: {
   client: ClientInfo;
 }): Promise<ConversationView> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const conversation: Conversation = {
     id: nextId(db.conversations),
     title: input.title,
@@ -1688,7 +1698,7 @@ export async function createConversation(input: {
       userId,
       actorId: input.authorId,
       type: "message",
-      text: `started the conversation “${conversation.title}”`,
+      text: t("conversation", { title: conversation.title }),
       href: `/conversations/${conversation.id}`,
     });
   }
@@ -1703,6 +1713,7 @@ export async function createMessage(input: {
   client: ClientInfo;
 }): Promise<MessageView> {
   const db = await read();
+  const t = await getTranslations("lib.db.notifications");
   const conversation = db.conversations.find(
     (c) => c.id === input.conversationId,
   ) as Conversation;
@@ -1721,7 +1732,7 @@ export async function createMessage(input: {
       userId,
       actorId: input.authorId,
       type: "message",
-      text: `sent a message in “${conversation.title}”`,
+      text: t("message", { title: conversation.title }),
       href: `/conversations/${conversation.id}`,
     });
   }

@@ -1,33 +1,35 @@
+import messages from "../../messages/en/lib.json";
+
+// Keep these fields until renderers resolve lib.permissions by permission.key.
 export const PERMISSIONS = [
   {
     key: "signature",
-    label: "Signature",
-    description: "Add a short signature that is shown under your posts.",
+    label: messages.permissions.signature.label,
+    description: messages.permissions.signature.description,
     icon: "signature",
   },
   {
     key: "profileCover",
-    label: "Profile cover",
-    description:
-      "Pick a photo from the gallery as the cover of your profile, your posts and your member card.",
+    label: messages.permissions.profileCover.label,
+    description: messages.permissions.profileCover.description,
     icon: "image",
   },
   {
     key: "customTitle",
-    label: "Custom title",
-    description: "Replace the title under your name with your own text.",
+    label: messages.permissions.customTitle.label,
+    description: messages.permissions.customTitle.description,
     icon: "tag",
   },
   {
     key: "awardSlot",
-    label: "Award showcase slot",
-    description: "Show one more award next to your name.",
+    label: messages.permissions.awardSlot.label,
+    description: messages.permissions.awardSlot.description,
     icon: "award",
   },
   {
     key: "usernameChange",
-    label: "Username change",
-    description: "Change your username. Each purchase allows one change.",
+    label: messages.permissions.usernameChange.label,
+    description: messages.permissions.usernameChange.description,
     icon: "at-sign",
   },
 ] as const;
