@@ -3,7 +3,8 @@ import "server-only";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getTranslations } from "next-intl/server";
-import { isAccent, isCover } from "@/lib/appearance";
+import { coverSrc, isAccent, isCover, threadCoverSrc } from "@/lib/appearance";
+import { memberView, prefixView, rankBadge } from "@/lib/legacy-views";
 import { type Level, levelForXp, titleForLevel } from "@/lib/levels";
 import {
   awardSlots,
@@ -38,7 +39,6 @@ import type {
   Notification,
   NotificationType,
   Post,
-  Prefix,
   ProfileComment,
   ProfilePost,
   Rank,
@@ -53,6 +53,7 @@ import type {
   User,
 } from "@/lib/types";
 import messages from "../../messages/en/lib.json";
+import type { MemberView, PictureView, PrefixView } from "./sermo/views";
 
 export type UserAwardView = Award & {
   awardedAt: string;
@@ -68,7 +69,14 @@ export type PermissionView = Permission & {
   quantity?: number;
 };
 
+// A rank with the badge it gives its holders.
+export type RankView = Rank & { badge: MemberView["badges"][number] };
+
 export type UserView = Omit<User, "title"> & {
+  // How the member is drawn wherever their name or picture appears.
+  member: MemberView;
+  // The profile cover as a picture; `appearance.cover` keeps the key.
+  coverPicture: PictureView | null;
   // The custom title when the member may show one, else the derived one.
   title: string;
   customTitle: string | null;
@@ -83,7 +91,7 @@ export type UserView = Omit<User, "title"> & {
   xp: number;
   level: Level;
   awards: UserAwardView[];
-  rank: Rank | null;
+  rank: RankView | null;
 };
 
 export type ReactionsView = {
@@ -163,7 +171,7 @@ export type LastPostView = {
   postId: number;
   threadId: number;
   threadTitle: string;
-  prefix: Prefix | null;
+  prefix: PrefixView | null;
   createdAt: string;
   author: UserView;
 };
@@ -184,8 +192,10 @@ export type CategoryView = Omit<Category, "forums"> & {
 export type ThreadView = Thread & {
   author: UserView;
   forum: Pick<ForumView, "id" | "slug" | "title" | "categoryTitle" | "tab">;
-  prefix: Prefix | null;
+  prefix: PrefixView | null;
   highlighted: boolean;
+  // The thread cover as a picture; `cover` keeps the key.
+  coverPicture: PictureView | null;
   excerpt: string;
   postCount: number;
   replyCount: number;
@@ -246,7 +256,7 @@ export type ConversationView = Omit<Conversation, "messages"> & {
 
 export type NotificationView = Notification & {
   actor: UserView;
-  prefix: Prefix | null;
+  prefix: PrefixView | null;
 };
 
 export type UnreadCounts = {
@@ -301,6 +311,13 @@ function excerpt(markdown: string) {
   if (text.length <= EXCERPT_LENGTH) return text;
   const cut = text.lastIndexOf(" ", EXCERPT_LENGTH);
   return `${text.slice(0, cut > 0 ? cut : EXCERPT_LENGTH)}…`;
+}
+
+export type PrefixEntry = PrefixView & { key: string };
+
+function findPrefix(db: Database, id: number | null | undefined) {
+  const prefix = db.prefixes.find((p) => p.id === id);
+  return prefix ? prefixView(prefix) : null;
 }
 
 const STAFF_TITLES: Partial<Record<Role, string>> = {
@@ -386,12 +403,19 @@ function views(db: Database, viewerId: number | null) {
     const permissions = permissionsOf(db, base).flatMap((p) =>
       p.granted ? [p.key] : [],
     );
+    const baseRank = db.ranks.find((r) => r.id === base.rankId);
+    const rank = baseRank ? { ...baseRank, badge: rankBadge(baseRank) } : null;
+    const title =
+      (permissions.includes("customTitle") && base.title) ||
+      STAFF_TITLES[base.role] ||
+      titleForLevel(level.level);
     const view: UserView = {
       ...base,
-      title:
-        (permissions.includes("customTitle") && base.title) ||
-        STAFF_TITLES[base.role] ||
-        titleForLevel(level.level),
+      member: memberView(base, title, level.level, baseRank ?? null),
+      coverPicture: base.appearance.cover
+        ? { url: coverSrc(base.appearance.cover) }
+        : null,
+      title,
       customTitle: base.title,
       permissions,
       awardSlots: awardSlots({ permissions }),
@@ -407,7 +431,7 @@ function views(db: Database, viewerId: number | null) {
       xp,
       level,
       awards,
-      rank: db.ranks.find((r) => r.id === base.rankId) ?? null,
+      rank,
     };
     users.set(id, view);
     return view;
@@ -441,7 +465,7 @@ function views(db: Database, viewerId: number | null) {
       postId: last.id,
       threadId: thread.id,
       threadTitle: thread.title,
-      prefix: db.prefixes.find((p) => p.id === thread.prefixId) ?? null,
+      prefix: findPrefix(db, thread.prefixId),
       createdAt: last.createdAt,
       author: user(last.authorId),
     };
@@ -484,7 +508,8 @@ function views(db: Database, viewerId: number | null) {
       ...base,
       author: user(base.authorId),
       forum: { id: base.forumId, slug, title, categoryTitle, tab },
-      prefix: db.prefixes.find((p) => p.id === base.prefixId) ?? null,
+      prefix: findPrefix(db, base.prefixId),
+      coverPicture: base.cover ? { url: threadCoverSrc(base.cover) } : null,
       highlighted: isHighlighted(base, currentTime()),
       excerpt: excerpt(posts[0].body),
       postCount: posts.length,
@@ -510,7 +535,7 @@ function views(db: Database, viewerId: number | null) {
       thread: {
         id: parent.id,
         title: parent.title,
-        prefix: db.prefixes.find((p) => p.id === parent.prefixId) ?? null,
+        prefix: findPrefix(db, parent.prefixId),
       },
     };
   }
@@ -764,8 +789,8 @@ export async function getForum(id: number): Promise<ForumView | null> {
   return match ? views(db, null).forum(match.id) : null;
 }
 
-export async function getPrefixes(): Promise<Prefix[]> {
-  return (await read()).prefixes;
+export async function getPrefixes(): Promise<PrefixEntry[]> {
+  return (await read()).prefixes.map((p) => ({ ...prefixView(p), key: p.key }));
 }
 
 export async function getThreads(
@@ -944,7 +969,7 @@ export async function getNotifications(
       return {
         ...n,
         actor: v.user(n.actorId),
-        prefix: db.prefixes.find((p) => p.id === thread?.prefixId) ?? null,
+        prefix: findPrefix(db, thread?.prefixId),
       };
     });
 }
@@ -1011,8 +1036,10 @@ export async function getShopItems(): Promise<ShopItem[]> {
   return (await read()).shopItems;
 }
 
-export async function getRanks(): Promise<Rank[]> {
-  return (await read()).ranks.toSorted((a, b) => a.price - b.price);
+export async function getRanks(): Promise<RankView[]> {
+  return (await read()).ranks
+    .toSorted((a, b) => a.price - b.price)
+    .map((rank) => ({ ...rank, badge: rankBadge(rank) }));
 }
 
 function inventory(db: Database, userId: number): InventoryItemView[] {
