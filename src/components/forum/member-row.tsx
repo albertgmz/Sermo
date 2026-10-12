@@ -14,7 +14,7 @@ export function MemberRow({
 }: {
   user: AvatarUser &
     LinkUser &
-    Pick<UserView, "customTitle" | "permissions" | "level">;
+    Pick<UserView, "title" | "customTitle" | "permissions" | "level">;
   children?: React.ReactNode;
   className?: string;
 }) {
