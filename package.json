@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "start": "bun packages/api/src/server.ts",
@@ -11,12 +12,13 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
-    "test": "bun test",
+    "test": "bun test ./packages",
     "seed": "bun bench/seed.ts",
     "bench": "bun bench/run.ts",
     "db:generate": "cd packages/core && drizzle-kit generate",
-    "check": "bun run typecheck && bun run lint && bun run test && bun run bench",
-    "check:fast": "bun run typecheck && bun run lint && bun run test"
+    "check": "bun run typecheck && bun run lint && bun run test && bun run check:web && bun run bench",
+    "check:fast": "bun run typecheck && bun run lint && bun run test && bun run check:web",
+    "check:web": "cd apps/web && bun run typecheck && bun run test && bun run build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -24,6 +26,7 @@
     "@sermo/core": "workspace:*",
     "@types/bun": "1.4.2",
     "@types/busboy": "1.5.4",
+    "@types/node": "26.6.4",
     "typescript": "7.0.2"
   },
   "dependencies": {

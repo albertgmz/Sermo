@@ -1,5 +1,5 @@
 # Logs
-logs
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -143,7 +143,7 @@ CLAUDE.md
 AGENTS.md
 
 # Sermo local data
-data/
+/data/
 *.db
 *.db-wal
 *.db-shm

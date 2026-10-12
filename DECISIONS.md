@@ -975,3 +975,42 @@ does not.
 server normalizes (trimmed strings, URLs, coercions) move to the description, and a field a
 preprocessor fills in is not `required`. A schema-valid string that is blank after trimming is
 still rejected by the server.
+
+## Web consolidation (the frontend joins the repository)
+
+Work on `feat/web-consolidation`. Entries marked **Owner review** were decided without the owner
+and are cheap to reverse.
+
+### Import and tooling
+
+**The frontend lives in `apps/web`, imported with its history** (`git subtree add` without
+`--squash`): its 97 commits keep their ids and `git log -- apps/web` reaches them. The workspace
+is `@sermo/web`.
+
+**One lockfile, exact versions.** `apps/*` is a workspace and the web app's own `bun.lock` is
+gone. Its caret ranges are pinned to what that lockfile resolved. Transitive packages shared with
+the backend (`express`, `@hono/node-server`, the MCP SDK, browser data tables) now resolve to the
+backend's versions.
+
+**Packages the web app imported without declaring are now declared**, at the versions already in
+its lockfile: `unified`, `remark-parse`, `parse-entities`, `use-intl`, and the types
+`@types/mdast`. They are not new: `react-markdown` and `next-intl` brought them in, and a
+standalone install happened to place them where an import could find them. A workspace install
+does not.
+
+**`@types/node` is pinned at the root (26.6.4, the version the backend already resolved).** The
+web app declares the 20 line; without a root pin that copy was hoisted and broke the backend
+typecheck (`node:worker_threads`). The web app keeps its own copy.
+
+**The web app keeps TypeScript 5.9.3 and its own `tsconfig.json`; the root typecheck does not
+cover it.** Next 16.4 has not been shown to build with TypeScript 7. `check:web` runs the web
+typecheck, tests and build, and `check` / `check:fast` include it. The root `test` script is
+scoped to `./packages`, because the web tests resolve paths from their own directory.
+
+**One Biome (2.5.15), two configurations.** `apps/web/biome.json` is a nested configuration
+(`"root": false`) that keeps the web app's own formatter width and its Next and React lint
+domains, so the root `lint` covers both. Moving from 2.4.2 changed no formatting. 2.5.15 lints
+SVG files, so `apps/web/public` (static artwork) is excluded from the web lint.
+
+**Ignore rules that matched at any depth are anchored to the root**: `/data/` (it hid
+`apps/web/data`) and `/logs` (it would hide a route folder named `logs`).
