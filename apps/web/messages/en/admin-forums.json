@@ -136,6 +136,7 @@
     "description": "Members who moderate this forum and everything under it.",
     "everywhere": "Everywhere",
     "remove": "Remove",
+    "removeWarning": "{name} will no longer moderate this forum. Their other permissions stay as they are.",
     "password": "Your password",
     "none": "Nobody moderates this forum yet.",
     "truncated": "More members hold a moderation permission than the roster lists.",

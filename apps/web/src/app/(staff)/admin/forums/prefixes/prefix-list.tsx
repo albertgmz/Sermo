@@ -1,11 +1,11 @@
 import { paletteColorsList, threadPrefixesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { deletePrefix } from "../actions";
-import { InlineForm } from "../inline-form";
 import { PrefixForm } from "./prefix-form";
 
 // Every prefix in the backend's order (inactive ones too, for an administrator), each with its
@@ -50,19 +50,14 @@ export async function PrefixList({
                   </summary>
                   <div className="space-y-4 border-t p-4">
                     <PrefixForm prefix={prefix} colours={colours} />
-                    <div className="rounded-lg border border-destructive/30 p-4">
-                      <p className="text-sm text-pretty">
-                        {t("deleteWarning")}
-                      </p>
-                      <div className="mt-3">
-                        <InlineForm
-                          action={deletePrefix}
-                          submit={t("delete")}
-                          variant="destructive"
-                        >
-                          <input type="hidden" name="id" value={prefix.id} />
-                        </InlineForm>
-                      </div>
+                    <div className="rounded-lg border border-destructive/30 px-4 py-1">
+                      <ConfirmStep
+                        action={deletePrefix}
+                        fields={{ id: prefix.id }}
+                        summary={`${t("delete")}…`}
+                        warning={t("deleteWarning")}
+                        submit={t("delete")}
+                      />
                     </div>
                   </div>
                 </details>

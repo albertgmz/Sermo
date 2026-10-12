@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { userNameProps } from "@/components/forum/user-name";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { isHexColor } from "@/lib/css-color";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
-import { InlineForm } from "../forums/inline-form";
 import { deleteColour, saveColour } from "./actions";
 import { ColourRows } from "./colour-rows";
 import { PALETTE_KINDS, type PaletteKindName } from "./kinds";
@@ -195,20 +195,14 @@ export async function PaletteScreen({
                       <Sample kind={kind} colour={colour} />
                     </div>
                     <ColourForm kind={kind} colour={colour} />
-                    <div className="rounded-lg border border-destructive/30 p-4">
-                      <p className="text-sm text-pretty">
-                        {t("deleteWarning")}
-                      </p>
-                      <div className="mt-3">
-                        <InlineForm
-                          action={deleteColour}
-                          submit={t("delete")}
-                          variant="destructive"
-                        >
-                          <input type="hidden" name="kind" value={kind} />
-                          <input type="hidden" name="id" value={colour.id} />
-                        </InlineForm>
-                      </div>
+                    <div className="rounded-lg border border-destructive/30 px-4 py-1">
+                      <ConfirmStep
+                        action={deleteColour}
+                        fields={{ kind, id: colour.id }}
+                        summary={`${t("delete")}…`}
+                        warning={t("deleteWarning")}
+                        submit={t("delete")}
+                      />
                     </div>
                   </div>
                 </details>
