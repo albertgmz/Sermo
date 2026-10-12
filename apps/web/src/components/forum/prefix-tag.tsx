@@ -10,7 +10,7 @@ import {
   Tag,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Prefix } from "@/lib/types";
+import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -24,23 +24,12 @@ const ICONS: Record<string, LucideIcon> = {
   tag: Tag,
 };
 
-const COLORS: Record<string, string> = {
-  sky: "border-prefix-sky/30 bg-prefix-sky/10 text-prefix-sky",
-  emerald: "border-prefix-emerald/30 bg-prefix-emerald/10 text-prefix-emerald",
-  orange: "border-prefix-orange/30 bg-prefix-orange/10 text-prefix-orange",
-  violet: "border-prefix-violet/30 bg-prefix-violet/10 text-prefix-violet",
-  amber: "border-prefix-amber/30 bg-prefix-amber/10 text-prefix-amber",
-  cyan: "border-prefix-cyan/30 bg-prefix-cyan/10 text-prefix-cyan",
-  rose: "border-prefix-rose/30 bg-prefix-rose/10 text-prefix-rose",
-  lime: "border-prefix-lime/30 bg-prefix-lime/10 text-prefix-lime",
-};
-
 export function PrefixTag({
   prefix,
   icon = true,
   className,
 }: {
-  prefix: Pick<Prefix, "label" | "color" | "icon">;
+  prefix: Pick<PrefixView, "label" | "color" | "icon">;
   icon?: boolean;
   className?: string;
 }) {
@@ -48,9 +37,9 @@ export function PrefixTag({
   return (
     <Badge
       variant="outline"
+      style={{ "--prefix-color": prefix.color } as React.CSSProperties}
       className={cn(
-        "h-(--spacing-inline-icon) gap-1 px-1.5 text-(length:--text-caption) font-semibold",
-        COLORS[prefix.color] ?? "text-muted-foreground",
+        "h-(--spacing-inline-icon) gap-1 border-(--prefix-color)/30 bg-(--prefix-color)/10 px-1.5 text-(length:--text-caption) font-semibold text-(--prefix-color)",
         className,
       )}
     >

@@ -9,6 +9,7 @@ import { SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
+import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -17,9 +18,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { coverSrc, nameColor } from "@/lib/appearance";
 import type { UserView } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
+import { nameColorHex } from "@/lib/legacy-views";
 import { titleKeyForLevel } from "@/lib/levels";
 import { can } from "@/lib/permissions";
 import type { Socials } from "@/lib/types";
@@ -58,6 +59,9 @@ export function ProfileHeader({
   const roles = useTranslations("lib.db.roles");
   const isOwn = viewer?.id === user.id;
   const profileHref = `/members/${user.id}`;
+  const name = userNameProps({
+    nameColor: nameColorHex(user.appearance.nameColor),
+  });
   const socials = SOCIALS.filter(({ network }) => user.socials[network]);
   const stats = [
     { label: t("uidLabel"), value: user.id },
@@ -74,11 +78,11 @@ export function ProfileHeader({
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-36 overflow-hidden bg-background md:h-56"
       >
-        {user.appearance.cover && (
+        {user.coverPicture && (
           <Art
             category="profileCovers"
             className="absolute inset-0 bg-cover bg-center opacity-60"
-            src={coverSrc(user.appearance.cover)}
+            src={user.coverPicture.url}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
@@ -86,7 +90,7 @@ export function ProfileHeader({
 
       <Container className="relative pt-20 md:pt-44">
         <UserAvatar
-          user={user}
+          user={user.member}
           size="2xl"
           link={false}
           className="ring-4 ring-background"
@@ -98,8 +102,9 @@ export function ProfileHeader({
               <h1
                 className={cn(
                   "text-2xl leading-10 font-bold tracking-tight [overflow-wrap:anywhere]",
-                  nameColor(user.appearance.nameColor)?.text,
+                  name.className,
                 )}
+                style={name.style}
               >
                 {user.username}
               </h1>
@@ -155,7 +160,7 @@ export function ProfileHeader({
                 : user.role === "member"
                   ? levels(titleKeyForLevel(user.level.level))
                   : roles(user.role)}
-              <UserBadges user={user} />
+              <UserBadges user={user.member} />
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.rich("joined", {

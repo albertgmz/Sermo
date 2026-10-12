@@ -9,10 +9,10 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { RoleBadge } from "@/components/forum/role-badge";
 import { SectionCard } from "@/components/forum/section-card";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { getAward } from "@/lib/db";
@@ -136,11 +136,11 @@ export default async function AwardPage({ params }: Props) {
                   user.id === viewer?.id && "bg-primary/5",
                 )}
               >
-                <UserAvatar user={user} size="lg" />
+                <UserAvatar user={user.member} size="lg" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <UserLink user={user} className="truncate text-sm" />
-                    <RoleBadge user={user} />
+                    <UserLink user={user.member} className="truncate text-sm" />
+                    <UserBadges user={user.member} />
                     <LevelBadge level={user.level} />
                   </div>
                   <p className="truncate text-xs text-muted-foreground">

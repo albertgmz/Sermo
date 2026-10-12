@@ -66,8 +66,8 @@ function NewestMembers({ members }: { members: UserView[] }) {
     <ul className="flex flex-wrap gap-2 px-4 py-3">
       {members.map((member) => (
         <li key={member.id}>
-          <UserLink user={member} className="block w-fit rounded-full">
-            <UserAvatar user={member} size="lg" link={false} />
+          <UserLink user={member.member} className="block w-fit rounded-full">
+            <UserAvatar user={member.member} size="lg" link={false} />
             <span className="sr-only">{member.username}</span>
           </UserLink>
         </li>
@@ -148,7 +148,9 @@ async function StaffRows() {
   const staff = await getStaff();
   return staff
     .slice(0, STAFF)
-    .map((user) => <MemberRow key={user.id} user={user} className="py-2" />);
+    .map((user) => (
+      <MemberRow key={user.id} user={user.member} className="py-2" />
+    ));
 }
 
 async function NewestMembersList() {
@@ -160,7 +162,7 @@ async function Birthdays() {
   const birthdays = await getBirthdays();
   return birthdays.length > 0 ? (
     birthdays.map((user) => (
-      <MemberRow key={user.id} user={user} className="py-2">
+      <MemberRow key={user.id} user={user.member} className="py-2">
         <Cake aria-hidden="true" className="size-4 shrink-0 text-primary" />
       </MemberRow>
     ))

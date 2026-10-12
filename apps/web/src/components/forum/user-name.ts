@@ -1,16 +1,17 @@
-import { nameColor } from "@/lib/appearance";
-import type { Appearance, User } from "@/lib/types";
+import type { CSSProperties } from "react";
+import type { MemberView } from "@/lib/sermo/views";
 
-// A name colour the member picked wins over the staff colours.
-export function userNameClass(
-  user: Pick<User, "role"> & {
-    appearance?: Pick<Appearance, "nameColor">;
-  },
-) {
-  const picked = nameColor(user.appearance?.nameColor);
-  if (picked) return picked.text;
-  if (user.role === "admin") return "text-primary";
-  if (user.role === "moderator") return "text-success";
+// The colour reaches the name as a custom property read by one utility class;
+// a member with no colour gets neither, so the name keeps the text colour.
+export function userNameProps(user: Pick<MemberView, "nameColor">): {
+  className?: string;
+  style?: CSSProperties;
+} {
+  if (!user.nameColor) return {};
+  return {
+    className: "text-(--name-color)",
+    style: { "--name-color": user.nameColor } as CSSProperties,
+  };
 }
 
 export const userLinkClass = "font-semibold underline-offset-4 hover:underline";

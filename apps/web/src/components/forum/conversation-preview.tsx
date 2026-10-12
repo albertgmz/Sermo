@@ -43,7 +43,7 @@ export async function ConversationPreview({
         {others.slice(0, 2).map((other) => (
           <UserAvatar
             key={other.id}
-            user={other}
+            user={other.member}
             size={others.length > 1 ? "md" : "lg"}
             link={false}
             className={cn("ring-2", ringClassName)}
@@ -77,7 +77,7 @@ export async function ConversationPreview({
         <span className="mt-0.5 flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {linked ? (
-              <UserLink user={last.author} className="relative z-10" />
+              <UserLink user={last.author.member} className="relative z-10" />
             ) : (
               last.author.username
             )}

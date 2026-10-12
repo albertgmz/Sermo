@@ -138,7 +138,7 @@ async function AccountTools() {
           </Suspense>
           <UserMenu
             lite={await getLiteState()}
-            avatar={<UserAvatar user={user} size="md" link={false} />}
+            avatar={<UserAvatar user={user.member} size="md" link={false} />}
             user={{
               id: user.id,
               username: user.username,

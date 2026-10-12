@@ -17,7 +17,6 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
-import { threadCoverSrc } from "@/lib/appearance";
 import type {
   FeedItem as FeedEntry,
   ReactionsView,
@@ -25,6 +24,7 @@ import type {
   UserView,
 } from "@/lib/db";
 import { formatCompact } from "@/lib/format";
+import type { PictureView } from "@/lib/sermo/views";
 import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -68,7 +68,7 @@ function Card({
   item: FeedEntry;
   context: React.ReactNode;
   highlighted?: boolean;
-  cover?: string | null;
+  cover?: PictureView | null;
   target: ReactionTarget;
   targetId: number;
   reactions: ReactionsView;
@@ -93,21 +93,24 @@ function Card({
       )}
     >
       {highlighted && (
-        <CoverBackdrop cover={author.appearance.cover} variant="full" />
+        <CoverBackdrop cover={author.coverPicture} variant="full" />
       )}
       {cover && (
         <Art
           category="threadCovers"
-          src={threadCoverSrc(cover)}
+          src={cover.url}
           className="aspect-[4/1] w-full border-b sm:aspect-[5/1]"
         />
       )}
       <header className="flex items-start gap-3 px-4 pt-4">
-        <UserAvatar user={author} size="lg" />
+        <UserAvatar user={author.member} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-            <UserLink user={author} className="[overflow-wrap:anywhere]" />
-            <UserBadges user={author} />
+            <UserLink
+              user={author.member}
+              className="[overflow-wrap:anywhere]"
+            />
+            <UserBadges user={author.member} />
             <LevelBadge level={author.level} />
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
@@ -179,7 +182,10 @@ export function FeedItem({
           t.rich("profileContext", {
             username: profilePost.profileUser.username,
             user: (chunks) => (
-              <UserLink user={profilePost.profileUser} className="font-medium">
+              <UserLink
+                user={profilePost.profileUser.member}
+                className="font-medium"
+              >
                 {chunks}
               </UserLink>
             ),
@@ -218,7 +224,7 @@ export function FeedItem({
         ),
       })}
       highlighted={isThread && thread.highlighted}
-      cover={isThread ? thread.cover : null}
+      cover={isThread ? thread.coverPicture : null}
       target="post"
       targetId={post.id}
       reactions={post.reactions}
@@ -242,7 +248,7 @@ export function FeedItem({
       </h2>
       {!isThread && (
         <p className="mt-2 truncate border-l-2 pl-2.5 text-xs text-muted-foreground">
-          <UserLink user={thread.author} className="font-medium" />:{" "}
+          <UserLink user={thread.author.member} className="font-medium" />:{" "}
           <ThreadExcerpt thread={thread} />
         </p>
       )}

@@ -20,7 +20,6 @@ import { Markdown } from "@/components/forum/markdown";
 import { MessageBody } from "@/components/forum/message-row";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { RoleBadge } from "@/components/forum/role-badge";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
@@ -32,6 +31,7 @@ import {
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
+import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { Container } from "@/components/layout/container";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -140,7 +140,7 @@ function ProfileCards({
           <CardDescription>
             {t.rich("groupsDescription", {
               username: user.username,
-              user: () => <UserLink user={user} />,
+              user: () => <UserLink user={user.member} />,
             })}
           </CardDescription>
         </CardHeader>
@@ -148,7 +148,7 @@ function ProfileCards({
           {user.role === "member" ? (
             <Badge variant="secondary">{t("memberBadge")}</Badge>
           ) : (
-            <RoleBadge user={user} />
+            <UserBadges user={user.member} />
           )}
         </CardContent>
       </Card>
@@ -158,7 +158,7 @@ function ProfileCards({
           <CardDescription>
             {t.rich("awardsDescription", {
               username: user.username,
-              user: () => <UserLink user={user} />,
+              user: () => <UserLink user={user.member} />,
             })}
           </CardDescription>
         </CardHeader>
@@ -181,7 +181,7 @@ function ProfileCards({
           <CardContent className="py-2 text-center text-muted-foreground">
             {t.rich("awardsEmpty", {
               username: user.username,
-              user: () => <UserLink user={user} />,
+              user: () => <UserLink user={user.member} />,
             })}
           </CardContent>
         )}
@@ -193,7 +193,7 @@ function ProfileCards({
             <CardDescription>
               {t.rich("inventoryDescription", {
                 username: user.username,
-                user: () => <UserLink user={user} />,
+                user: () => <UserLink user={user.member} />,
               })}
             </CardDescription>
           </CardHeader>
@@ -227,7 +227,7 @@ function ProfileCards({
           <CardDescription>
             {t.rich("activityDescription", {
               username: user.username,
-              user: () => <UserLink user={user} />,
+              user: () => <UserLink user={user.member} />,
             })}
           </CardDescription>
         </CardHeader>
@@ -265,7 +265,7 @@ function ProfileCards({
           <CardContent className="py-2 text-center text-muted-foreground">
             {t.rich("activityEmpty", {
               username: user.username,
-              user: () => <UserLink user={user} />,
+              user: () => <UserLink user={user.member} />,
             })}
           </CardContent>
         )}
@@ -285,7 +285,7 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
         title={t("postsEmptyTitle")}
         description={t.rich("postsEmptyDescription", {
           username: user.username,
-          user: () => <UserLink user={user} />,
+          user: () => <UserLink user={user.member} />,
         })}
       />
     );
@@ -327,7 +327,7 @@ function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
         title={t("threadsEmptyTitle")}
         description={t.rich("threadsEmptyDescription", {
           username: user.username,
-          user: () => <UserLink user={user} />,
+          user: () => <UserLink user={user.member} />,
         })}
       />
     );
@@ -395,7 +395,7 @@ function About({ user, cards }: { user: UserView; cards: React.ReactNode }) {
             <p className="text-sm text-muted-foreground">
               {t.rich("bioEmpty", {
                 username: user.username,
-                user: () => <UserLink user={user} />,
+                user: () => <UserLink user={user.member} />,
               })}
             </p>
           )}

@@ -39,10 +39,14 @@ function MemberSummary({ user }: { user: UserView }) {
       aria-label={t("aria.account")}
       className="relative isolate overflow-hidden rounded-lg border bg-card"
     >
-      <CoverBackdrop cover={user.appearance.cover} variant="strip" />
+      <CoverBackdrop cover={user.coverPicture} variant="strip" />
       <div className="px-4 pt-8 pb-4">
         <div className="flex items-end gap-3">
-          <UserAvatar user={user} size="xl" className="ring-4 ring-card" />
+          <UserAvatar
+            user={user.member}
+            size="xl"
+            className="ring-4 ring-card"
+          />
           <Link
             href="/credits"
             aria-label={t("aria.credits", { count: user.credits })}
@@ -55,8 +59,8 @@ function MemberSummary({ user }: { user: UserView }) {
           </Link>
         </div>
         <p className="mt-2 flex items-center gap-1.5">
-          <UserLink user={user} className="truncate text-sm" />
-          <UserBadges user={user} />
+          <UserLink user={user.member} className="truncate text-sm" />
+          <UserBadges user={user.member} />
         </p>
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t pt-3">
           {stats.map((stat) => (

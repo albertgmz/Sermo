@@ -408,7 +408,7 @@ async function SearchResults({
                       count: thread.replyCount,
                       author: () => (
                         <UserLink
-                          user={thread.author}
+                          user={thread.author.member}
                           className="font-medium"
                         />
                       ),
@@ -448,7 +448,7 @@ async function SearchResults({
                         number: post.number,
                         author: () => (
                           <UserLink
-                            user={post.author}
+                            user={post.author.member}
                             className="font-medium"
                           />
                         ),
@@ -471,7 +471,7 @@ async function SearchResults({
                 <MemberRow
                   key={user.id}
                   user={{
-                    ...user,
+                    ...user.member,
                     title:
                       (can(user, "customTitle") && user.customTitle) ||
                       (user.role === "member"

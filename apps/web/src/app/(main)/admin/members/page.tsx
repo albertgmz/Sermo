@@ -46,7 +46,7 @@ export default async function AdminMembersPage({
             <div key={member.id} className="py-1">
               <MemberRow
                 user={{
-                  ...member,
+                  ...member.member,
                   title:
                     (member.permissions.includes("customTitle") &&
                       member.customTitle) ||

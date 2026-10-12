@@ -12,7 +12,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { threadCoverSrc } from "@/lib/appearance";
 import type { ThreadView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
 
@@ -47,10 +46,10 @@ export function ThreadHoverCard({
         )}
       </HoverCardTrigger>
       <HoverCardContent align="start" className="w-80 p-0">
-        {thread.cover && (
+        {thread.coverPicture && (
           <Art
             category="threadCovers"
-            src={threadCoverSrc(thread.cover)}
+            src={thread.coverPicture.url}
             className="aspect-[4/1] w-full rounded-t-[inherit] border-b"
           />
         )}
@@ -76,9 +75,9 @@ export function ThreadHoverCard({
             <ThreadExcerpt thread={thread} />
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <UserAvatar user={thread.author} size="sm" />
+            <UserAvatar user={thread.author.member} size="sm" />
             <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-              <UserLink user={thread.author} /> ·{" "}
+              <UserLink user={thread.author.member} /> ·{" "}
               <time dateTime={thread.createdAt}>
                 {formatDate(thread.createdAt)}
               </time>
@@ -105,7 +104,7 @@ export function ThreadHoverCard({
               <dt className="shrink-0">{t("lastReply")}</dt>
               <dd className="truncate">
                 <RelativeTime date={last.createdAt} /> ·{" "}
-                <UserLink user={last.author} />
+                <UserLink user={last.author.member} />
               </dd>
             </div>
           )}

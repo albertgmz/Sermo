@@ -160,8 +160,11 @@ async function LatestThreads() {
         <div key={thread.id} className="px-4 py-2.5">
           <ThreadTitle thread={thread} />
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <UserLink user={thread.lastPost.author} className="font-medium" /> ·{" "}
-            <RelativeTime date={thread.lastPost.createdAt} />
+            <UserLink
+              user={thread.lastPost.author.member}
+              className="font-medium"
+            />{" "}
+            · <RelativeTime date={thread.lastPost.createdAt} />
           </p>
         </div>
       ))}
@@ -193,7 +196,7 @@ async function SuggestedMembers({ viewer }: { viewer: UserView | null }) {
                 ? levels(titleKeyForLevel(user.level.level))
                 : roles(user.role));
             return (
-              <MemberRow key={user.id} user={{ ...user, title }}>
+              <MemberRow key={user.id} user={{ ...user.member, title }}>
                 <FollowButton user={user} viewer={viewer} following={false} />
               </MemberRow>
             );

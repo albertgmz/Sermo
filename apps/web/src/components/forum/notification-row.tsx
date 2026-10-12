@@ -25,9 +25,9 @@ export function NotificationRow({
         !item.read && "bg-primary/5",
       )}
     >
-      <UserAvatar user={item.actor} size={size} link={false} />
+      <UserAvatar user={item.actor.member} size={size} link={false} />
       <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">
-        <UserLink user={item.actor} className="relative z-10" />{" "}
+        <UserLink user={item.actor.member} className="relative z-10" />{" "}
         <Link
           href={item.href}
           className={cn(

@@ -39,7 +39,9 @@ export default async function NewConversationPage({
           users={users.map((recipient) => ({
             id: recipient.id,
             username: recipient.username,
-            avatar: <UserAvatar user={recipient} size="sm" link={false} />,
+            avatar: (
+              <UserAvatar user={recipient.member} size="sm" link={false} />
+            ),
           }))}
           preselected={preselected?.id}
         />

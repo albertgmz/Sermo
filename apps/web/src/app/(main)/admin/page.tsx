@@ -136,7 +136,7 @@ async function AdminActivity() {
               {t.rich("byline", {
                 author: () => (
                   <UserLink
-                    user={thread.lastPost.author}
+                    user={thread.lastPost.author.member}
                     className="relative z-10"
                   />
                 ),
@@ -172,7 +172,7 @@ async function AdminNewestMembers() {
           <MemberRow
             key={member.id}
             user={{
-              ...member,
+              ...member.member,
               title:
                 (member.permissions.includes("customTitle") &&
                   member.customTitle) ||

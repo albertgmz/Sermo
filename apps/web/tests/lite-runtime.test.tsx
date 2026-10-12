@@ -115,7 +115,6 @@ const { PermissionsPanel } = await import(
   "../src/app/(main)/account/permissions"
 );
 const { EditorDemo } = await import("../src/app/(main)/ui/editor-demo");
-const { FRAMES } = await import("../src/lib/frames");
 
 afterEach(() => {
   cookie = undefined;
@@ -410,18 +409,28 @@ test("Art blocks every category before emitting its URL and preserves caller siz
 });
 
 test("avatar and frame gates are independent and preserve the outer box at every size", async () => {
-  const frame = Object.keys(FRAMES)[0];
+  const frame = {
+    url: "/frames/619.png",
+    placement: { width: 170.5, left: -33.2, top: -30.1, scale: 92 },
+  };
   const user = {
     username: "Example",
-    avatar: "https://pictures.test/avatar.jpg",
-    appearance: { frame },
+    avatar: {
+      url: "https://pictures.test/avatar.jpg",
+      smallUrl: "https://pictures.test/avatar-small.jpg",
+    },
+    frame,
   };
   for (const size of ["xs", "sm", "md", "lg", "xl", "2xl"] as const) {
     cookie = undefined;
     const visible = renderToStaticMarkup(
       await UserAvatar({ user, size, link: false }),
     );
-    expect(visible).toContain(user.avatar);
+    // Lists draw the small rendition, the large sizes the full picture.
+    const drawn = ["xl", "2xl"].includes(size)
+      ? user.avatar.url
+      : user.avatar.smallUrl;
+    expect(visible).toContain(drawn);
     cookie = "all";
     const hidden = renderToStaticMarkup(
       await UserAvatar({ user, size, link: false }),
@@ -438,16 +447,16 @@ test("avatar and frame gates are independent and preserve the outer box at every
   const frameOnly = renderToStaticMarkup(
     await UserAvatar({ user, link: false }),
   );
-  expect(frameOnly).not.toContain(user.avatar);
-  expect(frameOnly).toContain(`/frames/${frame}.png`);
+  expect(frameOnly).not.toContain(user.avatar.smallUrl);
+  expect(frameOnly).toContain(frame.url);
   cookie = "frames";
   const avatarOnly = renderToStaticMarkup(
     await UserAvatar({ user, link: false }),
   );
-  expect(avatarOnly).toContain(user.avatar);
+  expect(avatarOnly).toContain(user.avatar.smallUrl);
   expect(avatarOnly).not.toContain("/frames/");
   // Whatever is hidden, what remains keeps the inner scale the frame gave it.
-  const scale = `scale:${FRAMES[frame][3] / 100}`;
+  const scale = `scale:${frame.placement.scale / 100}`;
   expect(frameOnly).toContain(scale);
   expect(avatarOnly).toContain(scale);
   expect(avatarOnly).toContain("after:hidden");

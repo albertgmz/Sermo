@@ -19,11 +19,15 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { threadCoverSrc } from "@/lib/appearance";
-import { getForum, getThreads, type ThreadView } from "@/lib/db";
+import {
+  getForum,
+  getPrefixes,
+  getThreads,
+  type PrefixEntry,
+  type ThreadView,
+} from "@/lib/db";
 import { formatCompact } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
-import type { Prefix } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const filterClass =
@@ -35,8 +39,8 @@ function PrefixFilter({
   active,
 }: {
   id: number;
-  prefixes: Prefix[];
-  active: Prefix | undefined;
+  prefixes: PrefixEntry[];
+  active: PrefixEntry | undefined;
 }) {
   const t = useTranslations("forums.forum");
   return (
@@ -86,14 +90,18 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
           "bg-primary/5 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}
     >
-      {thread.cover && (
+      {thread.coverPicture && (
         <Art
           category="threadCovers"
-          src={threadCoverSrc(thread.cover)}
+          src={thread.coverPicture.url}
           className="absolute inset-y-0 right-0 -z-10 w-2/3 opacity-25 [mask-image:linear-gradient(to_left,black,transparent)] md:w-1/2"
         />
       )}
-      <UserAvatar user={thread.author} size="lg" className="relative z-10" />
+      <UserAvatar
+        user={thread.author.member}
+        size="lg"
+        className="relative z-10"
+      />
       <div className="min-w-0 flex-1">
         <Link
           href={`/threads/${thread.id}`}
@@ -127,7 +135,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
         <p className="truncate text-xs text-muted-foreground">
           {t.rich("created", {
             author: () => (
-              <UserLink user={thread.author} className="relative z-10" />
+              <UserLink user={thread.author.member} className="relative z-10" />
             ),
             time: format.relativeTime(new Date(thread.createdAt), now),
           })}
@@ -153,7 +161,10 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
         {t.rich("lastPost", {
           time: format.relativeTime(new Date(thread.lastPost.createdAt), now),
           author: () => (
-            <UserLink user={thread.lastPost.author} className="relative z-10" />
+            <UserLink
+              user={thread.lastPost.author.member}
+              className="relative z-10"
+            />
           ),
         })}
       </p>
@@ -248,9 +259,9 @@ async function ForumThreads({
 }) {
   const all = await getThreads(forumId);
   const t = await getTranslations("forums.forum");
-  const prefixes = all
-    .flatMap((thread) => thread.prefix ?? [])
-    .filter((prefix, index, list) => list.indexOf(prefix) === index)
+  const used = new Set(all.flatMap((thread) => thread.prefix?.id ?? []));
+  const prefixes = (await getPrefixes())
+    .filter((prefix) => used.has(prefix.id))
     .toSorted((a, b) => a.id - b.id);
   const active = prefixes.find((prefix) => prefix.key === param);
   const threads = active

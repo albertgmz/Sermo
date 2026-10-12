@@ -1,5 +1,5 @@
 import { Art } from "@/components/forum/art";
-import { coverSrc } from "@/lib/appearance";
+import type { PictureView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const VARIANTS = {
@@ -17,7 +17,7 @@ export function CoverBackdrop({
   variant = "header",
   className,
 }: {
-  cover: string | null;
+  cover: PictureView | null;
   variant?: keyof typeof VARIANTS;
   className?: string;
 }) {
@@ -30,7 +30,7 @@ export function CoverBackdrop({
         VARIANTS[variant],
         className,
       )}
-      src={coverSrc(cover)}
+      src={cover.url}
     />
   );
 }

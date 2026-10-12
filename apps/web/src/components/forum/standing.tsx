@@ -15,8 +15,6 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import type { MonthWinner, StandingEntry } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
-import { titleKeyForLevel } from "@/lib/levels";
-import { can } from "@/lib/permissions";
 import {
   type Activity,
   type Month,
@@ -101,21 +99,14 @@ export function MonthHero({
 }) {
   const t = useTranslations("forum.standing");
   const tParts = useTranslations("forum.standing.parts");
-  const tLevels = useTranslations("lib.levels");
-  const tRoles = useTranslations("lib.db.roles");
   const format = useFormatter();
   const { user } = winner;
-  const title =
-    (can(user, "customTitle") && user.customTitle) ||
-    (user.role === "member"
-      ? tLevels(titleKeyForLevel(user.level.level))
-      : tRoles(user.role));
   return (
     <section
       aria-labelledby="member-of-the-month"
       className="relative isolate overflow-hidden rounded-lg border bg-card"
     >
-      <CoverBackdrop cover={user.appearance.cover} className="h-44" />
+      <CoverBackdrop cover={user.coverPicture} className="h-44" />
       <div className="p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <h2
@@ -131,16 +122,18 @@ export function MonthHero({
         </div>
 
         <div className="mt-5 flex flex-col items-center gap-4 text-center sm:flex-row sm:gap-5 sm:text-left">
-          <UserAvatar user={user} size="2xl" />
+          <UserAvatar user={user.member} size="2xl" />
           <div className="min-w-0 max-w-full">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-start">
               <UserLink
-                user={user}
+                user={user.member}
                 className="max-w-full truncate text-2xl leading-10 tracking-tight"
               />
-              <UserBadges user={user} />
+              <UserBadges user={user.member} />
             </p>
-            <p className="truncate text-sm text-muted-foreground">{title}</p>
+            <p className="truncate text-sm text-muted-foreground">
+              {user.member.title}
+            </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-start">
               <div className="flex items-center gap-1.5">
                 <LevelBadge level={user.level} />
@@ -238,11 +231,11 @@ function StandingRow({
       )}
       {compact ? (
         <UserAvatar
-          user={entry.user}
+          user={entry.user.member}
           className="relative after:absolute after:-inset-1"
         />
       ) : (
-        <UserAvatar user={entry.user} size="lg" />
+        <UserAvatar user={entry.user.member} size="lg" />
       )}
       <div className="min-w-0 flex-1">
         {label && (
@@ -252,10 +245,10 @@ function StandingRow({
         )}
         <p className="flex items-center gap-1.5">
           <UserLink
-            user={entry.user}
+            user={entry.user.member}
             className={cn("truncate", leader ? "text-base" : "text-sm")}
           />
-          <UserBadges user={entry.user} />
+          <UserBadges user={entry.user.member} />
         </p>
         {!compact && <Breakdown entry={entry} />}
       </div>

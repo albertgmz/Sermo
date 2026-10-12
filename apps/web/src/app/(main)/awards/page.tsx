@@ -54,7 +54,7 @@ function Progress({ viewer, total }: { viewer: UserView; total: number }) {
       </h2>
       <div className="mt-4 grid gap-5 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-10">
         <div className="flex items-center gap-4">
-          <UserAvatar user={viewer} size="xl" />
+          <UserAvatar user={viewer.member} size="xl" />
           <div>
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               {t("levelLabel")}
@@ -163,7 +163,7 @@ function AwardCard({
                 {award.holders.slice(0, MAX_HOLDER_AVATARS).map(({ user }) => (
                   <UserAvatar
                     key={user.id}
-                    user={user}
+                    user={user.member}
                     size="xs"
                     link={false}
                     className={cn(

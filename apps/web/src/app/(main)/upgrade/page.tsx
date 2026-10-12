@@ -14,7 +14,8 @@ import {
   TextSkeleton,
 } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { DonorBadge, RankBadge } from "@/components/forum/user-badges";
+import { MemberBadge } from "@/components/forum/user-badges";
+import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import {
   heroSubtitleClass,
@@ -23,19 +24,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { nameColor } from "@/lib/appearance";
 import {
   type AwardView,
   getAwards,
   getLeaderboard,
   getRanks,
+  type RankView,
   type UserView,
 } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { DONOR_BADGE } from "@/lib/legacy-views";
 import { titleKeyForLevel } from "@/lib/levels";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
-import type { Rank } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -85,10 +86,11 @@ function HeroArt({
   award,
 }: {
   user: UserView;
-  rank: Rank;
+  rank: RankView;
   award: RankAward;
 }) {
   const t = useTranslations("upgrade.upgrade");
+  const rankName = userNameProps({ nameColor: rank.badge.color });
   const levels = useTranslations("lib.levels");
   const roles = useTranslations("lib.db.roles");
   const title =
@@ -124,17 +126,15 @@ function HeroArt({
       <div
         className={cn(floatingCardClass, "top-16 left-0 w-56 -rotate-6 p-4")}
       >
-        <UserAvatar user={user} size="xl" link={false} />
+        <UserAvatar user={user.member} size="xl" link={false} />
         <p className="mt-3 flex items-center gap-1.5">
           <span
-            className={cn(
-              "truncate text-base font-bold",
-              nameColor(rank.headline.nameColor)?.text,
-            )}
+            className={cn("truncate text-base font-bold", rankName.className)}
+            style={rankName.style}
           >
             {user.username}
           </span>
-          <RankBadge rank={rank} />
+          <MemberBadge badge={rank.badge} />
         </p>
         <p className="truncate text-xs text-muted-foreground">{title}</p>
         <div className="mt-3 flex items-center gap-2">
@@ -204,7 +204,7 @@ function RankAction({
   viewer,
   highlighted,
 }: {
-  rank: Rank;
+  rank: RankView;
   viewer: UserView | null;
   highlighted: boolean;
 }) {
@@ -263,13 +263,14 @@ function RankCard({
   username,
   recommended,
 }: {
-  rank: Rank;
+  rank: RankView;
   award: RankAward;
   viewer: UserView | null;
   username: string;
   recommended: boolean;
 }) {
   const t = useTranslations("upgrade.upgrade");
+  const rankName = userNameProps({ nameColor: rank.badge.color });
   const current = viewer?.rank;
   const upgrading = current && current.price < rank.price;
   return (
@@ -309,10 +310,8 @@ function RankCard({
       <ul className="mt-3">
         <Grant label={t("nameColorLabel")}>
           <span
-            className={cn(
-              "min-w-0 truncate font-semibold",
-              nameColor(rank.headline.nameColor)?.text,
-            )}
+            className={cn("min-w-0 truncate font-semibold", rankName.className)}
+            style={rankName.style}
           >
             {username}
           </span>
@@ -328,7 +327,7 @@ function RankCard({
           </Grant>
         )}
         <Grant label={t("rankBadgeLabel")}>
-          <RankBadge rank={rank} />
+          <MemberBadge badge={rank.badge} />
         </Grant>
       </ul>
 
@@ -378,7 +377,7 @@ function Donor({ viewer }: { viewer: UserView | null }) {
           className="flex items-center gap-2 text-base font-semibold"
         >
           {t("donorHeading")}
-          <DonorBadge />
+          <MemberBadge badge={DONOR_BADGE} />
           <span className="text-sm font-medium text-muted-foreground">
             {t("donorPrice")}
           </span>
@@ -502,7 +501,7 @@ async function UpgradeHero() {
     getAwards(),
   ]);
   const sample = viewer ?? (await getLeaderboard("xp", 1))[0];
-  const awardOf = (rank: Rank) =>
+  const awardOf = (rank: RankView) =>
     awards.find((award) => award.slug === rank.headline.award);
   const top = ranks[ranks.length - 1];
 
@@ -554,7 +553,7 @@ async function UpgradeRanks() {
     getRanks(),
     getAwards(),
   ]);
-  const awardOf = (rank: Rank) =>
+  const awardOf = (rank: RankView) =>
     awards.find((award) => award.slug === rank.headline.award);
   const recommended = ranks[Math.floor(ranks.length / 2)];
 
