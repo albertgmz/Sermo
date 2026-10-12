@@ -43,6 +43,16 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       assert.equal(response.headers.get("location"), "http://localhost/login");
     }
   }
+  for (const cookie of ["", "all", "frames"]) {
+    for (const path of ["/foo:bar", "/forums/abc.png", "/awards/1.svg"]) {
+      const response = await request(path, cookie);
+      assert.equal(response.status, 404, path);
+      assert.equal(
+        response.headers.get("x-middleware-rewrite"),
+        "http://localhost/not-found",
+      );
+    }
+  }
   for (const cookie of ["", "frames"]) {
     const response = await request("/avatars/tobi.jpg", cookie);
     assert.equal(response.headers.get("x-middleware-next"), "1");
@@ -52,7 +62,8 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
   for (const [path, cookie] of [
     ["/frames/619.png", "all.frames"],
     ["/unknown.png", "frames"],
-    ["/THREAD~1/vinyl.jpg", ""],
+    ["/THREAD~1/vinyl.jpg", "all"],
+    ["/avatars/tobi.jpg.", "avatars"],
     ["/avatars/tobi.jpg%3A%3A%24DATA", "avatars"],
   ]) {
     const response = await request(path, cookie);

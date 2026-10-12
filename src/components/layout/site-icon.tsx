@@ -8,7 +8,7 @@ export async function SiteIcon() {
   ]);
   return (
     <>
-      <LiteModeSync cookieValue={cookieValue === "1" ? "all" : cookieValue} />
+      <LiteModeSync cookieValue={cookieValue} />
       {!blocked && (
         <link rel="icon" href="/icon.svg" type="image/svg+xml" sizes="24x24" />
       )}

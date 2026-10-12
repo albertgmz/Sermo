@@ -69,6 +69,8 @@ export function LiteSettingsForm({
       </div>
       <form action={setLiteMode} className={styles.form}>
         <input type="hidden" name="returnTo" value={returnTo} />
+        {/* Tells the action that the whole selection is submitted. */}
+        <input type="hidden" name="source" value="settings" />
         <PreferenceRow
           id={`${id}-master`}
           name="mode"

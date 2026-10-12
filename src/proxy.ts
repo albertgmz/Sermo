@@ -1,3 +1,5 @@
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import {
   getAward,
@@ -6,7 +8,12 @@ import {
   getThread,
   getUserById,
 } from "@/lib/db";
-import { blocksImageRequest, isImageRequest } from "@/lib/lite-images";
+import {
+  blocksImageRequest,
+  isImageRequest,
+  isUnknownUnsafePath,
+  pictureInPageFolder,
+} from "@/lib/lite-images";
 import {
   LITE_COOKIE,
   parseLiteCookieHeader,
@@ -59,7 +66,29 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+function notFound(request: NextRequest) {
+  return NextResponse.rewrite(new URL("/not-found", request.url), {
+    status: 404,
+  });
+}
+
+// The proxy runs on Node, so the public folder can be read directly. Names are
+// compared lower-cased because the request path is.
+function publicFileExists([folder, name]: [string, string]) {
+  try {
+    return readdirSync(join(process.cwd(), "public", folder)).some(
+      (file) => file.toLowerCase() === name,
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function handleRequest(request: NextRequest) {
+  // Folders that are also page namespaces hold pictures only under the names
+  // of real files; anything else there is an unknown page.
+  const shared = pictureInPageFolder(request.nextUrl.pathname);
+  if (shared && !publicFileExists(shared)) return notFound(request);
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(
@@ -79,6 +108,7 @@ async function handleRequest(request: NextRequest) {
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
+  if (isUnknownUnsafePath(request.nextUrl.pathname)) return notFound(request);
   let pathname: string;
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);

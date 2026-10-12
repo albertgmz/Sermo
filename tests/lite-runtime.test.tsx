@@ -161,6 +161,10 @@ test("proxy blocks encoded, Windows, case, slash and dot aliases of every public
       path.replaceAll("/", "//"),
       `${path}/`,
       `${path}%2F`,
+      `${path}.`,
+      `${path}..`,
+      `${path}%20`,
+      `${path}. .`,
       `/discard/..${path}`,
       `/discard%2F..%2F${path.slice(1)}`,
       `/./${path.slice(1)}`,
@@ -175,6 +179,54 @@ test("proxy blocks encoded, Windows, case, slash and dot aliases of every public
         await proxy(request(`/unregistered/picture.${suffix}`, "all")),
         suffix,
       );
+});
+
+function notFound(response: NextResponse | undefined, context: string) {
+  expect(response?.status, context).toBe(404);
+  expect(response?.headers.get("x-middleware-rewrite"), context).toBe(
+    "https://forum.test/not-found",
+  );
+  expect(response?.headers.get("content-type"), context).toBe(null);
+}
+
+test("unsafe paths outside every picture folder are real 404s for every visitor", async () => {
+  for (const path of ["/foo:bar", "/foo~1/bar", "/x/y~2", "/a:b/c.html"])
+    for (const mode of [undefined, "all", "avatars"])
+      notFound(await proxy(request(path, mode)), `${mode}: ${path}`);
+  // Inside a registered folder an alias is still a picture.
+  for (const mode of [undefined, "all", "threadCovers"])
+    await placeholder(
+      await proxy(request("/THREAD~1/vinyl.jpg", mode)),
+      `${mode}: short name`,
+    );
+});
+
+test("shared page and picture folders answer unknown names with a 404, real files as before", async () => {
+  for (const path of [
+    "/forums/abc.png",
+    "/awards/1.svg",
+    "/awards/1.svg.",
+    "/forums/missing.jpg%20",
+    "/FORUMS/abc.PNG",
+    "/forums/1.webp::$DATA",
+  ])
+    for (const mode of [undefined, "all", "forumArt", "awards"])
+      notFound(await proxy(request(path, mode)), `${mode}: ${path}`);
+  const file = pictures.find((picture) => picture.startsWith("public/forums/"));
+  expect(file).toBeDefined();
+  const path = (file as string).slice("public".length);
+  passThrough(await proxy(request(path)), path);
+  passThrough(await proxy(request(path, "awards")), path);
+  await placeholder(await proxy(request(path, "forumArt")), path);
+  await placeholder(await proxy(request(path.toUpperCase(), "all")), path);
+  const award = pictures.find((picture) =>
+    picture.startsWith("public/awards/"),
+  );
+  expect(award).toBeDefined();
+  passThrough(
+    await proxy(request((award as string).slice("public".length))),
+    "award",
+  );
 });
 
 test("malformed encoding never throws and recognized image suffixes stay blocked", async () => {

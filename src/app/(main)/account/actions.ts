@@ -60,38 +60,9 @@ export type TitleState = {
   error: "not_found" | "not_allowed" | "too_long";
 } | null;
 
-export async function saveTitle(
-  _previous: TitleState,
-  formData: FormData,
-): Promise<TitleState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const title = formData.has("reset") ? "" : formData.get("title");
-  const result = await setTitle(user.id, String(title ?? ""));
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect("/account?saved=title");
-}
-
 export type UsernameState = {
   error: "not_found" | "not_allowed" | "invalid" | "taken" | "unconfirmed";
 } | null;
-
-export async function saveUsername(
-  _previous: UsernameState,
-  formData: FormData,
-): Promise<UsernameState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (formData.get("confirm") !== "on") return { error: "unconfirmed" };
-  const result = await changeUsername(
-    user.id,
-    String(formData.get("username") ?? ""),
-  );
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect("/account?saved=username");
-}
 
 export type DetailsState =
   | { field: "username"; error: NonNullable<UsernameState>["error"] }
