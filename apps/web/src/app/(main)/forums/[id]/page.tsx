@@ -1,12 +1,27 @@
-import { Eye, MessageCircle, MessagesSquare, Pin, Plus } from "lucide-react";
+import {
+  nodesGet,
+  nodesList,
+  threadPrefixesList,
+  threadsList,
+} from "@sermo/core/contracts";
+import {
+  ChevronDown,
+  Eye,
+  Lock,
+  MessageCircle,
+  MessagesSquare,
+  Pin,
+  Plus,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ForumCard } from "@/components/forum/forum-card";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -15,23 +30,36 @@ import {
   ThreadRowSkeleton,
 } from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
+import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  getForum,
-  getPrefixes,
-  getThreads,
-  type PrefixEntry,
-  type ThreadView,
-} from "@/lib/db";
 import { formatCompact } from "@/lib/format";
-import { getCurrentUser } from "@/lib/session";
+import { call, read } from "@/lib/sermo/client";
+import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
+import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
+import {
+  type ApiThread,
+  prefixView,
+  threadCard,
+  threadMembers,
+} from "@/lib/sermo/threads";
+import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const filterClass =
   "inline-flex h-10 shrink-0 items-center rounded-md px-1 transition-opacity md:h-7";
+
+// The node is asked once for the metadata and the page.
+const getNode = cache((nodeId: number) => read(nodesGet, { nodeId }));
+
+function nodeIdOf(raw: string) {
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id < 1) notFound();
+  return id;
+}
 
 function PrefixFilter({
   id,
@@ -39,8 +67,8 @@ function PrefixFilter({
   active,
 }: {
   id: number;
-  prefixes: PrefixEntry[];
-  active: PrefixEntry | undefined;
+  prefixes: PrefixView[];
+  active: number | undefined;
 }) {
   const t = useTranslations("forums.forum");
   return (
@@ -51,7 +79,7 @@ function PrefixFilter({
       <Link
         href={`/forums/${id}`}
         scroll={false}
-        aria-current={active ? undefined : "true"}
+        aria-current={active === undefined ? "true" : undefined}
         className={cn(
           filterClass,
           "px-2 text-xs font-medium text-muted-foreground hover:text-foreground aria-[current=true]:text-foreground",
@@ -62,12 +90,12 @@ function PrefixFilter({
       {prefixes.map((prefix) => (
         <Link
           key={prefix.id}
-          href={`/forums/${id}?prefix=${prefix.key}`}
+          href={`/forums/${id}?prefix=${prefix.id}`}
           scroll={false}
-          aria-current={prefix.id === active?.id ? "true" : undefined}
+          aria-current={prefix.id === active ? "true" : undefined}
           className={cn(
             filterClass,
-            active &&
+            active !== undefined &&
               "opacity-70 hover:opacity-100 aria-[current=true]:opacity-100",
           )}
         >
@@ -78,27 +106,36 @@ function PrefixFilter({
   );
 }
 
-function ThreadRow({ thread }: { thread: ThreadView }) {
+function ThreadRow({
+  thread,
+  member,
+  highlighted,
+}: {
+  thread: ApiThread;
+  member: Awaited<ReturnType<typeof membersFor>>;
+  highlighted: boolean;
+}) {
   const t = useTranslations("forums.forum");
   const format = useFormatter();
   const now = useNow();
+  const card = threadCard(thread, member);
   return (
     <li
       className={cn(
         "relative isolate flex items-center gap-3 px-3 py-2.5 md:px-4",
-        thread.highlighted &&
+        highlighted &&
           "bg-primary/5 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}
     >
-      {thread.coverPicture && (
+      {card.coverPicture && (
         <Art
           category="threadCovers"
-          src={thread.coverPicture.url}
+          src={card.coverPicture.url}
           className="absolute inset-y-0 right-0 -z-10 w-2/3 opacity-25 [mask-image:linear-gradient(to_left,black,transparent)] md:w-1/2"
         />
       )}
       <UserAvatar
-        user={thread.author.member}
+        user={card.author.member}
         size="lg"
         className="relative z-10"
       />
@@ -110,24 +147,34 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
           className="absolute inset-0"
         />
         <ThreadHoverCard
-          thread={thread}
-          className="relative z-10 flex w-fit max-w-full items-start gap-1.5 text-sm font-medium hover:underline"
+          thread={card}
+          className={cn(
+            "relative z-10 flex w-fit max-w-full items-start gap-1.5 text-sm hover:underline",
+            thread.isUnread ? "font-bold" : "font-medium",
+          )}
         >
-          {thread.pinned && (
+          {thread.isUnread && <UnreadDot className="mt-1.5" />}
+          {thread.isSticky && (
             <Pin
               aria-label={t("aria.pinned")}
               className="mt-0.5 size-3.5 shrink-0 text-primary"
             />
           )}
+          {thread.isLocked && (
+            <Lock
+              aria-label={t("aria.locked")}
+              className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+            />
+          )}
           <span className="line-clamp-2 [overflow-wrap:anywhere]">
-            {thread.prefix && (
+            {card.prefix && (
               <PrefixTag
-                prefix={thread.prefix}
+                prefix={card.prefix}
                 className="mr-1.5 align-(--prefix-offset)"
               />
             )}
-            {thread.title}
-            {thread.highlighted && (
+            {card.title}
+            {highlighted && (
               <span className="sr-only">{t("aria.highlighted")}</span>
             )}
           </span>
@@ -135,7 +182,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
         <p className="truncate text-xs text-muted-foreground">
           {t.rich("created", {
             author: () => (
-              <UserLink user={thread.author.member} className="relative z-10" />
+              <UserLink user={card.author.member} className="relative z-10" />
             ),
             time: format.relativeTime(new Date(thread.createdAt), now),
           })}
@@ -147,22 +194,22 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
             <MessageCircle aria-hidden="true" className="size-3.5" />
             <span className="sr-only">{t("aria.replies")}</span>
           </dt>
-          <dd>{formatCompact(thread.replyCount)}</dd>
+          <dd>{formatCompact(card.replyCount)}</dd>
         </div>
         <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
           <dt>
             <Eye aria-hidden="true" className="size-3.5" />
             <span className="sr-only">{t("aria.views")}</span>
           </dt>
-          <dd>{formatCompact(thread.views)}</dd>
+          <dd>{formatCompact(card.views)}</dd>
         </div>
       </dl>
       <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">
         {t.rich("lastPost", {
-          time: format.relativeTime(new Date(thread.lastPost.createdAt), now),
+          time: format.relativeTime(new Date(card.lastPost.createdAt), now),
           author: () => (
             <UserLink
-              user={thread.lastPost.author.member}
+              user={card.lastPost.author.member}
               className="relative z-10"
             />
           ),
@@ -175,50 +222,60 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
 export async function generateMetadata({
   params,
 }: PageProps<"/forums/[id]">): Promise<Metadata> {
-  const forum = await getForum(Number((await params).id));
+  const { node } = await getNode(nodeIdOf((await params).id));
   const t = await getTranslations("forums.forum");
-  return {
-    title: t("metaTitle", { title: forum?.title ?? t("metaTitleFallback") }),
-  };
+  return { title: t("metaTitle", { title: node.title }) };
 }
 
 export default async function ForumPage({
   params,
   searchParams,
 }: PageProps<"/forums/[id]">) {
-  const [{ id }, { prefix: param }] = await Promise.all([params, searchParams]);
-  const forum = await getForum(Number(id));
-  if (!forum) notFound();
-  const user = await getCurrentUser();
-  const t = await getTranslations("forums.forum");
+  const [{ id: raw }, { prefix, cursor }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const { node, breadcrumbs } = await getNode(nodeIdOf(raw));
+  const [{ user }, t] = await Promise.all([
+    getViewer(),
+    getTranslations("forums.forum"),
+  ]);
 
-  const newThread = user && (
+  const isForum = node.type === "forum";
+  const newThread = isForum && node.permissions.canPost && (
     <Link
-      href={`/forums/${forum.id}/new`}
+      href={`/forums/${node.id}/new`}
       className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
     >
       <Plus />
       {t("newThread")}
     </Link>
   );
+  const trail =
+    breadcrumbs.at(-1)?.id === node.id ? breadcrumbs : [...breadcrumbs, node];
 
   return (
     <PageLayout className="pt-2">
       <PageBreadcrumb
         items={[
           { label: t("home"), href: "/" },
-          { label: forum.categoryTitle, href: `/forums?tab=${forum.tab}` },
-          { label: forum.title },
+          ...trail.map((crumb, index) => ({
+            label: crumb.title,
+            href:
+              index === trail.length - 1 ? undefined : `/forums/${crumb.id}`,
+          })),
         ]}
       />
       <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {forum.title}
+            {node.title}
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-pretty text-muted-foreground">
-            {forum.description}
-          </p>
+          {node.description && (
+            <p className="mt-1 max-w-2xl text-sm text-pretty text-muted-foreground">
+              {node.description}
+            </p>
+          )}
         </div>
         {newThread}
       </div>
@@ -235,43 +292,88 @@ export default async function ForumPage({
           </LoadingRegion>
         }
       >
-        <ForumThreads
-          forumId={forum.id}
-          param={param}
-          user={user}
-          newThread={newThread}
-        />
+        {isForum ? (
+          <ForumThreads
+            nodeId={node.id}
+            prefix={typeof prefix === "string" ? prefix : undefined}
+            cursor={typeof cursor === "string" ? cursor : undefined}
+            newThread={newThread}
+            signedIn={user !== null}
+          />
+        ) : (
+          <CategoryForums nodeId={node.id} />
+        )}
       </Suspense>
     </PageLayout>
   );
 }
 
+// A category holds no threads: its forums are what the page lists.
+async function CategoryForums({ nodeId }: { nodeId: number }) {
+  const [{ items: nodes }, t] = await Promise.all([
+    call(nodesList, {}),
+    getTranslations("forums.forum"),
+  ]);
+  const childrenOf = childrenByParent(nodes);
+  const forums = childrenOf(nodeId);
+  const member = await membersFor(nodeMembers(nodes));
+  if (forums.length === 0) {
+    return (
+      <div className="mt-4 rounded-lg border bg-card">
+        <EmptyState
+          icon={MessagesSquare}
+          title={t("emptyCategory")}
+          description={t("emptyCategoryDescription")}
+        />
+      </div>
+    );
+  }
+  return (
+    <ul className="mt-4 grid gap-2 md:grid-cols-2">
+      {forums.map((forum) => (
+        <ForumCard
+          key={forum.id}
+          forum={forumCard(forum, childrenOf(forum.id), member)}
+          className="md:last:odd:col-span-2"
+        />
+      ))}
+    </ul>
+  );
+}
+
 async function ForumThreads({
-  forumId,
-  param,
-  user,
+  nodeId,
+  prefix,
+  cursor,
   newThread,
+  signedIn,
 }: {
-  forumId: number;
-  param: string | string[] | undefined;
-  user: Awaited<ReturnType<typeof getCurrentUser>>;
+  nodeId: number;
+  prefix: string | undefined;
+  cursor: string | undefined;
   newThread: React.ReactNode;
+  signedIn: boolean;
 }) {
-  const all = await getThreads(forumId);
-  const t = await getTranslations("forums.forum");
-  const used = new Set(all.flatMap((thread) => thread.prefix?.id ?? []));
-  const prefixes = (await getPrefixes())
-    .filter((prefix) => used.has(prefix.id))
-    .toSorted((a, b) => a.id - b.id);
-  const active = prefixes.find((prefix) => prefix.key === param);
-  const threads = active
-    ? await getThreads(forumId, { prefixId: active.id })
-    : all;
+  const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
+  const [list, { items: allPrefixes }, t] = await Promise.all([
+    call(threadsList, { nodeId, prefixId, cursor }),
+    call(threadPrefixesList, {}),
+    getTranslations("forums.forum"),
+  ]);
+  const threads = [...list.sticky, ...list.items];
+  const member = await membersFor(threads.flatMap(threadMembers));
+  const prefixes = allPrefixes
+    .filter((entry) => entry.isActive)
+    .flatMap((entry) => prefixView(entry) ?? []);
+  const now = Date.now();
+  const next = new URLSearchParams();
+  if (prefixId !== undefined) next.set("prefix", String(prefixId));
+  if (list.nextCursor) next.set("cursor", list.nextCursor);
 
   return (
     <>
       {prefixes.length > 0 && (
-        <PrefixFilter id={forumId} prefixes={prefixes} active={active} />
+        <PrefixFilter id={nodeId} prefixes={prefixes} active={prefixId} />
       )}
 
       <div
@@ -283,7 +385,15 @@ async function ForumThreads({
         {threads.length > 0 ? (
           <ul className="divide-y divide-border">
             {threads.map((thread) => (
-              <ThreadRow key={thread.id} thread={thread} />
+              <ThreadRow
+                key={thread.id}
+                thread={thread}
+                member={member}
+                highlighted={
+                  thread.highlightedUntil !== null &&
+                  Date.parse(thread.highlightedUntil) > now
+                }
+              />
             ))}
           </ul>
         ) : (
@@ -291,13 +401,30 @@ async function ForumThreads({
             icon={MessagesSquare}
             title={t("empty")}
             description={
-              user ? t("emptyMemberDescription") : t("emptyGuestDescription")
+              newThread
+                ? t("emptyMemberDescription")
+                : signedIn
+                  ? undefined
+                  : t("emptyGuestDescription")
             }
           >
             {newThread}
           </EmptyState>
         )}
       </div>
+      {list.nextCursor && (
+        <Link
+          href={`/forums/${nodeId}?${next}`}
+          scroll={false}
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "mt-3 h-10 w-full",
+          )}
+        >
+          <ChevronDown />
+          {t("nextPage")}
+        </Link>
+      )}
     </>
   );
 }

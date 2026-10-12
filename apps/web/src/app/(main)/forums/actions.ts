@@ -1,13 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { threadsCreate } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-import { getClientInfo } from "@/lib/client";
-import { createThread, getForum } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
-
-const TITLE_MAX = 120;
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
 
 export type NewThreadState = {
   error?: string;
@@ -16,36 +12,23 @@ export type NewThreadState = {
 };
 
 export async function createThreadAction(
-  id: number,
+  nodeId: number,
   _previous: NewThreadState,
   formData: FormData,
 ): Promise<NewThreadState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const t = await getTranslations("forums.actions.errors");
-
-  const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
+  const title = String(formData.get("title") ?? "");
+  const body = String(formData.get("body") ?? "");
   const prefixId = String(formData.get("prefixId") ?? "");
-  const forum = await getForum(id);
-  const fail = (error: string) => ({ error, title, prefixId });
 
-  if (!forum) return fail(t("forumMissing"));
-  if (!title) return fail(t("titleRequired"));
-  if (title.length > TITLE_MAX) {
-    return fail(t("titleTooLong", { max: TITLE_MAX }));
-  }
-  if (!body) return fail(t("bodyRequired"));
-
-  const thread = await createThread({
-    forumId: forum.id,
-    authorId: user.id,
-    title,
-    body,
-    prefixId: prefixId ? Number(prefixId) : null,
-    client: await getClientInfo(),
-  });
-  revalidatePath("/forums");
-  revalidatePath(`/forums/${forum.id}`);
-  redirect(`/threads/${thread.id}`);
+  const created = await attempt(`/forums/${nodeId}/new`, () =>
+    call(threadsCreate, {
+      nodeId,
+      title,
+      body,
+      prefixId: prefixId ? Number(prefixId) : null,
+    }),
+  );
+  if (!created.ok) return { error: created.error, title, prefixId };
+  // A thread that waits for approval is opened all the same: its author can see it there.
+  redirect(`/threads/${created.value.thread.id}`);
 }
