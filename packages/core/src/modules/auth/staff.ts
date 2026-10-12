@@ -21,13 +21,19 @@ const flagsWhere = (keep: (id: FlagPermissionId) => boolean) =>
   );
 
 /**
- * What a moderator may do inside a forum: the node-scoped flags of moderators. The registry
- * marks them with the legacy `is_moderator` flag (they sit in the `forum` category, beside the
- * ones everybody holds), or with the `moderation` category.
+ * What a moderator may do inside a forum: the node-scoped flags of the `moderation` category,
+ * and those the registry gives to staff alone (they sit in the `forum` category, beside the
+ * ones everybody holds): an account is needed, no ordinary member group has them by default.
  */
 export const NODE_MODERATION = flagsWhere((id) => {
   const def: PermissionDefinition = PERMISSIONS[id];
-  return def.scope === "node" && (def.category === "moderation" || def.legacy === "is_moderator");
+  if (def.scope !== "node" || def.type !== "flag") return false;
+  return (
+    def.category === "moderation" ||
+    (def.requiresAccount === true &&
+      def.defaults.moderator === "allow" &&
+      def.defaults.registered === undefined)
+  );
 });
 
 const MODERATION_IDS: ReadonlySet<string> = new Set(NODE_MODERATION);
