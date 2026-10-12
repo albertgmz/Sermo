@@ -1,22 +1,20 @@
 "use server";
 
+import { shopUpgrade } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { purchaseRank, type RankResult } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
 
-export type RankState = Extract<RankResult, { ok: false }> | null;
+export type RankState = { error?: string };
 
+// Buys the rank at full price or, over a rank held, for the difference: the backend works out which.
 export async function buyRank(
-  rankId: number,
+  itemId: number,
   _previous: RankState,
-  _formData: FormData,
 ): Promise<RankState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (!Number.isInteger(rankId)) return { ok: false, error: "not_found" };
-  const result = await purchaseRank(user.id, rankId);
-  if (!result.ok) return result;
+  const bought = await attempt("/upgrade", () => call(shopUpgrade, { itemId }));
+  if (!bought.ok) return { error: bought.error };
   revalidatePath("/", "layout");
-  redirect("/upgrade");
+  redirect("/upgrade?notice=upgraded");
 }

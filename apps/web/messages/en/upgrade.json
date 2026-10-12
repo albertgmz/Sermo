@@ -1,74 +1,35 @@
 {
   "upgrade": {
     "metaTitle": "Upgrade",
-    "exclusiveAward": "Exclusive award",
-    "paidWithCredits": "Paid with credits",
-    "lifetimePerks": "Lifetime perks",
+    "heading": "Ranks",
+    "description": "Spend your credits on a rank to unlock what it includes. Moving up a rank costs only the difference.",
+    "credits": "{count, plural, other {You have <amount>#</amount> credits to spend.}}",
+    "guestCredits": "Log in to see your credits.",
     "login": "Log in to upgrade",
-    "paymentNote": "Paid with the credits you earn.",
-    "currentRankNote": "This is the rank shown next to your name.",
     "currentRank": "Your current rank",
-    "includedNote": "Everything here comes with {rank}.",
+    "currentRankNote": "This is the rank you hold now.",
     "included": "Included",
-    "recommended": "Recommended",
+    "includedNote": "Everything here comes with {rank}.",
     "upgradePrice": "{price} from {rank}",
-    "priceNote": "credits, once",
-    "nameColorLabel": "Name colour",
-    "awardLabel": "Award",
-    "xp": "+{amount} XP",
-    "rankBadgeLabel": "Rank badge",
-    "donorHeading": "Donor",
-    "donorPrice": "$12.50, one time",
-    "donorDescription": "A donation helps pay for hosting and keeps the forum free of ads. It is not an upgrade: the only thing you get is the donor badge next to your name. No rank, no credits, no extra features.",
-    "donorThanks": "You are a donor. Thank you.",
-    "donate": "Donate $12.50",
-    "donorNote": "Payments are not available in this demo.",
-    "heading": "Ready to <highlight>level up</highlight><br></br>your experience?",
-    "description": "Spend your credits on a rank to unlock its name colour, an award nobody else can earn and a set of lasting perks.",
-    "faqHeading": "Questions and answers",
-    "earnedCredits": "Credits are earned by taking part, not bought.",
-    "credits": "{count, plural, other {You have <amount>#</amount> to spend.}}",
-    "guestCredits": "No rank can be paid for with money.",
-    "usernamePlaceholder": "your_name",
-    "faq": {
-      "purchaseQuestion": "Can I buy a rank with money?",
-      "purchaseAnswer": "No. Ranks are bought with credits only, and credits cannot be purchased. Nobody gets ahead here by paying.",
-      "earnQuestion": "How do I earn credits?",
-      "earnAnswer": "By taking part: visiting every day, starting threads, replying, receiving reactions, keeping a weekly streak and earning awards. The credits page lists every way to earn.",
-      "upgradeQuestion": "Can I move to a higher rank later?",
-      "upgradeAnswer": "You can. You only pay the difference in credits between your current rank and the new one, and you keep the award and the name colour you already unlocked.",
-      "expiryQuestion": "Does a rank expire?",
-      "expiryAnswer": "No. A rank is bought once and stays with your account, together with everything it unlocks.",
-      "donorQuestion": "What is Donor?",
-      "donorAnswer": "A one-time contribution of $12.50 towards the costs of running the forum. It adds a small badge next to your name and nothing else: no rank, no credits, no extra features.",
-      "demoQuestion": "Can I actually donate here?",
-      "demoAnswer": "No. This forum is a demo, so the donation button does not charge anything and no payment details are collected."
-    },
+    "upgraded": "Done. Your rank has changed.",
+    "emptyTitle": "No ranks are offered",
+    "emptyDescription": "There is nothing to upgrade to right now. Check back later.",
     "aria": {
-      "included": "<status>Included: </status>{label}",
-      "notIncluded": "<status>Not included: </status>{label}",
+      "ranks": "Ranks",
       "loadingDetails": "Loading upgrade details…",
-      "loadingRanks": "Loading ranks…",
-      "ranks": "Ranks"
+      "loadingRanks": "Loading ranks…"
     }
   },
   "rankForm": {
-    "submit": "Upgrade for {cost}",
-    "credits": "{count, plural, other {You are # credits short.}}",
-    "errors": {
-      "notFound": "This rank is no longer available.",
-      "notHigher": "You already have this rank or a higher one.",
-      "insufficientCredits": "You do not have enough credits."
-    },
+    "buy": "Get for {cost}",
+    "upgrade": "Upgrade for {cost}",
     "aria": {
-      "submit": "Upgrade to {rank} for {count, plural, other {# credits}}"
+      "submit": "Get the {rank} rank"
     }
   },
   "loading": {
-    "heading": "Ready to <highlight>level up</highlight><br></br>your experience?",
-    "description": "Spend your credits on a rank to unlock its name colour, an award nobody else can earn and a set of lasting perks.",
     "aria": {
-      "loading": "Loading upgrades…"
+      "loading": "Loading ranks…"
     }
   }
 }

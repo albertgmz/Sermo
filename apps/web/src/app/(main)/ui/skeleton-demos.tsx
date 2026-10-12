@@ -98,6 +98,7 @@ export function SkeletonDemos() {
           ["Members overview", <MembersOverviewSkeleton key="overview" />],
           ["Catalogue", <CatalogueSkeleton key="catalogue" />],
           ["Balance", <BalanceSkeleton key="balance" />],
+          ["Shop", <ShopSkeleton key="shop" />],
         ] as const
       ).map(([label, demo]) => (
         <CollapsiblePanel
@@ -109,20 +110,6 @@ export function SkeletonDemos() {
           <div className="space-y-4 p-3">{demo}</div>
         </CollapsiblePanel>
       ))}
-      {(["frame", "color", "threadCover", "boost", "permission"] as const).map(
-        (category) => (
-          <CollapsiblePanel
-            key={category}
-            title={`Shop skeleton: ${category}`}
-            storageKey={`styleguide-skeleton-shop-${category}`}
-            defaultOpen="md"
-          >
-            <div className="p-3">
-              <ShopSkeleton category={category} />
-            </div>
-          </CollapsiblePanel>
-        ),
-      )}
     </div>
   );
 }

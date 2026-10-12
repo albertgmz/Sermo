@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  awardsGet,
   conversationsGet,
   nodesGet,
   PageSlug,
@@ -10,7 +11,6 @@ import {
   seoThread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
-import { getAward } from "@/lib/db";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -40,11 +40,6 @@ type Finder = (
 const isId = (id: string) =>
   /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
 
-const numeric =
-  <T>(find: (id: number, viewerId: number) => Promise<T>): Finder =>
-  async (id, viewerId) =>
-    isId(id) && find(Number(id), viewerId);
-
 // Asks the backend as the visitor. Only its "not found" is a missing record; any other answer,
 // an outage included, lets the request through so the page can show its own error.
 async function exists(
@@ -69,7 +64,9 @@ const CONTENT: Record<string, Finder> = {
     callWith(forward, profilesGet, { userId }),
   ),
   forums: backend((nodeId, forward) => callWith(forward, nodesGet, { nodeId })),
-  awards: numeric(getAward),
+  awards: backend((awardId, forward) =>
+    callWith(forward, awardsGet, { awardId }),
+  ),
   // `threads.get` would count a view; one post of the thread proves the viewer can open it.
   threads: async (id, _viewerId, request) => {
     if (!isId(id)) return false;

@@ -1,7 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ShopCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function LoadingRegion({
@@ -628,205 +627,52 @@ export function ConversationListSkeleton() {
 
 export function BalanceSkeleton() {
   return (
-    <div
-      aria-hidden="true"
-      className="grid overflow-hidden rounded-lg border bg-card md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
-    >
-      <div className="p-4 md:p-6">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="mt-3 h-12 w-36" />
-        <Skeleton className="mt-2 h-5 w-48 max-w-full" />
-      </div>
-      <div className="border-t p-4 md:border-t-0 md:border-l md:p-6">
-        <Skeleton className="h-5 w-24" />
-        <div className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-          {[1, 2, 3, 4].map((way) => (
-            <Skeleton key={way} className="h-5 w-full" />
-          ))}
-        </div>
-      </div>
+    <div aria-hidden="true" className="rounded-lg border bg-card p-4 md:p-6">
+      <Skeleton className="h-5 w-24" />
+      <Skeleton className="mt-3 h-12 w-36" />
+      <Skeleton className="mt-2 h-5 w-48 max-w-full" />
     </div>
   );
 }
 
-// Per category, as `credits/page.tsx` lays it out: the blurb's lines on a
-// phone and from sm, the card grid, the picture and the description lines.
-const SHOP_LAYOUT: Record<
-  ShopCategory,
-  {
-    blurb: [phone: number, sm: number];
-    items: number;
-    grid: string;
-    picture: string;
-    description: [phone: number, sm: number];
-  }
-> = {
-  frame: {
-    blurb: [2, 2],
-    items: 8,
-    grid: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4",
-    picture: "flex h-36 items-center justify-center border-b",
-    description: [0, 0],
-  },
-  color: {
-    blurb: [2, 1],
-    items: 6,
-    grid: "sm:grid-cols-2 xl:grid-cols-3",
-    picture: "aspect-video border-b",
-    description: [2, 2],
-  },
-  threadCover: {
-    blurb: [3, 2],
-    items: 6,
-    grid: "sm:grid-cols-2 xl:grid-cols-3",
-    picture: "aspect-video border-b",
-    description: [3, 3],
-  },
-  boost: {
-    blurb: [2, 2],
-    items: 3,
-    grid: "sm:grid-cols-2 xl:grid-cols-3",
-    picture: "aspect-video border-b",
-    description: [2, 3],
-  },
-  permission: {
-    blurb: [3, 2],
-    items: 5,
-    grid: "",
-    picture: "",
-    description: [0, 0],
-  },
-};
-
-// Lines of text, `lines` of them on a phone and from sm.
-function TextLinesSkeleton({ lines }: { lines: [number, number] }) {
-  const [phone, sm] = lines;
+// The shop as `credits/shop.tsx` lays it out: the category chips, the category blurb and a grid
+// of cards (picture, name, description, effect, price, button).
+export function ShopSkeleton({ items = 6 }: { items?: number }) {
   return (
-    <>
-      {Array.from({ length: Math.max(phone, sm) }, (_, index) => index).map(
-        (index) => (
-          <div
-            key={index}
-            className={cn(
-              "flex h-5 items-center",
-              index >= phone && "hidden sm:flex",
-              index >= sm && "sm:hidden",
-            )}
-          >
-            <Skeleton
-              className={cn("h-3.5", index === 0 ? "w-full" : "w-3/4")}
-            />
-          </div>
-        ),
-      )}
-    </>
-  );
-}
-
-function ChipsSkeleton() {
-  return (
-    <div className="flex h-10 gap-2 overflow-hidden">
-      {[1, 2, 3, 4, 5].map((chip) => (
-        <Skeleton key={chip} className="h-10 w-28 shrink-0" />
-      ))}
-    </div>
-  );
-}
-
-function PermissionCardsSkeleton({ items }: { items: number }) {
-  return (
-    <>
-      <div className="rounded-lg border bg-card px-4 py-3">
-        <TextLinesSkeleton lines={[3, 2]} />
+    <div aria-hidden="true" className="space-y-4">
+      <div className="flex h-10 gap-2 overflow-hidden">
+        {[1, 2, 3, 4].map((chip) => (
+          <Skeleton key={chip} className="h-10 w-28 shrink-0" />
+        ))}
       </div>
-      <div className="grid gap-3">
+      <div className="flex h-5 items-center">
+        <Skeleton className="h-3.5 w-2/3 max-w-prose" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: items }, (_, index) => index).map((item) => (
           <div
             key={item}
-            className="overflow-hidden rounded-lg border bg-card sm:grid sm:grid-cols-[9rem_minmax(0,1fr)]"
+            className="flex min-w-0 flex-col overflow-hidden rounded-lg border bg-card"
           >
-            <div className="flex h-20 items-center justify-center border-b sm:h-auto sm:border-r sm:border-b-0">
-              <Skeleton className="size-12 rounded-full" />
-            </div>
-            <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_13rem]">
-              <div className="min-w-0 space-y-3">
-                <div>
-                  <div className="flex h-6 items-center">
-                    <Skeleton className="h-4 w-1/3" />
-                  </div>
-                  <TextLinesSkeleton lines={[2, 2]} />
+            <div className="aspect-video border-b" />
+            <div className="flex flex-1 flex-col gap-3 p-3">
+              <div className="flex-1 space-y-0.5">
+                <div className="flex h-5 items-center">
+                  <Skeleton className="h-4 w-2/3" />
                 </div>
-                <div className="rounded-md border p-3">
-                  <Skeleton className="h-5 w-3/4" />
-                </div>
+                <TextSkeleton />
               </div>
-              <div className="flex flex-col gap-2 xl:border-l xl:pl-4">
-                <div className="flex h-6 items-center">
-                  <Skeleton className="h-4 w-16" />
-                </div>
+              <div className="flex h-6 items-center">
+                <Skeleton className="h-5 w-16" />
+              </div>
+              <div>
                 <Skeleton className="h-10 w-full" />
-                <div className="h-4" />
+                <div className="mt-1.5 h-4" />
               </div>
             </div>
           </div>
         ))}
       </div>
-    </>
-  );
-}
-
-export function ShopSkeleton({
-  category = "frame",
-}: {
-  category?: ShopCategory;
-}) {
-  const layout = SHOP_LAYOUT[category];
-  return (
-    <div aria-hidden="true" className="space-y-4">
-      <ChipsSkeleton />
-      <div className="max-w-prose">
-        <TextLinesSkeleton lines={layout.blurb} />
-      </div>
-      {category === "frame" && <ChipsSkeleton />}
-      {category === "permission" ? (
-        <PermissionCardsSkeleton items={layout.items} />
-      ) : (
-        <div className={cn("grid gap-3", layout.grid)}>
-          {Array.from({ length: layout.items }, (_, index) => index).map(
-            (item) => (
-              <div
-                key={item}
-                className="flex min-w-0 flex-col overflow-hidden rounded-lg border bg-card"
-              >
-                <div className={layout.picture}>
-                  {category === "frame" && (
-                    <Skeleton className="size-16 rounded-full" />
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 p-3">
-                  <div className="flex-1 space-y-0.5">
-                    {category !== "boost" && (
-                      <div className="flex h-5 items-center">
-                        <Skeleton className="h-4 w-2/3" />
-                      </div>
-                    )}
-                    <div>
-                      <TextLinesSkeleton lines={layout.description} />
-                    </div>
-                  </div>
-                  <div className="flex h-6 items-center">
-                    <Skeleton className="h-5 w-16" />
-                  </div>
-                  <div>
-                    <Skeleton className="h-10 w-full" />
-                    <div className="mt-1.5 h-4" />
-                  </div>
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-      )}
     </div>
   );
 }

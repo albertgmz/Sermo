@@ -57,7 +57,7 @@ import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShareButton } from "@/components/forum/share-button";
-import { ShopIcon } from "@/components/forum/shop-icon";
+import { SHOP_EFFECT_TYPES, ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
 import { SocialIcon } from "@/components/forum/social-icon";
 import {
@@ -132,7 +132,7 @@ import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { MemberView } from "@/lib/sermo/views";
-import type { Browser, Os, ShopCategory } from "@/lib/types";
+import type { Browser, Os } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -255,13 +255,10 @@ const BROWSERS: Browser[] = [
 
 const SYSTEMS: Os[] = ["windows", "macos", "linux", "android", "ios", "other"];
 
-const SHOP_CATEGORIES: ShopCategory[] = [
-  "frame",
-  "color",
-  "threadCover",
-  "boost",
-  "permission",
-];
+// The demo data holds picture paths; the components take the backend's picture shape.
+function awardArt<T extends { image: string }>(award: T) {
+  return { ...award, image: award.image ? { url: award.image } : null };
+}
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg", "xl", "2xl"] as const;
 
@@ -894,19 +891,19 @@ export default async function StyleguidePage() {
           <ul className="flex flex-wrap gap-2">
             {awards.map((award) => (
               <li key={award.id}>
-                <AwardIcon award={award} />
+                <AwardIcon award={awardArt(award)} />
               </li>
             ))}
           </ul>
           <div className="flex flex-wrap items-center gap-3">
-            <AwardIcon award={awards[0]} size="sm" />
-            <AwardIcon award={awards[0]} size="md" />
-            <AwardIcon award={awards[0]} size="lg" />
+            <AwardIcon award={awardArt(awards[0])} size="sm" />
+            <AwardIcon award={awardArt(awards[0])} size="md" />
+            <AwardIcon award={awardArt(awards[0])} size="lg" />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <AwardRow awards={admin.awards} />
-            <AwardRow awards={moderator.awards} max={3} />
-            <AwardRow awards={member.awards} size="md" />
+            <AwardRow awards={admin.awards.map(awardArt)} />
+            <AwardRow awards={moderator.awards.map(awardArt)} max={3} />
+            <AwardRow awards={member.awards.map(awardArt)} size="md" />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <LevelBadge level={admin.level} />
@@ -938,12 +935,10 @@ export default async function StyleguidePage() {
 
         <Section title="Shop icons">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            {SHOP_CATEGORIES.map((category) => (
-              <li key={category} className="flex items-center gap-2">
-                <ShopIcon category={category} className="size-4 shrink-0" />
-                <span className="text-muted-foreground capitalize">
-                  {category}
-                </span>
+            {SHOP_EFFECT_TYPES.map((type) => (
+              <li key={type} className="flex items-center gap-2">
+                <ShopIcon type={type} className="size-4 shrink-0" />
+                <span className="text-muted-foreground">{type}</span>
               </li>
             ))}
           </ul>

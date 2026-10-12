@@ -2,125 +2,132 @@
   "credits": {
     "metaTitle": "Credits",
     "title": "Credits",
-    "subtitle": "Earn credits by taking part in the community and spend them on cosmetics, boosts and permissions in the shop.",
-    "categories": {
-      "frameLabel": "Frames",
-      "frameDescription": "A frame sits around your avatar everywhere it appears. Each preview shows it on your own picture.",
-      "colorLabel": "Name colours",
-      "colorDescription": "Show your username in a colour of your own across the forum.",
-      "threadCoverLabel": "Thread covers",
-      "threadCoverDescription": "A thread cover is a photo for one of your own threads. Covers are used up: each one goes on a single thread.",
-      "boostLabel": "Boosts",
-      "boostDescription": "Boosts are used up: each one highlights or bumps one of your own threads for a limited time.",
-      "permissionLabel": "Permissions",
-      "permissionDescription": "Permissions unlock features for your account, such as a signature or a profile cover. Most are bought once and kept, and some also come with a rank."
-    },
+    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
     "balanceHeading": "Your balance",
     "balanceDescription": "credits to spend in the shop",
     "loginDescription": "Log in to see your balance, buy items and keep track of what you own.",
     "login": "Log in",
-    "earnHeading": "Ways to earn",
-    "waysToEarn": {
-      "activity": "Stay active: a small bonus every day you visit.",
-      "posts": "Start threads and reply to other members.",
-      "reactions": "Receive reactions on your messages.",
-      "streak": "Keep a weekly streak going.",
-      "awards": "Earn awards: each one comes with a bonus.",
-      "referrals": "Refer new members and sell in the market."
-    },
-    "loginToBuy": "Log in to buy",
-    "use": "Use",
-    "items": "{count, plural, other {You have #}}",
-    "equipped": "Equipped",
-    "owned": "Owned",
-    "sources": {
-      "purchase": "Purchased",
-      "rank": "Included in your {rank} rank",
-      "staff": "Staff"
-    },
-    "sampleUsername": "your_name",
-    "sampleReply": "Thanks, that fixed it for me.",
-    "sampleSignature": "*Measure twice, cut once.*\nCommissions are open.",
-    "sampleTitle": "Keeper of the changelog",
-    "awardDescription": "one more award on show",
-    "sampleNewUsername": "a_new_name",
-    "permissionOwned": "You have this",
-    "changes": "{count, plural, one {You have <quantity>#</quantity> change available} other {You have <quantity>#</quantity> changes available}}",
-    "rankDescription": "A rank includes some of these permissions, so compare the ranks before buying them one by one. <link>See what each rank includes</link>",
-    "allPrices": "All prices",
-    "frames": "{count, plural, other {Showing {shown, number} of # frames}}",
-    "showMore": "Show more",
-    "coveredThread": "{title} (has a cover)",
-    "boostDescription": "Pick one of your threads and use a boost on it.",
-    "coverDescription": "Pick one of your threads and put a cover on it. A cover replaces the one the thread already has.",
-    "applied": "<item>{itemName}</item> used on <thread>{threadTitle}</thread>{effect, select, threadCover {: the photo now shows at the top of the thread.} bump {: it is back at the top of {forumTitle}.} highlight {: highlighted until {until}.} other {}}",
-    "inventoryHeading": "Your inventory",
-    "inventoryEmpty": "Nothing here yet",
-    "inventoryDescription": "Items you buy in the shop show up here.",
-    "browseShop": "Browse the shop",
-    "inventoryItems": "{count, plural, other { ×#}}",
-    "acquired": "Acquired {date}",
-    "noThreads": "Start a thread first: this works on your own threads.",
-    "historyHeading": "History",
-    "historyEmpty": "No transactions yet",
-    "historyDescription": "Credits you earn and spend are listed here.",
     "shopTab": "Shop",
     "inventoryTab": "Inventory",
     "historyTab": "History",
     "leadersHeading": "Richest members",
     "leadersDescription": "Ranked by credits",
+    "notices": {
+      "bought": "Purchase complete. You will find it in your inventory.",
+      "worn": "Done. You are wearing it now.",
+      "removed": "Done. You took it off.",
+      "used": "Done. The item has been used."
+    },
     "aria": {
-      "use": "Use {itemName}",
-      "becomes": "becomes",
-      "categories": "Shop categories",
-      "price": "Frame price",
       "sections": "Credits sections",
       "loadingShop": "Loading the shop…",
       "loadingBalance": "Loading your balance…",
       "loadingLeaders": "Loading richest members…"
     }
   },
-  "boostForm": {
+  "shop": {
+    "sampleUsername": "your_name",
+    "emptyTitle": "The shop is empty",
+    "emptyDescription": "Nothing is for sale right now. Check back later.",
+    "emptyCategoryTitle": "Nothing in this category",
+    "emptyCategoryDescription": "Try another category.",
+    "stock": "{count, plural, one {# left} other {# left}}",
+    "loginToBuy": "Log in to buy",
+    "aria": {
+      "categories": "Shop categories"
+    }
+  },
+  "effect": {
+    "frame": "Avatar frame: {name}",
+    "frameUnnamed": "An avatar frame",
+    "nameColor": "Name colour: {name}",
+    "nameColorUnnamed": "A name colour",
+    "threadCover": "Cover for one of your threads: {name}",
+    "threadCoverUnnamed": "A cover for one of your threads",
+    "highlight": "Highlights one of your threads for {days, plural, one {# day} other {# days}}",
+    "bump": "Brings one of your threads back to the top of its forum",
+    "usernameChange": "One change of your username",
+    "permission": "Unlocks: {name}",
+    "permissionValue": "{name}: {unlimited, select, true {unlimited} other {{value}}}",
+    "lastsDays": "{count, plural, one {Lasts # day} other {Lasts # days}}",
+    "lastsHours": "{count, plural, one {Lasts # hour} other {Lasts # hours}}",
+    "lastsMinutes": "{count, plural, one {Lasts # minute} other {Lasts # minutes}}"
+  },
+  "permissions": {
+    "signature": "A signature under your posts",
+    "customTitle": "A custom title under your name",
+    "coverPreset": "A profile cover from the gallery",
+    "renameFree": "Username changes without cost",
+    "awardSlots": "Awards shown next to your name",
+    "mentionLimit": "Mentions per post",
+    "recipientLimit": "Recipients per conversation"
+  },
+  "loadMore": {
+    "label": "Show more"
+  },
+  "buyForm": {
+    "submit": "Buy",
+    "aria": {
+      "submit": "Buy {itemName}",
+      "quantity": "Quantity of {itemName}"
+    }
+  },
+  "wearForm": {
+    "wear": "Wear",
+    "takeOff": "Take off",
+    "aria": {
+      "wear": "Wear {itemName}",
+      "takeOff": "Take off {itemName}"
+    }
+  },
+  "useForm": {
     "placeholder": "Choose a thread",
     "submit": "Use",
     "aria": {
       "thread": "Thread to use {itemName} on",
-      "submit": "Use {itemName} on the chosen thread"
-    },
-    "errors": {
-      "noThread": "Choose one of your threads first.",
-      "notFound": "This item or thread no longer exists.",
-      "notOwned": "You have none of this item left.",
-      "notAuthor": "You can only use this on your own threads."
+      "submit": "Use {itemName}"
     }
   },
-  "buyForm": {
-    "submit": "Buy",
-    "credits": "{count, plural, one {# credits short} other {# credits short}}",
+  "inventory": {
+    "heading": "Your inventory",
+    "emptyTitle": "Nothing here yet",
+    "emptyDescription": "Items you buy in the shop show up here.",
+    "browseShop": "Browse the shop",
+    "activeHeading": "In effect",
+    "activeDescription": "Items you hold and that are working for you.",
+    "unusedHeading": "To use",
+    "unusedDescription": "Items you spend one at a time.",
+    "unitsLeft": "×{count}",
+    "acquired": "Acquired {date}",
+    "expires": "Expires {date}",
+    "inEffect": "In effect",
+    "changeUsername": "Change username",
+    "noThreads": "Start a thread first: this works on your own threads.",
+    "coveredThread": "{title} (has a cover)",
+    "olderThreads": "Show older threads",
+    "newestThreads": "Back to your newest threads",
     "aria": {
-      "submit": "Buy {itemName}"
-    },
-    "errors": {
-      "notFound": "No longer available.",
-      "alreadyOwned": "You already own this.",
-      "insufficientCredits": "Not enough credits."
+      "changeUsername": "Change your username with {itemName}"
     }
   },
-  "equipForm": {
-    "equip": "Equip",
-    "unequip": "Unequip",
-    "aria": {
-      "equip": "Equip {itemName}",
-      "unequip": "Unequip {itemName}"
-    },
-    "errors": {
-      "notOwned": "You do not own this item.",
-      "invalid": "This item cannot be equipped."
+  "history": {
+    "heading": "History",
+    "emptyTitle": "No transactions yet",
+    "emptyDescription": "Credits you earn and spend are listed here.",
+    "balanceAfter": "Balance {balance}",
+    "types": {
+      "adjustment": "Adjusted by staff",
+      "adjustmentBy": "Adjusted by {name}",
+      "event": "Earned by taking part",
+      "event_reversal": "Earnings taken back",
+      "award": "Award received",
+      "award_revoked": "Award taken back",
+      "purchase": "Shop purchase"
     }
   },
   "loading": {
     "title": "Credits",
-    "subtitle": "Earn credits by taking part in the community and spend them on cosmetics, boosts and permissions in the shop.",
+    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
     "aria": {
       "loading": "Loading credits…"
     }

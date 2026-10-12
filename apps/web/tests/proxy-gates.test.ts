@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 
 type Viewer = { user: { username: string }; permissions: { isAdmin: boolean } };
 
-// The backend and the JSON data are the only things replaced; the proxy, the LITE helpers and
+// The backend is the only thing replaced; the proxy, the LITE helpers and
 // Next's response classes run unchanged.
 const state = {
   viewer: null as Viewer | null,
@@ -16,9 +16,6 @@ mock.module("@/lib/sermo/viewer", () => ({
     state.viewerAsked += 1;
     return state.viewer;
   },
-}));
-mock.module("@/lib/db", () => ({
-  getAward: async () => ({ id: 1 }),
 }));
 
 // Forums, threads, members and the static pages are asked of the backend, so its answers are faked at
@@ -406,6 +403,53 @@ test("a member is a 404 when the backend says the profile is not found, and only
   passes(await ask("/members/5"));
   backend({ "/api/v1/users/5": "down" });
   passes(await ask("/members/5"));
+});
+
+const AWARD = {
+  id: 2,
+  name: "Pioneer",
+  description: "",
+  icon: "",
+  image: null,
+  tier: "gold",
+  xp: 10,
+  credits: 0,
+  isStackable: false,
+  isActive: true,
+  criteria: [],
+  grantCount: 0,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
+
+test("an award is a 404 when the backend says it is not found, and only then", async () => {
+  const asked = backend({
+    "/api/v1/awards/2": Response.json(AWARD),
+    "/api/v1/awards/42": Response.json(AWARD),
+  });
+  passes(await ask("/awards/2"));
+  passes(await ask("/awards/42"));
+  isNotFound(await ask("/awards/999"));
+  assert.equal(asked.length, 3);
+
+  // An id that cannot exist is a 404 and the backend is not asked.
+  const unasked = backend({});
+  for (const id of ["0", "03", "abc", "1.5"])
+    isNotFound(await ask(`/awards/${id}`));
+  assert.equal(unasked.length, 0);
+
+  // An outage or a refusal other than not_found lets the page show its own error.
+  backend({ "/api/v1/awards/2": refusal(500, "internal") });
+  passes(await ask("/awards/2"));
+  backend({ "/api/v1/awards/2": refusal(403, "forbidden") });
+  passes(await ask("/awards/2"));
+  backend({ "/api/v1/awards/2": "down" });
+  passes(await ask("/awards/2"));
+
+  // The list itself is not looked up.
+  const list = backend({});
+  passes(await ask("/awards"));
+  assert.equal(list.length, 0);
 });
 
 test("the member list itself is not looked up", async () => {

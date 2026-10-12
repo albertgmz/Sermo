@@ -4,58 +4,35 @@ import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { buyRank, type RankState } from "@/app/(main)/upgrade/actions";
 import { PendingButton } from "@/components/forum/pending-button";
-import { formatNumber } from "@/lib/format";
-import { cn } from "@/lib/utils";
-
-const ERRORS = {
-  not_found: "notFound",
-  not_higher: "notHigher",
-  insufficient_credits: "insufficientCredits",
-} as const;
 
 export function RankForm({
-  rankId,
+  itemId,
   rankName,
   cost,
-  missing,
-  highlighted,
+  upgrade,
 }: {
-  rankId: number;
+  itemId: number;
   rankName: string;
-  cost: number;
-  missing: number;
-  highlighted: boolean;
+  // What the member pays, already formatted.
+  cost: string;
+  // The member holds a lower rank: this is a step up from it.
+  upgrade: boolean;
 }) {
   const t = useTranslations("upgrade.rankForm");
-  const [state, action] = useActionState<RankState, FormData>(
-    buyRank.bind(null, rankId),
-    null,
+  const [state, action] = useActionState<RankState>(
+    buyRank.bind(null, itemId),
+    {},
   );
-
-  let status = "";
-  if (state) {
-    status = t(`errors.${ERRORS[state.error]}`);
-  } else if (missing > 0) {
-    status = t("credits", { count: missing });
-  }
-
   return (
     <form action={action}>
       <PendingButton
-        variant={highlighted ? "default" : "outline"}
-        disabled={missing > 0}
-        aria-label={t("aria.submit", { rank: rankName, count: cost })}
+        aria-label={t("aria.submit", { rank: rankName })}
         className="h-10 w-full"
       >
-        {t("submit", { cost: formatNumber(cost) })}
+        {t(upgrade ? "upgrade" : "buy", { cost })}
       </PendingButton>
-      <output
-        className={cn(
-          "mt-2 block h-4 truncate text-xs",
-          state ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {status}
+      <output className="mt-2 block text-xs text-destructive empty:hidden">
+        {state.error}
       </output>
     </form>
   );
