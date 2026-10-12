@@ -16,6 +16,7 @@ import { requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
+import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
 import { REFERRAL_WINDOW_MS } from "./referral";
 
@@ -65,9 +66,6 @@ export const listSql = {
     `SELECT ${LIST_COLUMNS} FROM users WHERE ${SORT_COLUMN[sort]} < ?1 ORDER BY ${SORT_COLUMN[sort]} DESC, id LIMIT ?2`,
 };
 
-const isBanned = (row: { banned_until: number | null; banned_permanently: number }, now: number) =>
-  row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > now);
-
 const NumericCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 const NewestCursor = z.tuple([z.number().int().positive()]);
 
@@ -75,7 +73,14 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
   const sort = input.sort;
-  const accept = (rows: ListRow[]) => new Set(rows.filter((row) => !isBanned(row, now)));
+  const accept = (rows: ListRow[]) => {
+    const open = openableProfiles(
+      ctx,
+      actor,
+      rows.map((row) => row.id),
+    );
+    return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.id)));
+  };
 
   let items: ListRow[];
   let next: number[] | null;
@@ -218,7 +223,14 @@ export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
     limit: BIRTHDAY_LIMIT,
     fetch: (before, count) => statement.all(day, before ?? 0, count),
     keyOf: (row) => row.id,
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: (rows) => {
+      const open = openableProfiles(
+        ctx,
+        actor,
+        rows.map((row) => row.id),
+      );
+      return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.id)));
+    },
   });
   const cards = loadMemberCards(
     ctx,

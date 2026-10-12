@@ -1,4 +1,5 @@
 import * as z from "zod";
+import type { Actor } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { standingsMonth, standingsWinners } from "../../contracts/members";
 import { writeTx } from "../../db/tx";
@@ -8,6 +9,7 @@ import { requirePermission } from "../../permissions";
 import { scanKeyset } from "../feed/scan";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
+import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
 
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
@@ -73,9 +75,6 @@ const monthOf = (ms: number) => {
 const previousOf = ({ year, month }: { year: number; month: number }) =>
   month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 const startOf = ({ year, month }: { year: number; month: number }) => Date.UTC(year, month - 1, 1);
-
-const isBanned = (row: { banned_until: number | null; banned_permanently: number }, now: number) =>
-  row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > now);
 
 // The job ---------------------------------------------------------------------------------------
 
@@ -334,9 +333,22 @@ interface EntryRow {
 
 const StandingCursor = z.tuple([z.number().int(), z.number().int(), z.number().int().positive()]);
 
+/** The rows of a batch the viewer is shown: not banned, and the member's profile may be opened. */
+const shownIn =
+  (ctx: Ctx, actor: Actor, now: number) =>
+  <Row extends EntryRow>(rows: Row[]) => {
+    const open = openableProfiles(
+      ctx,
+      actor,
+      rows.map((row) => row.user_id),
+    );
+    return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.user_id)));
+  };
+
 export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
+  const shown = shownIn(ctx, actor, now);
   const current = monthOf(now);
   const window = input.month === "current" ? current : previousOf(current);
   const key = monthKey(window.year, window.month);
@@ -368,7 +380,7 @@ export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) =>
       return rows;
     },
     keyOf: (row) => [row.points_tenths, row.posts, row.user_id],
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: shown,
   });
   const cards = loadMemberCards(
     ctx,
@@ -403,6 +415,7 @@ interface WinnerRow extends EntryRow {
 export const standingsWinnersOp = implement(standingsWinners, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
+  const shown = shownIn(ctx, actor, now);
   const current = monthOf(now);
   const statement = prepared(ctx, "members.standingWinners", () =>
     ctx.sqlite.prepare<WinnerRow, [number, number]>(standingSql.winners),
@@ -413,7 +426,7 @@ export const standingsWinnersOp = implement(standingsWinners, (ctx, actor, input
     fetch: (before, count) =>
       statement.all(before ? before[0] : monthKey(current.year, current.month), count),
     keyOf: (row) => [row.month],
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: shown,
   });
   const cards = loadMemberCards(
     ctx,

@@ -125,9 +125,9 @@ export const usersList = defineContract({
   name: "users.list",
   summary:
     "The member directory, one sort at a time, highest first (`newest`: most recently " +
-    "registered first; `level` sorts by award XP). Ties go to the older account. Guests and " +
-    "the unconfirmed are listed like everyone else; banned members are left out. Requires " +
-    "profile.view.",
+    "registered first; `level` sorts by award XP). Ties go to the older account. Banned members " +
+    "and members whose profile the viewer may not open are left out, so a page can hold fewer " +
+    "than `limit` items while `nextCursor` is non-null. Requires profile.view.",
   kind: "read",
   input: z.object({ sort: z.enum(MEMBER_SORTS).default("newest"), ...pageInput }),
   output: Page(MemberListItem),
@@ -137,7 +137,8 @@ export const usersStaff = defineContract({
   name: "users.staff",
   summary:
     "The members of the groups marked as staff (at most 200), highest group rank first, then " +
-    "by username, each with the titles of their staff groups. Requires profile.view.",
+    "by username, each with the titles of their staff groups. Banned members are left out. " +
+    "Requires profile.view.",
   kind: "read",
   input: Empty,
   output: z.object({
@@ -149,7 +150,8 @@ export const usersBirthdays = defineContract({
   name: "users.birthdays",
   summary:
     "The members whose birthday is today (UTC), whatever the year, at most 50, oldest account " +
-    "first. Requires profile.view.",
+    "first; on 28 February of a year without a 29th, those born on the 29th too. Banned members " +
+    "and members whose profile the viewer may not open are left out. Requires profile.view.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(MemberCard) }),
@@ -159,7 +161,9 @@ export const usersSetReferrer = defineContract({
   name: "users.setReferrer",
   summary:
     "Name the member who brought you here. Allowed once, during the first seven days of the " +
-    "account, and never yourself. The referrer's referral count goes up by one.",
+    "account, to members who may edit their own profile (profile.editOwn). Never yourself, " +
+    "never a banned member, and never the member who named you as their referrer. The " +
+    "referrer's referral count goes up by one.",
   kind: "write",
   input: z.object({ userId: Id }),
   output: Ok,
@@ -186,9 +190,10 @@ export const standingsMonth = defineContract({
   name: "standings.month",
   summary:
     "The standing of one calendar month (UTC), most points first; ties go to more posts, then " +
-    "to the older account. Only members with points are listed. `current` is the month in " +
-    "progress, recomputed in the background every few minutes; `previous` is the last complete " +
-    "month. Requires profile.view.",
+    "to the older account. Only members with points are listed; banned members and members " +
+    "whose profile the viewer may not open are left out. `current` is the month in progress, " +
+    "recomputed in the background every few minutes; `previous` is the last complete month. " +
+    "Requires profile.view.",
   kind: "read",
   input: z.object({ month: z.enum(["current", "previous"]).default("current"), ...pageInput }),
   output: Page(StandingEntry).extend({
@@ -203,7 +208,8 @@ export const standingsWinners = defineContract({
   summary:
     "The member of the month of past months, newest month first: the member with the most " +
     "points when the month ended, fixed at that moment. A month in which nobody scored has no " +
-    "winner and is left out. The first item is the current member of the month when it is last " +
+    "winner and is left out, and so is a month whose winner is banned or has a profile the " +
+    "viewer may not open. The first item is the current member of the month when it is last " +
     "month's. Requires profile.view.",
   kind: "read",
   input: z.object({ limit: z.number().int().min(1).max(24).default(12) }),
