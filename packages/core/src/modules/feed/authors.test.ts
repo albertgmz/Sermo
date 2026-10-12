@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoTableScan } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
+import { invalidate } from "../../context";
 import { NotFoundError } from "../../errors";
 import { authorSql } from "./authors";
 import { fillPosts, type World, world } from "./fixtures.test";
@@ -90,6 +91,27 @@ describe("threads.byAuthor", () => {
     expect(titles(await w.call("threads.byAuthor", w.bob, { userId: w.aliceUser.id }))).toEqual([
       "Mine",
     ]);
+  });
+
+  test("without profile.view, a missing member and an existing one look the same", async () => {
+    const w = world();
+    const pid = w.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "SELECT id FROM permission_definitions WHERE key = 'profile.view'",
+      )
+      .get()!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, 2, 0, -1) ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = -1",
+      )
+      .run(pid);
+    invalidate(w.ctx, "permissions");
+    for (const name of ["threads.byAuthor", "posts.byAuthor"]) {
+      const real = await w.call(name, w.bob, { userId: w.aliceUser.id }).catch((e: unknown) => e);
+      const missing = await w.call(name, w.bob, { userId: 99_999 }).catch((e: unknown) => e);
+      expect(real).toBeInstanceOf(Error);
+      expect((missing as Error).constructor).toBe((real as Error).constructor);
+    }
   });
 
   test("guests need profile.view like everyone else", async () => {

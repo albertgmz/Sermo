@@ -13,7 +13,7 @@ import {
   threadRowsByIds,
   threadValuesFor,
 } from "../forums";
-import { profileAccess, requireProfileView } from "../profiles";
+import { requireProfileView } from "../profiles";
 import { scanKeyset } from "./scan";
 import { contentRuleFor, visibleNodes } from "./viewer";
 
@@ -28,7 +28,7 @@ const FIRST_PAGE = Number.MAX_SAFE_INTEGER;
 type PostCandidate = { id: number; thread_id: number; state: "visible" | "moderated" | "deleted" };
 
 export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) => {
-  requireProfileView(ctx, actor, input.userId, profileAccess(ctx, actor, input.userId));
+  requireProfileView(ctx, actor, input.userId);
   const rule = contentRuleFor(ctx, actor, visibleNodes(ctx, actor));
   const query = prepared(ctx, "feed.threadsByAuthor", () =>
     ctx.sqlite.prepare<ThreadRow, [number, number, number]>(authorSql.threads),
@@ -47,7 +47,7 @@ export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) 
 });
 
 export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
-  requireProfileView(ctx, actor, input.userId, profileAccess(ctx, actor, input.userId));
+  requireProfileView(ctx, actor, input.userId);
   const rule = contentRuleFor(ctx, actor, visibleNodes(ctx, actor));
   const query = prepared(ctx, "feed.postsByAuthor", () =>
     ctx.sqlite.prepare<PostCandidate, [number, number, number]>(authorSql.posts),
