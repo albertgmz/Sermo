@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
 import { SectionCard } from "@/components/forum/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { getCategories } from "@/lib/db";
-import { formatNumber } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 
 export default async function AdminForumsPage() {
@@ -12,16 +12,17 @@ export default async function AdminForumsPage() {
   if (user?.role !== "admin") notFound();
 
   const categories = await getCategories();
+  const t = await getTranslations("admin.forums");
 
   return (
     <>
-      <h2 className="text-lg font-semibold">Forums</h2>
+      <h2 className="text-lg font-semibold">{t("heading")}</h2>
       {categories.some((category) => category.forums.length) ? (
         categories.map((category) => (
           <SectionCard
             key={category.id}
             title={category.title}
-            description={`${category.forums.length} forums`}
+            description={t("forums", { count: category.forums.length })}
           >
             {category.forums.map((forum) => (
               <div key={forum.id} className="flex items-center gap-3 px-4 py-3">
@@ -36,32 +37,31 @@ export default async function AdminForumsPage() {
                     {forum.description}
                   </p>
                   <p className="mt-2 text-xs tabular-nums text-muted-foreground">
-                    {formatNumber(forum.threadCount)} threads ·{" "}
-                    {formatNumber(forum.postCount)} posts
+                    {t("counts", {
+                      threads: t("threads", { count: forum.threadCount }),
+                      posts: t("posts", { count: forum.postCount }),
+                    })}
                   </p>
                 </div>
                 <Link
                   href={`/admin/forums/${forum.id}`}
-                  aria-label={`Edit ${forum.title}`}
+                  aria-label={t("aria.edit", { title: forum.title })}
                   className={buttonVariants({
                     variant: "outline",
                     className: "min-h-10",
                   })}
                 >
-                  Edit
+                  {t("edit")}
                 </Link>
               </div>
             ))}
             {!category.forums.length && (
-              <EmptyState title="No forums in this category" />
+              <EmptyState title={t("emptyCategory")} />
             )}
           </SectionCard>
         ))
       ) : (
-        <EmptyState
-          title="No forums yet"
-          description="Forums will appear here when they are available."
-        />
+        <EmptyState title={t("empty")} description={t("emptyDescription")} />
       )}
     </>
   );

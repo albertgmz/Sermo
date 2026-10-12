@@ -1,6 +1,7 @@
 "use server";
 
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getCategories } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
@@ -22,19 +23,20 @@ export async function previewForum(
   const forums = (await getCategories()).flatMap((category) => category.forums);
   if (!forums.some((forum) => forum.id === forumId)) notFound();
 
+  const t = await getTranslations("admin.actions.errors");
   const title = text(formData, "title");
   const description = text(formData, "description");
   const identifier = text(formData, "identifier");
   if (title.length < 2 || title.length > 80) {
     return {
       field: "title",
-      error: "Enter a forum name between 2 and 80 characters.",
+      error: t("forumNameLength"),
     };
   }
   if (!description || description.length > 300) {
     return {
       field: "description",
-      error: "Enter a description between 1 and 300 characters.",
+      error: t("descriptionLength"),
     };
   }
   if (
@@ -44,8 +46,7 @@ export async function previewForum(
   ) {
     return {
       field: "identifier",
-      error:
-        "Use up to 64 lowercase letters, numbers and single hyphens, starting with a letter. Or leave this blank to use the numeric ID.",
+      error: t("identifierFormat"),
     };
   }
   if (
@@ -54,7 +55,7 @@ export async function previewForum(
   ) {
     return {
       field: "identifier",
-      error: "Another forum already uses this URL identifier.",
+      error: t("identifierTaken"),
     };
   }
 
@@ -68,18 +69,19 @@ export async function previewSettings(
   const user = await getCurrentUser();
   if (user?.role !== "admin") notFound();
 
+  const t = await getTranslations("admin.actions.errors");
   const name = text(formData, "siteName");
   const description = text(formData, "description");
   if (name.length < 2 || name.length > 60) {
     return {
       field: "siteName",
-      error: "Enter a site name between 2 and 60 characters.",
+      error: t("siteNameLength"),
     };
   }
   if (!description || description.length > 300) {
     return {
       field: "description",
-      error: "Enter a description between 1 and 300 characters.",
+      error: t("descriptionLength"),
     };
   }
   const registration = formData.getAll("registration");
@@ -89,7 +91,7 @@ export async function previewSettings(
   ) {
     return {
       field: "registration",
-      error: "Choose whether new members can register.",
+      error: t("registrationInvalid"),
     };
   }
 

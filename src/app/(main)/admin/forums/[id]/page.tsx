@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { DemoNotice } from "@/app/(main)/admin/demo-notice";
 import { ForumForm } from "@/app/(main)/admin/forums/forum-form";
 import { SectionCard } from "@/components/forum/section-card";
@@ -27,6 +28,7 @@ export default async function AdminForumPage({
     .flatMap((category) => category.forums)
     .find((forum) => forum.id === Number(id));
   if (!forum) notFound();
+  const t = await getTranslations("admin.forum");
 
   return (
     <>
@@ -38,7 +40,7 @@ export default async function AdminForumPage({
             className: "min-h-10",
           })}
         >
-          Back to forums
+          {t("back")}
         </Link>
         <Link
           href={`/forums/${forum.id}`}
@@ -47,13 +49,16 @@ export default async function AdminForumPage({
             className: "min-h-10",
           })}
         >
-          View forum
+          {t("view")}
         </Link>
       </div>
       {query.notice === "demo" && <DemoNotice />}
       <SectionCard
-        title={`Edit ${forum.title}`}
-        description={`${forum.categoryTitle} · Forum #${forum.id}`}
+        title={t("title", { title: forum.title })}
+        description={t("description", {
+          category: forum.categoryTitle,
+          id: forum.id,
+        })}
       >
         <ForumForm
           id={forum.id}

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   LoadingRegion,
@@ -6,8 +7,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("admin.loading");
   return (
-    <LoadingRegion label="Loading member administration…">
+    <LoadingRegion label={t("aria.members")}>
       <CardSkeleton>
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((row) => (
           <div key={row} className="py-1">

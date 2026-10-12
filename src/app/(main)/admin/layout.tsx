@@ -1,6 +1,8 @@
 import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AdminNavigation } from "@/app/(main)/admin/navigation";
 import { LoadingRegion } from "@/components/forum/skeletons";
@@ -10,34 +12,35 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "Administration - forum/ui",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.layout");
+  return {
+    title: t("metaTitle"),
+    robots: { index: false, follow: false },
+  };
+}
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("admin.layout");
   return (
     <>
       <Suspense>
         <AdminAccess />
       </Suspense>
-      <PageHero
-        title="Administration"
-        subtitle="A closer look at your community."
-      >
+      <PageHero title={t("title")} subtitle={t("subtitle")}>
         <Badge variant="secondary">
-          <ShieldCheck aria-hidden="true" /> Admin access
+          <ShieldCheck aria-hidden="true" /> {t("access")}
         </Badge>
-        <Badge variant="outline">Demo mode</Badge>
+        <Badge variant="outline">{t("mode")}</Badge>
       </PageHero>
       <PageLayout mainClassName="space-y-4">
         <Suspense
           fallback={
-            <LoadingRegion label="Loading administration navigation…">
+            <LoadingRegion label={t("aria.loadingNavigation")}>
               <div className="grid grid-cols-2 border-b sm:flex">
                 {[1, 2, 3, 4].map((item) => (
                   <div key={item} className="flex h-11 items-center px-3">
@@ -51,8 +54,7 @@ export default function AdminLayout({
           <AdminNavigation />
         </Suspense>
         <p className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Explore real community data. All changes here are demos and will not
-          be stored.
+          {t("description")}
         </p>
         {children}
       </PageLayout>
