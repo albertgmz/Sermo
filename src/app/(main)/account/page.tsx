@@ -138,7 +138,7 @@ export default async function AccountPage({ searchParams }: Props) {
               <SidebarGroup
                 title="Your account"
                 links={[
-                  { label: "Your profile", href: `/members/${user.username}` },
+                  { label: "Your profile", href: `/members/${user.id}` },
                   { label: "Notifications", href: "/notifications" },
                   { label: "Reactions received", href: "#" },
                   { label: "Bookmarks", href: "#" },

@@ -32,7 +32,7 @@ async function wallPostExists(profileUserId: number, profilePostId: number) {
 
 function revalidateWalls() {
   revalidatePath("/");
-  revalidatePath("/members/[username]", "page");
+  revalidatePath("/members/[id]", "page");
 }
 
 export async function postToWall(profileUserId: number, formData: FormData) {

@@ -43,7 +43,7 @@ export function ForumCard({
           <div className="flex items-center gap-2">
             <h3 className="min-w-0 truncate text-sm font-semibold">
               <Link
-                href={`/forums/${forum.slug}`}
+                href={`/forums/${forum.id}`}
                 data-forum-link=""
                 className="outline-none after:absolute after:inset-0"
               >

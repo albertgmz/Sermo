@@ -347,7 +347,7 @@ export default async function SearchPage({
                     />{" "}
                     in{" "}
                     <Link
-                      href={`/forums/${thread.forum.slug}`}
+                      href={`/forums/${thread.forum.id}`}
                       className="font-medium text-foreground underline-offset-4 hover:underline"
                     >
                       {thread.forum.title}

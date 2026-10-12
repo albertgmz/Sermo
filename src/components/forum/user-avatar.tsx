@@ -16,6 +16,7 @@ const SIZES = {
 export type UserAvatarSize = keyof typeof SIZES;
 
 export type AvatarUser = Pick<User, "username" | "avatar"> & {
+  id?: number;
   appearance?: Pick<Appearance, "frame">;
 };
 
@@ -30,6 +31,7 @@ export function UserAvatar({
   link?: boolean;
   className?: string;
 }) {
+  const linked = link && user.id !== undefined;
   const { box, text, framed } = SIZES[size];
   const frame = (framed && user.appearance?.frame) || null;
   const geometry = frame ? FRAMES[frame] : undefined;
@@ -42,7 +44,7 @@ export function UserAvatar({
       className={cn(
         box,
         geometry && "after:hidden",
-        !link && [className, unringed],
+        !linked && [className, unringed],
       )}
     >
       {user.avatar ? (
@@ -69,10 +71,10 @@ export function UserAvatar({
       )}
     </Avatar>
   );
-  if (!link) return avatar;
+  if (!linked) return avatar;
   return (
     <Link
-      href={`/members/${user.username}`}
+      href={`/members/${user.id}`}
       aria-label={user.username}
       className={cn("shrink-0 rounded-full", className, unringed)}
     >

@@ -98,6 +98,7 @@ export function SiteHeader({
               />
               <UserMenu
                 user={{
+                  id: user.id,
                   username: user.username,
                   title: user.title,
                   avatar: user.avatar,

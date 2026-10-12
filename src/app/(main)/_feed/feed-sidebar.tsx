@@ -112,7 +112,7 @@ export async function FeedSidebar({ viewer }: { viewer: UserView | null }) {
         {forums.slice(0, 6).map((forum) => (
           <Link
             key={forum.id}
-            href={`/forums/${forum.slug}`}
+            href={`/forums/${forum.id}`}
             className="flex min-h-11 items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-muted/30"
           >
             <ForumIcon

@@ -15,7 +15,7 @@ export type NewThreadState = {
 };
 
 export async function createThreadAction(
-  slug: string,
+  id: number,
   _previous: NewThreadState,
   formData: FormData,
 ): Promise<NewThreadState> {
@@ -25,7 +25,7 @@ export async function createThreadAction(
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const prefixId = String(formData.get("prefixId") ?? "");
-  const forum = await getForum(slug);
+  const forum = await getForum(id);
   const fail = (error: string) => ({ error, title, prefixId });
 
   if (!forum) return fail("This forum no longer exists.");
@@ -44,6 +44,6 @@ export async function createThreadAction(
     client: await getClientInfo(),
   });
   revalidatePath("/forums");
-  revalidatePath(`/forums/${forum.slug}`);
+  revalidatePath(`/forums/${forum.id}`);
   redirect(`/threads/${thread.id}`);
 }

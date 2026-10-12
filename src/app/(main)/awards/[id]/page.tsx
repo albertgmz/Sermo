@@ -20,18 +20,18 @@ import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ id: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
-  const award = await getAward(slug);
+  const { id } = await params;
+  const award = await getAward(Number(id));
   return { title: `${award?.name ?? "Award"} - forum/ui` };
 }
 
 export default async function AwardPage({ params }: Props) {
-  const [{ slug }, viewer] = await Promise.all([params, getCurrentUser()]);
-  const award = await getAward(slug);
+  const [{ id }, viewer] = await Promise.all([params, getCurrentUser()]);
+  const award = await getAward(Number(id));
   if (!award) notFound();
 
   const tier = TIERS[award.tier];

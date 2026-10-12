@@ -21,14 +21,14 @@ import { cn } from "@/lib/utils";
 const NO_PREFIX = { value: "", label: "No prefix" };
 
 export function NewThreadForm({
-  slug,
+  id,
   prefixes,
 }: {
-  slug: string;
+  id: number;
   prefixes: Prefix[];
 }) {
   const [state, action, pending] = useActionState(
-    createThreadAction.bind(null, slug),
+    createThreadAction.bind(null, id),
     {},
   );
   const options = [
@@ -95,7 +95,7 @@ export function NewThreadForm({
       )}
       <div className="flex justify-end gap-2">
         <Link
-          href={`/forums/${slug}`}
+          href={`/forums/${id}`}
           className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
         >
           Cancel

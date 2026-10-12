@@ -577,10 +577,6 @@ function sameClient(a: ClientInfo, b: ClientInfo) {
   return a.browser === b.browser && a.os === b.os;
 }
 
-function usernameOf(db: Database, id: number) {
-  return (db.users.find((u) => u.id === id) as User).username;
-}
-
 export async function getUsers(): Promise<UserView[]> {
   const db = await read();
   const v = views(db, null);
@@ -748,11 +744,9 @@ export async function getCategories(tab?: ForumTab): Promise<CategoryView[]> {
     .map((c) => ({ ...c, forums: c.forums.map((f) => v.forum(f.id)) }));
 }
 
-export async function getForum(slug: string): Promise<ForumView | null> {
+export async function getForum(id: number): Promise<ForumView | null> {
   const db = await read();
-  const match = db.categories
-    .flatMap((c) => c.forums)
-    .find((f) => f.slug === slug);
+  const match = db.categories.flatMap((c) => c.forums).find((f) => f.id === id);
   return match ? views(db, null).forum(match.id) : null;
 }
 
@@ -987,8 +981,8 @@ export async function getAwards(): Promise<AwardView[]> {
   }));
 }
 
-export async function getAward(slug: string): Promise<AwardView | null> {
-  return (await getAwards()).find((award) => award.slug === slug) ?? null;
+export async function getAward(id: number): Promise<AwardView | null> {
+  return (await getAwards()).find((award) => award.id === id) ?? null;
 }
 
 export async function getShopItems(): Promise<ShopItem[]> {
@@ -1214,7 +1208,7 @@ export async function createProfilePost(input: {
     actorId: input.authorId,
     type: "profile_post",
     text: "wrote on your profile",
-    href: `/members/${usernameOf(db, input.profileUserId)}`,
+    href: `/members/${input.profileUserId}`,
   });
   await write(db);
   return views(db, input.authorId).profilePost(post);
@@ -1244,7 +1238,7 @@ export async function createProfileComment(input: {
     actorId: input.authorId,
     type: "profile_comment",
     text: "commented on your profile post",
-    href: `/members/${usernameOf(db, post.profileUserId)}`,
+    href: `/members/${post.profileUserId}`,
   });
   await write(db);
   return views(db, input.authorId).profileComment(comment);
@@ -1297,7 +1291,7 @@ function findReactable(
     ? {
         item,
         what: target === "profilePost" ? "profile post" : "comment",
-        href: `/members/${usernameOf(db, post.profileUserId)}#profile-post-${post.id}`,
+        href: `/members/${post.profileUserId}#profile-post-${post.id}`,
       }
     : null;
 }
@@ -1580,14 +1574,6 @@ export async function changeUsername(
   if (!isStaff(user) && !(change && consume(db, userId, change.id))) {
     return { ok: false, error: "not_allowed" };
   }
-  // Everything links to the member by id, except the links in notifications.
-  const from = `/members/${user.username}`;
-  for (const notification of db.notifications) {
-    const rest = notification.href.slice(from.length);
-    if (notification.href.startsWith(from) && /^([#?]|$)/.test(rest)) {
-      notification.href = `/members/${username}${rest}`;
-    }
-  }
   user.username = username;
   await write(db);
   return { ok: true, username };
@@ -1643,7 +1629,7 @@ export async function toggleFollow(
       actorId: followerId,
       type: "follow",
       text: "started following you",
-      href: `/members/${usernameOf(db, followerId)}`,
+      href: `/members/${followerId}`,
     });
   } else {
     db.follows.splice(index, 1);

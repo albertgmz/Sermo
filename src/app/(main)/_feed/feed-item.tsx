@@ -161,7 +161,7 @@ export function FeedItem({
 }) {
   if (item.type === "profilePost") {
     const { profilePost } = item;
-    const href = `/members/${profilePost.profileUser.username}#profile-post-${profilePost.id}`;
+    const href = `/members/${profilePost.profileUser.id}#profile-post-${profilePost.id}`;
     return (
       <Card
         item={item}
@@ -202,7 +202,7 @@ export function FeedItem({
         <>
           {isThread ? "started a thread in" : "replied to a thread in"}{" "}
           <Link
-            href={`/forums/${thread.forum.slug}`}
+            href={`/forums/${thread.forum.id}`}
             className={contextLinkClass}
           >
             {thread.forum.title}

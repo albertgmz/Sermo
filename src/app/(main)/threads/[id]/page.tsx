@@ -258,7 +258,7 @@ export default async function ThreadPage({
               },
               {
                 label: thread.forum.title,
-                href: `/forums/${thread.forum.slug}`,
+                href: `/forums/${thread.forum.id}`,
               },
             ]}
           />
