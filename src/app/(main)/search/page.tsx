@@ -54,12 +54,6 @@ function first(value: string | string[] | undefined) {
 function ThreadTitle({ thread, href }: { thread: ThreadView; href?: string }) {
   return (
     <h3 className="[overflow-wrap:anywhere]">
-      {thread.prefix && (
-        <PrefixTag
-          prefix={thread.prefix}
-          className="mr-1.5 align-[0.0625rem]"
-        />
-      )}
       <ThreadHoverCard thread={thread} href={href} className={titleLinkClass} />
     </h3>
   );

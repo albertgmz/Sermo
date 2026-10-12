@@ -25,7 +25,7 @@ export function BoostForm({
 }: {
   itemId: number;
   itemName: string;
-  threads: { value: string; label: string }[];
+  threads: { value: string; label: React.ReactNode }[];
 }) {
   const [state, action] = useActionState<BoostState, FormData>(
     spendBoost.bind(null, itemId),

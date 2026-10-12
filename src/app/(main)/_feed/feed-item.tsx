@@ -7,7 +7,6 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge } from "@/components/forum/level";
 import { Markdown } from "@/components/forum/markdown";
 import { messageActionClass } from "@/components/forum/message-row";
-import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -227,12 +226,6 @@ export function FeedItem({
           "leading-snug font-semibold [overflow-wrap:anywhere]",
         )}
       >
-        {thread.prefix && (
-          <PrefixTag
-            prefix={thread.prefix}
-            className="mr-1.5 align-[0.125rem]"
-          />
-        )}
         <ThreadHoverCard
           thread={thread}
           className="underline-offset-4 hover:underline"

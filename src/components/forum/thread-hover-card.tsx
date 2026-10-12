@@ -31,7 +31,17 @@ export function ThreadHoverCard({
   return (
     <HoverCard>
       <HoverCardTrigger render={<Link href={href} className={className} />}>
-        {children ?? thread.title}
+        {children ?? (
+          <>
+            {thread.prefix && (
+              <PrefixTag
+                prefix={thread.prefix}
+                className="mr-1.5 align-[0.0625rem]"
+              />
+            )}
+            {thread.title}
+          </>
+        )}
       </HoverCardTrigger>
       <HoverCardContent align="start" className="w-80 p-0">
         {thread.cover && (
@@ -42,7 +52,6 @@ export function ThreadHoverCard({
         )}
         <div className="p-3">
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-            {thread.prefix && <PrefixTag prefix={thread.prefix} />}
             <Link
               href={`/forums/${thread.forum.id}`}
               className="font-medium underline-offset-4 hover:text-foreground hover:underline"
@@ -51,6 +60,12 @@ export function ThreadHoverCard({
             </Link>
           </p>
           <p className="mt-1.5 text-sm leading-snug font-semibold [overflow-wrap:anywhere]">
+            {thread.prefix && (
+              <PrefixTag
+                prefix={thread.prefix}
+                className="mr-1.5 align-[0.0625rem]"
+              />
+            )}
             {thread.title}
           </p>
           <p className="mt-1 line-clamp-3 text-[0.8125rem] text-muted-foreground [overflow-wrap:anywhere]">

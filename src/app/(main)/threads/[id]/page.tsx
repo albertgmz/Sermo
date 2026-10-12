@@ -186,7 +186,9 @@ export async function generateMetadata({
   params,
 }: PageProps<"/threads/[id]">): Promise<Metadata> {
   const thread = await getThread(Number((await params).id));
-  return { title: `${thread?.title ?? "Thread"} - forum/ui` };
+  return {
+    title: `${thread?.prefix ? `${thread.prefix.label} ` : ""}${thread?.title ?? "Thread"} - forum/ui`,
+  };
 }
 
 export default async function ThreadPage({

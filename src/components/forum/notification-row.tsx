@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -12,9 +13,10 @@ export function NotificationRow({
   item: Pick<
     NotificationView,
     "href" | "read" | "actor" | "text" | "createdAt"
-  >;
+  > & { prefix?: NotificationView["prefix"] };
   size?: "md" | "lg";
 }) {
+  const titleStart = item.text.indexOf("“") + 1;
   return (
     <Link
       href={item.href}
@@ -27,7 +29,18 @@ export function NotificationRow({
       <span className="min-w-0 flex-1 text-sm [overflow-wrap:anywhere]">
         <span className="font-semibold">{item.actor.username}</span>{" "}
         <span className={item.read ? "text-muted-foreground" : undefined}>
-          {item.text}
+          {item.prefix && titleStart > 0 ? (
+            <>
+              {item.text.slice(0, titleStart)}
+              <PrefixTag
+                prefix={item.prefix}
+                className="mr-1.5 align-[0.0625rem]"
+              />
+              {item.text.slice(titleStart)}
+            </>
+          ) : (
+            item.text
+          )}
         </span>
         <RelativeTime
           date={item.createdAt}

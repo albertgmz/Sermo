@@ -161,6 +161,7 @@ export type LastPostView = {
   postId: number;
   threadId: number;
   threadTitle: string;
+  prefix: Prefix | null;
   createdAt: string;
   author: UserView;
 };
@@ -203,7 +204,7 @@ export type PostView = Omit<Post, "reactions"> & {
   reactions: ReactionsView;
   number: number;
   isThreadAuthor: boolean;
-  thread: Pick<Thread, "id" | "title">;
+  thread: Pick<ThreadView, "id" | "title" | "prefix">;
 };
 
 export type ProfileCommentView = Omit<ProfileComment, "reactions"> & {
@@ -243,6 +244,7 @@ export type ConversationView = Omit<Conversation, "messages"> & {
 
 export type NotificationView = Notification & {
   actor: UserView;
+  prefix: Prefix | null;
 };
 
 export type UnreadCounts = {
@@ -432,6 +434,7 @@ function views(db: Database, viewerId: number | null) {
       postId: last.id,
       threadId: thread.id,
       threadTitle: thread.title,
+      prefix: db.prefixes.find((p) => p.id === thread.prefixId) ?? null,
       createdAt: last.createdAt,
       author: user(last.authorId),
     };
@@ -497,7 +500,11 @@ function views(db: Database, viewerId: number | null) {
       reactions: reactions(base.reactions),
       number: siblings.findIndex((p) => p.id === base.id) + 1,
       isThreadAuthor: parent.authorId === base.authorId,
-      thread: { id: parent.id, title: parent.title },
+      thread: {
+        id: parent.id,
+        title: parent.title,
+        prefix: db.prefixes.find((p) => p.id === parent.prefixId) ?? null,
+      },
     };
   }
 
@@ -924,7 +931,15 @@ export async function getNotifications(
   return db.notifications
     .filter((n) => n.userId === userId)
     .toSorted(newest)
-    .map((n) => ({ ...n, actor: v.user(n.actorId) }));
+    .map((n) => {
+      const threadId = n.href.match(/^\/threads\/(\d+)(?:[/?#]|$)/)?.[1];
+      const thread = db.threads.find((t) => t.id === Number(threadId));
+      return {
+        ...n,
+        actor: v.user(n.actorId),
+        prefix: db.prefixes.find((p) => p.id === thread?.prefixId) ?? null,
+      };
+    });
 }
 
 export async function getUnreadCounts(userId: number): Promise<UnreadCounts> {
