@@ -3,18 +3,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { StatsChart } from "@/app/(main)/account/stats-chart";
+import { AccountDetails } from "@/app/(main)/account/account-details";
+import {
+  AccountActivitySkeleton,
+  AccountDetailsSkeleton,
+} from "@/app/(main)/account/overview-skeletons";
 import { PrefixTag } from "@/components/forum/prefix-tag";
-import { CardSkeleton, LoadingRegion } from "@/components/forum/skeletons";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
-import { Skeleton } from "@/components/ui/skeleton";
 import { getUserPosts } from "@/lib/db";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Account overview - forum/ui" };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string | string[] }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const now = new Date();
@@ -52,30 +59,20 @@ export default async function AccountPage() {
         />
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-        <section className="min-w-0 rounded-lg border bg-card p-4">
-          <h2 className="mb-4 text-sm font-semibold">Statistics Overview</h2>
-          <StatsChart
-            data={[
-              { label: "Posts", value: user.postCount },
-              { label: "Threads", value: user.threadCount },
-              { label: "Reputation", value: user.reputation },
-              { label: "Received Reactions", value: user.reactionCount },
-              { label: "Followers", value: user.followerCount },
-            ]}
-          />
-        </section>
+      <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading account details…">
+              <AccountDetailsSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <AccountDetails searchParams={searchParams} />
+        </Suspense>
         <Suspense
           fallback={
             <LoadingRegion label="Loading posting activity…">
-              <CardSkeleton>
-                {[1, 2, 3, 4, 5, 6].map((row) => (
-                  <div key={row} className="space-y-2 px-4 py-3">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                ))}
-              </CardSkeleton>
+              <AccountActivitySkeleton />
             </LoadingRegion>
           }
         >

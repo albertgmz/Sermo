@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { DetailsForm } from "@/app/(main)/account/details/details-form";
+import { DetailsForm } from "@/app/(main)/account/account-details-form";
 import { getPermissions } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Account details - forum/ui" };
-
-export default async function DetailsPage({
+export async function AccountDetails({
   searchParams,
 }: {
   searchParams: Promise<{ saved?: string | string[] }>;
@@ -20,9 +17,9 @@ export default async function DetailsPage({
   );
 
   return (
-    <section className="rounded-lg border bg-card">
+    <section className="min-w-0 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h1 className="text-xl font-bold tracking-tight">Account details</h1>
+        <h2 className="text-sm font-semibold">Account details</h2>
         <p className="text-xs text-muted-foreground">
           The name and title shown on your profile and posts.
         </p>
