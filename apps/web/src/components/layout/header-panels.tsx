@@ -2,7 +2,11 @@ import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { markAllRead } from "@/app/(main)/notifications/actions";
-import { ConversationPreview } from "@/components/forum/conversation-preview";
+import type { NotificationEntry } from "@/app/(main)/notifications/entries";
+import {
+  type ConversationItem,
+  ConversationPreview,
+} from "@/components/forum/conversation-preview";
 import { NotificationRow } from "@/components/forum/notification-row";
 import { PendingButton } from "@/components/forum/pending-button";
 import { HeaderPanel } from "@/components/layout/header-panel";
@@ -10,8 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ConversationView, NotificationView } from "@/lib/db";
-import type { User } from "@/lib/types";
+import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 export const headerIconClass =
@@ -27,13 +30,13 @@ const emptyClass = "px-4 py-8 text-center text-sm text-muted-foreground";
 const listClass = "max-h-96 divide-y divide-border overflow-y-auto";
 
 export function MessagesPanel({
-  user,
   conversations,
+  member,
   unread,
   className,
 }: {
-  user: Pick<User, "id">;
-  conversations: ConversationView[];
+  conversations: ConversationItem[];
+  member: (id: number) => MemberView;
   unread: number;
   className?: string;
 }) {
@@ -54,7 +57,7 @@ export function MessagesPanel({
                 <ConversationPreview
                   linked
                   conversation={conversation}
-                  viewerId={user.id}
+                  member={member(conversation.lastMessage.user.id)}
                   ringClassName="ring-popover"
                 />
               </div>
@@ -78,10 +81,12 @@ export function MessagesPanel({
 
 export function AlertsPanel({
   notifications,
+  member,
   unread,
   className,
 }: {
-  notifications: NotificationView[];
+  notifications: NotificationEntry[];
+  member: (id: number) => MemberView;
   unread: number;
   className?: string;
 }) {
@@ -96,9 +101,14 @@ export function AlertsPanel({
     >
       {notifications.length > 0 ? (
         <ul className={listClass}>
-          {notifications.map((item) => (
+          {notifications.map(({ item, href, emoji }) => (
             <li key={item.id}>
-              <NotificationRow item={item} />
+              <NotificationRow
+                item={item}
+                href={href}
+                emoji={emoji}
+                member={member}
+              />
             </li>
           ))}
         </ul>

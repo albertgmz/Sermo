@@ -18,15 +18,7 @@ export default function Loading() {
         <div className="max-w-2xl space-y-5 p-4">
           <div>
             <Skeleton className="mb-2 h-5 w-20" />
-            <div className="grid gap-x-4 sm:grid-cols-2">
-              {[1, 2, 3, 4, 5, 6].map((user) => (
-                <div key={user} className="flex h-10 items-center gap-2">
-                  <Skeleton className="size-4" />
-                  <Skeleton className="size-6 rounded-full" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              ))}
-            </div>
+            <Skeleton className="h-10 w-full md:h-8" />
           </div>
           <FormRowSkeleton />
           <div className="space-y-2">

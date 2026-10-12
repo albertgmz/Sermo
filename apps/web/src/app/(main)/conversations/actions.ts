@@ -1,62 +1,82 @@
 "use server";
 
-import { refresh, revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-import { getClientInfo } from "@/lib/client";
 import {
-  createConversation,
-  createMessage,
-  getConversation,
-  getUsers,
-  markConversationRead,
-} from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+  conversationsCreate,
+  conversationsLeave,
+  conversationsMarkRead,
+  conversationsReply,
+  usersSearch,
+} from "@sermo/core/contracts";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
+import { attempt } from "@/lib/sermo/outcome";
 
-export async function sendMessage(conversationId: number, formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const body = String(formData.get("body") ?? "").trim();
-  if (!body || !(await getConversation(conversationId, user.id))) return;
-  await createMessage({
-    conversationId,
-    authorId: user.id,
-    body,
-    client: await getClientInfo(),
-  });
-  refresh();
+export type ReplyState = { error?: string };
+
+export async function replyAction(
+  conversationId: number,
+  _previous: ReplyState,
+  formData: FormData,
+): Promise<ReplyState> {
+  const body = String(formData.get("body") ?? "");
+  const sent = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsReply, { conversationId, body }),
+  );
+  if (!sent.ok) return { error: sent.error };
+  // The list, the header and the unread counts are read again.
+  revalidatePath("/", "layout");
+  redirect(`/conversations/${conversationId}`);
 }
 
+// Called by the page itself once the newest message is shown, so a refusal (a dead session, a
+// conversation the member left) is nothing the visitor needs to hear about.
 export async function markRead(conversationId: number) {
-  const user = await getCurrentUser();
-  if (!user) return;
-  await markConversationRead(conversationId, user.id);
-  refresh();
+  try {
+    await call(conversationsMarkRead, { conversationId });
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+    return;
+  }
+  revalidatePath("/", "layout");
 }
+
+export async function leaveAction(conversationId: number) {
+  const left = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsLeave, { conversationId }),
+  );
+  if (!left.ok) redirect(`/conversations/${conversationId}`);
+  revalidatePath("/", "layout");
+  redirect("/conversations");
+}
+
+export type StartState = {
+  error?: string;
+  title?: string;
+};
 
 export async function startConversation(
-  _previous: string,
+  _previous: StartState,
   formData: FormData,
-): Promise<string> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const t = await getTranslations("conversations.actions.errors");
-  const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
-  const chosen = formData.getAll("to").map(Number);
-  const participantIds = (await getUsers())
-    .map((u) => u.id)
-    .filter((id) => id !== user.id && chosen.includes(id));
-  if (!participantIds.length) return t("recipientRequired");
-  if (!title) return t("titleRequired");
-  if (!body) return t("messageRequired");
-  const conversation = await createConversation({
-    title,
-    authorId: user.id,
-    participantIds,
-    body,
-    client: await getClientInfo(),
-  });
-  revalidatePath("/conversations", "layout");
-  redirect(`/conversations/${conversation.id}`);
+): Promise<StartState> {
+  const title = String(formData.get("title") ?? "");
+  const body = String(formData.get("body") ?? "");
+  const recipientIds = formData.getAll("recipientIds").map(Number);
+  const created = await attempt("/conversations/new", () =>
+    call(conversationsCreate, { title, recipientIds, body }),
+  );
+  if (!created.ok) return { error: created.error, title };
+  revalidatePath("/", "layout");
+  redirect(`/conversations/${created.value.conversation.id}`);
+}
+
+// The members whose name starts with what the visitor has typed, for the recipient picker.
+export async function findRecipients(prefix: string) {
+  try {
+    return (await call(usersSearch, { prefix, limit: 25 })).items;
+  } catch (error) {
+    if (!(error instanceof SermoError)) throw error;
+    return [];
+  }
 }

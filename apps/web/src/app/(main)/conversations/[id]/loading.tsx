@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
-import { LoadingRegion, TextSkeleton } from "@/components/forum/skeletons";
+import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skeleton";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
@@ -14,17 +15,7 @@ export default function Loading() {
             <Skeleton className="h-3 w-1/2" />
           </div>
         </div>
-        <div className="flex-1 space-y-4 px-4 py-4 lg:overflow-y-auto">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex gap-3">
-              <Skeleton className="size-10 shrink-0 rounded-full" />
-              <div className="min-w-0 flex-1 space-y-3">
-                <Skeleton className="h-4 w-32" />
-                <TextSkeleton />
-              </div>
-            </div>
-          ))}
-        </div>
+        <MessagesSkeleton />
         <div className="sticky bottom-(--spacing-mobile-nav) border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3">
           <Skeleton className="h-16 w-full" />
         </div>

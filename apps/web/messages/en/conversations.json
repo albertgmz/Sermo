@@ -6,7 +6,8 @@
     "loadingList": "Loading conversation list…",
     "loadingConversations": "Loading conversations…",
     "emptyTitle": "No conversations yet",
-    "emptyDescription": "Start one to talk privately with other members."
+    "emptyDescription": "Start one to talk privately with other members.",
+    "older": "Older conversations"
   },
   "conversations": {
     "title": "Select a conversation",
@@ -14,37 +15,36 @@
   },
   "conversation": {
     "aria": {
-      "back": "Back to conversations"
+      "back": "Back to conversations",
+      "leave": "Leave conversation",
+      "loadingMessages": "Loading messages…"
     },
     "participantSeparator": ", ",
     "authorSeparator": "·",
     "placeholder": "Write a message…",
-    "submit": "Send message"
+    "submit": "Send message",
+    "left": "(left)",
+    "leave": "Leave",
+    "first": "Back to the first messages",
+    "later": "Later messages",
+    "awaitingApproval": "This message is awaiting approval.",
+    "deleted": "This message was deleted.",
+    "cannotReply": "You cannot reply to this conversation."
   },
   "newConversation": {
     "aria": {
       "back": "Back to conversations"
     },
-    "heading": "New conversation"
+    "heading": "New conversation",
+    "cannotStartTitle": "You cannot start conversations",
+    "cannotStartDescription": "Your account is not allowed to start a private conversation."
   },
   "newConversationForm": {
-    "recipientsLabel": "Recipients",
     "titleLabel": "Title",
     "titlePlaceholder": "What is it about?",
     "messageLabel": "Message",
     "messagePlaceholder": "Write your message...",
-    "submit": "Start conversation",
-    "errors": {
-      "recipientRequired": "Choose at least one recipient.",
-      "messageRequired": "Write a message."
-    }
-  },
-  "actions": {
-    "errors": {
-      "recipientRequired": "Choose at least one recipient.",
-      "titleRequired": "Enter a title.",
-      "messageRequired": "Write a message."
-    }
+    "submit": "Start conversation"
   },
   "loading": {
     "label": "Loading conversations…",
@@ -54,6 +54,19 @@
     "newConversation": {
       "label": "Loading the conversation form…",
       "heading": "New conversation"
+    }
+  },
+  "conversationPreview": {
+    "summary": "Last from <author></author> · {participants, plural, one {# participant} other {# participants}}"
+  },
+  "recipientPicker": {
+    "label": "Recipients",
+    "placeholder": "Search members by username",
+    "noMatch": "No member found.",
+    "aria": {
+      "search": "Search members by username",
+      "chosen": "Chosen recipients",
+      "remove": "Remove {name}"
     }
   }
 }

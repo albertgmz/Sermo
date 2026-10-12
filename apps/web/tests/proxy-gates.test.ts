@@ -9,9 +9,6 @@ type Viewer = { user: { username: string }; permissions: { isAdmin: boolean } };
 const state = {
   viewer: null as Viewer | null,
   viewerAsked: 0,
-  twin: null as { id: number } | null,
-  conversation: null as unknown,
-  conversationAsked: [] as [number, number][],
 };
 mock.module("server-only", () => ({}));
 mock.module("@/lib/sermo/viewer", () => ({
@@ -21,12 +18,7 @@ mock.module("@/lib/sermo/viewer", () => ({
   },
 }));
 mock.module("@/lib/db", () => ({
-  getUser: async () => state.twin,
   getAward: async () => ({ id: 1 }),
-  getConversation: async (id: number, viewerId: number) => {
-    state.conversationAsked.push([id, viewerId]);
-    return state.conversation;
-  },
 }));
 
 // Forums, threads, members and the static pages are asked of the backend, so its answers are faked at
@@ -133,6 +125,25 @@ const PROFILE = {
   viewer: { isFollowing: false, isIgnoring: false },
   seo: NODE.seo,
 };
+const CONVERSATION = {
+  id: 5,
+  title: "Seed swap",
+  starter: { id: 1, username: "ember" },
+  createdAt: "2026-01-01T00:00:00.000Z",
+  lastMessage: {
+    messageId: 1,
+    sentAt: "2026-01-01T00:00:00.000Z",
+    user: { id: 1, username: "ember" },
+  },
+  messageCount: 1,
+  participantCount: 2,
+  isUnread: false,
+  participants: [
+    { user: { id: 1, username: "ember" }, state: "active" },
+    { user: { id: 2, username: "wren" }, state: "active" },
+  ],
+  canReply: true,
+};
 const PAGE = {
   slug: "terms",
   title: "Terms",
@@ -152,9 +163,6 @@ function reset(overrides: Partial<typeof state> = {}) {
   Object.assign(state, {
     viewer: null,
     viewerAsked: 0,
-    twin: null,
-    conversation: null,
-    conversationAsked: [],
     ...overrides,
   });
 }
@@ -243,24 +251,51 @@ test("/admin asks the backend and only an administrator gets in", async () => {
   }
 });
 
-test("a conversation needs a JSON member of the account's username", async () => {
-  const viewer = { user: { username: "ann" }, permissions: { isAdmin: false } };
-
-  reset({ viewer, twin: null, conversation: { id: 5 } });
-  isNotFound(await ask("/conversations/5", { cookie: SESSION }));
-  assert.deepEqual(state.conversationAsked, []);
-
-  reset({ viewer, twin: { id: 9 }, conversation: null });
-  isNotFound(await ask("/conversations/5", { cookie: SESSION }));
-  assert.deepEqual(state.conversationAsked, [[5, 9]]);
-
-  reset({ viewer, twin: { id: 9 }, conversation: { id: 5 } });
+test("a conversation is a 404 when the backend says the visitor has none like it, and only then", async () => {
+  reset();
+  const asked = backend({
+    "/api/v1/conversations/5": Response.json(CONVERSATION),
+    "/api/v1/conversations/6": refusal(500, "internal"),
+    "/api/v1/conversations/7": refusal(403, "forbidden"),
+  });
   passes(await ask("/conversations/5", { cookie: SESSION }));
-  assert.deepEqual(state.conversationAsked, [[5, 9]]);
+  // Not a participant: the backend does not tell it from a conversation that does not exist.
+  isNotFound(await ask("/conversations/9", { cookie: SESSION }));
+  // Any other answer lets the page show its own error.
+  passes(await ask("/conversations/6", { cookie: SESSION }));
+  passes(await ask("/conversations/7", { cookie: SESSION }));
+  assert.equal(asked[0].headers.get("cookie"), SESSION);
+  // The JSON data and the viewer lookup play no part in it.
+  assert.equal(state.viewerAsked, 0);
 
-  // A dead cookie has no account, so no twin either.
-  reset({ viewer: null, twin: { id: 9 }, conversation: { id: 5 } });
-  isNotFound(await ask("/conversations/5", { cookie: SESSION }));
+  backend({ "/api/v1/conversations/5": "down" });
+  passes(await ask("/conversations/5", { cookie: SESSION }));
+});
+
+test("a conversation id that is not a plain number is a 404 and the backend is not asked", async () => {
+  const asked = backend({});
+  for (const id of ["0", "03", "abc", "1.5", "99999999999999999999"]) {
+    isNotFound(await ask(`/conversations/${id}`, { cookie: SESSION }));
+  }
+  assert.equal(asked.length, 0);
+});
+
+test("the new conversation form is not looked up as a conversation", async () => {
+  const asked = backend({});
+  passes(await ask("/conversations/new", { cookie: SESSION }));
+  assert.equal(asked.length, 0);
+});
+
+test("a guest on a conversation is sent to sign in before the backend is asked", async () => {
+  const asked = backend({});
+  const response = await ask("/conversations/5");
+  assert.ok(response);
+  assert.equal(response.status, 307);
+  assert.equal(
+    response.headers.get("location"),
+    "http://localhost/login?next=%2Fconversations%2F5",
+  );
+  assert.equal(asked.length, 0);
 });
 
 test("a guest on a members-only page is sent to sign in and back", async () => {

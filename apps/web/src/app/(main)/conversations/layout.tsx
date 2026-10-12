@@ -1,7 +1,7 @@
+import { conversationsList } from "@sermo/core/contracts";
 import { MessagesSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -9,6 +9,7 @@ import {
   ConversationLink,
   ListPane,
 } from "@/app/(main)/conversations/conversation-nav";
+import { LoadMore } from "@/app/(main)/conversations/load-more";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { EmptyState } from "@/components/forum/empty-state";
 import {
@@ -18,8 +19,8 @@ import {
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getConversations } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { read } from "@/lib/sermo/client";
+import { membersFor } from "@/lib/sermo/members";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -82,26 +83,30 @@ export default function ConversationsLayout({
 }
 
 async function ConversationList() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const conversations = await getConversations(user.id);
-  const t = await getTranslations("conversations.layout");
+  const [{ items, nextCursor }, t] = await Promise.all([
+    read(conversationsList, {}),
+    getTranslations("conversations.layout"),
+  ]);
+  const member = await membersFor(items.map((c) => c.lastMessage.user));
 
   return (
     <>
-      {conversations.length ? (
+      {items.length ? (
         <ul className="divide-y lg:flex-1 lg:overflow-y-auto">
-          {conversations.map((conversation) => (
+          {items.map((conversation) => (
             <li key={conversation.id}>
               <ConversationLink id={conversation.id}>
                 <ConversationPreview
                   linked
                   conversation={conversation}
-                  viewerId={user.id}
+                  member={member(conversation.lastMessage.user.id)}
                 />
               </ConversationLink>
             </li>
           ))}
+          {nextCursor && (
+            <LoadMore key={nextCursor} cursor={nextCursor} label={t("older")} />
+          )}
         </ul>
       ) : (
         <EmptyState

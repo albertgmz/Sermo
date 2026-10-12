@@ -8,6 +8,11 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { Container } from "@/components/layout/container";
 import {
+  getCounters,
+  getRecentConversations,
+  getRecentNotifications,
+} from "@/components/layout/header-data";
+import {
   AlertsPanel,
   headerIconClass,
   MessagesPanel,
@@ -19,11 +24,11 @@ import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getConversations, getNotifications, getUnreadCounts } from "@/lib/db";
 import { titleKeyForLevel } from "@/lib/levels";
 import { getLiteState } from "@/lib/lite-mode";
 import { can } from "@/lib/permissions";
 import { getNavigation } from "@/lib/sermo/navigation";
+import { getViewer } from "@/lib/sermo/session";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -125,8 +130,9 @@ async function HeaderNavigation() {
 }
 
 async function AccountTools() {
-  const [user, navigation] = await Promise.all([
+  const [user, viewer, navigation] = await Promise.all([
     getCurrentUser(),
+    getViewer(),
     getNavigation(),
   ]);
   const t = await getTranslations("layout.siteHeader");
@@ -134,7 +140,7 @@ async function AccountTools() {
   const roles = await getTranslations("lib.db.roles");
   return (
     <>
-      {user ? (
+      {viewer.user ? (
         <>
           <Suspense
             fallback={
@@ -143,7 +149,7 @@ async function AccountTools() {
               </LoadingRegion>
             }
           >
-            <MessageTools userId={user.id} />
+            <MessageTools />
           </Suspense>
           <Suspense
             fallback={
@@ -152,23 +158,26 @@ async function AccountTools() {
               </LoadingRegion>
             }
           >
-            <AlertTools userId={user.id} />
+            <AlertTools />
           </Suspense>
-          <UserMenu
-            lite={await getLiteState()}
-            avatar={<UserAvatar user={user.member} size="md" link={false} />}
-            links={accountItems(
-              toNavItems(navigation.account, `/members/${user.id}`),
-            )}
-            user={{
-              username: user.username,
-              title:
-                (can(user, "customTitle") && user.customTitle) ||
-                (user.role === "member"
-                  ? levels(titleKeyForLevel(user.level.level))
-                  : roles(user.role)),
-            }}
-          />
+          {/* The menu still reads the JSON member of the account. */}
+          {user && (
+            <UserMenu
+              lite={await getLiteState()}
+              avatar={<UserAvatar user={user.member} size="md" link={false} />}
+              links={accountItems(
+                toNavItems(navigation.account, `/members/${user.id}`),
+              )}
+              user={{
+                username: user.username,
+                title:
+                  (can(user, "customTitle") && user.customTitle) ||
+                  (user.role === "member"
+                    ? levels(titleKeyForLevel(user.level.level))
+                    : roles(user.role)),
+              }}
+            />
+          )}
         </>
       ) : (
         <>
@@ -193,12 +202,12 @@ async function AccountTools() {
   );
 }
 
-async function MessageTools({ userId }: { userId: number }) {
+async function MessageTools() {
   await io();
   const t = await getTranslations("layout.siteHeader");
-  const [conversations, unread] = await Promise.all([
-    getConversations(userId),
-    getUnreadCounts(userId),
+  const [recent, unread] = await Promise.all([
+    getRecentConversations(),
+    getCounters(),
   ]);
   return (
     <>
@@ -210,8 +219,8 @@ async function MessageTools({ userId }: { userId: number }) {
         <Inbox />
       </IconLink>
       <MessagesPanel
-        user={{ id: userId }}
-        conversations={conversations.slice(0, 5)}
+        conversations={recent.items}
+        member={recent.member}
         unread={unread.conversations}
         className={PANEL}
       />
@@ -219,12 +228,12 @@ async function MessageTools({ userId }: { userId: number }) {
   );
 }
 
-async function AlertTools({ userId }: { userId: number }) {
+async function AlertTools() {
   await io();
   const t = await getTranslations("layout.siteHeader");
-  const [notifications, unread] = await Promise.all([
-    getNotifications(userId),
-    getUnreadCounts(userId),
+  const [recent, unread] = await Promise.all([
+    getRecentNotifications(),
+    getCounters(),
   ]);
   return (
     <>
@@ -236,7 +245,8 @@ async function AlertTools({ userId }: { userId: number }) {
         <Bell />
       </IconLink>
       <AlertsPanel
-        notifications={notifications.slice(0, 6)}
+        notifications={recent.entries}
+        member={recent.member}
         unread={unread.notifications}
         className={PANEL}
       />

@@ -1,75 +1,31 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { startConversation } from "@/app/(main)/conversations/actions";
+import { RecipientPicker } from "@/app/(main)/conversations/new/recipient-picker";
 import { Editor } from "@/components/forum/editor";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { User } from "@/lib/types";
-
-function check(data: FormData) {
-  if (!data.getAll("to").length) return "recipientRequired";
-  if (!String(data.get("body") ?? "").trim()) return "messageRequired";
-  return "";
-}
 
 export function NewConversationForm({
-  users,
   preselected,
 }: {
-  users: (Pick<User, "id" | "username"> & { avatar: React.ReactNode })[];
-  preselected?: number;
+  preselected?: { id: number; username: string };
 }) {
   const t = useTranslations("conversations.newConversationForm");
-  const [serverError, action, pending] = useActionState(startConversation, "");
-  const [clientError, setClientError] = useState("");
-  const error = clientError || serverError;
+  const [state, action, pending] = useActionState(startConversation, {});
 
   return (
-    <form
-      action={action}
-      onSubmit={(event) => {
-        const errorCode = check(new FormData(event.currentTarget));
-        const message = errorCode ? t(`errors.${errorCode}`) : "";
-        setClientError(message);
-        if (message) event.preventDefault();
-      }}
-      className="space-y-5"
-    >
-      <fieldset>
-        <legend className="mb-2 text-sm font-medium">
-          {t("recipientsLabel")}
-        </legend>
-        <ul className="grid gap-x-4 sm:grid-cols-2">
-          {users.map((user) => (
-            <li key={user.id}>
-              <Label
-                htmlFor={`to-${user.id}`}
-                className="min-h-10 cursor-pointer font-normal"
-              >
-                <Checkbox
-                  id={`to-${user.id}`}
-                  name="to"
-                  value={String(user.id)}
-                  defaultChecked={user.id === preselected}
-                />
-                {user.avatar}
-                <span className="truncate">{user.username}</span>
-              </Label>
-            </li>
-          ))}
-        </ul>
-      </fieldset>
+    <form action={action} className="space-y-5">
+      <RecipientPicker initial={preselected} />
       <div className="space-y-2">
         <Label htmlFor="conversation-title">{t("titleLabel")}</Label>
         <Input
           id="conversation-title"
           name="title"
-          required
-          maxLength={100}
+          defaultValue={state.title}
           placeholder={t("titlePlaceholder")}
         />
       </div>
@@ -77,9 +33,9 @@ export function NewConversationForm({
         <p className="text-sm leading-none font-medium">{t("messageLabel")}</p>
         <Editor name="body" placeholder={t("messagePlaceholder")} />
       </div>
-      {error && (
+      {state.error && (
         <p role="alert" className="text-sm text-destructive">
-          {error}
+          {state.error}
         </p>
       )}
       <Button type="submit" disabled={pending} className="h-10 px-4 md:h-8">

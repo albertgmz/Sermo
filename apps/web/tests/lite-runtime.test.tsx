@@ -68,9 +68,10 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
-// Forums, threads and members are asked of the backend, which knows only record 101.
+// Forums, threads, members and conversations are asked of the backend, which knows only
+// record 101.
 globalThis.fetch = (async (input: string) => {
-  const record = /\/api\/v1\/(?:nodes|threads|users)\/(\d+)/.exec(
+  const record = /\/api\/v1\/(?:nodes|threads|users|conversations)\/(\d+)/.exec(
     String(input),
   );
   if (record && Number(record[1]) !== 101) {
@@ -97,7 +98,6 @@ mock.module("@/lib/db", () => ({
         ? { id, role: "admin" }
         : null,
   getAward: find,
-  getConversation: find,
   getPosts: async () => [{ body: posts.body }],
   changeUsername: noDatabaseWrites,
   setAppearance: noDatabaseWrites,

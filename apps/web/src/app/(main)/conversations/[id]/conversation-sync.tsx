@@ -3,6 +3,9 @@
 import { useEffect, useRef } from "react";
 import { markRead } from "@/app/(main)/conversations/actions";
 
+// Sits under the newest message of the conversation: it scrolls there and, when the member had
+// not read it yet, records that they have. A page cannot write while it renders, so this runs once
+// the page is on screen and draws nothing but its anchor.
 export function ConversationSync({
   id,
   unread,
@@ -13,7 +16,7 @@ export function ConversationSync({
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (unread) markRead(id);
+    if (unread) void markRead(id);
   }, [id, unread]);
 
   useEffect(() => {

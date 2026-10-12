@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
+  conversationsGet,
   nodesGet,
   PageSlug,
   pagesGet,
@@ -8,7 +9,7 @@ import {
   profilesGet,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
-import { getAward, getConversation, getUser } from "@/lib/db";
+import { getAward } from "@/lib/db";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -71,7 +72,10 @@ const CONTENT: Record<string, Finder> = {
   threads: backend((threadId, forward) =>
     callWith(forward, postsList, { threadId, limit: 1 }),
   ),
-  conversations: numeric(getConversation),
+  // A conversation the visitor is not part of is "not found" for them.
+  conversations: backend((conversationId, forward) =>
+    callWith(forward, conversationsGet, { conversationId }),
+  ),
 };
 
 const STATIC_PAGES = ["terms", "privacy", "legal", "contact"];
@@ -212,15 +216,7 @@ async function handleRequest(request: NextRequest) {
       ? CONTENT[section]
       : undefined;
   if (find) {
-    let viewerId = Number.NaN;
-    if (section === "conversations") {
-      // The conversations still live in the JSON data, under the JSON twin of the account.
-      const account = (await viewerOf(request.headers))?.user;
-      const twin = account ? await getUser(account.username) : null;
-      if (!twin) return notFound(request);
-      viewerId = twin.id;
-    }
-    if (!(await find(id, viewerId, request))) return notFound(request);
+    if (!(await find(id, Number.NaN, request))) return notFound(request);
   }
   return toPage(request);
 }

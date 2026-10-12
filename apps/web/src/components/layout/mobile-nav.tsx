@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { UnreadCounts } from "@/components/layout/header-data";
 import {
   iconFor,
   isCurrent,
   type LinkItem,
   linkProps,
 } from "@/components/layout/nav";
-import type { UnreadCounts } from "@/lib/db";
 
 export function MobileNav({
   items,
