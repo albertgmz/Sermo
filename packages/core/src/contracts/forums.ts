@@ -3,6 +3,7 @@ import { NODE_TYPES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
+  ActorPassword,
   Body,
   ContentState,
   Empty,
@@ -548,8 +549,16 @@ export const nodesSetModerator = defineContract({
   name: "nodes.setModerator",
   summary:
     "Make a member moderator of a node and everything under it (member-specific entries for the " +
-    "standard moderator set), or remove that. Requires admin.permissions.",
+    "standard moderator set), or remove that. Requires admin.permissions. With " +
+    "`actorPassword` (session actors only) the acting administrator's own password is verified " +
+    "first, under the same wrong-answer limit as users.adminUpdateIdentity; a wrong one changes " +
+    "nothing. Without it nothing is asked.",
   kind: "write",
-  input: z.object({ nodeId: Id, userId: Id, remove: z.boolean().default(false) }),
+  input: z.object({
+    nodeId: Id,
+    userId: Id,
+    remove: z.boolean().default(false),
+    actorPassword: ActorPassword.optional(),
+  }),
   output: Ok,
 });

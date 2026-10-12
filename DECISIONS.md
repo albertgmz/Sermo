@@ -1303,3 +1303,12 @@ results are ordered by username (members whose username starts with it) and then
 matched by address alone); the cursor carries the position. **Owner review.** The rosters read each
 group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
 of kinds, and counts reports only for someone who handles them site-wide.
+
+**Group and permission writes can confirm with the password in the same call.** `permissions.set`,
+`users.setGroups`, `groups.create`, `groups.update`, `groups.delete` and `nodes.setModerator` take
+an optional `actorPassword`. When it is present it is checked first with `verifyActorPassword`, so
+it counts against the same five-in-fifteen-minutes limit as `users.adminUpdateIdentity`, only a
+session actor may send it (an API key that does is refused) and a wrong answer stops the request
+before anything is read or changed. Without it nothing is asked, so API clients and scripts keep
+working. This replaces the web app's two calls (`auth.verifyPassword`, then the write), which left
+a gap between the check and the change.

@@ -1,7 +1,12 @@
 import * as z from "zod";
 import { BUILTIN_GROUPS } from "../db/schema";
 import { defineContract } from "../operation";
-import { Empty, Id, Ok } from "./common";
+import { ActorPassword, Empty, Id, Ok } from "./common";
+
+const CONFIRM =
+  " With `actorPassword` (session actors only) the acting administrator's own password is " +
+  "verified first, in the same step and under the same wrong-answer limit as " +
+  "users.adminUpdateIdentity; a wrong one changes nothing. Without it nothing is asked.";
 
 // Groups -------------------------------------------------------------------------------------
 
@@ -60,7 +65,8 @@ export const groupsCreate = defineContract({
   name: "groups.create",
   summary:
     "Create a group. It starts with no permission entries. Requires admin.groups; the rank must " +
-    "be below the actor's own highest rank.",
+    "be below the actor's own highest rank." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     title: GroupFields.title,
@@ -70,6 +76,7 @@ export const groupsCreate = defineContract({
     badge: GroupFields.badge.default(""),
     nameColorId: GroupFields.nameColorId.default(null),
     isStaff: GroupFields.isStaff.default(false),
+    actorPassword: ActorPassword.optional(),
   }),
   output: Group,
 });
@@ -78,7 +85,8 @@ export const groupsUpdate = defineContract({
   name: "groups.update",
   summary:
     "Change a group's title, description, rank, user title or badge. Requires admin.groups; " +
-    "groups ranked at or above the actor, and ranks at or above the actor's, are refused.",
+    "groups ranked at or above the actor, and ranks at or above the actor's, are refused." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     groupId: Id,
@@ -89,6 +97,7 @@ export const groupsUpdate = defineContract({
     badge: GroupFields.badge.optional(),
     nameColorId: GroupFields.nameColorId.optional(),
     isStaff: GroupFields.isStaff.optional(),
+    actorPassword: ActorPassword.optional(),
   }),
   output: Group,
 });
@@ -98,9 +107,10 @@ export const groupsDelete = defineContract({
   summary:
     "Delete a group that is not built in. Members whose primary group it was move to the " +
     "registered group; secondary memberships, promotion grants and the group's permission " +
-    "entries are removed. Requires admin.groups.",
+    "entries are removed. Requires admin.groups." +
+    CONFIRM,
   kind: "write",
-  input: z.object({ groupId: Id }),
+  input: z.object({ groupId: Id, actorPassword: ActorPassword.optional() }),
   output: Ok,
 });
 
@@ -137,12 +147,14 @@ export const usersSetGroups = defineContract({
     "Set a member's primary group and/or their hand-assigned secondary groups (the full list). " +
     "Requires admin.members over the member (their highest rank must be below the actor's); " +
     "groups ranked at or above the actor cannot be given, the guest group cannot be assigned, " +
-    "and the change is refused if no member would keep admin.permissions.",
+    "and the change is refused if no member would keep admin.permissions." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     userId: Id,
     primaryGroupId: Id.optional(),
     secondaryGroupIds: z.array(Id).max(50).optional(),
+    actorPassword: ActorPassword.optional(),
   }),
   output: MemberGroups,
 });
@@ -227,7 +239,8 @@ export const permissionsSet = defineContract({
     "removes an entry. `no` is only valid on nodes; global permissions only at the global " +
     "scope; the guest group never receives permissions that need an account. Refused if no " +
     "member would keep admin.permissions. Returns the target's entries at that scope. " +
-    "Requires admin.permissions.",
+    "Requires admin.permissions." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     ...EntryTarget,
@@ -237,6 +250,7 @@ export const permissionsSet = defineContract({
       )
       .min(1)
       .max(200),
+    actorPassword: ActorPassword.optional(),
   }),
   output: PermissionEntrySet,
 });

@@ -136,3 +136,16 @@ export const verifyActorPassword = markPublic(
     return { userId: user.userId };
   },
 );
+
+/**
+ * The optional confirmation of a write that changes groups or permissions: when the request
+ * carries the acting administrator's password it is verified first (same helper, same limit),
+ * and a wrong one stops the request before anything is read or changed. Without it, nothing is
+ * asked, which is how API clients call these operations.
+ */
+export const confirmActorPassword = markPublic(
+  "Checks the actor's own password when one is sent; it grants nothing.",
+  async (ctx: Ctx, actor: Actor, password: string | undefined): Promise<void> => {
+    if (password !== undefined) await verifyActorPassword(ctx, actor, password);
+  },
+);

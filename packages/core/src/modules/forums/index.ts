@@ -26,6 +26,7 @@ import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
+import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import {
@@ -718,53 +719,57 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
   return nodeValues(ctx, actor, [input.nodeId])[0]!;
 });
 
-export const nodesSetModeratorOp = implement(contracts.nodesSetModerator, (ctx, actor, input) => {
-  requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.permissions");
-  return writeTx(ctx, () => {
-    if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
-    if (
-      !forumDb(ctx)
-        .prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1")
-        .get(input.userId)
-    )
-      throw new NotFoundError();
-    const ids = Object.entries(PERMISSIONS)
-      .filter(
-        ([id, def]) =>
-          def.scope === "node" &&
-          (("legacy" in def && def.legacy === PERMISSIONS["forum.viewModerated"].legacy) ||
-            id === "forum.viewLog" ||
-            id === "forum.bypassNodeRules"),
+export const nodesSetModeratorOp = implement(
+  contracts.nodesSetModerator,
+  async (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    await confirmActorPassword(ctx, actor, input.actorPassword);
+    requirePermission(ctx, actor, "admin.permissions");
+    return writeTx(ctx, () => {
+      if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
+      if (
+        !forumDb(ctx)
+          .prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1")
+          .get(input.userId)
       )
-      .map(([id]) => id);
-    const values = JSON.stringify(ids);
-    if (input.remove) {
-      forumDb(ctx)
-        .prepare(
-          "DELETE FROM permission_entries WHERE node_id = ?1 AND user_id = ?2 AND group_id = 0 AND value = 1 AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)))",
+        throw new NotFoundError();
+      const ids = Object.entries(PERMISSIONS)
+        .filter(
+          ([id, def]) =>
+            def.scope === "node" &&
+            (("legacy" in def && def.legacy === PERMISSIONS["forum.viewModerated"].legacy) ||
+              id === "forum.viewLog" ||
+              id === "forum.bypassNodeRules"),
         )
-        .run(input.nodeId, input.userId, values);
-    } else {
-      forumDb(ctx)
-        .prepare(
-          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, ?1, 0, ?2, 1 FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)) ON CONFLICT (group_id, user_id, node_id, permission_id) DO NOTHING",
-        )
-        .run(input.nodeId, input.userId, values);
-    }
-    appendModeratorLog(
-      ctx,
-      actor,
-      input.remove ? "node.moderator.remove" : "node.moderator.add",
-      "node",
-      input.nodeId,
-      "",
-      { userId: input.userId },
-      input.nodeId,
-    );
-    return { ok: true as const };
-  });
-});
+        .map(([id]) => id);
+      const values = JSON.stringify(ids);
+      if (input.remove) {
+        forumDb(ctx)
+          .prepare(
+            "DELETE FROM permission_entries WHERE node_id = ?1 AND user_id = ?2 AND group_id = 0 AND value = 1 AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)))",
+          )
+          .run(input.nodeId, input.userId, values);
+      } else {
+        forumDb(ctx)
+          .prepare(
+            "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, ?1, 0, ?2, 1 FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)) ON CONFLICT (group_id, user_id, node_id, permission_id) DO NOTHING",
+          )
+          .run(input.nodeId, input.userId, values);
+      }
+      appendModeratorLog(
+        ctx,
+        actor,
+        input.remove ? "node.moderator.remove" : "node.moderator.add",
+        "node",
+        input.nodeId,
+        "",
+        { userId: input.userId },
+        input.nodeId,
+      );
+      return { ok: true as const };
+    });
+  },
+);
 
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
