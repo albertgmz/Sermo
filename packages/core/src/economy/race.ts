@@ -57,6 +57,10 @@ export async function race(
           });
         }),
       );
+      // Opening several connections to a WAL file at once can fail with SQLITE_BUSY_RECOVERY
+      // (the journal_mode pragma runs before the busy timeout), so open them one at a time.
+      results.at(-1)!.catch(() => {});
+      await started.promise;
     }
     // Attach result handlers immediately, including workers that fail before reaching the gate.
     const finished = Promise.all(results);

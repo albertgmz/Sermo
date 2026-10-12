@@ -390,9 +390,10 @@ stock and ownership rules still apply. A recipient's ignore blocks a gift when t
 `member.ignorable`; staff lack that permission by default, so an old ignore entry does not block
 their gifts. Gifts are chosen at purchase: an item already in inventory cannot be given away.
 
-**What may be sold.** Creating, editing or deleting an item with a `permission` or `group` effect
-needs `admin.permissions` as well as `admin.shop`. A sold group must exist, cannot be Guest, and
-must rank below the administrator managing the item. Permissions in the `admin` category and
+**What may be sold.** Creating or editing an item with a `permission` or `group` effect needs
+`admin.permissions` as well as `admin.shop`; deleting one that was never bought needs only
+`admin.shop`. A sold group must exist, cannot be Guest, and must rank below the administrator
+creating or editing the item. Permissions in the `admin` category and
 groups holding `admin.permissions` cannot be sold; purchases also enforce this protection.
 A group used by a shop item cannot be deleted while that item exists.
 

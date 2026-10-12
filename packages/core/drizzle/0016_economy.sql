@@ -84,6 +84,8 @@ CREATE UNIQUE INDEX `credit_rule_applications_key` ON `credit_rule_applications`
 --> statement-breakpoint
 CREATE INDEX `credit_rule_applications_source` ON `credit_rule_applications` (`source_type`,`source_id`);
 --> statement-breakpoint
+CREATE INDEX `credit_rule_applications_paid` ON `credit_rule_applications` (`source_type`,`source_id`,`rule_id`,`source_user_id`);
+--> statement-breakpoint
 CREATE INDEX `credit_rule_applications_limit` ON `credit_rule_applications` (`rule_id`,`user_id`,`created_at`);
 --> statement-breakpoint
 CREATE TABLE `awards` (

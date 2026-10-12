@@ -32,3 +32,21 @@ test("every credit rule query uses indexed lookups or the allowed small rule tab
     ctx.sqlite.close(true);
   }
 });
+
+test("the paid-source lookup is answered by the source index alone", () => {
+  const ctx = createTestContext();
+  try {
+    const plan = ctx.sqlite
+      .prepare<{ detail: string }, [string, number, number, number]>(
+        `EXPLAIN QUERY PLAN ${queries.sourceApplied}`,
+      )
+      .all("post", 1, 1, 2)
+      .map((row) => row.detail)
+      .join("\n");
+    expect(plan).toContain(
+      "credit_rule_applications_paid (source_type=? AND source_id=? AND rule_id=? AND source_user_id=?)",
+    );
+  } finally {
+    ctx.sqlite.close(true);
+  }
+});
