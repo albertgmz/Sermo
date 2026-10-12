@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan } from "@sermo/core/testing";
+import { expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
+import { writeTx } from "../../db/tx";
 import { UnauthenticatedError } from "../../errors";
+import { currentActor } from "../../permissions";
+import { PROFILE_ACCESS_SQL } from "../profiles/shared";
 import { feedSql } from "./feed";
-import { fillPosts, type World, world } from "./fixtures.test";
+import { countStatements, fillPosts, type World, world } from "./fixtures.test";
 import { rankingSql, refreshRankings } from "./rankings";
 import { viewerSql } from "./viewer";
 
@@ -332,6 +335,30 @@ describe("feed.list top", () => {
   });
 });
 
+describe("feed.list wall posts", () => {
+  test("a page of wall posts on many walls runs about as many statements as one wall", async () => {
+    const one = world();
+    const many = world();
+    const owners = Array.from({ length: 30 }, (_, i) => {
+      const user = insertUser(many.ctx, { username: `owner${i}` });
+      return { user, actor: userActor(user) };
+    });
+    const solo = insertUser(one.ctx, { username: "solo" });
+    for (let i = 0; i < 30; i++) await one.wall(userActor(solo), solo.id, `w${i}`);
+    for (const [i, owner] of owners.entries()) await many.wall(owner.actor, owner.user.id, `w${i}`);
+    // As a request's actor arrives: the principal is already resolved, so checks run no query.
+    const read = (w: World) => {
+      const viewer = writeTx(w.ctx, () => currentActor(w.ctx, w.bob));
+      return () => w.call("feed.list", viewer, { limit: 30 });
+    };
+    const withOne = await countStatements(one.ctx, read(one));
+    const withMany = await countStatements(many.ctx, read(many));
+    expect((await read(many)()).items).toHaveLength(30);
+    expect(withMany - withOne).toBeLessThanOrEqual(10);
+    expect(withMany).toBeLessThan(150);
+  });
+});
+
 describe("the feed queries read their indexes", () => {
   test("no table scan, and the followed walk uses the per-author index", () => {
     const w = world();
@@ -339,7 +366,7 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, feedSql.wall, [100, 20]);
     expectNoTableScan(w.ctx, feedSql.followedPosts, ["[1,2]", 100, 20]);
     expectNoTableScan(w.ctx, feedSql.followedWall, ["[1,2]", 100, 20]);
-    expectNoTableScan(w.ctx, feedSql.wallOwners, [1, "[1,2]"]);
+    expectNoTableScan(w.ctx, PROFILE_ACCESS_SQL, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.wallRows, ["[1,2]"]);
     expectNoTableScan(w.ctx, rankingSql.stored, ["feedTop", "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.topPosts, ["[1,2]"]);

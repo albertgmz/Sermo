@@ -115,3 +115,34 @@ export function fillThreads(
   }
   return ids;
 }
+
+/**
+ * Tests only: how many statements `run` executes. Cached statements are dropped first so the
+ * ones the run prepares are the ones counted.
+ */
+export async function countStatements(ctx: Ctx, run: () => Promise<unknown>): Promise<number> {
+  let count = 0;
+  const prepare = ctx.sqlite.prepare.bind(ctx.sqlite);
+  ctx.statements.clear();
+  // biome-ignore lint/suspicious/noExplicitAny: the wrapper forwards whatever the statement takes
+  (ctx.sqlite as any).prepare = (sql: string) => {
+    // biome-ignore lint/suspicious/noExplicitAny: bun's statement type is generic over its rows
+    const statement = prepare(sql) as any;
+    for (const method of ["get", "all", "run", "values", "iterate"]) {
+      const original = statement[method].bind(statement);
+      statement[method] = (...args: unknown[]) => {
+        count++;
+        return original(...args);
+      };
+    }
+    return statement;
+  };
+  try {
+    await run();
+  } finally {
+    // biome-ignore lint/suspicious/noExplicitAny: restoring the method replaced above
+    (ctx.sqlite as any).prepare = prepare;
+    ctx.statements.clear();
+  }
+  return count;
+}

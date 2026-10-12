@@ -10,8 +10,8 @@ import type { ThreadRow } from "../forums";
 import {
   latestComments,
   mayViewProfile,
-  type ProfileAccess,
   type ProfilePostRow,
+  profileAccessMany,
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
@@ -50,8 +50,6 @@ export const feedSql = {
     "SELECT p.id, p.thread_id, p.user_id, p.state, p.created_at FROM json_each(?1) AS j CROSS JOIN posts p WHERE p.id IN (SELECT p2.id FROM posts p2 WHERE p2.user_id = j.value AND p2.id < ?2 ORDER BY p2.id DESC LIMIT ?3)",
   followedWall:
     "SELECT p.id, p.profile_user_id, p.user_id, p.state, p.created_at FROM json_each(?1) AS j CROSS JOIN profile_posts p WHERE p.id IN (SELECT p2.id FROM profile_posts p2 WHERE p2.user_id = j.value AND p2.id < ?2 ORDER BY p2.id DESC LIMIT ?3)",
-  wallOwners:
-    "SELECT u.id, u.profile_view_privacy, u.profile_post_privacy, EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = u.id AND f.followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))",
   wallRows: "SELECT * FROM profile_posts WHERE id IN (SELECT value FROM json_each(?1))",
   topPosts:
     "SELECT id, thread_id, user_id, state, created_at FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
@@ -202,16 +200,10 @@ function acceptPosts(ctx: Ctx, actor: Actor, nodes: Set<number>, threads: Map<nu
 
 function acceptWall(ctx: Ctx, actor: Actor) {
   return (rows: WallCandidate[]) => {
-    const viewerId = actor.kind === "guest" ? 0 : actor.userId;
-    const access = new Map(
-      prepared(ctx, "feed.wallOwners", () =>
-        ctx.sqlite.prepare<
-          { id: number } & Omit<ProfileAccess, "follows"> & { follows: number },
-          [number, string]
-        >(feedSql.wallOwners),
-      )
-        .all(viewerId, JSON.stringify([...new Set(rows.map((row) => row.profile_user_id))]))
-        .map((row) => [row.id, row as ProfileAccess] as const),
+    const access = profileAccessMany(
+      ctx,
+      actor,
+      rows.map((row) => row.profile_user_id),
     );
     const ignored = ignoredAmong(
       ctx,
