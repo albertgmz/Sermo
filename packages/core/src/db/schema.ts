@@ -1397,8 +1397,10 @@ export const creditRuleApplications = sqliteTable(
       t.sourceId,
       t.sourceUserId,
     ),
-    // Everything a piece of content paid, to revert or re-apply it.
+    // Everything a piece of content paid, to revert or re-apply it in id order.
     index("credit_rule_applications_source").on(t.sourceType, t.sourceId),
+    // Whether a rule already paid someone for a source.
+    index("credit_rule_applications_paid").on(t.sourceType, t.sourceId, t.ruleId, t.sourceUserId),
     // The per-member limit: applications of a rule within its window.
     index("credit_rule_applications_limit").on(t.ruleId, t.userId, t.createdAt),
   ],

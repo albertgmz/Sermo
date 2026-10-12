@@ -77,11 +77,16 @@ export const scenarios: Scenario[] = [
     name: "awards.holders later page",
     kind: "read",
     async setup(env) {
-      const page = (await env.call("awards.holders", env.actors.member(0), {
-        awardId: env.meta.economy.stackableAwardIds[0]!,
-        limit: 100,
-      })) as { nextCursor: string | null };
-      holdersCursor = page.nextCursor ?? undefined;
+      const page = JSON.parse(
+        String(
+          await env.call("awards.holders", env.actors.member(0), {
+            awardId: env.meta.economy.stackableAwardIds[0]!,
+            limit: 100,
+          }),
+        ),
+      ) as { nextCursor: string | null };
+      if (!page.nextCursor) throw new Error("awards.holders has no second page.");
+      holdersCursor = page.nextCursor;
     },
     run: (env) =>
       env.call("awards.holders", env.actors.member(0), {
@@ -116,12 +121,17 @@ export const scenarios: Scenario[] = [
     name: "awards.memberGrants later page (800 grants)",
     kind: "read",
     async setup(env) {
-      const page = (await env.call(
-        "awards.memberGrants",
-        env.actors.user(env.meta.economy.awardHeavyUserId),
-        { userId: env.meta.economy.awardHeavyUserId, limit: 100 },
-      )) as { nextCursor: string | null };
-      grantsCursor = page.nextCursor ?? undefined;
+      const page = JSON.parse(
+        String(
+          await env.call(
+            "awards.memberGrants",
+            env.actors.user(env.meta.economy.awardHeavyUserId),
+            { userId: env.meta.economy.awardHeavyUserId, limit: 100 },
+          ),
+        ),
+      ) as { nextCursor: string | null };
+      if (!page.nextCursor) throw new Error("awards.memberGrants has no second page.");
+      grantsCursor = page.nextCursor;
     },
     run: (env) =>
       env.call("awards.memberGrants", env.actors.user(env.meta.economy.awardHeavyUserId), {
