@@ -40,6 +40,7 @@ import {
 import { $setBlocksType } from "@lexical/selection";
 import {
   $createParagraphNode,
+  $getRoot,
   $getSelection,
   $isRangeSelection,
   CAN_REDO_COMMAND,
@@ -66,7 +67,7 @@ import {
   TextQuote,
   Undo2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -307,16 +308,28 @@ function FormField({
   name,
   resetKey,
   onChange,
-}: Pick<EditorProps, "name" | "resetKey" | "onChange">) {
+  required,
+  setInvalid,
+}: Pick<EditorProps, "name" | "resetKey" | "onChange" | "required"> & {
+  setInvalid: (invalid: boolean) => void;
+}) {
   const [editor] = useLexicalComposerContext();
   const [markdown, setMarkdown] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const validationRef = useRef<HTMLInputElement>(null);
   const lastValue = useRef("");
   const lastResetKey = useRef(resetKey);
 
   useEffect(
     () =>
       editor.registerUpdateListener(({ editorState }) => {
+        if (validationRef.current) {
+          const hasText = editorState.read(() =>
+            Boolean($getRoot().getTextContent().trim()),
+          );
+          validationRef.current.value = hasText ? "filled" : "";
+          if (hasText) setInvalid(false);
+        }
         const next = editorState.read(() =>
           $convertToMarkdownString(TRANSFORMERS),
         );
@@ -325,27 +338,59 @@ function FormField({
         setMarkdown(next);
         onChange?.(next);
       }),
-    [editor, onChange],
+    [editor, onChange, setInvalid],
   );
 
   useEffect(() => {
     const form = inputRef.current?.form;
     if (!form) return;
-    const clear = () => editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
+    const clear = () => {
+      setInvalid(false);
+      editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
+    };
     form.addEventListener("reset", clear);
     return () => form.removeEventListener("reset", clear);
-  }, [editor]);
+  }, [editor, setInvalid]);
 
   useEffect(() => {
     if (resetKey === lastResetKey.current) return;
     lastResetKey.current = resetKey;
+    setInvalid(false);
     editor.dispatchCommand(CLEAR_EDITOR_COMMAND, undefined);
-  }, [editor, resetKey]);
+  }, [editor, resetKey, setInvalid]);
 
-  return <input ref={inputRef} type="hidden" name={name} value={markdown} />;
+  return (
+    <>
+      <input ref={inputRef} type="hidden" name={name} value={markdown} />
+      {/* Hidden inputs cannot participate in native constraint validation. */}
+      {required && (
+        <input
+          ref={validationRef}
+          type="text"
+          required
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+          onInvalid={(event) => {
+            event.preventDefault();
+            setInvalid(true);
+            if (
+              event.currentTarget.form?.querySelector(":invalid") ===
+              event.currentTarget
+            ) {
+              editor.focus();
+            }
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 export type EditorProps = {
+  id?: string;
+  "aria-labelledby"?: string;
+  required?: boolean;
   name?: string;
   placeholder?: string;
   minHeight?: number;
@@ -356,6 +401,9 @@ export type EditorProps = {
 };
 
 export function Editor({
+  id,
+  "aria-labelledby": labelledBy,
+  required,
   name,
   placeholder = "Type your message here.",
   minHeight,
@@ -364,6 +412,8 @@ export function Editor({
   resetKey,
   className,
 }: EditorProps) {
+  const [invalid, setInvalid] = useState(false);
+  const errorId = useId();
   const padding = compact ? "px-3 py-2" : "px-4 py-3";
   return (
     <LexicalComposer initialConfig={CONFIG}>
@@ -378,7 +428,12 @@ export function Editor({
           <RichTextPlugin
             contentEditable={
               <ContentEditable
-                aria-label={placeholder}
+                id={id}
+                aria-label={labelledBy ? undefined : placeholder}
+                aria-labelledby={labelledBy}
+                aria-required={required}
+                aria-invalid={invalid || undefined}
+                aria-describedby={invalid ? errorId : undefined}
                 aria-placeholder={placeholder}
                 placeholder={
                   <div
@@ -401,13 +456,24 @@ export function Editor({
             ErrorBoundary={LexicalErrorBoundary}
           />
         </div>
+        <FormField
+          name={name}
+          resetKey={resetKey}
+          onChange={onChange}
+          required={required}
+          setInvalid={setInvalid}
+        />
       </div>
+      {invalid && (
+        <p id={errorId} role="alert" className="text-sm text-destructive">
+          Please enter a message.
+        </p>
+      )}
       <HistoryPlugin />
       <ListPlugin />
       <LinkPlugin />
       <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       <ClearEditorPlugin />
-      <FormField name={name} resetKey={resetKey} onChange={onChange} />
     </LexicalComposer>
   );
 }
