@@ -6,6 +6,9 @@ COPY packages/core/package.json packages/core/package.json
 COPY packages/api/package.json packages/api/package.json
 COPY packages/mcp/package.json packages/mcp/package.json
 RUN bun install --frozen-lockfile --production
+# The lockfile also covers the web app, and Bun installs its Next compiler (about 400 MB) although
+# no backend package loads it.
+RUN rm -rf node_modules/.bun/next@* node_modules/.bun/@next+swc-*
 
 FROM oven/bun:1.4.2-slim
 
