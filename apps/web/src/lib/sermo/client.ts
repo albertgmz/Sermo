@@ -85,3 +85,8 @@ export function errorMessage(error: unknown): string {
   }
   return error.message;
 }
+
+// The forwarding settled for this request, for the calls that are not operations (uploads).
+export async function visitorForward(): Promise<Forward> {
+  return (await visitor()).forward;
+}
