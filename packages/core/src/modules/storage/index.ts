@@ -147,7 +147,7 @@ function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
   else if (purpose === "shop_image") requirePermission(ctx, actor, "admin.shop");
   else if (isCatalogPurpose(purpose)) requirePermission(ctx, actor, "admin.settings");
 }
-/** Files that count against attachment.storageQuota: everything a member uploads for themselves. */
+/** The catalog purposes as an SQL list: these files are left out of the attachment.storageQuota sum. */
 const quotaPurposes = CATALOG_FILE_PURPOSES.map((purpose) => `'${purpose}'`).join(", ");
 
 async function fileHash(path: string): Promise<string> {

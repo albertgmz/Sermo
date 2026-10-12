@@ -77,6 +77,7 @@ function setArtwork(
   fileId: number | null,
   target: {
     table: "awards" | "shop_items";
+    entity: "award" | "shop_item";
     id: number;
     purpose: "award_image" | "shop_image";
     action: string;
@@ -99,7 +100,7 @@ function setArtwork(
       .prepare(`UPDATE ${target.table} SET image_file_id = ?1, updated_at = ?2 WHERE id = ?3`)
       .run(fileId, ctx.now(), target.id);
     if (row.previous !== null) releaseFile(ctx, row.previous);
-    appendModeratorLog(ctx, actor, target.action, target.table, target.id, "", { fileId });
+    appendModeratorLog(ctx, actor, target.action, target.entity, target.id, "", { fileId });
     return publicPicture(ctx, fileId);
   });
 }
@@ -117,6 +118,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.awards");
     return setArtwork(ctx, actor, input.fileId, {
       table: "awards",
+      entity: "award",
       id: input.awardId,
       purpose: "award_image",
       action: "award.image",
@@ -126,6 +128,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.shop");
     return setArtwork(ctx, actor, input.fileId, {
       table: "shop_items",
+      entity: "shop_item",
       id: input.itemId,
       purpose: "shop_image",
       action: "shop.item.image",
