@@ -6,9 +6,6 @@ import { buyItem, type CreditsState } from "@/app/(main)/credits/actions";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Input } from "@/components/ui/input";
 
-// The most units one purchase can take, which the backend enforces.
-const MOST_PER_PURCHASE = 100;
-
 export function BuyForm({
   itemId,
   itemName,
@@ -38,10 +35,7 @@ export function BuyForm({
             name="quantity"
             defaultValue={1}
             min={1}
-            max={Math.max(
-              1,
-              Math.min(MOST_PER_PURCHASE, left ?? MOST_PER_PURCHASE),
-            )}
+            max={left === null ? undefined : Math.max(1, left)}
             inputMode="numeric"
             aria-label={t("aria.quantity", { itemName })}
             className="h-10 w-20 shrink-0"

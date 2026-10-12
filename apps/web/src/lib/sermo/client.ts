@@ -55,6 +55,22 @@ export async function call<I extends z.ZodType, O extends z.ZodType>(
   return callWith((await visitor()).forward, contract, input);
 }
 
+// For a block beside a page (a ranking in a side column): the answer, or null when the backend
+// does not give it to this visitor because it needs a permission or an account they lack. The
+// block then shows nothing; the page neither goes to the login page nor fails. Any other failure
+// is still raised.
+export async function readIfAllowed<I extends z.ZodType, O extends z.ZodType>(
+  contract: Described<I, O>,
+  input: z.input<I>,
+): Promise<z.output<O> | null> {
+  try {
+    return await call(contract, input);
+  } catch (error) {
+    if (error instanceof SermoError && isSignedOut(error)) return null;
+    throw error;
+  }
+}
+
 // The proxy puts the path the visitor asked for in a request header; a page cannot see its URL.
 async function loginPath(): Promise<string> {
   const next = safeReturnPath((await headers()).get("x-sermo-path"));
@@ -95,9 +111,4 @@ export async function errorMessage(error: unknown): Promise<string> {
       .join(" ");
   }
   return error.message;
-}
-
-// The forwarding settled for this request, for the calls that are not operations (uploads).
-export async function visitorForward(): Promise<Forward> {
-  return (await visitor()).forward;
 }

@@ -7,6 +7,7 @@ import { ItemEffect, Lasts } from "@/app/(main)/credits/item-effect";
 import { ItemPreview, type Wearer } from "@/app/(main)/credits/item-preview";
 import { catalogsFor, type ShopItemData } from "@/app/(main)/credits/items";
 import { LoadMore } from "@/app/(main)/credits/load-more";
+import { getLadder } from "@/app/(main)/upgrade/ladder";
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { buttonVariants } from "@/components/ui/button";
@@ -61,11 +62,14 @@ export async function Shop({
     cursor,
   });
   const items = listing.items.filter(({ isActive }) => isActive);
-  const [catalogs, wearer] = await Promise.all([
+  // The ranks are bought on /upgrade, where the price already paid for one is taken off the
+  // next. Only a category with a group item can be (part of) the ladder.
+  const [catalogs, wearer, ladder] = await Promise.all([
     catalogsFor(items),
     wearerOf(viewer, t("sampleUsername")),
+    items.some(({ effect }) => effect.type === "group") ? getLadder() : null,
   ]);
-  const returnTo = shopHref(current.id);
+  const returnTo = shopHref(current.id, cursor);
 
   return (
     <div className="space-y-4">
@@ -108,6 +112,10 @@ export async function Shop({
               catalogs={catalogs}
               signedIn={Boolean(viewer)}
               returnTo={returnTo}
+              ranked={
+                item.effect.type === "group" &&
+                item.categoryId === ladder?.category.id
+              }
             />
           ))}
         </ul>
@@ -125,12 +133,15 @@ async function ItemCard({
   catalogs,
   signedIn,
   returnTo,
+  ranked,
 }: {
   item: ShopItemData;
   wearer: Wearer;
   catalogs: Awaited<ReturnType<typeof catalogsFor>>;
   signedIn: boolean;
   returnTo: string;
+  // A rank of the ladder: bought on /upgrade, never here.
+  ranked: boolean;
 }) {
   const t = await getTranslations("credits.shop");
   return (
@@ -166,7 +177,18 @@ async function ItemCard({
             )}
           </p>
         </div>
-        {signedIn ? (
+        {ranked ? (
+          <Link
+            href="/upgrade"
+            aria-label={t("aria.ranks", { itemName: item.name })}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-10 w-full",
+            )}
+          >
+            {t("ranks")}
+          </Link>
+        ) : signedIn ? (
           <BuyForm
             itemId={item.id}
             itemName={item.name}

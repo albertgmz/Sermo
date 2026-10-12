@@ -11,6 +11,11 @@ export function safeReturnPath(value: unknown): string {
   ) {
     return "/";
   }
+  // A dot segment is resolved by whoever follows the path, and `/.//host` becomes `//host`.
+  const segments = value.split(/[?#]/)[0].split("/");
+  if (segments.some((s) => [".", ".."].includes(s.replace(/%2e/gi, ".")))) {
+    return "/";
+  }
   const pathname = value.split(/[?#]/)[0].replace(/\/+$/, "");
   if (pathname === "/login" || pathname === "/register") return "/";
   return value;

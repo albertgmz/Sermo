@@ -23,7 +23,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
 import { leaderboardMember } from "@/lib/member-items";
-import { read } from "@/lib/sermo/client";
+import { read, readIfAllowed } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
@@ -87,8 +87,10 @@ async function Leaders() {
   const [t, { user }, richest] = await Promise.all([
     getTranslations("credits.credits"),
     getViewer(),
-    read(usersList, { sort: "credits", limit: 10 }),
+    readIfAllowed(usersList, { sort: "credits", limit: 10 }),
   ]);
+  // The member directory needs a permission a guest may lack: then there is no ranking to show.
+  if (!richest) return null;
   return (
     <SectionCard
       title={t("leadersHeading")}

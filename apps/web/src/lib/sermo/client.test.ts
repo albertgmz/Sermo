@@ -21,7 +21,7 @@ mock.module("next-intl/server", () => ({
     (lib.errors as Record<string, string>)[key],
 }));
 
-const { errorMessage, read } = await import("./client");
+const { errorMessage, read, readIfAllowed } = await import("./client");
 
 const contract = {
   name: "threads.get",
@@ -204,4 +204,28 @@ test("an error of our own side never reaches the visitor, it is logged instead",
   }
   assert.equal(logged.length, 3);
   assert.match(String((logged[0][1] as Error).message), /ECONNREFUSED/);
+});
+
+test("a block beside a page gets nothing, not a redirect or an error, where the backend refuses the visitor", async () => {
+  incoming = new Headers();
+  for (const [status, code] of [
+    [401, "unauthenticated"],
+    [403, "forbidden"],
+  ] as const) {
+    backend(refusal(status, code));
+    assert.equal(await readIfAllowed(contract, { threadId: 1 }), null, code);
+  }
+  backend(Response.json({ title: "Hi" }));
+  assert.deepEqual(await readIfAllowed(contract, { threadId: 1 }), {
+    title: "Hi",
+  });
+});
+
+test("a block beside a page still fails on a failure that is not about the visitor", async () => {
+  incoming = new Headers();
+  backend(refusal(500, "internal"));
+  await assert.rejects(
+    readIfAllowed(contract, { threadId: 1 }),
+    (error) => error instanceof SermoError && error.code === "internal",
+  );
 });

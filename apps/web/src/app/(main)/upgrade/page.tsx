@@ -79,11 +79,15 @@ async function RankAction({
       </Settled>
     );
   }
-  if (current && rank.price < current.price) {
+  // The backend only moves a member up: a rank that costs the same or less is not offered.
+  if (current && rank.price <= current.price) {
+    const same = rank.price === current.price;
     return (
-      <Settled note={t("includedNote", { rank: current.name })}>
+      <Settled
+        note={t(same ? "samePriceNote" : "belowNote", { rank: current.name })}
+      >
         <Check aria-hidden="true" className="size-4 text-muted-foreground" />
-        {t("included")}
+        {t(same ? "samePrice" : "below")}
       </Settled>
     );
   }
@@ -245,8 +249,11 @@ async function Faq() {
   try {
     page = await getFaq();
   } catch (error) {
-    if (error instanceof SermoError && error.code === "not_found") return null;
-    throw error;
+    // The section is a courtesy: whatever the backend says about it, the ranks above stay.
+    if (!(error instanceof SermoError)) throw error;
+    if (error.code !== "not_found")
+      console.error("The FAQ could not be read", error);
+    return null;
   }
   return (
     <section aria-labelledby="faq-title">
