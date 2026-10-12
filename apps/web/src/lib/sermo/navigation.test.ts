@@ -42,16 +42,54 @@ const answer = {
   ],
 };
 
+const me = {
+  user: {
+    id: 1,
+    username: "ann",
+    email: "ann@example.test",
+    groupId: 2,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    displayGroup: null,
+  },
+  permissions: {
+    isAdmin: false,
+    isModerator: false,
+    canViewProfiles: true,
+    canPostProfile: true,
+    canStartConversations: true,
+    canReact: true,
+  },
+  resolvedPermissions: {},
+};
+
 test("the answer is passed through and asked with the visitor's cookies", async () => {
   const seen: { url: string; headers: Headers }[] = [];
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     seen.push({ url, headers: new Headers(init.headers) });
+    // The session is settled on auth.me first; this one is live.
+    return Response.json(url.endsWith("/api/v1/me") ? me : answer);
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await getNavigation(), answer);
+  const asked = seen.find(({ url }) => url.endsWith("/api/v1/navigation"));
+  assert.ok(asked);
+  assert.equal(asked.headers.get("cookie"), "sermo.session_token=abc");
+  assert.equal(asked.headers.get("x-forwarded-for"), "198.51.100.4");
+});
+
+test("a session the backend refuses asks for the navigation as a guest", async () => {
+  const cookies: (string | null)[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const cookie = new Headers(init.headers).get("cookie");
+    if (url.endsWith("/api/v1/me"))
+      return Response.json(
+        { error: { code: "unauthenticated", message: "dead" } },
+        { status: 401 },
+      );
+    cookies.push(cookie);
     return Response.json(answer);
   }) as unknown as typeof fetch;
   assert.deepEqual(await getNavigation(), answer);
-  assert.ok(seen[0].url.endsWith("/api/v1/navigation"));
-  assert.equal(seen[0].headers.get("cookie"), "sermo.session_token=abc");
-  assert.equal(seen[0].headers.get("x-forwarded-for"), "198.51.100.4");
+  assert.deepEqual(cookies, [null]);
 });
 
 test("an unreachable backend gives four empty lists and is logged outside the build only", async () => {
