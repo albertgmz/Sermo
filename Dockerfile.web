@@ -1,0 +1,44 @@
+FROM oven/bun:1.4.2-slim AS build
+
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY packages/core/package.json packages/core/package.json
+COPY packages/api/package.json packages/api/package.json
+COPY packages/mcp/package.json packages/mcp/package.json
+COPY apps/web/package.json apps/web/package.json
+# The type check of the build reads the Bun types of the root package, so the whole workspace is installed.
+RUN bun install --frozen-lockfile
+# The web app imports the contracts of core and the route table of the API; transpilePackages
+# compiles them from source.
+COPY packages/core/src packages/core/src
+COPY packages/api/src packages/api/src
+COPY apps/web apps/web
+WORKDIR /app/apps/web
+# The /api rewrite in next.config.ts is fixed when the app is built. The ingress sends /api to the
+# backend itself, so the rewrite only answers when the app is reached without the ingress; it still
+# points at the backend of this Compose project. NEXT_PRIVATE_STANDALONE is Next's own switch for
+# `output: "standalone"`: the build traces the files the server needs, including those of the
+# workspace packages in the repository root.
+ARG SERMO_API_URL=http://sermo:3000
+ENV SERMO_API_URL=${SERMO_API_URL} \
+    NEXT_PRIVATE_STANDALONE=true \
+    NEXT_TELEMETRY_DISABLED=1
+RUN bun --bun run build
+
+FROM node:24-alpine
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+# The standalone server keeps the monorepo layout; it must run from the app's folder because the
+# proxy reads `public/` and the pages read `data/` relative to the working directory.
+WORKDIR /app/apps/web
+COPY --from=build --chown=node:node /app/apps/web/.next/standalone /app
+COPY --from=build --chown=node:node /app/apps/web/.next/static .next/static
+COPY --from=build --chown=node:node /app/apps/web/public public
+COPY --from=build --chown=node:node /app/apps/web/data data
+
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]

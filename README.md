@@ -4,12 +4,14 @@ Sermo is a forum backend with a REST API and an MCP tool endpoint. It runs on Bu
 
 `packages/core` owns business rules and every permission check. `packages/api` serves REST; `packages/mcp` serves MCP. REST routes, the OpenAPI document and MCP tools are all derived from one operation registry in core. The OpenAPI document also covers every `/api/auth/*` endpoint. The single server process also runs migrations, the job worker, scheduler, and WAL checkpointer.
 
-## Quick start with Docker
+## Run it
 
 1. Copy the configuration: `cp .env.example .env`.
-2. Generate a secret with `docker run --rm oven/bun:1.4.2-slim bun -e "console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'))"` and put its output in `BETTER_AUTH_SECRET` in `.env`. Set all three `SERMO_ADMIN_*` values if you want an administrator created at startup.
-3. Run `docker compose up -d --build`.
-4. Check `http://localhost:3000/health` for `{"status":"ok"}`. The API description is at `http://localhost:3000/api/v1/openapi.json`.
+2. Put a random secret in `BETTER_AUTH_SECRET` and set the three `SERMO_ADMIN_*` values for the first administrator.
+3. Run `docker compose up --build -d`.
+4. Open `http://localhost:8080`. The API description is at `http://localhost:8080/api/v1/openapi.json`.
+
+Three containers run: the backend, the web app and an ingress that is the only published port. [docs/deployment.md](docs/deployment.md) covers the layout, configuration, first run, upgrades, backups, the upload limit and TLS.
 
 Compose mounts a named volume at `/data`; the database is `/data/sermo.db` and local uploads are under `/data/files`. Startup applies migrations to a new volume. `docker compose down` keeps the volume; `docker compose down -v` removes it and its data. Set `SERMO_STORAGE_DRIVER=s3` and the `SERMO_S3_*` values in `.env` to use Amazon S3 or Cloudflare R2 on a new installation; no image change is needed.
 
@@ -120,7 +122,7 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | `SERMO_TRUSTED_PROXY_HEADER` | Client IP header, such as `x-forwarded-for`; the adapter uses its last comma-separated value. Set it only with exactly one trusted proxy in front of Sermo that appends to this header; leave empty for direct connections. |
 | `SERMO_SESSION_COOKIE_CACHE` | `true` (default) keeps a signed copy of the session in a cookie for five minutes; `false` checks the session table on every request, for callers that cannot store refreshed cookies. |
 | `SERMO_ADMIN_USERNAME`, `SERMO_ADMIN_EMAIL`, `SERMO_ADMIN_PASSWORD` | Optional administrator bootstrap; set all three together. |
-| `PORT` | Listening port; keep `3000` with the supplied Compose mapping and health check. |
+| `PORT` | Listening port; Compose fixes it at `3000` inside the container. |
 | `SERMO_DB_PATH` | SQLite file path; Compose sets `/data/sermo.db`, local default is `./data/sermo.db`. |
 | `SERMO_FILES_DIR` | Local upload directory. Keep it under `/data` with Compose so the named volume persists files. |
 | `SERMO_STORAGE_DRIVER` | `local` (default) or `s3`. |

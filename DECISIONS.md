@@ -1356,3 +1356,77 @@ asks for the current password and Better Auth limits it to three requests per te
 address, which a stolen session can multiply with addresses; it now takes a guess from the same
 five-in-fifteen-minutes count per member as the administration checks (a success gives its guess
 back) and answers 429 once they are used up.
+## Deployment: two services
+
+**Three containers, one published port.** `sermo` (backend) and `web` (Next.js) publish nothing;
+`ingress` publishes one port (8080 by default). The backend trusts `x-forwarded-for` only because
+nothing but the ingress and `web` can reach it, so publishing its port would let anyone choose their
+address. Documented in `docs/deployment.md` with that warning.
+
+**The ingress is Caddy**, because a complete reverse proxy for this layout is a 40-line file, the
+image is small, and it overwrites `X-Forwarded-For` by default and can terminate TLS later without
+another component. The ingress sets the address itself: verified with a forged header sent through
+it (the backend recorded the connection's address, never the forged one), and verified without it
+(the web app forwards the last entry of whatever it received, so a forged header became the recorded
+address). That second result is why the ingress must sit in front of `web`, not beside it.
+
+**Browser `/api` requests go ingress to backend, not through Next's rewrite.** It is the shorter
+path, session cookies and the `Origin` check see one origin (`BETTER_AUTH_URL` equals the address in
+the browser bar), and file downloads never pass through Next. Paths routed to the backend, taken
+from the route table in `packages/api/src/app.ts`: `/api/*` (Better Auth, REST, files, OpenAPI),
+`/mcp`, `/health`, `/robots.txt`, `/sitemap.xml`, `/sitemaps/*`, `/feed.atom`,
+`/nodes/*/feed.atom`, and `/*.txt` (the IndexNow key file; the web app serves no `.txt`). The web
+app has no routes of its own under any of these. Uploads from the pages are Next route handlers and
+travel ingress, `web`, backend.
+
+**The build-time `/api` rewrite is acceptable and `next.config.ts` is unchanged.** The rewrite is
+fixed when the image is built, but with the ingress it only answers when the web app is reached
+without it. `Dockerfile.web` takes `SERMO_API_URL` as a build argument that defaults to
+`http://sermo:3000`, so even that fallback is right. Everything the web app calls at run time
+(`apiUrl()`, `publicUrl()`) reads the environment per request. Observed without the ingress and
+with the default build: a sign-up posted to the web app's `/api` failed with a 500 because the
+rewrite pointed at the development port baked in at build time.
+
+**The web image uses Next's standalone output, switched on with `NEXT_PRIVATE_STANDALONE`.** That is
+Next's own switch for `output: "standalone"`; setting it in the build avoids editing
+`next.config.ts`, which this change leaves alone. The build finds the monorepo root from `bun.lock`
+and traces the workspace packages, so the build works as a plain `bun --bun run build` in a Bun
+stage and the runtime is `node:24-alpine` running `server.js`. It runs as the `node` user.
+
+**The web container is stateless except for one leftover.** `apps/web/src/lib/db.ts` still reads and
+writes `apps/web/data/db.json` for the zones that are not migrated yet. The image carries the
+seed copy, so those pages render, but anything written there is lost when the container is
+recreated. It disappears with the bridge.
+
+**One named volume, `sermo_data`**, for the database and local files, unchanged. Compose's
+project name is not set in the file, so existing installations keep their volume.
+
+**Fixed by Compose, not by `.env`:** `PORT`, `SERMO_DB_PATH`, `SERMO_TRUSTED_PROXY_HEADER`,
+`SERMO_SESSION_COOKIE_CACHE=false`, `SERMO_API_URL`, `SERMO_PUBLIC_URL` (taken from
+`BETTER_AUTH_URL`, so the public origin is written once). They follow from the topology; a wrong
+value breaks the deployment.
+
+**The upload limit is set in three places:** the site setting (default 25 MiB), `INGRESS_MAX_BODY`
+(default 32MiB, Caddy `request_body max_size`), and the backend's fixed transport ceiling. The first
+two are raised together. Caddy does not buffer request bodies unless asked to.
+
+**Health checks and ordering.** Backend: its `/health`. Web: a static file, so its health does not
+depend on the backend. Ingress: a separate internal listener (`:8081/ready`) so it reports itself
+only. `web` waits for `sermo` to be healthy; the ingress waits for both. Restart `unless-stopped`;
+stop periods 40 s (backend, existing), 20 s, 10 s.
+
+**The ingress runs as uid 65532 with a read-only root, no capabilities except binding low ports**
+(the Caddy binary carries that file capability, and the container will not start without it) and a
+tmpfs for its data directory. `persist_config off` stops it writing its config.
+
+**The backend image drops Next's compiler.** The lockfile covers the web app and `bun install
+--production` installs it for the backend too (about 400 MB, loaded by nothing there); the image
+build removes it. `--filter` did not help. The web build stage installs the whole workspace because
+the build's type check needs the Bun types of the root package.
+
+**First administrator:** the existing `SERMO_ADMIN_*` bootstrap (all three together, only while no
+administrator exists). There is no CLI and the first registered member is not promoted; that is a
+gap only if the variables are left empty.
+
+**TLS** is out of scope; the docs say it goes at the ingress, or in front of it with
+`trusted_proxies` set.
