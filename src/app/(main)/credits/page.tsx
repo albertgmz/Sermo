@@ -1,6 +1,8 @@
 import { Check, Coins, Package, Plus, ReceiptText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { BoostForm } from "@/app/(main)/credits/boost-form";
 import { BuyForm } from "@/app/(main)/credits/buy-form";
@@ -58,9 +60,10 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Credits - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("credits.credits");
+  return { title: t("metaTitle") };
+}
 
 type Query = Partial<
   Record<
@@ -76,48 +79,44 @@ type Props = {
 const TABS = ["shop", "inventory", "history"] as const;
 type Tab = (typeof TABS)[number];
 
-const CATEGORIES: { value: ShopCategory; label: string; blurb: string }[] = [
+const CATEGORIES = [
   {
     value: "frame",
-    label: "Frames",
-    blurb:
-      "A frame sits around your avatar everywhere it appears. Each preview shows it on your own picture.",
+    label: "categories.frameLabel",
+    blurb: "categories.frameDescription",
   },
   {
     value: "color",
-    label: "Name colours",
-    blurb: "Show your username in a colour of your own across the forum.",
+    label: "categories.colorLabel",
+    blurb: "categories.colorDescription",
   },
   {
     value: "threadCover",
-    label: "Thread covers",
-    blurb:
-      "A thread cover is a photo for one of your own threads. Covers are used up: each one goes on a single thread.",
+    label: "categories.threadCoverLabel",
+    blurb: "categories.threadCoverDescription",
   },
   {
     value: "boost",
-    label: "Boosts",
-    blurb:
-      "Boosts are used up: each one highlights or bumps one of your own threads for a limited time.",
+    label: "categories.boostLabel",
+    blurb: "categories.boostDescription",
   },
   {
     value: "permission",
-    label: "Permissions",
-    blurb:
-      "Permissions unlock features for your account, such as a signature or a profile cover. Most are bought once and kept, and some also come with a rank.",
+    label: "categories.permissionLabel",
+    blurb: "categories.permissionDescription",
   },
-];
+] as const satisfies { value: ShopCategory; label: string; blurb: string }[];
 
 const FRAMES_PER_PAGE = 24;
 
 const WAYS_TO_EARN = [
-  "Stay active: a small bonus every day you visit.",
-  "Start threads and reply to other members.",
-  "Receive reactions on your messages.",
-  "Keep a weekly streak going.",
-  "Earn awards: each one comes with a bonus.",
-  "Refer new members and sell in the market.",
-];
+  "activity",
+  "posts",
+  "reactions",
+  "streak",
+  "awards",
+  "referrals",
+] as const;
 
 const actionClass = "h-10 px-4 md:h-8 md:px-3";
 
@@ -144,6 +143,7 @@ function isEquipped(effect: ShopEffect, appearance: Appearance) {
 }
 
 function Balance({ viewer }: { viewer: UserView | null }) {
+  const t = useTranslations("credits.credits");
   return (
     <section
       aria-labelledby="balance-title"
@@ -151,7 +151,7 @@ function Balance({ viewer }: { viewer: UserView | null }) {
     >
       <div className="p-4 md:p-6">
         <h2 id="balance-title" className="text-sm font-semibold">
-          Your balance
+          {t("balanceHeading")}
         </h2>
         {viewer ? (
           <>
@@ -163,26 +163,25 @@ function Balance({ viewer }: { viewer: UserView | null }) {
               {formatNumber(viewer.credits)}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              credits to spend in the shop
+              {t("balanceDescription")}
             </p>
           </>
         ) : (
           <>
             <p className="mt-2 max-w-sm text-sm text-pretty text-muted-foreground">
-              Log in to see your balance, buy items and keep track of what you
-              own.
+              {t("loginDescription")}
             </p>
             <Link
               href="/login"
               className={cn(buttonVariants(), actionClass, "mt-4")}
             >
-              Log in
+              {t("login")}
             </Link>
           </>
         )}
       </div>
       <div className="border-t p-4 md:border-t-0 md:border-l md:p-6">
-        <h3 className="text-sm font-semibold">Ways to earn</h3>
+        <h3 className="text-sm font-semibold">{t("earnHeading")}</h3>
         <ul className="mt-3 grid gap-x-6 gap-y-2 text-sm text-muted-foreground sm:grid-cols-2">
           {WAYS_TO_EARN.map((way) => (
             <li key={way} className="flex gap-2">
@@ -190,7 +189,7 @@ function Balance({ viewer }: { viewer: UserView | null }) {
                 aria-hidden="true"
                 className="mt-2 size-1 shrink-0 rounded-full bg-primary"
               />
-              {way}
+              {t(`waysToEarn.${way}`)}
             </li>
           ))}
         </ul>
@@ -228,7 +227,7 @@ function ChipNav({
         >
           {chip.label}
           <span className="text-xs tabular-nums text-muted-foreground">
-            {chip.count}
+            {formatNumber(chip.count)}
           </span>
         </Link>
       ))}
@@ -299,13 +298,14 @@ function ItemAction({
   owned: InventoryItemView | undefined;
   equipped: boolean;
 }) {
+  const t = useTranslations("credits.credits");
   if (!viewer) {
     return (
       <Link
         href="/login"
         className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}
       >
-        Log in to buy
+        {t("loginToBuy")}
       </Link>
     );
   }
@@ -316,10 +316,10 @@ function ItemAction({
         {owned && (
           <Link
             href={`/credits?tab=inventory#${item.category}`}
-            aria-label={`Use ${item.name}`}
+            aria-label={t("aria.use", { itemName: item.name })}
             className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
           >
-            Use
+            {t("use")}
           </Link>
         )}
       </BuyForm>
@@ -349,6 +349,7 @@ function ItemCard({
   preview: ShopPreview;
   owned: InventoryItemView | undefined;
 }) {
+  const t = useTranslations("credits.credits");
   const equipped = Boolean(
     viewer && owned && isEquipped(item.effect, viewer.appearance),
   );
@@ -379,11 +380,13 @@ function ItemCard({
           <Credits value={item.price} className="text-base" />
           {owned &&
             (item.consumable ? (
-              <Badge variant="secondary">You have {owned.quantity}</Badge>
+              <Badge variant="secondary">
+                {t("items", { count: owned.quantity })}
+              </Badge>
             ) : (
               <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
                 <Check aria-hidden="true" className="size-3.5" />
-                {equipped ? "Equipped" : "Owned"}
+                {t(equipped ? "equipped" : "owned")}
               </span>
             ))}
         </div>
@@ -398,14 +401,6 @@ function ItemCard({
   );
 }
 
-const SOURCES = {
-  purchase: () => "Purchased",
-  rank: (viewer: UserView) => `Included in your ${viewer.rank?.name} rank`,
-  staff: () => "Staff",
-};
-
-const SAMPLE_SIGNATURE = "*Measure twice, cut once.*\nCommissions are open.";
-
 function PermissionExample({
   permission,
   viewer,
@@ -416,14 +411,15 @@ function PermissionExample({
   // Stands in where the viewer has nothing to show yet.
   sample: UserView;
 }) {
-  const name = viewer?.username ?? "your_name";
+  const t = useTranslations("credits.credits");
+  const name = viewer?.username ?? t("sampleUsername");
   switch (permission.key) {
     case "signature":
       return (
         <>
-          <p className="text-sm">Thanks, that fixed it for me.</p>
+          <p className="text-sm">{t("sampleReply")}</p>
           <Signature className="mt-2 border-t pt-2">
-            {viewer?.signature ?? SAMPLE_SIGNATURE}
+            {viewer?.signature ?? t("sampleSignature")}
           </Signature>
         </>
       );
@@ -453,7 +449,7 @@ function PermissionExample({
             {viewer ? <UserLink user={viewer} /> : name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {viewer?.customTitle ?? "Keeper of the changelog"}
+            {viewer?.customTitle ?? t("sampleTitle")}
           </p>
         </>
       );
@@ -467,7 +463,7 @@ function PermissionExample({
           <span className="inline-flex size-5 items-center justify-center rounded-full border border-dashed border-primary text-primary">
             <Plus aria-hidden="true" className="size-3" />
           </span>
-          <span className="ml-1">one more award on show</span>
+          <span className="ml-1">{t("awardDescription")}</span>
         </p>
       );
     }
@@ -478,8 +474,8 @@ function PermissionExample({
             {viewer ? <UserLink user={viewer} /> : name}
           </span>
           <span aria-hidden="true">→</span>
-          <span className="sr-only">becomes</span>
-          <span className="font-semibold">a_new_name</span>
+          <span className="sr-only">{t("aria.becomes")}</span>
+          <span className="font-semibold">{t("sampleNewUsername")}</span>
         </p>
       );
   }
@@ -494,13 +490,14 @@ function PermissionState({
   item: ShopItem;
   viewer: UserView | null;
 }) {
+  const t = useTranslations("credits.credits");
   if (!viewer) {
     return (
       <Link
         href="/login"
         className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}
       >
-        Log in to buy
+        {t("loginToBuy")}
       </Link>
     );
   }
@@ -512,10 +509,10 @@ function PermissionState({
       <div className="flex min-h-10 flex-col justify-center rounded-lg border border-success/30 bg-success/10 px-3 py-2">
         <p className="flex items-center gap-1.5 text-sm font-medium text-success">
           <Check aria-hidden="true" className="size-4 shrink-0" />
-          You have this
+          {t("permissionOwned")}
         </p>
         <p className="text-xs text-muted-foreground">
-          {SOURCES[source](viewer)}
+          {t(`sources.${source}`, { rank: String(viewer.rank?.name) })}
         </p>
       </div>
     );
@@ -524,11 +521,14 @@ function PermissionState({
     <>
       {quantity !== undefined && (
         <p className="text-xs text-muted-foreground">
-          You have{" "}
-          <span className="font-semibold text-foreground tabular-nums">
-            {quantity}
-          </span>{" "}
-          {quantity === 1 ? "change" : "changes"} available
+          {t.rich("changes", {
+            count: quantity,
+            quantity: (chunks) => (
+              <span className="font-semibold text-foreground tabular-nums">
+                {chunks}
+              </span>
+            ),
+          })}
         </p>
       )}
       <BuyForm
@@ -539,10 +539,10 @@ function PermissionState({
         {quantity !== undefined && quantity > 0 && (
           <Link
             href="/account"
-            aria-label={`Use ${item.name}`}
+            aria-label={t("aria.use", { itemName: item.name })}
             className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
           >
-            Use
+            {t("use")}
           </Link>
         )}
       </BuyForm>
@@ -561,17 +561,21 @@ function PermissionShop({
   viewer: UserView | null;
   sample: UserView;
 }) {
+  const t = useTranslations("credits.credits");
+  const tPermissions = useTranslations("lib.permissions");
   return (
     <>
       <p className="rounded-lg border bg-card px-4 py-3 text-sm text-pretty text-muted-foreground">
-        A rank includes some of these permissions, so compare the ranks before
-        buying them one by one.{" "}
-        <Link
-          href="/upgrade"
-          className="font-medium text-primary underline-offset-4 hover:underline"
-        >
-          See what each rank includes
-        </Link>
+        {t.rich("rankDescription", {
+          link: (chunks) => (
+            <Link
+              href="/upgrade"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
       <ul className="grid gap-3">
         {permissions.map((permission) => {
@@ -601,10 +605,10 @@ function PermissionShop({
                 <div className="min-w-0 space-y-3">
                   <div>
                     <h3 className="text-base font-semibold tracking-tight">
-                      {permission.label}
+                      {tPermissions(`${permission.key}.label`)}
                     </h3>
                     <p className="text-sm text-pretty text-muted-foreground">
-                      {permission.description}
+                      {tPermissions(`${permission.key}.description`)}
                     </p>
                   </div>
                   <div className="rounded-md border bg-background/60 p-3">
@@ -649,6 +653,7 @@ function Shop({
   permissions: PermissionView[];
   sample: UserView;
 }) {
+  const t = useTranslations("credits.credits");
   const category =
     CATEGORIES.find(({ value }) => value === one(query.category)) ??
     CATEGORIES[0];
@@ -674,7 +679,7 @@ function Shop({
   return (
     <div className="space-y-4">
       <ChipNav
-        label="Shop categories"
+        label={t("aria.categories")}
         active={category.value}
         chips={CATEGORIES.map(({ value, label }) => ({
           value,
@@ -683,22 +688,22 @@ function Shop({
           label: (
             <>
               <ShopIcon category={value} className="size-4" />
-              {label}
+              {t(label)}
             </>
           ),
         }))}
       />
       <p className="max-w-prose text-sm text-pretty text-muted-foreground">
-        {category.blurb}
+        {t(category.blurb)}
       </p>
       {isFrames && (
         <ChipNav
-          label="Frame price"
+          label={t("aria.price")}
           active={String(tier ?? "all")}
           chips={[
             {
               value: "all",
-              label: "All prices",
+              label: t("allPrices"),
               href: shopHref("frame"),
               count: inCategory.length,
             },
@@ -741,14 +746,14 @@ function Shop({
       {visible.length < list.length && (
         <div className="flex flex-col items-center gap-2">
           <p className="text-xs text-muted-foreground tabular-nums">
-            Showing {visible.length} of {list.length} frames
+            {t("frames", { count: list.length, shown: visible.length })}
           </p>
           <Link
             href={shopHref("frame", tier, shown + FRAMES_PER_PAGE)}
             scroll={false}
             className={cn(buttonVariants({ variant: "outline" }), "h-10 px-5")}
           >
-            Show more
+            {t("showMore")}
           </Link>
         </div>
       )}
@@ -788,6 +793,7 @@ function Inventory({
   threads: ThreadView[];
   applied: { item: ShopItem; thread: ThreadView } | null;
 }) {
+  const t = useTranslations("credits.credits");
   const groups = CATEGORIES.filter(({ value }) => owned[value].length > 0);
   const threadOptions = threads.map((thread) => ({
     value: String(thread.id),
@@ -806,20 +812,20 @@ function Inventory({
       <span className="flex w-0 min-w-0 flex-1 items-center gap-1.5">
         <PrefixTag prefix={thread.prefix} />
         <span className="truncate">
-          {thread.title}
-          {thread.cover && " (has a cover)"}
+          {thread.cover
+            ? t("coveredThread", { title: thread.title })
+            : thread.title}
         </span>
       </span>
     ) : thread.cover ? (
-      `${thread.title} (has a cover)`
+      t("coveredThread", { title: thread.title })
     ) : (
       thread.title
     ),
   }));
   const usable: Partial<Record<ShopCategory, string>> = {
-    boost: "Pick one of your threads and use a boost on it.",
-    threadCover:
-      "Pick one of your threads and put a cover on it. A cover replaces the one the thread already has.",
+    boost: t("boostDescription"),
+    threadCover: t("coverDescription"),
   };
   return (
     <div className="space-y-4">
@@ -830,45 +836,53 @@ function Inventory({
             className="mt-0.5 size-4 shrink-0 text-success"
           />
           <span className="min-w-0 [overflow-wrap:anywhere]">
-            <span className="font-semibold">{applied.item.name}</span> used on{" "}
-            <Link
-              href={`/threads/${applied.thread.id}`}
-              className="font-semibold underline-offset-4 hover:underline"
-            >
-              {applied.thread.prefix && (
-                <PrefixTag
-                  prefix={applied.thread.prefix}
-                  className="mr-1.5 align-(--prefix-offset)"
-                />
-              )}
-              {applied.thread.title}
-            </Link>
-            {applied.item.effect.type === "threadCover" &&
-              ": the photo now shows at the top of the thread."}
-            {applied.item.effect.type === "bump" &&
-              `: it is back at the top of ${applied.thread.forum.title}.`}
-            {applied.item.effect.type === "highlight" &&
-              applied.thread.highlightedUntil &&
-              `: highlighted until ${formatDate(applied.thread.highlightedUntil)}.`}
+            {t.rich("applied", {
+              itemName: applied.item.name,
+              threadTitle: applied.thread.title,
+              forumTitle: applied.thread.forum.title,
+              effect:
+                applied.item.effect.type === "highlight" &&
+                !applied.thread.highlightedUntil
+                  ? "other"
+                  : applied.item.effect.type,
+              until: applied.thread.highlightedUntil
+                ? formatDate(applied.thread.highlightedUntil)
+                : "",
+              item: (chunks) => <span className="font-semibold">{chunks}</span>,
+              thread: (chunks) => (
+                <Link
+                  href={`/threads/${applied.thread.id}`}
+                  className="font-semibold underline-offset-4 hover:underline"
+                >
+                  {applied.thread.prefix && (
+                    <PrefixTag
+                      prefix={applied.thread.prefix}
+                      className="mr-1.5 align-(--prefix-offset)"
+                    />
+                  )}
+                  {chunks}
+                </Link>
+              ),
+            })}
           </span>
         </output>
       )}
       {groups.length === 0 && (
-        <SectionCard title="Your inventory">
+        <SectionCard title={t("inventoryHeading")}>
           <EmptyState
             icon={Package}
-            title="Nothing here yet"
-            description="Items you buy in the shop show up here."
+            title={t("inventoryEmpty")}
+            description={t("inventoryDescription")}
           >
             <Link href="/credits" className={cn(buttonVariants(), actionClass)}>
-              Browse the shop
+              {t("browseShop")}
             </Link>
           </EmptyState>
         </SectionCard>
       )}
       {groups.map(({ value, label }) => (
         <div key={value} id={value} className="scroll-mt-4">
-          <SectionCard title={label} description={usable[value]}>
+          <SectionCard title={t(label)} description={usable[value]}>
             <ul className="divide-y divide-border">
               {owned[value].map((item) => {
                 const equipped = isEquipped(item.effect, viewer.appearance);
@@ -883,17 +897,16 @@ function Inventory({
                         {item.name}
                         {item.consumable && (
                           <span className="font-medium text-muted-foreground tabular-nums">
-                            {" "}
-                            ×{item.quantity}
+                            {t("inventoryItems", { count: item.quantity })}
                           </span>
                         )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Acquired {formatDate(item.acquiredAt)}
+                        {t("acquired", { date: formatDate(item.acquiredAt) })}
                         {equipped && (
                           <span className="font-medium text-success">
                             <span aria-hidden="true"> · </span>
-                            Equipped
+                            {t("equipped")}
                           </span>
                         )}
                       </p>
@@ -921,8 +934,7 @@ function Inventory({
                           />
                         ) : (
                           <p className="text-sm text-muted-foreground">
-                            Start a thread first: this works on your own
-                            threads.
+                            {t("noThreads")}
                           </p>
                         )}
                       </div>
@@ -939,13 +951,14 @@ function Inventory({
 }
 
 function History({ transactions }: { transactions: Transaction[] }) {
+  const t = useTranslations("credits.credits");
   return (
-    <SectionCard title="History">
+    <SectionCard title={t("historyHeading")}>
       {transactions.length === 0 ? (
         <EmptyState
           icon={ReceiptText}
-          title="No transactions yet"
-          description="Credits you earn and spend are listed here."
+          title={t("historyEmpty")}
+          description={t("historyDescription")}
         />
       ) : (
         <ul className="divide-y divide-border">
@@ -979,6 +992,7 @@ function History({ transactions }: { transactions: Transaction[] }) {
 }
 
 async function CreditsContent({ searchParams }: Props) {
+  const t = await getTranslations("credits.credits");
   const [query, viewer] = await Promise.all([searchParams, getCurrentUser()]);
   const [items, richest, owned, transactions, threads, held] =
     await Promise.all([
@@ -1001,16 +1015,21 @@ async function CreditsContent({ searchParams }: Props) {
   const tab: Tab =
     (viewer && TABS.find((value) => value === one(query.tab))) || "shop";
   const tabs = [
-    { value: "shop", label: "Shop", href: "/credits", count: items.length },
+    {
+      value: "shop",
+      label: t("shopTab"),
+      href: "/credits",
+      count: items.length,
+    },
     {
       value: "inventory",
-      label: "Inventory",
+      label: t("inventoryTab"),
       href: "/credits?tab=inventory",
       count: inventory.length,
     },
     {
       value: "history",
-      label: "History",
+      label: t("historyTab"),
       href: "/credits?tab=history",
       count: transactions.length,
     },
@@ -1038,12 +1057,12 @@ async function CreditsContent({ searchParams }: Props) {
     <>
       {viewer ? (
         <>
-          {tab === "shop" && <h2 className="sr-only">Shop</h2>}
-          <TabLinks tabs={tabs} active={tab} label="Credits sections" />
+          {tab === "shop" && <h2 className="sr-only">{t("shopTab")}</h2>}
+          <TabLinks tabs={tabs} active={tab} label={t("aria.sections")} />
         </>
       ) : (
         <h2 className="border-b pb-2 text-lg font-semibold tracking-tight">
-          Shop
+          {t("shopTab")}
         </h2>
       )}
       {tab === "shop" && (
@@ -1052,7 +1071,10 @@ async function CreditsContent({ searchParams }: Props) {
           query={query}
           viewer={viewer}
           preview={
-            viewer ?? { username: "your_name", avatar: richest[0].avatar }
+            viewer ?? {
+              username: t("sampleUsername"),
+              avatar: richest[0].avatar,
+            }
           }
           owned={new Map(inventory.map((item) => [item.id, item]))}
           permissions={permissions}
@@ -1079,12 +1101,13 @@ async function CreditsContent({ searchParams }: Props) {
 // The shell shows the skeleton of the default category. Once the query is
 // known, the fallback of the content is the one of the category requested.
 async function CreditsSection(props: Props) {
+  const t = await getTranslations("credits.credits");
   const requested = one((await props.searchParams).category);
   const category = CATEGORIES.find(({ value }) => value === requested)?.value;
   return (
     <Suspense
       fallback={
-        <LoadingRegion label="Loading the shop…">
+        <LoadingRegion label={t("aria.loadingShop")}>
           <TabsSkeleton />
           <ShopSkeleton category={category} />
         </LoadingRegion>
@@ -1096,26 +1119,28 @@ async function CreditsSection(props: Props) {
 }
 
 async function CreditLeaders() {
+  const t = await getTranslations("credits.credits");
   const viewerId = (await getCurrentUser())?.id;
   const richest = await getLeaderboard("credits", 10);
   return (
-    <SectionCard title="Richest members" description="Ranked by credits">
+    <SectionCard
+      title={t("leadersHeading")}
+      description={t("leadersDescription")}
+    >
       <Leaderboard members={richest} by="credits" viewerId={viewerId} />
     </SectionCard>
   );
 }
 
 export default function CreditsPage(props: Props) {
+  const t = useTranslations("credits.credits");
   return (
     <>
-      <PageHero
-        title="Credits"
-        subtitle="Earn credits by taking part in the community and spend them on cosmetics, boosts and permissions in the shop."
-      />
+      <PageHero title={t("title")} subtitle={t("subtitle")} />
       <Container>
         <Suspense
           fallback={
-            <LoadingRegion label="Loading your balance…">
+            <LoadingRegion label={t("aria.loadingBalance")}>
               <BalanceSkeleton />
             </LoadingRegion>
           }
@@ -1129,7 +1154,7 @@ export default function CreditsPage(props: Props) {
         aside={
           <Suspense
             fallback={
-              <LoadingRegion label="Loading richest members…">
+              <LoadingRegion label={t("aria.loadingLeaders")}>
                 <MemberListSkeleton rows={10} />
               </LoadingRegion>
             }
@@ -1140,7 +1165,7 @@ export default function CreditsPage(props: Props) {
       >
         <Suspense
           fallback={
-            <LoadingRegion label="Loading the shop…">
+            <LoadingRegion label={t("aria.loadingShop")}>
               <TabsSkeleton />
               <ShopSkeleton />
             </LoadingRegion>
