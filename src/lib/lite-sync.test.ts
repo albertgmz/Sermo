@@ -10,6 +10,7 @@ import {
 test("equivalent encoded, legacy, reordered and duplicate cookies do not reload", () => {
   for (const [rendered, cookie] of [
     ["all", "forum_lite=%61ll"],
+    ["%61ll", "forum_lite=all"],
     ["all", "forum_lite=1"],
     ["avatars.frames", "forum_lite=frames%2Eavatars"],
     ["all", "forum_lite=frames; forum_lite=all"],
