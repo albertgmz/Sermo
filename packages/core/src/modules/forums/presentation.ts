@@ -6,7 +6,7 @@ import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
 
 export type PrefixTag = z.infer<typeof ThreadPrefixTag>;
-export type PrefixValue = z.infer<typeof ThreadPrefix>;
+type PrefixValue = z.infer<typeof ThreadPrefix>;
 
 export interface PrefixRow {
   id: number;
@@ -56,7 +56,7 @@ export function threadPresenter(ctx: Ctx): ThreadPresenter {
   };
 }
 
-export function prefixTag(row: PrefixRow, color: string): PrefixTag {
+function prefixTag(row: PrefixRow, color: string): PrefixTag {
   return { id: row.id, label: row.label, color, icon: row.icon };
 }
 

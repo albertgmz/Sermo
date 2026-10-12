@@ -5,17 +5,20 @@ import { postsByAuthor, threadsByAuthor } from "../../contracts/feed";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  contentRule,
   type PostRow,
+  postReadable,
   postRowsByIds,
   postValuesMixed,
   type ThreadRow,
   threadColumns,
+  threadReadable,
   threadRowsByIds,
   threadValuesFor,
 } from "../forums";
 import { requireProfileView } from "../profiles";
 import { scanKeyset } from "./scan";
-import { contentRuleFor, visibleNodes } from "./viewer";
+import { visibleNodes } from "./viewer";
 
 export const authorSql = {
   threads: `SELECT ${threadColumns} FROM threads WHERE user_id = ?1 AND id < ?2 AND merged_into_id IS NULL ORDER BY id DESC LIMIT ?3`,
@@ -25,11 +28,17 @@ export const authorSql = {
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const FIRST_PAGE = Number.MAX_SAFE_INTEGER;
 
+/** The forums' content rule, with the forums the viewer can open resolved once. */
+function feedRule(ctx: Ctx, actor: Actor) {
+  const nodes = visibleNodes(ctx, actor);
+  return contentRule(ctx, actor, (nodeId) => nodes.has(nodeId));
+}
+
 type PostCandidate = { id: number; thread_id: number; state: "visible" | "moderated" | "deleted" };
 
 export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);
-  const rule = contentRuleFor(ctx, actor, visibleNodes(ctx, actor));
+  const rule = feedRule(ctx, actor);
   const query = prepared(ctx, "feed.threadsByAuthor", () =>
     ctx.sqlite.prepare<ThreadRow, [number, number, number]>(authorSql.threads),
   );
@@ -38,7 +47,7 @@ export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) 
     limit: input.limit,
     fetch: (before, count) => query.all(input.userId, before ?? FIRST_PAGE, count),
     keyOf: (row) => row.id,
-    accept: (rows) => new Set(rows.filter((row) => rule(row.node_id, row.state, row.user_id))),
+    accept: (rows) => new Set(rows.filter((row) => threadReadable(rule, row))),
   });
   return {
     items: threadValuesFor(ctx, actor, items),
@@ -48,7 +57,7 @@ export const threadsByAuthorOp = implement(threadsByAuthor, (ctx, actor, input) 
 
 export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);
-  const rule = contentRuleFor(ctx, actor, visibleNodes(ctx, actor));
+  const rule = feedRule(ctx, actor);
   const query = prepared(ctx, "feed.postsByAuthor", () =>
     ctx.sqlite.prepare<PostCandidate, [number, number, number]>(authorSql.posts),
   );
@@ -64,10 +73,7 @@ export const postsByAuthorOp = implement(postsByAuthor, (ctx, actor, input) => {
         rows.filter((row) => {
           const thread = threads.get(row.thread_id);
           return (
-            thread !== undefined &&
-            thread.merged_into_id === null &&
-            rule(thread.node_id, thread.state, thread.user_id) &&
-            rule(thread.node_id, row.state, input.userId)
+            thread !== undefined && postReadable(rule, thread, { ...row, user_id: input.userId })
           );
         }),
       );
