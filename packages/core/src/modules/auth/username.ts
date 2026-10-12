@@ -71,6 +71,35 @@ export async function renameThroughAuth(
   }
 }
 
+/**
+ * Puts Better Auth's name for the member back to the forum's, after a change that failed part
+ * way (the provider may have accepted the name before the forum's own update failed). False when
+ * the names still differ.
+ */
+async function restoreName(
+  ctx: Ctx,
+  userId: number,
+  own: { username: string; username_key: string },
+): Promise<boolean> {
+  const provider = ctx.sqlite
+    .prepare<{ username: string | null; display_username: string | null }, [number]>(
+      "SELECT username, display_username FROM auth_user WHERE id = ?1",
+    )
+    .get(userId);
+  if (
+    !provider ||
+    (provider.username === own.username_key && provider.display_username === own.username)
+  )
+    return true;
+  try {
+    await renameThroughAuth(ctx, userId, own.username, provider.username ?? "");
+    return true;
+  } catch (error) {
+    console.error("[users.renameInconsistent]", { userId, expected: own.username }, error);
+    return false;
+  }
+}
+
 /** What Better Auth refused, as the forum's own errors. */
 function refusal(error: unknown): unknown {
   if (!(error instanceof APIError)) return error;
@@ -97,8 +126,8 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
   if (own.username === name) throw new ValidationError("That is already your username.");
 
   // Entitlement first: a free change costs nothing, otherwise one unit is taken now and given
-  // back if Better Auth then refuses the change. A crash between the two steps loses the unit
-  // without a rename; that is accepted.
+  // back if the change then fails. A crash between the two steps loses the unit without a
+  // rename; that is accepted.
   const spent = writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requirePermission(ctx, current, "profile.editOwn");
@@ -113,24 +142,25 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
 
   try {
     await renameThroughAuth(ctx, user.userId, name, own.username_key);
+    return writeTx(ctx, () => {
+      ctx.sqlite
+        .prepare("UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2")
+        .run(ctx.now(), user.userId);
+      publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
+      return {
+        username: ctx.sqlite
+          .prepare<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?1")
+          .get(user.userId)!.username,
+        remaining:
+          spent === null
+            ? null
+            : ctx.sqlite.prepare<{ n: number }, [number]>(UNITS_SQL).get(user.userId)!.n,
+      };
+    });
   } catch (error) {
-    if (spent !== null) giveBack(ctx, spent);
+    // The unit comes back only when the member ends up with the name they had: if Better Auth
+    // keeps the new one and the forum the old, the unit stays spent and the mismatch is logged.
+    if ((await restoreName(ctx, user.userId, own)) && spent !== null) giveBack(ctx, spent);
     throw error;
   }
-
-  return writeTx(ctx, () => {
-    ctx.sqlite
-      .prepare("UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2")
-      .run(ctx.now(), user.userId);
-    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
-    return {
-      username: ctx.sqlite
-        .prepare<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?1")
-        .get(user.userId)!.username,
-      remaining:
-        spent === null
-          ? null
-          : ctx.sqlite.prepare<{ n: number }, [number]>(UNITS_SQL).get(user.userId)!.n,
-    };
-  });
 });

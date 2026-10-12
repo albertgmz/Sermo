@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { closeContext } from "../../context";
@@ -207,7 +207,7 @@ describe("users.changeUsername", () => {
     await w.buyUnits(1);
     // The name was free when checked and taken by the time Better Auth looks.
     w.ctx.sqlite.run(
-      "CREATE TRIGGER reject_forum_update BEFORE UPDATE OF username_key ON users BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: users.username_key'); END",
+      "CREATE TRIGGER reject_forum_update BEFORE UPDATE OF username_key ON users WHEN NEW.username_key = 'raced name' BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: users.username_key'); END",
     );
     await expect(w.rename("Raced Name")).rejects.toBeInstanceOf(ConflictError);
     expect(w.units()).toEqual([{ quantity: 1, state: "unused" }]);
@@ -219,6 +219,41 @@ describe("users.changeUsername", () => {
     expect(w.units()).toEqual([{ quantity: 1, state: "unused" }]);
     w.ctx.sqlite.run("DROP TRIGGER reject_identity_update");
     expect(await w.rename("Other Name")).toMatchObject({ username: "Other Name", remaining: 0 });
+  });
+});
+
+describe("a change that fails after Better Auth accepted the name", () => {
+  test("Better Auth gets the old name back and the unit is returned", async () => {
+    const w = await world();
+    await w.buyUnits(1);
+    w.ctx.sqlite.run(
+      "CREATE TRIGGER reject_forum_update BEFORE UPDATE OF username_key ON users WHEN NEW.username_key = 'half done' BEGIN SELECT RAISE(ABORT, 'forum store is down'); END",
+    );
+    await expect(w.rename("Half Done")).rejects.toThrow(/forum store is down/);
+    expect(w.stored()).toEqual({
+      forum: { username: "Member", username_key: "member" },
+      identity: { username: "member", display_username: "Member" },
+    });
+    expect(w.units()).toEqual([{ quantity: 1, state: "unused" }]);
+  });
+
+  test("when the old name cannot be put back, the unit stays spent and the mismatch is logged", async () => {
+    const w = await world();
+    await w.buyUnits(1);
+    // The forum refuses every username write, so neither the change nor the restore can land.
+    w.ctx.sqlite.run(
+      "CREATE TRIGGER reject_forum_update BEFORE UPDATE OF username_key ON users BEGIN SELECT RAISE(ABORT, 'forum store is down'); END",
+    );
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(w.rename("Half Done")).rejects.toThrow(/forum store is down/);
+      expect(logged).toHaveBeenCalledTimes(1);
+      expect(logged.mock.calls[0]![0]).toBe("[users.renameInconsistent]");
+    } finally {
+      logged.mockRestore();
+    }
+    expect(w.units()).toEqual([{ quantity: 0, state: "used" }]);
+    expect(w.stored().forum.username).toBe("Member");
   });
 });
 
