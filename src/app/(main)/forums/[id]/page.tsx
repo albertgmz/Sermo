@@ -2,10 +2,16 @@ import { Eye, MessageCircle, MessagesSquare, Pin, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import {
+  LoadingRegion,
+  TabsSkeleton,
+  ThreadRowSkeleton,
+} from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserHoverCard } from "@/components/forum/user-hover-card";
@@ -157,18 +163,7 @@ export default async function ForumPage({
   const [{ id }, { prefix: param }] = await Promise.all([params, searchParams]);
   const forum = await getForum(Number(id));
   if (!forum) notFound();
-  const [user, all] = await Promise.all([
-    getCurrentUser(),
-    getThreads(forum.id),
-  ]);
-  const prefixes = all
-    .flatMap((thread) => thread.prefix ?? [])
-    .filter((prefix, index, list) => list.indexOf(prefix) === index)
-    .toSorted((a, b) => a.id - b.id);
-  const active = prefixes.find((prefix) => prefix.key === param);
-  const threads = active
-    ? await getThreads(forum.id, { prefixId: active.id })
-    : all;
+  const user = await getCurrentUser();
 
   const newThread = user && (
     <Link
@@ -201,8 +196,54 @@ export default async function ForumPage({
         {newThread}
       </div>
 
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading threads…">
+            <TabsSkeleton />
+            <div className="mt-1 divide-y overflow-hidden rounded-lg border bg-card">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+                <ThreadRowSkeleton key={row} />
+              ))}
+            </div>
+          </LoadingRegion>
+        }
+      >
+        <ForumThreads
+          forumId={forum.id}
+          param={param}
+          user={user}
+          newThread={newThread}
+        />
+      </Suspense>
+    </PageLayout>
+  );
+}
+
+async function ForumThreads({
+  forumId,
+  param,
+  user,
+  newThread,
+}: {
+  forumId: number;
+  param: string | string[] | undefined;
+  user: Awaited<ReturnType<typeof getCurrentUser>>;
+  newThread: React.ReactNode;
+}) {
+  const all = await getThreads(forumId);
+  const prefixes = all
+    .flatMap((thread) => thread.prefix ?? [])
+    .filter((prefix, index, list) => list.indexOf(prefix) === index)
+    .toSorted((a, b) => a.id - b.id);
+  const active = prefixes.find((prefix) => prefix.key === param);
+  const threads = active
+    ? await getThreads(forumId, { prefixId: active.id })
+    : all;
+
+  return (
+    <>
       {prefixes.length > 0 && (
-        <PrefixFilter id={forum.id} prefixes={prefixes} active={active} />
+        <PrefixFilter id={forumId} prefixes={prefixes} active={active} />
       )}
 
       <div
@@ -231,6 +272,6 @@ export default async function ForumPage({
           </EmptyState>
         )}
       </div>
-    </PageLayout>
+    </>
   );
 }

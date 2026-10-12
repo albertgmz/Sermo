@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
 import { logout } from "@/app/(main)/actions";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import {
+  AccountHeaderSkeleton,
+  LoadingRegion,
+} from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameClass } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -10,14 +15,11 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export default async function AccountLayout({
+export default function AccountLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-
   return (
     <PageLayout
       asideSide="start"
@@ -43,37 +45,54 @@ export default async function AccountLayout({
       <div className="min-w-0 lg:hidden">
         <AccountNavigation />
       </div>
-      <header className="relative isolate flex min-h-40 flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6">
-        <CoverBackdrop
-          cover={user.appearance.cover}
-          variant="full"
-          className="opacity-45"
-        />
-        <UserAvatar user={user} size="xl" link={false} />
-        <div className="min-w-0 flex-1 basis-36">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Your account
-          </p>
-          <p
-            className={cn(
-              "truncate text-2xl font-bold tracking-tight",
-              userNameClass(user),
-            )}
-          >
-            {user.username}
-          </p>
-          <p className="break-words text-sm text-muted-foreground">
-            {user.title}
-          </p>
-        </div>
-        <Link
-          href={`/members/${user.id}`}
-          className={cn(buttonVariants({ variant: "outline" }), "min-h-10")}
-        >
-          View profile
-        </Link>
-      </header>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading your account…">
+            <AccountHeaderSkeleton />
+          </LoadingRegion>
+        }
+      >
+        <AccountHeader />
+      </Suspense>
       {children}
     </PageLayout>
+  );
+}
+
+async function AccountHeader() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return (
+    <header className="relative isolate flex min-h-40 flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6">
+      <CoverBackdrop
+        cover={user.appearance.cover}
+        variant="full"
+        className="opacity-45"
+      />
+      <UserAvatar user={user} size="xl" link={false} />
+      <div className="min-w-0 flex-1 basis-36">
+        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Your account
+        </p>
+        <p
+          className={cn(
+            "truncate text-2xl font-bold tracking-tight",
+            userNameClass(user),
+          )}
+        >
+          {user.username}
+        </p>
+        <p className="break-words text-sm text-muted-foreground">
+          {user.title}
+        </p>
+      </div>
+      <Link
+        href={`/members/${user.id}`}
+        className={cn(buttonVariants({ variant: "outline" }), "min-h-10")}
+      >
+        View profile
+      </Link>
+    </header>
   );
 }

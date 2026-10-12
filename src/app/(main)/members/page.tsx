@@ -1,5 +1,6 @@
 import { Crown } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Directory } from "@/app/(main)/members/directory";
 import { MembersNav } from "@/app/(main)/members/members-nav";
 import { Overview } from "@/app/(main)/members/overview";
@@ -9,12 +10,21 @@ import { Leaderboard } from "@/components/forum/leaderboard";
 import { MemberCard } from "@/components/forum/member-card";
 import { SectionCard } from "@/components/forum/section-card";
 import {
+  HeadingSkeleton,
+  LoadingRegion,
+  MemberCardSkeleton,
+  MemberListSkeleton,
+  MembersOverviewSkeleton,
+  TabsSkeleton,
+} from "@/components/forum/skeletons";
+import {
   MonthHero,
   monthLabel,
   StandingList,
   WinnerList,
 } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLastMonthStanding,
   getLeaderboard,
@@ -132,13 +142,81 @@ export default async function MembersPage({
 
       <MembersNav active={view.value} variant="chips" className="lg:hidden" />
 
-      {view.value === "overview" && <Overview viewerId={viewerId} />}
-      {view.value === "month" && <MonthView viewerId={viewerId} />}
-      {view.ranking && (
-        <RankingView title={view.label} by={view.ranking} viewerId={viewerId} />
+      {view.value === "overview" && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading members…">
+              <MembersOverviewSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <Overview viewerId={viewerId} />
+        </Suspense>
       )}
-      {view.value === "staff" && <StaffView />}
-      {view.value === "all" && <Directory query={query} sort={sort} />}
+      {view.value === "month" && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading members…">
+              <div className="rounded-lg border bg-card p-6">
+                <HeadingSkeleton />
+              </div>
+              <MemberListSkeleton rows={10} />
+              <MemberListSkeleton rows={3} />
+            </LoadingRegion>
+          }
+        >
+          <MonthView viewerId={viewerId} />
+        </Suspense>
+      )}
+      {view.ranking && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading members…">
+              <MemberListSkeleton rows={10} />
+            </LoadingRegion>
+          }
+        >
+          <RankingView
+            title={view.label}
+            by={view.ranking}
+            viewerId={viewerId}
+          />
+        </Suspense>
+      )}
+      {view.value === "staff" && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading members…">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((member) => (
+                  <MemberCardSkeleton key={member} />
+                ))}
+              </div>
+            </LoadingRegion>
+          }
+        >
+          <StaffView />
+        </Suspense>
+      )}
+      {view.value === "all" && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading members…">
+              <div className="rounded-lg border bg-card p-3">
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <TabsSkeleton />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((member) => (
+                  <MemberCardSkeleton key={member} />
+                ))}
+              </div>
+            </LoadingRegion>
+          }
+        >
+          <Directory query={query} sort={sort} />
+        </Suspense>
+      )}
     </PageLayout>
   );
 }

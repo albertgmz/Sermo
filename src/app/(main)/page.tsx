@@ -1,14 +1,22 @@
 import { ChevronDown, PenLine, Rss, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { FeedItem } from "@/app/(main)/_feed/feed-item";
 import { FeedSidebar } from "@/app/(main)/_feed/feed-sidebar";
 import { postToWall } from "@/app/(main)/members/actions";
 import { CompactComposer } from "@/components/forum/compact-composer";
 import { EmptyState } from "@/components/forum/empty-state";
+import {
+  FeedSkeleton,
+  LoadingRegion,
+  SidebarSkeleton,
+  TabsSkeleton,
+} from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type FeedItem as FeedEntry,
   getFeed,
@@ -68,28 +76,58 @@ async function loadFeed(tab: Tab, viewerId: number | null, limit: number) {
     .slice(0, limit);
 }
 
-export default async function HomePage({ searchParams }: PageProps<"/">) {
-  const [params, viewer, reactionTypes] = await Promise.all([
-    searchParams,
-    getCurrentUser(),
-    getReactionTypes(),
-  ]);
-  const tab = TABS.find((value) => value === params.tab) ?? "latest";
-  const page = Math.max(1, Math.floor(Number(params.page)) || 1);
-  const needsLogin = tab === "following" && !viewer;
-  const shown = page * PAGE_SIZE;
-  const loaded = needsLogin
-    ? []
-    : await loadFeed(tab, viewer?.id ?? null, shown + 1);
-  const items = loaded.slice(0, shown);
-
+export default function HomePage(props: PageProps<"/">) {
   return (
     <PageLayout
-      aside={<FeedSidebar viewer={viewer} />}
+      aside={
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading feed sidebar…">
+              <SidebarSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <HomeSidebar />
+        </Suspense>
+      }
       asideOnMobile="hidden"
       mainClassName="space-y-(--page-gap)"
     >
       <h1 className="sr-only">Home</h1>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading composer…">
+            <div className="rounded-lg border bg-card p-4">
+              <Skeleton className="h-20 w-full" />
+            </div>
+          </LoadingRegion>
+        }
+      >
+        <HomeComposer />
+      </Suspense>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading your feed…">
+            <TabsSkeleton />
+            <FeedSkeleton />
+          </LoadingRegion>
+        }
+      >
+        <HomeFeed {...props} />
+      </Suspense>
+    </PageLayout>
+  );
+}
+
+async function HomeSidebar() {
+  const viewer = await getCurrentUser();
+  return <FeedSidebar viewer={viewer} />;
+}
+
+async function HomeComposer() {
+  const viewer = await getCurrentUser();
+  return (
+    <>
       {viewer && (
         <section
           aria-label="New post"
@@ -119,7 +157,27 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </div>
         </section>
       )}
+    </>
+  );
+}
 
+async function HomeFeed({ searchParams }: PageProps<"/">) {
+  const [params, viewer, reactionTypes] = await Promise.all([
+    searchParams,
+    getCurrentUser(),
+    getReactionTypes(),
+  ]);
+  const tab = TABS.find((value) => value === params.tab) ?? "latest";
+  const page = Math.max(1, Math.floor(Number(params.page)) || 1);
+  const needsLogin = tab === "following" && !viewer;
+  const shown = page * PAGE_SIZE;
+  const loaded = needsLogin
+    ? []
+    : await loadFeed(tab, viewer?.id ?? null, shown + 1);
+  const items = loaded.slice(0, shown);
+
+  return (
+    <>
       <TabLinks
         tabs={TABS.map((value) => ({
           value,
@@ -179,6 +237,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
         </>
       )}
-    </PageLayout>
+    </>
   );
 }

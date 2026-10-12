@@ -1,17 +1,26 @@
 import { Check, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { TIER_ORDER, TIERS } from "@/app/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { SectionCard } from "@/components/forum/section-card";
+import {
+  CardSkeleton,
+  CatalogueSkeleton,
+  LoadingRegion,
+  MemberListSkeleton,
+  TextSkeleton,
+} from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   type AwardView,
   getAwards,
@@ -224,89 +233,188 @@ function Ladder({
   );
 }
 
-export default async function AwardsPage() {
-  const [viewer, awards, leaders] = await Promise.all([
-    getCurrentUser(),
-    getAwards(),
-    getLeaderboard("xp", 10),
-  ]);
-  const maxLevel = levelForXp(
-    awards.reduce((sum, award) => sum + award.xp, 0),
-  ).level;
-  const earned = new Map(
-    viewer?.awards.map((award) => [award.id, award.awardedAt]),
-  );
-
+async function AwardsContent() {
+  const viewer = await getCurrentUser();
   return (
     <>
-      <PageHero
-        title="Awards"
-        subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading award progress…">
+            <Container>
+              <Skeleton className="h-40 w-full" />
+            </Container>
+          </LoadingRegion>
+        }
       >
-        {!viewer && (
-          <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>
-            Log in to track your progress
-          </Link>
-        )}
-      </PageHero>
+        <AwardProgress viewer={viewer} />
+      </Suspense>
+      <PageLayout
+        className={viewer ? "pt-6" : "pt-0"}
+        aside={
+          <>
+            <Suspense
+              fallback={
+                <LoadingRegion label="Loading top members…">
+                  <MemberListSkeleton rows={10} />
+                </LoadingRegion>
+              }
+            >
+              <AwardLeaders viewerId={viewer?.id} />
+            </Suspense>
+            <Suspense
+              fallback={
+                <LoadingRegion label="Loading levels…">
+                  <CardSkeleton>
+                    <div className="space-y-3 p-4">
+                      <TextSkeleton />
+                      <Skeleton className="h-40 w-full" />
+                    </div>
+                  </CardSkeleton>
+                </LoadingRegion>
+              }
+            >
+              <AwardLadder viewer={viewer} />
+            </Suspense>
+          </>
+        }
+      >
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading award catalogue…">
+              <CatalogueSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <AwardCatalogue viewer={viewer} />
+        </Suspense>
+      </PageLayout>
+    </>
+  );
+}
 
+async function AwardLeaders({ viewerId }: { viewerId?: number }) {
+  const leaders = await getLeaderboard("xp", 10);
+  return (
+    <SectionCard title="Top members" description="Ranked by XP">
+      <Leaderboard members={leaders} by="xp" viewerId={viewerId} />
+    </SectionCard>
+  );
+}
+
+export default function AwardsPage() {
+  return (
+    <>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading award introduction…">
+            <PageHero
+              title="Awards"
+              subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
+            />
+          </LoadingRegion>
+        }
+      >
+        <AwardHero />
+      </Suspense>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading awards…">
+            <PageLayout
+              className="pt-0"
+              aside={<MemberListSkeleton rows={10} />}
+            >
+              <CatalogueSkeleton />
+            </PageLayout>
+          </LoadingRegion>
+        }
+      >
+        <AwardsContent />
+      </Suspense>
+    </>
+  );
+}
+
+async function AwardHero() {
+  const viewer = await getCurrentUser();
+  return (
+    <PageHero
+      title="Awards"
+      subtitle="Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level."
+    >
+      {!viewer && (
+        <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>
+          Log in to track your progress
+        </Link>
+      )}
+    </PageHero>
+  );
+}
+
+async function AwardProgress({ viewer }: { viewer: UserView | null }) {
+  if (!viewer) return null;
+  const awards = await getAwards();
+  return (
+    <>
       {viewer && (
         <Container>
           <Progress viewer={viewer} total={awards.length} />
         </Container>
       )}
-      <PageLayout
-        className={viewer ? "pt-6" : "pt-0"}
-        aside={
-          <>
-            <SectionCard title="Top members" description="Ranked by XP">
-              <Leaderboard members={leaders} by="xp" viewerId={viewer?.id} />
-            </SectionCard>
-            <Ladder viewer={viewer} maxLevel={maxLevel} />
-          </>
-        }
-      >
-        <section aria-labelledby="catalogue-title" className="space-y-6">
-          <h2 id="catalogue-title" className="sr-only">
-            All awards
-          </h2>
-          {TIER_ORDER.map((tier) => {
-            const group = awards.filter((award) => award.tier === tier);
-            if (group.length === 0) return null;
-            const owned = group.filter((award) => earned.has(award.id));
-            return (
-              <section key={tier} className="space-y-3">
-                <div className="flex items-center justify-between gap-3 border-b pb-2">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold">
-                    <span
-                      aria-hidden="true"
-                      className={cn("size-2 rounded-full", TIERS[tier].dot)}
-                    />
-                    <span className={TIERS[tier].text}>
-                      {TIERS[tier].label}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {viewer
-                      ? `${owned.length} of ${group.length} earned`
-                      : `${group.length} ${group.length === 1 ? "award" : "awards"}`}
-                  </p>
-                </div>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {group.map((award) => (
-                    <AwardCard
-                      key={award.id}
-                      award={award}
-                      earnedAt={earned.get(award.id)}
-                      locked={Boolean(viewer) && !earned.has(award.id)}
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </section>
-      </PageLayout>
     </>
+  );
+}
+
+async function AwardLadder({ viewer }: { viewer: UserView | null }) {
+  const awards = await getAwards();
+  const maxLevel = levelForXp(
+    awards.reduce((sum, award) => sum + award.xp, 0),
+  ).level;
+  return <Ladder viewer={viewer} maxLevel={maxLevel} />;
+}
+
+async function AwardCatalogue({ viewer }: { viewer: UserView | null }) {
+  const awards = await getAwards();
+  const earned = new Map(
+    viewer?.awards.map((award) => [award.id, award.awardedAt]),
+  );
+  return (
+    <section aria-labelledby="catalogue-title" className="space-y-6">
+      <h2 id="catalogue-title" className="sr-only">
+        All awards
+      </h2>
+      {TIER_ORDER.map((tier) => {
+        const group = awards.filter((award) => award.tier === tier);
+        if (group.length === 0) return null;
+        const owned = group.filter((award) => earned.has(award.id));
+        return (
+          <section key={tier} className="space-y-3">
+            <div className="flex items-center justify-between gap-3 border-b pb-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <span
+                  aria-hidden="true"
+                  className={cn("size-2 rounded-full", TIERS[tier].dot)}
+                />
+                <span className={TIERS[tier].text}>{TIERS[tier].label}</span>
+              </h3>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {viewer
+                  ? `${owned.length} of ${group.length} earned`
+                  : `${group.length} ${group.length === 1 ? "award" : "awards"}`}
+              </p>
+            </div>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {group.map((award) => (
+                <AwardCard
+                  key={award.id}
+                  award={award}
+                  earnedAt={earned.get(award.id)}
+                  locked={Boolean(viewer) && !earned.has(award.id)}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </section>
   );
 }
