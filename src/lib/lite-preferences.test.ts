@@ -5,8 +5,75 @@ import {
   blocks,
   LITE_CATEGORIES,
   parseLiteCookie,
+  parseLiteCookieHeader,
   serializeLiteCookie,
+  updateLiteState,
 } from "./lite-preferences";
+
+test("master toggles remember the custom selection", () => {
+  const custom = parseLiteCookie("frames.postImages");
+  const on = updateLiteState(custom, "all", []);
+  assert.ok(on);
+  assert.equal(serializeLiteCookie(on), "all.frames.postImages");
+  assert.deepEqual(parseLiteCookie(serializeLiteCookie(on)), on);
+  const off = updateLiteState(on, "off", []);
+  assert.deepEqual(off, custom);
+  assert.deepEqual(updateLiteState(on, "custom", ["avatars", "unknown"]), {
+    master: false,
+    blocked: ["avatars"],
+  });
+});
+
+test("invalid modes do not produce a mutation", () => {
+  for (const mode of [null, "", "ALL", "unknown", new File([], "all")]) {
+    assert.equal(updateLiteState(parseLiteCookie("frames"), mode, []), null);
+  }
+});
+
+test("cookie parsing decodes safely and duplicate cookies use the last value", () => {
+  assert.deepEqual(parseLiteCookie("%61ll"), parseLiteCookie("all"));
+  assert.deepEqual(
+    parseLiteCookie("avatars%2Eframes"),
+    parseLiteCookie("frames.avatars"),
+  );
+  assert.doesNotThrow(() => parseLiteCookie("%broken"));
+  assert.deepEqual(
+    parseLiteCookieHeader("forum_lite=avatars; other=x; forum_lite=%61ll"),
+    parseLiteCookie("all"),
+  );
+  assert.deepEqual(
+    parseLiteCookieHeader("forum_lite=all; forum_lite="),
+    parseLiteCookie(),
+  );
+  assert.deepEqual(
+    parseLiteCookieHeader("forum_lite=all; forum_lite=%broken"),
+    parseLiteCookie("all"),
+  );
+  assert.deepEqual(
+    parseLiteCookieHeader("forum_lite=all; forum_lite"),
+    parseLiteCookie(),
+  );
+});
+
+test("all states have one canonical serialization", () => {
+  for (const master of [false, true]) {
+    for (let mask = 0; mask < 2 ** LITE_CATEGORIES.length; mask++) {
+      const blocked = LITE_CATEGORIES.filter((_, i) => mask & (1 << i)).map(
+        ({ key }) => key,
+      );
+      const state = { master, blocked };
+      const value = serializeLiteCookie(state);
+      assert.deepEqual(parseLiteCookie(value), state);
+      assert.equal(
+        serializeLiteCookie({
+          master,
+          blocked: [...blocked].reverse().concat(blocked),
+        }),
+        value,
+      );
+    }
+  }
+});
 
 test("master overrides every category, including the legacy cookie", () => {
   for (const value of ["all", "1"]) {
@@ -76,7 +143,7 @@ test("registry folders, root files, extensions, and unregistered images", () => 
       }
       assert.equal(
         blocksImageRequest(state, `/${folder}-other/picture.png`),
-        false,
+        true,
       );
     }
     for (const file of category.files) {
@@ -89,7 +156,7 @@ test("registry folders, root files, extensions, and unregistered images", () => 
   );
   assert.equal(
     blocksImageRequest(parseLiteCookie("avatars"), "/elsewhere/a.png"),
-    false,
+    true,
   );
   assert.equal(blocksImageRequest(parseLiteCookie("all"), "/app.js"), false);
   assert.equal(

@@ -7,7 +7,11 @@ import {
   getUserById,
 } from "@/lib/db";
 import { blocksImageRequest, isImageRequest } from "@/lib/lite-images";
-import { LITE_COOKIE, parseLiteCookie } from "@/lib/lite-preferences";
+import {
+  LITE_COOKIE,
+  parseLiteCookieHeader,
+  serializeLiteCookie,
+} from "@/lib/lite-preferences";
 import { COOKIE } from "@/lib/session";
 
 type Finder = (id: string, viewerId: number) => Promise<unknown>;
@@ -38,19 +42,25 @@ export async function proxy(request: NextRequest) {
     request.method === "GET"
   ) {
     const migrated = response ?? NextResponse.next();
-    migrated.cookies.set(LITE_COOKIE, "all", {
-      httpOnly: false,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+    migrated.cookies.set(
+      LITE_COOKIE,
+      serializeLiteCookie(
+        parseLiteCookieHeader(request.headers.get("cookie") ?? ""),
+      ),
+      {
+        httpOnly: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      },
+    );
     return migrated;
   }
   return response;
 }
 
 async function handleRequest(request: NextRequest) {
-  const lite = parseLiteCookie(request.cookies.get(LITE_COOKIE)?.value);
+  const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(
       '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90"><text x="80" y="45" text-anchor="middle" dominant-baseline="middle" fill="var(--muted-foreground, currentColor)">LITE MODE</text></svg>',
@@ -63,7 +73,11 @@ async function handleRequest(request: NextRequest) {
       },
     );
   }
-  if (isImageRequest(request.nextUrl.pathname)) return;
+  if (isImageRequest(request.nextUrl.pathname)) {
+    const response = NextResponse.next();
+    response.headers.set("Vary", "Cookie");
+    return response;
+  }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   let pathname: string;
   try {
