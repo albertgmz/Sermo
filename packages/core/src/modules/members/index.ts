@@ -1,6 +1,7 @@
 import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
 import { loadMemberAuthors, loadMemberCards } from "./cards";
+import { usersBirthdaysOp, usersListOp, usersSetReferrerOp, usersStaffOp } from "./directory";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
 
@@ -28,4 +29,11 @@ export const usersAuthorsOp = implement(
   },
 );
 
-export const operations = [usersCardsOp, usersAuthorsOp];
+export const operations = [
+  usersCardsOp,
+  usersAuthorsOp,
+  usersListOp,
+  usersStaffOp,
+  usersBirthdaysOp,
+  usersSetReferrerOp,
+];
