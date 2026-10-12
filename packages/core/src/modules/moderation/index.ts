@@ -23,7 +23,7 @@ import {
   viewableNodeIds,
 } from "../../permissions";
 import { iso } from "../../time";
-import { requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
 import { scanKeyset } from "../feed/scan";
 import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";

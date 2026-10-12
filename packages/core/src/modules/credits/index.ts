@@ -5,7 +5,7 @@ import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { currentActor, getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
-import { requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
 import { enqueueJob } from "../jobs/queue";
 import { ledgerPage, ledgerTransaction, memberBalance } from "./ledger";
 

@@ -31,7 +31,7 @@ import {
 } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
-import { requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { assertAdministrator } from "../permissions";
 

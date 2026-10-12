@@ -17,7 +17,7 @@ import {
   requirePermission,
 } from "../../permissions";
 import { iso, isoOrNull } from "../../time";
-import { requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
 import { appendModeratorLog } from "./index";
 
 type Kind = "posting" | "conversations" | "profile_posts";

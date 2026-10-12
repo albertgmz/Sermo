@@ -11,7 +11,7 @@ import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
-import { requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
 import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { mayViewProfile, profileAccess } from "../profiles/shared";

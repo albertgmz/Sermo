@@ -26,7 +26,8 @@ import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
-import { confirmActorPassword, requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
+import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import {

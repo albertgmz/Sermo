@@ -39,7 +39,8 @@ import {
   resolvedPermissions,
 } from "../../permissions";
 import { helpFor, titleFor, viewerLanguage } from "../../shared/language";
-import { confirmActorPassword, requireNotErased } from "../admin/shared";
+import { requireNotErased } from "../admin/erased";
+import { confirmActorPassword } from "../admin/shared";
 import { appendModeratorLog } from "../moderation";
 
 export type { NodeTree, NodeTreeEntry } from "../../permissions";
