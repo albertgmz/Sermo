@@ -335,3 +335,17 @@ describe("container depth", () => {
     expect(renderMarkdown(shallow)).toContain("<details");
   });
 });
+
+describe("renderMarkdown maxLength", () => {
+  test("the default limit is unchanged and maxLength raises it", () => {
+    const text = "word ".repeat(3_000).slice(0, MAX_BODY_LENGTH + 1);
+    expect(thrown(() => renderMarkdown(text))).toBeInstanceOf(ValidationError);
+    expect(renderMarkdown(text, { maxLength: MAX_BODY_LENGTH + 1 })).toContain("word");
+    expect(renderMarkdown("x".repeat(MAX_BODY_LENGTH))).toContain("x");
+  });
+
+  test("a raised limit is still a limit", () => {
+    const error = thrown(() => renderMarkdown("x".repeat(101), { maxLength: 100 }));
+    expect(error).toBeInstanceOf(ValidationError);
+  });
+});

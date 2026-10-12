@@ -148,6 +148,13 @@
       "when": 1791242000000,
       "tag": "0020_forum_content",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791243000000,
+      "tag": "0021_site_chrome",
+      "breakpoints": true
     }
   ]
 }

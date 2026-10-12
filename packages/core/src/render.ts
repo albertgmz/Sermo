@@ -121,9 +121,13 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
 
 const TOO_DEEP_QUOTES = new RegExp(`^(?:[ \t]{0,3}>){${MAX_QUOTE_DEPTH + 1}}`, "m");
 
-/** Throws ValidationError for input that cannot be rendered safely. */
-export function renderMarkdown(source: string): string {
-  return render(source).html;
+/**
+ * Throws ValidationError for input that cannot be rendered safely. Mentions and quotes are not
+ * resolved (no actor). `maxLength` raises the length the rendered source may reach (default
+ * MAX_BODY_LENGTH); only text written by administrators should pass it.
+ */
+export function renderMarkdown(source: string, options: { maxLength?: number } = {}): string {
+  return render(source, undefined, undefined, undefined, options.maxLength).html;
 }
 
 type ContentType = "post" | "profile_post" | "profile_post_comment" | "conversation_message";
@@ -281,6 +285,7 @@ function render(
   ctx?: Ctx,
   actor?: Actor,
   edit?: ContentEdit,
+  maxLength = MAX_BODY_LENGTH,
 ): ContentReferences & { html: string; source: string } {
   source = source.replace(/\r\n?/g, "\n");
   if (TOO_DEEP_QUOTES.test(source)) {
@@ -422,11 +427,11 @@ function render(
       canonicalSource(source, tokens as Tokens.Generic[]),
       quoteTokens,
     );
-    if (storedSource.length > MAX_BODY_LENGTH)
+    if (storedSource.length > maxLength)
       throw new ValidationError("The text is too long once quotes are attributed.", [
         {
           path: ["body"],
-          message: `The text with quote attributions may be at most ${MAX_BODY_LENGTH} characters long.`,
+          message: `The text with quote attributions may be at most ${maxLength} characters long.`,
         },
       ]);
     html = marked.parser(tokens) as string;
