@@ -2,6 +2,7 @@ import type { promotionsGet } from "@sermo/core/contracts";
 import { promotionsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -182,6 +183,7 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
           ))}
         </fieldset>
       </FieldRow>
+      <ConfirmPassword id="promotion-password" />
     </FormRows>
   );
 }

@@ -1,11 +1,13 @@
 "use client";
 
 // PromotionApply: the control that changes one promotion for the member by hand: a choice of
-// what to do and a button. The backend's answer comes back under it.
+// what to do, the administrator's own password (the change alters the member's groups) and a
+// button. The backend's answer comes back under it.
 
 import { useTranslations } from "next-intl";
 import { useActionState, useId } from "react";
 import { useFormStatus } from "react-dom";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
@@ -54,6 +56,10 @@ export function PromotionApply({
         </select>
         <Submit />
       </div>
+      <ConfirmPassword
+        id={`apply-password-${promotionId}`}
+        error={state?.fields?.actorPassword}
+      />
       <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
         {state?.error}
       </output>

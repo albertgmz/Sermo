@@ -44,6 +44,7 @@ async function Promotion({
         summary={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
+        password
       />
     </>
   );

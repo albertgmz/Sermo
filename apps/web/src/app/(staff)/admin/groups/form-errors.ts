@@ -1,8 +1,9 @@
 import "server-only";
 
+import { authVerifyPassword } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
-import { errorMessage } from "@/lib/sermo/client";
+import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
 // The refusal of a wrong `actorPassword`: the backend answers forbidden with its own message
@@ -23,6 +24,25 @@ export async function missingPassword(
   if (text(formData, "actorPassword") !== "") return null;
   const t = await getTranslations("adminGroups.errors");
   return { fields: { actorPassword: t("password") } };
+}
+
+// For actions whose backend operation takes no password: the state of a form whose password is
+// missing or wrong, or null when it is the administrator's own. The operation itself does not ask,
+// so the check is a call of its own (`auth.verifyPassword`) made before the write; two calls,
+// because there is no password to send with the write. A wrong password writes nothing.
+export async function unconfirmedPassword(
+  formData: FormData,
+): Promise<StaffFormState> {
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    await call(authVerifyPassword, {
+      password: text(formData, "actorPassword"),
+    });
+    return null;
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
+  }
 }
 
 // For actions: a refused call as the state of a form. A validation refusal that names a field of

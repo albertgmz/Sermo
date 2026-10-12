@@ -10,6 +10,7 @@ import {
   formFailure,
   missingPassword,
   text,
+  unconfirmedPassword,
 } from "../../../groups/form-errors";
 import { memberOf } from "../../action-helpers";
 
@@ -65,6 +66,9 @@ export async function applyPromotion(
   ) {
     return { error: t("promotion") };
   }
+  // The operation takes no password and changes the member's groups, so it is checked first.
+  const unconfirmed = await unconfirmedPassword(formData);
+  if (unconfirmed) return unconfirmed;
   try {
     await call(promotionsApply, {
       userId,

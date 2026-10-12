@@ -353,6 +353,49 @@ test("group ids that are not record ids are refused before any call", async () =
   ).toEqual({ error: messages.adminUsers.errors.promotion });
 });
 
+const applied = {
+  promotionId: 2,
+  title: "Regulars",
+  state: "manual",
+  eligible: true,
+  grantedGroupIds: [],
+};
+
+test("a promotion is applied to a member only after the administrator's password is confirmed", async () => {
+  const fields = { id: "7", promotionId: "2", action: "promote" };
+  backend = fakeBackend({
+    "promotions.apply": () => Response.json(applied),
+  });
+  expect(await groups.applyPromotion(null, form(fields))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
+  backend.restore();
+  backend = fakeBackend({
+    "auth.verifyPassword": () =>
+      refusal(403, "forbidden", "That is not your password."),
+    "promotions.apply": () => Response.json(applied),
+  });
+  expect(
+    await groups.applyPromotion(null, form({ ...fields, actorPassword: "no" })),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+  ]);
+  backend.restore();
+  backend = fakeBackend({
+    "auth.verifyPassword": ok,
+    "promotions.apply": () => Response.json(applied),
+  });
+  await redirectedTo(() =>
+    groups.applyPromotion(null, form({ ...fields, actorPassword: "secret" })),
+  );
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+    "promotions.apply",
+  ]);
+});
+
 // Profile and appearance ----------------------------------------------------------------------
 
 test("the profile sends the shown fields, and the title and signature only when typed or cleared", async () => {
