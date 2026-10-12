@@ -90,6 +90,7 @@ export async function DefaultsForm() {
         ))}
         <div className="p-4">
           <Help>{t("help")}</Help>
+          <Help>{t("watchHelp")}</Help>
         </div>
       </div>
       <FieldRow
