@@ -662,6 +662,11 @@ function walk(
     case "object": {
       const shape = def.shape as Record<string, z.ZodType>;
       const props = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+      for (const [name, child] of Object.entries(shape)) {
+        const optional = (child as unknown as { _zod: { optin?: string } })._zod.optin;
+        if (optional !== undefined && (schema.required as string[] | undefined)?.includes(name))
+          failures.push(`${path}.${name}: the server fills it in, but the schema requires it`);
+      }
       for (const [name, child] of Object.entries(shape))
         if (props[name]) walk(child, props[name], root, `${path}.${name}`, failures);
       return;
@@ -818,6 +823,87 @@ test("published schemas admit coercions, non-string overwrites and missing prepr
     expect(input.safeParse({ value }).success).toBe(true);
     const schema = toolInputSchema({ ...operations[0]!, input } as (typeof operations)[number]);
     if (!jsonAccepts(schema, { value })) failures.push({ value, schema });
+  }
+  expect(failures).toEqual([]);
+});
+
+type Json = {
+  $ref?: string;
+  const?: unknown;
+  enum?: unknown[];
+  anyOf?: Json[];
+  oneOf?: Json[];
+  type?: string | string[];
+  required?: string[];
+  properties?: Record<string, Json>;
+  items?: Json;
+  minItems?: number;
+  minLength?: number;
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  format?: string;
+  pattern?: string;
+  description?: string;
+  definitions?: Record<string, Json>;
+};
+
+const patternSamples: Record<string, string> = {
+  "^B[A-Za-z0-9_-]{86}=?$": `B${"A".repeat(86)}`,
+  "^[A-Za-z0-9_-]{21}[AQgw](==)?$": `${"A".repeat(21)}A`,
+};
+
+/** The smallest input the published schema describes: required properties only. */
+function minimalSample(schema: Json, root: Json): unknown {
+  if (typeof schema.$ref === "string")
+    return minimalSample(root.definitions?.[schema.$ref.replace("#/definitions/", "")] ?? {}, root);
+  if ("const" in schema) return schema.const;
+  if (schema.enum) return schema.enum[0];
+  const variants = schema.anyOf ?? schema.oneOf;
+  if (variants) return minimalSample(variants[0] ?? {}, root);
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  switch (type) {
+    case "object":
+      return Object.fromEntries(
+        ((schema.required ?? []) as string[]).map((name) => [
+          name,
+          minimalSample(schema.properties?.[name] ?? {}, root),
+        ]),
+      );
+    case "array":
+      return Array.from({ length: schema.minItems ?? 0 }, () =>
+        minimalSample(schema.items ?? {}, root),
+      );
+    case "string":
+      if (schema.format === "date-time") return "2030-01-01T00:00:00.000Z";
+      if (schema.pattern !== undefined)
+        return patternSamples[schema.pattern] ?? `no sample for ${schema.pattern}`;
+      // Normalized URL fields move their format into the description.
+      if (String(schema.description).includes("Format: uri")) return "https://example.test/push";
+      return "x".repeat(Math.max(schema.minLength ?? 0, 1));
+    case "integer":
+    case "number": {
+      let value = Math.max(schema.minimum ?? 1, (schema.exclusiveMinimum ?? 0) + 1, 1);
+      if (schema.maximum !== undefined) value = Math.min(value, schema.maximum);
+      return value;
+    }
+    case "boolean":
+      return true;
+    case "null":
+      return null;
+    default:
+      return null;
+  }
+}
+
+test("for every real contract, a minimal input valid per the published schema is accepted", () => {
+  const failures: string[] = [];
+  for (const op of operations) {
+    const schema = toolInputSchema(op) as Json;
+    const sample = minimalSample(schema, schema);
+    if (!jsonAccepts(schema, sample)) failures.push(`${op.name}: sample not valid per schema`);
+    else if (!op.input.safeParse(sample).success)
+      failures.push(`${op.name}: parser rejects ${JSON.stringify(sample)}`);
   }
   expect(failures).toEqual([]);
 });
