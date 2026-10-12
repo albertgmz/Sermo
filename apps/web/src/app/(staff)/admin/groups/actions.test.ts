@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { groupBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "./test-backend";
 
@@ -21,20 +22,12 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const GROUP = {
-  id: 7,
-  title: "Writers",
-  description: "",
-  rank: 20,
-  userTitle: "",
-  badge: "",
-  builtin: null,
-  nameColorId: 3,
-  isStaff: false,
-};
+const GROUP = groupBody();
 
+// Every group form carries the administrator's password, which the write is sent with.
 function form(fields: Record<string, string>) {
   const data = new FormData();
+  data.set("actorPassword", "secret");
   for (const [name, value] of Object.entries(fields)) data.set(name, value);
   return data;
 }
@@ -76,6 +69,7 @@ test("a new group is created with what the form showed and opens its own page", 
         badge: "",
         nameColorId: 3,
         isStaff: true,
+        actorPassword: "secret",
       },
     },
   ]);
@@ -154,4 +148,33 @@ test("a deleted group goes back to the list with a notice", async () => {
   const digest = await redirectedTo(() => deleteGroup(null, form({ id: "7" })));
   expect(digest).toMatch(/;\/admin\/groups\?notice=deleted;/);
   expect(backend.asked[0].operation).toBe("groups.delete");
+});
+
+test("a wrong password shows on the password field and the limit shows its message", async () => {
+  backend = fakeBackend({
+    "groups.update": () =>
+      refusal(403, "forbidden", "That is not your password."),
+    "groups.delete": () =>
+      refusal(
+        429,
+        "rate_limited",
+        "Too many wrong passwords. Try again later.",
+      ),
+  });
+  expect(
+    await saveGroup(null, form({ id: "7", title: "A", rank: "1" })),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(await deleteGroup(null, form({ id: "7" }))).toEqual({
+    fields: { actorPassword: "Too many wrong passwords. Try again later." },
+  });
+});
+
+test("a missing password is asked for before the backend is", async () => {
+  backend = fakeBackend({});
+  const data = form({ id: "7", title: "A", rank: "1" });
+  data.set("actorPassword", "");
+  expect(await saveGroup(null, data)).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
 });

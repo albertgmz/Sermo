@@ -6,14 +6,17 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text } from "../../../groups/form-errors";
-import { memberOf, passwordRefusal } from "../../action-helpers";
+import {
+  formFailure,
+  missingPassword,
+  text,
+} from "../../../groups/form-errors";
+import { memberOf } from "../../action-helpers";
 
 const PROMOTION_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
 
-// Saves the primary group and the hand-assigned secondary groups (the full list). The password
-// is checked first with `auth.verifyPassword`, then the groups are set: the two calls are not
-// atomic.
+// Saves the primary group and the hand-assigned secondary groups (the full list). The
+// administrator's password goes with the write, which checks it first.
 export async function saveGroups(
   _previous: StaffFormState,
   formData: FormData,
@@ -31,16 +34,17 @@ export async function saveGroups(
   ) {
     return { error: t("groups") };
   }
-  const refusal = await passwordRefusal(formData);
-  if (refusal) return refusal;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
     await call(usersSetGroups, {
       userId,
       primaryGroupId,
       secondaryGroupIds: secondaryGroupIds as number[],
+      actorPassword: text(formData, "actorPassword"),
     });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   redirect(`/admin/users/${userId}/groups?notice=saved`);
 }

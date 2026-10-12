@@ -55,6 +55,67 @@ async function register(request: ReturnType<typeof setup>["request"], username =
   };
 }
 
+test("the wrong-password limit answers 429 with the body of the request limiter", async () => {
+  const { request } = setup();
+  const { cookie } = await register(request);
+  const verify = () =>
+    request("/api/v1/me/verify-password", {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie },
+      body: JSON.stringify({ password: "not-the-password" }),
+    });
+  for (let i = 0; i < 5; i++) expect((await verify()).status).toBe(403);
+  const limited = await verify();
+  expect(limited.status).toBe(429);
+  expect(await limited.json()).toEqual({
+    error: { code: "rate_limited", message: "Too many wrong passwords. Try again later." },
+  });
+});
+
+test("Better Auth's own password endpoints are held to the wrong-password limit", async () => {
+  const { app, request } = setup();
+  const { cookie } = await register(request);
+  let address = 1;
+  // Each call comes from a new address, so only the per-member limit can stop it.
+  const post = (path: string, body: object) =>
+    app.request(
+      path,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie },
+        body: JSON.stringify(body),
+      },
+      {
+        requestIP: () => ({ address: `203.0.113.${address++}`, family: "IPv4" as const, port: 1 }),
+      },
+    );
+  const change = (currentPassword: string) =>
+    post("/api/auth/change-password", { currentPassword, newPassword: "Another-secret-9" });
+
+  // The endpoint that only answers "is this my password" is not offered over HTTP.
+  expect((await post("/api/auth/verify-password", { password: "Password123!" })).status).toBe(404);
+
+  for (let i = 0; i < 4; i++) expect((await change("wrong-wrong-1")).status).toBe(400);
+  // A right answer works, and gives back its own guess without clearing the wrong ones.
+  expect((await change("Password123!")).status).toBe(200);
+  const fifth = await change("wrong-wrong-1");
+  expect(fifth.status).toBe(400);
+  const limited = await change("Another-secret-9");
+  expect(limited.status).toBe(429);
+  expect(await limited.json()).toMatchObject({ code: "TOO_MANY_ATTEMPTS" });
+  // The forum's own check shares the same count.
+  const verify = await app.request(
+    "/api/v1/me/verify-password",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000", cookie },
+      body: JSON.stringify({ password: "Another-secret-9" }),
+    },
+    { requestIP: () => ({ address: "203.0.113.250", family: "IPv4" as const, port: 1 }) },
+  );
+  expect(verify.status).toBe(429);
+});
+
 test("route table has exactly one entry for each operation", () => {
   expect(routes.length).toBe(operations.length);
   expect(new Set(routes.map((route) => route.operation)).size).toBe(routes.length);

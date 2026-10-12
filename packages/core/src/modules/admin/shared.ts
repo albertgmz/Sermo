@@ -1,7 +1,6 @@
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { ForbiddenError, NotFoundError } from "../../errors";
 import { markPublic } from "../../operation";
 import {
   currentVersions,
@@ -14,6 +13,8 @@ import {
 } from "../../permissions";
 import { getAuth } from "../auth";
 import { ADMIN_PERMISSIONS } from "../auth/staff";
+import { requireNotErased } from "./erased";
+import { forgivePasswordGuess, takePasswordGuess } from "./password-guesses";
 
 type Row = PrincipalRow & { id: number; group_id: number };
 const TARGET_SQL = `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`;
@@ -48,16 +49,6 @@ export function requireHeld(ctx: Ctx, actor: Actor, id: "admin.members" | "membe
   if (resolvedPermissions(ctx, actor)[id] !== true) throw new ForbiddenError();
 }
 
-/** An erased account takes no administrative change; reading it is allowed. */
-export function requireNotErased(ctx: Ctx, userId: number): void {
-  const row = prepared(ctx, "admin.erasedAt", () =>
-    ctx.sqlite.prepare<{ erased_at: number | null }, [number]>(
-      "SELECT erased_at FROM users WHERE id = ?1",
-    ),
-  ).get(userId);
-  if (row?.erased_at != null) throw new ConflictError("This member's account was erased.");
-}
-
 /**
  * Setting a password or an address, or ending sessions, lets an administrator sign in as the
  * member. A member who holds any administration permission, through whatever source, is only
@@ -78,38 +69,6 @@ export function requireTakeoverRights(ctx: Ctx, actor: Actor, target: Actor): vo
     requirePermission(ctx, actor, "admin.permissions");
 }
 
-/** Wrong answers one administrator may give, and the window they count in. */
-export const WRONG_PASSWORD_LIMIT = 5;
-export const WRONG_PASSWORD_WINDOW_MS = 15 * 60_000;
-
-export const passwordGuessSql = {
-  recent:
-    "SELECT count(*) AS n FROM (SELECT 1 FROM admin_password_failures WHERE user_id = ?1 AND at > ?2 LIMIT ?3)",
-  prune: "DELETE FROM admin_password_failures WHERE user_id = ?1 AND at <= ?2",
-  add: "INSERT INTO admin_password_failures (user_id, at) VALUES (?1, ?2) RETURNING id",
-  forgive: "DELETE FROM admin_password_failures WHERE id = ?1",
-};
-
-/**
- * Takes one of the member's guesses for the window, or refuses when they are used up. A guess is
- * recorded before the password is checked, so answers sent in parallel are counted as well.
- */
-function takeGuess(ctx: Ctx, userId: number): number {
-  return writeTx(ctx, () => {
-    const now = ctx.now();
-    const since = now - WRONG_PASSWORD_WINDOW_MS;
-    ctx.sqlite.prepare(passwordGuessSql.prune).run(userId, since);
-    const used = prepared(ctx, "admin.guessCount", () =>
-      ctx.sqlite.prepare<{ n: number }, [number, number, number]>(passwordGuessSql.recent),
-    ).get(userId, since, WRONG_PASSWORD_LIMIT)!.n;
-    if (used >= WRONG_PASSWORD_LIMIT)
-      throw new ForbiddenError("Too many wrong passwords. Try again later.");
-    return ctx.sqlite
-      .prepare<{ id: number }, [number, number]>(passwordGuessSql.add)
-      .get(userId, now)!.id;
-  });
-}
-
 /**
  * The acting administrator's own password, verified the way Better Auth verifies a sign-in. At
  * most five wrong answers in fifteen minutes: after that every answer is refused until the window
@@ -122,7 +81,7 @@ export const verifyActorPassword = markPublic(
     const user = requireAuthenticated(actor);
     if (actor.kind !== "user")
       throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
-    const guess = takeGuess(ctx, user.userId);
+    const guess = takePasswordGuess(ctx, user.userId);
     const authContext = await getAuth(ctx).$context;
     const account = await authContext.internalAdapter.findCredentialAccount(String(user.userId));
     if (!account?.password) {
@@ -132,7 +91,22 @@ export const verifyActorPassword = markPublic(
     }
     if (!(await authContext.password.verify({ hash: account.password, password })))
       throw new ForbiddenError("That is not your password.");
-    writeTx(ctx, () => ctx.sqlite.prepare(passwordGuessSql.forgive).run(guess));
+    forgivePasswordGuess(ctx, guess);
     return { userId: user.userId };
   },
 );
+
+/**
+ * The optional confirmation of a write that changes groups or permissions: when the request
+ * carries the acting administrator's password it is verified first (same helper, same limit),
+ * and a wrong one stops the request before anything is read or changed. Without it, nothing is
+ * asked, which is how API clients call these operations.
+ */
+export const confirmActorPassword = markPublic(
+  "Checks the actor's own password when one is sent; it grants nothing.",
+  async (ctx: Ctx, actor: Actor, password: string | undefined): Promise<void> => {
+    if (password !== undefined) await verifyActorPassword(ctx, actor, password);
+  },
+);
+
+export { requireNotErased };

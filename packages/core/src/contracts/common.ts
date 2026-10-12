@@ -57,6 +57,9 @@ export const moderationNotice = {
   reason: z.string().trim().max(1000).default(""),
 };
 
+/** The acting administrator's own password, checked before a sensitive change is made. */
+export const ActorPassword = z.string().min(1).max(256);
+
 export const Ok = z.object({ ok: z.literal(true) });
 export const Empty = z.object({});
 

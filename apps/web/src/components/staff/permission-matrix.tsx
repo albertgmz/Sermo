@@ -16,7 +16,7 @@
 //
 // MatrixPermission
 //   id, type, scope  As in the definition.
-//   title            The words to show for it.
+//   title            The words to show for it; help is the longer line under its id, if any.
 //   category         The definition's category (rows are grouped by it, in order of first
 //                    appearance); categoryTitle is the heading to show.
 //   unit             For an integer: "bytes", "minutes" or "count"; null otherwise.
@@ -37,6 +37,7 @@ export type MatrixPermission = {
   type: "flag" | "integer";
   scope: "global" | "node";
   title: string;
+  help?: string;
   category: string;
   categoryTitle: string;
   unit: "bytes" | "minutes" | "count" | null;
@@ -203,6 +204,11 @@ export function PermissionMatrix({
                         {permission.id}
                         {permission.scope === "node" && ` · ${t("forumScope")}`}
                       </p>
+                      {permission.help && (
+                        <p className="text-xs text-pretty text-muted-foreground">
+                          {permission.help}
+                        </p>
+                      )}
                       {permission.initial && (
                         <p className="text-xs text-muted-foreground">
                           {t("initial", { value: permission.initial })}

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Standing } from "@/app/(staff)/registry";
 import { accentCss } from "@/components/layout/site-accent";
-import { staffLinks } from "@/components/layout/staff-bar";
+import { pendingBadge, staffLinks } from "@/components/layout/staff-bar";
 
 test("an accent becomes the two custom properties on the root", () => {
   expect(accentCss({ color: "#0ea5e9", foreground: "#03131f" })).toBe(
@@ -51,6 +51,22 @@ test("the staff bar links the panel when it holds something and moderation when 
   expect(
     staffLinks(standing({}, { panel: true, moderatesEverywhere: true })),
   ).toEqual({ admin: true, moderation: true });
+});
+
+test("the moderation badge adds the two queues and stops at 99+", () => {
+  const queue = (count: number, more = false) => ({ count, more });
+  expect(
+    pendingBadge({ openReports: queue(0), pendingApprovals: queue(0) }),
+  ).toBeNull();
+  expect(
+    pendingBadge({ openReports: queue(2), pendingApprovals: queue(3) }),
+  ).toBe("5");
+  expect(
+    pendingBadge({ openReports: queue(60), pendingApprovals: queue(50) }),
+  ).toBe("99+");
+  expect(
+    pendingBadge({ openReports: queue(99, true), pendingApprovals: queue(0) }),
+  ).toBe("99+");
 });
 
 test("the shell reads the viewer from the backend, never from the JSON data", () => {

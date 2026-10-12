@@ -52,7 +52,6 @@ const member = {
 };
 
 const ok = () => Response.json({ ok: true });
-const verified = { "auth.verifyPassword": ok };
 
 function form(fields: Record<string, string | string[]>) {
   const data = new FormData();
@@ -94,28 +93,33 @@ const identityForm = (fields: Record<string, string> = {}) =>
 
 test("a wrong administrator password shows on the password field and changes nothing", async () => {
   backend = fakeBackend({
-    "auth.verifyPassword": () =>
+    "users.adminUpdateIdentity": () =>
       refusal(403, "forbidden", "That is not your password."),
   });
   expect(
     await identity.saveIdentity(null, identityForm({ username: "robin" })),
   ).toEqual({ fields: { actorPassword: "That is not your password." } });
-  expect(operations()).toEqual(["auth.verifyPassword"]);
+  expect(operations()).toEqual(["users.adminUpdateIdentity"]);
 });
 
 test("the backend's limit message after too many wrong passwords is shown as it is", async () => {
   backend = fakeBackend({
-    "auth.verifyPassword": () =>
-      refusal(403, "forbidden", "Too many wrong passwords. Try again later."),
+    "users.adminUpdateIdentity": () =>
+      refusal(
+        429,
+        "rate_limited",
+        "Too many wrong passwords. Try again later.",
+      ),
   });
-  expect(await identity.saveIdentity(null, identityForm())).toEqual({
+  expect(
+    await identity.saveIdentity(null, identityForm({ username: "robin" })),
+  ).toEqual({
     fields: { actorPassword: "Too many wrong passwords. Try again later." },
   });
 });
 
-test("only what changed is sent, after the password is checked", async () => {
+test("only what changed is sent, with the password", async () => {
   backend = fakeBackend({
-    ...verified,
     "users.adminUpdateIdentity": () => Response.json(member),
   });
   const digest = await redirectedTo(() =>
@@ -129,10 +133,7 @@ test("only what changed is sent, after the password is checked", async () => {
     ),
   );
   expect(digest).toMatch(/;\/admin\/users\/7\?notice=identity;/);
-  expect(operations()).toEqual([
-    "auth.verifyPassword",
-    "users.adminUpdateIdentity",
-  ]);
+  expect(operations()).toEqual(["users.adminUpdateIdentity"]);
   expect(lastBody()).toEqual({
     actorPassword: "secret",
     username: "robin",
@@ -142,7 +143,6 @@ test("only what changed is sent, after the password is checked", async () => {
 
 test("a reset link is requested without a password, and the unverified flag is sent when changed", async () => {
   backend = fakeBackend({
-    ...verified,
     "users.adminUpdateIdentity": () => Response.json(member),
   });
   const data = identityForm({ passwordMode: "reset" });
@@ -158,7 +158,6 @@ test("a reset link is requested without a password, and the unverified flag is s
 
 test("the backend's answer when mail is not configured is shown at the top", async () => {
   backend = fakeBackend({
-    ...verified,
     "users.adminUpdateIdentity": () =>
       refusal(
         409,
@@ -174,15 +173,15 @@ test("the backend's answer when mail is not configured is shown at the top", asy
 });
 
 test("a form with nothing changed says so and writes nothing", async () => {
-  backend = fakeBackend(verified);
+  backend = fakeBackend({});
   expect(await identity.saveIdentity(null, identityForm())).toEqual({
     notice: messages.adminUsers.errors.unchanged,
   });
-  expect(operations()).toEqual(["auth.verifyPassword"]);
+  expect(operations()).toEqual([]);
 });
 
 test("a new password that is empty, a bad mode and a bad id are refused locally", async () => {
-  backend = fakeBackend(verified);
+  backend = fakeBackend({});
   expect(
     await identity.saveIdentity(null, identityForm({ passwordMode: "set" })),
   ).toEqual({ fields: { password: messages.adminUsers.errors.newPassword } });
@@ -214,7 +213,6 @@ test("removing a picture sends only that key", async () => {
 test("erasing needs the username typed as it is now and the password", async () => {
   backend = fakeBackend({
     "users.adminGet": () => Response.json(member),
-    ...verified,
     "users.adminErase": () => ok(),
   });
   expect(
@@ -253,7 +251,6 @@ test("erasing needs the username typed as it is now and the password", async () 
 test("the backend's refusal to erase a member who holds administration is shown", async () => {
   backend = fakeBackend({
     "users.adminGet": () => Response.json(member),
-    ...verified,
     "users.adminErase": () =>
       refusal(403, "forbidden", "This needs admin.permissions."),
   });
@@ -272,9 +269,8 @@ test("the backend's refusal to erase a member who holds administration is shown"
 
 // Groups --------------------------------------------------------------------------------------
 
-test("groups are saved after the password, with the full secondary list", async () => {
+test("groups are saved with the password in the same write, with the full secondary list", async () => {
   backend = fakeBackend({
-    ...verified,
     "users.setGroups": () =>
       Response.json({
         userId: 7,
@@ -298,11 +294,47 @@ test("groups are saved after the password, with the full secondary list", async 
     ),
   );
   expect(digest).toMatch(/\/admin\/users\/7\/groups\?notice=saved/);
-  expect(operations()).toEqual(["auth.verifyPassword", "users.setGroups"]);
+  expect(operations()).toEqual(["users.setGroups"]);
   expect(lastBody()).toEqual({
     primaryGroupId: 3,
     secondaryGroupIds: [5, 6],
+    actorPassword: "secret",
   });
+});
+
+test("a wrong password for a group change shows on the password field", async () => {
+  backend = fakeBackend({
+    "users.setGroups": () =>
+      refusal(403, "forbidden", "That is not your password."),
+  });
+  expect(
+    await groups.saveGroups(
+      null,
+      form({ id: "7", primaryGroupId: "3", actorPassword: "nope" }),
+    ),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(
+    await groups.saveGroups(
+      null,
+      form({ id: "7", primaryGroupId: "3", actorPassword: "" }),
+    ),
+  ).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(operations()).toEqual(["users.setGroups"]);
+});
+
+test("a refusal that is not about the password stays at the top", async () => {
+  backend = fakeBackend({
+    "users.setGroups": () =>
+      refusal(403, "forbidden", "You do not have permission to do that."),
+  });
+  expect(
+    await groups.saveGroups(
+      null,
+      form({ id: "7", primaryGroupId: "3", actorPassword: "secret" }),
+    ),
+  ).toEqual({ error: "You do not have permission to do that." });
 });
 
 test("group ids that are not record ids are refused before any call", async () => {

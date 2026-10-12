@@ -19,7 +19,12 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../groups/form-errors";
+import {
+  formFailure,
+  missingPassword,
+  text,
+  whole,
+} from "../groups/form-errors";
 
 const NODE_FIELDS = [
   "type",
@@ -228,10 +233,17 @@ export async function setModerator(
   const userId = parseId(text(formData, "userId"));
   if (nodeId === null || userId === null) return { error: t("id") };
   const remove = text(formData, "remove") === "1";
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
-    await call(nodesSetModerator, { nodeId, userId, remove });
+    await call(nodesSetModerator, {
+      nodeId,
+      userId,
+      remove,
+      actorPassword: text(formData, "actorPassword"),
+    });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   redirect(
     `/admin/forums/${nodeId}?notice=${remove ? "unmoderated" : "moderated"}#moderators`,

@@ -391,6 +391,36 @@ describe("shop purchases and inventory", () => {
     expect(can(ctx, userActor(member), "forum.viewDeleted", { nodeId: node.id })).toBe(true);
   });
 
+  test("an item whose row has lapsed but is not yet marked expired can be bought again at once", async () => {
+    const { ctx, call, create, fund, member } = fixture();
+    fund();
+    const item = await create({
+      durationSeconds: 60,
+      effect: { type: "permission", permission: "forum.viewDeleted" },
+    });
+    const node = insertNode(ctx, {});
+    invalidate(ctx, "node_tree");
+    const first = await call("shop.buy", { itemId: item.id });
+    // Still running: it is owned.
+    ctx.clock.advance(59_000);
+    await expect(call("shop.buy", { itemId: item.id })).rejects.toThrow(/already owned/);
+    // Lapsed, and the job has not run: the row still says active.
+    ctx.clock.advance(2_000);
+    expect(
+      ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM shop_inventory WHERE id = ?1")
+        .get(first.inventory.id)!.state,
+    ).toBe("active");
+    const renewed = await call("shop.buy", { itemId: item.id });
+    expect(renewed.inventory).toMatchObject({ id: first.inventory.id, state: "active" });
+    expect(renewed.inventory.expiresAt).toBe(new Date(ctx.now() + 60_000).toISOString());
+    expect(renewed.balance).toBe(80);
+    expect(can(ctx, userActor(member), "forum.viewDeleted", { nodeId: node.id })).toBe(true);
+    // The running purchase is owned again, and the job finds nothing left to expire.
+    await expect(call("shop.buy", { itemId: item.id })).rejects.toThrow(/already owned/);
+    expect(expireShopBatch(ctx)).toBe(0);
+  });
+
   test("consumable permissions last until the last unit, then can be bought again", async () => {
     const { ctx, call, create, fund, member } = fixture();
     fund();

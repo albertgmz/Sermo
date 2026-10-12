@@ -1,7 +1,6 @@
 "use server";
 
 import {
-  authVerifyPassword,
   permissionsDefinitions,
   permissionsList,
   permissionsSet,
@@ -10,18 +9,16 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { matrixChanges } from "@/components/staff/permission-entries";
-import { call, errorMessage } from "@/lib/sermo/client";
+import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text } from "../groups/form-errors";
-import { permissionTitle } from "../groups/phrases";
+import { formFailure, missingPassword, text } from "../groups/form-errors";
 import { entriesOf } from "./data";
 
 // Saves the permission matrix of one target: a group (`group`), a member (`user`) or either on
 // one forum (with `node`). The form carries the target's id, never a path to go back to.
 //
-// The acting administrator's own password is checked first (`auth.verifyPassword`); the entries
-// are changed only if that succeeds. The backend has no single operation that does both, so the
-// two calls are not atomic: the password is checked, then the change is made.
+// The acting administrator's own password goes with the write (`actorPassword`): the backend
+// checks it first, in the same call, and a wrong one changes nothing.
 export async function savePermissions(
   _previous: StaffFormState,
   formData: FormData,
@@ -37,13 +34,8 @@ export async function savePermissions(
   ) {
     return { error: t("target") };
   }
-  const password = text(formData, "actorPassword");
-  if (password === "") return { fields: { actorPassword: t("password") } };
-  try {
-    await call(authVerifyPassword, { password });
-  } catch (error) {
-    return { fields: { actorPassword: await errorMessage(error) } };
-  }
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   const target =
     group !== null ? { groupId: group } : { userId: user as number };
   try {
@@ -63,9 +55,7 @@ export async function savePermissions(
       const definition = items.find((entry) => entry.id === result.invalid);
       return {
         error: t("value", {
-          title: definition
-            ? permissionTitle(definition.label)
-            : result.invalid,
+          title: definition ? definition.title : result.invalid,
         }),
       };
     }
@@ -78,9 +68,10 @@ export async function savePermissions(
       ...target,
       nodeId: node,
       entries: result.changes,
+      actorPassword: text(formData, "actorPassword"),
     });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   const path =
     node !== null

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { groupsIfAllowed } from "../groups/data";
+import { getGroups } from "../groups/data";
 import type { AdminMember } from "./data";
 import { MemberState } from "./member-state";
 
@@ -101,7 +101,7 @@ export async function UserList({
   const [t, states, groups, page] = await Promise.all([
     getTranslations("adminUsers.list"),
     getTranslations("adminUsers.states"),
-    groupsIfAllowed(),
+    getGroups(),
     read(usersAdminList, {
       state: stateFilter,
       groupId,
@@ -165,23 +165,21 @@ export async function UserList({
                 ))}
               </select>
             </label>
-            {groups && (
-              <label className={field}>
-                {t("group")}
-                <select
-                  name="group"
-                  defaultValue={groupId ?? ""}
-                  className={selectClass}
-                >
-                  <option value="">{t("all")}</option>
-                  {groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <label className={field}>
+              {t("group")}
+              <select
+                name="group"
+                defaultValue={groupId ?? ""}
+                className={selectClass}
+              >
+                <option value="">{t("all")}</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.title}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button type="submit" className="min-h-10 px-4">

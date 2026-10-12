@@ -1,6 +1,5 @@
-// The backend names a permission or a criterion by a phrase key ("permission.forum.viewLog",
-// "promotion.criterion.post_count"), and the phrase catalogue is not reachable from the web app.
-// The panel shows the words of the key, set out as a title, next to the id itself.
+// The words of a phrase key ("credits.type.adjustment") set out as a title, for the values the
+// backend names by a key and gives no text for.
 export function phraseTitle(key: string, prefix: string): string {
   const tail = key.startsWith(prefix) ? key.slice(prefix.length) : key;
   const words = tail
@@ -10,9 +9,3 @@ export function phraseTitle(key: string, prefix: string): string {
     .trim();
   return words ? words[0].toUpperCase() + words.slice(1) : key;
 }
-
-export const permissionTitle = (label: string) =>
-  phraseTitle(label, "permission.");
-
-export const criterionTitle = (label: string) =>
-  phraseTitle(label, "promotion.criterion.");

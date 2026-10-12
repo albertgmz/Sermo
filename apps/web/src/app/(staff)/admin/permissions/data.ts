@@ -10,7 +10,6 @@ import type * as z from "zod";
 import type { MatrixValue } from "@/components/staff/permission-entries";
 import type { MatrixPermission } from "@/components/staff/permission-matrix";
 import { read } from "@/lib/sermo/client";
-import { permissionTitle } from "../groups/phrases";
 
 export type Definition = z.output<
   typeof permissionsDefinitions.output
@@ -42,7 +41,6 @@ export async function matrixPermissions(
   }: { nodeOnly?: boolean; builtin?: string | null } = {},
 ): Promise<MatrixPermission[]> {
   const t = await getTranslations("adminGroups.matrix");
-  const categories = await getTranslations("adminGroups.categories");
   return definitions
     .filter((definition) => !nodeOnly || definition.scope === "node")
     .map((definition) => {
@@ -51,11 +49,10 @@ export async function matrixPermissions(
         id: definition.id,
         type: definition.type,
         scope: definition.scope,
-        title: permissionTitle(definition.label),
+        title: definition.title,
+        help: definition.help,
         category: definition.category,
-        categoryTitle: categories.has(definition.category as "admin")
-          ? categories(definition.category as "admin")
-          : definition.category,
+        categoryTitle: definition.categoryTitle,
         unit: definition.unit,
         initial:
           start === undefined

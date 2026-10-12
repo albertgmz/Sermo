@@ -36,7 +36,6 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
@@ -238,7 +237,7 @@ export default async function ForumPage({
     params,
     searchParams,
   ]);
-  const { node, breadcrumbs } = await getNode(nodeIdOf(raw));
+  const { node, breadcrumbs, watching } = await getNode(nodeIdOf(raw));
   const [{ user }, t] = await Promise.all([
     getViewer(),
     getTranslations("forums.forum"),
@@ -283,11 +282,9 @@ export default async function ForumPage({
         {newThread}
       </div>
       {user && isForum && (
-        <Suspense fallback={<Skeleton className="mt-3 h-10 w-28" />}>
-          <div className="mt-3">
-            <ForumWatch nodeId={node.id} />
-          </div>
-        </Suspense>
+        <div className="mt-3">
+          <ForumWatch nodeId={node.id} watching={watching} />
+        </div>
       )}
 
       <Suspense

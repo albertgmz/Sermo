@@ -7,9 +7,8 @@ import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
-import { groupLabel, groupsIfAllowed } from "../groups/data";
+import { getGroups, groupLabel } from "../groups/data";
 import { Notice } from "../groups/notice";
-import { criterionTitle } from "../groups/phrases";
 import { runPromotions } from "./actions";
 import { PromotionForm } from "./promotion-form";
 import { RunNow } from "./run-now";
@@ -28,13 +27,11 @@ export async function PromotionList({
       getViewer(),
       read(promotionsList, {}),
       read(promotionsCriteria, {}),
-      groupsIfAllowed(),
+      getGroups(),
     ],
   );
   const log = hrefFor(viewer, "toolsPromotionLog");
-  const names = new Map(
-    criteria.map((entry) => [entry.id, criterionTitle(entry.label)]),
-  );
+  const names = new Map(criteria.map((entry) => [entry.id, entry.title]));
   return (
     <>
       <Notice searchParams={searchParams} shown={["deleted"]} />

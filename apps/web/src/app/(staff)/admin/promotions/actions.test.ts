@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { criterionBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
 
@@ -23,20 +24,8 @@ afterAll(() => {
 
 const CRITERIA = {
   items: [
-    {
-      id: "post_count",
-      label: "promotion.criterion.post_count",
-      description: "promotion.criterion.post_count.description",
-      kind: "atLeast",
-      unit: "count",
-    },
-    {
-      id: "email_verified",
-      label: "promotion.criterion.email_verified",
-      description: "promotion.criterion.email_verified.description",
-      kind: "boolean",
-      unit: "boolean",
-    },
+    criterionBody("post_count", "atLeast", "count"),
+    criterionBody("email_verified", "boolean", "boolean"),
   ],
 };
 
@@ -98,7 +87,7 @@ test("only the criteria the backend lists and the form ticked are sent", async (
   });
 });
 
-test("group ids typed for a viewer who cannot list groups are read as ids", async () => {
+test("an edited promotion goes to its own address with the ticked groups", async () => {
   backend = fakeBackend({
     "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => Response.json(PROMOTION),
@@ -109,7 +98,9 @@ test("group ids typed for a viewer who cannot list groups are read as ids", asyn
       form([
         ["id", "5"],
         ["title", "Regulars"],
-        ["groupIdsText", "7, 9 7"],
+        ["groupIds", "7"],
+        ["groupIds", "9"],
+        ["groupIds", "7"],
       ]),
     ),
   );
@@ -147,7 +138,7 @@ test("group ids that are not ids are refused", async () => {
       null,
       form([
         ["title", "R"],
-        ["groupIdsText", "x"],
+        ["groupIds", "x"],
       ]),
     ),
   ).toEqual({ fields: { groupIds: messages.adminGroups.errors.groupIds } });

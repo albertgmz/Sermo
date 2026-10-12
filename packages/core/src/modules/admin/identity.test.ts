@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { tokenActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
-import { ConflictError, ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  RateLimitedError,
+  UnauthenticatedError,
+  ValidationError,
+} from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { resolvedPermissions } from "../../permissions";
@@ -411,7 +417,7 @@ describe("the limit on wrong passwords", () => {
     const w = await world();
     for (let i = 0; i < 5; i++)
       await expect(verify(w, "wrong-wrong-1")).rejects.toThrow(/not your password/);
-    await expect(verify(w, "wrong-wrong-1")).rejects.toThrow(/too many/i);
+    await expect(verify(w, "wrong-wrong-1")).rejects.toBeInstanceOf(RateLimitedError);
     // The right password is refused as well while the window holds.
     await expect(verify(w, PASSWORD)).rejects.toThrow(/too many/i);
     await expect(w.edit({ password: "Brand-new-secret-1" })).rejects.toThrow(/too many/i);

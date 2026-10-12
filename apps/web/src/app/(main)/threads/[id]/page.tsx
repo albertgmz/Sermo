@@ -330,45 +330,49 @@ function PostItem({
           )}
         </div>
 
-        {viewerId !== null && post.state !== "deleted" && (
-          <details className="group mt-1">
-            <summary
-              aria-label={t("aria.more")}
-              className={cn(
-                messageActionClass,
-                "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
-              )}
-            >
-              <MoreHorizontal />
-              {t("more")}
-            </summary>
-            <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
-              <ActionForm
-                action={reportPostAction.bind(null, post.id)}
-                submit={t("report")}
-                done={t("reported")}
+        {viewerId !== null &&
+          post.state !== "deleted" &&
+          (post.canReport || post.canDelete) && (
+            <details className="group mt-1">
+              <summary
+                aria-label={t("aria.more")}
+                className={cn(
+                  messageActionClass,
+                  "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+                )}
               >
-                <Input
-                  name="reason"
-                  required
-                  maxLength={5000}
-                  aria-label={t("reportReason")}
-                  placeholder={t("reportReason")}
-                  autoComplete="off"
-                />
-              </ActionForm>
-              {post.canDelete && (
-                <DeleteControl
-                  action={deletePostAction.bind(null, post.threadId, post.id)}
-                  label={t("delete")}
-                  confirm={t("confirmDelete")}
-                  cancel={t("cancel")}
-                  reasonLabel={t("deleteReason")}
-                />
-              )}
-            </div>
-          </details>
-        )}
+                <MoreHorizontal />
+                {t("more")}
+              </summary>
+              <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
+                {post.canReport && (
+                  <ActionForm
+                    action={reportPostAction.bind(null, post.id)}
+                    submit={t("report")}
+                    done={t("reported")}
+                  >
+                    <Input
+                      name="reason"
+                      required
+                      maxLength={5000}
+                      aria-label={t("reportReason")}
+                      placeholder={t("reportReason")}
+                      autoComplete="off"
+                    />
+                  </ActionForm>
+                )}
+                {post.canDelete && (
+                  <DeleteControl
+                    action={deletePostAction.bind(null, post.threadId, post.id)}
+                    label={t("delete")}
+                    confirm={t("confirmDelete")}
+                    cancel={t("cancel")}
+                    reasonLabel={t("deleteReason")}
+                  />
+                )}
+              </div>
+            </details>
+          )}
 
         <ReactionSummary
           reactions={reactionsView(post.reactions, reactionTypes)}
@@ -409,20 +413,18 @@ export default async function ThreadPage({
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [{ thread, node, permissions, resolvedPermissions }, { user }, t] =
-    await Promise.all([
-      getThread(id),
-      getViewer(),
-      getTranslations("threads.page"),
-    ]);
+  const [
+    { thread, node, permissions, resolvedPermissions, watching },
+    { user },
+    t,
+  ] = await Promise.all([
+    getThread(id),
+    getViewer(),
+    getTranslations("threads.page"),
+  ]);
   const page = Math.max(1, Math.floor(Number(pageParam)) || 1);
   const may = threadMay(resolvedPermissions);
-  // The backend lets the author of a visible thread, or anyone who may edit other members threads,
-  // take the cover off. It gives no flag for it, so the control is only offered to those two.
-  const mayRemoveCover =
-    thread.cover !== null &&
-    (resolvedPermissions["forum.editAny"] === true ||
-      (thread.state === "visible" && thread.author.id === user?.id));
+  const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
   const selecting = select === "1" && may.split;
   const prefix = prefixView(thread.prefix);
   const highlighted =
@@ -465,14 +467,14 @@ export default async function ThreadPage({
       </header>
 
       {user && (
-        <Suspense fallback={<Skeleton className="mt-3 h-10 w-32" />}>
-          <ThreadTools
-            thread={thread}
-            may={may}
-            mayRemoveCover={mayRemoveCover}
-            selecting={selecting}
-          />
-        </Suspense>
+        <ThreadTools
+          thread={thread}
+          watching={watching}
+          canWatch={permissions.canWatch}
+          may={may}
+          mayRemoveCover={mayRemoveCover}
+          selecting={selecting}
+        />
       )}
       {selecting && (
         <Suspense fallback={<Skeleton className="mt-3 h-40 w-full" />}>

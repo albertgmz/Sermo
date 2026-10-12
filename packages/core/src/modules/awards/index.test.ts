@@ -14,6 +14,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
 import { criterionDefinitions } from "../../shared/criteria";
+import { withTitles } from "../../shared/language";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -316,7 +317,7 @@ describe("award catalog and reads", () => {
         ValidationError,
       );
     }
-    expect(await call("criteria")).toEqual({ items: criterionDefinitions });
+    expect(await call("criteria")).toEqual({ items: withTitles("en", criterionDefinitions) });
     expect(await call("run")).toEqual({ queued: true });
     expect(await call("run")).toEqual({ queued: false });
     expect(

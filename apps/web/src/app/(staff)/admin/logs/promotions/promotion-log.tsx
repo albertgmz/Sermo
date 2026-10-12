@@ -4,7 +4,7 @@ import { cursorFrom } from "@/components/staff/cursor-list";
 import { LogTable } from "@/components/staff/log-table";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { groupLabel, groupsIfAllowed } from "../../groups/data";
+import { getGroups, groupLabel } from "../../groups/data";
 import { MemberLink, memberNames, panelHref } from "../links";
 import { MemberFilter, memberFilterId } from "../member-filter";
 
@@ -20,7 +20,7 @@ export async function PromotionLog({ searchParams }: { searchParams: Params }) {
     getViewer(),
     read(promotionsLog, { userId, cursor: cursorFrom(params), limit: 25 }),
     read(promotionsList, {}),
-    groupsIfAllowed(),
+    getGroups(),
   ]);
   const name = await memberNames(
     page.items.flatMap((entry) => [

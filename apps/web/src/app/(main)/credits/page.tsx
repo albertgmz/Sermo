@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { History } from "@/app/(main)/credits/history";
 import { Inventory } from "@/app/(main)/credits/inventory";
 import { Shop } from "@/app/(main)/credits/shop";
+import { Ways } from "@/app/(main)/credits/ways";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { SectionCard } from "@/components/forum/section-card";
 import {
@@ -193,15 +194,26 @@ export default async function CreditsPage({
         className="pt-6"
         mainClassName="space-y-4"
         aside={
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("aria.loadingLeaders")}>
-                <MemberListSkeleton rows={10} />
-              </LoadingRegion>
-            }
-          >
-            <Leaders />
-          </Suspense>
+          <>
+            <Suspense
+              fallback={
+                <LoadingRegion label={t("aria.loadingWays")}>
+                  <MemberListSkeleton rows={3} />
+                </LoadingRegion>
+              }
+            >
+              <Ways />
+            </Suspense>
+            <Suspense
+              fallback={
+                <LoadingRegion label={t("aria.loadingLeaders")}>
+                  <MemberListSkeleton rows={10} />
+                </LoadingRegion>
+              }
+            >
+              <Leaders />
+            </Suspense>
+          </>
         }
       >
         <Suspense

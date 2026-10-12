@@ -1,6 +1,7 @@
 import type { groupsGet } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +23,7 @@ export async function GroupForm({ group }: { group?: Group }) {
       submit={group ? undefined : t("create")}
     >
       {group && <input type="hidden" name="id" value={group.id} />}
+      <ConfirmPassword id={group ? "group-password" : "new-group-password"} />
       <FieldRow name="title" label={t("title")} htmlFor="group-title">
         <Input
           id="group-title"

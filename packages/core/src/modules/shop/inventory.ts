@@ -37,6 +37,7 @@ import {
   shopSql,
   statement,
 } from "./data";
+import { expireLapsedRow } from "./expiry";
 import { releaseUnheldWear } from "./held";
 
 /**
@@ -155,6 +156,7 @@ function purchase(
     groupsRemoved = revokePurchased(ctx, replaced.id).groupsRemoved;
     releaseUnheldWear(ctx, buyer.userId);
   }
+  if (!value.isConsumable) expireLapsedRow(ctx, recipientId, value.id, now);
   const held = value.isConsumable
     ? statement<InventoryRow>(
         ctx,

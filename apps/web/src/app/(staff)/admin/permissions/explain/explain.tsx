@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { call, errorMessage, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import { permissionTitle } from "../../groups/phrases";
 import { getDefinitions } from "../data";
 import { MemberPicker } from "../member-picker";
 
@@ -203,12 +202,18 @@ export async function Explain({
                 </option>
                 {[...new Set(definitions.map((entry) => entry.category))].map(
                   (category) => (
-                    <optgroup key={category} label={category}>
+                    <optgroup
+                      key={category}
+                      label={
+                        definitions.find((entry) => entry.category === category)
+                          ?.categoryTitle
+                      }
+                    >
                       {definitions
                         .filter((entry) => entry.category === category)
                         .map((entry) => (
                           <option key={entry.id} value={entry.id}>
-                            {permissionTitle(entry.label)} ({entry.id})
+                            {entry.title} ({entry.id})
                           </option>
                         ))}
                     </optgroup>

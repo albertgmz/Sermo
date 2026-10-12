@@ -3,7 +3,13 @@ import { createTestContext } from "@sermo/core/testing";
 import { registerEmailJobs } from "../email";
 import { registerAccountEmailJobs } from "../email/account";
 import { runDueJobs } from "../jobs/queue";
-import { getAuth, resolveActor, revokeUserCredentials, SESSIONLESS_PATHS } from "./index";
+import {
+  DISABLED_PATHS,
+  getAuth,
+  resolveActor,
+  revokeUserCredentials,
+  SESSIONLESS_PATHS,
+} from "./index";
 
 const ORIGIN = "http://localhost:3000";
 let clientNumber = 0;
@@ -28,6 +34,7 @@ function endpointsOf(auth: Setup["auth"], sessionless: boolean) {
     (endpoint) =>
       endpoint.path &&
       endpoint.path !== "/get-session" &&
+      !DISABLED_PATHS.includes(endpoint.path) &&
       SESSIONLESS.includes(endpoint.path) === sessionless,
   );
 }
@@ -214,7 +221,7 @@ for (const prefix of ["", "__Secure-", "__Host-"])
       const cookie = format(token, data);
       const endpoints = endpointsOf(auth, false);
       // Use the installed endpoint registry, so new endpoints are automatically covered.
-      expect(endpoints.length).toBeGreaterThan(30);
+      expect(endpoints.length + DISABLED_PATHS.length).toBeGreaterThan(30);
       for (const endpoint of endpoints) {
         for (const method of methodsOf(endpoint)) {
           const response = await request(concrete(endpoint.path!), method, {}, cookie);
@@ -305,7 +312,7 @@ for (const prefix of ["", "__Secure-"])
       .run(Date.now() - 1, userId);
     const cookie = `${token}; ${data.replace("=", " =")}`;
     const endpoints = endpointsOf(auth, false);
-    expect(endpoints.length).toBeGreaterThan(30);
+    expect(endpoints.length + DISABLED_PATHS.length).toBeGreaterThan(30);
     for (const endpoint of endpoints) {
       for (const method of methodsOf(endpoint)) {
         const response = await request(concrete(endpoint.path!), method, {}, cookie);

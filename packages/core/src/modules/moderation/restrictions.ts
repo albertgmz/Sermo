@@ -17,6 +17,7 @@ import {
   requirePermission,
 } from "../../permissions";
 import { iso, isoOrNull } from "../../time";
+import { requireNotErased } from "../admin/erased";
 import { appendModeratorLog } from "./index";
 
 type Kind = "posting" | "conversations" | "profile_posts";
@@ -81,6 +82,7 @@ export const restrictionsCreateOp = implement(restrictionsCreate, (ctx, actor, i
     requirePermission(ctx, currentActor(ctx, actor), "member.restrict", {
       target: target(ctx, input.userId),
     });
+    requireNotErased(ctx, input.userId);
     const now = ctx.now();
     const row = prepared(ctx, "restrictions.insert", () =>
       ctx.sqlite.prepare<Row, [number, string, number, string, number, number | null]>(

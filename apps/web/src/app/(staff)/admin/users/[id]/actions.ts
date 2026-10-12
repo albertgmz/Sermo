@@ -11,13 +11,13 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
-import { formFailure, text } from "../../groups/form-errors";
-import { memberOf, passwordRefusal, ticked } from "../action-helpers";
+import { formFailure, missingPassword, text } from "../../groups/form-errors";
+import { memberOf, ticked } from "../action-helpers";
 
 const PASSWORD_MODES = ["keep", "reset", "set"] as const;
 
 // Saves the identity of a member: username, email, verified flag and password. Only what differs
-// from what the form showed is sent. The administrator's password is checked first.
+// from what the form showed is sent. The administrator's password goes with the write.
 export async function saveIdentity(
   _previous: StaffFormState,
   formData: FormData,
@@ -29,8 +29,8 @@ export async function saveIdentity(
   if (!(PASSWORD_MODES as readonly string[]).includes(mode)) {
     return { error: t("passwordMode") };
   }
-  const refusal = await passwordRefusal(formData);
-  if (refusal) return refusal;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   const username = text(formData, "username").trim();
   const email = text(formData, "email").trim();
   const verified = ticked(formData, "emailVerified");
@@ -55,7 +55,12 @@ export async function saveIdentity(
   try {
     await call(usersAdminUpdateIdentity, input);
   } catch (error) {
-    return formFailure(error, ["username", "email", "password"]);
+    return formFailure(error, [
+      "username",
+      "email",
+      "password",
+      "actorPassword",
+    ]);
   }
   redirect(
     `/admin/users/${userId}?notice=${mode === "reset" ? "resetSent" : "identity"}`,
@@ -106,8 +111,8 @@ export async function eraseMember(
   if (text(formData, "confirmUsername").trim() !== username) {
     return { fields: { confirmUsername: t("confirmUsername") } };
   }
-  const refusal = await passwordRefusal(formData);
-  if (refusal) return refusal;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
     await call(usersAdminErase, {
       userId,
@@ -115,7 +120,7 @@ export async function eraseMember(
       reason,
     });
   } catch (error) {
-    return formFailure(error, ["reason"]);
+    return formFailure(error, ["reason", "actorPassword"]);
   }
   redirect(`/admin/users/${userId}?notice=erased`);
 }

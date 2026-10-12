@@ -20,7 +20,12 @@ import {
 import * as schema from "../../db/auth-schema";
 import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  RateLimitedError,
+  UnauthenticatedError,
+} from "../../errors";
 import { publishEvent } from "../../events";
 import { type AnyOperation, implement } from "../../operation";
 import {
@@ -33,7 +38,9 @@ import {
   resolvedPermissions,
 } from "../../permissions";
 import { iso } from "../../time";
+import { forgivePasswordGuess, takePasswordGuess } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+import { queueCounts } from "../moderation";
 import { usernameChange } from "./rename-marker";
 import { staffAccess } from "./staff";
 
@@ -76,8 +83,18 @@ async function proceedsWithoutSession(hook: AuthHookContext): Promise<boolean> {
   return typeof token !== "string" || !(await verifyJWT(token, hook.context.secret))?.updateTo;
 }
 
+/**
+ * Better Auth endpoints the HTTP handler does not serve. `/verify-password` only answers "is this
+ * my password" for a session, with no limit of its own; the forum's `auth.verifyPassword` is the
+ * one place that asks, under the member limit.
+ */
+export const DISABLED_PATHS: readonly string[] = ["/verify-password"];
+
 /** Marks, on the per-request auth context, that the request's session cookies were dead. */
 const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
+
+/** The wrong-password guess a change-password request took, to give back when it succeeds. */
+const PASSWORD_GUESS = "sermoPasswordGuess";
 
 function withoutSessionCookies(hook: AuthHookContext) {
   const strip = (name: string) => name.toLowerCase().replace(/^__(?:secure|host)-/, "");
@@ -299,6 +316,9 @@ function buildAuth(ctx: Ctx) {
       // usable until their signature expires, so use database-backed sessions with mail enabled.
       cookieCache: { enabled: sessionCookieCache(ctx) && !mailEnabled, maxAge: 300 },
     },
+    // Better Auth would answer "is this my password?" for a session without any limit of its own;
+    // the forum's own `auth.verifyPassword` is the one place that asks, with the member limit.
+    disabledPaths: [...DISABLED_PATHS],
     rateLimit: {
       enabled: true,
       storage: "memory",
@@ -407,6 +427,24 @@ function buildAuth(ctx: Ctx) {
             isReservedUsername(hook.body.username)
           )
             return hook.json({ available: false });
+          if (hook.path === "/change-password" && hook.context.session) {
+            // The current password is asked here, so guessing it is held to the limit of the
+            // administration checks: five wrong answers in fifteen minutes per member, whatever
+            // the client address. A request that succeeds gives its guess back (after hook).
+            try {
+              Reflect.set(
+                hook.context,
+                PASSWORD_GUESS,
+                takePasswordGuess(ctx, Number(hook.context.session.user.id)),
+              );
+            } catch (error) {
+              if (!(error instanceof RateLimitedError)) throw error;
+              throw new APIError("TOO_MANY_REQUESTS", {
+                code: "TOO_MANY_ATTEMPTS",
+                message: error.message,
+              });
+            }
+          }
           if (hook.path === "/reset-password") {
             // An erased member's link is dead even if one survived the erasure.
             const token: unknown = hook.body?.token ?? hook.query?.token;
@@ -546,9 +584,13 @@ function buildAuth(ctx: Ctx) {
       ),
       after: createAuthMiddleware(async (hook) => {
         if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
+        const failed =
+          hook.context.returned instanceof APIError ||
+          (hook.context.returned instanceof Response && !hook.context.returned.ok);
+        const guess = Reflect.get(hook.context, PASSWORD_GUESS);
+        if (typeof guess === "number" && !failed) forgivePasswordGuess(ctx, guess);
         if (!mailEnabled) return;
-        if (hook.context.returned instanceof APIError) return;
-        if (hook.context.returned instanceof Response && !hook.context.returned.ok) return;
+        if (failed) return;
         if (hook.path === "/change-password") {
           const user = hook.context.session?.user;
           if (user)
@@ -1154,12 +1196,13 @@ export const countersSql =
 export const authCountersOp = implement(
   authCounters,
   (ctx, actor) => {
-    if (actor.kind === "guest") return { notifications: 0, conversations: 0 };
-    return (
+    const none = { notifications: 0, conversations: 0 };
+    if (actor.kind === "guest") return { ...none, ...queueCounts(ctx, actor) };
+    const own =
       prepared(ctx, "auth.counters", () =>
         ctx.sqlite.prepare<{ notifications: number; conversations: number }, [number]>(countersSql),
-      ).get(actor.userId) ?? { notifications: 0, conversations: 0 }
-    );
+      ).get(actor.userId) ?? none;
+    return { ...own, ...queueCounts(ctx, actor) };
   },
   { public: "Every caller sees only their own counters; guests see zeros." },
 );

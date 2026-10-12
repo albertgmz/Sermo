@@ -3,10 +3,26 @@ import { getTranslations } from "next-intl/server";
 import { MemberRow } from "@/components/forum/member-row";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { MemberPicker } from "../../permissions/member-picker";
 import { setModerator } from "../actions";
 import { InlineForm } from "../inline-form";
+
+// The administrator's own password, which the change is sent with.
+function PasswordInput({ label }: { label: string }) {
+  return (
+    <Input
+      type="password"
+      name="actorPassword"
+      autoComplete="off"
+      required
+      aria-label={label}
+      placeholder={label}
+      className="w-full sm:w-48"
+    />
+  );
+}
 
 // Who moderates this forum (from `staff.moderators`: members with a moderation permission on it,
 // or everywhere), a remove control per member, and a member picker to add one. Both write
@@ -56,6 +72,7 @@ export async function Moderators({
                           value={item.card.id}
                         />
                         <input type="hidden" name="remove" value="1" />
+                        <PasswordInput label={t("password")} />
                       </InlineForm>
                     )}
                   </MemberRow>
@@ -84,6 +101,7 @@ export async function Moderators({
           <InlineForm action={setModerator} submit={t("add")} variant="default">
             <input type="hidden" name="id" value={nodeId} />
             <input type="hidden" name="userId" value={member.id} />
+            <PasswordInput label={t("password")} />
           </InlineForm>
         )}
       </MemberPicker>

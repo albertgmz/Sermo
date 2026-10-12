@@ -29,7 +29,9 @@ import {
   eligible,
   type MemberFacts,
 } from "../../shared/criteria";
+import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
+import { requireNotErased } from "../admin/erased";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { assertAdministrator } from "../permissions";
 
@@ -392,7 +394,7 @@ export const operations = [
   implement(contracts.promotionsCriteria, (ctx, actor) =>
     readWithCurrentActor(ctx, actor, (current) => {
       requirePermission(ctx, current, "admin.promotions");
-      return { items: criterionDefinitions };
+      return { items: withTitles(viewerLanguage(ctx, current), criterionDefinitions) };
     }),
   ),
   implement(contracts.promotionsList, (ctx, actor) =>
@@ -487,6 +489,7 @@ export const operations = [
       const m = member(ctx, input.userId);
       const affected = target(ctx, m.id);
       requirePermission(ctx, current, "admin.members", { target: affected });
+      requireNotErased(ctx, m.id);
       const wasAdministrator = can(ctx, affected, "admin.permissions");
       const p = promotion(ctx, input.promotionId);
       if (groupIds(p).length === 0) {
