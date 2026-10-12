@@ -31,7 +31,7 @@ import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
-import { SignatureHtml } from "@/components/forum/signature";
+import { SignatureHtml } from "@/components/forum/signature-html";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
