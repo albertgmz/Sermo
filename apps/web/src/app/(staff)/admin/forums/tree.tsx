@@ -54,7 +54,7 @@ export async function ForumTree({
                 <p className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/admin/forums/${node.id}`}
-                    className="text-sm font-semibold [overflow-wrap:anywhere] hover:underline"
+                    className="inline-flex min-h-10 items-center text-sm font-semibold [overflow-wrap:anywhere] hover:underline"
                   >
                     {node.title}
                   </Link>
