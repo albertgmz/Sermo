@@ -2,7 +2,6 @@ import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { setLiteMode } from "@/app/(main)/actions";
 import { LiteCheckbox } from "@/app/(main)/lite/checkbox";
-import styles from "@/app/(main)/lite/settings-form.module.css";
 import { LiteStatus } from "@/app/(main)/lite/status";
 import { PendingButton } from "@/components/forum/pending-button";
 import { LITE_CATEGORIES, type LiteState } from "@/lib/lite-preferences";
@@ -67,7 +66,7 @@ export function LiteSettingsForm({
         </div>
         <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
-      <form action={setLiteMode} className={styles.form}>
+      <form action={setLiteMode} className="group/lite">
         <input type="hidden" name="returnTo" value={returnTo} />
         {/* Tells the action that the whole selection is submitted. */}
         <input type="hidden" name="source" value="settings" />
@@ -84,11 +83,11 @@ export function LiteSettingsForm({
           <p className="mt-1 text-xs text-muted-foreground">
             {t("categoriesDescription")}
           </p>
-          <p className={`${styles.locked} mt-2 text-sm text-muted-foreground`}>
+          <p className="mt-2 hidden text-sm text-muted-foreground group-has-[input[name=mode]:checked]/lite:block">
             {t("masterNotice")}
           </p>
         </div>
-        <div className={`${styles.custom} divide-y`}>
+        <div className="divide-y group-has-[input[name=mode]:checked]/lite:hidden">
           {LITE_CATEGORIES.map(({ key }) => (
             <PreferenceRow
               key={key}
@@ -101,7 +100,7 @@ export function LiteSettingsForm({
             />
           ))}
         </div>
-        <div className={`${styles.locked} divide-y`}>
+        <div className="hidden divide-y group-has-[input[name=mode]:checked]/lite:block">
           {LITE_CATEGORIES.map(({ key }) => (
             <PreferenceRow
               key={key}
