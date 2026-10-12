@@ -63,13 +63,13 @@ async function Sanctions({
       {holds(viewer, "member.ban") && (
         <Bans userId={userId} params={query} readOnly={readOnly} />
       )}
-      {holds(viewer, "forum.threadBan") && (
-        <ThreadBans
-          userId={userId}
-          thread={parseId(one(query.thread))}
-          readOnly={readOnly}
-        />
-      )}
+      {/* `forum.threadBan` is a permission of one forum: no site-wide list holds it, so the
+          lookup is offered to whoever may open the tab and the backend answers for the forum. */}
+      <ThreadBans
+        userId={userId}
+        thread={parseId(one(query.thread))}
+        readOnly={readOnly}
+      />
     </>
   );
 }
