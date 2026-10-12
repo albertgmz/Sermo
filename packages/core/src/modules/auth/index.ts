@@ -1,7 +1,7 @@
 import { type apiKey, defaultKeyHasher } from "@better-auth/api-key";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createAuthMiddleware } from "better-auth/api";
+import { createAuthMiddleware, isAPIError } from "better-auth/api";
 import { deleteSessionCookie, setSessionCookie } from "better-auth/cookies";
 import { verifyJWT } from "better-auth/crypto";
 import { parseUserOutput } from "better-auth/db";
@@ -118,6 +118,41 @@ function retireDeadSessionCookies(hook: AuthHookContext): void {
       .filter((entry) => original.includes(entry) || !rewritten.has(nameOf(entry)));
     headers.delete("set-cookie");
     for (const entry of [...current, ...lost]) headers.append("set-cookie", entry);
+  }
+}
+
+/** The parts of a hook context that decide whether a failed link goes to the web app. */
+interface LinkHook {
+  path: string;
+  request?: Request;
+  headers?: Headers;
+  redirect: (url: string) => Error;
+}
+
+/**
+ * A browser that follows a verify-email or change-email link and meets an error is sent to the web
+ * app's /verify-email page with the error code, instead of being shown a JSON body. Only a GET that
+ * asks for HTML is redirected: API callers keep the JSON error.
+ */
+function failedLinkRedirect(ctx: Ctx, hook: LinkHook, error: unknown): Error | null {
+  if (
+    hook.path !== "/verify-email" ||
+    hook.request?.method !== "GET" ||
+    !(hook.headers?.get("accept") ?? "").includes("text/html") ||
+    !isAPIError(error) ||
+    error.statusCode < 400
+  )
+    return null;
+  const code = (error.body as { code?: string } | undefined)?.code ?? "UNKNOWN";
+  const site = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+  return hook.redirect(new URL(`/verify-email?error=${encodeURIComponent(code)}`, site).toString());
+}
+
+async function redirectFailedLink<T>(ctx: Ctx, hook: LinkHook, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    throw failedLinkRedirect(ctx, hook, error) ?? error;
   }
 }
 
@@ -303,160 +338,164 @@ function buildAuth(ctx: Ctx) {
         }
       : {}),
     hooks: {
-      before: createAuthMiddleware(async (hook) => {
-        if (hook.path === "/get-session") return;
-        // Use Better Auth's own signed-token reader and its database adapter, never the cache.
-        // Supplying the authoritative session also prevents later middleware from caching one.
-        hook.context.session = null;
-        let requestWithoutCookies: ReturnType<typeof withoutSessionCookies> | undefined;
-        const tokenName = hook.context.authCookies.sessionToken.name;
-        const sessionToken = await hook.getSignedCookie(tokenName, hook.context.secret);
-        if (sessionToken || hook.getCookie(tokenName)) {
-          const session = sessionToken
-            ? await hook.context.internalAdapter.findSession(sessionToken)
-            : null;
-          if (!session || session.session.expiresAt.getTime() <= Date.now()) {
-            if (!(await proceedsWithoutSession(hook))) {
-              // Refuse the request, but let the browser recover on its next sign-in attempt.
-              deleteSessionCookie(hook);
-              throw new APIError(
-                "UNAUTHORIZED",
-                { code: "UNAUTHORIZED", message: "Unauthorized" },
-                hook.responseHeaders,
-              );
+      before: createAuthMiddleware(async (hook) =>
+        redirectFailedLink(ctx, hook, async () => {
+          if (hook.path === "/get-session") return;
+          // Use Better Auth's own signed-token reader and its database adapter, never the cache.
+          // Supplying the authoritative session also prevents later middleware from caching one.
+          hook.context.session = null;
+          let requestWithoutCookies: ReturnType<typeof withoutSessionCookies> | undefined;
+          const tokenName = hook.context.authCookies.sessionToken.name;
+          const sessionToken = await hook.getSignedCookie(tokenName, hook.context.secret);
+          if (sessionToken || hook.getCookie(tokenName)) {
+            const session = sessionToken
+              ? await hook.context.internalAdapter.findSession(sessionToken)
+              : null;
+            if (!session || session.session.expiresAt.getTime() <= Date.now()) {
+              if (!(await proceedsWithoutSession(hook))) {
+                // Refuse the request, but let the browser recover on its next sign-in attempt.
+                deleteSessionCookie(hook);
+                throw new APIError(
+                  "UNAUTHORIZED",
+                  { code: "UNAUTHORIZED", message: "Unauthorized" },
+                  hook.responseHeaders,
+                );
+              }
+              // This endpoint takes no session: treat the request as cookie-less, hide the dead
+              // cookies from everything downstream, and expire them in the response (after hook).
+              Object.assign(hook.context, { [DEAD_SESSION_COOKIE]: true });
+              requestWithoutCookies = withoutSessionCookies(hook);
+            } else {
+              hook.context.session = session;
+              if (hook.path !== "/sign-out" && isBanned(ctx, Number(session.user.id)))
+                throw accountBanned();
             }
-            // This endpoint takes no session: treat the request as cookie-less, hide the dead
-            // cookies from everything downstream, and expire them in the response (after hook).
-            Object.assign(hook.context, { [DEAD_SESSION_COOKIE]: true });
-            requestWithoutCookies = withoutSessionCookies(hook);
-          } else {
-            hook.context.session = session;
-            if (hook.path !== "/sign-out" && isBanned(ctx, Number(session.user.id)))
-              throw accountBanned();
           }
-        }
-        // The plugin's sign-in validator retains the historical rule for existing accounts.
-        if (
-          (hook.path === "/sign-up/email" ||
-            hook.path === "/update-user" ||
-            hook.path === "/is-username-available") &&
-          typeof hook.body?.username === "string" &&
-          !isValidUsername(hook.body.username)
-        )
-          throw new APIError(
-            hook.path === "/is-username-available" ? "UNPROCESSABLE_ENTITY" : "BAD_REQUEST",
-            {
-              code: "INVALID_USERNAME",
-              message: "Username is invalid",
-            },
-          );
-        if (hook.path === "/request-password-reset") {
-          const redirectTo: unknown = hook.body?.redirectTo;
-          if (typeof redirectTo !== "string" || !redirectTo.trim())
-            throw new APIError("BAD_REQUEST", {
-              message: "redirectTo is required.",
-              code: "REDIRECT_REQUIRED",
-            });
-        }
-        if (hook.path !== "/verify-email") return requestWithoutCookies;
-        const token: unknown = hook.query?.token;
-        if (typeof token !== "string") return requestWithoutCookies;
-        // Classify the verified JWT payload, including base64url and UTF-8, with the same
-        // decoder that validates it. A separate, fallible classifier could bypass this flow.
-        const verified = await verifyJWT(token, hook.context.secret);
-        if (!verified?.updateTo) return requestWithoutCookies;
-        // Returning here bypasses Better Auth's email-based lookup/update. Check its callback
-        // policy too: the endpoint middleware will not run after a before-hook response.
-        const callbackURL: unknown = hook.query?.callbackURL;
-        if (
-          callbackURL !== undefined &&
-          (typeof callbackURL !== "string" ||
-            (callbackURL &&
-              !hook.context.isTrustedOrigin(callbackURL, { allowRelativePaths: true })))
-        )
-          throw new APIError("FORBIDDEN", {
-            code: "INVALID_CALLBACK_URL",
-            message: "Invalid callbackURL",
-          });
-        if (
-          typeof verified.email !== "string" ||
-          typeof verified.updateTo !== "string" ||
-          verified.requestType !== "change-email-verification" ||
-          typeof verified.exp !== "number"
-        )
-          throw invalidToken();
-        const { email, updateTo, exp } = verified;
-        const identifier = changeEmailIdentifier(token);
-        const session = hook.context.session;
-        const user = writeTx(ctx, () => {
-          const now = Date.now();
-          const pending = ctx.sqlite
-            .prepare<{ value: string; expires_at: number }, [string]>(
-              "SELECT value, expires_at FROM auth_verification WHERE identifier = ?1 ORDER BY created_at DESC, id DESC LIMIT 1",
-            )
-            .get(identifier);
-          if (!pending || pending.expires_at <= now || exp * 1000 <= now) throw invalidToken();
-          const userId = Number(pending.value);
-          if (!Number.isSafeInteger(userId) || userId <= 0) throw invalidToken();
-          const holder = ctx.db
-            .select()
-            .from(schema.auth_user)
-            .where(eq(schema.auth_user.id, userId))
-            .get();
-          if (!holder || holder.email !== email) throw invalidToken();
-          if (session && session.user.id !== String(userId))
-            throw new APIError("UNAUTHORIZED", { code: "INVALID_USER", message: "Invalid user" });
+          // The plugin's sign-in validator retains the historical rule for existing accounts.
           if (
-            session &&
-            !ctx.sqlite
-              .prepare(
-                "SELECT 1 FROM auth_session WHERE token = ?1 AND user_id = ?2 AND expires_at > ?3",
+            (hook.path === "/sign-up/email" ||
+              hook.path === "/update-user" ||
+              hook.path === "/is-username-available") &&
+            typeof hook.body?.username === "string" &&
+            !isValidUsername(hook.body.username)
+          )
+            throw new APIError(
+              hook.path === "/is-username-available" ? "UNPROCESSABLE_ENTITY" : "BAD_REQUEST",
+              {
+                code: "INVALID_USERNAME",
+                message: "Username is invalid",
+              },
+            );
+          if (hook.path === "/request-password-reset") {
+            const redirectTo: unknown = hook.body?.redirectTo;
+            if (typeof redirectTo !== "string" || !redirectTo.trim())
+              throw new APIError("BAD_REQUEST", {
+                message: "redirectTo is required.",
+                code: "REDIRECT_REQUIRED",
+              });
+          }
+          if (hook.path !== "/verify-email") return requestWithoutCookies;
+          const token: unknown = hook.query?.token;
+          if (typeof token !== "string") return requestWithoutCookies;
+          // Classify the verified JWT payload, including base64url and UTF-8, with the same
+          // decoder that validates it. A separate, fallible classifier could bypass this flow.
+          const verified = await verifyJWT(token, hook.context.secret);
+          if (!verified?.updateTo) return requestWithoutCookies;
+          // Returning here bypasses Better Auth's email-based lookup/update. Check its callback
+          // policy too: the endpoint middleware will not run after a before-hook response.
+          const callbackURL: unknown = hook.query?.callbackURL;
+          if (
+            callbackURL !== undefined &&
+            (typeof callbackURL !== "string" ||
+              (callbackURL &&
+                !hook.context.isTrustedOrigin(callbackURL, { allowRelativePaths: true })))
+          )
+            throw new APIError("FORBIDDEN", {
+              code: "INVALID_CALLBACK_URL",
+              message: "Invalid callbackURL",
+            });
+          if (
+            typeof verified.email !== "string" ||
+            typeof verified.updateTo !== "string" ||
+            verified.requestType !== "change-email-verification" ||
+            typeof verified.exp !== "number"
+          )
+            throw invalidToken();
+          const { email, updateTo, exp } = verified;
+          const identifier = changeEmailIdentifier(token);
+          const session = hook.context.session;
+          const user = writeTx(ctx, () => {
+            const now = Date.now();
+            const pending = ctx.sqlite
+              .prepare<{ value: string; expires_at: number }, [string]>(
+                "SELECT value, expires_at FROM auth_verification WHERE identifier = ?1 ORDER BY created_at DESC, id DESC LIMIT 1",
               )
-              .get(session.session.token, userId, now)
-          )
-            throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Unauthorized" });
-          if (isBanned(ctx, userId)) throw accountBanned();
-          if (
-            ctx.sqlite
-              .prepare("SELECT 1 FROM auth_user WHERE email = ?1 AND id <> ?2")
-              .get(updateTo, userId)
-          )
-            throw new APIError("CONFLICT", {
-              code: "EMAIL_ALREADY_IN_USE",
-              message: "Email is already in use",
-            });
-          // These two credential writes intentionally share one synchronous transaction. The
-          // async internal adapter cannot atomically condition the update on the original email.
-          const changed = ctx.sqlite
-            .prepare(
-              "UPDATE auth_user SET email = ?1, email_verified = 1, updated_at = ?2 WHERE id = ?3 AND email = ?4",
+              .get(identifier);
+            if (!pending || pending.expires_at <= now || exp * 1000 <= now) throw invalidToken();
+            const userId = Number(pending.value);
+            if (!Number.isSafeInteger(userId) || userId <= 0) throw invalidToken();
+            const holder = ctx.db
+              .select()
+              .from(schema.auth_user)
+              .where(eq(schema.auth_user.id, userId))
+              .get();
+            if (!holder || holder.email !== email) throw invalidToken();
+            if (session && session.user.id !== String(userId))
+              throw new APIError("UNAUTHORIZED", { code: "INVALID_USER", message: "Invalid user" });
+            if (
+              session &&
+              !ctx.sqlite
+                .prepare(
+                  "SELECT 1 FROM auth_session WHERE token = ?1 AND user_id = ?2 AND expires_at > ?3",
+                )
+                .get(session.session.token, userId, now)
             )
-            .run(updateTo, now, userId, email).changes;
-          if (changed !== 1) throw invalidToken();
-          ctx.sqlite.prepare("DELETE FROM auth_verification WHERE identifier = ?1").run(identifier);
-          const promoted = !holder.emailVerified && promoteVerifiedMember(ctx, userId);
-          for (const address of new Set([email, updateTo]))
-            queueAccountEmail(ctx, { kind: "emailChanged", userId, email: address });
-          if (promoted) queueAccountEmail(ctx, { kind: "welcome", userId, email: updateTo });
-          return {
-            ...holder,
-            id: String(userId),
-            email: updateTo,
-            emailVerified: true,
-            updatedAt: new Date(now),
-          };
-        });
-        const activeSession =
-          session?.session ?? (await hook.context.internalAdapter.createSession(user.id));
-        if (!activeSession)
-          throw new APIError("INTERNAL_SERVER_ERROR", {
-            code: "FAILED_TO_CREATE_SESSION",
-            message: "Failed to create session",
+              throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Unauthorized" });
+            if (isBanned(ctx, userId)) throw accountBanned();
+            if (
+              ctx.sqlite
+                .prepare("SELECT 1 FROM auth_user WHERE email = ?1 AND id <> ?2")
+                .get(updateTo, userId)
+            )
+              throw new APIError("CONFLICT", {
+                code: "EMAIL_ALREADY_IN_USE",
+                message: "Email is already in use",
+              });
+            // These two credential writes intentionally share one synchronous transaction. The
+            // async internal adapter cannot atomically condition the update on the original email.
+            const changed = ctx.sqlite
+              .prepare(
+                "UPDATE auth_user SET email = ?1, email_verified = 1, updated_at = ?2 WHERE id = ?3 AND email = ?4",
+              )
+              .run(updateTo, now, userId, email).changes;
+            if (changed !== 1) throw invalidToken();
+            ctx.sqlite
+              .prepare("DELETE FROM auth_verification WHERE identifier = ?1")
+              .run(identifier);
+            const promoted = !holder.emailVerified && promoteVerifiedMember(ctx, userId);
+            for (const address of new Set([email, updateTo]))
+              queueAccountEmail(ctx, { kind: "emailChanged", userId, email: address });
+            if (promoted) queueAccountEmail(ctx, { kind: "welcome", userId, email: updateTo });
+            return {
+              ...holder,
+              id: String(userId),
+              email: updateTo,
+              emailVerified: true,
+              updatedAt: new Date(now),
+            };
           });
-        await setSessionCookie(hook, { session: activeSession, user });
-        if (callbackURL) throw hook.redirect(callbackURL as string);
-        return hook.json({ status: true, user: parseUserOutput(hook.context.options, user) });
-      }),
+          const activeSession =
+            session?.session ?? (await hook.context.internalAdapter.createSession(user.id));
+          if (!activeSession)
+            throw new APIError("INTERNAL_SERVER_ERROR", {
+              code: "FAILED_TO_CREATE_SESSION",
+              message: "Failed to create session",
+            });
+          await setSessionCookie(hook, { session: activeSession, user });
+          if (callbackURL) throw hook.redirect(callbackURL as string);
+          return hook.json({ status: true, user: parseUserOutput(hook.context.options, user) });
+        }),
+      ),
       after: createAuthMiddleware(async (hook) => {
         if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
         if (!mailEnabled) return;

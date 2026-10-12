@@ -328,3 +328,63 @@ test("two outstanding confirmations can only change the requesting account once"
       .get(owner.id)?.n,
   ).toBe(2);
 });
+
+test("a browser that follows a failed link lands on the web app's verify page, API callers keep the JSON", async () => {
+  const { ctx, auth, owner, link, follow, emailOf, pending } = await setup();
+  const browser = (url: URL, cookie?: string) =>
+    auth.handler(
+      new Request(url, {
+        headers: {
+          accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+          "x-sermo-client-ip": "198.51.100.250",
+          ...(cookie ? { cookie } : {}),
+        },
+      }),
+    );
+  const landing = (code: string) => `${ORIGIN}/verify-email?error=${code}`;
+  const tokenUrl = (token: string) => {
+    const url = new URL(`${ORIGIN}/api/auth/verify-email`);
+    url.searchParams.set("token", token);
+    return url;
+  };
+
+  // A signed change-email token that no pending confirmation stands behind.
+  const unbound = await signJWT(
+    {
+      email: "a@example.test",
+      updateTo: "b@example.test",
+      requestType: "change-email-verification",
+    },
+    ctx.config.auth!.secret,
+  );
+  const refused = await browser(tokenUrl(unbound));
+  expect(refused.status).toBe(302);
+  expect(refused.headers.get("location")).toBe(landing("INVALID_TOKEN"));
+  expect(refused.headers.getSetCookie()).toEqual([]);
+  expect((await follow(tokenUrl(unbound))).status).toBe(401);
+
+  // An ordinary link that carries the web app's page as its callback is redirected by Better Auth
+  // itself, with the same error parameter.
+  const native = tokenUrl("unknown");
+  native.searchParams.set("callbackURL", `${ORIGIN}/verify-email`);
+  const callback = await browser(native);
+  expect(callback.status).toBe(302);
+  expect(callback.headers.get("location")).toBe(landing("INVALID_TOKEN"));
+
+  // A change-email link followed with a session that no longer exists keeps clearing its cookies.
+  const url = await link("b@example.test");
+  ctx.sqlite.prepare("DELETE FROM auth_session WHERE user_id = ?1").run(owner.id);
+  const dead = await browser(url, owner.cookie);
+  expect(dead.status).toBe(302);
+  expect(dead.headers.get("location")).toBe(landing("UNAUTHORIZED"));
+  for (const cleared of dead.headers.getSetCookie())
+    expect(cleared).toMatch(/^[^=]+=;.*Max-Age=0/i);
+  expect(dead.headers.getSetCookie().length).toBeGreaterThan(0);
+  expect(emailOf(owner.id)).toBe("a@example.test");
+  expect(pending()).toBe(1);
+
+  // A good link is not redirected.
+  const confirmed = await browser(url);
+  expect(confirmed.status).toBe(200);
+  expect(emailOf(owner.id)).toBe("b@example.test");
+});
