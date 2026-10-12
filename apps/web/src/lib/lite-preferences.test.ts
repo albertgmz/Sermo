@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { FileMetadata } from "@sermo/core/contracts";
 import { blocksImageRequest, normalizeImagePath } from "./lite-images";
 import {
   blocks,
   LITE_CATEGORIES,
   type LiteState,
+  liteCategoryOfPurpose,
   parseLiteCookie,
   parseLiteCookieHeader,
   serializeLiteCookie,
@@ -216,4 +218,31 @@ test("custom saves and invalid modes behave the same from the settings form", ()
   for (const mode of [null, "", "ALL", "unknown"]) {
     assert.equal(updateLiteState(stored, mode, ["avatars"], true), null);
   }
+});
+
+test("every backend file purpose belongs to exactly one LITE category", () => {
+  for (const purpose of FileMetadata.shape.purpose.options) {
+    const owners = LITE_CATEGORIES.filter((category) =>
+      (category.purposes as readonly string[]).includes(purpose),
+    );
+    assert.equal(
+      owners.length,
+      1,
+      `${purpose}: register this file purpose in exactly one LITE category (found ${owners.length})`,
+    );
+    assert.equal(liteCategoryOfPurpose(purpose), owners[0].key);
+  }
+  for (const category of LITE_CATEGORIES)
+    for (const purpose of category.purposes)
+      assert.ok(
+        (FileMetadata.shape.purpose.options as readonly string[]).includes(
+          purpose,
+        ),
+        `${category.key}: "${purpose}" is not a backend file purpose`,
+      );
+});
+
+test("the identity pictures are brand", () => {
+  for (const purpose of ["site_logo", "site_icon", "site_backdrop"] as const)
+    assert.equal(liteCategoryOfPurpose(purpose), "brand");
 });

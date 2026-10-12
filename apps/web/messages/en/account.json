@@ -1,6 +1,6 @@
 {
   "account": {
-    "metaTitle": "Account overview - forum/ui",
+    "metaTitle": "Account overview",
     "heading": "Overview",
     "postsLabel": "Total Posts",
     "reactionsLabel": "Total Reactions",
@@ -66,7 +66,7 @@
     "activityDescription": "Your most recent posting activity."
   },
   "appearance": {
-    "metaTitle": "Appearance - forum/ui",
+    "metaTitle": "Appearance",
     "heading": "Appearance",
     "description": "How the forum looks for you, and how you look to everyone else.",
     "previewHeading": "Preview",
@@ -106,7 +106,7 @@
     }
   },
   "permissions": {
-    "metaTitle": "Permissions - forum/ui",
+    "metaTitle": "Permissions",
     "heading": "Permissions",
     "description": "What your account can do, and where each permission comes from. <account>Edit your username and title</account>",
     "rankSource": "Included in your {rank} rank",
@@ -140,7 +140,7 @@
     }
   },
   "security": {
-    "metaTitle": "Security - forum/ui",
+    "metaTitle": "Security",
     "heading": "Security",
     "devicesHeading": "Devices",
     "devicesDescription": "Browsers that are signed in to your account.",

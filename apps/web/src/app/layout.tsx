@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { locale } from "@/i18n/request";
+import { getSite } from "@/lib/sermo/site";
 import "./globals.css";
 
 const inter = Inter({
@@ -18,9 +19,12 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("layout.layout");
+  const [t, site] = await Promise.all([
+    getTranslations("layout.layout"),
+    getSite(),
+  ]);
   return {
-    title: t("metaTitle"),
+    title: { default: site.name, template: `%s - ${site.name}` },
     description: t("metaDescription"),
   };
 }

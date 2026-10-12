@@ -24,6 +24,10 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks postImages on the server before emitting Markdown images.",
   "src/components/layout/site-icon.tsx":
     "Checks brand before emitting the favicon link.",
+  "src/components/layout/logo.tsx":
+    "Checks brand before emitting the site logo picture.",
+  "src/components/layout/page-backdrop.tsx":
+    "Checks brand before emitting the site backdrop picture.",
   "src/components/ui/avatar.tsx":
     "Low-level image primitive, used only by the reviewed UserAvatar gate.",
 };
@@ -125,6 +129,30 @@ test("inline SVG artwork is classified and consults its LITE category", () => {
         `${path}: consult liteBlocks("${category}") on the server before drawing artwork.`,
       );
   }
+  expect(errors, errors.join("\n")).toEqual([]);
+});
+
+// Pictures served by the backend are addressed by id: the category comes from the file's purpose.
+const BACKEND_PICTURE_GATES: Record<string, string> = {
+  "src/components/layout/logo.tsx": "site_logo",
+  "src/components/layout/site-icon.tsx": "site_icon",
+  "src/components/layout/page-backdrop.tsx": "site_backdrop",
+};
+
+test("backend pictures consult the category of their file purpose on the server", () => {
+  const errors = Object.entries(BACKEND_PICTURE_GATES).flatMap(
+    ([path, purpose]) => {
+      const source = read(path);
+      const consulted = new RegExp(
+        `await\\s+liteBlocks\\([^;]*liteCategoryOfPurpose\\(\\s*["']${purpose}["']\\s*\\)`,
+      ).test(source);
+      return consulted && !/^["']use client["']/m.test(source)
+        ? []
+        : [
+            `${path}: call liteBlocks(liteCategoryOfPurpose("${purpose}")) on the server before emitting the picture.`,
+          ];
+    },
+  );
   expect(errors, errors.join("\n")).toEqual([]);
 });
 

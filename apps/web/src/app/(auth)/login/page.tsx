@@ -5,6 +5,7 @@ import { AuthCollage } from "@/app/(auth)/login/auth-collage";
 import { LoginForm } from "@/app/(auth)/login/login-form";
 import { LogoMark } from "@/components/layout/logo";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { getSite } from "@/lib/sermo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.login");
@@ -15,14 +16,17 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const t = await getTranslations("auth.login");
-  const { next, registered } = await searchParams;
+  const [{ next, registered }, site] = await Promise.all([
+    searchParams,
+    getSite(),
+  ]);
   return (
     <main className="grid min-h-dvh flex-1 md:grid-cols-2">
       <div className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
           <Link
             href="/"
-            aria-label={t("aria.home")}
+            aria-label={t("aria.home", { site: site.name })}
             className="mx-auto flex size-12 items-center justify-center rounded-md"
           >
             <LogoMark className="size-9" />

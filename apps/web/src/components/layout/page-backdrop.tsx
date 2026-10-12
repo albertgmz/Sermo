@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { liteBlocks } from "@/lib/lite-mode";
+import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
+import { getSite } from "@/lib/sermo/site";
 
 const COLUMNS = Array.from({ length: 17 }, (_, i) => i * 62.5);
 const ROWS = [1, 42, 72, 92];
@@ -19,6 +21,21 @@ export function PageBackdropPlaceholder() {
 }
 
 async function ResolvedPageBackdrop() {
+  const { backdrop } = await getSite();
+  if (backdrop) {
+    if (await liteBlocks(liteCategoryOfPurpose("site_backdrop")))
+      return <PageBackdropPlaceholder />;
+    return (
+      <div aria-hidden="true" className={BOX}>
+        {/* biome-ignore lint/performance/noImgElement: next/image optimisation is disabled */}
+        <img
+          src={backdrop.url}
+          alt=""
+          className="size-full object-cover object-top opacity-60 [mask-image:linear-gradient(to_bottom,black_30%,transparent)]"
+        />
+      </div>
+    );
+  }
   if (await liteBlocks("brand")) return <PageBackdropPlaceholder />;
   return (
     <div aria-hidden="true" className={BOX}>

@@ -10,7 +10,7 @@
     }
   },
   "terms": {
-    "metaTitle": "Terms - forum/ui",
+    "metaTitle": "Terms",
     "title": "Terms of service",
     "introduction": "These terms are placeholder text for a demo forum. They describe, in general words, what a community like this one usually expects from its members.",
     "accountHeading": "Your account",
@@ -37,7 +37,7 @@
     }
   },
   "privacy": {
-    "metaTitle": "Privacy - forum/ui",
+    "metaTitle": "Privacy",
     "title": "Privacy policy",
     "introduction": "This policy is placeholder text for a demo forum. It lists the kind of information a community site typically handles.",
     "collectionHeading": "What is collected",
@@ -60,11 +60,11 @@
     }
   },
   "legal": {
-    "metaTitle": "Legal notice - forum/ui",
+    "metaTitle": "Legal notice",
     "title": "Legal notice",
     "introduction": "This notice is placeholder text for a demo forum. The details below are generic examples, not a real company.",
     "publisherHeading": "Publisher",
-    "publisherAddress": "<strong>forum/ui</strong>, Example Street 1, 12345 Example City",
+    "publisherAddress": "<strong>{site}</strong>, Example Street 1, 12345 Example City",
     "publisherEmail": "Email: hello@example.com",
     "hostingHeading": "Hosting",
     "hostingDescription": "The site is hosted by an example provider. Its name and address would be listed here.",
@@ -82,7 +82,7 @@
     }
   },
   "contact": {
-    "metaTitle": "Contact - forum/ui",
+    "metaTitle": "Contact",
     "title": "Contact",
     "introduction": "The details below are placeholders for a demo forum.",
     "detailsHeading": "Contact details",

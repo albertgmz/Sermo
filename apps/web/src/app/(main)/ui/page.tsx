@@ -136,7 +136,7 @@ import type { Browser, Os, ShopCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Styleguide - forum/ui",
+  title: "Styleguide",
 };
 
 const TOKENS = [

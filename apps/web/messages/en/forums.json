@@ -8,7 +8,7 @@
     }
   },
   "new": {
-    "metaTitle": "New thread - forum/ui",
+    "metaTitle": "New thread",
     "home": "Home",
     "heading": "New thread",
     "aria": {
@@ -32,7 +32,7 @@
     }
   },
   "forums": {
-    "metaTitle": "Forums - forum/ui",
+    "metaTitle": "Forums",
     "generalTab": "General",
     "marketTab": "Market",
     "moneyTab": "Money",
@@ -88,7 +88,7 @@
     }
   },
   "forum": {
-    "metaTitle": "{title} - forum/ui",
+    "metaTitle": "{title}",
     "metaTitleFallback": "Forum",
     "allThreads": "All threads",
     "created": "<author></author> · {time}",

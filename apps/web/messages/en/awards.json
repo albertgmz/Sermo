@@ -1,6 +1,6 @@
 {
   "awards": {
-    "metaTitle": "Awards - forum/ui",
+    "metaTitle": "Awards",
     "heading": "Awards",
     "description": "Collect awards for what you bring to the community. Every award is worth XP, and XP is what raises your level.",
     "progressHeading": "Your progress",
@@ -29,8 +29,8 @@
     "awards": "{count, plural, one {# award} other {# awards}}"
   },
   "award": {
-    "metaTitle": "{name} - forum/ui",
-    "metaFallbackTitle": "Award - forum/ui",
+    "metaTitle": "{name}",
+    "metaFallbackTitle": "Award",
     "homeLabel": "Home",
     "awardsLabel": "Awards",
     "tierLabel": "{tier} award",
