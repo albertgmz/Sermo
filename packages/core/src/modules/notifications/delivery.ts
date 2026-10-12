@@ -1430,6 +1430,18 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
   }
 }
 
+/** Events that never produce a notice, so no fan-out job is queued for them. */
+const SILENT_EVENTS = new Set<string>([
+  "notification.created",
+  "member.registered",
+  "member.active_day",
+  "credits.changed",
+  "award.granted",
+  "award.revoked",
+  "shop.purchased",
+  "shop.item_used",
+]);
+
 export function registerNotificationJobs(ctx: Ctx): void {
   writeTx(ctx, () => {
     ctx.sqlite
@@ -1439,7 +1451,7 @@ export function registerNotificationJobs(ctx: Ctx): void {
       .run(ctx.now());
   });
   registerEventSubscriber(ctx, "notifications", (event) => {
-    if (event.type === "notification.created") return;
+    if (SILENT_EVENTS.has(event.type)) return;
     enqueueJob(
       ctx,
       "notifications.fanout",
