@@ -28,6 +28,7 @@ import { titleKeyForLevel } from "@/lib/levels";
 import { getLiteState } from "@/lib/lite-mode";
 import { can } from "@/lib/permissions";
 import { getNavigation } from "@/lib/sermo/navigation";
+import { getViewer } from "@/lib/sermo/session";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -129,8 +130,9 @@ async function HeaderNavigation() {
 }
 
 async function AccountTools() {
-  const [user, navigation] = await Promise.all([
+  const [user, viewer, navigation] = await Promise.all([
     getCurrentUser(),
+    getViewer(),
     getNavigation(),
   ]);
   const t = await getTranslations("layout.siteHeader");
@@ -138,7 +140,7 @@ async function AccountTools() {
   const roles = await getTranslations("lib.db.roles");
   return (
     <>
-      {user ? (
+      {viewer.user ? (
         <>
           <Suspense
             fallback={
@@ -158,21 +160,24 @@ async function AccountTools() {
           >
             <AlertTools />
           </Suspense>
-          <UserMenu
-            lite={await getLiteState()}
-            avatar={<UserAvatar user={user.member} size="md" link={false} />}
-            links={accountItems(
-              toNavItems(navigation.account, `/members/${user.id}`),
-            )}
-            user={{
-              username: user.username,
-              title:
-                (can(user, "customTitle") && user.customTitle) ||
-                (user.role === "member"
-                  ? levels(titleKeyForLevel(user.level.level))
-                  : roles(user.role)),
-            }}
-          />
+          {/* The menu still reads the JSON member of the account. */}
+          {user && (
+            <UserMenu
+              lite={await getLiteState()}
+              avatar={<UserAvatar user={user.member} size="md" link={false} />}
+              links={accountItems(
+                toNavItems(navigation.account, `/members/${user.id}`),
+              )}
+              user={{
+                username: user.username,
+                title:
+                  (can(user, "customTitle") && user.customTitle) ||
+                  (user.role === "member"
+                    ? levels(titleKeyForLevel(user.level.level))
+                    : roles(user.role)),
+              }}
+            />
+          )}
         </>
       ) : (
         <>

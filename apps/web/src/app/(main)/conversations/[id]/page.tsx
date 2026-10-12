@@ -41,6 +41,9 @@ import {
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
+// A page of messages; the backend's default is smaller than a conversation usually needs.
+const MESSAGES_PER_PAGE = 50;
+
 type Conversation = z.output<typeof conversationsGet.output>;
 
 function conversationIdOf(raw: string) {
@@ -169,6 +172,7 @@ async function Messages({
       read(conversationsListMessages, {
         conversationId: conversation.id,
         cursor,
+        limit: MESSAGES_PER_PAGE,
       }),
       getViewer(),
       getReactionTypes(),
