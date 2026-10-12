@@ -10,6 +10,8 @@
 //   description  Optional line under the heading.
 //   submit       Label of the save button. Default: "Save changes".
 //   id           Optional anchor of the panel.
+//   disabled     true disables every control and the save button (a form the viewer may read but
+//                not change). The backend still decides.
 //   children     The rows: `FieldRow`s, or any `Row` from ./rows.
 //
 // useFieldError(name) gives the error line of the control with that name in the enclosing form.
@@ -81,14 +83,14 @@ export function FieldRow({
   );
 }
 
-function SaveBar({ submit }: { submit: string }) {
+function SaveBar({ submit, disabled }: { submit: string; disabled?: boolean }) {
   const t = useTranslations("admin.formRows");
   const { pending } = useFormStatus();
   return (
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-card/95 p-4 backdrop-blur-sm">
       <Button
         type="submit"
-        disabled={pending}
+        disabled={pending || disabled}
         aria-live="polite"
         className="min-h-10 px-4"
       >
@@ -104,6 +106,7 @@ export function FormRows({
   description,
   submit,
   id,
+  disabled,
   children,
 }: {
   action: (
@@ -114,6 +117,7 @@ export function FormRows({
   description?: React.ReactNode;
   submit?: string;
   id?: string;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   const t = useTranslations("admin.formRows");
@@ -138,9 +142,11 @@ export function FormRows({
           {state?.error ?? state?.notice}
         </output>
         <FieldErrors value={state?.fields ?? {}}>
-          <div className="divide-y">{children}</div>
+          <fieldset disabled={disabled} className="min-w-0 divide-y">
+            {children}
+          </fieldset>
         </FieldErrors>
-        <SaveBar submit={submit ?? t("save")} />
+        <SaveBar submit={submit ?? t("save")} disabled={disabled} />
       </form>
     </Section>
   );
