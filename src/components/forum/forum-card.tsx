@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Art } from "@/components/forum/art";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserHoverCard } from "@/components/forum/user-hover-card";
@@ -73,8 +74,9 @@ export function ForumCard({
           />
           <Link
             href={`/threads/${last.threadId}`}
-            className="flex h-10 min-w-0 flex-1 items-center text-xs font-medium hover:underline"
+            className="flex h-10 min-w-0 flex-1 items-center gap-1.5 text-xs font-medium hover:underline"
           >
+            {last.prefix && <PrefixTag prefix={last.prefix} />}
             <span className="truncate">{last.threadTitle}</span>
           </Link>
           <p

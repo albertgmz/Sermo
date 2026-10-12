@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StatsChart } from "@/app/(main)/account/stats-chart";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { StatTile } from "@/components/forum/stat";
 import { getUserPosts } from "@/lib/db";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
@@ -75,8 +76,11 @@ export default async function AccountPage() {
                     href={`/threads/${post.thread.id}`}
                     className="group flex min-h-12 flex-col justify-center py-2"
                   >
-                    <span className="truncate text-sm font-medium underline-offset-4 group-hover:underline">
-                      {post.thread.title}
+                    <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 group-hover:underline">
+                      {post.thread.prefix && (
+                        <PrefixTag prefix={post.thread.prefix} />
+                      )}
+                      <span className="truncate">{post.thread.title}</span>
                     </span>
                     <time
                       dateTime={post.createdAt}

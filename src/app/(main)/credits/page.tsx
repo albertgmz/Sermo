@@ -10,6 +10,7 @@ import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { PermissionIcon } from "@/components/forum/permission-icon";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
@@ -759,11 +760,30 @@ function Inventory({
   const groups = CATEGORIES.filter(({ value }) => owned[value].length > 0);
   const threadOptions = threads.map((thread) => ({
     value: String(thread.id),
-    label: thread.title,
+    label: thread.prefix ? (
+      <span className="flex w-0 min-w-0 flex-1 items-center gap-1.5">
+        <PrefixTag prefix={thread.prefix} />
+        <span className="truncate">{thread.title}</span>
+      </span>
+    ) : (
+      thread.title
+    ),
   }));
   const coverOptions = threads.map((thread) => ({
     value: String(thread.id),
-    label: thread.cover ? `${thread.title} (has a cover)` : thread.title,
+    label: thread.prefix ? (
+      <span className="flex w-0 min-w-0 flex-1 items-center gap-1.5">
+        <PrefixTag prefix={thread.prefix} />
+        <span className="truncate">
+          {thread.title}
+          {thread.cover && " (has a cover)"}
+        </span>
+      </span>
+    ) : thread.cover ? (
+      `${thread.title} (has a cover)`
+    ) : (
+      thread.title
+    ),
   }));
   const usable: Partial<Record<ShopCategory, string>> = {
     boost: "Pick one of your threads and use a boost on it.",
@@ -784,6 +804,12 @@ function Inventory({
               href={`/threads/${applied.thread.id}`}
               className="font-semibold underline-offset-4 hover:underline"
             >
+              {applied.thread.prefix && (
+                <PrefixTag
+                  prefix={applied.thread.prefix}
+                  className="mr-1.5 align-[0.0625rem]"
+                />
+              )}
               {applied.thread.title}
             </Link>
             {applied.item.effect.type === "threadCover" &&

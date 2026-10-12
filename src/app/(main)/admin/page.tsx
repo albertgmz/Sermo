@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { StatTile } from "@/components/forum/stat";
@@ -65,7 +66,10 @@ export default async function AdminPage() {
                 href={`/threads/${thread.id}#post-${thread.lastPost.postId}`}
                 className="block space-y-1 px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
               >
-                <p className="truncate text-sm font-medium">{thread.title}</p>
+                <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                  {thread.prefix && <PrefixTag prefix={thread.prefix} />}
+                  <span className="truncate">{thread.title}</span>
+                </p>
                 <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                   {thread.lastPost.author.username} · {thread.forum.title}
                 </p>

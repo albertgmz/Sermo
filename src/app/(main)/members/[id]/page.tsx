@@ -15,6 +15,7 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { Markdown } from "@/components/forum/markdown";
 import { MessageBody } from "@/components/forum/message-row";
+import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { RoleBadge } from "@/components/forum/role-badge";
 import { SectionCard } from "@/components/forum/section-card";
@@ -196,8 +197,11 @@ function ProfileCards({
                     href={`/threads/${post.thread.id}#post-${post.id}`}
                     className="group flex min-h-12 flex-col justify-center py-2"
                   >
-                    <span className="truncate font-medium underline-offset-4 group-hover:underline">
-                      {post.thread.title}
+                    <span className="flex min-w-0 items-center gap-1.5 font-medium underline-offset-4 group-hover:underline">
+                      {post.thread.prefix && (
+                        <PrefixTag prefix={post.thread.prefix} />
+                      )}
+                      <span className="truncate">{post.thread.title}</span>
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {post.number === 1 ? "Started a thread" : "Replied"} ·{" "}
@@ -232,6 +236,12 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
     <article key={post.id} className="px-4 py-3">
       <h3>
         <Link href={`/threads/${post.thread.id}`} className={titleLinkClass}>
+          {post.thread.prefix && (
+            <PrefixTag
+              prefix={post.thread.prefix}
+              className="mr-1.5 align-[0.0625rem]"
+            />
+          )}
           {post.thread.title}
         </Link>
       </h3>
@@ -259,6 +269,12 @@ function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
     <article key={thread.id} className="px-4 py-3">
       <h3>
         <Link href={`/threads/${thread.id}`} className={titleLinkClass}>
+          {thread.prefix && (
+            <PrefixTag
+              prefix={thread.prefix}
+              className="mr-1.5 align-[0.0625rem]"
+            />
+          )}
           {thread.title}
         </Link>
       </h3>
