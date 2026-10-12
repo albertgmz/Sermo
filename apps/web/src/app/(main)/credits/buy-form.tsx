@@ -2,59 +2,57 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { buyItem, type PurchaseState } from "@/app/(main)/credits/actions";
+import { buyItem, type CreditsState } from "@/app/(main)/credits/actions";
 import { PendingButton } from "@/components/forum/pending-button";
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
-const ERRORS = {
-  not_found: "notFound",
-  already_owned: "alreadyOwned",
-  insufficient_credits: "insufficientCredits",
-} as const;
+// The most units one purchase can take, which the backend enforces.
+const MOST_PER_PURCHASE = 100;
 
 export function BuyForm({
   itemId,
   itemName,
-  missing,
-  children,
+  returnTo,
+  quantity,
+  left,
 }: {
   itemId: number;
   itemName: string;
-  missing: number;
-  children?: React.ReactNode;
+  returnTo: string;
+  // A consumable is bought in a quantity.
+  quantity: boolean;
+  // Units in stock, when the stock is limited.
+  left: number | null;
 }) {
   const t = useTranslations("credits.buyForm");
-  const [state, action] = useActionState<PurchaseState, FormData>(
-    buyItem.bind(null, itemId),
-    null,
+  const [state, action] = useActionState<CreditsState, FormData>(
+    buyItem.bind(null, itemId, returnTo),
+    {},
   );
-
-  let status = "";
-  if (state) {
-    status = t(`errors.${ERRORS[state.error]}`);
-  } else if (missing > 0) {
-    status = t("credits", { count: missing });
-  }
-
   return (
     <form action={action}>
       <div className="flex gap-2">
+        {quantity && (
+          <Input
+            type="number"
+            name="quantity"
+            defaultValue={1}
+            min={1}
+            max={Math.min(MOST_PER_PURCHASE, left ?? MOST_PER_PURCHASE)}
+            inputMode="numeric"
+            aria-label={t("aria.quantity", { itemName })}
+            className="h-10 w-20 shrink-0"
+          />
+        )}
         <PendingButton
-          disabled={missing > 0}
           aria-label={t("aria.submit", { itemName })}
           className="h-10 min-w-0 flex-1"
         >
           {t("submit")}
         </PendingButton>
-        {children}
       </div>
-      <output
-        className={cn(
-          "mt-1.5 block h-4 truncate text-xs",
-          state ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {status}
+      <output className="mt-1.5 block text-xs text-destructive empty:hidden">
+        {state.error}
       </output>
     </form>
   );

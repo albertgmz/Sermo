@@ -1,99 +1,64 @@
 "use server";
 
+import { appearanceSet, shopBuy, shopUse } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  applyBoost,
-  applyThreadCover,
-  getInventory,
-  getShopItems,
-  type PurchaseFailure,
-  purchaseItem,
-  setAppearance,
-} from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
-import type { Appearance, ShopEffect } from "@/lib/types";
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
+import { safeReturnPath } from "@/lib/sermo/return-path";
 
-export type PurchaseState = PurchaseFailure | null;
+export type CreditsState = { error?: string };
+
+// The page a mutation came from, with the notice that says what happened.
+function back(returnTo: string, notice: string): never {
+  const url = new URL(safeReturnPath(returnTo), "http://localhost");
+  url.searchParams.set("notice", notice);
+  revalidatePath("/", "layout");
+  redirect(`${url.pathname}${url.search}`);
+}
 
 export async function buyItem(
   itemId: number,
-  _previous: PurchaseState,
-  _formData: FormData,
-): Promise<PurchaseState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const item = (await getShopItems()).find((i) => i.id === itemId);
-  if (!item) return { ok: false, error: "not_found" };
-  const result = await purchaseItem(user.id, item.id);
-  if (!result.ok) return result;
-  revalidatePath("/", "layout");
-  redirect(`/credits?category=${item.category}`);
-}
-
-export type EquipState = { error: "not_owned" | "invalid" } | null;
-
-function appearancePatch(
-  effect: ShopEffect,
-  equip: boolean,
-): Partial<Appearance> | null {
-  switch (effect.type) {
-    case "frame":
-      return { frame: equip ? effect.frame : null };
-    case "nameColor":
-      return { nameColor: equip ? effect.color : null };
-    default:
-      return null;
-  }
-}
-
-export async function equipItem(
-  itemId: number,
-  equip: boolean,
-  from: "shop" | "inventory",
-  _previous: EquipState,
-  _formData: FormData,
-): Promise<EquipState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const item = (await getInventory(user.id)).find((i) => i.id === itemId);
-  if (!item) return { error: "not_owned" };
-  const patch = appearancePatch(item.effect, equip === true);
-  if (!patch) return { error: "invalid" };
-  const result = await setAppearance(user.id, patch);
-  if (!result.ok) {
-    return { error: result.error === "not_owned" ? "not_owned" : "invalid" };
-  }
-  revalidatePath("/", "layout");
-  redirect(
-    from === "inventory"
-      ? "/credits?tab=inventory"
-      : `/credits?category=${item.category}`,
-  );
-}
-
-export type BoostState = {
-  error: "no_thread" | "not_found" | "not_owned" | "not_author";
-} | null;
-
-export async function spendBoost(
-  itemId: number,
-  _previous: BoostState,
+  returnTo: string,
+  _previous: CreditsState,
   formData: FormData,
-): Promise<BoostState> {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const threadId = Number(formData.get("thread"));
-  if (!Number.isInteger(threadId) || threadId < 1) {
-    return { error: "no_thread" };
-  }
-  if (!Number.isInteger(itemId)) return { error: "not_found" };
-  const item = (await getShopItems()).find((i) => i.id === itemId);
-  const result =
-    item?.category === "threadCover"
-      ? await applyThreadCover(user.id, itemId, threadId)
-      : await applyBoost(user.id, itemId, threadId);
-  if (!result.ok) return { error: result.error };
-  revalidatePath("/", "layout");
-  redirect(`/credits?tab=inventory&applied=${itemId}&thread=${threadId}`);
+): Promise<CreditsState> {
+  const quantity = Number(formData.get("quantity") ?? 1);
+  const bought = await attempt(returnTo, () =>
+    call(shopBuy, { itemId, quantity }),
+  );
+  if (!bought.ok) return { error: bought.error };
+  return back(returnTo, "bought");
+}
+
+// `look` is the part of the appearance the item unlocks; `id` is the catalog entry to wear, or
+// nothing to take it off.
+export async function wearItem(
+  look: "frameId" | "nameColorId",
+  id: number | null,
+  returnTo: string,
+  _previous: CreditsState,
+): Promise<CreditsState> {
+  const worn = await attempt(returnTo, () =>
+    call(appearanceSet, { [look]: id }),
+  );
+  if (!worn.ok) return { error: worn.error };
+  return back(returnTo, id === null ? "removed" : "worn");
+}
+
+export async function spendItem(
+  inventoryId: number,
+  returnTo: string,
+  _previous: CreditsState,
+  formData: FormData,
+): Promise<CreditsState> {
+  const thread = String(formData.get("thread") ?? "");
+  const used = await attempt(returnTo, () =>
+    call(shopUse, {
+      inventoryId,
+      threadId: thread ? Number(thread) : undefined,
+    }),
+  );
+  if (!used.ok) return { error: used.error };
+  return back(returnTo, "used");
 }
