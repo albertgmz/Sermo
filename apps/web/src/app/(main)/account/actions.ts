@@ -23,7 +23,7 @@ import { failedPath } from "@/app/(main)/account/notice";
 import { call } from "@/lib/sermo/client";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
-import { isUploadPurpose } from "@/lib/sermo/upload";
+import { isPicturePurpose } from "@/lib/sermo/upload";
 
 const ACCOUNT = "/account";
 
@@ -61,7 +61,7 @@ function text(formData: FormData, name: string): string {
 // action.
 
 export async function removePicture(kind: "avatar" | "cover") {
-  if (!isUploadPurpose(kind)) return pressInvalid(ACCOUNT, "pictures");
+  if (!isPicturePurpose(kind)) return pressInvalid(ACCOUNT, "pictures");
   await press(ACCOUNT, kind, `${kind}Removed`, () =>
     call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
       fileId: null,
