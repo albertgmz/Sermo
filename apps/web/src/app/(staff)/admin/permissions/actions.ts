@@ -1,10 +1,6 @@
 "use server";
 
-import {
-  permissionsDefinitions,
-  permissionsList,
-  permissionsSet,
-} from "@sermo/core/contracts";
+import { permissionsDefinitions, permissionsSet } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -12,10 +8,12 @@ import { matrixChanges } from "@/components/staff/permission-entries";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, missingPassword, text } from "../groups/form-errors";
-import { entriesOf } from "./data";
 
 // Saves the permission matrix of one target: a group (`group`), a member (`user`) or either on
 // one forum (with `node`). The form carries the target's id, never a path to go back to.
+//
+// Only the cells the administrator changed are written: the form carries what each cell showed
+// when the page was built, and a cell someone else changed since is not touched.
 //
 // The acting administrator's own password goes with the write (`actorPassword`): the backend
 // checks it first, in the same call, and a wrong one changes nothing.
@@ -39,18 +37,10 @@ export async function savePermissions(
   const target =
     group !== null ? { groupId: group } : { userId: user as number };
   try {
-    const [{ items }, current] = await Promise.all([
-      call(permissionsDefinitions, {}),
-      call(permissionsList, { ...target, nodeId: node }),
-    ]);
+    const { items } = await call(permissionsDefinitions, {});
     const shown =
       node === null ? items : items.filter((entry) => entry.scope === "node");
-    const result = matrixChanges(
-      formData,
-      shown,
-      entriesOf(current),
-      node !== null,
-    );
+    const result = matrixChanges(formData, shown, node !== null);
     if ("invalid" in result) {
       const definition = items.find((entry) => entry.id === result.invalid);
       return {

@@ -14,7 +14,9 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { savePromotion, deletePromotion, runPromotions } = await import("./actions");
+const { savePromotion, deletePromotion, runPromotions } = await import(
+  "./actions"
+);
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
@@ -215,7 +217,8 @@ test("a promotion is not written when the password is missing or wrong", async (
 
 test("a promotion is deleted only after the password is confirmed", async () => {
   backend = fakeBackend({
-    "auth.verifyPassword": () => refusal(429, "rate_limited", "Too many tries."),
+    "auth.verifyPassword": () =>
+      refusal(429, "rate_limited", "Too many tries."),
     "promotions.delete": () => Response.json({ ok: true }),
   });
   expect(await deletePromotion(null, form([["id", "5"]]))).toEqual({

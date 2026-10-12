@@ -23,27 +23,36 @@ export type EntryChange = {
 export const modeField = (id: string) => `perm:${id}`;
 // The number typed for an integer permission when its mode is "value".
 export const numberField = (id: string) => `num:${id}`;
+// The hidden field that carries what the cell showed when the page was built.
+export const wasField = (id: string) => `was:${id}`;
 
-// Reads the matrix back from a submitted form and returns only the entries that differ from
-// `current` (the target's entries as the backend returned them when the page was built), as the
-// entries `permissions.set` takes. Only definitions the caller passes are read, and only those
-// whose select the form carried; a value outside the permission's states, or an integer that is
-// not a whole number, is reported by `invalid` (the permission id) and nothing is returned.
+// A cell's value as text, the way the hidden `was` field and the posted select are compared:
+// "" for not set, the state of a yes/no permission, the number of an integer one (-1 unlimited).
+export const cellText = (value: MatrixValue | undefined): string =>
+  value === undefined ? "" : String(value);
+
+// Reads the matrix back from a submitted form and returns only the entries the administrator
+// changed, as the entries `permissions.set` takes. A cell is changed when its posted value differs
+// from what it showed when the page was built, which the form carries in a hidden `was` field
+// (`cellText`). The comparison is not made with a fresh read of the target: a cell the
+// administrator did not touch but someone else changed meanwhile is left as that other
+// administrator set it. Only definitions the caller passes are read, and only those whose select
+// and `was` field the form carried; a value outside the permission's states, or an integer that
+// is not a whole number, is reported by `invalid` (the permission id) and nothing is returned.
 //
 //   formData     The submitted form.
 //   definitions  The permissions the form showed.
-//   current      The entries of the target now, by permission id (unset ones absent).
 //   allowNo      Whether "no" is a state (forum scope only).
 export function matrixChanges(
   formData: FormData,
   definitions: readonly MatrixDefinition[],
-  current: Readonly<Record<string, MatrixValue>>,
   allowNo: boolean,
 ): { changes: EntryChange[] } | { invalid: string } {
   const changes: EntryChange[] = [];
   for (const definition of definitions) {
     const mode = formData.get(modeField(definition.id));
-    if (typeof mode !== "string") continue;
+    const was = formData.get(wasField(definition.id));
+    if (typeof mode !== "string" || typeof was !== "string") continue;
     let wanted: MatrixValue | "unset";
     if (mode === "") {
       wanted = "unset";
@@ -64,8 +73,7 @@ export function matrixChanges(
     } else {
       return { invalid: definition.id };
     }
-    const now = current[definition.id];
-    if (wanted === "unset" ? now !== undefined : wanted !== now) {
+    if (cellText(wanted === "unset" ? undefined : wanted) !== was) {
       changes.push({ permission: definition.id, value: wanted });
     }
   }
