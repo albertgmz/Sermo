@@ -42,6 +42,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Level } from "@/lib/levels";
 import { read } from "@/lib/sermo/client";
+import { parseId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
 import {
   getReactionTypes,
@@ -67,8 +68,8 @@ const getThread = cache(async (threadId: number) => {
 });
 
 function threadIdOf(raw: string) {
-  const id = Number(raw);
-  if (!Number.isInteger(id) || id < 1) notFound();
+  const id = parseId(raw);
+  if (id === null) notFound();
   return id;
 }
 

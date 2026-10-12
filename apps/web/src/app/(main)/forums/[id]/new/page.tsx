@@ -14,6 +14,7 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { read } from "@/lib/sermo/client";
+import { parseId } from "@/lib/sermo/ids";
 import { prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -24,8 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function NewThreadPage({
   params,
 }: PageProps<"/forums/[id]/new">) {
-  const nodeId = Number((await params).id);
-  if (!Number.isInteger(nodeId) || nodeId < 1) notFound();
+  const nodeId = parseId((await params).id);
+  if (nodeId === null) notFound();
   const { node, breadcrumbs } = await read(nodesGet, { nodeId });
   // Threads live in forums; a category has none to start.
   if (node.type !== "forum") notFound();

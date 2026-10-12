@@ -483,8 +483,6 @@ test("a prefetch, a soft navigation or an action's POST is not looked up in the 
     ["/threads/8", { headers: { "sec-fetch-mode": "cors" } }],
     ["/threads/8", { headers: { "sec-fetch-mode": "same-origin" } }],
     ["/threads/8", { headers: { "sec-purpose": "prefetch" } }],
-    ["/threads/8", { headers: { "next-router-prefetch": "1" } }],
-    ["/threads/8", { headers: { rsc: "1" } }],
     ["/threads/8", { method: "POST", headers: { "next-action": "abc" } }],
     ["/forums/9", { headers: { "sec-fetch-mode": "cors" } }],
     ["/members/9", { headers: { "sec-fetch-mode": "cors" } }],
@@ -558,5 +556,36 @@ test("only the exact static paths are looked up", async () => {
   passes(await ask("/"));
   passes(await ask("/forums"));
   passes(await ask("/search"));
+  assert.equal(asked.length, 0);
+});
+
+test("a document navigation is looked up whatever its sec-purpose says", async () => {
+  const asked = backend({});
+  isNotFound(
+    await ask("/threads/999", {
+      headers: {
+        "sec-fetch-mode": "navigate",
+        "sec-purpose": "prefetch;prerender",
+      },
+    }),
+  );
+  assert.equal(asked.length, 2);
+});
+
+test("an id that is not plain decimal is a 404 for every kind of request, unasked", async () => {
+  const asked = backend({});
+  const kinds: { headers?: HeadersInit; method?: string }[] = [
+    {},
+    { headers: { "sec-fetch-mode": "cors" } },
+    { headers: { "sec-fetch-mode": "navigate" } },
+    { headers: { "sec-purpose": "prefetch" } },
+    { method: "POST", headers: { "next-action": "abc" } },
+  ];
+  for (const id of ["0x10", "1e2", "+5", " 5", "5.0"]) {
+    for (const kind of kinds) {
+      isNotFound(await ask(`/threads/${id}`, kind));
+      isNotFound(await ask(`/forums/${encodeURIComponent(id)}`, kind));
+    }
+  }
   assert.equal(asked.length, 0);
 });

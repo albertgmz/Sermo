@@ -31,6 +31,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
+import { parseId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
 import {
   getReactionTypes,
@@ -46,8 +47,8 @@ const MESSAGES_PER_PAGE = 50;
 type Conversation = z.output<typeof conversationsGet.output>;
 
 function conversationIdOf(raw: string) {
-  const id = Number(raw);
-  if (!Number.isInteger(id) || id < 1) notFound();
+  const id = parseId(raw);
+  if (id === null) notFound();
   return id;
 }
 

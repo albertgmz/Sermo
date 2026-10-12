@@ -23,6 +23,7 @@ import {
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
 import { SermoError } from "@/lib/sermo/errors";
+import { parseId } from "@/lib/sermo/ids";
 import {
   callWith,
   type Forward,
@@ -37,8 +38,7 @@ type Finder = (
   request: NextRequest,
 ) => Promise<unknown>;
 
-const isId = (id: string) =>
-  /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
+const isId = (id: string) => parseId(id) !== null;
 
 const numeric =
   <T>(find: (id: number, viewerId: number) => Promise<T>): Finder =>
@@ -129,14 +129,15 @@ const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 // which asks the backend anyway, so a record lookup here would only repeat it. Next removes its
 // own request headers (rsc, next-router-prefetch) before the proxy runs; what stays is the
 // next-action header and the fetch metadata the browser adds: a page load has mode "navigate",
-// the fetch behind a <Link> does not, and a speculative prefetch says so in sec-purpose.
+// the fetch behind a <Link> does not. A document navigation stays one whatever sec-purpose says (a
+// prerendered response becomes the page that is shown); sec-purpose only tells a speculative
+// prefetch apart when the browser sent no mode.
 function isDocumentRequest(request: NextRequest) {
   if (request.method !== "GET" && request.method !== "HEAD") return false;
   const { headers } = request;
-  for (const name of ["next-action", "rsc", "next-router-prefetch"])
-    if (headers.has(name)) return false;
+  if (headers.has("next-action")) return false;
   const mode = headers.get("sec-fetch-mode");
-  if (mode !== null && mode !== "navigate") return false;
+  if (mode !== null) return mode === "navigate";
   return !headers.get("sec-purpose")?.includes("prefetch");
 }
 
@@ -247,6 +248,15 @@ async function handleRequest(request: NextRequest) {
       request.nextUrl.pathname + request.nextUrl.search,
     );
     return NextResponse.redirect(login);
+  }
+  // An id that is not plain decimal is no record, whatever kind of request asks for it.
+  if (
+    id &&
+    CONTENT[section] &&
+    !(section === "conversations" && id === "new") &&
+    !isId(id)
+  ) {
+    return notFound(request);
   }
   const isPage = isDocumentRequest(request);
   const slug = isPage ? staticSlug(section, id, action) : undefined;
