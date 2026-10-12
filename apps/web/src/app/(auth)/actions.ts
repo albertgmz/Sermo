@@ -2,14 +2,41 @@
 
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getClientInfo } from "@/lib/client";
-import { createUser, getUser } from "@/lib/db";
-import { USERNAME_PATTERN } from "@/lib/permissions";
-import { signIn } from "@/lib/session";
+import {
+  type AuthResult,
+  signInWithEmail,
+  signInWithUsername,
+  signUp,
+} from "@/lib/sermo/auth";
+import { safeReturnPath } from "@/lib/sermo/return-path";
 
 export type AuthState = { error: string; username: string };
 
-const EMAIL = /^\S+@\S+\.\S+$/;
+// Better Auth's error code to the key under auth.actions.errors.
+const ERRORS: Record<string, string> = {
+  INVALID_USERNAME_OR_PASSWORD: "invalidCredentials",
+  INVALID_EMAIL_OR_PASSWORD: "invalidCredentials",
+  EMAIL_NOT_VERIFIED: "emailNotVerified",
+  USERNAME_IS_ALREADY_TAKEN: "usernameTaken",
+  USER_ALREADY_EXISTS: "emailTaken",
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "emailTaken",
+  EMAIL_ALREADY_IN_USE: "emailTaken",
+  INVALID_USERNAME: "invalidUsername",
+  INVALID_DISPLAY_USERNAME: "invalidUsername",
+  USERNAME_TOO_SHORT: "invalidUsername",
+  USERNAME_TOO_LONG: "invalidUsername",
+  INVALID_EMAIL: "invalidEmail",
+  PASSWORD_TOO_SHORT: "passwordTooShort",
+  PASSWORD_TOO_LONG: "passwordTooLong",
+  ACCOUNT_BANNED: "banned",
+  RATE_LIMITED: "rateLimited",
+};
+
+async function failure(result: AuthResult, username: string) {
+  const t = await getTranslations("auth.actions.errors");
+  const key = (result.code && ERRORS[result.code]) || "generic";
+  return { error: t(key as "generic"), username };
+}
 
 export async function login(
   _previous: AuthState,
@@ -17,12 +44,16 @@ export async function login(
 ): Promise<AuthState> {
   const t = await getTranslations("auth.actions.errors");
   const username = String(formData.get("username") ?? "").trim();
-  const user = username ? await getUser(username) : null;
-  if (!user) {
-    return { error: t("memberNotFound"), username };
+  const password = String(formData.get("password") ?? "");
+  if (!username || !password) {
+    return { error: t("invalidCredentials"), username };
   }
-  await signIn(user.id);
-  redirect("/");
+  const remember = formData.get("remember") !== null;
+  const result = username.includes("@")
+    ? await signInWithEmail(username, password, remember)
+    : await signInWithUsername(username, password, remember);
+  if (!result.ok) return failure(result, username);
+  redirect(safeReturnPath(formData.get("next")));
 }
 
 export async function register(
@@ -31,20 +62,13 @@ export async function register(
 ): Promise<AuthState> {
   const t = await getTranslations("auth.actions.errors");
   const username = String(formData.get("username") ?? "").trim();
-  if (!USERNAME_PATTERN.test(username)) {
-    return {
-      error: t("invalidUsername"),
-      username,
-    };
-  }
-  if (!EMAIL.test(String(formData.get("email") ?? "").trim())) {
-    return { error: t("invalidEmail"), username };
-  }
-  if (!formData.get("password")) {
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!username || !email || !password) {
     return { error: t("passwordRequired"), username };
   }
-  const user = await createUser({ username, client: await getClientInfo() });
-  if (!user) return { error: t("usernameTaken"), username };
-  await signIn(user.id);
-  redirect("/");
+  if (!formData.get("terms")) return { error: t("termsRequired"), username };
+  const result = await signUp({ username, email, password });
+  if (!result.ok) return failure(result, username);
+  redirect(result.signedIn ? "/" : "/login?registered=1");
 }
