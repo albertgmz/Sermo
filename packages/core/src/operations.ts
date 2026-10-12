@@ -9,6 +9,7 @@ import { operations as feed } from "./modules/feed";
 import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
+import { operations as members } from "./modules/members";
 import { operations as moderation } from "./modules/moderation";
 import { operations as navigation } from "./modules/navigation";
 import { operations as notifications } from "./modules/notifications";
@@ -33,6 +34,7 @@ export const operations: readonly AnyOperation[] = [
   ...forums,
   ...feed,
   ...profiles,
+  ...members,
   ...promotions,
   ...push,
   ...conversations,

@@ -137,7 +137,8 @@ export const inUseSql = {
   profile_cover: "SELECT 1 FROM users WHERE cover_preset_id = ?1 LIMIT 1",
   thread_cover: "SELECT 1 FROM threads WHERE cover_id = ?1 LIMIT 1",
   accent: "SELECT 1 FROM users WHERE accent_color_id = ?1 LIMIT 1",
-  name: "SELECT 1 FROM users WHERE name_color_id = ?1 LIMIT 1",
+  // A member's own choice, or the colour of a group (a small table).
+  name: "SELECT 1 WHERE EXISTS (SELECT 1 FROM users WHERE name_color_id = ?1) OR EXISTS (SELECT 1 FROM groups WHERE name_color_id = ?1)",
   prefix: "SELECT 1 FROM thread_prefixes WHERE color_id = ?1 LIMIT 1",
 } as const;
 
