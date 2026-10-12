@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { GUEST } from "../../actor";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 import { createStorage, localDriver } from ".";
 
 sharp.cache(false);
@@ -73,7 +74,7 @@ async function urls(publicFileBaseURL: string | undefined) {
     categoryId: category.id,
     name: "Badge",
     price: 5,
-    effect: { type: "frame", frame: "gold" },
+    effect: { type: "frame", frameId: insertCatalogImage(ctx, "frame") },
   });
   const shopFile = await upload("shop_image");
   await run("images.setShopItemImage", admin, { itemId: item.id, fileId: shopFile });

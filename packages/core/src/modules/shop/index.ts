@@ -9,7 +9,7 @@ import {
   itemsList,
   itemsUpdate,
 } from "./catalog";
-import { buy, inventory, purchases, use } from "./inventory";
+import { buy, inventory, purchases, upgrade, use } from "./inventory";
 
 export { registerShopJobs } from "./expiry";
 
@@ -24,6 +24,7 @@ export const operations = [
   itemsUpdate,
   itemsDelete,
   buy,
+  upgrade,
   inventory,
   use,
   purchases,

@@ -8,6 +8,7 @@ import { closeContext, createContext } from "../../context";
 import { writeTx } from "../../db/tx";
 import { execute } from "../../operation";
 import { moveCredits } from "../../shared/credits";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 import { categoriesCreate, itemsCreate } from "./catalog";
 
 for (const scarce of ["stock", "balance"] as const)
@@ -33,7 +34,7 @@ for (const scarce of ["stock", "balance"] as const)
         price: 10,
         stock: scarce === "stock" ? 1 : null,
         isConsumable: true,
-        effect: { type: "frame", frame: "gold" },
+        effect: { type: "frame", frameId: insertCatalogImage(fixture, "frame") },
       });
       writeFileSync(path, fixture.sqlite.serialize());
       // Initialize WAL before opening the competing connections.

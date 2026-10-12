@@ -33,6 +33,7 @@ import {
 } from "../../permissions";
 import { iso } from "../../time";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+import { usernameChange } from "./rename-marker";
 
 /**
  * Better Auth's change-email token names the account only by its address and can be replayed
@@ -596,7 +597,8 @@ function buildAuth(ctx: Ctx) {
             const display =
               typeof user.displayUsername === "string" ? user.displayUsername : typedUsername;
             if (!requested && !display) return;
-            const currentId = Number(context?.context?.session?.user?.id);
+            const change = usernameChange.getStore();
+            const currentId = change?.userId ?? Number(context?.context?.session?.user?.id);
             const current =
               Number.isSafeInteger(currentId) && currentId > 0
                 ? ctx.sqlite
@@ -621,6 +623,12 @@ function buildAuth(ctx: Ctx) {
               throw new APIError("BAD_REQUEST", {
                 message: "Username is already taken.",
                 code: "USERNAME_IS_ALREADY_TAKEN",
+              });
+            // A username changes only through users.changeUsername, which pays for it first.
+            if (!change)
+              throw new APIError("FORBIDDEN", {
+                message: "Change your username with users.changeUsername.",
+                code: "USERNAME_CHANGE_NOT_ALLOWED",
               });
             if (typedUsername && user.displayUsername === undefined)
               return { data: { ...user, displayUsername: typedUsername } };

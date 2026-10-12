@@ -19,10 +19,24 @@ type Author = {
 const authors = async (w: World, ids: number[], actor: object = w.memberActor) =>
   (await w.call("users.authors", actor, { userIds: ids })).items as Author[];
 const one = async (w: World, id: number) => (await authors(w, [id]))[0]!;
+/** The gallery covers show only for members who may use the gallery. */
+const allowPresets = (w: World, userId: number, value = 1) => {
+  w.ctx.sqlite
+    .prepare(
+      "DELETE FROM permission_entries WHERE user_id = ?1 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'profile.coverPreset')",
+    )
+    .run(userId);
+  w.ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (group_id, user_id, node_id, permission_id, value) SELECT 0, ?1, 0, id, ?2 FROM permission_definitions WHERE key = 'profile.coverPreset'",
+    )
+    .run(userId, value);
+};
 
 describe("users.authors: the profile cover", () => {
   test("a gallery cover wins over an uploaded one", async () => {
     const w = world();
+    allowPresets(w, w.member.id);
     const presetFile = w.file(w.admin.id, "cover_preset");
     const uploaded = w.file(w.member.id, "cover");
     w.set(w.member.id, {
@@ -37,6 +51,7 @@ describe("users.authors: the profile cover", () => {
 
   test("an inactive gallery cover still shows", async () => {
     const w = world();
+    allowPresets(w, w.member.id);
     const presetFile = w.file(w.admin.id, "cover_preset");
     w.set(w.member.id, {
       cover_preset_id: w.image("profile_cover", presetFile, { placement: false, active: false }),
@@ -64,6 +79,26 @@ describe("users.authors: the profile cover", () => {
     expect((await one(w, w.member.id)).cover?.fileId).toBe(uploaded);
   });
 
+  test("a member without profile.coverPreset shows the uploaded cover, or none, while the choice is kept", async () => {
+    const w = world();
+    const presetFile = w.file(w.admin.id, "cover_preset");
+    const uploaded = w.file(w.member.id, "cover");
+    const preset = w.image("profile_cover", presetFile, { placement: false });
+    w.set(w.member.id, { cover_preset_id: preset, cover_file_id: uploaded });
+    expect((await one(w, w.member.id)).cover?.fileId).toBe(uploaded);
+    const profile = await w.call("profiles.get", w.memberActor, { userId: w.member.id });
+    expect(profile.cover.fileId).toBe(uploaded);
+    w.set(w.member.id, { cover_file_id: null });
+    expect((await one(w, w.member.id)).cover).toBeNull();
+    allowPresets(w, w.member.id);
+    expect((await one(w, w.member.id)).cover?.fileId).toBe(presetFile);
+    allowPresets(w, w.member.id, -1);
+    expect((await one(w, w.member.id)).cover).toBeNull();
+    expect(
+      w.ctx.sqlite.prepare("SELECT cover_preset_id FROM users WHERE id = ?1").get(w.member.id),
+    ).toEqual({ cover_preset_id: preset });
+  });
+
   test("neither", async () => {
     const w = world();
     expect((await one(w, w.member.id)).cover).toBeNull();
@@ -71,6 +106,7 @@ describe("users.authors: the profile cover", () => {
 
   test("profiles.get shows the same cover", async () => {
     const w = world();
+    allowPresets(w, w.member.id);
     const presetFile = w.file(w.admin.id, "cover_preset");
     const uploaded = w.file(w.member.id, "cover");
     w.set(w.member.id, {

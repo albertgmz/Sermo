@@ -284,10 +284,11 @@ test("a banned member cannot sign in or change their identity through Better Aut
   ctx.sqlite.prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2").run(ctx.now() - 1, userId);
   const allowed = await signIn();
   expect(allowed.status).toBe(200);
-  expect(
-    (await http.post("/update-user", { username: "Returned" }, cookieOf(allowed))).status,
-  ).toBe(200);
-  expect(usernameOf()).toBe("Returned");
+  // The session works again; a username changes only through users.changeUsername.
+  expect((await http.post("/update-user", { name: "Returned" }, cookieOf(allowed))).status).toBe(
+    200,
+  );
+  expect(usernameOf()).toBe("Banned");
 });
 
 test("password reset requests without redirectTo are refused before anything is created", async () => {

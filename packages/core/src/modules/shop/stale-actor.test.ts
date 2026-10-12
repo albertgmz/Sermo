@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import type { Actor } from "../../actor";
 import type { Ctx } from "../../context";
 import { writeTx } from "../../db/tx";
@@ -9,6 +9,7 @@ import { getOperation } from "../../operations";
 import { can } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import { moveCredits } from "../../shared/credits";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 
 const op = (name: string) => getOperation(name);
 
@@ -40,11 +41,13 @@ async function scenario() {
   const spareCategory = (await execute(fixture, op("shopCategories.create"), founder, {
     name: "Spare",
   })) as { id: number };
+  const frameId = insertCatalogImage(fixture, "frame");
+  const spareFrameId = insertCatalogImage(fixture, "frame");
   const itemInput = {
     categoryId: category.id,
     price: 10,
     isConsumable: true,
-    effect: { type: "frame", frame: "gold" },
+    effect: { type: "frame", frameId },
   };
   const item = (await execute(fixture, op("shopItems.create"), founder, {
     ...itemInput,
@@ -54,10 +57,44 @@ async function scenario() {
     ...itemInput,
     name: "Unsold",
   })) as { id: number };
-  const bought = (await execute(fixture, op("shop.buy"), userActor(buyer), {
-    itemId: item.id,
-    quantity: 3,
-  })) as { inventory: { id: number } };
+  const buy = (itemId: number, quantity = 1) =>
+    execute(fixture, op("shop.buy"), userActor(buyer), { itemId, quantity }) as Promise<{
+      inventory: { id: number };
+    }>;
+  await buy(item.id, 3);
+  // A consumable that acts on a thread, one that pays for a rename, and a rank to upgrade to.
+  const bump = (await execute(fixture, op("shopItems.create"), founder, {
+    categoryId: category.id,
+    name: "Bump",
+    price: 5,
+    isConsumable: true,
+    effect: { type: "bump" },
+  })) as { id: number };
+  const rename = (await execute(fixture, op("shopItems.create"), founder, {
+    categoryId: category.id,
+    name: "Rename",
+    price: 5,
+    isConsumable: true,
+    effect: { type: "usernameChange" },
+  })) as { id: number };
+  const rankGroup = (await execute(fixture, op("groups.create"), founder, {
+    title: "Supporters",
+    rank: 10,
+  })) as { id: number };
+  const rank = (await execute(fixture, op("shopItems.create"), founder, {
+    categoryId: category.id,
+    name: "Rank",
+    price: 20,
+    effect: { type: "group", groupId: rankGroup.id },
+  })) as { id: number };
+  const bumped = await buy(bump.id, 3);
+  await buy(rename.id);
+  const node = insertNode(fixture, {});
+  const threadId = fixture.sqlite
+    .prepare<{ id: number }, [number, number]>(
+      "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, 'A thread', 'visible', 0, 0, ?2) RETURNING id",
+    )
+    .get(node.id, buyer.id)!.id;
   const database = sharedDatabase(fixture);
   const here = database.open();
   const elsewhere = database.open();
@@ -78,7 +115,11 @@ async function scenario() {
     spareCategory,
     item,
     spareItem,
-    inventoryId: bought.inventory.id,
+    frameId,
+    spareFrameId,
+    rank,
+    threadId,
+    inventoryId: bumped.inventory.id,
   };
 }
 
@@ -112,7 +153,7 @@ const attempts: Record<string, Attempt> = {
         categoryId: s.category.id,
         name: "New",
         price: 5,
-        effect: { type: "frame", frame: "silver" },
+        effect: { type: "frame", frameId: s.spareFrameId },
       }),
   },
   "shopItems.update": {
@@ -130,7 +171,21 @@ const attempts: Record<string, Attempt> = {
   },
   "shop.use": {
     as: "buyer",
-    run: (ctx, actor, s) => execute(ctx, op("shop.use"), actor, { inventoryId: s.inventoryId }),
+    run: (ctx, actor, s) =>
+      execute(ctx, op("shop.use"), actor, { inventoryId: s.inventoryId, threadId: s.threadId }),
+  },
+  "shop.upgrade": {
+    as: "buyer",
+    run: (ctx, actor, s) => execute(ctx, op("shop.upgrade"), actor, { itemId: s.rank.id }),
+  },
+  "appearance.set": {
+    as: "buyer",
+    run: (ctx, actor, s) => execute(ctx, op("appearance.set"), actor, { frameId: s.frameId }),
+  },
+  "users.changeUsername": {
+    as: "buyer",
+    run: (ctx, actor) =>
+      execute(ctx, op("users.changeUsername"), actor, { username: "Renamed Buyer" }),
   },
 };
 const revoke = {
@@ -153,7 +208,9 @@ const snapshot = (ctx: Ctx) =>
     ctx.sqlite.prepare("SELECT * FROM shop_items ORDER BY id").all(),
     ctx.sqlite.prepare("SELECT * FROM shop_inventory ORDER BY id").all(),
     ctx.sqlite.prepare("SELECT * FROM shop_purchases ORDER BY id").all(),
-    ctx.sqlite.prepare("SELECT id, credits FROM users ORDER BY id").all(),
+    ctx.sqlite
+      .prepare("SELECT id, credits, username, username_key, frame_id FROM users ORDER BY id")
+      .all(),
   ]);
 const actorOf = (s: Scenario, as: Attempt["as"]) =>
   as === "manager" ? s.managerActor : s.buyerActor;
@@ -187,7 +244,7 @@ test("a member who was not revoked still acts from a second process", async () =
           "SELECT quantity FROM shop_inventory WHERE id = ?1",
         )
         .get(s.inventoryId)!.quantity,
-    ).toBe(3);
+    ).toBe(2);
   } finally {
     s.database.close();
   }

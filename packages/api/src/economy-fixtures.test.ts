@@ -2,6 +2,10 @@ import { expect } from "bun:test";
 import { type Contract, type Ctx, contracts as c, closeContext, ensureAdmin } from "@sermo/core";
 import { createTestContext } from "@sermo/core/testing";
 import type * as z from "zod";
+import {
+  insertCatalogImage,
+  insertPaletteColor,
+} from "../../core/src/modules/appearance/catalog-fixtures";
 import { createApp } from "./app";
 
 const contexts: Ctx[] = [];
@@ -9,7 +13,7 @@ let nextIp = 1;
 const origin = "http://localhost:3000";
 export const missingId = 999999;
 export type Auth = Record<string, string>;
-export type Method = "GET" | "POST" | "PATCH" | "DELETE";
+export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export function cleanupEconomy() {
   for (const ctx of contexts.splice(0)) closeContext(ctx);
@@ -146,7 +150,13 @@ export async function setup(mode: "cookie" | "key" = "cookie") {
       { name: "Helpful", tier: "silver", ...body },
       201,
     );
-  const item = (categoryId: number, body: object = {}) =>
+  const frameId = insertCatalogImage(ctx, "frame");
+  const nameColorId = insertPaletteColor(ctx);
+  // A unit of a consumable permission can be used without a thread; a frame is only worn.
+  const item = (
+    categoryId: number,
+    body: { isConsumable?: boolean; [key: string]: unknown } = {},
+  ) =>
     api(
       c.shopItemsCreate,
       "POST",
@@ -156,7 +166,9 @@ export async function setup(mode: "cookie" | "key" = "cookie") {
         categoryId,
         name: "Frame",
         price: 10,
-        effect: { type: "frame", frame: "silver" },
+        effect: body.isConsumable
+          ? { type: "permission", permission: "profile.signature" }
+          : { type: "frame", frameId },
         ...body,
       },
       201,
@@ -170,7 +182,21 @@ export async function setup(mode: "cookie" | "key" = "cookie") {
       { amount, reason: "Opening credits" },
       201,
     );
-  return { ctx, request, send, api, admin, member, other, category, award, item, fund };
+  return {
+    ctx,
+    request,
+    send,
+    api,
+    admin,
+    member,
+    other,
+    category,
+    award,
+    item,
+    fund,
+    frameId,
+    nameColorId,
+  };
 }
 
 export async function fixture(mode: "cookie" | "key" = "cookie") {
@@ -188,7 +214,16 @@ export async function fixture(mode: "cookie" | "key" = "cookie") {
   const category = await f.category();
   const emptyCategory = await f.category({ name: "Empty" });
   const item = await f.item(category.id, { isConsumable: true, isGiftable: true, stock: 5 });
-  const unboughtItem = await f.item(category.id, { name: "Unbought" });
+  // A rank, so that shop.upgrade has something to move up to.
+  const rankGroup = f.ctx.sqlite
+    .prepare<{ id: number }, []>(
+      "INSERT INTO groups (title, rank) VALUES ('Supporters', 10) RETURNING id",
+    )
+    .get()!.id;
+  const unboughtItem = await f.item(category.id, {
+    name: "Unbought",
+    effect: { type: "group", groupId: rankGroup },
+  });
   await f.fund();
   const grant = await f.api(
     c.awardsGrant,

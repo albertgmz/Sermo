@@ -169,6 +169,13 @@
       "when": 1791245000000,
       "tag": "0023_members",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1791246000000,
+      "tag": "0024_shop_effects",
+      "breakpoints": true
     }
   ]
 }

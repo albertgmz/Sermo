@@ -5,6 +5,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { can } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 
 const op = (name: string) => getOperation(name);
 
@@ -32,7 +33,7 @@ async function scenario() {
     categoryId: category.id,
     name: "Badge",
     price: 5,
-    effect: { type: "frame", frame: "gold" },
+    effect: { type: "frame", frameId: insertCatalogImage(fixture, "frame") },
   })) as { id: number };
   const database = sharedDatabase(fixture);
   const here = database.open();

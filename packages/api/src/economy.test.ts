@@ -382,7 +382,7 @@ const cases: RouteCase[] = [
       categoryId: f.category.id,
       name: "New item",
       price: 4,
-      effect: { type: "nameColor", color: "#aabbcc" },
+      effect: { type: "nameColor", colorId: f.nameColorId },
     }),
     denied: {},
     invalid: {
@@ -401,7 +401,7 @@ const cases: RouteCase[] = [
       categoryId: f.category.id,
       name: "New item",
       price: 4,
-      effect: { type: "nameColor", color: "#aabbcc" },
+      effect: { type: "nameColor", colorId: f.nameColorId },
       stock: null,
       isActive: true,
     }),
@@ -465,6 +465,24 @@ const cases: RouteCase[] = [
     expected: (f) => ({ items: [f.inventory], nextCursor: null }),
   },
   {
+    contract: c.shopUpgrade,
+    method: "POST",
+    path: "/shop/items/{itemId}/upgrade",
+    status: 201,
+    url: (f) => `/shop/items/${f.unboughtItem.id}/upgrade`,
+    body: () => ({}),
+    as: "member",
+    denied: { permission: "shop.buy" },
+    invalid: { url: () => "/shop/items/1e0/upgrade", issue: "itemId" },
+    missing: { url: () => `/shop/items/${missingId}/upgrade` },
+    expected: (f) => ({
+      replacedItemId: null,
+      balance: 80,
+      purchase: { price: 10, item: { id: f.unboughtItem.id } },
+      inventory: { state: "active", userId: f.member.id },
+    }),
+  },
+  {
     contract: c.shopUse,
     method: "POST",
     path: "/shop/inventory/{inventoryId}/use",
@@ -473,7 +491,7 @@ const cases: RouteCase[] = [
     body: () => ({}),
     as: "member",
     denied: { permission: "shop.buy" },
-    invalid: { body: { value: "" }, issue: "value" },
+    invalid: { body: { threadId: 0 }, issue: "threadId" },
     missing: { url: () => `/shop/inventory/${missingId}/use` },
     expected: (f) => ({ id: f.inventory.id, userId: f.member.id, quantity: 0, state: "used" }),
   },
@@ -489,13 +507,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 33 documented route mappings", () => {
-  expect(cases).toHaveLength(33);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(33);
+test("economy has exactly the 34 documented route mappings", () => {
+  expect(cases).toHaveLength(34);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(34);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(33);
+  expect(actual).toHaveLength(34);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,
@@ -551,7 +569,9 @@ for (const mode of ["cookie", "key"] as const) {
             f.send(
               row.method,
               row.missing.url?.(f) ?? url,
-              row.contract === c.shopUse ? f.member.auth : f.admin.auth,
+              row.contract === c.shopUse || row.contract === c.shopUpgrade
+                ? f.member.auth
+                : f.admin.auth,
               row.missing.body?.(f) ?? body,
             ),
             404,
@@ -591,7 +611,7 @@ for (const mode of ["cookie", "key"] as const) {
   });
 }
 
-test("OpenAPI over HTTP documents all 33 economy operations and references shared schemas", async () => {
+test("OpenAPI over HTTP documents all 34 economy operations and references shared schemas", async () => {
   const f = await setup();
   const response = await f.request("/api/v1/openapi.json");
   expect(response.status).toBe(200);

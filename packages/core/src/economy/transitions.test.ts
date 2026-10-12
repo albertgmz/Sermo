@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { closeContext } from "../context";
 import { ConflictError, ForbiddenError, NotFoundError } from "../errors";
+import { insertCatalogImage } from "../modules/appearance/catalog-fixtures";
 import { userActor } from "../testing";
 import {
   assertInvariants,
@@ -320,7 +321,7 @@ test("a gift unlocks the buyer's automatic award once, and revocation uses its o
     price: 10,
     isConsumable: true,
     isGiftable: true,
-    effect: { type: "frame", frame: "gift" },
+    effect: { type: "frame", frameId: insertCatalogImage(ctx, "frame") },
   });
   const award = await act("awards.create", {
     name: "Generous",

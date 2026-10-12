@@ -34,6 +34,7 @@ import {
   type PaletteKind,
   paletteColorInUse,
 } from "./store";
+import { wearingOperations } from "./wearing";
 
 export { catalogImageById, paletteColorById } from "./store";
 
@@ -323,4 +324,6 @@ export const operations = [
     },
     { public: "The site's name, pictures and palette are what every visitor sees." },
   ),
+
+  ...wearingOperations,
 ];

@@ -222,3 +222,20 @@ export const standingsWinners = defineContract({
     ),
   }),
 });
+
+export const usersChangeUsername = defineContract({
+  name: "users.changeUsername",
+  summary:
+    "Change your own username. Free for holders of profile.renameFree; otherwise it takes one " +
+    "unit of a `usernameChange` shop item from the inventory (a conflict when there is none). " +
+    "The name obeys the registration rules and must be free, compared without regard to case " +
+    "(changing only the case of one's own name is allowed). The unit is taken first and given " +
+    "back if the change does not happen.",
+  kind: "write",
+  input: z.object({ username: z.string().trim().min(1).max(64) }),
+  output: z.object({
+    username: z.string(),
+    /** Units of `usernameChange` items left; null for holders of profile.renameFree. */
+    remaining: z.number().int().nonnegative().nullable(),
+  }),
+});

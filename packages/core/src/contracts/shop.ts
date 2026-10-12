@@ -13,11 +13,19 @@ import { ImageReference } from "./images";
  *   anywhere still denies it. A node permission is granted on every node.
  * - `group`: adds a secondary group (this is how paid ranks are sold). Never consumable.
  *
- * The others are stored and validated, and using the item publishes `shop.item_used`; applying
- * them is the subscriber's work:
- * - `frame`, `nameColor`: profile appearance.
- * - `threadCover`, `highlight`, `bump`: act on a thread of the member's (`shop.use` takes it).
- * - `usernameChange`: `shop.use` takes the new name.
+ * Two unlock a look for as long as the item is held; the member then wears it or not with
+ * `appearance.set`:
+ * - `frame`: an avatar frame of the picture catalog (kind `frame`).
+ * - `nameColor`: a colour of the `name` palette.
+ *
+ * Three act on a visible thread the member started, when used with `shop.use` (which takes the
+ * thread), in the same transaction that takes the unit:
+ * - `threadCover`: gives the thread that cover of the picture catalog (kind `thread_cover`).
+ * - `highlight`: lists show the thread highlighted for `days` more days.
+ * - `bump`: the thread sorts as if it had a post now.
+ *
+ * And one is spent by another operation:
+ * - `usernameChange`: one unit pays for one `users.changeUsername`.
  */
 export const ShopEffect = z
   .discriminatedUnion("type", [
@@ -27,12 +35,9 @@ export const ShopEffect = z
       value: z.number().int().min(-1).max(1_000_000_000_000).optional(),
     }),
     z.object({ type: z.literal("group"), groupId: Id }),
-    z.object({ type: z.literal("frame"), frame: z.string().trim().min(1).max(100) }),
-    z.object({
-      type: z.literal("nameColor"),
-      color: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a #rrggbb color."),
-    }),
-    z.object({ type: z.literal("threadCover"), cover: z.string().trim().min(1).max(200) }),
+    z.object({ type: z.literal("frame"), frameId: Id }),
+    z.object({ type: z.literal("nameColor"), colorId: Id }),
+    z.object({ type: z.literal("threadCover"), coverId: Id }),
     z.object({ type: z.literal("highlight"), days: z.number().int().min(1).max(365) }),
     z.object({ type: z.literal("bump") }),
     z.object({ type: z.literal("usernameChange") }),
@@ -208,7 +213,8 @@ export const shopItemsGet = defineContract({
 export const shopItemsCreate = defineContract({
   name: "shopItems.create",
   summary:
-    "Create a shop item. A consumable has no duration and cannot have a `group` effect. A " +
+    "Create a shop item. A `frame`, `nameColor` or `threadCover` effect must name an entry of " +
+    "its catalog that has a picture or a colour. A consumable has no duration and cannot have a `group` effect. A " +
     "`permission` effect must name a registered permission with a value of its kind; a `group` " +
     "effect an existing group other than the guest group, ranked below the actor. Permissions " +
     "of the admin category and groups that hold admin.permissions cannot be sold. Selling a " +
@@ -273,7 +279,9 @@ export const shopBuy = defineContract({
     "stock is short), adds the item to the recipient's inventory, lowers the stock and records " +
     "the purchase. A consumable adds `quantity` units; any other item takes quantity 1 and is a " +
     "conflict while the recipient holds it (after it expired it can be bought again). A " +
-    "permission or group item applies at once. Requires shop.buy. A gift also requires " +
+    "permission or group item applies at once. An item that sells a yes/no permission the " +
+    "recipient already holds another way (through a group, for instance) is a conflict: there " +
+    "is nothing to buy. Requires shop.buy. A gift also requires " +
     "shop.gift and a giftable item, and is refused when the recipient ignores the buyer.",
   kind: "write",
   input: z.object({
@@ -307,18 +315,38 @@ export const shopInventory = defineContract({
 export const shopUse = defineContract({
   name: "shop.use",
   summary:
-    "Use an item of your own inventory: publishes `shop.item_used` and, for a consumable, takes " +
-    "one unit (the last unit moves the row to `used` and ends a permission it granted). " +
-    "`threadCover`, `highlight` and `bump` need `threadId`, a visible thread the member started; " +
-    "`usernameChange` needs `value`. `group` items, and `permission` items that are not " +
-    "consumable, apply while held and cannot be used. Requires shop.buy.",
+    "Use an item of your own inventory on a thread: `threadCover`, `highlight` and `bump` take " +
+    "`threadId`, a visible thread the member started, apply their effect to it and, for a " +
+    "consumable, take one unit, all in one transaction (the last unit moves the row to `used`); " +
+    "it also publishes `shop.item_used`. A consumable `permission` item is used without a " +
+    "thread. Every other item cannot be used: `frame` and `nameColor` are worn with " +
+    "appearance.set, `usernameChange` is spent by users.changeUsername, and `group` items and " +
+    "non-consumable `permission` items apply while held. Requires shop.buy.",
   kind: "write",
-  input: z.object({
-    inventoryId: Id,
-    threadId: Id.optional(),
-    value: z.string().trim().min(1).max(100).optional(),
-  }),
+  input: z.object({ inventoryId: Id, threadId: Id.optional() }),
   output: ShopInventoryEntry,
+});
+
+export const shopUpgrade = defineContract({
+  name: "shop.upgrade",
+  summary:
+    "Move up to a better rank and pay only the difference. The item must be an active `group` " +
+    "item; the member's current rank is the most expensive `group` item of the SAME category " +
+    "they hold active. With no current rank this is shop.buy at the full price. With one, the " +
+    "new item must cost more (a conflict otherwise: ranks only go up); in one transaction the " +
+    "member is charged the difference (a conflict when the balance is short), the old item " +
+    "leaves the inventory and its group with it, the new item is added and its group applies, " +
+    "and the purchase is recorded at the price paid. Requires shop.buy.",
+  kind: "write",
+  input: z.object({ itemId: Id }),
+  output: z.object({
+    purchase: ShopPurchase,
+    /** The buyer's balance after the charge. */
+    balance: z.number().int(),
+    inventory: ShopInventoryEntry,
+    /** The item the new one replaced, or null. */
+    replacedItemId: Id.nullable(),
+  }),
 });
 
 export const shopPurchases = defineContract({

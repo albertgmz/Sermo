@@ -432,6 +432,16 @@ export const threadsRestore = defineContract({
   output: Thread,
 });
 
+export const threadsRemoveCover = defineContract({
+  name: "threads.removeCover",
+  summary:
+    "Take the cover off a thread. The author of a visible thread, or anyone who may edit other " +
+    "members' threads there. Nothing is refunded.",
+  kind: "write",
+  input: z.object({ ...moderationNotice, threadId: Id }),
+  output: Thread,
+});
+
 export const threadsMarkRead = defineContract({
   name: "threads.markRead",
   summary:

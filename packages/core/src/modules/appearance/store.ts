@@ -142,6 +142,19 @@ export const inUseSql = {
   prefix: "SELECT 1 FROM thread_prefixes WHERE color_id = ?1 LIMIT 1",
 } as const;
 
+/**
+ * Shop items that sell an entry name it in their JSON effect. `shop_items` is a small
+ * administrative table that is only read here, when an administrator deletes an entry, so a scan
+ * with `json_extract` is acceptable (it is not a hot path).
+ */
+export const shopInUseSql = {
+  frame:
+    "SELECT 1 FROM shop_items WHERE json_extract(effect, '$.type') = 'frame' AND json_extract(effect, '$.frameId') = ?1 LIMIT 1",
+  thread_cover:
+    "SELECT 1 FROM shop_items WHERE json_extract(effect, '$.type') = 'threadCover' AND json_extract(effect, '$.coverId') = ?1 LIMIT 1",
+  name: "SELECT 1 FROM shop_items WHERE json_extract(effect, '$.type') = 'nameColor' AND json_extract(effect, '$.colorId') = ?1 LIMIT 1",
+} as const;
+
 function inUse(ctx: Ctx, sql: string, id: number): boolean {
   return !!prepared(ctx, `appearance.${sql}`, () =>
     ctx.sqlite.prepare<{ 1: number }, [number]>(sql),
@@ -150,10 +163,13 @@ function inUse(ctx: Ctx, sql: string, id: number): boolean {
 
 /** Whether anything refers to the picture. Extend here when a new feature refers to pictures. */
 export function catalogImageInUse(ctx: Ctx, kind: CatalogImageKind, id: number): boolean {
-  return inUse(ctx, inUseSql[kind], id);
+  return (
+    inUse(ctx, inUseSql[kind], id) ||
+    (kind === "frame" || kind === "thread_cover" ? inUse(ctx, shopInUseSql[kind], id) : false)
+  );
 }
 
 /** Whether anything refers to the colour. Extend here when a new feature refers to colours. */
 export function paletteColorInUse(ctx: Ctx, kind: PaletteKind, id: number): boolean {
-  return inUse(ctx, inUseSql[kind], id);
+  return inUse(ctx, inUseSql[kind], id) || (kind === "name" && inUse(ctx, shopInUseSql.name, id));
 }

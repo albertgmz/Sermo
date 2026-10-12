@@ -14,6 +14,7 @@ import {
   requirePermission,
   validatePurchasedGrant,
 } from "../../permissions";
+import { catalogImageById, paletteColorById } from "../appearance";
 import { releaseFile } from "../images/attach";
 import {
   type CategoryRow,
@@ -48,10 +49,36 @@ function assertGrantRank(ctx: Ctx, actor: Actor, effect: Effect): void {
   if (!group) throw new NotFoundError();
   if (group.rank >= memberStanding(ctx, actor).maxRank) throw new ForbiddenError();
 }
+/**
+ * A `frame`, `nameColor` or `threadCover` effect names an entry of its catalog. The entry must
+ * exist and be of the right kind; one that cannot be shown yet (no picture, no placement) or is
+ * inactive is allowed only on an item that is not for sale.
+ */
+function assertCatalogEntry(ctx: Ctx, effect: Effect, forSale: boolean): void {
+  if (effect.type === "nameColor") {
+    const color = paletteColorById(ctx, effect.colorId);
+    if (color?.kind !== "name")
+      throw new ValidationError("The colour must be an entry of the name palette.");
+    if (forSale && !color.isActive) throw new ValidationError("The colour is not active.");
+    return;
+  }
+  if (effect.type !== "frame" && effect.type !== "threadCover") return;
+  const id = effect.type === "frame" ? effect.frameId : effect.coverId;
+  const kind = effect.type === "frame" ? "frame" : "thread_cover";
+  const entry = catalogImageById(ctx, id);
+  if (entry?.kind !== kind)
+    throw new ValidationError(`The picture must be an entry of the ${kind} catalog.`);
+  if (!forSale) return;
+  if (!entry.image) throw new ValidationError("The catalog entry has no picture yet.");
+  if (kind === "frame" && !entry.placement)
+    throw new ValidationError("The frame has no placement yet.");
+  if (!entry.isActive) throw new ValidationError("The catalog entry is not active.");
+}
 function validateItem(
   ctx: Ctx,
   actor: Actor,
-  value: Pick<Item, "effect" | "isConsumable" | "durationSeconds">,
+  value: Pick<Item, "effect" | "isConsumable" | "durationSeconds" | "isActive">,
+  forSale = value.isActive,
 ): void {
   if (value.isConsumable && (value.durationSeconds !== null || value.effect.type === "group"))
     throw new ValidationError("Consumables cannot have a duration or grant a group.");
@@ -59,6 +86,7 @@ function validateItem(
   grantPermissions(ctx, actor, effect);
   if (effect.type === "permission" || effect.type === "group") validatePurchasedGrant(ctx, effect);
   assertGrantRank(ctx, actor, effect);
+  assertCatalogEntry(ctx, effect, forSale);
 }
 
 export const categoriesList = implement(
@@ -163,7 +191,7 @@ export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, inp
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     const current = managerNow(ctx, actor);
-    validateItem(ctx, current, input);
+    validateItem(ctx, current, input, true);
     category(ctx, input.categoryId);
     return itemValue(
       ctx,
@@ -207,7 +235,15 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
       statement(ctx, shopSql.bought).get(previous.id)
     )
       throw new ConflictError("A purchased item's effect, kind and duration cannot change.");
-    validateItem(ctx, current, value);
+    // Only a new effect, or an item put on sale, needs an entry that can be shown now: an item
+    // that is not for sale may wait for its picture, and one whose entry was deactivated since
+    // stays as it is.
+    validateItem(
+      ctx,
+      current,
+      value,
+      !isDeepStrictEqual(previous.effect, value.effect) || (value.isActive && !previous.isActive),
+    );
     category(ctx, value.categoryId);
     return itemValue(
       ctx,

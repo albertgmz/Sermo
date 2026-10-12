@@ -156,7 +156,7 @@ describe("award and shop item pictures", () => {
       .prepare<{ id: number }, [string, number, number]>(
         "INSERT INTO shop_items (category_id, name, price, effect, created_at, updated_at) VALUES (?2, 'Badge', 5, ?1, ?3, ?3) RETURNING id",
       )
-      .get(JSON.stringify({ type: "frame", frame: "x" }), category, now)!.id;
+      .get(JSON.stringify({ type: "bump" }), category, now)!.id;
     return { ...s, award, item };
   }
 

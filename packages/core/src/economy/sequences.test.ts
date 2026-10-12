@@ -5,6 +5,7 @@ import { closeContext } from "../context";
 import type { ShopItem } from "../contracts/shop";
 import { CREDIT_TRIGGERS } from "../db/schema";
 import { ConflictError } from "../errors";
+import { insertCatalogImage, insertPaletteColor } from "../modules/appearance/catalog-fixtures";
 import { getAuth } from "../modules/auth";
 import { flushActivity } from "../modules/jobs/queue";
 import { userActor } from "../testing";
@@ -57,9 +58,17 @@ for (const seed of [0x12345678, 0x51a7e, 0xdecafbad]) {
       const category = await act("shopCategories.create", { name: "Sequence items" });
       const items: z.infer<typeof ShopItem>[] = [];
       for (const spec of [
-        { name: "Consumable", isConsumable: true, effect: { type: "frame", frame: "blue" } },
-        { name: "Permanent", effect: { type: "nameColor", color: "#123456" } },
-        { name: "Temporary", durationSeconds: 60, effect: { type: "frame", frame: "temporary" } },
+        {
+          name: "Consumable",
+          isConsumable: true,
+          effect: { type: "frame", frameId: insertCatalogImage(ctx, "frame") },
+        },
+        { name: "Permanent", effect: { type: "nameColor", colorId: insertPaletteColor(ctx) } },
+        {
+          name: "Temporary",
+          durationSeconds: 60,
+          effect: { type: "frame", frameId: insertCatalogImage(ctx, "frame") },
+        },
         {
           name: "Permission units",
           isConsumable: true,
@@ -343,7 +352,7 @@ for (const seed of [0x12345678, 0x51a7e, 0xdecafbad]) {
           run: async () => {
             const held = rows<{ id: number; user_id: number }>(
               ctx,
-              "SELECT id, user_id FROM shop_inventory WHERE state = 'unused' AND quantity > 0 ORDER BY id",
+              "SELECT inv.id, inv.user_id FROM shop_inventory inv JOIN shop_items it ON it.id = inv.item_id WHERE inv.state = 'unused' AND inv.quantity > 0 AND json_extract(it.effect, '$.type') = 'permission' ORDER BY inv.id",
             );
             if (held.length) {
               const inventory = pick(held);
