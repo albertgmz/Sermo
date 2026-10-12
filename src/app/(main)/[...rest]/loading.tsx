@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   HeadingSkeleton,
   LoadingRegion,
@@ -6,9 +7,10 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 
 export default function Loading() {
+  const t = useTranslations("home.loading");
   return (
     <PageLayout>
-      <LoadingRegion label="Loading page…">
+      <LoadingRegion label={t("page")}>
         <HeadingSkeleton />
         <div className="mt-6">
           <TextSkeleton />

@@ -2,6 +2,7 @@
 
 import { ImagePlus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import {
   type CoverState,
@@ -22,11 +23,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const ERRORS = {
-  no_cover: "Choose a cover first.",
-  not_found: "This thread or cover no longer exists.",
-  not_owned: "You have none of this cover left.",
-  not_author: "You cannot change the cover of this thread.",
-};
+  no_cover: "errors.noCover",
+  not_found: "errors.notFound",
+  not_owned: "errors.notOwned",
+  not_author: "errors.notAuthor",
+} as const;
 
 const triggerClass = "h-10 px-3 md:h-8";
 
@@ -46,6 +47,7 @@ function CoverPicker({
   hasCover: boolean;
   covers: OwnedCover[];
 }) {
+  const t = useTranslations("threads.coverControlsClient");
   const [state, action] = useActionState<CoverState, FormData>(
     changeCover.bind(null, threadId),
     null,
@@ -56,17 +58,17 @@ function CoverPicker({
         render={<Button variant="outline" className={triggerClass} />}
       >
         <ImagePlus />
-        {hasCover ? "Change cover" : "Add cover"}
+        {hasCover ? t("changeLabel") : t("addLabel")}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {hasCover ? "Change the cover" : "Add a cover"}
+            {hasCover ? t("changeTitle") : t("addTitle")}
           </DialogTitle>
           <DialogDescription>
             {covers.length > 0
-              ? `Picking a cover uses it up${hasCover ? ", and the current one is not returned" : ""}.`
-              : "You have no thread covers. They are sold in the shop, and each one goes on a single thread."}
+              ? t("description", { hasCover: String(hasCover) })
+              : t("empty")}
           </DialogDescription>
         </DialogHeader>
         {covers.length > 0 ? (
@@ -78,14 +80,14 @@ function CoverPicker({
                     variant="outline"
                     name="item"
                     value={cover.itemId}
-                    aria-label={`Use ${cover.name}`}
+                    aria-label={t("aria.useCover", { name: cover.name })}
                     className="h-auto w-full flex-col items-stretch gap-0 overflow-hidden p-0"
                   >
                     {cover.preview}
                     <span className="flex min-h-10 items-center justify-between gap-2 px-2 text-xs">
                       <span className="truncate">{cover.name}</span>
                       <span className="shrink-0 text-muted-foreground tabular-nums">
-                        ×{cover.quantity}
+                        {t("covers", { count: cover.quantity })}
                       </span>
                     </span>
                   </PendingButton>
@@ -93,7 +95,7 @@ function CoverPicker({
               ))}
             </ul>
             <output className="mt-2 block text-xs text-destructive empty:hidden">
-              {state && ERRORS[state.error]}
+              {state && t(ERRORS[state.error])}
             </output>
           </form>
         ) : (
@@ -101,7 +103,7 @@ function CoverPicker({
             href="/credits?category=threadCover"
             className={cn(buttonVariants(), "h-10")}
           >
-            Browse thread covers
+            {t("browse")}
           </Link>
         )}
       </DialogContent>
@@ -110,6 +112,7 @@ function CoverPicker({
 }
 
 function RemoveCover({ threadId, own }: { threadId: number; own: boolean }) {
+  const t = useTranslations("threads.coverControlsClient");
   const [state, action] = useActionState<CoverState, FormData>(
     removeCover.bind(null, threadId),
     null,
@@ -120,15 +123,13 @@ function RemoveCover({ threadId, own }: { threadId: number; own: boolean }) {
         render={<Button variant="outline" className={triggerClass} />}
       >
         <Trash2 />
-        Remove cover
+        {t("removeLabel")}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Remove the cover?</DialogTitle>
+          <DialogTitle>{t("removeTitle")}</DialogTitle>
           <DialogDescription>
-            {own
-              ? "The photo is taken off this thread. It does not go back to your inventory."
-              : "The photo is taken off this thread. It does not go back to the author's inventory."}
+            {t("removeDescription", { own: String(own) })}
           </DialogDescription>
         </DialogHeader>
         <form action={action}>
@@ -136,14 +137,14 @@ function RemoveCover({ threadId, own }: { threadId: number; own: boolean }) {
             <DialogClose
               render={<Button variant="outline" className="h-10 px-4" />}
             >
-              Keep it
+              {t("cancel")}
             </DialogClose>
             <PendingButton variant="destructive" className="h-10 px-4">
-              Remove cover
+              {t("removeLabel")}
             </PendingButton>
           </div>
           <output className="mt-2 block text-xs text-destructive empty:hidden">
-            {state && ERRORS[state.error]}
+            {state && t(ERRORS[state.error])}
           </output>
         </form>
       </DialogContent>

@@ -1,6 +1,7 @@
 import { CircleDollarSign, MessageCircle, Store } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ForumSidebar } from "@/app/(main)/forums/forum-sidebar";
 import {
@@ -27,24 +28,25 @@ import { getCurrentUser } from "@/lib/session";
 import type { ForumTab } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Forums - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("forums.forums");
+  return { title: t("metaTitle") };
+}
 
 const TABS = [
   {
     value: "general",
-    label: "General",
+    label: "generalTab",
     icon: <MessageCircle className="size-4" />,
   },
   {
     value: "market",
-    label: "Market",
+    label: "marketTab",
     icon: <Store className="size-4 text-primary" />,
   },
   {
     value: "money",
-    label: "Money",
+    label: "moneyTab",
     icon: <CircleDollarSign className="size-4 text-primary" />,
   },
 ] as const;
@@ -59,11 +61,9 @@ function forumsHref(tab: ForumTab, stats: StatsTab) {
 
 async function GuestHero() {
   const users = (await getUsers()).slice(0, 5);
+  const t = await getTranslations("forums.forums");
   return (
-    <PageHero
-      title="Ask questions. Share what you know."
-      subtitle="Join a community of makers who trade ideas, feedback and good advice every day."
-    >
+    <PageHero title={t("heading")} subtitle={t("description")}>
       <div className="flex w-full justify-center -space-x-2 sm:w-auto">
         {users.map((user) => (
           <UserAvatar
@@ -79,10 +79,10 @@ async function GuestHero() {
         href="/login"
         className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
       >
-        Log in
+        {t("login")}
       </Link>
       <Link href="/register" className={cn(buttonVariants(), "h-10 px-4")}>
-        Create Account
+        {t("register")}
       </Link>
     </PageHero>
   );
@@ -98,17 +98,15 @@ export default async function ForumsPage({
     STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
     STATS_TABS[0].value;
   const user = await getCurrentUser();
+  const t = await getTranslations("forums.forums");
 
   return (
     <>
       {!user && (
         <Suspense
           fallback={
-            <LoadingRegion label="Loading community introduction…">
-              <PageHero
-                title="Ask questions. Share what you know."
-                subtitle="Join a community of makers who trade ideas, feedback and good advice every day."
-              >
+            <LoadingRegion label={t("aria.loadingIntroduction")}>
+              <PageHero title={t("heading")} subtitle={t("description")}>
                 <div className="flex w-full justify-center -space-x-2 sm:w-auto">
                   {[1, 2, 3, 4, 5].map((avatar) => (
                     <Skeleton
@@ -130,7 +128,7 @@ export default async function ForumsPage({
         aside={
           <Suspense
             fallback={
-              <LoadingRegion label="Loading forum sidebar…">
+              <LoadingRegion label={t("aria.loadingSidebar")}>
                 <SidebarSkeleton />
               </LoadingRegion>
             }
@@ -143,7 +141,7 @@ export default async function ForumsPage({
       >
         <Suspense
           fallback={
-            <LoadingRegion label="Loading forum statistics…">
+            <LoadingRegion label={t("aria.loadingStatistics")}>
               <ForumStatsSkeleton />
             </LoadingRegion>
           }
@@ -158,16 +156,17 @@ export default async function ForumsPage({
         <TabLinks
           tabs={TABS.map((entry) => ({
             ...entry,
+            label: t(entry.label),
             href: forumsHref(entry.value, stats),
           }))}
           active={tab}
-          label="Forum sections"
+          label={t("aria.sections")}
           variant="segmented"
         />
 
         <Suspense
           fallback={
-            <LoadingRegion label="Loading forum categories…">
+            <LoadingRegion label={t("aria.loadingCategories")}>
               <ForumCategoriesSkeleton />
             </LoadingRegion>
           }

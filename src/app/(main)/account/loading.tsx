@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   AccountActivitySkeleton,
   AccountDetailsSkeleton,
@@ -6,11 +7,14 @@ import { LoadingRegion, StatTileSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("account.loading");
   return (
-    <LoadingRegion label="Loading your account overview…">
+    <LoadingRegion label={t("overviewLabel")}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 lg:pb-2">
-          <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t("overviewHeading")}
+          </h1>
           <Skeleton className="h-9 w-48" />
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

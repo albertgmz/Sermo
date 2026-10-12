@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   LoadingRegion,
   MembersOverviewSkeleton,
@@ -7,8 +8,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("members.loading");
   return (
-    <LoadingRegion label="Loading members…">
+    <LoadingRegion label={t("label")}>
       <PageLayout
         aside={
           <div className="space-y-1">
@@ -22,7 +24,7 @@ export default function Loading() {
         mainClassName="space-y-(--page-gap)"
       >
         <header>
-          <h1 className="text-2xl font-bold tracking-tight">Members</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
           <Skeleton className="mt-1 h-5 w-3/4" />
         </header>
         <div className="lg:hidden">

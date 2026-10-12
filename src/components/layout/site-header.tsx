@@ -11,7 +11,6 @@ import {
   MessagesPanel,
   SearchPanel,
 } from "@/components/layout/header-panels";
-import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import { Logo } from "@/components/layout/logo";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -100,17 +99,8 @@ export function SiteHeader() {
           </Suspense>
         </div>
       </Container>
-      <Container className="flex justify-end pb-2">
-        <Suspense fallback={<Skeleton className="h-10 w-32" />}>
-          <LiteTools />
-        </Suspense>
-      </Container>
     </header>
   );
-}
-
-async function LiteTools() {
-  return <LiteModeToggle enabled={(await getLiteState()).master} />;
 }
 
 async function AccountTools() {
@@ -138,6 +128,7 @@ async function AccountTools() {
             <AlertTools userId={user.id} />
           </Suspense>
           <UserMenu
+            lite={await getLiteState()}
             avatar={<UserAvatar user={user} size="md" link={false} />}
             user={{
               id: user.id,

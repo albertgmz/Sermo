@@ -1,28 +1,61 @@
 "use client";
 
+import { Leaf, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useId } from "react";
+import { useFormStatus } from "react-dom";
 import { setLiteMode } from "@/app/(main)/actions";
-import { PendingButton } from "@/components/forum/pending-button";
+import { LiteStatus } from "@/app/(main)/lite/status";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import type { LiteState } from "@/lib/lite-preferences";
 
-export function LiteModeToggle({ enabled }: { enabled: boolean }) {
+function ToggleItem({ state }: { state: LiteState }) {
+  const t = useTranslations("lite.liteModeToggle");
+  const { pending } = useFormStatus();
+  const statusId = useId();
+  return (
+    <DropdownMenuItem
+      nativeButton
+      render={<button type="submit" />}
+      closeOnClick={false}
+      disabled={pending}
+      aria-label={t(state.master ? "aria.disable" : "aria.enable")}
+      aria-describedby={statusId}
+      className="min-h-10 w-full"
+    >
+      <Leaf />
+      <span>{t("label")}</span>
+      <span id={statusId} className="ml-auto text-xs text-muted-foreground">
+        <LiteStatus state={state} />
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
+export function LiteModeToggle({ state }: { state: LiteState }) {
+  const t = useTranslations("lite.liteModeToggle");
   const pathname = usePathname();
   const search = useSearchParams().toString();
   return (
-    <form action={setLiteMode}>
-      <input type="hidden" name="mode" value={enabled ? "off" : "all"} />
-      <input
-        type="hidden"
-        name="returnTo"
-        value={pathname + (search ? `?${search}` : "")}
-      />
-      <PendingButton
-        variant="outline"
-        className="h-10 px-3"
-        aria-pressed={enabled}
-        aria-label={`Turn ${enabled ? "off" : "on"} LITE mode`}
+    <>
+      <form action={setLiteMode}>
+        <input type="hidden" name="mode" value={state.master ? "off" : "all"} />
+        <input
+          type="hidden"
+          name="returnTo"
+          value={pathname + (search ? `?${search}` : "")}
+        />
+        <ToggleItem state={state} />
+      </form>
+      <DropdownMenuItem
+        className="min-h-10"
+        render={<Link href="/account/lite" />}
       >
-        LITE mode: {enabled ? "On" : "Off"}
-      </PendingButton>
-    </form>
+        <SlidersHorizontal />
+        {t("settingsLink")}
+      </DropdownMenuItem>
+    </>
   );
 }

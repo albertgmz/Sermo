@@ -2,6 +2,8 @@ import { Eye, MessageCircle, MessagesSquare, Pin, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useFormatter, useNow, useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -19,7 +21,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { threadCoverSrc } from "@/lib/appearance";
 import { getForum, getThreads, type ThreadView } from "@/lib/db";
-import { formatCompact, formatRelativeTime } from "@/lib/format";
+import { formatCompact } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 import type { Prefix } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -36,9 +38,10 @@ function PrefixFilter({
   prefixes: Prefix[];
   active: Prefix | undefined;
 }) {
+  const t = useTranslations("forums.forum");
   return (
     <nav
-      aria-label="Filter by prefix"
+      aria-label={t("aria.prefixFilter")}
       className="-mx-1 mt-3 flex overflow-x-auto [scrollbar-width:none]"
     >
       <Link
@@ -50,7 +53,7 @@ function PrefixFilter({
           "px-2 text-xs font-medium text-muted-foreground hover:text-foreground aria-[current=true]:text-foreground",
         )}
       >
-        All threads
+        {t("allThreads")}
       </Link>
       {prefixes.map((prefix) => (
         <Link
@@ -72,6 +75,9 @@ function PrefixFilter({
 }
 
 function ThreadRow({ thread }: { thread: ThreadView }) {
+  const t = useTranslations("forums.forum");
+  const format = useFormatter();
+  const now = useNow();
   return (
     <li
       className={cn(
@@ -101,7 +107,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
         >
           {thread.pinned && (
             <Pin
-              aria-label="Pinned"
+              aria-label={t("aria.pinned")}
               className="mt-0.5 size-3.5 shrink-0 text-primary"
             />
           )}
@@ -114,34 +120,42 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
             )}
             {thread.title}
             {thread.highlighted && (
-              <span className="sr-only"> (highlighted)</span>
+              <span className="sr-only">{t("aria.highlighted")}</span>
             )}
           </span>
         </ThreadHoverCard>
         <p className="truncate text-xs text-muted-foreground">
-          <UserLink user={thread.author} className="relative z-10" /> ·{" "}
-          {formatRelativeTime(thread.createdAt)}
+          {t.rich("created", {
+            author: () => (
+              <UserLink user={thread.author} className="relative z-10" />
+            ),
+            time: format.relativeTime(new Date(thread.createdAt), now),
+          })}
         </p>
       </div>
       <dl className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground tabular-nums sm:flex-row sm:gap-0">
         <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
           <dt>
             <MessageCircle aria-hidden="true" className="size-3.5" />
-            <span className="sr-only">Replies</span>
+            <span className="sr-only">{t("aria.replies")}</span>
           </dt>
           <dd>{formatCompact(thread.replyCount)}</dd>
         </div>
         <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
           <dt>
             <Eye aria-hidden="true" className="size-3.5" />
-            <span className="sr-only">Views</span>
+            <span className="sr-only">{t("aria.views")}</span>
           </dt>
           <dd>{formatCompact(thread.views)}</dd>
         </div>
       </dl>
       <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">
-        {formatRelativeTime(thread.lastPost.createdAt)} ·{" "}
-        <UserLink user={thread.lastPost.author} className="relative z-10" />
+        {t.rich("lastPost", {
+          time: format.relativeTime(new Date(thread.lastPost.createdAt), now),
+          author: () => (
+            <UserLink user={thread.lastPost.author} className="relative z-10" />
+          ),
+        })}
       </p>
     </li>
   );
@@ -151,7 +165,10 @@ export async function generateMetadata({
   params,
 }: PageProps<"/forums/[id]">): Promise<Metadata> {
   const forum = await getForum(Number((await params).id));
-  return { title: `${forum?.title ?? "Forum"} - forum/ui` };
+  const t = await getTranslations("forums.forum");
+  return {
+    title: t("metaTitle", { title: forum?.title ?? t("metaTitleFallback") }),
+  };
 }
 
 export default async function ForumPage({
@@ -162,6 +179,7 @@ export default async function ForumPage({
   const forum = await getForum(Number(id));
   if (!forum) notFound();
   const user = await getCurrentUser();
+  const t = await getTranslations("forums.forum");
 
   const newThread = user && (
     <Link
@@ -169,7 +187,7 @@ export default async function ForumPage({
       className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
     >
       <Plus />
-      New thread
+      {t("newThread")}
     </Link>
   );
 
@@ -177,7 +195,7 @@ export default async function ForumPage({
     <PageLayout className="pt-2">
       <PageBreadcrumb
         items={[
-          { label: "Home", href: "/" },
+          { label: t("home"), href: "/" },
           { label: forum.categoryTitle, href: `/forums?tab=${forum.tab}` },
           { label: forum.title },
         ]}
@@ -196,7 +214,7 @@ export default async function ForumPage({
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading threads…">
+          <LoadingRegion label={t("aria.loadingThreads")}>
             <TabsSkeleton />
             <div className="mt-1 divide-y overflow-hidden rounded-lg border bg-card">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
@@ -229,6 +247,7 @@ async function ForumThreads({
   newThread: React.ReactNode;
 }) {
   const all = await getThreads(forumId);
+  const t = await getTranslations("forums.forum");
   const prefixes = all
     .flatMap((thread) => thread.prefix ?? [])
     .filter((prefix, index, list) => list.indexOf(prefix) === index)
@@ -259,11 +278,9 @@ async function ForumThreads({
         ) : (
           <EmptyState
             icon={MessagesSquare}
-            title="No threads yet"
+            title={t("empty")}
             description={
-              user
-                ? "Be the first to start a discussion in this forum."
-                : "Log in to start the first discussion in this forum."
+              user ? t("emptyMemberDescription") : t("emptyGuestDescription")
             }
           >
             {newThread}

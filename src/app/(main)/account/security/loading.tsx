@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   LoadingRegion,
@@ -6,18 +7,21 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("account.loading");
   return (
-    <LoadingRegion label="Loading security settings…">
+    <LoadingRegion label={t("securityLabel")}>
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Security</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {t("securityHeading")}
+        </h1>
         <CardSkeleton>
           <MemberRowSkeleton />
           <MemberRowSkeleton />
         </CardSkeleton>
         <section className="rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-semibold">Log out</h2>
+          <h2 className="text-sm font-semibold">{t("logoutHeading")}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            End your session in this browser.
+            {t("logoutDescription")}
           </p>
           <Skeleton className="mt-3 h-10 w-20" />
         </section>

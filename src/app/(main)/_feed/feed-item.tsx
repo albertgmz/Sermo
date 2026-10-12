@@ -1,5 +1,6 @@
 import { Eye, MessageCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useFormatter, useTranslations } from "next-intl";
 import { ClampedBody } from "@/app/(main)/_feed/clamped-body";
 import { react } from "@/app/(main)/actions";
 import { Art } from "@/components/forum/art";
@@ -73,12 +74,15 @@ function Card({
   reactions: ReactionsView;
   href: string;
   count: number;
-  noun: [singular: string, plural: string];
+  noun: "comments" | "replies";
   views?: number;
   viewer: UserView | null;
   reactionTypes: ReactionType[];
   children: React.ReactNode;
 }) {
+  const t = useTranslations("home.feedItem");
+  const format = useFormatter();
+  const formattedCount = format.number(count, { useGrouping: false });
   const { author } = item;
   return (
     <article
@@ -115,7 +119,7 @@ function Card({
         {highlighted && (
           <span className="inline-flex shrink-0 items-center gap-1 text-(length:--text-caption) font-medium text-primary">
             <Sparkles aria-hidden="true" className="size-3" />
-            Highlighted
+            {t("highlighted")}
           </span>
         )}
       </header>
@@ -131,17 +135,20 @@ function Card({
         />
         <Link
           href={href}
-          aria-label={`${count} ${noun[count === 1 ? 0 : 1]}`}
+          aria-label={t(noun, { count, value: formattedCount })}
           className={messageActionClass}
         >
           <MessageCircle />
-          {count}
+          {formattedCount}
         </Link>
         {views !== undefined && (
           <span className="inline-flex h-10 items-center gap-1.5 px-2 text-xs font-medium tabular-nums text-muted-foreground md:h-8">
             <Eye aria-hidden="true" className="size-4" />
-            {formatCompact(views)}
-            <span className="sr-only"> views</span>
+            {t.rich("views", {
+              count: views,
+              value: formatCompact(views),
+              label: (chunks) => <span className="sr-only">{chunks}</span>,
+            })}
           </span>
         )}
         <ShareButton href={href} className={messageActionClass} />
@@ -160,6 +167,7 @@ export function FeedItem({
   viewer: UserView | null;
   reactionTypes: ReactionType[];
 }) {
+  const t = useTranslations("home.feedItem");
   if (item.type === "profilePost") {
     const { profilePost } = item;
     const href = `/members/${profilePost.profileUser.id}#profile-post-${profilePost.id}`;
@@ -167,23 +175,22 @@ export function FeedItem({
       <Card
         item={item}
         context={
-          profilePost.profileUserId !== profilePost.authorId && (
-            <>
-              posted on{" "}
-              <UserLink
-                user={profilePost.profileUser}
-                className="font-medium"
-              />
-              's profile
-            </>
-          )
+          profilePost.profileUserId !== profilePost.authorId &&
+          t.rich("profileContext", {
+            username: profilePost.profileUser.username,
+            user: (chunks) => (
+              <UserLink user={profilePost.profileUser} className="font-medium">
+                {chunks}
+              </UserLink>
+            ),
+          })
         }
         target="profilePost"
         targetId={profilePost.id}
         reactions={profilePost.reactions}
         href={href}
         count={profilePost.comments.length}
-        noun={["comment", "comments"]}
+        noun="comments"
         viewer={viewer}
         reactionTypes={reactionTypes}
       >
@@ -199,17 +206,17 @@ export function FeedItem({
   return (
     <Card
       item={item}
-      context={
-        <>
-          {isThread ? "started a thread in" : "replied to a thread in"}{" "}
+      context={t.rich(isThread ? "threadContext" : "replyContext", {
+        title: thread.forum.title,
+        forum: (chunks) => (
           <Link
             href={`/forums/${thread.forum.id}`}
             className={contextLinkClass}
           >
-            {thread.forum.title}
+            {chunks}
           </Link>
-        </>
-      }
+        ),
+      })}
       highlighted={isThread && thread.highlighted}
       cover={isThread ? thread.cover : null}
       target="post"
@@ -217,7 +224,7 @@ export function FeedItem({
       reactions={post.reactions}
       href={href}
       count={thread.replyCount}
-      noun={["reply", "replies"]}
+      noun="replies"
       views={isThread ? thread.views : undefined}
       viewer={viewer}
       reactionTypes={reactionTypes}

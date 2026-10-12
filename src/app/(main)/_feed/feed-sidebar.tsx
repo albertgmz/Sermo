@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { ForumIcon } from "@/components/forum/forum-icon";
@@ -23,6 +25,8 @@ import {
   type UserView,
 } from "@/lib/db";
 import { formatCompact } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
+import { can } from "@/lib/permissions";
 
 const LIST_SIZE = 5;
 
@@ -47,11 +51,12 @@ function ThreadTitle({ thread }: { thread: ThreadView }) {
 }
 
 export function FeedSidebar({ viewer }: { viewer: UserView | null }) {
+  const t = useTranslations("home.feedSidebar");
   return (
     <>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading trending…">
+          <LoadingRegion label={t("loadingTrending")}>
             <CardSkeleton>
               {[1, 2, 3, 4, 5].map((row) => (
                 <div key={row} className="space-y-2 px-4 py-2.5">
@@ -68,7 +73,7 @@ export function FeedSidebar({ viewer }: { viewer: UserView | null }) {
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading latest threads…">
+          <LoadingRegion label={t("loadingLatest")}>
             <CardSkeleton>
               {[1, 2, 3, 4, 5].map((row) => (
                 <div key={row} className="space-y-2 px-4 py-2.5">
@@ -85,7 +90,7 @@ export function FeedSidebar({ viewer }: { viewer: UserView | null }) {
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading suggested members…">
+          <LoadingRegion label={t("loadingMembers")}>
             <MemberListSkeleton rows={4} />
           </LoadingRegion>
         }
@@ -95,7 +100,7 @@ export function FeedSidebar({ viewer }: { viewer: UserView | null }) {
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading forums…">
+          <LoadingRegion label={t("loadingForums")}>
             <CardSkeleton>
               {[1, 2, 3, 4, 5, 6].map((row) => (
                 <div key={row} className="flex h-11 items-center gap-3 px-4">
@@ -115,21 +120,28 @@ export function FeedSidebar({ viewer }: { viewer: UserView | null }) {
 
 async function Trending() {
   const stats = await getForumStats(LIST_SIZE);
+  const t = await getTranslations("home.feedSidebar");
+  const format = await getFormatter();
   return (
-    <SectionCard title="Trending">
+    <SectionCard title={t("trendingTitle")}>
       <ol className="divide-y divide-border">
         {stats.mostReacted.map((thread, index) => (
           <li key={thread.id} className="flex gap-3 px-4 py-2.5">
             <span className="w-4 shrink-0 text-center text-sm font-bold tabular-nums text-muted-foreground">
-              {index + 1}
+              {format.number(index + 1)}
             </span>
             <div className="min-w-0 flex-1">
               <ThreadTitle thread={thread} />
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {formatCompact(thread.reactionCount)}{" "}
-                {thread.reactionCount === 1 ? "reaction" : "reactions"} ·{" "}
-                {formatCompact(thread.replyCount)}{" "}
-                {thread.replyCount === 1 ? "reply" : "replies"}
+                {t("reactions", {
+                  count: thread.reactionCount,
+                  value: formatCompact(thread.reactionCount),
+                })}{" "}
+                ·{" "}
+                {t("replies", {
+                  count: thread.replyCount,
+                  value: formatCompact(thread.replyCount),
+                })}
               </p>
             </div>
           </li>
@@ -141,8 +153,9 @@ async function Trending() {
 
 async function LatestThreads() {
   const stats = await getForumStats(LIST_SIZE);
+  const t = await getTranslations("home.feedSidebar");
   return (
-    <SectionCard title="Latest threads">
+    <SectionCard title={t("latestTitle")}>
       {stats.latestPosts.map((thread) => (
         <div key={thread.id} className="px-4 py-2.5">
           <ThreadTitle thread={thread} />
@@ -166,15 +179,25 @@ async function SuggestedMembers({ viewer }: { viewer: UserView | null }) {
     .filter((user) => user.id !== viewer?.id && !followedIds.has(user.id))
     .toSorted((a, b) => b.followerCount - a.followerCount)
     .slice(0, 4);
+  const t = await getTranslations("home.feedSidebar");
+  const levels = await getTranslations("lib.levels");
+  const roles = await getTranslations("lib.db.roles");
   return (
     <>
       {suggestions.length > 0 && (
-        <SectionCard title="Members to follow">
-          {suggestions.map((user) => (
-            <MemberRow key={user.id} user={user}>
-              <FollowButton user={user} viewer={viewer} following={false} />
-            </MemberRow>
-          ))}
+        <SectionCard title={t("membersTitle")}>
+          {suggestions.map((user) => {
+            const title =
+              (can(user, "customTitle") && user.customTitle) ||
+              (user.role === "member"
+                ? levels(titleKeyForLevel(user.level.level))
+                : roles(user.role));
+            return (
+              <MemberRow key={user.id} user={{ ...user, title }}>
+                <FollowButton user={user} viewer={viewer} following={false} />
+              </MemberRow>
+            );
+          })}
         </SectionCard>
       )}
     </>
@@ -184,12 +207,13 @@ async function SuggestedMembers({ viewer }: { viewer: UserView | null }) {
 async function FeedForums() {
   const categories = await getCategories();
   const forums = categories.flatMap((category) => category.forums);
+  const t = await getTranslations("home.feedSidebar");
   return (
     <SectionCard
-      title="Forums"
+      title={t("forumsTitle")}
       action={
         <Link href="/forums" className={viewAllClass}>
-          View all
+          {t("viewAll")}
         </Link>
       }
     >
@@ -207,8 +231,11 @@ async function FeedForums() {
             {forum.title}
           </span>
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {formatCompact(forum.threadCount)}
-            <span className="sr-only"> threads</span>
+            {t.rich("threads", {
+              count: forum.threadCount,
+              value: formatCompact(forum.threadCount),
+              label: (chunks) => <span className="sr-only">{chunks}</span>,
+            })}
           </span>
         </Link>
       ))}

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   LoadingRegion,
   MemberListSkeleton,
@@ -6,8 +7,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("awards.loading");
   return (
-    <LoadingRegion label="Loading the award…">
+    <LoadingRegion label={t("awardLabel")}>
       <PageLayout className="pt-2" mainClassName="space-y-4">
         <div className="flex h-10 items-center md:h-8">
           <Skeleton className="h-3 w-48" />

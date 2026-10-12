@@ -1,13 +1,17 @@
+import { useTranslations } from "next-intl";
 import { LoadingRegion, TextSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 export default function Loading() {
+  const t = useTranslations("account.loading");
   return (
-    <LoadingRegion label="Loading permissions…">
+    <LoadingRegion label={t("permissionsLabel")}>
       <section className="rounded-lg border bg-card">
         <div className="border-b p-4">
-          <h1 className="text-xl font-bold tracking-tight">Permissions</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {t("permissionsHeading")}
+          </h1>
           <p className="text-xs text-muted-foreground">
-            What your account can do, and where each permission comes from.
+            {t("permissionsDescription")}
           </p>
         </div>
         <div className="divide-y">

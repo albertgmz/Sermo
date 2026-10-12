@@ -12,11 +12,14 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
 import { AdminNavigation } from "@/app/(main)/admin/navigation";
+import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
 import { CoverControls } from "@/app/(main)/threads/[id]/cover-controls";
 import { discard } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
+import { LiteMenuDemo } from "@/app/(main)/ui/lite-menu-demo";
 import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
 import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
 import { Art } from "@/components/forum/art";
@@ -78,7 +81,6 @@ import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { headerIconClass } from "@/components/layout/header-panels";
-import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import { Logo, LogoMark } from "@/components/layout/logo";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -128,6 +130,7 @@ import {
   formatRelativeTime,
 } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
+import { serializeLiteCookie } from "@/lib/lite-preferences";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Browser, Os, ShopCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -293,6 +296,7 @@ export default async function StyleguidePage() {
     getLeaderboard("xp", 6),
     getLiteState(),
   ]);
+  const liteText = await getTranslations("lite.page.demo");
   const prefixCategory = categories.find((category) =>
     category.forums.some((forum) => forum.lastPost?.prefix),
   );
@@ -1298,24 +1302,26 @@ export default async function StyleguidePage() {
           </ul>
         </Section>
 
-        <Section title="LITE mode">
+        <Section title={liteText("title")}>
           <p className="max-w-prose text-sm text-muted-foreground">
-            LITE mode replaces avatars, artwork, covers and Markdown images with
-            placeholders, hides avatar frames and omits the favicon. Text,
-            navigation and layout remain available. This switch saves the
-            preference and refreshes the page, including the examples here.
+            {liteText("description")}
           </p>
-          <LiteModeToggle enabled={lite.master} />
+          <LiteMenuDemo state={lite} />
+          <LiteSettingsForm
+            key={serializeLiteCookie(lite)}
+            state={lite}
+            returnTo="/ui"
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">
-                Artwork placeholder
+                {liteText("artworkLabel")}
               </p>
               <LitePlaceholder className="aspect-video rounded-lg border" />
             </div>
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">
-                Avatar and compact placeholders
+                {liteText("avatarLabel")}
               </p>
               <div className="flex items-center gap-4">
                 <LitePlaceholder className="size-16 rounded-full" />

@@ -1,5 +1,7 @@
 import { Cake, Crown, Flag } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getFormatter, getNow, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { MemberSearch } from "@/app/(main)/members/member-search";
 import { VIEWS, type ViewValue, viewHref } from "@/app/(main)/members/views";
@@ -18,7 +20,6 @@ import {
 } from "@/components/forum/skeletons";
 import {
   MonthHero,
-  monthLabel,
   StandingList,
   WinnerList,
 } from "@/components/forum/standing";
@@ -34,7 +35,6 @@ import {
   getStaff,
   type UserView,
 } from "@/lib/db";
-import { monthOf } from "@/lib/standing";
 
 const TOP = 5;
 const RACE = 3;
@@ -77,50 +77,54 @@ function NewestMembers({ members }: { members: UserView[] }) {
 }
 
 async function MemberOfTheMonth() {
+  const t = await getTranslations("members.overview");
   const winner = await getMemberOfTheMonth();
   return winner ? (
     <MonthHero
       winner={winner}
-      action={<ViewLink view="month">Full standing</ViewLink>}
+      action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
     />
   ) : (
     <div className="rounded-lg border bg-card">
       <EmptyState
         icon={Crown}
-        title="No member of the month yet"
-        description="Nobody earned points in the last complete month."
+        title={t("emptyTitle")}
+        description={t("emptyDescription")}
       />
     </div>
   );
 }
 
 async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
+  const t = await getTranslations("members.overview");
+  const format = await getFormatter();
   const [race, pastWinners] = await Promise.all([
     getCurrentMonthStanding(RACE),
     getPastWinners(PAST_WINNERS),
   ]);
+  const now = await getNow();
 
   return (
     <div className="grid gap-3 md:grid-cols-2 md:items-start">
       <SectionCard
-        title="This month's race"
-        description={monthLabel(monthOf(new Date()))}
+        title={t("raceHeading")}
+        description={format.dateTime(now, { month: "long", year: "numeric" })}
       >
         {race.length > 0 ? (
           <StandingList entries={race} viewerId={viewerId} />
         ) : (
           <EmptyState
             icon={Flag}
-            title="The race has not started"
-            description="The first post, reaction or referral of the month takes the lead."
+            title={t("raceEmptyTitle")}
+            description={t("raceEmptyDescription")}
           />
         )}
       </SectionCard>
 
       {pastWinners.length > 0 && (
         <SectionCard
-          title="Past winners"
-          action={<ViewLink view="month">View more</ViewLink>}
+          title={t("winnersHeading")}
+          action={<ViewLink view="month">{t("viewMore")}</ViewLink>}
         >
           <WinnerList winners={pastWinners} compact />
         </SectionCard>
@@ -152,6 +156,7 @@ async function NewestMembersList() {
 }
 
 async function Birthdays() {
+  const t = await getTranslations("members.overview");
   const birthdays = await getBirthdays();
   return birthdays.length > 0 ? (
     birthdays.map((user) => (
@@ -161,7 +166,7 @@ async function Birthdays() {
     ))
   ) : (
     <p className="px-4 py-3 text-sm text-muted-foreground">
-      No birthdays today.
+      {t("birthdaysEmpty")}
     </p>
   );
 }
@@ -170,11 +175,13 @@ async function Birthdays() {
 // the frames of the cards are there from the first paint. The first fallback
 // of a group announces it, the others stay silent.
 export function Overview({ viewerId }: { viewerId?: number }) {
+  const t = useTranslations("members.overview");
+  const views = useTranslations("members.views");
   return (
     <>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading member of the month…">
+          <LoadingRegion label={t("loadingMonth")}>
             <MonthHeroSkeleton />
           </LoadingRegion>
         }
@@ -184,7 +191,7 @@ export function Overview({ viewerId }: { viewerId?: number }) {
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading this month's race…">
+          <LoadingRegion label={t("loadingRace")}>
             <RaceWinnersSkeleton />
           </LoadingRegion>
         }
@@ -197,19 +204,19 @@ export function Overview({ viewerId }: { viewerId?: number }) {
           id="notable-members"
           className="text-lg font-semibold tracking-tight"
         >
-          Notable members
+          {t("notableHeading")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {NOTABLE.map((view, index) => (
             <SectionCard
               key={view.value}
-              title={view.label}
-              action={<ViewLink view={view.value}>View more</ViewLink>}
+              title={views(view.label)}
+              action={<ViewLink view={view.value}>{t("viewMore")}</ViewLink>}
             >
               <Suspense
                 fallback={
                   index === 0 ? (
-                    <LoadingRegion label="Loading notable members…">
+                    <LoadingRegion label={t("loadingNotable")}>
                       <PodiumSkeleton />
                     </LoadingRegion>
                   ) : (
@@ -226,16 +233,16 @@ export function Overview({ viewerId }: { viewerId?: number }) {
 
       <section aria-labelledby="community" className="space-y-3">
         <h2 id="community" className="text-lg font-semibold tracking-tight">
-          Community
+          {t("communityHeading")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
           <SectionCard
-            title="Staff"
-            action={<ViewLink view="staff">View more</ViewLink>}
+            title={t("staffHeading")}
+            action={<ViewLink view="staff">{t("viewMore")}</ViewLink>}
           >
             <Suspense
               fallback={
-                <LoadingRegion label="Loading the community…">
+                <LoadingRegion label={t("loadingCommunity")}>
                   <StaffRowsSkeleton />
                 </LoadingRegion>
               }
@@ -246,8 +253,8 @@ export function Overview({ viewerId }: { viewerId?: number }) {
 
           <div className="grid gap-3">
             <SectionCard
-              title="Newest members"
-              action={<ViewLink view="all">View more</ViewLink>}
+              title={t("newestHeading")}
+              action={<ViewLink view="all">{t("viewMore")}</ViewLink>}
             >
               <Suspense fallback={<NewestMembersSkeleton />}>
                 <NewestMembersList />
@@ -260,13 +267,13 @@ export function Overview({ viewerId }: { viewerId?: number }) {
                   id="find-member-heading"
                   className="mb-2 text-sm font-semibold"
                 >
-                  Find a member
+                  {t("searchHeading")}
                 </h3>
                 <MemberSearch id="find-member" />
               </section>
             </SectionCard>
 
-            <SectionCard title="Today's birthdays">
+            <SectionCard title={t("birthdaysHeading")}>
               <Suspense fallback={<BirthdaysSkeleton />}>
                 <Birthdays />
               </Suspense>
