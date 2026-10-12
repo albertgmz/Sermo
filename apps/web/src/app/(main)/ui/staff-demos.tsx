@@ -10,6 +10,7 @@ import {
   type MatrixPermission,
   PermissionMatrix,
 } from "@/components/staff/permission-matrix";
+import { PictureField } from "@/components/staff/picture-field";
 import { Input } from "@/components/ui/input";
 import { plainMember } from "@/lib/sermo/members";
 
@@ -226,6 +227,29 @@ export function StaffDemos() {
           </FieldRow>
           <ConfirmPassword id="sample-password" />
         </FormRows>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Picture field</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          A picture control for a form. The chosen file goes at once to the
+          panel&apos;s upload route (never through the form), with its progress
+          and the backend&apos;s refusal, and the id it was stored under travels
+          in a hidden field for the form&apos;s action. The current picture is a
+          slot the caller draws on the server; removable adds a Remove control.
+        </p>
+        <div className="max-w-md overflow-hidden rounded-lg border bg-card p-4">
+          <PictureField
+            purpose="node_icon"
+            id="sample-picture"
+            removable
+            current={
+              <span className="flex size-16 items-center justify-center rounded-lg bg-muted text-xs text-muted-foreground">
+                Current
+              </span>
+            }
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
