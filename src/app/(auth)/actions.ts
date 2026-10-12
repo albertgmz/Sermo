@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getClientInfo } from "@/lib/client";
 import { createUser, getUser } from "@/lib/db";
 import { USERNAME_PATTERN } from "@/lib/permissions";
@@ -14,10 +15,11 @@ export async function login(
   _previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const t = await getTranslations("auth.actions.errors");
   const username = String(formData.get("username") ?? "").trim();
   const user = username ? await getUser(username) : null;
   if (!user) {
-    return { error: "No member found with that name.", username };
+    return { error: t("memberNotFound"), username };
   }
   await signIn(user.id);
   redirect("/");
@@ -27,21 +29,22 @@ export async function register(
   _previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  const t = await getTranslations("auth.actions.errors");
   const username = String(formData.get("username") ?? "").trim();
   if (!USERNAME_PATTERN.test(username)) {
     return {
-      error: "Use 3 to 20 letters, numbers, dashes or underscores.",
+      error: t("invalidUsername"),
       username,
     };
   }
   if (!EMAIL.test(String(formData.get("email") ?? "").trim())) {
-    return { error: "Enter a valid email address.", username };
+    return { error: t("invalidEmail"), username };
   }
   if (!formData.get("password")) {
-    return { error: "Enter a password.", username };
+    return { error: t("passwordRequired"), username };
   }
   const user = await createUser({ username, client: await getClientInfo() });
-  if (!user) return { error: "That username is already taken.", username };
+  if (!user) return { error: t("usernameTaken"), username };
   await signIn(user.id);
   redirect("/");
 }

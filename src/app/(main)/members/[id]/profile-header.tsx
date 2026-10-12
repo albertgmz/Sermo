@@ -1,5 +1,6 @@
 import { Ellipsis, Mail, MessagesSquare, Pencil } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
 import { ClientIcons } from "@/components/forum/client-icons";
@@ -19,22 +20,24 @@ import {
 import { coverSrc, nameColor } from "@/lib/appearance";
 import type { UserView } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
+import { can } from "@/lib/permissions";
 import type { Socials } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const SOCIALS: {
+const SOCIALS = [
+  { network: "discord", label: "discordLabel", url: () => "#" },
+  {
+    network: "telegram",
+    label: "telegramLabel",
+    url: (handle) => `https://t.me/${handle}`,
+  },
+  { network: "x", label: "xLabel", url: (handle) => `https://x.com/${handle}` },
+] as const satisfies readonly {
   network: keyof Socials;
   label: string;
   url: (handle: string) => string;
-}[] = [
-  { network: "discord", label: "Discord", url: () => "#" },
-  {
-    network: "telegram",
-    label: "Telegram",
-    url: (handle) => `https://t.me/${handle}`,
-  },
-  { network: "x", label: "X", url: (handle) => `https://x.com/${handle}` },
-];
+}[];
 
 const iconButtonClass =
   "inline-flex size-10 items-center justify-center rounded-md text-foreground/80 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8";
@@ -50,16 +53,19 @@ export function ProfileHeader({
   viewer: UserView | null;
   following: boolean;
 }) {
+  const t = useTranslations("members.profileHeader");
+  const levels = useTranslations("lib.levels");
+  const roles = useTranslations("lib.db.roles");
   const isOwn = viewer?.id === user.id;
   const profileHref = `/members/${user.id}`;
   const socials = SOCIALS.filter(({ network }) => user.socials[network]);
   const stats = [
-    { label: "UID", value: user.id },
-    { label: "Posts", value: formatNumber(user.postCount) },
-    { label: "Reactions", value: formatNumber(user.reactionCount) },
-    { label: "Credits", value: formatNumber(user.credits) },
-    { label: "Reputation", value: formatNumber(user.reputation) },
-    { label: "Vouches", value: formatNumber(user.vouches) },
+    { label: t("uidLabel"), value: user.id },
+    { label: t("postsLabel"), value: formatNumber(user.postCount) },
+    { label: t("reactionsLabel"), value: formatNumber(user.reactionCount) },
+    { label: t("creditsLabel"), value: formatNumber(user.credits) },
+    { label: t("reputationLabel"), value: formatNumber(user.reputation) },
+    { label: t("vouchesLabel"), value: formatNumber(user.vouches) },
   ];
 
   return (
@@ -106,8 +112,8 @@ export function ProfileHeader({
                     <Link
                       key={network}
                       href={href}
-                      title={`${label}: ${handle}`}
-                      aria-label={`${label}: ${handle}`}
+                      title={t("social", { network: t(label), handle })}
+                      aria-label={t("social", { network: t(label), handle })}
                       className={iconButtonClass}
                       {...(href === "#"
                         ? {}
@@ -119,7 +125,7 @@ export function ProfileHeader({
                 })}
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    aria-label="More"
+                    aria-label={t("aria.more")}
                     className={iconButtonClass}
                   >
                     <Ellipsis className="size-5" />
@@ -130,42 +136,60 @@ export function ProfileHeader({
                       render={<Link href={`${profileHref}?tab=posts`} />}
                     >
                       <MessagesSquare />
-                      Find all posts
+                      {t("findPosts")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="min-h-10 md:min-h-8"
                       render={<Link href={`${profileHref}?tab=threads`} />}
                     >
                       <MessagesSquare />
-                      Find all threads
+                      {t("findThreads")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
-              {user.title}
+              {can(user, "customTitle") && user.customTitle
+                ? user.customTitle
+                : user.role === "member"
+                  ? levels(titleKeyForLevel(user.level.level))
+                  : roles(user.role)}
               <UserBadges user={user} />
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Joined{" "}
-              <time dateTime={user.joinedAt}>{formatDate(user.joinedAt)}</time>
+              {t.rich("joined", {
+                date: formatDate(user.joinedAt),
+                time: (chunks) => (
+                  <time dateTime={user.joinedAt}>{chunks}</time>
+                ),
+              })}
               <span aria-hidden="true"> · </span>
-              Last seen <RelativeTime date={user.lastSeen.at} />
+              {t.rich("lastSeen", {
+                time: () => <RelativeTime date={user.lastSeen.at} />,
+              })}
               <span aria-hidden="true"> · </span>
               <ClientIcons client={user.lastSeen} />
             </p>
 
             <p className="mt-2 text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatNumber(user.followerCount)}
-              </span>{" "}
-              {user.followerCount === 1 ? "Follower" : "Followers"}
+              {t.rich("followers", {
+                count: user.followerCount,
+                value: (chunks) => (
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {chunks}
+                  </span>
+                ),
+              })}
               <span aria-hidden="true"> · </span>
-              <span className="font-semibold text-foreground tabular-nums">
-                {formatNumber(user.followingCount)}
-              </span>{" "}
-              Following
+              {t.rich("following", {
+                count: user.followingCount,
+                value: (chunks) => (
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {chunks}
+                  </span>
+                ),
+              })}
             </p>
 
             {viewer && (
@@ -179,7 +203,7 @@ export function ProfileHeader({
                     )}
                   >
                     <Pencil />
-                    Edit profile
+                    {t("editProfile")}
                   </Link>
                 ) : (
                   <>
@@ -197,7 +221,7 @@ export function ProfileHeader({
                       )}
                     >
                       <Mail />
-                      Message
+                      {t("message")}
                     </Link>
                   </>
                 )}

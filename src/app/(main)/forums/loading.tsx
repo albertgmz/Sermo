@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   ForumCategoriesSkeleton,
   ForumStatsSkeleton,
@@ -8,8 +9,9 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 
 export default function Loading() {
+  const t = useTranslations("forums.loading");
   return (
-    <LoadingRegion label="Loading forums…">
+    <LoadingRegion label={t("aria.forums")}>
       <PageLayout
         aside={<SidebarSkeleton />}
         mainClassName="space-y-(--page-gap)"

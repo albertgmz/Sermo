@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { AppearancePanel } from "@/app/(main)/account/appearance";
 import { getShopItems, getUnlocks } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Appearance - forum/ui" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("account.appearance");
+  return { title: t("metaTitle") };
+}
 
 export default async function AppearancePage({
   searchParams,

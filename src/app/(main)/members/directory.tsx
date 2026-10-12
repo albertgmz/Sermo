@@ -1,40 +1,40 @@
 import { SearchX } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { MemberSearch } from "@/app/(main)/members/member-search";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberCard } from "@/components/forum/member-card";
 import { TabLinks } from "@/components/forum/tab-links";
 import { buttonVariants } from "@/components/ui/button";
 import { getUsers, searchMembers, type UserView } from "@/lib/db";
-import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const SORTS: {
-  value: string;
-  label: string;
-  compare: (a: UserView, b: UserView) => number;
-}[] = [
+const SORTS = [
   {
     value: "newest",
-    label: "Newest",
+    label: "newestLabel",
     compare: (a, b) => b.joinedAt.localeCompare(a.joinedAt),
   },
   {
     value: "posts",
-    label: "Most posts",
+    label: "postsLabel",
     compare: (a, b) => b.postCount - a.postCount,
   },
   {
     value: "level",
-    label: "Highest level",
+    label: "levelLabel",
     compare: (a, b) => b.xp - a.xp,
   },
   {
     value: "reactions",
-    label: "Most reactions",
+    label: "reactionsLabel",
     compare: (a, b) => b.reactionCount - a.reactionCount,
   },
-];
+] as const satisfies readonly {
+  value: string;
+  label: string;
+  compare: (a: UserView, b: UserView) => number;
+}[];
 
 function directoryHref(sort: string, query: string) {
   const params = new URLSearchParams({ view: "all" });
@@ -50,6 +50,7 @@ export async function Directory({
   query: string;
   sort: string;
 }) {
+  const t = await getTranslations("members.directory");
   const sort = SORTS.find((entry) => entry.value === sortParam) ?? SORTS[0];
   const found = query ? await searchMembers(query) : await getUsers();
   const members = found.toSorted(sort.compare);
@@ -68,24 +69,27 @@ export async function Directory({
       <TabLinks
         tabs={SORTS.map(({ value, label }) => ({
           value,
-          label,
+          label: t(label),
           href: directoryHref(value, query),
         }))}
         active={sort.value}
-        label="Sort members"
+        label={t("aria.sort")}
       />
 
       {query && members.length > 0 && (
         <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-          {formatNumber(members.length)}{" "}
-          {members.length === 1 ? "member matches" : "members match"} “{query}
-          ”.{" "}
-          <Link
-            href={everyone}
-            className="relative font-medium text-foreground underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:underline"
-          >
-            Show everyone
-          </Link>
+          {t.rich("members", {
+            count: members.length,
+            query,
+            link: (chunks) => (
+              <Link
+                href={everyone}
+                className="relative font-medium text-foreground underline-offset-4 after:absolute after:-inset-x-2 after:-inset-y-2.5 hover:underline"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       )}
 
@@ -99,8 +103,8 @@ export async function Directory({
         <div className="rounded-lg border bg-card">
           <EmptyState
             icon={SearchX}
-            title={`No member matches “${query}”`}
-            description="Check the spelling or search for a part of the username."
+            title={t("emptyTitle", { query })}
+            description={t("emptyDescription")}
           >
             <Link
               href={everyone}
@@ -109,7 +113,7 @@ export async function Directory({
                 "h-10 md:h-8",
               )}
             >
-              Show everyone
+              {t("showEveryone")}
             </Link>
           </EmptyState>
         </div>

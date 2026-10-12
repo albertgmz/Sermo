@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { createThreadAction } from "@/app/(main)/forums/actions";
 import { Editor } from "@/components/forum/editor";
@@ -18,7 +19,7 @@ import {
 import type { Prefix } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const NO_PREFIX = { value: "", label: "No prefix" };
+const NO_PREFIX = { value: "", label: "noPrefix" } as const;
 
 export function NewThreadForm({
   id,
@@ -27,12 +28,13 @@ export function NewThreadForm({
   id: number;
   prefixes: Prefix[];
 }) {
+  const t = useTranslations("forums.newThreadForm");
   const [state, action, pending] = useActionState(
     createThreadAction.bind(null, id),
     {},
   );
   const options = [
-    NO_PREFIX,
+    { ...NO_PREFIX, label: t(NO_PREFIX.label) },
     ...prefixes.map((prefix) => ({
       value: String(prefix.id),
       label: prefix.label,
@@ -42,7 +44,7 @@ export function NewThreadForm({
     <form action={action} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[11rem_minmax(0,1fr)]">
         <div className="space-y-2">
-          <Label id="thread-prefix-label">Prefix</Label>
+          <Label id="thread-prefix-label">{t("prefixLabel")}</Label>
           <Select
             key={state.prefixId}
             name="prefixId"
@@ -60,7 +62,7 @@ export function NewThreadForm({
                 value={NO_PREFIX.value}
                 className="min-h-10 md:min-h-8"
               >
-                {NO_PREFIX.label}
+                {t(NO_PREFIX.label)}
               </SelectItem>
               {prefixes.map((prefix) => (
                 <SelectItem
@@ -76,14 +78,14 @@ export function NewThreadForm({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="thread-title">Title</Label>
+          <Label htmlFor="thread-title">{t("titleLabel")}</Label>
           <Input
             id="thread-title"
             name="title"
             required
             maxLength={120}
             defaultValue={state.title}
-            placeholder="What is this thread about?"
+            placeholder={t("placeholder")}
           />
         </div>
       </div>
@@ -98,10 +100,10 @@ export function NewThreadForm({
           href={`/forums/${id}`}
           className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
         >
-          Cancel
+          {t("cancel")}
         </Link>
         <Button type="submit" disabled={pending} className="h-10 px-4">
-          Post thread
+          {t("submit")}
         </Button>
       </div>
     </form>

@@ -1,7 +1,15 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { Suspense } from "react";
+import { LiteStatus } from "@/app/(main)/lite/status";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
 import { Logo } from "@/components/layout/logo";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getLiteState } from "@/lib/lite-mode";
+import { getCurrentUser } from "@/lib/session";
 
 const SOCIALS = [
   { network: "discord", label: "Discord" },
@@ -38,6 +46,7 @@ const COLUMNS = [
 ];
 
 export function SiteFooter() {
+  const lite = useTranslations("lite.siteFooter");
   return (
     <footer className="mt-auto pt-12 pb-6 text-sm">
       <Container>
@@ -64,6 +73,17 @@ export function SiteFooter() {
                 </li>
               ))}
             </ul>
+            <Suspense
+              fallback={
+                <LoadingRegion label={lite("loadingLabel")}>
+                  <div className="flex h-10 w-48 items-center">
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </LoadingRegion>
+              }
+            >
+              <FooterLiteLink />
+            </Suspense>
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
             {COLUMNS.map(({ title, links }) => (
@@ -93,5 +113,21 @@ export function SiteFooter() {
         </p>
       </Container>
     </footer>
+  );
+}
+
+async function FooterLiteLink() {
+  const [state, user] = await Promise.all([getLiteState(), getCurrentUser()]);
+  const t = await getTranslations("lite.siteFooter");
+  return (
+    <Link
+      href={user ? "/account/lite" : "/lite"}
+      className="flex min-h-10 w-48 items-center justify-between gap-2 rounded-md text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <span>{t("label")}</span>
+      <span>
+        <LiteStatus state={state} />
+      </span>
+    </Link>
   );
 }

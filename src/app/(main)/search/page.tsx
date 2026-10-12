@@ -1,6 +1,7 @@
 import { Search, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
@@ -37,19 +38,22 @@ import {
   type ThreadView,
 } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
 import { stripMarkdownImages } from "@/lib/lite-markdown";
 import { liteBlocks } from "@/lib/lite-mode";
+import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "Search - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("search.search");
+  return { title: t("metaTitle") };
+}
 
 const titleLinkClass =
   "text-sm font-semibold underline-offset-4 [overflow-wrap:anywhere] hover:underline";
 
-const ANY_FORUM = { value: "", label: "All forums" };
-const ANY_PREFIX = { value: "", label: "Any prefix" };
+const ANY_FORUM = { value: "", labelKey: "allForums" } as const;
+const ANY_PREFIX = { value: "", labelKey: "anyPrefix" } as const;
 
 const selectTriggerClass =
   "w-full data-[size=default]:h-10 md:data-[size=default]:h-8";
@@ -74,6 +78,7 @@ async function Excerpt({ body, term }: { body: string; term: string }) {
   const source = (await liteBlocks("postImages"))
     ? stripMarkdownImages(body)
     : body;
+  const t = await getTranslations("search.search");
   const text = source
     .replace(/[*`>#]/g, "")
     .replace(/\s+/g, " ")
@@ -107,9 +112,9 @@ async function Excerpt({ body, term }: { body: string; term: string }) {
 
   return (
     <p className="mt-1.5 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-      {start > 0 && "…"}
+      {start > 0 && t("ellipsis")}
       {parts}
-      {end < text.length && "…"}
+      {end < text.length && t("ellipsis")}
     </p>
   );
 }
@@ -131,6 +136,7 @@ export default async function SearchPage({
     getCategories(),
     getPrefixes(),
   ]);
+  const t = await getTranslations("search.search");
   const query = first(params.q);
   const member = first(params.member);
   const titlesOnly = first(params.titles) === "1";
@@ -142,7 +148,7 @@ export default async function SearchPage({
 
   return (
     <PageLayout mainClassName="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Search</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
       <search>
         <form
           key={[query, member, titlesOnly, forum?.slug, prefix?.key].join("|")}
@@ -150,31 +156,31 @@ export default async function SearchPage({
           className="grid gap-4 rounded-lg border bg-card p-4 sm:grid-cols-3"
         >
           <div className="space-y-2 sm:col-span-3">
-            <Label htmlFor="search-query">Keywords</Label>
+            <Label htmlFor="search-query">{t("keywordsLabel")}</Label>
             <Input
               id="search-query"
               type="search"
               name="q"
               defaultValue={query}
-              placeholder="Search threads, posts and members"
+              placeholder={t("keywordsPlaceholder")}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="search-member">By member</Label>
+            <Label htmlFor="search-member">{t("memberLabel")}</Label>
             <Input
               id="search-member"
               name="member"
               defaultValue={member}
-              placeholder="Username"
+              placeholder={t("memberPlaceholder")}
               autoComplete="off"
             />
           </div>
           <div className="space-y-2">
-            <Label id="search-forum-label">Forum</Label>
+            <Label id="search-forum-label">{t("forumLabel")}</Label>
             <Select
               name="forum"
               items={[
-                ANY_FORUM,
+                { value: ANY_FORUM.value, label: t(ANY_FORUM.labelKey) },
                 ...categories.flatMap((category) =>
                   category.forums.map((entry) => ({
                     value: entry.slug,
@@ -196,7 +202,7 @@ export default async function SearchPage({
                     value={ANY_FORUM.value}
                     className={selectItemClass}
                   >
-                    {ANY_FORUM.label}
+                    {t(ANY_FORUM.labelKey)}
                   </SelectItem>
                 </SelectGroup>
                 {categories.map((category) => (
@@ -217,11 +223,11 @@ export default async function SearchPage({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label id="search-prefix-label">Prefix</Label>
+            <Label id="search-prefix-label">{t("prefixLabel")}</Label>
             <Select
               name="prefix"
               items={[
-                ANY_PREFIX,
+                { value: ANY_PREFIX.value, label: t(ANY_PREFIX.labelKey) },
                 ...prefixes.map((entry) => ({
                   value: entry.key,
                   label: entry.label,
@@ -240,7 +246,7 @@ export default async function SearchPage({
                   value={ANY_PREFIX.value}
                   className={selectItemClass}
                 >
-                  {ANY_PREFIX.label}
+                  {t(ANY_PREFIX.labelKey)}
                 </SelectItem>
                 {prefixes.map((entry) => (
                   <SelectItem
@@ -264,12 +270,12 @@ export default async function SearchPage({
                 defaultChecked={titlesOnly}
               />
               <Label htmlFor="search-titles" className="font-normal">
-                Search titles only
+                {t("titlesOnlyLabel")}
               </Label>
             </div>
             <Button type="submit" className="h-10 px-4 md:h-8 md:px-3">
               <Search />
-              Search
+              {t("submit")}
             </Button>
           </div>
         </form>
@@ -277,7 +283,7 @@ export default async function SearchPage({
 
       <Suspense
         fallback={
-          <LoadingRegion label="Loading search results…">
+          <LoadingRegion label={t("loadingResults")}>
             <CardSkeleton>
               <div className="p-4">
                 <TextSkeleton />
@@ -326,6 +332,9 @@ async function SearchResults({
     forumId,
     prefixId,
   });
+  const t = await getTranslations("search.search");
+  const tLevels = await getTranslations("lib.levels");
+  const tRoles = await getTranslations("lib.db.roles");
   const { threads, posts } = found;
   // The filters describe threads and posts, so a filtered search lists no
   // members; a note below the form links to the ones that match.
@@ -344,65 +353,78 @@ async function SearchResults({
     <>
       {hiddenMembers > 0 && (
         <p className="text-sm text-muted-foreground">
-          {formatNumber(hiddenMembers)}{" "}
-          {hiddenMembers === 1 ? "member matches" : "members match"} “{query}”
-          and {hiddenMembers === 1 ? "is" : "are"} not listed while filters are
-          on.{" "}
-          <Link
-            href={`/search?q=${encodeURIComponent(query)}`}
-            className="inline-flex min-h-10 items-center font-medium text-foreground underline-offset-4 hover:underline md:min-h-0"
-          >
-            Search without filters
-          </Link>
+          {t.rich("members", {
+            count: hiddenMembers,
+            query,
+            link: (chunks) => (
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}`}
+                className="inline-flex min-h-10 items-center font-medium text-foreground underline-offset-4 hover:underline md:min-h-0"
+              >
+                {chunks}
+              </Link>
+            ),
+          })}
         </p>
       )}
 
       {!query ? (
         <EmptyState
           icon={Search}
-          title="Search the forum"
-          description="Type a word to find matching threads, posts and members, then narrow it down with the filters."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
           className="rounded-lg border bg-card"
         />
       ) : total === 0 ? (
         <EmptyState
           icon={SearchX}
-          title={`No results for “${query}”`}
+          title={t("noResultsTitle", { query })}
           description={
-            filtered
-              ? "Try a more general term or remove some filters."
-              : "Check the spelling or try a shorter, more general term."
+            filtered ? t("filteredDescription") : t("noResultsDescription")
           }
           className="rounded-lg border bg-card"
         />
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
-            {formatNumber(total)} {total === 1 ? "result" : "results"} for{" "}
-            <span className="font-medium text-foreground [overflow-wrap:anywhere]">
-              “{query}”
-            </span>
+            {t.rich("results", {
+              count: total,
+              query,
+              term: (chunks) => (
+                <span className="font-medium text-foreground [overflow-wrap:anywhere]">
+                  {chunks}
+                </span>
+              ),
+            })}
           </p>
 
           {threads.length > 0 && (
             <SectionCard
-              title="Threads"
+              title={t("threadsHeading")}
               action={<Count value={threads.length} />}
             >
               {threads.map((thread) => (
                 <article key={thread.id} className="px-4 py-3">
                   <ThreadTitle thread={thread} />
                   <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                    <UserLink user={thread.author} className="font-medium" /> in{" "}
-                    <Link
-                      href={`/forums/${thread.forum.id}`}
-                      className="font-medium text-foreground underline-offset-4 hover:underline"
-                    >
-                      {thread.forum.title}
-                    </Link>{" "}
-                    · <RelativeTime date={thread.createdAt} /> ·{" "}
-                    {formatNumber(thread.replyCount)}{" "}
-                    {thread.replyCount === 1 ? "reply" : "replies"}
+                    {t.rich("replies", {
+                      count: thread.replyCount,
+                      author: () => (
+                        <UserLink
+                          user={thread.author}
+                          className="font-medium"
+                        />
+                      ),
+                      forum: () => (
+                        <Link
+                          href={`/forums/${thread.forum.id}`}
+                          className="font-medium text-foreground underline-offset-4 hover:underline"
+                        >
+                          {thread.forum.title}
+                        </Link>
+                      ),
+                      time: () => <RelativeTime date={thread.createdAt} />,
+                    })}
                   </p>
                 </article>
               ))}
@@ -410,7 +432,10 @@ async function SearchResults({
           )}
 
           {posts.length > 0 && (
-            <SectionCard title="Posts" action={<Count value={posts.length} />}>
+            <SectionCard
+              title={t("postsHeading")}
+              action={<Count value={posts.length} />}
+            >
               {posts.map((post) => {
                 const thread = postThreads.get(post.thread.id);
                 return (
@@ -422,9 +447,16 @@ async function SearchResults({
                       />
                     )}
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      <UserLink user={post.author} className="font-medium" /> ·
-                      Post #{post.number} ·{" "}
-                      <RelativeTime date={post.createdAt} />
+                      {t.rich("postDetails", {
+                        number: formatNumber(post.number),
+                        author: () => (
+                          <UserLink
+                            user={post.author}
+                            className="font-medium"
+                          />
+                        ),
+                        time: () => <RelativeTime date={post.createdAt} />,
+                      })}
                     </p>
                     <Excerpt body={post.body} term={query} />
                   </article>
@@ -435,11 +467,21 @@ async function SearchResults({
 
           {users.length > 0 && (
             <SectionCard
-              title="Members"
+              title={t("membersHeading")}
               action={<Count value={users.length} />}
             >
               {users.map((user) => (
-                <MemberRow key={user.id} user={user}>
+                <MemberRow
+                  key={user.id}
+                  user={{
+                    ...user,
+                    title:
+                      (can(user, "customTitle") && user.customTitle) ||
+                      (user.role === "member"
+                        ? tLevels(titleKeyForLevel(user.level.level))
+                        : tRoles(user.role)),
+                  }}
+                >
                   <UserStats user={user} className="hidden sm:flex" />
                 </MemberRow>
               ))}

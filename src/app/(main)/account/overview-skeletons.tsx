@@ -1,13 +1,15 @@
+import { useTranslations } from "next-intl";
 import { FormRowSkeleton, TextSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function AccountDetailsSkeleton() {
+  const t = useTranslations("account.overviewSkeletons");
   return (
     <section className="min-w-0 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h2 className="text-sm font-semibold">Account details</h2>
+        <h2 className="text-sm font-semibold">{t("detailsHeading")}</h2>
         <p className="text-xs text-muted-foreground">
-          The name and title shown on your profile and posts.
+          {t("detailsDescription")}
         </p>
       </div>
       <div className="divide-y">
@@ -26,11 +28,12 @@ export function AccountDetailsSkeleton() {
 }
 
 export function AccountActivitySkeleton() {
+  const t = useTranslations("account.overviewSkeletons");
   return (
     <section className="min-w-0 rounded-lg border bg-card p-4">
-      <h2 className="text-sm font-semibold">Posting Activity</h2>
+      <h2 className="text-sm font-semibold">{t("activityHeading")}</h2>
       <p className="text-xs text-muted-foreground">
-        Your most recent posting activity.
+        {t("activityDescription")}
       </p>
       <div className="mt-3 divide-y">
         {[1, 2, 3, 4, 5, 6].map((row) => (

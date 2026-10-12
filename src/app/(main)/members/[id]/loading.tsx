@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   FeedSkeleton,
   LoadingRegion,
@@ -10,8 +11,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("members.profileLoading");
   return (
-    <LoadingRegion label="Loading the profile…">
+    <LoadingRegion label={t("label")}>
       <ProfileHeaderSkeleton />
       <Container className="pt-5">
         <div className="mb-4 flex flex-wrap items-center gap-4 rounded-lg border bg-card px-4 py-3">

@@ -8,6 +8,8 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useFormatter, useNow, useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { ProfileHeader } from "@/app/(main)/members/[id]/profile-header";
 import { Wall } from "@/app/(main)/members/[id]/wall";
@@ -55,7 +57,7 @@ import {
   type ThreadView,
   type UserView,
 } from "@/lib/db";
-import { formatDate, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -72,34 +74,47 @@ const titleLinkClass =
   "text-sm font-semibold underline-offset-4 [overflow-wrap:anywhere] hover:underline";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const t = await getTranslations("members.profile");
   const { id } = await params;
   const user = await getUserById(Number(id));
-  return { title: `${user?.username ?? "Member"} - forum/ui` };
+  return {
+    title: user
+      ? t("metaTitle", { username: user.username })
+      : t("metaFallbackTitle"),
+  };
 }
 
 function LevelStrip({ user }: { user: UserView }) {
+  const t = useTranslations("members.profile");
   const { level, awards } = user;
   return (
     <section
-      aria-label="Level"
+      aria-label={t("aria.level")}
       className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-3"
     >
       <LevelBadge level={level} className="h-5 px-1.5 text-xs" />
       <XpBar level={level} className="w-24 sm:w-64 lg:w-96" />
       <p className="text-xs tabular-nums text-muted-foreground">
-        <span className="font-semibold text-foreground">
-          {formatNumber(level.xp)}
-        </span>{" "}
-        / {formatNumber(level.nextLevelXp)} XP
+        {t.rich("xp", {
+          current: formatNumber(level.xp),
+          next: formatNumber(level.nextLevelXp),
+          value: (chunks) => (
+            <span className="font-semibold text-foreground">{chunks}</span>
+          ),
+        })}
       </p>
       <Link
         href={`/members/${user.id}?tab=about#awards`}
         className="relative ml-auto text-xs text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3 hover:text-foreground"
       >
-        <span className="font-semibold text-foreground tabular-nums">
-          {formatNumber(awards.length)}
-        </span>{" "}
-        {awards.length === 1 ? "award" : "awards"}
+        {t.rich("awards", {
+          count: awards.length,
+          value: (chunks) => (
+            <span className="font-semibold text-foreground tabular-nums">
+              {chunks}
+            </span>
+          ),
+        })}
       </Link>
     </section>
   );
@@ -116,19 +131,22 @@ function ProfileCards({
   activity: PostView[];
   className?: string;
 }) {
+  const t = useTranslations("members.profile");
   return (
     <div className={cn("grid gap-4", className)}>
       <Card>
         <CardHeader>
-          <CardTitle>Groups</CardTitle>
+          <CardTitle>{t("groupsHeading")}</CardTitle>
           <CardDescription>
-            Explore <UserLink user={user} />
-            's groups.
+            {t.rich("groupsDescription", {
+              username: user.username,
+              user: () => <UserLink user={user} />,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {user.role === "member" ? (
-            <Badge variant="secondary">Member</Badge>
+            <Badge variant="secondary">{t("memberBadge")}</Badge>
           ) : (
             <RoleBadge user={user} />
           )}
@@ -136,10 +154,12 @@ function ProfileCards({
       </Card>
       <Card id="awards" className="scroll-mt-4">
         <CardHeader>
-          <CardTitle>Awards</CardTitle>
+          <CardTitle>{t("awardsHeading")}</CardTitle>
           <CardDescription>
-            Explore <UserLink user={user} />
-            's awards collection.
+            {t.rich("awardsDescription", {
+              username: user.username,
+              user: () => <UserLink user={user} />,
+            })}
           </CardDescription>
         </CardHeader>
         {user.awards.length > 0 ? (
@@ -159,16 +179,22 @@ function ProfileCards({
           </CardContent>
         ) : (
           <CardContent className="py-2 text-center text-muted-foreground">
-            <UserLink user={user} /> has no awards at this time.
+            {t.rich("awardsEmpty", {
+              username: user.username,
+              user: () => <UserLink user={user} />,
+            })}
           </CardContent>
         )}
       </Card>
       {inventory.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Inventory</CardTitle>
+            <CardTitle>{t("inventoryHeading")}</CardTitle>
             <CardDescription>
-              Items <UserLink user={user} /> got from the shop.
+              {t.rich("inventoryDescription", {
+                username: user.username,
+                user: () => <UserLink user={user} />,
+              })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,7 +212,7 @@ function ProfileCards({
                   <span className="truncate">{item.name}</span>
                   {item.quantity > 1 && (
                     <span className="text-muted-foreground tabular-nums">
-                      ×{item.quantity}
+                      {t("quantity", { count: item.quantity })}
                     </span>
                   )}
                 </li>
@@ -197,9 +223,12 @@ function ProfileCards({
       )}
       <Card>
         <CardHeader>
-          <CardTitle>Latest activity</CardTitle>
+          <CardTitle>{t("activityHeading")}</CardTitle>
           <CardDescription>
-            What <UserLink user={user} /> has been up to lately.
+            {t.rich("activityDescription", {
+              username: user.username,
+              user: () => <UserLink user={user} />,
+            })}
           </CardDescription>
         </CardHeader>
         {activity.length > 0 ? (
@@ -218,8 +247,14 @@ function ProfileCards({
                       <span className="truncate">{post.thread.title}</span>
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {post.number === 1 ? "Started a thread" : "Replied"} ·{" "}
-                      <RelativeTime date={post.createdAt} />
+                      {t.rich(
+                        post.number === 1
+                          ? "activityStarted"
+                          : "activityReplied",
+                        {
+                          time: () => <RelativeTime date={post.createdAt} />,
+                        },
+                      )}
                     </span>
                   </Link>
                 </li>
@@ -228,7 +263,10 @@ function ProfileCards({
           </CardContent>
         ) : (
           <CardContent className="py-2 text-center text-muted-foreground">
-            <UserLink user={user} /> has no recent activity.
+            {t.rich("activityEmpty", {
+              username: user.username,
+              user: () => <UserLink user={user} />,
+            })}
           </CardContent>
         )}
       </Card>
@@ -237,16 +275,18 @@ function ProfileCards({
 }
 
 function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
+  const t = useTranslations("members.profile");
+  const format = useFormatter();
+  const now = useNow();
   if (posts.length === 0) {
     return (
       <EmptyState
         icon={MessagesSquare}
-        title="No posts yet"
-        description={
-          <>
-            <UserLink user={user} /> has not posted in the forums.
-          </>
-        }
+        title={t("postsEmptyTitle")}
+        description={t.rich("postsEmptyDescription", {
+          username: user.username,
+          user: () => <UserLink user={user} />,
+        })}
       />
     );
   }
@@ -264,7 +304,10 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
         </Link>
       </h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        Post #{post.number} · {formatRelativeTime(post.createdAt)}
+        {t("postDetails", {
+          number: formatNumber(post.number),
+          time: format.relativeTime(new Date(post.createdAt), now),
+        })}
       </p>
       <MessageBody clamp className="mt-2 text-muted-foreground">
         {post.body}
@@ -274,16 +317,18 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
 }
 
 function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
+  const t = useTranslations("members.profile");
+  const format = useFormatter();
+  const now = useNow();
   if (threads.length === 0) {
     return (
       <EmptyState
         icon={MessagesSquare}
-        title="No threads yet"
-        description={
-          <>
-            <UserLink user={user} /> has not started a thread.
-          </>
-        }
+        title={t("threadsEmptyTitle")}
+        description={t.rich("threadsEmptyDescription", {
+          username: user.username,
+          user: () => <UserLink user={user} />,
+        })}
       />
     );
   }
@@ -301,16 +346,20 @@ function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
         </Link>
       </h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
-        <Link
-          href={`/forums/${thread.forum.id}`}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {thread.forum.title}
-        </Link>{" "}
-        · {formatRelativeTime(thread.createdAt)} ·{" "}
-        {formatNumber(thread.replyCount)}{" "}
-        {thread.replyCount === 1 ? "reply" : "replies"} ·{" "}
-        {formatNumber(thread.views)} views
+        {t.rich("threadDetails", {
+          title: thread.forum.title,
+          time: format.relativeTime(new Date(thread.createdAt), now),
+          replies: t("replies", { count: thread.replyCount }),
+          views: t("views", { count: thread.views }),
+          forum: (chunks) => (
+            <Link
+              href={`/forums/${thread.forum.id}`}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
     </article>
   ));
@@ -335,37 +384,41 @@ function Detail({
 }
 
 function About({ user, cards }: { user: UserView; cards: React.ReactNode }) {
+  const t = useTranslations("members.profile");
   return (
     <div className="space-y-4">
-      <SectionCard title="About">
+      <SectionCard title={t("aboutHeading")}>
         <div className="px-4 py-3">
           {user.bio ? (
             <Markdown>{user.bio}</Markdown>
           ) : (
             <p className="text-sm text-muted-foreground">
-              <UserLink user={user} /> has not written a bio yet.
+              {t.rich("bioEmpty", {
+                username: user.username,
+                user: () => <UserLink user={user} />,
+              })}
             </p>
           )}
         </div>
         {user.signature && can(user, "signature") && (
           <div className="px-4 py-3">
             <h3 className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Signature
+              {t("signatureHeading")}
             </h3>
             <Signature>{user.signature}</Signature>
           </div>
         )}
         <dl className="divide-y divide-border">
-          <Detail icon={CalendarDays} label="Joined">
+          <Detail icon={CalendarDays} label={t("joinedLabel")}>
             {formatDate(user.joinedAt)}
           </Detail>
           {user.location && (
-            <Detail icon={MapPin} label="Location">
+            <Detail icon={MapPin} label={t("locationLabel")}>
               {user.location}
             </Detail>
           )}
           {user.website && (
-            <Detail icon={Link2} label="Website">
+            <Detail icon={Link2} label={t("websiteLabel")}>
               <a
                 href={user.website}
                 target="_blank"
@@ -384,6 +437,7 @@ function About({ user, cards }: { user: UserView; cards: React.ReactNode }) {
 }
 
 export default async function ProfilePage({ params, searchParams }: Props) {
+  const t = await getTranslations("members.profile");
   const [{ id }, query, viewer] = await Promise.all([
     params,
     searchParams,
@@ -396,7 +450,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   const cards = (className?: string) => (
     <Suspense
       fallback={
-        <LoadingRegion label="Loading profile details…">
+        <LoadingRegion label={t("loadingDetails")}>
           <div className={cn("grid gap-4", className)}>
             <MemberListSkeleton rows={1} />
             <MemberListSkeleton rows={1} />
@@ -413,7 +467,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     <>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading profile header…">
+          <LoadingRegion label={t("loadingHeader")}>
             <ProfileHeaderSkeleton />
           </LoadingRegion>
         }
@@ -422,7 +476,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
       </Suspense>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading profile sections…">
+          <LoadingRegion label={t("loadingSections")}>
             <Container className="pt-5">
               <Skeleton className="mb-4 h-12 w-full" />
               <TabsSkeleton />
@@ -440,7 +494,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
         <PageLayout aside={cards()} asideOnMobile="hidden">
           <Suspense
             fallback={
-              <LoadingRegion label="Loading profile activity…">
+              <LoadingRegion label={t("loadingActivity")}>
                 <FeedSkeleton />
               </LoadingRegion>
             }
@@ -473,29 +527,30 @@ async function ProfileTabs({
   viewer: UserView | null;
   tab: Tab;
 }) {
+  const t = await getTranslations("members.profile");
   const wallPosts = await getProfilePosts(user.id, viewer?.id ?? null);
   const base = `/members/${user.id}`;
   const tabs = [
-    { value: "wall", label: "Wall", href: base, count: wallPosts.length },
+    { value: "wall", label: t("wallTab"), href: base, count: wallPosts.length },
     {
       value: "posts",
-      label: "Posts",
+      label: t("postsTab"),
       href: `${base}?tab=posts`,
       count: user.postCount,
     },
     {
       value: "threads",
-      label: "Threads",
+      label: t("threadsTab"),
       href: `${base}?tab=threads`,
       count: user.threadCount,
     },
-    { value: "about", label: "About", href: `${base}?tab=about` },
+    { value: "about", label: t("aboutTab"), href: `${base}?tab=about` },
   ];
 
   return (
     <Container className="pt-5">
       <LevelStrip user={user} />
-      <TabLinks tabs={tabs} active={tab} label="Profile sections" />
+      <TabLinks tabs={tabs} active={tab} label={t("aria.sections")} />
     </Container>
   );
 }
@@ -532,6 +587,7 @@ async function ProfileActivity({
   viewer: UserView | null;
   tab: Tab;
 }) {
+  const t = await getTranslations("members.profile");
   const [wallPosts, posts, threads, reactionTypes] = await Promise.all([
     tab === "wall" ? getProfilePosts(user.id, viewer?.id ?? null) : [],
     tab === "posts" ? getUserPosts(user.id, viewer?.id ?? null) : [],
@@ -549,7 +605,9 @@ async function ProfileActivity({
         />
       ) : (
         <section className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-          <h2 className="sr-only">{tab === "posts" ? "Posts" : "Threads"}</h2>
+          <h2 className="sr-only">
+            {t(tab === "posts" ? "postsTab" : "threadsTab")}
+          </h2>
           {tab === "posts" ? (
             <Posts user={user} posts={posts} />
           ) : (

@@ -3,6 +3,7 @@
 import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
 import Link from "next/link";
 import { logout } from "@/app/(main)/actions";
+import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,14 +13,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { LiteState } from "@/lib/lite-preferences";
 import type { User } from "@/lib/types";
 
 export function UserMenu({
   user,
   avatar,
+  lite,
 }: {
   user: Pick<User, "id" | "username" | "title">;
   avatar: React.ReactNode;
+  lite: LiteState;
 }) {
   return (
     <DropdownMenu>
@@ -54,6 +58,7 @@ export function UserMenu({
           <Settings />
           Account
         </DropdownMenuItem>
+        <LiteModeToggle state={lite} />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"

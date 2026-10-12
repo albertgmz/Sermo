@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getClientInfo } from "@/lib/client";
 import { createThread, getForum } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
@@ -21,6 +22,7 @@ export async function createThreadAction(
 ): Promise<NewThreadState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const t = await getTranslations("forums.actions.errors");
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -28,12 +30,12 @@ export async function createThreadAction(
   const forum = await getForum(id);
   const fail = (error: string) => ({ error, title, prefixId });
 
-  if (!forum) return fail("This forum no longer exists.");
-  if (!title) return fail("Give your thread a title.");
+  if (!forum) return fail(t("forumMissing"));
+  if (!title) return fail(t("titleRequired"));
   if (title.length > TITLE_MAX) {
-    return fail(`Keep the title under ${TITLE_MAX} characters.`);
+    return fail(t("titleTooLong", { max: TITLE_MAX }));
   }
-  if (!body) return fail("Write a message for your thread.");
+  if (!body) return fail(t("bodyRequired"));
 
   const thread = await createThread({
     forumId: forum.id,

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   BalanceSkeleton,
   LoadingRegion,
@@ -10,12 +11,10 @@ import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 
 export default function Loading() {
+  const t = useTranslations("credits.loading");
   return (
-    <LoadingRegion label="Loading credits…">
-      <PageHero
-        title="Credits"
-        subtitle="Earn credits by taking part in the community and spend them on cosmetics, boosts and permissions in the shop."
-      />
+    <LoadingRegion label={t("aria.loading")}>
+      <PageHero title={t("title")} subtitle={t("subtitle")} />
       <Container>
         <BalanceSkeleton />
       </Container>
