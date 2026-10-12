@@ -3,7 +3,7 @@
     "notAllowed": "This page is not allowed to send files.",
     "purpose": "That is not a kind of picture the panel uploads.",
     "noFile": "Choose a file to upload.",
-    "unreachable": "The upload could not reach the server.",
+    "tooLarge": "This file is too large to upload here.",
     "failed": "The file could not be uploaded."
   },
   "pictureField": {

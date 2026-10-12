@@ -52,6 +52,7 @@ function posted(
         "content-type": BOUNDARY,
         origin: "http://localhost:3000",
         host: "localhost:3000",
+        "content-length": String(bytes),
         ...headers,
       },
       body,
@@ -104,6 +105,27 @@ test("a post from another site is refused before anything is read", async () => 
   });
   expect((await POST(request)).status).toBe(403);
   expect(state.pulled).toBe(false);
+  expect(asked).toEqual([]);
+});
+
+test("a body that is no multipart form, or declares no length or too much, is refused before it is read", async () => {
+  const asked = backend(Response.json({}));
+  for (const headers of [
+    { "content-type": "text/plain" },
+    { "content-length": "" },
+    { "content-length": "99999999999" },
+  ]) {
+    const { request, state } = posted({ ...member, ...headers });
+    const response = await POST(request);
+    expect(response.status).toBe(303);
+    expect(
+      new URL(
+        response.headers.get("location") ?? "",
+        "http://x",
+      ).searchParams.get("notice"),
+    ).toBe("failed");
+    expect(state.pulled).toBe(false);
+  }
   expect(asked).toEqual([]);
 });
 
