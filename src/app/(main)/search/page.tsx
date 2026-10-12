@@ -445,7 +445,7 @@ async function SearchResults({
                     )}
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {t.rich("postDetails", {
-                        number: formatNumber(post.number),
+                        number: post.number,
                         author: () => (
                           <UserLink
                             user={post.author}

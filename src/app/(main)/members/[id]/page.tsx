@@ -305,7 +305,7 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
       </h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
         {t("postDetails", {
-          number: formatNumber(post.number),
+          number: post.number,
           time: format.relativeTime(new Date(post.createdAt), now),
         })}
       </p>

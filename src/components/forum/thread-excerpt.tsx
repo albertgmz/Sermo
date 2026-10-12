@@ -1,11 +1,12 @@
 import { cache } from "react";
 import { getPosts, type ThreadView } from "@/lib/db";
 import { stripMarkdownImages } from "@/lib/lite-markdown";
-import { liteBlocks } from "@/lib/lite-mode";
+import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 
 const withoutImages = cache(async (threadId: number) => {
   const [post] = await getPosts(threadId, null);
-  const text = stripMarkdownImages(post?.body ?? "")
+  const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
+  const text = stripMarkdownImages(post?.body ?? "", state, origin)
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
@@ -22,7 +23,10 @@ export async function ThreadExcerpt({
 }: {
   thread: Pick<ThreadView, "id" | "excerpt">;
 }) {
-  return (await liteBlocks("postImages"))
+  // The stored excerpt only drops inline pictures; any blocked category may
+  // hide a picture it still names (reference style, raw HTML), so filter then.
+  const { master, blocked } = await getLiteState();
+  return master || blocked.length > 0
     ? withoutImages(thread.id)
     : thread.excerpt;
 }

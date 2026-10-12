@@ -9,6 +9,7 @@ import { blocks, type LiteState } from "./lite-preferences";
 const parser = unified().use(remarkParse).use(remarkGfm);
 const ALL: LiteState = { master: true, blocked: [] };
 type Edit = { start: number; end: number; text: string };
+const LABEL = "LITE MODE";
 
 const MEDIA = new Set([
   "img",
@@ -39,17 +40,32 @@ const VOID = new Set([
 ]);
 
 function htmlEdits(
-  markdown: string,
   nodes: RootContent[],
   state: LiteState,
+  label: string,
   origin?: string,
 ): Edit[] {
   const edits: Edit[] = [];
-  const stack: { tag: string; start: number; blocked: boolean }[] = [];
-  function finish(end: number) {
+  const stack: {
+    tag: string;
+    start: number;
+    blocked: boolean;
+    nodeEnd: number;
+  }[] = [];
+  // An element closed by its end tag is replaced whole, even across blocks.
+  // One that is never closed, or that an end tag of an outer element abandons,
+  // loses its content only up to the end of the HTML node holding its opening
+  // tag (a lone inline tag, or the rest of that HTML block), or up to the
+  // abandoning end tag when that sits in the same node. Text after it is never
+  // touched.
+  function finish(end?: number) {
     const element = stack.pop();
     if (element?.blocked)
-      edits.push({ start: element.start, end, text: "LITE MODE" });
+      edits.push({
+        start: element.start,
+        end: Math.min(end ?? Infinity, element.nodeEnd),
+        text: label,
+      });
   }
   for (const node of nodes) {
     const offset = node.position?.start.offset;
@@ -62,7 +78,12 @@ function htmlEdits(
       const end = start + match[0].length;
       if (match[0].startsWith("</")) {
         const index = stack.findLastIndex((element) => element.tag === tag);
-        if (index !== -1) while (stack.length > index) finish(end);
+        if (index !== -1) {
+          while (stack.length > index + 1) finish(start);
+          const element = stack.pop();
+          if (element?.blocked)
+            edits.push({ start: element.start, end, text: label });
+        }
         continue;
       }
       let blocked = MEDIA.has(tag) && blocks(state, "postImages");
@@ -97,11 +118,11 @@ function htmlEdits(
         for (const parent of stack)
           if (MEDIA.has(parent.tag)) parent.blocked = true;
       }
-      stack.push({ tag, start, blocked });
+      stack.push({ tag, start, blocked, nodeEnd: offset + node.value.length });
       if (VOID.has(tag) || /\/\s*>$/.test(match[0])) finish(end);
     }
   }
-  while (stack.length) finish(markdown.length);
+  while (stack.length) finish();
   return edits;
 }
 
@@ -110,16 +131,18 @@ export function stripMarkdownHtml(
   state: LiteState,
   origin?: string,
 ): string {
-  return filterMarkdown(markdown, state, origin, false);
+  return filterMarkdown(markdown, state, origin, false, LABEL);
 }
 
 // Edit source ranges so links and the rest of the member's formatting survive.
+// `label` is what stands in for a removed picture; an empty one drops it.
 export function stripMarkdownImages(
   markdown: string,
   state: LiteState = ALL,
   origin?: string,
+  label = LABEL,
 ): string {
-  return filterMarkdown(markdown, state, origin, true);
+  return filterMarkdown(markdown, state, origin, true, label);
 }
 
 function filterMarkdown(
@@ -127,6 +150,7 @@ function filterMarkdown(
   state: LiteState,
   origin: string | undefined,
   images: boolean,
+  label: string,
 ): string {
   if (!state.master && state.blocked.length === 0) return markdown;
   const tree = parser.parse(markdown);
@@ -160,11 +184,11 @@ function filterMarkdown(
       node.type === "image" &&
       blocksContentImage(state, node.url, origin)
     ) {
-      replace(node, "LITE MODE");
+      replace(node, label);
     } else if (images && node.type === "imageReference") {
       const definition = definitions.get(node.identifier);
       if (definition && blocksContentImage(state, definition.url, origin)) {
-        replace(node, "LITE MODE");
+        replace(node, label);
         removedReferences.add(node.identifier);
       }
     } else if (node.type === "linkReference") {
@@ -178,7 +202,7 @@ function filterMarkdown(
     if (removedReferences.has(node.identifier) && !links.has(node.identifier))
       replace(node, "");
   }
-  edits.push(...htmlEdits(markdown, html, state, origin));
+  edits.push(...htmlEdits(html, state, label, origin));
   // A removed HTML container can enclose other edits; apply its range once.
   const ranges: Edit[] = [];
   for (const edit of edits.sort((a, b) => a.start - b.start || b.end - a.end)) {

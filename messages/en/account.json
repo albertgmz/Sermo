@@ -126,6 +126,7 @@
     "replacementPlaceholder": "Write a replacement signature.",
     "placeholder": "Write your signature.",
     "description": "Your current signature stays until you save a replacement or clear it.",
+    "hiddenNotice": "Your current signature contains pictures that LITE mode is hiding, so it is not shown for editing. Saving a new signature replaces it.",
     "characters": "{used, number}/{count, plural, one {# character} other {# characters}}",
     "lines": "{used, number}/{count, plural, one {# line} other {# lines}}",
     "previewHeading": "Preview",

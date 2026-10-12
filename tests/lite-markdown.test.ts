@@ -35,3 +35,15 @@ test("ordinary text, image-looking links and code samples retain their source fo
   );
   expect(stripMarkdownImages("")).toBe("");
 });
+
+test("a picture can be dropped without a label, as signatures do", () => {
+  const output = stripMarkdownImages(
+    PICTURE_MARKDOWN,
+    undefined,
+    undefined,
+    "",
+  );
+  expect(output).not.toContain("LITE MODE");
+  expect(output).not.toContain("pictures.test");
+  expect(output).toContain("Before  after.");
+});
