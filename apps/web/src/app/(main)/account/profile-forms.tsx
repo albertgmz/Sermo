@@ -90,7 +90,11 @@ export async function AboutSection({
   return (
     <Section id="about" heading={t("heading")} description={t("description")}>
       <Notice notice={notice} />
-      <ActionForm action={saveAbout} submit={t("submit")}>
+      <ActionForm
+        key={`${profile.about}|${birthday?.day}|${birthday?.month}|${birthYear}`}
+        action={saveAbout}
+        submit={t("submit")}
+      >
         <Row label={t("aboutLabel")} htmlFor="profile-about">
           <Textarea
             id="profile-about"

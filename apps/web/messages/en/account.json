@@ -34,8 +34,9 @@
     "unignored": "You no longer ignore that member.",
     "notifications": "Your notification settings were saved.",
     "preferences": "Your preferences were saved.",
-    "unwatched": "You no longer watch it.",
-    "failed": "That did not work. Try again."
+    "failed": "That did not work. Try again.",
+    "threadUnwatched": "You no longer watch that thread.",
+    "forumUnwatched": "You no longer watch that forum."
   },
   "errors": {
     "noFile": "Choose a picture first.",

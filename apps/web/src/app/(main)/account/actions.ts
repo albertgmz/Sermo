@@ -10,6 +10,7 @@ import {
   notificationsTypes,
   preferencesUpdate,
   profilesUpdate,
+  pushPublicKey,
   threadsUnwatch,
   usersChangeUsername,
   usersUnignore,
@@ -217,9 +218,10 @@ export async function saveNotifications(
 ): Promise<FormState> {
   const path = "/account/notifications";
   const saved = await attempt(path, async () => {
-    const [{ items: types }, { items: current }] = await Promise.all([
+    const [{ items: types }, { items: current }, push] = await Promise.all([
       call(notificationsTypes, {}),
       call(notificationsPreferences, {}),
+      call(pushPublicKey, {}),
     ]);
     const now = new Map(current.map((entry) => [entry.type, entry]));
     const items = types.flatMap((type) => {
@@ -227,6 +229,8 @@ export async function saveNotifications(
       const change: Record<string, boolean> = {};
       for (const channel of CHANNELS) {
         if (!type.channels.includes(channel)) continue;
+        // The page offers no push cell while push is off, so nothing was chosen for it.
+        if (channel === "push" && push.publicKey === null) continue;
         const wanted = formData.get(`${type.id}:${channel}`) === "on";
         if (wanted !== (now.get(type.id)?.[channel] ?? false))
           change[channel] = wanted;
@@ -258,13 +262,13 @@ export async function savePreferences(
 }
 
 export async function stopWatchingThread(threadId: number) {
-  await press("/account/preferences", "threads", "unwatched", () =>
+  await press("/account/preferences", "threads", "threadUnwatched", () =>
     call(threadsUnwatch, { threadId }),
   );
 }
 
 export async function stopWatchingForum(nodeId: number) {
-  await press("/account/preferences", "forums", "unwatched", () =>
+  await press("/account/preferences", "forums", "forumUnwatched", () =>
     call(nodesUnwatch, { nodeId }),
   );
 }

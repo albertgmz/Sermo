@@ -98,7 +98,7 @@ export async function ThreadWatches({
   const [t, page, notice] = await Promise.all([
     getTranslations("account.preferences"),
     read(watchesListThreads, { cursor }),
-    noticeOf(searchParams, ["unwatched", "failed"]),
+    noticeOf(searchParams, ["threadUnwatched", "failed"]),
   ]);
   return (
     <Section
@@ -152,9 +152,10 @@ export async function ForumWatches({
   searchParams: SearchParams;
 }) {
   const cursor = cursorOf((await searchParams).forums);
-  const [t, page] = await Promise.all([
+  const [t, page, notice] = await Promise.all([
     getTranslations("account.preferences"),
     read(watchesListNodes, { cursor }),
+    noticeOf(searchParams, ["forumUnwatched", "failed"]),
   ]);
   return (
     <Section
@@ -162,6 +163,7 @@ export async function ForumWatches({
       heading={t("forumsHeading")}
       description={t("forumsDescription")}
     >
+      <Notice notice={notice} />
       {page.items.length === 0 ? (
         <p className="p-4 text-sm text-muted-foreground">{t("forumsEmpty")}</p>
       ) : (
