@@ -20,7 +20,7 @@ const choiceClass =
   "relative flex min-h-10 w-full items-center justify-center overflow-hidden rounded-md border text-sm font-medium transition-colors hover:border-input aria-pressed:border-primary aria-pressed:bg-primary/10";
 
 const shopLinkClass =
-  "inline-flex min-h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-0";
+  "inline-flex min-h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline";
 
 function Selected() {
   return (
@@ -50,7 +50,7 @@ export function AppearancePanel({
   return (
     <section id="appearance" className="scroll-mt-4 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h3 className="text-sm font-semibold">Appearance</h3>
+        <h1 className="text-xl font-bold tracking-tight">Appearance</h1>
         <p className="text-xs text-muted-foreground">
           How the forum looks for you, and how you look to everyone else.
         </p>
