@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { parseId } from "@/lib/sermo/ids";
+import { getViewer } from "@/lib/sermo/session";
+import { getMember, holds, isReadOnly, memberIdOf } from "../../data";
+import { Notice } from "../../notice";
+import { TabPage } from "../../tab-page";
+import { Bans, Restrictions, ThreadBans, Warnings } from "./sections";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminUsers.sanctions");
+  return { title: t("metaTitle") };
+}
+
+const one = (value: string | string[] | undefined) =>
+  (Array.isArray(value) ? value[0] : value) ?? "";
+
+async function Sanctions({
+  params,
+  searchParams,
+}: {
+  params: PageProps<"/admin/users/[id]/sanctions">["params"];
+  searchParams: PageProps<"/admin/users/[id]/sanctions">["searchParams"];
+}) {
+  const userId = await memberIdOf(params);
+  const [viewer, member, query] = await Promise.all([
+    getViewer(),
+    getMember(userId),
+    searchParams,
+  ]);
+  const readOnly = isReadOnly(member);
+  return (
+    <>
+      <Notice
+        searchParams={searchParams}
+        shown={[
+          "warned",
+          "restricted",
+          "restrictionLifted",
+          "banned",
+          "banLifted",
+          "threadBanLifted",
+        ]}
+      />
+      {(holds(viewer, "warning.view") || holds(viewer, "member.warn")) && (
+        <Warnings
+          userId={userId}
+          params={query}
+          mayList={holds(viewer, "warning.view")}
+          mayIssue={holds(viewer, "member.warn")}
+          readOnly={readOnly}
+        />
+      )}
+      {(holds(viewer, "warning.view") || holds(viewer, "member.restrict")) && (
+        <Restrictions
+          userId={userId}
+          mayList={holds(viewer, "warning.view")}
+          mayChange={holds(viewer, "member.restrict")}
+          readOnly={readOnly}
+        />
+      )}
+      {holds(viewer, "member.ban") && (
+        <Bans userId={userId} params={query} readOnly={readOnly} />
+      )}
+      {holds(viewer, "forum.threadBan") && (
+        <ThreadBans
+          userId={userId}
+          thread={parseId(one(query.thread))}
+          readOnly={readOnly}
+        />
+      )}
+    </>
+  );
+}
+
+export default function MemberSanctionsPage({
+  params,
+  searchParams,
+}: PageProps<"/admin/users/[id]/sanctions">) {
+  const t = useTranslations("adminUsers.sanctions");
+  return (
+    <TabPage label={t("loading")} rows={4}>
+      <Sanctions params={params} searchParams={searchParams} />
+    </TabPage>
+  );
+}
