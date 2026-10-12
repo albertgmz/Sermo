@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
     };
   },
   experimental: {
+    // A picture goes to the backend through a server action; the backend sets the real limit.
+    serverActions: { bodySizeLimit: "26mb" },
     instantInsights: {
       validationLevel: "manual-warning",
     },
