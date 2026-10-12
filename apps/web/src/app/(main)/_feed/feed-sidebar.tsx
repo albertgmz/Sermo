@@ -12,7 +12,7 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
-import { call } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 
@@ -104,7 +104,7 @@ export function FeedSidebar() {
 }
 
 async function Trending() {
-  const { items } = await call(threadsRanked, {
+  const { items } = await read(threadsRanked, {
     by: "mostReacted",
     limit: LIST_SIZE,
   });
@@ -142,7 +142,7 @@ async function Trending() {
 }
 
 async function LatestThreads() {
-  const { items } = await call(threadsRanked, {
+  const { items } = await read(threadsRanked, {
     by: "latestPosts",
     limit: LIST_SIZE,
   });
@@ -168,7 +168,7 @@ async function LatestThreads() {
 }
 
 async function FeedForums() {
-  const { items } = await call(nodesList, {});
+  const { items } = await read(nodesList, {});
   const forums = items.filter((node) => node.type === "forum");
   const t = await getTranslations("home.feedSidebar");
   if (forums.length === 0) return null;

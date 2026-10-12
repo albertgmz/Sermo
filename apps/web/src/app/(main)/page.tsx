@@ -17,7 +17,7 @@ import {
 import { TabLinks } from "@/components/forum/tab-links";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { call } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -88,7 +88,7 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
   const needsLogin = tab === "following" && !viewer.user;
   const feed = needsLogin
     ? { items: [], nextCursor: null }
-    : await call(feedList, { scope: tab, cursor });
+    : await read(feedList, { scope: tab, cursor });
   const author = await authorsFor(
     feed.items.flatMap((item) =>
       item.type === "profilePost"

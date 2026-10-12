@@ -41,7 +41,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Level } from "@/lib/levels";
-import { call, read } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
 import {
   getReactionTypes,
@@ -480,7 +480,7 @@ async function ThreadPosts({
     t,
     format,
   ] = await Promise.all([
-    call(
+    read(
       postsList,
       cursor ? { threadId: thread.id, cursor } : { threadId: thread.id, page },
     ),

@@ -4,7 +4,7 @@ import { reactionTypesList } from "@sermo/core/contracts";
 import { cache } from "react";
 import type * as z from "zod";
 import type { ReactionType } from "@/lib/types";
-import { call } from "./client";
+import { read } from "./client";
 
 type ApiReactionType = z.output<
   typeof reactionTypesList.output
@@ -18,7 +18,7 @@ type ApiSummary = {
 // Every type, inactive ones included: old reactions keep showing with their emoji.
 export const getReactionTypes = cache(
   async (): Promise<ApiReactionType[]> =>
-    (await call(reactionTypesList, {})).items,
+    (await read(reactionTypesList, {})).items,
 );
 
 function asType(type: ApiReactionType): ReactionType {

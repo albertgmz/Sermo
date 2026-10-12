@@ -36,7 +36,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCompact } from "@/lib/format";
-import { call, read } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
@@ -311,7 +311,7 @@ export default async function ForumPage({
 // A category holds no threads: its forums are what the page lists.
 async function CategoryForums({ nodeId }: { nodeId: number }) {
   const [{ items: nodes }, t] = await Promise.all([
-    call(nodesList, {}),
+    read(nodesList, {}),
     getTranslations("forums.forum"),
   ]);
   const childrenOf = childrenByParent(nodes);
@@ -356,8 +356,8 @@ async function ForumThreads({
 }) {
   const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
   const [list, { items: allPrefixes }, t] = await Promise.all([
-    call(threadsList, { nodeId, prefixId, cursor }),
-    call(threadPrefixesList, {}),
+    read(threadsList, { nodeId, prefixId, cursor }),
+    read(threadPrefixesList, {}),
     getTranslations("forums.forum"),
   ]);
   const threads = [...list.sticky, ...list.items];

@@ -13,7 +13,7 @@ import {
 } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { call, read } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -84,7 +84,7 @@ async function ThreadForm({ id, canPost }: { id: number; canPost: boolean }) {
       </div>
     );
   }
-  const { items } = await call(threadPrefixesList, {});
+  const { items } = await read(threadPrefixesList, {});
   const prefixes = items.flatMap((prefix) =>
     prefix.isActive ? (prefixView(prefix) ?? []) : [],
   );

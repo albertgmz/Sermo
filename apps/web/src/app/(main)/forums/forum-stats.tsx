@@ -13,7 +13,7 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { formatCompact } from "@/lib/format";
-import { call } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
@@ -198,7 +198,7 @@ export function ForumStats({
 }
 
 async function StatsRows({ tab }: { tab: (typeof STATS_TABS)[number] }) {
-  const { items } = await call(threadsRanked, { by: tab.by, limit: ROWS });
+  const { items } = await read(threadsRanked, { by: tab.by, limit: ROWS });
   const member = await membersFor(items.flatMap(threadMembers));
   return (
     <ol className="@container divide-y divide-border">

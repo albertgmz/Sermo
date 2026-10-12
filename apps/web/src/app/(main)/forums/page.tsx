@@ -20,7 +20,7 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { call } from "@/lib/sermo/client";
+import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
@@ -110,8 +110,8 @@ async function ForumCategories({
   stats: StatsTab;
 }) {
   const [{ items: nodes }, { items: tabs }, t] = await Promise.all([
-    call(nodesList, {}),
-    call(forumTabsList, {}),
+    read(nodesList, {}),
+    read(forumTabsList, {}),
     getTranslations("forums.forums"),
   ]);
   const member = await membersFor(nodeMembers(nodes));

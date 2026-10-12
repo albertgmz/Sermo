@@ -1,6 +1,7 @@
 "use server";
 
 import { postsCreate, threadsMarkRead } from "@sermo/core/contracts";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { call } from "@/lib/sermo/client";
@@ -22,6 +23,8 @@ export async function replyAction(
   );
   if (!created.ok) return { error: created.error };
   const { id, position } = created.value;
+  // The pages that list or show the thread are read again.
+  revalidatePath("/", "layout");
   redirect(threadHref(threadId, position, id));
 }
 
