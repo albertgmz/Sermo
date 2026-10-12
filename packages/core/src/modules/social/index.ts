@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { actorUserId, requireAuthenticated } from "../../actor";
+import { actorUserId, type PermissionVersions, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { SUPPORTED_LANGUAGES } from "../../contracts/settings";
 import * as contracts from "../../contracts/social";
@@ -345,6 +345,21 @@ export const usersListFollowingOp = implement(contracts.usersListFollowing, (ctx
   followList(ctx, actor, input.userId, input.cursor, input.limit, "following"),
 );
 
+/**
+ * Whether a member can be ignored: staff and others without `member.ignorable` cannot, but a
+ * banned member can whatever their group. The one statement of the rule, for adding an ignore
+ * and for applying the ones already stored.
+ */
+export function memberIgnorable(
+  ctx: Ctx,
+  row: PrincipalRow & { id: number; group_id: number },
+  versions: PermissionVersions,
+): boolean {
+  const banned =
+    !!row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now());
+  return banned || can(ctx, memberActor(row.id, row.group_id, row, versions), "member.ignorable");
+}
+
 export const usersIgnoreOp = implement(contracts.usersIgnore, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.ignore");
@@ -356,18 +371,7 @@ export const usersIgnoreOp = implement(contracts.usersIgnore, (ctx, actor, input
       `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
     ).get(input.userId);
     if (!target) throw new NotFoundError();
-    const banned =
-      !!target.banned_permanently ||
-      (target.banned_until !== null && target.banned_until > ctx.now());
-    if (
-      !banned &&
-      !can(
-        ctx,
-        memberActor(target.id, target.group_id, target, requestVersions(ctx, actor)),
-        "member.ignorable",
-      )
-    )
-      throw new ForbiddenError();
+    if (!memberIgnorable(ctx, target, requestVersions(ctx, actor))) throw new ForbiddenError();
     query(
       ctx,
       "ignore",

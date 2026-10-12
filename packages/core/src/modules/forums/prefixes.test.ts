@@ -68,6 +68,63 @@ function setup() {
 }
 
 describe("thread prefixes", () => {
+  test("a prefix cannot be switched back on while its colour is switched off", async () => {
+    const s = setup();
+    const color = s.color();
+    const prefix = await s.prefix("Quiet", { isActive: false });
+    s.ctx.sqlite.prepare("UPDATE palette_colors SET is_active = 0 WHERE id = ?1").run(color);
+    await expect(
+      run(s.ctx, "threadPrefixes.update", s.admin, { prefixId: prefix.id, isActive: true }),
+    ).rejects.toThrow(ValidationError);
+    expect(
+      (await run(s.ctx, "threadPrefixes.list", s.admin, {})).items.find(
+        (item: { id: number }) => item.id === prefix.id,
+      ).isActive,
+    ).toBe(false);
+    // Other changes to the inactive prefix still go through, and a live colour brings it back.
+    await run(s.ctx, "threadPrefixes.update", s.admin, { prefixId: prefix.id, label: "Renamed" });
+    const live = s.ctx.sqlite
+      .prepare<{ id: number }, [number]>(
+        "SELECT id FROM palette_colors WHERE kind = 'prefix' AND is_active = 1 AND id != ?1 LIMIT 1",
+      )
+      .get(color)!.id;
+    const back = await run(s.ctx, "threadPrefixes.update", s.admin, {
+      prefixId: prefix.id,
+      isActive: true,
+      colorId: live,
+    });
+    expect(back).toMatchObject({ isActive: true, colorId: live });
+  });
+
+  test("threads.update says not found for a thread the caller cannot see before it validates the change", async () => {
+    const s = setup();
+    const secret = insertNode(s.ctx, { parentId: s.category.id });
+    for (const group of [1, 2])
+      s.ctx.sqlite
+        .prepare("INSERT INTO node_permissions (node_id, group_id, can_view) VALUES (?1, ?2, 0)")
+        .run(secret.id, group);
+    invalidate(s.ctx, "node_tree");
+    invalidate(s.ctx, "permissions");
+    const hidden = (
+      await execute(s.ctx, threadsCreateOp, s.admin, {
+        nodeId: secret.id,
+        title: "Hidden",
+        body: "Hidden body",
+      })
+    ).thread;
+    await expect(
+      execute(s.ctx, threadsUpdateOp, s.author, { threadId: hidden.id }),
+    ).rejects.toThrow(NotFoundError);
+    await expect(execute(s.ctx, threadsUpdateOp, s.author, { threadId: 999_999 })).rejects.toThrow(
+      NotFoundError,
+    );
+    // A thread the caller can see still gets the validation message.
+    const open = await s.thread();
+    await expect(execute(s.ctx, threadsUpdateOp, s.author, { threadId: open.id })).rejects.toThrow(
+      ValidationError,
+    );
+  });
+
   test("anyone lists the active ones, an administrator sees them all; writes need admin.nodes", async () => {
     const s = setup();
     const live = await s.prefix("Solved");

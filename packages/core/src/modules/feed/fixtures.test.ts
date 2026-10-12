@@ -84,3 +84,65 @@ test("the fixture world hides one forum from members and guests", async () => {
   const staff = await w.call("nodes.list", w.admin, {});
   expect(staff.items.map((node: { id: number }) => node.id)).toContain(w.secret.id);
 });
+
+/**
+ * Inserts `count` visible threads, each with its opening post, without bodies: bulk filler that
+ * still reads back through the operations. `at` and `replies` map the index to the thread's
+ * activity time and reply count.
+ */
+export function fillThreads(
+  ctx: Ctx,
+  nodeId: number,
+  userId: number,
+  count: number,
+  options: { at?: (i: number) => number; replies?: (i: number) => number } = {},
+): number[] {
+  const thread = ctx.sqlite.prepare<{ id: number }, [number, number, number, number]>(
+    "INSERT INTO threads (node_id, user_id, title, state, created_at, reply_count, last_post_at, last_poster_id) VALUES (?1, ?2, 'filler', 'visible', ?3, ?4, ?3, ?2) RETURNING id",
+  );
+  const post = ctx.sqlite.prepare<{ id: number }, [number, number, number]>(
+    "INSERT INTO posts (thread_id, user_id, position, state, created_at) VALUES (?1, ?2, 0, 'visible', ?3) RETURNING id",
+  );
+  const link = ctx.sqlite.prepare(
+    "UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2",
+  );
+  const ids: number[] = [];
+  for (let i = 0; i < count; i++) {
+    const at = options.at?.(i) ?? ctx.now();
+    const id = thread.get(nodeId, userId, at, options.replies?.(i) ?? 0)!.id;
+    link.run(post.get(id, userId, at)!.id, id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * Tests only: how many statements `run` executes. Cached statements are dropped first so the
+ * ones the run prepares are the ones counted.
+ */
+export async function countStatements(ctx: Ctx, run: () => Promise<unknown>): Promise<number> {
+  let count = 0;
+  const prepare = ctx.sqlite.prepare.bind(ctx.sqlite);
+  ctx.statements.clear();
+  // biome-ignore lint/suspicious/noExplicitAny: the wrapper forwards whatever the statement takes
+  (ctx.sqlite as any).prepare = (sql: string) => {
+    // biome-ignore lint/suspicious/noExplicitAny: bun's statement type is generic over its rows
+    const statement = prepare(sql) as any;
+    for (const method of ["get", "all", "run", "values", "iterate"]) {
+      const original = statement[method].bind(statement);
+      statement[method] = (...args: unknown[]) => {
+        count++;
+        return original(...args);
+      };
+    }
+    return statement;
+  };
+  try {
+    await run();
+  } finally {
+    // biome-ignore lint/suspicious/noExplicitAny: restoring the method replaced above
+    (ctx.sqlite as any).prepare = prepare;
+    ctx.statements.clear();
+  }
+  return count;
+}

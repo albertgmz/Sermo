@@ -564,6 +564,8 @@ export const threads = sqliteTable(
     index("threads_public_feed").on(t.state, desc(t.lastPostAt), desc(t.id)),
     index("threads_node_feed").on(t.nodeId, t.state, desc(t.lastPostAt), desc(t.id)),
     index("threads_state_id").on(t.state, t.id),
+    // threads.ranked latestThreads, per forum: WHERE node_id = ? AND state = ? ORDER BY id DESC
+    index("threads_node_state_id").on(t.nodeId, t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
     index("threads_cover").on(t.coverId).where(sql`cover_id IS NOT NULL`),
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY sort_at DESC, id DESC
@@ -1766,20 +1768,23 @@ export const forumTabs = sqliteTable(
 export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "feedTop"] as const;
 
 /**
- * Rankings a background job recomputes: the best threads by replies, by reactions on the
- * opening post and by views (target = thread id), and the most reacted-to posts of the last
- * week (target = post id). Readers filter by what the viewer may see.
+ * Rankings a background job recomputes, kept PER FORUM: the best threads of each forum by
+ * replies, by reactions on the opening post and by views (target = thread id), and its most
+ * reacted-to posts of the last week (target = post id). A reader merges the rankings of the
+ * forums the viewer can see, so a forum the viewer cannot see neither shows up nor pushes
+ * anything out.
  */
 export const rankings = sqliteTable(
   "rankings",
   {
     id: integer("id").primaryKey(),
     kind: text("kind", { enum: RANKING_KINDS }).notNull(),
+    nodeId: integer("node_id").notNull(),
     position: integer("position").notNull(),
     targetId: integer("target_id").notNull(),
     score: integer("score").notNull(),
   },
-  (t) => [uniqueIndex("rankings_kind_position").on(t.kind, t.position)],
+  (t) => [uniqueIndex("rankings_kind_node_position").on(t.kind, t.nodeId, t.position)],
 );
 
 // ---------------------------------------------------------------------------

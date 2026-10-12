@@ -78,6 +78,10 @@ describe("forum content schema matches the migration", () => {
     expect(index("thread_prefixes_position")?.sql).toContain("`position`,`id`");
     expect(index("thread_prefixes_color")?.sql).toContain("`color_id`");
     expect(index("forum_tabs_position")?.sql).toContain("`position`,`id`");
-    expect(index("rankings_kind_position")?.sql).toContain("UNIQUE");
+    const ranking = index("rankings_kind_node_position");
+    expect(ranking?.sql).toContain("UNIQUE");
+    expect(ranking?.sql).toContain("`kind`,`node_id`,`position`");
+    expect(index("rankings_kind_position")).toBeNull();
+    expect(index("threads_node_state_id")?.sql).toContain("`node_id`,`state`,`id`");
   });
 });

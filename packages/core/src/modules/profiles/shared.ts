@@ -15,16 +15,37 @@ export type ProfileAccess = {
   profile_post_privacy: "members" | "followed" | "self";
   follows: number;
 };
+/**
+ * The privacy settings of one member and whether that member follows the viewer, as
+ * `profileAccessMany` reads them for a page.
+ */
+export const PROFILE_ACCESS_SQL =
+  "SELECT id, profile_view_privacy, profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = users.id AND followed_id = ?1) AS follows FROM users WHERE id IN (SELECT value FROM json_each(?2))";
 export const profileAccess = markPublic(
   "Callers enforce profile visibility before returning content.",
   function profileAccess(ctx: Ctx, actor: Actor, userId: number): ProfileAccess {
-    const row = prepared(ctx, "profiles.privacy", () =>
-      ctx.sqlite.prepare<ProfileAccess, [number, number]>(
-        "SELECT profile_view_privacy, profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = ?1 AND followed_id = ?2) AS follows FROM users WHERE id = ?1",
-      ),
-    ).get(userId, actorUserId(actor) ?? 0);
+    const row = profileAccessMany(ctx, actor, [userId]).get(userId);
     if (!row) throw new NotFoundError();
     return row;
+  },
+);
+/** `profileAccess` for several members in one query; members that do not exist are absent. */
+export const profileAccessMany = markPublic(
+  "Callers enforce profile visibility before returning content.",
+  function profileAccessMany(
+    ctx: Ctx,
+    actor: Actor,
+    userIds: Iterable<number>,
+  ): Map<number, ProfileAccess> {
+    const ids = [...new Set(userIds)];
+    if (ids.length === 0) return new Map();
+    return new Map(
+      prepared(ctx, "profiles.privacy", () =>
+        ctx.sqlite.prepare<ProfileAccess & { id: number }, [number, string]>(PROFILE_ACCESS_SQL),
+      )
+        .all(actorUserId(actor) ?? 0, JSON.stringify(ids))
+        .map((row) => [row.id, row] as const),
+    );
   },
 );
 export function mayViewProfile(
@@ -54,19 +75,33 @@ export function requireProfileView(
 function wallAllows(ctx: Ctx, actor: Actor, ownerId: number, access?: ProfileAccess): boolean {
   const viewerId = actorUserId(actor);
   if (viewerId === null || !readSiteSettings(ctx).profilePostsEnabled) return false;
-  const row = access ?? profileAccess(ctx, actor, ownerId);
+  return wallRule(ctx, actor, viewerId, ownerId, access ?? profileAccess(ctx, actor, ownerId), () =>
+    ownerIgnores(ctx, ownerId, viewerId),
+  );
+}
+function ownerIgnores(ctx: Ctx, ownerId: number, viewerId: number): boolean {
+  return !!prepared(ctx, "profiles.ownerIgnores", () =>
+    ctx.sqlite.prepare<{ id: number }, [number, number]>(
+      "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+    ),
+  ).get(ownerId, viewerId);
+}
+/**
+ * Whether a signed-in viewer may use a member's wall, given the wall owner's privacy row and a
+ * way to ask whether the owner ignores the viewer (called only when the answer can matter).
+ * The one statement of the rule, for a single wall and for a page of walls.
+ */
+function wallRule(
+  ctx: Ctx,
+  actor: Actor,
+  viewerId: number,
+  ownerId: number,
+  row: ProfileAccess,
+  ignoresViewer: () => boolean,
+): boolean {
   if (!mayViewProfile(ctx, actor, ownerId, row)) return false;
   // An ignore applies only while the author can be ignored (staff cannot).
-  if (
-    viewerId !== ownerId &&
-    can(ctx, actor, "member.ignorable") &&
-    prepared(ctx, "profiles.ownerIgnores", () =>
-      ctx.sqlite.prepare<{ id: number }, [number, number]>(
-        "SELECT id FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
-      ),
-    ).get(ownerId, viewerId)
-  )
-    return false;
+  if (viewerId !== ownerId && can(ctx, actor, "member.ignorable") && ignoresViewer()) return false;
   if (can(ctx, actor, "profile.bypassPrivacy")) return true;
   const mode = row.profile_post_privacy;
   if (mode === "self" && viewerId !== ownerId) return false;
@@ -88,6 +123,48 @@ export function mayCommentOnWall(
   access?: ProfileAccess,
 ): boolean {
   return can(ctx, actor, "profilePost.comment") && wallAllows(ctx, actor, ownerId, access);
+}
+/**
+ * `mayCommentOnWall` for the walls of a page, in a fixed number of queries: one for the site
+ * settings, one for the owners' privacy rows and one for the owners who ignore the viewer.
+ */
+export function mayCommentOnWalls(
+  ctx: Ctx,
+  actor: Actor,
+  ownerIds: Iterable<number>,
+  access?: Map<number, ProfileAccess>,
+): Map<number, boolean> {
+  const owners = [...new Set(ownerIds)];
+  const viewerId = actorUserId(actor);
+  const result = new Map<number, boolean>(owners.map((id) => [id, false]));
+  if (
+    owners.length === 0 ||
+    viewerId === null ||
+    !can(ctx, actor, "profilePost.comment") ||
+    !readSiteSettings(ctx).profilePostsEnabled
+  )
+    return result;
+  const rows = access ?? profileAccessMany(ctx, actor, owners);
+  const ignoring = can(ctx, actor, "member.ignorable")
+    ? new Set(
+        prepared(ctx, "profiles.ownersIgnore", () =>
+          ctx.sqlite.prepare<{ user_id: number }, [number, string]>(
+            "SELECT user_id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
+          ),
+        )
+          .all(viewerId, JSON.stringify(owners))
+          .map((row) => row.user_id),
+      )
+    : new Set<number>();
+  for (const ownerId of owners) {
+    const row = rows.get(ownerId);
+    if (row)
+      result.set(
+        ownerId,
+        wallRule(ctx, actor, viewerId, ownerId, row, () => ignoring.has(ownerId)),
+      );
+  }
+  return result;
 }
 
 export type State = "visible" | "moderated" | "deleted";
@@ -276,9 +353,11 @@ export function postValues(ctx: Ctx, actor: Actor, rows: PostRow[], latest: Comm
     "profile_post",
     rows.map((row) => row.id),
   );
-  const commentAccess = new Map<number, boolean>();
-  for (const ownerId of new Set(rows.map((row) => row.profile_user_id)))
-    commentAccess.set(ownerId, mayCommentOnWall(ctx, actor, ownerId));
+  const commentAccess = mayCommentOnWalls(
+    ctx,
+    actor,
+    rows.map((row) => row.profile_user_id),
+  );
   return rows.map((row) => ({
     id: row.id,
     profileUserId: row.profile_user_id,

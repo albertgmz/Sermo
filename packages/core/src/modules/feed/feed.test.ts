@@ -1,11 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan } from "@sermo/core/testing";
+import {
+  expectNoTableScan,
+  insertNode,
+  insertUser,
+  tokenActor,
+  userActor,
+} from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
+import { writeTx } from "../../db/tx";
 import { UnauthenticatedError } from "../../errors";
+import { currentActor } from "../../permissions";
+import { PROFILE_ACCESS_SQL } from "../profiles/shared";
 import { feedSql } from "./feed";
-import { fillPosts, type World, world } from "./fixtures.test";
-import { refreshRankings } from "./rankings";
+import { countStatements, fillPosts, type World, world } from "./fixtures.test";
+import { rankingSql, refreshRankings } from "./rankings";
 import { viewerSql } from "./viewer";
 
 // biome-ignore lint/suspicious/noExplicitAny: feed items are checked field by field below
@@ -116,6 +125,61 @@ describe("feed.list latest", () => {
     ]);
     // Staff bypass privacy.
     expect((await w.call("feed.list", w.admin, {})).items).toHaveLength(2);
+  });
+
+  test("a wall that is for members only is left out of the feed for guests", async () => {
+    const w = world();
+    await w.wall(w.bob, w.carolUser.id, "open wall");
+    await w.wall(w.bob, w.aliceUser.id, "members wall");
+    w.ctx.sqlite
+      .prepare("UPDATE users SET profile_view_privacy = 'members' WHERE id = ?1")
+      .run(w.aliceUser.id);
+    expect((await w.call("feed.list", GUEST, {})).items.map(describeItem)).toEqual([
+      "wall:open wall",
+    ]);
+    expect((await w.call("feed.list", w.carol, {})).items.map(describeItem)).toEqual([
+      "wall:members wall",
+      "wall:open wall",
+    ]);
+  });
+
+  test("an API-key actor sees the feed its member would", async () => {
+    const w = world();
+    await w.thread(w.alice, w.open.id, "Open");
+    await w.thread(w.admin, w.secret.id, "Secret");
+    await w.wall(w.bob, w.carolUser.id, "a wall");
+    const viaToken = await w.call("feed.list", tokenActor(w.bobUser), {});
+    const viaSession = await w.call("feed.list", w.bob, {});
+    expect(viaToken.items.map(describeItem)).toEqual(viaSession.items.map(describeItem));
+    expect(viaToken.items.map(describeItem)).toEqual(["wall:a wall", "thread:Open body"]);
+    await expect(
+      w.call("feed.list", tokenActor(w.bobUser), { scope: "following" }),
+    ).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
+
+  test("a thread in a forum whose ancestor is hidden is left out of the feed", async () => {
+    const w = world();
+    const child = insertNode(w.ctx, { parentId: w.secret.id });
+    await w.thread(w.alice, w.open.id, "Open");
+    const deep = await w.thread(w.admin, child.id, "Deep");
+    await w.reply(w.admin, deep.thread.id, "deep reply");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":5}' WHERE thread_id = ?1")
+      .run(deep.thread.id);
+    refreshRankings(w.ctx);
+    for (const scope of ["latest", "top"])
+      expect((await w.call("feed.list", w.bob, { scope })).items.map(describeItem)).not.toContain(
+        "thread:Deep body",
+      );
+    expect(
+      (await w.call("feed.list", w.admin, { scope: "top" })).items.map(describeItem),
+    ).toContain("thread:Deep body");
+    expect((await w.call("feed.list", w.bob, {})).items.map(describeItem)).toEqual([
+      "thread:Open body",
+    ]);
   });
 
   test("wall posts that are not visible are left out", async () => {
@@ -289,6 +353,31 @@ describe("feed.list top", () => {
     ]);
   });
 
+  test("better posts in a forum the viewer cannot see do not push out the ones they can", async () => {
+    const w = world();
+    const open = await w.thread(w.alice, w.open.id, "Open");
+    const hidden = await w.thread(w.admin, w.secret.id, "Hidden");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":1}' WHERE id = ?1")
+      .run(open.post.id);
+    const insert = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number, string]>(
+      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5) RETURNING id",
+    );
+    const body = w.ctx.sqlite.prepare(
+      "INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, 'x', '<p>x</p>')",
+    );
+    for (let i = 1; i <= 200; i++)
+      body.run(insert.get(hidden.thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 10}}`)!.id);
+    refreshRankings(w.ctx);
+    for (const viewer of [w.bob, GUEST])
+      expect((await w.call("feed.list", viewer, { scope: "top" })).items.map(describeItem)).toEqual(
+        ["thread:Open body"],
+      );
+    const staff = await w.call("feed.list", w.admin, { scope: "top" });
+    expect(staff.items).toHaveLength(50);
+    expect(staff.items.every((item: Item) => item.thread.node.id === w.secret.id)).toBe(true);
+  });
+
   test("shows at most 50 and an empty ranking is an empty page", async () => {
     const w = world();
     expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual({
@@ -307,6 +396,54 @@ describe("feed.list top", () => {
   });
 });
 
+describe("feed.list following with more than 100 follows", () => {
+  test("the following scope walks the 100 most recent follows; items elsewhere still flag every followed author", async () => {
+    const w = world();
+    const members = Array.from({ length: 101 }, (_, i) =>
+      insertUser(w.ctx, { username: `followed${i}` }),
+    );
+    const follow = w.ctx.sqlite.prepare(
+      "INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, ?3)",
+    );
+    for (const [i, member] of members.entries()) follow.run(w.bobUser.id, member.id, i + 1);
+    const oldest = members[0]!;
+    const newest = members[100]!;
+    await w.thread(userActor(oldest), w.open.id, "From the oldest follow");
+    await w.thread(userActor(newest), w.open.id, "From the newest follow");
+    const following = await w.call("feed.list", w.bob, { scope: "following", limit: 20 });
+    expect(following.items.map(describeItem)).toEqual(["thread:From the newest follow body"]);
+    const latest = await w.call("feed.list", w.bob, { limit: 20 });
+    expect(latest.items.map((item: Item) => [describeItem(item), item.following])).toEqual([
+      ["thread:From the newest follow body", true],
+      ["thread:From the oldest follow body", true],
+    ]);
+  });
+});
+
+describe("feed.list wall posts", () => {
+  test("a page of wall posts on many walls runs about as many statements as one wall", async () => {
+    const one = world();
+    const many = world();
+    const owners = Array.from({ length: 30 }, (_, i) => {
+      const user = insertUser(many.ctx, { username: `owner${i}` });
+      return { user, actor: userActor(user) };
+    });
+    const solo = insertUser(one.ctx, { username: "solo" });
+    for (let i = 0; i < 30; i++) await one.wall(userActor(solo), solo.id, `w${i}`);
+    for (const [i, owner] of owners.entries()) await many.wall(owner.actor, owner.user.id, `w${i}`);
+    // As a request's actor arrives: the principal is already resolved, so checks run no query.
+    const read = (w: World) => {
+      const viewer = writeTx(w.ctx, () => currentActor(w.ctx, w.bob));
+      return () => w.call("feed.list", viewer, { limit: 30 });
+    };
+    const withOne = await countStatements(one.ctx, read(one));
+    const withMany = await countStatements(many.ctx, read(many));
+    expect((await read(many)()).items).toHaveLength(30);
+    expect(withMany - withOne).toBeLessThanOrEqual(10);
+    expect(withMany).toBeLessThan(150);
+  });
+});
+
 describe("the feed queries read their indexes", () => {
   test("no table scan, and the followed walk uses the per-author index", () => {
     const w = world();
@@ -314,9 +451,9 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, feedSql.wall, [100, 20]);
     expectNoTableScan(w.ctx, feedSql.followedPosts, ["[1,2]", 100, 20]);
     expectNoTableScan(w.ctx, feedSql.followedWall, ["[1,2]", 100, 20]);
-    expectNoTableScan(w.ctx, feedSql.wallOwners, [1, "[1,2]"]);
+    expectNoTableScan(w.ctx, PROFILE_ACCESS_SQL, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.wallRows, ["[1,2]"]);
-    expectNoTableScan(w.ctx, feedSql.top);
+    expectNoTableScan(w.ctx, rankingSql.stored, ["feedTop", "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.topPosts, ["[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.ignored, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.principals, ["[1,2]"]);

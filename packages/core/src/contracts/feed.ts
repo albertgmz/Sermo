@@ -50,8 +50,9 @@ export const feedList = defineContract({
   summary:
     "The activity feed, newest first: new threads, replies and wall posts the viewer may open. " +
     "`latest` is everyone's activity. `following` is the activity of the members the viewer " +
-    "follows and requires an account. `top` is the most reacted-to thread posts of the last " +
-    "seven days, at most 50, recomputed every few minutes and not paginated (`nextCursor` is " +
+    "follows (the 100 followed most recently, when there are more) and requires an account. " +
+    "`top` is the most reacted-to thread posts of the last seven days among the forums the " +
+    "viewer can see, at most 50, recomputed every few minutes and not paginated (`nextCursor` is " +
     "always null). Content of ignored members is left out.",
   kind: "read",
   input: z.object({ scope: z.enum(FEED_SCOPES).default("latest"), ...pageInput }),
@@ -72,7 +73,8 @@ export const threadsRanked = defineContract({
     "Threads across every forum the viewer can see, ranked one way: `latestPosts` (newest " +
     "activity), `latestThreads` (newest threads), or the most replied-to, most reacted-to " +
     '(reactions on the opening post) and most viewed threads. The three "most" rankings are ' +
-    "recomputed in the background every few minutes from threads active in the last 30 days.",
+    "recomputed in the background every few minutes, per forum, from threads active in the last " +
+    "30 days; what a viewer gets is the best of the forums they can see.",
   kind: "read",
   input: z.object({
     by: z.enum(THREAD_RANKINGS),

@@ -122,7 +122,7 @@ const threadDetailColumns = threadColumns
 /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
 const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
-export const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
+const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
@@ -234,11 +234,57 @@ function postRow(ctx: Ctx, id: number, withBody = false): PostRow | undefined {
     ).get(id) ?? undefined
   );
 }
-function visible(ctx: Ctx, state: State, owner: number, actor: Actor, nodeId: number): boolean {
+/**
+ * The one rule for content in a given state, once the forum is open to the viewer: visible
+ * content needs nothing more, moderated content its author or forum.viewModerated there, deleted
+ * content forum.viewDeleted there. `check` answers a permission for a forum.
+ */
+function mayViewState(
+  check: (permission: "forum.viewModerated" | "forum.viewDeleted", nodeId: number) => boolean,
+  viewerId: number | null,
+  state: State,
+  ownerId: number,
+  nodeId: number,
+): boolean {
   if (state === "visible") return true;
-  if (state === "moderated")
-    return owner === actorUserId(actor) || can(ctx, actor, "forum.viewModerated", { nodeId });
-  return can(ctx, actor, "forum.viewDeleted", { nodeId });
+  if (state === "moderated") return ownerId === viewerId || check("forum.viewModerated", nodeId);
+  return check("forum.viewDeleted", nodeId);
+}
+/** Whether content of a state, owned by a member, in a forum, is shown to the viewer. */
+export type ContentRule = (nodeId: number, state: State, ownerId: number) => boolean;
+/**
+ * The rule of the per-forum listing as one function for a viewer, resolving their permissions
+ * once: the forum must be open (`canOpen`, by default node.view there), then the state rule.
+ * A page of items passes the set of forums it already holds.
+ */
+export const contentRule = markPublic(
+  "The rule itself decides per forum with node.view, forum.viewModerated and forum.viewDeleted.",
+  function contentRule(ctx: Ctx, actor: Actor, canOpen?: (nodeId: number) => boolean): ContentRule {
+    const permissions = permissionsOf(ctx, actor);
+    const viewerId = actorUserId(actor);
+    const open = canOpen ?? ((nodeId: number) => permissions.can("node.view", { nodeId }));
+    return (nodeId, state, ownerId) =>
+      open(nodeId) &&
+      mayViewState(
+        (permission, node) => permissions.can(permission, { nodeId: node }),
+        viewerId,
+        state,
+        ownerId,
+        nodeId,
+      );
+  },
+);
+/** A thread that was not merged away, in an open forum, in a state the viewer may see. */
+export function threadReadable(rule: ContentRule, thread: ThreadRow): boolean {
+  return thread.merged_into_id === null && rule(thread.node_id, thread.state, thread.user_id);
+}
+/** A post the viewer may see in a thread they may see. */
+export function postReadable(
+  rule: ContentRule,
+  thread: ThreadRow,
+  post: { state: State; user_id: number },
+): boolean {
+  return threadReadable(rule, thread) && rule(thread.node_id, post.state, post.user_id);
 }
 function requireNode(ctx: Ctx, actor: Actor, id: number) {
   const node = getNodeTree(ctx).get(id);
@@ -250,14 +296,28 @@ function requireThread(ctx: Ctx, actor: Actor, id: number) {
   const row = threadRow(ctx, id, actorUserId(actor) ?? 0);
   if (!row || row.merged_into_id != null) throw new NotFoundError();
   const { node } = requireNode(ctx, actor, row.node_id);
-  if (!visible(ctx, row.state, row.user_id, actor, row.node_id)) throw new NotFoundError();
+  // The forum is open to the caller; the rest is the shared rule.
+  if (
+    !threadReadable(
+      contentRule(ctx, actor, () => true),
+      row,
+    )
+  )
+    throw new NotFoundError();
   return { row, node };
 }
 function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
   const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
   const thread = requireThread(ctx, actor, post.thread_id);
-  if (!visible(ctx, post.state, post.user_id, actor, thread.row.node_id)) throw new NotFoundError();
+  if (
+    !postReadable(
+      contentRule(ctx, actor, () => true),
+      thread.row,
+      post,
+    )
+  )
+    throw new NotFoundError();
   return { post, thread };
 }
 function mayEdit(
@@ -1071,9 +1131,9 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
+  const { row } = requireThread(ctx, actor, input.threadId);
   if (input.title === undefined && input.prefixId === undefined)
     throw new ValidationError("Send a title, a prefix, or both.");
-  const { row } = requireThread(ctx, actor, input.threadId);
   if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;

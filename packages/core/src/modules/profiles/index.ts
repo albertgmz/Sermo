@@ -24,7 +24,7 @@ export {
   type PostRow as ProfilePostRow,
   type ProfileAccess,
   postValues as profilePostValues,
-  profileAccess,
+  profileAccessMany,
   reactableProfileComment,
   reactableProfilePost,
   requireProfileView,
