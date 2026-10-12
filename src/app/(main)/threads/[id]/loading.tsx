@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   EditorSkeleton,
   HeadingSkeleton,
@@ -8,8 +9,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("threads.loading");
   return (
-    <LoadingRegion label="Loading the thread…">
+    <LoadingRegion label={t("aria.loading")}>
       <PageLayout className="pt-2">
         <HeadingSkeleton />
         <div className="mt-4 divide-y overflow-hidden rounded-lg border bg-card">
