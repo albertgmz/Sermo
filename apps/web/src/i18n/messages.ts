@@ -2,7 +2,7 @@
 // or page filename; at most one further group. Use role-based camelCase leaves,
 // errors.* and aria.*. Bind zone.component once; count nouns use one ICU plural
 // with `count`, and rich sentences use one message with tags. Keep strings in the
-// rendering file's zone (no common namespace); keep forum/ui literal in messages.
+// rendering file's zone (no common namespace).
 import account from "../../messages/en/account.json";
 import admin from "../../messages/en/admin.json";
 import auth from "../../messages/en/auth.json";
