@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { isActivePath } from "@/components/layout/nav";
 import type { UnreadCounts } from "@/lib/db";
 import type { User } from "@/lib/types";
@@ -30,11 +31,12 @@ export function MobileNav({
   user: Pick<User, "id"> | null;
   unread: UnreadCounts;
 }) {
+  const t = useTranslations("layout.mobileNav");
   const pathname = usePathname();
   const items: Item[] = [
-    { label: "Home", href: "/", icon: House },
+    { label: t("home"), href: "/", icon: House },
     {
-      label: "Forums",
+      label: t("forums"),
       href: "/forums",
       icon: MessagesSquare,
       match: ["/threads"],
@@ -42,30 +44,30 @@ export function MobileNav({
     ...(user
       ? [
           {
-            label: "Messages",
+            label: t("messages"),
             href: "/conversations",
             icon: Inbox,
             unread: unread.conversations,
           },
           {
-            label: "Alerts",
+            label: t("alerts"),
             href: "/notifications",
             icon: Bell,
             unread: unread.notifications,
           },
           {
-            label: "Profile",
+            label: t("profile"),
             href: `/members/${user.id}`,
             icon: UserRound,
             match: ["/account"],
           },
         ]
-      : [{ label: "Log in", href: "/login", icon: LogIn }]),
+      : [{ label: t("login"), href: "/login", icon: LogIn }]),
   ];
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("aria.primary")}
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
     >
       <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
@@ -84,8 +86,15 @@ export function MobileNav({
                   <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
                 )}
               </span>
-              {label}
-              {!!count && <span className="sr-only">, {count} unread</span>}
+              {count
+                ? t.rich("unread", {
+                    label,
+                    count,
+                    unread: (chunks) => (
+                      <span className="sr-only">{chunks}</span>
+                    ),
+                  })
+                : label}
             </Link>
           </li>
         ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   Popover,
@@ -26,11 +27,12 @@ export function HeaderPanel({
   className?: string;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("layout.headerPanel");
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
-        aria-label={unread ? `${label}, ${unread} unread` : label}
+        aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
         className={cn(
           "outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:text-foreground",
           className,

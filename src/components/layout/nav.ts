@@ -1,17 +1,24 @@
 export type NavLink = {
-  label: string;
+  label:
+    | "home"
+    | "forums"
+    | "members"
+    | "upgrade"
+    | "awards"
+    | "credits"
+    | "components";
   href: string;
   match?: string[];
   highlight?: boolean;
 };
 
 export const NAV_LINKS: NavLink[] = [
-  { label: "Home", href: "/" },
-  { label: "Forums", href: "/forums", match: ["/threads"] },
-  { label: "Members", href: "/members" },
-  { label: "Upgrade", href: "/upgrade", highlight: true },
-  { label: "Awards", href: "/awards" },
-  { label: "Credits", href: "/credits" },
+  { label: "home", href: "/" },
+  { label: "forums", href: "/forums", match: ["/threads"] },
+  { label: "members", href: "/members" },
+  { label: "upgrade", href: "/upgrade", highlight: true },
+  { label: "awards", href: "/awards" },
+  { label: "credits", href: "/credits" },
 ];
 
 export function isActivePath(
