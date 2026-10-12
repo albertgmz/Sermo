@@ -20,8 +20,8 @@ import {
   type SearchParams,
 } from "@/app/(main)/account/notice";
 import { PageLinks } from "@/app/(main)/account/paging";
-import { Help, Row, Section, selectClass } from "@/app/(main)/account/section";
 import { PendingButton } from "@/components/forum/pending-button";
+import { Help, Row, Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 

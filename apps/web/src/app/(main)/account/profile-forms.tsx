@@ -13,15 +13,15 @@ import {
   noticeOf,
   type SearchParams,
 } from "@/app/(main)/account/notice";
+import { UsernameForm } from "@/app/(main)/account/username-form";
+import { PendingButton } from "@/components/forum/pending-button";
 import {
   Help,
   linkClass,
   Row,
   Section,
   selectClass,
-} from "@/app/(main)/account/section";
-import { UsernameForm } from "@/app/(main)/account/username-form";
-import { PendingButton } from "@/components/forum/pending-button";
+} from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { publicUrl } from "@/lib/sermo/config";

@@ -7,10 +7,10 @@ import {
   noticeOf,
   type SearchParams,
 } from "@/app/(main)/account/notice";
-import { Help, Row, Section } from "@/app/(main)/account/section";
 import { Art } from "@/components/forum/art";
 import { PendingButton } from "@/components/forum/pending-button";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { Help, Row, Section } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 
 // What the form can state; the backend checks and re-encodes the picture and says why if it

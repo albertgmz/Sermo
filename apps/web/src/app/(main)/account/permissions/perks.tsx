@@ -9,7 +9,7 @@ import {
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getRenameUnits, getSelf, shopHref } from "@/app/(main)/account/data";
-import { linkClass } from "@/app/(main)/account/section";
+import { linkClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { getViewer } from "@/lib/sermo/session";
 

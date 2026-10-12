@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { ActionForm } from "@/app/(main)/account/action-form";
 import { renameMember } from "@/app/(main)/account/actions";
-import { Help, Row } from "@/app/(main)/account/section";
+import { Help, Row } from "@/components/staff/rows";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

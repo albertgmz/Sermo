@@ -13,11 +13,11 @@ import {
   type SearchParams,
 } from "@/app/(main)/account/notice";
 import { PageLinks } from "@/app/(main)/account/paging";
-import { Help, Row, Section } from "@/app/(main)/account/section";
 import { PendingButton } from "@/components/forum/pending-button";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { Help, Row, Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 
