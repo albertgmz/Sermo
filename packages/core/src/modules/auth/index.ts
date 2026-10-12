@@ -34,6 +34,7 @@ import {
 import { iso } from "../../time";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { usernameChange } from "./rename-marker";
+import { staffAccess } from "./staff";
 
 /**
  * Better Auth's change-email token names the account only by its address and can be replayed
@@ -968,7 +969,9 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
     canReact: checks.can("reaction.react"),
   };
   const resolved = resolvedPermissions(ctx, actor);
-  if (actor.kind === "guest") return { user: null, permissions, resolvedPermissions: resolved };
+  const staff = staffAccess(ctx, actor, resolved);
+  if (actor.kind === "guest")
+    return { user: null, permissions, resolvedPermissions: resolved, staff };
   const row = prepared(ctx, "auth.me", () =>
     ctx.sqlite.prepare<
       { id: number; username: string; email: string; group_id: number; created_at: number },
@@ -996,6 +999,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
     },
     permissions,
     resolvedPermissions: resolved,
+    staff,
   };
 });
 

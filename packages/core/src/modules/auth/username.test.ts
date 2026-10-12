@@ -57,7 +57,9 @@ async function world() {
 
 const changedAt = (w: { ctx: ReturnType<typeof createTestContext> }, id: number) =>
   w.ctx.sqlite
-    .prepare<{ at: number | null }, [number]>("SELECT username_changed_at AS at FROM users WHERE id = ?1")
+    .prepare<{ at: number | null }, [number]>(
+      "SELECT username_changed_at AS at FROM users WHERE id = ?1",
+    )
     .get(id)!.at;
 
 describe("users.changeUsername", () => {

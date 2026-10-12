@@ -280,9 +280,7 @@ export const users = sqliteTable(
     // The month's referrals, for the standings job.
     index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
     // users.adminList with state `banned`: the members with a ban column set, newest first.
-    index("users_banned")
-      .on(t.id)
-      .where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
+    index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
   ],
 );
 
