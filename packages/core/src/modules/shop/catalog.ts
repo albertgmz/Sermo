@@ -14,6 +14,7 @@ import {
   requirePermission,
   validatePurchasedGrant,
 } from "../../permissions";
+import { releaseFile } from "../images/attach";
 import {
   type CategoryRow,
   category,
@@ -234,10 +235,11 @@ export const itemsDelete = implement(contracts.shopItemsDelete, (ctx, actor, inp
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     managerNow(ctx, actor);
-    const value = itemValue(item(ctx, input.itemId));
-    if (statement(ctx, shopSql.bought).get(value.id))
+    const row = item(ctx, input.itemId);
+    if (statement(ctx, shopSql.bought).get(row.id))
       throw new ConflictError("A purchased item can only be deactivated.");
-    statement(ctx, "DELETE FROM shop_items WHERE id = ?1").run(value.id);
+    statement(ctx, "DELETE FROM shop_items WHERE id = ?1").run(row.id);
+    if (row.image_file_id !== null) releaseFile(ctx, row.image_file_id);
     return { ok: true as const };
   });
 });

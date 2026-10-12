@@ -10,6 +10,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
 import { iso } from "../../time";
+import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
 import { grantAward, revokeAward } from "./grants";
@@ -143,10 +144,11 @@ export const operations = [
   implement(contracts.awardsDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
     return writeTx(ctx, () => {
-      awardRow(ctx, input.awardId);
+      const award = awardRow(ctx, input.awardId);
       if (one(ctx, "everGranted", awardSql.everGranted, input.awardId))
         throw new ConflictError("An award that was granted can only be deactivated.");
       run(ctx, "delete", "DELETE FROM awards WHERE id = ?1", input.awardId);
+      if (award.image_file_id !== null) releaseFile(ctx, award.image_file_id);
       return { ok: true };
     });
   }),

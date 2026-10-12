@@ -199,6 +199,39 @@ describe("award and shop item pictures", () => {
     expect(logged(ctx, "shop.item.image")).toBe(2);
   });
 
+  test("deleting an award or an item queues the deletion of its picture", async () => {
+    const { ctx, admin, run, upload, award, item } = await withTargets();
+    const awardFile = await upload(admin, "award_image");
+    const shopFile = await upload(admin, "shop_image");
+    await run("images.setAwardImage", admin, { awardId: award, fileId: awardFile });
+    await run("images.setShopItemImage", admin, { itemId: item, fileId: shopFile });
+    const jobs = () =>
+      ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT COUNT(*) AS n FROM jobs WHERE unique_key LIKE 'storage.deletePermanent.%'",
+        )
+        .get()!.n;
+    expect(jobs()).toBe(0);
+    await run("awards.delete", admin, { awardId: award });
+    expect(deletionQueued(ctx, awardFile)).toBe(true);
+    await run("shopItems.delete", admin, { itemId: item });
+    expect(deletionQueued(ctx, shopFile)).toBe(true);
+    expect(jobs()).toBe(2);
+  });
+
+  test("deleting an award or an item without a picture queues nothing", async () => {
+    const { ctx, admin, run, award, item } = await withTargets();
+    await run("awards.delete", admin, { awardId: award });
+    await run("shopItems.delete", admin, { itemId: item });
+    expect(
+      ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT COUNT(*) AS n FROM jobs WHERE unique_key LIKE 'storage.deletePermanent.%'",
+        )
+        .get()!.n,
+    ).toBe(0);
+  });
+
   test("permissions, targets and files are checked", async () => {
     const { ctx, member, moderator, admin, run, upload, award, item } = await withTargets();
     const awardFile = await upload(admin, "award_image");
