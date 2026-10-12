@@ -355,7 +355,12 @@ function views(db: Database, viewerId: number | null) {
   const users = new Map<number, UserView>();
   const threads = new Map<number, ThreadView>();
   const forums = new Map<number, ForumView>();
-  const now = new Date().toISOString();
+  // Read lazily: views that build no thread (the session user) never touch the clock.
+  let now: string | undefined;
+  const currentTime = () => {
+    now ??= new Date().toISOString();
+    return now;
+  };
 
   function user(id: number): UserView {
     const cached = users.get(id);
@@ -478,7 +483,7 @@ function views(db: Database, viewerId: number | null) {
       author: user(base.authorId),
       forum: { id: base.forumId, slug, title, categoryTitle, tab },
       prefix: db.prefixes.find((p) => p.id === base.prefixId) ?? null,
-      highlighted: isHighlighted(base, now),
+      highlighted: isHighlighted(base, currentTime()),
       excerpt: excerpt(posts[0].body),
       postCount: posts.length,
       replyCount: posts.length - 1,

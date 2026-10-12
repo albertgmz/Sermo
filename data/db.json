@@ -31,9 +31,9 @@
         "x": "nova_dev"
       },
       "lastSeen": {
-        "at": "2026-10-11T02:03:10.751Z",
-        "browser": "chrome",
-        "os": "macos"
+        "at": "2026-10-12T02:26:47.726Z",
+        "browser": "firefox",
+        "os": "windows"
       }
     },
     {
@@ -2670,6 +2670,11 @@
           "userId": 7,
           "typeId": 1,
           "createdAt": "2026-10-11T07:55:00.000Z"
+        },
+        {
+          "userId": 1,
+          "typeId": 3,
+          "createdAt": "2026-10-12T02:33:29.402Z"
         }
       ],
       "client": {
@@ -8410,6 +8415,16 @@
       "href": "/members/10",
       "createdAt": "2026-10-09T00:30:00.000Z",
       "read": true
+    },
+    {
+      "id": 17,
+      "userId": 2,
+      "actorId": 1,
+      "type": "reaction",
+      "text": "reacted 😂 to your post in “Server actions made my forms boring, in a good way”",
+      "href": "/threads/13#post-57",
+      "createdAt": "2026-10-12T02:33:29.402Z",
+      "read": false
     }
   ],
   "follows": [
@@ -12613,6 +12628,14 @@
       "os": "windows",
       "createdAt": "2026-10-02T09:30:00.000Z",
       "lastUsedAt": "2026-10-02T09:30:00.000Z"
+    },
+    {
+      "id": 25,
+      "userId": 1,
+      "browser": "firefox",
+      "os": "windows",
+      "createdAt": "2026-10-12T02:26:47.726Z",
+      "lastUsedAt": "2026-10-12T02:26:47.726Z"
     }
   ]
 }
