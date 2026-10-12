@@ -242,24 +242,12 @@ export function ForumStatsSkeleton() {
   return (
     <CardSkeleton>
       <div className="hidden md:block">
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem]">
-          <div className="min-w-0">
-            <TabsSkeleton />
-            <div className="divide-y">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
-                <MemberRowSkeleton key={row} />
-              ))}
-            </div>
-          </div>
-          <div className="min-w-0 border-t lg:border-t-0 lg:border-l">
-            <div className="flex h-11 items-center border-b px-4">
-              <Skeleton className="h-4 w-24" />
-            </div>
-            <div className="divide-y">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
-                <MemberRowSkeleton key={row} />
-              ))}
-            </div>
+        <div className="min-w-0">
+          <TabsSkeleton />
+          <div className="divide-y">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
+              <MemberRowSkeleton key={row} />
+            ))}
           </div>
         </div>
       </div>

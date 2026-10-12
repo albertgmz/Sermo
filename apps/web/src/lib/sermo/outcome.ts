@@ -1,0 +1,23 @@
+import "server-only";
+
+import { redirect } from "next/navigation";
+import { errorMessage } from "./client";
+import { SermoError } from "./errors";
+
+export type Outcome<T> = { ok: true; value: T } | { ok: false; error: string };
+
+// For actions: runs one backend call. A visitor who must sign in is sent to the login page and
+// back to `returnTo`; any other refusal comes back as the backend's message for the form.
+export async function attempt<T>(
+  returnTo: string,
+  run: () => Promise<T>,
+): Promise<Outcome<T>> {
+  try {
+    return { ok: true, value: await run() };
+  } catch (error) {
+    if (error instanceof SermoError && error.code === "unauthenticated") {
+      redirect(`/login?next=${encodeURIComponent(returnTo)}`);
+    }
+    return { ok: false, error: errorMessage(error) };
+  }
+}

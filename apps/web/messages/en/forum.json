@@ -103,6 +103,7 @@
     }
   },
   "reactionSummary": {
+    "failed": "The list could not be loaded.",
     "total": "{count, plural, one {{count} reaction} other {{count} reactions}}",
     "aria": {
       "trigger": "{total}, show who reacted"

@@ -7,8 +7,29 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { Badge } from "@/components/ui/badge";
-import type { ForumView } from "@/lib/db";
+import type { MemberView, PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
+
+// What the card needs of a forum. The JSON `ForumView` has these fields as they are; a node from
+// the backend is mapped to them on the forum list.
+export type ForumCardData = {
+  id: number;
+  title: string;
+  icon: string;
+  /** The picture behind the title; none draws the plain card. */
+  image: string | null;
+  isNew?: boolean;
+  /** `id` makes the title a link. */
+  subforums?: { id?: number; title: string }[];
+  threadCount: number;
+  lastPost: {
+    threadId: number;
+    threadTitle: string;
+    prefix: PrefixView | null;
+    createdAt: string;
+    author: { username: string; member: MemberView };
+  } | null;
+};
 
 const quietClass = "text-xs text-muted-foreground";
 
@@ -19,7 +40,7 @@ export function ForumCard({
   forum,
   className,
 }: {
-  forum: ForumView;
+  forum: ForumCardData;
   className?: string;
 }) {
   const t = useTranslations("forum.forumCard");
@@ -32,11 +53,13 @@ export function ForumCard({
       )}
     >
       <div className="relative isolate flex min-h-20 flex-1 items-center gap-3 overflow-hidden px-3 py-3 md:min-h-24">
-        <Art
-          category="forumArt"
-          src={forum.image}
-          className="absolute inset-0 -z-20 transition-transform duration-300 group-focus-within:scale-[1.03] group-hover:scale-[1.03] motion-reduce:transition-none"
-        />
+        {forum.image && (
+          <Art
+            category="forumArt"
+            src={forum.image}
+            className="absolute inset-0 -z-20 transition-transform duration-300 group-focus-within:scale-[1.03] group-hover:scale-[1.03] motion-reduce:transition-none"
+          />
+        )}
         <div
           aria-hidden="true"
           className="absolute inset-0 -z-10 bg-linear-to-r from-background/95 from-25% via-background/75 via-60% to-background/10"
@@ -58,9 +81,18 @@ export function ForumCard({
           <p className="mt-0.5 truncate text-xs text-foreground/80 tabular-nums">
             {t("threads", { count: forum.threadCount })}
             {forum.subforums?.map((subforum) => (
-              <span key={subforum.title}>
+              <span key={subforum.id ?? subforum.title}>
                 <span aria-hidden="true"> · </span>
-                {subforum.title}
+                {subforum.id === undefined ? (
+                  subforum.title
+                ) : (
+                  <Link
+                    href={`/forums/${subforum.id}`}
+                    className="relative z-10 after:absolute after:-inset-x-1 after:-inset-y-3 hover:underline"
+                  >
+                    {subforum.title}
+                  </Link>
+                )}
               </span>
             ))}
           </p>

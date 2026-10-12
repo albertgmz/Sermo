@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { ReactionUsers } from "@/components/forum/reaction-users";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
@@ -22,10 +23,14 @@ const SIZES = {
 
 export function ReactionSummary({
   reactions,
+  loadUsers,
   size = "default",
   className,
 }: {
-  reactions: Pick<ReactionsView, "total" | "byType" | "users">;
+  // `users` when the list is at hand, `loadUsers` when it is read once the popover opens.
+  reactions: Pick<ReactionsView, "total" | "byType"> &
+    Partial<Pick<ReactionsView, "users">>;
+  loadUsers?: () => Promise<React.ReactNode>;
   size?: keyof typeof SIZES;
   className?: string;
 }) {
@@ -68,23 +73,27 @@ export function ReactionSummary({
             </span>
           ))}
         </PopoverTitle>
-        <ul className="max-h-64 overflow-y-auto py-1">
-          {reactions.users.map(({ user, type }) => (
-            <li
-              key={user.id}
-              className="flex min-h-10 items-center gap-2 px-3 text-sm"
-            >
-              <UserAvatar user={user.member} size="sm" />
-              <UserLink
-                user={user.member}
-                className="min-w-0 flex-1 truncate"
-              />
-              <span role="img" aria-label={type.label} title={type.label}>
-                {type.emoji}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {reactions.users ? (
+          <ul className="max-h-64 overflow-y-auto py-1">
+            {reactions.users.map(({ user, type }) => (
+              <li
+                key={user.id}
+                className="flex min-h-10 items-center gap-2 px-3 text-sm"
+              >
+                <UserAvatar user={user.member} size="sm" />
+                <UserLink
+                  user={user.member}
+                  className="min-w-0 flex-1 truncate"
+                />
+                <span role="img" aria-label={type.label} title={type.label}>
+                  {type.emoji}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : loadUsers ? (
+          <ReactionUsers load={loadUsers} />
+        ) : null}
       </PopoverContent>
     </Popover>
   );

@@ -1,0 +1,40 @@
+import type { postsList, threadsGet } from "@sermo/core/contracts";
+import type * as z from "zod";
+import type { ThreadCardData } from "@/components/forum/thread-hover-card";
+import type { MemberView, PrefixView } from "./views";
+
+export type ApiThread = z.output<typeof threadsGet.output>["thread"];
+export type ApiPost = z.output<typeof postsList.output>["items"][number];
+
+// The members a thread shows: who started it and who wrote the last post.
+export function threadMembers(thread: ApiThread) {
+  return [thread.author, thread.lastPost.user];
+}
+
+export function prefixView(prefix: ApiThread["prefix"]): PrefixView | null {
+  return prefix && { ...prefix };
+}
+
+// A backend thread in the shape the shared thread components take.
+export function threadCard(
+  thread: ApiThread,
+  member: (id: number) => MemberView,
+): ThreadCardData {
+  return {
+    id: thread.id,
+    title: thread.title,
+    prefix: prefixView(thread.prefix),
+    excerpt: thread.excerpt,
+    plainExcerpt: true,
+    createdAt: thread.createdAt,
+    views: thread.viewCount,
+    replyCount: thread.replyCount,
+    coverPicture: thread.cover && { url: thread.cover.url },
+    forum: thread.node,
+    author: { member: member(thread.author.id) },
+    lastPost: {
+      createdAt: thread.lastPost.postedAt,
+      author: { member: member(thread.lastPost.user.id) },
+    },
+  };
+}

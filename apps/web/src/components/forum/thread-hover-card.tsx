@@ -12,8 +12,26 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import type { ThreadView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
+import type { MemberView, PictureView, PrefixView } from "@/lib/sermo/views";
+
+// What the card needs of a thread. The JSON `ThreadView` has these fields as they are; a thread
+// from the backend is mapped to them by `threadCard` in lib/sermo/threads.ts.
+export type ThreadCardData = {
+  id: number;
+  title: string;
+  prefix: PrefixView | null;
+  excerpt: string;
+  /** The excerpt is already plain text (the backend wrote it): no need to read the post again. */
+  plainExcerpt?: boolean;
+  createdAt: string;
+  views: number;
+  replyCount: number;
+  coverPicture: PictureView | null;
+  forum: { id: number; title: string };
+  author: { member: MemberView };
+  lastPost: { createdAt: string; author: { member: MemberView } };
+};
 
 // A link to the thread that previews it on hover or keyboard focus. Touch
 // devices get the plain link.
@@ -23,7 +41,7 @@ export function ThreadHoverCard({
   className,
   children,
 }: {
-  thread: ThreadView;
+  thread: ThreadCardData;
   href?: string;
   className?: string;
   children?: React.ReactNode;
