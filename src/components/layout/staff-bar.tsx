@@ -34,7 +34,7 @@ export function StaffBar({ user }: { user: Pick<User, "role"> | null }) {
             </DropdownMenuContent>
           </DropdownMenu>
           {user.role === "admin" && (
-            <Link href="#" className={ITEM}>
+            <Link href="/admin" className={ITEM}>
               Admin
             </Link>
           )}
