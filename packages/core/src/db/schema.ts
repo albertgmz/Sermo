@@ -1781,3 +1781,54 @@ export const rankings = sqliteTable(
   },
   (t) => [uniqueIndex("rankings_kind_position").on(t.kind, t.position)],
 );
+
+// ---------------------------------------------------------------------------
+// Site chrome
+
+export const NAVIGATION_LOCATIONS = ["header", "mobile", "account", "footer"] as const;
+export const NAVIGATION_AUDIENCES = ["everyone", "guests", "members", "permission"] as const;
+
+/**
+ * The links of the public site. Two levels: a top-level entry and its children, in one location.
+ * Rows with `builtin` set ship with the site and are never deleted.
+ */
+export const navigationEntries = sqliteTable(
+  "navigation_entries",
+  {
+    id: integer("id").primaryKey(),
+    location: text("location", { enum: NAVIGATION_LOCATIONS }).notNull(),
+    parentId: integer("parent_id"),
+    title: text("title").notNull(),
+    /** A path of the site or an http(s) URL; null on a heading that only groups its children. */
+    target: text("target"),
+    position: integer("position").notNull().default(0),
+    isEnabled: bool("is_enabled").notNull().default(true),
+    audience: text("audience", { enum: NAVIGATION_AUDIENCES }).notNull().default("everyone"),
+    /** With audience `permission`: the id of a global permission. */
+    permission: text("permission"),
+    /** A stable key on the entries the site ships with; null on the ones an administrator adds. */
+    builtin: text("builtin"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("navigation_entries_order").on(t.location, t.parentId, t.position, t.id),
+    uniqueIndex("navigation_entries_builtin").on(t.builtin).where(sql`builtin IS NOT NULL`),
+  ],
+);
+
+/** Pages of text the site publishes about itself (terms, privacy, ...), written in Markdown. */
+export const staticPages = sqliteTable(
+  "static_pages",
+  {
+    id: integer("id").primaryKey(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    bodySource: text("body_source").notNull(),
+    bodyHtml: text("body_html").notNull(),
+    isPublished: bool("is_published").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("static_pages_slug").on(t.slug)],
+);

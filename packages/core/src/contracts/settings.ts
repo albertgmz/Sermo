@@ -12,6 +12,12 @@ const Mime = z
   .regex(/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i)
   .max(100);
 const MimeList = z.array(Mime).max(40);
+const SocialUrl = z
+  .string()
+  .trim()
+  .max(300)
+  .regex(/^https?:\/\/[^\s]+$/i, "Use an http(s) URL.")
+  .nullable();
 export const SiteSettings = z
   .object({
     maxUploadBytes: z.number().int().min(1).max(1_073_741_824),
@@ -55,6 +61,13 @@ export const SiteSettings = z
      * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the
      * previous file; null removes it.
      */
+    /**
+     * The site's own accounts elsewhere, shown in the footer: an http(s) URL per network, or
+     * null to leave one out.
+     */
+    socialLinks: z
+      .object({ discord: SocialUrl, telegram: SocialUrl, x: SocialUrl })
+      .default({ discord: null, telegram: null, x: null }),
     logoFileId: Id.nullable().default(null),
     iconFileId: Id.nullable().default(null),
     backdropFileId: Id.nullable().default(null),

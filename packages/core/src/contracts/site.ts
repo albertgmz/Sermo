@@ -14,6 +14,12 @@ export const Site = z
     logo: ImageReference,
     icon: ImageReference,
     backdrop: ImageReference,
+    /** The site's accounts on other networks; null where none is set. */
+    socialLinks: z.object({
+      discord: z.string().nullable(),
+      telegram: z.string().nullable(),
+      x: z.string().nullable(),
+    }),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),
