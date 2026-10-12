@@ -16,8 +16,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
+import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
-import { getCurrentUser } from "@/lib/session";
 
 const SOCIALS = [
   { network: "discord", label: "Discord" },
@@ -200,7 +200,7 @@ async function FooterCopyright() {
 }
 
 async function FooterLiteLink() {
-  const [state, user] = await Promise.all([getLiteState(), getCurrentUser()]);
+  const [state, { user }] = await Promise.all([getLiteState(), getViewer()]);
   const t = await getTranslations("lite.siteFooter");
   return (
     <Link

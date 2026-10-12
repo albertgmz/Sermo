@@ -1,31 +1,33 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { getCounters } from "@/components/layout/header-data";
+import { getAccent, getCounters } from "@/components/layout/header-data";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems, toNavItems } from "@/components/layout/nav";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
-import { SiteAccent } from "@/components/layout/site-accent";
+import { ViewerAccent } from "@/components/layout/site-accent";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
-import { StaffBar } from "@/components/layout/staff-bar";
+import { hasStaffWork, StaffBar } from "@/components/layout/staff-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
-import { getCurrentUser } from "@/lib/session";
+import { getViewer } from "@/lib/sermo/session";
 
 async function Chrome() {
-  const user = await getCurrentUser();
+  const [viewer, accent] = await Promise.all([getViewer(), getAccent()]);
   return (
     <>
-      <SiteAccent user={user} />
-      <StaffBar user={user} />
+      <ViewerAccent accent={accent} />
+      {viewer.user && hasStaffWork(viewer) && (
+        <StaffBar admin={viewer.permissions.isAdmin} />
+      )}
     </>
   );
 }
 
 async function MobileNavigation() {
-  const [user, navigation] = await Promise.all([
-    getCurrentUser(),
+  const [{ user }, navigation] = await Promise.all([
+    getViewer(),
     getNavigation(),
   ]);
   const unread = await getCounters();

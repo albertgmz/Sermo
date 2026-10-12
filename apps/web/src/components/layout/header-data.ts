@@ -1,16 +1,19 @@
 import "server-only";
 
 import {
+  appearanceGet,
   authCounters,
   conversationsList,
   notificationsList,
 } from "@sermo/core/contracts";
 import { cache } from "react";
 import { notificationEntries } from "@/app/(main)/notifications/entries";
+import type { AccentColors } from "@/components/layout/site-accent";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 
 export type UnreadCounts = { conversations: number; notifications: number };
 
@@ -40,6 +43,25 @@ export const getCounters = cache(async (): Promise<UnreadCounts> => {
   const { user } = await getViewer();
   if (!user) return NONE;
   return orElse(NONE, () => call(authCounters, {}));
+});
+
+// The signed-in member as they are drawn everywhere: their card, asked for once per render and
+// shared by the header, the account menu and anything else in the shell. A guest has none.
+export const getViewerCard = cache(async () => {
+  const { user } = await getViewer();
+  if (!user) return null;
+  return (await membersFor([user]))(user.id);
+});
+
+// The accent the visitor sees: the one a member chose if the palette still offers it, else the
+// palette's first. None when the palette is empty, which leaves the stylesheet's own.
+export const getAccent = cache(async (): Promise<AccentColors | null> => {
+  const [{ user }, { accents }] = await Promise.all([getViewer(), getSite()]);
+  if (accents.length === 0) return null;
+  const chosen = user
+    ? await orElse(null, async () => (await call(appearanceGet, {})).accentId)
+    : null;
+  return accents.find((accent) => accent.id === chosen) ?? accents[0];
 });
 
 // What a panel shows when its list could not be read: no rows, so no member is ever asked for.

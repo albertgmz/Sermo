@@ -47,14 +47,16 @@
       "title": "Messages",
       "empty": "No conversations yet",
       "viewAll": "View all",
-      "new": "New conversation"
+      "new": "New conversation",
+      "loading": "Loading conversations…"
     },
     "alerts": {
       "label": "Notifications",
       "title": "Alerts",
       "empty": "No new alerts",
       "viewAll": "View all",
-      "markAllRead": "Mark all as read"
+      "markAllRead": "Mark all as read",
+      "loading": "Loading alerts…"
     },
     "search": {
       "label": "Search",
@@ -68,7 +70,8 @@
       "aria": {
         "search": "Search"
       }
-    }
+    },
+    "failed": "This could not be loaded. Close the panel and open it again."
   },
   "userMenu": {
     "logout": "Log out",

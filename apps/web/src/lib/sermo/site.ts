@@ -16,6 +16,8 @@ export type SiteIdentity = {
     telegram: string | null;
     x: string | null;
   };
+  // The active accents of the palette in display order: the first is the site's own.
+  accents: { id: number; color: string; foreground: string | null }[];
 };
 
 // The same for every visitor: asked without the visitor's cookies or address, so the answer can be
@@ -25,7 +27,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
   "use cache";
   cacheTag("site");
   try {
-    const { name, logo, icon, backdrop, socialLinks } = await callWith(
+    const { name, logo, icon, backdrop, socialLinks, palette } = await callWith(
       {},
       siteGet,
       {},
@@ -33,7 +35,18 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
     cacheLife({ stale: 60, revalidate: 60, expire: 3600 });
-    return { name, logo, icon, backdrop, socialLinks };
+    return {
+      name,
+      logo,
+      icon,
+      backdrop,
+      socialLinks,
+      accents: palette.accents.map(({ id, color, foreground }) => ({
+        id,
+        color,
+        foreground,
+      })),
+    };
   } catch (error) {
     // The expiry stays above five minutes: a shorter entry is left out of the prerender and the
     // build then reports a cache miss for every page.
@@ -47,6 +60,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       icon: null,
       backdrop: null,
       socialLinks: { discord: null, telegram: null, x: null },
+      accents: [],
     };
   }
 }

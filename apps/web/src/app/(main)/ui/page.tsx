@@ -758,8 +758,8 @@ export default async function StyleguidePage() {
           </div>
           <HeaderNav links={NAV_SAMPLES} className="flex flex-wrap" />
           <SearchForm />
-          <StaffBar user={{ role: admin.role }} />
-          <StaffBar user={{ role: moderator.role }} />
+          <StaffBar admin />
+          <StaffBar admin={false} />
           <p className="max-w-prose text-sm text-muted-foreground">
             The site header, footer, page backdrop and fixed mobile navigation
             already surround this page. Search, alerts, messages and the account
