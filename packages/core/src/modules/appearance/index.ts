@@ -21,7 +21,7 @@ import { attachUploadedFile, releaseFile } from "../images/attach";
 import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
 import { appendModeratorLog } from "../moderation";
 import { readSiteSettings } from "../settings";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 import {
   CATALOG_LIMIT,
   type CatalogImageKind,
@@ -107,9 +107,6 @@ function requireForeground(kind: PaletteKind, foreground: string | undefined) {
     throw new ValidationError("Only an accent has a foreground colour.");
 }
 
-const picture = (fileId: number | null) =>
-  fileId === null ? null : { fileId, url: fileUrl(fileId) };
-
 export const operations = [
   implement(
     catalogImagesList,
@@ -152,7 +149,7 @@ export const operations = [
         kind: input.kind,
         fileId: input.fileId,
       });
-      return imageValue(row);
+      return imageValue(ctx, row);
     });
   }),
 
@@ -161,14 +158,14 @@ export const operations = [
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
       const row = imageRow(ctx, input.imageId);
-      if (row.kind !== "frame" && input.placement !== undefined)
+      if (row.kind !== "frame" && input.placement != null)
         throw new ValidationError("Only a frame has a placement.");
       let fileId = row.file_id;
       if (input.fileId !== undefined) {
         attachUploadedFile(ctx, user.userId, input.fileId, PURPOSE_OF_KIND[row.kind]);
         fileId = input.fileId;
       }
-      let placement = imageValue(row).placement;
+      let placement = imageValue(ctx, row).placement;
       if (input.placement) placement = input.placement;
       else if (row.kind === "frame" && (input.placement === null || input.fileId !== undefined)) {
         if (fileId === null) throw unmeasured();
@@ -195,7 +192,7 @@ export const operations = [
       appendModeratorLog(ctx, actor, "appearance.image.update", "catalog_image", row.id, "", {
         changedKeys: Object.keys(input).filter((key) => key !== "imageId"),
       });
-      return imageValue(imageRow(ctx, row.id));
+      return imageValue(ctx, imageRow(ctx, row.id));
     });
   }),
 
@@ -313,9 +310,9 @@ export const operations = [
       const lists = catalogs(ctx);
       return {
         name: settings.siteName,
-        logo: picture(settings.logoFileId),
-        icon: picture(settings.iconFileId),
-        backdrop: picture(settings.backdropFileId),
+        logo: publicPicture(ctx, settings.logoFileId),
+        icon: publicPicture(ctx, settings.iconFileId),
+        backdrop: publicPicture(ctx, settings.backdropFileId),
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,

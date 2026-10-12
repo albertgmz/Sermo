@@ -3,7 +3,7 @@ import { type Ctx, cached, prepared } from "../../context";
 import type { CatalogImage, PaletteColor } from "../../contracts/appearance";
 import type { CATALOG_IMAGE_KINDS, PALETTE_KINDS } from "../../db/schema";
 import { iso } from "../../time";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 
 export type CatalogImageKind = (typeof CATALOG_IMAGE_KINDS)[number];
 export type PaletteKind = (typeof PALETTE_KINDS)[number];
@@ -39,11 +39,11 @@ export interface PaletteColorRow {
 /** The most entries one catalog holds. */
 export const CATALOG_LIMIT = 500;
 
-export const imageValue = (row: CatalogImageRow): CatalogImageValue => ({
+export const imageValue = (ctx: Ctx, row: CatalogImageRow): CatalogImageValue => ({
   id: row.id,
   kind: row.kind,
   name: row.name,
-  image: row.file_id === null ? null : { fileId: row.file_id, url: fileUrl(row.file_id) },
+  image: publicPicture(ctx, row.file_id),
   placement:
     row.frame_width === null ||
     row.frame_left === null ||
@@ -98,7 +98,7 @@ function build(ctx: Ctx): Catalogs {
     .prepare<CatalogImageRow, []>("SELECT * FROM catalog_images ORDER BY position, id")
     .all();
   for (const row of images) {
-    const value = imageValue(row);
+    const value = imageValue(ctx, row);
     catalogs.images[row.kind].push(value);
     if (value.isActive && value.image) catalogs.visibleImages[row.kind].push(value);
     catalogs.imageById.set(value.id, value);

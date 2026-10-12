@@ -10,6 +10,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
 import { iso } from "../../time";
+import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
 import { grantAward, revokeAward } from "./grants";
@@ -75,12 +76,12 @@ export const operations = [
     return {
       items: all<AwardRow>(ctx, "catalog", awardSql.catalog)
         .filter((row) => admin || row.is_active)
-        .map(awardValue)
+        .map((row) => awardValue(ctx, row))
         .sort(compareAwards),
     };
   }),
   implement(contracts.awardsGet, (ctx, actor, input) =>
-    awardValue(visibleAward(ctx, actor, input.awardId)),
+    awardValue(ctx, visibleAward(ctx, actor, input.awardId)),
   ),
   implement(contracts.awardsHolders, (ctx, actor, input) => {
     visibleAward(ctx, actor, input.awardId);
@@ -111,7 +112,7 @@ export const operations = [
           ctx.now(),
         ).lastInsertRowid,
       );
-      return awardValue(awardRow(ctx, id));
+      return awardValue(ctx, awardRow(ctx, id));
     });
   }),
   implement(contracts.awardsUpdate, (ctx, actor, input) => {
@@ -137,16 +138,17 @@ export const operations = [
         ctx.now(),
         award.id,
       );
-      return awardValue(awardRow(ctx, award.id));
+      return awardValue(ctx, awardRow(ctx, award.id));
     });
   }),
   implement(contracts.awardsDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
     return writeTx(ctx, () => {
-      awardRow(ctx, input.awardId);
+      const award = awardRow(ctx, input.awardId);
       if (one(ctx, "everGranted", awardSql.everGranted, input.awardId))
         throw new ConflictError("An award that was granted can only be deactivated.");
       run(ctx, "delete", "DELETE FROM awards WHERE id = ?1", input.awardId);
+      if (award.image_file_id !== null) releaseFile(ctx, award.image_file_id);
       return { ok: true };
     });
   }),

@@ -7,6 +7,7 @@ import {
   SermoError,
   type StorageConfig,
   schema,
+  uploadLimit,
   ValidationError,
 } from "@sermo/core";
 import busboy from "busboy";
@@ -58,7 +59,7 @@ export async function uploadMultipart(
         files: 2,
         fields: 1,
         parts: 2,
-        fileSize: (config.maxBytes ?? 25 * 1024 * 1024) + 1,
+        fileSize: uploadLimit(purpose as Purpose, config.maxBytes) + 1,
       },
     });
   } catch {

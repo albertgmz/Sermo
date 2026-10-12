@@ -132,6 +132,13 @@ const maxBytesDefault = 25 * 1024 * 1024;
 const catalogTypes: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
 const isCatalogPurpose = (purpose: Purpose): purpose is (typeof CATALOG_FILE_PURPOSES)[number] =>
   (CATALOG_FILE_PURPOSES as readonly string[]).includes(purpose);
+/**
+ * The size limit of an upload: catalog and site pictures keep the default whatever the site
+ * allows members; every other purpose uses `memberLimit` (the site setting).
+ */
+export function uploadLimit(purpose: Purpose, memberLimit: number = maxBytesDefault): number {
+  return isCatalogPurpose(purpose) ? maxBytesDefault : memberLimit;
+}
 /** Which administrator permission each catalog purpose needs, checked when the file arrives. */
 function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
   if (purpose === "frame" || purpose === "cover_preset" || purpose === "thread_cover")
@@ -140,7 +147,7 @@ function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
   else if (purpose === "shop_image") requirePermission(ctx, actor, "admin.shop");
   else if (isCatalogPurpose(purpose)) requirePermission(ctx, actor, "admin.settings");
 }
-/** Files that count against attachment.storageQuota: everything a member uploads for themselves. */
+/** The catalog purposes as an SQL list: these files are left out of the attachment.storageQuota sum. */
 const quotaPurposes = CATALOG_FILE_PURPOSES.map((purpose) => `'${purpose}'`).join(", ");
 
 async function fileHash(path: string): Promise<string> {
@@ -353,7 +360,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
       )
         throw new ValidationError("File type is not allowed.");
-      const effectiveLimit = maxBytes;
+      const effectiveLimit = uploadLimit(purpose, maxBytes);
       await mkdir(tempDir, { recursive: true });
       const tempPath = join(tempDir, `sermo-${randomUUID()}`);
       const hash = createHash("sha256");

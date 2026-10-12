@@ -13,18 +13,15 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { appendModeratorLog } from "../moderation";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 import { attachUploadedFile, releaseFile } from "./attach";
 
 export type { ImagePurpose, ProcessedImage } from "./process";
 export { processImage } from "./process";
 
 type ImageSlot = "avatar" | "cover" | "node_icon" | "node_cover";
-
-const reference = (fileId: number | null) =>
-  fileId === null ? null : { fileId, url: fileUrl(fileId) };
 
 function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot, nodeId?: number) {
   const user = requireAuthenticated(actor);
@@ -69,7 +66,7 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot
         .run(ctx.now(), user.userId);
     if (nodeId !== undefined)
       appendModeratorLog(ctx, actor, `node.${slot}`, "node", nodeId, "", { fileId });
-    return reference(fileId);
+    return publicPicture(ctx, fileId);
   });
 }
 
@@ -80,6 +77,7 @@ function setArtwork(
   fileId: number | null,
   target: {
     table: "awards" | "shop_items";
+    entity: "award" | "shop_item";
     id: number;
     purpose: "award_image" | "shop_image";
     action: string;
@@ -87,6 +85,9 @@ function setArtwork(
 ) {
   const user = requireAuthenticated(actor);
   return writeTx(ctx, () => {
+    // Shop administration re-checks inside its transaction, as the rest of the shop does.
+    if (target.table === "shop_items")
+      requirePermission(ctx, currentActor(ctx, actor), "admin.shop");
     const row = ctx.sqlite
       .prepare<{ previous: number | null }, [number]>(
         `SELECT image_file_id AS previous FROM ${target.table} WHERE id = ?1`,
@@ -99,8 +100,8 @@ function setArtwork(
       .prepare(`UPDATE ${target.table} SET image_file_id = ?1, updated_at = ?2 WHERE id = ?3`)
       .run(fileId, ctx.now(), target.id);
     if (row.previous !== null) releaseFile(ctx, row.previous);
-    appendModeratorLog(ctx, actor, target.action, target.table, target.id, "", { fileId });
-    return reference(fileId);
+    appendModeratorLog(ctx, actor, target.action, target.entity, target.id, "", { fileId });
+    return publicPicture(ctx, fileId);
   });
 }
 
@@ -117,6 +118,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.awards");
     return setArtwork(ctx, actor, input.fileId, {
       table: "awards",
+      entity: "award",
       id: input.awardId,
       purpose: "award_image",
       action: "award.image",
@@ -126,6 +128,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.shop");
     return setArtwork(ctx, actor, input.fileId, {
       table: "shop_items",
+      entity: "shop_item",
       id: input.itemId,
       purpose: "shop_image",
       action: "shop.item.image",

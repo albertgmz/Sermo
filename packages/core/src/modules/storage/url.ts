@@ -10,3 +10,11 @@ export function resolvedFileUrl(ctx: Ctx, id: number, cdnEligible: boolean): str
     ? new URL(path, ctx.config.publicFileBaseURL).href
     : path;
 }
+
+/** `{ fileId, url }` of a public, immutable picture (served from the public file origin), or null. */
+export function publicPicture(
+  ctx: Ctx,
+  fileId: number | null,
+): { fileId: number; url: string } | null {
+  return fileId === null ? null : { fileId, url: resolvedFileUrl(ctx, fileId, true) };
+}
