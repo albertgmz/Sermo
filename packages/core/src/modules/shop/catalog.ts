@@ -83,6 +83,8 @@ function validateItem(
   if (value.isConsumable && (value.durationSeconds !== null || value.effect.type === "group"))
     throw new ValidationError("Consumables cannot have a duration or grant a group.");
   const effect = value.effect;
+  if (effect.type === "usernameChange" && !value.isConsumable)
+    throw new ValidationError("isConsumable: a username change is sold in units.");
   grantPermissions(ctx, actor, effect);
   if (effect.type === "permission" || effect.type === "group") validatePurchasedGrant(ctx, effect);
   assertGrantRank(ctx, actor, effect);

@@ -1197,11 +1197,32 @@ the name; if the process dies in between, a unit is lost without a rename. Bette
 update endpoint refuses a username change unless it comes from this operation. Before this, any
 member could rename themselves freely through that endpoint. **Owner review.**
 
-**A rank is upgraded by paying the difference** (`shop.upgrade`, assumption A6). A member's
-current rank is the most expensive `group` item of the same category they hold; the new one must
-cost more; they pay the difference of the two CATALOG prices; the old item leaves the inventory
-with its group. Ranks only go up. The frontend also granted an award with a rank: an award with
+**A rank is upgraded by paying the difference, less what the old rank is worth**
+(`shop.upgrade`, assumption A6). A member's current rank is the most expensive `group` item of the
+same category they hold that is active and has not run out (the expiry job marks a lapsed row up
+to a minute late, so `expires_at` is checked too); the new one's catalog price must exceed the old
+one's catalog price; the old item leaves the inventory with its group. Ranks only go up.
+*Changed after review.* The first version charged the difference of the two CATALOG prices: a
+member whose rank had nearly run out, or whose price had changed since, got the full catalog value
+back. Now the inventory row records what was paid (`shop_inventory.paid_price`; a gift carries the
+buyer's payment to the recipient) and the credit is that amount: in full for a permanent rank, and
+for a timed one the amount times the share of its duration still ahead, rounded down. The member
+pays the new catalog price minus the credit, never below zero, and the new row is worth the credit
+plus what was paid, so the next upgrade credits correctly. A 30-day rank bought for 100 with 10
+days left, upgraded to a 250 rank, credits 33 and costs 217; a permanent 100 rank whose catalog
+price was later raised to 200, upgraded to 250, credits 100 and costs 150. Migration `0026`
+backfills existing rows from the newest purchase that gave the member the item (a consumable: the
+sum of its purchases), else the item's current price; a rank that was itself reached by an
+upgrade is therefore valued at the difference it was recorded at, not its full value. The frontend also granted an award with a rank: an award with
 the existing "has bought item" criterion does that without new code. **Owner review.**
 
 **`shop.buy` refuses a yes/no permission the recipient already holds another way**, as the
-frontend refused selling a perk a rank or a staff role already gave.
+frontend refused selling a perk a rank or a staff role already gave. *Changed after review.* The
+check now applies only to permissions of global scope held through something other than a shop
+item (it asks the permission explanation for an allowing group or member layer). Number-valued and
+per-forum permissions are always sellable, and a permission held only through another shop item
+does not block a purchase. A username change is sold in units, so `shopItems.create` and
+`update` refuse a `usernameChange` effect on a non-consumable item and `0026` takes existing ones
+off sale. If a rename succeeds at the identity provider and the forum's own update then fails, the
+provider's name is put back and the unit returned; if that fails too the unit stays spent and the
+mismatch is logged.

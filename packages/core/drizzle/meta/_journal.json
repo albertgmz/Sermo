@@ -183,6 +183,13 @@
       "when": 1791247000000,
       "tag": "0025_administration",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1791832644317,
+      "tag": "0026_shop_paid_price",
+      "breakpoints": true
     }
   ]
 }

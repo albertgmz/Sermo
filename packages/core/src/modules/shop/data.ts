@@ -1,7 +1,7 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import type * as z from "zod";
 import { type Ctx, prepared } from "../../context";
-import type { ShopEffect, ShopItem } from "../../contracts/shop";
+import { ShopEffect, type ShopItem } from "../../contracts/shop";
 import type { ShopInventoryState } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { loadUserSummaries } from "../../shared/users";
@@ -37,6 +37,7 @@ export type InventoryRow = {
   state: ShopInventoryState;
   quantity: number;
   expires_at: number | null;
+  paid_price: number;
   acquired_at: number;
   updated_at: number;
 };
@@ -90,6 +91,16 @@ export const categoryValue = (row: CategoryRow) => ({
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),
 });
+/** The stored effect, which only this module writes: anything else is damage, reported by its item. */
+function parseEffect(row: ItemRow): Effect {
+  try {
+    const parsed = ShopEffect.safeParse(JSON.parse(row.effect));
+    if (parsed.success) return parsed.data;
+  } catch {
+    // Not JSON at all: reported below like any other unreadable value.
+  }
+  throw new Error(`The stored effect of shop item ${row.id} cannot be read.`);
+}
 export const itemValue = (ctx: Ctx, row: ItemRow): Item => ({
   ...categoryValue(row),
   categoryId: row.category_id,
@@ -100,7 +111,7 @@ export const itemValue = (ctx: Ctx, row: ItemRow): Item => ({
   isConsumable: !!row.is_consumable,
   isGiftable: !!row.is_giftable,
   durationSeconds: row.duration_seconds,
-  effect: JSON.parse(row.effect) as Effect,
+  effect: parseEffect(row),
 });
 export function loadItems(ctx: Ctx, ids: number[]): Map<number, Item> {
   return new Map(
