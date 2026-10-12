@@ -18,13 +18,13 @@ import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permis
  * Modules whose operations are not implemented yet. A module's worker removes its name when its
  * checks land; the list must end empty.
  */
-const PENDING_MODULES = new Set<string>(["credit-events"]);
+const PENDING_MODULES = new Set<string>();
 
 /**
  * Registered permissions whose feature is still being built. A feature's worker removes its
  * permissions from this list when the checks land; the list must end empty.
  */
-const PENDING_PERMISSIONS = new Set<string>(["admin.creditRules"]);
+const PENDING_PERMISSIONS = new Set<string>([]);
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */
