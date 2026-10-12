@@ -70,6 +70,24 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot
   });
 }
 
+/**
+ * Takes a member's uploaded avatar or cover off their profile and queues the file for deletion,
+ * as setting it to nothing does. Call inside a write transaction; false when there was none.
+ */
+export function clearMemberPicture(ctx: Ctx, userId: number, slot: "avatar" | "cover"): boolean {
+  const column = slot === "avatar" ? "avatar_file_id" : "cover_file_id";
+  const row = ctx.sqlite
+    .prepare<{ previous: number | null }, [number]>(
+      `SELECT ${column} AS previous FROM users WHERE id = ?1`,
+    )
+    .get(userId);
+  if (!row) throw new NotFoundError();
+  if (row.previous === null) return false;
+  ctx.sqlite.prepare(`UPDATE users SET ${column} = NULL WHERE id = ?1`).run(userId);
+  releaseFile(ctx, row.previous);
+  return true;
+}
+
 /** The picture of an award or a shop item; the table and purpose say which. */
 function setArtwork(
   ctx: Ctx,

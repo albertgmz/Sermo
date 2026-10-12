@@ -236,6 +236,8 @@ export const users = sqliteTable(
     frameId: integer("frame_id"),
     /** A cover from the gallery; shown instead of an uploaded cover while set. */
     coverPresetId: integer("cover_preset_id"),
+    /** When the username last changed; null if never. */
+    usernameChangedAt: integer("username_changed_at"),
     /** Shown under the name while the member holds profile.customTitle. */
     customTitle: text("custom_title"),
     signatureSource: text("signature_source"),
@@ -277,6 +279,8 @@ export const users = sqliteTable(
     index("users_group").on(t.groupId, t.id),
     // The month's referrals, for the standings job.
     index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
+    // users.adminList with state `banned`: the members with a ban column set, newest first.
+    index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
   ],
 );
 
@@ -1465,7 +1469,11 @@ export const creditTransactions = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   // A member's history, newest first; the staff ledger of everyone walks the primary key.
-  (t) => [index("credit_transactions_user").on(t.userId, t.id)],
+  (t) => [
+    index("credit_transactions_user").on(t.userId, t.id),
+    // admin.activity: the manual adjustments of the last days.
+    index("credit_transactions_adjustment").on(t.createdAt).where(sql`type = 'adjustment'`),
+  ],
 );
 
 /**

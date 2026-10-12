@@ -1,3 +1,4 @@
+import { operations as admin } from "./modules/admin";
 import { operations as appearance } from "./modules/appearance";
 import { operations as auth } from "./modules/auth";
 import { operations as awards } from "./modules/awards";
@@ -56,6 +57,7 @@ export const operations: readonly AnyOperation[] = [
   ...appearance,
   ...navigation,
   ...pages,
+  ...admin,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

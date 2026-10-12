@@ -668,7 +668,13 @@ export function listApprovals(
 export function listModeratorLog(
   ctx: Ctx,
   actor: Actor,
-  input: { cursor?: string | null; limit?: number; nodeId?: number } = {},
+  input: {
+    cursor?: string | null;
+    limit?: number;
+    nodeId?: number;
+    actorId?: number;
+    action?: string;
+  } = {},
 ) {
   requireAuthenticated(actor);
   const global = can(ctx, actor, "moderatorLog.view");
@@ -684,12 +690,39 @@ export function listModeratorLog(
   const [at, id] = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+  // The walk follows the most selective index: the node's, then the actor's, else the time's.
+  // An action prefix has no index of its own: it filters inside the bounded walk below.
+  const lead =
+    input.nodeId !== undefined
+      ? "node_id = ?4 AND id < ?2"
+      : input.actorId !== undefined
+        ? "actor_id = ?4 AND id < ?2"
+        : "(created_at, id) < (?1, ?2)";
+  const extra: (number | string)[] = [];
+  let sql = `SELECT * FROM moderator_log WHERE ${lead}`;
+  let next = input.nodeId !== undefined || input.actorId !== undefined ? 5 : 4;
+  if (input.nodeId !== undefined) extra.push(input.nodeId);
+  else if (input.actorId !== undefined) extra.push(input.actorId);
+  if (input.nodeId !== undefined && input.actorId !== undefined) {
+    sql += ` AND actor_id = ?${next++}`;
+    extra.push(input.actorId);
+  }
+  if (input.action !== undefined) {
+    sql += ` AND action >= ?${next} AND action < ?${next + 1}`;
+    extra.push(input.action, input.action + String.fromCharCode(0xffff));
+  }
+  sql +=
+    input.nodeId !== undefined || input.actorId !== undefined
+      ? " ORDER BY id DESC LIMIT ?3"
+      : " ORDER BY created_at DESC, id DESC LIMIT ?3";
   const queue = query<{ id: number; created_at: number; node_id: number | null }>(
     ctx,
-    input.nodeId === undefined ? "logList" : "logNodeList",
-    input.nodeId === undefined
-      ? "SELECT * FROM moderator_log WHERE (created_at, id) < (?1, ?2) ORDER BY created_at DESC, id DESC LIMIT ?3"
-      : "SELECT * FROM moderator_log WHERE node_id = ?4 AND id < ?2 ORDER BY id DESC LIMIT ?3",
+    input.nodeId === undefined && input.actorId === undefined && input.action === undefined
+      ? "logList"
+      : input.nodeId === undefined && input.actorId === undefined
+        ? "logActionList"
+        : `logFiltered.${input.nodeId !== undefined}.${input.actorId !== undefined}.${input.action !== undefined}`,
+    sql,
   );
   const allowed: { id: number; created_at: number; node_id: number | null }[] = [];
   let cursorAt = at;
@@ -699,12 +732,7 @@ export function listModeratorLog(
   const cap = limit * 4;
   while (allowed.length <= limit && examined < cap) {
     const batchSize = Math.min(limit + 1, cap - examined);
-    const rows = queue.all(
-      cursorAt,
-      cursorId,
-      batchSize,
-      ...(input.nodeId === undefined ? [] : [input.nodeId]),
-    );
+    const rows = queue.all(cursorAt, cursorId, batchSize, ...extra);
     for (const row of rows) {
       examined++;
       cursorAt = row.created_at;
@@ -1417,6 +1445,12 @@ export function banUser(
     return insertBan(ctx, actor, userId, reason, expiresAt, notice);
   });
 }
+
+/**
+ * The ban itself, without the permission decision: the caller has authorized it (an account
+ * closure by an administrator is not a moderator's ban). Inside the caller's write transaction.
+ */
+export const insertAuthorizedBan = markPublic("The caller authorizes the ban.", insertBan);
 
 function insertBan(
   ctx: Ctx,

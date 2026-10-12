@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { requireAuthenticated } from "../../actor";
-import { prepared } from "../../context";
+import { type Ctx, prepared } from "../../context";
 import {
   type MEMBER_SORTS,
   usersBirthdays,
@@ -168,16 +168,20 @@ export const staffBanSql =
   "SELECT id, banned_until, banned_permanently FROM users WHERE id IN (SELECT value FROM json_each(?1))";
 const STAFF_SOURCES = ["users", "user_groups", "user_group_grants", "shop_group_grants"] as const;
 
-export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
-  requirePermission(ctx, actor, "profile.view");
+/**
+ * The members of the staff groups (primary, by hand, by promotion or bought) who are not banned,
+ * with the staff groups each holds, and the staff groups highest rank first. At most
+ * `STAFF_LIMIT` members per source.
+ */
+export function staffMembership(ctx: Ctx) {
   const groups = prepared(ctx, "members.staffGroups", () =>
     ctx.sqlite.prepare<{ id: number; title: string; rank: number }, []>(staffSql.groups),
   ).all();
-  if (groups.length === 0) return { items: [] };
+  const staffGroupsOf = new Map<number, Set<number>>();
+  if (groups.length === 0) return { groups, staffGroupsOf };
   // Highest rank first, so the per-source limit keeps the highest groups' members.
   groups.sort((a, b) => b.rank - a.rank || a.id - b.id);
   const groupJson = JSON.stringify(groups.map((group) => group.id));
-  const staffGroupsOf = new Map<number, Set<number>>();
   for (const source of STAFF_SOURCES)
     for (const row of prepared(ctx, `members.staff.${source}`, () =>
       ctx.sqlite.prepare<{ user_id: number; group_id: number }, [string]>(staffSql.members(source)),
@@ -194,6 +198,13 @@ export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
     >(staffBanSql),
   ).all(JSON.stringify([...staffGroupsOf.keys()])))
     if (isBanned(row, now)) staffGroupsOf.delete(row.id);
+  return { groups, staffGroupsOf };
+}
+
+export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
+  requirePermission(ctx, actor, "profile.view");
+  const { groups, staffGroupsOf } = staffMembership(ctx);
+  if (groups.length === 0) return { items: [] };
   const byId = new Map(groups.map((group) => [group.id, group]));
   const username = loadUserSummaries(ctx, staffGroupsOf.keys());
   const ranked = [...staffGroupsOf].map(([userId, held]) => {
