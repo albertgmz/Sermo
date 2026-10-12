@@ -9,6 +9,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import {
   can,
+  currentActor,
   currentVersions,
   memberActor,
   PRINCIPAL_COLUMNS,
@@ -76,7 +77,10 @@ export const restrictionsCreateOp = implement(restrictionsCreate, (ctx, actor, i
   if (!input.reason.trim() || (expiry !== null && expiry <= ctx.now()))
     throw new ValidationError("A reason and future expiry are required.");
   return writeTx(ctx, () => {
-    requirePermission(ctx, actor, "member.restrict", { target: target(ctx, input.userId) });
+    // The actor was resolved before this transaction: decide with what is committed now.
+    requirePermission(ctx, currentActor(ctx, actor), "member.restrict", {
+      target: target(ctx, input.userId),
+    });
     const now = ctx.now();
     const row = prepared(ctx, "restrictions.insert", () =>
       ctx.sqlite.prepare<Row, [number, string, number, string, number, number | null]>(
@@ -113,7 +117,9 @@ export const restrictionsLiftOp = implement(restrictionsLift, (ctx, actor, input
       ctx.sqlite.prepare<Row, [number]>("SELECT * FROM user_restrictions WHERE id = ?1"),
     ).get(input.restrictionId);
     if (!row) throw new NotFoundError();
-    requirePermission(ctx, actor, "member.restrict", { target: target(ctx, row.user_id) });
+    requirePermission(ctx, currentActor(ctx, actor), "member.restrict", {
+      target: target(ctx, row.user_id),
+    });
     if (row.lifted_at !== null) throw new ConflictError("This restriction was already lifted.");
     const now = ctx.now();
     prepared(ctx, "restrictions.lift", () =>

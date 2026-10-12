@@ -2,7 +2,7 @@ import { requireAuthenticated } from "../../actor";
 import * as contracts from "../../contracts/credits";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs/queue";
 import { ledgerPage, ledgerTransaction, memberBalance } from "./ledger";
@@ -29,6 +29,8 @@ export const creditsAdjustOp = implement(contracts.creditsAdjust, (ctx, actor, i
   requirePermission(ctx, actor, "credits.adjust");
   const member = requireAuthenticated(actor);
   return writeTx(ctx, () => {
+    // The actor was resolved before this transaction: decide with what is committed now.
+    requirePermission(ctx, currentActor(ctx, actor), "credits.adjust");
     const [movement] = moveCredits(ctx, [{ ...input, type: "adjustment", actorId: member.userId }]);
     return ledgerTransaction(ctx, movement!.transactionId);
   });
