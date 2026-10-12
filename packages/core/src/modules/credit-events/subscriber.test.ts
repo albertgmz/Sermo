@@ -86,13 +86,13 @@ function fixture() {
         .run(ownerId, userId, state, ctx.now()).lastInsertRowid,
     );
   }
-  function comment() {
+  function comment(profileId = profile()) {
     return Number(
       ctx.sqlite
         .prepare(
           "INSERT INTO profile_post_comments (profile_post_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, ?3, 'Body', '<p>Body</p>')",
         )
-        .run(profile(), author.id, ctx.now()).lastInsertRowid,
+        .run(profileId, author.id, ctx.now()).lastInsertRowid,
     );
   }
   function message() {
@@ -135,17 +135,22 @@ function fixture() {
     conversation_message: "conversation_messages",
   };
   function state(type: keyof typeof tables, id: number, next: string) {
+    const previous = ctx.sqlite
+      .prepare<{ state: string }, [number]>(`SELECT state FROM ${tables[type]} WHERE id = ?1`)
+      .get(id)!;
     ctx.sqlite.prepare(`UPDATE ${tables[type]} SET state = ?1 WHERE id = ?2`).run(next, id);
     return event(next === "deleted" ? "content.deleted" : "content.state_changed", type, id, {
+      previousState: previous.state,
       state: next,
     });
   }
-  async function replay() {
+  async function replay(advanceMs = 0) {
     const before = ledger();
     const balances = ctx.sqlite.prepare("SELECT id, credits FROM users ORDER BY id").all();
     for (const item of events.toReversed()) handleCreditRuleEvent(ctx, item);
     registerCreditRuleJobs(ctx);
     await dispatchEvents(ctx);
+    ctx.clock.advance(advanceMs);
     ctx.sqlite
       .prepare("UPDATE event_subscribers SET last_event_id = 0 WHERE name = 'credit-rules'")
       .run();
@@ -222,7 +227,7 @@ test("all triggers pay the right members and source keys; every event replays sa
       source_user_id,
     })),
   );
-  await f.replay();
+  await f.replay(7_200_000);
 });
 
 test("self replies only pay reply_posted; self profile posts and lifted warnings pay nothing", async () => {
@@ -333,6 +338,101 @@ describe("visibility and reversals", () => {
     await f.replay();
   });
 
+  for (const type of ["thread", "post", "profile_post"] as const) {
+    for (const hidden of ["deleted", "moderated"]) {
+      test(`${type}: ${hidden} content that already had its chance only re-applies stored payments`, async () => {
+        const f = fixture();
+        const trigger =
+          type === "thread"
+            ? "thread_created"
+            : type === "post"
+              ? "reply_posted"
+              : "profile_post_created";
+        await f.createRule(trigger);
+        const inactive = await f.createRule(trigger, { isActive: false });
+        // This member has exhausted the limited rule before the target becomes visible.
+        const limited = await f.createRule(trigger, { limit: { count: 1, windowHours: 1 } });
+        const make = () =>
+          type === "thread"
+            ? f.thread()
+            : type === "post"
+              ? f.post(f.thread(), 1, "visible", f.author.id)
+              : f.profile("visible", f.author.id, f.other.id);
+        f.event("content.created", type, make());
+        const id = make();
+        f.event("content.created", type, id);
+        expect(f.balance()).toBe(30);
+        f.state(type, id, hidden);
+        expect(f.balance()).toBe(20);
+        await execute(f.ctx, creditRulesUpdateOp, f.admin, { ruleId: inactive.id, isActive: true });
+        await execute(f.ctx, creditRulesUpdateOp, f.admin, { ruleId: limited.id, limit: null });
+        await f.createRule(trigger, { amount: 100 });
+        f.ctx.clock.advance(3_600_000);
+        f.state(type, id, "visible");
+        expect(f.balance()).toBe(30);
+        expect(f.ledger()).toHaveLength(5);
+      });
+    }
+  }
+
+  test("delayed creation of moderated content leaves its first chance to the approval event", async () => {
+    const f = fixture();
+    await f.createRule("thread_created", { limit: { count: 1, windowHours: 1 } });
+    const id = f.thread("moderated");
+    const created = f.event("content.created", "thread", id);
+    f.ctx.clock.advance(3_600_000);
+    const approvedAt = f.ctx.now();
+    f.ctx.sqlite.prepare("UPDATE threads SET state = 'visible' WHERE id = ?1").run(id);
+    const payload = { previousState: "moderated", state: "visible" };
+    const eventId = writeTx(f.ctx, () =>
+      publishEvent(f.ctx, {
+        type: "content.state_changed",
+        targetType: "thread",
+        targetId: id,
+        payload,
+      }),
+    );
+    handleCreditRuleEvent(f.ctx, created);
+    expect(f.balance()).toBe(0);
+    handleCreditRuleEvent(f.ctx, {
+      id: eventId,
+      type: "content.state_changed",
+      targetType: "thread",
+      targetId: id,
+      payload,
+      createdAt: approvedAt,
+    });
+    expect(f.balance()).toBe(10);
+    expect(f.ctx.sqlite.prepare("SELECT created_at FROM credit_rule_applications").all()).toEqual([
+      { created_at: approvedAt },
+    ]);
+    await f.replay(7_200_000);
+  });
+
+  for (const parentState of ["deleted", "moderated"]) {
+    test(`a comment under a ${parentState} profile post cannot pay or re-apply reactions`, async () => {
+      const f = fixture();
+      await f.createRule("reaction_given");
+      await f.createRule("reaction_received");
+      const parentId = f.profile(parentState);
+      const id = f.comment(parentId);
+      const reaction = { userId: f.other.id, contentUserId: f.author.id };
+      f.event("reaction.added", "profile_post_comment", id, reaction);
+      expect(f.ledger()).toHaveLength(0);
+      f.state("profile_post", parentId, "visible");
+      f.event("reaction.added", "profile_post_comment", id, reaction);
+      expect(f.balance()).toBe(10);
+      expect(f.balance(f.other.id)).toBe(10);
+      f.state("profile_post_comment", id, "deleted");
+      f.state("profile_post", parentId, parentState);
+      f.state("profile_post_comment", id, "visible");
+      expect(f.balance()).toBe(0);
+      expect(f.balance(f.other.id)).toBe(0);
+      expect(f.ledger()).toHaveLength(4);
+      await f.replay();
+    });
+  }
+
   test("hidden threads prevent new reply payments but hiding only reverses the thread source", async () => {
     const f = fixture();
     for (const trigger of ["thread_created", "reply_posted", "reply_received"] as const)
@@ -405,6 +505,45 @@ test("limits include reverted applications and open again for new sources after 
   f.event("content.created", "thread", f.thread());
   expect(f.balance()).toBe(20);
   expect(f.ledger()).toHaveLength(4);
+});
+
+test("delayed delivery evaluates limits at event time and excludes later applications", async () => {
+  const f = fixture();
+  await f.createRule("daily_activity", { limit: { count: 1, windowHours: 1 } });
+  const earlierTime = f.ctx.now();
+  const earlierId = writeTx(f.ctx, () =>
+    publishEvent(f.ctx, {
+      type: "member.active_day",
+      targetType: "user",
+      targetId: f.author.id,
+      payload: { day: 1 },
+    }),
+  );
+  f.ctx.clock.advance(1_000);
+  f.event("member.active_day", "user", f.author.id, { day: 2 });
+  f.ctx.clock.advance(7_200_000);
+  const earlier: DomainEvent = {
+    id: earlierId,
+    type: "member.active_day",
+    targetType: "user",
+    targetId: f.author.id,
+    payload: { day: 1 },
+    createdAt: earlierTime,
+  };
+  handleCreditRuleEvent(f.ctx, earlier);
+  expect(f.balance()).toBe(20);
+  expect(
+    f.ctx.sqlite
+      .prepare("SELECT source_id, created_at FROM credit_rule_applications ORDER BY source_id")
+      .all(),
+  ).toEqual([
+    { source_id: 1, created_at: earlierTime },
+    { source_id: 2, created_at: earlierTime + 1_000 },
+  ]);
+  const before = f.ledger();
+  handleCreditRuleEvent(f.ctx, earlier);
+  expect(f.ledger()).toEqual(before);
+  await f.replay();
 });
 
 test("forum restrictions filter creation and only allow reactions on matching posts", async () => {

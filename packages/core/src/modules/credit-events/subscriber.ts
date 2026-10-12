@@ -40,14 +40,14 @@ function apply(
   userId: number,
   source: Source,
 ): void {
-  for (const rule of query<RuleRow>(ctx, "active").all(trigger, event.createdAt)) {
+  for (const rule of query<RuleRow>(ctx, "active").all(trigger, event.id)) {
     const nodes = JSON.parse(rule.node_ids) as number[];
     if (nodes.length && (source.nodeId === undefined || !nodes.includes(source.nodeId))) continue;
     if (rule.limit_count !== null) {
-      const cutoff = ctx.now() - rule.limit_window_hours! * 3_600_000;
+      const cutoff = event.createdAt - rule.limit_window_hours! * 3_600_000;
       if (
-        query<{ count: number }>(ctx, "limit").get(rule.id, userId, cutoff)!.count >=
-        rule.limit_count
+        query<{ count: number }>(ctx, "limit").get(rule.id, userId, cutoff, event.createdAt)!
+          .count >= rule.limit_count
       )
         continue;
     }
@@ -59,7 +59,7 @@ function apply(
       source.otherUserId ?? 0,
       rule.amount,
       event.id,
-      ctx.now(),
+      event.createdAt,
     );
     if (inserted)
       moveCredits(ctx, [
@@ -95,6 +95,17 @@ function reconcile(ctx: Ctx, event: DomainEvent, source: Source, visible: boolea
 }
 
 function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
+  if (!["thread", "post", "profile_post"].includes(event.targetType)) return;
+  if (event.type !== "content.created" && event.type !== "content.state_changed") return;
+  // The first transition involving visibility distinguishes initial approval from restores
+  // and re-approval after an edit. It also identifies creation events delivered after approval.
+  const first = query<{ id: number; previous_state: string }>(ctx, "firstVisibilityChange").get(
+    event.targetType,
+    event.targetId,
+  );
+  if (event.type === "content.created") {
+    if (first && first.previous_state !== "visible") return;
+  } else if (!first || first.id !== event.id || first.previous_state === "visible") return;
   const source = { type: event.targetType, id: event.targetId, nodeId: row.node_id };
   if (event.targetType === "thread") apply(ctx, event, "thread_created", row.user_id, source);
   if (event.targetType === "post" && row.position! > 0) {
