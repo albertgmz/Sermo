@@ -4,13 +4,12 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type * as z from "zod";
 import { SermoError } from "./errors";
-import { callWith, type Forward, forwardFromHeaders } from "./transport";
-
-type Described<I extends z.ZodType, O extends z.ZodType> = {
-  readonly name: string;
-  readonly input: I;
-  readonly output: O;
-};
+import {
+  callWith,
+  type Described,
+  type Forward,
+  forwardFromHeaders,
+} from "./transport";
 
 export async function forwardFromRequest(): Promise<Forward> {
   return forwardFromHeaders(await headers());

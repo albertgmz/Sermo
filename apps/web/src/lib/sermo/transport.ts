@@ -9,7 +9,7 @@ export type Forward = {
   clientIp?: string;
 };
 
-type Described<I extends z.ZodType, O extends z.ZodType> = {
+export type Described<I extends z.ZodType, O extends z.ZodType> = {
   readonly name: string;
   readonly input: I;
   readonly output: O;
