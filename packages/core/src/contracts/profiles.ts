@@ -34,7 +34,7 @@ export const Profile = z
     canPostOnWall: z.boolean(),
     /** How the member is drawn next to their name (users.cards returns the same). */
     card: MemberCard,
-    /** The member's own title, whether or not they may currently show it. */
+    /** The member's own title while they may show one (profile.customTitle); else null. */
     customTitle: z.string().nullable(),
     /** Rendered signature; null when there is none or the member may not show one. */
     signatureHtml: z.string().nullable(),
@@ -57,8 +57,8 @@ export const Profile = z
       currentLevelXp: z.number().int().nonnegative(),
       nextLevelXp: z.number().int().positive(),
     }),
-    /** How many awards the member shows next to their name (profile.awardSlots). */
-    awardSlots: z.number().int().nonnegative(),
+    /** How many awards the member shows next to their name (profile.awardSlots); -1 = all. */
+    awardSlots: z.number().int().min(-1),
     referralCount: z.number().int().nonnegative(),
     /** Last request of the member, to the minute; null if never seen. */
     lastActivityAt: Timestamp.nullable(),
@@ -130,10 +130,12 @@ const Handle = z
 export const profilesUpdate = defineContract({
   name: "profiles.update",
   summary:
-    "Update the current user's own profile; only the fields sent change. `customTitle` needs " +
-    "profile.customTitle and `signature` needs profile.signature (also to clear them), within " +
-    "the site's length and line limits; a signature is Markdown, rendered when saved. " +
-    "`website` is an http(s) URL or empty. `birthday: null` removes it.",
+    "Update the current user's own profile; only the fields sent change. Setting `customTitle` " +
+    "needs profile.customTitle and setting `signature` needs profile.signature, within the " +
+    "site's length and line limits; clearing either (null) is always allowed. A signature is " +
+    "one small block of Markdown: text, emphasis, inline code and links only, no pictures, " +
+    "headings, lists, quotes, tables or code blocks; it is rendered when saved. `website` is an " +
+    "http(s) URL or empty. `birthday: null` removes it.",
   kind: "write",
   input: z.object({
     about: z.string().trim().max(5000).optional(),
@@ -143,6 +145,10 @@ export const profilesUpdate = defineContract({
       .trim()
       .max(200)
       .regex(/^(?:https?:\/\/\S+)?$/i, "Use an http(s) URL.")
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are refused
+      .refine((value) => !/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\ufeff]/.test(value), {
+        message: "Use an http(s) URL without control characters.",
+      })
       .optional(),
     birthday: z
       .object({
@@ -169,6 +175,8 @@ export const profilesSelf = defineContract({
   input: z.object({}),
   output: z.object({
     profile: Profile,
+    /** The stored title and signature, whether or not the member may currently show them. */
+    customTitle: z.string().nullable(),
     signatureSource: z.string().nullable(),
     birthYear: z.number().int().nullable(),
     /** Who referred this member, if anyone, and whether they may still name a referrer. */
