@@ -42,16 +42,16 @@ export function AppearanceForm({
 
   return (
     <form action={action} className="space-y-3">
-      <div className="flex min-h-10 items-start justify-between gap-3">
+      <div className="flex min-h-10 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h4 className="text-sm font-semibold">{title}</h4>
+          <h2 className="text-sm font-semibold">{title}</h2>
           <p className="text-xs text-pretty text-muted-foreground">
             {description}
           </p>
         </div>
         <output
           className={cn(
-            "h-4 shrink-0 text-xs font-medium",
+            "min-h-4 max-w-full text-xs font-medium",
             state && !pending ? "text-destructive" : "text-success",
             pending && "text-muted-foreground",
           )}

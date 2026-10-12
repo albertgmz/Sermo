@@ -8,6 +8,7 @@ import {
   setSignature,
   setTitle,
 } from "@/lib/db";
+import { can, TITLE_MAX_LENGTH } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import type { Appearance } from "@/lib/types";
 
@@ -35,7 +36,7 @@ export async function saveAppearance(
   const result = await setAppearance(user.id, patch);
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect(`/account?saved=${field}#appearance`);
+  redirect(`/account/appearance?saved=${field}`);
 }
 
 export type SignatureState = {
@@ -52,7 +53,7 @@ export async function saveSignature(
   const result = await setSignature(user.id, String(body ?? ""));
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect("/account?saved=signature#signature");
+  redirect("/account/permissions?saved=signature#signature");
 }
 
 export type TitleState = {
@@ -69,7 +70,7 @@ export async function saveTitle(
   const result = await setTitle(user.id, String(title ?? ""));
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect("/account?saved=title#title");
+  redirect("/account/details?saved=title");
 }
 
 export type UsernameState = {
@@ -89,5 +90,58 @@ export async function saveUsername(
   );
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect("/account?saved=username#username");
+  redirect("/account/details?saved=username");
+}
+
+export type DetailsState =
+  | { field: "username"; error: NonNullable<UsernameState>["error"] }
+  | {
+      field: "title";
+      error: NonNullable<TitleState>["error"];
+      usernameSaved?: boolean;
+    }
+  | null;
+
+export async function saveDetails(
+  _previous: DetailsState,
+  formData: FormData,
+): Promise<DetailsState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const username = String(formData.get("username") ?? user.username).trim();
+  const title = String(formData.get("title") ?? user.customTitle ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const usernameChanged = username !== user.username;
+  const titleChanged = title !== (user.customTitle ?? "");
+
+  // Validate the title before spending a username change.
+  if (titleChanged) {
+    if (!can(user, "customTitle")) {
+      return { field: "title", error: "not_allowed" };
+    }
+    if (title.length > TITLE_MAX_LENGTH) {
+      return { field: "title", error: "too_long" };
+    }
+  }
+  if (usernameChanged) {
+    if (formData.get("confirm") !== "on") {
+      return { field: "username", error: "unconfirmed" };
+    }
+    const result = await changeUsername(user.id, username);
+    if (!result.ok) return { field: "username", error: result.error };
+  }
+  if (titleChanged) {
+    const result = await setTitle(user.id, title);
+    if (!result.ok) {
+      if (usernameChanged) revalidatePath("/", "layout");
+      return {
+        field: "title",
+        error: result.error,
+        usernameSaved: usernameChanged,
+      };
+    }
+  }
+  revalidatePath("/", "layout");
+  redirect("/account/details?saved=details");
 }

@@ -1,9 +1,5 @@
 import Link from "next/link";
-import {
-  SignatureForm,
-  TitleForm,
-  UsernameForm,
-} from "@/app/(main)/account/permission-forms";
+import { SignatureForm } from "@/app/(main)/account/permission-forms";
 import { Credits } from "@/components/forum/credits";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +7,7 @@ import type { PermissionView, UserView } from "@/lib/db";
 import type { PermissionKey } from "@/lib/permissions";
 
 const linkClass =
-  "inline-flex min-h-10 items-center font-medium text-primary underline-offset-4 hover:underline md:min-h-0";
+  "inline-flex min-h-10 items-center font-medium text-primary underline-offset-4 hover:underline";
 
 function shopHref(key: PermissionKey) {
   return `/credits?category=permission#permission-${key}`;
@@ -46,7 +42,7 @@ function Control({
   return (
     <div id={id} className="scroll-mt-4 space-y-3">
       <div>
-        <h4 className="text-sm font-semibold">{permission.label}</h4>
+        <h2 className="text-sm font-semibold">{permission.label}</h2>
         <p className="text-xs text-pretty text-muted-foreground">
           {description}
         </p>
@@ -75,18 +71,19 @@ export function PermissionsPanel({
   prices: Partial<Record<PermissionKey, number>>;
   saved: string | undefined;
 }) {
-  const find = (key: PermissionKey) =>
-    permissions.find((permission) => permission.key === key);
-  const signature = find("signature");
-  const title = find("customTitle");
-  const username = find("usernameChange");
+  const signature = permissions.find(
+    (permission) => permission.key === "signature",
+  );
 
   return (
     <section id="permissions" className="scroll-mt-4 rounded-lg border bg-card">
       <div className="border-b p-4">
-        <h3 className="text-sm font-semibold">Your permissions</h3>
+        <h1 className="text-xl font-bold tracking-tight">Permissions</h1>
         <p className="text-xs text-muted-foreground">
-          What your account can do, and where each permission comes from.
+          What your account can do, and where each permission comes from.{" "}
+          <Link href="/account/details" className={linkClass}>
+            Edit your username and title
+          </Link>
         </p>
       </div>
       <ul className="divide-y">
@@ -142,38 +139,6 @@ export function PermissionsPanel({
               signature={user.signature ?? ""}
               locked={!signature.granted}
               saved={saved === "signature"}
-            />
-          </Control>
-        )}
-        {title && (
-          <Control
-            id="title"
-            permission={title}
-            description="The line under your name on your profile, your posts and your member card."
-          >
-            <TitleForm
-              key={user.customTitle ?? ""}
-              title={user.customTitle ?? ""}
-              locked={!title.granted}
-              saved={saved === "title"}
-            />
-          </Control>
-        )}
-        {username && (
-          <Control
-            id="username"
-            permission={username}
-            description={
-              username.quantity === undefined
-                ? "Staff change their username freely."
-                : `You have ${username.quantity} ${username.quantity === 1 ? "change" : "changes"} available. Each change uses one.`
-            }
-          >
-            <UsernameForm
-              key={user.username}
-              username={user.username}
-              locked={!username.granted}
-              saved={saved === "username"}
             />
           </Control>
         )}
