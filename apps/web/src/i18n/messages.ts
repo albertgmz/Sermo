@@ -6,6 +6,7 @@
 import account from "../../messages/en/account.json";
 import admin from "../../messages/en/admin.json";
 import adminAppearance from "../../messages/en/admin-appearance.json";
+import adminEconomy from "../../messages/en/admin-economy.json";
 import adminForums from "../../messages/en/admin-forums.json";
 import adminGroups from "../../messages/en/admin-groups.json";
 import adminSetup from "../../messages/en/admin-setup.json";
@@ -36,6 +37,7 @@ export const messages = {
   account,
   admin,
   adminAppearance,
+  adminEconomy,
   adminForums,
   adminGroups,
   adminSetup,
