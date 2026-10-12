@@ -5,13 +5,8 @@
     "loadingSidebar": "Loading feed sidebar…",
     "loadingFeed": "Loading your feed…",
     "aria": {
-      "newPost": "New post",
       "feed": "Feed"
     },
-    "placeholder": "What's on your mind?",
-    "submit": "Post to your profile",
-    "description": "Posts go to your profile wall.",
-    "startThread": "Start a thread",
     "tabs": {
       "latest": "Latest",
       "following": "Following",
@@ -49,22 +44,20 @@
     "comments": "{count, plural, one {{value} comment} other {{value} comments}}",
     "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
     "views": "{value}<label>{count, plural, other { views}}</label>",
-    "profileContext": "posted on <user>{username}</user>'s profile",
+    "profileContext": "posted on <profile>a profile</profile>",
     "threadContext": "started a thread in <forum>{title}</forum>",
     "replyContext": "replied to a thread in <forum>{title}</forum>"
   },
   "feedSidebar": {
     "loadingTrending": "Loading trending…",
     "loadingLatest": "Loading latest threads…",
-    "loadingMembers": "Loading suggested members…",
     "loadingForums": "Loading forums…",
     "trendingTitle": "Trending",
-    "reactions": "{count, plural, one {{value} reaction} other {{value} reactions}}",
     "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
     "latestTitle": "Latest threads",
-    "membersTitle": "Members to follow",
     "forumsTitle": "Forums",
     "viewAll": "View all",
-    "threads": "{value}<label>{count, plural, other { threads}}</label>"
+    "threads": "{value}<label>{count, plural, other { threads}}</label>",
+    "views": "{count, plural, one {{value} view} other {{value} views}}"
   }
 }

@@ -37,3 +37,24 @@ export type PrefixView = {
 
 /** A picture served by the backend or, until then, a file under /public. */
 export type PictureView = { url: string };
+
+/** A member as the author of content: the card plus what is drawn around a post. */
+export type AuthorView = {
+  member: MemberView;
+  cover: PictureView | null;
+  joinedAt: string;
+  postCount: number;
+  reactionScore: number;
+  /** XP of the awards held and the bounds of the current level, for the progress bar. */
+  xp: number;
+  currentLevelXp: number;
+  nextLevelXp: number;
+  awards: {
+    id: number;
+    name: string;
+    icon: string;
+    image: PictureView | null;
+    tier: "bronze" | "silver" | "gold" | "legendary";
+  }[];
+  signatureHtml: string | null;
+};

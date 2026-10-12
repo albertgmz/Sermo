@@ -1,19 +1,13 @@
 {
-  "actions": {
-    "errors": {
-      "forumMissing": "This forum no longer exists.",
-      "titleRequired": "Give your thread a title.",
-      "titleTooLong": "Keep the title under {max} characters.",
-      "bodyRequired": "Write a message for your thread."
-    }
-  },
   "new": {
     "metaTitle": "New thread",
     "home": "Home",
     "heading": "New thread",
     "aria": {
       "loading": "Loading thread form…"
-    }
+    },
+    "cannotPostTitle": "You cannot start a thread here",
+    "cannotPostDescription": "This forum is closed to new threads for your account."
   },
   "newThreadForm": {
     "noPrefix": "No prefix",
@@ -33,16 +27,11 @@
   },
   "forums": {
     "metaTitle": "Forums",
-    "generalTab": "General",
-    "marketTab": "Market",
-    "moneyTab": "Money",
     "heading": "Ask questions. Share what you know.",
     "description": "Join a community of makers who trade ideas, feedback and good advice every day.",
     "login": "Log in",
     "register": "Create Account",
     "aria": {
-      "loadingIntroduction": "Loading community introduction…",
-      "loadingSidebar": "Loading forum sidebar…",
       "loadingStatistics": "Loading forum statistics…",
       "sections": "Forum sections",
       "loadingCategories": "Loading forum categories…"
@@ -56,35 +45,11 @@
     "reactedTab": "Most reacted",
     "viewedTab": "Most viewed",
     "heading": "Forum statistics",
-    "postersHeading": "Top posters",
     "aria": {
       "replies": "Replies",
-      "reactions": "Reactions",
       "views": "Views",
       "statistics": "Forum statistics",
-      "loadingActivity": "Loading forum activity…",
-      "loadingPosters": "Loading top posters…"
-    }
-  },
-  "forumSidebar": {
-    "postsLabel": "Posts",
-    "reactionsLabel": "Reactions",
-    "reputationLabel": "Reputation",
-    "vouchesLabel": "Vouches",
-    "heading": "Join the community",
-    "description": "Create an account to post threads, earn awards and follow other members.",
-    "login": "Log in",
-    "register": "Create Account",
-    "shopHeading": "Latest shop items",
-    "shopViewAll": "View all",
-    "membersHeading": "Top members",
-    "membersViewAll": "View all",
-    "credits": "{count, plural, other {#<unit> credits</unit>}}",
-    "aria": {
-      "account": "Your account",
-      "credits": "{count, plural, other {# credits}}",
-      "loadingShop": "Loading latest shop items…",
-      "loadingMembers": "Loading top members…"
+      "loadingActivity": "Loading forum activity…"
     }
   },
   "forum": {
@@ -104,7 +69,11 @@
       "highlighted": " (highlighted)",
       "replies": "Replies",
       "views": "Views",
-      "loadingThreads": "Loading threads…"
-    }
+      "loadingThreads": "Loading threads…",
+      "locked": "Locked"
+    },
+    "nextPage": "Next page",
+    "emptyCategory": "No forums here yet",
+    "emptyCategoryDescription": "Forums added to this category will be listed here."
   }
 }

@@ -1,14 +1,8 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { nodesGet, PageSlug, pagesGet, postsList } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  getAward,
-  getConversation,
-  getForum,
-  getThread,
-  getUser,
-  getUserById,
-} from "@/lib/db";
+import { getAward, getConversation, getUser, getUserById } from "@/lib/db";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -20,24 +14,66 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
+import { SermoError } from "@/lib/sermo/errors";
+import {
+  callWith,
+  type Forward,
+  forwardFromHeaders,
+} from "@/lib/sermo/transport";
 import { viewerOf } from "@/lib/sermo/viewer";
 
-type Finder = (id: string, viewerId: number) => Promise<unknown>;
+type Finder = (
+  id: string,
+  viewerId: number,
+  request: NextRequest,
+) => Promise<unknown>;
+
+const isId = (id: string) =>
+  /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id));
 
 const numeric =
   <T>(find: (id: number, viewerId: number) => Promise<T>): Finder =>
   async (id, viewerId) =>
-    /^[1-9]\d*$/.test(id) &&
-    Number.isSafeInteger(Number(id)) &&
-    find(Number(id), viewerId);
+    isId(id) && find(Number(id), viewerId);
+
+// Asks the backend as the visitor. Only its "not found" is a missing record; any other answer,
+// an outage included, lets the request through so the page can show its own error.
+async function exists(
+  request: NextRequest,
+  ask: (forward: Forward) => Promise<unknown>,
+) {
+  try {
+    await ask(forwardFromHeaders(request.headers));
+    return true;
+  } catch (error) {
+    return !(error instanceof SermoError && error.code === "not_found");
+  }
+}
+
+const backend =
+  (ask: (id: number, forward: Forward) => Promise<unknown>): Finder =>
+  async (id, _viewerId, request) =>
+    isId(id) && exists(request, (forward) => ask(Number(id), forward));
 
 const CONTENT: Record<string, Finder> = {
   members: numeric(getUserById),
-  forums: numeric(getForum),
+  forums: backend((nodeId, forward) => callWith(forward, nodesGet, { nodeId })),
   awards: numeric(getAward),
-  threads: numeric(getThread),
+  // `threads.get` would count a view; one post of the thread proves the viewer can open it.
+  threads: backend((threadId, forward) =>
+    callWith(forward, postsList, { threadId, limit: 1 }),
+  ),
   conversations: numeric(getConversation),
 };
+
+const STATIC_PAGES = ["terms", "privacy", "legal", "contact"];
+
+// The slug of the static page this path asks for, if it is one.
+function staticSlug(section: string, id: string | undefined, action?: string) {
+  if (STATIC_PAGES.includes(section) && !id) return section;
+  if (section === "pages" && id && !action) return id;
+  return undefined;
+}
 
 const SESSION_COOKIES = ["sermo.session_token", "__Secure-sermo.session_token"];
 
@@ -151,6 +187,18 @@ async function handleRequest(request: NextRequest) {
     );
     return NextResponse.redirect(login);
   }
+  const slug = staticSlug(section, id, action);
+  if (slug !== undefined) {
+    const parsed = PageSlug.safeParse(slug);
+    if (
+      !parsed.success ||
+      !(await exists(request, (forward) =>
+        callWith(forward, pagesGet, { slug: parsed.data }),
+      ))
+    ) {
+      return notFound(request);
+    }
+  }
   const find =
     id && !(section === "conversations" && id === "new")
       ? CONTENT[section]
@@ -164,7 +212,7 @@ async function handleRequest(request: NextRequest) {
       if (!twin) return notFound(request);
       viewerId = twin.id;
     }
-    if (!(await find(id, viewerId))) return notFound(request);
+    if (!(await find(id, viewerId, request))) return notFound(request);
   }
   return toPage(request);
 }

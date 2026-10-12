@@ -21,8 +21,9 @@ const withoutImages = cache(async (threadId: number) => {
 export async function ThreadExcerpt({
   thread,
 }: {
-  thread: Pick<ThreadView, "id" | "excerpt">;
+  thread: Pick<ThreadView, "id" | "excerpt"> & { plainExcerpt?: boolean };
 }) {
+  if (thread.plainExcerpt) return thread.excerpt;
   // The stored excerpt only drops inline pictures; any blocked category may
   // hide a picture it still names (reference style, raw HTML), so filter then.
   const { master, blocked } = await getLiteState();

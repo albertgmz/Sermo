@@ -16,7 +16,6 @@ import { getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
 import { AdminNavigation } from "@/app/(main)/admin/navigation";
 import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
-import { CoverControls } from "@/app/(main)/threads/[id]/cover-controls";
 import { discard } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/(main)/ui/lite-menu-demo";
@@ -105,13 +104,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ACCENTS,
-  COVERS,
-  coverSrc,
-  NAME_COLORS,
-  threadCoverSrc,
-} from "@/lib/appearance";
+import { ACCENTS, COVERS, coverSrc, NAME_COLORS } from "@/lib/appearance";
 import {
   getAwards,
   getCategories,
@@ -124,7 +117,6 @@ import {
   getPrefixes,
   getRanks,
   getReactionTypes,
-  getShopItems,
   getThread,
   getUsers,
 } from "@/lib/db";
@@ -323,7 +315,6 @@ export default async function StyleguidePage() {
     winner,
     pastWinners,
     race,
-    shopItems,
     leaders,
     lite,
   ] = await Promise.all([
@@ -338,7 +329,6 @@ export default async function StyleguidePage() {
     getMemberOfTheMonth(),
     getPastWinners(3),
     getCurrentMonthStanding(3),
-    getShopItems(),
     getLeaderboard("xp", 6),
     getLiteState(),
   ]);
@@ -353,18 +343,6 @@ export default async function StyleguidePage() {
     ? await getThread(prefixForum.lastPost.threadId)
     : null;
   const forumCategory = prefixCategory ?? categories[0];
-  const threadCovers = shopItems.flatMap((item) =>
-    item.effect.type === "threadCover"
-      ? [
-          {
-            itemId: item.id,
-            name: item.name,
-            src: threadCoverSrc(item.effect.cover),
-            quantity: 1,
-          },
-        ]
-      : [],
-  );
   const [admin, moderator, member] = users;
   const coveredMember = users.find((user) => user.appearance.cover);
   const sampleWinner = winner ?? pastWinners[0];
@@ -1434,23 +1412,6 @@ export default async function StyleguidePage() {
                 )}
               </SectionCard>
             </div>
-          </div>
-        </Section>
-
-        <Section title="Thread cover controls">
-          <p className="max-w-prose text-sm text-muted-foreground">
-            What the author of a thread sees, then what staff see on a thread
-            that is not theirs. This sample is not tied to a thread, so
-            confirming reports an error.
-          </p>
-          <div className="flex flex-wrap gap-x-8 gap-y-3">
-            <CoverControls
-              threadId={0}
-              hasCover
-              own
-              covers={threadCovers.slice(0, 4)}
-            />
-            <CoverControls threadId={0} hasCover own={false} covers={[]} />
           </div>
         </Section>
 

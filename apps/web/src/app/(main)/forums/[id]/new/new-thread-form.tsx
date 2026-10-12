@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Prefix } from "@/lib/types";
+import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const NO_PREFIX = { value: "", label: "noPrefix" } as const;
@@ -26,7 +26,7 @@ export function NewThreadForm({
   prefixes,
 }: {
   id: number;
-  prefixes: Prefix[];
+  prefixes: PrefixView[];
 }) {
   const t = useTranslations("forums.newThreadForm");
   const [state, action, pending] = useActionState(
@@ -82,8 +82,6 @@ export function NewThreadForm({
           <Input
             id="thread-title"
             name="title"
-            required
-            maxLength={120}
             defaultValue={state.title}
             placeholder={t("placeholder")}
           />

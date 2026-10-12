@@ -1,5 +1,6 @@
 "use server";
 
+import { reactionsRemove, reactionsSet } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,6 +13,8 @@ import {
   updateLiteState,
 } from "@/lib/lite-preferences";
 import { signOut } from "@/lib/sermo/auth";
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
 import { getCurrentUser } from "@/lib/session";
 
 export async function setLiteMode(formData: FormData) {
@@ -66,9 +69,23 @@ export async function react(
   id: number,
   typeId: number | null,
 ) {
+  if (!TARGETS.includes(target)) return;
+  if (target === "post") {
+    // Posts live in the backend, which refuses what the viewer may not do; the button reverts.
+    await attempt("/", () =>
+      typeId === null
+        ? call(reactionsRemove, { contentType: "post", contentId: id })
+        : call(reactionsSet, {
+            contentType: "post",
+            contentId: id,
+            reactionTypeId: typeId,
+          }),
+    );
+    revalidatePath("/", "layout");
+    return;
+  }
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!TARGETS.includes(target)) return;
   await setReaction({ target, id, userId: user.id, typeId });
   revalidatePath("/", "layout");
 }

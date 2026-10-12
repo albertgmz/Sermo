@@ -1,4 +1,4 @@
-import { mock, test } from "bun:test";
+import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 
@@ -23,14 +23,85 @@ mock.module("@/lib/sermo/viewer", () => ({
 mock.module("@/lib/db", () => ({
   getUser: async () => state.twin,
   getUserById: async () => ({ id: 1 }),
-  getForum: async () => ({ id: 1 }),
   getAward: async () => ({ id: 1 }),
-  getThread: async () => ({ id: 1 }),
   getConversation: async (id: number, viewerId: number) => {
     state.conversationAsked.push([id, viewerId]);
     return state.conversation;
   },
 }));
+
+// Forums, threads and the static pages are asked of the backend, so its answers are faked at
+// `fetch`: the real client builds the requests and checks the answers.
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+type Asked = { method: string; url: URL; headers: Headers };
+
+// Answers by path; a missing entry is the backend refusing with not_found.
+function backend(answers: Record<string, Response | "down">): Asked[] {
+  const asked: Asked[] = [];
+  globalThis.fetch = (async (input: string, init: RequestInit) => {
+    const url = new URL(input);
+    asked.push({
+      method: init.method ?? "GET",
+      url,
+      headers: new Headers(init.headers),
+    });
+    const answer = answers[url.pathname + url.search];
+    if (answer === "down") throw new Error("connection refused");
+    return answer ?? refusal(404, "not_found");
+  }) as unknown as typeof fetch;
+  return asked;
+}
+
+const refusal = (status: number, code: string) =>
+  Response.json({ error: { code, message: code } }, { status });
+
+const NODE = {
+  node: {
+    id: 3,
+    parentId: null,
+    type: "forum",
+    title: "General",
+    description: "",
+    icon: null,
+    cover: null,
+    position: 0,
+    tabId: null,
+    depth: 0,
+    threadCount: 0,
+    postCount: 0,
+    lastPost: null,
+    permissions: { canPost: false, canModerate: false },
+    settings: {
+      requireThreadApproval: false,
+      requireReplyApproval: false,
+      isReadOnly: false,
+      minAccountAgeDays: 0,
+      minPostCount: 0,
+    },
+  },
+  seo: {
+    title: "General",
+    description: "",
+    canonical: "http://localhost/forums/3",
+    robots: "index,follow",
+    redirect: false,
+    jsonLd: [],
+  },
+  breadcrumbs: [],
+  resolvedPermissions: {},
+};
+const NO_POSTS = { items: [], nextCursor: null };
+const PAGE = {
+  slug: "terms",
+  title: "Terms",
+  bodyHtml: "<p>Terms</p>",
+  isPublished: true,
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
 
 // A private copy of the module: another suite may have loaded the proxy against its own mocks.
 const source = "../src/proxy.ts?gates";
@@ -222,4 +293,99 @@ test("the legacy LITE cookie is replaced on a page that carries the header", asy
   const response = await ask("/forums", { cookie: "forum_lite=1" });
   assert.equal(forwarded(response, "x-sermo-path"), "/forums");
   assert.ok(response?.headers.get("set-cookie")?.includes("forum_lite=all"));
+});
+
+test("a forum is a 404 when the backend says it is not found, and only then", async () => {
+  backend({
+    "/api/v1/nodes/3": Response.json(NODE),
+    "/api/v1/nodes/42": Response.json(NODE),
+  });
+  passes(await ask("/forums/3"));
+  passes(await ask("/forums/42"));
+  isNotFound(await ask("/forums/4"));
+
+  // An outage or a refusal other than not_found lets the page show its own error.
+  backend({ "/api/v1/nodes/3": refusal(500, "internal") });
+  passes(await ask("/forums/3"));
+  backend({ "/api/v1/nodes/3": refusal(403, "forbidden") });
+  passes(await ask("/forums/3"));
+  backend({ "/api/v1/nodes/3": "down" });
+  passes(await ask("/forums/3"));
+});
+
+test("a forum id that is not a plain number is a 404 and the backend is not asked", async () => {
+  const asked = backend({});
+  for (const id of ["0", "03", "abc", "1.5", "1e3", "99999999999999999999"]) {
+    isNotFound(await ask(`/forums/${id}`));
+    isNotFound(await ask(`/threads/${id}`));
+  }
+  assert.equal(asked.length, 0);
+});
+
+test("a thread is proven by one post, never by reading the thread (which counts a view)", async () => {
+  const asked = backend({
+    "/api/v1/threads/7/posts?limit=1": Response.json(NO_POSTS),
+    "/api/v1/threads/345/posts?limit=1": Response.json(NO_POSTS),
+  });
+  passes(await ask("/threads/7"));
+  passes(await ask("/threads/345"));
+  isNotFound(await ask("/threads/8"));
+  assert.deepEqual(
+    asked.map((entry) => entry.url.pathname + entry.url.search),
+    [
+      "/api/v1/threads/7/posts?limit=1",
+      "/api/v1/threads/345/posts?limit=1",
+      "/api/v1/threads/8/posts?limit=1",
+    ],
+  );
+
+  backend({ "/api/v1/threads/7/posts?limit=1": refusal(500, "internal") });
+  passes(await ask("/threads/7"));
+});
+
+test("the backend is asked as the visitor", async () => {
+  const asked = backend({ "/api/v1/nodes/3": Response.json(NODE) });
+  await ask("/forums/3", {
+    cookie: `${SESSION}; theme=dark`,
+    headers: {
+      "user-agent": "agent/1",
+      "x-forwarded-for": "203.0.113.9, 198.51.100.4",
+    },
+  });
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].headers.get("cookie"), SESSION);
+  assert.equal(asked[0].headers.get("user-agent"), "agent/1");
+  assert.equal(asked[0].headers.get("x-forwarded-for"), "198.51.100.4");
+});
+
+test("the static pages are a 404 while the backend does not have them", async () => {
+  backend({ "/api/v1/pages/terms": Response.json(PAGE) });
+  passes(await ask("/terms"));
+  isNotFound(await ask("/privacy"));
+  isNotFound(await ask("/legal"));
+  isNotFound(await ask("/contact"));
+});
+
+test("/pages/<slug> asks for that slug, and a slug that cannot exist is a 404 unasked", async () => {
+  const asked = backend({
+    "/api/v1/pages/about": Response.json({ ...PAGE, slug: "about" }),
+  });
+  passes(await ask("/pages/about"));
+  isNotFound(await ask("/pages/missing"));
+  isNotFound(await ask("/pages/Not_A_Slug"));
+  assert.deepEqual(
+    asked.map((entry) => entry.url.pathname),
+    ["/api/v1/pages/about", "/api/v1/pages/missing"],
+  );
+
+  backend({ "/api/v1/pages/about": "down" });
+  passes(await ask("/pages/about"));
+});
+
+test("only the exact static paths are looked up", async () => {
+  const asked = backend({});
+  passes(await ask("/"));
+  passes(await ask("/forums"));
+  passes(await ask("/search"));
+  assert.equal(asked.length, 0);
 });
