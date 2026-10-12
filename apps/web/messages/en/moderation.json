@@ -63,9 +63,10 @@
     "reason": "Reason",
     "reasonHelp": "Kept with the action in the moderator log.",
     "notify": "Tell the member",
-    "notifyHelp": "Send the member this concerns a notification of the action.",
+    "notifyHelp": "Tell the member this action concerns.",
     "message": "Message to the member",
-    "messageHelp": "Optional. Sent with the notification."
+    "messageHelp": "Optional. Sent with the notification.",
+    "notifyYes": "Send a notification"
   },
   "reports": {
     "metaTitle": "Reports",

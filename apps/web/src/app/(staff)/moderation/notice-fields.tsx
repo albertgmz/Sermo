@@ -29,13 +29,16 @@ export function NoticeFields({ idPrefix }: { idPrefix: string }) {
         htmlFor={`${idPrefix}-notify`}
         help={t("notifyHelp")}
       >
-        <input
-          id={`${idPrefix}-notify`}
-          type="checkbox"
-          name="notify"
-          defaultChecked
-          className="size-5"
-        />
+        <label className="flex min-h-10 items-center gap-3 text-sm">
+          <input
+            id={`${idPrefix}-notify`}
+            type="checkbox"
+            name="notify"
+            defaultChecked
+            className="size-5"
+          />
+          {t("notifyYes")}
+        </label>
       </FieldRow>
       <FieldRow
         name="message"
