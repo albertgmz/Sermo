@@ -1,5 +1,6 @@
 import { Crown } from "lucide-react";
 import type { Metadata } from "next";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/(main)/members/directory";
 import { MembersNav } from "@/app/(main)/members/members-nav";
@@ -18,7 +19,6 @@ import {
 } from "@/components/forum/skeletons";
 import {
   MonthHero,
-  monthLabel,
   StandingList,
   WinnerList,
 } from "@/components/forum/standing";
@@ -31,12 +31,12 @@ import {
   getStaff,
   type LeaderboardKind,
 } from "@/lib/db";
-import { formatNumber } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "Members - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("members.members");
+  return { title: t("metaTitle") };
+}
 
 const PAST_WINNERS = 12;
 
@@ -45,19 +45,31 @@ function first(value: string | string[] | undefined) {
 }
 
 async function MonthView({ viewerId }: { viewerId?: number }) {
+  const t = await getTranslations("members.members");
+  const format = await getFormatter();
   const [{ month, entries: standing }, pastWinners] = await Promise.all([
     getLastMonthStanding(),
     getPastWinners(PAST_WINNERS),
   ]);
   const winner = standing[0] ? { ...standing[0], ...month } : null;
+  const monthName = format.dateTime(
+    new Date(Date.UTC(month.year, month.month - 1, 1)),
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
   return (
     <>
       {winner ? (
         <>
           <MonthHero winner={winner} />
           <SectionCard
-            title="Full standing"
-            description={`${monthLabel(month)} · ${formatNumber(standing.length)} ${standing.length === 1 ? "member" : "members"} scored`}
+            title={t("standingHeading")}
+            description={t("membersScored", {
+              month: monthName,
+              count: standing.length,
+            })}
           >
             <StandingList entries={standing} viewerId={viewerId} />
           </SectionCard>
@@ -66,13 +78,13 @@ async function MonthView({ viewerId }: { viewerId?: number }) {
         <div className="rounded-lg border bg-card">
           <EmptyState
             icon={Crown}
-            title="No member of the month yet"
-            description={`Nobody earned points in ${monthLabel(month)}.`}
+            title={t("emptyTitle")}
+            description={t("emptyDescription", { month: monthName })}
           />
         </div>
       )}
       {pastWinners.length > 0 && (
-        <SectionCard title="Past winners">
+        <SectionCard title={t("winnersHeading")}>
           <WinnerList winners={pastWinners} />
         </SectionCard>
       )}
@@ -89,11 +101,12 @@ async function RankingView({
   by: LeaderboardKind;
   viewerId?: number;
 }) {
+  const t = await getTranslations("members.members");
   const members = await getLeaderboard(by, Number.POSITIVE_INFINITY);
   return (
     <SectionCard
       title={title}
-      description={`${formatNumber(members.length)} members`}
+      description={t("members", { count: members.length })}
     >
       <Leaderboard members={members} by={by} viewerId={viewerId} />
     </SectionCard>
@@ -114,6 +127,8 @@ async function StaffView() {
 export default async function MembersPage({
   searchParams,
 }: PageProps<"/members">) {
+  const t = await getTranslations("members.members");
+  const views = await getTranslations("members.views");
   const params = await searchParams;
   const query = first(params.q);
   const sort = first(params.sort);
@@ -132,10 +147,10 @@ export default async function MembersPage({
     >
       <header>
         <h1 className="text-2xl font-bold tracking-tight">
-          {view.value === "overview" ? "Members" : view.label}
+          {view.value === "overview" ? t("heading") : views(view.label)}
         </h1>
         <p className="text-sm text-pretty text-muted-foreground">
-          {view.description}
+          {views(view.description)}
         </p>
       </header>
 
@@ -145,7 +160,7 @@ export default async function MembersPage({
       {view.value === "month" && (
         <Suspense
           fallback={
-            <LoadingRegion label="Loading members…">
+            <LoadingRegion label={t("loading")}>
               <div className="rounded-lg border bg-card p-6">
                 <HeadingSkeleton />
               </div>
@@ -160,13 +175,13 @@ export default async function MembersPage({
       {view.ranking && (
         <Suspense
           fallback={
-            <LoadingRegion label="Loading members…">
+            <LoadingRegion label={t("loading")}>
               <MemberListSkeleton rows={10} />
             </LoadingRegion>
           }
         >
           <RankingView
-            title={view.label}
+            title={views(view.label)}
             by={view.ranking}
             viewerId={viewerId}
           />
@@ -175,7 +190,7 @@ export default async function MembersPage({
       {view.value === "staff" && (
         <Suspense
           fallback={
-            <LoadingRegion label="Loading members…">
+            <LoadingRegion label={t("loading")}>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {[1, 2, 3].map((member) => (
                   <MemberCardSkeleton key={member} />
@@ -190,7 +205,7 @@ export default async function MembersPage({
       {view.value === "all" && (
         <Suspense
           fallback={
-            <LoadingRegion label="Loading members…">
+            <LoadingRegion label={t("loading")}>
               <div className="rounded-lg border bg-card p-3">
                 <Skeleton className="h-10 w-full" />
               </div>
