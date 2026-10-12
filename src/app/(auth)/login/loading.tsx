@@ -1,8 +1,10 @@
+import { useTranslations } from "next-intl";
 import { FormRowSkeleton, LoadingRegion } from "@/components/forum/skeletons";
 import { LogoMarkPlaceholder as LogoMark } from "@/components/layout/logo";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("auth.loading");
   return (
     <main className="grid min-h-dvh flex-1 md:grid-cols-2">
       <div className="flex items-center justify-center px-4 py-10">
@@ -11,9 +13,9 @@ export default function Loading() {
             <LogoMark className="size-9" />
           </div>
           <h1 className="mt-3 mb-8 text-center text-3xl font-bold tracking-tight">
-            Welcome back
+            {t("loginHeading")}
           </h1>
-          <LoadingRegion label="Loading login…">
+          <LoadingRegion label={t("loginLabel")}>
             <div className="space-y-4">
               <Skeleton className="h-10 w-full md:h-8" />
               <Skeleton className="mx-auto h-4 w-8" />

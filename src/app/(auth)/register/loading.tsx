@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   FormRowSkeleton,
   LoadingRegion,
@@ -8,6 +9,7 @@ import { PageBackdropPlaceholder as PageBackdrop } from "@/components/layout/pag
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("auth.loading");
   return (
     <main className="relative isolate flex min-h-dvh flex-1 items-center justify-center px-4 py-8">
       <PageBackdrop />
@@ -23,12 +25,12 @@ export default function Loading() {
           </div>
           <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-6">
             <h1 className="text-center text-2xl font-bold tracking-tight">
-              Create an account
+              {t("registerHeading")}
             </h1>
             <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
-              Enter your email below to create your account
+              {t("registerDescription")}
             </p>
-            <LoadingRegion label="Loading registration…">
+            <LoadingRegion label={t("registerLabel")}>
               <div className="space-y-4">
                 <FormRowSkeleton />
                 <FormRowSkeleton />

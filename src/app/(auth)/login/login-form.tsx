@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { login } from "@/app/(auth)/actions";
 import { GoogleIcon } from "@/app/(auth)/google-icon";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function LoginForm() {
+  const t = useTranslations("auth.loginForm");
   const [state, action, pending] = useActionState(login, {
     error: "",
     username: "",
@@ -24,15 +26,15 @@ export function LoginForm() {
         className="h-10 w-full text-muted-foreground md:h-8"
       >
         <GoogleIcon />
-        Continue with Google
+        {t("provider")}
       </Button>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
-        or
+        {t("separator")}
         <span className="h-px flex-1 bg-border" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="login-username">Your name or email address:</Label>
+        <Label htmlFor="login-username">{t("usernameLabel")}</Label>
         <Input
           id="login-username"
           name="username"
@@ -48,23 +50,23 @@ export function LoginForm() {
         )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="login-password">Password:</Label>
+        <Label htmlFor="login-password">{t("passwordLabel")}</Label>
         <PasswordField id="login-password" autoComplete="current-password" />
         <Link
           href="#"
           className="inline-flex min-h-10 items-center text-sm underline-offset-4 hover:underline md:min-h-0"
         >
-          Forgot your password?
+          {t("forgotPassword")}
         </Link>
       </div>
       <div className="flex min-h-10 items-center gap-2 md:min-h-0">
         <Checkbox id="login-stay" name="remember" defaultChecked />
         <Label htmlFor="login-stay" className="font-normal">
-          Stay logged in
+          {t("rememberLabel")}
         </Label>
       </div>
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
-        Log in
+        {t("submit")}
       </Button>
     </form>
   );
