@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoTableScan, insertNode } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
-import { enqueueJob, runDueJobs } from "../jobs/queue";
+import { runDueJobs } from "../jobs/queue";
 import { runMinuteTasks } from "../jobs/scheduler";
 import { fillThreads, world } from "./fixtures.test";
 import { rankingSql, reactionTotal, refreshRankings, registerRankingJobs } from "./rankings";

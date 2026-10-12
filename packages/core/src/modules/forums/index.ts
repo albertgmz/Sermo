@@ -234,15 +234,6 @@ function postRow(ctx: Ctx, id: number, withBody = false): PostRow | undefined {
     ).get(id) ?? undefined
   );
 }
-function visible(ctx: Ctx, state: State, owner: number, actor: Actor, nodeId: number): boolean {
-  return mayViewState(
-    (permission, node) => can(ctx, actor, permission, { nodeId: node }),
-    actorUserId(actor),
-    state,
-    owner,
-    nodeId,
-  );
-}
 /**
  * The one rule for content in a given state, once the forum is open to the viewer: visible
  * content needs nothing more, moderated content its author or forum.viewModerated there, deleted
