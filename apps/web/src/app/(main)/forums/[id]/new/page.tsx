@@ -27,7 +27,9 @@ export default async function NewThreadPage({
 }: PageProps<"/forums/[id]/new">) {
   const nodeId = parseId((await params).id);
   if (nodeId === null) notFound();
-  const { node, breadcrumbs } = await read(nodesGet, { nodeId });
+  const { node, breadcrumbs, resolvedPermissions } = await read(nodesGet, {
+    nodeId,
+  });
   // Threads live in forums; a category has none to start.
   if (node.type !== "forum") notFound();
   const t = await getTranslations("forums.new");
@@ -66,14 +68,26 @@ export default async function NewThreadPage({
             </LoadingRegion>
           }
         >
-          <ThreadForm id={node.id} canPost={node.permissions.canPost} />
+          <ThreadForm
+            id={node.id}
+            canPost={node.permissions.canPost}
+            canAttach={resolvedPermissions["forum.uploadAttachments"] === true}
+          />
         </Suspense>
       </div>
     </PageLayout>
   );
 }
 
-async function ThreadForm({ id, canPost }: { id: number; canPost: boolean }) {
+async function ThreadForm({
+  id,
+  canPost,
+  canAttach,
+}: {
+  id: number;
+  canPost: boolean;
+  canAttach: boolean;
+}) {
   const t = await getTranslations("forums.new");
   if (!canPost) {
     return (
@@ -89,5 +103,5 @@ async function ThreadForm({ id, canPost }: { id: number; canPost: boolean }) {
   const prefixes = items.flatMap((prefix) =>
     prefix.isActive ? (prefixView(prefix) ?? []) : [],
   );
-  return <NewThreadForm id={id} prefixes={prefixes} />;
+  return <NewThreadForm id={id} prefixes={prefixes} canAttach={canAttach} />;
 }

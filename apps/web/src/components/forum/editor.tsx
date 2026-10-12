@@ -85,6 +85,12 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  InsertPlugin,
+  type MemberHit,
+  MentionPlugin,
+} from "@/components/forum/editor-extras";
+import { unescapeMentions } from "@/components/forum/mention-text";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -422,8 +428,8 @@ function FormField({
         validationRef.current.value = hasText ? "filled" : "";
         if (hasText) setInvalid(false);
       }
-      const next = editorState.read(() =>
-        $convertToMarkdownString(TRANSFORMERS),
+      const next = unescapeMentions(
+        editorState.read(() => $convertToMarkdownString(TRANSFORMERS)),
       );
       if (next === lastValue.current) return;
       lastValue.current = next;
@@ -498,6 +504,10 @@ export type EditorProps = {
   onChange?: (markdown: string) => void;
   resetKey?: string | number;
   className?: string;
+  // Typing an "@" then offers the members this finds.
+  findMembers?: (prefix: string) => Promise<MemberHit[]>;
+  // The name of a window event whose detail is Markdown to add at the end of the editor.
+  insertEvent?: string;
 };
 
 export function Editor({
@@ -514,6 +524,8 @@ export function Editor({
   onChange,
   resetKey,
   className,
+  findMembers,
+  insertEvent,
 }: EditorProps) {
   const t = useTranslations("editor.editor");
   const placeholder =
@@ -569,6 +581,7 @@ export function Editor({
             }
             ErrorBoundary={LexicalErrorBoundary}
           />
+          {findMembers && <MentionPlugin find={findMembers} />}
         </div>
         <FormField
           name={name}
@@ -589,6 +602,7 @@ export function Editor({
       <LinkPlugin />
       <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       <ClearEditorPlugin />
+      {insertEvent && <InsertPlugin event={insertEvent} />}
     </LexicalComposer>
   );
 }

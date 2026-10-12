@@ -10,9 +10,6 @@
     "cannotPostDescription": "This forum is closed to new threads for your account."
   },
   "newThreadForm": {
-    "noPrefix": "No prefix",
-    "prefixLabel": "Prefix",
-    "titleLabel": "Title",
     "placeholder": "What is this thread about?",
     "cancel": "Cancel",
     "submit": "Post thread"
@@ -75,5 +72,14 @@
     "nextPage": "Next page",
     "emptyCategory": "No forums here yet",
     "emptyCategoryDescription": "Forums added to this category will be listed here."
+  },
+  "watch": {
+    "watch": "Watch",
+    "unwatch": "Stop watching",
+    "mode": "What to watch",
+    "optionThreads": "New threads",
+    "optionPosts": "Every new post",
+    "email": "Email me",
+    "status": "{mode, select, posts {Watching every new post} other {Watching new threads}}{email, select, true {, by email} other {}}"
   }
 }

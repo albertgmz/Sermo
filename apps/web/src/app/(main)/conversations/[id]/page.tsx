@@ -5,6 +5,7 @@ import {
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronUp,
   Hourglass,
   Lock,
   LogOut,
@@ -164,10 +165,11 @@ async function Messages({
   cursor: string | undefined;
   canReact: boolean;
 }) {
-  const [{ items: messages, nextCursor }, { user }, reactionTypes, t] =
+  const [{ items: newestFirst, nextCursor }, { user }, reactionTypes, t] =
     await Promise.all([
       read(conversationsListMessages, {
         conversationId: conversation.id,
+        order: "newest",
         cursor,
         limit: MESSAGES_PER_PAGE,
       }),
@@ -175,16 +177,21 @@ async function Messages({
       getReactionTypes(),
       getTranslations("conversations.conversation"),
     ]);
+  // The backend lists from the newest end; the page reads from the oldest of its messages down.
+  const messages = newestFirst.toReversed();
   const member = await membersFor(messages.map((message) => message.author));
   const picker = canReact ? pickerTypes(reactionTypes) : [];
   const link = cn(buttonVariants({ variant: "outline" }), "mx-4 mt-4 h-10");
 
   return (
     <div className="flex-1 pb-4 lg:overflow-y-auto">
-      {cursor && (
-        <Link href={`/conversations/${conversation.id}`} className={link}>
-          <ArrowLeft />
-          {t("first")}
+      {nextCursor && (
+        <Link
+          href={`/conversations/${conversation.id}?cursor=${encodeURIComponent(nextCursor)}`}
+          className={link}
+        >
+          <ChevronUp />
+          {t("earlier")}
         </Link>
       )}
       <ol>
@@ -250,17 +257,14 @@ async function Messages({
           );
         })}
       </ol>
-      {nextCursor ? (
-        <Link
-          href={`/conversations/${conversation.id}?cursor=${encodeURIComponent(nextCursor)}`}
-          className={link}
-        >
+      {cursor ? (
+        <Link href={`/conversations/${conversation.id}`} className={link}>
           <ChevronDown />
-          {t("later")}
+          {t("newest")}
         </Link>
       ) : (
         <ConversationSync
-          key={messages.length}
+          key={messages.at(-1)?.id}
           id={conversation.id}
           unread={conversation.isUnread}
         />

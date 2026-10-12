@@ -126,5 +126,25 @@
       "reactions": "Reactions received",
       "referrals": "Referrals"
     }
+  },
+  "attachmentField": {
+    "attach": "Attach files",
+    "uploading": "Uploading…",
+    "failed": "{name} could not be uploaded.",
+    "aria": {
+      "files": "Attached files",
+      "remove": "Remove {name}"
+    }
+  },
+  "mentionMenu": {
+    "found": "{count, plural, one {# member found} other {# members found}}",
+    "aria": {
+      "members": "Members"
+    }
+  },
+  "threadFields": {
+    "noPrefix": "No prefix",
+    "prefixLabel": "Prefix",
+    "titleLabel": "Title"
   }
 }
