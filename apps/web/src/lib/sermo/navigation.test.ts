@@ -60,6 +60,7 @@ const me = {
     canReact: true,
   },
   resolvedPermissions: {},
+  staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
 };
 
 test("the answer is passed through and asked with the visitor's cookies", async () => {
