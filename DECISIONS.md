@@ -1014,3 +1014,45 @@ SVG files, so `apps/web/public` (static artwork) is excluded from the web lint.
 
 **Ignore rules that matched at any depth are anchored to the root**: `/data/` (it hid
 `apps/web/data`) and `/logs` (it would hide a route folder named `logs`).
+
+### The seam between the web app and the backend
+
+**The web app calls the REST API; it never opens the database** (assumption A1). One process owns
+the SQLite file, and the HTTP adapter's rate limits, CSRF rule and client-IP handling apply to the
+web app like to any other client. Everything goes through `apps/web/src/lib/sermo/`:
+`call(contract, input)` builds the request from the route table, forwards the visitor's session
+cookie, user agent and address, and validates the answer against the contract's output schema.
+Pages do not know the transport, so replacing it means rewriting that folder.
+
+**Two entry points load without the core**: `@sermo/core/contracts` (Zod schemas and table
+definitions only; `MAX_BODY_LENGTH` moved to `limits.ts` so the contracts no longer import the
+renderer) and `@sermo/api/route-table`. The web app imports nothing else from the backend.
+
+**The session cookie cache can be turned off** (`AuthConfig.sessionCookieCache`,
+`SERMO_SESSION_COOKIE_CACHE`, default on). A Server Component cannot write a cookie, so behind
+the web app the backend runs with the cache off: resolving the visitor writes nothing back, every
+request checks the session table, and a revoked session stops working on the next request.
+
+**Sign-in, registration and sign-out stay in Better Auth.** The web app's server actions post to
+`/api/auth/*` and deliver every `Set-Cookie` of the answer to the browser with its attributes.
+The account switcher, the login without a password and the social sign-in button (no provider is
+configured) are gone. "Stay logged in" maps to Better Auth's `rememberMe`. The terms checkbox is
+required and checked on the server; acceptance is not recorded. **Owner review.**
+
+**The client address reaches the backend in `x-forwarded-for`**, which the backend trusts through
+`SERMO_TRUSTED_PROXY_HEADER`. The web app forwards the last entry of the header it received. Next
+keeps a client-supplied `x-forwarded-for`, so in production the web app must sit behind an ingress
+that sets the header itself, and the backend must not be reachable from outside.
+
+**A dead session cookie is a guest while rendering.** `auth.me` is asked again without the
+cookie; the cookie is replaced at the next sign-in. Member-only routes are gated in the proxy on
+the presence of a session cookie (a redirect to `/login?next=`), and every operation still
+decides for itself.
+
+**Until its zone is migrated, a page still reads the JSON data** and sees the JSON member whose
+username is the signed-in account's (`apps/web/src/lib/session.ts`). The bridge is deleted with
+`lib/db.ts`.
+
+**A development fixture** (`bun run dev:fixture`) creates four accounts and a little content
+through Better Auth and operations. It refuses `NODE_ENV=production` and does nothing when the
+member `nova` exists.
