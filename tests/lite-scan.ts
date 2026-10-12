@@ -196,5 +196,8 @@ export function artCategoryErrors(path: string, source: string): string[] {
 }
 
 export function sourceFiles() {
-  return walk("src").filter((path) => /\.(?:ts|tsx|css)$/.test(path));
+  // Test files never reach the browser; they name pictures as fixtures.
+  return walk("src").filter(
+    (path) => /\.(?:ts|tsx|css)$/.test(path) && !/\.test\.tsx?$/.test(path),
+  );
 }

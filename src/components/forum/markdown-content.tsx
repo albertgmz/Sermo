@@ -1,6 +1,7 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { prose } from "@/components/forum/prose";
+import { stripMarkdownImages } from "@/lib/lite-markdown";
 import { cn } from "@/lib/utils";
 
 const components: Components = {
@@ -58,7 +59,7 @@ export function MarkdownContent({
         components={{ ...components, ...images }}
         disallowedElements={skipImages ? ["img"] : undefined}
       >
-        {children}
+        {skipImages ? stripMarkdownImages(children) : children}
       </ReactMarkdown>
     </div>
   );

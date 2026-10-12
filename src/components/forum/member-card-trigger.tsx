@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { startTransition, useRef, useState } from "react";
+import { startTransition, useRef, useState, useSyncExternalStore } from "react";
 import { loadMemberCard } from "@/components/forum/member-card-action";
 import {
   Popover,
@@ -10,9 +10,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
 
-export function MemberCardTrigger({
+export function MemberCardTrigger(
+  props: React.ComponentProps<typeof MemberCardWithPreference>,
+) {
+  const preference = useSyncExternalStore(
+    subscribeLiteValue,
+    getCommittedLiteValue,
+    () => "",
+  );
+  return <MemberCardWithPreference key={preference} {...props} />;
+}
+
+function MemberCardWithPreference({
   id,
   href,
   name,

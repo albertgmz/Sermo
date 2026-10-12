@@ -6,9 +6,10 @@ import { redirect } from "next/navigation";
 import { type ReactionTarget, setReaction } from "@/lib/db";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
-  LITE_CATEGORIES,
   LITE_COOKIE,
+  parseLiteCookieHeader,
   serializeLiteCookie,
+  updateLiteState,
 } from "@/lib/lite-preferences";
 import { getCurrentUser, signOut } from "@/lib/session";
 
@@ -16,24 +17,23 @@ export async function setLiteMode(formData: FormData) {
   const store = await cookies();
   const mode = formData.get("mode");
   const categories = formData.getAll("category");
-  const value = serializeLiteCookie({
-    master: mode === "all",
-    blocked:
-      mode === "custom"
-        ? LITE_CATEGORIES.filter(({ key }) => categories.includes(key)).map(
-            ({ key }) => key,
-          )
-        : [],
-  });
-  if (value) {
-    store.set(LITE_COOKIE, value, {
-      httpOnly: false,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
-  } else {
-    store.delete(LITE_COOKIE);
+  const state = updateLiteState(
+    parseLiteCookieHeader(store.toString()),
+    mode,
+    categories,
+  );
+  if (state) {
+    const value = serializeLiteCookie(state);
+    if (value) {
+      store.set(LITE_COOKIE, value, {
+        httpOnly: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    } else {
+      store.delete(LITE_COOKIE);
+    }
   }
   const returnTo = String(formData.get("returnTo") ?? "/");
   const path = normalizeImagePath(returnTo.split(/[?#]/)[0]);

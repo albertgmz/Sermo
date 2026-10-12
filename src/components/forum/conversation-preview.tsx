@@ -4,8 +4,7 @@ import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import type { ConversationView, MessageView } from "@/lib/db";
-import { stripMarkdownImages } from "@/lib/lite-markdown";
-import { liteBlocks } from "@/lib/lite-mode";
+import { filterLiteMarkdown } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 function plain(markdown: string) {
@@ -37,9 +36,7 @@ export async function ConversationPreview({
     (participant) => participant.id !== viewerId,
   );
   const last = conversation.lastMessage;
-  const body = (await liteBlocks("postImages"))
-    ? stripMarkdownImages(last.body)
-    : last.body;
+  const body = await filterLiteMarkdown(last.body);
   return (
     <>
       <span className="flex w-10 shrink-0 justify-center -space-x-3">

@@ -42,6 +42,12 @@ const PATH_ONLY: Record<string, string> = {
     "Returns a text-only SVG placeholder, never the requested artwork.",
 };
 
+// Filters that name picture attributes in order to remove them from member text.
+const FILTER_ONLY: Record<string, string> = {
+  "src/lib/lite-markdown.ts":
+    "Removes picture attributes from Markdown HTML; emits none.",
+};
+
 const INLINE_ART: Record<string, { category: string; reason: string }> = {
   "src/components/forum/award-icon.tsx": {
     category: "awards",
@@ -81,7 +87,8 @@ test("only reviewed LITE gates emit pictures", () => {
       .filter(
         ({ kind }) =>
           !EMISSION_GATES[path] &&
-          !(PATH_ONLY[path] && kind === "registered picture path"),
+          !(PATH_ONLY[path] && kind === "registered picture path") &&
+          !(FILTER_ONLY[path] && kind === "image attribute"),
       )
       .map(
         ({ line, kind }) =>
@@ -185,4 +192,15 @@ test("every Art use explicitly supplies a registered category", () => {
     artCategoryErrors(path, read(path)),
   );
   expect(errors, errors.join("\n")).toEqual([]);
+});
+
+// Browser-only behaviour has no DOM test here; pin the pieces it relies on.
+test("tab sync broadcasts committed changes and the member card resets with them", () => {
+  const sync = read("src/components/layout/lite-mode-sync.tsx");
+  expect(sync).toContain("new BroadcastChannel(");
+  expect(sync).toContain("channel?.postMessage(");
+  expect(sync).toContain('addEventListener("focus", check)');
+  const card = read("src/components/forum/member-card-trigger.tsx");
+  expect(card).toContain("useSyncExternalStore(");
+  expect(card).toMatch(/<MemberCardWithPreference\s+key=\{preference\}/);
 });

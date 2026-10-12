@@ -16,6 +16,7 @@ mock.module("next/headers", () => ({
       name === LITE_COOKIE && cookie !== undefined
         ? { name, value: cookie }
         : undefined,
+    toString: () => (cookie === undefined ? "" : `${LITE_COOKIE}=${cookie}`),
   }),
   headers: async () => new Headers(),
 }));
@@ -256,6 +257,11 @@ test("legacy GET migration preserves image blocking and access redirects", async
   await placeholder(post, "legacy POST image");
 });
 
+async function editorValue(defaultValue: string) {
+  const element = await EditorDemo({ defaultValue });
+  return { value: element.props.defaultValue as string };
+}
+
 async function markup(node: ReactNode) {
   // Wait for all Suspense boundaries; renderToStaticMarkup alone hides async
   // children behind fallbacks and would give a false positive for blocked art.
@@ -338,6 +344,16 @@ test("avatar and frame gates are independent and preserve the outer box at every
   );
   expect(avatarOnly).toContain(user.avatar);
   expect(avatarOnly).not.toContain("/frames/");
+  // Whatever is hidden, what remains keeps the inner scale the frame gave it.
+  const scale = `scale:${FRAMES[frame][3] / 100}`;
+  expect(frameOnly).toContain(scale);
+  expect(avatarOnly).toContain(scale);
+  expect(avatarOnly).toContain("after:hidden");
+  expect(frameOnly).toContain("after:hidden");
+  cookie = "avatars.frames";
+  expect(
+    renderToStaticMarkup(await UserAvatar({ user, link: false })),
+  ).toContain(scale);
 });
 
 test("inline award, shop, logo and backdrop artwork disappears with its category", async () => {
@@ -406,6 +422,31 @@ test("Markdown rendering gates external images while preserving links and its ro
     expect(hidden).toContain("Before");
     expect(rootClasses(hidden)).toEqual(rootClasses(visible));
   }
+});
+
+test("a blocked local asset category empties Markdown and editor props", async () => {
+  const source =
+    "Before ![x](/frames/619.png) and ![y](https://pictures.test/y.jpg) [docs][d]\n\n[d]: https://example.test/guide\n";
+  cookie = "frames";
+  const html = await markup(<Markdown>{source}</Markdown>);
+  expect(html).not.toContain("/frames/");
+  expect(html).toContain("pictures.test/y.jpg");
+  const { value } = await editorValue(source);
+  expect(value).not.toContain("/frames/");
+  expect(value).toContain("pictures.test/y.jpg");
+  expect(value).toContain("[d]: https://example.test/guide");
+});
+
+test("media HTML typed as text never reaches the page or editor props", async () => {
+  const source =
+    'Hi <img src="https://pictures.test/x.png"> <svg><path d="M0 0h9"/></svg> end\n';
+  cookie = "postImages";
+  const html = await markup(<Markdown>{source}</Markdown>);
+  expect(html).not.toMatch(/pictures\.test|M0 0h9/);
+  expect(html).toContain("Hi");
+  expect((await editorValue(source)).value).not.toMatch(
+    /pictures\.test|M0 0h9/,
+  );
 });
 
 test("the server filters Markdown before passing editor props to the client", async () => {

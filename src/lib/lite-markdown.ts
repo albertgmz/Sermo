@@ -1,16 +1,151 @@
 import type { Root, RootContent } from "mdast";
+import { parseEntities } from "parse-entities";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import { blocksContentImage } from "./lite-images";
+import { blocks, type LiteState } from "./lite-preferences";
 
 const parser = unified().use(remarkParse).use(remarkGfm);
+const ALL: LiteState = { master: true, blocked: [] };
+type Edit = { start: number; end: number; text: string };
+
+const MEDIA = new Set([
+  "img",
+  "picture",
+  "source",
+  "video",
+  "audio",
+  "svg",
+  "object",
+  "embed",
+  "iframe",
+]);
+const VOID = new Set([
+  "area",
+  "base",
+  "br",
+  "col",
+  "embed",
+  "hr",
+  "img",
+  "input",
+  "link",
+  "meta",
+  "param",
+  "source",
+  "track",
+  "wbr",
+]);
+
+function htmlEdits(
+  markdown: string,
+  nodes: RootContent[],
+  state: LiteState,
+  origin?: string,
+): Edit[] {
+  const edits: Edit[] = [];
+  const stack: { tag: string; start: number; blocked: boolean }[] = [];
+  function finish(end: number) {
+    const element = stack.pop();
+    if (element?.blocked)
+      edits.push({ start: element.start, end, text: "LITE MODE" });
+  }
+  for (const node of nodes) {
+    const offset = node.position?.start.offset;
+    if (node.type !== "html" || offset === undefined) continue;
+    // Tokenize only Markdown HTML nodes. Inline, fenced and indented code are exempt.
+    const tags = /<\/?([a-z][\w:-]*)(?=\s|\/?>)(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
+    for (const match of node.value.matchAll(tags)) {
+      const tag = match[1].toLowerCase();
+      const start = offset + match.index;
+      const end = start + match[0].length;
+      if (match[0].startsWith("</")) {
+        const index = stack.findLastIndex((element) => element.tag === tag);
+        if (index !== -1) while (stack.length > index) finish(end);
+        continue;
+      }
+      let blocked = MEDIA.has(tag) && blocks(state, "postImages");
+      const attributes =
+        /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+      for (const attribute of match[0].matchAll(attributes)) {
+        const name = attribute[1].toLowerCase();
+        const value = parseEntities(
+          attribute[2] ?? attribute[3] ?? attribute[4],
+        );
+        if (name === "style" || name === "background") {
+          for (const url of value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)) {
+            if (blocksContentImage(state, url[2], origin)) blocked = true;
+          }
+        } else if (
+          MEDIA.has(tag) &&
+          ["src", "href", "xlink:href", "poster", "data", "srcset"].includes(
+            name,
+          )
+        ) {
+          const sources =
+            name === "srcset"
+              ? value.split(",").map((part) => part.trim().split(/\s+/)[0])
+              : [value];
+          if (
+            sources.some((source) => blocksContentImage(state, source, origin))
+          )
+            blocked = true;
+        }
+      }
+      if (blocked) {
+        for (const parent of stack)
+          if (MEDIA.has(parent.tag)) parent.blocked = true;
+      }
+      stack.push({ tag, start, blocked });
+      if (VOID.has(tag) || /\/\s*>$/.test(match[0])) finish(end);
+    }
+  }
+  while (stack.length) finish(markdown.length);
+  return edits;
+}
+
+export function stripMarkdownHtml(
+  markdown: string,
+  state: LiteState,
+  origin?: string,
+): string {
+  return filterMarkdown(markdown, state, origin, false);
+}
 
 // Edit source ranges so links and the rest of the member's formatting survive.
-export function stripMarkdownImages(markdown: string): string {
+export function stripMarkdownImages(
+  markdown: string,
+  state: LiteState = ALL,
+  origin?: string,
+): string {
+  return filterMarkdown(markdown, state, origin, true);
+}
+
+function filterMarkdown(
+  markdown: string,
+  state: LiteState,
+  origin: string | undefined,
+  images: boolean,
+): string {
+  if (!state.master && state.blocked.length === 0) return markdown;
   const tree = parser.parse(markdown);
   const links = new Set<string>();
-  const definitions: RootContent[] = [];
-  const edits: { start: number; end: number; text: string }[] = [];
+  const removedReferences = new Set<string>();
+  const definitions = new Map<
+    string,
+    Extract<RootContent, { type: "definition" }>
+  >();
+  const html: RootContent[] = [];
+  const edits: Edit[] = [];
+
+  function collect(node: Root | RootContent) {
+    if (node.type === "definition" && !definitions.has(node.identifier))
+      definitions.set(node.identifier, node);
+    if (node.type === "html") html.push(node);
+    if ("children" in node) node.children.forEach(collect);
+  }
+  collect(tree);
 
   function replace(node: RootContent, text: string) {
     const start = node.position?.start.offset;
@@ -20,10 +155,18 @@ export function stripMarkdownImages(markdown: string): string {
   }
 
   function visit(node: Root | RootContent) {
-    if (node.type === "image" || node.type === "imageReference") {
+    if (
+      images &&
+      node.type === "image" &&
+      blocksContentImage(state, node.url, origin)
+    ) {
       replace(node, "LITE MODE");
-    } else if (node.type === "definition") {
-      definitions.push(node);
+    } else if (images && node.type === "imageReference") {
+      const definition = definitions.get(node.identifier);
+      if (definition && blocksContentImage(state, definition.url, origin)) {
+        replace(node, "LITE MODE");
+        removedReferences.add(node.identifier);
+      }
     } else if (node.type === "linkReference") {
       links.add(node.identifier);
     }
@@ -31,11 +174,20 @@ export function stripMarkdownImages(markdown: string): string {
   }
 
   visit(tree);
-  for (const node of definitions) {
-    if (node.type === "definition" && !links.has(node.identifier))
+  for (const node of definitions.values()) {
+    if (removedReferences.has(node.identifier) && !links.has(node.identifier))
       replace(node, "");
   }
-  for (const { start, end, text } of edits.sort((a, b) => b.start - a.start)) {
+  edits.push(...htmlEdits(markdown, html, state, origin));
+  // A removed HTML container can enclose other edits; apply its range once.
+  const ranges: Edit[] = [];
+  for (const edit of edits.sort((a, b) => a.start - b.start || b.end - a.end)) {
+    const previous = ranges.at(-1);
+    if (previous && edit.start < previous.end)
+      previous.end = Math.max(previous.end, edit.end);
+    else ranges.push(edit);
+  }
+  for (const { start, end, text } of ranges.reverse()) {
     markdown = markdown.slice(0, start) + text + markdown.slice(end);
   }
   return markdown;
