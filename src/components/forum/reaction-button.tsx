@@ -2,6 +2,7 @@
 
 import { ChevronDown, Heart } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   useEffect,
   useOptimistic,
@@ -46,6 +47,7 @@ export function ReactionButton({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
+  const t = useTranslations("forum.reactionButton");
   const [current, setCurrent] = useOptimistic(viewerTypeId);
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -66,7 +68,6 @@ export function ReactionButton({
   const active = types.find((type) => type.id === current);
   const count =
     total - Number(viewerTypeId !== null) + Number(current !== null);
-  const summary = `${count} ${count === 1 ? "reaction" : "reactions"}`;
   const content = (
     <>
       {active ? (
@@ -84,7 +85,7 @@ export function ReactionButton({
     return (
       <Link
         href="/login"
-        aria-label={`Log in to react, ${summary}`}
+        aria-label={t("aria.login", { count })}
         className={cn(buttonClass, className)}
       >
         {content}
@@ -151,7 +152,10 @@ export function ReactionButton({
           ref={button}
           type="button"
           aria-pressed={current !== null}
-          aria-label={`${(active ?? types[0]).label}, ${summary}`}
+          aria-label={t("aria.state", {
+            label: (active ?? types[0]).label,
+            count,
+          })}
           className={buttonClass}
           onPointerDown={(event) => {
             longPressed.current = false;
@@ -182,7 +186,7 @@ export function ReactionButton({
           {content}
         </button>
         <PopoverTrigger
-          aria-label="Choose a reaction"
+          aria-label={t("aria.choose")}
           className="sr-only inline-flex items-center justify-center rounded-md text-muted-foreground focus-visible:not-sr-only focus-visible:size-10 md:focus-visible:size-8"
         >
           <ChevronDown className="size-4" />
@@ -192,7 +196,7 @@ export function ReactionButton({
         side="top"
         align="start"
         anchor={anchor}
-        aria-label="Choose a reaction"
+        aria-label={t("aria.choose")}
         initialFocus={() => viaTrigger.current}
         finalFocus={() => (viaTrigger.current ? button.current : false)}
         className="w-auto flex-row gap-0 rounded-full p-1"

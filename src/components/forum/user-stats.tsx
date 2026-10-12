@@ -19,8 +19,8 @@ function Count({
     <span title={label} className="inline-flex items-center gap-1">
       <Icon aria-hidden="true" className="size-3.5" />
       {t.rich("summary", {
-        label: (chunks) => <span className="sr-only">{chunks}</span>,
-        labelText: label,
+        sr: (chunks) => <span className="sr-only">{chunks}</span>,
+        label,
         value: formatCompact(value),
       })}
     </span>
@@ -46,7 +46,11 @@ export function UserStats({
         <LevelBadge level={user.level} />
         <XpBar level={user.level} className="w-10" />
       </div>
-      <Count icon={MessageCircle} label={t("messagesLabel")} value={user.postCount} />
+      <Count
+        icon={MessageCircle}
+        label={t("messagesLabel")}
+        value={user.postCount}
+      />
       <Count
         icon={Heart}
         label={t("reactionsLabel")}

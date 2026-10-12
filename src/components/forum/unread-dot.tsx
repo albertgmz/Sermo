@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export function UnreadDot({ className }: { className?: string }) {
@@ -13,4 +14,3 @@ export function UnreadDot({ className }: { className?: string }) {
     </span>
   );
 }
-import { useTranslations } from "next-intl";

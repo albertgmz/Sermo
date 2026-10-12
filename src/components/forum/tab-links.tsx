@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { useFormatter } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export type TabLink = {
@@ -38,7 +37,6 @@ export function TabLinks({
   variant?: keyof typeof VARIANTS;
   className?: string;
 }) {
-  const format = useFormatter();
   return (
     <nav
       aria-label={label}
@@ -59,7 +57,7 @@ export function TabLinks({
           {tab.label}
           {tab.count !== undefined && (
             <span className="text-xs tabular-nums text-muted-foreground">
-              {format.number(tab.count)}
+              {tab.count}
             </span>
           )}
         </Link>

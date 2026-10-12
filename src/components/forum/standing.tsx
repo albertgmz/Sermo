@@ -5,6 +5,7 @@ import {
   MessageCircle,
   UserPlus,
 } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { RankNumber } from "@/components/forum/leaderboard";
@@ -14,6 +15,8 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import type { MonthWinner, StandingEntry } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
+import { can } from "@/lib/permissions";
 import {
   type Activity,
   type Month,
@@ -23,73 +26,65 @@ import {
 } from "@/lib/standing";
 import { cn } from "@/lib/utils";
 
-const monthFormat = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-export function monthLabel({ year, month }: Month) {
-  return monthFormat.format(new Date(Date.UTC(year, month - 1, 1)));
+export function monthLabel(
+  format: ReturnType<typeof useFormatter>,
+  { year, month }: Month,
+) {
+  return format.dateTime(new Date(Date.UTC(year, month - 1, 1)), {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
-
-function plural(count: number, one: string) {
-  return `${formatNumber(count)} ${count === 1 ? one : `${one}s`}`;
-}
-
-export const FORMULA = [
-  `1 post = ${plural(POST_POINTS, "point")}`,
-  `${plural(REACTIONS_PER_POINT, "reaction")} = 1 point`,
-  `1 referral = ${plural(REFERRAL_POINTS, "point")}`,
-].join(" · ");
 
 const PARTS: {
   key: keyof Activity;
-  label: string;
   icon: LucideIcon;
   points: (count: number) => number;
 }[] = [
   {
     key: "posts",
-    label: "Posts",
     icon: MessageCircle,
     points: (count) => count * POST_POINTS,
   },
   {
     key: "reactions",
-    label: "Reactions received",
     icon: Heart,
     points: (count) => count / REACTIONS_PER_POINT,
   },
   {
     key: "referrals",
-    label: "Referrals",
     icon: UserPlus,
     points: (count) => count * REFERRAL_POINTS,
   },
 ];
 
 function Points({ value, className }: { value: number; className?: string }) {
+  const t = useTranslations("forum.standing");
   return (
     <span className={cn("shrink-0 font-bold tabular-nums", className)}>
       {formatNumber(value)}
-      <span className="text-xs font-medium text-muted-foreground"> pts</span>
+      <span className="text-xs font-medium text-muted-foreground">
+        {" "}
+        {t("pts")}
+      </span>
     </span>
   );
 }
 
 // The quiet line under a name: what the points are made of.
 function Breakdown({ entry }: { entry: Activity }) {
+  const t = useTranslations("forum.standing.parts");
   return (
     <span className="flex flex-wrap items-center gap-x-3 text-xs tabular-nums text-muted-foreground">
-      {PARTS.map(({ key, label, icon: Icon }) => (
+      {PARTS.map(({ key, icon: Icon }) => (
         <span
           key={key}
-          title={label}
+          title={t(key)}
           className="inline-flex items-center gap-1"
         >
           <Icon aria-hidden="true" className="size-3.5" />
-          <span className="sr-only">{label}: </span>
+          <span className="sr-only">{t(key)}: </span>
           {formatNumber(entry[key])}
         </span>
       ))}
@@ -104,7 +99,17 @@ export function MonthHero({
   winner: MonthWinner;
   action?: React.ReactNode;
 }) {
+  const t = useTranslations("forum.standing");
+  const tParts = useTranslations("forum.standing.parts");
+  const tLevels = useTranslations("lib.levels");
+  const tRoles = useTranslations("lib.db.roles");
+  const format = useFormatter();
   const { user } = winner;
+  const title =
+    (can(user, "customTitle") && user.customTitle) ||
+    (user.role === "member"
+      ? tLevels(titleKeyForLevel(user.level.level))
+      : tRoles(user.role));
   return (
     <section
       aria-labelledby="member-of-the-month"
@@ -118,10 +123,10 @@ export function MonthHero({
             className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary uppercase"
           >
             <Crown aria-hidden="true" className="size-4" />
-            Member of the month
+            {t("heading")}
           </h2>
           <p className="text-xs font-medium text-muted-foreground">
-            {monthLabel(winner)}
+            {monthLabel(format, winner)}
           </p>
         </div>
 
@@ -135,9 +140,7 @@ export function MonthHero({
               />
               <UserBadges user={user} />
             </p>
-            <p className="truncate text-sm text-muted-foreground">
-              {user.title}
-            </p>
+            <p className="truncate text-sm text-muted-foreground">{title}</p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-start">
               <div className="flex items-center gap-1.5">
                 <LevelBadge level={user.level} />
@@ -153,27 +156,29 @@ export function MonthHero({
         </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {PARTS.map(({ key, label, points }) => (
+          {PARTS.map(({ key, points }) => (
             <div
               key={key}
               className="min-w-0 rounded-md border bg-background/60 p-3"
             >
               <dt className="truncate text-xs text-muted-foreground">
-                {label}
+                {tParts(key)}
               </dt>
               <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
                 <span className="text-xl leading-tight font-bold tabular-nums">
                   {formatNumber(winner[key])}
                 </span>
                 <span className="text-xs tabular-nums text-muted-foreground">
-                  = {formatNumber(points(winner[key]))} pts
+                  {t("pointsEqual", {
+                    points: formatNumber(points(winner[key])),
+                  })}
                 </span>
               </dd>
             </div>
           ))}
           <div className="min-w-0 rounded-md border border-primary/40 bg-primary/10 p-3">
             <dt className="truncate text-xs text-muted-foreground">
-              Total points
+              {t("totalPoints")}
             </dt>
             <dd className="mt-1 text-xl leading-tight font-bold tabular-nums text-primary">
               {formatNumber(winner.points)}
@@ -182,7 +187,13 @@ export function MonthHero({
         </dl>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-xs text-pretty text-muted-foreground">{FORMULA}</p>
+          <p className="text-xs text-pretty text-muted-foreground">
+            {t("formula", {
+              postPoints: POST_POINTS,
+              reactions: REACTIONS_PER_POINT,
+              referralPoints: REFERRAL_POINTS,
+            })}
+          </p>
           {action}
         </div>
       </div>
@@ -285,13 +296,14 @@ export function WinnerList({
   winners: MonthWinner[];
   compact?: boolean;
 }) {
+  const format = useFormatter();
   return (
     <ol className="divide-y divide-border">
       {winners.map((winner) => (
         <StandingRow
           key={`${winner.year}-${winner.month}`}
           entry={winner}
-          label={monthLabel(winner)}
+          label={monthLabel(format, winner)}
           compact={compact}
         />
       ))}

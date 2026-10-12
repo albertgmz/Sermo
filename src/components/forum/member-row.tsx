@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { RoleBadge } from "@/components/forum/role-badge";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { type LinkUser, UserLink } from "@/components/forum/user-link";
@@ -11,7 +12,9 @@ export function MemberRow({
   children,
   className,
 }: {
-  user: AvatarUser & LinkUser & Pick<UserView, "title" | "customTitle" | "permissions" | "level">;
+  user: AvatarUser &
+    LinkUser &
+    Pick<UserView, "customTitle" | "permissions" | "level">;
   children?: React.ReactNode;
   className?: string;
 }) {
@@ -36,4 +39,3 @@ export function MemberRow({
     </div>
   );
 }
-import { useTranslations } from "next-intl";

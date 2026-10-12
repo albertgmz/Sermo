@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
@@ -28,12 +29,13 @@ export function ReactionSummary({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
+  const t = useTranslations("forum.reactionSummary");
   if (reactions.total === 0) return null;
-  const total = `${reactions.total} ${reactions.total === 1 ? "reaction" : "reactions"}`;
+  const total = t("total", { count: reactions.total });
   return (
     <Popover>
       <PopoverTrigger
-        aria-label={`${total}, show who reacted`}
+        aria-label={t("aria.trigger", { total })}
         className={cn(
           "inline-flex h-10 items-center gap-1.5 rounded-md px-1 font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground md:h-7",
           SIZES[size].trigger,

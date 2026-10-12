@@ -6,6 +6,7 @@ import {
   Trophy,
   UserPlus,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -46,35 +47,29 @@ const COUNTS: Record<
   Exclude<LeaderboardKind, "xp">,
   {
     icon: LucideIcon;
-    unit: [singular: string, plural: string];
     value: (member: UserView) => number;
     accent?: boolean;
   }
 > = {
   credits: {
     icon: Coins,
-    unit: ["credit", "credits"],
     value: (member) => member.credits,
     accent: true,
   },
   posts: {
     icon: MessageCircle,
-    unit: ["post", "posts"],
     value: (member) => member.postCount,
   },
   reactions: {
     icon: Heart,
-    unit: ["reaction", "reactions"],
     value: (member) => member.reactionCount,
   },
   awards: {
     icon: Trophy,
-    unit: ["award", "awards"],
     value: (member) => member.awards.length,
   },
   referrals: {
     icon: UserPlus,
-    unit: ["referral", "referrals"],
     value: (member) => member.referralCount,
   },
 };
@@ -88,26 +83,30 @@ export function LeaderboardScore({
   member: UserView;
   compact?: boolean;
 }) {
+  const t = useTranslations("forum.leaderboard");
   if (by === "xp") {
     return (
       <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <LevelBadge level={member.level} />
         <span
-          title={`${formatNumber(member.xp)} XP`}
+          title={t("xpTitle", { xp: formatNumber(member.xp) })}
           className="whitespace-nowrap text-sm font-semibold tabular-nums"
         >
           {compact ? formatCompact(member.xp) : formatNumber(member.xp)}
-          <span className="text-xs font-medium text-muted-foreground"> XP</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {" "}
+            {t("xp")}
+          </span>
         </span>
       </span>
     );
   }
 
-  const { icon: Icon, unit, value, accent } = COUNTS[by];
+  const { icon: Icon, value, accent } = COUNTS[by];
   const count = value(member);
   return (
     <span
-      title={`${formatNumber(count)} ${unit[count === 1 ? 0 : 1]}`}
+      title={t(`titles.${by}`, { count })}
       className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums"
     >
       <Icon
@@ -118,7 +117,7 @@ export function LeaderboardScore({
         )}
       />
       {compact ? formatCompact(count) : formatNumber(count)}
-      <span className="sr-only"> {unit[count === 1 ? 0 : 1]}</span>
+      <span className="sr-only"> {t(`aria.units.${by}`, { count })}</span>
     </span>
   );
 }
@@ -136,6 +135,7 @@ export function Leaderboard({
   start?: number;
   compact?: boolean;
 }) {
+  const t = useTranslations("forum.leaderboard");
   return (
     <ol start={start} className="divide-y divide-border">
       {members.map((member, index) => (
@@ -166,7 +166,7 @@ export function Leaderboard({
                 {formatNumber(member.xp)}
                 <span className="text-xs font-medium text-muted-foreground">
                   {" "}
-                  XP
+                  {t("xp")}
                 </span>
               </span>
             </>

@@ -20,6 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import {
   Tooltip,
@@ -119,12 +120,13 @@ export function AwardRow({
   size?: AwardIconSize;
   className?: string;
 }) {
+  const t = useTranslations("forum.awardIcon");
   if (awards.length === 0) return null;
   const overflowClass = "text-(length:--text-caption) font-medium tabular-nums";
   return (
     <Link
       href="/awards"
-      aria-label={`${awards.length} ${awards.length === 1 ? "award" : "awards"}`}
+      aria-label={t("aria.count", { count: awards.length })}
       className={cn(
         "relative inline-flex shrink-0 items-center gap-0.5 rounded-full text-muted-foreground transition-colors after:absolute after:-inset-x-1 after:-inset-y-2.5 hover:text-foreground md:after:hidden",
         className,

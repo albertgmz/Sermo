@@ -85,7 +85,9 @@ export function MemberCard({
             className="min-h-10 min-w-10 after:hidden"
           />
         ) : (
-          <span className="text-xs text-muted-foreground">{t("emptyAwards")}</span>
+          <span className="text-xs text-muted-foreground">
+            {t("emptyAwards")}
+          </span>
         )}
       </div>
       <dl className="mt-auto grid grid-cols-3 gap-2 border-t pt-3 text-xs">
