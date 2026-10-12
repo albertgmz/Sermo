@@ -6,6 +6,7 @@ import {
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { call, read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
@@ -17,7 +18,6 @@ import {
   isReadOnly,
   memberIdOf,
 } from "../../data";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { applyPromotion } from "./actions";
 import { GroupsForm } from "./groups-form";
@@ -53,6 +53,7 @@ async function Groups({
   return (
     <>
       <Notice
+        namespace="adminUsers.notices"
         searchParams={searchParams}
         shown={["saved", "promotionApplied"]}
       />

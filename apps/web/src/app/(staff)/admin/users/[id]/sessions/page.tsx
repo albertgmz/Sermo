@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { Help, Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { getMember, isReadOnly, memberIdOf } from "../../data";
-import { InlineAction } from "../../inline-action";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { revokeSessions } from "./actions";
 
@@ -35,7 +35,11 @@ async function Sessions({
     format.dateTime(new Date(at), { dateStyle: "medium", timeStyle: "short" });
   return (
     <>
-      <Notice searchParams={searchParams} shown={["revoked", "allRevoked"]} />
+      <Notice
+        namespace="adminUsers.notices"
+        searchParams={searchParams}
+        shown={["revoked", "allRevoked"]}
+      />
       <Section heading={t("heading")}>
         {items.length === 0 ? (
           <EmptyState
@@ -69,10 +73,10 @@ async function Sessions({
                   </dd>
                 </dl>
                 {!readOnly && (
-                  <InlineAction
+                  <ConfirmStep
                     action={revokeSessions}
                     fields={{ id: userId, sessionId: session.id }}
-                    label={t("revokeOne")}
+                    summary={t("revokeOne")}
                     reason={t("reason")}
                     warning={t("revokeOneWarning")}
                   />
@@ -84,10 +88,10 @@ async function Sessions({
         <div className="space-y-2 border-t p-4">
           <Help>{t("revokeOneHelp")}</Help>
           {!readOnly && items.length > 0 && (
-            <InlineAction
+            <ConfirmStep
               action={revokeSessions}
               fields={{ id: userId }}
-              label={t("revokeAll")}
+              summary={t("revokeAll")}
               reason={t("reason")}
               warning={t("revokeAllWarning")}
             />

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { buttonVariants } from "@/components/ui/button";
 import { call } from "@/lib/sermo/client";
@@ -10,9 +12,7 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
 import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../data";
-import { InlineAction } from "../inline-action";
 import { MemberState } from "../member-state";
-import { Notice } from "../notice";
 import { TabPage } from "../tab-page";
 import { removePicture } from "./actions";
 import { EraseForm } from "./erase-form";
@@ -49,6 +49,7 @@ async function Details({
   return (
     <>
       <Notice
+        namespace="adminUsers.notices"
         searchParams={searchParams}
         shown={[
           "identity",
@@ -77,10 +78,10 @@ async function Details({
                 </span>
               </p>
               {set !== false && !readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={removePicture}
                   fields={{ id: userId, which }}
-                  label={t("remove")}
+                  summary={t("remove")}
                   reason={t("removeReason")}
                   warning={t(`removeWarning.${which}`)}
                 />

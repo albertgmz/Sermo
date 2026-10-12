@@ -6,6 +6,7 @@ import {
 } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Section, selectClass } from "@/components/staff/rows";
@@ -16,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
-import { InlineAction } from "../../inline-action";
 import {
   addRestriction,
   banMember,
@@ -228,10 +228,10 @@ export async function Restrictions({
                     <When at={item.expiresAt} none={t("never")} />
                   </p>
                   {item.active && mayChange && !readOnly && (
-                    <InlineAction
+                    <ConfirmStep
                       action={liftRestriction}
                       fields={{ id: userId, restrictionId: item.id }}
-                      label={t("liftRestriction")}
+                      summary={t("liftRestriction")}
                       reason={t("liftReason")}
                       danger={false}
                     />
@@ -341,10 +341,10 @@ export async function Bans({
                 )}
               </p>
               {ban.state === "active" && !readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={liftBan}
                   fields={{ id: userId, banId: ban.id }}
-                  label={t("liftBan")}
+                  summary={t("liftBan")}
                   reason={t("liftReason")}
                   danger={false}
                 />
@@ -433,10 +433,10 @@ export async function ThreadBans({
                 {t("until")} <When at={mine.expiresAt} none={t("never")} />
               </p>
               {!readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={liftThreadBan}
                   fields={{ id: userId, threadId: thread }}
-                  label={t("liftThreadBan")}
+                  summary={t("liftThreadBan")}
                   reason={t("liftReason")}
                   danger={false}
                 />

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { getMember, holds, isReadOnly, memberIdOf } from "../../data";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { Bans, Restrictions, ThreadBans, Warnings } from "./sections";
 
@@ -33,6 +33,7 @@ async function Sanctions({
   return (
     <>
       <Notice
+        namespace="adminUsers.notices"
         searchParams={searchParams}
         shown={[
           "warned",

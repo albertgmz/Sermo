@@ -2,15 +2,15 @@ import { BAN_STATES, bansList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { liftBan } from "../users/[id]/sanctions/actions";
-import { InlineAction } from "../users/inline-action";
-import { Notice } from "../users/notice";
 
 type Params = Record<string, string | string[] | undefined>;
 
@@ -43,7 +43,11 @@ export async function BanList({
   const label = "text-xs text-muted-foreground md:hidden";
   return (
     <>
-      <Notice searchParams={searchParams} shown={["lifted"]} />
+      <Notice
+        namespace="adminUsers.notices"
+        searchParams={searchParams}
+        shown={["lifted"]}
+      />
       <CursorList
         items={page.items}
         nextCursor={page.nextCursor}
@@ -137,10 +141,10 @@ export async function BanList({
               </p>
             </div>
             {ban.state === "active" && (
-              <InlineAction
+              <ConfirmStep
                 action={liftBan}
                 fields={{ banId: ban.id }}
-                label={t("lift")}
+                summary={t("lift")}
                 reason={s("liftReason")}
                 danger={false}
               />

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { Notice } from "@/components/staff/notice";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -13,7 +14,6 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../../registry";
 import { getGroups } from "../../../groups/data";
-import { Notice } from "../../../groups/notice";
 import { FormSkeleton, PageHead } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
 import { PermissionForm } from "../../permission-form";
@@ -44,7 +44,11 @@ async function Matrix({
   const edit = hrefFor(viewer, "groupsEdit");
   return (
     <>
-      <Notice searchParams={searchParams} shown={["saved"]} />
+      <Notice
+        namespace="adminGroups.notices"
+        searchParams={searchParams}
+        shown={["saved"]}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
           {group.title}

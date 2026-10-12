@@ -4,10 +4,10 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { getMember, isReadOnly, memberIdOf } from "../../data";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { AppearanceForm } from "./appearance-form";
 
@@ -37,7 +37,11 @@ async function Appearance({
   ]);
   return (
     <>
-      <Notice searchParams={searchParams} shown={["saved"]} />
+      <Notice
+        namespace="adminUsers.notices"
+        searchParams={searchParams}
+        shown={["saved"]}
+      />
       <Section heading={t("now")}>
         <div className="flex items-center gap-3 p-4">
           <UserAvatar user={member.card} size="xl" link={false} />

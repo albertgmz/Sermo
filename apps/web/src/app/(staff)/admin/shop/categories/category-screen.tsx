@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { getLadder } from "@/app/(main)/upgrade/ladder";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { EconomyNotice, one } from "../../credits/shared";
-import { ConfirmDelete } from "../../groups/confirm-delete";
 import { deleteCategory, saveCategory, saveCategoryOrder } from "./actions";
 
 type Category = z.output<typeof shopCategoriesList.output>["items"][number];
@@ -195,10 +195,10 @@ export async function CategoryScreen({
       {editingCategory && (
         <div id="edit" className="scroll-mt-4 space-y-4">
           <CategoryForm category={editingCategory} />
-          <ConfirmDelete
+          <ConfirmStep
             action={deleteCategory}
-            id={editingCategory.id}
-            summary={t("deleteHeading")}
+            fields={{ id: editingCategory.id }}
+            heading={t("deleteHeading")}
             warning={t("deleteWarning")}
             submit={t("delete")}
           />

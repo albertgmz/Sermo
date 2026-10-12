@@ -5,10 +5,10 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { ConfirmDelete } from "../../groups/confirm-delete";
-import { Notice } from "../../groups/notice";
 import { FormSkeleton, PageHead } from "../../groups/skeletons";
 import { deletePromotion } from "../actions";
 import { PromotionForm } from "../promotion-form";
@@ -33,15 +33,19 @@ async function Promotion({
   ]);
   return (
     <>
-      <Notice searchParams={searchParams} shown={["created", "saved"]} />
+      <Notice
+        namespace="adminGroups.notices"
+        searchParams={searchParams}
+        shown={["created", "saved"]}
+      />
       <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
         {promotion.title}
       </h2>
       <PromotionForm promotion={promotion} />
-      <ConfirmDelete
+      <ConfirmStep
         action={deletePromotion}
-        id={promotion.id}
-        summary={t("deleteHeading")}
+        fields={{ id: promotion.id }}
+        heading={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
         password

@@ -2,9 +2,9 @@ import { profilesGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { call } from "@/lib/sermo/client";
 import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../../data";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { ProfileForm } from "./profile-form";
 
@@ -27,7 +27,11 @@ async function Profile({
   ]);
   return (
     <>
-      <Notice searchParams={searchParams} shown={["saved"]} />
+      <Notice
+        namespace="adminUsers.notices"
+        searchParams={searchParams}
+        shown={["saved"]}
+      />
       <ProfileForm
         userId={userId}
         readOnly={isReadOnly(member)}

@@ -12,12 +12,12 @@
 import { useTranslations } from "next-intl";
 import { useActionState, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { OperationForm } from "../../tools/operation-form";
 import { deleteEntry, saveEntry, saveOrder } from "./actions";
 
 export type Item = {
@@ -215,7 +215,7 @@ function Row({
         </output>
       </form>
       {!item.builtin && (
-        <OperationForm
+        <ConfirmStep
           action={deleteEntry}
           fields={{ id: String(item.id) }}
           summary={t("row.delete")}

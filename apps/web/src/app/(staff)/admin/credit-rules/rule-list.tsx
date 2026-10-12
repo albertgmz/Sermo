@@ -1,11 +1,11 @@
 import { creditRulesList, nodesList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { EconomyNotice, one } from "../credits/shared";
-import { ConfirmDelete } from "../groups/confirm-delete";
 import { deleteRule } from "./actions";
 import { RuleForm } from "./rule-form";
 
@@ -98,10 +98,10 @@ export async function RuleList({ searchParams }: { searchParams: Search }) {
                 {editing === rule.id && (
                   <div className="space-y-4 border-t p-4">
                     <RuleForm rule={rule} nodes={nodes} />
-                    <ConfirmDelete
+                    <ConfirmStep
                       action={deleteRule}
-                      id={rule.id}
-                      summary={t("deleteHeading")}
+                      fields={{ id: rule.id }}
+                      heading={t("deleteHeading")}
                       warning={t("deleteWarning")}
                       submit={t("delete")}
                     />

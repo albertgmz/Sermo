@@ -4,6 +4,7 @@ import type * as z from "zod";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { userNameProps } from "@/components/forum/user-name";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ import { InlineForm } from "../forums/inline-form";
 import { deleteColour, saveColour } from "./actions";
 import { ColourRows } from "./colour-rows";
 import { PALETTE_KINDS, type PaletteKindName } from "./kinds";
-import { Notice } from "./notice";
 
 type Colour = z.output<typeof paletteColorsList.output>["items"][number];
 
@@ -145,6 +145,7 @@ export async function PaletteScreen({
   return (
     <>
       <Notice
+        namespace="adminAppearance.notices"
         searchParams={searchParams}
         shown={["created", "saved", "deleted", "deactivated"]}
       />

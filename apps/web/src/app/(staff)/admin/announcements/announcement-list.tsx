@@ -3,10 +3,10 @@ import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { HtmlContent } from "@/components/forum/html-content";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { Notice } from "@/components/staff/notice";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
-import { Notice } from "../content-kit/notice";
 
 // The announcements sent so far, newest first, with the link to write a new one.
 export async function AnnouncementList({

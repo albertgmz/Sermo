@@ -2,6 +2,7 @@ import { forumTabsList, nodesList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
 import { saveOrder } from "./actions";
 import { NodeCreateForm } from "./node-create-form";
-import { Notice } from "./notice";
 import { TabsPanel } from "./tabs-panel";
 
 const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
@@ -34,6 +34,7 @@ export async function ForumTree({
   return (
     <>
       <Notice
+        namespace="adminForums.notices"
         searchParams={searchParams}
         shown={["ordered", "tabAdded", "tabSaved", "tabDeleted"]}
       />

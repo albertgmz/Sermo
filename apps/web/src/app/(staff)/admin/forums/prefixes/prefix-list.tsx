@@ -1,11 +1,11 @@
 import { paletteColorsList, threadPrefixesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { deletePrefix } from "../actions";
 import { InlineForm } from "../inline-form";
-import { Notice } from "../notice";
 import { PrefixForm } from "./prefix-form";
 
 // Every prefix in the backend's order (inactive ones too, for an administrator), each with its
@@ -23,6 +23,7 @@ export async function PrefixList({
   return (
     <>
       <Notice
+        namespace="adminForums.notices"
         searchParams={searchParams}
         shown={["created", "saved", "deleted", "deactivated"]}
       />

@@ -1,14 +1,14 @@
 import { wordFiltersList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { InlineConfirm } from "../content-kit/inline-confirm";
-import { Notice } from "../content-kit/notice";
 import { removeWordFilter, saveWordFilter } from "./actions";
 import { WordFilterRowForm } from "./row-form";
 
@@ -60,7 +60,7 @@ export async function FilterList({
                       replacement={item.replacement}
                       isActive={item.isActive}
                     />
-                    <InlineConfirm
+                    <ConfirmStep
                       action={removeWordFilter}
                       fields={{ id: String(item.id) }}
                       summary={t("list.remove")}
