@@ -69,6 +69,7 @@ describe("member profile schema matches the migration", () => {
       ["users_award_count", '"award_count" desc,`id`'],
       ["users_referral_count", '"referral_count" desc,`id`'],
       ["users_birthday", "`birthday_md`,`id`"],
+      ["users_group", "`group_id`,`id`"],
       ["users_referred_at", "`referred_at`"],
       ["member_month_stats_standing", '`month`,"points_tenths" desc,"posts" desc,`user_id`'],
       ["member_month_stats_member", "`month`,`user_id`"],

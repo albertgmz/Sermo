@@ -7616,6 +7616,14 @@
           "isUnique": false,
           "where": "birthday_md IS NOT NULL"
         },
+        "users_group": {
+          "name": "users_group",
+          "columns": [
+            "group_id",
+            "id"
+          ],
+          "isUnique": false
+        },
         "users_referred_at": {
           "name": "users_referred_at",
           "columns": [

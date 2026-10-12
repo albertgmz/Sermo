@@ -45,6 +45,7 @@ CREATE INDEX `users_credits` ON `users` ("credits" desc,`id`);--> statement-brea
 CREATE INDEX `users_award_count` ON `users` ("award_count" desc,`id`);--> statement-breakpoint
 CREATE INDEX `users_referral_count` ON `users` ("referral_count" desc,`id`);--> statement-breakpoint
 CREATE INDEX `users_birthday` ON `users` (`birthday_md`,`id`) WHERE birthday_md IS NOT NULL;--> statement-breakpoint
+CREATE INDEX `users_group` ON `users` (`group_id`,`id`);--> statement-breakpoint
 CREATE INDEX `users_referred_at` ON `users` (`referred_at`) WHERE referred_at IS NOT NULL;--> statement-breakpoint
 UPDATE `groups` SET `is_staff` = 1 WHERE `builtin` IN ('moderator', 'admin');--> statement-breakpoint
 UPDATE `users` SET `award_count` = COALESCE((SELECT SUM(`count`) FROM `member_award_totals` WHERE `member_award_totals`.`user_id` = `users`.`id`), 0);

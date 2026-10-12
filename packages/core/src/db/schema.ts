@@ -273,6 +273,8 @@ export const users = sqliteTable(
     index("users_referral_count").on(desc(t.referralCount), t.id),
     // users.birthdays: WHERE birthday_md = ? ORDER BY id
     index("users_birthday").on(t.birthdayMonthDay, t.id).where(sql`birthday_md IS NOT NULL`),
+    // users.staff: the members whose primary group is one of the staff groups.
+    index("users_group").on(t.groupId, t.id),
     // The month's referrals, for the standings job.
     index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
   ],
