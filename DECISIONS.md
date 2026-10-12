@@ -1056,3 +1056,47 @@ username is the signed-in account's (`apps/web/src/lib/session.ts`). The bridge 
 **A development fixture** (`bun run dev:fixture`) creates four accounts and a little content
 through Better Auth and operations. It refuses `NODE_ENV=production` and does nothing when the
 member `nova` exists.
+
+### Appearance is data: picture and colour catalogs
+
+**Two catalogs, not six tables.** `catalog_images` holds avatar frames, profile covers and thread
+covers (a `kind` column); `palette_colors` holds accents, name colours and prefix colours. One
+set of operations per table (`catalogImages.*`, `paletteColors.*`, permission `admin.appearance`).
+A catalog holds at most 500 entries of a kind and is cached whole in memory, so its lists are not
+paginated and the public `site.get` runs no catalog query when warm.
+
+**Catalog pictures are their own file purposes** (`frame`, `cover_preset`, `thread_cover`,
+`award_image`, `shop_image`, `site_logo`, `site_icon`, `site_backdrop`). They differ from a
+member's uploads in four ways: the matching admin permission is checked at upload, not at attach;
+the types are fixed to JPEG, PNG and WebP (no SVG, assumption A7); they are outside the storage
+quota and the member upload size setting (a fixed 25 MiB); and once attached they are served
+`public, max-age=31536000, immutable`, because replacing a picture always creates a new file id.
+
+**Deleting a catalog entry that is in use deactivates it** and keeps its picture: members,
+threads and shop items keep what they have and nobody new can pick it. The check lives in one
+function per catalog that later features extend.
+
+**The picture of an entry that was never activated is readable by its file id.** Catalog art is
+not secret, and an entry deactivated because it is in use must stay readable, so files do not
+follow the entry's active flag. **Owner review.**
+
+**A frame's placement is measured at upload** (`modules/images/frame-geometry.ts`) and stored
+with the file; `catalogImages.create` uses it unless a placement is given, and the administrator
+can adjust it afterwards. The rule was recovered from the 93 frames the frontend shipped and its
+hand-generated table: it reproduces 45 of them within half a percent and 86 within about two.
+It proposes; it does not replace looking at the preview. **Owner review.**
+
+**The default palette is seeded by the migration** (6 accents, 11 name colours, 8 prefix
+colours, the values the frontend had in its stylesheet), so a new site looks right before anyone
+opens the panel. They are ordinary rows and can be changed or removed.
+
+**The site's logo, icon and backdrop are settings** (`logoFileId`, `iconFileId`,
+`backdropFileId`), not catalog entries: there is one of each.
+
+**`settings.update` changes only the keys it names.** Its input used to be the settings schema
+made partial, and Zod fills a default into every optional key that is left out; each update
+therefore reset every defaulted setting the caller did not send. The input is now built from
+the fields without their defaults. This was a defect before this work.
+
+**Every picture setter takes `fileId: null` to remove the picture**, instead of separate clear
+operations. Deleting an award or a shop item deletes its picture.
