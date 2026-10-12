@@ -161,9 +161,15 @@ describe("the ranking job", () => {
     const queued = () =>
       w.ctx.sqlite
         .prepare<{ n: number }, []>(
-          "SELECT count(*) AS n FROM jobs WHERE type = 'rankings.refresh'",
+          "SELECT count(*) AS n FROM jobs WHERE type = 'rankings.refresh' AND status = 'pending'",
         )
         .get()!.n;
+    // The job queued at registration runs first; nothing more is due before the fifth minute.
+    expect(queued()).toBe(1);
+    w.ctx.sqlite.prepare("UPDATE threads SET last_post_at = ?1").run(w.ctx.now());
+    expect(await runDueJobs(w.ctx)).toBeGreaterThanOrEqual(1);
+    expect(stored(w, "mostReplied").map((row) => row.target_id)).toEqual([t.thread.id]);
+    expect(queued()).toBe(0);
     w.ctx.clock.set(Date.UTC(2026, 5, 1, 12, 3, 0));
     runMinuteTasks(w.ctx);
     expect(queued()).toBe(0);
@@ -171,10 +177,17 @@ describe("the ranking job", () => {
     runMinuteTasks(w.ctx);
     runMinuteTasks(w.ctx);
     expect(queued()).toBe(1);
-    w.ctx.sqlite.prepare("UPDATE threads SET last_post_at = ?1").run(w.ctx.now());
-    expect(await runDueJobs(w.ctx)).toBeGreaterThanOrEqual(1);
-    expect(stored(w, "mostReplied").map((row) => row.target_id)).toEqual([t.thread.id]);
-    enqueueJob(w.ctx, "rankings.refresh", {});
+  });
+
+  test("registering twice, as a restart loop would, queues one refresh", () => {
+    const w = world();
+    registerRankingJobs(w.ctx);
+    registerRankingJobs(w.ctx);
+    registerRankingJobs(w.ctx);
+    const n = w.ctx.sqlite
+      .prepare<{ n: number }, []>("SELECT count(*) AS n FROM jobs WHERE type = 'rankings.refresh'")
+      .get()!.n;
+    expect(n).toBe(1);
   });
 
   test("totals a reaction_counts document", () => {

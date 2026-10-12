@@ -5,7 +5,7 @@ import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { getNodeTree } from "../../permissions";
 import { type ThreadRow, threadColumns, threadRowsByIds, threadValuesFor } from "../forums";
-import { registerJobHandler } from "../jobs/queue";
+import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
@@ -233,11 +233,16 @@ export function refreshRankings(ctx: Ctx): void {
 
 const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
+/**
+ * Registers the refresh job and queues one now, so the rankings exist right after a start
+ * instead of after the next fifth minute. The unique key keeps a restart loop from piling them up.
+ */
 export function registerRankingJobs(ctx: Ctx): void {
   registerJobHandler(ctx, "rankings.refresh", async (context) => {
     const run = recompute(context);
     while (!run.next().done) await yieldToEventLoop();
   });
+  enqueueJob(ctx, "rankings.refresh", {}, { uniqueKey: "rankings.refresh" });
 }
 
 type StoredRow = { node_id: number; position: number; target_id: number; score: number };
