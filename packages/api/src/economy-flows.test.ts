@@ -128,7 +128,7 @@ test("shop listings, inventory and purchase filters paginate with numeric IDs an
       name: "Extra",
       price: 1,
       isConsumable: true,
-      effect: { type: "frame", frame: "gold" },
+      effect: { type: "permission", permission: "profile.signature" },
       position: 2,
     },
     201,

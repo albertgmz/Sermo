@@ -1168,6 +1168,39 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
   });
   return threadValue(ctx, actor, row.id);
 });
+export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx, actor, input) => {
+  requireAuthenticated(actor);
+  const { row } = requireThread(ctx, actor, input.threadId);
+  const moderator = can(ctx, actor, "forum.editAny", { nodeId: row.node_id });
+  // The author of a visible thread, or whoever may edit other members' threads there.
+  if (!moderator && !(row.user_id === actorUserId(actor) && row.state === "visible"))
+    throw new ForbiddenError();
+  writeTx(ctx, () => {
+    const current = threadRow(ctx, row.id)!;
+    if (current.cover_id === null) return;
+    forumDb(ctx)
+      .prepare("UPDATE threads SET cover_id = NULL, content_updated_at = ?1 WHERE id = ?2")
+      .run(ctx.now(), row.id);
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: "thread",
+      targetId: row.id,
+      payload: moderationPayload(actor, row.user_id, input),
+    });
+    if (moderator)
+      appendModeratorLog(
+        ctx,
+        actor,
+        "thread.removeCover",
+        "thread",
+        row.id,
+        input.reason,
+        { coverId: current.cover_id },
+        row.node_id,
+      );
+  });
+  return threadValue(ctx, actor, row.id);
+});
 export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
@@ -2540,6 +2573,7 @@ export const operations = [
   threadsGetOp,
   threadsCreateOp,
   threadsUpdateOp,
+  threadsRemoveCoverOp,
   threadsSetStickyOp,
   threadsSetLockedOp,
   threadsMoveOp,

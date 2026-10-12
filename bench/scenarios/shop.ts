@@ -1,4 +1,5 @@
 import { enqueueJob, registerJobHandler, registerShopJobs, runDueJobs } from "@sermo/core";
+import { type Ctx, invalidate } from "../../packages/core/src/context";
 import { writeTx } from "../../packages/core/src/db/tx";
 import type { Effect, Item } from "../../packages/core/src/modules/shop/data";
 import { expireShopBatch } from "../../packages/core/src/modules/shop/expiry";
@@ -14,13 +15,33 @@ async function category(env: BenchEnv): Promise<number> {
     await env.call("shopCategories.create", env.actors.admin, { name: "Benchmark catalog" }),
   ).id;
 }
+const frameEntries = new WeakMap<Ctx, number>();
+/** One catalog frame, with a picture, for every frame item these scenarios sell. */
+function frameEntry(env: BenchEnv): number {
+  let id = frameEntries.get(env.ctx);
+  if (id === undefined) {
+    const file = env.ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, uploader_id, purpose, visibility, created_at, attached_at) VALUES ('bench', lower(hex(randomblob(8))), 1, 'image/png', 'bench', ?1, 'frame', 'public', ?2, ?2) RETURNING id",
+      )
+      .get(env.meta.adminId, Date.now())!.id;
+    id = env.ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO catalog_images (kind, name, file_id, frame_width, frame_left, frame_top, frame_scale, position, is_active, created_at, updated_at) VALUES ('frame', 'Benchmark frame', ?1, 150, -25, -25, 90, 0, 1, ?2, ?2) RETURNING id",
+      )
+      .get(file, Date.now())!.id;
+    invalidate(env.ctx, "appearance");
+    frameEntries.set(env.ctx, id);
+  }
+  return id;
+}
 async function item(env: BenchEnv, categoryId: number, fields: Partial<Item> = {}): Promise<Item> {
   return response<Item>(
     await env.call("shopItems.create", env.actors.admin, {
       categoryId,
       name: "Benchmark item",
       price: 1,
-      effect: { type: "frame", frame: "gold" },
+      effect: { type: "frame", frameId: frameEntry(env) },
       ...fields,
     }),
   );
@@ -63,7 +84,7 @@ function catalogWrite(operation: "create" | "update" | "delete", items: boolean)
                 categoryId,
                 name: "Created item",
                 price: 1,
-                effect: { type: "frame", frame: "silver" },
+                effect: { type: "frame", frameId: frameEntry(env) },
               }
             : { name: "Created category" },
         );
@@ -131,66 +152,102 @@ function buying(
   };
 }
 
-function using(kind: "cosmetic" | "consumable" | "permission" | "thread"): Scenario {
-  let inventoryId = 0;
-  let threadId: number | undefined;
+function using(kind: "bump" | "highlight" | "permission"): Scenario {
   let userId = 0;
+  let threadId: number | undefined;
   let inventoryIds: number[] = [];
   return {
     name: `shop.use ${kind}`,
     kind: "write",
     async setup(env) {
-      threadId = undefined;
       inventoryIds = [];
       userId = env.meta.economy.richUserIds[0]!;
-      if (kind === "thread") {
-        threadId = env.meta.threadIds[0]!;
-        userId = env.ctx.sqlite
-          .prepare<{ user_id: number }, [number]>("SELECT user_id FROM threads WHERE id = ?1")
-          .get(threadId)!.user_id;
-      }
       fund(env, userId);
       await env.authHeader(env.actors.user(userId));
       const categoryId = await category(env);
       const effect: Effect =
-        kind === "thread"
+        kind === "bump"
           ? { type: "bump" }
-          : kind === "permission"
-            ? { type: "permission", permission: "profilePost.viewDeleted" }
-            : { type: "frame", frame: "gold" };
-      if (kind === "permission") {
-        // Each measured use consumes a last unit and exercises grant revocation.
-        for (let n = 0; n < count(); n++) {
-          const ownItem = await item(env, categoryId, { isConsumable: true, effect });
-          const result = response<{ inventory: { id: number } }>(
-            await env.call("shop.buy", env.actors.user(userId), {
-              itemId: ownItem.id,
-            }),
-          );
-          inventoryIds.push(result.inventory.id);
-        }
-      } else {
-        const ownItem = await item(env, categoryId, { isConsumable: kind !== "cosmetic", effect });
-        let units = kind === "cosmetic" ? 1 : count();
-        while (units > 0) {
-          const quantity = Math.min(units, 100);
-          const result = response<{ inventory: { id: number } }>(
-            await env.call("shop.buy", env.actors.user(userId), {
-              itemId: ownItem.id,
-              quantity,
-            }),
-          );
-          inventoryId = result.inventory.id;
-          units -= quantity;
-        }
+          : kind === "highlight"
+            ? { type: "highlight", days: 1 }
+            : { type: "permission", permission: "profilePost.viewDeleted" };
+      if (kind !== "permission")
+        // The thread the scenario acts on is its own; seeded threads keep their order.
+        threadId = (
+          JSON.parse(
+            (await env.call("threads.create", env.actors.user(userId), {
+              nodeId: env.meta.forumIds[0]!,
+              title: "Benchmark thread for shop.use",
+              body: "Benchmark body.",
+            })) as string,
+          ) as { thread: { id: number } }
+        ).thread.id;
+      // Each measured use takes one unit; permission units are single so the last unit also
+      // exercises grant revocation.
+      for (let n = 0; n < (kind === "permission" ? count() : 1); n++) {
+        const ownItem = await item(env, categoryId, { isConsumable: true, effect });
+        const result = response<{ inventory: { id: number } }>(
+          await env.call("shop.buy", env.actors.user(userId), {
+            itemId: ownItem.id,
+            quantity: kind === "permission" ? 1 : count(),
+          }),
+        );
+        inventoryIds.push(result.inventory.id);
       }
     },
     run(env) {
-      const id = kind === "permission" ? inventoryIds.shift() : inventoryId;
+      const id = kind === "permission" ? inventoryIds.shift() : inventoryIds[0];
       if (!id) throw new Error("Shop use fixtures exhausted.");
       return env.call("shop.use", env.actors.user(userId), {
         inventoryId: id,
-        ...(threadId === undefined ? {} : { threadId }),
+        ...(kind === "permission" ? {} : { threadId }),
+      });
+    },
+  };
+}
+
+/** The member holds a frame and a colour; the scenarios read or change what they wear. */
+function wearing(kind: "get" | "set"): Scenario {
+  let userId = 0;
+  let frameId = 0;
+  return {
+    name: `appearance.${kind}`,
+    kind: kind === "get" ? "read" : "write",
+    async setup(env) {
+      userId = env.meta.economy.richUserIds[0]!;
+      fund(env, userId);
+      await env.authHeader(env.actors.user(userId));
+      const categoryId = await category(env);
+      const frame = await item(env, categoryId, { price: 0 });
+      await env.call("shop.buy", env.actors.user(userId), { itemId: frame.id });
+      frameId = frameEntry(env);
+      const colorId = env.ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "SELECT id FROM palette_colors WHERE kind = 'name' ORDER BY position, id LIMIT 1",
+        )
+        .get()!.id;
+      const color = await item(env, categoryId, {
+        price: 0,
+        effect: { type: "nameColor", colorId },
+      });
+      await env.call("shop.buy", env.actors.user(userId), { itemId: color.id });
+    },
+    run(env) {
+      if (kind === "get") return env.call("appearance.get", env.actors.user(userId), {});
+      // Toggle by reading what is worn now: the colour goes on and off.
+      const worn = env.ctx.sqlite
+        .prepare<{ name_color_id: number | null }, [number]>(
+          "SELECT name_color_id FROM users WHERE id = ?1",
+        )
+        .get(userId)!.name_color_id;
+      const colorId = env.ctx.sqlite
+        .prepare<{ id: number }, []>(
+          "SELECT id FROM palette_colors WHERE kind = 'name' ORDER BY position, id LIMIT 1",
+        )
+        .get()!.id;
+      return env.call("appearance.set", env.actors.user(userId), {
+        nameColorId: worn === null ? colorId : null,
+        frameId,
       });
     },
   };
@@ -356,6 +413,8 @@ export const scenarios: Scenario[] = [
     (["create", "update", "delete"] as const).map((operation) => catalogWrite(operation, items)),
   ),
   ...(["consumable", "permanent", "permission", "group", "gift", "renew"] as const).map(buying),
-  ...(["cosmetic", "consumable", "permission", "thread"] as const).map(using),
+  ...(["bump", "highlight", "permission"] as const).map(using),
+  wearing("get"),
+  wearing("set"),
   expiry(),
 ];

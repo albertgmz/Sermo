@@ -19,6 +19,7 @@ import {
 import { type AnyOperation, execute } from "../../operation";
 import { can, memberStanding } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
+import { insertCatalogImage, insertPaletteColor } from "../appearance/catalog-fixtures";
 import { enqueueJob, runDueJobs } from "../jobs/queue";
 import { expireShopBatch } from "./expiry";
 import { operations, registerShopJobs } from "./index";
@@ -33,6 +34,7 @@ function fixture() {
   const admin = userActor(insertUser(ctx, { groupId: 4 }));
   const member = insertUser(ctx);
   const recipient = insertUser(ctx);
+  const frameId = insertCatalogImage(ctx, "frame");
   const actor = userActor(member);
   const call = (name: string, input: unknown = {}, as: Actor = actor) => {
     const op: AnyOperation = operations.find((op) => op.name === name)!;
@@ -48,7 +50,7 @@ function fixture() {
         categoryId: category.id,
         name: "Frame",
         price: 10,
-        effect: { type: "frame", frame: "gold" },
+        effect: { type: "frame", frameId },
         ...fields,
       },
       admin,
@@ -64,7 +66,7 @@ function fixture() {
         .all(),
     ).toEqual([]);
   };
-  return { ctx, call, create, fund, expire, actor, admin, member, recipient };
+  return { ctx, call, create, fund, expire, actor, admin, member, recipient, frameId };
 }
 function deny(
   ctx: ReturnType<typeof createTestContext>,
@@ -134,17 +136,17 @@ describe("shop purchases and inventory", () => {
   });
 
   test("reordering an unchanged purchased effect is not a change of terms", async () => {
-    const { ctx, call, create, fund, admin } = fixture();
+    const { ctx, call, create, fund, admin, frameId } = fixture();
     fund();
     const item = await create();
     await call("shop.buy", { itemId: item.id });
     ctx.sqlite
       .prepare("UPDATE shop_items SET effect = ?1 WHERE id = ?2")
-      .run(JSON.stringify({ frame: "gold", type: "frame" }), item.id);
+      .run(JSON.stringify({ frameId, type: "frame" }), item.id);
     expect(
       await call(
         "shopItems.update",
-        { itemId: item.id, effect: { type: "frame", frame: "gold" }, price: 20 },
+        { itemId: item.id, effect: { type: "frame", frameId }, price: 20 },
         admin,
       ),
     ).toMatchObject({ price: 20 });
@@ -525,11 +527,15 @@ describe("shop purchases and inventory", () => {
       call("shop.inventory", { state: "active", userId: 999999 }, admin),
     ).rejects.toBeInstanceOf(NotFoundError);
     for (const actor of [moderator, admin]) {
-      const free = await create({ price: 0 });
+      const free = await create({
+        price: 0,
+        isConsumable: true,
+        effect: { type: "permission", permission: "profile.signature" },
+      });
       const own = await call("shop.buy", { itemId: free.id }, actor);
       expect(await call("shop.use", { inventoryId: own.inventory.id }, actor)).toMatchObject({
-        quantity: 1,
-        state: "active",
+        quantity: 0,
+        state: "used",
       });
     }
     deny(ctx, member.id, "shop.buy");
@@ -591,7 +597,7 @@ describe("shop purchases and inventory", () => {
     );
   });
 
-  test("thread effects require a visible owned thread in a viewable node; no effect is applied", async () => {
+  test("thread effects require a visible owned thread in a viewable node", async () => {
     const { ctx, call, create, fund, member, recipient } = fixture();
     fund();
     const node = insertNode(ctx, {});
@@ -617,8 +623,9 @@ describe("shop purchases and inventory", () => {
       thread(member.id, node.id, "moderated"),
       thread(member.id, hidden.id),
     ];
+    const cover = insertCatalogImage(ctx, "thread_cover");
     for (const effect of [
-      { type: "threadCover", cover: "gold" },
+      { type: "threadCover", coverId: cover },
       { type: "highlight", days: 2 },
       { type: "bump" },
     ]) {
@@ -627,52 +634,50 @@ describe("shop purchases and inventory", () => {
       await expect(call("shop.use", { inventoryId: bought.inventory.id })).rejects.toBeInstanceOf(
         ValidationError,
       );
-      for (const threadId of badIds)
+      for (const threadId of badIds) {
+        const before = ctx.sqlite.prepare("SELECT * FROM threads WHERE id = ?1").get(threadId);
         await expect(
           call("shop.use", { inventoryId: bought.inventory.id, threadId }),
         ).rejects.toBeInstanceOf(NotFoundError);
-      const before = ctx.sqlite.prepare("SELECT * FROM threads WHERE id = ?1").get(visible);
+        expect(ctx.sqlite.prepare("SELECT * FROM threads WHERE id = ?1").get(threadId)).toEqual(
+          before,
+        );
+      }
       expect(
         await call("shop.use", { inventoryId: bought.inventory.id, threadId: visible }),
       ).toMatchObject({ quantity: effect.type === "threadCover" ? 1 : 0 });
-      expect(ctx.sqlite.prepare("SELECT * FROM threads WHERE id = ?1").get(visible)).toEqual(
-        before,
-      );
     }
   });
 
-  test("username, cosmetic and expired item use validates input and only publishes events", async () => {
-    const { ctx, call, create, fund, member, expire } = fixture();
+  test("items that are worn, spent elsewhere or applied while held cannot be used", async () => {
+    const { ctx, call, create, fund, expire, frameId } = fixture();
     fund();
+    const color = insertPaletteColor(ctx, { kind: "name" });
     const rename = await create({ isConsumable: true, effect: { type: "usernameChange" } });
     const bought = await call("shop.buy", { itemId: rename.id });
-    await expect(call("shop.use", { inventoryId: bought.inventory.id })).rejects.toBeInstanceOf(
-      ValidationError,
+    await expect(call("shop.use", { inventoryId: bought.inventory.id })).rejects.toThrow(
+      /users\.changeUsername/,
     );
-    await call("shop.use", { inventoryId: bought.inventory.id, value: "New name" });
-    expect(ctx.sqlite.prepare("SELECT username FROM users WHERE id = ?1").get(member.id)).toEqual({
-      username: member.username,
-    });
+    await expect(
+      call("shop.use", { inventoryId: bought.inventory.id, threadId: 1 }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(
+      ctx.sqlite
+        .prepare("SELECT quantity, state FROM shop_inventory WHERE id = ?1")
+        .get(bought.inventory.id),
+    ).toEqual({ quantity: 1, state: "unused" });
     for (const effect of [
-      { type: "frame", frame: "gold" },
-      { type: "nameColor", color: "#ff0000" },
+      { type: "frame", frameId },
+      { type: "nameColor", colorId: color },
     ]) {
       const item = await create({ effect, durationSeconds: 60 });
       const owned = await call("shop.buy", { itemId: item.id });
+      await expect(call("shop.use", { inventoryId: owned.inventory.id })).rejects.toThrow(
+        /appearance\.set/,
+      );
       await expect(
         call("shop.use", { inventoryId: owned.inventory.id, threadId: 1 }),
-      ).rejects.toBeInstanceOf(ValidationError);
-      await expect(
-        call("shop.use", { inventoryId: owned.inventory.id, value: "X" }),
-      ).rejects.toBeInstanceOf(ValidationError);
-      expect(await call("shop.use", { inventoryId: owned.inventory.id })).toMatchObject({
-        quantity: 1,
-        state: "active",
-      });
-      expect(await call("shop.use", { inventoryId: owned.inventory.id })).toMatchObject({
-        quantity: 1,
-        state: "active",
-      });
+      ).rejects.toBeInstanceOf(ConflictError);
       ctx.clock.advance(60_001);
       await expire();
       await expect(call("shop.use", { inventoryId: owned.inventory.id })).rejects.toBeInstanceOf(

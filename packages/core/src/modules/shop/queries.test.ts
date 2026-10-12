@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestContext, expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
 import { closeContext } from "../../context";
 import { type AnyOperation, execute } from "../../operation";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 import { itemsSql, purchasesSql, shopSql } from "./data";
 import { expireShopBatch } from "./expiry";
 import { operations } from "./index";
@@ -12,6 +13,7 @@ test("prepared catalog and inventory writes also avoid scans", async () => {
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
     const buyer = userActor(insertUser(ctx));
     const recipient = insertUser(ctx);
+    const frameId = insertCatalogImage(ctx, "frame");
     const call = (name: string, input: unknown, actor = admin) =>
       execute(ctx, operations.find((op) => op.name === name)! as AnyOperation, actor, input);
     const category = await call("shopCategories.create", { name: "Catalog" });
@@ -23,7 +25,7 @@ test("prepared catalog and inventory writes also avoid scans", async () => {
       isConsumable: true,
       isGiftable: true,
       stock: 10,
-      effect: { type: "frame", frame: "gold" },
+      effect: { type: "permission", permission: "profile.signature" },
     });
     await call("shopItems.update", { itemId: item.id, stock: 20 });
     const held = await call("shop.buy", { itemId: item.id }, buyer);
@@ -34,7 +36,7 @@ test("prepared catalog and inventory writes also avoid scans", async () => {
       name: "Temporary",
       price: 0,
       durationSeconds: 60,
-      effect: { type: "frame", frame: "gold" },
+      effect: { type: "frame", frameId },
     });
     await call("shop.buy", { itemId: temporary.id }, buyer);
     ctx.clock.advance(60_000);

@@ -62,7 +62,7 @@ export const shopSql = {
   ownInventory: "SELECT * FROM shop_inventory WHERE id = ?1 AND user_id = ?2",
   recipient: "SELECT id, credits FROM users WHERE id = ?1",
   ignored: "SELECT 1 FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
-  thread: "SELECT user_id, node_id, state FROM threads WHERE id = ?1",
+  thread: "SELECT user_id, node_id, state, merged_into_id FROM threads WHERE id = ?1",
   group: "SELECT rank FROM groups WHERE id = ?1",
   expiry:
     "SELECT id, user_id FROM shop_inventory WHERE state = 'active' AND expires_at <= ?1 ORDER BY expires_at, id LIMIT ?2",
