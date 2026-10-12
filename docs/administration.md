@@ -1,8 +1,8 @@
 # Administering Sermo
 
 This guide is for forum operators. It explains how Sermo decides what each member may do, which
-tools moderators have, and how notifications, email and Web Push behave, with the REST API call
-(under `/api/v1`) and the operation name for each task. MCP clients call the same operations as
+tools moderators have, and how the economy, notifications, email and Web Push behave, with the
+REST API call (under `/api/v1`) and the operation name for each task. MCP clients call the same operations as
 tools, with dots replaced by underscores (`users.setGroups` becomes `users_setGroups`). Every
 operation is listed with its request and response schemas in `/api/v1/openapi.json`. Server
 installation and configuration are in the [README](../README.md).
@@ -161,6 +161,8 @@ when the member no longer does. They need `admin.promotions`:
 | `inactive_days` | has not visited for at least this many days (or never) |
 | `warning_points_below` | active (unexpired) warning points strictly below this |
 
+Promotions and automatic awards also share the four [economy criteria](#economy-criteria).
+
 All criteria of a promotion must hold. Members are evaluated right after relevant activity (a new
 post, thread, profile post or comment, a received reaction, a warning, a profile change such as a
 new avatar, an administrator changing their groups) and by a daily sweep over everyone;
@@ -179,6 +181,279 @@ Per member and promotion (`promotions.apply`, which also needs `admin.members` o
 Every automatic and manual change is recorded in `promotions.log`. A group change takes effect
 immediately, and when the member's groups actually change they get a `member.groups`
 notification.
+
+## Economy
+
+Sermo has one currency, credits. Members earn or lose credits through rules and awards, and spend
+them in the shop. Administrators can also adjust balances by hand.
+
+### Economy permissions
+
+These are global permissions and all require an account. The first five belong to the `economy`
+category; the last three belong to `admin`.
+
+| Permission | What it allows | Default |
+| --- | --- | --- |
+| `credits.adjust` | Give or take credits by hand; queue a balance repair | Administrator |
+| `credits.viewAny` | Read any member's balance and ledger, or the whole ledger | Moderator, Administrator |
+| `award.grant` | Grant awards by hand and revoke individual grants | Moderator, Administrator |
+| `shop.buy` | Buy items and use items in your own inventory | Member, Moderator, Administrator |
+| `shop.gift` | Buy a giftable item for another member; also needs `shop.buy` | Member, Moderator, Administrator |
+| `admin.creditRules` | List, create, change and delete credit rules | Administrator |
+| `admin.awards` | Manage awards, read their criteria and queue an automatic award sweep | Administrator |
+| `admin.shop` | Manage categories and items; read the purchase log and anyone's inventory | Administrator |
+
+`credits.adjust` and `award.grant` have no rank check: holders can act on themselves and on
+members of equal or higher rank. This includes taking credits and revoking awards.
+
+### Credits and the ledger
+
+Credits are whole numbers. Each movement adds a permanent ledger row with the signed amount,
+the balance after it, its type, source when known, who made it (`null` for the system), reason
+and time. Rows are never edited or removed; reversing a payment adds another row. The types are
+`adjustment` (manual), `event` (credit rule, including a restored payment), `event_reversal`,
+`award`, `award_revoked` and `purchase`.
+
+Every signed-in member can see their own history, newest first. `credits.viewAny` is needed to
+read another member's history or the ledger of everyone. The ledger returns a balance only when
+`userId` is supplied; otherwise its `balance` is `null`.
+
+| Task | REST | Operation |
+| --- | --- | --- |
+| Your balance and history | `GET /credits` | `credits.history` |
+| The whole ledger, or one member with `userId` | `GET /credits/ledger` | `credits.ledger` |
+| Adjust a member's balance | `POST /users/{userId}/credits` | `credits.adjust` |
+| Queue a balance repair | `POST /credits/recalculate` | `credits.recalculate` |
+
+A manual adjustment takes a nonzero `amount` between -1,000,000,000 and 1,000,000,000 and a
+nonblank `reason` of up to 500 characters. Positive amounts give credits; negative amounts take
+them. Penalties and reversals apply in full even after a member has spent their credits, so a
+balance can become negative. A purchase cannot take a balance below zero: insufficient funds
+refuse the whole purchase.
+
+Daily at 03:00 UTC, `credits.recalculate` is queued to recompute every balance from its ledger
+and repair differences. Queue it yourself with `POST /credits/recalculate` and an empty object;
+this needs `credits.adjust`. The repair changes the stored balance without changing ledger rows.
+The response's `queued` says whether a new job was queued, not whether the repair has finished.
+
+### Credit rules
+
+A rule has a title, one trigger, a signed nonzero amount between -1,000,000 and 1,000,000, an
+`isActive` flag, an optional limit and optional forum ids. Several active rules can use the same
+trigger; each applies independently. Positive amounts reward the member below, and negative
+amounts charge that same member.
+
+| Trigger | Member whose balance changes |
+| --- | --- |
+| `thread_created` | The author of a new visible thread |
+| `reply_posted` | The reply's author; excludes the thread's first post, but includes replying to your own thread |
+| `reply_received` | The thread's author when someone else replies |
+| `reaction_given` | The member reacting to visible content, for any reactable content type |
+| `reaction_received` | The author of that content |
+| `profile_post_created` | The author posting on another member's profile |
+| `profile_post_received` | That profile's owner; posting on your own profile triggers neither profile rule |
+| `followed` | The member gaining a follower |
+| `registered` | The newly registered member |
+| `daily_activity` | The member on their first recorded activity of a UTC day |
+| `warning_received` | The member receiving a warning |
+| `award_received` | The member receiving an award grant, in addition to any credits the award itself pays |
+
+`limit: { "count": 5, "windowHours": 24 }`, for example, allows at most five applications of
+that rule per member within a rolling 24-hour window. `null` means no limit. The window uses the
+event's time, and reverted applications still count: deleting content does not free a place.
+
+`nodeIds: []` means everywhere. A nonempty list must contain existing forums and is accepted
+only for `thread_created`, `reply_posted`, `reply_received`, `reaction_given` and
+`reaction_received`. It matches those forums, not their descendants. A restricted reaction rule
+applies only to reactions on posts in those forums and ignores other content types.
+
+Rules apply only to events recorded after the rule was created, including when older events
+are still waiting to be processed. A rule pays each member only once per source: a thread, reply,
+one member's reaction on one item, profile post, follower, registration, UTC day, warning or award
+grant. Removing and adding the same reaction, or unfollowing and following again, does not earn
+another payment.
+
+**Visibility and reversals.** Content awaiting approval pays on its first approval. Hiding
+content takes back the rule payments attached to that content; restoring it re-applies the
+original amounts. A reversal of a negative rule returns the credits it charged. Restoring does
+not earn a second payment or apply newly created rules to content that already had its chance.
+Hiding a thread reverses what the thread itself paid, not what its replies paid; new payments
+for replies require a visible thread. Revoking an award also reverses any `award_received`
+rule payments attached to that grant.
+
+| Task | REST | Operation |
+| --- | --- | --- |
+| List rules | `GET /credit-rules` | `creditRules.list` |
+| Create a rule | `POST /credit-rules` | `creditRules.create` |
+| Change a rule | `PATCH /credit-rules/{ruleId}` | `creditRules.update` |
+| Delete a rule | `DELETE /credit-rules/{ruleId}` | `creditRules.delete` |
+
+All need `admin.creditRules`. A rule's trigger cannot change. Changing its amount does not change
+payments already made, including their later reversals and restores. Deactivating or deleting a
+rule stops new applications; its existing payments stay and still reverse or re-apply when their
+content is hidden or restored.
+
+### Awards
+
+Awards include achievements. Each has a name, description, icon, tier (`bronze`, `silver`, `gold`
+or `legendary`), XP and credits per grant, and flags for active and stackable. XP and credits
+are nonnegative whole numbers, each up to 1,000,000. Award lists show legendary first, then gold,
+silver and bronze, with higher XP first within each tier. XP accumulates in the member's total.
+
+A stackable award can be held several times; a non-stackable one cannot be granted while the
+member already holds it. Each grant adds XP and pays the award's credits through the ledger.
+Grant and revoke by hand with `award.grant`, with an optional reason of up to 500 characters.
+Revocation targets one grant and takes back exactly the XP and credits it originally gave, even
+if the award's values have since changed; the balance can go below zero. Credit rules attached
+to that grant reverse separately when the revoke event is processed.
+
+An award with an empty `criteria` list is manual only. Otherwise all criteria must hold for an
+automatic grant. Members are evaluated after relevant activity (including credit changes and
+purchases) and by a daily sweep. Each award is granted automatically at most once per member,
+even when stackable. Losing eligibility never takes it back, and revoking an automatic grant
+never makes the criteria grant it again. Manual grants remain possible under the stackability
+rule; a held non-stackable manual grant prevents an automatic grant while it is held.
+
+| Task | REST | Operation |
+| --- | --- | --- |
+| List, read awards | `GET /awards`, `GET /awards/{awardId}` | `awards.list`, `awards.get` |
+| Current holders, one row per grant | `GET /awards/{awardId}/holders` | `awards.holders` |
+| A member's XP and awards with counts | `GET /users/{userId}/awards` | `awards.member` |
+| A member's current grants, newest first | `GET /users/{userId}/award-grants` | `awards.memberGrants` |
+| List automatic award criteria | `GET /awards/criteria` | `awards.criteria` |
+| Create, change, delete | `POST /awards`, `PATCH`/`DELETE /awards/{awardId}` | `awards.create`, `awards.update`, `awards.delete` |
+| Grant by hand (`awardId` in the body) | `POST /users/{userId}/awards` | `awards.grant` |
+| Revoke one grant | `DELETE /award-grants/{memberAwardId}` | `awards.revoke` |
+| Queue an evaluation of everyone | `POST /awards/run` | `awards.run` |
+
+Catalog and holder calls need `profile.view`; inactive awards are shown there only to holders
+of `admin.awards`. Member award calls require access to that member's profile and include the
+awards they still hold, even if deactivated. Managing awards, reading criteria and queuing a
+sweep need `admin.awards`.
+
+Set `isActive: false` to stop further grants while keeping existing ones. An award that has
+ever been granted cannot be deleted, even after every grant is revoked. Changing XP or credits
+affects future grants only. You cannot turn off stackability while anyone holds more than one.
+
+The `awards.sweep` job is queued daily at 03:00 UTC. To queue it now, send an empty object to
+`POST /awards/run`; `queued` reports whether a new job was queued. Creating or editing an award
+does not itself sweep members: use this call or wait for activity or the daily sweep.
+
+### Shop
+
+Categories and items have names, descriptions, display positions and active flags. Everyone can
+browse the active catalog; `admin.shop` also reveals inactive categories and items. An item and
+its category must both be active to buy it. A category can be deleted only when it has no items.
+
+An item's `price` is a whole number of credits from 0 to 1,000,000,000 per unit. `stock` is the
+number of units left, or `null` for unlimited. A purchase charges price times quantity, reduces
+finite stock, delivers the inventory and records the purchase together. If funds or stock are
+short, none of it happens. Free items still create purchases but no credit ledger row.
+
+- **Consumable** (`isConsumable: true`): purchases add 1 to 100 units; each use consumes one.
+  The inventory state is `unused` while units remain and `used` when none do. Consumables cannot
+  have a duration or a `group` effect.
+- **Non-consumable**: quantity must be 1. It is `active` while held and cannot be bought again
+  for that recipient until it is `expired`. `durationSeconds` runs from purchase (at least 60
+  seconds, at most ten 365-day years); `null` makes it permanent.
+
+| Effect | What happens |
+| --- | --- |
+| `permission` | Grants a registered permission while held: until expiry, or until a consumable's last unit is used. A yes/no permission takes no `value`; a number permission requires one (-1 for unlimited). |
+| `group` | Adds a secondary group while held. This is how to sell a paid rank; the item cannot be consumable. |
+| `frame`, `nameColor` | Store a frame key or a `#rrggbb` color; using the item only publishes `shop.item_used`. |
+| `threadCover`, `highlight`, `bump` | Store the effect; use needs `threadId`, a visible thread started by the member in a forum they can see, and only publishes `shop.item_used`. |
+| `usernameChange` | Use needs the proposed name in `value` and only publishes `shop.item_used`. |
+
+Only `permission` and `group` apply now, as part of the purchase. The other effects are validated
+and published for subscribers; this release does not change appearance, threads or usernames
+when they are used. Group items and non-consumable permission items cannot be used manually;
+their benefits apply while held.
+
+**Purchased permissions.** A purchase adds a separate grant alongside group and member-specific
+entries. Any `never` still denies, otherwise an `allow` grants; number permissions take the
+highest value, with -1 unlimited, rather than adding values together. Bans, restrictions and
+the permission's other conditions still apply. A node permission is granted on every node,
+subject to the normal node-view checks. To sell access to a particular forum, sell a group with
+permissions on that forum. `permissions.explain` shows the purchased layer as `purchase`.
+Expiry removes only the purchased grant: it leaves permissions set by an administrator, and
+groups assigned by hand or by a promotion, in place.
+
+**Expiry.** Every minute the scheduler queues `shop.expire`, which marks due items `expired`
+and removes their purchased grants. Benefits can therefore last up to one minute beyond
+`expiresAt`; they do not end at the exact timestamp. Purchase and expiry changes are visible
+on the member's next request.
+
+**Gifts.** Supply `recipientId` when buying. The buyer needs both `shop.buy` and `shop.gift`,
+and the item must have `isGiftable: true`. The buyer pays and the recipient receives the item;
+stock and ownership rules still apply. A recipient's ignore blocks a gift when the buyer has
+`member.ignorable`; staff lack that permission by default, so an old ignore entry does not block
+their gifts. Gifts are chosen at purchase: an item already in inventory cannot be given away.
+
+**What may be sold.** Creating, editing or deleting an item with a `permission` or `group` effect
+needs `admin.permissions` as well as `admin.shop`. A sold group must exist, cannot be Guest, and
+must rank below the administrator managing the item. Permissions in the `admin` category and
+groups holding `admin.permissions` cannot be sold; purchases also enforce this protection.
+A group used by a shop item cannot be deleted while that item exists.
+
+**Changing the catalog.** Once an item has been bought, its `effect`, `isConsumable` and
+`durationSeconds` are fixed, and it cannot be deleted. Other fields, including price, stock and
+giftability, can still change. Set `isActive: false` on the item or category to stop purchases;
+existing inventory and its benefits remain.
+
+| Task | REST | Operation |
+| --- | --- | --- |
+| List categories | `GET /shop/categories` | `shopCategories.list` |
+| Create, change, delete categories | `POST /shop/categories`, `PATCH`/`DELETE /shop/categories/{categoryId}` | `shopCategories.create`, `shopCategories.update`, `shopCategories.delete` |
+| List a category's items | `GET /shop/categories/{categoryId}/items` | `shopItems.list` |
+| Read an item | `GET /shop/items/{itemId}` | `shopItems.get` |
+| Create, change, delete items | `POST /shop/items`, `PATCH`/`DELETE /shop/items/{itemId}` | `shopItems.create`, `shopItems.update`, `shopItems.delete` |
+| Buy for yourself or as a gift | `POST /shop/items/{itemId}/buy` | `shop.buy` |
+| Inventory in one required `state` | `GET /shop/inventory` | `shop.inventory` |
+| Use an item you own | `POST /shop/inventory/{inventoryId}/use` | `shop.use` |
+| Purchase log | `GET /shop/purchases` | `shop.purchases` |
+
+Every signed-in member may read their own inventory. Reading someone else's with `userId`
+needs `admin.shop`. The purchase log also needs `admin.shop`: it lists purchases newest first,
+optionally filtered by `buyerId`, `itemId` or both, and shows the buyer, recipient, item, quantity,
+total price and time. `shop.buy` is needed both to buy and to use an item.
+
+### Economy criteria
+
+Promotions and automatic awards use the same criteria, listed by `GET /promotions/criteria`
+(`admin.promotions`) and `GET /awards/criteria` (`admin.awards`). Alongside the
+[existing criteria](#promotions), both accept:
+
+| Criterion | Value |
+| --- | --- |
+| `credits_at_least` | Balance is at least this many credits |
+| `credits_at_most` | Balance is at most this many credits |
+| `purchased_item` | The id of an item the member has bought |
+| `purchases_at_least` | At least this many units bought, across purchases |
+
+Credit thresholds must be nonnegative: `credits_at_most` with 0 includes both zero balances and
+debt. Purchase criteria record buying, not current ownership: using or expiring an item does not
+undo a purchase, and gifts count for the buyer, not the recipient. Credit changes and purchases
+trigger evaluation of that member in the background, alongside the daily sweeps.
+
+### Economy events
+
+The event dispatcher runs every second. Credit rules and automatic awards use these background
+events; they are separate from notification types.
+
+| Event | When it is published |
+| --- | --- |
+| `member.registered` | A member's account is created |
+| `member.active_day` | Buffered activity is saved for the member's first activity of a UTC day; includes the UTC day number |
+| `credits.changed` | A ledger row is added; includes the member, transaction, amount, resulting balance, type, source and actor |
+| `award.granted`, `award.revoked` | A grant is made or revoked; includes the member, grant, award, original XP and credits, actor and reason |
+| `shop.purchased` | A purchase commits; includes the item, buyer, recipient, quantity, total price and inventory id |
+| `shop.item_used` | An item is used; includes the member, item, effect, units left and, where required, thread or proposed name |
+
+Purchased groups also use the existing `member.groups_changed` event with `source: "shop"`
+when purchase or expiry actually changes membership. Activity is saved every five seconds;
+activity just before midnight followed by activity before the next save can be recorded only
+for the new UTC day.
 
 ## Moderation tools
 
@@ -658,16 +933,19 @@ levels.
 
 The single server process runs everything; there is no separate worker to deploy.
 
-- **Background jobs.** Durable work (notification fan-out, emails, push messages, spam cleanup, merges and splits,
-  promotion sweeps, file cleanup) is stored in the `jobs` table and run by the job worker, which
-  checks for due jobs every second. A failed job is retried after 30 seconds, 2 minutes,
+- **Background jobs.** Durable work (notification fan-out, emails, push messages, spam cleanup,
+  merges and splits, promotion and award sweeps, credit balance repairs, shop expiry, file cleanup)
+  is stored in the `jobs` table and run by the job worker, which checks for due jobs every second.
+  A failed job is retried after 30 seconds, 2 minutes,
   10 minutes and 1 hour, and is marked `failed` after five attempts. Finished jobs are deleted
   after seven days.
 - **Scheduler.** Every second: events are handed to notifications, promotions and the other
-  subscribers. Every five seconds: thread views, downloads and member activity are written. Every
+  subscribers, including credit rules and awards. Every five seconds: thread views, downloads and
+  member activity are written. Every minute: temporary shop item expiry is queued. Every
   hour: expired sessions, API keys and verification tokens, old read markers, finished jobs and old
   read notifications are purged, and search engine (IndexNow) and file cleanup work is queued. Daily at 03:00 UTC: the
-  promotion sweep, file cleanup, a rebuild of the stored counters, and SQLite's `PRAGMA optimize`.
+  promotion and award sweeps, credit balance repair, file cleanup, a rebuild of the stored counters,
+  and SQLite's `PRAGMA optimize`.
   Weekly on Monday at 04:00 UTC: the email digest.
 - **Checkpointer.** SQLite runs in WAL mode; a background thread copies the WAL into the database
   file every second so requests never pay for it. While a background job runs, checkpoints pause
