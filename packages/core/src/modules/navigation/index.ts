@@ -200,14 +200,14 @@ const list = implement(navigationList, (ctx, actor) => {
 
 const create = implement(navigationCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.settings");
-  const id = writeTx(ctx, () => {
+  return writeTx(ctx, () => {
     if (ctx.sqlite.prepare<{ n: number }, []>(navigationSql.count).get()!.n >= NAVIGATION_LIMIT)
       throw new ConflictError(`The site holds at most ${NAVIGATION_LIMIT} navigation entries.`);
     if (input.parentId !== null) requireParent(ctx, input.parentId, input.location);
     const columns = audienceColumns(input.audience, input.permission);
     const row = ctx.sqlite
-      .prepare<{ id: number }, (string | number | null)[]>(
-        "INSERT INTO navigation_entries (location, parent_id, title, target, position, is_enabled, audience, permission, builtin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?9) RETURNING id",
+      .prepare<EntryRow, (string | number | null)[]>(
+        "INSERT INTO navigation_entries (location, parent_id, title, target, position, is_enabled, audience, permission, builtin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?9) RETURNING *",
       )
       .get(
         input.location,
@@ -224,9 +224,8 @@ const create = implement(navigationCreate, (ctx, actor, input) => {
     appendModeratorLog(ctx, actor, "navigation.create", "navigation_entry", row.id, "", {
       location: input.location,
     });
-    return row.id;
+    return entryValue(row);
   });
-  return entryValue(entryRow(ctx, id));
 });
 
 const update = implement(navigationUpdate, (ctx, actor, input) => {

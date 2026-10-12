@@ -21,7 +21,10 @@ export const NavigationTarget = z
   .min(1)
   .max(500)
   .refine(
-    (value) => /^\/(?!\/)[^\s\\]*$/.test(value) || /^https?:\/\/[^\s]+$/i.test(value),
+    (value) =>
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are refused
+      !/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\ufeff]/.test(value) &&
+      (/^\/(?!\/)[^\s\\]*$/.test(value) || /^https?:\/\/[^\s]+$/i.test(value)),
     "Use a path that starts with one slash, or an http(s) URL.",
   );
 

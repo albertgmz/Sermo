@@ -85,6 +85,30 @@ describe("navigation.get", () => {
     }
   });
 
+  test("an unconfirmed member sees what a member sees; a banned member too, except entries gated on a permission", async () => {
+    const { ctx, admin, member, create, titles } = setup();
+    await create({ title: "Reply", audience: "permission", permission: "notification.view" });
+    const unconfirmed = userActor(insertUser(ctx, { groupId: 5 }));
+    const bannedUser = insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(bannedUser.id);
+    const banned = userActor(bannedUser);
+    const asMember = await run(ctx, "navigation.get", member);
+    for (const actor of [unconfirmed, banned]) {
+      const view = await run(ctx, "navigation.get", actor);
+      expect(titles(view.mobile)).toEqual(titles(asMember.mobile));
+      expect(titles(view.account)).toEqual(titles(asMember.account));
+      expect(titles(view.footer)).toEqual(titles(asMember.footer));
+    }
+    expect(titles(asMember.header)).toContain("Reply");
+    expect(titles((await run(ctx, "navigation.get", unconfirmed)).header)).toEqual(
+      titles(asMember.header),
+    );
+    expect(titles((await run(ctx, "navigation.get", banned)).header)).toEqual(
+      titles(asMember.header).filter((title: string) => title !== "Reply"),
+    );
+    expect(titles((await run(ctx, "navigation.get", admin)).header)).toContain("Reply");
+  });
+
   test("an entry gated on a permission shows to holders only", async () => {
     const { ctx, admin, member, moderator, create } = setup();
     await create({ title: "Staff", audience: "permission", permission: "admin.settings" });
@@ -257,6 +281,68 @@ describe("navigation administration: permissions", () => {
 });
 
 describe("navigation.create and update rules", () => {
+  const refused = ["a b", "ab", "ab", "a​b"];
+  const accepted = ["/forums", "/pages/rules?x=1#top", "https://example.test/a?b=c"];
+
+  test("create refuses a target with a control or invisible character and accepts ordinary ones", async () => {
+    const { ctx, admin, create } = setup();
+    for (const suffix of refused)
+      for (const target of [`/forums${suffix}`, `https://example.test/${suffix}`])
+        await expect(create({ target }), JSON.stringify(target)).rejects.toThrow();
+    for (const target of accepted) expect((await create({ target })).target).toBe(target);
+    expect(
+      ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT COUNT(*) AS n FROM navigation_entries WHERE title = 'Link'",
+        )
+        .get()!.n,
+    ).toBe(accepted.length);
+    expect(admin).toBeDefined();
+  });
+
+  test("update refuses a target with a control or invisible character and accepts ordinary ones", async () => {
+    const { ctx, admin, create } = setup();
+    const entry = await create({ target: "/start" });
+    const update = (target: string) =>
+      run(ctx, "navigation.update", admin, { entryId: entry.id, target });
+    for (const suffix of refused)
+      await expect(update(`/forums${suffix}`), JSON.stringify(suffix)).rejects.toThrow();
+    for (const target of accepted) expect((await update(target)).target).toBe(target);
+  });
+
+  test("settings.update refuses a social link with a control or invisible character", async () => {
+    const { ctx, admin } = setup();
+    const update = (url: string) =>
+      run(ctx, "settings.update", admin, {
+        socialLinks: { discord: null, telegram: null, x: url },
+      });
+    for (const suffix of refused)
+      await expect(
+        update(`https://example.test/a${suffix}`),
+        JSON.stringify(suffix),
+      ).rejects.toThrow();
+    await expect(update("https://example.test/a?b=c")).resolves.toBeDefined();
+  });
+
+  test("create returns the entry it wrote without reading it back after the commit", async () => {
+    const { ctx, create } = setup();
+    const prepare = ctx.sqlite.prepare.bind(ctx.sqlite);
+    const seen: string[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: the wrapper only records the SQL text
+    (ctx.sqlite as any).prepare = (sql: string) => {
+      seen.push(sql);
+      return prepare(sql);
+    };
+    try {
+      const created = await create({ title: "Fresh" });
+      expect(created).toMatchObject({ title: "Fresh", target: "/x", builtin: null });
+      expect(seen).not.toContain(navigationSql.one);
+    } finally {
+      // biome-ignore lint/suspicious/noExplicitAny: restoring the method replaced above
+      (ctx.sqlite as any).prepare = prepare;
+    }
+  });
+
   test("an unknown entry is not found", async () => {
     const { ctx, admin } = setup();
     await expect(
