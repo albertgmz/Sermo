@@ -156,6 +156,8 @@ export const staffSql = {
   members: (table: "users" | "user_groups" | "user_group_grants" | "shop_group_grants") =>
     `SELECT t.${table === "users" ? "id" : "user_id"} AS user_id, j.value AS group_id FROM json_each(?1) AS j CROSS JOIN ${table} AS t ON t.group_id = j.value LIMIT ${STAFF_LIMIT}`,
 };
+export const staffBanSql =
+  "SELECT id, banned_until, banned_permanently FROM users WHERE id IN (SELECT value FROM json_each(?1))";
 const STAFF_SOURCES = ["users", "user_groups", "user_group_grants", "shop_group_grants"] as const;
 
 export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
@@ -176,6 +178,14 @@ export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
       held.add(row.group_id);
       staffGroupsOf.set(row.user_id, held);
     }
+  const now = ctx.now();
+  for (const row of prepared(ctx, "members.staffBans", () =>
+    ctx.sqlite.prepare<
+      { id: number; banned_until: number | null; banned_permanently: number },
+      [string]
+    >(staffBanSql),
+  ).all(JSON.stringify([...staffGroupsOf.keys()])))
+    if (isBanned(row, now)) staffGroupsOf.delete(row.id);
   const byId = new Map(groups.map((group) => [group.id, group]));
   const username = loadUserSummaries(ctx, staffGroupsOf.keys());
   const ranked = [...staffGroupsOf].map(([userId, held]) => {

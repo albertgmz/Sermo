@@ -9,7 +9,7 @@ import {
   ValidationError,
 } from "../../errors";
 import { expectNoTableScan } from "../../testing";
-import { birthdaySql, listSql, staffSql } from "./directory";
+import { birthdaySql, listSql, staffBanSql, staffSql } from "./directory";
 import { type World, world } from "./fixtures.test";
 
 const COLUMN = {
@@ -201,6 +201,21 @@ describe("users.staff", () => {
     expect(primary.id).toBeGreaterThan(0);
   });
 
+  test("banned staff are left out, an expired ban is not", async () => {
+    const w = world();
+    const names = async () =>
+      (await w.call("users.staff", GUEST, {})).items.map(
+        (item: { card: { id: number } }) => item.card.id,
+      );
+    expect(await names()).toContain(w.moderator.id);
+    w.set(w.moderator.id, { banned_until: w.ctx.now() + 86_400_000 });
+    expect(await names()).not.toContain(w.moderator.id);
+    w.set(w.moderator.id, { banned_until: w.ctx.now() - 1000 });
+    expect(await names()).toContain(w.moderator.id);
+    w.set(w.admin.id, { banned_permanently: 1 });
+    expect(await names()).toEqual([w.moderator.id]);
+  });
+
   test("a group that stops being staff drops out", async () => {
     const w = world();
     const group = (
@@ -234,6 +249,7 @@ describe("users.staff", () => {
       "shop_group_grants",
     ] as const)
       expectNoTableScan(w.ctx, staffSql.members(source), ["[3,4]"]);
+    expectNoTableScan(w.ctx, staffBanSql, ["[1,2]"]);
   });
 });
 
