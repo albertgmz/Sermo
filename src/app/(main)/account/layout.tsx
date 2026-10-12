@@ -69,7 +69,7 @@ export default async function AccountLayout({
         <Button
           variant="outline"
           className="min-h-10"
-          render={<Link href={`/members/${user.username}`} />}
+          render={<Link href={`/members/${user.id}`} />}
         >
           View profile
         </Button>

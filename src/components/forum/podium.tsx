@@ -46,7 +46,7 @@ export function Podium({
             )}
           >
             <Link
-              href={`/members/${member.username}`}
+              href={`/members/${member.id}`}
               className={cn(
                 "group flex min-w-0 flex-col items-center rounded-t-md px-1 pt-2 transition-colors hover:bg-muted/60",
                 member.id === viewerId && "bg-primary/5",

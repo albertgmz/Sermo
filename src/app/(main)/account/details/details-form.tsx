@@ -15,7 +15,7 @@ const USERNAME_ERRORS = {
   not_allowed: "You have no username change left.",
   invalid: "Use 3 to 20 letters, numbers, underscores or hyphens.",
   taken: "That username is already taken.",
-  unconfirmed: "Confirm that your profile address will change.",
+  unconfirmed: "Confirm your username change.",
 };
 
 const TITLE_ERRORS = {
@@ -101,9 +101,9 @@ export function DetailsForm({
                   htmlFor="username-confirm"
                   className="block leading-normal font-normal text-muted-foreground [overflow-wrap:anywhere]"
                 >
-                  I understand that my profile address changes to /members/
-                  {USERNAME_PATTERN.test(next) ? next : "new-name"} and the old
-                  one stops working.
+                  I want to change my username to{" "}
+                  {USERNAME_PATTERN.test(next) ? next : "my new username"}. My
+                  profile address stays the same.
                 </Label>
               </div>
             )}

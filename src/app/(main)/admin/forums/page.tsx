@@ -27,7 +27,7 @@ export default async function AdminForumsPage() {
               <div key={forum.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={`/forums/${forum.slug}`}
+                    href={`/forums/${forum.id}`}
                     className="inline-flex min-h-10 max-w-full items-center text-sm font-semibold underline-offset-4 hover:underline"
                   >
                     <span className="truncate">{forum.title}</span>

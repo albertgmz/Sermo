@@ -41,7 +41,7 @@ export default async function AdminForumPage({
           Back to forums
         </Link>
         <Link
-          href={`/forums/${forum.slug}`}
+          href={`/forums/${forum.id}`}
           className={buttonVariants({
             variant: "ghost",
             className: "min-h-10",

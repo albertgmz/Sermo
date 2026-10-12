@@ -2,7 +2,6 @@ import { CalendarDays, Heart, MessageCircle, Star, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LegacyAccountLinks } from "@/app/(main)/account/legacy-links";
 import { StatsChart } from "@/app/(main)/account/stats-chart";
 import { StatTile } from "@/components/forum/stat";
 import { getUserPosts } from "@/lib/db";
@@ -19,7 +18,6 @@ export default async function AccountPage() {
 
   return (
     <div className="space-y-4">
-      <LegacyAccountLinks />
       <div className="flex flex-wrap items-center justify-between gap-2 lg:pb-2">
         <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
         <p className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium">
