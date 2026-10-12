@@ -9,7 +9,7 @@ import { openAPI, type username } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { authMe } from "../../contracts/auth";
+import { authCounters, authMe } from "../../contracts/auth";
 import {
   authPlugins,
   authSchemaOptions,
@@ -991,4 +991,28 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
   };
 });
 
-export const operations: AnyOperation[] = [authMeOp];
+/**
+ * Unread notifications from the member's counter, and unread conversations among the 100 most
+ * recently active ones: one statement, the inbox index (user, state, last message) in order,
+ * stopped after 100 rows, then a primary-key lookup of each conversation's last message.
+ */
+export const countersSql =
+  "SELECT u.unread_notification_count AS notifications, " +
+  "(SELECT count(*) FROM (SELECT cp.conversation_id, cp.last_read_message_id FROM conversation_participants cp " +
+  "WHERE cp.user_id = ?1 AND cp.state = 'active' ORDER BY cp.last_message_at DESC, cp.conversation_id DESC LIMIT 100) AS recent " +
+  "JOIN conversations c ON c.id = recent.conversation_id WHERE c.last_message_id > recent.last_read_message_id) AS conversations " +
+  "FROM users u WHERE u.id = ?1";
+export const authCountersOp = implement(
+  authCounters,
+  (ctx, actor) => {
+    if (actor.kind === "guest") return { notifications: 0, conversations: 0 };
+    return (
+      prepared(ctx, "auth.counters", () =>
+        ctx.sqlite.prepare<{ notifications: number; conversations: number }, [number]>(countersSql),
+      ).get(actor.userId) ?? { notifications: 0, conversations: 0 }
+    );
+  },
+  { public: "Every caller sees only their own counters; guests see zeros." },
+);
+
+export const operations: AnyOperation[] = [authMeOp, authCountersOp];
