@@ -38,6 +38,7 @@ const member = {
     canReact: false,
   },
   resolvedPermissions: {},
+  staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
 };
 
 const conversation = {
