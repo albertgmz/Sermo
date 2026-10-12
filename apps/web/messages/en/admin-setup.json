@@ -268,5 +268,29 @@
       "empty": "There is no navigation entry yet.",
       "saving": "Saving…"
     }
+  },
+  "identity": {
+    "metaTitle": "Site identity",
+    "heading": "Site identity",
+    "subtitle": "The pictures that make the site recognisable: its logo, its browser icon and the backdrop behind its pages.",
+    "loading": "Loading the site identity…",
+    "formHeading": "Pictures",
+    "formDescription": "A picture is uploaded as soon as you choose it and takes effect when you save. Only the pictures you change are saved.",
+    "nothingChanged": "Nothing was changed.",
+    "errors": {
+      "file": "That is not a valid uploaded file."
+    },
+    "logoFileId": {
+      "label": "Logo",
+      "help": "Shown in the header of every page, in place of the drawn mark. Without one, the site name is shown with the drawn mark."
+    },
+    "iconFileId": {
+      "label": "Icon",
+      "help": "The small picture on the browser tab and in bookmarks. A square PNG works best."
+    },
+    "backdropFileId": {
+      "label": "Page backdrop",
+      "help": "Drawn across the top of every page, fading out downwards. Without one, the drawn pattern is shown."
+    }
   }
 }
