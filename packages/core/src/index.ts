@@ -33,6 +33,7 @@ export {
 export { registerAccountEmailJobs } from "./modules/email/account";
 export {
   enqueueJob,
+  flushActivity,
   flushDownloadCounts,
   flushViewCounts,
   registerJobHandler,

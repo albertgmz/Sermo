@@ -7,6 +7,7 @@ import {
   configurePush,
   createContext,
   ensureAdmin,
+  flushActivity,
   flushDownloadCounts,
   flushViewCounts,
   isLoopbackHost,
@@ -362,6 +363,7 @@ async function main(): Promise<void> {
       flushViewCounts: () => {
         flushViewCounts(ctx);
         flushDownloadCounts(ctx);
+        flushActivity(ctx);
       },
       stopScheduler,
       stopWorker,
