@@ -13,6 +13,7 @@ import {
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { UserLink } from "@/components/forum/user-link";
 import { buttonVariants } from "@/components/ui/button";
 import type { ProfilePostView, UserView } from "@/lib/db";
 import type { ReactionType } from "@/lib/types";
@@ -143,7 +144,12 @@ export function Wall({
         <EmptyState
           icon={PenLine}
           title="No messages yet"
-          description={`Be the first to write something on ${user.username}'s profile.`}
+          description={
+            <>
+              Be the first to write something on <UserLink user={user} />
+              's profile.
+            </>
+          }
         >
           {!viewer && (
             <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>

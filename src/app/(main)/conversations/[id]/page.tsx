@@ -46,7 +46,12 @@ export default async function ConversationPage({
             {conversation.title}
           </h1>
           <p className="truncate text-xs text-muted-foreground">
-            {conversation.participants.map((p) => p.username).join(", ")}
+            {conversation.participants.map((participant, index) => (
+              <span key={participant.id}>
+                {index > 0 && ", "}
+                <UserLink user={participant} />
+              </span>
+            ))}
           </p>
         </div>
       </header>

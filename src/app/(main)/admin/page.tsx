@@ -6,6 +6,7 @@ import { MemberRow } from "@/components/forum/member-row";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { StatTile } from "@/components/forum/stat";
+import { UserLink } from "@/components/forum/user-link";
 import { getCategories, getForumStats, getUsers } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
@@ -60,20 +61,30 @@ export default async function AdminPage() {
         >
           {activity.latestPosts.length ? (
             activity.latestPosts.map((thread) => (
-              <Link
+              <div
                 key={thread.id}
-                href={`/threads/${thread.id}#post-${thread.lastPost.postId}`}
-                className="block space-y-1 px-4 py-3 transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring"
+                className="relative space-y-1 px-4 py-3 transition-colors hover:bg-muted/50"
               >
-                <p className="truncate text-sm font-medium">{thread.title}</p>
+                <p className="truncate text-sm font-medium">
+                  <Link
+                    href={`/threads/${thread.id}#post-${thread.lastPost.postId}`}
+                    className="after:absolute after:inset-0 focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {thread.title}
+                  </Link>
+                </p>
                 <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                  {thread.lastPost.author.username} · {thread.forum.title}
+                  <UserLink
+                    user={thread.lastPost.author}
+                    className="relative z-10"
+                  />{" "}
+                  · {thread.forum.title}
                 </p>
                 <RelativeTime
                   date={thread.lastPost.createdAt}
                   className="block text-xs text-muted-foreground"
                 />
-              </Link>
+              </div>
             ))
           ) : (
             <EmptyState

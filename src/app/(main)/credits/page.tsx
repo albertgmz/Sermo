@@ -16,7 +16,7 @@ import { ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
 import { TabLinks } from "@/components/forum/tab-links";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-link";
+import { UserLink, userNameClass } from "@/components/forum/user-link";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -226,13 +226,15 @@ function ChipNav({
   );
 }
 
+type ShopPreview = UserView | Pick<UserView, "username" | "avatar">;
+
 function ItemPicture({
   item,
   preview,
   children,
 }: {
   item: ShopItem;
-  preview: AvatarUser;
+  preview: ShopPreview;
   children?: React.ReactNode;
 }) {
   const { effect } = item;
@@ -257,7 +259,14 @@ function ItemPicture({
             nameColor(effect.color)?.text,
           )}
         >
-          {preview.username}
+          {"id" in preview ? (
+            <UserLink
+              user={preview}
+              className={nameColor(effect.color)?.text}
+            />
+          ) : (
+            preview.username
+          )}
         </p>
       )}
       {children}
@@ -323,7 +332,7 @@ function ItemCard({
 }: {
   item: ShopItem;
   viewer: UserView | null;
-  preview: AvatarUser;
+  preview: ShopPreview;
   owned: InventoryItemView | undefined;
 }) {
   const equipped = Boolean(
@@ -426,7 +435,7 @@ function PermissionExample({
               viewer && userNameClass(viewer),
             )}
           >
-            {name}
+            {viewer ? <UserLink user={viewer} /> : name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {viewer?.customTitle ?? "Keeper of the changelog"}
@@ -451,7 +460,7 @@ function PermissionExample({
       return (
         <p className="flex flex-wrap items-center gap-x-2 text-sm">
           <span className="text-muted-foreground line-through [overflow-wrap:anywhere]">
-            {name}
+            {viewer ? <UserLink user={viewer} /> : name}
           </span>
           <span aria-hidden="true">→</span>
           <span className="sr-only">becomes</span>
@@ -616,7 +625,7 @@ function Shop({
   items: ShopItem[];
   query: Query;
   viewer: UserView | null;
-  preview: AvatarUser;
+  preview: ShopPreview;
   owned: Map<number, InventoryItemView>;
   permissions: PermissionView[];
   sample: UserView;

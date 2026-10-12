@@ -21,6 +21,7 @@ import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
 import { TabLinks } from "@/components/forum/tab-links";
+import { UserLink } from "@/components/forum/user-link";
 import { Container } from "@/components/layout/container";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +111,10 @@ function ProfileCards({
       <Card>
         <CardHeader>
           <CardTitle>Groups</CardTitle>
-          <CardDescription>Explore {user.username}'s groups.</CardDescription>
+          <CardDescription>
+            Explore <UserLink user={user} />
+            's groups.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {user.role === "member" ? (
@@ -124,7 +128,8 @@ function ProfileCards({
         <CardHeader>
           <CardTitle>Awards</CardTitle>
           <CardDescription>
-            Explore {user.username}'s awards collection.
+            Explore <UserLink user={user} />
+            's awards collection.
           </CardDescription>
         </CardHeader>
         {user.awards.length > 0 ? (
@@ -144,7 +149,7 @@ function ProfileCards({
           </CardContent>
         ) : (
           <CardContent className="py-2 text-center text-muted-foreground">
-            {user.username} has no awards at this time.
+            <UserLink user={user} /> has no awards at this time.
           </CardContent>
         )}
       </Card>
@@ -153,7 +158,7 @@ function ProfileCards({
           <CardHeader>
             <CardTitle>Inventory</CardTitle>
             <CardDescription>
-              Items {user.username} got from the shop.
+              Items <UserLink user={user} /> got from the shop.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -184,7 +189,7 @@ function ProfileCards({
         <CardHeader>
           <CardTitle>Latest activity</CardTitle>
           <CardDescription>
-            What {user.username} has been up to lately.
+            What <UserLink user={user} /> has been up to lately.
           </CardDescription>
         </CardHeader>
         {activity.length > 0 ? (
@@ -210,7 +215,7 @@ function ProfileCards({
           </CardContent>
         ) : (
           <CardContent className="py-2 text-center text-muted-foreground">
-            {user.username} has no recent activity.
+            <UserLink user={user} /> has no recent activity.
           </CardContent>
         )}
       </Card>
@@ -224,7 +229,11 @@ function Posts({ user, posts }: { user: UserView; posts: PostView[] }) {
       <EmptyState
         icon={MessagesSquare}
         title="No posts yet"
-        description={`${user.username} has not posted in the forums.`}
+        description={
+          <>
+            <UserLink user={user} /> has not posted in the forums.
+          </>
+        }
       />
     );
   }
@@ -251,7 +260,11 @@ function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
       <EmptyState
         icon={MessagesSquare}
         title="No threads yet"
-        description={`${user.username} has not started a thread.`}
+        description={
+          <>
+            <UserLink user={user} /> has not started a thread.
+          </>
+        }
       />
     );
   }
@@ -305,7 +318,7 @@ function About({ user, cards }: { user: UserView; cards: React.ReactNode }) {
             <Markdown>{user.bio}</Markdown>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {user.username} has not written a bio yet.
+              <UserLink user={user} /> has not written a bio yet.
             </p>
           )}
         </div>

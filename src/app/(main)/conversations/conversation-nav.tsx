@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -27,12 +26,11 @@ export function ConversationLink({
 }) {
   const segment = useSelectedLayoutSegment();
   return (
-    <Link
-      href={`/conversations/${id}`}
+    <div
       aria-current={segment === String(id) ? "page" : undefined}
-      className="flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 aria-[current=page]:bg-muted"
+      className="relative flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50 aria-[current=page]:bg-muted"
     >
       {children}
-    </Link>
+    </div>
   );
 }

@@ -16,6 +16,7 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { threadCoverSrc } from "@/lib/appearance";
 import type {
   FeedItem as FeedEntry,
@@ -240,7 +241,7 @@ export function FeedItem({
       </h2>
       {!isThread && (
         <p className="mt-2 truncate border-l-2 pl-2.5 text-xs text-muted-foreground">
-          <span className="font-medium">{thread.author.username}:</span>{" "}
+          <UserLink user={thread.author} className="font-medium" />:{" "}
           {thread.excerpt}
         </p>
       )}
