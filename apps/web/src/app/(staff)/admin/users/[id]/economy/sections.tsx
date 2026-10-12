@@ -275,7 +275,11 @@ export async function Awards({
                 <Time at={grant.grantedAt} /> ·{" "}
                 {grant.grantedBy ? (
                   <>
-                    {t("by")} <UserLink user={who(grant.grantedBy.id)} />
+                    {t("by")}{" "}
+                    <UserLink
+                      user={who(grant.grantedBy.id)}
+                      className="inline-flex min-h-10 items-center"
+                    />
                   </>
                 ) : (
                   t("automatic")

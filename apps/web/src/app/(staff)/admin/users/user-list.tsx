@@ -20,7 +20,7 @@ const one = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
 
 const COLUMNS =
-  "md:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_6rem_minmax(0,1fr)_7rem_7rem_4rem_5rem]";
+  "md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.8fr)_5.5rem_7.5rem_7rem_6rem_3.5rem_4.5rem]";
 
 async function Row({ member }: { member: AdminMember }) {
   const [t, format] = await Promise.all([
@@ -35,7 +35,10 @@ async function Row({ member }: { member: AdminMember }) {
       <div className="flex min-w-0 items-center gap-3">
         <UserAvatar user={card} size="lg" link={false} />
         <div className="min-w-0">
-          <UserLink user={card} className="text-sm font-semibold" />
+          <UserLink
+            user={card}
+            className="inline-flex min-h-10 items-center text-sm font-semibold"
+          />
           <Link
             href={`/admin/users/${card.id}`}
             className="flex min-h-10 items-center text-xs text-primary underline-offset-4 hover:underline md:min-h-0"

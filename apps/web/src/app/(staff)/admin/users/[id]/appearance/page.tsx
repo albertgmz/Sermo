@@ -2,7 +2,8 @@ import { catalogImagesList, paletteColorsList } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { MemberRow } from "@/components/forum/member-row";
+import { UserAvatar } from "@/components/forum/user-avatar";
+import { UserLink } from "@/components/forum/user-link";
 import { Section } from "@/components/staff/rows";
 import { read } from "@/lib/sermo/client";
 import { getMember, isReadOnly, memberIdOf } from "../../data";
@@ -38,7 +39,16 @@ async function Appearance({
     <>
       <Notice searchParams={searchParams} shown={["saved"]} />
       <Section heading={t("now")}>
-        <MemberRow user={member.card} />
+        <div className="flex items-center gap-3 p-4">
+          <UserAvatar user={member.card} size="xl" link={false} />
+          <div className="min-w-0">
+            <UserLink
+              user={member.card}
+              className="inline-flex min-h-10 items-center text-sm font-semibold"
+            />
+            <p className="text-xs text-muted-foreground">{member.card.title}</p>
+          </div>
+        </div>
       </Section>
       <AppearanceForm
         userId={userId}

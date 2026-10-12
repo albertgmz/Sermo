@@ -67,7 +67,10 @@ export async function MemberHeader({
           <UserAvatar user={member.card} size="xl" link={false} />
           <div className="min-w-0 space-y-1">
             <h1 className="text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">
-              <UserLink user={member.card} />
+              <UserLink
+                user={member.card}
+                className="inline-flex min-h-10 items-center"
+              />
             </h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <MemberState state={member.state} />

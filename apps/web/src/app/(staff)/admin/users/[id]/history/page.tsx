@@ -50,7 +50,12 @@ async function History({
         entries={page.items.map((entry) => ({
           id: entry.id,
           at: entry.createdAt,
-          actor: <UserLink user={who(entry.actor.id)} />,
+          actor: (
+            <UserLink
+              user={who(entry.actor.id)}
+              className="inline-flex min-h-10 items-center"
+            />
+          ),
           action: entry.action,
           target: t("target"),
           details: entry.details,

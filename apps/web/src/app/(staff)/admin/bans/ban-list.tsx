@@ -100,11 +100,17 @@ export async function BanList({
               className={`grid gap-x-4 gap-y-1.5 text-sm md:items-start ${COLUMNS}`}
             >
               <p className="min-w-0 font-medium [overflow-wrap:anywhere]">
-                <UserLink user={who(ban.user.id)} />
+                <UserLink
+                  user={who(ban.user.id)}
+                  className="inline-flex min-h-10 items-center"
+                />
               </p>
               <p className="min-w-0 [overflow-wrap:anywhere]">
                 <span className={label}>{t("by")}: </span>
-                <UserLink user={who(ban.moderator.id)} />
+                <UserLink
+                  user={who(ban.moderator.id)}
+                  className="inline-flex min-h-10 items-center"
+                />
               </p>
               <p className="min-w-0 [overflow-wrap:anywhere]">
                 <span className={label}>{t("reason")}: </span>

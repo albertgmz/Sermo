@@ -128,7 +128,11 @@ export async function Warnings({
               </p>
               <p className="text-xs text-muted-foreground">
                 <When at={warning.createdAt} none="" /> · {t("by")}{" "}
-                <UserLink user={who(warning.moderatorId)} /> · {t("expires")}{" "}
+                <UserLink
+                  user={who(warning.moderatorId)}
+                  className="inline-flex min-h-10 items-center"
+                />{" "}
+                · {t("expires")}{" "}
                 <When at={warning.expiresAt} none={t("never")} />
               </p>
             </div>
@@ -340,8 +344,11 @@ export async function Bans({
               </p>
               <p className="text-xs text-muted-foreground">
                 <When at={ban.createdAt} none="" /> · {t("by")}{" "}
-                <UserLink user={who(ban.moderator.id)} /> · {t("until")}{" "}
-                <When at={ban.expiresAt} none={t("never")} />
+                <UserLink
+                  user={who(ban.moderator.id)}
+                  className="inline-flex min-h-10 items-center"
+                />{" "}
+                · {t("until")} <When at={ban.expiresAt} none={t("never")} />
                 {ban.liftedAt && (
                   <>
                     {" "}
