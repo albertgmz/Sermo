@@ -80,13 +80,8 @@
     }
   },
   "staffBar": {
-    "moderator": "Moderator",
     "admin": "Admin",
-    "links": {
-      "approvalQueue": "Approval queue",
-      "reports": "Reports",
-      "moderatorLog": "Moderator log"
-    }
+    "moderation": "Moderation"
   },
   "siteFooter": {
     "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",

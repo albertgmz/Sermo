@@ -590,10 +590,11 @@ export const SECTIONS = [
 export type SectionId = (typeof SECTIONS)[number]["id"];
 export type ScreenKey = (typeof SECTIONS)[number]["screens"][number]["key"];
 
-export const SCREENS: readonly (Screen & { section: SectionId })[] =
-  SECTIONS.flatMap((section) =>
-    section.screens.map((screen) => ({ ...screen, section: section.id })),
-  );
+type ListedScreen = Screen & { key: ScreenKey; section: SectionId };
+
+export const SCREENS: readonly ListedScreen[] = SECTIONS.flatMap((section) =>
+  section.screens.map((screen) => ({ ...screen, section: section.id })),
+);
 
 export function canOpen(me: Standing, screen: Pick<Screen, "access">) {
   const { access } = screen;
@@ -652,7 +653,7 @@ export function mayOpenPath(
 
 export type VisibleSection = {
   id: SectionId;
-  screens: readonly (Screen & { section: SectionId })[];
+  screens: readonly ListedScreen[];
 };
 
 // What the navigation and the home grid show the member: the listed, built screens they may
@@ -668,4 +669,14 @@ export function visibleSections(me: Standing): VisibleSection[] {
         canOpen(me, screen),
     ),
   })).filter((section) => section.screens.length > 0);
+}
+
+export const screenByKey = (key: ScreenKey) =>
+  SCREENS.find((screen) => screen.key === key) as ListedScreen;
+
+// Where a link to the screen may point for this member, or undefined: the screen is not built
+// yet, or they may not open it.
+export function hrefFor(me: Standing, key: ScreenKey) {
+  const screen = screenByKey(key);
+  return screen.built && canOpen(me, screen) ? screen.path : undefined;
 }

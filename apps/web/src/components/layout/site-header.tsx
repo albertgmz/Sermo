@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { UserAvatar } from "@/components/forum/user-avatar";
+import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { getCounters, getViewerCard } from "@/components/layout/header-data";
 import {
@@ -15,12 +15,10 @@ import {
   SearchPanel,
 } from "@/components/layout/header-panels";
 import { Logo } from "@/components/layout/logo";
-import { accountItems, toNavItems } from "@/components/layout/nav";
+import { toNavItems } from "@/components/layout/nav";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
-import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -123,11 +121,7 @@ async function HeaderNavigation() {
 }
 
 async function AccountTools() {
-  const [viewer, card, navigation] = await Promise.all([
-    getViewer(),
-    getViewerCard(),
-    getNavigation(),
-  ]);
+  const [viewer, card] = await Promise.all([getViewer(), getViewerCard()]);
   const t = await getTranslations("layout.siteHeader");
   return (
     <>
@@ -151,14 +145,7 @@ async function AccountTools() {
           >
             <AlertTools />
           </Suspense>
-          <UserMenu
-            lite={await getLiteState()}
-            avatar={<UserAvatar user={card} size="md" link={false} />}
-            links={accountItems(
-              toNavItems(navigation.account, `/members/${viewer.user.id}`),
-            )}
-            user={{ username: card.username, title: card.title }}
-          />
+          <AccountMenu />
         </>
       ) : (
         <>
