@@ -8,8 +8,13 @@ import { Empty, Ok, Timestamp } from "./common";
  * sanitised when saved, like every other body.
  */
 
-/** Longer than a post: legal texts run long. Only administrators write pages. */
-const PageBody = z.string().trim().min(1).max(50_000);
+/**
+ * Twice a post: legal texts run long, and only administrators write pages. Not more: rendering
+ * cost grows faster than linearly on adversarial input, and at 20,000 characters the worst cases
+ * measured take about 1.6 s. A longer text is split over several pages.
+ */
+export const PAGE_BODY_LENGTH = 20_000;
+const PageBody = z.string().trim().min(1).max(PAGE_BODY_LENGTH);
 
 export const PageSlug = z
   .string()
@@ -42,11 +47,28 @@ export const pagesGet = defineContract({
 export const pagesList = defineContract({
   name: "pages.list",
   summary:
-    "Every page with its Markdown source, published or not, ordered by slug (at most 100 " +
-    "exist). Requires admin.settings.",
+    "Every page, published or not, without its text, ordered by slug (at most 100 exist). " +
+    "Requires admin.settings.",
   kind: "read",
   input: Empty,
-  output: z.object({ items: z.array(StaticPageDetail) }),
+  output: z.object({
+    items: z.array(
+      z.object({
+        slug: z.string(),
+        title: z.string(),
+        isPublished: z.boolean(),
+        updatedAt: Timestamp,
+      }),
+    ),
+  }),
+});
+
+export const pagesGetSource = defineContract({
+  name: "pages.getSource",
+  summary: "One page with its Markdown source, published or not. Requires admin.settings.",
+  kind: "read",
+  input: z.object({ slug: PageSlug }),
+  output: StaticPageDetail,
 });
 
 export const pagesSave = defineContract({

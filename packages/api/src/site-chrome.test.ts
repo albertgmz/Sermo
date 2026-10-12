@@ -114,7 +114,17 @@ test("pages are read by slug, written with PUT and hidden while unpublished", as
   const page = await request("/api/v1/pages/terms");
   expect(page.status).toBe(200);
   expect(((await page.json()) as { bodyHtml: string }).bodyHtml).toContain("<strong>kind</strong>");
-  expect((await request("/api/v1/pages", json(admin.cookie, "GET"))).status).toBe(200);
+  const listed = await request("/api/v1/pages", json(admin.cookie, "GET"));
+  expect(listed.status).toBe(200);
+  expect(((await listed.json()) as { items: object[] }).items[0]).not.toHaveProperty("bodySource");
+  const source = await request("/api/v1/pages/terms/source", json(admin.cookie, "GET"));
+  expect(source.status).toBe(200);
+  expect(await source.json()).toMatchObject({ slug: "terms", bodySource: "Be **kind**." });
+  expect((await request("/api/v1/pages/terms/source", json(member.cookie, "GET"))).status).toBe(
+    403,
+  );
+  expect((await request("/api/v1/pages/terms/source")).status).toBe(401);
+  expect((await request("/api/v1/pages/nope/source", json(admin.cookie, "GET"))).status).toBe(404);
   expect((await request("/api/v1/pages/terms", json(admin.cookie, "DELETE"))).status).toBe(200);
   expect((await request("/api/v1/pages/terms")).status).toBe(404);
 });

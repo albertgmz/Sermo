@@ -145,6 +145,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/navigation/entries/{entryId}", "navigation.delete"],
   ["GET", "/pages", "pages.list"],
   ["GET", "/pages/{slug}", "pages.get"],
+  ["GET", "/pages/{slug}/source", "pages.getSource"],
   ["PUT", "/pages/{slug}", "pages.save"],
   ["DELETE", "/pages/{slug}", "pages.delete"],
   ["GET", "/forum-tabs", "forumTabs.list"],
