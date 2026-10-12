@@ -857,7 +857,7 @@ export default async function StyleguidePage() {
               label="Reputation"
               value={formatNumber(admin.reputation)}
             />
-            <StatInline label="Vouches" value={admin.vouches} />
+            <StatInline label="Referrals" value={admin.referralCount} />
           </div>
         </Section>
 
