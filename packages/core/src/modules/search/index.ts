@@ -15,7 +15,8 @@ export const searchSql = {
   candidates:
     "SELECT rowid FROM search_fts WHERE search_fts MATCH ?1 AND rowid < ?2 ORDER BY rowid DESC LIMIT ?3",
   details:
-    "SELECT p.id, p.position, p.created_at, p.user_id, p.state AS post_state, " +
+    // A merge stores position p as -(p + 1) while it renumbers; results return the real position.
+    "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.state AS post_state, " +
     "t.id AS thread_id, t.title, t.node_id, t.state AS thread_state " +
     "FROM posts p JOIN threads t ON t.id = p.thread_id " +
     "WHERE p.id IN (SELECT value FROM json_each(?1))",

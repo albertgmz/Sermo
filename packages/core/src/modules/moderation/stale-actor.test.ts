@@ -11,7 +11,13 @@ import { threadsCreateOp } from "../forums";
 import { resumeSpamCleanup } from ".";
 
 const op = (name: string) => getOperation(name);
-const STAFF = ["member.ban", "member.warn", "member.spamCleanup", "forum.threadBan"];
+const STAFF = [
+  "member.ban",
+  "member.warn",
+  "member.spamCleanup",
+  "forum.threadBan",
+  "member.restrict",
+];
 const entries = (permissions: string[], value: "allow" | "unset") =>
   permissions.map((permission) => ({ permission, value }));
 
@@ -54,6 +60,14 @@ async function scenario() {
     userId: threadBanned.id,
     reason: "Earlier",
   });
+  const restricted = insertUser(fixture);
+  const restriction = (await execute(fixture, op("restrictions.create"), founder, {
+    userId: restricted.id,
+    kind: "posting",
+    reason: "Earlier",
+    expiresAt: null,
+    notify: false,
+  })) as { id: number };
   const database = sharedDatabase(fixture);
   const here = database.open();
   const elsewhere = database.open();
@@ -72,6 +86,7 @@ async function scenario() {
     node,
     threadId,
     banId: ban.id,
+    restrictionId: restriction.id,
   };
 }
 
@@ -103,6 +118,20 @@ const attempts: Record<string, (ctx: Ctx, actor: Actor, s: Scenario) => Promise<
       points: 1000,
       reason: "Rude",
     }),
+  "restrictions.create": (ctx, actor, s) =>
+    execute(ctx, op("restrictions.create"), actor, {
+      userId: s.member.id,
+      kind: "posting",
+      reason: "Rude",
+      expiresAt: null,
+      notify: false,
+    }),
+  "restrictions.lift": (ctx, actor, s) =>
+    execute(ctx, op("restrictions.lift"), actor, {
+      restrictionId: s.restrictionId,
+      reason: "Sorry",
+      notify: false,
+    }),
   "spamCleanup.start": (ctx, actor, s) =>
     execute(ctx, op("spamCleanup.start"), actor, { userId: s.member.id, reason: "Spam" }),
   "resumeSpamCleanup (queued run)": async (ctx, actor, s) =>
@@ -123,6 +152,9 @@ const snapshot = (ctx: Ctx) =>
     ctx.sqlite.prepare("SELECT id, user_id, points FROM warnings ORDER BY id").all(),
     ctx.sqlite.prepare("SELECT id, user_id FROM thread_bans ORDER BY id").all(),
     ctx.sqlite.prepare("SELECT id, banned_until, banned_permanently FROM users ORDER BY id").all(),
+    ctx.sqlite
+      .prepare("SELECT id, user_id, kind, lifted_at FROM user_restrictions ORDER BY id")
+      .all(),
     ctx.sqlite.prepare("SELECT id, type FROM jobs ORDER BY id").all(),
     ctx.sqlite.prepare("SELECT id, action FROM moderator_log ORDER BY id").all(),
   ]);
@@ -140,6 +172,26 @@ for (const [revoked, revoke] of Object.entries(revocations))
         s.database.close();
       }
     });
+
+// A banned member also loses sight of the forum, so thread bans answer not found.
+for (const [name, attempt] of Object.entries(attempts))
+  test(`${name} is refused to a moderator banned meanwhile`, async () => {
+    const s = await scenario();
+    try {
+      await execute(s.elsewhere, op("bans.create"), s.founder, {
+        userId: s.staff.id,
+        reason: "Abuse",
+        expiresAt: null,
+      });
+      const before = snapshot(s.elsewhere);
+      await expect(attempt(s.here, s.actor, s)).rejects.toThrow(
+        name.startsWith("threadBans") ? NotFoundError : ForbiddenError,
+      );
+      expect(snapshot(s.elsewhere)).toBe(before);
+    } finally {
+      s.database.close();
+    }
+  });
 
 test("thread bans answer not found to a moderator who lost sight of the forum meanwhile", async () => {
   const s = await scenario();
@@ -172,6 +224,13 @@ test("a moderator who was not revoked still acts from a second process", async (
         .prepare<{ n: number }, [number]>("SELECT count(*) AS n FROM bans WHERE user_id = ?1")
         .get(s.member.id)!.n,
     ).toBeGreaterThan(0);
+    expect(
+      s.elsewhere.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM user_restrictions WHERE user_id = ?1 AND lifted_at IS NULL",
+        )
+        .get(s.member.id)!.n,
+    ).toBe(1);
     resumeSpamCleanup(s.here, s.actor, s.member.id, null);
   } finally {
     s.database.close();
