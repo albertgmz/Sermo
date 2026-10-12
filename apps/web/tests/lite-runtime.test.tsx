@@ -68,9 +68,9 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
-// Forums and threads are asked of the backend, which knows only record 101.
+// Forums, threads and conversations are asked of the backend, which knows only record 101.
 globalThis.fetch = (async (input: string) => {
-  const record = /\/api\/v1\/(?:nodes|threads)\/(\d+)/.exec(String(input));
+  const record = /\/api\/v1\/(?:nodes|threads|conversations)\/(\d+)/.exec(String(input));
   if (record && Number(record[1]) !== 101) {
     return Response.json(
       { error: { code: "not_found", message: "Not found." } },
@@ -95,7 +95,6 @@ mock.module("@/lib/db", () => ({
         ? { id, role: "admin" }
         : null,
   getAward: find,
-  getConversation: find,
   getPosts: async () => [{ body: posts.body }],
   changeUsername: noDatabaseWrites,
   setAppearance: noDatabaseWrites,
