@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan } from "@sermo/core/testing";
+import { expectNoTableScan, insertNode } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { NotFoundError } from "../../errors";
@@ -29,6 +29,37 @@ async function paged(
   }
   throw new Error("never ended");
 }
+
+describe("by-author reads and a hidden ancestor", () => {
+  test("content in a forum whose ancestor is hidden is not listed", async () => {
+    const w = world();
+    const child = insertNode(w.ctx, { parentId: w.secret.id });
+    await w.thread(w.alice, w.open.id, "Open");
+    // Alice cannot open the forum, so staff start the thread and it is then handed to her.
+    const deep = await w.thread(w.admin, child.id, "Deep");
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET user_id = ?1 WHERE id = ?2")
+      .run(w.aliceUser.id, deep.thread.id);
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET user_id = ?1 WHERE thread_id = ?2")
+      .run(w.aliceUser.id, deep.thread.id);
+    const posts = (viewer: typeof w.bob) =>
+      w
+        .call("posts.byAuthor", viewer, { userId: w.aliceUser.id })
+        .then((page) =>
+          page.items.map((entry: { thread: { title: string } }) => entry.thread.title),
+        );
+    expect(titles(await w.call("threads.byAuthor", w.bob, { userId: w.aliceUser.id }))).toEqual([
+      "Open",
+    ]);
+    expect(await posts(w.bob)).toEqual(["Open"]);
+    expect(titles(await w.call("threads.byAuthor", w.admin, { userId: w.aliceUser.id }))).toEqual([
+      "Deep",
+      "Open",
+    ]);
+    expect(await posts(w.admin)).toEqual(["Deep", "Open"]);
+  });
+});
 
 describe("threads.byAuthor", () => {
   test("lists the member's threads newest first, with paging", async () => {

@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createTestContext, expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
+import {
+  createTestContext,
+  expectNoTableScan,
+  insertUser,
+  tokenActor,
+  userActor,
+} from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
@@ -36,6 +42,14 @@ describe("auth.counters", () => {
   test("guests get zeros", async () => {
     const ctx = createTestContext();
     expect(await counters(ctx, GUEST)).toEqual({ notifications: 0, conversations: 0 });
+  });
+
+  test("an API-key actor gets its member's counters", async () => {
+    const ctx = createTestContext();
+    const user = insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET unread_notification_count = 3 WHERE id = ?1").run(user.id);
+    conversation(ctx, user.id, 1000, 10, 0);
+    expect(await counters(ctx, tokenActor(user))).toEqual({ notifications: 3, conversations: 1 });
   });
 
   test("a member with nothing unread gets zeros", async () => {

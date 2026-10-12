@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan, insertUser, userActor } from "@sermo/core/testing";
+import {
+  expectNoTableScan,
+  insertNode,
+  insertUser,
+  tokenActor,
+  userActor,
+} from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { writeTx } from "../../db/tx";
@@ -119,6 +125,61 @@ describe("feed.list latest", () => {
     ]);
     // Staff bypass privacy.
     expect((await w.call("feed.list", w.admin, {})).items).toHaveLength(2);
+  });
+
+  test("a wall that is for members only is left out of the feed for guests", async () => {
+    const w = world();
+    await w.wall(w.bob, w.carolUser.id, "open wall");
+    await w.wall(w.bob, w.aliceUser.id, "members wall");
+    w.ctx.sqlite
+      .prepare("UPDATE users SET profile_view_privacy = 'members' WHERE id = ?1")
+      .run(w.aliceUser.id);
+    expect((await w.call("feed.list", GUEST, {})).items.map(describeItem)).toEqual([
+      "wall:open wall",
+    ]);
+    expect((await w.call("feed.list", w.carol, {})).items.map(describeItem)).toEqual([
+      "wall:members wall",
+      "wall:open wall",
+    ]);
+  });
+
+  test("an API-key actor sees the feed its member would", async () => {
+    const w = world();
+    await w.thread(w.alice, w.open.id, "Open");
+    await w.thread(w.admin, w.secret.id, "Secret");
+    await w.wall(w.bob, w.carolUser.id, "a wall");
+    const viaToken = await w.call("feed.list", tokenActor(w.bobUser), {});
+    const viaSession = await w.call("feed.list", w.bob, {});
+    expect(viaToken.items.map(describeItem)).toEqual(viaSession.items.map(describeItem));
+    expect(viaToken.items.map(describeItem)).toEqual(["wall:a wall", "thread:Open body"]);
+    await expect(
+      w.call("feed.list", tokenActor(w.bobUser), { scope: "following" }),
+    ).resolves.toEqual({
+      items: [],
+      nextCursor: null,
+    });
+  });
+
+  test("a thread in a forum whose ancestor is hidden is left out of the feed", async () => {
+    const w = world();
+    const child = insertNode(w.ctx, { parentId: w.secret.id });
+    await w.thread(w.alice, w.open.id, "Open");
+    const deep = await w.thread(w.admin, child.id, "Deep");
+    await w.reply(w.admin, deep.thread.id, "deep reply");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":5}' WHERE thread_id = ?1")
+      .run(deep.thread.id);
+    refreshRankings(w.ctx);
+    for (const scope of ["latest", "top"])
+      expect((await w.call("feed.list", w.bob, { scope })).items.map(describeItem)).not.toContain(
+        "thread:Deep body",
+      );
+    expect(
+      (await w.call("feed.list", w.admin, { scope: "top" })).items.map(describeItem),
+    ).toContain("thread:Deep body");
+    expect((await w.call("feed.list", w.bob, {})).items.map(describeItem)).toEqual([
+      "thread:Open body",
+    ]);
   });
 
   test("wall posts that are not visible are left out", async () => {
