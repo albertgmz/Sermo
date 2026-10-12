@@ -12,6 +12,8 @@
 //   id           Optional anchor of the panel.
 //   children     The rows: `FieldRow`s, or any `Row` from ./rows.
 //
+// useFieldError(name) gives the error line of the control with that name in the enclosing form.
+//
 // StaffFormState
 //   error        A form-level failure, shown above the rows (and read out).
 //   notice       A form-level confirmation, shown the same way.
@@ -43,6 +45,12 @@ export type StaffFormState = {
 
 const FieldErrors = createContext<Record<string, string>>({});
 
+// The error line of a control of the form it is in, by the control's name: for a row that is not
+// a `FieldRow` (like `ConfirmPassword`) and needs to show it itself.
+export function useFieldError(name: string): string | undefined {
+  return useContext(FieldErrors)[name];
+}
+
 export function FieldRow({
   name,
   label,
@@ -56,7 +64,7 @@ export function FieldRow({
   help?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const error = useContext(FieldErrors)[name];
+  const error = useFieldError(name);
   return (
     <Row label={label} htmlFor={htmlFor}>
       {children}
