@@ -1165,3 +1165,43 @@ behaviour to specify. **Owner review.**
 
 **A birthday publishes its day and month only.** The year is stored for the member and never
 returned to others.
+
+### Shop effects, wearing, renaming and ranks
+
+**A shop effect names a catalog entry.** `frame`, `nameColor` and `threadCover` carry the id of a
+`catalog_images` or `palette_colors` row instead of free text or a hex value. Migration `0024`
+converts stored items: a hex colour becomes (or reuses) a name colour; a free-text frame or cover
+key becomes a picture-less, inactive catalog entry and its item is taken off sale until an
+administrator gives the entry a picture.
+
+**Holding and wearing are separate.** Buying a frame or a name colour makes a member hold it;
+`appearance.set` decides whether they wear it. A member holds something through an inventory row
+that is active or has units left. What they stop holding (an item that expires, is used up or is
+replaced by an upgrade) comes off in the same transaction, through one helper. Accents are free
+to everyone. A cover from the gallery needs `profile.coverPreset` and stops showing, without being
+forgotten, when the permission is lost.
+
+**A group's name colour replaces the frontend's rank colour unlocks.** The frontend let a paid
+rank unlock a name colour, inherited by higher ranks. A group now has a name colour of its own and
+its members show it unless they chose another, so nothing needs unlocking.
+
+**Thread effects apply in `shop.use`, in the transaction that takes the unit.** Milestone 28
+left applying them to "a later subscriber" of `shop.item_used`. Applying them where the unit is
+taken means the member sees the result at once and a unit is never spent without its effect. The
+event is still published. A bump sets `bumped_at` and nothing else: it is not a post.
+
+**A username changes only through `users.changeUsername`.** It is free for holders of
+`profile.renameFree` and otherwise takes one unit of a `usernameChange` item (assumption A9: the
+frontend's policy, core's grammar). The unit is taken first and given back if Better Auth refuses
+the name; if the process dies in between, a unit is lost without a rename. Better Auth's own
+update endpoint refuses a username change unless it comes from this operation. Before this, any
+member could rename themselves freely through that endpoint. **Owner review.**
+
+**A rank is upgraded by paying the difference** (`shop.upgrade`, assumption A6). A member's
+current rank is the most expensive `group` item of the same category they hold; the new one must
+cost more; they pay the difference of the two CATALOG prices; the old item leaves the inventory
+with its group. Ranks only go up. The frontend also granted an award with a rank: an award with
+the existing "has bought item" criterion does that without new code. **Owner review.**
+
+**`shop.buy` refuses a yes/no permission the recipient already holds another way**, as the
+frontend refused selling a perk a rank or a staff role already gave.
