@@ -2,7 +2,8 @@ import { postsList, threadsGet } from "@sermo/core/contracts";
 import {
   Hourglass,
   Lock,
-  Paperclip,
+  MoreHorizontal,
+  Pencil,
   PenLine,
   Reply,
   Sparkles,
@@ -11,21 +12,39 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { react } from "@/app/(main)/actions";
 import { MarkRead } from "@/app/(main)/threads/[id]/mark-read";
+import { SPLIT_FORM, SplitPanel } from "@/app/(main)/threads/[id]/moderation";
 import { pageCount, threadHref } from "@/app/(main)/threads/[id]/pages";
+import {
+  mayRestore,
+  type ThreadMay,
+  threadMay,
+} from "@/app/(main)/threads/[id]/permissions";
+import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
+import { QUOTE_EVENT } from "@/app/(main)/threads/[id]/quote";
 import { ReplyComposer } from "@/app/(main)/threads/[id]/reply-composer";
+import { ThreadTools } from "@/app/(main)/threads/[id]/thread-tools";
+import {
+  deletePostAction,
+  quoteSource,
+  reportPostAction,
+  restorePostAction,
+} from "@/app/(main)/threads/actions";
+import { ActionForm } from "@/components/forum/action-form";
 import { Art } from "@/components/forum/art";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { DeleteControl } from "@/components/forum/delete-control";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { QuoteButton } from "@/components/forum/quote-button";
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
@@ -39,6 +58,8 @@ import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
 import type { Level } from "@/lib/levels";
 import { read } from "@/lib/sermo/client";
@@ -88,16 +109,6 @@ function levelOf(author: AuthorView): Level {
   };
 }
 
-// The attachments carry no name of their own: the last part of the address is the best there is.
-function fileName(url: string, fileId: number) {
-  const last = url.split("?")[0].split("/").at(-1);
-  try {
-    return last ? decodeURIComponent(last) : `#${fileId}`;
-  } catch {
-    return last || `#${fileId}`;
-  }
-}
-
 function PostNote({
   icon: Icon,
   children,
@@ -123,6 +134,10 @@ function PostItem({
   viewerId,
   picker,
   reactionTypes,
+  may,
+  isFirst,
+  selecting,
+  canQuote,
 }: {
   post: ApiPost;
   author: AuthorView;
@@ -135,9 +150,14 @@ function PostItem({
   // What the picker offers; none when the viewer may not react to this post.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  may: ThreadMay;
+  // The opening post cannot be deleted or split off on its own.
+  isFirst: boolean;
+  // The posts carry a tick for the split form.
+  selecting: boolean;
+  canQuote: boolean;
 }) {
   const t = useTranslations("threads.page");
-  const format = useFormatter();
   const { member } = author;
   const number = post.position + 1;
   const href = threadHref(post.threadId, post.position, post.id);
@@ -236,43 +256,47 @@ function PostItem({
           </div>
         </div>
 
+        {selecting && !isFirst && (
+          <label className="mt-1 flex min-h-10 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="postIds"
+              value={post.id}
+              form={SPLIT_FORM}
+              className="size-5 accent-primary"
+            />
+            {t("selectPost", { number })}
+          </label>
+        )}
+
         {noteState && post.state === "moderated" && (
           <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
         )}
         {noteState && post.state === "deleted" && (
           <PostNote icon={Trash2}>{t("deleted")}</PostNote>
         )}
-
-        <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
-
-        {post.attachments.length > 0 && (
-          <ul
-            aria-label={t("aria.attachments")}
-            className="mt-3 flex flex-wrap gap-2"
-          >
-            {post.attachments.map((file) => (
-              <li key={file.fileId} className="min-w-0 max-w-full">
-                <a
-                  href={file.url}
-                  className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm hover:bg-muted md:min-h-8"
-                >
-                  <Paperclip
-                    aria-hidden="true"
-                    className="size-3.5 shrink-0 text-muted-foreground"
-                  />
-                  <span className="truncate">
-                    {fileName(file.url, file.fileId)}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {formatBytes(format, file.byteSize)}
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ul>
+        {mayRestore(may, post.state) && (
+          <ActionForm
+            action={restorePostAction.bind(null, post.threadId, post.id)}
+            submit={post.state === "moderated" ? t("approve") : t("restore")}
+            className="mt-2"
+          />
         )}
 
-        <div className="mt-2 -mx-2 flex items-center justify-end gap-1">
+        {post.state === "deleted" ? (
+          <details className="mt-2">
+            <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
+              {t("showDeleted")}
+            </summary>
+            <HtmlContent>{post.bodyHtml}</HtmlContent>
+          </details>
+        ) : (
+          <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+        )}
+
+        <PostAttachments attachments={post.attachments} />
+
+        <div className="mt-2 -mx-2 flex flex-wrap items-center justify-end gap-1">
           <ReactionButton
             action={react.bind(null, "post", post.id)}
             total={post.reactions.total}
@@ -281,11 +305,68 @@ function PostItem({
             viewerId={viewerId}
             authorId={post.author.id}
           />
+          {canQuote && post.state === "visible" && (
+            <QuoteButton
+              postId={post.id}
+              event={QUOTE_EVENT}
+              load={quoteSource}
+              label={t("quote")}
+            />
+          )}
           <Link href="#reply" className={messageActionClass}>
             <Reply />
             {t("reply")}
           </Link>
+          {post.canEdit && (
+            <Link
+              href={`/threads/${post.threadId}/edit/${post.id}`}
+              className={messageActionClass}
+            >
+              <Pencil />
+              {t("edit")}
+            </Link>
+          )}
         </div>
+
+        {viewerId !== null && post.state !== "deleted" && (
+          <details className="group mt-1">
+            <summary
+              aria-label={t("aria.more")}
+              className={cn(
+                messageActionClass,
+                "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+              )}
+            >
+              <MoreHorizontal />
+              {t("more")}
+            </summary>
+            <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
+              <ActionForm
+                action={reportPostAction.bind(null, post.id)}
+                submit={t("report")}
+                done={t("reported")}
+              >
+                <Input
+                  name="reason"
+                  required
+                  maxLength={5000}
+                  aria-label={t("reportReason")}
+                  placeholder={t("reportReason")}
+                  autoComplete="off"
+                />
+              </ActionForm>
+              {post.canDelete && (
+                <DeleteControl
+                  action={deletePostAction.bind(null, post.threadId, post.id)}
+                  label={t("delete")}
+                  confirm={t("confirmDelete")}
+                  cancel={t("cancel")}
+                  reasonLabel={t("deleteReason")}
+                />
+              )}
+            </div>
+          </details>
+        )}
 
         <ReactionSummary
           reactions={reactionsView(post.reactions, reactionTypes)}
@@ -301,20 +382,6 @@ function PostItem({
       </div>
     </article>
   );
-}
-
-function formatBytes(format: ReturnType<typeof useFormatter>, bytes: number) {
-  const [unit, size] =
-    bytes < 1024
-      ? (["byte", bytes] as const)
-      : bytes < 1024 * 1024
-        ? (["kilobyte", bytes / 1024] as const)
-        : (["megabyte", bytes / (1024 * 1024)] as const);
-  return format.number(size, {
-    style: "unit",
-    unit,
-    maximumFractionDigits: 1,
-  });
 }
 
 export async function generateMetadata({
@@ -335,17 +402,26 @@ export default async function ThreadPage({
   params,
   searchParams,
 }: PageProps<"/threads/[id]">) {
-  const [{ id: raw }, { page: pageParam, cursor }] = await Promise.all([
+  const [{ id: raw }, { page: pageParam, cursor, select }] = await Promise.all([
     params,
     searchParams,
   ]);
   const id = threadIdOf(raw);
-  const [{ thread, node, permissions }, { user }, t] = await Promise.all([
-    getThread(id),
-    getViewer(),
-    getTranslations("threads.page"),
-  ]);
+  const [{ thread, node, permissions, resolvedPermissions }, { user }, t] =
+    await Promise.all([
+      getThread(id),
+      getViewer(),
+      getTranslations("threads.page"),
+    ]);
   const page = Math.max(1, Math.floor(Number(pageParam)) || 1);
+  const may = threadMay(resolvedPermissions);
+  // The backend lets the thread author, or anyone who may edit other members threads, take the
+  // cover off.
+  const mayRemoveCover =
+    thread.cover !== null &&
+    (resolvedPermissions["forum.editAny"] === true ||
+      thread.author.id === user?.id);
+  const selecting = select === "1" && may.split;
   const prefix = prefixView(thread.prefix);
   const highlighted =
     thread.highlightedUntil !== null &&
@@ -386,6 +462,22 @@ export default async function ThreadPage({
         </div>
       </header>
 
+      {user && (
+        <Suspense fallback={<Skeleton className="mt-3 h-10 w-32" />}>
+          <ThreadTools
+            thread={thread}
+            may={may}
+            mayRemoveCover={mayRemoveCover}
+            selecting={selecting}
+          />
+        </Suspense>
+      )}
+      {selecting && (
+        <Suspense fallback={<Skeleton className="mt-3 h-40 w-full" />}>
+          <SplitPanel thread={thread} />
+        </Suspense>
+      )}
+
       {thread.state === "moderated" && (
         <PostNote icon={Hourglass}>{t("threadAwaitingApproval")}</PostNote>
       )}
@@ -410,6 +502,9 @@ export default async function ThreadPage({
           page={page}
           cursor={typeof cursor === "string" ? cursor : undefined}
           viewerId={user?.id ?? null}
+          may={may}
+          selecting={selecting}
+          canQuote={permissions.canReply}
         />
       </Suspense>
 
@@ -423,7 +518,11 @@ export default async function ThreadPage({
             {thread.isLocked && (
               <PostNote icon={Lock}>{t("lockedModerators")}</PostNote>
             )}
-            <ReplyComposer threadId={thread.id} />
+            <ReplyComposer
+              key={thread.lastPost.postId}
+              threadId={thread.id}
+              attachIn={may.attach ? node.id : null}
+            />
           </>
         ) : user ? (
           <PostNote icon={Lock}>
@@ -458,10 +557,16 @@ export default async function ThreadPage({
   );
 }
 
-function pageHref(threadId: number, page: number, cursor?: string) {
+function pageHref(
+  threadId: number,
+  page: number,
+  cursor?: string,
+  selecting = false,
+) {
   const params = new URLSearchParams();
   if (page > 1) params.set("page", String(page));
   if (cursor) params.set("cursor", cursor);
+  if (selecting) params.set("select", "1");
   const query = params.toString();
   return `/threads/${threadId}${query ? `?${query}` : ""}`;
 }
@@ -472,12 +577,18 @@ async function ThreadPosts({
   page,
   cursor,
   viewerId,
+  may,
+  selecting,
+  canQuote,
 }: {
   thread: Awaited<ReturnType<typeof getThread>>["thread"];
   highlighted: boolean;
   page: number;
   cursor: string | undefined;
   viewerId: number | null;
+  may: ThreadMay;
+  selecting: boolean;
+  canQuote: boolean;
 }) {
   const [
     { items: posts, nextCursor },
@@ -532,6 +643,10 @@ async function ThreadPosts({
             viewerId={viewerId}
             picker={post.state === "visible" ? picker : []}
             reactionTypes={reactionTypes}
+            may={may}
+            isFirst={post.id === thread.firstPostId}
+            selecting={selecting}
+            canQuote={canQuote}
           />
         ))}
       </div>
@@ -549,7 +664,7 @@ async function ThreadPosts({
           <div className="flex gap-2">
             {page > 1 && (
               <Link
-                href={pageHref(thread.id, page - 1)}
+                href={pageHref(thread.id, page - 1, undefined, selecting)}
                 className={buttonVariants({
                   variant: "outline",
                   className: "min-h-10",
@@ -564,6 +679,7 @@ async function ThreadPosts({
                   thread.id,
                   page + 1,
                   page < pages ? undefined : (nextCursor ?? undefined),
+                  selecting,
                 )}
                 className={buttonVariants({
                   variant: "outline",
