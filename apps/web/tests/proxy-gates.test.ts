@@ -22,7 +22,6 @@ mock.module("@/lib/sermo/viewer", () => ({
 }));
 mock.module("@/lib/db", () => ({
   getUser: async () => state.twin,
-  getUserById: async () => ({ id: 1 }),
   getAward: async () => ({ id: 1 }),
   getConversation: async (id: number, viewerId: number) => {
     state.conversationAsked.push([id, viewerId]);
@@ -30,7 +29,7 @@ mock.module("@/lib/db", () => ({
   },
 }));
 
-// Forums, threads and the static pages are asked of the backend, so its answers are faked at
+// Forums, threads, members and the static pages are asked of the backend, so its answers are faked at
 // `fetch`: the real client builds the requests and checks the answers.
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -95,6 +94,45 @@ const NODE = {
   resolvedPermissions: {},
 };
 const NO_POSTS = { items: [], nextCursor: null };
+const PROFILE = {
+  id: 5,
+  username: "wren",
+  groupTitle: "Members",
+  displayGroup: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  about: "",
+  avatar: null,
+  cover: null,
+  postCount: 0,
+  reactionScore: 0,
+  canPostOnWall: false,
+  card: {
+    id: 5,
+    username: "wren",
+    avatar: null,
+    frame: null,
+    nameColor: null,
+    title: "Newcomer",
+    badges: [],
+    level: 1,
+  },
+  customTitle: null,
+  signatureHtml: null,
+  location: "",
+  website: "",
+  birthday: null,
+  socials: { discord: "", telegram: "", x: "" },
+  followerCount: 0,
+  followingCount: 0,
+  credits: 0,
+  awardXp: 0,
+  level: { level: 1, currentLevelXp: 0, nextLevelXp: 100 },
+  awardSlots: 5,
+  referralCount: 0,
+  lastActivityAt: null,
+  viewer: { isFollowing: false, isIgnoring: false },
+  seo: NODE.seo,
+};
 const PAGE = {
   slug: "terms",
   title: "Terms",
@@ -313,11 +351,41 @@ test("a forum is a 404 when the backend says it is not found, and only then", as
   passes(await ask("/forums/3"));
 });
 
+test("a member is a 404 when the backend says the profile is not found, and only then", async () => {
+  backend({
+    "/api/v1/users/5": Response.json(PROFILE),
+    "/api/v1/users/42": Response.json(PROFILE),
+  });
+  passes(await ask("/members/5"));
+  passes(await ask("/members/42"));
+  isNotFound(await ask("/members/6"));
+
+  // A private profile is not found for the visitor; the rest of the members stay reachable.
+  backend({ "/api/v1/users/5": refusal(404, "not_found") });
+  isNotFound(await ask("/members/5"));
+
+  // An outage or a refusal other than not_found lets the page show its own error.
+  backend({ "/api/v1/users/5": refusal(500, "internal") });
+  passes(await ask("/members/5"));
+  backend({ "/api/v1/users/5": refusal(403, "forbidden") });
+  passes(await ask("/members/5"));
+  backend({ "/api/v1/users/5": "down" });
+  passes(await ask("/members/5"));
+});
+
+test("the member list itself is not looked up", async () => {
+  const asked = backend({});
+  passes(await ask("/members"));
+  passes(await ask("/members?view=staff"));
+  assert.equal(asked.length, 0);
+});
+
 test("a forum id that is not a plain number is a 404 and the backend is not asked", async () => {
   const asked = backend({});
   for (const id of ["0", "03", "abc", "1.5", "1e3", "99999999999999999999"]) {
     isNotFound(await ask(`/forums/${id}`));
     isNotFound(await ask(`/threads/${id}`));
+    isNotFound(await ask(`/members/${id}`));
   }
   assert.equal(asked.length, 0);
 });

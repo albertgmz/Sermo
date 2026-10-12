@@ -1,73 +1,69 @@
 "use server";
 
+import {
+  profileCommentsCreate,
+  profilePostsCreate,
+  usersFollow,
+  usersUnfollow,
+} from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getClientInfo } from "@/lib/client";
-import {
-  createProfileComment,
-  createProfilePost,
-  getProfilePosts,
-  getUserById,
-  toggleFollow,
-} from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { call } from "@/lib/sermo/client";
+import { attempt } from "@/lib/sermo/outcome";
+import { safeReturnPath } from "@/lib/sermo/return-path";
 
-const MAX_BODY_LENGTH = 5000;
+export type WallState = { error?: string };
 
-async function requireMember() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  return user;
+// The pages that show walls, follower counts or the feed are read again.
+function refresh() {
+  revalidatePath("/", "layout");
 }
 
-function readBody(formData: FormData) {
-  const body = String(formData.get("body") ?? "").trim();
-  return body && body.length <= MAX_BODY_LENGTH ? body : null;
-}
-
-async function wallPostExists(profileUserId: number, profilePostId: number) {
-  const posts = await getProfilePosts(profileUserId, null);
-  return posts.some((post) => post.id === profilePostId);
-}
-
-function revalidateWalls() {
-  revalidatePath("/");
-  revalidatePath("/members/[id]", "page");
-}
-
-export async function postToWall(profileUserId: number, formData: FormData) {
-  const user = await requireMember();
-  const body = readBody(formData);
-  if (!body || !(await getUserById(profileUserId))) return;
-  await createProfilePost({
-    profileUserId,
-    authorId: user.id,
-    body,
-    client: await getClientInfo(),
-  });
-  revalidateWalls();
+// Posts on the wall of `profileUserId` and goes back to the page the form was on.
+export async function postToWall(
+  profileUserId: number,
+  returnTo: string,
+  _previous: WallState,
+  formData: FormData,
+): Promise<WallState> {
+  const body = String(formData.get("body") ?? "");
+  const created = await attempt(returnTo, () =>
+    call(profilePostsCreate, { userId: profileUserId, body }),
+  );
+  if (!created.ok) return { error: created.error };
+  refresh();
+  redirect(safeReturnPath(returnTo));
 }
 
 export async function commentOnWallPost(
-  profileUserId: number,
   profilePostId: number,
+  returnTo: string,
+  _previous: WallState,
   formData: FormData,
-) {
-  const user = await requireMember();
-  const body = readBody(formData);
-  if (!body || !(await wallPostExists(profileUserId, profilePostId))) return;
-  await createProfileComment({
-    profilePostId,
-    authorId: user.id,
-    body,
-    client: await getClientInfo(),
-  });
-  revalidateWalls();
+): Promise<WallState> {
+  const body = String(formData.get("body") ?? "");
+  const created = await attempt(returnTo, () =>
+    call(profileCommentsCreate, { profilePostId, body }),
+  );
+  if (!created.ok) return { error: created.error };
+  refresh();
+  redirect(safeReturnPath(returnTo));
 }
 
-export async function followMember(userId: number) {
-  const user = await requireMember();
-  if (user.id === userId || !(await getUserById(userId))) return;
-  await toggleFollow(user.id, userId);
-  revalidateWalls();
+// The form says which state it wants (`following` is "true" or "false"), so a second click on a
+// stale page cannot flip it back.
+export async function setFollowing(
+  userId: number,
+  returnTo: string,
+  _previous: WallState,
+  formData: FormData,
+): Promise<WallState> {
+  const follow = formData.get("following") === "true";
+  const done = await attempt(returnTo, async () => {
+    if (follow) await call(usersFollow, { userId });
+    else await call(usersUnfollow, { userId });
+  });
+  if (!done.ok) return { error: done.error };
+  refresh();
+  redirect(safeReturnPath(returnTo));
 }

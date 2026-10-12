@@ -7,22 +7,50 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
-import type { UserView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
+import type { Level } from "@/lib/levels";
+import type { MemberView, PictureView } from "@/lib/sermo/views";
+import type { Award } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export type MemberCardUser = Pick<
-  UserView,
-  | "id"
-  | "member"
-  | "coverPicture"
-  | "level"
-  | "awards"
-  | "awardSlots"
-  | "postCount"
-  | "reactionCount"
-  | "joinedAt"
->;
+export type MemberCardUser = {
+  id: number;
+  member: MemberView;
+  coverPicture: PictureView | null;
+  // The bar needs the bounds of the level; where only the level is known, the badge stands alone.
+  level: Pick<Level, "level"> & Partial<Level>;
+  awards: Pick<Award, "id" | "name" | "icon" | "tier">[];
+  // Where the awards themselves are not at hand, only how many there are.
+  awardCount?: number;
+  awardSlots: { mobile: number; desktop: number };
+  postCount: number;
+  reactionCount: number;
+  joinedAt: string;
+};
+
+function hasBar(level: MemberCardUser["level"]): level is Level {
+  return level.progress !== undefined;
+}
+
+// What the card of a member shows when the profile cannot be opened: the name and nothing else.
+export function MemberCardMinimal({
+  name,
+  className,
+}: {
+  name: string;
+  className?: string;
+}) {
+  return (
+    <p
+      className={cn(
+        "p-4 text-sm font-semibold [overflow-wrap:anywhere]",
+        className,
+      )}
+    >
+      {name}
+    </p>
+  );
+}
 
 export function MemberCard({
   user,
@@ -64,7 +92,7 @@ export function MemberCard({
       <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-1.5">
           <LevelBadge level={user.level} />
-          <XpBar level={user.level} className="w-16" />
+          {hasBar(user.level) && <XpBar level={user.level} className="w-16" />}
         </div>
         {user.awards.length > 0 ? (
           <AwardRow
@@ -75,7 +103,9 @@ export function MemberCard({
           />
         ) : (
           <span className="text-xs text-muted-foreground">
-            {t("emptyAwards")}
+            {user.awardCount
+              ? t("awardCount", { count: user.awardCount })
+              : t("emptyAwards")}
           </span>
         )}
       </div>

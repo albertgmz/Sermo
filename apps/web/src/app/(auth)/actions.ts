@@ -1,5 +1,7 @@
 "use server";
 
+import { usersSetReferrer } from "@sermo/core/contracts";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
@@ -8,7 +10,9 @@ import {
   signInWithUsername,
   signUp,
 } from "@/lib/sermo/auth";
+import { forwardFromRequest } from "@/lib/sermo/client";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { callWith } from "@/lib/sermo/transport";
 
 export type AuthState = { error: string; username: string };
 
@@ -56,6 +60,24 @@ export async function login(
   redirect(safeReturnPath(formData.get("next")));
 }
 
+// Names the member whose link brought the visitor here. A courtesy, not part of signing up: a
+// refusal changes nothing the visitor sees. The session the sign-up just opened is in the cookie
+// jar, not in the request headers.
+async function refer(value: FormDataEntryValue | null) {
+  const userId = Number(value);
+  if (!Number.isSafeInteger(userId) || userId < 1) return;
+  try {
+    await callWith(
+      {
+        ...(await forwardFromRequest()),
+        cookie: (await cookies()).toString(),
+      },
+      usersSetReferrer,
+      { userId },
+    );
+  } catch {}
+}
+
 export async function register(
   _previous: AuthState,
   formData: FormData,
@@ -70,5 +92,6 @@ export async function register(
   if (!formData.get("terms")) return { error: t("termsRequired"), username };
   const result = await signUp({ username, email, password });
   if (!result.ok) return failure(result, username);
+  if (result.signedIn) await refer(formData.get("ref"));
   redirect(result.signedIn ? "/" : "/login?registered=1");
 }

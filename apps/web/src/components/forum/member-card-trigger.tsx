@@ -55,7 +55,7 @@ function MemberCardWithPreference({
     requested.current = true;
     startTransition(async () => {
       try {
-        setCard(await loadMemberCard(id));
+        setCard(await loadMemberCard(id, name));
       } catch {
         requested.current = false;
       }

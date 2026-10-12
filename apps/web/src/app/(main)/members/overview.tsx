@@ -1,9 +1,17 @@
+import {
+  standingsMonth,
+  standingsWinners,
+  usersBirthdays,
+  usersList,
+  usersStaff,
+} from "@sermo/core/contracts";
 import { Cake, Crown, Flag } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { getFormatter, getNow, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { getFormatter, getTranslations } from "next-intl/server";
+import { cache, Suspense } from "react";
 import { MemberSearch } from "@/app/(main)/members/member-search";
+import { staffUser } from "@/app/(main)/members/staff-list";
 import { VIEWS, type ViewValue, viewHref } from "@/app/(main)/members/views";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
@@ -25,16 +33,10 @@ import {
 } from "@/components/forum/standing";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import {
-  getBirthdays,
-  getCurrentMonthStanding,
-  getLeaderboard,
-  getMemberOfTheMonth,
-  getNewestMembers,
-  getPastWinners,
-  getStaff,
-  type UserView,
-} from "@/lib/db";
+import { leaderboardMember, standingEntry } from "@/lib/member-items";
+import { read } from "@/lib/sermo/client";
+import type { MemberView } from "@/lib/sermo/views";
+import { monthOf, previousMonth } from "@/lib/standing";
 
 const TOP = 5;
 const RACE = 3;
@@ -61,13 +63,18 @@ function ViewLink({
   );
 }
 
-function NewestMembers({ members }: { members: UserView[] }) {
+// The newest winners, one more than the list shows: the first may be the member of the month.
+const getWinners = cache(() =>
+  read(standingsWinners, { limit: PAST_WINNERS + 1 }),
+);
+
+function NewestMembers({ members }: { members: MemberView[] }) {
   return (
     <ul className="flex flex-wrap gap-2 px-4 py-3">
       {members.map((member) => (
         <li key={member.id}>
-          <UserLink user={member.member} className="block w-fit rounded-full">
-            <UserAvatar user={member.member} size="lg" link={false} />
+          <UserLink user={member} className="block w-fit rounded-full">
+            <UserAvatar user={member} size="lg" link={false} />
             <span className="sr-only">{member.username}</span>
           </UserLink>
         </li>
@@ -76,12 +83,18 @@ function NewestMembers({ members }: { members: UserView[] }) {
   );
 }
 
+// The first winner is the member of the month only while it is the last complete month's.
+function isLastMonth(winner: { year: number; month: number }) {
+  const last = previousMonth(monthOf(new Date()));
+  return winner.year === last.year && winner.month === last.month;
+}
+
 async function MemberOfTheMonth() {
   const t = await getTranslations("members.overview");
-  const winner = await getMemberOfTheMonth();
-  return winner ? (
+  const [latest] = (await getWinners()).items;
+  return latest && isLastMonth(latest) ? (
     <MonthHero
-      winner={winner}
+      winner={standingEntry(latest)}
       action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
     />
   ) : (
@@ -98,20 +111,29 @@ async function MemberOfTheMonth() {
 async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
   const t = await getTranslations("members.overview");
   const format = await getFormatter();
-  const [race, pastWinners] = await Promise.all([
-    getCurrentMonthStanding(RACE),
-    getPastWinners(PAST_WINNERS),
+  const [race, winners] = await Promise.all([
+    read(standingsMonth, { month: "current", limit: RACE }),
+    getWinners(),
   ]);
-  const now = await getNow();
+  const [latest, ...earlier] = winners.items;
+  const pastWinners = (latest && isLastMonth(latest) ? earlier : winners.items)
+    .slice(0, PAST_WINNERS)
+    .map(standingEntry);
 
   return (
     <div className="grid gap-3 md:grid-cols-2 md:items-start">
       <SectionCard
         title={t("raceHeading")}
-        description={format.dateTime(now, { month: "long", year: "numeric" })}
+        description={format.dateTime(
+          new Date(Date.UTC(race.year, race.month - 1, 1)),
+          { month: "long", year: "numeric", timeZone: "UTC" },
+        )}
       >
-        {race.length > 0 ? (
-          <StandingList entries={race} viewerId={viewerId} />
+        {race.items.length > 0 ? (
+          <StandingList
+            entries={race.items.map(standingEntry)}
+            viewerId={viewerId}
+          />
         ) : (
           <EmptyState
             icon={Flag}
@@ -140,18 +162,24 @@ async function NotablePodium({
   view: (typeof NOTABLE)[number];
   viewerId?: number;
 }) {
-  const members = await getLeaderboard(view.ranking, TOP);
-  return <Podium members={members} by={view.ranking} viewerId={viewerId} />;
+  const { items } = await read(usersList, { sort: view.sort, limit: TOP });
+  return (
+    <Podium
+      members={items.map(leaderboardMember)}
+      by={view.ranking}
+      viewerId={viewerId}
+    />
+  );
 }
 
 async function StaffRows() {
-  const staff = await getStaff();
-  return staff
+  const { items } = await read(usersStaff, {});
+  return items
     .slice(0, STAFF)
-    .map((user) => (
+    .map((member) => (
       <MemberRow
-        key={user.id}
-        user={user.member}
+        key={member.card.id}
+        user={staffUser(member)}
         badgeLimit={1}
         className="py-2"
       />
@@ -159,20 +187,16 @@ async function StaffRows() {
 }
 
 async function NewestMembersList() {
-  return <NewestMembers members={await getNewestMembers(NEWEST)} />;
+  const { items } = await read(usersList, { sort: "newest", limit: NEWEST });
+  return <NewestMembers members={items.map((item) => item.card)} />;
 }
 
 async function Birthdays() {
   const t = await getTranslations("members.overview");
-  const birthdays = await getBirthdays();
+  const { items: birthdays } = await read(usersBirthdays, {});
   return birthdays.length > 0 ? (
-    birthdays.map((user) => (
-      <MemberRow
-        key={user.id}
-        user={user.member}
-        badgeLimit={user.role === "member" ? 0 : 1}
-        className="py-2"
-      >
+    birthdays.map((card) => (
+      <MemberRow key={card.id} user={card} badgeLimit={1} className="py-2">
         <Cake aria-hidden="true" className="size-4 shrink-0 text-primary" />
       </MemberRow>
     ))

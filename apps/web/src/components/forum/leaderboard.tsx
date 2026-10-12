@@ -10,9 +10,32 @@ import { useTranslations } from "next-intl";
 import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import type { LeaderboardKind, UserView } from "@/lib/db";
 import { formatCompact, formatNumber } from "@/lib/format";
+import type { Level } from "@/lib/levels";
+import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
+
+export type LeaderboardKind =
+  | "credits"
+  | "posts"
+  | "reactions"
+  | "awards"
+  | "referrals"
+  | "xp";
+
+// A member in a ranking and the numbers any ranking may show.
+export type LeaderboardMember = {
+  id: number;
+  member: MemberView;
+  level: Pick<Level, "level">;
+  xp: number;
+  credits: number;
+  postCount: number;
+  reactionCount: number;
+  referralCount: number;
+  // Only how many are held is drawn.
+  awards: { length: number };
+};
 
 const MEDAL_CLASSES = [
   "text-tier-gold",
@@ -47,7 +70,7 @@ const COUNTS: Record<
   Exclude<LeaderboardKind, "xp">,
   {
     icon: LucideIcon;
-    value: (member: UserView) => number;
+    value: (member: LeaderboardMember) => number;
     accent?: boolean;
   }
 > = {
@@ -80,7 +103,7 @@ export function LeaderboardScore({
   compact = false,
 }: {
   by: LeaderboardKind;
-  member: UserView;
+  member: LeaderboardMember;
   compact?: boolean;
 }) {
   const t = useTranslations("forum.leaderboard");
@@ -129,7 +152,7 @@ export function Leaderboard({
   start = 1,
   compact = false,
 }: {
-  members: UserView[];
+  members: LeaderboardMember[];
   by: LeaderboardKind;
   viewerId?: number;
   start?: number;

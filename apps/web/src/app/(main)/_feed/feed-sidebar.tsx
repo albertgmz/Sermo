@@ -1,22 +1,37 @@
-import { nodesList, threadsRanked } from "@sermo/core/contracts";
+import {
+  nodesList,
+  threadsRanked,
+  usersList,
+  usersListFollowing,
+} from "@sermo/core/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { MemberRow } from "@/components/forum/member-row";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
-import { CardSkeleton, LoadingRegion } from "@/components/forum/skeletons";
+import {
+  CardSkeleton,
+  LoadingRegion,
+  MemberListSkeleton,
+} from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 
 const LIST_SIZE = 5;
+const SUGGESTIONS = 4;
+// How many members are asked for, so that the viewer and the ones they follow can be left out.
+const CANDIDATES = 12;
 
 const viewAllClass =
   "relative text-xs font-medium text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3.5 hover:text-foreground";
@@ -81,6 +96,16 @@ export function FeedSidebar() {
         }
       >
         <LatestThreads />
+      </Suspense>
+
+      <Suspense
+        fallback={
+          <LoadingRegion label={t("loadingMembers")}>
+            <MemberListSkeleton rows={SUGGESTIONS} />
+          </LoadingRegion>
+        }
+      >
+        <SuggestedMembers />
       </Suspense>
 
       <Suspense
@@ -162,6 +187,39 @@ async function LatestThreads() {
             · <RelativeTime date={thread.lastPost.postedAt} />
           </p>
         </div>
+      ))}
+    </SectionCard>
+  );
+}
+
+// The most reacted-to members, without the viewer and without the ones they follow already.
+async function SuggestedMembers() {
+  const { user } = await getViewer();
+  const [{ items }, following] = await Promise.all([
+    read(usersList, { sort: "reactions", limit: CANDIDATES }),
+    user
+      ? read(usersListFollowing, { userId: user.id, limit: 100 })
+      : { items: [] },
+  ]);
+  const followed = new Set(following.items.map((entry) => entry.user.id));
+  const suggestions = items
+    .filter(({ card }) => card.id !== user?.id && !followed.has(card.id))
+    .slice(0, SUGGESTIONS);
+  const t = await getTranslations("home.feedSidebar");
+  if (suggestions.length === 0) return null;
+  return (
+    <SectionCard title={t("membersTitle")}>
+      {suggestions.map(({ card }) => (
+        <MemberRow key={card.id} user={card} badgeLimit={1}>
+          {user && (
+            <FollowButton
+              user={{ id: card.id, username: card.username }}
+              following={false}
+              returnTo="/"
+              className="h-10 md:h-8"
+            />
+          )}
+        </MemberRow>
       ))}
     </SectionCard>
   );

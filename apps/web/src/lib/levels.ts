@@ -42,3 +42,21 @@ export function titleKeyForLevel(level: number): keyof typeof messages.levels {
 export function titleForLevel(level: number): string {
   return messages.levels[titleKeyForLevel(level)];
 }
+
+// A level whose bounds the backend gave: only the fill of the bar is worked out here.
+export function levelWithBounds(
+  level: number,
+  xp: number,
+  currentLevelXp: number,
+  nextLevelXp: number,
+): Level {
+  const span = nextLevelXp - currentLevelXp;
+  return {
+    level,
+    xp,
+    currentLevelXp,
+    nextLevelXp,
+    progress:
+      span > 0 ? Math.min(1, Math.max(0, (xp - currentLevelXp) / span)) : 0,
+  };
+}

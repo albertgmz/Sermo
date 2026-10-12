@@ -1,8 +1,14 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { nodesGet, PageSlug, pagesGet, postsList } from "@sermo/core/contracts";
+import {
+  nodesGet,
+  PageSlug,
+  pagesGet,
+  postsList,
+  profilesGet,
+} from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
-import { getAward, getConversation, getUser, getUserById } from "@/lib/db";
+import { getAward, getConversation, getUser } from "@/lib/db";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -56,7 +62,9 @@ const backend =
     isId(id) && exists(request, (forward) => ask(Number(id), forward));
 
 const CONTENT: Record<string, Finder> = {
-  members: numeric(getUserById),
+  members: backend((userId, forward) =>
+    callWith(forward, profilesGet, { userId }),
+  ),
   forums: backend((nodeId, forward) => callWith(forward, nodesGet, { nodeId })),
   awards: numeric(getAward),
   // `threads.get` would count a view; one post of the thread proves the viewer can open it.

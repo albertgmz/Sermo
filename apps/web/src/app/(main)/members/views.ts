@@ -1,3 +1,4 @@
+import type { MEMBER_SORTS } from "@sermo/core/contracts";
 import {
   Coins,
   Crown,
@@ -11,14 +12,18 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import type { LeaderboardKind } from "@/lib/db";
+import type { LeaderboardKind } from "@/components/forum/leaderboard";
+
+export type MemberSort = (typeof MEMBER_SORTS)[number];
 
 export type MembersView = {
   value: string;
   label: string;
   description: string;
   icon: LucideIcon;
-  // Set on the views that are one ranking of all members.
+  // Set on the views that are one ranking of all members: the sort the backend ranks by and how
+  // the score is drawn.
+  sort?: MemberSort;
   ranking?: LeaderboardKind;
 };
 
@@ -40,6 +45,7 @@ export const VIEWS = [
     label: "postsLabel",
     description: "postsDescription",
     icon: MessageCircle,
+    sort: "posts",
     ranking: "posts",
   },
   {
@@ -47,6 +53,7 @@ export const VIEWS = [
     label: "reactionsLabel",
     description: "reactionsDescription",
     icon: Heart,
+    sort: "reactions",
     ranking: "reactions",
   },
   {
@@ -54,6 +61,7 @@ export const VIEWS = [
     label: "awardsLabel",
     description: "awardsDescription",
     icon: Trophy,
+    sort: "awards",
     ranking: "awards",
   },
   {
@@ -61,6 +69,7 @@ export const VIEWS = [
     label: "levelLabel",
     description: "levelDescription",
     icon: TrendingUp,
+    sort: "level",
     ranking: "xp",
   },
   {
@@ -68,6 +77,7 @@ export const VIEWS = [
     label: "creditsLabel",
     description: "creditsDescription",
     icon: Coins,
+    sort: "credits",
     ranking: "credits",
   },
   {
@@ -75,6 +85,7 @@ export const VIEWS = [
     label: "referralsLabel",
     description: "referralsDescription",
     icon: UserPlus,
+    sort: "referrals",
     ranking: "referrals",
   },
   {

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { RegisterForm } from "@/app/(auth)/register/register-form";
 import { Logo } from "@/components/layout/logo";
@@ -13,8 +12,19 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function RegisterPage() {
-  const t = useTranslations("auth.register");
+// The member whose link brought the visitor: a plain number, or nothing.
+function referrerOf(value: string | string[] | undefined) {
+  const text = Array.isArray(value) ? value[0] : value;
+  return text && /^[1-9][0-9]{0,15}$/.test(text) ? text : undefined;
+}
+
+export default async function RegisterPage({
+  searchParams,
+}: PageProps<"/register">) {
+  const [t, { ref }] = await Promise.all([
+    getTranslations("auth.register"),
+    searchParams,
+  ]);
   return (
     <main className="relative isolate flex min-h-dvh flex-1 items-center justify-center px-4 py-8">
       <PageBackdrop />
@@ -47,7 +57,7 @@ export default function RegisterPage() {
             <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
               {t("description")}
             </p>
-            <RegisterForm />
+            <RegisterForm referrer={referrerOf(ref)} />
           </div>
         </div>
       </div>

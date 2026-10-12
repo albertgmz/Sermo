@@ -5,8 +5,13 @@
     "loadingSidebar": "Loading feed sidebar…",
     "loadingFeed": "Loading your feed…",
     "aria": {
+      "newPost": "New post",
       "feed": "Feed"
     },
+    "placeholder": "What's on your mind?",
+    "submit": "Post to your profile",
+    "description": "Posts go to your profile wall.",
+    "startThread": "Start a thread",
     "tabs": {
       "latest": "Latest",
       "following": "Following",
@@ -51,10 +56,12 @@
   "feedSidebar": {
     "loadingTrending": "Loading trending…",
     "loadingLatest": "Loading latest threads…",
+    "loadingMembers": "Loading suggested members…",
     "loadingForums": "Loading forums…",
     "trendingTitle": "Trending",
     "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
     "latestTitle": "Latest threads",
+    "membersTitle": "Members to follow",
     "forumsTitle": "Forums",
     "viewAll": "View all",
     "threads": "{value}<label>{count, plural, other { threads}}</label>",

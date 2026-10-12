@@ -64,19 +64,27 @@ const TARGETS: ReactionTarget[] = [
   "message",
 ];
 
+// The targets the backend keeps, with the content type it knows them by.
+const BACKEND_CONTENT = {
+  post: "post",
+  profilePost: "profile_post",
+  profileComment: "profile_post_comment",
+} as const;
+
 export async function react(
   target: ReactionTarget,
   id: number,
   typeId: number | null,
 ) {
   if (!TARGETS.includes(target)) return;
-  if (target === "post") {
-    // Posts live in the backend, which refuses what the viewer may not do; the button reverts.
+  const contentType = BACKEND_CONTENT[target as keyof typeof BACKEND_CONTENT];
+  if (contentType) {
+    // These live in the backend, which refuses what the viewer may not do; the button reverts.
     await attempt("/", () =>
       typeId === null
-        ? call(reactionsRemove, { contentType: "post", contentId: id })
+        ? call(reactionsRemove, { contentType, contentId: id })
         : call(reactionsSet, {
-            contentType: "post",
+            contentType,
             contentId: id,
             reactionTypeId: typeId,
           }),
