@@ -15,12 +15,12 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
-import { FEED_TOP_SIZE, storedRanking } from "./rankings";
+import { FEED_TOP_SIZE, firstSurvivors, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
 /** Posts examined per source per request, at most. */
-export const FEED_EXAMINE_CAP = SCAN_CAP;
+const FEED_EXAMINE_CAP = SCAN_CAP;
 const MIN_BATCH = 10;
 
 type PostCandidate = {
@@ -268,21 +268,23 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const threads = new Map<number, ThreadRow>();
 
   if (scope === "top") {
-    const ids = storedRanking(ctx, "feedTop", nodes, FEED_TOP_SIZE).map((row) => row.target_id);
-    const byId = new Map(
-      (ids.length === 0
-        ? []
-        : prepared(ctx, "feed.topPosts", () =>
+    const accept = acceptPosts(ctx, actor, nodes, threads);
+    const picked = firstSurvivors(
+      storedRanking(ctx, "feedTop", nodes),
+      FEED_TOP_SIZE,
+      (chunk): Picked[] => {
+        const byId = new Map(
+          prepared(ctx, "feed.topPosts", () =>
             ctx.sqlite.prepare<PostCandidate, [string]>(feedSql.topPosts),
-          ).all(JSON.stringify(ids))
-      ).map((row) => [row.id, row]),
+          )
+            .all(JSON.stringify(chunk.map((row) => row.target_id)))
+            .map((row) => [row.id, row] as const),
+        );
+        const candidates = chunk.flatMap((row) => byId.get(row.target_id) ?? []);
+        const passing = accept(candidates);
+        return candidates.filter((row) => passing.has(row)).map((row) => ({ kind: "post", row }));
+      },
     );
-    const candidates = ids.flatMap((id) => byId.get(id) ?? []);
-    const passing = acceptPosts(ctx, actor, nodes, threads)(candidates);
-    const picked: Picked[] = candidates
-      .filter((row) => passing.has(row))
-      .slice(0, FEED_TOP_SIZE)
-      .map((row) => ({ kind: "post", row }));
     return { items: build(ctx, actor, picked, threads), nextCursor: null };
   }
 

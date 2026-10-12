@@ -1,5 +1,12 @@
 import type { Ctx } from "../../context";
-import { pagesDelete, pagesGet, pagesList, pagesSave } from "../../contracts/pages";
+import {
+  PAGE_BODY_LENGTH,
+  pagesDelete,
+  pagesGet,
+  pagesGetSource,
+  pagesList,
+  pagesSave,
+} from "../../contracts/pages";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
@@ -10,8 +17,6 @@ import { appendModeratorLog } from "../moderation";
 
 /** The most pages the site holds. */
 export const PAGE_LIMIT = 100;
-/** Longer than a post may be: legal texts run long, and only administrators write them. */
-export const PAGE_BODY_LENGTH = 50_000;
 
 interface PageRow {
   id: number;
@@ -26,7 +31,7 @@ interface PageRow {
 
 export const pageSql = {
   bySlug: "SELECT * FROM static_pages WHERE slug = ?1",
-  all: "SELECT * FROM static_pages ORDER BY slug",
+  all: "SELECT slug, title, is_published, updated_at FROM static_pages ORDER BY slug",
   count: "SELECT COUNT(*) AS n FROM static_pages",
 };
 
@@ -55,7 +60,24 @@ const get = implement(
 
 const list = implement(pagesList, (ctx, actor) => {
   requirePermission(ctx, actor, "admin.settings");
-  return { items: ctx.sqlite.prepare<PageRow, []>(pageSql.all).all().map(detailValue) };
+  return {
+    items: ctx.sqlite
+      .prepare<Pick<PageRow, "slug" | "title" | "is_published" | "updated_at">, []>(pageSql.all)
+      .all()
+      .map((row) => ({
+        slug: row.slug,
+        title: row.title,
+        isPublished: !!row.is_published,
+        updatedAt: iso(row.updated_at),
+      })),
+  };
+});
+
+const getSource = implement(pagesGetSource, (ctx, actor, input) => {
+  requirePermission(ctx, actor, "admin.settings");
+  const row = bySlug(ctx, input.slug);
+  if (!row) throw new NotFoundError();
+  return detailValue(row);
 });
 
 const save = implement(pagesSave, (ctx, actor, input) => {
@@ -90,4 +112,4 @@ const remove = implement(pagesDelete, (ctx, actor, input) => {
   });
 });
 
-export const operations = [get, list, save, remove];
+export const operations = [get, list, getSource, save, remove];

@@ -8,6 +8,7 @@ import {
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
+import { PAGE_BODY_LENGTH } from "../../contracts/pages";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
@@ -95,6 +96,7 @@ describe("pages", () => {
     const teamMember = userActor(insertUser(ctx, { groupId: group }));
     const calls: [string, object][] = [
       ["pages.list", {}],
+      ["pages.getSource", { slug: "a" }],
       ["pages.save", { slug: "b", title: "B", body: "text" }],
       ["pages.delete", { slug: "a" }],
     ];
@@ -106,13 +108,46 @@ describe("pages", () => {
     for (const [name, input] of calls) await run(ctx, name, admin, input);
   });
 
-  test("list returns every page with its source, ordered by slug", async () => {
+  test("list returns every page without its text, ordered by slug", async () => {
     const { ctx, admin, save } = setup();
     await save("zeta");
     await save("alpha", { isPublished: false, body: "*src*" });
     const { items } = await run(ctx, "pages.list", admin);
     expect(items.map((page: { slug: string }) => page.slug)).toEqual(["alpha", "zeta"]);
-    expect(items[0]).toMatchObject({ bodySource: "*src*", isPublished: false });
+    expect(Object.keys(items[0]).sort()).toEqual(["isPublished", "slug", "title", "updatedAt"]);
+    expect(items[0]).toMatchObject({ title: "Title alpha", isPublished: false });
+  });
+
+  test("getSource returns one page with its source, published or not", async () => {
+    const { ctx, admin, save } = setup();
+    await save("draft", { isPublished: false, body: "*src*" });
+    await save("live");
+    expect(await run(ctx, "pages.getSource", admin, { slug: "draft" })).toMatchObject({
+      slug: "draft",
+      title: "Title draft",
+      bodySource: "*src*",
+      bodyHtml: "<p><em>src</em></p>",
+      isPublished: false,
+    });
+    expect((await run(ctx, "pages.getSource", admin, { slug: "live" })).bodySource).toBe(
+      "Hello **world**",
+    );
+  });
+
+  test("getSource: an unknown slug is not found for an administrator, and a member is refused before any lookup", async () => {
+    const { ctx, admin, member, save } = setup();
+    await save("real");
+    await expect(run(ctx, "pages.getSource", admin, { slug: "nope" })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    for (const slug of ["real", "nope"]) {
+      await expect(run(ctx, "pages.getSource", member, { slug })).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      await expect(run(ctx, "pages.getSource", GUEST, { slug })).rejects.not.toBeInstanceOf(
+        NotFoundError,
+      );
+    }
   });
 
   test("delete removes the page; an unknown slug is not found", async () => {
@@ -127,16 +162,27 @@ describe("pages", () => {
     );
   });
 
-  test("a body of 50,000 characters is accepted and one more is refused", async () => {
+  test("a body of the limit is accepted and one more character is refused", async () => {
     const { ctx, admin, save } = setup();
-    const body = `${"word ".repeat(10_000).slice(0, 49_999)}x`;
-    expect(body).toHaveLength(50_000);
+    const body = `${"word ".repeat(PAGE_BODY_LENGTH / 5).slice(0, PAGE_BODY_LENGTH - 1)}x`;
+    expect(body).toHaveLength(PAGE_BODY_LENGTH);
     const saved = await save("long", { body });
-    expect(saved.bodySource).toHaveLength(50_000);
+    expect(saved.bodySource).toHaveLength(PAGE_BODY_LENGTH);
     await expect(save("long", { body: `${body}x` })).rejects.toThrow();
     expect((await run(ctx, "pages.get", admin, { slug: "long" })).bodyHtml.length).toBeGreaterThan(
-      49_000,
+      PAGE_BODY_LENGTH - 1_000,
     );
+  });
+
+  test("the worst case for the renderer, a body of the limit made of emphasis runs, renders in bounded time", async () => {
+    const { save } = setup();
+    const body = "_a ".repeat(Math.ceil(PAGE_BODY_LENGTH / 3)).slice(0, PAGE_BODY_LENGTH);
+    expect(body).toHaveLength(PAGE_BODY_LENGTH);
+    const started = performance.now();
+    await save("worst", { body });
+    const elapsed = performance.now() - started;
+    console.log(`pages.save of ${PAGE_BODY_LENGTH} characters of "_a ": ${Math.round(elapsed)} ms`);
+    expect(elapsed).toBeLessThan(10_000);
   });
 
   test("raw HTML and scripts are sanitised like a post, and mentions are left alone", async () => {
@@ -192,6 +238,16 @@ describe("pages", () => {
       .all()
       .map((row) => row.action);
     expect(actions).toEqual(["page.save", "page.delete"]);
+  });
+
+  test("the listing reads no page text", () => {
+    const { ctx } = setup();
+    expect(ctx.sqlite.prepare(pageSql.all).columnNames).toEqual([
+      "slug",
+      "title",
+      "is_published",
+      "updated_at",
+    ]);
   });
 
   test("the lookup uses an index", () => {

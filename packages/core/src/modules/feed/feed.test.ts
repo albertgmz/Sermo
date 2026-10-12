@@ -378,6 +378,94 @@ describe("feed.list top", () => {
     expect(staff.items.every((item: Item) => item.thread.node.id === w.secret.id)).toBe(true);
   });
 
+  /** Adds visible posts with bodies to a thread, one per score; returns their ids, in order. */
+  function addScored(w: World, threadId: number, userId: number, scores: number[]): number[] {
+    const insert = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number, string]>(
+      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5) RETURNING id",
+    );
+    const body = w.ctx.sqlite.prepare(
+      "INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, 'x', '<p>x</p>')",
+    );
+    const start =
+      w.ctx.sqlite
+        .prepare<{ p: number }, [number]>(
+          "SELECT max(position) AS p FROM posts WHERE thread_id = ?1",
+        )
+        .get(threadId)!.p + 1;
+    return scores.map((score, i) => {
+      const id = insert.get(threadId, userId, start + i, w.ctx.now(), `{"1":${score}}`)!.id;
+      body.run(id);
+      return id;
+    });
+  }
+  const topIds = async (w: World, viewer: Parameters<World["call"]>[1]) =>
+    (await w.call("feed.list", viewer, { scope: "top" })).items.map((item: Item) => item.post.id);
+
+  test("a viewer who ignores the author of the 60 best posts of a forum still gets the others", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Busy");
+    addScored(
+      w,
+      t.thread.id,
+      w.aliceUser.id,
+      Array.from({ length: 60 }, (_, i) => 1000 + i),
+    );
+    const bobs = addScored(
+      w,
+      t.thread.id,
+      w.bobUser.id,
+      Array.from({ length: 10 }, (_, i) => i + 1),
+    );
+    refreshRankings(w.ctx);
+    await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
+    expect(await topIds(w, w.carol)).toEqual([...bobs].reverse());
+    expect(await topIds(w, w.bob)).toHaveLength(50);
+  });
+
+  test("with several forums the merged top stays in order when an ignored author fills the best places", async () => {
+    const w = world();
+    const other = insertNode(w.ctx, { parentId: w.category.id });
+    const a = await w.thread(w.alice, w.open.id, "A");
+    const b = await w.thread(w.alice, other.id, "B");
+    addScored(
+      w,
+      a.thread.id,
+      w.aliceUser.id,
+      Array.from({ length: 60 }, (_, i) => 1000 + i),
+    );
+    addScored(
+      w,
+      b.thread.id,
+      w.aliceUser.id,
+      Array.from({ length: 60 }, (_, i) => 500 + i),
+    );
+    const inA = addScored(w, a.thread.id, w.bobUser.id, [3, 1, 2, 5, 4]);
+    const inB = addScored(w, b.thread.id, w.bobUser.id, [8, 6, 10, 7, 9]);
+    refreshRankings(w.ctx);
+    await w.call("users.ignore", w.carol, { userId: w.aliceUser.id });
+    const scoreOf = new Map([
+      ...inA.map((id, i) => [id, [3, 1, 2, 5, 4][i]!] as const),
+      ...inB.map((id, i) => [id, [8, 6, 10, 7, 9][i]!] as const),
+    ]);
+    const expected = [...scoreOf].sort((x, y) => y[1] - x[1] || y[0] - x[0]).map(([id]) => id);
+    expect(await topIds(w, w.carol)).toEqual(expected);
+  });
+
+  test("posts removed since the last refresh are replaced by the next best", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Busy");
+    const posts = addScored(
+      w,
+      t.thread.id,
+      w.aliceUser.id,
+      Array.from({ length: 80 }, (_, i) => i + 1),
+    );
+    refreshRankings(w.ctx);
+    const remove = w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1");
+    for (const id of posts.slice(40)) remove.run(id);
+    expect(await topIds(w, GUEST)).toEqual(posts.slice(0, 40).reverse());
+  });
+
   test("shows at most 50 and an empty ranking is an empty page", async () => {
     const w = world();
     expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual({

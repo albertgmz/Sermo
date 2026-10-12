@@ -10,13 +10,18 @@ import { visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
 /** Threads count for the "most" rankings while their last post is this recent. */
-export const RANKING_WINDOW_DAYS = 30;
-/** Rows each thread ranking keeps per forum: the most `threads.ranked` ever asks for. */
-export const THREAD_RANKING_SIZE = 20;
+const RANKING_WINDOW_DAYS = 30;
+/**
+ * Rows each thread ranking keeps per forum. A reader asks for 20 at most, but filters after
+ * reading (threads deleted, hidden or moved since the refresh), so the job stores twice that.
+ */
+const THREAD_RANKING_STORED = 40;
 /** The feed's top list: the most reacted-to posts of the last seven days. */
-export const FEED_TOP_DAYS = 7;
-/** Posts the top list keeps per forum, and the most a feed shows. */
+const FEED_TOP_DAYS = 7;
+/** The most posts a feed shows. */
 export const FEED_TOP_SIZE = 50;
+/** Posts the top list keeps per forum: twice what a feed shows, for the same reason. */
+const FEED_TOP_STORED = 100;
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 
@@ -92,7 +97,7 @@ export function reactionTotal(json: string): number {
   return total;
 }
 
-export type Kind = "mostReplied" | "mostViewed" | "mostReacted" | "feedTop";
+type Kind = "mostReplied" | "mostViewed" | "mostReacted" | "feedTop";
 
 /**
  * Recomputes the rankings in slices: each slice reads a bounded index range, so the event loop
@@ -105,10 +110,10 @@ function* recompute(ctx: Ctx): Generator<void, void, void> {
   const now = ctx.now();
   const since = now - RANKING_WINDOW_DAYS * DAY;
   const results: Record<Kind, PerForum> = {
-    mostReplied: new PerForum(THREAD_RANKING_SIZE),
-    mostViewed: new PerForum(THREAD_RANKING_SIZE),
-    mostReacted: new PerForum(THREAD_RANKING_SIZE),
-    feedTop: new PerForum(FEED_TOP_SIZE),
+    mostReplied: new PerForum(THREAD_RANKING_STORED),
+    mostViewed: new PerForum(THREAD_RANKING_STORED),
+    mostReacted: new PerForum(THREAD_RANKING_STORED),
+    feedTop: new PerForum(FEED_TOP_STORED),
   };
   const threadSlice = prepared(ctx, "feed.rankActive", () =>
     ctx.sqlite.prepare<
@@ -248,24 +253,38 @@ export function registerRankingJobs(ctx: Ctx): void {
 type StoredRow = { node_id: number; position: number; target_id: number; score: number };
 
 /**
- * The best `size` stored entries of a kind across `nodes`, best first: one indexed read of the
- * rows of those forums, merged by score (ties: lower position, then lower target id). Each forum
- * keeps at least as many entries as any reader asks for, so the merge is exact for those forums.
+ * All stored entries of a kind across `nodes`, best first: one indexed read of the rows of those
+ * forums, merged by score (ties: lower position, then lower target id). At most the number of
+ * forums times what the job keeps per forum (40 or 100) rows. Each forum's rows are its best in
+ * order, so the merge is exact for what survives the caller's filtering.
  */
-export function storedRanking(
-  ctx: Ctx,
-  kind: Kind,
-  nodes: Iterable<number>,
-  size: number,
-): StoredRow[] {
+export function storedRanking(ctx: Ctx, kind: Kind, nodes: Iterable<number>): StoredRow[] {
   const ids = [...nodes];
   if (ids.length === 0) return [];
   return prepared(ctx, "feed.rankedStored", () =>
     ctx.sqlite.prepare<StoredRow, [string, string]>(rankingSql.stored),
   )
     .all(kind, JSON.stringify(ids))
-    .sort((a, b) => b.score - a.score || a.position - b.position || a.target_id - b.target_id)
-    .slice(0, size);
+    .sort((a, b) => b.score - a.score || a.position - b.position || a.target_id - b.target_id);
+}
+
+/**
+ * The first `want` entries of `ranked`, in order, that survive the reader's filters. `load`
+ * receives a chunk of stored rows (one batched read of their targets) and returns the survivors
+ * in chunk order. Chunks of twice `want` are loaded until enough survive or the stored rows run
+ * out, so the targets read never exceed the stored rows (and in the usual case, where almost
+ * everything survives, they are `2 * want` at most).
+ */
+export function firstSurvivors<T>(
+  ranked: StoredRow[],
+  want: number,
+  load: (chunk: StoredRow[]) => T[],
+): T[] {
+  const size = Math.max(want * 2, 1);
+  const out: T[] = [];
+  for (let from = 0; from < ranked.length && out.length < want; from += size)
+    out.push(...load(ranked.slice(from, from + size)));
+  return out.slice(0, want);
 }
 
 /**
@@ -312,16 +331,17 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
       items: threadValuesFor(ctx, actor, newestThreads(ctx, nodes, input.by, input.limit)),
     };
   const kind = z.enum(["mostReplied", "mostReacted", "mostViewed"]).parse(input.by);
-  const ranked = storedRanking(ctx, kind, nodes, input.limit);
-  const byId = new Map(
-    threadRowsByIds(
-      ctx,
-      ranked.map((row) => row.target_id),
-    ).map((row) => [row.id, row]),
-  );
-  const rows = ranked.flatMap((row) => {
-    const thread = byId.get(row.target_id);
-    return thread && thread.state === "visible" && nodes.has(thread.node_id) ? [thread] : [];
+  const rows = firstSurvivors(storedRanking(ctx, kind, nodes), input.limit, (chunk) => {
+    const byId = new Map(
+      threadRowsByIds(
+        ctx,
+        chunk.map((row) => row.target_id),
+      ).map((row) => [row.id, row]),
+    );
+    return chunk.flatMap((row) => {
+      const thread = byId.get(row.target_id);
+      return thread && thread.state === "visible" && nodes.has(thread.node_id) ? [thread] : [];
+    });
   });
   return { items: threadValuesFor(ctx, actor, rows) };
 });

@@ -17,6 +17,10 @@ const SocialUrl = z
   .trim()
   .max(300)
   .regex(/^https?:\/\/[^\s]+$/i, "Use an http(s) URL.")
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are refused
+  .refine((value) => !/[\u0000-\u001f\u007f\u200b-\u200f\u2028-\u202e\ufeff]/.test(value), {
+    message: "Use an http(s) URL without control characters.",
+  })
   .nullable();
 export const SiteSettings = z
   .object({
