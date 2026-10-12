@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export function ClampedBody({
   expectLong: boolean;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("home.clampedBody");
   const box = useRef<HTMLDivElement>(null);
   const [cut, setCut] = useState(expectLong);
 
@@ -47,7 +49,7 @@ export function ClampedBody({
           href={href}
           className="mt-1 inline-flex h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline md:h-8"
         >
-          Read more
+          {t("readMore")}
         </Link>
       )}
     </>

@@ -1,1 +1,70 @@
-{}
+{
+  "page": {
+    "metaTitle": "Home - forum/ui",
+    "heading": "Home",
+    "loadingSidebar": "Loading feed sidebar…",
+    "loadingFeed": "Loading your feed…",
+    "aria": {
+      "newPost": "New post",
+      "feed": "Feed"
+    },
+    "placeholder": "What's on your mind?",
+    "submit": "Post to your profile",
+    "description": "Posts go to your profile wall.",
+    "startThread": "Start a thread",
+    "tabs": {
+      "latest": "Latest",
+      "following": "Following",
+      "top": "Top"
+    },
+    "empty": {
+      "latest": "New threads, replies and profile posts will show up here.",
+      "following": "Posts from the members you follow will show up here.",
+      "top": "Nothing has been reacted to in the last {count, plural, one {# day} other {# days}}."
+    },
+    "days": "Most reacted in the last {count, plural, one {# day} other {# days}}.",
+    "loginTitle": "Follow members to build your feed",
+    "loginDescription": "Log in to see posts from the members you follow.",
+    "login": "Log in",
+    "emptyTitle": "Nothing here yet",
+    "loadMore": "Load more"
+  },
+  "layout": {
+    "loadingNavigation": "Loading navigation…"
+  },
+  "loading": {
+    "feed": "Loading your feed…",
+    "page": "Loading page…"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist or has been removed.",
+    "back": "Back to home"
+  },
+  "clampedBody": {
+    "readMore": "Read more"
+  },
+  "feedItem": {
+    "highlighted": "Highlighted",
+    "comments": "{count, plural, one {{value} comment} other {{value} comments}}",
+    "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
+    "views": "{value}<label>{count, plural, other { views}}</label>",
+    "profileContext": "posted on <user>{username}</user>'s profile",
+    "threadContext": "started a thread in <forum>{title}</forum>",
+    "replyContext": "replied to a thread in <forum>{title}</forum>"
+  },
+  "feedSidebar": {
+    "loadingTrending": "Loading trending…",
+    "loadingLatest": "Loading latest threads…",
+    "loadingMembers": "Loading suggested members…",
+    "loadingForums": "Loading forums…",
+    "trendingTitle": "Trending",
+    "reactions": "{count, plural, one {{value} reaction} other {{value} reactions}}",
+    "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
+    "latestTitle": "Latest threads",
+    "membersTitle": "Members to follow",
+    "forumsTitle": "Forums",
+    "viewAll": "View all",
+    "threads": "{value}<label>{count, plural, other { threads}}</label>"
+  }
+}
