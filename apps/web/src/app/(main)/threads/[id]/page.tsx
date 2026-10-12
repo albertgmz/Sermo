@@ -275,7 +275,7 @@ function PostItem({
         {noteState && post.state === "deleted" && (
           <PostNote icon={Trash2}>{t("deleted")}</PostNote>
         )}
-        {mayRestore(may, post.state) && (
+        {noteState && mayRestore(may, post.state) && (
           <ActionForm
             action={restorePostAction.bind(null, post.threadId, post.id)}
             submit={post.state === "moderated" ? t("approve") : t("restore")}
@@ -289,12 +289,14 @@ function PostItem({
               {t("showDeleted")}
             </summary>
             <HtmlContent>{post.bodyHtml}</HtmlContent>
+            <PostAttachments attachments={post.attachments} />
           </details>
         ) : (
-          <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+          <>
+            <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+            <PostAttachments attachments={post.attachments} />
+          </>
         )}
-
-        <PostAttachments attachments={post.attachments} />
 
         <div className="mt-2 -mx-2 flex flex-wrap items-center justify-end gap-1">
           <ReactionButton
@@ -415,12 +417,12 @@ export default async function ThreadPage({
     ]);
   const page = Math.max(1, Math.floor(Number(pageParam)) || 1);
   const may = threadMay(resolvedPermissions);
-  // The backend lets the thread author, or anyone who may edit other members threads, take the
-  // cover off.
+  // The backend lets the author of a visible thread, or anyone who may edit other members threads,
+  // take the cover off. It gives no flag for it, so the control is only offered to those two.
   const mayRemoveCover =
     thread.cover !== null &&
     (resolvedPermissions["forum.editAny"] === true ||
-      thread.author.id === user?.id);
+      (thread.state === "visible" && thread.author.id === user?.id));
   const selecting = select === "1" && may.split;
   const prefix = prefixView(thread.prefix);
   const highlighted =

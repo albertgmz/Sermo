@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+import { useState } from "react";
 import { findRecipients } from "@/app/(main)/conversations/actions";
 import { createThreadAction } from "@/app/(main)/forums/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
 import { ThreadFields } from "@/components/forum/thread-fields";
+import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -22,12 +23,12 @@ export function NewThreadForm({
   canAttach: boolean;
 }) {
   const t = useTranslations("forums.newThreadForm");
-  const [state, action, pending] = useActionState(
+  const { state, pending, onSubmit } = useKeptForm(
     createThreadAction.bind(null, id),
-    {},
   );
+  const [uploading, setUploading] = useState(false);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <ThreadFields
         prefixes={prefixes}
         prefixId={state.prefixId}
@@ -35,7 +36,7 @@ export function NewThreadForm({
         placeholder={t("placeholder")}
       />
       <Editor name="body" minHeight={200} findMembers={findRecipients} />
-      {canAttach && <AttachmentField nodeId={id} />}
+      {canAttach && <AttachmentField nodeId={id} onBusy={setUploading} />}
       {state.error && (
         <p role="alert" className="text-sm text-destructive">
           {state.error}
@@ -48,7 +49,11 @@ export function NewThreadForm({
         >
           {t("cancel")}
         </Link>
-        <Button type="submit" disabled={pending} className="h-10 px-4">
+        <Button
+          type="submit"
+          disabled={pending || uploading}
+          className="h-10 px-4"
+        >
           {t("submit")}
         </Button>
       </div>

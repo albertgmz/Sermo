@@ -264,7 +264,7 @@ async function Messages({
         </Link>
       ) : (
         <ConversationSync
-          key={messages.length}
+          key={messages.at(-1)?.id}
           id={conversation.id}
           unread={conversation.isUnread}
         />

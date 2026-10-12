@@ -44,6 +44,14 @@ function idsOf(formData: FormData, name: string): number[] {
   return ids as number[];
 }
 
+// Shows the thread again after something changed in it. The page the member is on may carry a hash
+// (a reply or a post action leaves one), and an address that differs from it by nothing else is no
+// navigation to the server, so the page is refreshed first.
+function backToThread(threadId: number): never {
+  refresh();
+  redirect(`/threads/${threadId}`);
+}
+
 // Goes to a post of the thread the member is already reading. An address that differs only by its
 // hash is no navigation to the server, so the page is refreshed first to show what changed.
 function backToPost(href: string): never {
@@ -80,9 +88,14 @@ export async function editPostAction(
 ): Promise<ReplyState> {
   requireIds(threadId, postId);
   const returnTo = `/threads/${threadId}/edit/${postId}`;
+  // The title is only saved when it is not what the form was opened with.
   const title = formData.get("title");
-  if (title !== null) {
-    const prefix = textOf(formData, "prefixId");
+  const prefix = textOf(formData, "prefixId");
+  if (
+    title !== null &&
+    (String(title) !== textOf(formData, "titleWas") ||
+      prefix !== textOf(formData, "prefixWas"))
+  ) {
     const prefixId = prefix ? parseId(prefix) : null;
     if (prefix) requireIds(prefixId);
     const renamed = await attempt(returnTo, () =>
@@ -95,7 +108,10 @@ export async function editPostAction(
       postId,
       body: textOf(formData, "body"),
       reason: textOf(formData, "reason"),
-      attachmentIds: idsOf(formData, "attachmentIds"),
+      // A form without the file list leaves the files as they are.
+      attachmentIds: formData.has("attachments")
+        ? idsOf(formData, "attachmentIds")
+        : undefined,
     }),
   );
   if (!saved.ok) return { error: saved.error };
@@ -139,7 +155,7 @@ export async function deleteThreadAction(
     call(threadsDelete, { threadId, reason: textOf(formData, "reason") }),
   );
   if (!deleted.ok) return { error: deleted.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function restoreThreadAction(
@@ -151,7 +167,7 @@ export async function restoreThreadAction(
     call(threadsRestore, { threadId }),
   );
   if (!restored.ok) return { error: restored.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function setStickyAction(
@@ -164,7 +180,7 @@ export async function setStickyAction(
     call(threadsSetSticky, { threadId, isSticky }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function setLockedAction(
@@ -177,7 +193,7 @@ export async function setLockedAction(
     call(threadsSetLocked, { threadId, isLocked }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function removeCoverAction(
@@ -189,7 +205,7 @@ export async function removeCoverAction(
     call(threadsRemoveCover, { threadId }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function moveThreadAction(
@@ -208,7 +224,7 @@ export async function moveThreadAction(
     call(threadsMove, { threadId, nodeId: nodeId as number }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 // Merges this thread into the one the moderator names; the old address keeps resolving to it.
@@ -265,7 +281,7 @@ export async function watchThreadAction(
     call(threadsWatch, { threadId, email: formData.get("email") === "on" }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function unwatchThreadAction(
@@ -277,7 +293,7 @@ export async function unwatchThreadAction(
     call(threadsUnwatch, { threadId }),
   );
   if (!done.ok) return { error: done.error };
-  redirect(`/threads/${threadId}`);
+  backToThread(threadId);
 }
 
 export async function reportPostAction(

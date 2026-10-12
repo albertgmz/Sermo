@@ -137,11 +137,59 @@ test("editing a post sends the source and goes back to the post", async () => {
   assert.equal(asked.length, 1);
   assert.equal(asked[0].method, "PATCH");
   assert.equal(asked[0].url, `${ROOT}/posts/31`);
+  // A form that does not carry the file list leaves the post files as they are.
   assert.deepEqual(asked[0].body, {
     body: "**bold** [a](https://x.y)",
     reason: "typo",
-    attachmentIds: [],
   });
+});
+
+test("an edit with the file list names the files that stay", async () => {
+  answer = { status: 200, body: post };
+  await redirectedTo(() =>
+    actions.editPostAction(
+      7,
+      31,
+      {},
+      form({ body: "b", attachments: "listed", attachmentIds: ["4"] }),
+    ),
+  );
+  assert.deepEqual(
+    (asked[0].body as { attachmentIds: number[] }).attachmentIds,
+    [4],
+  );
+  await redirectedTo(() =>
+    actions.editPostAction(
+      7,
+      31,
+      {},
+      form({ body: "b", attachments: "listed" }),
+    ),
+  );
+  assert.deepEqual(
+    (asked[1].body as { attachmentIds: number[] }).attachmentIds,
+    [],
+  );
+});
+
+test("a title that was not changed is not saved again", async () => {
+  answer = { status: 200, body: post };
+  await redirectedTo(() =>
+    actions.editPostAction(
+      7,
+      31,
+      {},
+      form({
+        body: "b",
+        title: "Same",
+        titleWas: "Same",
+        prefixId: "2",
+        prefixWas: "2",
+      }),
+    ),
+  );
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].url, `${ROOT}/posts/31`);
 });
 
 test("an opening post edit saves the title first", async () => {

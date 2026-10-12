@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import { PendingButton } from "@/components/forum/pending-button";
+import { useKeptForm } from "@/components/forum/use-kept-form";
 import { cn } from "@/lib/utils";
 
 export type ActionFormState = { error?: string; done?: boolean };
@@ -33,9 +33,9 @@ export function ActionForm({
   className?: string;
   children?: React.ReactNode;
 }) {
-  const [state, formAction] = useActionState(action, {});
+  const { state, onSubmit } = useKeptForm(action);
   return (
-    <form id={id} action={formAction} className={cn("space-y-2", className)}>
+    <form id={id} onSubmit={onSubmit} className={cn("space-y-2", className)}>
       {children}
       {state.error && (
         <p role="alert" className="text-sm text-destructive">

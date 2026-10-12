@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 
 export type MemberHit = { id: number; username: string };
 
+const NONE: MemberHit[] = [];
+
 // The text typed after an "@" that starts a word, up to the caret.
 const TYPING = /(?:^|[\s(])@([\p{L}\p{N}._-]{1,32})$/u;
 
@@ -83,7 +85,15 @@ export function MentionPlugin({
   const [editor] = useLexicalComposerContext();
   const listId = useId();
   const [typed, setTyped] = useState<string | null>(null);
-  const [hits, setHits] = useState<MemberHit[]>([]);
+  // The members found, and what had been typed when they were asked for: they stop being offered
+  // as soon as the text moves on.
+  const [found, setFound] = useState<{ prefix: string; hits: MemberHit[] }>({
+    prefix: "",
+    hits: [],
+  });
+  const hits = found.prefix === typed ? found.hits : NONE;
+  const setHits = (items: MemberHit[]) =>
+    setFound({ prefix: typed ?? "", hits: items });
   const [active, setActive] = useState(0);
   const open = typed !== null && hits.length > 0;
   const latest = useRef({ open, hits, active });
@@ -111,17 +121,16 @@ export function MentionPlugin({
   );
 
   useEffect(() => {
-    if (typed === null) {
-      setHits([]);
-      return;
-    }
+    if (typed === null) return;
     let current = true;
     const timer = setTimeout(() => {
-      void find(typed).then((found) => {
-        if (!current) return;
-        setHits(found);
-        setActive(0);
-      });
+      find(typed)
+        .catch(() => [])
+        .then((hits) => {
+          if (!current) return;
+          setFound({ prefix: typed, hits });
+          setActive(0);
+        });
     }, 200);
     return () => {
       current = false;

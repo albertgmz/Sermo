@@ -1,6 +1,6 @@
 import { nodesGet } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
-import { apiUrl } from "@/lib/sermo/config";
+import { apiUrl, publicUrl } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import {
@@ -35,13 +35,19 @@ export async function POST(
   if (nodeId === null) return failure(t("notFound"), 404);
   const forward = forwardFromHeaders(request.headers);
   if (!sermoCookies(forward.cookie)) return failure(t("signIn"), 401);
+  // Only this site posts here: the backend is told the request came from it.
+  const origin = request.headers.get("origin");
+  if (origin === null || origin !== new URL(publicUrl()).origin) {
+    return failure(t("notAllowed"), 403);
+  }
   const type = request.headers.get("content-type");
   if (!request.body || !type?.startsWith("multipart/form-data")) {
     return failure(t("noFile"), 400);
   }
   const body = await request.arrayBuffer();
   const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > body.byteLength) {
+  if (!(declared > 0)) return failure(t("noFile"), 411);
+  if (declared > body.byteLength) {
     return failure(t("tooLarge"), 413);
   }
   try {

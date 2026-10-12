@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useActionState } from "react";
+import { useRef, useState } from "react";
 import { findRecipients } from "@/app/(main)/conversations/actions";
 import { editPostAction } from "@/app/(main)/threads/actions";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
 import { ThreadFields } from "@/components/forum/thread-fields";
+import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,27 +40,44 @@ export function EditPostForm({
   thread: { title: string; prefixId: string; prefixes: PrefixView[] } | null;
 }) {
   const t = useTranslations("threads.editForm");
-  const [state, action, pending] = useActionState(
+  const { state, pending, onSubmit } = useKeptForm(
     editPostAction.bind(null, threadId, postId),
-    {},
   );
+  const [uploading, setUploading] = useState(false);
+  // The editor writes Markdown its own way (it escapes an underscore, for one). What the member did
+  // not touch is sent back as it was kept: the first thing the editor reports is how it writes the
+  // source, and only a different text after that is a change.
+  const written = useRef<string>(undefined);
+  const [body, setBody] = useState(source);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {thread && (
-        <ThreadFields
-          prefixes={thread.prefixes}
-          prefixId={thread.prefixId}
-          title={thread.title}
-        />
+        <>
+          <ThreadFields
+            prefixes={thread.prefixes}
+            prefixId={thread.prefixId}
+            title={thread.title}
+          />
+          <input type="hidden" name="titleWas" value={thread.title} />
+          <input type="hidden" name="prefixWas" value={thread.prefixId} />
+        </>
       )}
       <Editor
-        name="body"
         defaultValue={source}
         minHeight={200}
         findMembers={findRecipients}
+        onChange={(markdown) => {
+          written.current ??= markdown;
+          setBody(markdown === written.current ? source : markdown);
+        }}
       />
+      <input type="hidden" name="body" value={body} />
       {attachIn !== null && (
-        <AttachmentField nodeId={attachIn} initial={attached} />
+        <AttachmentField
+          nodeId={attachIn}
+          initial={attached}
+          onBusy={setUploading}
+        />
       )}
       <div className="space-y-2">
         <Label htmlFor="edit-reason" className="text-muted-foreground">
@@ -84,7 +102,11 @@ export function EditPostForm({
         >
           {t("cancel")}
         </Link>
-        <Button type="submit" disabled={pending} className="h-10 px-4">
+        <Button
+          type="submit"
+          disabled={pending || uploading}
+          className="h-10 px-4"
+        >
           {t("submit")}
         </Button>
       </div>

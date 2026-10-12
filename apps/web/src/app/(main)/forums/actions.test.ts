@@ -6,6 +6,7 @@ const asked: { method: string; url: string; body: unknown }[] = [];
 let answer: { status: number; body: unknown } = { status: 200, body: {} };
 
 mock.module("server-only", () => ({}));
+mock.module("next/cache", () => ({ refresh: () => {} }));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),

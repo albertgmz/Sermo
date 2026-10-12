@@ -2,7 +2,7 @@
 
 import { LoaderCircle, Paperclip, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
 import { cn } from "@/lib/utils";
 
@@ -13,15 +13,20 @@ export type AttachedFile = { id: number; name: string; size: number | null };
 export function AttachmentField({
   nodeId,
   initial = [],
+  onBusy,
 }: {
   nodeId: number;
   initial?: AttachedFile[];
+  // Told whether a file is still on its way, so the form can wait for it.
+  onBusy?: (busy: boolean) => void;
 }) {
   const t = useTranslations("forum.attachmentField");
   const format = useFormatter();
   const [files, setFiles] = useState<AttachedFile[]>(initial);
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string>();
+
+  useEffect(() => onBusy?.(busy > 0), [busy, onBusy]);
 
   async function send(file: File) {
     const body = new FormData();
@@ -91,6 +96,8 @@ export function AttachmentField({
           </span>
         )}
       </div>
+      {/* Says that the files named below are the whole list, which an empty list is too. */}
+      <input type="hidden" name="attachments" value="listed" />
       {files.map((file) => (
         <input
           key={file.id}

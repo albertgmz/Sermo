@@ -1,6 +1,7 @@
 "use server";
 
 import { nodesUnwatch, nodesWatch, threadsCreate } from "@sermo/core/contracts";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/app/(main)/threads/actions";
 import { call } from "@/lib/sermo/client";
@@ -22,6 +23,7 @@ export async function createThreadAction(
   const title = String(formData.get("title") ?? "");
   const body = String(formData.get("body") ?? "");
   const prefixId = String(formData.get("prefixId") ?? "");
+  if (prefixId) requireIds(parseId(prefixId));
   const attachmentIds = formData
     .getAll("attachmentIds")
     .map((value) => parseId(String(value)));
@@ -33,7 +35,7 @@ export async function createThreadAction(
       title,
       body,
       attachmentIds: attachmentIds as number[],
-      prefixId: prefixId ? Number(prefixId) : null,
+      prefixId: prefixId ? (parseId(prefixId) as number) : null,
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };
@@ -52,6 +54,7 @@ export async function watchForumAction(
     call(nodesWatch, { nodeId, mode, email: formData.get("email") === "on" }),
   );
   if (!done.ok) return { error: done.error };
+  refresh();
   redirect(`/forums/${nodeId}`);
 }
 
@@ -64,5 +67,6 @@ export async function unwatchForumAction(
     call(nodesUnwatch, { nodeId }),
   );
   if (!done.ok) return { error: done.error };
+  refresh();
   redirect(`/forums/${nodeId}`);
 }
