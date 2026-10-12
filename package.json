@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome check",
+    "test": "bun test",
     "format": "biome format --write",
     "db:reset": "bun -e \"require('node:fs').copyFileSync('data/seed.json', 'data/db.json')\""
   },
@@ -24,6 +25,7 @@
     "lexical": "^0.52.0",
     "lucide-react": "^1.55.0",
     "next": "16.4.0",
+    "next-intl": "4.14.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "^10.1.0",
