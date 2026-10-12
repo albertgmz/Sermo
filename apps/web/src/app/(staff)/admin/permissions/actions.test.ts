@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { permissionDefinitionBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
 
@@ -21,26 +22,7 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const definition = (
-  id: string,
-  type: "flag" | "integer",
-  scope = "global",
-) => ({
-  id,
-  scope,
-  type,
-  category: "forum",
-  unit: type === "integer" ? "count" : null,
-  label: `permission.${id}`,
-  description: `permission.${id}.description`,
-  defaults: {},
-  requiresAccount: false,
-  restriction: null,
-  ownContentOnly: false,
-  timeLimit: null,
-  hierarchy: false,
-  threadBan: false,
-});
+const definition = permissionDefinitionBody;
 
 const DEFINITIONS = {
   items: [

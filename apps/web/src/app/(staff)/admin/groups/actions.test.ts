@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { groupBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "./test-backend";
 
@@ -21,17 +22,7 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const GROUP = {
-  id: 7,
-  title: "Writers",
-  description: "",
-  rank: 20,
-  userTitle: "",
-  badge: "",
-  builtin: null,
-  nameColorId: 3,
-  isStaff: false,
-};
+const GROUP = groupBody();
 
 function form(fields: Record<string, string>) {
   const data = new FormData();

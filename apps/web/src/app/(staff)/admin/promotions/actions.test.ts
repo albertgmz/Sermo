@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { criterionBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
 
@@ -23,20 +24,8 @@ afterAll(() => {
 
 const CRITERIA = {
   items: [
-    {
-      id: "post_count",
-      label: "promotion.criterion.post_count",
-      description: "promotion.criterion.post_count.description",
-      kind: "atLeast",
-      unit: "count",
-    },
-    {
-      id: "email_verified",
-      label: "promotion.criterion.email_verified",
-      description: "promotion.criterion.email_verified.description",
-      kind: "boolean",
-      unit: "boolean",
-    },
+    criterionBody("post_count", "atLeast", "count"),
+    criterionBody("email_verified", "boolean", "boolean"),
   ],
 };
 

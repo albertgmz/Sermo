@@ -19,6 +19,7 @@ mock.module("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 
+const { postBody } = await import("@/lib/test-bodies");
 const actions = await import("./actions");
 
 const when = "2026-01-01T00:00:00.000Z";
@@ -45,22 +46,7 @@ const thread = {
   readPosition: null,
   isUnread: false,
 };
-const post = {
-  id: 31,
-  threadId: 7,
-  position: 25,
-  author: someone,
-  state: "visible",
-  createdAt: when,
-  editedAt: null,
-  bodyHtml: "",
-  attachmentCount: 0,
-  attachments: [],
-  reactions: { counts: {}, total: 0, mine: null },
-  canEdit: true,
-  canDelete: true,
-  bodySource: "",
-};
+const post = postBody();
 const ROOT = "http://127.0.0.1:8787/api/v1";
 
 beforeEach(() => {
