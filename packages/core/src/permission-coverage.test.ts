@@ -18,33 +18,13 @@ import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permis
  * Modules whose operations are not implemented yet. A module's worker removes its name when its
  * checks land; the list must end empty.
  */
-<<<<<<< HEAD
-const PENDING_MODULES = new Set<string>(["credits", "awards", "shop"]);
-||||||| b4dfda4
-const PENDING_MODULES = new Set<string>(["credits", "credit-events", "awards", "shop"]);
-=======
-const PENDING_MODULES = new Set<string>(["credit-events", "shop"]);
->>>>>>> feat/economy
+const PENDING_MODULES = new Set<string>(["shop"]);
 
 /**
  * Registered permissions whose feature is still being built. A feature's worker removes its
  * permissions from this list when the checks land; the list must end empty.
  */
 const PENDING_PERMISSIONS = new Set<string>([
-<<<<<<< HEAD
-  "credits.adjust",
-  "credits.viewAny",
-  "award.grant",
-  "admin.awards",
-||||||| b4dfda4
-  "credits.adjust",
-  "credits.viewAny",
-  "admin.creditRules",
-  "award.grant",
-  "admin.awards",
-=======
-  "admin.creditRules",
->>>>>>> feat/economy
   "shop.buy",
   "shop.gift",
   "admin.shop",
