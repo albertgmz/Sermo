@@ -43,6 +43,82 @@ function changeEmailIdentifier(token: string): string {
   return `change-email:${new Bun.CryptoHasher("sha256").update(token).digest("base64url")}`;
 }
 
+type AuthHookContext = Parameters<typeof deleteSessionCookie>[0];
+
+/**
+ * Endpoints that proceed past a dead session cookie (missing row, expired, forged or unsigned)
+ * as if no cookie had been sent. An endpoint belongs here only if neither its handler nor any
+ * middleware or hook that runs for it reads a session from the request, because the session
+ * helpers fall back to the cookie cache when `context.session` is null. Checked against Better
+ * Auth 1.7.7: none of these uses getSessionFromCtx, sessionMiddleware, freshSessionMiddleware or
+ * getSession. /verify-email calls getSessionFromCtx only for change-email tokens and when
+ * autoSignInAfterVerification is set (it is not), so a dead cookie proceeds there only when the
+ * link is not a change-email link; change-email links act on the member's session and keep
+ * answering 401. Every other endpoint answers a dead cookie with 401.
+ */
+export const SESSIONLESS_PATHS: ReadonlySet<string> = new Set([
+  "/sign-in/email",
+  "/sign-in/username",
+  "/sign-up/email",
+  "/request-password-reset",
+  "/reset-password",
+  "/reset-password/:token",
+  "/verify-email",
+]);
+
+async function proceedsWithoutSession(hook: AuthHookContext): Promise<boolean> {
+  if (!SESSIONLESS_PATHS.has(hook.path)) return false;
+  if (hook.path !== "/verify-email") return true;
+  const token: unknown = hook.query?.token;
+  return typeof token !== "string" || !(await verifyJWT(token, hook.context.secret))?.updateTo;
+}
+
+/** Marks, on the per-request auth context, that the request's session cookies were dead. */
+const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
+
+function withoutSessionCookies(hook: AuthHookContext) {
+  const strip = (name: string) => name.toLowerCase().replace(/^__(?:secure|host)-/, "");
+  const names = [
+    hook.context.authCookies.sessionToken.name,
+    hook.context.authCookies.sessionData.name,
+  ].map(strip);
+  const source = hook.headers ?? hook.request?.headers;
+  const headers = new Headers(source);
+  const kept = (source?.get("cookie") ?? "").split(";").filter((part) => {
+    const name = strip(part.slice(0, part.indexOf("=")).replace(/^[\s,]+|\s+$/g, ""));
+    return !names.some((base) => name === base || name.startsWith(`${base}.`));
+  });
+  headers.set("cookie", kept.join(";"));
+  return { context: { headers } };
+}
+
+/**
+ * Expire the dead session cookies on the response without undoing a session cookie that the
+ * endpoint itself wrote in this request (a successful sign-in must end with its new cookie).
+ */
+function retireDeadSessionCookies(hook: AuthHookContext): void {
+  // The endpoint's own headers live on the request-scoped context, not on this hook's.
+  const endpointHeaders = (hook.context as { responseHeaders?: Headers }).responseHeaders;
+  const scopes = new Set<Headers>([hook.responseHeaders]);
+  if (endpointHeaders) scopes.add(endpointHeaders);
+  const before = new Map([...scopes].map((headers) => [headers, headers.getSetCookie()]));
+  deleteSessionCookie(hook);
+  const nameOf = (entry: string) => entry.slice(0, entry.indexOf("="));
+  const removed = [...before].map(([headers, entries]) => {
+    const now = headers.getSetCookie();
+    return { headers, lost: entries.filter((entry) => !now.includes(entry)) };
+  });
+  const rewritten = new Set(removed.flatMap(({ lost }) => lost.map(nameOf)));
+  for (const { headers, lost } of removed) {
+    const original = before.get(headers)!;
+    const current = headers
+      .getSetCookie()
+      .filter((entry) => original.includes(entry) || !rewritten.has(nameOf(entry)));
+    headers.delete("set-cookie");
+    for (const entry of [...current, ...lost]) headers.append("set-cookie", entry);
+  }
+}
+
 function invalidToken(): APIError {
   return new APIError("UNAUTHORIZED", { message: "Invalid token", code: "INVALID_TOKEN" });
 }
@@ -225,6 +301,7 @@ function buildAuth(ctx: Ctx) {
         // Use Better Auth's own signed-token reader and its database adapter, never the cache.
         // Supplying the authoritative session also prevents later middleware from caching one.
         hook.context.session = null;
+        let requestWithoutCookies: ReturnType<typeof withoutSessionCookies> | undefined;
         const tokenName = hook.context.authCookies.sessionToken.name;
         const sessionToken = await hook.getSignedCookie(tokenName, hook.context.secret);
         if (sessionToken || hook.getCookie(tokenName)) {
@@ -232,17 +309,24 @@ function buildAuth(ctx: Ctx) {
             ? await hook.context.internalAdapter.findSession(sessionToken)
             : null;
           if (!session || session.session.expiresAt.getTime() <= Date.now()) {
-            // Refuse the request, but let the browser recover on its next sign-in attempt.
-            deleteSessionCookie(hook);
-            throw new APIError(
-              "UNAUTHORIZED",
-              { code: "UNAUTHORIZED", message: "Unauthorized" },
-              hook.responseHeaders,
-            );
+            if (!(await proceedsWithoutSession(hook))) {
+              // Refuse the request, but let the browser recover on its next sign-in attempt.
+              deleteSessionCookie(hook);
+              throw new APIError(
+                "UNAUTHORIZED",
+                { code: "UNAUTHORIZED", message: "Unauthorized" },
+                hook.responseHeaders,
+              );
+            }
+            // This endpoint takes no session: treat the request as cookie-less, hide the dead
+            // cookies from everything downstream, and expire them in the response (after hook).
+            Object.assign(hook.context, { [DEAD_SESSION_COOKIE]: true });
+            requestWithoutCookies = withoutSessionCookies(hook);
+          } else {
+            hook.context.session = session;
+            if (hook.path !== "/sign-out" && isBanned(ctx, Number(session.user.id)))
+              throw accountBanned();
           }
-          hook.context.session = session;
-          if (hook.path !== "/sign-out" && isBanned(ctx, Number(session.user.id)))
-            throw accountBanned();
         }
         // The plugin's sign-in validator retains the historical rule for existing accounts.
         if (
@@ -267,13 +351,13 @@ function buildAuth(ctx: Ctx) {
               code: "REDIRECT_REQUIRED",
             });
         }
-        if (hook.path !== "/verify-email") return;
+        if (hook.path !== "/verify-email") return requestWithoutCookies;
         const token: unknown = hook.query?.token;
-        if (typeof token !== "string") return;
+        if (typeof token !== "string") return requestWithoutCookies;
         // Classify the verified JWT payload, including base64url and UTF-8, with the same
         // decoder that validates it. A separate, fallible classifier could bypass this flow.
         const verified = await verifyJWT(token, hook.context.secret);
-        if (!verified?.updateTo) return;
+        if (!verified?.updateTo) return requestWithoutCookies;
         // Returning here bypasses Better Auth's email-based lookup/update. Check its callback
         // policy too: the endpoint middleware will not run after a before-hook response.
         const callbackURL: unknown = hook.query?.callbackURL;
@@ -367,6 +451,7 @@ function buildAuth(ctx: Ctx) {
         return hook.json({ status: true, user: parseUserOutput(hook.context.options, user) });
       }),
       after: createAuthMiddleware(async (hook) => {
+        if (Reflect.get(hook.context, DEAD_SESSION_COOKIE) === true) retireDeadSessionCookies(hook);
         if (!mailEnabled) return;
         if (hook.context.returned instanceof APIError) return;
         if (hook.context.returned instanceof Response && !hook.context.returned.ok) return;
