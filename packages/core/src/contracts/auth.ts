@@ -58,13 +58,16 @@ export const authMe = defineContract({
      * What a staff interface needs beyond the global permissions above, which do not show a
      * member who moderates only some forums. `moderatesEverywhere`: holds at least one moderation
      * permission of scope `node` globally. `moderatedNodeIds`: otherwise, the forums where a
-     * node entry grants them one (at most 500). `panel`: holds any permission of the `admin` or
-     * `moderation` categories anywhere, so there is something for them in a staff interface.
+     * node entry grants them one (at most 500; `moderatedNodesTruncated` is true when there are
+     * more). `panel`: holds any permission of the `admin` or `moderation` categories anywhere
+     * that lets them act on others, so there is something for them in a staff interface (a
+     * permission that only exempts the member, such as member.immuneToAutoBan, does not count).
      */
     staff: z.object({
       panel: z.boolean(),
       moderatesEverywhere: z.boolean(),
       moderatedNodeIds: z.array(Id),
+      moderatedNodesTruncated: z.boolean(),
     }),
   }),
 });

@@ -11,6 +11,7 @@ import { invalidate } from "../../context";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError } from "../../errors";
 import { execute } from "../../operation";
+import { SCAN_CAP } from "../feed/scan";
 import {
   nodesSetModeratorOp,
   nodesUpdateOp,
@@ -163,6 +164,12 @@ describe("node moderation queues", () => {
       cursor = result.nextCursor;
     }
     expect(found).toHaveLength(1);
+    // A log walk examines up to the scan bound before it gives up: bury the allowed entries
+    // under more of the forum's hidden ones than that.
+    writeTx(ctx, () => {
+      for (let i = 0; i < SCAN_CAP; i++)
+        appendModeratorLog(ctx, admin, "test.hidden", "thread", 1, "", {}, b.id);
+    });
     const firstLog = listModeratorLog(ctx, local, { limit: 2 });
     expect(firstLog.items).toHaveLength(0);
     expect(firstLog.nextCursor).toBeString();

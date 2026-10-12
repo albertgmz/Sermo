@@ -614,7 +614,12 @@ test("auth.me returns guest, member, moderator, admin and token permissions", as
       canReact: false,
     },
     resolvedPermissions: expect.any(Object),
-    staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
+    staff: {
+      panel: false,
+      moderatesEverywhere: false,
+      moderatedNodeIds: [],
+      moderatedNodesTruncated: false,
+    },
   });
   expect(guest.resolvedPermissions).toMatchObject({
     "profile.view": true,

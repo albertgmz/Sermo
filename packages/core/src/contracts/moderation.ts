@@ -105,7 +105,9 @@ export const moderatorLogList = defineContract({
     "Read the append-only moderator log: everything with moderatorLog.view, otherwise the " +
     "entries of nodes where the actor has forum.viewLog. nodeId limits it to one node; " +
     "`actorId` to what one member did; `action` to actions that start with that text (for " +
-    "example `settings.` or `navigation.`).",
+    "example `settings.` or `navigation.`). A call examines a bounded number of entries, so a " +
+    "page may be short, even empty, when few of them match: continue with `nextCursor` until " +
+    "it is null.",
   kind: "read",
   input: z.object({
     nodeId: Id.optional(),

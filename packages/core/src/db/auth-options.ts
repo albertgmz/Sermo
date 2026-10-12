@@ -19,6 +19,15 @@ export function isValidUsername(value: string): boolean {
   return USERNAME_PATTERN.test(value) && USERNAME_PATTERN.test(value.toLowerCase());
 }
 
+/**
+ * Names that begin with "deleted member" (in any letter case, after the lowercasing the
+ * uniqueness key uses) are kept for erased accounts, which are renamed `Deleted member <id>`.
+ * Nobody can register or rename to one, so an erasure never meets a name taken in advance.
+ */
+export function isReservedUsername(value: string): boolean {
+  return value.toLowerCase().startsWith("deleted member");
+}
+
 export function authPlugins() {
   return [
     username({

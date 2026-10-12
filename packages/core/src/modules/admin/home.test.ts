@@ -330,6 +330,91 @@ describe("admin.jobs", () => {
     const w = world();
     expectNoTableScan(w.ctx, jobsSql.counts);
     expectNoTableScan(w.ctx, jobsSql.oldestDue, [0]);
-    expectNoTableScan(w.ctx, jobsSql.failures);
+    expectNoTableScan(w.ctx, jobsSql.failures, [0]);
+  });
+});
+
+describe("admin.activity, review fixes", () => {
+  const monthOf = async (w: World, actor: object, kind: string) =>
+    (await w.run("admin.activity", actor)).items.find(
+      (item: { kind: string }) => item.kind === kind,
+    )?.month;
+
+  test("keeps a count for a minute, per set of kinds, and recounts after", async () => {
+    const w = world();
+    logRows(w, HOUR);
+    const founder = userActor(w.founder);
+    expect(await monthOf(w, founder, "moderation")).toBe(1);
+    logRows(w, HOUR);
+    // Within the minute: the kept count.
+    w.ctx.clock.advance(30_000);
+    expect(await monthOf(w, founder, "moderation")).toBe(1);
+    w.ctx.clock.advance(31_000);
+    expect(await monthOf(w, founder, "moderation")).toBe(2);
+  });
+
+  test("a kept result is never given to an actor who may read fewer kinds", async () => {
+    const w = world();
+    logRows(w, HOUR);
+    const founder = (await w.run("admin.activity", userActor(w.founder))).items;
+    expect(founder).toHaveLength(6);
+    const moderator = (await w.run("admin.activity", resolvedActor(w.ctx, w.moderator.id))).items;
+    expect(moderator.map((item: { kind: string }) => item.kind)).toEqual([
+      "reports",
+      "creditAdjustments",
+    ]);
+    // And the other way round, with the moderator's result kept first.
+    const again = (await w.run("admin.activity", userActor(w.founder))).items;
+    expect(again).toHaveLength(6);
+  });
+
+  test("the report counts, which cover the whole site, go only to someone who handles reports everywhere", async () => {
+    const w = world();
+    const first = insertNode(w.ctx, { title: "First", type: "forum" });
+    const second = insertNode(w.ctx, { title: "Second", type: "forum" });
+    invalidate(w.ctx, "node_tree");
+    const helper = insertUser(w.ctx);
+    const grant = (entries: object[], nodeId?: number) =>
+      w.run("permissions.set", userActor(w.founder), {
+        userId: helper.id,
+        ...(nodeId === undefined ? {} : { nodeId }),
+        entries,
+      });
+    await grant([
+      { permission: "node.view", value: "allow" },
+      { permission: "admin.shop", value: "allow" },
+    ]);
+    await grant([{ permission: "forum.manageReports", value: "allow" }], first.id);
+    const kinds = async () =>
+      (await w.run("admin.activity", resolvedActor(w.ctx, helper.id))).items.map(
+        (item: { kind: string }) => item.kind,
+      );
+    // One forum of two: the site-wide report counts are not theirs.
+    expect(await kinds()).toEqual(["shopPurchases"]);
+    await grant([{ permission: "forum.manageReports", value: "allow" }], second.id);
+    expect(await kinds()).toEqual(["reports", "shopPurchases"]);
+  });
+});
+
+describe("admin.jobs, review fixes", () => {
+  test("failures come latest first by when they failed, not by when they were due", async () => {
+    const w = world();
+    const insert = (error: string, runAt: number, failedAt: number) =>
+      w.ctx.sqlite
+        .prepare(
+          "INSERT INTO jobs (type, status, run_at, last_error, created_at, updated_at) VALUES ('t.job', 'failed', ?1, ?2, ?3, ?3)",
+        )
+        .run(runAt, error, failedAt);
+    // Failed longest ago but waits for the latest time, and the other way round.
+    insert("old failure, late backoff", w.start + 5 * HOUR, w.start - 3 * HOUR);
+    insert("new failure, early time", w.start - 5 * HOUR, w.start - HOUR);
+    insert("middle", w.start, w.start - 2 * HOUR);
+    const { failures } = await w.run("admin.jobs", userActor(w.founder));
+    expect(failures.map((entry: { error: string }) => entry.error)).toEqual([
+      "new failure, early time",
+      "middle",
+      "old failure, late backoff",
+    ]);
+    expect(failures[0].failedAt).toBe(new Date(w.start - HOUR).toISOString());
   });
 });

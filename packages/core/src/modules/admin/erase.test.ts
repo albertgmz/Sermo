@@ -7,6 +7,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { resolvedPermissions } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+import { getAuth } from "../auth";
 import { accounts, closeAll, PASSWORD } from "./fixtures.test";
 
 afterEach(closeAll);
@@ -40,8 +41,6 @@ async function world() {
     )
     .run(target.id);
   await w.signIn("target@example.test");
-  const key = await w.run("auth.me", target.actor);
-  void key;
   w.ctx.sqlite
     .prepare(
       "INSERT INTO auth_apikey (config_id, key, reference_id, created_at, updated_at, enabled) VALUES ('default', 'hashed', ?1, ?2, ?2, 1)",
@@ -195,13 +194,16 @@ describe("users.adminErase", () => {
         primaryGroupId: 4,
       })
       .catch(() => undefined);
+    // The founder no longer holds admin.permissions, so cannot reach a member who does (the rule
+    // that an administrator is only reached by one who holds it too); the ban's own guard for the
+    // last holder cannot be met through this operation any more.
     await expect(
       w.run("users.adminErase", w.founder.actor, {
         userId: holder.id,
         actorPassword: PASSWORD,
         reason: "No",
       }),
-    ).rejects.toBeInstanceOf(ConflictError);
+    ).rejects.toBeInstanceOf(ForbiddenError);
     expect(w.user(holder.id)).toMatchObject({ username: "Holder", banned_permanently: 0 });
     expect(w.signIn("holder@example.test")).resolves.toBeDefined();
 
@@ -289,5 +291,327 @@ describe("users.adminErase and a stale actor", () => {
     } finally {
       database.close();
     }
+  });
+});
+
+// The marker, the reserved name and the steps that can be run again ----------------------------
+
+const NAME_TAKEN = /taken/i;
+
+describe("the name kept for erased accounts", () => {
+  test("nobody registers, renames or checks for such a name, and the message does not advertise it", async () => {
+    const w = await accounts();
+    const founder = await w.register("Founder", 4);
+    const plain = await w.register("Plain");
+    for (const name of [
+      "Deleted member 7",
+      "DELETED MEMBER",
+      "deleted member x y",
+      "Deleted Member 5-2",
+    ])
+      await expect(w.register(name)).rejects.toBeDefined();
+    expect(
+      w.ctx.sqlite.prepare("SELECT 1 FROM users WHERE username_key LIKE 'deleted member%'").get(),
+    ).toBeNull();
+    // The plain "taken" refusal, for a member's own rename and for an administrator's.
+    await expect(
+      w.run("users.changeUsername", plain.actor, { username: "Deleted Member 12" }),
+    ).rejects.toThrow(NAME_TAKEN);
+    await expect(
+      w.run("users.adminUpdateIdentity", founder.actor, {
+        userId: plain.id,
+        actorPassword: PASSWORD,
+        username: "deleted member",
+      }),
+    ).rejects.toThrow(NAME_TAKEN);
+    // Better Auth's own availability check agrees.
+    const { getAuth } = await import("../auth");
+    expect(
+      await getAuth(w.ctx).api.isUsernameAvailable({ body: { username: "Deleted Member 3" } }),
+    ).toEqual({ available: false });
+    expect(
+      await getAuth(w.ctx).api.isUsernameAvailable({ body: { username: "Delightful" } }),
+    ).toEqual({ available: true });
+    // Names that merely resemble it are fine.
+    await w.register("Deleted-member");
+  });
+
+  test("erase takes the first free Deleted member <id>-<n> when the name is already held", async () => {
+    const w = await world();
+    // Accounts from before the name was reserved.
+    for (const [suffix, id] of [
+      ["", w.fan.id],
+      ["-1", w.idol.id],
+    ] as const) {
+      const name = `Deleted member ${w.target.id}${suffix}`;
+      w.ctx.sqlite
+        .prepare("UPDATE users SET username = ?1, username_key = ?2 WHERE id = ?3")
+        .run(name, name.toLowerCase(), id);
+      w.ctx.sqlite
+        .prepare("UPDATE auth_user SET username = ?1, display_username = ?2 WHERE id = ?3")
+        .run(name.toLowerCase(), name, id);
+    }
+    expect(await w.erase()).toEqual({ ok: true });
+    expect(w.user()).toMatchObject({
+      username: `Deleted member ${w.target.id}-2`,
+      about: "",
+      banned_permanently: 1,
+    });
+    expect(
+      w.ctx.sqlite
+        .prepare<{ name: string; email: string }, [number]>(
+          "SELECT name, email FROM auth_user WHERE id = ?1",
+        )
+        .get(w.target.id),
+    ).toEqual({ name: `Deleted member ${w.target.id}-2`, email: `erased-${w.target.id}@invalid` });
+    expect(w.logOf(w.target.id).filter((entry) => entry.action === "member.erase")).toHaveLength(1);
+    // A rerun keeps that name.
+    await w.erase();
+    expect(w.user().username).toBe(`Deleted member ${w.target.id}-2`);
+  });
+});
+
+type World = Awaited<ReturnType<typeof world>>;
+// biome-ignore lint/suspicious/noExplicitAny: the injections replace methods of Better Auth's context
+type Loose = any;
+
+describe("users.adminErase from every intermediate state", () => {
+  // Each step is made to fail once; what is left is then checked, and a rerun must finish it.
+  const injections: Record<string, (w: World, auth: Loose) => () => void> = {
+    "sessions and keys": (_w, auth) => {
+      const original = auth.internalAdapter.deleteUserSessions;
+      auth.internalAdapter.deleteUserSessions = async () => {
+        throw new Error("injected");
+      };
+      return () => {
+        auth.internalAdapter.deleteUserSessions = original;
+      };
+    },
+    "pending links": (_w, auth) => {
+      const original = auth.adapter.deleteMany;
+      auth.adapter.deleteMany = async (args: { model: string }) => {
+        if (args.model === "verification") throw new Error("injected");
+        return original(args);
+      };
+      return () => {
+        auth.adapter.deleteMany = original;
+      };
+    },
+    "the address": (_w, auth) => {
+      const original = auth.internalAdapter.updateUser;
+      auth.internalAdapter.updateUser = async (id: string, data: { email?: string }) => {
+        if (data.email !== undefined) throw new Error("injected");
+        return original(id, data);
+      };
+      return () => {
+        auth.internalAdapter.updateUser = original;
+      };
+    },
+    "the password": (_w, auth) => {
+      const original = auth.internalAdapter.deleteAccounts;
+      auth.internalAdapter.deleteAccounts = async () => {
+        throw new Error("injected");
+      };
+      return () => {
+        auth.internalAdapter.deleteAccounts = original;
+      };
+    },
+    "the profile": (w) => {
+      w.ctx.sqlite.exec(
+        "CREATE TRIGGER inject_profile BEFORE UPDATE ON users WHEN NEW.about = '' AND OLD.about <> '' BEGIN SELECT RAISE(ABORT, 'injected'); END",
+      );
+      return () => w.ctx.sqlite.exec("DROP TRIGGER inject_profile");
+    },
+    "the name": (_w, auth) => {
+      const original = auth.internalAdapter.updateUser;
+      auth.internalAdapter.updateUser = async (id: string, data: { username?: string }) => {
+        if (data.username !== undefined) throw new Error("injected");
+        return original(id, data);
+      };
+      return () => {
+        auth.internalAdapter.updateUser = original;
+      };
+    },
+  };
+
+  for (const [step, inject] of Object.entries(injections)) {
+    test(`a failure at ${step} leaves a closed account that a rerun finishes`, async () => {
+      const w = await world();
+      const authContext = await getAuth(w.ctx).$context;
+      // A reset link requested before the erasure.
+      await authContext.internalAdapter.createVerificationValue({
+        identifier: "reset-password:stale-token",
+        value: String(w.target.id),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+      const undo = inject(w, authContext);
+      await expect(w.erase()).rejects.toBeDefined();
+      undo();
+      // Already closed and logged once, whatever step failed.
+      expect(w.user()).toMatchObject({ banned_permanently: 1 });
+      expect(w.user().erased_at).not.toBeNull();
+      expect(w.logOf(w.target.id).filter((entry) => entry.action === "member.erase")).toHaveLength(
+        1,
+      );
+      await expect(w.signIn("target@example.test")).rejects.toBeDefined();
+
+      expect(await w.erase()).toEqual({ ok: true });
+      const name = `Deleted member ${w.target.id}`;
+      expect(w.user()).toMatchObject({
+        username: name,
+        about: "",
+        location: "",
+        banned_permanently: 1,
+      });
+      expect(
+        w.ctx.sqlite.prepare("SELECT name, email FROM auth_user WHERE id = ?1").get(w.target.id),
+      ).toEqual({ name, email: `erased-${w.target.id}@invalid` });
+      expect(
+        w.ctx.sqlite.prepare("SELECT 1 FROM auth_account WHERE user_id = ?1").get(w.target.id),
+      ).toBeNull();
+      expect(
+        w.ctx.sqlite
+          .prepare("SELECT 1 FROM auth_verification WHERE value = ?1")
+          .get(String(w.target.id)),
+      ).toBeNull();
+      expect(w.sessions(w.target.id)).toBe(0);
+      expect(w.logOf(w.target.id).filter((entry) => entry.action === "member.erase")).toHaveLength(
+        1,
+      );
+      expect(
+        w.ctx.sqlite
+          .prepare<{ n: number }, [number]>("SELECT count(*) AS n FROM bans WHERE user_id = ?1")
+          .get(w.target.id)!.n,
+      ).toBe(1);
+    });
+  }
+});
+
+describe("an erased member stays closed", () => {
+  test("a reset link requested earlier dies with the erasure, and none works afterwards", async () => {
+    const w = await world();
+    const authContext = await getAuth(w.ctx).$context;
+    const link = (token: string) =>
+      authContext.internalAdapter.createVerificationValue({
+        identifier: `reset-password:${token}`,
+        value: String(w.target.id),
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+    await link("before-erase");
+    await authContext.internalAdapter.createVerificationValue({
+      identifier: "change-email:digest",
+      value: String(w.target.id),
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    const other = await w.register("Bystander");
+    await authContext.internalAdapter.createVerificationValue({
+      identifier: "reset-password:bystander",
+      value: String(other.id),
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    await w.erase();
+    const pending = () =>
+      w.ctx.sqlite
+        .prepare<{ identifier: string }, []>("SELECT identifier FROM auth_verification")
+        .all()
+        .map((row) => row.identifier);
+    expect(pending()).toEqual(["reset-password:bystander"]);
+    // A link that somehow exists is refused all the same, and makes no credential.
+    await link("after-erase");
+    await expect(
+      getAuth(w.ctx).api.resetPassword({
+        body: { token: "after-erase", newPassword: "Brand-new-secret-1" },
+      }),
+    ).rejects.toBeDefined();
+    expect(
+      w.ctx.sqlite.prepare("SELECT 1 FROM auth_account WHERE user_id = ?1").get(w.target.id),
+    ).toBeNull();
+  });
+
+  test("the ban cannot be lifted, and no session starts even if the ban were gone", async () => {
+    const w = await world();
+    await w.erase();
+    const [ban] = (await w.run("bans.list", w.founder.actor, { userId: w.target.id })).items;
+    await expect(
+      w.run("bans.lift", w.founder.actor, { banId: ban.id, reason: "Mistake" }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(w.user()).toMatchObject({ banned_permanently: 1 });
+    // As if the ban had been removed some other way.
+    w.ctx.sqlite
+      .prepare("UPDATE users SET banned_permanently = 0, banned_until = NULL WHERE id = ?1")
+      .run(w.target.id);
+    const authContext = await getAuth(w.ctx).$context;
+    await expect(
+      authContext.internalAdapter.createSession(String(w.target.id)),
+    ).rejects.toBeDefined();
+    expect(w.sessions(w.target.id)).toBe(0);
+  });
+
+  test("shows as erased, can be listed so, and takes no administrative change", async () => {
+    const w = await world();
+    const before = await w.run("users.adminGet", w.founder.actor, { userId: w.target.id });
+    expect(before).toMatchObject({ state: "valid", erasedAt: null });
+    await w.erase();
+    const view = await w.run("users.adminGet", w.founder.actor, { userId: w.target.id });
+    expect(view).toMatchObject({ state: "erased" });
+    expect(typeof view.erasedAt).toBe("string");
+    const ids = async (state: string) =>
+      (await w.run("users.adminList", w.founder.actor, { state })).items.map(
+        (m: { card: { id: number } }) => m.card.id,
+      );
+    expect(await ids("erased")).toEqual([w.target.id]);
+    expect(await ids("banned")).toEqual([]);
+    expect(await ids("valid")).not.toContain(w.target.id);
+    await expect(
+      w.run("users.adminUpdateIdentity", w.founder.actor, {
+        userId: w.target.id,
+        actorPassword: PASSWORD,
+        password: "Brand-new-secret-1",
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      w.run("users.adminUpdateProfile", w.founder.actor, { userId: w.target.id, about: "Again" }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      w.run("users.adminRevokeSessions", w.founder.actor, { userId: w.target.id }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(w.user()).toMatchObject({ about: "" });
+    expect(
+      w.ctx.sqlite.prepare("SELECT 1 FROM auth_account WHERE user_id = ?1").get(w.target.id),
+    ).toBeNull();
+  });
+
+  test("queued account mail for the old address is cancelled", async () => {
+    const w = await accounts({ mail: true });
+    const founder = await w.register("Founder", 4);
+    const target = await w.register("Target");
+    const queued = (address: string) =>
+      w.ctx.sqlite
+        .prepare<{ payload: string }, []>(
+          "SELECT payload FROM jobs WHERE type = 'email.account' AND status IN ('pending', 'failed')",
+        )
+        .all()
+        .filter((job) => job.payload.includes(address));
+    expect(queued("target@example.test").length).toBeGreaterThan(0);
+    await w.run("users.adminErase", founder.actor, {
+      userId: target.id,
+      actorPassword: PASSWORD,
+      reason: "Forget",
+    });
+    expect(queued("target@example.test")).toEqual([]);
+    // The administrator's own mail is untouched.
+    expect(queued("founder@example.test").length).toBeGreaterThan(0);
+    // Nobody can have a reset link made for the erased account, whatever address they type.
+    const links = () =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, [string]>(
+          "SELECT count(*) AS n FROM auth_verification WHERE value = ?1",
+        )
+        .get(String(target.id))!.n;
+    expect(links()).toBe(0);
+    await getAuth(w.ctx).api.requestPasswordReset({
+      body: { email: `erased-${target.id}@invalid`, redirectTo: "http://localhost:3000/reset" },
+    });
+    expect(links()).toBe(0);
   });
 });

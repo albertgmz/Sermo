@@ -10,7 +10,7 @@ import { clearMemberPicture } from "../images";
 import { appendModeratorLog } from "../moderation";
 import { profileFieldChanges, storeProfileChanges } from "../profiles/fields";
 import { loadAdminMember } from "./members";
-import { targetMember } from "./shared";
+import { requireNotErased, targetMember } from "./shared";
 
 const unavailable = () => new ValidationError("That catalog entry is not available.");
 
@@ -65,6 +65,7 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
   requirePermission(ctx, actor, "admin.members", {
     target: targetMember(ctx, actor, input.userId),
   });
+  requireNotErased(ctx, input.userId);
   // A title and a signature are set whether or not the member may show them: no permission asked.
   const { changes } = profileFieldChanges(ctx, input);
   const worn = wearing(input, catalogs(ctx));
@@ -81,6 +82,7 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
     requirePermission(ctx, current, "admin.members", {
       target: targetMember(ctx, current, input.userId, true),
     });
+    requireNotErased(ctx, input.userId);
     storeProfileChanges(ctx, input.userId, { ...changes, ...worn });
     const removed = pictures.filter((slot) => clearMemberPicture(ctx, input.userId, slot));
     if (removed.length > 0) {
@@ -89,6 +91,8 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
         .run(ctx.now(), input.userId);
       publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: input.userId });
     }
+    // A picture that was not there changes nothing, and leaves nothing to log.
+    if (keys.length === 0 && removed.length === 0) return;
     appendModeratorLog(ctx, actor, "member.profile", "user", input.userId, input.reason, {
       // Which fields, never what they held.
       fields: keys,

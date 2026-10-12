@@ -1,79 +1,127 @@
 import { requireAuthenticated } from "../../actor";
-import { prepared } from "../../context";
+import { type Ctx, prepared } from "../../context";
 import { usersAdminErase } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
 import { ConflictError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
-import { getAuth, revokeUserCredentials } from "../auth";
+import { deletePendingTokens, getAuth, markSessionsRevoked, revokeUserCredentials } from "../auth";
 import { renameThroughAuth } from "../auth/username";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { endMemberFollows } from "../social";
-import { targetMember, verifyActorPassword } from "./shared";
+import { requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
 
-const MEMBER_SQL =
-  "SELECT u.username, u.username_key, u.banned_permanently, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1";
+interface MemberRow {
+  username: string;
+  username_key: string;
+  banned_permanently: number;
+  erased_at: number | null;
+  email: string;
+}
+export const eraseSql = {
+  member:
+    "SELECT u.username, u.username_key, u.banned_permanently, u.erased_at, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+  mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2 WHERE id = ?1 AND erased_at IS NULL",
+  holder: "SELECT id FROM users WHERE username_key = ?1",
+  mail: "DELETE FROM jobs WHERE type = 'email.account' AND status IN ('pending', 'failed') AND json_extract(payload, '$.userId') = ?1",
+  clear:
+    "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, cover_preset_id = NULL, content_updated_at = ?2 WHERE id = ?1",
+  touch: "UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2",
+};
 
-const CLEAR_SQL =
-  "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, cover_preset_id = NULL, content_updated_at = ?2 WHERE id = ?1";
+/** The numbers tried after `Deleted member <id>` when that name is somehow taken. */
+const SUFFIXES = 20;
+
+function readMember(ctx: Ctx, userId: number): MemberRow | undefined {
+  return (
+    prepared(ctx, "admin.erase.member", () =>
+      ctx.sqlite.prepare<MemberRow, [number]>(eraseSql.member),
+    ).get(userId) ?? undefined
+  );
+}
 
 /**
- * Closes an account for good. The order leaves a failure at any point with an account nobody can
- * use: the ban comes first, then the credentials go, then the identity and the profile. Every
- * step looks at what is already done, so running it again finishes a half-erased member.
+ * Gives the erased member their name: `Deleted member <id>`, or the first free
+ * `Deleted member <id>-<n>` when that one is held by someone else (an account from before the
+ * name was reserved). Nothing else depends on this step, so it runs last.
+ */
+async function renameErased(ctx: Ctx, userId: number): Promise<void> {
+  const own = readMember(ctx, userId);
+  if (!own) return;
+  const base = `Deleted member ${userId}`;
+  if (new RegExp(`^${base.toLowerCase()}(-d+)?$`).test(own.username_key)) return;
+  for (let n = 0; n <= SUFFIXES; n++) {
+    const name = n === 0 ? base : `${base}-${n}`;
+    const holder = prepared(ctx, "admin.erase.holder", () =>
+      ctx.sqlite.prepare<{ id: number }, [string]>(eraseSql.holder),
+    ).get(name.toLowerCase());
+    if (holder && holder.id !== userId) continue;
+    try {
+      await renameThroughAuth(ctx, userId, name, own.username_key, { reserved: true });
+      return;
+    } catch (error) {
+      if (!(error instanceof ConflictError)) throw error;
+    }
+  }
+  throw new ConflictError("No free name was found for the erased account.");
+}
+
+/**
+ * Closes an account for good. The first transaction marks the member erased, bans them and
+ * writes the log entry; every later step takes something away and looks at what is already gone,
+ * so running the operation again from any point finishes the job and writes no second entry.
+ * What identifies the member goes before the rename, which nothing else waits for.
  */
 export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
   const admin = requireAuthenticated(actor);
   await verifyActorPassword(ctx, actor, input.actorPassword);
   if (admin.userId === input.userId) throw new ConflictError("You cannot erase your own account.");
-  requirePermission(ctx, actor, "admin.members", {
-    target: targetMember(ctx, actor, input.userId),
-  });
-  const read = () =>
-    prepared(ctx, "admin.erase.member", () =>
-      ctx.sqlite.prepare<
-        { username: string; username_key: string; banned_permanently: number; email: string },
-        [number]
-      >(MEMBER_SQL),
-    ).get(input.userId);
+  const target = targetMember(ctx, actor, input.userId);
+  requirePermission(ctx, actor, "admin.members", { target });
+  requireTakeoverRights(ctx, actor, target);
 
-  // 1. Ban for good (refused for the last holder of admin.permissions).
+  // 1. Mark, ban for good (refused for the last holder of admin.permissions) and log, together.
   writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
-    requirePermission(ctx, current, "admin.members", {
-      target: targetMember(ctx, current, input.userId, true),
-    });
-    if (read()?.banned_permanently !== 1)
+    const fresh = targetMember(ctx, current, input.userId, true);
+    requirePermission(ctx, current, "admin.members", { target: fresh });
+    requireTakeoverRights(ctx, current, fresh);
+    const own = readMember(ctx, input.userId);
+    if (own?.erased_at === null) {
+      ctx.sqlite.prepare(eraseSql.mark).run(input.userId, ctx.now());
+      appendModeratorLog(ctx, actor, "member.erase", "user", input.userId, input.reason, {});
+    }
+    if (own?.banned_permanently !== 1)
       insertAuthorizedBan(ctx, actor, input.userId, input.reason, null, { notify: false });
   });
-  // 2. Sessions and API keys.
+  // 2. Sessions and API keys, then the links and queued mail that could still reach the account.
   await revokeUserCredentials(ctx, input.userId);
+  await deletePendingTokens(ctx, input.userId);
   // 3. Identity, through Better Auth.
   const authContext = await getAuth(ctx).$context;
   const id = String(input.userId);
   const placeholder = `erased-${input.userId}@invalid`;
-  const name = `Deleted member ${input.userId}`;
-  const now = read();
+  const now = readMember(ctx, input.userId);
   if (now && now.email !== placeholder)
     await authContext.internalAdapter.updateUser(id, { email: placeholder, emailVerified: false });
   await authContext.internalAdapter.deleteAccounts(id);
-  if (now && now.username !== name)
-    await renameThroughAuth(ctx, input.userId, name, now.username_key);
-  // Credentials created since step 2 (a sign-in cannot, the member is banned) would go too.
-  await revokeUserCredentials(ctx, input.userId);
-  // 4. The forum side: follows, then the profile, the pictures and the log.
+  // 4. The forum side: follows, then the profile, the pictures and the queued mail.
   endMemberFollows(ctx, input.userId);
   writeTx(ctx, () => {
-    ctx.sqlite.prepare(CLEAR_SQL).run(input.userId, ctx.now());
+    ctx.sqlite.prepare(eraseSql.clear).run(input.userId, ctx.now());
     clearMemberPicture(ctx, input.userId, "avatar");
     clearMemberPicture(ctx, input.userId, "cover");
-    ctx.sqlite
-      .prepare("UPDATE users SET username_changed_at = ?1 WHERE id = ?2")
-      .run(ctx.now(), input.userId);
+    prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(input.userId);
+  });
+  // 5. The name, last. Credentials created since step 2 would go too.
+  await renameErased(ctx, input.userId);
+  await revokeUserCredentials(ctx, input.userId);
+  writeTx(ctx, () => {
+    ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), input.userId);
+    markSessionsRevoked(ctx, input.userId);
     publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: input.userId });
-    appendModeratorLog(ctx, actor, "member.erase", "user", input.userId, input.reason, {});
   });
   return { ok: true as const };
 });

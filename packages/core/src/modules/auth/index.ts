@@ -13,6 +13,7 @@ import { authCounters, authMe } from "../../contracts/auth";
 import {
   authPlugins,
   authSchemaOptions,
+  isReservedUsername,
   isValidUsername,
   USERNAME_PATTERN,
 } from "../../db/auth-options";
@@ -164,16 +165,29 @@ function accountBanned(): APIError {
   return new APIError("FORBIDDEN", { message: "This account is banned.", code: "ACCOUNT_BANNED" });
 }
 
-function isBanned(ctx: Ctx, userId: number): boolean {
+/** Whether the member is banned or was erased: no session may start or go on for them. */
+function isClosed(ctx: Ctx, userId: number): boolean {
   const row = prepared(ctx, "auth.banState", () =>
-    ctx.sqlite.prepare<{ banned_until: number | null; banned_permanently: number }, [number]>(
-      "SELECT banned_until, banned_permanently FROM users WHERE id = ?1",
-    ),
+    ctx.sqlite.prepare<
+      { banned_until: number | null; banned_permanently: number; erased_at: number | null },
+      [number]
+    >("SELECT banned_until, banned_permanently, erased_at FROM users WHERE id = ?1"),
   ).get(userId);
   return (
     !!row &&
-    (row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > ctx.now()))
+    (row.erased_at !== null ||
+      row.banned_permanently === 1 ||
+      (row.banned_until !== null && row.banned_until > ctx.now()))
   );
+}
+
+/** Whether the address belongs to an erased member, who can never reset a password again. */
+function isErasedAddress(ctx: Ctx, email: string): boolean {
+  return !!prepared(ctx, "auth.erasedAddress", () =>
+    ctx.sqlite.prepare<{ erased_at: number | null }, [string]>(
+      "SELECT u.erased_at FROM auth_user a JOIN users u ON u.id = a.id WHERE a.email = ?1 AND u.erased_at IS NOT NULL",
+    ),
+  ).get(email.toLowerCase());
 }
 
 /** Moves a member whose address is now verified out of the unconfirmed group, if they are in it. */
@@ -367,7 +381,7 @@ function buildAuth(ctx: Ctx) {
               requestWithoutCookies = withoutSessionCookies(hook);
             } else {
               hook.context.session = session;
-              if (hook.path !== "/sign-out" && isBanned(ctx, Number(session.user.id)))
+              if (hook.path !== "/sign-out" && isClosed(ctx, Number(session.user.id)))
                 throw accountBanned();
             }
           }
@@ -386,7 +400,41 @@ function buildAuth(ctx: Ctx) {
                 message: "Username is invalid",
               },
             );
+          // A name kept for erased accounts is never available.
+          if (
+            hook.path === "/is-username-available" &&
+            typeof hook.body?.username === "string" &&
+            isReservedUsername(hook.body.username)
+          )
+            return hook.json({ available: false });
+          if (hook.path === "/reset-password") {
+            // An erased member's link is dead even if one survived the erasure.
+            const token: unknown = hook.body?.token ?? hook.query?.token;
+            const pending =
+              typeof token === "string"
+                ? await hook.context.internalAdapter.findVerificationValue(
+                    `reset-password:${token}`,
+                  )
+                : null;
+            const holder = Number(pending?.value);
+            if (
+              Number.isSafeInteger(holder) &&
+              prepared(ctx, "auth.erasedMember", () =>
+                ctx.sqlite.prepare<{ id: number }, [number]>(
+                  "SELECT id FROM users WHERE id = ?1 AND erased_at IS NOT NULL",
+                ),
+              ).get(holder)
+            )
+              throw invalidToken();
+          }
           if (hook.path === "/request-password-reset") {
+            const email: unknown = hook.body?.email;
+            // Answered like any other address, but no link is made for an erased member.
+            if (typeof email === "string" && isErasedAddress(ctx, email))
+              return hook.json({
+                status: true,
+                message: "If this email exists in our system, check your email for the reset link",
+              });
             const redirectTo: unknown = hook.body?.redirectTo;
             if (typeof redirectTo !== "string" || !redirectTo.trim())
               throw new APIError("BAD_REQUEST", {
@@ -451,7 +499,7 @@ function buildAuth(ctx: Ctx) {
                 .get(session.session.token, userId, now)
             )
               throw new APIError("UNAUTHORIZED", { code: "UNAUTHORIZED", message: "Unauthorized" });
-            if (isBanned(ctx, userId)) throw accountBanned();
+            if (isClosed(ctx, userId)) throw accountBanned();
             if (
               ctx.sqlite
                 .prepare("SELECT 1 FROM auth_user WHERE email = ?1 AND id <> ?2")
@@ -530,7 +578,7 @@ function buildAuth(ctx: Ctx) {
       session: {
         create: {
           before: async (session) => {
-            if (isBanned(ctx, Number(session.userId))) throw accountBanned();
+            if (isClosed(ctx, Number(session.userId))) throw accountBanned();
           },
         },
       },
@@ -553,7 +601,7 @@ function buildAuth(ctx: Ctx) {
             const existing = ctx.sqlite
               .prepare("SELECT id FROM users WHERE username_key = ?1")
               .get(username.toLowerCase());
-            if (existing)
+            if (existing || isReservedUsername(username))
               throw new APIError("BAD_REQUEST", {
                 message: "Username is already taken.",
                 code: "USERNAME_IS_ALREADY_TAKEN",
@@ -660,7 +708,10 @@ function buildAuth(ctx: Ctx) {
             const existing = ctx.sqlite
               .prepare<{ id: number }, [string]>("SELECT id FROM users WHERE username_key = ?1")
               .get(normalized);
-            if (existing && existing.id !== currentId)
+            if (
+              (existing && existing.id !== currentId) ||
+              (isReservedUsername(normalized) && !change?.reserved)
+            )
               throw new APIError("BAD_REQUEST", {
                 message: "Username is already taken.",
                 code: "USERNAME_IS_ALREADY_TAKEN",
@@ -725,10 +776,41 @@ export async function revokeUserCredentials(ctx: Ctx, userId: number): Promise<v
   });
 }
 
+/**
+ * Cuts off every session the member has now, the ones a cookie cache still holds included: a
+ * session issued at or before this moment is refused by `resolveActor`. Run it inside the
+ * transaction that decides the cut, and again once the session rows are gone, so a session that
+ * started in between is cut too.
+ */
+export function markSessionsRevoked(ctx: Ctx, userId: number): void {
+  prepared(ctx, "auth.sessionsRevoked", () =>
+    ctx.sqlite.prepare("UPDATE users SET sessions_revoked_at = ?1 WHERE id = ?2"),
+  ).run(ctx.now(), userId);
+}
+
+/**
+ * Deletes the member's pending password-reset and change-email tokens (Better Auth keys both by a
+ * random identifier and holds the member's id as the value). A link requested earlier then stops
+ * working. Email verification links are signed tokens that name an address, not a member, and
+ * stop matching once the address changes.
+ */
+export async function deletePendingTokens(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
+  await authContext.adapter.deleteMany({
+    model: "verification",
+    where: [{ field: "value", value: String(userId) }],
+  });
+}
+
 type ForumUser = { group_id: number };
-type MemberRow = PrincipalRow & { pv: number | null; tv: number | null };
+type MemberRow = PrincipalRow & {
+  pv: number | null;
+  tv: number | null;
+  erased_at: number | null;
+  sessions_revoked_at: number | null;
+};
 const MEMBER_SQL =
-  `SELECT ${PRINCIPAL_COLUMNS}, ` +
+  `SELECT ${PRINCIPAL_COLUMNS}, u.erased_at, u.sessions_revoked_at, ` +
   "(SELECT version FROM cache_versions WHERE key = 'permissions') AS pv, " +
   "(SELECT version FROM cache_versions WHERE key = 'node_tree') AS tv FROM users u WHERE u.id = ?1";
 
@@ -736,19 +818,27 @@ const MEMBER_SQL =
  * The member's primary group (repairing a missing forum row), then their permission principal
  * (combination, ban and restriction state, cache versions) in one lookup. Refuses banned accounts.
  */
-function memberFor(ctx: Ctx, userId: number): { groupId: number; principal: Principal } {
+function memberFor(
+  ctx: Ctx,
+  userId: number,
+): { groupId: number; principal: Principal; sessionsRevokedAt: number | null } {
   const groupId = groupFor(ctx, userId);
   const row = prepared(ctx, "auth.member", () =>
     ctx.sqlite.prepare<MemberRow, [number]>(MEMBER_SQL),
   ).get(userId);
   if (!row) throw new UnauthenticatedError();
-  if (row.banned_permanently || (row.banned_until !== null && row.banned_until > ctx.now()))
+  if (
+    row.erased_at !== null ||
+    row.banned_permanently ||
+    (row.banned_until !== null && row.banned_until > ctx.now())
+  )
     throw new ForbiddenError("This account is banned.");
   // Buffered, never written during the request (see flushActivity).
   ctx.activity.set(userId, ctx.now());
   return {
     groupId,
     principal: principalFromRow(row, { permissions: row.pv ?? 0, nodeTree: row.tv ?? 0 }),
+    sessionsRevokedAt: row.sessions_revoked_at,
   };
 }
 
@@ -848,7 +938,14 @@ export async function resolveActor(
     sessionId <= 0
   )
     throw new UnauthenticatedError();
-  const { groupId, principal } = memberFor(ctx, userId);
+  const { groupId, principal, sessionsRevokedAt } = memberFor(ctx, userId);
+  // The member's sessions were cut off after this one was issued: the cookie cache may still
+  // hold it, so the member's own row (already loaded) decides, not the cache.
+  if (
+    sessionsRevokedAt !== null &&
+    new Date(session.session.createdAt).getTime() <= sessionsRevokedAt
+  )
+    throw new UnauthenticatedError();
   return {
     actor: {
       kind: "user",

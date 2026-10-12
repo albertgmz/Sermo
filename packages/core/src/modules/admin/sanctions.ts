@@ -10,7 +10,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, currentActor, requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { scanKeyset } from "../feed/scan";
@@ -123,9 +123,9 @@ const MESSAGE = "m.id, m.user_id, m.body_html, m.created_at";
 export const approvalMessageSql = {
   target:
     "SELECT m.conversation_id, c.title FROM conversation_messages m JOIN conversations c ON c.id = m.conversation_id WHERE m.id = ?1 AND m.state = 'moderated'",
-  before: `SELECT ${MESSAGE} FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id < ?2 AND (m.state = 'visible' OR ?3 = 1) ORDER BY m.id DESC LIMIT 3`,
+  before: `SELECT ${MESSAGE} FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id < ?2 AND m.state = 'visible' ORDER BY m.id DESC LIMIT 3`,
   center: `SELECT ${MESSAGE} FROM conversation_messages m WHERE m.id = ?1`,
-  after: `SELECT ${MESSAGE} FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id > ?2 AND (m.state = 'visible' OR ?3 = 1) ORDER BY m.id LIMIT 3`,
+  after: `SELECT ${MESSAGE} FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id > ?2 AND m.state = 'visible' ORDER BY m.id LIMIT 3`,
 };
 
 export const approvalsViewConversationMessageOp = implement(
@@ -143,11 +143,10 @@ export const approvalsViewConversationMessageOp = implement(
         ),
       ).get(input.messageId);
       if (!target) throw new NotFoundError();
-      const showHidden = Number(can(ctx, current, "conversation.viewHidden"));
       const read = (key: "before" | "after") =>
         prepared(ctx, `admin.approval.${key}`, () =>
-          ctx.sqlite.prepare<Message, [number, number, number]>(approvalMessageSql[key]),
-        ).all(target.conversation_id, input.messageId, showHidden);
+          ctx.sqlite.prepare<Message, [number, number]>(approvalMessageSql[key]),
+        ).all(target.conversation_id, input.messageId);
       const center = prepared(ctx, "admin.approval.center", () =>
         ctx.sqlite.prepare<Message, [number]>(approvalMessageSql.center),
       ).get(input.messageId)!;

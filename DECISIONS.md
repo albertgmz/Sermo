@@ -1226,3 +1226,79 @@ does not block a purchase. A username change is sold in units, so `shopItems.cre
 off sale. If a rename succeeds at the identity provider and the forum's own update then fails, the
 provider's name is put back and the unit returned; if that fails too the unit stays spent and the
 mismatch is logged.
+
+## Administration (members, erasure, staff, the panel's home)
+
+Review fixes to `modules/admin`. Entries marked **Owner review** were decided without the owner.
+
+**Erasing a member** (`users.adminErase`). The first transaction does three things together: it marks
+the member erased (`users.erased_at`, also cutting every session, see below), bans them for good,
+and writes the one `member.erase` log entry. Everything after it only takes something away and
+looks at what is already gone, so a run that stops anywhere is finished by running it again, and a
+rerun writes no second log entry (it writes no entry at all: the first one is the record). In
+order: sessions and API keys are revoked; every pending token of the member in
+`auth_verification` is deleted (Better Auth keys a password-reset link and the forum's own
+change-email record by a random identifier and holds the member's id as the value, so they are
+found by value; email verification links are signed and name an address, not a member, and stop
+matching when the address changes); the address becomes `erased-<id>@invalid` and the password is
+removed; follows end, the profile is cleared (about, title, signature, location, website,
+birthday, social handles, what they wear, avatar and cover); queued account emails for the member,
+which hold the old address and sometimes a reset link, are deleted; last, the name becomes
+`Deleted member <id>`, or the first free `Deleted member <id>-<n>` (n up to 20) when an account
+from before the name was reserved holds it. The name goes last because nothing else depends on it.
+What stays: what the member wrote (under the new name), their ledger, warnings and every log
+entry. An erased member is marked, not just banned: `bans.lift` refuses them, a session cannot
+start for them even with no ban in force, Better Auth's reset-password endpoint refuses a link of
+theirs and its request endpoint makes none, `AdminMember.state` is `erased` (it wins over
+`banned`), and every administrative write on them (identity, profile, sessions) is a conflict;
+only reading them, and running the erasure again, are allowed.
+
+**The name `Deleted member ...` is reserved.** A username whose lowercase form begins with
+`deleted member` cannot be registered, chosen, set by an administrator or reported available;
+the refusal reads like any taken name so the rule is not advertised. Only an erasure (and putting
+back a name a member already had, after a failed rename) may take such a name.
+`auth_user.name` follows the username on every rename, as registration gives it the username.
+
+**Sessions end at once, even with the session cookie cache on.** `users.sessions_revoked_at` is set
+when all of a member's sessions are revoked by an administrator, when an administrator sets their
+password, on a ban (manual or by warning threshold) and on erasure. `resolveActor` refuses a
+session created at or before it. The member's row is already read to build the actor, so this
+adds no query. It uses the session's `createdAt`, which the cached cookie carries. No window
+remains for those cases. One residual window: revoking a single session by id deletes its row but
+cannot single it out of the member's cache without a lookup on every request, so that session's
+cached cookie lasts until the cache expires (five minutes at most). **Owner review:** the
+alternative is to cut all of the member's sessions when one is revoked.
+
+**Wrong passwords are limited.** The administrator's own password, asked again before a sensitive
+change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`), allows five wrong
+answers in fifteen minutes per member (`admin_password_failures`). Further answers, right ones
+included, are refused until the oldest wrong one leaves the window. A guess is recorded before the
+check, so answers sent together are counted, and a right answer gives its own guess back without
+clearing the earlier wrong ones. The refusal is a `ForbiddenError` (403): core has no
+rate-limit error type for the API to map to 429. **Owner review:** a distinct error needs a new
+error code in `errors.ts` and its status in the API and MCP adapters.
+
+**Reaching an administrator takes `admin.permissions`.** Setting a password or address, ending
+sessions or erasing lets an administrator sign in as the member (or close them for good).
+`users.adminUpdateIdentity`, `users.adminErase` and `users.adminRevokeSessions` on a member who
+holds any permission of the `admin` category, from any source (a group, a personal entry, a shop
+grant), also require the actor to hold `admin.permissions`; otherwise they are forbidden (the actor
+already knows the member exists). Rank alone is not enough: a holder of `admin.members` only could
+otherwise give themselves the account of a lower-ranked member who administers through a personal
+entry or a low-ranked group, and sign in as them. The rule is checked again inside the write
+transaction with the committed permissions. A side effect: erasing the last holder of
+`admin.permissions` is now refused earlier, because an actor who is not a holder is forbidden.
+**Owner review.**
+
+**A password or address set by an administrator cancels the member's pending links.** A reset or
+change-email link the member asked for earlier would otherwise set a password afterwards.
+
+**Lists stay bounded.** `moderatorLog.list` with `action` filters the rows a bounded walk
+examines (the same bound as the other filtered lists, 400 rows), so a page may be short or empty
+and `nextCursor` says where to go on. `users.adminList` reads a group through its two membership
+indexes (primary and by hand, merged in the application), unconfirmed through its group, and a
+prefix by two range scans. A prefix cannot keep "newest first" without sorting every match, so its
+results are ordered by username (members whose username starts with it) and then by email (those
+matched by address alone); the cursor carries the position. **Owner review.** The rosters read each
+group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
+of kinds, and counts reports only for someone who handles them site-wide.

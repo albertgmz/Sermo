@@ -2,7 +2,7 @@ import { APIError } from "better-auth";
 import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import { usersChangeUsername } from "../../contracts/members";
-import { isValidUsername } from "../../db/auth-options";
+import { isReservedUsername, isValidUsername } from "../../db/auth-options";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
@@ -35,13 +35,15 @@ function giveBack(ctx: Ctx, inventoryId: number): void {
 
 /**
  * The registration rules for a username: Better Auth's length bounds, the pattern, and the same
- * pattern after lowercasing (the stored key). Returns the stored key.
+ * pattern after lowercasing (the stored key). A name kept for erased accounts is refused as taken,
+ * so the rule is not advertised. Returns the stored key.
  */
 export function checkUsername(name: string): string {
   if (name.length < MIN_LENGTH || name.length > MAX_LENGTH || !isValidUsername(name))
     throw new ValidationError(
       `A username is ${MIN_LENGTH} to ${MAX_LENGTH} letters, numbers, spaces, dots, dashes or underscores, and starts and ends with a letter or number.`,
     );
+  if (isReservedUsername(name)) throw new ConflictError("That username is taken.");
   return name.toLowerCase();
 }
 
@@ -49,22 +51,30 @@ export function checkUsername(name: string): string {
  * Changes a member's username through Better Auth (never by writing its tables), under the
  * rename marker its update hook requires. Only the display form changes when the name differs
  * in case alone: Better Auth then has no other holder of the name to tell apart from the member.
- * Refusals come back as the forum's own errors.
+ * Better Auth's `name` follows the username, as it was given the username at registration.
+ * `reserved` allows a name kept for erased accounts (an erasure, or putting back a name a member
+ * already had). Refusals come back as the forum's own errors.
  */
 export async function renameThroughAuth(
   ctx: Ctx,
   userId: number,
   name: string,
   currentKey: string,
+  options: { reserved?: boolean } = {},
 ): Promise<void> {
   const key = name.toLowerCase();
   const authContext = await getAuth(ctx).$context;
   try {
-    await asUsernameChange(userId, () =>
-      authContext.internalAdapter.updateUser(
-        String(userId),
-        key === currentKey ? { displayUsername: name } : { username: key, displayUsername: name },
-      ),
+    await asUsernameChange(
+      userId,
+      () =>
+        authContext.internalAdapter.updateUser(
+          String(userId),
+          key === currentKey
+            ? { displayUsername: name, name }
+            : { username: key, displayUsername: name, name },
+        ),
+      options.reserved === true,
     );
   } catch (error) {
     throw refusal(error);
@@ -92,7 +102,9 @@ async function restoreName(
   )
     return true;
   try {
-    await renameThroughAuth(ctx, userId, own.username, provider.username ?? "");
+    await renameThroughAuth(ctx, userId, own.username, provider.username ?? "", {
+      reserved: true,
+    });
     return true;
   } catch (error) {
     console.error("[users.renameInconsistent]", { userId, expected: own.username }, error);

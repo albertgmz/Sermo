@@ -5,10 +5,10 @@ import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import {
   can,
+  getNodeTree,
   permissionsOf,
   requirePermission,
   resolvedPermissions,
-  viewableNodeIds,
 } from "../../permissions";
 import { iso } from "../../time";
 import { staffAccess } from "../auth/staff";
@@ -80,15 +80,25 @@ function count(ctx: Ctx, kind: Kind, now: number): Counts {
   ).get(...windows, firstIdSince(ctx, table, windows[2]))!;
 }
 
-/** Whether the actor may read the report queue: of profiles and members, of messages, or of a forum. */
-function mayReadReports(ctx: Ctx, actor: Actor): boolean {
+/**
+ * Whether the actor handles reports site-wide: the report permissions of profiles and members or
+ * of messages, or the forum one on every forum. The count covers the whole site, so someone who
+ * handles reports in some forums only does not get it.
+ */
+function mayReadReports(ctx: Ctx, actor: Actor, held: Record<string, boolean | number>): boolean {
+  if (held["report.manageProfiles"] === true || held["conversation.moderate"] === true) return true;
   const grants = permissionsOf(ctx, actor);
+  const forums = getNodeTree(ctx).entries.filter((entry) => entry.type === "forum");
   return (
-    grants.can("report.manageProfiles") ||
-    grants.can("conversation.moderate") ||
-    viewableNodeIds(ctx, actor).some((nodeId) => grants.can("forum.manageReports", { nodeId }))
+    forums.length > 0 &&
+    forums.every((forum) => grants.can("forum.manageReports", { nodeId: forum.id }))
   );
 }
+
+/** How long a count is kept: a panel's home page does not recount thirty days on every visit. */
+export const ACTIVITY_CACHE_MS = 60_000;
+type ActivityItems = { kind: Kind; day: number; week: number; month: number }[];
+const activityCache = new WeakMap<Ctx, Map<string, { at: number; items: ActivityItems }>>();
 
 export const adminActivityOp = implement(adminActivity, (ctx, actor) => {
   // admin.members is checked against a member where one is acted on; here it only says whether
@@ -96,7 +106,7 @@ export const adminActivityOp = implement(adminActivity, (ctx, actor) => {
   const held = resolvedPermissions(ctx, actor);
   const readable: Record<Kind, boolean> = {
     moderation: can(ctx, actor, "moderatorLog.view"),
-    reports: mayReadReports(ctx, actor),
+    reports: mayReadReports(ctx, actor, held),
     creditAdjustments: can(ctx, actor, "credits.viewAny"),
     shopPurchases: can(ctx, actor, "admin.shop"),
     promotions: can(ctx, actor, "admin.promotions"),
@@ -105,7 +115,15 @@ export const adminActivityOp = implement(adminActivity, (ctx, actor) => {
   const kinds = ACTIVITY_KINDS.filter((kind) => readable[kind]);
   if (kinds.length === 0) throw new NotFoundError();
   const now = ctx.now();
-  return { items: kinds.map((kind) => ({ kind, ...count(ctx, kind, now) })) };
+  // One entry per set of kinds, holding only those kinds: an actor never gets one they may not read.
+  const key = kinds.join(",");
+  const entries = activityCache.get(ctx) ?? new Map();
+  activityCache.set(ctx, entries);
+  const kept = entries.get(key);
+  if (kept && now >= kept.at && now - kept.at < ACTIVITY_CACHE_MS) return { items: kept.items };
+  const items = kinds.map((kind) => ({ kind, ...count(ctx, kind, now) }));
+  entries.set(key, { at: now, items });
+  return { items };
 });
 
 // admin.staffOnline -------------------------------------------------------------------------
@@ -150,8 +168,10 @@ export const jobsSql = {
     "SELECT status, count(*) AS n FROM jobs WHERE status IN ('pending', 'running', 'failed') GROUP BY status",
   oldestDue:
     "SELECT run_at FROM jobs WHERE status = 'pending' AND run_at <= ?1 ORDER BY run_at, id LIMIT 1",
+  // Newest failure first through the index of failed jobs by the time they were marked; the
+  // planner prefers the status index (and a sort) unless the range on that time is there.
   failures:
-    "SELECT id, type, last_error, updated_at FROM jobs WHERE status = 'failed' ORDER BY run_at DESC, id DESC LIMIT 20",
+    "SELECT id, type, last_error, updated_at FROM jobs INDEXED BY jobs_failed_updated WHERE status = 'failed' AND updated_at >= ?1 ORDER BY updated_at DESC, id DESC LIMIT 20",
 };
 const ERROR_LENGTH = 2000;
 
@@ -175,10 +195,10 @@ export const adminJobsOp = implement(adminJobs, (ctx, actor) => {
     failures: prepared(ctx, "admin.jobFailures", () =>
       ctx.sqlite.prepare<
         { id: number; type: string; last_error: string | null; updated_at: number },
-        []
+        [number]
       >(jobsSql.failures),
     )
-      .all()
+      .all(0)
       .map((row) => ({
         id: row.id,
         type: row.type,

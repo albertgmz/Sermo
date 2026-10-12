@@ -20,6 +20,14 @@ export const scenarios: Scenario[] = [
         entries: [{ permission: "forum.lock", value: "allow" }],
       });
     },
+    // The entry was added to a seeded member: take it away again so later scenarios see the seed.
+    async teardown(env) {
+      await env.call("permissions.set", env.actors.admin, {
+        userId: singleForumModeratorId,
+        nodeId: env.meta.forumIds[0]!,
+        entries: [{ permission: "forum.lock", value: "unset" }],
+      });
+    },
     run: (env) => env.call("auth.me", env.actors.user(singleForumModeratorId), {}),
   },
   {
