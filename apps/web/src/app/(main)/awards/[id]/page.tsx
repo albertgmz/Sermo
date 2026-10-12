@@ -140,7 +140,10 @@ export default async function AwardPage({ params }: Props) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <UserLink user={user.member} className="truncate text-sm" />
-                    <UserBadges user={user.member} />
+                    <UserBadges
+                      user={user.member}
+                      limit={user.role === "member" ? 0 : 1}
+                    />
                     <LevelBadge level={user.level} />
                   </div>
                   <p className="truncate text-xs text-muted-foreground">

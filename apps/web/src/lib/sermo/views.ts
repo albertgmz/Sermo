@@ -17,8 +17,11 @@ export type MemberView = {
   nameColor: string | null;
   /** The title to show under or beside the name. */
   title: string;
-  /** Group badges in display order (staff role, paid rank, donor, ...). */
-  badges: { label: string; color: string | null }[];
+  /**
+   * Group badges, highest group first (staff role, paid rank, donor, ...). `style` is a key
+   * from the design system's list of badge styles; an unknown or empty key draws the default.
+   */
+  badges: { label: string; color: string | null; style: string }[];
   level: number;
 };
 

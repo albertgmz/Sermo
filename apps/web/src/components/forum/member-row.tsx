@@ -7,10 +7,13 @@ import { cn } from "@/lib/utils";
 export function MemberRow({
   user,
   children,
+  badgeLimit,
   className,
 }: {
   user: AvatarUser & LinkUser & Pick<MemberView, "title" | "badges">;
   children?: React.ReactNode;
+  // How many of the member's badges to show; a row shows the staff role alone.
+  badgeLimit?: number;
   className?: string;
 }) {
   return (
@@ -19,7 +22,7 @@ export function MemberRow({
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2">
           <UserLink user={user} className="truncate text-sm" />
-          <UserBadges user={user} />
+          <UserBadges user={user} limit={badgeLimit} />
         </p>
         <p className="truncate text-xs text-muted-foreground">{user.title}</p>
       </div>

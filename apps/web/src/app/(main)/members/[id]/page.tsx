@@ -148,7 +148,7 @@ function ProfileCards({
           {user.role === "member" ? (
             <Badge variant="secondary">{t("memberBadge")}</Badge>
           ) : (
-            <UserBadges user={user.member} />
+            <UserBadges user={user.member} limit={1} />
           )}
         </CardContent>
       </Card>

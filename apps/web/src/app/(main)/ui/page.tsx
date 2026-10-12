@@ -198,9 +198,11 @@ const TOKENS = [
 
 // Hand-built samples of the shapes the shared components draw.
 const BADGE_SAMPLES: MemberBadgeView[] = [
-  { label: "Admin", color: "#dc2626" },
-  { label: "Mod", color: "#2dd4bf" },
-  { label: "Group", color: null },
+  { label: "Admin", color: "#dc2626", style: "solid" },
+  { label: "Mod", color: "#2dd4bf", style: "tint" },
+  { label: "Gold", color: "#eab308", style: "outline" },
+  { label: "Donor", color: "#fb7185", style: "heart" },
+  { label: "Group", color: null, style: "" },
 ];
 
 const GUEST: MemberView = {
@@ -1032,8 +1034,8 @@ export default async function StyleguidePage() {
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
             <MemberCard user={coveredMember ?? admin} />
             <SectionCard title="Member row">
-              <MemberRow user={admin.member} />
-              <MemberRow user={moderator.member}>
+              <MemberRow user={admin.member} badgeLimit={1} />
+              <MemberRow user={moderator.member} badgeLimit={1}>
                 <LevelBadge level={moderator.level} />
               </MemberRow>
             </SectionCard>

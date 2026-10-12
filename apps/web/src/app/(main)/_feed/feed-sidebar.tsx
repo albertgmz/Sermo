@@ -196,7 +196,11 @@ async function SuggestedMembers({ viewer }: { viewer: UserView | null }) {
                 ? levels(titleKeyForLevel(user.level.level))
                 : roles(user.role));
             return (
-              <MemberRow key={user.id} user={{ ...user.member, title }}>
+              <MemberRow
+                key={user.id}
+                user={{ ...user.member, title }}
+                badgeLimit={user.role === "member" ? 0 : 1}
+              >
                 <FollowButton user={user} viewer={viewer} following={false} />
               </MemberRow>
             );

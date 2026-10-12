@@ -109,9 +109,9 @@
     }
   },
   "userBadges": {
-    "rank": {
-      "title": "{name} rank",
-      "suffix": "rank"
+    "group": {
+      "title": "{name} group",
+      "suffix": "group"
     },
     "donor": "Donor"
   },

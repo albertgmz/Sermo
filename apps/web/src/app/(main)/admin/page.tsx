@@ -180,6 +180,7 @@ async function AdminNewestMembers() {
                   ? tLevels(titleKeyForLevel(member.level.level))
                   : tRoles(member.role)),
             }}
+            badgeLimit={member.role === "member" ? 0 : 1}
           />
         ))
       ) : (

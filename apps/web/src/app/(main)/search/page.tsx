@@ -478,6 +478,7 @@ async function SearchResults({
                         ? tLevels(titleKeyForLevel(user.level.level))
                         : tRoles(user.role)),
                   }}
+                  badgeLimit={user.role === "member" ? 0 : 1}
                 >
                   <UserStats user={user} className="hidden sm:flex" />
                 </MemberRow>

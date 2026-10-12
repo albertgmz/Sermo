@@ -149,7 +149,12 @@ async function StaffRows() {
   return staff
     .slice(0, STAFF)
     .map((user) => (
-      <MemberRow key={user.id} user={user.member} className="py-2" />
+      <MemberRow
+        key={user.id}
+        user={user.member}
+        badgeLimit={1}
+        className="py-2"
+      />
     ));
 }
 
@@ -162,7 +167,12 @@ async function Birthdays() {
   const birthdays = await getBirthdays();
   return birthdays.length > 0 ? (
     birthdays.map((user) => (
-      <MemberRow key={user.id} user={user.member} className="py-2">
+      <MemberRow
+        key={user.id}
+        user={user.member}
+        badgeLimit={user.role === "member" ? 0 : 1}
+        className="py-2"
+      >
         <Cake aria-hidden="true" className="size-4 shrink-0 text-primary" />
       </MemberRow>
     ))

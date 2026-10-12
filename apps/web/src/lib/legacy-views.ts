@@ -20,12 +20,17 @@ export function nameColorHex(key: string | null | undefined): string | null {
 
 export const DONOR_BADGE: MemberView["badges"][number] = {
   label: forumMessages.userBadges.donor,
-  color: null,
+  color: NAME_COLOR_HEX.rose,
+  style: "heart",
 };
 
 // A rank badge reads in the rank's headline name colour.
 export function rankBadge(rank: Rank): MemberView["badges"][number] {
-  return { label: rank.name, color: nameColorHex(rank.headline.nameColor) };
+  return {
+    label: rank.name,
+    color: nameColorHex(rank.headline.nameColor),
+    style: "outline",
+  };
 }
 
 // The colour a staff role gives a name when the member picked none.
@@ -70,6 +75,7 @@ export function memberView(
     badges.push({
       label: forumMessages.roleBadge[base.role],
       color: staffColor,
+      style: base.role === "admin" ? "solid" : "tint",
     });
   }
   if (rank) badges.push(rankBadge(rank));

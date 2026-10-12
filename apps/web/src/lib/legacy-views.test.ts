@@ -53,8 +53,8 @@ test("a member with a frame, a picked colour, a rank and the donor flag", () => 
   assert.equal(view.title, "Veteran");
   assert.equal(view.level, 12);
   assert.deepEqual(view.badges, [
-    { label: gold.name, color: "#eab308" },
-    { label: "Donor", color: null },
+    { label: gold.name, color: "#eab308", style: "outline" },
+    { label: "Donor", color: "#fb7185", style: "heart" },
   ]);
 });
 
@@ -66,7 +66,9 @@ test("an administrator with no picked colour takes the staff colour", () => {
     null,
   );
   assert.equal(admin.nameColor, "#dc2626");
-  assert.deepEqual(admin.badges, [{ label: "Admin", color: "#dc2626" }]);
+  assert.deepEqual(admin.badges, [
+    { label: "Admin", color: "#dc2626", style: "solid" },
+  ]);
   const moderator = memberView(
     member({ role: "moderator", appearance: noAppearance }),
     "Moderator",
@@ -74,7 +76,9 @@ test("an administrator with no picked colour takes the staff colour", () => {
     null,
   );
   assert.equal(moderator.nameColor, "#2dd4bf");
-  assert.deepEqual(moderator.badges, [{ label: "Mod", color: "#2dd4bf" }]);
+  assert.deepEqual(moderator.badges, [
+    { label: "Mod", color: "#2dd4bf", style: "tint" },
+  ]);
 });
 
 test("a picked colour wins over the staff colour", () => {

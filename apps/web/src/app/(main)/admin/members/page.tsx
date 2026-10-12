@@ -54,6 +54,7 @@ export default async function AdminMembersPage({
                       ? tLevels(titleKeyForLevel(member.level.level))
                       : tRoles(member.role)),
                 }}
+                badgeLimit={member.role === "member" ? 0 : 1}
               />
               <dl className="flex flex-wrap gap-x-5 gap-y-1 px-4 pb-3 text-xs">
                 <div className="flex gap-2">
