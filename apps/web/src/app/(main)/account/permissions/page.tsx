@@ -1,38 +1,27 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { PermissionsPanel } from "@/app/(main)/account/permissions";
-import { getPermissions, getShopItems } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { Suspense } from "react";
+import { PerksList } from "@/app/(main)/account/permissions/perks";
+import { PerksSkeleton } from "@/app/(main)/account/permissions/skeleton";
+import { LoadingRegion } from "@/components/forum/skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("account.permissions");
+  const t = await getTranslations("account.perks");
   return { title: t("metaTitle") };
 }
 
-export default async function PermissionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ saved?: string | string[] }>;
-}) {
-  const [{ saved }, user] = await Promise.all([searchParams, getCurrentUser()]);
-  if (!user) redirect("/login");
-  const [permissions, shopItems] = await Promise.all([
-    getPermissions(user.id),
-    getShopItems(),
-  ]);
-  const prices = Object.fromEntries(
-    shopItems.flatMap(({ price, effect }) =>
-      effect.type === "permission" ? [[effect.permission, price]] : [],
-    ),
-  );
-
+export default function PerksPage() {
+  const t = useTranslations("account.perks");
   return (
-    <PermissionsPanel
-      user={user}
-      permissions={permissions}
-      prices={prices}
-      saved={typeof saved === "string" ? saved : undefined}
-    />
+    <Suspense
+      fallback={
+        <LoadingRegion label={t("loading")}>
+          <PerksSkeleton />
+        </LoadingRegion>
+      }
+    >
+      <PerksList />
+    </Suspense>
   );
 }

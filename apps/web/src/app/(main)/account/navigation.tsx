@@ -7,15 +7,18 @@ import { useTranslations } from "next-intl";
 const GROUPS = [
   {
     title: "accountHeading",
-    links: [{ label: "overview", href: "/account" }],
+    links: [{ label: "profile", href: "/account" }],
   },
   {
     title: "settingsHeading",
     links: [
       { label: "appearance", href: "/account/appearance" },
+      { label: "privacy", href: "/account/privacy" },
+      { label: "notifications", href: "/account/notifications" },
+      { label: "preferences", href: "/account/preferences" },
+      { label: "perks", href: "/account/permissions" },
       // Labelled from the LITE messages.
       { label: null, href: "/account/lite" },
-      { label: "permissions", href: "/account/permissions" },
       { label: "security", href: "/account/security" },
     ],
   },

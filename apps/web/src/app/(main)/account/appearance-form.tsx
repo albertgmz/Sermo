@@ -2,22 +2,15 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
+import type { FormState } from "@/app/(main)/account/action-form";
 import {
   type AppearanceField,
-  type AppearanceState,
   saveAppearance,
 } from "@/app/(main)/account/actions";
 import { cn } from "@/lib/utils";
 
-const ERRORS = {
-  not_found: "errors.notFound",
-  invalid: "errors.invalid",
-  not_owned: "errors.notOwned",
-  not_allowed: "errors.notAllowed",
-} as const;
-
-// One appearance setting: every choice inside is a submit button named
-// "value", so picking one saves it.
+// One appearance setting: every choice inside is a submit button named "value", so picking one
+// saves it.
 export function AppearanceForm({
   field,
   title,
@@ -32,18 +25,12 @@ export function AppearanceForm({
   children: React.ReactNode;
 }) {
   const t = useTranslations("account.appearanceForm");
-  const [state, action, pending] = useActionState<AppearanceState, FormData>(
+  const [state, action, pending] = useActionState<FormState, FormData>(
     saveAppearance.bind(null, field),
     null,
   );
-
-  let status = "";
-  if (pending) status = t("pending");
-  else if (state) status = t(ERRORS[state.error]);
-  else if (saved) status = t("saved");
-
   return (
-    <form action={action} className="space-y-3">
+    <form id={field} action={action} className="scroll-mt-4 space-y-3">
       <div className="flex min-h-10 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{title}</h2>
@@ -53,12 +40,12 @@ export function AppearanceForm({
         </div>
         <output
           className={cn(
-            "min-h-4 max-w-full text-xs font-medium",
+            "min-h-4 max-w-full text-xs font-medium [overflow-wrap:anywhere]",
             state && !pending ? "text-destructive" : "text-success",
             pending && "text-muted-foreground",
           )}
         >
-          {status}
+          {pending ? t("pending") : (state?.error ?? (saved ? t("saved") : ""))}
         </output>
       </div>
       {children}

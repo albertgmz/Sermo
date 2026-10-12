@@ -9,6 +9,8 @@ import { IMAGE_EXTENSIONS, owners, publicImages, read } from "./lite-scan";
 // Mock only the missing server environment and data boundary. The real cookie
 // parser, server LITE helpers, proxy, gates and React renderer run unchanged.
 let cookie: string | undefined;
+const storedSignature =
+  "Shop: ![logo](https://pictures.test/l.png) <video> demo below\nline two";
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   cookies: async () => ({
@@ -86,6 +88,22 @@ globalThis.fetch = (async (input: string) => {
     palette: { accents: [], nameColors: [], prefixColors: [] },
   });
 }) as unknown as typeof fetch;
+// The member as they edit their own profile.
+mock.module("@/app/(main)/account/data", () => ({
+  getSelf: async () => ({
+    may: { setCustomTitle: false, setSignature: true },
+    limits: {
+      signatureMaxLength: 500,
+      signatureMaxLines: 4,
+      customTitleMaxLength: 40,
+    },
+    customTitle: null,
+    signatureSource: storedSignature,
+  }),
+  getWorn: async () => ({}),
+  getRenameUnits: async () => 0,
+  shopHref: "/credits",
+}));
 mock.module("@/lib/db", () => ({
   getUser: async (username: string) => {
     const id = Number(username.replace("member", ""));
@@ -122,8 +140,8 @@ const { Signature } = await import("../src/components/forum/signature");
 const { ThreadExcerpt } = await import(
   "../src/components/forum/thread-excerpt"
 );
-const { PermissionsPanel } = await import(
-  "../src/app/(main)/account/permissions"
+const { TitleSection } = await import(
+  "../src/app/(main)/account/profile-forms"
 );
 const { EditorDemo } = await import("../src/app/(main)/ui/editor-demo");
 
@@ -720,60 +738,17 @@ test("a thread excerpt never prints the URL of a blocked picture", async () => {
   }
 });
 
-type Found = { props: Record<string, unknown> };
-function findForm(node: unknown): Found | undefined {
-  if (!node || typeof node !== "object") return undefined;
-  if (Array.isArray(node)) return node.map(findForm).find(Boolean);
-  const element = node as { type?: unknown; props?: Record<string, unknown> };
-  if (
-    typeof element.type === "function" &&
-    element.type.name === "SignatureForm"
-  )
-    return element as Found;
-  return findForm(element.props?.children);
-}
-
 const stored =
   "Shop: ![logo](https://pictures.test/l.png) <video> demo below\nline two";
-async function signaturePanel() {
-  const user = { id: 101, signature: stored, rank: { name: "Rank" } };
-  const permission = {
-    key: "signature",
-    granted: true,
-    source: "staff",
-  };
-  return PermissionsPanel({
-    // biome-ignore lint/suspicious/noExplicitAny: a thin stand-in for the view types.
-    user: user as any,
-    // biome-ignore lint/suspicious/noExplicitAny: a thin stand-in for the view types.
-    permissions: [permission] as any,
-    prices: {},
-    saved: undefined,
-  });
-}
 
-test("the signature editor never starts from filtered text", async () => {
+test("the signature field holds the stored source whatever LITE hides", async () => {
+  const section = () =>
+    markup(<TitleSection searchParams={Promise.resolve({})} />);
+  const escaped = stored.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   cookie = "postImages";
-  const form = findForm(await signaturePanel());
-  expect(form).toBeDefined();
-  expect(form?.props.signature).toBe("");
-  expect(form?.props.hidden).toBe(true);
-  expect(JSON.stringify(form?.props)).not.toMatch(/pictures\.test|LITE MODE/);
+  const hidden = await section();
+  // The field is the source the backend keeps, not filtered text: saving it back loses nothing.
+  expect(hidden).toContain(escaped);
   cookie = undefined;
-  const open = findForm(await signaturePanel());
-  expect(open?.props.signature).toBe(stored);
-  expect(open?.props.hidden).toBe(false);
-});
-
-test("a hidden signature shows the replace note and offers nothing to save", async () => {
-  const { SignatureForm } = await import(
-    "../src/app/(main)/account/permission-forms"
-  );
-  const html = await markup(
-    <SignatureForm signature="" hidden locked={false} saved={false} />,
-  );
-  expect(html).toContain(messages.account.permissionForms.hiddenNotice);
-  expect(html).not.toMatch(/pictures\.test|LITE MODE/);
-  // Save stays disabled while the editor is empty, so the stored text is kept.
-  expect(html).toMatch(/<button[^>]*disabled[^>]*>Save signature/);
+  expect(await section()).toContain(escaped);
 });
