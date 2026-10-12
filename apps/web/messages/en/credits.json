@@ -22,7 +22,31 @@
       "sections": "Credits sections",
       "loadingShop": "Loading the shop…",
       "loadingBalance": "Loading your balance…",
-      "loadingLeaders": "Loading richest members…"
+      "loadingLeaders": "Loading richest members…",
+      "loadingWays": "Loading the ways to earn…"
+    }
+  },
+  "ways": {
+    "heading": "Ways to earn",
+    "description": "What earns or costs credits on this site.",
+    "emptyTitle": "No ways to earn yet",
+    "emptyDescription": "Nothing earns or costs credits right now.",
+    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# credit} other {# credits}}",
+    "limit": "Up to {count} per {hours, plural, one {hour} other {# hours}}",
+    "forums": "Only in:",
+    "triggers": {
+      "thread_created": "When you start a thread",
+      "reply_posted": "When you post a reply",
+      "reply_received": "When someone replies to your thread",
+      "reaction_given": "When you react to a post",
+      "reaction_received": "When someone reacts to your post",
+      "profile_post_created": "When you post on a member's profile",
+      "profile_post_received": "When someone posts on your profile",
+      "followed": "When a member follows you",
+      "registered": "When you register",
+      "daily_activity": "Your first activity of each day",
+      "warning_received": "When you receive a warning",
+      "award_received": "When you receive an award"
     }
   },
   "shop": {
