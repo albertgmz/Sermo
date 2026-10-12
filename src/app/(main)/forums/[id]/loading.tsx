@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   HeadingSkeleton,
   LoadingRegion,
@@ -8,8 +9,9 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("forums.loading");
   return (
-    <LoadingRegion label="Loading threads…">
+    <LoadingRegion label={t("aria.threads")}>
       <PageLayout className="pt-2">
         <HeadingSkeleton />
         <Skeleton className="mt-1 h-5 w-3/4" />
