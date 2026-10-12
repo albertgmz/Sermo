@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { closeContext } from "../context";
-import { ConflictError, ForbiddenError } from "../errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "../errors";
 import { userActor } from "../testing";
 import {
   assertInvariants,
@@ -8,6 +8,7 @@ import {
   databaseSnapshot,
   drainEvents,
   drainJobs,
+  economySnapshot,
   expire,
   random,
   replayTwice,
@@ -31,16 +32,18 @@ test("seeded purchase attempts preserve every durable row on rejection", async (
   const recipient = userActor(members[1]!);
   await act("credits.adjust", { userId: members[0]!.id, amount: 23, reason: "Purchase budget" });
   const category = await act("shopCategories.create", { name: "Rollback" });
+  const hidden = await act("shopCategories.create", { name: "Hidden", isActive: false });
   const items = [];
-  for (const [name, price, stock, isActive, isGiftable] of [
-    ["Affordable", 3, 4, true, true],
-    ["Too expensive", 100, 8, true, true],
-    ["Sold out", 1, 0, true, true],
-    ["Inactive", 1, 8, false, true],
-    ["Not giftable", 1, 8, true, false],
+  for (const [name, price, stock, isActive, isGiftable, categoryId] of [
+    ["Affordable", 3, 4, true, true, category.id],
+    ["Too expensive", 100, 8, true, true, category.id],
+    ["Sold out", 1, 0, true, true, category.id],
+    ["Inactive", 1, 8, false, true, category.id],
+    ["Not giftable", 1, 8, true, false, category.id],
+    ["Inactive category", 1, 8, true, true, hidden.id],
   ] as const) {
     const item = await act("shopItems.create", {
-      categoryId: category.id,
+      categoryId,
       name,
       price,
       stock,
@@ -57,8 +60,8 @@ test("seeded purchase attempts preserve every durable row on rejection", async (
   const failures = new Set<string>();
   let successes = 0;
   for (let step = 0; step < 80; step++) {
-    // The first five attempts guarantee each failure class, subsequent attempts vary quantities.
-    const choice = step < 5 ? step : rng(items.length);
+    // The first six attempts guarantee each failure class, subsequent attempts vary quantities.
+    const choice = step < 6 ? step : rng(items.length);
     const item = items[choice]!;
     const gift = choice === 4 || (choice === 0 && (step === 0 || rng(3) === 0));
     const input = {
@@ -75,12 +78,22 @@ test("seeded purchase attempts preserve every durable row on rejection", async (
       error = caught;
     }
     if (error) {
-      expect(error).toBeInstanceOf(gift ? ForbiddenError : ConflictError);
+      // Unavailable items are hidden from a buyer without admin.shop, before any gift check.
+      const hiddenFromBuyer = choice === 3 || choice === 5;
+      expect(error).toBeInstanceOf(
+        hiddenFromBuyer ? NotFoundError : gift ? ForbiddenError : ConflictError,
+      );
       expect(databaseSnapshot(ctx), `rejected purchase ${step}: ${item.name}`).toEqual(before);
       failures.add(item.name);
     }
     expect(rows(ctx, "SELECT id, credits FROM users WHERE credits < 0")).toEqual([]);
     assertInvariants(ctx, stocks);
+  }
+  // With admin.shop an unavailable item is a conflict, still without any durable change.
+  for (const item of [items[3]!, items[5]!]) {
+    const before = databaseSnapshot(ctx);
+    await expect(act("shop.buy", { itemId: item.id })).rejects.toBeInstanceOf(ConflictError);
+    expect(databaseSnapshot(ctx), `admin purchase of ${item.name}`).toEqual(before);
   }
   expect(successes).toBeGreaterThan(0);
   expect([...failures].sort()).toEqual(items.map((item) => item.name).sort());
@@ -171,7 +184,7 @@ for (const kind of ["thread", "post", "profile_post"] as const) {
   });
 }
 
-test("replay cannot pay a historical event skipped while its rule was inactive", async () => {
+test("an inactive rule pays nothing, on dispatch or on replay, and activating it pays no history", async () => {
   const { ctx, act, node, members } = fixture();
   const rule = await act("creditRules.create", {
     title: "Inactive",
@@ -186,13 +199,36 @@ test("replay cannot pay a historical event skipped while its rule was inactive",
   );
   await drainEvents(ctx);
   expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toEqual([]);
-  await act("creditRules.update", { ruleId: rule.id, isActive: true });
+  // Replays with the rule untouched change nothing (a manual cursor reset plus a rule edit is
+  // outside the guarantee, see DECISIONS.md).
   await replayTwice(ctx);
+  expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toEqual([]);
+  expect(rows(ctx, "SELECT id FROM credit_transactions")).toEqual([]);
+  // Activating the rule does not pay the thread that already passed; a new one is paid once.
+  await act("creditRules.update", { ruleId: rule.id, isActive: true });
+  await drainEvents(ctx);
+  expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toEqual([]);
+  await act(
+    "threads.create",
+    { nodeId: node.id, title: "Later", body: "Paid" },
+    userActor(members[0]!),
+  );
+  await drainEvents(ctx);
+  expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toHaveLength(1);
+  expect(rows(ctx, "SELECT credits FROM users WHERE id = ?1", members[0]!.id)).toEqual([
+    { credits: 9 },
+  ]);
+  assertInvariants(ctx);
+  // A cursor reset after activating the rule is the out-of-guarantee case; a plain re-dispatch
+  // must change nothing.
+  const settled = economySnapshot(ctx);
+  await drainEvents(ctx);
+  expect(economySnapshot(ctx)).toEqual(settled);
 });
 
-test("replay cannot pay a source previously excluded by a rule limit", async () => {
+test("a source excluded by a rule limit stays unpaid on replay with the limit unchanged", async () => {
   const { ctx, act, node, members } = fixture();
-  const rule = await act("creditRules.create", {
+  await act("creditRules.create", {
     title: "Limited",
     trigger: "thread_created",
     amount: 9,
@@ -210,12 +246,17 @@ test("replay cannot pay a source previously excluded by a rule limit", async () 
     );
   await drainEvents(ctx);
   expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toHaveLength(1);
-  await act("creditRules.update", { ruleId: rule.id, limit: null });
+  expect(rows(ctx, "SELECT credits FROM users WHERE id = ?1", members[0]!.id)).toEqual([
+    { credits: 9 },
+  ]);
+  // Changing the limit and resetting the cursor by hand is outside the guarantee (DECISIONS.md).
   await replayTwice(ctx);
+  expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toHaveLength(1);
+  assertInvariants(ctx);
 });
 
 for (const kind of ["thread", "post", "profile_post"] as const) {
-  test(`${kind}: replay is unchanged when creation was first dispatched while deleted`, async () => {
+  test(`${kind}: creation first dispatched while deleted is never paid, and re-dispatching changes nothing`, async () => {
     const { ctx, act, node, members, moderator } = fixture();
     const author = userActor(members[0]!);
     const mod = userActor(moderator);
@@ -248,10 +289,21 @@ for (const kind of ["thread", "post", "profile_post"] as const) {
     await act(`${prefix}.delete`, input, mod);
     await drainEvents(ctx);
     assertInvariants(ctx);
+    // The documented limit: content hidden before the subscriber first saw it is not paid later.
+    const unpaid = balances(ctx);
+    expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toEqual([]);
     await act(`${prefix}.restore`, input, mod);
     await drainEvents(ctx);
     assertInvariants(ctx);
-    await replayTwice(ctx);
+    expect(rows(ctx, "SELECT id FROM credit_rule_applications")).toEqual([]);
+    expect(rows(ctx, "SELECT id FROM credit_transactions")).toEqual([]);
+    expect(balances(ctx)).toEqual(unpaid);
+    // Dispatching again without resetting the cursor is a no-op.
+    const settled = economySnapshot(ctx);
+    await drainEvents(ctx);
+    await drainEvents(ctx);
+    expect(economySnapshot(ctx)).toEqual(settled);
+    assertInvariants(ctx);
   });
 }
 
