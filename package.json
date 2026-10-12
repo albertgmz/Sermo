@@ -9,11 +9,12 @@
   "scripts": {
     "start": "bun packages/api/src/server.ts",
     "dev:fixture": "bun scripts/dev-fixture.ts",
+    "starter:load": "bun scripts/starter/load.ts",
     "storage:migrate": "bun scripts/storage-migrate.ts",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "biome check --error-on-warnings .",
     "format": "biome check --write .",
-    "test": "bun test ./packages",
+    "test": "bun test ./packages ./scripts",
     "seed": "bun bench/seed.ts",
     "bench": "bun bench/run.ts",
     "db:generate": "cd packages/core && drizzle-kit generate",
