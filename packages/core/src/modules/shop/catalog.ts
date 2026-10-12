@@ -140,7 +140,7 @@ export const itemsList = implement(
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);
     return {
-      items: page.map(itemValue),
+      items: page.map((row) => itemValue(ctx, row)),
       nextCursor: rows.length > input.limit && last ? encodeCursor([last.position, last.id]) : null,
     };
   },
@@ -155,7 +155,7 @@ export const itemsGet = implement(
       (!row.is_active || !category(ctx, row.category_id).is_active)
     )
       throw new NotFoundError();
-    return itemValue(row);
+    return itemValue(ctx, row);
   },
   { public: "The active shop catalog is visible to everyone." },
 );
@@ -166,6 +166,7 @@ export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, inp
     validateItem(ctx, current, input);
     category(ctx, input.categoryId);
     return itemValue(
+      ctx,
       statement<ItemRow>(
         ctx,
         "INSERT INTO shop_items (category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13) RETURNING *",
@@ -191,7 +192,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     const current = managerNow(ctx, actor);
-    const previous = itemValue(item(ctx, input.itemId));
+    const previous = itemValue(ctx, item(ctx, input.itemId));
     grantPermissions(ctx, current, previous.effect);
     assertGrantRank(ctx, current, previous.effect);
     const value = {
@@ -209,6 +210,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
     validateItem(ctx, current, value);
     category(ctx, value.categoryId);
     return itemValue(
+      ctx,
       statement<ItemRow>(
         ctx,
         "UPDATE shop_items SET category_id = ?1, name = ?2, description = ?3, icon = ?4, price = ?5, is_active = ?6, stock = ?7, is_consumable = ?8, is_giftable = ?9, duration_seconds = ?10, effect = ?11, position = ?12, updated_at = ?13 WHERE id = ?14 RETURNING *",

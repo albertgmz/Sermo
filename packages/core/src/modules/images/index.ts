@@ -15,16 +15,13 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { appendModeratorLog } from "../moderation";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 import { attachUploadedFile, releaseFile } from "./attach";
 
 export type { ImagePurpose, ProcessedImage } from "./process";
 export { processImage } from "./process";
 
 type ImageSlot = "avatar" | "cover" | "node_icon" | "node_cover";
-
-const reference = (fileId: number | null) =>
-  fileId === null ? null : { fileId, url: fileUrl(fileId) };
 
 function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot, nodeId?: number) {
   const user = requireAuthenticated(actor);
@@ -69,7 +66,7 @@ function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot
         .run(ctx.now(), user.userId);
     if (nodeId !== undefined)
       appendModeratorLog(ctx, actor, `node.${slot}`, "node", nodeId, "", { fileId });
-    return reference(fileId);
+    return publicPicture(ctx, fileId);
   });
 }
 
@@ -103,7 +100,7 @@ function setArtwork(
       .run(fileId, ctx.now(), target.id);
     if (row.previous !== null) releaseFile(ctx, row.previous);
     appendModeratorLog(ctx, actor, target.action, target.table, target.id, "", { fileId });
-    return reference(fileId);
+    return publicPicture(ctx, fileId);
   });
 }
 

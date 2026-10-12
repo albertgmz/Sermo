@@ -6,7 +6,7 @@ import type { ShopInventoryState } from "../../db/schema";
 import { NotFoundError } from "../../errors";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 
 export type Effect = z.infer<typeof ShopEffect>;
 export type Item = z.infer<typeof ShopItem>;
@@ -90,14 +90,11 @@ export const categoryValue = (row: CategoryRow) => ({
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),
 });
-export const itemValue = (row: ItemRow): Item => ({
+export const itemValue = (ctx: Ctx, row: ItemRow): Item => ({
   ...categoryValue(row),
   categoryId: row.category_id,
   icon: row.icon,
-  image:
-    row.image_file_id === null
-      ? null
-      : { fileId: row.image_file_id, url: fileUrl(row.image_file_id) },
+  image: publicPicture(ctx, row.image_file_id),
   price: row.price,
   stock: row.stock,
   isConsumable: !!row.is_consumable,
@@ -109,7 +106,7 @@ export function loadItems(ctx: Ctx, ids: number[]): Map<number, Item> {
   return new Map(
     statement<ItemRow>(ctx, shopSql.items)
       .all(JSON.stringify([...new Set(ids)]))
-      .map((row) => [row.id, itemValue(row)]),
+      .map((row) => [row.id, itemValue(ctx, row)]),
   );
 }
 export const inventoryValue = (row: InventoryRow, heldItem: Item) => ({

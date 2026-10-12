@@ -6,7 +6,7 @@ import { NotFoundError } from "../../errors";
 import type { Criterion } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
-import { fileUrl } from "../storage/url";
+import { publicPicture } from "../storage/url";
 
 export type AwardRow = {
   id: number;
@@ -79,15 +79,12 @@ export function memberXp(ctx: Ctx, id: number): number {
   return row.award_xp;
 }
 export const conditions = (row: AwardRow): Criterion[] => JSON.parse(row.criteria);
-export const awardValue = (row: AwardRow): z.infer<typeof Award> => ({
+export const awardValue = (ctx: Ctx, row: AwardRow): z.infer<typeof Award> => ({
   id: row.id,
   name: row.name,
   description: row.description,
   icon: row.icon,
-  image:
-    row.image_file_id === null
-      ? null
-      : { fileId: row.image_file_id, url: fileUrl(row.image_file_id) },
+  image: publicPicture(ctx, row.image_file_id),
   tier: row.tier,
   xp: row.xp,
   credits: row.credits,
@@ -109,7 +106,7 @@ export function loadAwards(ctx: Ctx, ids: Iterable<number>) {
     awardSql.awardBatch,
     JSON.stringify([...new Set(ids)]),
   );
-  return new Map(rows.map((row) => [row.id, awardValue(row)]));
+  return new Map(rows.map((row) => [row.id, awardValue(ctx, row)]));
 }
 export function grantValues(ctx: Ctx, rows: GrantRow[]) {
   const awards = loadAwards(

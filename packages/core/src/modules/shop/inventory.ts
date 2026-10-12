@@ -38,7 +38,7 @@ export const buy = implement(contracts.shopBuy, (ctx, actor, input) =>
     const gift = recipientId !== buyer.userId;
     if (gift) requirePermission(ctx, current, "shop.gift");
     const row = item(ctx, input.itemId);
-    const value = itemValue(row);
+    const value = itemValue(ctx, row);
     const unavailable = !row.is_active || !category(ctx, row.category_id).is_active;
     if (unavailable && !can(ctx, current, "admin.shop")) throw new NotFoundError();
     if (gift) {
@@ -176,7 +176,7 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
       member.userId,
     );
     if (!row) throw new NotFoundError();
-    const value = itemValue(item(ctx, row.item_id));
+    const value = itemValue(ctx, item(ctx, row.item_id));
     const effect = value.effect;
     if (effect.type === "group" || (effect.type === "permission" && !value.isConsumable))
       throw new ConflictError("This item applies while held and cannot be used.");
