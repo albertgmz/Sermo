@@ -1679,6 +1679,8 @@ export const shopInventory = sqliteTable(
     quantity: integer("quantity").notNull().default(1),
     /** End of a temporary item; null = permanent. */
     expiresAt: integer("expires_at"),
+    /** What the member paid for what they hold (an upgrade carries the credit over); sets the credit of a later upgrade. */
+    paidPrice: integer("paid_price").notNull().default(0),
     acquiredAt: integer("acquired_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },

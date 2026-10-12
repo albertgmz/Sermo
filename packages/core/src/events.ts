@@ -45,8 +45,9 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  * - `shop.purchased`: target the purchase (targetType "shop_purchase"); payload { itemId,
  *   buyerId, recipientId, quantity, price, inventoryId }.
  * - `shop.item_used`: target the inventory row (targetType "shop_inventory"); payload { userId,
- *   itemId, effect, threadId?, value?, quantityLeft }. Applying the effect is the subscriber's
- *   work. Group items and permission items that are not consumable are never used (they
+ *   itemId, effect, threadId?, quantityLeft }. The effect on a thread (cover, highlight, bump) is
+ *   already applied by `shop.use` in the transaction that publishes this; the event reports the
+ *   use. Group items and permission items that are not consumable are never used (they
  *   apply while held); using a unit of a consumable permission item does publish it.
  */
 export const EVENT_TYPES = [

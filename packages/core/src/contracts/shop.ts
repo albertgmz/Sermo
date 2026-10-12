@@ -25,7 +25,8 @@ import { ImageReference } from "./images";
  * - `bump`: the thread sorts as if it had a post now.
  *
  * And one is spent by another operation:
- * - `usernameChange`: one unit pays for one `users.changeUsername`.
+ * - `usernameChange`: one unit pays for one `users.changeUsername`. It is sold in units, so
+ *   the item must be a consumable.
  */
 export const ShopEffect = z
   .discriminatedUnion("type", [
@@ -214,7 +215,8 @@ export const shopItemsCreate = defineContract({
   name: "shopItems.create",
   summary:
     "Create a shop item. A `frame`, `nameColor` or `threadCover` effect must name an entry of " +
-    "its catalog that has a picture or a colour. A consumable has no duration and cannot have a `group` effect. A " +
+    "its catalog that has a picture or a colour. A `usernameChange` effect needs a consumable item " +
+    "(a validation error naming `isConsumable` otherwise). A consumable has no duration and cannot have a `group` effect. A " +
     "`permission` effect must name a registered permission with a value of its kind; a `group` " +
     "effect an existing group other than the guest group, ranked below the actor. Permissions " +
     "of the admin category and groups that hold admin.permissions cannot be sold. Selling a " +
@@ -279,9 +281,11 @@ export const shopBuy = defineContract({
     "stock is short), adds the item to the recipient's inventory, lowers the stock and records " +
     "the purchase. A consumable adds `quantity` units; any other item takes quantity 1 and is a " +
     "conflict while the recipient holds it (after it expired it can be bought again). A " +
-    "permission or group item applies at once. An item that sells a yes/no permission the " +
-    "recipient already holds another way (through a group, for instance) is a conflict: there " +
-    "is nothing to buy. Requires shop.buy. A gift also requires " +
+    "permission or group item applies at once. An item that sells a yes/no permission of global " +
+    "scope the recipient already holds through something other than a shop item (a group or a " +
+    "staff role, for instance) is a conflict: there is nothing to buy. Number-valued and " +
+    "per-forum permissions, and a permission held only through another shop item, are always " +
+    "sellable. The recipient's inventory row records what the buyer paid. Requires shop.buy. A gift also requires " +
     "shop.gift and a giftable item, and is refused when the recipient ignores the buyer.",
   kind: "write",
   input: z.object({
@@ -321,7 +325,8 @@ export const shopUse = defineContract({
     "it also publishes `shop.item_used`. A consumable `permission` item is used without a " +
     "thread. Every other item cannot be used: `frame` and `nameColor` are worn with " +
     "appearance.set, `usernameChange` is spent by users.changeUsername, and `group` items and " +
-    "non-consumable `permission` items apply while held. Requires shop.buy.",
+    "non-consumable `permission` items apply while held. An item past its end cannot be used, " +
+    "even before the expiry job has marked it. Requires shop.buy.",
   kind: "write",
   input: z.object({ inventoryId: Id, threadId: Id.optional() }),
   output: ShopInventoryEntry,
@@ -330,13 +335,19 @@ export const shopUse = defineContract({
 export const shopUpgrade = defineContract({
   name: "shop.upgrade",
   summary:
-    "Move up to a better rank and pay only the difference. The item must be an active `group` " +
-    "item; the member's current rank is the most expensive `group` item of the SAME category " +
-    "they hold active. With no current rank this is shop.buy at the full price. With one, the " +
-    "new item must cost more (a conflict otherwise: ranks only go up); in one transaction the " +
-    "member is charged the difference (a conflict when the balance is short), the old item " +
+    "Move up to a better rank and pay the difference, less what the old rank is worth. The item " +
+    "must be an active `group` item; the member's current rank is the most expensive `group` " +
+    "item of the SAME category they hold: an active inventory row that has not run out (a rank " +
+    "past its end is not held, even before the expiry job marks it). With no current rank this " +
+    "is shop.buy at the full price. With one, the new rank's catalog price must exceed the old " +
+    "rank's catalog price (a conflict otherwise: ranks only go up). The credit is what the " +
+    "member paid for the old rank (not its catalog price today): in full for a permanent rank, " +
+    "and for a timed one the paid price times the share of its duration still ahead, rounded " +
+    "down. The member pays the new rank's catalog price minus the credit, never below zero. In " +
+    "one transaction the member is charged (a conflict when the balance is short), the old item " +
     "leaves the inventory and its group with it, the new item is added and its group applies, " +
-    "and the purchase is recorded at the price paid. Requires shop.buy.",
+    "and the purchase is recorded at the price paid. The new row is worth the credit plus the " +
+    "price paid, which is what a later upgrade credits. Requires shop.buy.",
   kind: "write",
   input: z.object({ itemId: Id }),
   output: z.object({

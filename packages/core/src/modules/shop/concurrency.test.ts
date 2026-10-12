@@ -11,7 +11,7 @@ import { moveCredits } from "../../shared/credits";
 import { insertCatalogImage } from "../appearance/catalog-fixtures";
 import { categoriesCreate, itemsCreate } from "./catalog";
 
-for (const scarce of ["stock", "balance"] as const)
+for (const scarce of ["stock", "balance", "unique"] as const)
   test(`independent connections cannot overspend ${scarce}`, async () => {
     const fixture = createTestContext();
     const directory = mkdtempSync(join(tmpdir(), "sermo-shop-"));
@@ -24,7 +24,11 @@ for (const scarce of ["stock", "balance"] as const)
       writeTx(fixture, () =>
         moveCredits(
           fixture,
-          [first, second].map((user) => ({ userId: user.id, amount: 10, type: "adjustment" })),
+          [first, second].map((user) => ({
+            userId: user.id,
+            amount: scarce === "unique" ? 20 : 10,
+            type: "adjustment",
+          })),
         ),
       );
       const category = await execute(fixture, categoriesCreate, admin, { name: "Concurrent" });
@@ -33,7 +37,7 @@ for (const scarce of ["stock", "balance"] as const)
         name: "Unit",
         price: 10,
         stock: scarce === "stock" ? 1 : null,
-        isConsumable: true,
+        isConsumable: scarce !== "unique",
         effect: { type: "frame", frameId: insertCatalogImage(fixture, "frame") },
       });
       writeFileSync(path, fixture.sqlite.serialize());

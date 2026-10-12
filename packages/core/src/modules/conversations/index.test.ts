@@ -24,6 +24,7 @@ import {
   participantsSql,
   reactableConversationMessage,
   reactableSql,
+  visibleMessagesNewestSql,
 } from "./index";
 
 function fixture() {
@@ -404,6 +405,51 @@ describe("conversations", () => {
     expectNoTableScan(ctx, inboxSql, [1, 9999999999999, 999999, 21]);
     expectNoTableScan(ctx, participantsSql, [id]);
     expectNoTableScan(ctx, messagesSql, [id, 0, 21]);
+  });
+
+  test("messages page from either end, and a non-participant finds neither", async () => {
+    const { ctx, a, b, c } = fixture();
+    const bId = b.kind === "guest" ? 0 : b.userId;
+    const id = (await execute(ctx, conversationsCreateOp, a, start([bId]))).conversation.id;
+    for (let i = 0; i < 5; i++)
+      await execute(ctx, conversationsReplyOp, b, { conversationId: id, body: `message ${i}` });
+    const pages = async (order: "oldest" | "newest", cursor?: string) => {
+      const out: number[][] = [];
+      let next = cursor;
+      do {
+        const page: { items: { id: number }[]; nextCursor: string | null } = await execute(
+          ctx,
+          conversationsListMessagesOp,
+          a,
+          { conversationId: id, order, limit: 2, cursor: next },
+        );
+        out.push(page.items.map((m) => m.id));
+        next = page.nextCursor ?? undefined;
+      } while (next);
+      return out;
+    };
+    const oldest = await pages("oldest");
+    const newest = await pages("newest");
+    expect(oldest.map((page) => page.length)).toEqual([2, 2, 2]);
+    expect(newest.map((page) => page.length)).toEqual([2, 2, 2]);
+    const forwards = oldest.flat();
+    expect(forwards).toEqual([...forwards].sort((x, y) => x - y));
+    expect(newest.flat()).toEqual([...forwards].reverse());
+    // The default is the oldest first.
+    expect(
+      (
+        await execute(ctx, conversationsListMessagesOp, a, { conversationId: id, limit: 2 })
+      ).items.map((m) => m.id),
+    ).toEqual(oldest[0]!);
+    // A cursor from the other order continues from its message in this order's direction.
+    const issued = encodeCursor([forwards[2]!]);
+    expect((await pages("newest", issued)).flat()).toEqual([forwards[1]!, forwards[0]!]);
+    expect((await pages("oldest", issued)).flat()).toEqual(forwards.slice(3));
+    for (const order of ["oldest", "newest"] as const)
+      await expect(
+        execute(ctx, conversationsListMessagesOp, c, { conversationId: id, order, limit: 2 }),
+      ).rejects.toThrow(NotFoundError);
+    expectNoTableScan(ctx, visibleMessagesNewestSql, [id, Number.MAX_SAFE_INTEGER, 21, 0, 0]);
   });
 
   test("three readers retain independent unread state and left rows keep their activity time", async () => {

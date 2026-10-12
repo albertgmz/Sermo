@@ -59,6 +59,8 @@ export const messagesSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
 export const visibleMessagesSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id LIMIT ?3";
+export const visibleMessagesNewestSql =
+  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id DESC LIMIT ?3";
 export const activeSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 export const reactableSql =
@@ -405,11 +407,19 @@ export const conversationsListMessagesOp = implement(
   conversationsListMessages,
   (ctx, actor, input) => {
     activeConversation(ctx, actor, input.conversationId);
+    const newest = input.order === "newest";
     const id = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
-      : 0;
-    const rows = prepared(ctx, "conversations.messages", () =>
-      ctx.sqlite.prepare<MessageRow, [number, number, number, number, number]>(visibleMessagesSql),
+      : newest
+        ? Number.MAX_SAFE_INTEGER
+        : 0;
+    const rows = prepared(
+      ctx,
+      newest ? "conversations.messagesNewest" : "conversations.messages",
+      () =>
+        ctx.sqlite.prepare<MessageRow, [number, number, number, number, number]>(
+          newest ? visibleMessagesNewestSql : visibleMessagesSql,
+        ),
     ).all(
       input.conversationId,
       id,

@@ -87,9 +87,18 @@ export const conversationsReply = defineContract({
 
 export const conversationsListMessages = defineContract({
   name: "conversations.listMessages",
-  summary: "Messages of a conversation, oldest first.",
+  summary:
+    "Messages of a conversation. `order` `oldest` (the default) lists from the first message " +
+    "forwards; `newest` lists from the latest message backwards, so a client can open a long " +
+    "conversation at its end, and its `nextCursor` continues towards older messages. A cursor " +
+    "belongs to the order it was issued for; one sent with the other order simply continues " +
+    "from its message in that order's direction.",
   kind: "read",
-  input: z.object({ conversationId: Id, ...pageInput }),
+  input: z.object({
+    conversationId: Id,
+    order: z.enum(["oldest", "newest"]).default("oldest"),
+    ...pageInput,
+  }),
   output: Page(Message),
 });
 

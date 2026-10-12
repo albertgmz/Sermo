@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { createTestContext, insertNode, insertUser, userActor } from "@sermo/core/testing";
 import { type Actor, GUEST } from "../../actor";
 import { closeContext, invalidate } from "../../context";
@@ -252,6 +253,25 @@ describe("shop.use on a thread", () => {
     expect(inventoryId).toBeGreaterThan(0);
   });
 
+  test("a row past its end cannot be used before the expiry job has marked it", async () => {
+    const w = await threadWorld();
+    const item = await w.sell({ type: "highlight", days: 1 }, { durationSeconds: 3600 });
+    const bought = await w.call("shop.buy", { itemId: item.id });
+    const inventoryId = bought.inventory.id as number;
+    const use = () => w.call("shop.use", { inventoryId, threadId: w.mine });
+    w.ctx.clock.advance(3_599_000);
+    await use();
+    const before = w.row(w.mine).highlighted_until;
+    expect(before).not.toBeNull();
+    w.ctx.clock.advance(1000);
+    expect(
+      w.ctx.sqlite.prepare("SELECT state FROM shop_inventory WHERE id = ?1").get(inventoryId),
+    ).toEqual({ state: "active" });
+    await expect(use()).rejects.toThrow(/expired/);
+    await expect(use()).rejects.toBeInstanceOf(ConflictError);
+    expect(w.row(w.mine).highlighted_until).toBe(before);
+  });
+
   test("a highlight adds days to the later of now and the current end", async () => {
     const w = await threadWorld();
     const { use } = await w.use({ type: "highlight", days: 2 });
@@ -378,6 +398,25 @@ describe("shop.buy: nothing to buy", () => {
     const gifted = await f.call("shop.buy", { itemId: item.id, recipientId: f.other.id });
     expect(gifted.inventory).toBeNull();
     expect(can(f.ctx, userActor(f.other), "profile.signature")).toBe(true);
+  });
+
+  test("a permission held only through another shop item can still be bought, and a per-forum one always can", async () => {
+    const f = fixture();
+    f.fund();
+    const first = await f.sell({ type: "permission", permission: "profile.signature" });
+    const second = await f.sell({ type: "permission", permission: "profile.signature" });
+    await f.call("shop.buy", { itemId: first.id });
+    expect(can(f.ctx, f.actor, "profile.signature")).toBe(true);
+    expect(await f.call("shop.buy", { itemId: second.id })).toMatchObject({
+      purchase: { price: 10 },
+    });
+    // A moderator holds forum.reply on every forum through their group.
+    const moderator = insertUser(f.ctx, { groupId: 3 });
+    f.fund(moderator.id);
+    const perForum = await f.sell({ type: "permission", permission: "forum.reply" });
+    expect(await f.call("shop.buy", { itemId: perForum.id }, userActor(moderator))).toMatchObject({
+      purchase: { price: 10 },
+    });
   });
 
   test("integer permissions and consumable permissions are not affected", async () => {
@@ -608,5 +647,185 @@ describe("shop.upgrade", () => {
     await expect(
       r.call("shop.upgrade", { itemId: r.gold.id }, userActor(insertUser(r.ctx, { groupId: 5 }))),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  const DAY = 86_400_000;
+  const paidPrices = (r: Awaited<ReturnType<typeof ranks>>) =>
+    r.ctx.sqlite
+      .prepare("SELECT item_id, paid_price FROM shop_inventory WHERE user_id = ?1 ORDER BY item_id")
+      .all(r.member.id);
+
+  test("a timed rank credits its paid price by the share of its duration still ahead, rounded down", async () => {
+    const r = await ranks();
+    const timed = await r.itemFor("Timed bronze", 100, r.groups.bronze, {
+      durationSeconds: 30 * 86_400,
+    });
+    await r.call("shop.buy", { itemId: timed.id });
+    r.ctx.clock.advance(20 * DAY);
+    // 100 x 10/30 = 33.33, rounded down to 33; the charge is 250 - 33.
+    const result = await r.call("shop.upgrade", { itemId: r.silver.id });
+    expect(result).toMatchObject({
+      replacedItemId: timed.id,
+      purchase: { price: 217 },
+      balance: 1000 - 100 - 217,
+    });
+    // The new row holds the whole value: what was credited plus what was paid.
+    expect(paidPrices(r)).toEqual([
+      { item_id: r.silver.id, paid_price: 250 },
+      { item_id: timed.id, paid_price: 100 },
+    ]);
+  });
+
+  test("a rank past its end earns no credit even before the expiry job has marked it", async () => {
+    const r = await ranks();
+    const timed = await r.itemFor("Timed bronze", 100, r.groups.bronze, { durationSeconds: 3600 });
+    await r.call("shop.buy", { itemId: timed.id });
+    r.ctx.clock.advance(3_600_000);
+    expect(r.state()).toEqual([{ item_id: timed.id, state: "active" }]);
+    const result = await r.call("shop.upgrade", { itemId: r.silver.id });
+    expect(result).toMatchObject({ replacedItemId: null, purchase: { price: 250 } });
+    expect(paidPrices(r)).toContainEqual({ item_id: r.silver.id, paid_price: 250 });
+  });
+
+  test("a permanent rank credits what was paid, not the catalog price of today", async () => {
+    const r = await ranks();
+    await r.call("shop.buy", { itemId: r.bronze.id });
+    r.ctx.sqlite.prepare("UPDATE shop_items SET price = 200 WHERE id = ?1").run(r.bronze.id);
+    const result = await r.call("shop.upgrade", { itemId: r.silver.id });
+    expect(result).toMatchObject({ replacedItemId: r.bronze.id, purchase: { price: 150 } });
+    expect(r.balance()).toBe(1000 - 100 - 150);
+    // A later step credits the whole value held, not what the last step cost.
+    const toGold = await r.call("shop.upgrade", { itemId: r.gold.id });
+    expect(toGold.purchase.price).toBe(350);
+  });
+
+  test("the charge is never below zero, and the new rank must still cost more than the old catalog price", async () => {
+    const r = await ranks();
+    await r.call("shop.buy", { itemId: r.silver.id });
+    r.ctx.sqlite.prepare("UPDATE shop_items SET price = 120 WHERE id = ?1").run(r.silver.id);
+    const cheap = await r.itemFor("Cheap gold", 130, r.groups.gold);
+    const result = await r.call("shop.upgrade", { itemId: cheap.id });
+    expect(result).toMatchObject({ replacedItemId: r.silver.id, purchase: { price: 0 } });
+    expect(r.balance()).toBe(750);
+    expect(paidPrices(r)).toContainEqual({ item_id: cheap.id, paid_price: 250 });
+    // Equal to the old catalog price is not up.
+    const same = await r.itemFor("Same", 130, r.groups.gold);
+    await expect(r.call("shop.upgrade", { itemId: same.id })).rejects.toThrow(/only go up/);
+  });
+
+  test("a purchase records what was paid; a gift gives the recipient what the buyer paid; units add up", async () => {
+    const r = await ranks();
+    await r.call("shop.buy", { itemId: r.bronze.id });
+    const giftable = await r.itemFor("Gift", 40, r.groups.silver, { isGiftable: true });
+    await r.call("shop.buy", { itemId: giftable.id, recipientId: r.other.id });
+    const units = await r.sell(
+      { type: "usernameChange" },
+      { name: "Units", price: 7, isConsumable: true },
+    );
+    await r.call("shop.buy", { itemId: units.id, quantity: 2 });
+    await r.call("shop.buy", { itemId: units.id, quantity: 3 });
+    expect(
+      r.ctx.sqlite
+        .prepare("SELECT user_id, item_id, paid_price FROM shop_inventory ORDER BY id")
+        .all(),
+    ).toEqual([
+      { user_id: r.member.id, item_id: r.bronze.id, paid_price: 100 },
+      { user_id: r.other.id, item_id: giftable.id, paid_price: 40 },
+      { user_id: r.member.id, item_id: units.id, paid_price: 35 },
+    ]);
+  });
+});
+
+describe("shop items: a username change is sold in units", () => {
+  test("it is refused on a non-consumable item, on create and on update", async () => {
+    const f = fixture();
+    await expect(f.sell({ type: "usernameChange" }, { isConsumable: false })).rejects.toThrow(
+      /isConsumable/,
+    );
+    await expect(
+      f.sell({ type: "usernameChange" }, { isConsumable: false }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const ok = await f.sell({ type: "usernameChange" }, { isConsumable: true });
+    await expect(
+      f.call("shopItems.update", { itemId: ok.id, isConsumable: false }, f.admin),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const plain = await f.sell({ type: "bump" }, { isConsumable: false });
+    await expect(
+      f.call("shopItems.update", { itemId: plain.id, effect: { type: "usernameChange" } }, f.admin),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(
+      f.ctx.sqlite
+        .prepare<{ n: number }, []>("SELECT COUNT(*) AS n FROM shop_items WHERE is_consumable = 0")
+        .get()!.n,
+    ).toBe(1);
+  });
+});
+
+describe("a stored effect that cannot be read", () => {
+  test("is reported by item instead of a parser error", async () => {
+    const f = fixture();
+    const item = await f.sell({ type: "bump" });
+    const damage = (effect: string) =>
+      f.ctx.sqlite.prepare("UPDATE shop_items SET effect = ?1 WHERE id = ?2").run(effect, item.id);
+    damage("{not json");
+    const failure = await f.call("shopItems.get", { itemId: item.id }).catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(SyntaxError);
+    expect((failure as Error).message).toContain(`shop item ${item.id}`);
+    damage('{"type":"nope"}');
+    await expect(f.call("shopItems.get", { itemId: item.id })).rejects.toThrow(
+      `shop item ${item.id}`,
+    );
+  });
+});
+
+describe("migration 0026", () => {
+  test("backfills what was paid from the purchase record, else the item's price, and takes non-consumable username changes off sale", async () => {
+    const f = fixture();
+    f.fund();
+    const bought = await f.sell({ type: "bump" }, { name: "Bought", price: 10 });
+    const orphan = await f.sell({ type: "bump" }, { name: "Orphan", price: 20 });
+    const gift = await f.sell({ type: "bump" }, { name: "Gift", price: 15, isGiftable: true });
+    const units = await f.sell(
+      { type: "usernameChange" },
+      { name: "Units", price: 7, isConsumable: true },
+    );
+    const legacy = await f.sell({ type: "usernameChange" }, { name: "Legacy", isConsumable: true });
+    await f.call("shop.buy", { itemId: bought.id });
+    await f.call("shop.buy", { itemId: orphan.id });
+    await f.call("shop.buy", { itemId: gift.id, recipientId: f.other.id });
+    await f.call("shop.buy", { itemId: units.id, quantity: 2 });
+    await f.call("shop.buy", { itemId: units.id, quantity: 3 });
+    // The state before the migration: no paid price, a changed catalog, one purchase missing.
+    f.ctx.sqlite.run("UPDATE shop_inventory SET paid_price = 0");
+    f.ctx.sqlite.prepare("UPDATE shop_items SET price = 99 WHERE id = ?1").run(bought.id);
+    f.ctx.sqlite.prepare("UPDATE shop_items SET price = 33 WHERE id = ?1").run(orphan.id);
+    f.ctx.sqlite.prepare("DELETE FROM shop_purchases WHERE item_id = ?1").run(orphan.id);
+    f.ctx.sqlite.prepare("UPDATE shop_items SET is_consumable = 0 WHERE id = ?1").run(legacy.id);
+    const sql = readFileSync(
+      new URL("../../../drizzle/0026_shop_paid_price.sql", import.meta.url),
+      "utf8",
+    );
+    // The column already exists in the test database: run the statements after its ALTER.
+    for (const statement of sql.split("--> statement-breakpoint").slice(1))
+      f.ctx.sqlite.run(statement);
+    expect(
+      f.ctx.sqlite
+        .prepare("SELECT user_id, item_id, paid_price FROM shop_inventory ORDER BY id")
+        .all(),
+    ).toEqual([
+      { user_id: f.member.id, item_id: bought.id, paid_price: 10 },
+      { user_id: f.member.id, item_id: orphan.id, paid_price: 33 },
+      { user_id: f.other.id, item_id: gift.id, paid_price: 15 },
+      { user_id: f.member.id, item_id: units.id, paid_price: 35 },
+    ]);
+    expect(
+      f.ctx.sqlite
+        .prepare("SELECT id, is_active FROM shop_items WHERE id IN (?1, ?2) ORDER BY id")
+        .all(units.id, legacy.id),
+    ).toEqual([
+      { id: units.id, is_active: 1 },
+      { id: legacy.id, is_active: 0 },
+    ]);
   });
 });

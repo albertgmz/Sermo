@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { createTestContext, insertUser, tokenActor, userActor } from "@sermo/core/testing";
+import {
+  createTestContext,
+  insertNode,
+  insertUser,
+  tokenActor,
+  userActor,
+} from "@sermo/core/testing";
 import { GUEST } from "../../actor";
-import { closeContext } from "../../context";
+import { closeContext, invalidate } from "../../context";
 import { writeTx } from "../../db/tx";
 import {
   ConflictError,
@@ -370,5 +376,101 @@ describe("credit writes", () => {
       execute(ctx, op("adjust"), userActor(admin), { userId: admin.id, amount: 1, reason: "Test" }),
     ).rejects.toBeInstanceOf(ConflictError);
     expect(await execute(ctx, op("history"), userActor(admin), {})).toEqual(before);
+  });
+});
+
+describe("credits.ways", () => {
+  function ways() {
+    const ctx = setup();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const member = userActor(insertUser(ctx));
+    const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+    const open = insertNode(ctx, { title: "Open forum" });
+    const hidden = insertNode(ctx, { title: "Staff corner" });
+    ctx.sqlite
+      .prepare("INSERT INTO node_permissions (node_id, group_id, can_view) VALUES (?1, ?2, 0)")
+      .run(hidden.id, 2);
+    invalidate(ctx, "permissions");
+    const create = (input: object) =>
+      execute(ctx, getOperation("creditRules.create"), admin, input) as Promise<{ id: number }>;
+    const list = (actor: Parameters<typeof execute>[2]) =>
+      execute(ctx, op("ways"), actor, {}) as Promise<{
+        items: {
+          title: string;
+          trigger: string;
+          amount: number;
+          limit: { count: number; windowHours: number } | null;
+          forums: { id: number; title: string }[];
+        }[];
+      }>;
+    return { ctx, admin, member, moderator, open, hidden, create, list };
+  }
+
+  test("guests and members see the active rules, in the administrators' order", async () => {
+    const w = ways();
+    await w.create({ title: "Welcome", trigger: "registered", amount: 20 });
+    const off = await w.create({ title: "Retired", trigger: "reply_posted", amount: 1 });
+    await w.create({
+      title: "Daily",
+      trigger: "daily_activity",
+      amount: 2,
+      limit: { count: 1, windowHours: 24 },
+    });
+    await execute(w.ctx, getOperation("creditRules.update"), w.admin, {
+      ruleId: off.id,
+      isActive: false,
+    });
+    for (const actor of [GUEST, w.member]) {
+      const { items } = await w.list(actor);
+      expect(items).toEqual([
+        { title: "Welcome", trigger: "registered", amount: 20, limit: null, forums: [] },
+        {
+          title: "Daily",
+          trigger: "daily_activity",
+          amount: 2,
+          limit: { count: 1, windowHours: 24 },
+          forums: [],
+        },
+      ]);
+    }
+  });
+
+  test("a rule limited to forums lists only the ones the viewer can see, and vanishes when none", async () => {
+    const w = ways();
+    await w.create({
+      title: "Mixed",
+      trigger: "thread_created",
+      amount: 5,
+      nodeIds: [w.open.id, w.hidden.id],
+    });
+    await w.create({
+      title: "Staff only",
+      trigger: "reply_posted",
+      amount: 3,
+      nodeIds: [w.hidden.id],
+    });
+    const forMember = await w.list(w.member);
+    expect(forMember.items.map((item) => item.title)).toEqual(["Mixed"]);
+    expect(forMember.items[0]!.forums).toEqual([{ id: w.open.id, title: "Open forum" }]);
+    const forModerator = await w.list(w.moderator);
+    expect(forModerator.items.map((item) => item.title)).toEqual(["Mixed", "Staff only"]);
+    expect(forModerator.items[0]!.forums.map((forum) => forum.id)).toEqual([
+      w.open.id,
+      w.hidden.id,
+    ]);
+  });
+
+  test("nothing administrative is exposed and at most 100 rules are listed", async () => {
+    const w = ways();
+    await w.create({ title: "Welcome", trigger: "registered", amount: 20 });
+    const [item] = (await w.list(w.member)).items;
+    expect(Object.keys(item!).sort()).toEqual(["amount", "forums", "limit", "title", "trigger"]);
+    for (let i = 0; i < 101; i++)
+      w.ctx.sqlite
+        .prepare(
+          "INSERT INTO credit_rules (title, trigger, amount, is_active, created_after_event_id, created_at, updated_at) VALUES (?1, 'registered', 1, 1, 0, 1, 1)",
+        )
+        .run(`Bulk ${i}`);
+    expect((await w.list(GUEST)).items).toHaveLength(100);
   });
 });

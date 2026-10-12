@@ -1,8 +1,9 @@
 import { requireAuthenticated } from "../../actor";
+import { prepared } from "../../context";
 import * as contracts from "../../contracts/credits";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
-import { currentActor, requirePermission } from "../../permissions";
+import { currentActor, getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs/queue";
 import { ledgerPage, ledgerTransaction, memberBalance } from "./ledger";
@@ -45,7 +46,52 @@ export const creditsRecalculateOp = implement(contracts.creditsRecalculate, (ctx
   };
 });
 
+const waysSql =
+  "SELECT title, trigger, amount, limit_count, limit_window_hours, node_ids FROM credit_rules WHERE is_active = 1 ORDER BY id LIMIT 100";
+
+export const creditsWaysOp = implement(
+  contracts.creditsWays,
+  (ctx, actor) => {
+    const rows = prepared(ctx, "credits.ways", () =>
+      ctx.sqlite.prepare<
+        {
+          title: string;
+          trigger: (typeof contracts.CreditRule.shape.trigger.options)[number];
+          amount: number;
+          limit_count: number | null;
+          limit_window_hours: number | null;
+          node_ids: string;
+        },
+        []
+      >(waysSql),
+    ).all();
+    const visible = new Set(viewableNodeIds(ctx, actor));
+    const titles = new Map(getNodeTree(ctx).entries.map((node) => [node.id, node.title]));
+    const items = [];
+    for (const row of rows) {
+      const restricted = JSON.parse(row.node_ids) as number[];
+      const forums = restricted
+        .filter((id) => visible.has(id) && titles.has(id))
+        .map((id) => ({ id, title: titles.get(id)! }));
+      if (restricted.length && !forums.length) continue;
+      items.push({
+        title: row.title,
+        trigger: row.trigger,
+        amount: row.amount,
+        limit:
+          row.limit_count === null
+            ? null
+            : { count: row.limit_count, windowHours: row.limit_window_hours! },
+        forums,
+      });
+    }
+    return { items };
+  },
+  { public: "The active credit rules are public information, shown as ways to earn credits." },
+);
+
 export const operations = [
+  creditsWaysOp,
   creditsHistoryOp,
   creditsLedgerOp,
   creditsAdjustOp,

@@ -11,8 +11,7 @@ import {
   can,
   currentActor,
   currentVersions,
-  type FlagPermissionId,
-  getNodeTree,
+  explainPermission,
   grantPurchased,
   memberActor,
   PERMISSIONS,
@@ -40,14 +39,19 @@ import {
 } from "./data";
 import { releaseUnheldWear } from "./held";
 
-/** Whether the member has this yes/no permission already, however they got it. */
+/**
+ * Whether the member has this yes/no permission of global scope already through something other
+ * than a shop item (a group, a staff role, a grant by hand).
+ */
 function alreadyHolds(ctx: Ctx, memberId: number, permission: string): boolean {
   if (!Object.hasOwn(PERMISSIONS, permission)) return false;
   const definition: PermissionDefinition = PERMISSIONS[permission as PermissionId];
   // A condition that needs content (own, time-limited, hierarchy, thread ban) has no answer
-  // without it, and integer permissions are never "held": a better value can still be bought.
+  // without it. Integer permissions are never "held" (a better value can still be bought) and
+  // neither are per-forum ones (they are sold on every forum, which no other grant need cover).
   if (
     definition.type !== "flag" ||
+    definition.scope !== "global" ||
     definition.own ||
     definition.timeLimit ||
     definition.hierarchy ||
@@ -60,17 +64,31 @@ function alreadyHolds(ctx: Ctx, memberId: number, permission: string): boolean {
   ).get(memberId);
   if (!row) return false;
   const member = memberActor(row.id, row.group_id, row, currentVersions(ctx));
-  // A node permission is sold on every node.
-  return definition.scope === "global"
-    ? can(ctx, member, permission as FlagPermissionId, {})
-    : getNodeTree(ctx).entries.every((node) =>
-        can(ctx, member, permission as FlagPermissionId, { nodeId: node.id }),
-      );
+  const explained = explainPermission(ctx, member, permission as PermissionId);
+  return (
+    explained.granted &&
+    explained.layers.some((layer) => layer.kind !== "purchase" && layer.value === "allow")
+  );
 }
 
-/** The most expensive `group` item the member holds active in a category, with its price. */
+/**
+ * The most expensive `group` item the member holds in a category, with its catalog price. A rank
+ * is held while its row is active and has not run out: the expiry job marks a lapsed row up to a
+ * minute late.
+ */
 const currentRankSql =
-  "SELECT inv.*, it.price AS price FROM shop_inventory inv JOIN shop_items it ON it.id = inv.item_id WHERE inv.user_id = ?1 AND inv.state = 'active' AND it.category_id = ?2 AND json_extract(it.effect, '$.type') = 'group' ORDER BY it.price DESC, inv.id LIMIT 1";
+  "SELECT inv.*, it.price AS price FROM shop_inventory inv JOIN shop_items it ON it.id = inv.item_id WHERE inv.user_id = ?1 AND inv.state = 'active' AND (inv.expires_at IS NULL OR inv.expires_at > ?3) AND it.category_id = ?2 AND json_extract(it.effect, '$.type') = 'group' ORDER BY it.price DESC, inv.id LIMIT 1";
+
+/**
+ * What a held rank is worth towards an upgrade: a permanent rank, what was paid for it; a timed
+ * one, what was paid times the share of its duration still ahead, rounded down.
+ */
+function rankCredit(row: InventoryRow, now: number): number {
+  if (row.expires_at === null) return row.paid_price;
+  const total = row.expires_at - row.acquired_at;
+  if (total <= 0) return 0;
+  return Number((BigInt(row.paid_price) * BigInt(row.expires_at - now)) / BigInt(total));
+}
 
 /**
  * A purchase, inside the caller's write transaction. With `upgrade`, a `group` item replaces the
@@ -111,6 +129,7 @@ function purchase(
     ? (statement<InventoryRow & { price: number }>(ctx, currentRankSql).get(
         buyer.userId,
         value.categoryId,
+        ctx.now(),
       ) ?? null)
     : null;
   if (replaced && value.price <= replaced.price) throw new ConflictError("Ranks only go up.");
@@ -121,6 +140,10 @@ function purchase(
   )
     throw new ConflictError("The recipient already has this permission.");
   const now = ctx.now();
+  const credit = replaced ? rankCredit(replaced, now) : 0;
+  const price = Math.max(0, value.price * input.quantity - credit);
+  // What the recipient now holds is worth what was paid plus the credit carried over.
+  const paid = price + credit;
   let groupsRemoved: number[] = [];
   if (replaced) {
     // The old rank leaves the held states and takes its group with it, before the new one comes.
@@ -135,16 +158,17 @@ function purchase(
   const held = value.isConsumable
     ? statement<InventoryRow>(
         ctx,
-        "INSERT INTO shop_inventory (user_id, item_id, state, quantity, acquired_at, updated_at) VALUES (?1, ?2, 'unused', ?3, ?4, ?4) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = shop_inventory.quantity + excluded.quantity, state = 'unused', updated_at = excluded.updated_at RETURNING *",
-      ).get(recipientId, value.id, input.quantity, now)!
+        "INSERT INTO shop_inventory (user_id, item_id, state, quantity, paid_price, acquired_at, updated_at) VALUES (?1, ?2, 'unused', ?3, ?5, ?4, ?4) ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = shop_inventory.quantity + excluded.quantity, paid_price = shop_inventory.paid_price + excluded.paid_price, state = 'unused', updated_at = excluded.updated_at RETURNING *",
+      ).get(recipientId, value.id, input.quantity, now, paid)!
     : statement<InventoryRow>(
         ctx,
-        "INSERT INTO shop_inventory (user_id, item_id, state, quantity, expires_at, acquired_at, updated_at) VALUES (?1, ?2, 'active', 1, ?3, ?4, ?4) ON CONFLICT (user_id, item_id) DO UPDATE SET state = 'active', quantity = 1, expires_at = excluded.expires_at, acquired_at = excluded.acquired_at, updated_at = excluded.updated_at WHERE shop_inventory.state = 'expired' RETURNING *",
+        "INSERT INTO shop_inventory (user_id, item_id, state, quantity, expires_at, paid_price, acquired_at, updated_at) VALUES (?1, ?2, 'active', 1, ?3, ?5, ?4, ?4) ON CONFLICT (user_id, item_id) DO UPDATE SET state = 'active', quantity = 1, expires_at = excluded.expires_at, paid_price = excluded.paid_price, acquired_at = excluded.acquired_at, updated_at = excluded.updated_at WHERE shop_inventory.state = 'expired' RETURNING *",
       ).get(
         recipientId,
         value.id,
         value.durationSeconds === null ? null : now + value.durationSeconds * 1000,
         now,
+        paid,
       );
   if (!held) throw new ConflictError("This item is already owned.");
   if (value.stock !== null) {
@@ -155,7 +179,6 @@ function purchase(
     if (!changed) throw new ConflictError("This item is sold out.");
     value.stock -= input.quantity;
   }
-  const price = value.price * input.quantity - (replaced?.price ?? 0);
   // The purchase id must exist before the charge so the ledger can reference it.
   const bought = statement<PurchaseRow>(
     ctx,
@@ -307,6 +330,9 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
     if (effect.type === "threadCover" && !catalogImageById(ctx, effect.coverId)?.image)
       throw new ConflictError("This cover has no picture yet.");
     const now = ctx.now();
+    // The expiry job marks a lapsed row up to a minute late: it cannot be used meanwhile.
+    if (row.expires_at !== null && row.expires_at <= now)
+      throw new ConflictError("This item has expired.");
     let used = row;
     if (value.isConsumable) {
       const changed = statement<InventoryRow>(

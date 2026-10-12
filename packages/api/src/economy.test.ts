@@ -62,6 +62,17 @@ const cases: RouteCase[] = [
     }),
   },
   {
+    contract: c.creditsWays,
+    method: "GET",
+    path: "/credits/ways",
+    status: 200,
+    url: () => "/credits/ways",
+    guest: "public",
+    expected: () => ({
+      items: [{ title: "Replies", trigger: "reply_posted", amount: 2, limit: null, forums: [] }],
+    }),
+  },
+  {
     contract: c.creditsAdjust,
     method: "POST",
     path: "/users/{userId}/credits",
@@ -507,13 +518,13 @@ const cases: RouteCase[] = [
   },
 ];
 
-test("economy has exactly the 34 documented route mappings", () => {
-  expect(cases).toHaveLength(34);
-  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(34);
+test("economy has exactly the 35 documented route mappings", () => {
+  expect(cases).toHaveLength(35);
+  expect(new Set(cases.map(({ contract }) => contract.name)).size).toBe(35);
   const actual = routes.filter(({ operation }) =>
     /^(credits|creditRules|awards|shopCategories|shopItems|shop)\./.test(operation),
   );
-  expect(actual).toHaveLength(34);
+  expect(actual).toHaveLength(35);
   for (const row of cases)
     expect(actual.find(({ operation }) => operation === row.contract.name)).toMatchObject({
       method: row.method,
@@ -611,7 +622,7 @@ for (const mode of ["cookie", "key"] as const) {
   });
 }
 
-test("OpenAPI over HTTP documents all 34 economy operations and references shared schemas", async () => {
+test("OpenAPI over HTTP documents all 35 economy operations and references shared schemas", async () => {
   const f = await setup();
   const response = await f.request("/api/v1/openapi.json");
   expect(response.status).toBe(200);
