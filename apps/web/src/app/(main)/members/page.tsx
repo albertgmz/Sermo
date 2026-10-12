@@ -1,20 +1,36 @@
+import {
+  standingsMonth,
+  standingsWinners,
+  usersList,
+  usersStaff,
+} from "@sermo/core/contracts";
 import { Crown } from "lucide-react";
 import type { Metadata } from "next";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/(main)/members/directory";
+import { LoadMore } from "@/app/(main)/members/load-more";
 import { MembersNav } from "@/app/(main)/members/members-nav";
 import { Overview } from "@/app/(main)/members/overview";
-import { type MembersView, VIEWS } from "@/app/(main)/members/views";
+import { StaffList } from "@/app/(main)/members/staff-list";
+import {
+  type MemberSort,
+  VIEWS,
+  type ViewValue,
+  viewHref,
+} from "@/app/(main)/members/views";
 import { EmptyState } from "@/components/forum/empty-state";
-import { Leaderboard } from "@/components/forum/leaderboard";
-import { MemberCard } from "@/components/forum/member-card";
+import {
+  Leaderboard,
+  type LeaderboardKind,
+} from "@/components/forum/leaderboard";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   HeadingSkeleton,
   LoadingRegion,
   MemberCardSkeleton,
   MemberListSkeleton,
+  MemberRowSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import {
@@ -24,68 +40,98 @@ import {
 } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getLastMonthStanding,
-  getLeaderboard,
-  getPastWinners,
-  getStaff,
-  type LeaderboardKind,
-} from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { leaderboardMember, standingEntry } from "@/lib/member-items";
+import { read } from "@/lib/sermo/client";
+import { getViewer } from "@/lib/sermo/session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("members.members");
   return { title: t("metaTitle") };
 }
 
-const PAST_WINNERS = 12;
-
 function first(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
 }
 
-async function MonthView({ viewerId }: { viewerId?: number }) {
-  const t = await getTranslations("members.members");
-  const format = await getFormatter();
-  const [{ month, entries: standing }, pastWinners] = await Promise.all([
-    getLastMonthStanding(),
-    getPastWinners(PAST_WINNERS),
+// Where the next page of a list continues: the number of the first row travels with the cursor,
+// since a cursor says nothing about how many rows came before it.
+function nextHref(
+  view: ViewValue,
+  cursor: string,
+  start: number,
+  extra?: Record<string, string>,
+) {
+  const params = new URLSearchParams(extra);
+  params.set("cursor", cursor);
+  params.set("start", String(start));
+  const base = viewHref(view);
+  return `${base}${base.includes("?") ? "&" : "?"}${params}`;
+}
+
+async function MonthView({
+  viewerId,
+  cursor,
+  start,
+}: {
+  viewerId?: number;
+  cursor?: string;
+  start: number;
+}) {
+  const [t, format, winners, standing] = await Promise.all([
+    getTranslations("members.members"),
+    getFormatter(),
+    read(standingsWinners, {}),
+    read(standingsMonth, { month: "previous", cursor }),
   ]);
-  const winner = standing[0] ? { ...standing[0], ...month } : null;
+  // The first winner is the member of the month only while it is the last complete month's.
+  const [latest, ...earlier] = winners.items;
+  const current =
+    latest?.year === standing.year && latest.month === standing.month;
+  const winner = current ? standingEntry(latest) : null;
+  const past = (current ? earlier : winners.items).map(standingEntry);
   const monthName = format.dateTime(
-    new Date(Date.UTC(month.year, month.month - 1, 1)),
-    {
-      month: "long",
-      year: "numeric",
-    },
+    new Date(Date.UTC(standing.year, standing.month - 1, 1)),
+    { month: "long", year: "numeric", timeZone: "UTC" },
   );
   return (
     <>
-      {winner ? (
-        <>
-          <MonthHero winner={winner} />
-          <SectionCard
-            title={t("standingHeading")}
-            description={t("membersScored", {
-              month: monthName,
-              count: standing.length,
-            })}
-          >
-            <StandingList entries={standing} viewerId={viewerId} />
-          </SectionCard>
-        </>
-      ) : (
-        <div className="rounded-lg border bg-card">
-          <EmptyState
-            icon={Crown}
-            title={t("emptyTitle")}
-            description={t("emptyDescription", { month: monthName })}
+      {winner && <MonthHero winner={winner} />}
+      {standing.items.length > 0 ? (
+        <SectionCard
+          title={t("standingHeading")}
+          description={t("monthStanding", { month: monthName })}
+        >
+          <StandingList
+            entries={standing.items.map(standingEntry)}
+            viewerId={viewerId}
+            start={start}
           />
-        </div>
+          {standing.nextCursor && (
+            <div className="p-3">
+              <LoadMore
+                href={nextHref(
+                  "month",
+                  standing.nextCursor,
+                  start + standing.items.length,
+                )}
+              />
+            </div>
+          )}
+        </SectionCard>
+      ) : (
+        !winner && (
+          <div className="rounded-lg border bg-card">
+            <EmptyState
+              icon={Crown}
+              title={t("emptyTitle")}
+              description={t("emptyDescription", { month: monthName })}
+            />
+          </div>
+        )
       )}
-      {pastWinners.length > 0 && (
+      {past.length > 0 && (
         <SectionCard title={t("winnersHeading")}>
-          <WinnerList winners={pastWinners} />
+          <WinnerList winners={past} />
         </SectionCard>
       )}
     </>
@@ -93,35 +139,43 @@ async function MonthView({ viewerId }: { viewerId?: number }) {
 }
 
 async function RankingView({
+  view,
   title,
+  sort,
   by,
   viewerId,
+  cursor,
+  start,
 }: {
+  view: ViewValue;
   title: string;
+  sort: MemberSort;
   by: LeaderboardKind;
   viewerId?: number;
+  cursor?: string;
+  start: number;
 }) {
-  const t = await getTranslations("members.members");
-  const members = await getLeaderboard(by, Number.POSITIVE_INFINITY);
+  const { items, nextCursor } = await read(usersList, { sort, cursor });
   return (
-    <SectionCard
-      title={title}
-      description={t("members", { count: members.length })}
-    >
-      <Leaderboard members={members} by={by} viewerId={viewerId} />
+    <SectionCard title={title}>
+      <Leaderboard
+        members={items.map(leaderboardMember)}
+        by={by}
+        viewerId={viewerId}
+        start={start}
+      />
+      {nextCursor && (
+        <div className="p-3">
+          <LoadMore href={nextHref(view, nextCursor, start + items.length)} />
+        </div>
+      )}
     </SectionCard>
   );
 }
 
 async function StaffView() {
-  const staff = await getStaff();
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {staff.map((user) => (
-        <MemberCard key={user.id} user={user} />
-      ))}
-    </div>
-  );
+  const { items } = await read(usersStaff, {});
+  return <StaffList staff={items} />;
 }
 
 export default async function MembersPage({
@@ -132,11 +186,12 @@ export default async function MembersPage({
   const params = await searchParams;
   const query = first(params.q);
   const sort = first(params.sort);
+  const cursor = first(params.cursor) || undefined;
+  const start = Math.max(1, Math.floor(Number(first(params.start))) || 1);
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
-  const view: MembersView & (typeof VIEWS)[number] =
-    VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
-  const viewerId = (await getCurrentUser())?.id;
+  const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
+  const viewerId = (await getViewer()).user?.id;
 
   return (
     <PageLayout
@@ -169,10 +224,10 @@ export default async function MembersPage({
             </LoadingRegion>
           }
         >
-          <MonthView viewerId={viewerId} />
+          <MonthView viewerId={viewerId} cursor={cursor} start={start} />
         </Suspense>
       )}
-      {view.ranking && (
+      {"sort" in view && (
         <Suspense
           fallback={
             <LoadingRegion label={t("loading")}>
@@ -181,9 +236,13 @@ export default async function MembersPage({
           }
         >
           <RankingView
+            view={view.value}
             title={views(view.label)}
+            sort={view.sort}
             by={view.ranking}
             viewerId={viewerId}
+            cursor={cursor}
+            start={start}
           />
         </Suspense>
       )}
@@ -191,9 +250,9 @@ export default async function MembersPage({
         <Suspense
           fallback={
             <LoadingRegion label={t("loading")}>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
                 {[1, 2, 3].map((member) => (
-                  <MemberCardSkeleton key={member} />
+                  <MemberRowSkeleton key={member} />
                 ))}
               </div>
             </LoadingRegion>
@@ -218,7 +277,7 @@ export default async function MembersPage({
             </LoadingRegion>
           }
         >
-          <Directory query={query} sort={sort} />
+          <Directory query={query} sort={sort} cursor={cursor} />
         </Suspense>
       )}
     </PageLayout>

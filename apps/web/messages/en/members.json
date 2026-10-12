@@ -4,11 +4,10 @@
     "heading": "Members",
     "loading": "Loading members…",
     "standingHeading": "Full standing",
-    "membersScored": "{month} · {count, plural, one {# member scored} other {# members scored}}",
     "emptyTitle": "No member of the month yet",
     "emptyDescription": "Nobody earned points in {month}.",
     "winnersHeading": "Past winners",
-    "members": "{count, plural, one {# members} other {# members}}"
+    "monthStanding": "{month}"
   },
   "views": {
     "overviewLabel": "Overview",
@@ -40,8 +39,9 @@
     "aria": { "sort": "Sort members" },
     "members": "{count, plural, one {# member matches} other {# members match}} “{query}”. <link>Show everyone</link>",
     "emptyTitle": "No member matches “{query}”",
-    "emptyDescription": "Check the spelling or search for a part of the username.",
-    "showEveryone": "Show everyone"
+    "emptyDescription": "Search finds usernames that start with what you type.",
+    "showEveryone": "Show everyone",
+    "resultsHeading": "Matching members"
   },
   "overview": {
     "standingLink": "Full standing",
@@ -66,11 +66,12 @@
   },
   "memberSearch": {
     "label": "Username",
-    "placeholder": "Username",
+    "placeholder": "Start of a username",
     "submit": "Search"
   },
   "membersNav": { "aria": { "views": "Member views" } },
   "loading": { "label": "Loading members…", "heading": "Members" },
+  "loadMore": { "label": "Load more" },
   "wallButtons": {
     "aria": {
       "follow": "Follow {username}",
@@ -87,12 +88,9 @@
     "awards": "{count, plural, one {<value>#</value> award} other {<value>#</value> awards}}",
     "groupsHeading": "Groups",
     "groupsDescription": "Explore <user>{username}</user>'s groups.",
-    "memberBadge": "Member",
     "awardsHeading": "Awards",
     "awardsDescription": "Explore <user>{username}</user>'s awards collection.",
     "awardsEmpty": "<user>{username}</user> has no awards at this time.",
-    "inventoryHeading": "Inventory",
-    "inventoryDescription": "Items <user>{username}</user> got from the shop.",
     "quantity": "×{count, number}",
     "activityHeading": "Latest activity",
     "activityDescription": "What <user>{username}</user> has been up to lately.",
@@ -120,26 +118,26 @@
     "wallTab": "Wall",
     "postsTab": "Posts",
     "threadsTab": "Threads",
-    "aboutTab": "About"
+    "aboutTab": "About",
+    "referralLabel": "Referral link"
   },
   "profileHeader": {
     "discordLabel": "Discord",
     "telegramLabel": "Telegram",
     "xLabel": "X",
     "social": "{network}: {handle}",
-    "uidLabel": "UID",
     "postsLabel": "Posts",
-    "reactionsLabel": "Reactions",
     "creditsLabel": "Credits",
     "reputationLabel": "Reputation",
-    "vouchesLabel": "Vouches",
+    "followersLabel": "Followers",
+    "followingLabel": "Following",
+    "referralsLabel": "Referrals",
     "aria": { "more": "More" },
     "findPosts": "Find all posts",
     "findThreads": "Find all threads",
     "joined": "Joined <time>{date}</time>",
     "lastSeen": "Last seen <time></time>",
-    "followers": "{count, plural, one {<value>#</value> Follower} other {<value>#</value> Followers}}",
-    "following": "{count, plural, one {<value>#</value> Following} other {<value>#</value> Following}}",
+    "birthday": "Birthday: {date}",
     "editProfile": "Edit profile",
     "message": "Message"
   },
@@ -154,7 +152,12 @@
     "submit": "Post",
     "emptyTitle": "No messages yet",
     "emptyDescription": "Be the first to write something on <user>{username}</user>'s profile.",
-    "login": "Log in to post"
+    "login": "Log in to post",
+    "awaitingApproval": "This is waiting for approval.",
+    "deleted": "This was deleted.",
+    "showMoreComments": "Show more comments",
+    "olderComments": "Older comments",
+    "fewerComments": "Show fewer comments"
   },
   "profileLoading": { "label": "Loading the profile…" }
 }
