@@ -1,3 +1,6 @@
+import type { FileMetadata } from "@sermo/core/contracts";
+import type * as z from "zod";
+
 export const LITE_COOKIE = "forum_lite";
 
 export const LITE_CATEGORIES = [
@@ -5,50 +8,70 @@ export const LITE_CATEGORIES = [
     key: "avatars",
     folders: ["avatars"],
     files: [],
+    purposes: ["avatar"],
   },
   {
     key: "frames",
     folders: ["frames"],
     files: [],
+    purposes: ["frame"],
   },
   {
     key: "profileCovers",
     folders: ["covers"],
     files: [],
+    purposes: ["cover", "cover_preset"],
   },
   {
     key: "threadCovers",
     folders: ["thread-covers"],
     files: [],
+    purposes: ["thread_cover"],
   },
   {
     key: "forumArt",
     folders: ["forums"],
     files: [],
+    purposes: ["node_icon", "node_cover"],
   },
   {
     key: "awards",
     folders: ["awards"],
     files: [],
+    purposes: ["award_image"],
   },
   {
     key: "shop",
     folders: ["shop"],
     files: [],
+    purposes: ["shop_image"],
   },
   {
     key: "postImages",
     folders: [],
     files: [],
+    purposes: ["attachment"],
   },
   {
     key: "brand",
     folders: [],
     files: ["logo.svg", "icon.svg"],
+    purposes: ["site_logo", "site_icon", "site_backdrop"],
   },
 ] as const;
 
 export type LiteCategory = (typeof LITE_CATEGORIES)[number]["key"];
+
+// The backend's file purposes; a purpose missing from the registry is a compile error here.
+export type FilePurpose = z.infer<typeof FileMetadata>["purpose"];
+
+// Backend pictures are addressed by id, so their category comes from the purpose of the file.
+export function liteCategoryOfPurpose(purpose: FilePurpose): LiteCategory {
+  for (const category of LITE_CATEGORIES)
+    if ((category.purposes as readonly string[]).includes(purpose))
+      return category.key;
+  throw new Error(`File purpose "${purpose}" belongs to no LITE category.`);
+}
 
 export type LiteState = {
   master: boolean;
