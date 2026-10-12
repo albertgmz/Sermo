@@ -4,6 +4,7 @@ import { publishEvent } from "../../events";
 import { revokePurchased } from "../../permissions";
 import { registerJobHandler } from "../jobs/queue";
 import { shopSql, statement } from "./data";
+import { releaseUnheldWear } from "./held";
 
 /** A bounded transaction; the time cap also keeps expensive combination changes in small batches. */
 export function expireShopBatch(ctx: Ctx): number {
@@ -21,6 +22,7 @@ export function expireShopBatch(ctx: Ctx): number {
       )
         continue;
       expired++;
+      releaseUnheldWear(ctx, row.user_id);
       const { groupsRemoved } = revokePurchased(ctx, row.id);
       if (groupsRemoved.length)
         publishEvent(ctx, {

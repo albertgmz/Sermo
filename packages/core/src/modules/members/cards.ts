@@ -77,10 +77,15 @@ function groupIdsOf(row: MemberRow): number[] {
   return ids.length > 0 ? ids : [row.group_id];
 }
 
-/** The cover a profile shows: the chosen gallery cover, else the uploaded one, else null. */
-function coverOf(ctx: Ctx, catalog: Catalogs, row: MemberRow) {
+/**
+ * The cover a profile shows: the chosen gallery cover while its member may use the gallery, else
+ * the uploaded one, else null.
+ */
+function coverOf(ctx: Ctx, catalog: Catalogs, row: MemberRow, mayUsePreset: boolean) {
   const preset =
-    row.cover_preset_id === null ? null : catalog.imageById.get(row.cover_preset_id)?.image;
+    row.cover_preset_id === null || !mayUsePreset
+      ? null
+      : catalog.imageById.get(row.cover_preset_id)?.image;
   return preset ?? publicPicture(ctx, row.cover_file_id);
 }
 
@@ -89,6 +94,7 @@ interface LoadedMembers {
   cards: Map<number, Card>;
   /** The member's own permissions, not the viewer's. */
   mayShowSignature: Map<number, boolean>;
+  mayShowPresetCover: Map<number, boolean>;
   awardSlots: Map<number, number>;
   catalog: Catalogs;
   levelStep: number;
@@ -107,11 +113,13 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
   const rows = new Map<number, MemberRow>();
   const cards = new Map<number, Card>();
   const mayShowSignature = new Map<number, boolean>();
+  const mayShowPresetCover = new Map<number, boolean>();
   const awardSlots = new Map<number, number>();
   const result: LoadedMembers = {
     rows,
     cards,
     mayShowSignature,
+    mayShowPresetCover,
     awardSlots,
     catalog,
     levelStep: settings.levelStep,
@@ -161,6 +169,10 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
           : levelTitle(level, settings.levelTitles);
     const frame = row.frame_id === null ? undefined : catalog.imageById.get(row.frame_id);
     mayShowSignature.set(row.id, can(ctx, member, "profile.signature"));
+    mayShowPresetCover.set(
+      row.id,
+      row.cover_preset_id !== null && can(ctx, member, "profile.coverPreset"),
+    );
     awardSlots.set(row.id, permissionValue(ctx, member, "profile.awardSlots"));
     cards.set(row.id, {
       id: row.id,
@@ -232,7 +244,7 @@ export function loadMemberAuthors(
     );
     authors.set(id, {
       card: loaded.cards.get(id)!,
-      cover: coverOf(ctx, loaded.catalog, row),
+      cover: coverOf(ctx, loaded.catalog, row, loaded.mayShowPresetCover.get(id) ?? false),
       createdAt: iso(row.created_at),
       postCount: row.post_count,
       reactionScore: row.reaction_score,
