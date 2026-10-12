@@ -18,7 +18,7 @@ import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permis
  * Modules whose operations are not implemented yet. A module's worker removes its name when its
  * checks land; the list must end empty.
  */
-const PENDING_MODULES = new Set<string>(["credits", "credit-events", "awards", "shop"]);
+const PENDING_MODULES = new Set<string>(["credits", "credit-events", "awards"]);
 
 /**
  * Registered permissions whose feature is still being built. A feature's worker removes its
@@ -30,9 +30,6 @@ const PENDING_PERMISSIONS = new Set<string>([
   "admin.creditRules",
   "award.grant",
   "admin.awards",
-  "shop.buy",
-  "shop.gift",
-  "admin.shop",
 ]);
 
 const SRC = import.meta.dir;
