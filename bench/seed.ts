@@ -67,7 +67,7 @@ export const SIZES = {
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 8;
+const SEED_VERSION = 9;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -1512,6 +1512,14 @@ function seedEconomy(
     const insertItem = db.prepare(
       "INSERT INTO shop_items (id, category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, created_at, updated_at) VALUES (?1, ?2, ?3, '', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?1, ?12, ?12)",
     );
+    // What frame, colour and cover items sell: one catalog entry each. The entries have no
+    // picture, like a catalog an administrator has named but not yet illustrated.
+    const insertPicture = db.prepare(
+      "INSERT INTO catalog_images (kind, name, file_id, frame_width, frame_left, frame_top, frame_scale, position, is_active, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?8)",
+    );
+    const insertColor = db.prepare(
+      "INSERT INTO palette_colors (kind, name, color, foreground, position, is_active, created_at, updated_at) VALUES ('name', ?1, ?2, NULL, ?3, 1, ?4, ?4)",
+    );
     for (let id = 1; id <= SIZES.shopItems; id++) {
       const kind = ITEM_KINDS[(id - 1) % ITEM_KINDS.length]!;
       const round = Math.floor((id - 1) / ITEM_KINDS.length);
@@ -1520,14 +1528,41 @@ function seedEconomy(
         kind === "temporaryFrame" || (kind === "group" && round % 2 === 1) ? 30 * 86_400 : null;
       const effect =
         kind === "frame" || kind === "temporaryFrame"
-          ? { type: "frame", frame: `frame-${id}` }
+          ? {
+              type: "frame",
+              frameId: Number(
+                insertPicture.run("frame", `Frame ${id}`, 170, -35, -33, 90, id, now)
+                  .lastInsertRowid,
+              ),
+            }
           : kind === "nameColor"
             ? {
                 type: "nameColor",
-                color: `#${(id * 1_234_567).toString(16).padStart(6, "0").slice(-6)}`,
+                colorId: Number(
+                  insertColor.run(
+                    `Colour ${id}`,
+                    `#${(id * 1_234_567).toString(16).padStart(6, "0").slice(-6)}`,
+                    100 + id,
+                    now,
+                  ).lastInsertRowid,
+                ),
               }
             : kind === "threadCover"
-              ? { type: "threadCover", cover: `cover-${id}` }
+              ? {
+                  type: "threadCover",
+                  coverId: Number(
+                    insertPicture.run(
+                      "thread_cover",
+                      `Cover ${id}`,
+                      null,
+                      null,
+                      null,
+                      null,
+                      id,
+                      now,
+                    ).lastInsertRowid,
+                  ),
+                }
               : kind === "highlight"
                 ? { type: "highlight", days: 1 + (id % 7) }
                 : kind === "permission"
