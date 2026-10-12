@@ -1,0 +1,134 @@
+{
+  "layout": {
+    "metaTitle": "Administration - forum/ui",
+    "title": "Administration",
+    "subtitle": "A closer look at your community.",
+    "access": "Admin access",
+    "mode": "Demo mode",
+    "description": "Explore real community data. All changes here are demos and will not be stored.",
+    "aria": {
+      "loadingNavigation": "Loading administration navigation…"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "forums": "Forums",
+    "members": "Members",
+    "settings": "Settings",
+    "aria": {
+      "label": "Administration"
+    }
+  },
+  "demoNotice": {
+    "heading": "Demo complete",
+    "description": "Your changes passed validation. This is a demo: nothing was stored."
+  },
+  "formFooter": {
+    "pending": "Checking changes…",
+    "submit": "Save changes",
+    "description": "Demo only · Changes are not stored"
+  },
+  "actions": {
+    "errors": {
+      "forumNameLength": "Enter a forum name between 2 and 80 characters.",
+      "descriptionLength": "Enter a description between 1 and 300 characters.",
+      "identifierFormat": "Use up to 64 lowercase letters, numbers and single hyphens, starting with a letter. Or leave this blank to use the numeric ID.",
+      "identifierTaken": "Another forum already uses this URL identifier.",
+      "siteNameLength": "Enter a site name between 2 and 60 characters.",
+      "registrationInvalid": "Choose whether new members can register."
+    }
+  },
+  "admin": {
+    "heading": "Dashboard",
+    "aria": {
+      "loadingTotals": "Loading community totals…",
+      "loadingActivity": "Loading recent activity…",
+      "loadingMembers": "Loading newest members…"
+    }
+  },
+  "adminTotals": {
+    "forumsLabel": "Forums",
+    "membersLabel": "Members",
+    "threadsLabel": "Threads",
+    "postsLabel": "Posts"
+  },
+  "adminActivity": {
+    "title": "Recent activity",
+    "description": "Latest posts across the forums",
+    "byline": "<author></author> · {forum}",
+    "empty": "No activity yet",
+    "emptyDescription": "New forum posts will appear here."
+  },
+  "adminNewestMembers": {
+    "title": "Newest members",
+    "description": "The latest people to join",
+    "empty": "No members yet"
+  },
+  "forums": {
+    "heading": "Forums",
+    "forums": "{count, plural, one {# forum} other {# forums}}",
+    "threads": "{count, plural, one {# thread} other {# threads}}",
+    "posts": "{count, plural, one {# post} other {# posts}}",
+    "counts": "{threads} · {posts}",
+    "edit": "Edit",
+    "emptyCategory": "No forums in this category",
+    "empty": "No forums yet",
+    "emptyDescription": "Forums will appear here when they are available.",
+    "aria": {
+      "edit": "Edit {title}"
+    }
+  },
+  "forum": {
+    "back": "Back to forums",
+    "view": "View forum",
+    "title": "Edit {title}",
+    "description": "{category} · Forum #{id}"
+  },
+  "forumForm": {
+    "nameLabel": "Forum name",
+    "descriptionLabel": "Description",
+    "identifierLabel": "URL identifier",
+    "identifierPlaceholder": "Default: {id}",
+    "identifierTitle": "Start with a lowercase letter. Use lowercase letters, numbers and single hyphens.",
+    "identifierHelp": "Leave blank to use the numeric ID ({id}). For a custom identifier, start with a lowercase letter and use letters, numbers and single hyphens.",
+    "previewLabel": "Resulting URL preview"
+  },
+  "members": {
+    "title": "Members",
+    "members": "{count, plural, one {# member} other {# members}} · Roles and ranks",
+    "roleLabel": "Role",
+    "memberRole": "Member",
+    "rankLabel": "Rank",
+    "unranked": "Unranked",
+    "empty": "No members yet",
+    "pagination": "Page {page} of {pages}",
+    "previous": "Previous",
+    "next": "Next",
+    "aria": {
+      "pages": "Member pages"
+    }
+  },
+  "settings": {
+    "title": "General settings",
+    "description": "Try these example options for your community."
+  },
+  "settingsForm": {
+    "defaultName": "forum/ui",
+    "defaultDescription": "A community to ask questions, share ideas and learn together.",
+    "nameLabel": "Site name",
+    "descriptionLabel": "Site description",
+    "registrationLabel": "Allow new registrations",
+    "registrationHelp": "Let visitors create a member account. This demo does not change access to the site."
+  },
+  "loading": {
+    "dashboardHeading": "Dashboard",
+    "forumsHeading": "Forums",
+    "aria": {
+      "dashboard": "Loading the dashboard…",
+      "forums": "Loading forum administration…",
+      "forum": "Loading forum settings…",
+      "members": "Loading member administration…",
+      "settings": "Loading general settings…"
+    }
+  }
+}

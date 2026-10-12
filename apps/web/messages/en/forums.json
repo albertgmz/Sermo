@@ -1,0 +1,110 @@
+{
+  "actions": {
+    "errors": {
+      "forumMissing": "This forum no longer exists.",
+      "titleRequired": "Give your thread a title.",
+      "titleTooLong": "Keep the title under {max} characters.",
+      "bodyRequired": "Write a message for your thread."
+    }
+  },
+  "new": {
+    "metaTitle": "New thread - forum/ui",
+    "home": "Home",
+    "heading": "New thread",
+    "aria": {
+      "loading": "Loading thread form…"
+    }
+  },
+  "newThreadForm": {
+    "noPrefix": "No prefix",
+    "prefixLabel": "Prefix",
+    "titleLabel": "Title",
+    "placeholder": "What is this thread about?",
+    "cancel": "Cancel",
+    "submit": "Post thread"
+  },
+  "loading": {
+    "heading": "New thread",
+    "aria": {
+      "forums": "Loading forums…",
+      "threads": "Loading threads…",
+      "form": "Loading the thread form…"
+    }
+  },
+  "forums": {
+    "metaTitle": "Forums - forum/ui",
+    "generalTab": "General",
+    "marketTab": "Market",
+    "moneyTab": "Money",
+    "heading": "Ask questions. Share what you know.",
+    "description": "Join a community of makers who trade ideas, feedback and good advice every day.",
+    "login": "Log in",
+    "register": "Create Account",
+    "aria": {
+      "loadingIntroduction": "Loading community introduction…",
+      "loadingSidebar": "Loading forum sidebar…",
+      "loadingStatistics": "Loading forum statistics…",
+      "sections": "Forum sections",
+      "loadingCategories": "Loading forum categories…"
+    }
+  },
+  "forumStats": {
+    "activity": "<forum>{forumTitle}</forum> · <time></time> · <author></author>",
+    "postsTab": "Latest posts",
+    "threadsTab": "New threads",
+    "repliedTab": "Most replied",
+    "reactedTab": "Most reacted",
+    "viewedTab": "Most viewed",
+    "heading": "Forum statistics",
+    "postersHeading": "Top posters",
+    "aria": {
+      "replies": "Replies",
+      "reactions": "Reactions",
+      "views": "Views",
+      "statistics": "Forum statistics",
+      "loadingActivity": "Loading forum activity…",
+      "loadingPosters": "Loading top posters…"
+    }
+  },
+  "forumSidebar": {
+    "postsLabel": "Posts",
+    "reactionsLabel": "Reactions",
+    "reputationLabel": "Reputation",
+    "vouchesLabel": "Vouches",
+    "heading": "Join the community",
+    "description": "Create an account to post threads, earn awards and follow other members.",
+    "login": "Log in",
+    "register": "Create Account",
+    "shopHeading": "Latest shop items",
+    "shopViewAll": "View all",
+    "membersHeading": "Top members",
+    "membersViewAll": "View all",
+    "credits": "{count, plural, other {#<unit> credits</unit>}}",
+    "aria": {
+      "account": "Your account",
+      "credits": "{count, plural, other {# credits}}",
+      "loadingShop": "Loading latest shop items…",
+      "loadingMembers": "Loading top members…"
+    }
+  },
+  "forum": {
+    "metaTitle": "{title} - forum/ui",
+    "metaTitleFallback": "Forum",
+    "allThreads": "All threads",
+    "created": "<author></author> · {time}",
+    "lastPost": "{time} · <author></author>",
+    "newThread": "New thread",
+    "home": "Home",
+    "empty": "No threads yet",
+    "emptyMemberDescription": "Be the first to start a discussion in this forum.",
+    "emptyGuestDescription": "Log in to start the first discussion in this forum.",
+    "aria": {
+      "prefixFilter": "Filter by prefix",
+      "pinned": "Pinned",
+      "highlighted": " (highlighted)",
+      "replies": "Replies",
+      "views": "Views",
+      "loadingThreads": "Loading threads…"
+    }
+  }
+}

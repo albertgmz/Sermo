@@ -1,0 +1,19 @@
+{
+  "breadcrumb": {
+    "aria": {
+      "label": "breadcrumb",
+      "more": "More"
+    }
+  },
+  "dialog": {
+    "aria": {
+      "close": "Close"
+    },
+    "close": "Close"
+  },
+  "sheet": {
+    "aria": {
+      "close": "Close"
+    }
+  }
+}

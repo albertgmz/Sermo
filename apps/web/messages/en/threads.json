@@ -1,0 +1,60 @@
+{
+  "actions": {
+    "errors": {
+      "emptyBody": "Write a message before posting.",
+      "threadNotFound": "This thread no longer exists."
+    }
+  },
+  "coverControlsClient": {
+    "changeLabel": "Change cover",
+    "addLabel": "Add cover",
+    "changeTitle": "Change the cover",
+    "addTitle": "Add a cover",
+    "description": "{hasCover, select, true {Picking a cover uses it up, and the current one is not returned.} other {Picking a cover uses it up.}}",
+    "empty": "You have no thread covers. They are sold in the shop, and each one goes on a single thread.",
+    "covers": "{count, plural, one {×#} other {×#}}",
+    "browse": "Browse thread covers",
+    "removeLabel": "Remove cover",
+    "removeTitle": "Remove the cover?",
+    "removeDescription": "{own, select, true {The photo is taken off this thread. It does not go back to your inventory.} other {The photo is taken off this thread. It does not go back to the author's inventory.}}",
+    "cancel": "Keep it",
+    "aria": {
+      "useCover": "Use {name}"
+    },
+    "errors": {
+      "noCover": "Choose a cover first.",
+      "notFound": "This thread or cover no longer exists.",
+      "notOwned": "You have none of this cover left.",
+      "notAuthor": "You cannot change the cover of this thread."
+    }
+  },
+  "loading": {
+    "aria": {
+      "loading": "Loading the thread…"
+    }
+  },
+  "page": {
+    "highlightedLabel": "Highlighted",
+    "authorLabel": "<hidden>Thread </hidden>Author",
+    "postNumber": "#{number}",
+    "reply": "Reply",
+    "metaTitle": "{hasPrefix, select, true {{prefix} } other {}}{title} - forum/ui",
+    "metaTitleFallback": "Thread",
+    "home": "Home",
+    "replyTitle": "Log in to reply",
+    "replyDescription": "Join the conversation with your account.",
+    "login": "Log in",
+    "register": "Create Account",
+    "aria": {
+      "loadingControls": "Loading cover controls…",
+      "loadingPosts": "Loading posts…",
+      "reply": "Reply"
+    }
+  },
+  "replyComposer": {
+    "attach": "Attach files",
+    "aria": {
+      "submit": "Post reply"
+    }
+  }
+}

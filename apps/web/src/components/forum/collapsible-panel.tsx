@@ -1,0 +1,80 @@
+"use client";
+
+import { ChevronDown } from "lucide-react";
+import { useId, useSyncExternalStore } from "react";
+import { cn } from "@/lib/utils";
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function writeOpen(storageKey: string, open: boolean) {
+  localStorage.setItem(storageKey, open ? "1" : "0");
+  for (const listener of listeners) listener();
+}
+
+// Until the member chooses, a panel is open everywhere ("always") or open
+// from `md` and closed on phones ("md"). The choice is kept per storage key.
+export function CollapsiblePanel({
+  title,
+  storageKey,
+  defaultOpen = "always",
+  children,
+}: {
+  title: string;
+  storageKey: string;
+  defaultOpen?: "always" | "md";
+  children: React.ReactNode;
+}) {
+  const id = useId();
+  // Null on the server, where the same default is applied with CSS alone.
+  const open = useSyncExternalStore<boolean | null>(
+    subscribe,
+    () => {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) return stored === "1";
+      return (
+        defaultOpen === "always" || matchMedia("(min-width: 48rem)").matches
+      );
+    },
+    () => null,
+  );
+  const responsive = open === null && defaultOpen === "md";
+  const shown = open ?? true;
+  return (
+    <section className="overflow-hidden rounded-lg border bg-card">
+      <h2>
+        <button
+          type="button"
+          aria-expanded={open ?? undefined}
+          aria-controls={id}
+          onClick={() => writeOpen(storageKey, !open)}
+          className="flex min-h-12 w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          {title}
+          <ChevronDown
+            aria-hidden="true"
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform",
+              responsive ? "md:rotate-180" : shown && "rotate-180",
+            )}
+          />
+        </button>
+      </h2>
+      <div
+        id={id}
+        className={cn(
+          "border-t",
+          responsive ? "hidden md:block" : !shown && "hidden",
+        )}
+      >
+        {children}
+      </div>
+    </section>
+  );
+}

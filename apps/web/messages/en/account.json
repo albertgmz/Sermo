@@ -1,0 +1,170 @@
+{
+  "account": {
+    "metaTitle": "Account overview - forum/ui",
+    "heading": "Overview",
+    "postsLabel": "Total Posts",
+    "reactionsLabel": "Total Reactions",
+    "followersLabel": "Followers",
+    "reputationLabel": "Total Reputation",
+    "detailsLoading": "Loading account details…",
+    "activityLoading": "Loading posting activity…",
+    "activityHeading": "Posting Activity",
+    "activityDescription": "Your most recent posting activity.",
+    "empty": "You have not posted anything yet."
+  },
+  "layout": {
+    "notifications": "Notifications",
+    "logout": "Log out",
+    "loading": "Loading your account…",
+    "heading": "Your account",
+    "profileLink": "View profile"
+  },
+  "navigation": {
+    "accountHeading": "Your account",
+    "settingsHeading": "Settings",
+    "overview": "Overview",
+    "appearance": "Appearance",
+    "permissions": "Permissions",
+    "security": "Security",
+    "aria": {
+      "label": "Account sections"
+    }
+  },
+  "accountDetails": {
+    "heading": "Account details",
+    "description": "The name and title shown on your profile and posts."
+  },
+  "accountDetailsForm": {
+    "usernameLabel": "Username",
+    "usernameStaffRules": "3 to 20 characters: letters, numbers, underscores and hyphens. Staff can change their username freely.",
+    "changes": "3 to 20 characters: letters, numbers, underscores and hyphens. You have {count, plural, one {# change} other {# changes}} available. Each change uses one.",
+    "usernameLockedRules": "3 to 20 characters: letters, numbers, underscores and hyphens. <shop>Get a username change in the shop</shop>",
+    "confirmation": "I want to change my username to {username}. My profile address stays the same.",
+    "usernameFallback": "my new username",
+    "titleLabel": "Custom title",
+    "titlePlaceholder": "Your default title",
+    "titleRules": "Up to {count, plural, one {# character} other {# characters}}. Leave blank to use the title that comes with your level.{access, select, locked { <shop>Unlock a custom title in the shop</shop>} other {}}",
+    "pending": "Saving…",
+    "submit": "Save changes",
+    "partialSaveError": "Your username was saved. {error}",
+    "saved": "Saved",
+    "errors": {
+      "usernameNotFound": "Your account was not found.",
+      "usernameNotAllowed": "You have no username change left.",
+      "usernameInvalid": "Use 3 to 20 letters, numbers, underscores or hyphens.",
+      "usernameTaken": "That username is already taken.",
+      "usernameUnconfirmed": "Confirm your username change.",
+      "titleNotFound": "Your account was not found.",
+      "titleNotAllowed": "You need the custom title permission for that.",
+      "titleTooLong": "A title holds at most {count, plural, one {# character} other {# characters}}."
+    }
+  },
+  "overviewSkeletons": {
+    "detailsHeading": "Account details",
+    "detailsDescription": "The name and title shown on your profile and posts.",
+    "activityHeading": "Posting Activity",
+    "activityDescription": "Your most recent posting activity."
+  },
+  "appearance": {
+    "metaTitle": "Appearance - forum/ui",
+    "heading": "Appearance",
+    "description": "How the forum looks for you, and how you look to everyone else.",
+    "previewHeading": "Preview",
+    "previewDescription": "Your member card with the choices saved right now.",
+    "accentHeading": "Accent colour",
+    "accentDescription": "Recolours buttons, links and highlights across the whole forum, only for you.",
+    "frameHeading": "Avatar frame",
+    "frameDescription": "Shown around your picture everywhere it appears.",
+    "frameFallback": "Frame",
+    "frameEmpty": "None",
+    "framesLink": "Get more frames in the shop",
+    "nameColorHeading": "Name colour",
+    "nameColorDescription": "The colour of your username in threads, lists and your profile.",
+    "nameColorDefault": "Default",
+    "nameColorsLink": "Get more name colours in the shop",
+    "coverHeading": "Profile cover",
+    "coverDescription": "A photo from the gallery behind your profile, your posts and your member card.",
+    "coverLockedDescription": "A photo from the gallery behind your profile, your posts and your member card. It needs the profile cover permission, which comes from the shop or a rank.",
+    "coverLockedLink": "Locked: get the profile cover permission in the shop",
+    "coverEmpty": "None",
+    "aria": {
+      "frame": "{name} frame",
+      "noFrame": "No frame",
+      "nameColor": "{name} name colour",
+      "noCover": "No cover",
+      "cover": "{name} cover"
+    }
+  },
+  "appearanceForm": {
+    "pending": "Saving…",
+    "saved": "Saved",
+    "errors": {
+      "notFound": "Your account was not found.",
+      "invalid": "That choice is not valid.",
+      "notOwned": "You do not own that yet.",
+      "notAllowed": "You need the profile cover permission for that."
+    }
+  },
+  "permissions": {
+    "metaTitle": "Permissions - forum/ui",
+    "heading": "Permissions",
+    "description": "What your account can do, and where each permission comes from. <account>Edit your username and title</account>",
+    "rankSource": "Included in your {rank} rank",
+    "staffSource": "Staff",
+    "purchaseSource": "Purchased",
+    "changes": "{count, plural, one {# change} other {# changes}} available",
+    "lockedDescription": "Locked. <shop>Unlock it in the permissions shop</shop>",
+    "granted": "Granted",
+    "locked": "Locked",
+    "shopLink": "View in the shop<name>: {permission}</name>",
+    "signatureDescription": "Shown under your first post on each thread page and on your profile."
+  },
+  "permissionForms": {
+    "saved": "Saved",
+    "legend": "Signature",
+    "currentHeading": "Current signature",
+    "replacementPlaceholder": "Write a replacement signature.",
+    "placeholder": "Write your signature.",
+    "description": "Your current signature stays until you save a replacement or clear it.",
+    "hiddenNotice": "Your current signature contains pictures that LITE mode is hiding, so it is not shown for editing. Saving a new signature replaces it.",
+    "characters": "{used, number}/{count, plural, one {# character} other {# characters}}",
+    "lines": "{used, number}/{count, plural, one {# line} other {# lines}}",
+    "previewHeading": "Preview",
+    "submit": "Save signature",
+    "clear": "Clear",
+    "errors": {
+      "notFound": "Your account was not found.",
+      "notAllowed": "You need the signature permission for that.",
+      "tooLong": "A signature holds at most {count, plural, one {# character} other {# characters}}.",
+      "tooManyLines": "A signature holds at most {count, plural, one {# line} other {# lines}}."
+    }
+  },
+  "security": {
+    "metaTitle": "Security - forum/ui",
+    "heading": "Security",
+    "devicesHeading": "Devices",
+    "devicesDescription": "Browsers that are signed in to your account.",
+    "devicesLoading": "Loading devices…",
+    "logoutHeading": "Log out",
+    "logoutDescription": "End your session in this browser.",
+    "logout": "Log out",
+    "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Unknown browser}} on {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {unknown system}}",
+    "currentDevice": "This device",
+    "sessionDetails": "Signed in <signedIn>{date}</signedIn><separator> · </separator>Last used <lastUsed>{relativeTime}</lastUsed>",
+    "empty": "No devices are signed in."
+  },
+  "loading": {
+    "overviewLabel": "Loading your account overview…",
+    "overviewHeading": "Overview",
+    "appearanceLabel": "Loading appearance settings…",
+    "appearanceHeading": "Appearance",
+    "appearanceDescription": "How the forum looks for you, and how you look to everyone else.",
+    "permissionsLabel": "Loading permissions…",
+    "permissionsHeading": "Permissions",
+    "permissionsDescription": "What your account can do, and where each permission comes from.",
+    "securityLabel": "Loading security settings…",
+    "securityHeading": "Security",
+    "logoutHeading": "Log out",
+    "logoutDescription": "End your session in this browser."
+  }
+}

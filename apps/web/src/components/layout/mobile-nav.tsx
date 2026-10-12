@@ -1,0 +1,104 @@
+"use client";
+
+import {
+  Bell,
+  House,
+  Inbox,
+  LogIn,
+  type LucideIcon,
+  MessagesSquare,
+  UserRound,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { isActivePath } from "@/components/layout/nav";
+import type { UnreadCounts } from "@/lib/db";
+import type { User } from "@/lib/types";
+
+type Item = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  match?: string[];
+  unread?: number;
+};
+
+export function MobileNav({
+  user,
+  unread,
+}: {
+  user: Pick<User, "id"> | null;
+  unread: UnreadCounts;
+}) {
+  const t = useTranslations("layout.mobileNav");
+  const pathname = usePathname();
+  const items: Item[] = [
+    { label: t("home"), href: "/", icon: House },
+    {
+      label: t("forums"),
+      href: "/forums",
+      icon: MessagesSquare,
+      match: ["/threads"],
+    },
+    ...(user
+      ? [
+          {
+            label: t("messages"),
+            href: "/conversations",
+            icon: Inbox,
+            unread: unread.conversations,
+          },
+          {
+            label: t("alerts"),
+            href: "/notifications",
+            icon: Bell,
+            unread: unread.notifications,
+          },
+          {
+            label: t("profile"),
+            href: `/members/${user.id}`,
+            icon: UserRound,
+            match: ["/account"],
+          },
+        ]
+      : [{ label: t("login"), href: "/login", icon: LogIn }]),
+  ];
+
+  return (
+    <nav
+      aria-label={t("aria.primary")}
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
+    >
+      <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
+        {items.map(({ label, href, icon: Icon, match, unread: count }) => (
+          <li key={label}>
+            <Link
+              href={href}
+              aria-current={
+                isActivePath(pathname, href, match) ? "page" : undefined
+              }
+              className="flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-(length:--text-caption) font-medium text-muted-foreground transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+            >
+              <span className="relative">
+                <Icon className="size-5" />
+                {!!count && (
+                  <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
+                )}
+              </span>
+              {count
+                ? t.rich("unread", {
+                    label,
+                    count,
+                    unread: (chunks) => (
+                      <span className="sr-only">{chunks}</span>
+                    ),
+                  })
+                : label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}

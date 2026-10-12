@@ -1,0 +1,34 @@
+{
+  "search": {
+    "metaTitle": "Search - forum/ui",
+    "heading": "Search",
+    "keywordsLabel": "Keywords",
+    "keywordsPlaceholder": "Search threads, posts and members",
+    "memberLabel": "By member",
+    "memberPlaceholder": "Username",
+    "forumLabel": "Forum",
+    "allForums": "All forums",
+    "prefixLabel": "Prefix",
+    "anyPrefix": "Any prefix",
+    "titlesOnlyLabel": "Search titles only",
+    "submit": "Search",
+    "loadingResults": "Loading search results…",
+    "members": "{count, plural, one {# member matches “{query}” and is not listed while filters are on.} other {# members match “{query}” and are not listed while filters are on.}} <link>Search without filters</link>",
+    "emptyTitle": "Search the forum",
+    "emptyDescription": "Type a word to find matching threads, posts and members, then narrow it down with the filters.",
+    "noResultsTitle": "No results for “{query}”",
+    "filteredDescription": "Try a more general term or remove some filters.",
+    "noResultsDescription": "Check the spelling or try a shorter, more general term.",
+    "results": "{count, plural, one {# result} other {# results}} for <term>“{query}”</term>",
+    "threadsHeading": "Threads",
+    "replies": "<author></author> in <forum></forum> · <time></time> · {count, plural, one {# reply} other {# replies}}",
+    "postsHeading": "Posts",
+    "postDetails": "<author></author> · Post #{number} · <time></time>",
+    "membersHeading": "Members",
+    "ellipsis": "…"
+  },
+  "loading": {
+    "label": "Loading search…",
+    "heading": "Search"
+  }
+}

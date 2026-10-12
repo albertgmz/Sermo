@@ -1,0 +1,108 @@
+{
+  "staticPage": {
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "legal": "Legal notice",
+    "contact": "Contact",
+    "updated": "Last updated {date}",
+    "aria": {
+      "navigation": "Information pages"
+    }
+  },
+  "terms": {
+    "metaTitle": "Terms - forum/ui",
+    "title": "Terms of service",
+    "introduction": "These terms are placeholder text for a demo forum. They describe, in general words, what a community like this one usually expects from its members.",
+    "accountHeading": "Your account",
+    "accountResponsibility": "You are responsible for what is posted from your account.",
+    "accountLimit": "One account per person. Do not share it or sell it.",
+    "accountUsername": "Choose a username that does not impersonate somebody else.",
+    "postsHeading": "What you post",
+    "postsRights": "You keep the rights to what you write. By posting, you allow the forum to display it to other members and visitors.",
+    "postsRestrictions": "Do not post:",
+    "postsSpam": "Spam, advertising or referral links outside the areas meant for them.",
+    "postsAbuse": "Content that is illegal, hateful or that harasses another member.",
+    "postsPrivacy": "Private information about other people.",
+    "moderationHeading": "Moderation",
+    "moderationDescription": "Staff may edit, move or remove content and may limit or close accounts that break these rules. Decisions can be discussed in private with a moderator, not in public threads.",
+    "creditsHeading": "Credits and upgrades",
+    "creditsDescription": "Credits, awards and shop items have no monetary value and cannot be exchanged or refunded.",
+    "changesHeading": "Changes",
+    "changesDescription": "These terms may change. The date at the top of the page shows the latest revision."
+  },
+  "termsLoading": {
+    "title": "Terms of service",
+    "aria": {
+      "loading": "Loading terms of service…"
+    }
+  },
+  "privacy": {
+    "metaTitle": "Privacy - forum/ui",
+    "title": "Privacy policy",
+    "introduction": "This policy is placeholder text for a demo forum. It lists the kind of information a community site typically handles.",
+    "collectionHeading": "What is collected",
+    "collectionAccount": "<strong>Account details</strong>: username, email address and the profile fields you choose to fill in.",
+    "collectionContent": "<strong>Content</strong>: threads, posts, profile messages and conversations you write.",
+    "collectionTechnical": "<strong>Technical data</strong>: browser and operating system, shown next to your posts and in your list of devices.",
+    "usageHeading": "How it is used",
+    "usageDescription": "The information is used to run the forum: to show your content, to keep your account secure and to prevent abuse. It is not sold.",
+    "cookiesHeading": "Cookies",
+    "cookiesDescription": "A single cookie keeps you signed in. No advertising or tracking cookies are set.",
+    "choicesHeading": "Your choices",
+    "choicesDescription": "You can edit your profile at any time from your <account>account</account>. To have your account and personal data removed, use the <contact>contact page</contact>.",
+    "retentionHeading": "Retention",
+    "retentionDescription": "Posts stay visible after an account is closed unless their removal is requested. Technical data is kept only as long as it is needed."
+  },
+  "privacyLoading": {
+    "title": "Privacy policy",
+    "aria": {
+      "loading": "Loading privacy policy…"
+    }
+  },
+  "legal": {
+    "metaTitle": "Legal notice - forum/ui",
+    "title": "Legal notice",
+    "introduction": "This notice is placeholder text for a demo forum. The details below are generic examples, not a real company.",
+    "publisherHeading": "Publisher",
+    "publisherAddress": "<strong>forum/ui</strong>, Example Street 1, 12345 Example City",
+    "publisherEmail": "Email: hello@example.com",
+    "hostingHeading": "Hosting",
+    "hostingDescription": "The site is hosted by an example provider. Its name and address would be listed here.",
+    "contentHeading": "Content",
+    "contentDescription": "Members are responsible for the content they publish. Posts reflect the opinion of their authors, not of the publisher.",
+    "reportingHeading": "Reporting content",
+    "reportingDescription": "If you believe something on the forum infringes your rights, send the address of the page and a short explanation through the <contact>contact page</contact>. Reports are reviewed by staff.",
+    "propertyHeading": "Intellectual property",
+    "propertyDescription": "The forum name, logo and interface belong to the publisher. Content posted by members remains theirs, as described in the <terms>terms</terms>."
+  },
+  "legalLoading": {
+    "title": "Legal notice",
+    "aria": {
+      "loading": "Loading legal notice…"
+    }
+  },
+  "contact": {
+    "metaTitle": "Contact - forum/ui",
+    "title": "Contact",
+    "introduction": "The details below are placeholders for a demo forum.",
+    "detailsHeading": "Contact details",
+    "detailsGeneral": "<strong>General questions</strong>: hello@example.com",
+    "detailsSupport": "<strong>Account and moderation</strong>: support@example.com",
+    "detailsAddress": "<strong>Postal address</strong>: Example Street 1, 12345 Example City",
+    "responseDescription": "Staff usually answer within two working days. For anything about a specific post, include a link to it."
+  },
+  "contactLoading": {
+    "title": "Contact",
+    "aria": {
+      "loading": "Loading contact…"
+    }
+  },
+  "contactForm": {
+    "heading": "Send a message",
+    "nameLabel": "Name",
+    "emailLabel": "Email",
+    "messageLabel": "Message",
+    "submit": "Send",
+    "confirmation": "This demo does not send messages."
+  }
+}

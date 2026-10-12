@@ -1,0 +1,90 @@
+{
+  "status": {
+    "off": "Off",
+    "on": "On",
+    "partial": "{count} of {total}"
+  },
+  "page": {
+    "metaTitle": "LITE mode - forum/ui",
+    "demo": {
+      "title": "LITE mode",
+      "description": "Block all pictures or choose individual categories. These controls save your browser’s preference and update the examples on this page.",
+      "artworkLabel": "Artwork placeholder",
+      "avatarLabel": "Avatar and compact placeholders"
+    }
+  },
+  "settingsForm": {
+    "title": "LITE mode",
+    "description": "Choose which pictures to stop loading on this browser. Text and interface icons stay visible.",
+    "masterLabel": "Block all pictures",
+    "masterDescription": "Turn on every category with one control.",
+    "categoriesLabel": "Picture categories",
+    "categoriesDescription": "Turn on a category to stop its pictures from loading.",
+    "masterNotice": "All pictures are blocked. Turn off the master switch to choose individual categories.",
+    "saveButton": "Save changes",
+    "savedMessage": "Your LITE settings have been saved.",
+    "loadingLabel": "Loading LITE settings…"
+  },
+  "liteModeToggle": {
+    "label": "LITE mode",
+    "settingsLink": "LITE settings",
+    "aria": {
+      "enable": "Turn on LITE mode",
+      "disable": "Turn off LITE mode"
+    }
+  },
+  "siteFooter": {
+    "label": "LITE mode",
+    "loadingLabel": "Loading LITE mode…"
+  },
+  "navigation": {
+    "label": "LITE mode"
+  },
+  "litePlaceholder": {
+    "label": "LITE MODE",
+    "aria": {
+      "label": "Picture blocked by LITE mode"
+    }
+  },
+  "liteMenuDemo": {
+    "menuButton": "Profile options"
+  },
+  "categories": {
+    "avatars": {
+      "label": "Avatars",
+      "description": "Member profile pictures."
+    },
+    "frames": {
+      "label": "Avatar frames",
+      "description": "Decorative frames around member pictures."
+    },
+    "profileCovers": {
+      "label": "Profile covers",
+      "description": "Cover pictures on profiles and member cards."
+    },
+    "threadCovers": {
+      "label": "Thread covers",
+      "description": "Cover pictures on threads and their previews."
+    },
+    "forumArt": {
+      "label": "Forum pictures",
+      "description": "Artwork on forum cards."
+    },
+    "awards": {
+      "label": "Awards",
+      "description": "Award artwork and award glyphs."
+    },
+    "shop": {
+      "label": "Shop artwork",
+      "description": "Shop item artwork and shop glyphs."
+    },
+    "postImages": {
+      "label": "Content pictures",
+      "description": "Pictures in posts, signatures, messages and editor previews."
+    },
+    "brand": {
+      "label": "Brand artwork",
+      "description": "The logo, site icon and decorative page artwork."
+    }
+  }
+}
