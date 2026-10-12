@@ -26,7 +26,7 @@ function chunks(ids: number[], size: number): number[][] {
   return out;
 }
 
-function plainMember({ id, username }: MemberRef): MemberView {
+export function plainMember({ id, username }: MemberRef): MemberView {
   return {
     id,
     username,
