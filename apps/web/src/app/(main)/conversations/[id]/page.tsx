@@ -51,7 +51,7 @@ export default async function ConversationPage({
             {conversation.participants.map((participant, index) => (
               <span key={participant.id}>
                 {index > 0 && t("participantSeparator")}
-                <UserLink user={participant} />
+                <UserLink user={participant.member} />
               </span>
             ))}
           </p>
@@ -68,12 +68,14 @@ export default async function ConversationPage({
                 className={cn("flex gap-3 px-4", grouped ? "pt-1.5" : "pt-4")}
               >
                 <div className="w-10 shrink-0">
-                  {!grouped && <UserAvatar user={message.author} size="lg" />}
+                  {!grouped && (
+                    <UserAvatar user={message.author.member} size="lg" />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   {!grouped && (
                     <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-sm">
-                      <UserLink user={message.author} />
+                      <UserLink user={message.author.member} />
                       <span
                         aria-hidden="true"
                         className="text-muted-foreground"

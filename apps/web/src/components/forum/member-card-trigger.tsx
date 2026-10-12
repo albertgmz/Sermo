@@ -29,12 +29,14 @@ function MemberCardWithPreference({
   href,
   name,
   className,
+  style,
   children,
 }: {
   id: number;
   href: string;
   name: string;
   className?: string;
+  style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
   const t = useTranslations("forum.memberCardTrigger");
@@ -83,6 +85,7 @@ function MemberCardWithPreference({
           "relative rounded-sm after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           className,
         )}
+        style={style}
         onPointerDown={(event) => {
           pointerType.current = event.pointerType;
         }}

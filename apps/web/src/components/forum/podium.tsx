@@ -52,9 +52,12 @@ export function Podium({
                 member.id === viewerId && "bg-primary/5",
               )}
             >
-              <UserAvatar user={member} size={index === 0 ? "xl" : "lg"} />
+              <UserAvatar
+                user={member.member}
+                size={index === 0 ? "xl" : "lg"}
+              />
               <UserLink
-                user={member}
+                user={member.member}
                 className="mt-1 block w-full truncate text-center text-sm"
               />
               <div className="flex min-h-5 w-full justify-center">

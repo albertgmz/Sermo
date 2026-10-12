@@ -5,25 +5,17 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
-import { userNameClass } from "@/components/forum/user-name";
+import { userNameProps } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
 import type { UserView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
-import { titleKeyForLevel } from "@/lib/levels";
-import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export type MemberCardUser = Pick<
   UserView,
   | "id"
-  | "username"
-  | "avatar"
-  | "appearance"
-  | "customTitle"
-  | "permissions"
-  | "role"
-  | "rank"
-  | "donor"
+  | "member"
+  | "coverPicture"
   | "level"
   | "awards"
   | "awardSlots"
@@ -40,13 +32,7 @@ export function MemberCard({
   className?: string;
 }) {
   const t = useTranslations("forum.memberCard");
-  const tLevels = useTranslations("lib.levels");
-  const tRoles = useTranslations("lib.db.roles");
-  const title =
-    (can(user, "customTitle") && user.customTitle) ||
-    (user.role === "member"
-      ? tLevels(titleKeyForLevel(user.level.level))
-      : tRoles(user.role));
+  const name = userNameProps(user.member);
   return (
     <article
       className={cn(
@@ -54,22 +40,25 @@ export function MemberCard({
         className,
       )}
     >
-      <CoverBackdrop cover={user.appearance.cover} variant="strip" />
+      <CoverBackdrop cover={user.coverPicture} variant="strip" />
       <div className="flex items-end gap-5">
-        <UserAvatar user={user} size="xl" />
+        <UserAvatar user={user.member} size="xl" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5">
             <span
               className={cn(
                 "max-w-full truncate text-sm font-semibold",
-                userNameClass(user),
+                name.className,
               )}
+              style={name.style}
             >
-              {user.username}
+              {user.member.username}
             </span>
-            <UserBadges user={user} />
+            <UserBadges user={user.member} />
           </p>
-          <p className="truncate text-xs text-muted-foreground">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {user.member.title}
+          </p>
         </div>
       </div>
       <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">

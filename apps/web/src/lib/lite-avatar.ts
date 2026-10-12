@@ -1,13 +1,13 @@
-import { FRAMES } from "./frames";
 import { blocks, type LiteState } from "./lite-preferences";
+import type { MemberView } from "./sermo/views";
 
 export function liteAvatarLayout(
   state: LiteState,
-  equippedFrame: string | null,
+  equippedFrame: MemberView["frame"],
 ) {
   return {
     hideAvatar: blocks(state, "avatars"),
     frame: blocks(state, "frames") ? null : equippedFrame,
-    geometry: equippedFrame ? FRAMES[equippedFrame] : undefined,
+    placement: equippedFrame?.placement,
   };
 }

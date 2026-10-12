@@ -74,8 +74,11 @@ export function ReactionSummary({
               key={user.id}
               className="flex min-h-10 items-center gap-2 px-3 text-sm"
             >
-              <UserAvatar user={user} size="sm" />
-              <UserLink user={user} className="min-w-0 flex-1 truncate" />
+              <UserAvatar user={user.member} size="sm" />
+              <UserLink
+                user={user.member}
+                className="min-w-0 flex-1 truncate"
+              />
               <span role="img" aria-label={type.label} title={type.label}>
                 {type.emoji}
               </span>

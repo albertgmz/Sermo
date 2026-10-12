@@ -11,7 +11,7 @@ import {
   LoadingRegion,
 } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-name";
+import { userNameProps } from "@/components/forum/user-name";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { titleKeyForLevel } from "@/lib/levels";
@@ -76,14 +76,16 @@ async function AccountHeader() {
       ? levels(titleKeyForLevel(user.level.level))
       : roles(user.role));
 
+  const name = userNameProps(user.member);
+
   return (
     <header className="relative isolate flex min-h-40 flex-wrap items-end gap-4 overflow-hidden rounded-lg border bg-card p-4 sm:min-h-48 sm:p-6">
       <CoverBackdrop
-        cover={user.appearance.cover}
+        cover={user.coverPicture}
         variant="full"
         className="opacity-45"
       />
-      <UserAvatar user={user} size="xl" link={false} />
+      <UserAvatar user={user.member} size="xl" link={false} />
       <div className="min-w-0 flex-1 basis-36">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {t("heading")}
@@ -91,8 +93,9 @@ async function AccountHeader() {
         <p
           className={cn(
             "truncate text-2xl font-bold tracking-tight",
-            userNameClass(user),
+            name.className,
           )}
+          style={name.style}
         >
           {user.username}
         </p>

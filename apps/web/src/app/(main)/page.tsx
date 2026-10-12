@@ -122,7 +122,7 @@ async function HomeComposer() {
         >
           <CompactComposer
             action={postToWall.bind(null, viewer.id)}
-            user={viewer}
+            user={viewer.member}
             placeholder={t("placeholder")}
             submitLabel={t("submit")}
             className="p-4"

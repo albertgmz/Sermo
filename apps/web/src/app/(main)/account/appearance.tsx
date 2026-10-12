@@ -5,7 +5,7 @@ import { AppearanceForm } from "@/app/(main)/account/appearance-form";
 import { Art } from "@/components/forum/art";
 import { MemberCard } from "@/components/forum/member-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-name";
+import { userNameProps } from "@/components/forum/user-name";
 import {
   ACCENTS,
   COVERS,
@@ -13,9 +13,9 @@ import {
   DEFAULT_ACCENT,
   NAME_COLORS,
   type NameColorKey,
-  nameColor,
 } from "@/lib/appearance";
 import type { Unlocks, UserView } from "@/lib/db";
+import { frameView, nameColorHex, staffNameHex } from "@/lib/legacy-views";
 import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -126,7 +126,7 @@ export function AppearancePanel({
                     className={cn(choiceClass, "h-28 flex-col gap-1")}
                   >
                     <UserAvatar
-                      user={{ ...user, appearance: { frame } }}
+                      user={{ ...user.member, frame: frameView(frame) }}
                       size="xl"
                       link={false}
                     />
@@ -152,35 +152,38 @@ export function AppearancePanel({
             saved={saved === "nameColor"}
           >
             <ul className="flex flex-wrap gap-2">
-              {[null, ...colors].map((color) => (
-                <li key={color ?? "default"} className="max-w-full">
-                  <button
-                    type="submit"
-                    name="value"
-                    value={color ?? ""}
-                    aria-pressed={color === appearance.nameColor}
-                    aria-label={t("aria.nameColor", {
-                      name: colorLabel(color),
-                    })}
-                    className={cn(choiceClass, "gap-2 px-3 pr-7")}
-                  >
-                    <span
-                      className={cn(
-                        "truncate font-semibold",
-                        color
-                          ? nameColor(color)?.text
-                          : userNameClass({ role: user.role }),
-                      )}
+              {[null, ...colors].map((color) => {
+                const name = userNameProps({
+                  nameColor: color
+                    ? nameColorHex(color)
+                    : staffNameHex(user.role),
+                });
+                return (
+                  <li key={color ?? "default"} className="max-w-full">
+                    <button
+                      type="submit"
+                      name="value"
+                      value={color ?? ""}
+                      aria-pressed={color === appearance.nameColor}
+                      aria-label={t("aria.nameColor", {
+                        name: colorLabel(color),
+                      })}
+                      className={cn(choiceClass, "gap-2 px-3 pr-7")}
                     >
-                      {user.username}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {colorLabel(color)}
-                    </span>
-                    {color === appearance.nameColor && <Selected />}
-                  </button>
-                </li>
-              ))}
+                      <span
+                        className={cn("truncate font-semibold", name.className)}
+                        style={name.style}
+                      >
+                        {user.username}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {colorLabel(color)}
+                      </span>
+                      {color === appearance.nameColor && <Selected />}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
             <Link href="/credits?category=color" className={shopLinkClass}>
               {t("nameColorsLink")}

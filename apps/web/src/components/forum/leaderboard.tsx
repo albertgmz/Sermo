@@ -149,11 +149,11 @@ export function Leaderboard({
         >
           <RankNumber rank={start + index} />
           <UserAvatar
-            user={member}
+            user={member.member}
             className="relative after:absolute after:-inset-1"
           />
           <UserLink
-            user={member}
+            user={member.member}
             className={cn(
               "min-w-0 flex-1 truncate text-sm",
               compact && "min-h-10 content-center",

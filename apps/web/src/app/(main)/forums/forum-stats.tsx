@@ -97,7 +97,7 @@ function ThreadRow({
     <li className="flex items-center gap-3 px-3 py-2.5 md:px-4">
       <RankNumber rank={rank} medal={false} />
       <UserAvatar
-        user={thread.author}
+        user={thread.author.member}
         className="relative after:absolute after:-inset-1"
       />
       <div className="min-w-0 flex-1">
@@ -125,7 +125,7 @@ function ThreadRow({
               </Link>
             ),
             time: () => <RelativeTime date={last.createdAt} />,
-            author: () => <UserLink user={last.author} />,
+            author: () => <UserLink user={last.author.member} />,
           })}
         </p>
       </div>

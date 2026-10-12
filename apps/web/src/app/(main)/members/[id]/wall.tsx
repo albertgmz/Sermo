@@ -35,7 +35,7 @@ function WallPost({
   return (
     <MessageRow
       id={anchor}
-      author={post.author}
+      author={post.author.member}
       time={
         <>
           <RelativeTime date={post.createdAt} />{" "}
@@ -70,7 +70,7 @@ function WallPost({
               <MessageRow
                 key={comment.id}
                 compact
-                author={comment.author}
+                author={comment.author.member}
                 time={
                   <>
                     <RelativeTime date={comment.createdAt} />{" "}
@@ -138,7 +138,7 @@ export function Wall({
       {viewer && (
         <CompactComposer
           action={postToWall.bind(null, user.id)}
-          user={viewer}
+          user={viewer.member}
           placeholder={t("placeholder", { username: user.username })}
           submitLabel={t("submit")}
           className="border-b p-4"
@@ -150,7 +150,7 @@ export function Wall({
           title={t("emptyTitle")}
           description={t.rich("emptyDescription", {
             username: user.username,
-            user: () => <UserLink user={user} />,
+            user: () => <UserLink user={user.member} />,
           })}
         >
           {!viewer && (

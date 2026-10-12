@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { frameSrc } from "@/lib/frames";
 import { liteAvatarLayout } from "@/lib/lite-avatar";
 import { getLiteState } from "@/lib/lite-mode";
-import type { Appearance, User } from "@/lib/types";
+import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
@@ -18,9 +17,8 @@ const SIZES = {
 
 export type UserAvatarSize = keyof typeof SIZES;
 
-export type AvatarUser = Pick<User, "username" | "avatar"> & {
+export type AvatarUser = Pick<MemberView, "username" | "avatar" | "frame"> & {
   id?: number;
-  appearance?: Pick<Appearance, "frame">;
 };
 
 export async function UserAvatar({
@@ -36,19 +34,19 @@ export async function UserAvatar({
 }) {
   const linked = link && user.id !== undefined;
   const { box, text, framed } = SIZES[size];
-  const { hideAvatar, frame, geometry } = liteAvatarLayout(
+  const { hideAvatar, frame, placement } = liteAvatarLayout(
     await getLiteState(),
-    (framed && user.appearance?.frame) || null,
+    (framed && user.frame) || null,
   );
   // The frame is drawn larger than the box and the picture shrinks into its
   // opening, so a framed avatar takes the same room as a plain one.
-  const inner = geometry ? { scale: geometry[3] / 100 } : undefined;
-  const unringed = geometry && "ring-0!";
+  const inner = placement ? { scale: placement.scale / 100 } : undefined;
+  const unringed = placement && "ring-0!";
   const avatar = (
     <Avatar
       className={cn(
         box,
-        geometry && "after:hidden",
+        placement && "after:hidden",
         !linked && [className, unringed],
       )}
     >
@@ -60,7 +58,15 @@ export async function UserAvatar({
           />
         </span>
       ) : user.avatar ? (
-        <AvatarImage src={user.avatar} alt="" style={inner} />
+        <AvatarImage
+          src={
+            size === "xl" || size === "2xl"
+              ? user.avatar.url
+              : user.avatar.smallUrl
+          }
+          alt=""
+          style={inner}
+        />
       ) : (
         <AvatarFallback
           className={cn("font-semibold uppercase", text)}
@@ -69,15 +75,15 @@ export async function UserAvatar({
           {user.username.slice(0, 2)}
         </AvatarFallback>
       )}
-      {frame && geometry && (
+      {frame && placement && (
         <AvatarImage
-          src={frameSrc(frame)}
+          src={frame.url}
           alt=""
           className="pointer-events-none absolute aspect-auto size-auto max-w-none rounded-none object-fill"
           style={{
-            width: `${geometry[0]}%`,
-            left: `${geometry[1]}%`,
-            top: `${geometry[2]}%`,
+            width: `${placement.width}%`,
+            left: `${placement.left}%`,
+            top: `${placement.top}%`,
           }}
         />
       )}

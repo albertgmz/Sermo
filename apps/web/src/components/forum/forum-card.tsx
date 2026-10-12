@@ -69,7 +69,7 @@ export function ForumCard({
       {last ? (
         <div className="flex h-10 items-center gap-2 border-t px-3">
           <UserAvatar
-            user={last.author}
+            user={last.author.member}
             size="sm"
             className="relative after:absolute after:-inset-2"
           />
@@ -89,7 +89,7 @@ export function ForumCard({
             <RelativeTime date={last.createdAt} className="shrink-0" />
             <span aria-hidden="true">·</span>
             <UserLink
-              user={last.author}
+              user={last.author.member}
               className="flex h-10 min-w-0 items-center"
             >
               <span className="truncate">{last.author.username}</span>

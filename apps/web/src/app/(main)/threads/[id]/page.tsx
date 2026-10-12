@@ -76,19 +76,23 @@ function PostItem({
       className="relative isolate grid scroll-mt-4 grid-cols-[auto_minmax(0,1fr)] gap-x-3 p-3 md:gap-x-4 md:p-4"
     >
       <CoverBackdrop
-        cover={author.appearance.cover}
+        cover={author.coverPicture}
         variant={highlighted ? "full" : "header"}
       />
-      <UserAvatar user={author} size="lg" className="self-start md:hidden" />
       <UserAvatar
-        user={author}
+        user={author.member}
+        size="lg"
+        className="self-start md:hidden"
+      />
+      <UserAvatar
+        user={author.member}
         size="xl"
         className="hidden self-start md:row-span-2 md:block"
       />
       <div className="flex min-w-0 flex-col justify-center gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <UserLink user={author} className="[overflow-wrap:anywhere]" />
-          <UserBadges user={author} />
+          <UserLink user={author.member} className="[overflow-wrap:anywhere]" />
+          <UserBadges user={author.member} />
           <AwardRow
             awards={author.awards}
             max={author.awardSlots.desktop}
@@ -223,10 +227,10 @@ export default async function ThreadPage({
           thread.cover && "relative isolate overflow-hidden rounded-lg border",
         )}
       >
-        {thread.cover && (
+        {thread.coverPicture && (
           <Art
             category="threadCovers"
-            src={threadCoverSrc(thread.cover)}
+            src={thread.coverPicture.url}
             className="absolute inset-0 -z-10"
           />
         )}

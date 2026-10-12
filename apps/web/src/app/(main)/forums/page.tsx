@@ -68,7 +68,7 @@ async function GuestHero() {
         {users.map((user) => (
           <UserAvatar
             key={user.id}
-            user={user}
+            user={user.member}
             size="lg"
             link={false}
             className="ring-2 ring-primary"

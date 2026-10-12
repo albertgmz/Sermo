@@ -136,7 +136,7 @@ async function AdminActivity() {
               {t.rich("byline", {
                 author: () => (
                   <UserLink
-                    user={thread.lastPost.author}
+                    user={thread.lastPost.author.member}
                     className="relative z-10"
                   />
                 ),
@@ -172,7 +172,7 @@ async function AdminNewestMembers() {
           <MemberRow
             key={member.id}
             user={{
-              ...member,
+              ...member.member,
               title:
                 (member.permissions.includes("customTitle") &&
                   member.customTitle) ||
@@ -180,6 +180,7 @@ async function AdminNewestMembers() {
                   ? tLevels(titleKeyForLevel(member.level.level))
                   : tRoles(member.role)),
             }}
+            badgeLimit={member.role === "member" ? 0 : 1}
           />
         ))
       ) : (

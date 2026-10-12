@@ -28,13 +28,13 @@ import {
 import { TabLinks } from "@/components/forum/tab-links";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { userNameClass } from "@/components/forum/user-name";
+import { userNameProps } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { COVERS, coverSrc, nameColor } from "@/lib/appearance";
+import { COVERS, coverSrc } from "@/lib/appearance";
 import {
   getLeaderboard,
   getOwnedItems,
@@ -49,7 +49,9 @@ import {
   type UserView,
 } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
+import { frameView, nameColorHex } from "@/lib/legacy-views";
 import { AWARD_SLOTS, PERMISSIONS } from "@/lib/permissions";
+import type { MemberView } from "@/lib/sermo/views";
 import { getCurrentUser } from "@/lib/session";
 import type {
   Appearance,
@@ -235,7 +237,39 @@ function ChipNav({
   );
 }
 
-type ShopPreview = UserView | Pick<UserView, "username" | "avatar">;
+type ShopPreview = AvatarUser & Pick<MemberView, "nameColor">;
+
+// The member's name in the colour an item sells.
+function ColorPreview({
+  preview,
+  color,
+}: {
+  preview: ShopPreview;
+  color: string | null;
+}) {
+  const name = userNameProps({ nameColor: color });
+  return (
+    <p
+      className={cn(
+        "min-w-0 truncate text-2xl font-bold tracking-tight",
+        name.className,
+      )}
+      style={name.style}
+    >
+      {preview.id !== undefined ? (
+        <UserLink
+          user={{
+            id: preview.id,
+            username: preview.username,
+            nameColor: color,
+          }}
+        />
+      ) : (
+        preview.username
+      )}
+    </p>
+  );
+}
 
 function ItemPicture({
   item,
@@ -251,7 +285,7 @@ function ItemPicture({
     return (
       <div className="flex h-36 items-center justify-center overflow-hidden border-b bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_14%,transparent),transparent)]">
         <UserAvatar
-          user={{ ...preview, appearance: { frame: effect.frame } }}
+          user={{ ...preview, frame: frameView(effect.frame) }}
           size="xl"
           link={false}
         />
@@ -266,21 +300,7 @@ function ItemPicture({
         className="absolute inset-0 -z-10"
       />
       {effect.type === "nameColor" && (
-        <p
-          className={cn(
-            "min-w-0 truncate text-2xl font-bold tracking-tight",
-            nameColor(effect.color)?.text,
-          )}
-        >
-          {"id" in preview ? (
-            <UserLink
-              user={preview}
-              className={nameColor(effect.color)?.text}
-            />
-          ) : (
-            preview.username
-          )}
-        </p>
+        <ColorPreview preview={preview} color={nameColorHex(effect.color)} />
       )}
       {children}
     </div>
@@ -413,6 +433,7 @@ function PermissionExample({
 }) {
   const t = useTranslations("credits.credits");
   const name = viewer?.username ?? t("sampleUsername");
+  const viewerName = userNameProps(viewer?.member ?? { nameColor: null });
   switch (permission.key) {
     case "signature":
       return (
@@ -443,10 +464,11 @@ function PermissionExample({
           <p
             className={cn(
               "truncate text-sm font-semibold",
-              viewer && userNameClass(viewer),
+              viewerName.className,
             )}
+            style={viewerName.style}
           >
-            {viewer ? <UserLink user={viewer} /> : name}
+            {viewer ? <UserLink user={viewer.member} /> : name}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {viewer?.customTitle ?? t("sampleTitle")}
@@ -471,7 +493,7 @@ function PermissionExample({
       return (
         <p className="flex flex-wrap items-center gap-x-2 text-sm">
           <span className="text-muted-foreground line-through [overflow-wrap:anywhere]">
-            {viewer ? <UserLink user={viewer} /> : name}
+            {viewer ? <UserLink user={viewer.member} /> : name}
           </span>
           <span aria-hidden="true">→</span>
           <span className="sr-only">{t("aria.becomes")}</span>
@@ -767,7 +789,7 @@ function ItemThumb({ item, preview }: { item: ShopItem; preview: AvatarUser }) {
     <div className="relative isolate flex h-14 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border">
       {effect.type === "frame" ? (
         <UserAvatar
-          user={{ ...preview, appearance: { frame: effect.frame } }}
+          user={{ ...preview, frame: frameView(effect.frame) }}
           size="md"
           link={false}
         />
@@ -891,7 +913,7 @@ function Inventory({
                     key={item.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3"
                   >
-                    <ItemThumb item={item} preview={viewer} />
+                    <ItemThumb item={item} preview={viewer.member} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">
                         {item.name}
@@ -1071,9 +1093,11 @@ async function CreditsContent({ searchParams }: Props) {
           query={query}
           viewer={viewer}
           preview={
-            viewer ?? {
+            viewer?.member ?? {
               username: t("sampleUsername"),
-              avatar: richest[0].avatar,
+              avatar: richest[0].member.avatar,
+              frame: null,
+              nameColor: null,
             }
           }
           owned={new Map(inventory.map((item) => [item.id, item]))}
