@@ -10,13 +10,17 @@ function fixtureCount(): number {
   return count + Math.min(20, Math.ceil(count / 5));
 }
 async function createAward(env: BenchEnv, fields: Record<string, unknown> = {}): Promise<number> {
-  const result = (await env.call("awards.create", env.actors.admin, {
-    name: "Benchmark award",
-    tier: "silver",
-    xp: 5,
-    credits: 3,
-    ...fields,
-  })) as { id: number };
+  const result = JSON.parse(
+    String(
+      await env.call("awards.create", env.actors.admin, {
+        name: "Benchmark award",
+        tier: "silver",
+        xp: 5,
+        credits: 3,
+        ...fields,
+      }),
+    ),
+  ) as { id: number };
   return result.id;
 }
 let updateAwardId = 0;
@@ -191,10 +195,14 @@ export const scenarios: Scenario[] = [
       revokeIds = [];
       const awardId = await createAward(env, { isStackable: true });
       for (let i = 0; i < fixtureCount(); i++) {
-        const grant = (await env.call("awards.grant", env.actors.admin, {
-          awardId,
-          userId: env.meta.memberIds[0]!,
-        })) as { id: number };
+        const grant = JSON.parse(
+          String(
+            await env.call("awards.grant", env.actors.admin, {
+              awardId,
+              userId: env.meta.memberIds[0]!,
+            }),
+          ),
+        ) as { id: number };
         revokeIds.push(grant.id);
       }
     },
