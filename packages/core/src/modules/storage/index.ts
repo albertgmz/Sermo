@@ -1,23 +1,30 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { fileTypeFromFile } from "file-type";
+import sharp from "sharp";
 import type { Actor } from "../../actor";
 import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { filesGet } from "../../contracts/storage";
+import {
+  CATALOG_FILE_PURPOSES,
+  type FILE_PURPOSES,
+  type UPLOAD_SETTING_PURPOSES,
+} from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { consumeEvents } from "../../events";
 import { implement } from "../../operation";
-import { can, permissionValue } from "../../permissions";
+import { can, permissionValue, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { setAttachments } from "../attachments";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
+import { measureFrameOpening } from "../images/frame-geometry";
 import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { requirePost as requireProfilePost } from "../profiles/shared";
@@ -79,7 +86,8 @@ export function s3Driver(options: ConstructorParameters<typeof Bun.S3Client>[0])
   };
 }
 
-type Purpose = "attachment" | "avatar" | "cover" | "node_icon" | "node_cover";
+type Purpose = (typeof FILE_PURPOSES)[number];
+type UploadSettingPurpose = (typeof UPLOAD_SETTING_PURPOSES)[number];
 type Visibility = "unattached" | "public" | "private";
 type AttachmentContentType = "post" | "profile_post" | "conversation_message";
 export interface FileRecord {
@@ -120,6 +128,20 @@ const allowedTypes = new Set([
   "application/octet-stream",
 ]);
 const maxBytesDefault = 25 * 1024 * 1024;
+/** Catalog and site pictures take these types whatever the site settings say for members. */
+const catalogTypes: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
+const isCatalogPurpose = (purpose: Purpose): purpose is (typeof CATALOG_FILE_PURPOSES)[number] =>
+  (CATALOG_FILE_PURPOSES as readonly string[]).includes(purpose);
+/** Which administrator permission each catalog purpose needs, checked when the file arrives. */
+function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
+  if (purpose === "frame" || purpose === "cover_preset" || purpose === "thread_cover")
+    requirePermission(ctx, actor, "admin.appearance");
+  else if (purpose === "award_image") requirePermission(ctx, actor, "admin.awards");
+  else if (purpose === "shop_image") requirePermission(ctx, actor, "admin.shop");
+  else if (isCatalogPurpose(purpose)) requirePermission(ctx, actor, "admin.settings");
+}
+/** Files that count against attachment.storageQuota: everything a member uploads for themselves. */
+const quotaPurposes = CATALOG_FILE_PURPOSES.map((purpose) => `'${purpose}'`).join(", ");
 
 async function fileHash(path: string): Promise<string> {
   const hash = createHash("sha256");
@@ -203,7 +225,7 @@ export interface StorageConfig {
   driver: StorageDriver;
   tempDir: string;
   maxBytes?: number;
-  allowedTypesByPurpose?: Partial<Record<Purpose, readonly string[]>>;
+  allowedTypesByPurpose?: Partial<Record<UploadSettingPurpose, readonly string[]>>;
 }
 
 function byId(ctx: Ctx, id: number) {
@@ -299,6 +321,14 @@ export const operations = [
   }),
 ];
 
+async function measureOpening(path: string) {
+  const { data, info } = await sharp(await readFile(path))
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return measureFrameOpening(data, info.width, info.height);
+}
+
 export function createStorage(ctx: Ctx, config: StorageConfig) {
   const { driver, tempDir } = config;
   const maxBytes = config.maxBytes ?? maxBytesDefault;
@@ -313,10 +343,14 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       purpose: Purpose = "attachment",
     ) {
       const user = requireAuthenticated(actor);
+      const catalog = isCatalogPurpose(purpose);
+      if (catalog) requireCatalogUpload(ctx, actor, purpose);
       if (
         !allowedTypes.has(declaredType) ||
-        (config.allowedTypesByPurpose &&
-          !config.allowedTypesByPurpose[purpose]?.includes(declaredType))
+        (catalog
+          ? !catalogTypes.includes(declaredType)
+          : config.allowedTypesByPurpose &&
+            !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
       )
         throw new ValidationError("File type is not allowed.");
       const effectiveLimit = maxBytes;
@@ -386,6 +420,11 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 variant: null,
               },
             ];
+        // Measured here, from the stored pixels, so that no write transaction waits for it.
+        const meta =
+          purpose === "frame"
+            ? JSON.stringify({ opening: await measureOpening(processed[0]!.path) })
+            : null;
         const artifacts = await Promise.all(
           processed.map(async (item) => ({
             ...item,
@@ -405,11 +444,11 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             stored.push(item.storageKey);
           }
           const row = writeTx(ctx, () => {
-            const quota = permissionValue(ctx, actor, "attachment.storageQuota");
+            const quota = catalog ? -1 : permissionValue(ctx, actor, "attachment.storageQuota");
             if (quota !== -1) {
               const used = ctx.sqlite
                 .prepare<{ bytes: number }, [number]>(
-                  "SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL",
+                  `SELECT COALESCE(SUM(byte_size), 0) AS bytes FROM files WHERE uploader_id = ?1 AND deleted_at IS NULL AND purpose NOT IN (${quotaPurposes})`,
                 )
                 .get(user.userId)!.bytes;
               if (used + artifacts.reduce((total, item) => total + item.byteSize, 0) > quota)
@@ -430,9 +469,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                   number,
                   Purpose,
                   number,
+                  string | null,
                 ]
               >(
-                "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'unattached', ?10) RETURNING id",
+                "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, width, height, uploader_id, purpose, visibility, created_at, meta) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'unattached', ?10, ?11) RETURNING id",
               )
               .get(
                 driver.name,
@@ -445,6 +485,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
                 user.userId,
                 purpose,
                 ctx.now(),
+                meta,
               )!;
             for (const variant of artifacts.slice(1))
               ctx.sqlite
@@ -535,7 +576,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           "Content-Disposition": `${disposition}; filename="file-${row.id}"`,
           "Cache-Control":
             row.visibility === "public" && row.purpose !== "attachment"
-              ? "public, max-age=3600"
+              ? // A replaced catalog picture gets a new file id, so what a URL serves never changes.
+                isCatalogPurpose(row.purpose)
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=3600"
               : "private, no-store",
         },
       });

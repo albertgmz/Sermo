@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import sharp, { type Metadata } from "sharp";
+import type { FILE_PURPOSES } from "../../db/schema";
 import { ValidationError } from "../../errors";
 
-export type ImagePurpose = "attachment" | "avatar" | "cover" | "node_icon" | "node_cover";
+export type ImagePurpose = (typeof FILE_PURPOSES)[number];
 export interface ProcessedImage {
   path: string;
   contentType: string;
@@ -21,6 +22,63 @@ const inputTypes = new Map([
   ["image/webp", "webp"],
   ["image/gif", "gif"],
 ]);
+
+interface Size {
+  variant: string | null;
+  width: number;
+  height: number;
+  fit: "cover" | "inside";
+  mime: string;
+  webp?: { quality: number; alphaQuality?: number };
+}
+const WEBP_ART = { quality: 90, alphaQuality: 100 };
+const insideWebp = (variant: string | null, width: number, height: number, webp?: Size["webp"]) =>
+  ({ variant, width, height, fit: "inside", mime: "image/webp", webp }) satisfies Size;
+
+/** The renditions stored for a purpose: the main image first, then its variants. */
+function sizesFor(purpose: ImagePurpose, mime: string): Size[] {
+  switch (purpose) {
+    case "avatar":
+    case "node_icon":
+      return [
+        { variant: null, width: 512, height: 512, fit: "cover", mime: "image/webp" },
+        { variant: "square_256", width: 256, height: 256, fit: "cover", mime: "image/webp" },
+        { variant: "square_128", width: 128, height: 128, fit: "cover", mime: "image/webp" },
+        { variant: "square_64", width: 64, height: 64, fit: "cover", mime: "image/webp" },
+      ];
+    case "cover":
+    case "node_cover":
+    case "cover_preset":
+    case "thread_cover":
+      return [insideWebp(null, 1600, 600), insideWebp("cover_small", 800, 300)];
+    case "frame":
+      return [insideWebp(null, 512, 512, WEBP_ART), insideWebp("frame_256", 256, 256, WEBP_ART)];
+    case "award_image":
+    case "shop_image":
+      return [insideWebp(null, 960, 540), insideWebp("art_small", 480, 270)];
+    case "site_logo":
+      return [insideWebp(null, 640, 160, WEBP_ART)];
+    case "site_icon":
+      return [
+        { variant: null, width: 512, height: 512, fit: "cover", mime: "image/png" },
+        { variant: "icon_192", width: 192, height: 192, fit: "cover", mime: "image/png" },
+        { variant: "icon_48", width: 48, height: 48, fit: "cover", mime: "image/png" },
+      ];
+    case "site_backdrop":
+      return [insideWebp(null, 2560, 1440), insideWebp("backdrop_small", 1280, 720)];
+    case "attachment":
+      return [
+        {
+          variant: null,
+          width: 2048,
+          height: 2048,
+          fit: "inside",
+          mime: mime === "image/gif" ? "image/png" : mime,
+        },
+        insideWebp("thumbnail", 320, 320),
+      ];
+  }
+}
 
 /** The only image decode/encode entry point. All outputs are fresh pixels without input metadata. */
 export async function processImage(
@@ -45,35 +103,7 @@ export async function processImage(
 
   const output: ProcessedImage[] = [];
   const paths: string[] = [];
-  const sizes: {
-    variant: string | null;
-    width: number | null;
-    height: number | null;
-    fit: "cover" | "inside";
-    mime: string;
-  }[] =
-    purpose === "avatar" || purpose === "node_icon"
-      ? [
-          { variant: null, width: 512, height: 512, fit: "cover", mime: "image/webp" },
-          { variant: "square_256", width: 256, height: 256, fit: "cover", mime: "image/webp" },
-          { variant: "square_128", width: 128, height: 128, fit: "cover", mime: "image/webp" },
-          { variant: "square_64", width: 64, height: 64, fit: "cover", mime: "image/webp" },
-        ]
-      : purpose === "cover" || purpose === "node_cover"
-        ? [
-            { variant: null, width: 1600, height: 600, fit: "inside", mime: "image/webp" },
-            { variant: "cover_small", width: 800, height: 300, fit: "inside", mime: "image/webp" },
-          ]
-        : [
-            {
-              variant: null,
-              width: 2048,
-              height: 2048,
-              fit: "inside",
-              mime: mime === "image/gif" ? "image/png" : mime,
-            },
-            { variant: "thumbnail", width: 320, height: 320, fit: "inside", mime: "image/webp" },
-          ];
+  const sizes = sizesFor(purpose, mime);
 
   try {
     for (const size of sizes) {
@@ -81,13 +111,13 @@ export async function processImage(
       paths.push(path);
       const pipeline = sharp(inputPath, { limitInputPixels: MAX_PIXELS, failOn: "error" })
         .autoOrient()
-        .resize(size.width!, size.height!, {
+        .resize(size.width, size.height, {
           fit: size.fit,
           withoutEnlargement: size.fit === "inside",
         });
       if (size.mime === "image/jpeg") pipeline.jpeg({ quality: 85 });
       else if (size.mime === "image/png") pipeline.png();
-      else pipeline.webp({ quality: 82 });
+      else pipeline.webp(size.webp ?? { quality: 82 });
       const info = await pipeline.toFile(path);
       output.push({
         path,
