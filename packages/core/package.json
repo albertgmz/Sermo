@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./contracts": "./src/contracts/index.ts"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",

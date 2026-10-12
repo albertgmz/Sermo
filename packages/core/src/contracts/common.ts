@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { CONTENT_STATES, REACTION_CONTENT_TYPES } from "../db/schema";
-import { MAX_BODY_LENGTH } from "../render";
+import { MAX_BODY_LENGTH } from "../limits";
 
 export const Id = z.number().int().positive();
 export const Timestamp = z.iso.datetime().describe("ISO 8601 UTC timestamp");

@@ -6,6 +6,7 @@ import type { Actor } from "./actor";
 import { actorUserId } from "./actor";
 import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
+import { MAX_BODY_LENGTH } from "./limits";
 import {
   containerExtension,
   inlineSpoilerExtension,
@@ -118,11 +119,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
 };
 
-/**
- * Rendering cost grows faster than linearly on adversarial input; at 10,000 characters the
- * worst cases measured stay around 45 ms. Deep quote nesting overflows the parser's stack.
- */
-export const MAX_BODY_LENGTH = 10_000;
 const TOO_DEEP_QUOTES = new RegExp(`^(?:[ \t]{0,3}>){${MAX_QUOTE_DEPTH + 1}}`, "m");
 
 /** Throws ValidationError for input that cannot be rendered safely. */
@@ -532,3 +528,5 @@ export function renderPlainText(html: string, maxLength?: number): string {
   const boundary = fragment.search(/\s+\S*$/);
   return `${(boundary > 0 ? fragment.slice(0, boundary) : "").trimEnd()}…`;
 }
+
+export { MAX_BODY_LENGTH };
