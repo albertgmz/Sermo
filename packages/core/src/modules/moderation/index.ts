@@ -25,6 +25,7 @@ import {
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
+import { moderationOf } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
 import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
@@ -397,6 +398,9 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
   });
 }
 
+/** The report queue, newest activity first; `scoped` limits it to one forum (`?5`). */
+export const reportQueueSql = (scoped: boolean) =>
+  `SELECT g.id, g.target_type, g.target_id, g.state, g.assigned_to_id, g.report_count, g.created_at, g.updated_at, g.resolved_at, g.target_type AS type, coalesce(g.node_id, pt.node_id) AS node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE ${scoped ? "g.node_id = ?5 AND g.state = ?1" : "g.state = ?1"} AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4`;
 export function listReports(
   ctx: Ctx,
   actor: Actor,
@@ -424,7 +428,7 @@ export function listReports(
   >(
     ctx,
     input.nodeId === undefined ? "reportQueue" : "reportNodeQueue",
-    `SELECT g.id, g.target_type, g.target_id, g.state, g.assigned_to_id, g.report_count, g.created_at, g.updated_at, g.resolved_at, g.target_type AS type, coalesce(g.node_id, pt.node_id) AS node_id, cm.conversation_id, coalesce(p.id, pp.id, pc.id, cm.id, u.id) AS target_exists FROM report_groups g LEFT JOIN posts p ON g.target_type = 'post' AND p.id = g.target_id LEFT JOIN threads pt ON pt.id = p.thread_id LEFT JOIN profile_posts pp ON g.target_type = 'profile_post' AND pp.id = g.target_id LEFT JOIN profile_post_comments pc ON g.target_type = 'profile_post_comment' AND pc.id = g.target_id LEFT JOIN conversation_messages cm ON g.target_type = 'conversation_message' AND cm.id = g.target_id LEFT JOIN users u ON g.target_type = 'user' AND u.id = g.target_id WHERE ${input.nodeId === undefined ? "g.state = ?1" : "g.node_id = ?5 AND g.state = ?1"} AND (g.updated_at, g.id) < (?2, ?3) ORDER BY g.updated_at DESC, g.id DESC LIMIT ?4`,
+    reportQueueSql(input.nodeId !== undefined),
   );
   type ReportQueueRow = ReportGroup & {
     type: TargetType;
@@ -479,6 +483,84 @@ export function listReports(
         : !exhausted && examined > 0
           ? encodeCursor([cursorAt, cursorId])
           : null,
+  };
+}
+
+/** How many queue entries the counters look at, and the largest number they report. */
+export const QUEUE_WINDOW = 100;
+export const QUEUE_COUNT_CAP = 99;
+export interface QueueCount {
+  count: number;
+  more: boolean;
+}
+const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false });
+
+/**
+ * What waits in the report and approval queues for this viewer, for a staff header: among the
+ * newest 100 entries of each queue, how many the viewer may act on (at most 99), and whether the
+ * window was full, so there may be more. The viewer is held to the queue reads' own rule
+ * (`filterModeratable`, per forum scope). A viewer who holds none of the permissions that open a
+ * queue costs no statement at all; otherwise each queue is one bounded read per content kind they
+ * may handle (the queue reads' own statements, no cursor, limit 100). Never a COUNT.
+ */
+export function queueCounts(
+  ctx: Ctx,
+  actor: Actor,
+): Record<"openReports" | "pendingApprovals", QueueCount> {
+  if (actor.kind === "guest") return { openReports: NO_QUEUE, pendingApprovals: NO_QUEUE };
+  const grants = permissionsOf(ctx, actor);
+  const forums = moderationOf(ctx, actor).nodeIds;
+  const inSomeForum = (id: "forum.manageReports" | "forum.approve") =>
+    forums.some((nodeId) => grants.can(id, { nodeId }));
+  const everything = Number.MAX_SAFE_INTEGER;
+
+  let openReports = NO_QUEUE;
+  if (
+    grants.can("report.manageProfiles") ||
+    grants.can("conversation.moderate") ||
+    inSomeForum("forum.manageReports")
+  ) {
+    const rows = query<QueueTarget & { id: number }>(ctx, "reportQueue", reportQueueSql(false)).all(
+      "open",
+      everything,
+      everything,
+      QUEUE_WINDOW,
+    );
+    openReports = {
+      count: Math.min(filterModeratable(ctx, actor, rows, "reports").length, QUEUE_COUNT_CAP),
+      more: rows.length >= QUEUE_WINDOW,
+    };
+  }
+
+  const waiting: (QueueTarget & { id: number })[] = [];
+  const read = (key: string, sql: string, type: ContentType) =>
+    waiting.push(
+      ...query<{ id: number; node_id?: number }>(ctx, key, sql)
+        .all(everything, QUEUE_WINDOW)
+        .map((row) => ({ ...row, type })),
+    );
+  if (inSomeForum("forum.approve")) {
+    read("approvalQueue", approvalSql, "post");
+    read("approvalThreads", approvalThreadsSql, "thread");
+  }
+  if (grants.can("profilePost.approve")) {
+    read("approvalProfilePosts", approvalProfilePostsSql, "profile_post");
+    read("approvalProfileComments", approvalProfileCommentsSql, "profile_post_comment");
+  }
+  if (grants.can("conversation.moderate"))
+    read("approvalMessages", approvalMessagesSql, "conversation_message");
+  const window = waiting.sort((a, b) => b.id - a.id).slice(0, QUEUE_WINDOW);
+  return {
+    openReports,
+    pendingApprovals: waiting.length
+      ? {
+          count: Math.min(
+            filterModeratable(ctx, actor, window, "approvals").length,
+            QUEUE_COUNT_CAP,
+          ),
+          more: waiting.length >= QUEUE_WINDOW,
+        }
+      : NO_QUEUE,
   };
 }
 
@@ -574,6 +656,14 @@ export function setReportState(
 
 export const approvalSql =
   "SELECT p.id, p.thread_id, p.user_id, p.created_at, t.node_id FROM posts p INDEXED BY posts_state_id JOIN threads t ON t.id = p.thread_id WHERE p.state = 'moderated' AND p.id <= ?1 ORDER BY p.id DESC LIMIT ?2";
+export const approvalThreadsSql =
+  "SELECT id, user_id, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
+export const approvalProfilePostsSql =
+  "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
+export const approvalProfileCommentsSql =
+  "SELECT id, user_id, profile_post_id, created_at, state FROM profile_post_comments WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
+export const approvalMessagesSql =
+  "SELECT id, user_id, conversation_id, created_at, state FROM conversation_messages INDEXED BY conversation_messages_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2";
 export function listApprovals(
   ctx: Ctx,
   actor: Actor,
@@ -603,31 +693,19 @@ export function listApprovals(
       ...query<Row>(
         ctx,
         input.nodeId === undefined ? "approvalThreads" : "approvalNodeThreads",
-        "SELECT id, user_id, node_id, created_at, state FROM threads INDEXED BY threads_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
+        approvalThreadsSql,
       )
         .all(cursorId, fetchLimit)
         .map((r) => ({ ...r, type: "thread" as const })),
       ...(input.nodeId === undefined
         ? [
-            ...query<Row>(
-              ctx,
-              "approvalProfilePosts",
-              "SELECT id, user_id, created_at, state FROM profile_posts WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-            )
+            ...query<Row>(ctx, "approvalProfilePosts", approvalProfilePostsSql)
               .all(cursorId, fetchLimit)
               .map((r) => ({ ...r, type: "profile_post" as const })),
-            ...query<Row>(
-              ctx,
-              "approvalProfileComments",
-              "SELECT id, user_id, profile_post_id, created_at, state FROM profile_post_comments WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-            )
+            ...query<Row>(ctx, "approvalProfileComments", approvalProfileCommentsSql)
               .all(cursorId, fetchLimit)
               .map((r) => ({ ...r, type: "profile_post_comment" as const })),
-            ...query<Row>(
-              ctx,
-              "approvalMessages",
-              "SELECT id, user_id, conversation_id, created_at, state FROM conversation_messages INDEXED BY conversation_messages_state_id WHERE state = 'moderated' AND id <= ?1 ORDER BY id DESC LIMIT ?2",
-            )
+            ...query<Row>(ctx, "approvalMessages", approvalMessagesSql)
               .all(cursorId, fetchLimit)
               .map((r) => ({ ...r, type: "conversation_message" as const })),
           ]

@@ -30,16 +30,26 @@ export const SelfUser = z
   })
   .meta({ id: "SelfUser" });
 
+/** A queue's size, capped: `more` says the newest 100 entries it looked at were all there were room for. */
+export const QueueCount = z
+  .object({ count: z.number().int().min(0).max(99), more: z.boolean() })
+  .meta({ id: "QueueCount" });
+
 export const authCounters = defineContract({
   name: "auth.counters",
   summary:
     "What the signed-in member has not seen yet: unread notifications, and unread " +
-    "conversations among their 100 most recently active ones (so at most 100). Zeros for guests.",
+    "conversations among their 100 most recently active ones (so at most 100). Zeros for guests. " +
+    "For staff who may open the queues, `openReports` and `pendingApprovals` count what they " +
+    "may act on among the newest 100 entries of each queue (at most 99) and `more` says that " +
+    "window was full; everyone else gets zero and false, at no cost.",
   kind: "read",
   input: Empty,
   output: z.object({
     notifications: z.number().int().nonnegative(),
     conversations: z.number().int().nonnegative(),
+    openReports: QueueCount,
+    pendingApprovals: QueueCount,
   }),
 });
 

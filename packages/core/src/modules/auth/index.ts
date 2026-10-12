@@ -40,6 +40,7 @@ import {
 import { iso } from "../../time";
 import { forgivePasswordGuess, takePasswordGuess } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
+import { queueCounts } from "../moderation";
 import { usernameChange } from "./rename-marker";
 import { staffAccess } from "./staff";
 
@@ -1195,12 +1196,13 @@ export const countersSql =
 export const authCountersOp = implement(
   authCounters,
   (ctx, actor) => {
-    if (actor.kind === "guest") return { notifications: 0, conversations: 0 };
-    return (
+    const none = { notifications: 0, conversations: 0 };
+    if (actor.kind === "guest") return { ...none, ...queueCounts(ctx, actor) };
+    const own =
       prepared(ctx, "auth.counters", () =>
         ctx.sqlite.prepare<{ notifications: number; conversations: number }, [number]>(countersSql),
-      ).get(actor.userId) ?? { notifications: 0, conversations: 0 }
-    );
+      ).get(actor.userId) ?? none;
+    return { ...own, ...queueCounts(ctx, actor) };
   },
   { public: "Every caller sees only their own counters; guests see zeros." },
 );

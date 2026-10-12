@@ -1335,3 +1335,24 @@ statement for the whole list, two correlated counts per group over covering inde
 (`users_group`, `user_groups_group`) and a point lookup on `users` for the overlap, so the cost is
 bounded by the number of groups and the size of each group's own index range; this is an
 administration read, never part of a page view.
+
+**The panel's pending work comes with `auth.counters`.** The queue reads return no total, and
+counting on every page view is against the rules, so `auth.counters` (the site header's read)
+gains `openReports` and `pendingApprovals`, each `{ count, more }`. They look at the newest 100
+entries of each queue (the queue reads' own statements, no cursor, limit 100, never a COUNT),
+count those the viewer may act on with the queue reads' own rule (`filterModeratable`, so a
+moderator of some forums sees only theirs), cap the number at 99, and set `more` when the window
+was full, so the interface can write "99+". A scoped moderator in a busy site may see a small
+number with `more` set: the 100 entries were not all theirs. Everyone who holds none of the
+permissions that open a queue (a guest, a plain member, a moderator without report or approval
+rights) pays no statement for it: the check is the permission state already in memory, and a test
+holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
+of the panel's home page the numbers are not cached: they are a few indexed rows for staff only.
+
+**Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
+my password?" without any limit beyond 100 requests per ten seconds per address) is no longer
+served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
+asks for the current password and Better Auth limits it to three requests per ten seconds per
+address, which a stolen session can multiply with addresses; it now takes a guess from the same
+five-in-fifteen-minutes count per member as the administration checks (a success gives its guess
+back) and answers 429 once they are used up.
