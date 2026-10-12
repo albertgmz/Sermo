@@ -5,6 +5,7 @@ import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { currentActor, getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
+import { requireNotErased } from "../admin/shared";
 import { enqueueJob } from "../jobs/queue";
 import { ledgerPage, ledgerTransaction, memberBalance } from "./ledger";
 
@@ -32,6 +33,7 @@ export const creditsAdjustOp = implement(contracts.creditsAdjust, (ctx, actor, i
   return writeTx(ctx, () => {
     // The actor was resolved before this transaction: decide with what is committed now.
     requirePermission(ctx, currentActor(ctx, actor), "credits.adjust");
+    requireNotErased(ctx, input.userId);
     const [movement] = moveCredits(ctx, [{ ...input, type: "adjustment", actorId: member.userId }]);
     return ledgerTransaction(ctx, movement!.transactionId);
   });

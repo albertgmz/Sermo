@@ -27,6 +27,8 @@ export const Group = z
     nameColorId: Id.nullable(),
     /** Its members are listed as staff (users.staff). */
     isStaff: z.boolean(),
+    /** Members who have it as their primary group or by hand (not promotion or shop grants). */
+    memberCount: z.number().int().nonnegative(),
   })
   .meta({ id: "Group" });
 
@@ -47,7 +49,10 @@ const GroupFields = {
 
 export const groupsList = defineContract({
   name: "groups.list",
-  summary: "List all groups, highest rank first. Requires admin.groups.",
+  summary:
+    "List all groups, highest rank first, with their member counts. Requires any of " +
+    "admin.groups, admin.permissions, admin.promotions or admin.members (the screens those open " +
+    "need group names); the writes need admin.groups.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(Group) }),
@@ -55,7 +60,9 @@ export const groupsList = defineContract({
 
 export const groupsGet = defineContract({
   name: "groups.get",
-  summary: "One group. Requires admin.groups.",
+  summary:
+    "One group with its member count. Requires any of admin.groups, admin.permissions, " +
+    "admin.promotions or admin.members.",
   kind: "read",
   input: z.object({ groupId: Id }),
   output: Group,

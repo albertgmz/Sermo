@@ -10,6 +10,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
 import { iso } from "../../time";
+import { requireNotErased } from "../admin/shared";
 import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
@@ -166,6 +167,7 @@ export const operations = [
       // Only award administrators may learn that an inactive award exists.
       if (!award.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
       memberXp(ctx, input.userId);
+      requireNotErased(ctx, input.userId);
       const grant = grantAward(ctx, award, input.userId, granter.userId, input.reason)!;
       return grantValues(ctx, [grant])[0]!;
     });

@@ -36,8 +36,9 @@ import {
   permissionPhrases,
   readWithCurrentActor,
   requirePermission,
+  resolvedPermissions,
 } from "../../permissions";
-import { confirmActorPassword } from "../admin/shared";
+import { confirmActorPassword, requireNotErased } from "../admin/shared";
 import { appendModeratorLog } from "../moderation";
 
 export type { NodeTree, NodeTreeEntry } from "../../permissions";
@@ -54,6 +55,7 @@ type GroupRow = {
   name_color_id: number | null;
   is_staff: number;
 };
+type CountedGroupRow = GroupRow & { member_count: number };
 type EntryRow = {
   group_id: number;
   user_id: number;
@@ -62,7 +64,7 @@ type EntryRow = {
   value: number;
   type: "flag" | "integer";
 };
-const groupValue = (g: GroupRow) => ({
+const groupValue = (g: GroupRow & { member_count?: number }) => ({
   id: g.id,
   title: g.title,
   description: g.description,
@@ -72,7 +74,17 @@ const groupValue = (g: GroupRow) => ({
   builtin: g.builtin,
   nameColorId: g.name_color_id,
   isStaff: !!g.is_staff,
+  memberCount: g.member_count ?? 0,
 });
+/**
+ * A group's members: those with it as primary group (index users_group) plus those holding it
+ * by hand without it also being their primary group (index user_groups_group, one point lookup
+ * on users each). Promotion and shop grants are not counted.
+ */
+export const groupsSql = {
+  counted:
+    "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff, (SELECT count(*) FROM users u WHERE u.group_id = groups.id) + (SELECT count(*) FROM user_groups ug WHERE ug.group_id = groups.id AND NOT EXISTS (SELECT 1 FROM users p WHERE p.id = ug.user_id AND p.group_id = groups.id)) AS member_count FROM groups",
+};
 /** A group's name colour must be an active colour of the `name` catalog. */
 const requireNameColor = (ctx: Ctx, id: number) => {
   const color = ctx.sqlite
@@ -88,6 +100,10 @@ const getGroup = (ctx: Ctx, id: number) =>
     ctx.sqlite.prepare<GroupRow, [number]>(
       "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups WHERE id = ?1",
     ),
+  ).get(id);
+const getCountedGroup = (ctx: Ctx, id: number) =>
+  prepared(ctx, "permissions.groupCounted", () =>
+    ctx.sqlite.prepare<CountedGroupRow, [number]>(`${groupsSql.counted} WHERE id = ?1`),
   ).get(id);
 const getMember = (ctx: Ctx, id: number) => {
   const row = prepared(ctx, "permissions.member", () =>
@@ -108,6 +124,22 @@ const admin = (ctx: Ctx, actor: Actor, id: "admin.groups" | "admin.permissions")
  * actor was resolved before the transaction opened. Returns the reloaded actor; every later
  * decision of the operation (rank ceiling, hierarchy) uses it.
  */
+/**
+ * Reading groups serves every screen that picks one: holding any of these permissions is enough.
+ * The resolved permissions apply no member-dependent condition. Otherwise the refusal is the one
+ * `admin.groups` gives.
+ */
+const requireGroupReader = (ctx: Ctx, actor: Actor) => {
+  const held = resolvedPermissions(ctx, actor);
+  if (
+    held["admin.groups"] === true ||
+    held["admin.permissions"] === true ||
+    held["admin.promotions"] === true ||
+    held["admin.members"] === true
+  )
+    return;
+  requirePermission(ctx, actor, "admin.groups");
+};
 const adminNow = (ctx: Ctx, actor: Actor, id: "admin.groups" | "admin.permissions") => {
   const current = currentActor(ctx, actor);
   requirePermission(ctx, current, id);
@@ -162,12 +194,10 @@ export const assertAdministrator = (
 
 export const groupsListOp = implement(groupsList, (ctx, actor) =>
   readWithCurrentActor(ctx, actor, (current) => {
-    admin(ctx, current, "admin.groups");
+    requireGroupReader(ctx, current);
     return {
       items: prepared(ctx, "permissions.groups", () =>
-        ctx.sqlite.prepare<GroupRow, []>(
-          "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups ORDER BY rank DESC, id",
-        ),
+        ctx.sqlite.prepare<CountedGroupRow, []>(`${groupsSql.counted} ORDER BY rank DESC, id`),
       )
         .all()
         .map(groupValue),
@@ -176,8 +206,8 @@ export const groupsListOp = implement(groupsList, (ctx, actor) =>
 );
 export const groupsGetOp = implement(groupsGet, (ctx, actor, input) =>
   readWithCurrentActor(ctx, actor, (current) => {
-    admin(ctx, current, "admin.groups");
-    const group = getGroup(ctx, input.groupId);
+    requireGroupReader(ctx, current);
+    const group = getCountedGroup(ctx, input.groupId);
     if (!group) throw new NotFoundError();
     return groupValue(group);
   }),
@@ -236,7 +266,7 @@ export const groupsUpdateOp = implement(groupsUpdate, async (ctx, actor, input) 
         Number(input.isStaff ?? !!old.is_staff),
       );
     appendModeratorLog(ctx, actor, "group.update", "group", old.id);
-    return groupValue(getGroup(ctx, old.id)!);
+    return groupValue(getCountedGroup(ctx, old.id)!);
   });
 });
 export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) => {
@@ -306,6 +336,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
     const current = currentActor(ctx, actor);
     const target = getMember(ctx, input.userId);
     requirePermission(ctx, current, "admin.members", { target });
+    requireNotErased(ctx, input.userId);
     const wasAdministrator = can(ctx, target, "admin.permissions");
     const before = memberGroups(ctx, input.userId);
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
@@ -438,6 +469,7 @@ export const permissionsSetOp = implement(permissionsSet, async (ctx, actor, inp
   return writeTx(ctx, () => {
     adminNow(ctx, actor, "admin.permissions");
     const { groupId, userId, nodeId } = validateTarget(ctx, input);
+    if (userId) requireNotErased(ctx, userId);
     const changesAdministration = input.entries.some(
       (entry) => entry.permission === "admin.permissions",
     );

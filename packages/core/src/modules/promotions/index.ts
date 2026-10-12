@@ -30,6 +30,7 @@ import {
   type MemberFacts,
 } from "../../shared/criteria";
 import { iso } from "../../time";
+import { requireNotErased } from "../admin/shared";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { assertAdministrator } from "../permissions";
 
@@ -487,6 +488,7 @@ export const operations = [
       const m = member(ctx, input.userId);
       const affected = target(ctx, m.id);
       requirePermission(ctx, current, "admin.members", { target: affected });
+      requireNotErased(ctx, m.id);
       const wasAdministrator = can(ctx, affected, "admin.permissions");
       const p = promotion(ctx, input.promotionId);
       if (groupIds(p).length === 0) {

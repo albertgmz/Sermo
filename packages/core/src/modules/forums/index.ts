@@ -26,7 +26,7 @@ import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
-import { confirmActorPassword } from "../admin/shared";
+import { confirmActorPassword, requireNotErased } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import {
@@ -733,6 +733,7 @@ export const nodesSetModeratorOp = implement(
           .get(input.userId)
       )
         throw new NotFoundError();
+      requireNotErased(ctx, input.userId);
       const ids = Object.entries(PERMISSIONS)
         .filter(
           ([id, def]) =>

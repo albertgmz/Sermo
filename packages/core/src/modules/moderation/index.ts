@@ -23,6 +23,7 @@ import {
   viewableNodeIds,
 } from "../../permissions";
 import { iso } from "../../time";
+import { requireNotErased } from "../admin/shared";
 import { revokeUserCredentials } from "../auth";
 import { scanKeyset } from "../feed/scan";
 import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
@@ -1317,6 +1318,7 @@ export function addWarning(
     const current = currentActor(ctx, actor);
     const target = principalMember(ctx, userId);
     requirePermission(ctx, current, "member.warn", { target });
+    requireNotErased(ctx, userId);
     const now = ctx.now();
     const id = Number(
       exec(
@@ -1421,6 +1423,7 @@ export function banUser(
     const target = principalMember(ctx, userId);
     requirePermission(ctx, current, "member.ban", { target });
     if (userId === actorUserId(actor)) throw new ForbiddenError();
+    requireNotErased(ctx, userId);
     return insertBan(ctx, actor, userId, reason, expiresAt, notice);
   });
 }
@@ -1803,6 +1806,7 @@ export const operations = [
       if (!current || current.node_id !== thread.node_id)
         throw new ConflictError("Thread changed; retry.");
       requireThreadBanner(ctx, actor, current.node_id, input.userId);
+      requireNotErased(ctx, input.userId);
       const now = ctx.now();
       const row = read<{ id: number }>(
         ctx,

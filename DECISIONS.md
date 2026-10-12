@@ -1312,3 +1312,26 @@ session actor may send it (an API key that does is refused) and a wrong answer s
 before anything is read or changed. Without it nothing is asked, so API clients and scripts keep
 working. This replaces the web app's two calls (`auth.verifyPassword`, then the write), which left
 a gap between the check and the change.
+
+**An erased member takes no further administrative or moderation write.** The rule that already
+covered identity, profile and sessions now covers every write that targets a member:
+`permissions.set` (for a member), `users.setGroups`, `nodes.setModerator`, `warnings.create`,
+`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant` and
+`promotions.apply` answer a conflict with one message (`requireNotErased`: "This member's account
+was erased."), checked inside the write transaction after the permission decision, so a caller who
+may not act is still told it is forbidden. Taking something away stays possible (lifting a ban is
+already refused for another reason; revoking an award, lifting a restriction or a warning's
+expiry do not add anything). Actions between members (following, ignoring, messaging, profile
+posts, naming a referrer) are not covered: they are the members' own, and an erased account is
+permanently banned, which the referrer rule already treats as absent.
+
+**Group names are readable by those who must pick a group.** `groups.list` and `groups.get`
+need any one of `admin.groups`, `admin.permissions`, `admin.promotions` or `admin.members`: the
+screens those open (entries for a group, a promotion's groups, a member's groups) show group
+names, and a holder of one of them could not read any. The writes still need `admin.groups`.
+Every group now carries `memberCount`: members with it as primary group plus those holding it by
+hand without it being their primary (promotion and shop grants are not counted). It is one
+statement for the whole list, two correlated counts per group over covering indexes
+(`users_group`, `user_groups_group`) and a point lookup on `users` for the overlap, so the cost is
+bounded by the number of groups and the size of each group's own index range; this is an
+administration read, never part of a page view.
