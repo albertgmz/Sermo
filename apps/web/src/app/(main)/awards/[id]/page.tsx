@@ -1,7 +1,10 @@
-import { Check, Lock, Users } from "lucide-react";
+import { awardsGet, awardsHolders, awardsMember } from "@sermo/core/contracts";
+import { Check, ChevronDown, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { cache, Suspense } from "react";
 import { TIERS } from "@/app/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
@@ -10,44 +13,174 @@ import { LevelBadge } from "@/components/forum/level";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
+import {
+  LoadingRegion,
+  MemberListSkeleton,
+} from "@/components/forum/skeletons";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
-import { getAward } from "@/lib/db";
+import { buttonVariants } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/format";
-import { titleKeyForLevel } from "@/lib/levels";
-import { can } from "@/lib/permissions";
-import { getCurrentUser } from "@/lib/session";
+import { read } from "@/lib/sermo/client";
+import { membersFor } from "@/lib/sermo/members";
+import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
-type Props = {
-  params: Promise<{ id: string }>;
-};
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { id } = await params;
-  const award = await getAward(Number(id));
-  const t = await getTranslations("awards.award");
-  return {
-    title: award
-      ? t("metaTitle", { name: award.name })
-      : t("metaFallbackTitle"),
-  };
+// A path that is not a plain number is a page that does not exist.
+function awardIdOf(raw: string) {
+  const id = Number(raw);
+  if (!Number.isSafeInteger(id) || id < 1) notFound();
+  return id;
 }
 
-export default async function AwardPage({ params }: Props) {
-  const [{ id }, viewer] = await Promise.all([params, getCurrentUser()]);
-  const award = await getAward(Number(id));
-  if (!award) notFound();
-  const t = await getTranslations("awards.award");
-  const tTiers = await getTranslations("awards.tiers");
-  const tLevels = await getTranslations("lib.levels");
-  const tRoles = await getTranslations("lib.db.roles");
+// Asked once per request for the metadata and the page. An unknown or inactive award is the 404.
+const getAward = cache((awardId: number) => read(awardsGet, { awardId }));
 
+function first(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
+}
+
+export async function generateMetadata({
+  params,
+}: PageProps<"/awards/[id]">): Promise<Metadata> {
+  const { id } = await params;
+  const [t, award] = await Promise.all([
+    getTranslations("awards.award"),
+    getAward(awardIdOf(id)),
+  ]);
+  return { title: t("metaTitle", { name: award.name }) };
+}
+
+// A member holding a stackable award twice is two grants and two rows: the list is as the backend
+// returns it.
+async function Holders({
+  awardId,
+  viewerId,
+  cursor,
+}: {
+  awardId: number;
+  viewerId?: number;
+  cursor?: string;
+}) {
+  const [t, holders] = await Promise.all([
+    getTranslations("awards.award"),
+    read(awardsHolders, { awardId, cursor }),
+  ]);
+  const member = await membersFor(holders.items.map(({ user }) => user));
+  const award = await getAward(awardId);
+  return (
+    <SectionCard
+      title={t("holdersHeading")}
+      description={t("grants", { count: award.grantCount })}
+    >
+      {holders.items.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+        />
+      ) : (
+        <ol className="divide-y divide-border">
+          {holders.items.map((grant) => {
+            const holder = member(grant.user.id);
+            return (
+              <li
+                key={grant.id}
+                className={cn(
+                  "flex min-h-14 items-center gap-3 px-4 py-2",
+                  grant.user.id === viewerId && "bg-primary/5",
+                )}
+              >
+                <UserAvatar user={holder} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <UserLink user={holder} className="truncate text-sm" />
+                    <UserBadges user={holder} limit={1} />
+                    <LevelBadge level={holder} />
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {grant.reason || holder.title}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">
+                    {formatDate(grant.grantedAt)}
+                  </p>
+                  <RelativeTime date={grant.grantedAt} />
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {holders.nextCursor && (
+        <div className="p-3">
+          <Link
+            href={`/awards/${awardId}?cursor=${encodeURIComponent(holders.nextCursor)}`}
+            scroll={false}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-10 w-full",
+            )}
+          >
+            <ChevronDown />
+            {t("loadMore")}
+          </Link>
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+async function Standing({ awardId }: { awardId: number }) {
+  const { user } = await getViewer();
+  if (!user) return null;
+  const [t, held] = await Promise.all([
+    getTranslations("awards.award"),
+    read(awardsMember, { userId: user.id }),
+  ]);
+  const earnedAt = held.items.find(
+    ({ award }) => award.id === awardId,
+  )?.lastGrantedAt;
+  return (
+    <p
+      className={cn(
+        "mt-6 inline-flex items-center gap-1.5 text-sm",
+        earnedAt ? "font-medium text-success" : "text-muted-foreground",
+      )}
+    >
+      {earnedAt ? (
+        <>
+          <Check aria-hidden="true" className="size-4" />
+          {t("earnedDate", { date: formatDate(earnedAt) })}
+        </>
+      ) : (
+        <>
+          <Lock aria-hidden="true" className="size-3.5" />
+          {t("unearnedDescription")}
+        </>
+      )}
+    </p>
+  );
+}
+
+export default async function AwardPage({
+  params,
+  searchParams,
+}: PageProps<"/awards/[id]">) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const awardId = awardIdOf(id);
+  const cursor = first(query.cursor) || undefined;
+  const [t, tTiers, award, { user }] = await Promise.all([
+    getTranslations("awards.award"),
+    getTranslations("awards.tiers"),
+    getAward(awardId),
+    getViewer(),
+  ]);
   const tier = TIERS[award.tier];
-  const earnedAt = viewer?.awards.find((a) => a.id === award.id)?.awardedAt;
 
   return (
     <PageLayout className="pt-2" mainClassName="space-y-4">
@@ -59,12 +192,14 @@ export default async function AwardPage({ params }: Props) {
         ]}
       />
 
-      <section className="relative isolate flex flex-col items-center overflow-hidden rounded-lg border bg-card px-4 pb-8 text-center md:items-start md:px-10 md:py-14 md:text-left">
-        <Art
-          category="awards"
-          src={award.image}
-          className="-mx-4 -mb-10 aspect-video self-stretch [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:absolute md:inset-y-0 md:right-0 md:-z-10 md:m-0 md:[mask-image:linear-gradient(to_left,black_55%,transparent)]"
-        />
+      <section className="relative isolate flex flex-col items-center overflow-hidden rounded-lg border bg-card px-4 py-8 text-center md:items-start md:px-10 md:py-14 md:text-left">
+        {award.image && (
+          <Art
+            category="awards"
+            src={award.image.url}
+            className="absolute inset-0 -z-10 opacity-30 [mask-image:linear-gradient(to_left,black_30%,transparent)]"
+          />
+        )}
         <AwardIcon
           award={award}
           size="lg"
@@ -78,10 +213,10 @@ export default async function AwardPage({ params }: Props) {
         >
           {t("tierLabel", { tier: tTiers(award.tier) })}
         </p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-balance md:text-4xl">
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-balance [overflow-wrap:anywhere] md:text-4xl">
           {award.name}
         </h1>
-        <p className="mt-2 max-w-md text-pretty text-muted-foreground">
+        <p className="mt-2 max-w-md text-pretty text-muted-foreground [overflow-wrap:anywhere]">
           {award.description}
         </p>
         <div className="mt-6 flex items-start justify-center gap-8 md:justify-start">
@@ -90,80 +225,26 @@ export default async function AwardPage({ params }: Props) {
             value={t("xpValue", { xp: formatNumber(award.xp) })}
           />
           <StatInline
-            label={t("holders", { count: award.holders.length })}
-            value={formatNumber(award.holders.length)}
+            label={t("grantsLabel", { count: award.grantCount })}
+            value={formatNumber(award.grantCount)}
           />
         </div>
-        {viewer && (
-          <p
-            className={cn(
-              "mt-6 inline-flex items-center gap-1.5 text-sm",
-              earnedAt ? "font-medium text-success" : "text-muted-foreground",
-            )}
-          >
-            {earnedAt ? (
-              <>
-                <Check aria-hidden="true" className="size-4" />
-                {t("earnedDate", { date: formatDate(earnedAt) })}
-              </>
-            ) : (
-              <>
-                <Lock aria-hidden="true" className="size-3.5" />
-                {t("unearnedDescription")}
-              </>
-            )}
-          </p>
+        {user && (
+          <Suspense fallback={<div className="mt-6 h-5" />}>
+            <Standing awardId={awardId} />
+          </Suspense>
         )}
       </section>
 
-      <SectionCard
-        title={t("holdersHeading")}
-        description={t("members", { count: award.holders.length })}
+      <Suspense
+        fallback={
+          <LoadingRegion label={t("loadingHolders")}>
+            <MemberListSkeleton />
+          </LoadingRegion>
+        }
       >
-        {award.holders.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={t("emptyTitle")}
-            description={t("emptyDescription")}
-          />
-        ) : (
-          <ol className="divide-y divide-border">
-            {award.holders.map(({ user, awardedAt }) => (
-              <li
-                key={user.id}
-                className={cn(
-                  "flex min-h-14 items-center gap-3 px-4 py-2",
-                  user.id === viewer?.id && "bg-primary/5",
-                )}
-              >
-                <UserAvatar user={user.member} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <UserLink user={user.member} className="truncate text-sm" />
-                    <UserBadges
-                      user={user.member}
-                      limit={user.role === "member" ? 0 : 1}
-                    />
-                    <LevelBadge level={user.level} />
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {(can(user, "customTitle") && user.customTitle) ||
-                      (user.role === "member"
-                        ? tLevels(titleKeyForLevel(user.level.level))
-                        : tRoles(user.role))}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground">
-                    {formatDate(awardedAt)}
-                  </p>
-                  <RelativeTime date={awardedAt} />
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </SectionCard>
+        <Holders awardId={awardId} viewerId={user?.id} cursor={cursor} />
+      </Suspense>
     </PageLayout>
   );
 }

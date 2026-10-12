@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import {
   Tooltip,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/tooltip";
 import { liteBlocks } from "@/lib/lite-mode";
 import { AWARD_SLOTS } from "@/lib/permissions";
-import type { Award, AwardTier } from "@/lib/types";
+import type { AwardTier } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -68,12 +69,21 @@ const SIZES = {
 
 export type AwardIconSize = keyof typeof SIZES;
 
+// What an award draws: its picture when it has one, else the glyph of its icon key in the colours
+// of its tier.
+export type AwardArt = {
+  name: string;
+  icon: string;
+  tier: AwardTier;
+  image?: { url: string } | null;
+};
+
 export async function AwardIcon({
   award,
   size = "md",
   className,
 }: {
-  award: Pick<Award, "name" | "icon" | "tier">;
+  award: AwardArt;
   size?: AwardIconSize;
   className?: string;
 }) {
@@ -88,7 +98,7 @@ export async function AwardIcon({
             role="img"
             aria-label={award.name}
             className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-full border",
+              "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border",
               TIERS[award.tier],
               box,
               className,
@@ -96,7 +106,13 @@ export async function AwardIcon({
           />
         }
       >
-        {blocked ? (
+        {award.image ? (
+          <Art
+            category="awards"
+            src={award.image.url}
+            className="absolute inset-0 rounded-full"
+          />
+        ) : blocked ? (
           <LitePlaceholder compact className={cn("rounded-full", glyph)} />
         ) : (
           <Icon aria-hidden="true" className={glyph} />
@@ -114,7 +130,7 @@ export function AwardRow({
   size = "sm",
   className,
 }: {
-  awards: (Pick<Award, "name" | "icon" | "tier"> & Pick<Award, "id">)[];
+  awards: (AwardArt & { id: number })[];
   max?: number;
   maxMobile?: number;
   size?: AwardIconSize;

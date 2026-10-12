@@ -9,15 +9,11 @@
     "awardsProgress": "{earned}<maximum> / {total}</maximum>",
     "earnedLabel": "Awards earned",
     "xpReward": "+{xp} XP",
-    "holders": "{count, plural, =0 {No holders yet} one {# holder} other {# holders}}",
+    "holders": "{count, plural, =0 {Not awarded yet} one {Awarded once} other {Awarded # times}}",
     "earnedDate": "Earned {date}",
     "lockedLabel": "Locked",
-    "levelsHeading": "How levels work",
-    "levelsDescription": "XP comes only from awards: every award you earn adds its XP to your total, and your level follows from that total.",
-    "levelXp": "<current>Your level: </current>{xp} XP",
     "loadingProgress": "Loading award progress…",
     "loadingMembers": "Loading top members…",
-    "loadingLevels": "Loading levels…",
     "loadingCatalogue": "Loading award catalogue…",
     "leadersHeading": "Top members",
     "leadersDescription": "Ranked by XP",
@@ -26,7 +22,8 @@
     "login": "Log in to track your progress",
     "catalogueHeading": "All awards",
     "earnedCount": "{earned} of {total} earned",
-    "awards": "{count, plural, one {# award} other {# awards}}"
+    "awards": "{count, plural, one {# award} other {# awards}}",
+    "empty": "No awards are offered yet."
   },
   "award": {
     "metaTitle": "{name}",
@@ -36,13 +33,15 @@
     "tierLabel": "{tier} award",
     "xpLabel": "XP",
     "xpValue": "+{xp}",
-    "holders": "{count, plural, one {Holder} other {Holders}}",
     "earnedDate": "You earned this on {date}",
     "unearnedDescription": "You have not earned this award yet",
     "holdersHeading": "Holders",
-    "members": "{count, plural, one {# member has this award} other {# members have this award}}",
     "emptyTitle": "No holders yet",
-    "emptyDescription": "Nobody has earned this award so far."
+    "emptyDescription": "Nobody has earned this award so far.",
+    "grants": "{count, plural, =0 {Not awarded yet} one {Awarded once} other {Awarded # times}}",
+    "grantsLabel": "{count, plural, one {Grant} other {Grants}}",
+    "loadMore": "Show more",
+    "loadingHolders": "Loading holders…"
   },
   "tiers": {
     "legendary": "Legendary",

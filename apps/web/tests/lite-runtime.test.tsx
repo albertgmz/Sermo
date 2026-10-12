@@ -490,8 +490,7 @@ test("inline award, shop, logo and backdrop artwork disappears with its category
     },
     {
       category: "shop",
-      draw: async () =>
-        await ShopIcon({ category: "frame", className: "size-12" }),
+      draw: async () => await ShopIcon({ type: "frame", className: "size-12" }),
     },
     {
       category: "brand",
