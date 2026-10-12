@@ -3,59 +3,59 @@ import type * as z from "zod";
 
 export const LITE_COOKIE = "forum_lite";
 
+// The backend serves every picture, so no folder or file of `public` belongs to a category any
+// more. `lite-images.ts` still reads these two lists to classify paths in `public`; they stay empty.
+const NO_PUBLIC_FILES: {
+  folders: readonly string[];
+  files: readonly string[];
+} = { folders: [], files: [] };
+
+// The categories a visitor can switch off. A backend picture belongs to the category of its file
+// purpose (`liteCategoryOfPurpose`); a purpose missing here is a compile error below.
 export const LITE_CATEGORIES = [
   {
     key: "avatars",
-    folders: ["avatars"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["avatar"],
   },
   {
     key: "frames",
-    folders: ["frames"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["frame"],
   },
   {
     key: "profileCovers",
-    folders: ["covers"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["cover", "cover_preset"],
   },
   {
     key: "threadCovers",
-    folders: ["thread-covers"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["thread_cover"],
   },
   {
     key: "forumArt",
-    folders: ["forums"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["node_icon", "node_cover"],
   },
   {
     key: "awards",
-    folders: ["awards"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["award_image"],
   },
   {
     key: "shop",
-    folders: ["shop"],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["shop_image"],
   },
   {
     key: "postImages",
-    folders: [],
-    files: [],
+    ...NO_PUBLIC_FILES,
     purposes: ["attachment"],
   },
   {
     key: "brand",
-    folders: [],
-    files: ["logo.svg", "icon.svg"],
+    ...NO_PUBLIC_FILES,
     purposes: ["site_logo", "site_icon", "site_backdrop"],
   },
 ] as const;

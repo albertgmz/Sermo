@@ -32,12 +32,12 @@ test("the emission scanner recognizes every forbidden syntax, including multilin
     "const picture = new Image()",
     "<svg><image href={url} /></svg>",
     '<svg><use\n href="#picture" /></svg>',
-    'const path = "/avatars/new.jpg"',
+    'const path = "/pictures/new.jpg"',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: Source code is the scanner input.
-    "const path = `/frames/${id}.png`",
-    'const path = "/forums/banner.jpg"',
-    'const path = "/awards/new.svg"',
-    'const path = "/logo.svg"',
+    "const path = `/media/${id}.png`",
+    'const path = "/banner.jpg"',
+    'const path = "/mark.svg"',
+    'const path = "/brand.svg"',
   ];
   for (const example of examples)
     expect(
@@ -47,11 +47,11 @@ test("the emission scanner recognizes every forbidden syntax, including multilin
   expect(emissionHits("example.tsx", "\n\n<img src={url} />")[0].line).toBe(3);
 });
 
-test("registered picture paths in CSS strings require a gate too", () => {
+test("picture file paths in CSS strings require a gate too", () => {
   for (const source of [
-    ':root { --picture: "/avatars/new.jpg" }',
+    ':root { --picture: "/pictures/new.jpg" }',
     ":root { --picture: '/covers/new.jpg' }",
-    ':root { --picture: "https://forum.test/frames/new.png" }',
+    ':root { --picture: "https://forum.test/pictures/new.png" }',
   ])
     expect(emissionHits("example.css", source).length, source).toBeGreaterThan(
       0,

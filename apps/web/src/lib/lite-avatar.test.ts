@@ -5,7 +5,7 @@ import { parseLiteCookie } from "./lite-preferences";
 import type { MemberView } from "./sermo/views";
 
 const frame: NonNullable<MemberView["frame"]> = {
-  url: "/frames/619.png",
+  url: "https://pictures.test/frame.png",
   placement: { width: 170.5, left: -33.2, top: -30.1, scale: 92 },
 };
 

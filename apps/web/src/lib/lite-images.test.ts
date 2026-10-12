@@ -42,27 +42,13 @@ test("image-looking page paths still run their access and id rules", () => {
   }
 });
 
-test("registered assets keep their category even when a folder also has pages", () => {
-  const paths = [
-    ["/avatars/tobi.jpg", "avatars"],
-    ["/frames/619.png", "frames"],
-    ["/covers/forest.jpg", "profileCovers"],
-    ["/thread-covers/vinyl.jpg", "threadCovers"],
-    ["/forums/1.webp", "forumArt"],
-    ["/awards/1.svg", "awards"],
-    ["/shop/color-sky.svg", "shop"],
-    ["/logo.svg", "brand"],
-    ["/icon.svg", "brand"],
-  ];
-  for (const [path, selected] of paths) {
+test("a picture path belongs to no category, so any selection blocks it and page paths stay out", () => {
+  // The backend serves every picture; nothing in `public` is owned by a category.
+  for (const path of ["/pictures/photo.jpg", "/mark.svg", "/media/ring.png"]) {
     assert.equal(isImageRequest(path), true, path);
     assert.equal(blocksImageRequest(parseLiteCookie(), path), false, path);
     for (const { key } of LITE_CATEGORIES) {
-      assert.equal(
-        blocksImageRequest(parseLiteCookie(key), path),
-        key === selected,
-        `${path}: ${key}`,
-      );
+      assert.equal(blocksImageRequest(parseLiteCookie(key), path), true, path);
     }
   }
   for (const path of ["/forums/1", "/awards/1", "/shop", "/app.js"]) {
@@ -74,7 +60,7 @@ test("registered assets keep their category even when a folder also has pages", 
 test("unknown image locations fail closed with any selected category", () => {
   for (const path of [
     "/elsewhere/a.png",
-    "/avatars-other/picture.jpg",
+    "/pictures-other/picture.jpg",
     "/unknown.svg",
     "/broken%/image.png",
   ]) {
@@ -87,18 +73,19 @@ test("unknown image locations fail closed with any selected category", () => {
   }
 });
 
-test("NTFS streams and short-name asset aliases are rejected even with LITE off", () => {
+test("NTFS streams and short-name aliases of a picture are blocked whenever LITE blocks anything", () => {
   for (const path of [
     "/THREAD~1/vinyl.jpg",
     "/THREAD%7E1/vinyl.jpg",
-    "/avatars/TOBI~1.JPG",
-    "/avatars/tobi.jpg::$DATA",
-    "/avatars/tobi.jpg%3A%3A%24DATA",
-    "/avatars%5Ctobi.jpg%3A%3A%24DATA",
-    "/avatars/tobi.jpg:preview.jpg",
+    "/pictures/TOBI~1.JPG",
+    "/pictures/tobi.jpg::$DATA",
+    "/pictures/tobi.jpg%3A%3A%24DATA",
+    "/pictures%5Ctobi.jpg%3A%3A%24DATA",
+    "/pictures/tobi.jpg:preview.jpg",
   ]) {
     assert.equal(isImageRequest(path), true, path);
-    for (const cookie of [undefined, "all", "avatars", "threadCovers"]) {
+    assert.equal(blocksImageRequest(parseLiteCookie(), path), false, path);
+    for (const cookie of ["all", "avatars", "threadCovers"]) {
       assert.equal(
         blocksImageRequest(parseLiteCookie(cookie), path),
         true,
@@ -108,30 +95,26 @@ test("NTFS streams and short-name asset aliases are rejected even with LITE off"
   }
 });
 
-test("encoded separators and dot segments retain local asset categories", () => {
+test("encoded separators and dot segments normalize to one picture path", () => {
   const paths = [
-    "/frames%2F619.png",
-    "/frames%5C619.png",
-    "/FRAMES/619.PNG",
-    "/frames/./619.png",
-    "/frames/other/../619.png",
-    "/elsewhere%2F..%2Fframes%2F619.png",
-    "/elsewhere/%2E%2E/frames/619.png",
-    "/%2Fframes//619.png/",
+    "/pictures%2Fring.png",
+    "/pictures%5Cring.png",
+    "/PICTURES/RING.PNG",
+    "/pictures/./ring.png",
+    "/pictures/other/../ring.png",
+    "/elsewhere%2F..%2Fpictures%2Fring.png",
+    "/elsewhere/%2E%2E/pictures/ring.png",
+    "/%2Fpictures//ring.png/",
   ];
   for (const path of paths) {
-    assert.equal(normalizeImagePath(path), "/frames/619.png", path);
+    assert.equal(normalizeImagePath(path), "/pictures/ring.png", path);
     assert.equal(isImageRequest(path), true, path);
     assert.equal(
       blocksImageRequest(parseLiteCookie("frames"), path),
       true,
       path,
     );
-    assert.equal(
-      blocksImageRequest(parseLiteCookie("avatars"), path),
-      false,
-      path,
-    );
+    assert.equal(blocksImageRequest(parseLiteCookie(), path), false, path);
   }
 });
 
@@ -146,16 +129,16 @@ test("the image optimizer fails closed for every selected category", () => {
 
 test("trailing dots and spaces are dropped from every segment", () => {
   const paths = [
-    "/avatars/tobi.jpg.",
-    "/avatars/tobi.jpg..",
-    "/avatars/tobi.jpg%20",
-    "/avatars/tobi.jpg. .",
-    "/avatars./tobi.jpg",
-    "/avatars%20/tobi.jpg",
-    "/avatars/x/.. /tobi.jpg",
+    "/pictures/tobi.jpg.",
+    "/pictures/tobi.jpg..",
+    "/pictures/tobi.jpg%20",
+    "/pictures/tobi.jpg. .",
+    "/pictures./tobi.jpg",
+    "/pictures%20/tobi.jpg",
+    "/pictures/x/.. /tobi.jpg",
   ];
   for (const path of paths) {
-    assert.equal(normalizeImagePath(path), "/avatars/tobi.jpg", path);
+    assert.equal(normalizeImagePath(path), "/pictures/tobi.jpg", path);
     assert.equal(isImageRequest(path), true, path);
     assert.equal(blocksImageRequest(parseLiteCookie("all"), path), true, path);
     assert.equal(
@@ -163,17 +146,12 @@ test("trailing dots and spaces are dropped from every segment", () => {
       true,
       path,
     );
-    assert.equal(
-      blocksImageRequest(parseLiteCookie("shop"), path),
-      false,
-      path,
-    );
     assert.equal(blocksImageRequest(parseLiteCookie(), path), false, path);
   }
   assert.equal(normalizeImagePath("/a/.../b"), "/a/b");
 });
 
-test("unsafe paths outside every picture folder are unknown, not pictures", () => {
+test("unsafe paths that are not pictures are unknown", () => {
   for (const path of ["/foo:bar", "/foo~1/bar", "/foo/bar~2", "/a:b/c.html"]) {
     assert.equal(isUnknownUnsafePath(path), true, path);
     assert.equal(isImageRequest(path), false, path);
@@ -185,40 +163,31 @@ test("unsafe paths outside every picture folder are unknown, not pictures", () =
       );
     }
   }
-  // Inside a registered folder (also through an alias) they stay pictures,
-  // and page namespaces keep their own rules.
+  // With a picture suffix (also through an alias) they stay pictures, and page namespaces keep
+  // their own rules.
   for (const path of [
-    "/avatars/tobi.jpg::$DATA",
+    "/pictures/tobi.jpg::$DATA",
     "/THREAD~1/vinyl.jpg",
-    "/logo.svg::$DATA",
+    "/mark.svg::$DATA",
     "/members/1:x",
     "/elsewhere/1/new/x:y",
   ]) {
     assert.equal(isUnknownUnsafePath(path), false, path);
   }
-  assert.equal(isUnknownUnsafePath("/avatars/tobi.jpg"), false);
+  assert.equal(isUnknownUnsafePath("/pictures/tobi.jpg"), false);
 });
 
-test("picture-looking paths in shared page folders are identified for a file check", () => {
-  assert.deepEqual(pictureInPageFolder("/forums/abc.png"), [
-    "forums",
-    "abc.png",
-  ]);
-  assert.deepEqual(pictureInPageFolder("/AWARDS/1.SVG"), ["awards", "1.svg"]);
-  assert.deepEqual(pictureInPageFolder("/forums/1.webp."), [
-    "forums",
-    "1.webp",
-  ]);
-  assert.deepEqual(pictureInPageFolder("/forums/1.webp::$DATA"), [
-    "forums",
-    "1.webp",
-  ]);
+test("no page namespace is a picture folder, so a picture-looking path in one is no public file", () => {
   for (const path of [
+    "/forums/abc.png",
+    "/AWARDS/1.SVG",
+    "/forums/1.webp.",
+    "/forums/1.webp::$DATA",
     "/forums/1",
     "/forums/1/missing.svg",
-    "/avatars/tobi.jpg",
+    "/pictures/tobi.jpg",
     "/members/1.jpg",
-    "/logo.svg",
+    "/mark.svg",
   ]) {
     assert.equal(pictureInPageFolder(path), null, path);
   }

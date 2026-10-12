@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { existsSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import messages from "../messages/en/lite.json";
 import { LITE_CATEGORIES } from "../src/lib/lite-preferences";
@@ -7,7 +7,6 @@ import {
   artCategoryErrors,
   emissionHits,
   IMAGE_EXTENSIONS,
-  owners,
   publicImages,
   ROOT,
   read,
@@ -34,11 +33,6 @@ const EMISSION_GATES: Record<string, string> = {
 
 // These modules may name paths; they may NOT acquire an image-emitting construct.
 const PATH_ONLY: Record<string, string> = {
-  "src/lib/appearance.ts":
-    "Builds profile/thread cover paths consumed by Art with a category.",
-  "src/lib/frames.ts":
-    "Builds frame paths consumed by UserAvatar after its frames check.",
-  "src/lib/lite-preferences.ts": "Owns the category-to-public-path registry.",
   "src/lib/lite-images.ts": "Classifies and normalizes requests for the proxy.",
   "src/lib/lite-preferences.test.ts":
     "Existing pure helper fixtures name image paths but never render them.",
@@ -71,6 +65,13 @@ const INLINE_ART: Record<string, { category: string; reason: string }> = {
   },
 };
 
+// Sample pictures of the styleguide are data, generated as SVG text: they are handed to the gates
+// (`Art`, `UserAvatar`, `CoverBackdrop`), which check the category before drawing anything.
+const SAMPLE_PICTURES: Record<string, string> = {
+  "src/app/(main)/ui/samples.ts":
+    "Generates the data URLs of the styleguide's sample pictures; draws nothing.",
+};
+
 const INTERFACE_ICONS: Record<string, string> = {
   "src/components/forum/forum-icon.tsx": "Owner-exempt forum navigation icons.",
   "src/components/forum/permission-icon.tsx":
@@ -90,7 +91,7 @@ test("only reviewed LITE gates emit pictures", () => {
       .filter(
         ({ kind }) =>
           !EMISSION_GATES[path] &&
-          !(PATH_ONLY[path] && kind === "registered picture path") &&
+          !(PATH_ONLY[path] && kind === "picture file path") &&
           !(FILTER_ONLY[path] && kind === "image attribute"),
       )
       .map(
@@ -110,6 +111,7 @@ test("inline SVG artwork is classified and consults its LITE category", () => {
         source,
       ) &&
       !INLINE_ART[path] &&
+      !SAMPLE_PICTURES[path] &&
       !INTERFACE_ICONS[path]
     )
       errors.push(
@@ -156,20 +158,15 @@ test("backend pictures consult the category of their file purpose on the server"
   expect(errors, errors.join("\n")).toEqual([]);
 });
 
-test("public pictures all belong to exactly one registered LITE category", () => {
-  const pictures = publicImages();
-  expect(pictures.length).toBeGreaterThan(0);
-  const errors = pictures.flatMap((path) =>
-    owners(path).length === 1
-      ? []
-      : [
-          `${path}: register this picture's folder or root file in LITE_CATEGORIES with exactly one category.`,
-        ],
+test("public holds no picture: the backend serves them, each under the category of its file purpose", () => {
+  const errors = publicImages().map(
+    (path) =>
+      `${path}: store this picture in the backend instead; a file of public belongs to no LITE category.`,
   );
   expect(errors, errors.join("\n")).toEqual([]);
 });
 
-test("registry labels, descriptions, folders and root files remain valid", () => {
+test("registry labels and descriptions remain valid, and no category owns a file of public", () => {
   expect(new Set(LITE_CATEGORIES.map(({ key }) => key)).size).toBe(
     LITE_CATEGORIES.length,
   );
@@ -183,24 +180,19 @@ test("registry labels, descriptions, folders and root files remain valid", () =>
       text?.description.trim().length ?? 0,
       `${category.key}: add a description to messages/en/lite.json`,
     ).toBeGreaterThan(0);
-    for (const folder of category.folders) {
-      const path = join(ROOT, "public", folder);
-      expect(
-        existsSync(path),
-        `${path}: registered picture folder must exist`,
-      ).toBe(true);
-      expect(statSync(path).isDirectory()).toBe(true);
-    }
-    for (const file of category.files)
-      expect(
-        existsSync(join(ROOT, "public", file)),
-        `public/${file}: registered picture must exist`,
-      ).toBe(true);
+    expect(
+      category.folders,
+      `${category.key}: owns no folder of public`,
+    ).toEqual([]);
+    expect(category.files, `${category.key}: owns no file of public`).toEqual(
+      [],
+    );
   }
   for (const path of [
     ...Object.keys(EMISSION_GATES),
     ...Object.keys(PATH_ONLY),
     ...Object.keys(INLINE_ART),
+    ...Object.keys(SAMPLE_PICTURES),
     ...Object.keys(INTERFACE_ICONS),
   ])
     expect(

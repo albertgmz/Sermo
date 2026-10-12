@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import ts from "typescript";
 import { LITE_CATEGORIES } from "../src/lib/lite-preferences";
@@ -9,7 +9,9 @@ export function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
 }
 
+// A folder that does not exist holds nothing: `public` is not tracked once it has no files.
 export function walk(directory: string): string[] {
+  if (!existsSync(join(ROOT, directory))) return [];
   return readdirSync(join(ROOT, directory), { withFileTypes: true })
     .flatMap((entry) => {
       const path = `${directory}/${entry.name}`;
@@ -31,15 +33,6 @@ export const IMAGE_EXTENSIONS = extensionSource[1].split("|");
 export function publicImages(): string[] {
   return walk("public").filter((path) =>
     IMAGE_EXTENSIONS.includes(extname(path).slice(1).toLowerCase()),
-  );
-}
-
-export function owners(publicPath: string) {
-  const path = publicPath.replace(/^public\//, "").toLowerCase();
-  return LITE_CATEGORIES.filter(
-    ({ folders, files }) =>
-      folders.some((folder) => path.startsWith(`${folder}/`)) ||
-      files.some((file) => path === file),
   );
 }
 
@@ -69,6 +62,14 @@ const EMISSIONS: [string, RegExp][] = [
   ["SVG image", /<image\b|<use\b[^>]*\b(?:href|xlinkHref|xlink:href)\s*=/g],
 ];
 
+// A path to a picture file on this site. Nothing in `public` is a picture any more (the backend
+// serves them, addressed by id), so a source that names one is adding a file that no category
+// owns and no gate checks.
+const PICTURE_FILE = new RegExp(
+  `^/[^\\s"']*\\.(?:${IMAGE_EXTENSIONS.join("|")})(?:[?#].*)?$`,
+  "i",
+);
+
 export function parseSource(path: string, source: string) {
   return ts.createSourceFile(
     path,
@@ -96,22 +97,8 @@ export function emissionHits(path: string, source: string): Hit[] {
   }
   function picturePath(value: string, offset: number) {
     const pathname = value.replace(/^https?:\/\/[^/]+/, "");
-    const registered = LITE_CATEGORIES.some(
-      ({ folders, files }) =>
-        folders.some((folder) => pathname.startsWith(`/${folder}/`)) ||
-        files.some((file) => pathname.split(/[?#]/)[0] === `/${file}`),
-    );
-    // These folders also name routes. Only numeric/dynamic id routes qualify;
-    // an image extension or an arbitrary slug is never a navigation exception.
-    const route =
-      /^\/(?:forums|awards)\/(?:[1-9]\d*|\$\{[^}]+\}|\[id\])(?:\/new)?(?:\?[^\s]*)?$/.test(
-        pathname,
-      );
-    if (registered && !route)
-      hits.push({
-        kind: "registered picture path",
-        line: lineAt(source, offset),
-      });
+    if (PICTURE_FILE.test(pathname))
+      hits.push({ kind: "picture file path", line: lineAt(source, offset) });
   }
   if (path.endsWith(".css")) {
     for (const match of source.matchAll(/["']([^"'\r\n]*)["']/g))

@@ -114,43 +114,36 @@ test("every category combination blocks exactly its selected categories", () => 
 
 test("Windows file aliases normalize before image classification", () => {
   const paths = [
-    ["/avatars%5Ctobi.jpg", "/avatars/tobi.jpg", "avatars"],
-    ["/avatars/tobi.jpg%2F", "/avatars/tobi.jpg", "avatars"],
-    ["/%2favatars/tobi.jpg", "/avatars/tobi.jpg", "avatars"],
-    ["/x%2F..%2Flogo.svg", "/logo.svg", "brand"],
-    ["/LOGO.svg", "/logo.svg", "brand"],
-    ["/icon.SVG", "/icon.svg", "brand"],
+    ["/pictures%5Ctobi.jpg", "/pictures/tobi.jpg"],
+    ["/pictures/tobi.jpg%2F", "/pictures/tobi.jpg"],
+    ["/%2fpictures/tobi.jpg", "/pictures/tobi.jpg"],
+    ["/x%2F..%2Fmark.svg", "/mark.svg"],
+    ["/MARK.svg", "/mark.svg"],
+    ["/mark.SVG", "/mark.svg"],
   ];
-  for (const [path, normalized, category] of paths) {
+  for (const [path, normalized] of paths) {
     assert.equal(normalizeImagePath(path), normalized);
     assert.equal(blocksImageRequest(parseLiteCookie("all"), path), true);
-    assert.equal(blocksImageRequest(parseLiteCookie(category), path), true);
-    assert.equal(blocksImageRequest(parseLiteCookie("shop"), path), false);
+    assert.equal(blocksImageRequest(parseLiteCookie("brand"), path), true);
+    assert.equal(blocksImageRequest(parseLiteCookie("shop"), path), true);
     assert.equal(blocksImageRequest(parseLiteCookie(), path), false);
   }
 });
 
-test("registry folders, root files, extensions, and unregistered images", () => {
+test("no category owns a folder or file of public; every picture suffix is blocked", () => {
   const extensions =
     "avif apng bmp gif heic heif ico jfif jpeg jpg png svg tif tiff webp".split(
       " ",
     );
   for (const category of LITE_CATEGORIES) {
+    assert.deepEqual(category.folders, [], category.key);
+    assert.deepEqual(category.files, [], category.key);
     const state = parseLiteCookie(category.key);
-    for (const folder of category.folders) {
-      for (const ext of extensions) {
-        assert.equal(
-          blocksImageRequest(state, `/${folder}/picture.${ext.toUpperCase()}`),
-          true,
-        );
-      }
+    for (const ext of extensions) {
       assert.equal(
-        blocksImageRequest(state, `/${folder}-other/picture.png`),
+        blocksImageRequest(state, `/pictures/picture.${ext.toUpperCase()}`),
         true,
       );
-    }
-    for (const file of category.files) {
-      assert.equal(blocksImageRequest(state, `/${file.toUpperCase()}`), true);
     }
   }
   assert.equal(
