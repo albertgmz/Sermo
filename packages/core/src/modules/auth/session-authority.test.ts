@@ -221,3 +221,97 @@ test("rejecting a revoked session clears its cookies so the client can sign in a
       .status,
   ).toBe(200);
 });
+
+for (const prefix of ["", "__Secure-"])
+  test(`every Better Auth endpoint checks the session expiry with ${prefix || "plain"} cookies`, async () => {
+    const { ctx, auth, request, userId, token, data } = await setup(prefix);
+    ctx.sqlite
+      .prepare("UPDATE auth_session SET expires_at = ?1 WHERE user_id = ?2")
+      .run(Date.now() - 1, userId);
+    const cookie = `${token}; ${data.replace("=", " =")}`;
+    const endpoints = Object.values(auth.api).filter(
+      (endpoint) => endpoint.path && endpoint.path !== "/get-session",
+    );
+    expect(endpoints.length).toBeGreaterThan(30);
+    for (const endpoint of endpoints) {
+      const methods = Array.isArray(endpoint.options.method)
+        ? endpoint.options.method
+        : [endpoint.options.method];
+      for (const method of methods) {
+        const response = await request(
+          endpoint.path!.replace(":id", "unknown").replace(":token", "unknown"),
+          method,
+          {},
+          cookie,
+        );
+        expect({ path: endpoint.path, method, status: response.status }).toEqual({
+          path: endpoint.path,
+          method,
+          status: 401,
+        });
+        expect(await response.json()).toMatchObject({ code: "UNAUTHORIZED" });
+      }
+    }
+    expect(ctx.sqlite.query("SELECT id FROM auth_apikey").all()).toEqual([]);
+  });
+
+test("a cache cookie without a session token cookie authorizes nothing", async () => {
+  const { ctx, request, userId, token, data } = await setup();
+  const live = await request("/update-user", "POST", { name: "Live" }, `${token}; ${data}`);
+  expect(live.status).toBe(200);
+  await revokeUserCredentials(ctx, userId);
+  const forged = token.replace(/=.*/, "=forged.signature");
+  for (const cookie of [
+    data,
+    data.replace("=", " ="),
+    `${data}; ${token.replace("=", "x=")}`,
+    `${forged}; ${data}`,
+    `${token.slice(0, token.indexOf("="))}=; ${data}`,
+  ])
+    for (const [path, body] of [
+      ["/update-user", { name: "Revoked" }],
+      ["/api-key/create", { name: "revoked" }],
+      ["/delete-user", {}],
+      ["/revoke-sessions", {}],
+    ] as const) {
+      const response = await request(path, "POST", body, cookie);
+      expect({ cookie, path, status: response.status }).toEqual({ cookie, path, status: 401 });
+    }
+  expect(
+    ctx.sqlite
+      .prepare<{ name: string }, [number]>("SELECT name FROM auth_user WHERE id = ?1")
+      .get(userId)?.name,
+  ).toBe("Live");
+  expect(ctx.sqlite.query("SELECT id FROM auth_apikey").all()).toEqual([]);
+});
+
+test("rejecting an expired session clears its cookies so the client can sign in again", async () => {
+  const { ctx, request, userId, cookie } = await setup();
+  ctx.sqlite
+    .prepare("UPDATE auth_session SET expires_at = ?1 WHERE user_id = ?2")
+    .run(Date.now() - 1, userId);
+  const rejected = await request(
+    "/sign-in/username",
+    "POST",
+    { username: "Cached", password: "Password123!" },
+    cookie,
+  );
+  expect(rejected.status).toBe(401);
+  const cleared = rejected.headers.getSetCookie();
+  for (const name of ["sermo.session_token", "sermo.session_data"])
+    expect(cleared.some((value) => value.startsWith(`${name}=;`) && /Max-Age=0/i.test(value))).toBe(
+      true,
+    );
+  expect(
+    (await request("/sign-in/username", "POST", { username: "Cached", password: "Password123!" }))
+      .status,
+  ).toBe(200);
+});
+
+test("a tampered session token is rejected and cleared rather than ignored", async () => {
+  const { request, token, data } = await setup();
+  const tampered = token.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
+  const response = await request("/update-user", "POST", { name: "Nope" }, `${tampered}; ${data}`);
+  expect(response.status).toBe(401);
+  expect(response.headers.getSetCookie().some((v) => /session_token=;/.test(v))).toBe(true);
+});
