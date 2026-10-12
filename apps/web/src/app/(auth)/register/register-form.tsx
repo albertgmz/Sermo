@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { register } from "@/app/(auth)/actions";
-import { GoogleIcon } from "@/app/(auth)/google-icon";
 import { PasswordField } from "@/app/(auth)/password-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -113,15 +112,6 @@ export function RegisterForm() {
           })}
         </Label>
       </div>
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        {t("separator")}
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      <Button type="button" variant="outline" className="h-10 w-full md:h-8">
-        <GoogleIcon />
-        {t("provider")}
-      </Button>
     </form>
   );
 }

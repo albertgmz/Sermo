@@ -75,7 +75,6 @@ const INTERFACE_ICONS: Record<string, string> = {
     "Owner-exempt browser and operating-system interface icons.",
   "src/components/forum/social-icon.tsx":
     "Owner-exempt social link interface icons.",
-  "src/app/(auth)/google-icon.tsx": "Owner-exempt sign-in interface icon.",
   "src/proxy.ts":
     "Text-only LITE status SVG; runtime tests forbid artwork in this placeholder.",
 };

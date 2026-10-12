@@ -39,8 +39,6 @@ export default function Loading() {
                 <Skeleton className="h-4 w-48" />
                 <Skeleton className="h-10 w-full md:h-8" />
                 <Skeleton className="h-10 w-full md:h-5" />
-                <Skeleton className="mx-auto h-4 w-32" />
-                <Skeleton className="h-10 w-full md:h-8" />
               </div>
             </LoadingRegion>
           </div>

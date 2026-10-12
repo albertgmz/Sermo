@@ -17,8 +17,6 @@ export default function Loading() {
           </h1>
           <LoadingRegion label={t("loginLabel")}>
             <div className="space-y-4">
-              <Skeleton className="h-10 w-full md:h-8" />
-              <Skeleton className="mx-auto h-4 w-8" />
               <FormRowSkeleton />
               <div className="space-y-2">
                 <FormRowSkeleton />
@@ -27,7 +25,6 @@ export default function Loading() {
               <Skeleton className="h-10 w-32 md:h-5" />
               <Skeleton className="h-10 w-full md:h-8" />
             </div>
-            <Skeleton className="mt-4 h-8 w-full" />
             <Skeleton className="mx-auto mt-4 h-10 w-56" />
           </LoadingRegion>
         </div>

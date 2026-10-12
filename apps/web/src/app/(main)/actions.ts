@@ -11,7 +11,8 @@ import {
   serializeLiteCookie,
   updateLiteState,
 } from "@/lib/lite-preferences";
-import { getCurrentUser, signOut } from "@/lib/session";
+import { signOut } from "@/lib/sermo/auth";
+import { getCurrentUser } from "@/lib/session";
 
 export async function setLiteMode(formData: FormData) {
   const store = await cookies();

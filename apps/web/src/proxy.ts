@@ -6,6 +6,7 @@ import {
   getConversation,
   getForum,
   getThread,
+  getUser,
   getUserById,
 } from "@/lib/db";
 import {
@@ -19,7 +20,7 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
-import { COOKIE } from "@/lib/session";
+import { viewerOf } from "@/lib/sermo/viewer";
 
 type Finder = (id: string, viewerId: number) => Promise<unknown>;
 
@@ -37,6 +38,8 @@ const CONTENT: Record<string, Finder> = {
   threads: numeric(getThread),
   conversations: numeric(getConversation),
 };
+
+const SESSION_COOKIES = ["sermo.session_token", "__Secure-sermo.session_token"];
 
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
@@ -85,6 +88,8 @@ function publicFileExists([folder, name]: [string, string]) {
 }
 
 async function handleRequest(request: NextRequest) {
+  // The API is served by the rewrite in next.config.ts; nothing here applies to it.
+  if (request.nextUrl.pathname.startsWith("/api/")) return;
   // Folders that are also page namespaces hold pictures only under the names
   // of real files; anything else there is an unknown page.
   const shared = pictureInPageFolder(request.nextUrl.pathname);
@@ -116,27 +121,34 @@ async function handleRequest(request: NextRequest) {
     return;
   }
   const [, section, id, action] = pathname.split("/");
-  const viewer = request.cookies.get(COOKIE)?.value;
+  const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
   if (section === "admin") {
-    const user = viewer ? await getUserById(Number(viewer)) : null;
-    if (user?.role !== "admin") {
-      return NextResponse.rewrite(new URL("/not-found", request.url), {
-        status: 404,
-      });
-    }
+    const viewer = hasSession ? await viewerOf(request.headers) : null;
+    if (!viewer?.permissions.isAdmin) return notFound(request);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
-  if (membersOnly && !viewer) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (membersOnly && !hasSession) {
+    const login = new URL("/login", request.url);
+    login.searchParams.set(
+      "next",
+      request.nextUrl.pathname + request.nextUrl.search,
+    );
+    return NextResponse.redirect(login);
   }
   const find =
     id && !(section === "conversations" && id === "new")
       ? CONTENT[section]
       : undefined;
-  if (find && !(await find(id, Number(viewer)))) {
-    return NextResponse.rewrite(new URL("/not-found", request.url), {
-      status: 404,
-    });
+  if (find) {
+    let viewerId = Number.NaN;
+    if (section === "conversations") {
+      // The conversations still live in the JSON data, under the JSON twin of the account.
+      const account = (await viewerOf(request.headers))?.user;
+      const twin = account ? await getUser(account.username) : null;
+      if (!twin) return notFound(request);
+      viewerId = twin.id;
+    }
+    if (!(await find(id, viewerId))) return notFound(request);
   }
 }
 

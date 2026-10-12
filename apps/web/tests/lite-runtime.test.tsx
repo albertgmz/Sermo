@@ -41,7 +41,25 @@ mock.module("next-intl", () => ({ useTranslations: translator }));
 mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
+// The signed-in account comes from the backend; the viewer value is the session token.
+mock.module("@/lib/sermo/viewer", () => ({
+  viewerOf: async (headers: Headers) => {
+    const token = /sermo\.session_token=(\d+)/.exec(
+      headers.get("cookie") ?? "",
+    )?.[1];
+    return token
+      ? {
+          user: { username: `member${token}` },
+          permissions: { isAdmin: token === "102" },
+        }
+      : null;
+  },
+}));
 mock.module("@/lib/db", () => ({
+  getUser: async (username: string) => {
+    const id = Number(username.replace("member", ""));
+    return id === 101 || id === 102 ? { id } : null;
+  },
   getUserById: async (id: number) =>
     id === 101
       ? { id, role: "member" }
@@ -63,7 +81,6 @@ mock.module("@/lib/db", () => ({
 
 // Dynamic imports ensure mocks are installed before the server modules load.
 const { proxy, config } = await import("../src/proxy");
-const { COOKIE } = await import("../src/lib/session");
 const { Art } = await import("../src/components/forum/art");
 const { UserAvatar } = await import("../src/components/forum/user-avatar");
 const { AwardIcon } = await import("../src/components/forum/award-icon");
@@ -89,7 +106,7 @@ afterEach(() => {
 function request(path: string, lite?: string, viewer?: string, method = "GET") {
   const value = new NextRequest(`https://forum.test${path}`, { method });
   if (lite !== undefined) value.cookies.set(LITE_COOKIE, lite);
-  if (viewer !== undefined) value.cookies.set(COOKIE, viewer);
+  if (viewer !== undefined) value.cookies.set("sermo.session_token", viewer);
   return value;
 }
 
@@ -264,7 +281,9 @@ test("LITE retains guest redirects, admin protection and unknown-id 404s", async
   for (const mode of [undefined, "all", "avatars"]) {
     const guest = await proxy(request("/account", mode));
     expect(guest?.status).toBe(307);
-    expect(guest?.headers.get("location")).toBe("https://forum.test/login");
+    expect(guest?.headers.get("location")).toBe(
+      "https://forum.test/login?next=%2Faccount",
+    );
     for (const viewer of [undefined, "101"]) {
       const denied = await proxy(request("/admin", mode, viewer));
       expect(denied?.status).toBe(404);

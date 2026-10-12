@@ -1,0 +1,126 @@
+import type * as z from "zod";
+import { apiUrl, publicUrl } from "./config";
+import { SermoError } from "./errors";
+import { buildRequest } from "./request";
+
+export type Forward = {
+  cookie?: string;
+  userAgent?: string;
+  clientIp?: string;
+};
+
+type Described<I extends z.ZodType, O extends z.ZodType> = {
+  readonly name: string;
+  readonly input: I;
+  readonly output: O;
+};
+
+// The client IP is the last entry of the forwarded chain: the one our own proxy appended.
+export function lastForwardedFor(value: string | null): string | undefined {
+  return value?.split(",").at(-1)?.trim() || undefined;
+}
+
+export function forwardFromHeaders(headers: Headers): Forward {
+  return {
+    cookie: headers.get("cookie") ?? undefined,
+    userAgent: headers.get("user-agent") ?? undefined,
+    clientIp: lastForwardedFor(headers.get("x-forwarded-for")),
+  };
+}
+
+const SERMO_COOKIE = /^(__Secure-)?sermo\./;
+
+export function sermoCookies(cookie: string | undefined): string {
+  return (cookie ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => SERMO_COOKIE.test(part))
+    .join("; ");
+}
+
+// Headers that identify the visitor to the backend; shared by the operation and sign-in calls.
+export function forwardHeaders(forward: Forward, hasBody: boolean): Headers {
+  const headers = new Headers({ origin: new URL(publicUrl()).origin });
+  const cookie = sermoCookies(forward.cookie);
+  if (cookie) headers.set("cookie", cookie);
+  if (hasBody) headers.set("content-type", "application/json");
+  if (forward.userAgent) headers.set("user-agent", forward.userAgent);
+  if (forward.clientIp) headers.set("x-forwarded-for", forward.clientIp);
+  return headers;
+}
+
+export async function send(
+  method: string,
+  pathAndQuery: string,
+  forward: Forward,
+  body?: string,
+): Promise<Response> {
+  try {
+    return await fetch(`${apiUrl()}${pathAndQuery}`, {
+      method,
+      headers: forwardHeaders(forward, body !== undefined),
+      body,
+      cache: "no-store",
+      redirect: "manual",
+    });
+  } catch (error) {
+    throw new SermoError(
+      "internal",
+      500,
+      `The API could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+async function readJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new SermoError(
+      "internal",
+      response.status,
+      "The API answered with something that is not JSON.",
+    );
+  }
+}
+
+export async function callWith<I extends z.ZodType, O extends z.ZodType>(
+  forward: Forward,
+  contract: Described<I, O>,
+  input: z.input<I>,
+): Promise<z.output<O>> {
+  const built = buildRequest(contract.name, input);
+  const response = await send(
+    built.method,
+    `/api/v1${built.path}${built.query}`,
+    forward,
+    built.body,
+  );
+  const payload = await readJson(response);
+  if (!response.ok) {
+    const error = (payload as { error?: Record<string, unknown> } | null)
+      ?.error;
+    throw new SermoError(
+      typeof error?.code === "string" ? error.code : "internal",
+      response.status,
+      typeof error?.message === "string"
+        ? error.message
+        : `The API answered ${response.status}.`,
+      Array.isArray(error?.issues) ? error.issues : undefined,
+    );
+  }
+  const parsed = contract.output.safeParse(payload);
+  if (!parsed.success) {
+    console.error(
+      `Output of ${contract.name} broke its contract`,
+      parsed.error.issues,
+    );
+    throw new SermoError(
+      "internal",
+      500,
+      `The answer of ${contract.name} does not match its contract.`,
+    );
+  }
+  return parsed.data;
+}
