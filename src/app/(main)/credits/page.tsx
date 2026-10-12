@@ -514,7 +514,7 @@ function PermissionState({
       >
         {quantity !== undefined && quantity > 0 && (
           <Link
-            href="/account#username"
+            href="/account/details"
             aria-label={`Use ${item.name}`}
             className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
           >

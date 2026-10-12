@@ -53,7 +53,7 @@ export function SignatureForm({
     saveSignature,
     null,
   );
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(signature);
   const text = value.replace(/\r\n?/g, "\n").trim();
   const lines = text ? text.split("\n").length : 0;
   const over =
@@ -74,7 +74,7 @@ export function SignatureForm({
         className={fieldsetClass}
       >
         <legend className="sr-only">Signature</legend>
-        {signature && (
+        {signature && locked && (
           <div className="rounded-md border bg-background/60 p-3">
             <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
               Current signature
@@ -86,6 +86,9 @@ export function SignatureForm({
           <div inert={pending}>
             <Editor
               name="signature"
+              defaultValue={signature}
+              aria-invalid={over || undefined}
+              aria-describedby={over ? "signature-count" : undefined}
               placeholder={
                 signature
                   ? "Write a replacement signature."

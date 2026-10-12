@@ -38,6 +38,10 @@ export async function proxy(request: NextRequest) {
       });
     }
   }
+  const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
+  if (membersOnly && !viewer) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
   const find =
     id && !(section === "conversations" && id === "new")
       ? CONTENT[section]
@@ -46,10 +50,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(new URL("/not-found", request.url), {
       status: 404,
     });
-  }
-  const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
-  if (membersOnly && !viewer) {
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 }
 

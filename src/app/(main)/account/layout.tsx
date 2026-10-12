@@ -6,7 +6,7 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameClass } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -66,13 +66,12 @@ export default async function AccountLayout({
             {user.title}
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="min-h-10"
-          render={<Link href={`/members/${user.id}`} />}
+        <Link
+          href={`/members/${user.id}`}
+          className={cn(buttonVariants({ variant: "outline" }), "min-h-10")}
         >
           View profile
-        </Button>
+        </Link>
       </header>
       {children}
     </PageLayout>

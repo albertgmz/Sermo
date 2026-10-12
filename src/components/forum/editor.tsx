@@ -15,7 +15,11 @@ import {
   ListNode,
   REMOVE_LIST_COMMAND,
 } from "@lexical/list";
-import { $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
+import {
+  $convertFromMarkdownString,
+  $convertToMarkdownString,
+  TRANSFORMERS,
+} from "@lexical/markdown";
 import { ClearEditorPlugin } from "@lexical/react/LexicalClearEditorPlugin";
 import {
   type InitialConfigType,
@@ -47,6 +51,7 @@ import {
   CAN_UNDO_COMMAND,
   CLEAR_EDITOR_COMMAND,
   COMMAND_PRIORITY_LOW,
+  type EditorState,
   FORMAT_TEXT_COMMAND,
   mergeRegister,
   REDO_COMMAND,
@@ -309,37 +314,44 @@ function FormField({
   resetKey,
   onChange,
   required,
+  defaultValue,
   setInvalid,
-}: Pick<EditorProps, "name" | "resetKey" | "onChange" | "required"> & {
+}: Pick<
+  EditorProps,
+  "name" | "resetKey" | "onChange" | "required" | "defaultValue"
+> & {
   setInvalid: (invalid: boolean) => void;
 }) {
   const [editor] = useLexicalComposerContext();
-  const [markdown, setMarkdown] = useState("");
+  const [markdown, setMarkdown] = useState(defaultValue ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
   const validationRef = useRef<HTMLInputElement>(null);
   const lastValue = useRef("");
   const lastResetKey = useRef(resetKey);
 
-  useEffect(
-    () =>
-      editor.registerUpdateListener(({ editorState }) => {
-        if (validationRef.current) {
-          const hasText = editorState.read(() =>
-            Boolean($getRoot().getTextContent().trim()),
-          );
-          validationRef.current.value = hasText ? "filled" : "";
-          if (hasText) setInvalid(false);
-        }
-        const next = editorState.read(() =>
-          $convertToMarkdownString(TRANSFORMERS),
+  useEffect(() => {
+    const sync = (editorState: EditorState) => {
+      if (validationRef.current) {
+        const hasText = editorState.read(() =>
+          Boolean($getRoot().getTextContent().trim()),
         );
-        if (next === lastValue.current) return;
-        lastValue.current = next;
-        setMarkdown(next);
-        onChange?.(next);
-      }),
-    [editor, onChange, setInvalid],
-  );
+        validationRef.current.value = hasText ? "filled" : "";
+        if (hasText) setInvalid(false);
+      }
+      const next = editorState.read(() =>
+        $convertToMarkdownString(TRANSFORMERS),
+      );
+      if (next === lastValue.current) return;
+      lastValue.current = next;
+      setMarkdown(next);
+      onChange?.(next);
+    };
+    // The initial state is set before this listener exists, so read it once.
+    sync(editor.getEditorState());
+    return editor.registerUpdateListener(({ editorState }) =>
+      sync(editorState),
+    );
+  }, [editor, onChange, setInvalid]);
 
   useEffect(() => {
     const form = inputRef.current?.form;
@@ -368,6 +380,7 @@ function FormField({
           ref={validationRef}
           type="text"
           required
+          defaultValue={defaultValue?.trim() ? "filled" : undefined}
           tabIndex={-1}
           aria-hidden="true"
           className="sr-only"
@@ -390,9 +403,12 @@ function FormField({
 export type EditorProps = {
   id?: string;
   "aria-labelledby"?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
   required?: boolean;
   name?: string;
   placeholder?: string;
+  defaultValue?: string;
   minHeight?: number;
   compact?: boolean;
   onChange?: (markdown: string) => void;
@@ -403,9 +419,12 @@ export type EditorProps = {
 export function Editor({
   id,
   "aria-labelledby": labelledBy,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": describedBy,
   required,
   name,
   placeholder = "Type your message here.",
+  defaultValue,
   minHeight,
   compact = false,
   onChange,
@@ -414,9 +433,22 @@ export function Editor({
 }: EditorProps) {
   const [invalid, setInvalid] = useState(false);
   const errorId = useId();
+  const describedByIds =
+    [describedBy, invalid ? errorId : undefined].filter(Boolean).join(" ") ||
+    undefined;
   const padding = compact ? "px-3 py-2" : "px-4 py-3";
   return (
-    <LexicalComposer initialConfig={CONFIG}>
+    <LexicalComposer
+      initialConfig={
+        defaultValue
+          ? {
+              ...CONFIG,
+              editorState: () =>
+                $convertFromMarkdownString(defaultValue, TRANSFORMERS),
+            }
+          : CONFIG
+      }
+    >
       <div
         className={cn(
           "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
@@ -432,8 +464,8 @@ export function Editor({
                 aria-label={labelledBy ? undefined : placeholder}
                 aria-labelledby={labelledBy}
                 aria-required={required}
-                aria-invalid={invalid || undefined}
-                aria-describedby={invalid ? errorId : undefined}
+                aria-invalid={invalid || ariaInvalid || undefined}
+                aria-describedby={describedByIds}
                 aria-placeholder={placeholder}
                 placeholder={
                   <div
@@ -461,12 +493,13 @@ export function Editor({
           resetKey={resetKey}
           onChange={onChange}
           required={required}
+          defaultValue={defaultValue}
           setInvalid={setInvalid}
         />
       </div>
       {invalid && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
-          Please enter a message.
+          This field is required.
         </p>
       )}
       <HistoryPlugin />
