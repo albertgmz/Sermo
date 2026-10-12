@@ -27,8 +27,11 @@ export const adminActivity = defineContract({
     "How much was logged in the last day, week and thirty days, per kind: moderator log " +
     "entries, reports filed, manual credit adjustments, shop purchases, promotions applied and " +
     "registrations. Each kind is returned only to an actor who may read its log " +
-    "(moderatorLog.view, the report queue, credits.viewAny, admin.shop, admin.promotions, " +
-    "admin.members); an actor who may read none gets a not-found.",
+    "(moderatorLog.view, credits.viewAny, admin.shop, admin.promotions, admin.members; the " +
+    "reports kind needs a report permission held globally: report.manageProfiles, " +
+    "conversation.moderate or forum.manageReports through a global entry, since it counts " +
+    "the whole site and not one forum). An actor who may read none gets a not-found. The counts are " +
+    "exact; a result is kept for 60 seconds and shared by actors who may read the same kinds.",
   kind: "read",
   input: Empty,
   output: z.object({
@@ -61,8 +64,10 @@ export const adminJobs = defineContract({
   name: "admin.jobs",
   summary:
     "The state of background work: how many jobs are pending, running and failed, the oldest " +
-    "pending job's age, and the 20 most recent failures with their type and error. Requires " +
-    "admin.settings.",
+    "pending job's age, and the 20 most recent failures with their type and error, the latest " +
+    "failure first (`failedAt` is when the job was last marked failed). `oldestPendingAt` is " +
+    "the oldest pending job that is already due: a job waiting for a later time (a retry after " +
+    "a failure, work scheduled ahead) is ignored. Requires admin.settings.",
   kind: "read",
   input: Empty,
   output: z.object({
@@ -349,7 +354,8 @@ export const approvalsViewConversationMessage = defineContract({
   name: "approvals.viewConversationMessage",
   summary:
     "A conversation message that is waiting for approval, with up to 3 messages before and " +
-    "after it, so a moderator can decide. Requires conversation.moderate and that the message " +
+    "after it, so a moderator can decide. The messages around it are only those a participant " +
+    "would see (visible ones); deleted and other moderated messages are left out. Requires conversation.moderate and that the message " +
     "is in the approval queue. Every call is written to the moderator log (so it is a write); " +
     "nothing else lets a non-participant read a conversation.",
   kind: "write",

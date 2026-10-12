@@ -238,8 +238,37 @@ describe("approvals.viewConversationMessage", () => {
       },
     ]);
     expectNoTableScan(w.ctx, approvalMessageSql.target, [1]);
-    expectNoTableScan(w.ctx, approvalMessageSql.before, [1, 5, 0]);
-    expectNoTableScan(w.ctx, approvalMessageSql.after, [1, 5, 0]);
+    expectNoTableScan(w.ctx, approvalMessageSql.before, [1, 5]);
+    expectNoTableScan(w.ctx, approvalMessageSql.after, [1, 5]);
+  });
+
+  test("the messages around it are only those a participant would see", async () => {
+    const { w, ids } = await conversation();
+    const state = (id: number, value: string) =>
+      w.ctx.sqlite
+        .prepare("UPDATE conversation_messages SET state = ?1 WHERE id = ?2")
+        .run(value, id);
+    state(ids[4]!, "moderated");
+    // Next to it: one deleted, one waiting for approval too.
+    state(ids[3]!, "deleted");
+    state(ids[5]!, "moderated");
+    const view = await w.run("approvals.viewConversationMessage", userActor(w.founder), {
+      messageId: ids[4],
+    });
+    expect(view.messages.map((m: { id: number }) => m.id)).toEqual([
+      ids[0],
+      ids[1],
+      ids[2],
+      ids[4],
+      ids[6],
+      ids[7],
+      ids[8],
+    ]);
+    expect(
+      view.messages
+        .filter((m: { isTarget: boolean }) => m.isTarget)
+        .map((m: { id: number }) => m.id),
+    ).toEqual([ids[4]]);
   });
 
   test("a message that is not in the approval queue is not found and nothing is logged", async () => {
