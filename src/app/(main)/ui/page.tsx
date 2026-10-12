@@ -12,10 +12,13 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AccountNavigation } from "@/app/(main)/account/navigation";
+import { AdminNavigation } from "@/app/(main)/admin/navigation";
 import { CoverControls } from "@/app/(main)/threads/[id]/cover-controls";
 import { discard } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
 import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
+import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
 import { Art } from "@/components/forum/art";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
@@ -27,8 +30,13 @@ import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { ForumIcon } from "@/components/forum/forum-icon";
-import { Leaderboard } from "@/components/forum/leaderboard";
+import {
+  Leaderboard,
+  LeaderboardScore,
+  RankNumber,
+} from "@/components/forum/leaderboard";
 import { LevelBadge, XpBar } from "@/components/forum/level";
+import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Markdown } from "@/components/forum/markdown";
 import { MemberCard } from "@/components/forum/member-card";
 import { MemberRow } from "@/components/forum/member-row";
@@ -41,6 +49,7 @@ import { NotificationRow } from "@/components/forum/notification-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PendingButton } from "@/components/forum/pending-button";
 import { PermissionIcon } from "@/components/forum/permission-icon";
+import { Podium } from "@/components/forum/podium";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -67,11 +76,18 @@ import {
 } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
-import { Container } from "@/components/layout/container";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { headerIconClass } from "@/components/layout/header-panels";
+import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
+import { Logo, LogoMark } from "@/components/layout/logo";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
+import {
+  HeaderNav,
+  MobileMenu,
+  SearchForm,
+} from "@/components/layout/site-nav";
+import { StaffBar } from "@/components/layout/staff-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,6 +109,7 @@ import {
   getCategories,
   getCurrentMonthStanding,
   getForumStats,
+  getLeaderboard,
   getMemberOfTheMonth,
   getPastWinners,
   getPosts,
@@ -100,6 +117,7 @@ import {
   getRanks,
   getReactionTypes,
   getShopItems,
+  getThread,
   getUsers,
 } from "@/lib/db";
 import {
@@ -109,6 +127,7 @@ import {
   formatNumber,
   formatRelativeTime,
 } from "@/lib/format";
+import { isLiteMode } from "@/lib/lite-mode";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Browser, Os, ShopCategory } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -121,14 +140,20 @@ const TOKENS = [
   "background",
   "foreground",
   "card",
+  "card-foreground",
   "popover",
+  "popover-foreground",
   "primary",
+  "primary-foreground",
   "secondary",
+  "secondary-foreground",
   "muted",
   "muted-foreground",
   "accent",
+  "accent-foreground",
   "destructive",
   "success",
+  "success-foreground",
   "tier-bronze",
   "tier-silver",
   "tier-gold",
@@ -141,6 +166,17 @@ const TOKENS = [
   "name-sky",
   "name-indigo",
   "name-pink",
+  "name-silver",
+  "name-gold",
+  "name-legendary",
+  "prefix-sky",
+  "prefix-emerald",
+  "prefix-orange",
+  "prefix-violet",
+  "prefix-amber",
+  "prefix-cyan",
+  "prefix-rose",
+  "prefix-lime",
   "border",
   "input",
   "ring",
@@ -149,7 +185,34 @@ const TOKENS = [
   "chart-3",
   "chart-4",
   "chart-5",
+  "sidebar",
+  "sidebar-foreground",
+  "sidebar-primary",
+  "sidebar-primary-foreground",
+  "sidebar-accent",
+  "sidebar-accent-foreground",
+  "sidebar-border",
+  "sidebar-ring",
 ];
+
+const RADII = [
+  ["sm", "rounded-sm"],
+  ["md", "rounded-md"],
+  ["lg", "rounded-lg"],
+  ["xl", "rounded-xl"],
+  ["2xl", "rounded-2xl"],
+  ["3xl", "rounded-3xl"],
+  ["4xl", "rounded-4xl"],
+] as const;
+
+const LEADERBOARD_KINDS = [
+  "xp",
+  "credits",
+  "posts",
+  "reactions",
+  "awards",
+  "referrals",
+] as const;
 
 const BROWSERS: Browser[] = [
   "chrome",
@@ -223,9 +286,11 @@ export default async function StyleguidePage() {
     pastWinners,
     race,
     shopItems,
+    leaders,
+    lite,
   ] = await Promise.all([
     getUsers(),
-    getCategories("general"),
+    getCategories(),
     getAwards(),
     getReactionTypes(),
     getPosts(1, null),
@@ -236,7 +301,19 @@ export default async function StyleguidePage() {
     getPastWinners(3),
     getCurrentMonthStanding(3),
     getShopItems(),
+    getLeaderboard("xp", 6),
+    isLiteMode(),
   ]);
+  const prefixCategory = categories.find((category) =>
+    category.forums.some((forum) => forum.lastPost?.prefix),
+  );
+  const prefixForum = prefixCategory?.forums.find(
+    (forum) => forum.lastPost?.prefix,
+  );
+  const prefixThread = prefixForum?.lastPost
+    ? await getThread(prefixForum.lastPost.threadId)
+    : null;
+  const forumCategory = prefixCategory ?? categories[0];
   const threadCovers = shopItems.flatMap((item) =>
     item.effect.type === "threadCover"
       ? [
@@ -250,20 +327,27 @@ export default async function StyleguidePage() {
       : [],
   );
   const [admin, moderator, member] = users;
+  const coveredMember = users.find((user) => user.appearance.cover);
+  const sampleWinner = winner ?? pastWinners[0];
   const ranked = users.filter((user) => user.rank);
   const reacted = posts.toSorted(
     (a, b) => b.reactions.total - a.reactions.total,
   )[0];
   const sampleDate = users[0].joinedAt;
   const notifications = [
-    { actor: moderator, text: "replied to your thread “Sample thread”" },
+    {
+      actor: prefixThread?.lastPost.author ?? moderator,
+      text: `replied to your thread “${prefixThread?.title ?? "Sample thread"}”`,
+      prefix: prefixThread?.prefix,
+    },
     { actor: member, text: "started following you" },
     { actor: admin, text: "wrote on your profile" },
   ].map((item, id) => ({
     ...item,
     id,
-    href: "/ui",
-    createdAt: sampleDate,
+    href: id === 0 && prefixThread ? `/threads/${prefixThread.id}` : "/ui",
+    createdAt:
+      id === 0 && prefixThread ? prefixThread.lastPost.createdAt : sampleDate,
     read: id > 0,
   }));
   const conversations = [
@@ -290,7 +374,7 @@ export default async function StyleguidePage() {
         <Button>Primary action</Button>
       </PageHero>
 
-      <Container className="space-y-12 pb-8">
+      <PageLayout mainClassName="space-y-12">
         <Section title="Colors">
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {TOKENS.map((token) => (
@@ -308,6 +392,35 @@ export default async function StyleguidePage() {
               </li>
             ))}
           </ul>
+        </Section>
+
+        <Section title="Radii and spacing">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            Corner sizes are derived from <code>--radius</code>; the large
+            radius uses that base value. Page layouts share
+            <code> --page-gap</code> and <code>--aside-width</code>.
+          </p>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {RADII.map(([size, className]) => (
+              <li
+                key={size}
+                className={cn(
+                  "border bg-card p-4 font-mono text-xs",
+                  className,
+                )}
+              >
+                --radius-{size}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap gap-(--page-gap)">
+            <div className="rounded-lg border bg-card p-4 text-sm">
+              Page gap
+            </div>
+            <div className="w-(--aside-width) max-w-full rounded-lg border bg-card p-4 text-sm">
+              Aside width
+            </div>
+          </div>
         </Section>
 
         <Section title="Accent presets">
@@ -572,6 +685,57 @@ export default async function StyleguidePage() {
           />
         </Section>
 
+        <Section title="Account and admin navigation">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            Account sections scroll within their bar on small screens and become
+            a grouped sidebar on desktop. Admin sections wrap into two columns
+            on a phone. These links open the real sections. On this page, the
+            account menu has no active section and the admin menu defaults to
+            Dashboard.
+          </p>
+          <PageLayout
+            aside={<AccountNavigation />}
+            asideSide="start"
+            className="px-0 pt-0 pb-0"
+          >
+            <AdminNavigation />
+          </PageLayout>
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The labelled rows in account details belong to its account-saving
+            form and are not a reusable component. See them in{" "}
+            <Link
+              href="/account/details"
+              className="inline-flex min-h-10 items-center text-primary underline-offset-4 hover:underline"
+            >
+              Account details
+            </Link>
+            .
+          </p>
+        </Section>
+
+        <Section title="Brand and site navigation">
+          <div className="flex flex-wrap items-center gap-4">
+            <Logo />
+            <Logo markOnly className="w-10 justify-center" />
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <LogoMark />
+              Logo mark
+            </span>
+            <MobileMenu />
+          </div>
+          <HeaderNav className="flex flex-wrap" />
+          <SearchForm />
+          <StaffBar user={{ role: admin.role }} />
+          <StaffBar user={{ role: moderator.role }} />
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The site header, footer, page backdrop and fixed mobile navigation
+            already surround this page. Search, alerts, messages and the account
+            menu are demonstrated in the header; member tools appear when signed
+            in. They use the current session. The site accent and favicon apply
+            to the whole document, so they are not repeated inside a demo.
+          </p>
+        </Section>
+
         <Section title="Cards">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -819,8 +983,10 @@ export default async function StyleguidePage() {
 
         <Section title="Hover cards">
           <p className="max-w-prose text-sm text-muted-foreground">
-            Links that preview a thread or a member on hover and keyboard focus.
-            On touch screens they are plain links.
+            Thread links preview on hover and keyboard focus, and navigate on
+            touch. A member name opens the same member card on hover, keyboard
+            focus or tap; its View profile button opens the profile. Thread
+            prefixes appear beside the title in both the link and its preview.
           </p>
           <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             {stats.latestPosts.map((thread) => (
@@ -830,14 +996,28 @@ export default async function StyleguidePage() {
                 className="font-medium underline-offset-4 hover:underline"
               />
             ))}
+            {prefixThread &&
+              !stats.latestPosts.some(
+                (thread) => thread.id === prefixThread.id,
+              ) && (
+                <ThreadHoverCard
+                  thread={prefixThread}
+                  className="font-medium underline-offset-4 hover:underline"
+                />
+              )}
             <UserLink user={admin} />
             <UserLink user={ranked[1] ?? member} />
           </div>
         </Section>
 
         <Section title="Members">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            One member card is shared by the directory and member-name previews.
+            A member&apos;s cover fades behind the header; LITE mode replaces it
+            with a placeholder.
+          </p>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-            <MemberCard user={admin} />
+            <MemberCard user={coveredMember ?? admin} />
             <SectionCard title="Member row">
               <MemberRow user={admin} />
               <MemberRow user={moderator}>
@@ -859,6 +1039,52 @@ export default async function StyleguidePage() {
               <Leaderboard members={users.slice(0, 2)} by="awards" />
               <Leaderboard members={users.slice(0, 2)} by="referrals" />
             </SectionCard>
+          </div>
+        </Section>
+
+        <Section title="Podium and leaderboard variants">
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <SectionCard
+              title="Ranking podium"
+              description="Top three, followed by compact rows"
+            >
+              <Podium members={leaders} by="xp" viewerId={leaders[1]?.id} />
+            </SectionCard>
+            <SectionCard
+              title="Compact leaderboard"
+              description="Continued ranks start at four"
+            >
+              <Leaderboard
+                members={leaders.slice(3)}
+                by="xp"
+                start={4}
+                compact
+                viewerId={leaders[4]?.id}
+              />
+            </SectionCard>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Rank numbers: medals, continued rank and a plain rank.
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            {[1, 2, 3, 4].map((rank) => (
+              <RankNumber key={rank} rank={rank} />
+            ))}
+            <RankNumber rank={1} medal={false} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {LEADERBOARD_KINDS.map((by) => (
+              <SectionCard key={by} title={`Leaderboard score: ${by}`}>
+                <div className="flex flex-wrap items-center gap-3 p-3">
+                  <span className="text-xs text-muted-foreground">Full</span>
+                  <LeaderboardScore by={by} member={leaders[0]} />
+                </div>
+                <div className="flex flex-wrap items-center gap-3 p-3">
+                  <span className="text-xs text-muted-foreground">Compact</span>
+                  <LeaderboardScore by={by} member={leaders[0]} compact />
+                </div>
+              </SectionCard>
+            ))}
           </div>
         </Section>
 
@@ -912,7 +1138,7 @@ export default async function StyleguidePage() {
         </Section>
 
         <Section title="Editor">
-          <EditorDemo />
+          <EditorDemo defaultValue={reacted.body} />
         </Section>
 
         <Section title="Compact composer">
@@ -986,7 +1212,8 @@ export default async function StyleguidePage() {
         <Section title="Notification and conversation rows">
           <p className="max-w-prose text-sm text-muted-foreground">
             The rows of the header panels and of the notifications and
-            conversations pages. A conversation row brings its own link.
+            conversations pages. A conversation row brings its own link. Thread
+            notifications keep the prefix beside the quoted title.
           </p>
           <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
             <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
@@ -1078,18 +1305,55 @@ export default async function StyleguidePage() {
           </ul>
         </Section>
 
+        <Section title="LITE mode">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            LITE mode replaces avatars, artwork, covers and Markdown images with
+            placeholders, hides avatar frames and omits the favicon. Text,
+            navigation and layout remain available. This switch saves the
+            preference and refreshes the page, including the examples here.
+          </p>
+          <LiteModeToggle enabled={lite} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Artwork placeholder
+              </p>
+              <LitePlaceholder className="aspect-video rounded-lg border" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Avatar and compact placeholders
+              </p>
+              <div className="flex items-center gap-4">
+                <LitePlaceholder className="size-16 rounded-full" />
+                <LitePlaceholder compact className="size-6 rounded-full" />
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Skeletons">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            Loading regions announce progress once while their decorative shapes
+            stay hidden from screen readers. Each shape reserves space for its
+            content. Larger compositions start collapsed on phones; open a panel
+            to preview them.
+          </p>
+          <SkeletonDemos />
+        </Section>
+
         <Section title="Forum card and collapsible panel">
           <p className="max-w-prose text-sm text-muted-foreground">
             A forum with its photo: only the side the title sits on is darkened,
             and the last post has a plain footer. The panel remembers whether it
-            was left open.
+            was left open. The last-post title includes its thread prefix.
           </p>
           <CollapsiblePanel
-            title={categories[0].title}
+            title={forumCategory.title}
             storageKey="styleguide-panel-open"
           >
             <ul className="grid gap-2 p-2 md:grid-cols-2">
-              {categories[0].forums.map((forum) => (
+              {forumCategory.forums.map((forum) => (
                 <ForumCard key={forum.id} forum={forum} />
               ))}
             </ul>
@@ -1101,19 +1365,33 @@ export default async function StyleguidePage() {
             The winner of a month, a standing with the leader set apart, and the
             compact list of earlier winners.
           </p>
-          {winner && (
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-              <MonthHero winner={winner} />
-              <div className="grid gap-4">
-                <SectionCard title="Standing">
-                  <StandingList entries={race} viewerId={race[1]?.user.id} />
-                </SectionCard>
-                <SectionCard title="Winners" description="Compact">
-                  <WinnerList winners={pastWinners} compact />
-                </SectionCard>
-              </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+            {sampleWinner ? (
+              <MonthHero winner={sampleWinner} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No recorded monthly winner to preview yet.
+              </p>
+            )}
+            <div className="grid gap-4">
+              <SectionCard title="Standing">
+                <StandingList entries={race} viewerId={race[1]?.user.id} />
+                {race.length === 0 && (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    No activity recorded this month.
+                  </p>
+                )}
+              </SectionCard>
+              <SectionCard title="Winners" description="Compact">
+                <WinnerList winners={pastWinners} compact />
+                {pastWinners.length === 0 && (
+                  <p className="p-4 text-sm text-muted-foreground">
+                    No earlier winners recorded.
+                  </p>
+                )}
+              </SectionCard>
             </div>
-          )}
+          </div>
         </Section>
 
         <Section title="Thread cover controls">
@@ -1147,7 +1425,7 @@ export default async function StyleguidePage() {
             </Signature>
           </div>
         </Section>
-      </Container>
+      </PageLayout>
     </>
   );
 }
