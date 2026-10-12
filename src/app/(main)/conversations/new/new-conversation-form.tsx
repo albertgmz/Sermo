@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { startConversation } from "@/app/(main)/conversations/actions";
 import { Editor } from "@/components/forum/editor";
@@ -10,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import type { User } from "@/lib/types";
 
 function check(data: FormData) {
-  if (!data.getAll("to").length) return "Choose at least one recipient.";
-  if (!String(data.get("body") ?? "").trim()) return "Write a message.";
+  if (!data.getAll("to").length) return "recipientRequired";
+  if (!String(data.get("body") ?? "").trim()) return "messageRequired";
   return "";
 }
 
@@ -22,6 +23,7 @@ export function NewConversationForm({
   users: (Pick<User, "id" | "username"> & { avatar: React.ReactNode })[];
   preselected?: number;
 }) {
+  const t = useTranslations("conversations.newConversationForm");
   const [serverError, action, pending] = useActionState(startConversation, "");
   const [clientError, setClientError] = useState("");
   const error = clientError || serverError;
@@ -30,14 +32,17 @@ export function NewConversationForm({
     <form
       action={action}
       onSubmit={(event) => {
-        const message = check(new FormData(event.currentTarget));
+        const errorCode = check(new FormData(event.currentTarget));
+        const message = errorCode ? t(`errors.${errorCode}`) : "";
         setClientError(message);
         if (message) event.preventDefault();
       }}
       className="space-y-5"
     >
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Recipients</legend>
+        <legend className="mb-2 text-sm font-medium">
+          {t("recipientsLabel")}
+        </legend>
         <ul className="grid gap-x-4 sm:grid-cols-2">
           {users.map((user) => (
             <li key={user.id}>
@@ -59,18 +64,18 @@ export function NewConversationForm({
         </ul>
       </fieldset>
       <div className="space-y-2">
-        <Label htmlFor="conversation-title">Title</Label>
+        <Label htmlFor="conversation-title">{t("titleLabel")}</Label>
         <Input
           id="conversation-title"
           name="title"
           required
           maxLength={100}
-          placeholder="What is it about?"
+          placeholder={t("titlePlaceholder")}
         />
       </div>
       <div className="space-y-2">
-        <p className="text-sm leading-none font-medium">Message</p>
-        <Editor name="body" placeholder="Write your message..." />
+        <p className="text-sm leading-none font-medium">{t("messageLabel")}</p>
+        <Editor name="body" placeholder={t("messagePlaceholder")} />
       </div>
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -78,7 +83,7 @@ export function NewConversationForm({
         </p>
       )}
       <Button type="submit" disabled={pending} className="h-10 px-4 md:h-8">
-        Start conversation
+        {t("submit")}
       </Button>
     </form>
   );

@@ -1,12 +1,14 @@
 import { MessagesSquare } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/forum/empty-state";
 
 export default function ConversationsPage() {
+  const t = useTranslations("conversations.conversations");
   return (
     <EmptyState
       icon={MessagesSquare}
-      title="Select a conversation"
-      description="Choose a conversation from the list or start a new one."
+      title={t("title")}
+      description={t("description")}
       className="hidden h-full justify-center lg:flex"
     />
   );

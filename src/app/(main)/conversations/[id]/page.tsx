@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { react } from "@/app/(main)/actions";
 import { ConversationSync } from "@/app/(main)/conversations/[id]/conversation-sync";
 import { sendMessage } from "@/app/(main)/conversations/actions";
@@ -30,13 +31,14 @@ export default async function ConversationPage({
   ]);
   if (!conversation) notFound();
   const { messages } = conversation;
+  const t = await getTranslations("conversations.conversation");
 
   return (
     <div className="flex min-h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] flex-col md:min-h-[calc(100dvh-3.5rem)] lg:h-full lg:min-h-0">
       <header className="flex min-h-14 items-center gap-1 border-b px-2 py-2 lg:px-4">
         <Link
           href="/conversations"
-          aria-label="Back to conversations"
+          aria-label={t("aria.back")}
           className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground lg:hidden"
         >
           <ArrowLeft className="size-5" />
@@ -48,7 +50,7 @@ export default async function ConversationPage({
           <p className="truncate text-xs text-muted-foreground">
             {conversation.participants.map((participant, index) => (
               <span key={participant.id}>
-                {index > 0 && ", "}
+                {index > 0 && t("participantSeparator")}
                 <UserLink user={participant} />
               </span>
             ))}
@@ -76,7 +78,7 @@ export default async function ConversationPage({
                         aria-hidden="true"
                         className="text-muted-foreground"
                       >
-                        ·
+                        {t("authorSeparator")}
                       </span>
                       <RelativeTime
                         date={message.createdAt}
@@ -115,8 +117,8 @@ export default async function ConversationPage({
 
       <CompactComposer
         action={sendMessage.bind(null, conversation.id)}
-        placeholder="Write a message…"
-        submitLabel="Send message"
+        placeholder={t("placeholder")}
+        submitLabel={t("submit")}
         className="sticky bottom-(--spacing-mobile-nav) z-10 border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3"
       />
     </div>

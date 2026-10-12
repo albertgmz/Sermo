@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { NewConversationForm } from "@/app/(main)/conversations/new/new-conversation-form";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { getUsers } from "@/lib/db";
@@ -19,18 +20,19 @@ export default async function NewConversationPage({
     typeof to === "string"
       ? users.find((u) => u.username.toLowerCase() === to.toLowerCase())
       : undefined;
+  const t = await getTranslations("conversations.newConversation");
 
   return (
     <div className="lg:h-full lg:overflow-y-auto">
       <header className="flex min-h-14 items-center gap-1 border-b px-2 py-2 lg:px-4">
         <Link
           href="/conversations"
-          aria-label="Back to conversations"
+          aria-label={t("aria.back")}
           className="flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground lg:hidden"
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <h1 className="text-sm font-semibold">New conversation</h1>
+        <h1 className="text-sm font-semibold">{t("heading")}</h1>
       </header>
       <div className="max-w-2xl p-4">
         <NewConversationForm
