@@ -8,13 +8,17 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 
+// Who is asking: the viewer module is replaced (other suites replace it too, and a replacement
+// outlives its file), `viewer` is what `auth.me` says, null for a session the backend refuses.
+let viewer: ReturnType<typeof viewerBody> | null = null;
+mock.module("@/lib/sermo/viewer", () => ({ viewerOf: async () => viewer }));
+
 const { PANEL_PURPOSES } = await import("@/lib/sermo/upload");
 const route = await import("./route");
 const { POST } = route;
 
 const realFetch = globalThis.fetch;
 let forwarded: { url: string; headers: Headers; body: unknown }[] = [];
-let panel = true;
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
@@ -25,18 +29,13 @@ beforeEach(() => {
   process.env.SERMO_PUBLIC_URL = "http://localhost:3000";
   process.env.SERMO_API_URL = "http://127.0.0.1:8787";
   forwarded = [];
-  panel = true;
+  viewer = viewerBody(true);
+  viewer.staff.panel = true;
 });
 
-// The backend: `auth.me` answers a viewer who is in the panel or not; the file endpoint answers
-// what the test says.
+// The file endpoint of the backend answers what the test says.
 function backendAnswers(response: () => Response) {
   globalThis.fetch = (async (url: string, init: RequestInit) => {
-    if (new URL(url).pathname === "/api/v1/me") {
-      const viewer = viewerBody(true);
-      viewer.staff.panel = panel;
-      return Response.json(viewer);
-    }
     forwarded.push({
       url,
       headers: new Headers(init.headers),
@@ -70,7 +69,7 @@ test("a visitor without a session cookie gets a 404 before anything is read", as
 });
 
 test("a member who is not in the panel gets a 404 for every method, and nothing is forwarded", async () => {
-  panel = false;
+  if (viewer) viewer.staff.panel = false;
   backendAnswers(() => Response.json({ id: 1 }));
   expect((await POST(upload("frame"))).status).toBe(404);
   // Whatever the purpose, the origin or the body.
@@ -92,12 +91,10 @@ test("a member who is not in the panel gets a 404 for every method, and nothing 
 });
 
 test("a session the backend does not accept gets a 404 too", async () => {
-  globalThis.fetch = (async () =>
-    Response.json(
-      { error: { code: "unauthenticated", message: "Sign in." } },
-      { status: 401 },
-    )) as unknown as typeof fetch;
+  viewer = null;
+  backendAnswers(() => Response.json({ id: 1 }));
   expect((await POST(upload("frame"))).status).toBe(404);
+  expect(forwarded).toEqual([]);
 });
 
 test("another site's origin, or none, is refused", async () => {
