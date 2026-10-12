@@ -12,7 +12,7 @@ export function world() {
   const member = insertUser(ctx);
   const call = (
     name: string,
-    actor: ReturnType<typeof userActor> | { kind: "guest" },
+    actor: object,
     input: object,
     // biome-ignore lint/suspicious/noExplicitAny: tests read the output of any operation
   ) => execute(ctx, getOperation(name), actor as never, input) as Promise<any>;

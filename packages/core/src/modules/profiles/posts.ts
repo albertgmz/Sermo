@@ -9,11 +9,12 @@ import {
   profilePostsRestore,
   profilePostsUpdate,
   profilesGet,
+  profilesSelf,
   profilesUpdate,
   usersSearch,
 } from "../../contracts/profiles";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -24,12 +25,15 @@ import {
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionsOf,
+  permissionValue,
   requestVersions,
   requirePermission,
 } from "../../permissions";
-import { renderContent, storeContentReferences } from "../../render";
+import { renderContent, renderMarkdown, storeContentReferences } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
+import { loadMemberAuthors } from "../members/cards";
+import { REFERRAL_WINDOW_MS } from "../members/referral";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -61,9 +65,22 @@ type ProfileRow = PrincipalRow & {
   group_id: number;
   group_title: string;
   about: string;
-  reaction_score: number;
   avatar_file_id: number | null;
-  cover_file_id: number | null;
+  custom_title: string | null;
+  signature_source: string | null;
+  location: string;
+  website: string;
+  birthday_md: string | null;
+  birth_year: number | null;
+  social_discord: string;
+  social_telegram: string;
+  social_x: string;
+  follower_count: number;
+  following_count: number;
+  credits: number;
+  referral_count: number;
+  referred_by: number | null;
+  last_activity_at: number | null;
 };
 function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
   const display = memberDisplay(
@@ -79,33 +96,77 @@ function displayGroupOf(ctx: Ctx, viewer: Actor, row: ProfileRow) {
     }
   );
 }
-function readProfile(ctx: Ctx, actor: Actor, userId: number, access?: ProfileAccess) {
-  const permissions = permissionsOf(ctx, actor);
+export const PROFILE_SQL = `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.avatar_file_id, u.custom_title, u.signature_source, u.location, u.website, u.birthday_md, u.birth_year, u.social_discord, u.social_telegram, u.social_x, u.follower_count, u.following_count, u.credits, u.referral_count, u.referred_by, u.last_activity_at, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`;
+const MINUTE_MS = 60_000;
+function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
   const row = prepared(ctx, "profiles.profile", () =>
-    ctx.sqlite.prepare<ProfileRow, [number]>(
-      `SELECT u.id, u.username, u.group_id, g.title AS group_title, u.about, u.reaction_score, u.avatar_file_id, u.cover_file_id, ${PRINCIPAL_COLUMNS} FROM users u JOIN groups g ON g.id = u.group_id WHERE u.id = ?1`,
-    ),
+    ctx.sqlite.prepare<ProfileRow, [number]>(PROFILE_SQL),
   ).get(userId);
   if (!row) throw new NotFoundError();
+  return row;
+}
+function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileAccess) {
+  const permissions = permissionsOf(ctx, actor);
+  const viewerId = actorUserId(actor);
+  const author = loadMemberAuthors(ctx, actor, [row.id], { awards: false }).get(row.id)!;
+  const member = memberActor(row.id, row.group_id, row, requestVersions(ctx, actor));
+  const lookup = (key: string, sql: string) =>
+    viewerId !== null &&
+    viewerId !== row.id &&
+    !!prepared(ctx, key, () => ctx.sqlite.prepare<{ 1: number }, [number, number]>(sql)).get(
+      viewerId,
+      row.id,
+    );
+  const seen = Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0);
+  const [month, day] = row.birthday_md?.split("-").map(Number) ?? [];
   return {
     id: row.id,
     username: row.username,
     groupTitle: row.group_title,
     displayGroup: displayGroupOf(ctx, actor, row),
-    createdAt: iso(row.created_at),
+    createdAt: author.createdAt,
     about: row.about,
     avatar:
       row.avatar_file_id === null
         ? null
         : { fileId: row.avatar_file_id, url: resolvedFileUrl(ctx, row.avatar_file_id, true) },
-    cover:
-      row.cover_file_id === null
-        ? null
-        : { fileId: row.cover_file_id, url: resolvedFileUrl(ctx, row.cover_file_id, true) },
-    postCount: row.post_count,
-    reactionScore: row.reaction_score,
-    canPostOnWall: permissions.can("profile.view") && mayPostOnWall(ctx, actor, userId, access),
+    cover: author.cover,
+    postCount: author.postCount,
+    reactionScore: author.reactionScore,
+    canPostOnWall: permissions.can("profile.view") && mayPostOnWall(ctx, actor, row.id, access),
+    card: author.card,
+    customTitle: row.custom_title,
+    signatureHtml: author.signatureHtml,
+    location: row.location,
+    website: row.website,
+    birthday: month && day ? { month, day } : null,
+    socials: { discord: row.social_discord, telegram: row.social_telegram, x: row.social_x },
+    followerCount: row.follower_count,
+    followingCount: row.following_count,
+    credits: row.credits,
+    awardXp: author.awardXp,
+    level: {
+      level: author.card.level,
+      currentLevelXp: author.currentLevelXp,
+      nextLevelXp: author.nextLevelXp,
+    },
+    awardSlots: permissionValue(ctx, member, "profile.awardSlots"),
+    referralCount: row.referral_count,
+    lastActivityAt: seen > 0 ? iso(seen - (seen % MINUTE_MS)) : null,
+    viewer: {
+      isFollowing: lookup(
+        "profiles.viewerFollows",
+        "SELECT 1 FROM user_follows WHERE user_id = ?1 AND followed_id = ?2",
+      ),
+      isIgnoring: lookup(
+        "profiles.viewerIgnores",
+        "SELECT 1 FROM user_ignores WHERE user_id = ?1 AND ignored_id = ?2",
+      ),
+    },
   };
+}
+function readProfile(ctx: Ctx, actor: Actor, userId: number, access?: ProfileAccess) {
+  return profileValue(ctx, actor, readProfileRow(ctx, userId), access);
 }
 export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
   const access = profileAccess(ctx, actor, input.userId);
@@ -130,18 +191,95 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
     seo,
   };
 });
+
+/** The calendar day of a birthday, checked against the month and, with a year, the real calendar. */
+function checkBirthday(now: number, birthday: { year?: number; month: number; day: number }): void {
+  const { year, month, day } = birthday;
+  // Without a year, February 29 is allowed: the member simply has a leap-day birthday.
+  const probe = new Date(Date.UTC(year ?? 2000, month - 1, day));
+  if (probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day)
+    throw new ValidationError("That date does not exist.");
+  if (year !== undefined && probe.getTime() > now)
+    throw new ValidationError("A birthday cannot be in the future.");
+}
+const two = (value: number) => String(value).padStart(2, "0");
+
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
-  writeTx(ctx, () => {
-    prepared(ctx, "profiles.updateAbout", () =>
-      ctx.sqlite.prepare<unknown, [string, number, number]>(
-        "UPDATE users SET about = ?1, content_updated_at = ?3 WHERE id = ?2",
-      ),
-    ).run(input.about, user.userId, ctx.now());
-    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
-  });
+  const settings = readSiteSettings(ctx);
+  const changes: Record<string, string | number | null> = {};
+  if (input.about !== undefined) changes.about = input.about;
+  if (input.location !== undefined) changes.location = input.location;
+  if (input.website !== undefined) changes.website = input.website;
+  if (input.birthday !== undefined) {
+    if (input.birthday === null) {
+      changes.birthday_md = null;
+      changes.birth_year = null;
+    } else {
+      checkBirthday(ctx.now(), input.birthday);
+      changes.birthday_md = `${two(input.birthday.month)}-${two(input.birthday.day)}`;
+      changes.birth_year = input.birthday.year ?? null;
+    }
+  }
+  if (input.socials?.discord !== undefined) changes.social_discord = input.socials.discord;
+  if (input.socials?.telegram !== undefined) changes.social_telegram = input.socials.telegram;
+  if (input.socials?.x !== undefined) changes.social_x = input.socials.x;
+  if (input.customTitle !== undefined) {
+    requirePermission(ctx, actor, "profile.customTitle");
+    const title = input.customTitle?.replace(/\s+/g, " ").trim() ?? "";
+    if (title.length > settings.customTitleMaxLength)
+      throw new ValidationError(
+        `A title is at most ${settings.customTitleMaxLength} characters long.`,
+      );
+    changes.custom_title = title === "" ? null : title;
+  }
+  if (input.signature !== undefined) {
+    requirePermission(ctx, actor, "profile.signature");
+    const source = input.signature?.trim() ?? "";
+    if (source.length > settings.signatureMaxLength)
+      throw new ValidationError(
+        `A signature is at most ${settings.signatureMaxLength} characters long.`,
+      );
+    if (source.split(/\r\n|\r|\n/).length > settings.signatureMaxLines)
+      throw new ValidationError(`A signature is at most ${settings.signatureMaxLines} lines long.`);
+    // Rendered before the transaction opens.
+    changes.signature_source = source === "" ? null : source;
+    changes.signature_html = source === "" ? null : renderMarkdown(source);
+  }
+  const columns = Object.keys(changes);
+  if (columns.length > 0)
+    writeTx(ctx, () => {
+      ctx.sqlite
+        .prepare(
+          `UPDATE users SET ${columns.map((column, i) => `${column} = ?${i + 3}`).join(", ")}, content_updated_at = ?2 WHERE id = ?1`,
+        )
+        .run(user.userId, ctx.now(), ...columns.map((column) => changes[column]!));
+      publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
+    });
   return readProfile(ctx, actor, user.userId);
+});
+
+export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
+  const user = requireAuthenticated(actor);
+  const row = readProfileRow(ctx, user.userId);
+  const settings = readSiteSettings(ctx);
+  return {
+    profile: profileValue(ctx, actor, row),
+    signatureSource: row.signature_source,
+    birthYear: row.birth_year,
+    referrerId: row.referred_by,
+    canSetReferrer: row.referred_by === null && ctx.now() - row.created_at < REFERRAL_WINDOW_MS,
+    may: {
+      setSignature: can(ctx, actor, "profile.signature"),
+      setCustomTitle: can(ctx, actor, "profile.customTitle"),
+    },
+    limits: {
+      signatureMaxLength: settings.signatureMaxLength,
+      signatureMaxLines: settings.signatureMaxLines,
+      customTitleMaxLength: settings.customTitleMaxLength,
+    },
+  };
 });
 export const USER_SEARCH_SQL =
   "SELECT id, username FROM users WHERE username_key >= ?1 AND username_key < ?2 ORDER BY username_key LIMIT ?3";

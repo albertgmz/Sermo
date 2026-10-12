@@ -13,7 +13,7 @@ type Author = {
   awardXp: number;
   currentLevelXp: number;
   nextLevelXp: number;
-  awards: { id: number; name: string; tier: string; image: unknown }[];
+  awards: { id: number; name: string; icon: string; tier: string; image: unknown }[];
   signatureHtml: string | null;
 };
 const authors = async (w: World, ids: number[], actor: object = w.memberActor) =>
