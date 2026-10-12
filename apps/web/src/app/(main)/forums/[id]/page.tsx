@@ -19,6 +19,7 @@ import { notFound } from "next/navigation";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
+import { ForumWatch } from "@/app/(main)/forums/[id]/forum-watch";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
@@ -35,6 +36,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
@@ -280,6 +282,13 @@ export default async function ForumPage({
         </div>
         {newThread}
       </div>
+      {user && isForum && (
+        <Suspense fallback={<Skeleton className="mt-3 h-10 w-28" />}>
+          <div className="mt-3">
+            <ForumWatch nodeId={node.id} />
+          </div>
+        </Suspense>
+      )}
 
       <Suspense
         fallback={
