@@ -11,7 +11,7 @@
     "included": "Included",
     "includedNote": "Everything here comes with {rank}.",
     "upgradePrice": "{price} from {rank}",
-    "upgraded": "Your rank has been upgraded.",
+    "upgraded": "Done. Your rank has changed.",
     "emptyTitle": "No ranks are offered",
     "emptyDescription": "There is nothing to upgrade to right now. Check back later.",
     "aria": {
