@@ -68,6 +68,10 @@ export async function send(
       redirect: "manual",
     });
   } catch (error) {
+    // Only a failed connection is the API being unreachable (fetch reports it as a TypeError).
+    // Anything else is not ours to rename: while a page shell is prerendered, Next rejects a
+    // pending fetch on purpose and has to see its own error to leave that part for the request.
+    if (!(error instanceof TypeError)) throw error;
     throw new SermoError(
       "internal",
       500,

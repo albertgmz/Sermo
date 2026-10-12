@@ -94,7 +94,7 @@ test("an error body becomes a SermoError", async () => {
 
 test("a network failure and a non-JSON answer are internal errors", async () => {
   globalThis.fetch = (async () => {
-    throw new Error("connect refused");
+    throw new TypeError("fetch failed");
   }) as unknown as typeof fetch;
   await assert.rejects(
     callWith({}, get, { threadId: 1 }),
@@ -154,4 +154,25 @@ test("a read carries no content type", async () => {
   const seen = fake(Response.json({ title: "Hi" }));
   await callWith({}, get, { threadId: 5 });
   assert.equal(new Headers(seen[0]?.init.headers).get("content-type"), null);
+});
+
+test("an unreachable API is an internal error; any other rejection passes through untouched", async () => {
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed");
+  }) as unknown as typeof fetch;
+  await assert.rejects(
+    callWith({}, get, { threadId: 5 }),
+    (error) => error instanceof SermoError && error.code === "internal",
+  );
+  // What the framework throws to end a prerender must reach it as it is.
+  const signal = Object.assign(new Error("prerender is complete"), {
+    digest: "HANGING_PROMISE_REJECTION",
+  });
+  globalThis.fetch = (async () => {
+    throw signal;
+  }) as unknown as typeof fetch;
+  await assert.rejects(
+    callWith({}, get, { threadId: 5 }),
+    (error) => error === signal,
+  );
 });

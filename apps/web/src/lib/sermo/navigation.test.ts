@@ -56,7 +56,7 @@ test("the answer is passed through and asked with the visitor's cookies", async 
 
 test("an unreachable backend gives four empty lists and is logged outside the build only", async () => {
   globalThis.fetch = (async () => {
-    throw new Error("refused");
+    throw new TypeError("fetch failed");
   }) as unknown as typeof fetch;
   const logged = spyOn(console, "error").mockImplementation(() => {});
   const phase = process.env.NEXT_PHASE;

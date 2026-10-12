@@ -115,6 +115,9 @@ const BADGE_STYLES: Record<string, (props: BadgeProps) => React.ReactNode> = {
   tint: TintBadge,
   outline: OutlineBadge,
   heart: HeartBadge,
+  // The keys the backend gives its built-in staff groups.
+  admin: SolidBadge,
+  moderator: TintBadge,
 };
 
 export function MemberBadge({ badge, className }: BadgeProps) {

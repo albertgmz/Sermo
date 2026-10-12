@@ -64,7 +64,7 @@ test("the read is cached for a minute under the site tag", () => {
 
 test("an unreachable backend gives the default name and is logged outside the build only", async () => {
   globalThis.fetch = (async () => {
-    throw new Error("refused");
+    throw new TypeError("fetch failed");
   }) as unknown as typeof fetch;
   const logged = spyOn(console, "error").mockImplementation(() => {});
   const phase = process.env.NEXT_PHASE;
