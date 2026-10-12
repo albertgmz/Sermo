@@ -38,6 +38,26 @@ bun run bench --only "threads.get"
 
 Add `--reuse` on later runs to retain the scratch database between runs.
 
+## Development with the web app
+
+To run the API on port 8787 behind the web app on `http://localhost:3000`, set these in `.env` (or the shell) next to `BETTER_AUTH_SECRET`:
+
+```sh
+PORT=8787
+BETTER_AUTH_URL=http://localhost:3000
+SERMO_TRUSTED_PROXY_HEADER=x-forwarded-for
+SERMO_SESSION_COOKIE_CACHE=false
+```
+
+`BETTER_AUTH_URL` is the web app's public origin. The web app resolves the visitor while rendering, where it cannot write cookies, so the session cookie cache stays off and every request checks the session table. Then load a small site into an empty database and start the API:
+
+```sh
+bun run dev:fixture
+bun run start
+```
+
+The fixture creates the members `nova` (administrator), `kestrel` (moderator), `ember` and `wren`, with two categories, four forums, six threads, a few reactions and one conversation. All four share the password in `SERMO_DEV_PASSWORD` (default `sermo-dev-password`). It refuses to run with `NODE_ENV=production` and does nothing when `nova` already exists.
+
 ## Authentication and clients
 
 Better Auth handles registration, sign-in, sessions, and API keys under `/api/auth`. Register with `POST /api/auth/sign-up/email` and a JSON body containing `email`, `password`, `name`, and `username`. The username is required, 3–32 characters long, and may contain letters, numbers, spaces, `.`, `-`, and `_`; use a letter or number at either end. An optional `displayUsername` must match the username apart from letter case; `name` is free text. Passwords must be 8–256 characters. Sign in with `POST /api/auth/sign-in/email` (email and password) or `POST /api/auth/sign-in/username` (username and password).
@@ -96,6 +116,7 @@ Markdown is rendered and sanitized before storage. Cookie-authenticated REST wri
 | `SERMO_SITE_URL` | Public site origin for canonical links, sitemaps and feeds; defaults to `BETTER_AUTH_URL`. |
 | `SERMO_TRUSTED_ORIGINS` | Additional comma-separated origins allowed for cookie requests. |
 | `SERMO_TRUSTED_PROXY_HEADER` | Client IP header, such as `x-forwarded-for`; the adapter uses its last comma-separated value. Set it only with exactly one trusted proxy in front of Sermo that appends to this header; leave empty for direct connections. |
+| `SERMO_SESSION_COOKIE_CACHE` | `true` (default) keeps a signed copy of the session in a cookie for five minutes; `false` checks the session table on every request, for callers that cannot store refreshed cookies. |
 | `SERMO_ADMIN_USERNAME`, `SERMO_ADMIN_EMAIL`, `SERMO_ADMIN_PASSWORD` | Optional administrator bootstrap; set all three together. |
 | `PORT` | Listening port; keep `3000` with the supplied Compose mapping and health check. |
 | `SERMO_DB_PATH` | SQLite file path; Compose sets `/data/sermo.db`, local default is `./data/sermo.db`. |
