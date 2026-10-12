@@ -913,3 +913,65 @@ its posters) and repairs it on the next run; deferring would wait forever on a f
 One failing event subscriber no longer stops the others. The OpenAPI document lists anonymous
 access for every GET and every public-marked operation, which includes a few reads that do need
 an account.
+
+## Second review round (after the whole-code review)
+
+**A dead session cookie is refused everywhere except where no session is used.** Every Better
+Auth endpoint other than `/get-session` loads the session row itself; a missing or expired row
+answers 401 and clears the cookie. Sign-in, sign-up, password reset (request, link and submit)
+and plain verification links never read a session, so there a dead cookie is cleared and the
+request goes on: a member whose sessions were revoked elsewhere signs in at the first attempt.
+The list (`SESSIONLESS_PATHS`) holds only endpoints whose handlers were read not to touch the
+session or the cookie cache; a test compares it with an explicit copy, so a new endpoint is 401
+by default. A change-email link keeps the 401, because it checks the session. Over REST and MCP
+`resolveActor` still uses the cookie cache: without a mailer a revoked session keeps working for
+at most five minutes; with a mailer the cache is off. Bans apply at once in both cases.
+
+**The change-email confirmation is applied by Sermo in one write transaction**, by account id and
+original address, and consumes the link in the same transaction; Better Auth's own step is never
+reached for those links. It is the one place besides the purge that writes `auth_user` and
+`auth_verification` directly.
+
+**Expired credentials are purged in batches** (`purgeExpiredCredentialsBatch`: at most 1,000 ids
+per table per transaction, by primary-key keyset, yielding between calls). Each hourly run walks
+the three tables once from the start.
+
+**Migration 0018 keeps every member's effective `admin.permissions` and writes as little as it
+can.** Administration cannot start or end in a promotion: promotion grants of an administering
+group become hand assignments, and those members keep the group after their criteria lapse. A
+legacy entry on Unconfirmed, or a `never` on Member, is removed from the group; a private `never`
+is written only for a holder who would otherwise resolve an allow, and an Unconfirmed allow stays
+with its current holders. A member who had only the group's `never` therefore carries nothing: if
+they are made an administrator later, the old `never` does not follow them. Orphan grant rows are
+skipped rather than aborting the migration. The repair has no last-administrator guard: if the
+only effective administrator held it through a stale combination, nobody administers afterwards
+and the bootstrap configuration (`ensureAdmin`) is the way back. Before applying it to real data:
+stop other writers, take a backup, run `PRAGMA foreign_key_check`, and review the promotions that
+listed an administering group. It needs SQLite 3.44, like 0016.
+
+**Writes that depend on the actor's standing decide inside the transaction** with `currentActor`:
+permissions, groups, promotions, bans, warnings, thread bans, spam cleanup (including its queued
+run), restrictions, credit adjustments, and the shop (catalog, buy, use). The administrative
+reads of permissions and promotions go through `readWithCurrentActor`. Known limit: reports,
+`moderation.setState` and `moderation.bulk`, word filters, settings, awards and the forum
+moderation writes (lock, move, merge, split, delete) still decide with the actor resolved for the
+request; the window is one request. A moderator who lost sight of the node gets NotFound from the
+thread-ban operations, as before the transaction.
+
+**Positions returned while a merge renumbers are decoded.** A merge stores a final position `p`
+as `-(p+1)` until it flips; `thread.lastPost.position`, `posts.get`, the post listings and search
+return the decoded value. Known limit: `posts.list` still pages on the stored column, so posts
+already renumbered are missing from its pages until the merge ends (or is retried after a
+failure), `threads.markRead` looks up by the stored value, and during the streams phase a post
+not yet processed shows its position from before the merge.
+
+**The permission-coverage analyzer counts a check inside a callback only when the callback is
+invoked**: passed to a collection method (`map`, `flatMap`, `filter`, `forEach`, `some`, `every`,
+`find`, `findIndex`, `reduce`, `reduceRight`), directly or through a variable. It does not follow
+control flow, so a collection it cannot see into counts as non-empty; a visibly empty literal
+does not.
+
+**Published MCP input schemas are never stricter than the server.** Constraints on values the
+server normalizes (trimmed strings, URLs, coercions) move to the description, and a field a
+preprocessor fills in is not `required`. A schema-valid string that is blank after trimming is
+still rejected by the server.
