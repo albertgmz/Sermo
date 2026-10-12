@@ -161,6 +161,8 @@ export const operations = [
     const granter = requireAuthenticated(actor);
     return writeTx(ctx, () => {
       const award = awardRow(ctx, input.awardId);
+      // Only award administrators may learn that an inactive award exists.
+      if (!award.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
       memberXp(ctx, input.userId);
       const grant = grantAward(ctx, award, input.userId, granter.userId, input.reason)!;
       return grantValues(ctx, [grant])[0]!;

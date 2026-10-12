@@ -828,8 +828,8 @@ and stock computed as the services maintain them (about 600,000 ledger rows).
 **Administration is never for sale.** A permission of the `admin` category cannot be an item's
 effect, nor a group that holds `admin.permissions` (checked when the item is saved and again at
 purchase). Otherwise the last member with `admin.permissions` could be someone whose access ends
-when an item expires, which no check at expiry time could refuse. A group a shop item sells
-cannot be deleted while the item exists.
+when an item expires, which no check at expiry time could refuse. For the same reason a group a
+shop item sells cannot be given `admin.permissions`, and cannot be deleted while the item exists.
 
 **Accepted limits of this pass.** A member whose only activity of a UTC day falls in the five
 seconds before midnight, and who is active again before the flush, gets the next day's
@@ -844,3 +844,16 @@ two events of the same millisecond. A rule's limit is evaluated at the event's o
 application takes the event's `created_at`), so processing an event again reaches the same
 decision. No per-event receipt table: it would add a row for every domain event to protect only
 a manual reset of the subscriber cursor.
+
+**What a child paid follows the child's own state.** Reverting and re-applying look only at the
+state of the item that paid: hiding a thread or a profile post leaves what its replies, comments
+and their reactions paid, and a reply restored while its thread is hidden is paid again. New
+payments still need the item and its parent to be visible. Merging a thread away reverts what
+that thread paid. Hiding content with many paid reactions reverts them in batches of 500, each
+its own transaction.
+
+**More accepted limits.** Content created visible and hidden before the subscriber first sees
+it (about a second) is not paid if it is restored later. The balance repair job sums a member's
+whole ledger inside its chunk's transaction, which is milliseconds for the histories seeded and
+grows with a member's history. `credits.history` reads the balance and the page in two queries,
+so a movement committed in between shows for one response.

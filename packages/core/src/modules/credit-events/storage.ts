@@ -32,7 +32,9 @@ export const queries = {
     "SELECT count(*) AS count FROM credit_rule_applications WHERE rule_id = ?1 AND user_id = ?2 AND created_at > ?3 AND created_at <= ?4",
   apply:
     "INSERT INTO credit_rule_applications (rule_id, user_id, source_type, source_id, source_user_id, amount, state, last_event_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'applied', ?7, ?8) ON CONFLICT (rule_id, user_id, source_type, source_id, source_user_id) DO NOTHING RETURNING id",
-  flip: "UPDATE credit_rule_applications SET state = ?1, last_event_id = ?2 WHERE source_type = ?3 AND source_id = ?4 AND state = ?5 AND last_event_id < ?2 RETURNING rule_id, user_id, amount",
+  flip: "UPDATE credit_rule_applications SET state = ?1, last_event_id = ?2 WHERE id IN (SELECT id FROM credit_rule_applications WHERE source_type = ?3 AND source_id = ?4 AND id > ?6 AND state = ?5 AND last_event_id < ?2 ORDER BY id LIMIT ?7) RETURNING id, rule_id, user_id, amount",
+  sourceApplied:
+    "SELECT 1 AS found FROM credit_rule_applications WHERE source_type = ?1 AND source_id = ?2 AND rule_id = ?3 AND source_user_id = ?4 LIMIT 1",
   firstVisibilityChange:
     "SELECT id, json_extract(payload, '$.previousState') AS previous_state FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND type IN ('content.deleted', 'content.state_changed') AND (json_extract(payload, '$.previousState') = 'visible' OR json_extract(payload, '$.state') = 'visible') ORDER BY id LIMIT 1",
   thread: "SELECT user_id, node_id, state, created_at FROM threads WHERE id = ?1",

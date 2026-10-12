@@ -13,6 +13,12 @@ interface Content {
   recipient_id?: number;
   parent_state?: string;
 }
+/** Applications flipped, charged and ledgered per transaction when content is hidden or restored. */
+export const FLIP_BATCH_SIZE = 500;
+
+// Paid to the member currently on the receiving end, so they are paid once per source whoever that is.
+const RECEIVED: Trigger[] = ["reply_received", "reaction_received", "profile_post_received"];
+
 interface Source {
   type: string;
   id: number;
@@ -41,6 +47,11 @@ function apply(
   source: Source,
 ): void {
   for (const rule of query<RuleRow>(ctx, "active").all(trigger, event.id)) {
+    if (
+      RECEIVED.includes(trigger) &&
+      query(ctx, "sourceApplied").get(source.type, source.id, rule.id, source.otherUserId ?? 0)
+    )
+      continue;
     const nodes = JSON.parse(rule.node_ids) as number[];
     if (nodes.length && (source.nodeId === undefined || !nodes.includes(source.nodeId))) continue;
     if (rule.limit_count !== null) {
@@ -74,13 +85,28 @@ function apply(
   }
 }
 
-function reconcile(ctx: Ctx, event: DomainEvent, source: Source, visible: boolean): void {
-  const rows = query<{ rule_id: number; user_id: number; amount: number }>(ctx, "flip").all(
+/**
+ * Flips one batch of the source's applications and moves their credits in the caller's
+ * transaction. Returns the id to continue after, or null when nothing is left.
+ */
+function reconcile(
+  ctx: Ctx,
+  event: DomainEvent,
+  source: Source,
+  visible: boolean,
+  after = 0,
+): number | null {
+  const rows = query<{ id: number; rule_id: number; user_id: number; amount: number }>(
+    ctx,
+    "flip",
+  ).all(
     visible ? "applied" : "reverted",
     event.id,
     source.type,
     source.id,
     visible ? "reverted" : "applied",
+    after,
+    FLIP_BATCH_SIZE,
   );
   if (rows.length)
     moveCredits(
@@ -92,6 +118,7 @@ function reconcile(ctx: Ctx, event: DomainEvent, source: Source, visible: boolea
         source: { type: "credit_rule", id: row.rule_id },
       })),
     );
+  return rows.length < FLIP_BATCH_SIZE ? null : Math.max(...rows.map((row) => row.id));
 }
 
 function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
@@ -125,8 +152,18 @@ function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
   }
 }
 
-/** One event, including every application and ledger movement, commits atomically. */
-export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void {
+interface Continuation {
+  source: Source;
+  visible: boolean;
+  after: number;
+}
+
+/**
+ * Each transaction commits an event's direct effects, or one batch of a flip, atomically. A flip
+ * larger than a batch returns a promise that finishes it batch by batch, yielding in between;
+ * if it is interrupted, handling the event again resumes it.
+ */
+export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void | Promise<void> {
   if (
     ![
       "content.created",
@@ -139,10 +176,20 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void {
       "member.warned",
       "award.granted",
       "award.revoked",
+      "moderation.action",
     ].includes(event.type)
   )
     return;
-  writeTx(ctx, () => {
+  if (
+    event.type === "moderation.action" &&
+    !(event.targetType === "thread" && event.payload.action === "merge")
+  )
+    return;
+  const first = writeTx(ctx, (): Continuation | undefined => {
+    const flip = (source: Source, visible: boolean) => {
+      const after = reconcile(ctx, event, source, visible);
+      return after === null ? undefined : { source, visible, after };
+    };
     if (event.type.startsWith("content.") || event.type === "reaction.added") {
       const row = content(ctx, event.targetType, event.targetId);
       if (!row) return;
@@ -162,9 +209,16 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void {
           otherUserId: userId,
         });
       } else {
-        reconcile(ctx, event, source, visible);
+        // Applications follow the content's own state; its parent only gates new payments.
+        const continuation = flip(source, row.state === "visible");
         if (visible) creation(ctx, event, row);
+        return continuation;
       }
+      return;
+    }
+    if (event.type === "moderation.action") {
+      const row = content(ctx, "thread", event.targetId);
+      if (row) return flip({ type: "thread", id: event.targetId }, row.state === "visible");
       return;
     }
     if (event.type === "award.granted" || event.type === "award.revoked") {
@@ -172,8 +226,8 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void {
       const grant = query<{ user_id: number; revoked_at: number | null }>(ctx, "award").get(id);
       if (!grant) return;
       const source = { type: "member_award", id };
-      if (grant.revoked_at !== null) reconcile(ctx, event, source, false);
-      else if (event.type === "award.granted")
+      if (grant.revoked_at !== null) return flip(source, false);
+      if (event.type === "award.granted")
         apply(ctx, event, "award_received", grant.user_id, source);
       return;
     }
@@ -202,4 +256,15 @@ export function handleCreditRuleEvent(ctx: Ctx, event: DomainEvent): void {
         break;
     }
   });
+  if (first) return finish(ctx, event, first);
+}
+
+async function finish(ctx: Ctx, event: DomainEvent, next: Continuation): Promise<void> {
+  let after: number | null = next.after;
+  while (after !== null) {
+    await new Promise((resolve) => setImmediate(resolve));
+    const { source, visible } = next;
+    const cursor: number = after;
+    after = writeTx(ctx, () => reconcile(ctx, event, source, visible, cursor));
+  }
 }

@@ -181,13 +181,10 @@ describe("shop catalog", () => {
         await expect(
           call("shopItems.update", { itemId: grant.id, ...change }, actor),
         ).rejects.toBeInstanceOf(ForbiddenError);
-      await expect(call("shopItems.delete", { itemId: grant.id }, actor)).rejects.toBeInstanceOf(
-        ForbiddenError,
-      );
       expect(await call("shopItems.update", { itemId: grant.id, price: 1 })).toMatchObject({
         price: 1,
       });
-      expect(await call("shopItems.delete", { itemId: grant.id })).toEqual({ ok: true });
+      expect(await call("shopItems.delete", { itemId: grant.id }, actor)).toEqual({ ok: true });
     }
     const integerEffect = {
       type: "permission",
@@ -202,7 +199,38 @@ describe("shop catalog", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  test("changing away from or deleting a group item respects the existing group's rank", async () => {
+  test("a holder of only admin.shop deletes unsold grant items, but a bought one conflicts", async () => {
+    const { ctx, call } = fixture();
+    const manager = insertUser(ctx);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (group_id, user_id, node_id, permission_id, value) SELECT 0, ?1, 0, id, 1 FROM permission_definitions WHERE key = 'admin.shop'",
+      )
+      .run(manager.id);
+    const actor = userActor(manager);
+    const category = await call("shopCategories.create", { name: "Grants" });
+    const base = { categoryId: category.id, name: "X", price: 0 };
+    for (const effect of [
+      { type: "permission", permission: "profilePost.viewDeleted" },
+      { type: "group", groupId: 2 },
+    ]) {
+      const unsold = await call("shopItems.create", { ...base, effect });
+      expect(await call("shopItems.delete", { itemId: unsold.id }, actor)).toEqual({ ok: true });
+      await expect(call("shopItems.get", { itemId: unsold.id })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+    }
+    const bought = await call("shopItems.create", {
+      ...base,
+      effect: { type: "permission", permission: "profilePost.viewDeleted" },
+    });
+    await call("shop.buy", { itemId: bought.id }, userActor(insertUser(ctx)));
+    await expect(call("shopItems.delete", { itemId: bought.id }, actor)).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+  });
+
+  test("changing away from a group item respects the existing group's rank; deleting needs only admin.shop", async () => {
     const { ctx, call } = fixture();
     const group = ctx.sqlite
       .prepare<{ id: number }, []>(
@@ -222,8 +250,6 @@ describe("shop catalog", () => {
     await expect(
       call("shopItems.update", { itemId: item.id, effect: { type: "frame", frame: "gold" } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(call("shopItems.delete", { itemId: item.id })).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
+    expect(await call("shopItems.delete", { itemId: item.id })).toEqual({ ok: true });
   });
 });

@@ -80,6 +80,59 @@ function deny(
 }
 
 describe("shop purchases and inventory", () => {
+  describe("hidden catalog entries", () => {
+    const cases = [
+      ["inactive item", { isActive: false }, false],
+      ["active item in an inactive category", {}, true],
+    ] as const;
+    for (const [label, fields, hideCategory] of cases) {
+      const setup = async (isGift: boolean) => {
+        const f = fixture();
+        f.fund();
+        const item = await f.create({ ...fields, ...(isGift ? { isGiftable: false } : {}) });
+        if (hideCategory)
+          await f.call(
+            "shopCategories.update",
+            { categoryId: item.categoryId, isActive: false },
+            f.admin,
+          );
+        return { ...f, item };
+      };
+      const snapshot = (ctx: ReturnType<typeof createTestContext>) => [
+        ctx.sqlite.prepare("SELECT * FROM shop_inventory").all(),
+        ctx.sqlite.prepare("SELECT * FROM shop_purchases").all(),
+        ctx.sqlite.prepare("SELECT * FROM credit_transactions").all(),
+        ctx.sqlite.prepare("SELECT credits FROM users").all(),
+        ctx.sqlite.prepare("SELECT stock FROM shop_items").all(),
+      ];
+      test(`a member buying an ${label} gets not found, like a missing item`, async () => {
+        const { ctx, call, item } = await setup(false);
+        const before = snapshot(ctx);
+        await expect(call("shop.buy", { itemId: item.id })).rejects.toBeInstanceOf(NotFoundError);
+        await expect(call("shop.buy", { itemId: 9999 })).rejects.toBeInstanceOf(NotFoundError);
+        expect(snapshot(ctx)).toEqual(before);
+      });
+      test(`a member gifting a non-giftable ${label} gets not found, not forbidden`, async () => {
+        const { ctx, call, item, recipient } = await setup(true);
+        const before = snapshot(ctx);
+        await expect(
+          call("shop.buy", { itemId: item.id, recipientId: recipient.id }),
+        ).rejects.toBeInstanceOf(NotFoundError);
+        expect(snapshot(ctx)).toEqual(before);
+      });
+      test(`a shop administrator buying an ${label} gets a conflict`, async () => {
+        const { ctx, call, item, admin, fund } = await setup(false);
+        if (admin.kind !== "user") throw new Error("expected a user actor");
+        fund(admin.userId);
+        const before = snapshot(ctx);
+        await expect(call("shop.buy", { itemId: item.id }, admin)).rejects.toBeInstanceOf(
+          ConflictError,
+        );
+        expect(snapshot(ctx)).toEqual(before);
+      });
+    }
+  });
+
   test("reordering an unchanged purchased effect is not a change of terms", async () => {
     const { ctx, call, create, fund, admin } = fixture();
     fund();
@@ -196,7 +249,9 @@ describe("shop purchases and inventory", () => {
       const before = ctx.sqlite.prepare("SELECT credits, shop_purchase_count FROM users").all();
       const events = ctx.sqlite.prepare("SELECT * FROM domain_events").all();
       const ledger = ctx.sqlite.prepare("SELECT * FROM credit_transactions").all();
-      await expect(call("shop.buy", { itemId: item.id })).rejects.toBeInstanceOf(ConflictError);
+      await expect(call("shop.buy", { itemId: item.id })).rejects.toBeInstanceOf(
+        reason === "item" || reason === "category" ? NotFoundError : ConflictError,
+      );
       expect(ctx.sqlite.prepare("SELECT * FROM shop_inventory").all()).toEqual([]);
       expect(ctx.sqlite.prepare("SELECT * FROM shop_purchases").all()).toEqual([]);
       expect(ctx.sqlite.prepare("SELECT credits, shop_purchase_count FROM users").all()).toEqual(

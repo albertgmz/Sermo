@@ -6,6 +6,7 @@ import { type DomainEvent, dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { moveCredits } from "../../shared/credits";
 import { createTestContext, insertNode, insertUser, userActor } from "../../testing";
+import { threadsCreateOp, threadsMergeOp } from "../forums";
 import {
   creditRulesCreateOp,
   creditRulesDeleteOp,
@@ -13,7 +14,7 @@ import {
   registerCreditRuleJobs,
 } from ".";
 import type { Trigger } from "./storage";
-import { handleCreditRuleEvent } from "./subscriber";
+import { FLIP_BATCH_SIZE, handleCreditRuleEvent } from "./subscriber";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {
@@ -410,7 +411,7 @@ describe("visibility and reversals", () => {
   });
 
   for (const parentState of ["deleted", "moderated"]) {
-    test(`a comment under a ${parentState} profile post cannot pay or re-apply reactions`, async () => {
+    test(`a comment under a ${parentState} profile post cannot pay new reactions, but its own restore re-applies`, async () => {
       const f = fixture();
       await f.createRule("reaction_given");
       await f.createRule("reaction_received");
@@ -426,9 +427,15 @@ describe("visibility and reversals", () => {
       f.state("profile_post_comment", id, "deleted");
       f.state("profile_post", parentId, parentState);
       f.state("profile_post_comment", id, "visible");
-      expect(f.balance()).toBe(0);
-      expect(f.balance(f.other.id)).toBe(0);
-      expect(f.ledger()).toHaveLength(4);
+      expect(f.balance()).toBe(10);
+      expect(f.balance(f.other.id)).toBe(10);
+      expect(f.ledger()).toHaveLength(6);
+      f.event("reaction.added", "profile_post_comment", id, {
+        userId: f.third.id,
+        contentUserId: f.author.id,
+      });
+      expect(f.balance()).toBe(10);
+      expect(f.balance(f.third.id)).toBe(0);
       await f.replay();
     });
   }
@@ -625,4 +632,152 @@ test("one failing movement rolls back every application, ledger row and balance 
   expect(f.balance()).toBe(Number.MAX_SAFE_INTEGER - 2);
   expect(f.ledger()).toEqual(before);
   expect(f.ctx.sqlite.prepare("SELECT id FROM credit_rule_applications").all()).toEqual([]);
+});
+
+test("a reply restored while its thread is hidden is re-applied from its own state", async () => {
+  const f = fixture();
+  await f.createRule("reply_posted");
+  const threadId = f.thread();
+  const postId = f.post(threadId, 1, "visible", f.other.id);
+  f.event("content.created", "post", postId);
+  expect(f.balance(f.other.id)).toBe(10);
+  f.state("post", postId, "deleted");
+  expect(f.balance(f.other.id)).toBe(0);
+  f.state("thread", threadId, "deleted");
+  f.state("post", postId, "visible");
+  expect(f.balance(f.other.id)).toBe(10);
+  f.state("thread", threadId, "visible");
+  expect(f.balance(f.other.id)).toBe(10);
+  expect(f.ledger()).toHaveLength(3);
+  await f.replay();
+});
+
+test("a second recipient is not paid for a source after the thread owner changes", async () => {
+  const f = fixture();
+  await f.createRule("reply_received");
+  const threadId = f.thread();
+  const created = f.event("content.created", "post", f.post(threadId));
+  expect(f.balance()).toBe(10);
+  f.ctx.sqlite.prepare("UPDATE threads SET user_id = ?1 WHERE id = ?2").run(f.third.id, threadId);
+  handleCreditRuleEvent(f.ctx, created);
+  expect(f.balance(f.third.id)).toBe(0);
+  expect(f.balance()).toBe(10);
+  expect(f.ctx.sqlite.prepare("SELECT id FROM credit_rule_applications").all()).toHaveLength(1);
+  await f.replay();
+});
+
+test("merging a thread away takes back what it paid, through the real operation", async () => {
+  const f = fixture();
+  await f.createRule("thread_created");
+  registerCreditRuleJobs(f.ctx);
+  const moderator = userActor(insertUser(f.ctx, { groupId: 3 }));
+  const targetOwner = userActor(f.other);
+  const sourceOwner = userActor(f.author);
+  const target = await execute(f.ctx, threadsCreateOp, targetOwner, {
+    nodeId: f.forum.id,
+    title: "Target",
+    body: "Target",
+  });
+  const source = await execute(f.ctx, threadsCreateOp, sourceOwner, {
+    nodeId: f.forum.id,
+    title: "Source",
+    body: "Source",
+  });
+  await dispatchEvents(f.ctx);
+  expect(f.balance()).toBe(10);
+  expect(f.balance(f.other.id)).toBe(10);
+  const merged = await execute(f.ctx, threadsMergeOp, moderator, {
+    threadId: target.thread.id,
+    sourceThreadIds: [source.thread.id],
+  });
+  expect(merged.completed).toBe(true);
+  await dispatchEvents(f.ctx);
+  expect(f.balance()).toBe(0);
+  expect(f.balance(f.other.id)).toBe(10);
+  const before = f.ledger();
+  f.ctx.sqlite
+    .prepare("UPDATE event_subscribers SET last_event_id = 0 WHERE name = 'credit-rules'")
+    .run();
+  await dispatchEvents(f.ctx);
+  expect(f.ledger()).toEqual(before);
+});
+
+describe("hiding popular content", () => {
+  const COUNT = FLIP_BATCH_SIZE * 2 + 200;
+  async function popular() {
+    const f = fixture();
+    await f.createRule("reaction_received");
+    const postId = f.post(f.thread(), 1, "visible", f.author.id);
+    const insert = f.ctx.sqlite.prepare(
+      "INSERT INTO credit_rule_applications (rule_id, user_id, source_type, source_id, source_user_id, amount, state, last_event_id, created_at) VALUES (1, ?1, 'post', ?2, ?3, 10, 'applied', 0, ?4)",
+    );
+    for (let i = 1; i <= COUNT; i++) insert.run(f.author.id, postId, i, f.ctx.now());
+    writeTx(f.ctx, () =>
+      moveCredits(f.ctx, [{ userId: f.author.id, amount: COUNT * 10, type: "event" }]),
+    );
+    const hide = () => {
+      f.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1").run(postId);
+      const id = writeTx(f.ctx, () =>
+        publishEvent(f.ctx, {
+          type: "content.deleted",
+          targetType: "post",
+          targetId: postId,
+          payload: { previousState: "visible", state: "deleted" },
+        }),
+      );
+      return {
+        id,
+        type: "content.deleted",
+        targetType: "post",
+        targetId: postId,
+        payload: { previousState: "visible", state: "deleted" },
+        createdAt: f.ctx.now(),
+      } satisfies DomainEvent;
+    };
+    const reverted = () =>
+      f.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM credit_rule_applications WHERE state = 'reverted'",
+        )
+        .get()!.n;
+    return { f, hide, reverted };
+  }
+
+  test("is flipped in bounded batches, once, and a replay changes nothing", async () => {
+    const { f, hide, reverted } = await popular();
+    const event = hide();
+    const pending = handleCreditRuleEvent(f.ctx, event);
+    expect(pending).toBeInstanceOf(Promise);
+    // The first transaction committed only one batch.
+    expect(reverted()).toBe(FLIP_BATCH_SIZE);
+    expect(f.balance()).toBe((COUNT - FLIP_BATCH_SIZE) * 10);
+    await pending;
+    expect(reverted()).toBe(COUNT);
+    expect(f.balance()).toBe(0);
+    expect(f.ledger().filter((row) => (row as { amount: number }).amount < 0)).toHaveLength(COUNT);
+    const before = f.ledger();
+    await handleCreditRuleEvent(f.ctx, event);
+    expect(f.ledger()).toEqual(before);
+  });
+
+  test("an interrupted flip resumes when the event is handled again", async () => {
+    const { f, hide, reverted } = await popular();
+    f.ctx.sqlite.exec(
+      `CREATE TRIGGER stop_flip BEFORE UPDATE ON credit_rule_applications WHEN NEW.source_user_id = ${FLIP_BATCH_SIZE + 5} AND NEW.state = 'reverted' BEGIN SELECT RAISE(ABORT, 'interrupted'); END`,
+    );
+    const event = hide();
+    await expect(Promise.resolve(handleCreditRuleEvent(f.ctx, event))).rejects.toThrow(
+      "interrupted",
+    );
+    expect(reverted()).toBe(FLIP_BATCH_SIZE);
+    expect(f.balance()).toBe((COUNT - FLIP_BATCH_SIZE) * 10);
+    f.ctx.sqlite.exec("DROP TRIGGER stop_flip");
+    await handleCreditRuleEvent(f.ctx, event);
+    expect(reverted()).toBe(COUNT);
+    expect(f.balance()).toBe(0);
+    expect(f.ledger().filter((row) => (row as { amount: number }).amount < 0)).toHaveLength(COUNT);
+    const before = f.ledger();
+    await handleCreditRuleEvent(f.ctx, event);
+    expect(f.ledger()).toEqual(before);
+  });
 });

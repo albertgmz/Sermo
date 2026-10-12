@@ -31,6 +31,8 @@ export const buy = implement(contracts.shopBuy, (ctx, actor, input) =>
     if (gift) requirePermission(ctx, actor, "shop.gift");
     const row = item(ctx, input.itemId);
     const value = itemValue(row);
+    const unavailable = !row.is_active || !category(ctx, row.category_id).is_active;
+    if (unavailable && !can(ctx, actor, "admin.shop")) throw new NotFoundError();
     if (gift) {
       if (!value.isGiftable) throw new ForbiddenError("This gift cannot be sent.");
       if (!statement(ctx, shopSql.recipient).get(recipientId)) throw new NotFoundError();
@@ -40,8 +42,7 @@ export const buy = implement(contracts.shopBuy, (ctx, actor, input) =>
       )
         throw new ForbiddenError("This gift cannot be sent.");
     }
-    if (!row.is_active || !category(ctx, row.category_id).is_active)
-      throw new ConflictError("This item is not available.");
+    if (unavailable) throw new ConflictError("This item is not available.");
     if (!value.isConsumable && input.quantity !== 1)
       throw new ValidationError("This item takes quantity 1.");
     const now = ctx.now();

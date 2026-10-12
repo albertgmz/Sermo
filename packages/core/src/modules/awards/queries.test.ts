@@ -26,7 +26,6 @@ test("award hot queries use indexed lookups and keyset order", () => {
       [evaluationSql.members, [0, SWEEP_CHUNK]],
       [evaluationSql.warnings, ["[1,2]", ctx.now()]],
       [evaluationSql.totals, ["[1,2]"]],
-      [evaluationSql.releaseKey, []],
       ["SELECT id, username FROM users WHERE id IN (SELECT value FROM json_each(?1))", ["[1,2]"]],
       [
         "SELECT profile_view_privacy, profile_post_privacy, EXISTS(SELECT 1 FROM user_follows WHERE user_id = ?1 AND followed_id = ?2) AS follows FROM users WHERE id = ?1",

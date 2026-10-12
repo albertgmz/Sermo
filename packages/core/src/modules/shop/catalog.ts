@@ -214,8 +214,6 @@ export const itemsDelete = implement(contracts.shopItemsDelete, (ctx, actor, inp
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     const value = itemValue(item(ctx, input.itemId));
-    grantPermissions(ctx, actor, value.effect);
-    assertGrantRank(ctx, actor, value.effect);
     if (statement(ctx, shopSql.bought).get(value.id))
       throw new ConflictError("A purchased item can only be deactivated.");
     statement(ctx, "DELETE FROM shop_items WHERE id = ?1").run(value.id);

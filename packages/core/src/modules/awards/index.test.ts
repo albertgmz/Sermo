@@ -348,6 +348,21 @@ describe("award catalog and reads", () => {
   });
 });
 
+describe("inactive award grants", () => {
+  for (const role of ["moderator", "admin"] as const) {
+    test(`granting an inactive award as ${role} is ${role === "admin" ? "a conflict" : "not found"}`, async () => {
+      const { ctx, member, call } = setup();
+      const award = await call("create", { name: "Hidden", tier: "bronze", isActive: false });
+      const actor = userActor(insertUser(ctx, { groupId: role === "admin" ? 4 : 3 }));
+      await expect(
+        execute(ctx, getOperation("awards.grant"), actor, { awardId: award.id, userId: member.id }),
+      ).rejects.toBeInstanceOf(role === "admin" ? ConflictError : NotFoundError);
+      expect(ctx.sqlite.prepare("SELECT id FROM member_awards").all()).toEqual([]);
+      expect(ctx.sqlite.prepare("SELECT id FROM member_award_totals").all()).toEqual([]);
+    });
+  }
+});
+
 describe("award permissions", () => {
   for (const role of ["guest", "member", "owner", "moderator", "admin", "token"] as const) {
     test(`every operation enforces its permissions for ${role}`, async () => {

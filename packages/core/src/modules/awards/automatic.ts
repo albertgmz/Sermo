@@ -7,9 +7,9 @@ import {
   eligible,
   type MemberFacts,
 } from "../../shared/criteria";
-import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { grantAward } from "./grants";
-import { type AwardRow, all, awardSql, conditions, one, run, type TotalRow } from "./store";
+import { type AwardRow, all, awardSql, conditions, one, type TotalRow } from "./store";
 
 // Granting can append several ledger and event rows per award; keep each lock brief.
 export const SWEEP_CHUNK = 50;
@@ -20,8 +20,6 @@ export const evaluationSql = {
   warnings:
     "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",
   totals: "SELECT * FROM member_award_totals WHERE user_id IN (SELECT value FROM json_each(?1))",
-  releaseKey:
-    "UPDATE jobs SET unique_key = NULL WHERE unique_key = 'awards.sweep' AND status = 'running'",
 };
 
 function evaluate(ctx: Ctx, members: MemberRow[]): number {
@@ -66,10 +64,15 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
   });
 }
 
-export function sweepChunk(ctx: Ctx, after = 0): number {
+/**
+ * Evaluates one page of members. Run by the queue (`job` given), the chunk commits together with
+ * the job's completion and its successor; a run that no longer owns the job does nothing.
+ */
+export function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): number {
   if (!Number.isSafeInteger(after) || after < 0)
     throw new TypeError("Invalid award sweep progress.");
   return writeTx(ctx, () => {
+    if (job && !completeRunningJob(ctx, job)) return 0;
     const members = all<MemberRow>(
       ctx,
       "evaluationMembers",
@@ -88,7 +91,6 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     for (const member of members) member.warning_points = points.get(member.id) ?? 0;
     evaluate(ctx, members);
     if (members.length === SWEEP_CHUNK) {
-      run(ctx, "releaseSweepKey", evaluationSql.releaseKey);
       enqueueJob(ctx, "awards.sweep", { after: members.at(-1)!.id }, { uniqueKey: "awards.sweep" });
     }
     return members.length;
@@ -117,14 +119,17 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
   if (event.type === "member.warned" || event.type === "credits.changed") userId = event.targetId;
   if (event.type === "shop.purchased") userId = Number(event.payload.buyerId) || null;
   if (event.type === "content.edited" && event.targetType === "profile") userId = event.targetId;
-  if (event.type === "member.groups_changed" && event.payload.source === "admin")
+  if (
+    event.type === "member.groups_changed" &&
+    (event.payload.source === "admin" || event.payload.source === "verification")
+  )
     userId = event.targetId;
   if (userId !== null) evaluateMember(ctx, userId);
 }
 
 export function registerAwardJobs(ctx: Ctx): void {
-  registerJobHandler(ctx, "awards.sweep", (context, payload) => {
-    sweepChunk(context, (payload as { after: number }).after);
+  registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
+    sweepChunk(context, (payload as { after: number }).after, job);
   });
   registerEventSubscriber(ctx, "awards", (event) => onEvent(ctx, event));
 }

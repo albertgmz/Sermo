@@ -36,9 +36,9 @@ let background: Promise<void> | null = null;
 function registerMeasuredSweep(env: BenchEnv): void {
   registerAwardJobs(env.ctx);
   maxChunkMs = 0;
-  registerJobHandler(env.ctx, "awards.sweep", (ctx, payload) => {
+  registerJobHandler(env.ctx, "awards.sweep", (ctx, payload, job) => {
     const start = performance.now();
-    sweepChunk(ctx, (payload as { after: number }).after);
+    sweepChunk(ctx, (payload as { after: number }).after, job);
     maxChunkMs = Math.max(maxChunkMs, performance.now() - start);
   });
 }

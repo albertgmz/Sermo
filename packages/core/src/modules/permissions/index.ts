@@ -88,6 +88,13 @@ const admin = (ctx: Ctx, actor: Actor, id: "admin.groups" | "admin.permissions")
 const assertRank = (rank: number, ceiling: number) => {
   if (rank >= ceiling) throw new ForbiddenError();
 };
+/** Whether a shop item's effect adds this group (the catalog is small; this is an admin path). */
+const soldByShop = (ctx: Ctx, groupId: number) =>
+  !!ctx.sqlite
+    .prepare<{ id: number }, [number]>(
+      "SELECT id FROM shop_items WHERE json_extract(effect, '$.type') = 'group' AND json_extract(effect, '$.groupId') = ?1 LIMIT 1",
+    )
+    .get(groupId);
 const assertAdministrator = (ctx: Ctx) => {
   const ids = combinationsGranting(ctx, "admin.permissions");
   if (
@@ -167,12 +174,7 @@ export const groupsDeleteOp = implement(groupsDelete, (ctx, actor, input) => {
     if (group.builtin) throw new ConflictError("Built-in groups cannot be deleted.");
     assertRank(group.rank, memberStanding(ctx, actor).maxRank);
     // Members hold what they paid for: a group a shop item sells stays until the item goes.
-    const sold = ctx.sqlite
-      .prepare<{ id: number }, [number]>(
-        "SELECT id FROM shop_items WHERE json_extract(effect, '$.type') = 'group' AND json_extract(effect, '$.groupId') = ?1 LIMIT 1",
-      )
-      .get(group.id);
-    if (sold) throw new ConflictError("A shop item sells this group.");
+    if (soldByShop(ctx, group.id)) throw new ConflictError("A shop item sells this group.");
     ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_groups WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_group_grants WHERE group_id = ?1").run(group.id);
@@ -382,6 +384,14 @@ export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) =>
           def.requiresAccount
         )
           throw new ValidationError("Guests cannot receive account-only permissions.");
+        // Administration is never for sale: membership of a sold group can end with an item.
+        if (
+          groupId &&
+          entry.permission === "admin.permissions" &&
+          entry.value === "allow" &&
+          soldByShop(ctx, groupId)
+        )
+          throw new ConflictError("A shop item sells this group.");
       }
       const definitionId = find.get(entry.permission)!.id;
       if (entry.value === "unset") remove.run(definitionId, nodeId, groupId, userId);

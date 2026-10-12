@@ -7,7 +7,7 @@ import { type DomainEvent, dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
-import { registerJobHandler, runDueJobs } from "../jobs/queue";
+import { enqueueJob, registerJobHandler, runDueJobs } from "../jobs/queue";
 import { evaluateMember, registerAwardJobs, SWEEP_CHUNK, sweepChunk } from "./automatic";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
@@ -291,6 +291,32 @@ describe("automatic awards", () => {
     });
   }
 
+  test("verifying an email evaluates the member", async () => {
+    const { ctx, member, call } = setup();
+    const award = await call("create", {
+      name: "Verified",
+      tier: "bronze",
+      criteria: [{ criterion: "email_verified", value: 1 }],
+    });
+    const verify = async () => {
+      writeTx(ctx, () =>
+        publishEvent(ctx, {
+          type: "member.groups_changed",
+          targetType: "user",
+          targetId: member.id,
+          payload: { source: "verification" },
+        }),
+      );
+      await drainEvents(ctx);
+    };
+    await verify();
+    expect((await call("holders", { awardId: award.id })).items).toHaveLength(0);
+    ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(member.id);
+    await verify();
+    await verify();
+    expect((await call("holders", { awardId: award.id })).items).toHaveLength(1);
+  });
+
   test("subscriber ignores its own grant and revoke events and non-admin group changes", async () => {
     const { ctx, member, call } = setup();
     await call("create", { name: "Not yet", tier: "bronze", criteria: postCriterion });
@@ -370,7 +396,7 @@ describe("automatic awards", () => {
 });
 
 describe("award sweeps", () => {
-  test("resumes by member id and is idempotent when every chunk runs twice", async () => {
+  test("resumes by member id and a repeated run of a claimed chunk does nothing", async () => {
     const { ctx, call } = setup();
     const ids: number[] = [];
     for (let i = 0; i < SWEEP_CHUNK * 2 + 7; i++) ids.push(insertUser(ctx).id);
@@ -385,11 +411,13 @@ describe("award sweeps", () => {
       criteria: postCriterion,
     });
     const progress: number[] = [];
-    registerJobHandler(ctx, "awards.sweep", (context, payload) => {
+    registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
       const after = (payload as { after: number }).after;
       progress.push(after);
-      const length = sweepChunk(context, after);
-      expect(sweepChunk(context, after)).toBe(length);
+      const length = sweepChunk(context, after, job);
+      expect(length).toBeGreaterThan(0);
+      // A repeated run of the same claim is stale: it does nothing.
+      expect(sweepChunk(context, after, job)).toBe(0);
     });
     await call("run");
     expect(await runDueJobs(ctx, { limit: 1 })).toBe(1);
@@ -415,6 +443,79 @@ describe("award sweeps", () => {
       ctx.sqlite.prepare("SELECT credits, award_xp FROM users WHERE id = ?1").get(ids[0]!),
     ).toEqual({ credits: 3, award_xp: 2 });
     expect(ctx.sqlite.prepare("SELECT id FROM jobs WHERE status = 'failed'").all()).toEqual([]);
+  });
+
+  test("a retried predecessor does not release or duplicate its successor", async () => {
+    const { ctx, call } = setup();
+    for (let i = 0; i < SWEEP_CHUNK; i++) insertUser(ctx);
+    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
+    const first = Number(
+      enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }),
+    );
+    const lease = ctx.now() + 1000;
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', locked_until = ?1 WHERE id = ?2")
+      .run(lease, first);
+    expect(sweepChunk(ctx, 0, { id: first, lockedUntil: lease })).toBe(SWEEP_CHUNK);
+    const successor = ctx.sqlite
+      .prepare("SELECT id FROM jobs WHERE unique_key = 'awards.sweep' AND status = 'pending'")
+      .get() as { id: number };
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', locked_until = ?1 WHERE id = ?2")
+      .run(lease, successor.id);
+    // The first run's lease expires and the queue hands it out again with a new lease.
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', locked_until = ?1 WHERE id = ?2")
+      .run(lease + 1000, first);
+    const granted = (await call("get", { awardId: award.id })).grantCount;
+    expect(sweepChunk(ctx, 0, { id: first, lockedUntil: lease })).toBe(0);
+    expect(
+      ctx.sqlite.prepare("SELECT id, status FROM jobs WHERE unique_key IS NOT NULL").all(),
+    ).toEqual([{ id: successor.id, status: "running" }]);
+    expect(
+      ctx.sqlite
+        .prepare("SELECT count(*) AS n FROM jobs WHERE type = 'awards.sweep' AND id > ?1")
+        .get(successor.id),
+    ).toEqual({ n: 0 });
+    expect((await call("get", { awardId: award.id })).grantCount).toBe(granted);
+  });
+
+  test("a stale claim grants nothing and queues nothing", async () => {
+    const { ctx, member, call } = setup();
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
+    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    const id = Number(enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }));
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'running', locked_until = ?1 WHERE id = ?2")
+      .run(ctx.now() + 2000, id);
+    expect(sweepChunk(ctx, 0, { id, lockedUntil: ctx.now() + 1000 })).toBe(0);
+    expect((await call("get", { awardId: award.id })).grantCount).toBe(0);
+    expect(ctx.sqlite.prepare("SELECT count(*) AS n FROM jobs").get()).toEqual({ n: 1 });
+    expect(member.id).toBeGreaterThan(0);
+  });
+
+  test("a full queued sweep visits every member once and leaves no sweep job pending", async () => {
+    const { ctx, call } = setup();
+    for (let i = 0; i < SWEEP_CHUNK * 2 + 7; i++) insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
+    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    const total = (ctx.sqlite.prepare("SELECT count(*) AS n FROM users").get() as { n: number }).n;
+    let visited = 0;
+    registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
+      visited += sweepChunk(context, (payload as { after: number }).after, job);
+    });
+    await call("run");
+    while (await runDueJobs(ctx, { limit: 1 })) {}
+    expect(visited).toBe(total);
+    expect((await call("get", { awardId: award.id })).grantCount).toBe(total);
+    expect(
+      ctx.sqlite
+        .prepare(
+          "SELECT id FROM jobs WHERE type = 'awards.sweep' AND status IN ('pending', 'running')",
+        )
+        .all(),
+    ).toEqual([]);
   });
 
   test("a chunk rolls back all earlier grants if a later credit movement fails", async () => {
