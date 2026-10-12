@@ -32,7 +32,12 @@ const member = {
     canReact: false,
   },
   resolvedPermissions: {},
-  staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
+  staff: {
+    panel: false,
+    moderatesEverywhere: false,
+    moderatedNodeIds: [],
+    moderatedNodesTruncated: false,
+  },
 };
 
 function backend(cards: Response) {

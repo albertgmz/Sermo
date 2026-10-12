@@ -73,7 +73,12 @@ test("the visitor's request settles the forwarding", async () => {
         canReact: false,
       },
       resolvedPermissions: {},
-      staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
+      staff: {
+        panel: false,
+        moderatesEverywhere: false,
+        moderatedNodeIds: [],
+        moderatedNodesTruncated: false,
+      },
     }),
   );
   // auth.me is asked first and its answer is no file id, so the upload fails after it.

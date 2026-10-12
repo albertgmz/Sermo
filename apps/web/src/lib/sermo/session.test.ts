@@ -31,7 +31,12 @@ const guest = {
     canReact: false,
   },
   resolvedPermissions: {},
-  staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
+  staff: {
+    panel: false,
+    moderatesEverywhere: false,
+    moderatedNodeIds: [],
+    moderatedNodesTruncated: false,
+  },
 };
 const member = {
   ...guest,
