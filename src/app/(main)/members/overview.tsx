@@ -3,8 +3,8 @@ import Link from "next/link";
 import { MemberSearch } from "@/app/(main)/members/member-search";
 import { VIEWS, type ViewValue, viewHref } from "@/app/(main)/members/views";
 import { EmptyState } from "@/components/forum/empty-state";
-import { Leaderboard } from "@/components/forum/leaderboard";
 import { MemberRow } from "@/components/forum/member-row";
+import { Podium } from "@/components/forum/podium";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   MonthHero,
@@ -31,9 +31,10 @@ import {
 import { monthOf } from "@/lib/standing";
 
 const TOP = 5;
-const RACE = 10;
-const PAST_WINNERS = 5;
-const NEWEST = 12;
+const RACE = 3;
+const PAST_WINNERS = 3;
+const NEWEST = 6;
+const STAFF = 3;
 
 const NOTABLE = VIEWS.filter((view) => "ranking" in view);
 
@@ -47,7 +48,7 @@ function ViewLink({
   return (
     <Link
       href={viewHref(view)}
-      className="relative text-xs font-medium text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3.5 hover:text-foreground"
+      className="-my-1 inline-flex min-h-10 items-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
     >
       {children}
     </Link>
@@ -56,7 +57,7 @@ function ViewLink({
 
 function NewestMembers({ members }: { members: UserView[] }) {
   return (
-    <ul className="flex flex-wrap gap-2 p-4">
+    <ul className="flex flex-wrap gap-2 px-4 py-3">
       {members.map((member) => (
         <li key={member.id}>
           <Tooltip>
@@ -108,7 +109,7 @@ export async function Overview({ viewerId }: { viewerId?: number }) {
         </div>
       )}
 
-      <div className="grid gap-(--page-gap) xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+      <div className="grid gap-3 md:grid-cols-2 md:items-start">
         <SectionCard
           title="This month's race"
           description={monthLabel(monthOf(new Date()))}
@@ -134,21 +135,21 @@ export async function Overview({ viewerId }: { viewerId?: number }) {
         )}
       </div>
 
-      <section aria-labelledby="notable-members" className="space-y-3 pt-2">
+      <section aria-labelledby="notable-members" className="space-y-3">
         <h2
           id="notable-members"
           className="text-lg font-semibold tracking-tight"
         >
           Notable members
         </h2>
-        <div className="grid gap-(--page-gap) sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {NOTABLE.map((view, index) => (
             <SectionCard
               key={view.value}
               title={view.label}
               action={<ViewLink view={view.value}>View more</ViewLink>}
             >
-              <Leaderboard
+              <Podium
                 members={rankings[index]}
                 by={view.ranking}
                 viewerId={viewerId}
@@ -158,55 +159,57 @@ export async function Overview({ viewerId }: { viewerId?: number }) {
         </div>
       </section>
 
-      <section aria-labelledby="community" className="space-y-3 pt-2">
+      <section aria-labelledby="community" className="space-y-3">
         <h2 id="community" className="text-lg font-semibold tracking-tight">
           Community
         </h2>
-        <div className="grid gap-(--page-gap) sm:grid-cols-2 sm:items-start">
+        <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
           <SectionCard
             title="Staff"
             action={<ViewLink view="staff">View more</ViewLink>}
           >
-            {staff.map((user) => (
-              <MemberRow key={user.id} user={user} />
+            {staff.slice(0, STAFF).map((user) => (
+              <MemberRow key={user.id} user={user} className="py-2" />
             ))}
           </SectionCard>
 
-          <SectionCard title="Today's birthdays">
-            {birthdays.length > 0 ? (
-              birthdays.map((user) => (
-                <MemberRow key={user.id} user={user}>
-                  <Cake
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-primary"
-                  />
-                </MemberRow>
-              ))
-            ) : (
-              <EmptyState
-                icon={Cake}
-                title="No birthdays today"
-                description="Nobody in the community celebrates today."
-                className="py-6"
-              />
-            )}
-          </SectionCard>
+          <div className="grid gap-3">
+            <SectionCard
+              title="Newest members"
+              action={<ViewLink view="all">View more</ViewLink>}
+            >
+              <NewestMembers members={newest} />
+              <section
+                aria-labelledby="find-member-heading"
+                className="px-4 py-3"
+              >
+                <h3
+                  id="find-member-heading"
+                  className="mb-2 text-sm font-semibold"
+                >
+                  Find a member
+                </h3>
+                <MemberSearch id="find-member" />
+              </section>
+            </SectionCard>
 
-          <SectionCard
-            title="Newest members"
-            action={<ViewLink view="all">View more</ViewLink>}
-          >
-            <NewestMembers members={newest} />
-          </SectionCard>
-
-          <SectionCard
-            title="Find a member"
-            description="Search the directory by username."
-          >
-            <div className="p-4">
-              <MemberSearch id="find-member" />
-            </div>
-          </SectionCard>
+            <SectionCard title="Today's birthdays">
+              {birthdays.length > 0 ? (
+                birthdays.map((user) => (
+                  <MemberRow key={user.id} user={user} className="py-2">
+                    <Cake
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-primary"
+                    />
+                  </MemberRow>
+                ))
+              ) : (
+                <p className="px-4 py-3 text-sm text-muted-foreground">
+                  No birthdays today.
+                </p>
+              )}
+            </SectionCard>
+          </div>
         </div>
       </section>
     </>
