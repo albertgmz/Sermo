@@ -21,6 +21,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import {
   combinationsGranting,
+  currentActor,
   currentVersions,
   explainPermission,
   getNodeTree,
@@ -85,6 +86,16 @@ const ensureNode = (ctx: Ctx, id: number) => {
 };
 const admin = (ctx: Ctx, actor: Actor, id: "admin.groups" | "admin.permissions") =>
   requirePermission(ctx, actor, id);
+/**
+ * The same check inside the write transaction, against what is committed now: the request's
+ * actor was resolved before the transaction opened. Returns the reloaded actor; every later
+ * decision of the operation (rank ceiling, hierarchy) uses it.
+ */
+const adminNow = (ctx: Ctx, actor: Actor, id: "admin.groups" | "admin.permissions") => {
+  const current = currentActor(ctx, actor);
+  requirePermission(ctx, current, id);
+  return current;
+};
 const assertRank = (rank: number, ceiling: number) => {
   if (rank >= ceiling) throw new ForbiddenError();
 };
@@ -95,15 +106,40 @@ const soldByShop = (ctx: Ctx, groupId: number) =>
       "SELECT id FROM shop_items WHERE json_extract(effect, '$.type') = 'group' AND json_extract(effect, '$.groupId') = ?1 LIMIT 1",
     )
     .get(groupId);
-const assertAdministrator = (ctx: Ctx) => {
-  const ids = combinationsGranting(ctx, "admin.permissions");
+/**
+ * Whether a promotion grants this group: one lists it, or a member still holds it through one
+ * (a deleted promotion's grants are removed by a job).
+ */
+const grantedByPromotion = (ctx: Ctx, groupId: number) =>
+  !!ctx.sqlite
+    .prepare<{ held: number }, [number]>(
+      "SELECT 1 AS held FROM promotions WHERE EXISTS (SELECT 1 FROM json_each(promotions.group_ids) WHERE value = ?1) UNION ALL SELECT 1 FROM user_group_grants WHERE group_id = ?1 LIMIT 1",
+    )
+    .get(groupId);
+/**
+ * The invariant every change to permissions, groups, memberships and bans keeps: at least one
+ * member who is not banned has `admin.permissions`. Call it inside the write transaction, after
+ * the change; it throws ConflictError when the change would leave nobody. A ban passes
+ * `bannedUserId`: only banning a member who holds `admin.permissions` can break the invariant,
+ * so any other ban is never refused.
+ */
+export const assertAdministrator = (ctx: Ctx, bannedUserId?: number) => {
+  const ids = JSON.stringify(combinationsGranting(ctx, "admin.permissions"));
   if (
-    !ids.length ||
+    bannedUserId !== undefined &&
+    !prepared(ctx, "permissions.isAdministrator", () =>
+      ctx.sqlite.prepare<{ id: number }, [string, number]>(
+        "SELECT id FROM users WHERE id = ?2 AND permission_combination_id IN (SELECT value FROM json_each(?1))",
+      ),
+    ).get(ids, bannedUserId)
+  )
+    return;
+  if (
     !prepared(ctx, "permissions.activeAdministrator", () =>
       ctx.sqlite.prepare<{ id: number }, [string, number]>(
         "SELECT id FROM users WHERE permission_combination_id IN (SELECT value FROM json_each(?1)) AND banned_permanently = 0 AND (banned_until IS NULL OR banned_until <= ?2) LIMIT 1",
       ),
-    ).get(JSON.stringify(ids), ctx.now())
+    ).get(ids, ctx.now())
   )
     throw new ConflictError("Cannot remove the last administrator.");
 };
@@ -129,7 +165,8 @@ export const groupsGetOp = implement(groupsGet, (ctx, actor, input) => {
 export const groupsCreateOp = implement(groupsCreate, (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");
   return writeTx(ctx, () => {
-    assertRank(input.rank, memberStanding(ctx, actor).maxRank);
+    const current = adminNow(ctx, actor, "admin.groups");
+    assertRank(input.rank, memberStanding(ctx, current).maxRank);
     const id = Number(
       ctx.sqlite
         .prepare(
@@ -145,9 +182,10 @@ export const groupsCreateOp = implement(groupsCreate, (ctx, actor, input) => {
 export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");
   return writeTx(ctx, () => {
+    const current = adminNow(ctx, actor, "admin.groups");
     const old = getGroup(ctx, input.groupId);
     if (!old) throw new NotFoundError();
-    const ceiling = memberStanding(ctx, actor).maxRank;
+    const ceiling = memberStanding(ctx, current).maxRank;
     assertRank(old.rank, ceiling);
     assertRank(input.rank ?? old.rank, ceiling);
     ctx.sqlite
@@ -169,13 +207,20 @@ export const groupsUpdateOp = implement(groupsUpdate, (ctx, actor, input) => {
 export const groupsDeleteOp = implement(groupsDelete, (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");
   return writeTx(ctx, () => {
+    const current = adminNow(ctx, actor, "admin.groups");
     const group = getGroup(ctx, input.groupId);
     if (!group) throw new NotFoundError();
     if (group.builtin) throw new ConflictError("Built-in groups cannot be deleted.");
-    assertRank(group.rank, memberStanding(ctx, actor).maxRank);
+    const ceiling = memberStanding(ctx, current).maxRank;
+    assertRank(group.rank, ceiling);
     // Members hold what they paid for: a group a shop item sells stays until the item goes.
     if (soldByShop(ctx, group.id)) throw new ConflictError("A shop item sells this group.");
-    ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE group_id = ?1").run(group.id);
+    // Its members move to the Member group, which is an assignment like any other: nobody
+    // gives out a group ranked at or above their own (the deleter may be one of the members).
+    const moved = ctx.sqlite
+      .prepare("UPDATE users SET group_id = ?1 WHERE group_id = ?2")
+      .run(GROUP_IDS.member, group.id).changes;
+    if (moved > 0) assertRank(getGroup(ctx, GROUP_IDS.member)!.rank, ceiling);
     ctx.sqlite.prepare("DELETE FROM user_groups WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_group_grants WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM permission_entries WHERE group_id = ?1").run(group.id);
@@ -219,15 +264,16 @@ export const usersGetGroupsOp = implement(usersGetGroups, (ctx, actor, input) =>
 export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.members", { target: GUEST });
   return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
     const target = getMember(ctx, input.userId);
-    requirePermission(ctx, actor, "admin.members", { target });
+    requirePermission(ctx, current, "admin.members", { target });
     const before = memberGroups(ctx, input.userId);
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
       (id): id is number => id !== undefined,
     );
     if (ids.includes(GROUP_IDS.guest))
       throw new ValidationError("The Guest group cannot be assigned.");
-    const ceiling = memberStanding(ctx, actor).maxRank;
+    const ceiling = memberStanding(ctx, current).maxRank;
     for (const id of ids) {
       const group = getGroup(ctx, id);
       if (!group) throw new NotFoundError();
@@ -345,6 +391,7 @@ export const permissionsListOp = implement(permissionsList, (ctx, actor, input) 
 export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) => {
   admin(ctx, actor, "admin.permissions");
   return writeTx(ctx, () => {
+    adminNow(ctx, actor, "admin.permissions");
     const { groupId, userId, nodeId } = validateTarget(ctx, input);
     const find = prepared(ctx, "permissions.definitionId", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
@@ -384,14 +431,17 @@ export const permissionsSetOp = implement(permissionsSet, (ctx, actor, input) =>
           def.requiresAccount
         )
           throw new ValidationError("Guests cannot receive account-only permissions.");
-        // Administration is never for sale: membership of a sold group can end with an item.
-        if (
-          groupId &&
-          entry.permission === "admin.permissions" &&
-          entry.value === "allow" &&
-          soldByShop(ctx, groupId)
-        )
-          throw new ConflictError("A shop item sells this group.");
+        // Administration is never sold nor earned. Membership of a group a shop item sells or
+        // a promotion grants starts and ends in purchases, expiries and background evaluation
+        // that the last-administrator guard never sees, so such a group holds no entry for
+        // `admin.permissions`: neither an allow that would end with the membership, nor a
+        // never that would begin with it. The promotions and shop modules refuse the reverse
+        // order (granting or selling a group that already has one).
+        if (groupId && entry.permission === "admin.permissions") {
+          if (soldByShop(ctx, groupId)) throw new ConflictError("A shop item sells this group.");
+          if (grantedByPromotion(ctx, groupId))
+            throw new ConflictError("A promotion grants this group.");
+        }
       }
       const definitionId = find.get(entry.permission)!.id;
       if (entry.value === "unset") remove.run(definitionId, nodeId, groupId, userId);

@@ -1,6 +1,7 @@
 export {
   can,
   combinationsGranting,
+  currentActor,
   explainPermission,
   isRestricted,
   type LayerExplanation,
@@ -21,6 +22,7 @@ export {
 } from "./check";
 export {
   grantPurchased,
+  groupDecidesAdministration,
   type PurchasedGrant,
   revokePurchased,
   validatePurchasedGrant,

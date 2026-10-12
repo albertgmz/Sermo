@@ -25,6 +25,7 @@ import { iso } from "../../time";
 import { revokeUserCredentials } from "../auth";
 import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
+import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
@@ -1337,6 +1338,8 @@ export function addWarning(
         expires,
         userId,
       );
+      // The automatic ban obeys the same rule as a manual one (see insertBan).
+      assertAdministrator(ctx, userId);
       const banId = Number(
         exec(
           ctx,
@@ -1419,6 +1422,8 @@ function insertBan(
     ).lastInsertRowid,
   );
   refreshBanState(ctx, userId, now);
+  // A ban takes every permission away: it may not leave the forum without an administrator.
+  assertAdministrator(ctx, userId);
   appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
   publishEvent(ctx, {
     type: "member.banned",

@@ -5,12 +5,14 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import * as contracts from "../../contracts/promotions";
 import { writeTx } from "../../db/tx";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  currentActor,
   currentVersions,
+  groupDecidesAdministration,
   memberActor,
   memberStanding,
   PRINCIPAL_COLUMNS,
@@ -27,6 +29,7 @@ import {
 } from "../../shared/criteria";
 import { iso } from "../../time";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { assertAdministrator } from "../permissions";
 
 type PromotionRow = {
   id: number;
@@ -144,6 +147,34 @@ function validate(ctx: Ctx, actor: Actor, tests: Criterion[], ids: number[]): vo
       throw new ValidationError("Boolean criterion must be 0 or 1.");
   }
   assertGrantRanks(ctx, actor, ids);
+  if (grantsAdministration(ctx, ids))
+    throw new ValidationError("A promotion cannot grant a group that decides admin.permissions.");
+}
+/**
+ * The same check as the operation's first line, inside its write transaction and against what
+ * is committed now: the request's actor was resolved before the transaction opened. Returns the
+ * reloaded actor; every later decision of the operation (ranks, hierarchy) uses it.
+ */
+function administratorNow(ctx: Ctx, actor: Actor): Actor {
+  const current = currentActor(ctx, actor);
+  requirePermission(ctx, current, "admin.promotions");
+  return current;
+}
+/**
+ * Administration is never earned by a promotion. Evaluation runs in background jobs that cannot
+ * refuse, so a group a promotion grants has no entry for `admin.permissions`: an allow would
+ * let the last administrator be someone who loses it at the next evaluation, a never would
+ * take it from the last administrator when they come to meet the criteria. `permissions.set`
+ * refuses the reverse order (giving such an entry to a group a promotion grants).
+ */
+function grantsAdministration(ctx: Ctx, ids: number[]): boolean {
+  return ids.some((id) => groupDecidesAdministration(ctx, id));
+}
+/** Granting by hand: the rank ceiling, and a promotion stored before the rule above is refused. */
+function assertGrantable(ctx: Ctx, actor: Actor, ids: number[]): void {
+  assertGrantRanks(ctx, actor, ids);
+  if (grantsAdministration(ctx, ids))
+    throw new ConflictError("This promotion grants a group that decides admin.permissions.");
 }
 function assertGrantRanks(ctx: Ctx, actor: Actor, ids: number[]): void {
   const ceiling = memberStanding(ctx, actor).maxRank;
@@ -371,7 +402,8 @@ export const operations = [
   implement(contracts.promotionsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
     return writeTx(ctx, () => {
-      validate(ctx, actor, input.criteria, input.groupIds);
+      const current = administratorNow(ctx, actor);
+      validate(ctx, current, input.criteria, input.groupIds);
       const now = ctx.now();
       const id = Number(
         run(
@@ -391,10 +423,11 @@ export const operations = [
   implement(contracts.promotionsUpdate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
     return writeTx(ctx, () => {
+      const current = administratorNow(ctx, actor);
       const p = promotion(ctx, input.promotionId);
       const tests = input.criteria ?? conditions(p);
       const ids = input.groupIds ?? groupIds(p);
-      validate(ctx, actor, tests, ids);
+      validate(ctx, current, tests, ids);
       run(
         ctx,
         "update",
@@ -412,8 +445,9 @@ export const operations = [
   implement(contracts.promotionsDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
     return writeTx(ctx, () => {
+      const current = administratorNow(ctx, actor);
       const p = promotion(ctx, input.promotionId);
-      assertGrantRanks(ctx, actor, groupIds(p));
+      assertGrantRanks(ctx, current, groupIds(p));
       run(
         ctx,
         "markDeleting",
@@ -439,8 +473,9 @@ export const operations = [
     requirePermission(ctx, actor, "admin.promotions");
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
+      const current = administratorNow(ctx, actor);
       const m = member(ctx, input.userId);
-      requirePermission(ctx, actor, "admin.members", { target: target(ctx, m.id) });
+      requirePermission(ctx, current, "admin.members", { target: target(ctx, m.id) });
       const p = promotion(ctx, input.promotionId);
       if (groupIds(p).length === 0) {
         reconcile(ctx, m, p, [], null, null, null);
@@ -448,11 +483,13 @@ export const operations = [
       }
       if (input.action === "reset") {
         const old = grants(ctx, m.id, p.id);
-        const current = state(ctx, m.id, p.id);
+        const oldState = state(ctx, m.id, p.id);
         const result = decide(m, p, null, [], ctx.now());
+        // A reset that grants the groups now is held to the rules of promoting by hand.
+        if (result.groups.length > 0) assertGrantable(ctx, current, groupIds(p));
         reconcile(ctx, m, p, result.groups, result.state, null, null, {
           old,
-          state: current,
+          state: oldState,
         });
         log(ctx, m.id, p, "reset", user.userId, result.groups);
         const grantsChanged =
@@ -467,7 +504,7 @@ export const operations = [
             result.groups.length ? result.groups : old,
           );
       } else {
-        if (input.action === "promote") assertGrantRanks(ctx, actor, groupIds(p));
+        if (input.action === "promote") assertGrantable(ctx, current, groupIds(p));
         const desired = input.action === "promote" ? groupIds(p) : [];
         if (
           !reconcile(
@@ -482,6 +519,8 @@ export const operations = [
         )
           log(ctx, m.id, p, input.action, user.userId, desired);
       }
+      // Taking away a group that a promotion stored before the rule still grants.
+      assertAdministrator(ctx);
       return status(ctx, m, p);
     });
   }),

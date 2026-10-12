@@ -95,6 +95,29 @@ export function memberActor(
   };
 }
 
+/**
+ * The actor as the database describes it now: its primary group, combination, ban and
+ * restrictions, with the current cache versions. A request's actor was resolved before its
+ * write transaction opened, and another process may have changed the member since; an operation
+ * that changes permissions, groups or memberships calls this inside its transaction and
+ * authorizes with the result, so a revoked member cannot act on what they held a moment ago.
+ */
+export function currentActor(ctx: Ctx, actor: Actor): Actor {
+  if (!ctx.sqlite.inTransaction) throw new Error("currentActor requires a write transaction");
+  if (actor.kind === "guest") return { kind: "guest", versions: currentVersions(ctx) };
+  const row = ctx.sqlite
+    .prepare<PrincipalRow & { group_id: number }, [number]>(
+      `SELECT u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
+    )
+    .get(actor.userId);
+  if (!row) throw new UnauthenticatedError();
+  return {
+    ...actor,
+    groupId: row.group_id,
+    principal: principalFromRow(row, currentVersions(ctx)),
+  };
+}
+
 interface Resolved {
   readonly principal: Principal | null;
   readonly combination: Combination;
@@ -448,6 +471,7 @@ export function explainPermission(
     value = permissionValue(ctx, subject, id as IntegerPermissionId, context);
     granted = value !== 0;
     resolved = resolve(ctx, subject);
+    if (isBanned(resolved.principal, ctx.now())) deniedBy = "banned";
   }
   const chain: number[] = [];
   if (nodeId !== null) {

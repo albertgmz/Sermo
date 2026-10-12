@@ -118,6 +118,10 @@ export interface PermissionState {
   layers: Map<string, Layer>;
   combinationDefs: Map<number, CombinationDef>;
   combinationByKey: Map<string, number>;
+  /**
+   * Scan watermark: every stored combination up to this id is in `combinationDefs`. Only a scan
+   * of the table moves it; a combination loaded alone by id may leave older ones unseen.
+   */
   maxCombinationId: number;
   combinations: Map<number, Combination>;
 }
@@ -633,7 +637,8 @@ export function combinationById(state: PermissionState, id: number): Combination
 /**
  * Loads a combination created after the state was built (a membership change creates one without
  * a permission version change). It is kept in the state only outside a transaction: an
- * uncommitted row can be rolled back and its id reused for another set of groups.
+ * uncommitted row can be rolled back and its id reused for another set of groups. The scan
+ * watermark stays where it is, so enumeration still finds older combinations not seen yet.
  */
 export function loadCombinationDef(
   ctx: Ctx,
@@ -653,7 +658,6 @@ export function loadCombinationDef(
   if (!ctx.sqlite.inTransaction) {
     state.combinationDefs.set(id, def);
     state.combinationByKey.set(combinationKey(def.userId, def.groupIds), id);
-    if (id > state.maxCombinationId) state.maxCombinationId = id;
   }
   return def;
 }
@@ -668,16 +672,20 @@ export function allCombinations(ctx: Ctx, state: PermissionState): Combination[]
     )
     .all(state.maxCombinationId);
   for (const row of newer) {
+    // Already known through a single lookup, so already in the result.
+    if (state.combinationDefs.has(row.id)) continue;
     const def = {
       userId: row.user_id,
       groupIds: row.group_ids === "" ? [] : row.group_ids.split(",").map(Number),
     };
     if (ctx.sqlite.inTransaction) result.push(computeCombination(state, row.id, def));
     else {
-      loadCombinationDef(ctx, state, row.id);
+      state.combinationDefs.set(row.id, def);
+      state.combinationByKey.set(combinationKey(def.userId, def.groupIds), row.id);
       result.push(combinationById(state, row.id)!);
     }
   }
+  if (!ctx.sqlite.inTransaction && newer.length > 0) state.maxCombinationId = newer.at(-1)!.id;
   return result;
 }
 
