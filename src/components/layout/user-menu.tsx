@@ -2,6 +2,7 @@
 
 import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { logout } from "@/app/(main)/actions";
 import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import {
@@ -25,10 +26,11 @@ export function UserMenu({
   avatar: React.ReactNode;
   lite: LiteState;
 }) {
+  const t = useTranslations("layout.userMenu");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label="Account menu"
+        aria-label={t("aria.account")}
         className="group flex h-10 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         {avatar}
@@ -49,14 +51,14 @@ export function UserMenu({
           render={<Link href={`/members/${user.id}`} />}
         >
           <UserRound />
-          Your profile
+          {t("profile")}
         </DropdownMenuItem>
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"
           render={<Link href="/account" />}
         >
           <Settings />
-          Account
+          {t("account")}
         </DropdownMenuItem>
         <LiteModeToggle state={lite} />
         <DropdownMenuSeparator />
@@ -65,7 +67,7 @@ export function UserMenu({
           onClick={() => logout()}
         >
           <LogOut />
-          Log out
+          {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

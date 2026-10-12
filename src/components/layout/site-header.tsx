@@ -1,6 +1,8 @@
 import { Bell, Inbox, Search } from "lucide-react";
 import { io } from "next/cache";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -17,7 +19,9 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getConversations, getNotifications, getUnreadCounts } from "@/lib/db";
+import { titleKeyForLevel } from "@/lib/levels";
 import { getLiteState } from "@/lib/lite-mode";
+import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -34,10 +38,11 @@ function IconLink({
   unread?: number;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("layout.siteHeader");
   return (
     <Link
       href={href}
-      aria-label={unread ? `${label}, ${unread} unread` : label}
+      aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
       className={cn(headerIconClass, "md:hidden")}
     >
       {children}
@@ -49,13 +54,14 @@ function IconLink({
 }
 
 export function SiteHeader() {
+  const t = useTranslations("layout.siteHeader");
   return (
     <header className="border-b bg-background">
       <Container className="flex h-14 items-center gap-1 md:gap-4">
         <Suspense
           fallback={
             <div className="-ml-2 md:hidden">
-              <LoadingRegion label="Loading menu…">
+              <LoadingRegion label={t("loadingMenu")}>
                 <Skeleton className="size-10" />
               </LoadingRegion>
             </div>
@@ -71,7 +77,7 @@ export function SiteHeader() {
         <Suspense
           fallback={
             <div className="hidden md:block">
-              <LoadingRegion label="Loading navigation…">
+              <LoadingRegion label={t("loadingNavigation")}>
                 <div className="flex h-10 items-center gap-1">
                   {[1, 2, 3, 4, 5, 6].map((item) => (
                     <Skeleton key={item} className="h-10 w-16" />
@@ -84,13 +90,13 @@ export function SiteHeader() {
           <HeaderNav className="hidden md:flex" />
         </Suspense>
         <div className="ml-auto flex items-center gap-1 md:gap-2">
-          <IconLink href="/search" label="Search">
+          <IconLink href="/search" label={t("search")}>
             <Search />
           </IconLink>
           <SearchPanel className={PANEL} />
           <Suspense
             fallback={
-              <LoadingRegion label="Loading your menu…">
+              <LoadingRegion label={t("loadingAccount")}>
                 <Skeleton className="h-10 w-28 md:w-32" />
               </LoadingRegion>
             }
@@ -105,13 +111,16 @@ export function SiteHeader() {
 
 async function AccountTools() {
   const user = await getCurrentUser();
+  const t = await getTranslations("layout.siteHeader");
+  const levels = await getTranslations("lib.levels");
+  const roles = await getTranslations("lib.db.roles");
   return (
     <>
       {user ? (
         <>
           <Suspense
             fallback={
-              <LoadingRegion label="Loading messages…">
+              <LoadingRegion label={t("loadingMessages")}>
                 <Skeleton className="size-10" />
               </LoadingRegion>
             }
@@ -120,7 +129,7 @@ async function AccountTools() {
           </Suspense>
           <Suspense
             fallback={
-              <LoadingRegion label="Loading alerts…">
+              <LoadingRegion label={t("loadingAlerts")}>
                 <Skeleton className="size-10" />
               </LoadingRegion>
             }
@@ -133,7 +142,11 @@ async function AccountTools() {
             user={{
               id: user.id,
               username: user.username,
-              title: user.title,
+              title:
+                (can(user, "customTitle") && user.customTitle) ||
+                (user.role === "member"
+                  ? levels(titleKeyForLevel(user.level.level))
+                  : roles(user.role)),
             }}
           />
         </>
@@ -146,13 +159,13 @@ async function AccountTools() {
               "h-10 px-3 md:h-8",
             )}
           >
-            Log in
+            {t("login")}
           </Link>
           <Link
             href="/register"
             className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
           >
-            Create Account
+            {t("register")}
           </Link>
         </>
       )}
@@ -162,6 +175,7 @@ async function AccountTools() {
 
 async function MessageTools({ userId }: { userId: number }) {
   await io();
+  const t = await getTranslations("layout.siteHeader");
   const [conversations, unread] = await Promise.all([
     getConversations(userId),
     getUnreadCounts(userId),
@@ -170,7 +184,7 @@ async function MessageTools({ userId }: { userId: number }) {
     <>
       <IconLink
         href="/conversations"
-        label="Conversations"
+        label={t("conversations")}
         unread={unread.conversations}
       >
         <Inbox />
@@ -187,6 +201,7 @@ async function MessageTools({ userId }: { userId: number }) {
 
 async function AlertTools({ userId }: { userId: number }) {
   await io();
+  const t = await getTranslations("layout.siteHeader");
   const [notifications, unread] = await Promise.all([
     getNotifications(userId),
     getUnreadCounts(userId),
@@ -195,7 +210,7 @@ async function AlertTools({ userId }: { userId: number }) {
     <>
       <IconLink
         href="/notifications"
-        label="Notifications"
+        label={t("notifications")}
         unread={unread.notifications}
       >
         <Bell />
