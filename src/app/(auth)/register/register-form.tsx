@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { register } from "@/app/(auth)/actions";
 import { GoogleIcon } from "@/app/(auth)/google-icon";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 
-const STRENGTH = ["Weak", "Weak", "Fair", "Good", "Strong"];
+const STRENGTH = ["weak", "weak", "fair", "good", "strong"];
 
 function score(password: string) {
   return [/.{8,}/, /[a-z].*[A-Z]|[A-Z].*[a-z]/, /\d/, /[^A-Za-z0-9]/].filter(
@@ -19,11 +20,12 @@ function score(password: string) {
   ).length;
 }
 
-function Required() {
-  return <span className="text-xs text-muted-foreground">Required</span>;
+function Required({ children }: { children: React.ReactNode }) {
+  return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
 export function RegisterForm() {
+  const t = useTranslations("auth.registerForm");
   const [state, action, pending] = useActionState(register, {
     error: "",
     username: "",
@@ -35,7 +37,9 @@ export function RegisterForm() {
     <form action={action} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="register-username">
-          Username: <Required />
+          {t.rich("usernameLabel", {
+            required: (chunks) => <Required>{chunks}</Required>,
+          })}
         </Label>
         <Input
           id="register-username"
@@ -47,7 +51,9 @@ export function RegisterForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="register-email">
-          Email: <Required />
+          {t.rich("emailLabel", {
+            required: (chunks) => <Required>{chunks}</Required>,
+          })}
         </Label>
         <Input
           id="register-email"
@@ -59,7 +65,9 @@ export function RegisterForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="register-password">
-          Password: <Required />
+          {t.rich("passwordLabel", {
+            required: (chunks) => <Required>{chunks}</Required>,
+          })}
         </Label>
         <PasswordField
           id="register-password"
@@ -67,11 +75,14 @@ export function RegisterForm() {
           required
           onValueChange={setPassword}
         />
-        <Progress value={strength * 25} aria-label="Password strength" />
+        <Progress
+          value={strength * 25}
+          aria-label={t("aria.passwordStrength")}
+        />
         <p className="text-xs text-muted-foreground">
           {password
-            ? `Password strength: ${STRENGTH[strength]}`
-            : "Entering a password is required."}
+            ? t("passwordStrength", { strength: STRENGTH[strength] })
+            : t("errors.passwordRequired")}
         </p>
       </div>
       {state.error && (
@@ -80,7 +91,7 @@ export function RegisterForm() {
         </p>
       )}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
-        Create Account
+        {t("submit")}
       </Button>
       <div className="flex min-h-10 items-center gap-2 md:min-h-0">
         <Checkbox id="register-terms" name="terms" />
@@ -88,25 +99,28 @@ export function RegisterForm() {
           htmlFor="register-terms"
           className="block leading-normal font-normal text-muted-foreground"
         >
-          I agree to the{" "}
-          <Link href="/terms" className="font-medium text-foreground">
-            terms
-          </Link>{" "}
-          and{" "}
-          <Link href="/privacy" className="font-medium text-foreground">
-            privacy policy
-          </Link>
-          .
+          {t.rich("terms", {
+            terms: (chunks) => (
+              <Link href="/terms" className="font-medium text-foreground">
+                {chunks}
+              </Link>
+            ),
+            privacy: (chunks) => (
+              <Link href="/privacy" className="font-medium text-foreground">
+                {chunks}
+              </Link>
+            ),
+          })}
         </Label>
       </div>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
-        OR CONTINUE WITH
+        {t("separator")}
         <span className="h-px flex-1 bg-border" />
       </div>
       <Button type="button" variant="outline" className="h-10 w-full md:h-8">
         <GoogleIcon />
-        Google
+        {t("provider")}
       </Button>
     </form>
   );

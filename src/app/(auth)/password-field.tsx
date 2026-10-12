@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ export function PasswordField({
   required?: boolean;
   onValueChange?: (value: string) => void;
 }) {
+  const t = useTranslations("auth.passwordField");
   const [visible, setVisible] = useState(false);
   return (
     <div className="flex">
@@ -36,7 +38,7 @@ export function PasswordField({
         className="h-10 w-20 rounded-l-none border-l-0 text-muted-foreground md:h-8"
       >
         {visible ? <EyeOff /> : <Eye />}
-        {visible ? "Hide" : "Show"}
+        {visible ? t("hide") : t("show")}
       </Button>
     </div>
   );
