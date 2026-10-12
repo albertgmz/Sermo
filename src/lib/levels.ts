@@ -1,3 +1,5 @@
+import messages from "../../messages/en/lib.json";
+
 export type Level = {
   level: number;
   xp: number;
@@ -27,11 +29,16 @@ export function levelForXp(xp: number): Level {
   };
 }
 
-const TITLES: [level: number, title: string][] = [
-  [4, "Senior member"],
-  [2, "Member"],
+const TITLES: [level: number, key: keyof typeof messages.levels][] = [
+  [4, "seniorMember"],
+  [2, "member"],
 ];
 
+export function titleKeyForLevel(level: number): keyof typeof messages.levels {
+  return TITLES.find(([from]) => level >= from)?.[1] ?? "newMember";
+}
+
+// English compatibility for UserView.title until its renderers use the key.
 export function titleForLevel(level: number): string {
-  return TITLES.find(([from]) => level >= from)?.[1] ?? "New member";
+  return messages.levels[titleKeyForLevel(level)];
 }

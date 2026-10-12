@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { SiteIcon } from "@/components/layout/site-icon";
+import { locale } from "@/i18n/request";
 import "./globals.css";
 
 const inter = Inter({
@@ -14,10 +17,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "forum/ui",
-  description: "A forum interface kit.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("layout.layout");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 export const viewport: Viewport = {
   colorScheme: "dark",
@@ -27,14 +33,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Suspense>
           <SiteIcon />
         </Suspense>
-        {children}
+        <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>
   );
