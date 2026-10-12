@@ -108,8 +108,6 @@
     "bioEmpty": "<user>{username}</user> has not written a bio yet.",
     "signatureHeading": "Signature",
     "joinedLabel": "Joined",
-    "locationLabel": "Location",
-    "websiteLabel": "Website",
     "loadingDetails": "Loading profile details…",
     "loadingHeader": "Loading profile header…",
     "loadingSections": "Loading profile sections…",

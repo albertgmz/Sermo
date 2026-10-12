@@ -35,9 +35,13 @@ const SOCIALS = [
   {
     network: "telegram",
     label: "telegramLabel",
-    url: (handle) => `https://t.me/${handle}`,
+    url: (handle) => `https://t.me/${encodeURIComponent(handle)}`,
   },
-  { network: "x", label: "xLabel", url: (handle) => `https://x.com/${handle}` },
+  {
+    network: "x",
+    label: "xLabel",
+    url: (handle) => `https://x.com/${encodeURIComponent(handle)}`,
+  },
 ] as const satisfies readonly {
   network: keyof Socials;
   label: string;

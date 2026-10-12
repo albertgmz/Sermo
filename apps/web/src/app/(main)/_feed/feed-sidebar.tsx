@@ -216,6 +216,7 @@ async function SuggestedMembers() {
               user={{ id: card.id, username: card.username }}
               following={false}
               returnTo="/"
+              className="h-10 md:h-8"
             />
           )}
         </MemberRow>

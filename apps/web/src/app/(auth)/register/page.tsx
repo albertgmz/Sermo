@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // The member whose link brought the visitor: a plain number, or nothing.
 function referrerOf(value: string | string[] | undefined) {
   const text = Array.isArray(value) ? value[0] : value;
-  return text && /^[1-9]d{0,15}$/.test(text) ? text : undefined;
+  return text && /^[1-9][0-9]{0,15}$/.test(text) ? text : undefined;
 }
 
 export default async function RegisterPage({

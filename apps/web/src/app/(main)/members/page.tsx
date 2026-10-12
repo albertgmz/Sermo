@@ -187,7 +187,10 @@ export default async function MembersPage({
   const query = first(params.q);
   const sort = first(params.sort);
   const cursor = first(params.cursor) || undefined;
-  const start = Math.max(1, Math.floor(Number(first(params.start))) || 1);
+  const start = Math.min(
+    1_000_000,
+    Math.max(1, Math.floor(Number(first(params.start))) || 1),
+  );
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
