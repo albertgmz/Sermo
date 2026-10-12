@@ -61,6 +61,9 @@
     "member": "Member",
     "newMember": "New member"
   },
+  "errors": {
+    "generic": "Something went wrong. Try again."
+  },
   "format": {
     "recent": "just now"
   },

@@ -3,6 +3,7 @@ import "server-only";
 import { authMe } from "@sermo/core/contracts";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import type * as z from "zod";
 import { isSignedOut, SermoError } from "./errors";
@@ -78,9 +79,15 @@ export async function read<I extends z.ZodType, O extends z.ZodType>(
   }
 }
 
-// For actions: what a form can show for a failed call.
-export function errorMessage(error: unknown): string {
+// For actions: what a form can show for a failed call. Only the backend's own refusals carry a
+// message meant for visitors; an error raised on our side (code "internal": the API could not be
+// reached, its answer made no sense) is logged and replaced by a generic line.
+export async function errorMessage(error: unknown): Promise<string> {
   if (!(error instanceof SermoError)) throw error;
+  if (error.code === "internal") {
+    console.error("A call to the API failed", error);
+    return (await getTranslations("lib.errors"))("generic");
+  }
   if (error.code === "validation" && error.issues?.length) {
     return error.issues
       .map((issue) => issue.message)

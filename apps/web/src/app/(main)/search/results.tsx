@@ -31,7 +31,7 @@ async function refusal<T>(
     return { value: await pending };
   } catch (error) {
     if (!(error instanceof SermoError) || error.status >= 500) throw error;
-    return { message: errorMessage(error) };
+    return { message: await errorMessage(error) };
   }
 }
 
