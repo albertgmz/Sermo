@@ -22,6 +22,36 @@ import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
 
+/** The prefix shown in front of a thread title. */
+export const ThreadPrefixTag = z
+  .object({
+    id: Id,
+    label: z.string(),
+    /** #rrggbb, from the prefix colour catalog. */
+    color: z.string(),
+    /** An icon key the client resolves; may be empty. */
+    icon: z.string(),
+  })
+  .meta({ id: "ThreadPrefixTag" });
+
+export const ThreadPrefix = ThreadPrefixTag.extend({
+  colorId: Id,
+  position: z.number().int(),
+  isActive: z.boolean(),
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+}).meta({ id: "ThreadPrefix" });
+
+export const ForumTab = z
+  .object({
+    id: Id,
+    title: z.string(),
+    position: z.number().int(),
+    createdAt: Timestamp,
+    updatedAt: Timestamp,
+  })
+  .meta({ id: "ForumTab" });
+
 /** Posting rules of a node; forum.bypassNodeRules exempts moderators. */
 export const NodeSettings = z
   .object({
@@ -48,6 +78,8 @@ export const Node = z
     icon: ImageReference,
     cover: ImageReference,
     position: z.number().int(),
+    /** The forum list tab of this node's root category; null when that category has none. */
+    tabId: Id.nullable(),
     /** Depth in the tree; root nodes are 0. */
     depth: z.number().int().nonnegative(),
     /** Visible threads directly in this node. */
@@ -73,7 +105,18 @@ export const Thread = z
   .object({
     id: Id,
     nodeId: Id,
+    /** The forum the thread is in. */
+    node: z.object({ id: Id, title: z.string() }),
     title: z.string(),
+    prefix: ThreadPrefixTag.nullable(),
+    /** Plain-text start of the opening post. */
+    excerpt: z.string(),
+    /** The thread's cover from the catalog, or null. */
+    cover: ImageReference,
+    /** Lists show the thread highlighted until then; null or past means not highlighted. */
+    highlightedUntil: Timestamp.nullable(),
+    /** When the author last bumped it; a bump sorts like a new post. */
+    bumpedAt: Timestamp.nullable(),
     author: UserSummary,
     state: ContentState,
     isSticky: z.boolean(),
@@ -161,6 +204,8 @@ export const nodesCreate = defineContract({
     title: z.string().trim().min(1).max(100),
     description: z.string().trim().max(2000).default(""),
     position: z.number().int().default(0),
+    /** A root category's forum list tab. Refused on any other node. */
+    tabId: Id.nullable().optional(),
     settings: NodeSettings.partial().optional(),
   }),
   output: Node,
@@ -176,9 +221,114 @@ export const nodesUpdate = defineContract({
     title: z.string().trim().min(1).max(100).optional(),
     description: z.string().trim().max(2000).optional(),
     position: z.number().int().optional(),
+    /** A root category's forum list tab; null removes it. Refused on any other node. */
+    tabId: Id.nullable().optional(),
     settings: NodeSettings.partial().optional(),
   }),
   output: Node,
+});
+
+// Forum list tabs ----------------------------------------------------------
+
+export const forumTabsList = defineContract({
+  name: "forumTabs.list",
+  summary: "The tabs of the forum list in display order (position, then id). Open to everyone.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ items: z.array(ForumTab) }),
+});
+
+export const forumTabsCreate = defineContract({
+  name: "forumTabs.create",
+  summary: "Add a forum list tab (at most 20). Requires admin.nodes.",
+  kind: "write",
+  input: z.object({
+    title: z.string().trim().min(1).max(60),
+    position: z.number().int().min(0).max(1_000_000).default(0),
+  }),
+  output: ForumTab,
+});
+
+export const forumTabsUpdate = defineContract({
+  name: "forumTabs.update",
+  summary: "Rename or reorder a forum list tab. Requires admin.nodes.",
+  kind: "write",
+  input: z.object({
+    tabId: Id,
+    title: z.string().trim().min(1).max(60).optional(),
+    position: z.number().int().min(0).max(1_000_000).optional(),
+  }),
+  output: ForumTab,
+});
+
+export const forumTabsDelete = defineContract({
+  name: "forumTabs.delete",
+  summary:
+    "Delete a forum list tab. Its categories stay and belong to no tab. Requires admin.nodes.",
+  kind: "write",
+  input: z.object({ tabId: Id }),
+  output: Ok,
+});
+
+// Thread prefixes ----------------------------------------------------------
+
+const PrefixInput = {
+  label: z.string().trim().min(1).max(30),
+  /** An active colour of the `prefix` catalog. */
+  colorId: Id,
+  icon: z.string().trim().max(60),
+  position: z.number().int().min(0).max(1_000_000),
+  isActive: z.boolean(),
+};
+
+export const threadPrefixesList = defineContract({
+  name: "threadPrefixes.list",
+  summary:
+    "Thread prefixes in display order (position, then id). Open to everyone; inactive ones " +
+    "only with admin.nodes.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ items: z.array(ThreadPrefix) }),
+});
+
+export const threadPrefixesCreate = defineContract({
+  name: "threadPrefixes.create",
+  summary: "Add a thread prefix (at most 100). Requires admin.nodes.",
+  kind: "write",
+  input: z.object({
+    ...PrefixInput,
+    icon: PrefixInput.icon.default(""),
+    position: PrefixInput.position.default(0),
+    isActive: PrefixInput.isActive.default(true),
+  }),
+  output: ThreadPrefix,
+});
+
+export const threadPrefixesUpdate = defineContract({
+  name: "threadPrefixes.update",
+  summary:
+    "Change a thread prefix; threads that carry it show the change at once. Requires admin.nodes.",
+  kind: "write",
+  input: z.object({
+    prefixId: Id,
+    label: PrefixInput.label.optional(),
+    colorId: PrefixInput.colorId.optional(),
+    icon: PrefixInput.icon.optional(),
+    position: PrefixInput.position.optional(),
+    isActive: PrefixInput.isActive.optional(),
+  }),
+  output: ThreadPrefix,
+});
+
+export const threadPrefixesDelete = defineContract({
+  name: "threadPrefixes.delete",
+  summary:
+    "Remove a thread prefix. While a thread carries it, it is deactivated instead " +
+    "(`deactivated: true`): those threads keep it and no thread can newly take it. Requires " +
+    "admin.nodes.",
+  kind: "write",
+  input: z.object({ prefixId: Id }),
+  output: z.object({ ok: z.literal(true), deactivated: z.boolean() }),
 });
 
 // Threads ------------------------------------------------------------------
@@ -186,10 +336,11 @@ export const nodesUpdate = defineContract({
 export const threadsList = defineContract({
   name: "threads.list",
   summary:
-    "Threads in a forum, newest activity first. Sticky threads are returned separately in " +
-    "`sticky` on the first page only (when no cursor is given).",
+    "Threads in a forum, newest activity first (the later of the last post and the last bump). " +
+    "Sticky threads are returned separately in `sticky` on the first page only (when no cursor " +
+    "is given). With `prefixId`, only the threads carrying that prefix.",
   kind: "read",
-  input: z.object({ nodeId: Id, ...pageInput }),
+  input: z.object({ nodeId: Id, prefixId: Id.optional(), ...pageInput }),
   output: Page(Thread).extend({ sticky: z.array(Thread) }),
 });
 
@@ -214,17 +365,30 @@ export const threadsGet = defineContract({
 
 export const threadsCreate = defineContract({
   name: "threads.create",
-  summary: "Start a thread in a forum.",
+  summary: "Start a thread in a forum, optionally with an active prefix.",
   kind: "write",
-  input: z.object({ nodeId: Id, title: Title, body: Body, attachmentIds: AttachmentIds }),
+  input: z.object({
+    nodeId: Id,
+    title: Title,
+    body: Body,
+    attachmentIds: AttachmentIds,
+    prefixId: Id.nullable().default(null),
+  }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });
 
 export const threadsUpdate = defineContract({
   name: "threads.update",
-  summary: "Change a thread's title. Author (while unlocked) or moderator.",
+  summary:
+    "Change a thread's title, its prefix, or both (`prefixId: null` removes the prefix; a new " +
+    "prefix must be active). Author (while unlocked) or moderator.",
   kind: "write",
-  input: z.object({ ...moderationNotice, threadId: Id, title: Title }),
+  input: z.object({
+    ...moderationNotice,
+    threadId: Id,
+    title: Title.optional(),
+    prefixId: Id.nullable().optional(),
+  }),
   output: Thread,
 });
 

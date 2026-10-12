@@ -482,6 +482,8 @@ export const nodes = sqliteTable(
     isReadOnly: bool("is_read_only").notNull().default(false),
     minAccountAgeDays: counter("min_account_age_days"),
     minPostCount: counter("min_post_count"),
+    /** Root categories only: the tab of the forum list the category is shown under. */
+    tabId: integer("tab_id"),
   },
   (t) => [index("nodes_parent_position").on(t.parentId, t.position)],
 );
@@ -542,6 +544,19 @@ export const threads = sqliteTable(
     mergedIntoId: integer("merged_into_id"),
     /** A catalog_images row of kind thread_cover. */
     coverId: integer("cover_id"),
+    prefixId: integer("prefix_id"),
+    /** While in the future, lists show the thread highlighted. */
+    highlightedUntil: integer("highlighted_until"),
+    /** Set when the author bumps the thread: it sorts as if it had a post at that time. */
+    bumpedAt: integer("bumped_at"),
+    /**
+     * What forum lists sort by: the later of the last post and the last bump. Generated, so
+     * everything that maintains last_post_at keeps working unchanged.
+     */
+    sortAt: integer("sort_at").generatedAlwaysAs(
+      sql`max(coalesce(last_post_at, 0), coalesce(bumped_at, 0))`,
+      { mode: "virtual" },
+    ),
   },
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
@@ -551,6 +566,12 @@ export const threads = sqliteTable(
     index("threads_state_id").on(t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
     index("threads_cover").on(t.coverId).where(sql`cover_id IS NOT NULL`),
+    // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY sort_at DESC, id DESC
+    index("threads_node_sort").on(t.nodeId, t.isSticky, t.sortAt, t.id),
+    // threads.list filtered by prefix; also "is this prefix in use?".
+    index("threads_prefix")
+      .on(t.prefixId, t.nodeId, t.isSticky, t.sortAt, t.id)
+      .where(sql`prefix_id IS NOT NULL`),
   ],
 );
 
@@ -1701,4 +1722,62 @@ export const paletteColors = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (t) => [index("palette_colors_kind").on(t.kind, t.position, t.id)],
+);
+
+// ---------------------------------------------------------------------------
+// Forum presentation
+
+/** Labels an author can put in front of a thread title. The colour is a palette_colors row. */
+export const threadPrefixes = sqliteTable(
+  "thread_prefixes",
+  {
+    id: integer("id").primaryKey(),
+    label: text("label").notNull(),
+    colorId: integer("color_id")
+      .notNull()
+      .references(() => paletteColors.id),
+    /** An icon key the client resolves from its interface icon set; opaque to the server. */
+    icon: text("icon").notNull().default(""),
+    position: integer("position").notNull().default(0),
+    isActive: bool("is_active").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("thread_prefixes_position").on(t.position, t.id),
+    // "Is this colour in use?" before a palette colour is deleted.
+    index("thread_prefixes_color").on(t.colorId),
+  ],
+);
+
+/** The tabs of the forum list. A root category belongs to one, or to none (shown under all). */
+export const forumTabs = sqliteTable(
+  "forum_tabs",
+  {
+    id: integer("id").primaryKey(),
+    title: text("title").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("forum_tabs_position").on(t.position, t.id)],
+);
+
+export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "feedTop"] as const;
+
+/**
+ * Rankings a background job recomputes: the best threads by replies, by reactions on the
+ * opening post and by views (target = thread id), and the most reacted-to posts of the last
+ * week (target = post id). Readers filter by what the viewer may see.
+ */
+export const rankings = sqliteTable(
+  "rankings",
+  {
+    id: integer("id").primaryKey(),
+    kind: text("kind", { enum: RANKING_KINDS }).notNull(),
+    position: integer("position").notNull(),
+    targetId: integer("target_id").notNull(),
+    score: integer("score").notNull(),
+  },
+  (t) => [uniqueIndex("rankings_kind_position").on(t.kind, t.position)],
 );

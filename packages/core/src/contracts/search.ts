@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
 import { Id, Page, Timestamp, UserSummary } from "./common";
+import { ThreadPrefixTag } from "./forums";
 
 export const SearchResult = z
   .object({
@@ -12,7 +13,13 @@ export const SearchResult = z
       /** Plain-text excerpt of the post source (at most ~200 characters). */
       excerpt: z.string(),
     }),
-    thread: z.object({ id: Id, title: z.string(), nodeId: Id }),
+    thread: z.object({
+      id: Id,
+      title: z.string(),
+      nodeId: Id,
+      node: z.object({ id: Id, title: z.string() }),
+      prefix: ThreadPrefixTag.nullable(),
+    }),
   })
   .meta({ id: "SearchResult" });
 
@@ -32,6 +39,8 @@ export const searchQuery = defineContract({
       .positive()
       .optional()
       .describe("Only search this node and its descendants."),
+    authorId: Id.optional().describe("Only posts written by this member."),
+    prefixId: Id.optional().describe("Only posts in threads carrying this prefix."),
     cursor: z.string().min(1).max(512).optional(),
     limit: z.number().int().min(1).max(50).default(20),
   }),

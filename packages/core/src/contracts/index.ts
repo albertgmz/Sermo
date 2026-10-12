@@ -4,6 +4,7 @@ export * from "./awards";
 export * from "./common";
 export * from "./conversations";
 export * from "./credits";
+export * from "./feed";
 export * from "./forums";
 export * from "./images";
 export * from "./moderation";
