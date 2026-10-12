@@ -133,6 +133,8 @@ CREATE TABLE `member_award_totals` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `member_award_totals_user_award` ON `member_award_totals` (`user_id`,`award_id`);
 --> statement-breakpoint
+CREATE INDEX `member_award_totals_award` ON `member_award_totals` (`award_id`,`count`);
+--> statement-breakpoint
 CREATE TABLE `shop_categories` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,

@@ -1379,8 +1379,15 @@ function seedEconomy(
   );
   batched(db, sources.length, (i) => {
     const source = sources[i]!;
-    insertApplication.run(source.rule, source.user_id, source.type, source.id, source.amount, now);
     ledger(source.user_id, source.amount, "event", "credit_rule", source.rule, null);
+    insertApplication.run(
+      source.rule,
+      source.user_id,
+      source.type,
+      source.id,
+      source.amount,
+      ledgerAt,
+    );
   });
 
   // Awards: every fifth is stackable, every third pays credits, every fourth has criteria.
@@ -1423,7 +1430,7 @@ function seedEconomy(
   // Grants: spread over all members; member 25 holds many (a full profile), 2% are revoked.
   const heavyMember = 25;
   const xpTotal = new Int32Array(users + 1);
-  const held = new Map<number, { count: number; last: number }>();
+  const held = new Map<number, { count: number; last: number; auto: boolean }>();
   const grantCount = new Int32Array(SIZES.awards + 1);
   const insertGrant = db.prepare(
     "INSERT INTO member_awards (user_id, award_id, granted_by, reason, xp, credits, created_at, revoked_at, revoked_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -1442,7 +1449,8 @@ function seedEconomy(
         n++;
         const at = T0 + Math.floor(((T1 - T0) / SIZES.memberAwards) * grantId);
         const revoked = grantId % 50 === 0;
-        const automatic = grantId % 4 === 0;
+        // Awards with criteria (every fourth) reach a member automatically the first time.
+        const automatic = !entry && awardId % 4 === 0;
         insertGrant.run(
           userId,
           awardId,
@@ -1459,25 +1467,25 @@ function seedEconomy(
         if (revoked) {
           if (awardCredits[awardId])
             ledger(userId, -awardCredits[awardId]!, "award_revoked", "member_award", grantId, 1);
-          if (!entry) held.set(key, { count: 0, last: at });
+          if (!entry) held.set(key, { count: 0, last: at, auto: automatic });
           continue;
         }
         if (entry) {
           entry.count++;
           entry.last = at;
-        } else held.set(key, { count: 1, last: at });
+        } else held.set(key, { count: 1, last: at, auto: automatic });
         xpTotal[userId] = xpTotal[userId]! + awardXp[awardId]!;
         grantCount[awardId] = grantCount[awardId]! + 1;
       }
     });
   }
   const insertTotal = db.prepare(
-    "INSERT INTO member_award_totals (user_id, award_id, count, auto_granted, last_granted_at) VALUES (?1, ?2, ?3, 0, ?4)",
+    "INSERT INTO member_award_totals (user_id, award_id, count, auto_granted, last_granted_at) VALUES (?1, ?2, ?3, ?4, ?5)",
   );
   const totals = [...held];
   batched(db, totals.length, (i) => {
     const [key, entry] = totals[i]!;
-    insertTotal.run(Math.floor(key / 64), key % 64, entry.count, entry.last);
+    insertTotal.run(Math.floor(key / 64), key % 64, entry.count, entry.auto ? 1 : 0, entry.last);
   });
   tx(db, () => {
     const update = db.prepare("UPDATE awards SET grant_count = ?1 WHERE id = ?2");

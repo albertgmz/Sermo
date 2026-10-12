@@ -8,9 +8,13 @@
  * adds to what the member's groups grant, a `never` anywhere still denies it, and bans and
  * restrictions still override it. A node-scoped permission is granted on every node. A purchased
  * group is one more secondary group.
+ *
+ * Administration is never for sale: an `admin` permission cannot be sold, nor a group that
+ * holds `admin.permissions`. Otherwise the last administrator could be someone whose access
+ * ends when an item expires.
  */
 import type { Ctx } from "../context";
-import { NotFoundError, ValidationError } from "../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { PERMISSIONS, type PermissionDefinition, type PermissionId } from "./registry";
 
 export type PurchasedGrant =
@@ -34,6 +38,8 @@ function permissionGrantValue(grant: Extract<PurchasedGrant, { type: "permission
   if (!Object.hasOwn(PERMISSIONS, grant.permission))
     throw new ValidationError(`Unknown permission: ${grant.permission}`);
   const def: PermissionDefinition = PERMISSIONS[grant.permission as PermissionId];
+  if (def.category === "admin")
+    throw new ValidationError("Administration permissions cannot be sold.");
   if (def.type === "flag") {
     if (grant.value !== undefined)
       throw new ValidationError(`Permission ${grant.permission} is yes/no and takes no value.`);
@@ -60,12 +66,24 @@ export function validatePurchasedGrant(ctx: Ctx, grant: PurchasedGrant): void {
     .get(grant.groupId);
   if (!group) throw new NotFoundError();
   if (group.builtin === "guest") throw new ValidationError("The guest group cannot be sold.");
+  if (groupAdministers(ctx, grant.groupId))
+    throw new ValidationError("A group that administers permissions cannot be sold.");
+}
+
+function groupAdministers(ctx: Ctx, groupId: number): boolean {
+  return !!ctx.sqlite
+    .prepare<{ id: number }, [number]>(
+      "SELECT e.id FROM permission_entries e JOIN permission_definitions d ON d.id = e.permission_id " +
+        "WHERE d.key = 'admin.permissions' AND e.group_id = ?1 AND e.user_id = 0 AND e.node_id = 0 AND e.value = 1",
+    )
+    .get(groupId);
 }
 
 /**
  * Gives `userId` the grant for as long as inventory row `inventoryId` holds it. Call inside the
  * write transaction of the purchase. Granting the same thing twice for one inventory row does
- * nothing. Returns whether the member's groups changed (the caller then publishes
+ * nothing. A group that has come to administer permissions since the item was created is
+ * refused with ConflictError. Returns whether the member's groups changed (the caller then publishes
  * `member.groups_changed`).
  */
 export function grantPurchased(
@@ -76,6 +94,8 @@ export function grantPurchased(
 ): { groupAdded: boolean } {
   if (!ctx.sqlite.inTransaction) throw new Error("grantPurchased requires a write transaction");
   if (grant.type === "group") {
+    if (groupAdministers(ctx, grant.groupId))
+      throw new ConflictError("This item cannot be bought at the moment.");
     const held = ctx.sqlite
       .prepare<{ held: number }, [number, number]>(HELD_SQL)
       .get(userId, grant.groupId)!.held;

@@ -46,7 +46,8 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   buyerId, recipientId, quantity, price, inventoryId }.
  * - `shop.item_used`: target the inventory row (targetType "shop_inventory"); payload { userId,
  *   itemId, effect, threadId?, value?, quantityLeft }. Applying the effect is the subscriber's
- *   work; permission and group items never publish it (they apply while held).
+ *   work. Group items and permission items that are not consumable are never used (they
+ *   apply while held); using a unit of a consumable permission item does publish it.
  */
 export const EVENT_TYPES = [
   ...CONTENT_EVENT_TYPES,

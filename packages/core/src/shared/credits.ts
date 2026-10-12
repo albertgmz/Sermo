@@ -29,21 +29,23 @@ export interface CreditResult {
 }
 
 /**
- * The only writer of `users.credits` and `credit_transactions`. Applies every movement in the
- * caller's write transaction: each one updates the balance, appends its ledger row with the
- * resulting balance and publishes `credits.changed`, so the balance always equals the sum of the
- * member's ledger. Several members may be moved in one call (a gift, a pot, a wager): either all
- * movements apply or the transaction rolls back.
+ * The only writer of `users.credits` and `credit_transactions` (the repair job of the credits
+ * module, which sets a balance back to the sum of its ledger without a ledger row, is the one
+ * exception). Applies every movement in the caller's write transaction: each one updates the
+ * balance, appends its ledger row with the resulting balance and publishes `credits.changed`, so
+ * the balance always equals the sum of the member's ledger. Several members may be moved in one
+ * call (a gift, a pot, a wager): either all movements apply or the transaction rolls back.
  *
  * A movement with `requireFunds` is a conditional UPDATE, so two concurrent charges can never
- * both spend the same credits; when the balance is short it throws ConflictError. An unknown
- * member throws NotFoundError.
+ * both spend the same credits; when the balance is short it throws ConflictError, as does a
+ * balance that would leave the range of exact integers. An unknown member throws NotFoundError.
  */
 export function moveCredits(ctx: Ctx, movements: readonly CreditMovement[]): CreditResult[] {
   if (!ctx.sqlite.inTransaction) throw new Error("moveCredits requires a write transaction");
   const update = prepared(ctx, "shared.creditsUpdate", () =>
     ctx.sqlite.prepare<{ credits: number }, [number, number, number]>(
-      "UPDATE users SET credits = credits + ?1 WHERE id = ?2 AND (?3 = 0 OR ?1 >= 0 OR credits + ?1 >= 0) RETURNING credits",
+      "UPDATE users SET credits = credits + ?1 WHERE id = ?2 AND (?3 = 0 OR ?1 >= 0 OR credits + ?1 >= 0) " +
+        "AND abs(credits + ?1) <= 9007199254740991 RETURNING credits",
     ),
   );
   const exists = prepared(ctx, "shared.creditsMember", () =>
@@ -65,7 +67,11 @@ export function moveCredits(ctx: Ctx, movements: readonly CreditMovement[]): Cre
     const row = update.get(movement.amount, movement.userId, movement.requireFunds ? 1 : 0);
     if (!row) {
       if (!exists.get(movement.userId)) throw new NotFoundError();
-      throw new ConflictError("Not enough credits.");
+      throw new ConflictError(
+        movement.requireFunds && movement.amount < 0
+          ? "Not enough credits."
+          : "The balance would be out of range.",
+      );
     }
     const actorId = movement.actorId ?? null;
     const transactionId = insert.get(

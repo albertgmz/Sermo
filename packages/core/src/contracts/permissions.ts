@@ -103,6 +103,8 @@ export const MemberGroups = z
     secondaryGroupIds: z.array(Id),
     /** Granted by promotions (managed by promotions, not by users.setGroups). */
     promotionGroupIds: z.array(Id),
+    /** Held through shop items (managed by the shop, not by users.setGroups). */
+    purchasedGroupIds: z.array(Id),
     /** The highest-ranked group, whose title and badge the member displays. */
     displayGroupId: Id.nullable(),
     /** Highest rank among all the member's groups. */

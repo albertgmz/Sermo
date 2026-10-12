@@ -166,10 +166,16 @@ export const groupsDeleteOp = implement(groupsDelete, (ctx, actor, input) => {
     if (!group) throw new NotFoundError();
     if (group.builtin) throw new ConflictError("Built-in groups cannot be deleted.");
     assertRank(group.rank, memberStanding(ctx, actor).maxRank);
+    // Members hold what they paid for: a group a shop item sells stays until the item goes.
+    const sold = ctx.sqlite
+      .prepare<{ id: number }, [number]>(
+        "SELECT id FROM shop_items WHERE json_extract(effect, '$.type') = 'group' AND json_extract(effect, '$.groupId') = ?1 LIMIT 1",
+      )
+      .get(group.id);
+    if (sold) throw new ConflictError("A shop item sells this group.");
     ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_groups WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_group_grants WHERE group_id = ?1").run(group.id);
-    ctx.sqlite.prepare("DELETE FROM shop_group_grants WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM permission_entries WHERE group_id = ?1").run(group.id);
     ctx.sqlite
       .prepare(
@@ -186,7 +192,7 @@ export const groupsDeleteOp = implement(groupsDelete, (ctx, actor, input) => {
 const memberGroups = (ctx: Ctx, userId: number) => {
   const subject = getMember(ctx, userId);
   const standing = memberStanding(ctx, subject);
-  const list = (table: "user_groups" | "user_group_grants") =>
+  const list = (table: "user_groups" | "user_group_grants" | "shop_group_grants") =>
     ctx.sqlite
       .prepare<{ group_id: number }, [number]>(
         `SELECT DISTINCT group_id FROM ${table} WHERE user_id = ?1 ORDER BY group_id`,
@@ -198,6 +204,7 @@ const memberGroups = (ctx: Ctx, userId: number) => {
     primaryGroupId: requireAuthenticated(subject).groupId,
     secondaryGroupIds: list("user_groups"),
     promotionGroupIds: list("user_group_grants"),
+    purchasedGroupIds: list("shop_group_grants"),
     displayGroupId: standing.displayGroupId,
     rank: standing.maxRank,
   };
@@ -242,11 +249,13 @@ export const usersSetGroupsOp = implement(usersSetGroups, (ctx, actor, input) =>
       before.primaryGroupId,
       ...before.secondaryGroupIds,
       ...before.promotionGroupIds,
+      ...before.purchasedGroupIds,
     ]);
     const newIds = new Set([
       after.primaryGroupId,
       ...after.secondaryGroupIds,
       ...after.promotionGroupIds,
+      ...after.purchasedGroupIds,
     ]);
     const added = [...newIds].filter((id) => !oldIds.has(id));
     const removed = [...oldIds].filter((id) => !newIds.has(id));

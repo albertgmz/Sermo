@@ -183,7 +183,7 @@ function effective(ctx: Ctx, userId: number): Set<number> {
     all<{ group_id: number }>(
       ctx,
       "effective",
-      "SELECT group_id FROM user_groups WHERE user_id = ?1 UNION SELECT group_id FROM user_group_grants WHERE user_id = ?1 UNION SELECT group_id FROM users WHERE id = ?1",
+      "SELECT group_id FROM user_groups WHERE user_id = ?1 UNION SELECT group_id FROM user_group_grants WHERE user_id = ?1 UNION SELECT group_id FROM shop_group_grants WHERE user_id = ?1 UNION SELECT group_id FROM users WHERE id = ?1",
       userId,
     ).map((r) => r.group_id),
   );
@@ -563,7 +563,7 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     const handGroups = all<{ user_id: number; group_id: number }>(
       ctx,
       "sweepHandGroups",
-      "SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1))",
+      "SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1)) UNION ALL SELECT user_id, group_id FROM shop_group_grants WHERE user_id IN (SELECT value FROM json_each(?1))",
       ids,
     );
     const membership = new Map<number, Map<number, number>>();

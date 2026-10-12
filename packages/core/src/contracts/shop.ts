@@ -207,7 +207,8 @@ export const shopItemsCreate = defineContract({
   summary:
     "Create a shop item. A consumable has no duration and cannot have a `group` effect. A " +
     "`permission` effect must name a registered permission with a value of its kind; a `group` " +
-    "effect an existing group other than the guest group, ranked below the actor. Selling a " +
+    "effect an existing group other than the guest group, ranked below the actor. Permissions " +
+    "of the admin category and groups that hold admin.permissions cannot be sold. Selling a " +
     "permission or a group requires admin.permissions as well as admin.shop.",
   kind: "write",
   input: z.object({

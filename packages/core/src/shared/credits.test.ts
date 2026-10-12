@@ -325,3 +325,15 @@ describe("moveCredits", () => {
     expect(events(ctx)).toHaveLength(ledger(ctx).length);
   });
 });
+
+test("a balance that would leave the exact integer range is refused", () => {
+  const ctx = createTestContext();
+  const user = insertUser(ctx);
+  writeTx(ctx, () =>
+    moveCredits(ctx, [{ userId: user.id, amount: Number.MAX_SAFE_INTEGER, type: "adjustment" }]),
+  );
+  expect(() =>
+    writeTx(ctx, () => moveCredits(ctx, [{ userId: user.id, amount: 2, type: "adjustment" }])),
+  ).toThrow(ConflictError);
+  expect(balance(ctx, user.id)).toBe(Number.MAX_SAFE_INTEGER);
+});

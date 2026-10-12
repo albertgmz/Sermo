@@ -1470,7 +1470,11 @@ export const memberAwardTotals = sqliteTable(
     autoGranted: bool("auto_granted").notNull().default(false),
     lastGrantedAt: integer("last_granted_at"),
   },
-  (t) => [uniqueIndex("member_award_totals_user_award").on(t.userId, t.awardId)],
+  (t) => [
+    uniqueIndex("member_award_totals_user_award").on(t.userId, t.awardId),
+    // Whether any member holds an award more than once (it then stays stackable).
+    index("member_award_totals_award").on(t.awardId, t.count),
+  ],
 );
 
 // ---------------------------------------------------------------------------

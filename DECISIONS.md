@@ -824,3 +824,16 @@ Owner review.
 (one member holds about 800), 6 categories, 90 items and 80,000 purchases with inventories,
 1,000 members holding a purchased permission or group, and every balance, XP total, award total
 and stock computed as the services maintain them (about 600,000 ledger rows).
+
+**Administration is never for sale.** A permission of the `admin` category cannot be an item's
+effect, nor a group that holds `admin.permissions` (checked when the item is saved and again at
+purchase). Otherwise the last member with `admin.permissions` could be someone whose access ends
+when an item expires, which no check at expiry time could refuse. A group a shop item sells
+cannot be deleted while the item exists.
+
+**Accepted limits of this pass.** A member whose only activity of a UTC day falls in the five
+seconds before midnight, and who is active again before the flush, gets the next day's
+`member.active_day` but not that day's (activity is buffered as one timestamp per member). Credit
+criteria take thresholds from zero up, so "in debt" is expressed as at most 0. The public catalog
+filters inactive items while walking a category's items in order; categories hold tens of items.
+Seeded temporary items that are still active end in 2100, so benchmarks never expire them.

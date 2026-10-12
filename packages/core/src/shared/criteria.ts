@@ -63,8 +63,8 @@ export function attachPurchasedItems(
   if (itemIds.size === 0 || members.length === 0) return;
   const rows = prepared(ctx, "shared.criteriaPurchasedItems", () =>
     ctx.sqlite.prepare<{ buyer_id: number; item_id: number }, [string, string]>(
-      "SELECT DISTINCT p.buyer_id, p.item_id FROM json_each(?1) m, json_each(?2) i " +
-        "JOIN shop_purchases p ON p.buyer_id = m.value AND p.item_id = i.value",
+      "SELECT m.value AS buyer_id, i.value AS item_id FROM json_each(?1) m, json_each(?2) i " +
+        "WHERE EXISTS (SELECT 1 FROM shop_purchases p WHERE p.buyer_id = m.value AND p.item_id = i.value)",
     ),
   ).all(JSON.stringify(members.map((member) => member.id)), JSON.stringify([...itemIds]));
   const byMember = new Map<number, Set<number>>();

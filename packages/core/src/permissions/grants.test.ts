@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type Ctx, invalidate } from "../context";
 import { GROUP_IDS } from "../db/schema";
 import { writeTx } from "../db/tx";
-import { NotFoundError, ValidationError } from "../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { createTestContext, insertNode, insertUser, userActor } from "../testing";
 import {
   can,
@@ -457,5 +457,31 @@ describe("validatePurchasedGrant", () => {
       grantPurchased(c, user.id, 1, { type: "permission", permission: SECRET_FLAG }),
     ).toThrow();
     expect(() => revokePurchased(c, 1)).toThrow();
+  });
+});
+
+describe("administration is not for sale", () => {
+  test("an admin permission cannot be sold", () => {
+    const ctx = createTestContext();
+    expect(() =>
+      validatePurchasedGrant(ctx, { type: "permission", permission: "admin.permissions" }),
+    ).toThrow(ValidationError);
+    expect(() =>
+      validatePurchasedGrant(ctx, { type: "permission", permission: "admin.shop" }),
+    ).toThrow(ValidationError);
+  });
+
+  test("a group that administers permissions cannot be sold or bought", () => {
+    const ctx = createTestContext();
+    const member = insertUser(ctx);
+    expect(() => validatePurchasedGrant(ctx, { type: "group", groupId: GROUP_IDS.admin })).toThrow(
+      ValidationError,
+    );
+    const groupId = createGroup(ctx, "Patrons");
+    validatePurchasedGrant(ctx, { type: "group", groupId });
+    setEntry(ctx, groupId, "admin.permissions", 1);
+    expect(() =>
+      writeTx(ctx, () => grantPurchased(ctx, member.id, 1, { type: "group", groupId })),
+    ).toThrow(ConflictError);
   });
 });
