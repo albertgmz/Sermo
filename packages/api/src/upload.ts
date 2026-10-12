@@ -79,6 +79,7 @@ export async function uploadMultipart(
     abort(new ValidationError("Exactly one file part is required."));
   };
   parser.on("file", (name, file, info) => {
+    file.on("error", () => abort(new ValidationError("Malformed multipart request.")));
     if (name !== "file" || upload) {
       reject();
       file.resume();
@@ -88,7 +89,6 @@ export async function uploadMultipart(
     body = source;
     // The source is ended by the caller once the whole request is known to be well formed.
     file.pipe(source, { end: false });
-    file.on("error", () => abort(new ValidationError("Malformed multipart request.")));
     upload = createStorage(ctx, config)
       .upload(
         actor,

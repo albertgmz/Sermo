@@ -103,6 +103,79 @@ async function settle() {
   await new Promise((resolve) => setTimeout(resolve, 400));
 }
 
+test.each([
+  ["wrong field name", filePart.replace('name="file"', 'name="wrong"')],
+  ["duplicate file", filePart + filePart],
+  ["wrong field cut off in content", filePart.replace('name="file"', 'name="wrong"').slice(0, -8)],
+  ["duplicate cut off in content", filePart + filePart.slice(0, -8)],
+  [
+    "wrong field cut off in boundary",
+    filePart.replace('name="file"', 'name="wrong"') + end.slice(0, -6),
+  ],
+  ["duplicate cut off in boundary", filePart + filePart + end.slice(0, -6)],
+])("a truncated rejected %s has no unhandled stream errors", async (_name, body) => {
+  const state = await setup();
+  const errors: unknown[] = [];
+  const record = (error: unknown) => errors.push(error);
+  process.on("uncaughtException", record);
+  process.on("unhandledRejection", record);
+  try {
+    const response = await post(state, body);
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe("validation");
+    await settle();
+    expect(errors).toEqual([]);
+    expect(fileRows(state.ctx)).toBe(0);
+    expect(await leftovers(state.dir)).toEqual([]);
+  } finally {
+    process.off("uncaughtException", record);
+    process.off("unhandledRejection", record);
+  }
+});
+
+test.each(["wrong", "file"])(
+  "a disconnected rejected %s stream has no unhandled errors",
+  async (name) => {
+    const state = await setup();
+    const errors: unknown[] = [];
+    const record = (error: unknown) => errors.push(error);
+    process.on("uncaughtException", record);
+    process.on("unhandledRejection", record);
+    let sent = false;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(
+            new TextEncoder().encode(
+              name === "file"
+                ? filePart + filePart
+                : filePart.replace('name="file"', 'name="wrong"'),
+            ),
+          );
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          controller.error(new Error("Client disconnected."));
+        }
+      },
+    });
+    try {
+      const response = await post(state, body);
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: { code: string } }).error.code).toBe(
+        "validation",
+      );
+      await settle();
+      expect(errors).toEqual([]);
+      expect(fileRows(state.ctx)).toBe(0);
+      expect(await leftovers(state.dir)).toEqual([]);
+    } finally {
+      process.off("uncaughtException", record);
+      process.off("unhandledRejection", record);
+    }
+  },
+);
+
 test("a valid upload still succeeds", async () => {
   const state = await setup();
   const response = await post(state, filePart + end);
@@ -128,6 +201,40 @@ test("a second file part is rejected and nothing is stored", async () => {
   const response = await post(state, filePart + second + end);
   expect(response.status).toBe(400);
   await settle();
+  expect(fileRows(state.ctx)).toBe(0);
+  expect(await leftovers(state.dir)).toEqual([]);
+});
+
+test.each([
+  ["extra field", fieldPart + end],
+  ["duplicate file", filePart + end],
+  ["truncated headers", `--${boundary}\r\nContent-Disposition:`],
+])("a delayed %s cannot leave the first file stored", async (_name, trailingPart) => {
+  const state = await setup();
+  const prefix = `--${boundary}\r\n`;
+  const release = Promise.withResolvers<void>();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      // Finish the file part, but hold back the next part's headers and the form's ending.
+      controller.enqueue(new TextEncoder().encode(filePart + prefix));
+    },
+    async pull(controller) {
+      await release.promise;
+      controller.enqueue(new TextEncoder().encode(trailingPart.slice(prefix.length)));
+      controller.close();
+    },
+  });
+  const pending = post(state, body);
+  let storedBeforeEnd: number;
+  try {
+    await settle();
+    storedBeforeEnd = fileRows(state.ctx);
+  } finally {
+    release.resolve();
+  }
+  const response = await pending;
+  expect(response.status).toBe(400);
+  expect(storedBeforeEnd).toBe(0);
   expect(fileRows(state.ctx)).toBe(0);
   expect(await leftovers(state.dir)).toEqual([]);
 });

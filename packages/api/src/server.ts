@@ -35,6 +35,8 @@ import {
   startScheduler,
   validatePushVapid,
 } from "@sermo/core";
+import { Context } from "hono";
+import { secureHeaders } from "hono/secure-headers";
 import { createApp } from "./app";
 
 const JSON_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i;
@@ -128,6 +130,29 @@ export const MAX_REQUEST_BODY_BYTES = 1024 * 1024 * 1024 + 1024 * 1024;
 /** Every other request keeps the ceiling Bun applied before the transport limit was raised. */
 export const MAX_NON_UPLOAD_BODY_BYTES = 128 * 1024 * 1024;
 
+const secureBodyLimitResponse = secureHeaders({
+  // Match createApp for rejections returned before its middleware can run.
+  contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+  referrerPolicy: "strict-origin-when-cross-origin",
+});
+
+function payloadTooLarge(headers?: Headers): Response {
+  const responseHeaders = new Headers(headers);
+  for (const name of ["content-length", "content-encoding", "etag"]) responseHeaders.delete(name);
+  responseHeaders.set("content-type", "application/json");
+  return Response.json(
+    { error: { code: "payload_too_large", message: "The request body is too large." } },
+    { status: 413, headers: responseHeaders },
+  );
+}
+
+async function securedPayloadTooLarge(request: Request, response?: Response): Promise<Response> {
+  const context = new Context(request);
+  context.res = payloadTooLarge(response?.headers);
+  await secureBodyLimitResponse(context, async () => {});
+  return context.res;
+}
+
 /**
  * Only the upload route may exceed `MAX_NON_UPLOAD_BODY_BYTES`: everything else is parsed in
  * memory, so a larger transport ceiling must not apply to it.
@@ -135,38 +160,65 @@ export const MAX_NON_UPLOAD_BODY_BYTES = 128 * 1024 * 1024;
 export function limitRequestBody(
   request: Request,
   limit = MAX_NON_UPLOAD_BODY_BYTES,
+  onLimitExceeded: () => void = () => {},
 ): Request | Response {
   if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/files")
     return request;
-  const tooLarge = () =>
-    Response.json(
-      { error: { code: "payload_too_large", message: "The request body is too large." } },
-      { status: 413 },
-    );
   const declared = request.headers.get("content-length");
-  if (declared !== null) return Number(declared) > limit ? tooLarge() : request;
+  if (declared !== null) return Number(declared) > limit ? payloadTooLarge() : request;
   if (!request.body) return request;
   let seen = 0;
   const counted = request.body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         seen += chunk.byteLength;
-        if (seen > limit) controller.error(new Error("Request body too large."));
-        else controller.enqueue(chunk);
+        if (seen > limit) {
+          onLimitExceeded();
+          controller.error(new Error("Request body too large."));
+        } else controller.enqueue(chunk);
       },
     }),
   );
   return new Request(request, { body: counted, duplex: "half" } as RequestInit);
 }
 
-export function handleRequest(
+export async function handleRequest(
   request: Request,
   app: ReturnType<typeof createApp>,
   server?: Parameters<typeof handleUnsubscribeRequest>[2],
-): Promise<Response> | Response {
-  const limited = limitRequestBody(request);
-  if (limited instanceof Response) return limited;
-  return handleUnsubscribeRequest(limited, app, server);
+  options: { maxNonUploadBodyBytes?: number } = {},
+): Promise<Response> {
+  // Bun associates the socket with this Request; wrapping its body loses that association.
+  const ip = server?.requestIP(request);
+  let exceeded = false;
+  const limited = limitRequestBody(request, options.maxNonUploadBodyBytes, () => {
+    exceeded = true;
+  });
+  if (limited instanceof Response) return securedPayloadTooLarge(request);
+  try {
+    const response = await handleUnsubscribeRequest(limited, app, {
+      requestIP: () => ip ?? null,
+    });
+    // Body readers can catch the stream error and return any status. The boundary owns 413.
+    return exceeded ? securedPayloadTooLarge(request, response) : response;
+  } catch (error) {
+    if (exceeded) return securedPayloadTooLarge(request);
+    throw error;
+  }
+}
+
+/** These are the options passed to Bun in production and in transport regression tests. */
+export function createServerOptions(
+  app: ReturnType<typeof createApp>,
+  port: number,
+  options: Parameters<typeof handleRequest>[3] = {},
+) {
+  return {
+    port,
+    maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+    fetch: (request: Request, server: Bun.Server<undefined>) =>
+      handleRequest(request, app, server, options),
+  };
 }
 
 export interface ShutdownDependencies {
@@ -416,11 +468,7 @@ async function main(): Promise<void> {
     trustedProxyHeader: config.trustedProxyHeader,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },
   });
-  const server = Bun.serve({
-    port: config.port,
-    maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
-    fetch: (request, server) => handleRequest(request, app, server),
-  });
+  const server = Bun.serve(createServerOptions(app, config.port));
   console.info(`Sermo listening on ${server.url}`);
 
   let stopping = false;
