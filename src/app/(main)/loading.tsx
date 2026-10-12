@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   FeedSkeleton,
   LoadingRegion,
@@ -7,8 +8,9 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 
 export default function Loading() {
+  const t = useTranslations("home.loading");
   return (
-    <LoadingRegion label="Loading your feed…">
+    <LoadingRegion label={t("feed")}>
       <PageLayout
         aside={<SidebarSkeleton />}
         asideOnMobile="hidden"

@@ -1,6 +1,8 @@
 import { ChevronDown, PenLine, Rss, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { FeedItem } from "@/app/(main)/_feed/feed-item";
 import { FeedSidebar } from "@/app/(main)/_feed/feed-sidebar";
@@ -24,9 +26,10 @@ import {
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Home - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("home.page");
+  return { title: t("metaTitle") };
+}
 
 const PAGE_SIZE = 20;
 const TOP_DAYS = 7;
@@ -35,18 +38,6 @@ const DAY = 86_400_000;
 const TABS = ["latest", "following", "top"] as const;
 
 type Tab = (typeof TABS)[number];
-
-const LABELS: Record<Tab, string> = {
-  latest: "Latest",
-  following: "Following",
-  top: "Top",
-};
-
-const EMPTY: Record<Tab, string> = {
-  latest: "New threads, replies and profile posts will show up here.",
-  following: "Posts from the members you follow will show up here.",
-  top: `Nothing has been reacted to in the last ${TOP_DAYS} days.`,
-};
 
 function feedHref(tab: Tab, page = 1) {
   const params = new URLSearchParams();
@@ -76,12 +67,13 @@ async function loadFeed(tab: Tab, viewerId: number | null, limit: number) {
 }
 
 export default function HomePage(props: PageProps<"/">) {
+  const t = useTranslations("home.page");
   return (
     <PageLayout
       aside={
         <Suspense
           fallback={
-            <LoadingRegion label="Loading feed sidebar…">
+            <LoadingRegion label={t("loadingSidebar")}>
               <SidebarSkeleton />
             </LoadingRegion>
           }
@@ -92,7 +84,7 @@ export default function HomePage(props: PageProps<"/">) {
       asideOnMobile="hidden"
       mainClassName="space-y-(--page-gap)"
     >
-      <h1 className="sr-only">Home</h1>
+      <h1 className="sr-only">{t("heading")}</h1>
       {/* No fallback: only members get a composer, and the shell cannot tell
           them from guests without reading the cookie. The composer settles on
           the session alone, ahead of the feed. */}
@@ -101,7 +93,7 @@ export default function HomePage(props: PageProps<"/">) {
       </Suspense>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading your feed…">
+          <LoadingRegion label={t("loadingFeed")}>
             <TabsSkeleton />
             <FeedSkeleton />
           </LoadingRegion>
@@ -120,23 +112,24 @@ async function HomeSidebar() {
 
 async function HomeComposer() {
   const viewer = await getCurrentUser();
+  const t = await getTranslations("home.page");
   return (
     <>
       {viewer && (
         <section
-          aria-label="New post"
+          aria-label={t("aria.newPost")}
           className="overflow-hidden rounded-lg border bg-card"
         >
           <CompactComposer
             action={postToWall.bind(null, viewer.id)}
             user={viewer}
-            placeholder="What's on your mind?"
-            submitLabel="Post to your profile"
+            placeholder={t("placeholder")}
+            submitLabel={t("submit")}
             className="p-4"
           />
           <div className="flex items-center justify-between gap-3 border-t py-2 pr-2 pl-4">
             <p className="min-w-0 text-xs text-pretty text-muted-foreground">
-              Posts go to your profile wall.
+              {t("description")}
             </p>
             <Link
               href="/forums"
@@ -146,7 +139,7 @@ async function HomeComposer() {
               )}
             >
               <PenLine />
-              Start a thread
+              {t("startThread")}
             </Link>
           </div>
         </section>
@@ -169,41 +162,42 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
     ? []
     : await loadFeed(tab, viewer?.id ?? null, shown + 1);
   const items = loaded.slice(0, shown);
+  const t = await getTranslations("home.page");
 
   return (
     <>
       <TabLinks
         tabs={TABS.map((value) => ({
           value,
-          label: LABELS[value],
+          label: t(`tabs.${value}`),
           href: feedHref(value),
         }))}
         active={tab}
-        label="Feed"
+        label={t("aria.feed")}
         variant="segmented"
       />
       {tab === "top" && (
         <p className="text-xs text-muted-foreground">
-          Most reacted in the last {TOP_DAYS} days.
+          {t("days", { count: TOP_DAYS })}
         </p>
       )}
 
       {needsLogin ? (
         <EmptyState
           icon={Users}
-          title="Follow members to build your feed"
-          description="Log in to see posts from the members you follow."
+          title={t("loginTitle")}
+          description={t("loginDescription")}
           className="rounded-lg border bg-card"
         >
           <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>
-            Log in
+            {t("login")}
           </Link>
         </EmptyState>
       ) : items.length === 0 ? (
         <EmptyState
           icon={Rss}
-          title="Nothing here yet"
-          description={EMPTY[tab]}
+          title={t("emptyTitle")}
+          description={t(`empty.${tab}`, { count: TOP_DAYS })}
           className="rounded-lg border bg-card"
         />
       ) : (
@@ -226,7 +220,7 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
               )}
             >
               <ChevronDown />
-              Load more
+              {t("loadMore")}
             </Link>
           )}
         </>

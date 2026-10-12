@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -29,6 +30,7 @@ async function MobileNavigation() {
 }
 
 export default function MainLayout({ children }: LayoutProps<"/">) {
+  const t = useTranslations("home.layout");
   return (
     <div className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0">
       <Suspense>
@@ -38,7 +40,7 @@ export default function MainLayout({ children }: LayoutProps<"/">) {
       <Suspense
         fallback={
           <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
-            <LoadingRegion label="Loading navigation…">
+            <LoadingRegion label={t("loadingNavigation")}>
               <div
                 aria-hidden="true"
                 className="mx-auto grid h-14 max-w-lg grid-cols-5"
