@@ -43,6 +43,22 @@ const SESSION_COOKIES = ["sermo.session_token", "__Secure-sermo.session_token"];
 
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
+// Carries the path and query a visitor asked for to the page that renders it: a Server
+// Component does not know its own URL (`read()` in lib/sermo/client.ts reads it).
+const PATH_HEADER = "x-sermo-path";
+
+// Lets the request go on to a page. Only a read of the page (GET, HEAD) carries the path; an
+// action's POST does not. Whatever the client sent under that name never survives.
+function toPage(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  if (request.method === "GET" || request.method === "HEAD") {
+    headers.set(PATH_HEADER, request.nextUrl.pathname + request.nextUrl.search);
+  } else {
+    headers.delete(PATH_HEADER);
+  }
+  return NextResponse.next({ request: { headers } });
+}
+
 export async function proxy(request: NextRequest) {
   const response = await handleRequest(request);
   // Old installations set an HttpOnly preference. Replace it so tab sync can
@@ -118,7 +134,7 @@ async function handleRequest(request: NextRequest) {
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
-    return;
+    return toPage(request);
   }
   const [, section, id, action] = pathname.split("/");
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
@@ -150,6 +166,7 @@ async function handleRequest(request: NextRequest) {
     }
     if (!(await find(id, viewerId))) return notFound(request);
   }
+  return toPage(request);
 }
 
 // Match before decoding, including image optimizer requests and file aliases.
