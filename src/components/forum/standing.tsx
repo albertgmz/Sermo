@@ -11,7 +11,6 @@ import { RankNumber } from "@/components/forum/leaderboard";
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import type { MonthWinner, StandingEntry } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
@@ -130,7 +129,7 @@ export function MonthHero({
           <UserAvatar user={user} size="2xl" />
           <div className="min-w-0 max-w-full">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-start">
-              <UserHoverCard
+              <UserLink
                 user={user}
                 className="max-w-full truncate text-2xl leading-10 tracking-tight"
               />

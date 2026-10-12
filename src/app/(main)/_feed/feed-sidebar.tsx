@@ -12,7 +12,7 @@ import {
   MemberListSkeleton,
 } from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getCategories,
@@ -147,11 +147,8 @@ async function LatestThreads() {
         <div key={thread.id} className="px-4 py-2.5">
           <ThreadTitle thread={thread} />
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <UserHoverCard
-              user={thread.lastPost.author}
-              className="font-medium"
-            />{" "}
-            · <RelativeTime date={thread.lastPost.createdAt} />
+            <UserLink user={thread.lastPost.author} className="font-medium" /> ·{" "}
+            <RelativeTime date={thread.lastPost.createdAt} />
           </p>
         </div>
       ))}

@@ -46,6 +46,7 @@ export function HeaderPanel({
         sideOffset={8}
         className="w-88 gap-0 p-0"
         onClick={(event) => {
+          if (event.defaultPrevented) return;
           if ((event.target as Element).closest("a")) setOpen(false);
         }}
       >

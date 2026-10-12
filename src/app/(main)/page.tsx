@@ -16,7 +16,6 @@ import {
 import { TabLinks } from "@/components/forum/tab-links";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   type FeedItem as FeedEntry,
   getFeed,
@@ -94,15 +93,10 @@ export default function HomePage(props: PageProps<"/">) {
       mainClassName="space-y-(--page-gap)"
     >
       <h1 className="sr-only">Home</h1>
-      <Suspense
-        fallback={
-          <LoadingRegion label="Loading composer…">
-            <div className="rounded-lg border bg-card p-4">
-              <Skeleton className="h-20 w-full" />
-            </div>
-          </LoadingRegion>
-        }
-      >
+      {/* No fallback: only members get a composer, and the shell cannot tell
+          them from guests without reading the cookie. The composer settles on
+          the session alone, ahead of the feed. */}
+      <Suspense fallback={null}>
         <HomeComposer />
       </Suspense>
       <Suspense

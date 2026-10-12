@@ -9,7 +9,7 @@ import { LoadingRegion, MemberRowSkeleton } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import {
   getForumStats,
   getLeaderboard,
@@ -119,7 +119,7 @@ function ThreadRow({
             {thread.forum.title}
           </Link>{" "}
           · <RelativeTime date={last.createdAt} /> ·{" "}
-          <UserHoverCard user={last.author} />
+          <UserLink user={last.author} />
         </p>
       </div>
       <dl className="flex shrink-0 text-xs text-muted-foreground tabular-nums">

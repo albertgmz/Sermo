@@ -14,7 +14,7 @@ import {
 } from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { threadCoverSrc } from "@/lib/appearance";
@@ -118,7 +118,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
           </span>
         </ThreadHoverCard>
         <p className="truncate text-xs text-muted-foreground">
-          <UserHoverCard user={thread.author} className="relative z-10" /> ·{" "}
+          <UserLink user={thread.author} className="relative z-10" /> ·{" "}
           {formatRelativeTime(thread.createdAt)}
         </p>
       </div>
@@ -140,10 +140,7 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
       </dl>
       <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">
         {formatRelativeTime(thread.lastPost.createdAt)} ·{" "}
-        <UserHoverCard
-          user={thread.lastPost.author}
-          className="relative z-10"
-        />
+        <UserLink user={thread.lastPost.author} className="relative z-10" />
       </p>
     </li>
   );

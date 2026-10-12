@@ -14,7 +14,6 @@ import {
   LoadingRegion,
   MemberCardSkeleton,
   MemberListSkeleton,
-  MembersOverviewSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
 import {
@@ -142,17 +141,7 @@ export default async function MembersPage({
 
       <MembersNav active={view.value} variant="chips" className="lg:hidden" />
 
-      {view.value === "overview" && (
-        <Suspense
-          fallback={
-            <LoadingRegion label="Loading members…">
-              <MembersOverviewSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <Overview viewerId={viewerId} />
-        </Suspense>
-      )}
+      {view.value === "overview" && <Overview viewerId={viewerId} />}
       {view.value === "month" && (
         <Suspense
           fallback={

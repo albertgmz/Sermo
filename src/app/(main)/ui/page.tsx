@@ -65,7 +65,6 @@ import {
   RankBadge,
   UserBadges,
 } from "@/components/forum/user-badges";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { Container } from "@/components/layout/container";
@@ -831,8 +830,8 @@ export default async function StyleguidePage() {
                 className="font-medium underline-offset-4 hover:underline"
               />
             ))}
-            <UserHoverCard user={admin} />
-            <UserHoverCard user={ranked[1] ?? member} />
+            <UserLink user={admin} />
+            <UserLink user={ranked[1] ?? member} />
           </div>
         </Section>
 

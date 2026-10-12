@@ -9,7 +9,7 @@ import {
   LoadingRegion,
 } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-link";
+import { userNameClass } from "@/components/forum/user-name";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/session";

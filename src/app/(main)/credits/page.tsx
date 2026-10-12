@@ -25,7 +25,8 @@ import {
 } from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink, userNameClass } from "@/components/forum/user-link";
+import { UserLink } from "@/components/forum/user-link";
+import { userNameClass } from "@/components/forum/user-name";
 import { Container } from "@/components/layout/container";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -1062,6 +1063,25 @@ async function CreditsContent({ searchParams }: Props) {
   );
 }
 
+// The shell shows the skeleton of the default category. Once the query is
+// known, the fallback of the content is the one of the category requested.
+async function CreditsSection(props: Props) {
+  const requested = one((await props.searchParams).category);
+  const category = CATEGORIES.find(({ value }) => value === requested)?.value;
+  return (
+    <Suspense
+      fallback={
+        <LoadingRegion label="Loading the shop…">
+          <TabsSkeleton />
+          <ShopSkeleton category={category} />
+        </LoadingRegion>
+      }
+    >
+      <CreditsContent {...props} />
+    </Suspense>
+  );
+}
+
 async function CreditLeaders() {
   const viewerId = (await getCurrentUser())?.id;
   const richest = await getLeaderboard("credits", 10);
@@ -1113,7 +1133,7 @@ export default function CreditsPage(props: Props) {
             </LoadingRegion>
           }
         >
-          <CreditsContent {...props} />
+          <CreditsSection {...props} />
         </Suspense>
       </PageLayout>
     </>

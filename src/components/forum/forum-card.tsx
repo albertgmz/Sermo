@@ -4,7 +4,7 @@ import { ForumIcon } from "@/components/forum/forum-icon";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { Badge } from "@/components/ui/badge";
 import type { ForumView } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
@@ -87,12 +87,12 @@ export function ForumCard({
           >
             <RelativeTime date={last.createdAt} className="shrink-0" />
             <span aria-hidden="true">·</span>
-            <UserHoverCard
+            <UserLink
               user={last.author}
               className="flex h-10 min-w-0 items-center"
             >
               <span className="truncate">{last.author.username}</span>
-            </UserHoverCard>
+            </UserLink>
           </p>
         </div>
       ) : (

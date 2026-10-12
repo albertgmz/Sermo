@@ -29,10 +29,16 @@ const CONTENT: Record<string, Finder> = {
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
 export async function proxy(request: NextRequest) {
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(request.nextUrl.pathname);
+  } catch {
+    return;
+  }
   const image =
     /^\/(?:avatars|frames|covers|thread-covers|forums|awards|shop)\/.+\.(?:avif|gif|ico|jpe?g|png|svg|webp)$/i.test(
-      request.nextUrl.pathname,
-    ) || ["/logo.svg", "/icon.svg"].includes(request.nextUrl.pathname);
+      pathname,
+    ) || ["/logo.svg", "/icon.svg"].includes(pathname);
   if (image) {
     if (request.cookies.get(LITE_COOKIE)?.value === "1") {
       return new NextResponse(
@@ -48,7 +54,7 @@ export async function proxy(request: NextRequest) {
     }
     return;
   }
-  const [, section, id, action] = request.nextUrl.pathname.split("/");
+  const [, section, id, action] = pathname.split("/");
   const viewer = request.cookies.get(COOKIE)?.value;
   if (section === "admin") {
     const user = viewer ? await getUserById(Number(viewer)) : null;
@@ -73,26 +79,9 @@ export async function proxy(request: NextRequest) {
   }
 }
 
+// Paths are matched before decoding, so an encoded variant of a protected path
+// (/%61dmin, /avatars/a%2ejpg) would slip past a narrow list. Run on everything
+// except Next internals and let the function return early for what it ignores.
 export const config = {
-  matcher: [
-    "/avatars/:path*",
-    "/frames/:path*",
-    "/covers/:path*",
-    "/thread-covers/:path*",
-    "/shop/:path*",
-    "/logo.svg",
-    "/icon.svg",
-    "/account/:path*",
-    "/admin/:path*",
-    "/notifications",
-    "/conversations/:path*",
-    "/members/:id",
-    // Picture requests bypass the content rules when LITE mode is off.
-    "/forums/:image(.+\\.(?:avif|gif|ico|jpe?g|png|svg|webp))",
-    "/forums/:id((?!.*\\.jpg$).+)",
-    "/forums/:id/new",
-    "/threads/:id",
-    "/awards/:image(.+\\.(?:avif|gif|ico|jpe?g|png|svg|webp))",
-    "/awards/:id((?!.*\\.svg$).+)",
-  ],
+  matcher: ["/((?!_next/).*)"],
 };

@@ -1,39 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { startTransition, useRef, useState } from "react";
+import { loadMemberCard } from "@/components/forum/member-card-action";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export function MemberCardTrigger({
+  id,
   href,
   name,
   className,
-  card,
   children,
 }: {
+  id: number;
   href: string;
   name: string;
   className?: string;
-  card: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // undefined until the first open has loaded it, null for an unknown member
+  const [card, setCard] = useState<React.ReactNode>();
+  const requested = useRef(false);
   const trigger = useRef<HTMLElement>(null);
   const pointerType = useRef("");
   const restoringFocus = useRef(false);
   const returnFocus = useRef(false);
+
+  function show() {
+    setOpen(true);
+    if (requested.current) return;
+    requested.current = true;
+    startTransition(async () => {
+      try {
+        setCard(await loadMemberCard(id));
+      } catch {
+        requested.current = false;
+      }
+    });
+  }
 
   return (
     <Popover
       open={open}
       onOpenChange={(next, details) => {
         returnFocus.current = details.reason === "escape-key";
-        setOpen(next);
+        if (next) show();
+        else setOpen(false);
       }}
     >
       <PopoverTrigger
@@ -47,7 +66,7 @@ export function MemberCardTrigger({
         closeDelay={150}
         render={<Link href={href} />}
         className={cn(
-          "inline-block min-h-10 min-w-10 max-w-full content-center align-middle rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          "relative rounded-sm after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
           className,
         )}
         onPointerDown={(event) => {
@@ -60,7 +79,7 @@ export function MemberCardTrigger({
           if (restoringFocus.current) {
             restoringFocus.current = false;
           } else if (event.currentTarget.matches(":focus-visible")) {
-            setOpen(true);
+            show();
           }
         }}
         onClick={(event) => {
@@ -92,7 +111,11 @@ export function MemberCardTrigger({
           return false;
         }}
       >
-        {card}
+        {card === undefined ? (
+          <Skeleton className="h-56 w-full rounded-none" />
+        ) : (
+          card
+        )}
       </PopoverContent>
     </Popover>
   );

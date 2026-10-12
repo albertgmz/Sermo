@@ -13,7 +13,7 @@ import {
   TextSkeleton,
 } from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
@@ -388,11 +388,7 @@ async function SearchResults({
                 <article key={thread.id} className="px-4 py-3">
                   <ThreadTitle thread={thread} />
                   <p className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                    <UserHoverCard
-                      user={thread.author}
-                      className="font-medium"
-                    />{" "}
-                    in{" "}
+                    <UserLink user={thread.author} className="font-medium" /> in{" "}
                     <Link
                       href={`/forums/${thread.forum.id}`}
                       className="font-medium text-foreground underline-offset-4 hover:underline"
@@ -421,11 +417,8 @@ async function SearchResults({
                       />
                     )}
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      <UserHoverCard
-                        user={post.author}
-                        className="font-medium"
-                      />{" "}
-                      · Post #{post.number} ·{" "}
+                      <UserLink user={post.author} className="font-medium" /> ·
+                      Post #{post.number} ·{" "}
                       <RelativeTime date={post.createdAt} />
                     </p>
                     <Excerpt body={post.body} term={query} />

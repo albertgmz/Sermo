@@ -4,7 +4,7 @@ import { AppearanceForm } from "@/app/(main)/account/appearance-form";
 import { Art } from "@/components/forum/art";
 import { MemberCard } from "@/components/forum/member-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import { userNameClass } from "@/components/forum/user-link";
+import { userNameClass } from "@/components/forum/user-name";
 import {
   ACCENTS,
   COVERS,

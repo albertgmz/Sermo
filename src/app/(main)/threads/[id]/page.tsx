@@ -26,7 +26,7 @@ import { Signature } from "@/components/forum/signature";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
+import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
@@ -84,7 +84,7 @@ function PostItem({
       />
       <div className="flex min-w-0 flex-col justify-center gap-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <UserHoverCard user={author} className="[overflow-wrap:anywhere]" />
+          <UserLink user={author} className="[overflow-wrap:anywhere]" />
           <UserBadges user={author} />
           <AwardRow
             awards={author.awards}

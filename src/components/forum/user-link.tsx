@@ -1,13 +1,11 @@
-import {
-  MemberCard,
-  type MemberCardUser,
-} from "@/components/forum/member-card";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { userLinkClass, userNameClass } from "@/components/forum/user-name";
+import type { Appearance, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export type LinkUser = MemberCardUser;
-export { userLinkClass, userNameClass } from "@/components/forum/user-name";
+export type LinkUser = Pick<User, "id" | "username" | "role"> & {
+  appearance?: Pick<Appearance, "nameColor">;
+};
 
 export function UserLink({
   user,
@@ -20,10 +18,10 @@ export function UserLink({
 }) {
   return (
     <MemberCardTrigger
+      id={user.id}
       href={`/members/${user.id}`}
       name={user.username}
       className={cn(userLinkClass, userNameClass(user), className)}
-      card={<MemberCard user={user} className="border-0 bg-transparent" />}
     >
       {children ?? user.username}
     </MemberCardTrigger>

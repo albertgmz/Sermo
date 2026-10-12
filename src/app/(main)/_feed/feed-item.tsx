@@ -14,7 +14,6 @@ import { ShareButton } from "@/components/forum/share-button";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
-import { UserHoverCard } from "@/components/forum/user-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import { threadCoverSrc } from "@/lib/appearance";
 import type {
@@ -101,7 +100,7 @@ function Card({
         <UserAvatar user={author} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
-            <UserHoverCard user={author} className="[overflow-wrap:anywhere]" />
+            <UserLink user={author} className="[overflow-wrap:anywhere]" />
             <UserBadges user={author} />
             <LevelBadge level={author.level} />
           </p>
@@ -169,7 +168,7 @@ export function FeedItem({
           profilePost.profileUserId !== profilePost.authorId && (
             <>
               posted on{" "}
-              <UserHoverCard
+              <UserLink
                 user={profilePost.profileUser}
                 className="font-medium"
               />

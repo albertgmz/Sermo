@@ -21,6 +21,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getCategories, getUsers } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import type { ForumTab } from "@/lib/types";
@@ -107,7 +108,18 @@ export default async function ForumsPage({
               <PageHero
                 title="Ask questions. Share what you know."
                 subtitle="Join a community of makers who trade ideas, feedback and good advice every day."
-              />
+              >
+                <div className="flex w-full justify-center -space-x-2 sm:w-auto">
+                  {[1, 2, 3, 4, 5].map((avatar) => (
+                    <Skeleton
+                      key={avatar}
+                      className="size-10 rounded-full ring-2 ring-background"
+                    />
+                  ))}
+                </div>
+                <Skeleton className="h-10 w-19" />
+                <Skeleton className="h-10 w-35" />
+              </PageHero>
             </LoadingRegion>
           }
         >
