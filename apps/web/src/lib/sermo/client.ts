@@ -37,11 +37,27 @@ export async function read<I extends z.ZodType, O extends z.ZodType>(
   try {
     return await call(contract, input);
   } catch (error) {
-    if (error instanceof SermoError) {
-      if (error.code === "not_found") notFound();
-      if (error.code === "unauthenticated") redirect(await loginPath());
+    if (!(error instanceof SermoError)) throw error;
+    if (error.code === "not_found") notFound();
+    if (error.code !== "unauthenticated") throw error;
+    // A live session never gets this answer for a read it may make as a guest, so the cookie is
+    // dead: ask once more as a guest. What a guest may not read still leads to the login page.
+    const forward = await forwardFromRequest();
+    if (forward.cookie) {
+      try {
+        return await callWith(
+          { ...forward, cookie: undefined },
+          contract,
+          input,
+        );
+      } catch (again) {
+        if (again instanceof SermoError && again.code === "not_found")
+          notFound();
+        if (!(again instanceof SermoError && again.code === "unauthenticated"))
+          throw again;
+      }
     }
-    throw error;
+    redirect(await loginPath());
   }
 }
 

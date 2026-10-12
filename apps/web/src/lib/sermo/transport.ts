@@ -58,7 +58,11 @@ export async function send(
   try {
     return await fetch(`${apiUrl()}${pathAndQuery}`, {
       method,
-      headers: forwardHeaders(forward, body !== undefined),
+      // The backend takes a write from a signed-in visitor only as JSON, body or not.
+      headers: forwardHeaders(
+        forward,
+        body !== undefined || method === "DELETE",
+      ),
       body,
       cache: "no-store",
       redirect: "manual",

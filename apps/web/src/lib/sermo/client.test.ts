@@ -101,3 +101,33 @@ test("other errors are rethrown", async () => {
     );
   }
 });
+
+test("a dead session cookie reads as a guest instead of being sent to sign in", async () => {
+  incoming = new Headers({
+    cookie: "sermo.session_token=dead; forum_lite=all",
+    "x-sermo-path": "/threads/1",
+  });
+  const cookies: (string | null)[] = [];
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    const cookie = new Headers(init.headers).get("cookie");
+    cookies.push(cookie);
+    return cookie
+      ? refusal(401, "unauthenticated")
+      : Response.json({ title: "Public" });
+  }) as unknown as typeof fetch;
+  assert.deepEqual(await read(contract, { threadId: 1 }), { title: "Public" });
+  assert.deepEqual(cookies, ["sermo.session_token=dead", null]);
+});
+
+test("what a guest may not read still leads to sign-in, also with a dead cookie", async () => {
+  incoming = new Headers({
+    cookie: "sermo.session_token=dead",
+    "x-sermo-path": "/account",
+  });
+  globalThis.fetch = (async () =>
+    refusal(401, "unauthenticated")) as unknown as typeof fetch;
+  assert.match(
+    await digestOf(read(contract, { threadId: 1 })),
+    /^NEXT_REDIRECT;[a-z]+;\/login\?next=%2Faccount;/,
+  );
+});

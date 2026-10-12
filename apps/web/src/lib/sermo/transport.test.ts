@@ -126,3 +126,32 @@ test("sermoCookies keeps nothing else", () => {
   assert.equal(sermoCookies(undefined), "");
   assert.equal(sermoCookies("a=1; sermo.x=2; notsermo.y=3"), "sermo.x=2");
 });
+
+test("a DELETE carries the JSON content type the backend requires of a signed-in write", async () => {
+  const remove = {
+    name: "reactions.remove",
+    input: z.object({ contentType: z.string(), contentId: z.number() }),
+    output: z.object({ total: z.number() }),
+  };
+  const seen = fake(Response.json({ total: 0 }));
+  await callWith({ cookie: "sermo.session_token=abc" }, remove, {
+    contentType: "post",
+    contentId: 7,
+  });
+  const [sent] = seen;
+  assert.ok(sent);
+  const { url, init } = sent;
+  assert.equal(init.method, "DELETE");
+  assert.match(url, /\/api\/v1\/reactions\/post\/7$/);
+  assert.equal(init.body, undefined);
+  assert.equal(
+    new Headers(init.headers).get("content-type"),
+    "application/json",
+  );
+});
+
+test("a read carries no content type", async () => {
+  const seen = fake(Response.json({ title: "Hi" }));
+  await callWith({}, get, { threadId: 5 });
+  assert.equal(new Headers(seen[0]?.init.headers).get("content-type"), null);
+});
