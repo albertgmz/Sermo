@@ -10,6 +10,7 @@ import {
   ValidationError,
 } from "../../errors";
 import { type AnyOperation, execute } from "../../operation";
+import { insertCatalogImage } from "../appearance/catalog-fixtures";
 import { operations } from "./index";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
@@ -26,7 +27,8 @@ function fixture() {
     const op: AnyOperation = operations.find((op) => op.name === name)!;
     return execute(ctx, op, actor, input);
   };
-  return { ctx, admin, member, moderator, call };
+  const frameId = insertCatalogImage(ctx, "frame");
+  return { ctx, admin, member, moderator, call, frameId };
 }
 
 describe("shop catalog", () => {
@@ -53,13 +55,13 @@ describe("shop catalog", () => {
   });
 
   test("item CRUD, pagination, inactive categories and nonempty deletion", async () => {
-    const { call, member, moderator } = fixture();
+    const { call, member, moderator, frameId } = fixture();
     const category = await call("shopCategories.create", { name: "Catalog" });
     const input = {
       categoryId: category.id,
       name: "Frame",
       price: 7,
-      effect: { type: "frame", frame: "gold" },
+      effect: { type: "frame", frameId },
     };
     const first = await call("shopItems.create", input);
     const second = await call("shopItems.create", { ...input, position: 2 });
@@ -231,7 +233,7 @@ describe("shop catalog", () => {
   });
 
   test("changing away from a group item respects the existing group's rank; deleting needs only admin.shop", async () => {
-    const { ctx, call } = fixture();
+    const { ctx, call, frameId } = fixture();
     const group = ctx.sqlite
       .prepare<{ id: number }, []>(
         "INSERT INTO groups (title, rank) VALUES ('Supporter', 30) RETURNING id",
@@ -248,7 +250,7 @@ describe("shop catalog", () => {
       .prepare("UPDATE groups SET rank = (SELECT rank FROM groups WHERE id = 4) WHERE id = ?1")
       .run(group.id);
     await expect(
-      call("shopItems.update", { itemId: item.id, effect: { type: "frame", frame: "gold" } }),
+      call("shopItems.update", { itemId: item.id, effect: { type: "frame", frameId } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     expect(await call("shopItems.delete", { itemId: item.id })).toEqual({ ok: true });
   });
