@@ -233,6 +233,9 @@ describe("forum follow-up coverage", () => {
       canReply: true,
       canEditTitle: true,
       canModerate: false,
+      canReport: true,
+      canRemoveCover: true,
+      canWatch: true,
     });
     expect(
       (await call(ctx, threadsGetOp, other, { threadId: t.thread.id })).permissions.canEditTitle,
@@ -253,6 +256,9 @@ describe("forum follow-up coverage", () => {
       canReply: false,
       canEditTitle: false,
       canModerate: false,
+      canReport: true,
+      canRemoveCover: true,
+      canWatch: true,
     });
     expect(
       (await call(ctx, threadsGetOp, mod, { threadId: t.thread.id })).permissions.canReply,

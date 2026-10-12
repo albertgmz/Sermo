@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { NODE_TYPES } from "../db/schema";
+import { NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
@@ -166,6 +166,8 @@ export const Post = z
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
+    /** The viewer may report it (reports.create would accept it). */
+    canReport: z.boolean(),
   })
   .meta({ id: "Post" });
 
@@ -183,11 +185,14 @@ export const nodesList = defineContract({
 
 export const nodesGet = defineContract({
   name: "nodes.get",
-  summary: "One node, with breadcrumbs from the root.",
+  summary:
+    "One node, with breadcrumbs from the root. For a signed-in viewer, `watching` says whether " +
+    "they watch this forum and how (null when they do not, for guests and for categories).",
   kind: "read",
   input: z.object({ nodeId: Id }),
   output: z.object({
     node: Node,
+    watching: z.object({ mode: z.enum(NODE_WATCH_MODES), email: z.boolean() }).nullable(),
     seo: SeoMetadata,
     breadcrumbs: z.array(z.object({ id: Id, title: z.string(), type: NodeType })),
     /** The viewer's node permissions here. */
@@ -347,17 +352,27 @@ export const threadsList = defineContract({
 
 export const threadsGet = defineContract({
   name: "threads.get",
-  summary: "One thread. Counts a view (buffered; never writes during the read).",
+  summary:
+    "One thread. Counts a view (buffered; never writes during the read) unless `countView` is " +
+    "false, which edit and moderation pages send. For a signed-in viewer, `watching` says " +
+    "whether they watch the thread (null when they do not and for guests).",
   kind: "read",
-  input: z.object({ threadId: Id }),
+  input: z.object({ threadId: Id, countView: z.boolean().default(true) }),
   output: z.object({
     thread: Thread,
     seo: SeoMetadata,
     node: z.object({ id: Id, title: z.string() }),
+    watching: z.object({ email: z.boolean() }).nullable(),
     permissions: z.object({
       canReply: z.boolean(),
       canEditTitle: z.boolean(),
       canModerate: z.boolean(),
+      /** The viewer may report the thread (its first post). */
+      canReport: z.boolean(),
+      /** The viewer may remove the thread's cover (threads.removeCover would accept it). */
+      canRemoveCover: z.boolean(),
+      /** The viewer may watch the thread. */
+      canWatch: z.boolean(),
     }),
     /** The viewer's node permissions in the thread's node. */
     resolvedPermissions: ResolvedPermissions,

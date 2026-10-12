@@ -355,6 +355,13 @@ function mayDelete(
     (!locked && permissions.can("forum.deleteOwn", { nodeId, ownerId }))
   );
 }
+/** Removing a thread's cover: the author of a visible thread, or whoever may edit others' threads. */
+function mayRemoveCover(ctx: Ctx, actor: Actor, row: ThreadRow): boolean {
+  return (
+    can(ctx, actor, "forum.editAny", { nodeId: row.node_id }) ||
+    (row.user_id === actorUserId(actor) && row.state === "visible")
+  );
+}
 function canModerate(ctx: Ctx, actor: Actor, nodeId: number): boolean {
   return (
     can(ctx, actor, "forum.deleteAny", { nodeId }) || can(ctx, actor, "forum.approve", { nodeId })
@@ -490,6 +497,7 @@ export function postValuesMixed(
       row.id !== firstPostId &&
       row.state !== "deleted" &&
       mayDelete(permissions, nodeId, row.user_id, locked),
+    canReport: permissions.can("report.create"),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
@@ -601,9 +609,20 @@ export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
   };
 });
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
-  requireNode(ctx, actor, input.nodeId);
+  const { node } = requireNode(ctx, actor, input.nodeId);
+  const userId = actorUserId(actor);
+  // Only forums can be watched: a category needs no lookup.
+  const watch =
+    userId === null || node.type !== "forum"
+      ? undefined
+      : statement<{ mode: "threads" | "posts"; email: number }, [number, number]>(
+          ctx,
+          "nodeWatching",
+          "SELECT mode, email FROM node_watches WHERE node_id = ?1 AND user_id = ?2",
+        ).get(input.nodeId, userId);
   return {
     node: nodeValues(ctx, actor, [input.nodeId])[0]!,
+    watching: watch ? { mode: watch.mode, email: !!watch.email } : null,
     seo: seoForNode(ctx, actor, input.nodeId),
     breadcrumbs: getNodeTree(ctx)
       .ancestors(input.nodeId)
@@ -835,11 +854,23 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
     targetId = next;
   }
   const { row, node } = requireThread(ctx, actor, targetId);
-  ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
+  if (input.countView) ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
+  const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },
+    watching:
+      userId === null
+        ? null
+        : (() => {
+            const watch = statement<{ email: number }, [number, number]>(
+              ctx,
+              "threadWatching",
+              "SELECT email FROM thread_watches WHERE thread_id = ?1 AND user_id = ?2",
+            ).get(row.id, userId);
+            return watch ? { email: !!watch.email } : null;
+          })(),
     permissions: {
       canReply:
         can(ctx, actor, "forum.reply", {
@@ -849,6 +880,11 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
         (!row.is_locked || can(ctx, actor, "forum.replyLocked", { nodeId: node.id })),
       canEditTitle: mayEditTitle(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
+      // Reporting targets the first post, and watching needs a visible thread: both are open to
+      // a signed-in viewer who got this far; reporting also needs the permission (createReport).
+      canReport: can(ctx, actor, "report.create"),
+      canRemoveCover: userId !== null && mayRemoveCover(ctx, actor, row),
+      canWatch: userId !== null,
     },
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: node.id }),
   };
@@ -1177,10 +1213,8 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
 export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
+  if (!mayRemoveCover(ctx, actor, row)) throw new ForbiddenError();
   const moderator = can(ctx, actor, "forum.editAny", { nodeId: row.node_id });
-  // The author of a visible thread, or whoever may edit other members' threads there.
-  if (!moderator && !(row.user_id === actorUserId(actor) && row.state === "visible"))
-    throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
     if (current.cover_id === null) return;
