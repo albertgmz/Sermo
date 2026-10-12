@@ -1071,9 +1071,9 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
+  const { row } = requireThread(ctx, actor, input.threadId);
   if (input.title === undefined && input.prefixId === undefined)
     throw new ValidationError("Send a title, a prefix, or both.");
-  const { row } = requireThread(ctx, actor, input.threadId);
   if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;

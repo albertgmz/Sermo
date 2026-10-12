@@ -87,8 +87,10 @@ const threadPrefixesUpdateOp = implement(contracts.threadPrefixesUpdate, (ctx, a
   requirePermission(ctx, actor, "admin.nodes");
   writeTx(ctx, () => {
     const row = prefixRow(ctx, input.prefixId);
-    if (input.colorId !== undefined && input.colorId !== row.color_id)
-      requirePrefixColor(ctx, input.colorId);
+    // A colour is checked when it is chosen, and again when the prefix comes back into use.
+    const reactivated = input.isActive === true && !row.is_active;
+    if ((input.colorId !== undefined && input.colorId !== row.color_id) || reactivated)
+      requirePrefixColor(ctx, input.colorId ?? row.color_id);
     ctx.sqlite
       .prepare<unknown, (string | number)[]>(
         "UPDATE thread_prefixes SET label = ?1, color_id = ?2, icon = ?3, position = ?4, is_active = ?5, updated_at = ?6 WHERE id = ?7",
