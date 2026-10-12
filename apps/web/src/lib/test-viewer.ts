@@ -20,6 +20,11 @@ export function viewerBody(signedIn: boolean) {
       canReact: false,
     },
     resolvedPermissions: {},
-    staff: { panel: false, moderatesEverywhere: false, moderatedNodeIds: [] },
+    staff: {
+      panel: false,
+      moderatesEverywhere: false,
+      moderatedNodeIds: [],
+      moderatedNodesTruncated: false,
+    },
   };
 }
