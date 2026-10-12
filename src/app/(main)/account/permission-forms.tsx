@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import {
   type SignatureState,
@@ -21,6 +22,7 @@ function Status({
   error: string | undefined;
   saved: boolean;
 }) {
+  const t = useTranslations("account.permissionForms");
   return (
     <output
       className={cn(
@@ -28,17 +30,17 @@ function Status({
         error ? "text-destructive" : "text-success",
       )}
     >
-      {error ?? (saved ? "Saved" : "")}
+      {error ?? (saved ? t("saved") : "")}
     </output>
   );
 }
 
 const SIGNATURE_ERRORS = {
-  not_found: "Your account was not found.",
-  not_allowed: "You need the signature permission for that.",
-  too_long: `A signature holds at most ${SIGNATURE_MAX_LENGTH} characters.`,
-  too_many_lines: `A signature holds at most ${SIGNATURE_MAX_LINES} lines.`,
-};
+  not_found: "errors.notFound",
+  not_allowed: "errors.notAllowed",
+  too_long: "errors.tooLong",
+  too_many_lines: "errors.tooManyLines",
+} as const;
 
 export function SignatureForm({
   signature,
@@ -49,6 +51,7 @@ export function SignatureForm({
   locked: boolean;
   saved: boolean;
 }) {
+  const t = useTranslations("account.permissionForms");
   const [state, action, pending] = useActionState<SignatureState, FormData>(
     saveSignature,
     null,
@@ -73,11 +76,11 @@ export function SignatureForm({
         aria-describedby="signature-count"
         className={fieldsetClass}
       >
-        <legend className="sr-only">Signature</legend>
+        <legend className="sr-only">{t("legend")}</legend>
         {signature && locked && (
           <div className="rounded-md border bg-background/60 p-3">
             <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Current signature
+              {t("currentHeading")}
             </p>
             <Signature>{signature}</Signature>
           </div>
@@ -90,19 +93,14 @@ export function SignatureForm({
               aria-invalid={over || undefined}
               aria-describedby={over ? "signature-count" : undefined}
               placeholder={
-                signature
-                  ? "Write a replacement signature."
-                  : "Write your signature."
+                signature ? t("replacementPlaceholder") : t("placeholder")
               }
               onChange={setValue}
             />
           </div>
         )}
         {signature && !locked && (
-          <p className="text-xs text-muted-foreground">
-            Your current signature stays until you save a replacement or clear
-            it.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("description")}</p>
         )}
         <p
           id="signature-count"
@@ -111,21 +109,21 @@ export function SignatureForm({
             over ? "text-destructive" : "text-muted-foreground",
           )}
         >
-          {text.length}/{SIGNATURE_MAX_LENGTH} characters
+          {t("characters", { used: text.length, count: SIGNATURE_MAX_LENGTH })}
           <span aria-hidden="true"> · </span>
-          {lines}/{SIGNATURE_MAX_LINES} lines
+          {t("lines", { used: lines, count: SIGNATURE_MAX_LINES })}
         </p>
         {text && (
           <div className="rounded-md border bg-background/60 p-3">
             <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Preview
+              {t("previewHeading")}
             </p>
             <Signature>{text}</Signature>
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2">
           <PendingButton disabled={over || !text} className={actionClass}>
-            Save signature
+            {t("submit")}
           </PendingButton>
           <PendingButton
             variant="outline"
@@ -134,10 +132,19 @@ export function SignatureForm({
             disabled={!signature}
             className={actionClass}
           >
-            Clear
+            {t("clear")}
           </PendingButton>
           <Status
-            error={state ? SIGNATURE_ERRORS[state.error] : undefined}
+            error={
+              state
+                ? t(SIGNATURE_ERRORS[state.error], {
+                    count:
+                      state.error === "too_many_lines"
+                        ? SIGNATURE_MAX_LINES
+                        : SIGNATURE_MAX_LENGTH,
+                  })
+                : undefined
+            }
             saved={saved && !pending}
           />
         </div>

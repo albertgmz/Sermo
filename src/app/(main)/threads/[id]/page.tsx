@@ -2,6 +2,8 @@ import { PenLine, Reply, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { react } from "@/app/(main)/actions";
 import {
@@ -40,7 +42,7 @@ import {
   type PostView,
   type UserView,
 } from "@/lib/db";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import type { ReactionType } from "@/lib/types";
@@ -63,6 +65,7 @@ function PostItem({
   viewer: UserView | null;
   reactionTypes: ReactionType[];
 }) {
+  const t = useTranslations("threads.page");
   const { author } = post;
   // The role badge and the level already say what a derived title would.
   const custom = can(author, "customTitle") ? author.customTitle : null;
@@ -131,7 +134,7 @@ function PostItem({
             {highlighted && (
               <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary">
                 <Sparkles aria-hidden="true" className="size-3" />
-                <span className={LABEL}>Highlighted</span>
+                <span className={LABEL}>{t("highlightedLabel")}</span>
               </span>
             )}
             {post.isThreadAuthor && (
@@ -140,7 +143,9 @@ function PostItem({
                   aria-hidden="true"
                   className="hidden size-3 sm:block"
                 />
-                <span className="sr-only">Thread </span>Author
+                {t.rich("authorLabel", {
+                  hidden: (chunks) => <span className="sr-only">{chunks}</span>,
+                })}
               </span>
             )}
             <ShareButton
@@ -151,7 +156,7 @@ function PostItem({
               href={`#post-${post.id}`}
               className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
             >
-              #{post.number}
+              {t("postNumber", { number: formatNumber(post.number) })}
             </Link>
           </div>
         </div>
@@ -169,7 +174,7 @@ function PostItem({
           />
           <Link href="#reply" className={messageActionClass}>
             <Reply />
-            Reply
+            {t("reply")}
           </Link>
         </div>
 
@@ -189,8 +194,13 @@ export async function generateMetadata({
   params,
 }: PageProps<"/threads/[id]">): Promise<Metadata> {
   const thread = await getThread(Number((await params).id));
+  const t = await getTranslations("threads.page");
   return {
-    title: `${thread?.prefix ? `${thread.prefix.label} ` : ""}${thread?.title ?? "Thread"} - forum/ui`,
+    title: t("metaTitle", {
+      hasPrefix: String(Boolean(thread?.prefix)),
+      prefix: thread?.prefix?.label ?? "",
+      title: thread?.title ?? t("metaTitleFallback"),
+    }),
   };
 }
 
@@ -202,6 +212,7 @@ export default async function ThreadPage({
   const viewer = await getCurrentUser();
   const thread = await getThread(id);
   if (!thread) notFound();
+  const t = await getTranslations("threads.page");
 
   const own = viewer?.id === thread.authorId;
   const staff = viewer !== null && viewer.role !== "member";
@@ -227,7 +238,7 @@ export default async function ThreadPage({
         >
           <PageBreadcrumb
             items={[
-              { label: "Home", href: "/" },
+              { label: t("home"), href: "/" },
               {
                 label: thread.forum.categoryTitle,
                 href: `/forums?tab=${thread.forum.tab}`,
@@ -253,7 +264,7 @@ export default async function ThreadPage({
         <div className="mt-3">
           <Suspense
             fallback={
-              <LoadingRegion label="Loading cover controls…">
+              <LoadingRegion label={t("aria.loadingControls")}>
                 <Skeleton className="h-10 w-32 md:h-8" />
               </LoadingRegion>
             }
@@ -266,7 +277,7 @@ export default async function ThreadPage({
       <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
         <Suspense
           fallback={
-            <LoadingRegion label="Loading posts…">
+            <LoadingRegion label={t("aria.loadingPosts")}>
               <PostSkeleton />
               <PostSkeleton />
               <PostSkeleton />
@@ -277,14 +288,18 @@ export default async function ThreadPage({
         </Suspense>
       </div>
 
-      <section id="reply" aria-label="Reply" className="mt-4 scroll-mt-4">
+      <section
+        id="reply"
+        aria-label={t("aria.reply")}
+        className="mt-4 scroll-mt-4"
+      >
         {viewer ? (
           <ReplyComposer threadId={thread.id} />
         ) : (
           <div className="rounded-lg border bg-card">
             <EmptyState
-              title="Log in to reply"
-              description="Join the conversation with your account."
+              title={t("replyTitle")}
+              description={t("replyDescription")}
             >
               <Link
                 href="/login"
@@ -293,13 +308,13 @@ export default async function ThreadPage({
                   "h-10 px-4",
                 )}
               >
-                Log in
+                {t("login")}
               </Link>
               <Link
                 href="/register"
                 className={cn(buttonVariants(), "h-10 px-4")}
               >
-                Create Account
+                {t("register")}
               </Link>
             </EmptyState>
           </div>

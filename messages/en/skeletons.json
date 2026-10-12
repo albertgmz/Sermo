@@ -1,1 +1,9 @@
-{}
+{
+  "skeletons": {
+    "aria": {
+      "loading": "Loading content…"
+    },
+    "notableHeading": "Notable members",
+    "communityHeading": "Community"
+  }
+}

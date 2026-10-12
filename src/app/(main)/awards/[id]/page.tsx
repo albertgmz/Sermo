@@ -1,6 +1,7 @@
 import { Check, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { TIERS } from "@/app/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
@@ -16,6 +17,8 @@ import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { getAward } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
+import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +29,22 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const award = await getAward(Number(id));
-  return { title: `${award?.name ?? "Award"} - forum/ui` };
+  const t = await getTranslations("awards.award");
+  return {
+    title: award
+      ? t("metaTitle", { name: award.name })
+      : t("metaFallbackTitle"),
+  };
 }
 
 export default async function AwardPage({ params }: Props) {
   const [{ id }, viewer] = await Promise.all([params, getCurrentUser()]);
   const award = await getAward(Number(id));
   if (!award) notFound();
+  const t = await getTranslations("awards.award");
+  const tTiers = await getTranslations("awards.tiers");
+  const tLevels = await getTranslations("lib.levels");
+  const tRoles = await getTranslations("lib.db.roles");
 
   const tier = TIERS[award.tier];
   const earnedAt = viewer?.awards.find((a) => a.id === award.id)?.awardedAt;
@@ -41,8 +53,8 @@ export default async function AwardPage({ params }: Props) {
     <PageLayout className="pt-2" mainClassName="space-y-4">
       <PageBreadcrumb
         items={[
-          { label: "Home", href: "/" },
-          { label: "Awards", href: "/awards" },
+          { label: t("homeLabel"), href: "/" },
+          { label: t("awardsLabel"), href: "/awards" },
           { label: award.name },
         ]}
       />
@@ -64,7 +76,7 @@ export default async function AwardPage({ params }: Props) {
             tier.text,
           )}
         >
-          {tier.label} award
+          {t("tierLabel", { tier: tTiers(award.tier) })}
         </p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight text-balance md:text-4xl">
           {award.name}
@@ -73,9 +85,12 @@ export default async function AwardPage({ params }: Props) {
           {award.description}
         </p>
         <div className="mt-6 flex items-start justify-center gap-8 md:justify-start">
-          <StatInline label="XP" value={`+${formatNumber(award.xp)}`} />
           <StatInline
-            label={award.holders.length === 1 ? "Holder" : "Holders"}
+            label={t("xpLabel")}
+            value={t("xpValue", { xp: formatNumber(award.xp) })}
+          />
+          <StatInline
+            label={t("holders", { count: award.holders.length })}
             value={formatNumber(award.holders.length)}
           />
         </div>
@@ -89,12 +104,12 @@ export default async function AwardPage({ params }: Props) {
             {earnedAt ? (
               <>
                 <Check aria-hidden="true" className="size-4" />
-                You earned this on {formatDate(earnedAt)}
+                {t("earnedDate", { date: formatDate(earnedAt) })}
               </>
             ) : (
               <>
                 <Lock aria-hidden="true" className="size-3.5" />
-                You have not earned this award yet
+                {t("unearnedDescription")}
               </>
             )}
           </p>
@@ -102,14 +117,14 @@ export default async function AwardPage({ params }: Props) {
       </section>
 
       <SectionCard
-        title="Holders"
-        description={`${formatNumber(award.holders.length)} ${award.holders.length === 1 ? "member has" : "members have"} this award`}
+        title={t("holdersHeading")}
+        description={t("members", { count: award.holders.length })}
       >
         {award.holders.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No holders yet"
-            description="Nobody has earned this award so far."
+            title={t("emptyTitle")}
+            description={t("emptyDescription")}
           />
         ) : (
           <ol className="divide-y divide-border">
@@ -129,7 +144,10 @@ export default async function AwardPage({ params }: Props) {
                     <LevelBadge level={user.level} />
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
-                    {user.title}
+                    {(can(user, "customTitle") && user.customTitle) ||
+                      (user.role === "member"
+                        ? tLevels(titleKeyForLevel(user.level.level))
+                        : tRoles(user.role))}
                   </p>
                 </div>
                 <div className="shrink-0 text-right text-xs text-muted-foreground">

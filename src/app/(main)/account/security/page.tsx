@@ -1,32 +1,38 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getFormatter, getNow, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { logout } from "@/app/(main)/actions";
-import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
+import { ClientIcons } from "@/components/forum/client-icons";
 import { PendingButton } from "@/components/forum/pending-button";
 import { LoadingRegion, MemberRowSkeleton } from "@/components/forum/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { getClientInfo } from "@/lib/client";
 import { getSessions } from "@/lib/db";
-import { formatDate, formatDateTime, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Security - forum/ui" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("account.security");
+  return { title: t("metaTitle") };
+}
 
 export default function SecurityPage() {
+  const t = useTranslations("account.security");
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Security</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
       <section id="devices" className="scroll-mt-4 rounded-lg border bg-card">
         <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">Devices</h2>
+          <h2 className="text-sm font-semibold">{t("devicesHeading")}</h2>
           <p className="text-xs text-muted-foreground">
-            Browsers that are signed in to your account.
+            {t("devicesDescription")}
           </p>
         </div>
         <Suspense
           fallback={
-            <LoadingRegion label="Loading devices…">
+            <LoadingRegion label={t("devicesLoading")}>
               <MemberRowSkeleton />
               <MemberRowSkeleton />
             </LoadingRegion>
@@ -36,13 +42,13 @@ export default function SecurityPage() {
         </Suspense>
       </section>
       <section className="rounded-lg border bg-card p-4">
-        <h2 className="text-sm font-semibold">Log out</h2>
+        <h2 className="text-sm font-semibold">{t("logoutHeading")}</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          End your session in this browser.
+          {t("logoutDescription")}
         </p>
         <form action={logout} className="mt-3">
           <PendingButton variant="outline" className="min-h-10 px-4">
-            Log out
+            {t("logout")}
           </PendingButton>
         </form>
       </section>
@@ -57,7 +63,9 @@ async function Devices() {
     getSessions(user.id),
     getClientInfo(),
   ]);
-  const now = new Date();
+  const now = await getNow();
+  const t = await getTranslations("account.security");
+  const format = await getFormatter();
 
   return (
     <>
@@ -71,34 +79,44 @@ async function Devices() {
               <ClientIcons client={session} />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
-                  {clientLabel(session)}
+                  {t("deviceLabel", {
+                    browser: session.browser,
+                    os: session.os,
+                  })}
                   {session.browser === client.browser &&
                     session.os === client.os && (
-                      <Badge variant="success">This device</Badge>
+                      <Badge variant="success">{t("currentDevice")}</Badge>
                     )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Signed in{" "}
-                  <time dateTime={session.createdAt}>
-                    {formatDate(session.createdAt)}
-                  </time>
-                  <span aria-hidden="true"> · </span>
-                  Last used{" "}
-                  <time
-                    dateTime={session.lastUsedAt}
-                    title={formatDateTime(session.lastUsedAt)}
-                  >
-                    {formatRelativeTime(session.lastUsedAt, now)}
-                  </time>
+                  {t.rich("sessionDetails", {
+                    date: formatDate(session.createdAt),
+                    relativeTime: format.relativeTime(
+                      new Date(session.lastUsedAt),
+                      now,
+                    ),
+                    signedIn: (chunks) => (
+                      <time dateTime={session.createdAt}>{chunks}</time>
+                    ),
+                    separator: (chunks) => (
+                      <span aria-hidden="true">{chunks}</span>
+                    ),
+                    lastUsed: (chunks) => (
+                      <time
+                        dateTime={session.lastUsedAt}
+                        title={formatDateTime(session.lastUsedAt)}
+                      >
+                        {chunks}
+                      </time>
+                    ),
+                  })}
                 </p>
               </div>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="p-4 text-sm text-muted-foreground">
-          No devices are signed in.
-        </p>
+        <p className="p-4 text-sm text-muted-foreground">{t("empty")}</p>
       )}
     </>
   );

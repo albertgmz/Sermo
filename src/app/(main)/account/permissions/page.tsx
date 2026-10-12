@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { PermissionsPanel } from "@/app/(main)/account/permissions";
 import { getPermissions, getShopItems } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Permissions - forum/ui" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("account.permissions");
+  return { title: t("metaTitle") };
+}
 
 export default async function PermissionsPage({
   searchParams,

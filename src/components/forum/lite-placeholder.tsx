@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 export function LitePlaceholder({
@@ -7,9 +8,10 @@ export function LitePlaceholder({
   className?: string;
   compact?: boolean;
 }) {
+  const t = useTranslations("lite.litePlaceholder");
   return (
     <span
-      aria-label="LITE MODE"
+      aria-label={t("aria.label")}
       role="img"
       data-slot="lite-placeholder"
       className={cn(
@@ -17,7 +19,7 @@ export function LitePlaceholder({
         className,
       )}
     >
-      <span className={compact ? "sr-only" : ""}>LITE MODE</span>
+      <span className={compact ? "sr-only" : ""}>{t("label")}</span>
     </span>
   );
 }

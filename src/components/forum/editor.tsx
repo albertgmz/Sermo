@@ -83,6 +83,7 @@ import {
   TextQuote,
   Undo2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
@@ -198,12 +199,16 @@ type ToolbarState = {
   link: boolean;
 };
 
-const FORMATS: { format: TextFormatType; label: string; icon: LucideIcon }[] = [
-  { format: "bold", label: "Bold", icon: Bold },
-  { format: "italic", label: "Italic", icon: Italic },
-  { format: "strikethrough", label: "Strikethrough", icon: Strikethrough },
-  { format: "code", label: "Inline code", icon: Code },
-];
+const FORMATS = [
+  { format: "bold", label: "boldLabel", icon: Bold },
+  { format: "italic", label: "italicLabel", icon: Italic },
+  { format: "strikethrough", label: "strikethroughLabel", icon: Strikethrough },
+  { format: "code", label: "inlineCodeLabel", icon: Code },
+] as const satisfies {
+  format: TextFormatType;
+  label: string;
+  icon: LucideIcon;
+}[];
 
 function $readToolbarState(): ToolbarState | null {
   const selection = $getSelection();
@@ -255,6 +260,7 @@ function Divider() {
 }
 
 function Toolbar() {
+  const t = useTranslations("editor.editor");
   const [editor] = useLexicalComposerContext();
   const [state, setState] = useState<ToolbarState>({
     formats: [],
@@ -319,20 +325,20 @@ function Toolbar() {
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
       return;
     }
-    const url = window.prompt("Link URL", "https://");
+    const url = window.prompt(t("linkPrompt"), "https://");
     if (url) editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
   }
 
   return (
     <div
       role="toolbar"
-      aria-label="Formatting"
+      aria-label={t("aria.formatting")}
       className="flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]"
     >
       {FORMATS.map(({ format, label, icon }) => (
         <ToolbarButton
           key={format}
-          label={label}
+          label={t(label)}
           icon={icon}
           active={state.formats.includes(format)}
           onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
@@ -340,44 +346,44 @@ function Toolbar() {
       ))}
       <Divider />
       <ToolbarButton
-        label="Heading"
+        label={t("headingLabel")}
         icon={Heading}
         active={state.block === "heading"}
         onClick={() => setBlock("heading")}
       />
       <ToolbarButton
-        label="Bullet list"
+        label={t("bulletListLabel")}
         icon={List}
         active={state.block === "bullet"}
         onClick={() => toggleList("bullet")}
       />
       <ToolbarButton
-        label="Numbered list"
+        label={t("numberedListLabel")}
         icon={ListOrdered}
         active={state.block === "number"}
         onClick={() => toggleList("number")}
       />
       <ToolbarButton
-        label="Quote"
+        label={t("quoteLabel")}
         icon={TextQuote}
         active={state.block === "quote"}
         onClick={() => setBlock("quote")}
       />
       <ToolbarButton
-        label="Link"
+        label={t("linkLabel")}
         icon={Link2}
         active={state.link}
         onClick={toggleLink}
       />
       <span className="ml-auto flex items-center gap-0.5 pl-2">
         <ToolbarButton
-          label="Undo"
+          label={t("undoLabel")}
           icon={Undo2}
           disabled={!canUndo}
           onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
         />
         <ToolbarButton
-          label="Redo"
+          label={t("redoLabel")}
           icon={Redo2}
           disabled={!canRedo}
           onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
@@ -501,7 +507,7 @@ export function Editor({
   "aria-describedby": describedBy,
   required,
   name,
-  placeholder = "Type your message here.",
+  placeholder: placeholderProp,
   defaultValue,
   minHeight,
   compact = false,
@@ -509,6 +515,9 @@ export function Editor({
   resetKey,
   className,
 }: EditorProps) {
+  const t = useTranslations("editor.editor");
+  const placeholder =
+    placeholderProp === undefined ? t("placeholder") : placeholderProp;
   const [invalid, setInvalid] = useState(false);
   const errorId = useId();
   const describedByIds =
@@ -572,7 +581,7 @@ export function Editor({
       </div>
       {invalid && (
         <p id={errorId} role="alert" className="text-sm text-destructive">
-          This field is required.
+          {t("errors.required")}
         </p>
       )}
       <HistoryPlugin />

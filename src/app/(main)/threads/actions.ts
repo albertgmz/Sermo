@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getClientInfo } from "@/lib/client";
 import {
   applyThreadCover,
@@ -23,12 +24,13 @@ export async function replyAction(
 ): Promise<ReplyState> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const t = await getTranslations("threads.actions.errors");
 
   const body = String(formData.get("body") ?? "").trim();
-  if (!body) return { error: "Write a message before posting." };
+  if (!body) return { error: t("emptyBody") };
 
   const thread = await getThread(threadId);
-  if (!thread) return { error: "This thread no longer exists." };
+  if (!thread) return { error: t("threadNotFound") };
 
   const post = await createPost({
     threadId: thread.id,

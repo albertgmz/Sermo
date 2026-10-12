@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import { Container } from "@/components/layout/container";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ShopCategory } from "@/lib/types";
@@ -5,15 +6,16 @@ import { cn } from "@/lib/utils";
 
 export function LoadingRegion({
   children,
-  label = "Loading content…",
+  label,
 }: {
   children: React.ReactNode;
   label?: string;
 }) {
+  const t = useTranslations("skeletons.skeletons");
   return (
     <>
       <output aria-live="polite" className="sr-only">
-        {label}
+        {label === undefined ? t("aria.loading") : label}
       </output>
       {children}
     </>
@@ -523,13 +525,14 @@ export function BirthdaysSkeleton() {
 }
 
 export function MembersOverviewSkeleton() {
+  const t = useTranslations("skeletons.skeletons");
   return (
     <>
       <MonthHeroSkeleton />
       <RaceWinnersSkeleton />
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
-          Notable members
+          {t("notableHeading")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((card) => (
@@ -540,7 +543,9 @@ export function MembersOverviewSkeleton() {
         </div>
       </section>
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">Community</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t("communityHeading")}
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
           <CardSkeleton>
             <StaffRowsSkeleton />
