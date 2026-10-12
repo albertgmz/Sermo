@@ -25,11 +25,11 @@
     "submit": "Send message",
     "left": "(left)",
     "leave": "Leave",
-    "first": "Back to the first messages",
-    "later": "Later messages",
     "awaitingApproval": "This message is awaiting approval.",
     "deleted": "This message was deleted.",
-    "cannotReply": "You cannot reply to this conversation."
+    "cannotReply": "You cannot reply to this conversation.",
+    "earlier": "Earlier messages",
+    "newest": "Newest messages"
   },
   "newConversation": {
     "aria": {
