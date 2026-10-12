@@ -10,7 +10,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { scanKeyset } from "../feed/scan";
@@ -134,13 +134,16 @@ export const approvalsViewConversationMessageOp = implement(
     requireAuthenticated(actor);
     requirePermission(ctx, actor, "conversation.moderate");
     return writeTx(ctx, () => {
+      // Logged reads depend on the actor's standing: decide with what is committed now.
+      const current = currentActor(ctx, actor);
+      requirePermission(ctx, current, "conversation.moderate");
       const target = prepared(ctx, "admin.approvalTarget", () =>
         ctx.sqlite.prepare<{ conversation_id: number; title: string }, [number]>(
           approvalMessageSql.target,
         ),
       ).get(input.messageId);
       if (!target) throw new NotFoundError();
-      const showHidden = Number(can(ctx, actor, "conversation.viewHidden"));
+      const showHidden = Number(can(ctx, current, "conversation.viewHidden"));
       const read = (key: "before" | "after") =>
         prepared(ctx, `admin.approval.${key}`, () =>
           ctx.sqlite.prepare<Message, [number, number, number]>(approvalMessageSql[key]),
