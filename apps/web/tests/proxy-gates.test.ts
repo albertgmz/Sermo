@@ -439,11 +439,79 @@ test("a thread is proven by one post, never by reading the thread (which counts 
       "/api/v1/threads/7/posts?limit=1",
       "/api/v1/threads/345/posts?limit=1",
       "/api/v1/threads/8/posts?limit=1",
+      // A thread without posts might have been merged into another: the SEO read tells.
+      "/api/v1/seo/threads/8",
     ],
   );
 
   backend({ "/api/v1/threads/7/posts?limit=1": refusal(500, "internal") });
   passes(await ask("/threads/7"));
+});
+
+function seoOf(canonical: string, redirect: boolean) {
+  return Response.json({ ...NODE.seo, canonical, redirect });
+}
+
+test("a merged thread's address is a permanent redirect to the thread that took its place", async () => {
+  const asked = backend({
+    "/api/v1/seo/threads/9": seoOf("http://api.example/threads/7-news", true),
+    "/api/v1/seo/threads/10": seoOf("http://api.example/threads/10-x", false),
+    "/api/v1/seo/threads/11": refusal(500, "internal"),
+  });
+  const moved = await ask("/threads/9?page=2", { cookie: SESSION });
+  assert.ok(moved);
+  assert.equal(moved.status, 308);
+  assert.equal(moved.headers.get("location"), "http://localhost/threads/7");
+  assert.equal(asked[0].url.pathname, "/api/v1/threads/9/posts");
+  assert.equal(asked[1].url.pathname, "/api/v1/seo/threads/9");
+  assert.equal(asked[1].headers.get("cookie"), SESSION);
+  // Not merged and still missing, or hidden from the visitor: a 404. An outage: the page decides.
+  isNotFound(await ask("/threads/10"));
+  isNotFound(await ask("/threads/12"));
+  passes(await ask("/threads/11"));
+  // A thread with posts never asks the SEO read.
+  const found = backend({
+    "/api/v1/threads/7/posts?limit=1": Response.json(NO_POSTS),
+  });
+  passes(await ask("/threads/7"));
+  assert.equal(found.length, 1);
+});
+
+test("a prefetch, a soft navigation or an action's POST is not looked up in the backend", async () => {
+  const asked = backend({});
+  const requests: [string, { headers?: HeadersInit; method?: string }][] = [
+    ["/threads/8", { headers: { "sec-fetch-mode": "cors" } }],
+    ["/threads/8", { headers: { "sec-fetch-mode": "same-origin" } }],
+    ["/threads/8", { headers: { "sec-purpose": "prefetch" } }],
+    ["/threads/8", { headers: { "next-router-prefetch": "1" } }],
+    ["/threads/8", { headers: { rsc: "1" } }],
+    ["/threads/8", { method: "POST", headers: { "next-action": "abc" } }],
+    ["/forums/9", { headers: { "sec-fetch-mode": "cors" } }],
+    ["/members/9", { headers: { "sec-fetch-mode": "cors" } }],
+    ["/conversations/9", { headers: { "sec-fetch-mode": "cors" } }],
+    ["/terms", { headers: { "sec-fetch-mode": "cors" } }],
+    ["/pages/nope", { headers: { "sec-fetch-mode": "cors" } }],
+  ];
+  for (const [path, init] of requests) {
+    passes(await ask(path, { cookie: SESSION, ...init }));
+  }
+  assert.equal(asked.length, 0);
+
+  // A page load keeps its real 404, whether the browser says it navigates or says nothing.
+  isNotFound(
+    await ask("/threads/8", { headers: { "sec-fetch-mode": "navigate" } }),
+  );
+  isNotFound(await ask("/forums/9"));
+  assert.equal(asked.length, 3);
+});
+
+test("a prefetch of a members-only page is still sent to sign in", async () => {
+  const asked = backend({});
+  const response = await ask("/conversations/5", {
+    headers: { "sec-fetch-mode": "cors" },
+  });
+  assert.equal(response?.status, 307);
+  assert.equal(asked.length, 0);
 });
 
 test("the backend is asked as the visitor", async () => {

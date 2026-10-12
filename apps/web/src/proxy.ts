@@ -7,6 +7,7 @@ import {
   pagesGet,
   postsList,
   profilesGet,
+  seoThread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
 import { getAward } from "@/lib/db";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/sermo/transport";
 import { viewerOf } from "@/lib/sermo/viewer";
 
+// Falsy: there is no such record. A response: answer with it. Anything else: let the page render.
 type Finder = (
   id: string,
   viewerId: number,
@@ -69,14 +71,45 @@ const CONTENT: Record<string, Finder> = {
   forums: backend((nodeId, forward) => callWith(forward, nodesGet, { nodeId })),
   awards: numeric(getAward),
   // `threads.get` would count a view; one post of the thread proves the viewer can open it.
-  threads: backend((threadId, forward) =>
-    callWith(forward, postsList, { threadId, limit: 1 }),
-  ),
+  threads: async (id, _viewerId, request) => {
+    if (!isId(id)) return false;
+    const threadId = Number(id);
+    const forward = forwardFromHeaders(request.headers);
+    try {
+      await callWith(forward, postsList, { threadId, limit: 1 });
+      return true;
+    } catch (error) {
+      if (!(error instanceof SermoError && error.code === "not_found"))
+        return true;
+    }
+    return mergedInto(request, forward, threadId);
+  },
   // A conversation the visitor is not part of is "not found" for them.
   conversations: backend((conversationId, forward) =>
     callWith(forward, conversationsGet, { conversationId }),
   ),
 };
+
+// A thread that was merged into another has no posts of its own, so `posts.list` calls it
+// missing. The SEO read follows the merge without counting a view and names the thread that took
+// its place in the canonical address.
+async function mergedInto(
+  request: NextRequest,
+  forward: Forward,
+  threadId: number,
+): Promise<unknown> {
+  try {
+    const seo = await callWith(forward, seoThread, { threadId });
+    const target = seo.redirect
+      ? /^\/threads\/(\d+)(?:-|$)/.exec(new URL(seo.canonical).pathname)?.[1]
+      : undefined;
+    return target
+      ? NextResponse.redirect(new URL(`/threads/${target}`, request.url), 308)
+      : false;
+  } catch (error) {
+    return !(error instanceof SermoError && error.code === "not_found");
+  }
+}
 
 const STATIC_PAGES = ["terms", "privacy", "legal", "contact"];
 
@@ -90,6 +123,22 @@ function staticSlug(section: string, id: string | undefined, action?: string) {
 const SESSION_COOKIES = ["sermo.session_token", "__Secure-sermo.session_token"];
 
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
+
+// Whether the browser is loading a page, as opposed to Next fetching one for a <Link> (a prefetch
+// or a soft navigation) or posting an action. Those requests are answered by the page itself,
+// which asks the backend anyway, so a record lookup here would only repeat it. Next removes its
+// own request headers (rsc, next-router-prefetch) before the proxy runs; what stays is the
+// next-action header and the fetch metadata the browser adds: a page load has mode "navigate",
+// the fetch behind a <Link> does not, and a speculative prefetch says so in sec-purpose.
+function isDocumentRequest(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  const { headers } = request;
+  for (const name of ["next-action", "rsc", "next-router-prefetch"])
+    if (headers.has(name)) return false;
+  const mode = headers.get("sec-fetch-mode");
+  if (mode !== null && mode !== "navigate") return false;
+  return !headers.get("sec-purpose")?.includes("prefetch");
+}
 
 // Carries the path and query a visitor asked for to the page that renders it: a Server
 // Component does not know its own URL (`read()` in lib/sermo/client.ts reads it).
@@ -199,7 +248,8 @@ async function handleRequest(request: NextRequest) {
     );
     return NextResponse.redirect(login);
   }
-  const slug = staticSlug(section, id, action);
+  const isPage = isDocumentRequest(request);
+  const slug = isPage ? staticSlug(section, id, action) : undefined;
   if (slug !== undefined) {
     const parsed = PageSlug.safeParse(slug);
     if (
@@ -212,11 +262,13 @@ async function handleRequest(request: NextRequest) {
     }
   }
   const find =
-    id && !(section === "conversations" && id === "new")
+    isPage && id && !(section === "conversations" && id === "new")
       ? CONTENT[section]
       : undefined;
   if (find) {
-    if (!(await find(id, Number.NaN, request))) return notFound(request);
+    const found = await find(id, Number.NaN, request);
+    if (found instanceof NextResponse) return found;
+    if (!found) return notFound(request);
   }
   return toPage(request);
 }

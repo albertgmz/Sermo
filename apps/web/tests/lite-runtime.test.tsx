@@ -71,9 +71,10 @@ mock.module("next/cache", () => ({
 // Forums, threads, members and conversations are asked of the backend, which knows only
 // record 101.
 globalThis.fetch = (async (input: string) => {
-  const record = /\/api\/v1\/(?:nodes|threads|users|conversations)\/(\d+)/.exec(
-    String(input),
-  );
+  const record =
+    /\/api\/v1\/(?:seo\/)?(?:nodes|threads|users|conversations)\/(\d+)/.exec(
+      String(input),
+    );
   if (record && Number(record[1]) !== 101) {
     return Response.json(
       { error: { code: "not_found", message: "Not found." } },
