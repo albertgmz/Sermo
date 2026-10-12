@@ -1,10 +1,12 @@
+import { useTranslations } from "next-intl";
 import { CardSkeleton, LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("admin.loading");
   return (
-    <LoadingRegion label="Loading forum administration…">
-      <h2 className="text-lg font-semibold">Forums</h2>
+    <LoadingRegion label={t("aria.forums")}>
+      <h2 className="text-lg font-semibold">{t("forumsHeading")}</h2>
       {[1, 2].map((i) => (
         <CardSkeleton key={i}>
           {[1, 2, 3].map((j) => (

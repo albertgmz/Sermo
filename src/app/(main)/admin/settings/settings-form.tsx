@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { previewSettings } from "@/app/(main)/admin/actions";
 import { FormFooter } from "@/app/(main)/admin/form-footer";
@@ -9,11 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export function SettingsForm() {
+  const t = useTranslations("admin.settingsForm");
   const [state, action, pending] = useActionState(previewSettings, null);
-  const [name, setName] = useState("forum/ui");
-  const [description, setDescription] = useState(
-    "A community to ask questions, share ideas and learn together.",
-  );
+  const [name, setName] = useState(t("defaultName"));
+  const [description, setDescription] = useState(t("defaultDescription"));
   const [registration, setRegistration] = useState(true);
 
   return (
@@ -23,7 +23,7 @@ export function SettingsForm() {
         className="min-w-0 space-y-5 disabled:opacity-60"
       >
         <div className="space-y-2">
-          <Label htmlFor="site-name">Site name</Label>
+          <Label htmlFor="site-name">{t("nameLabel")}</Label>
           <Input
             id="site-name"
             name="siteName"
@@ -39,7 +39,7 @@ export function SettingsForm() {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="site-description">Site description</Label>
+          <Label htmlFor="site-description">{t("descriptionLabel")}</Label>
           <Textarea
             id="site-description"
             name="description"
@@ -64,11 +64,10 @@ export function SettingsForm() {
               aria-invalid={state?.field === "registration"}
               aria-describedby={`registration-help${state?.field === "registration" ? " form-error" : ""}`}
             />
-            Allow new registrations
+            {t("registrationLabel")}
           </Label>
           <p id="registration-help" className="text-xs text-muted-foreground">
-            Let visitors create a member account. This demo does not change
-            access to the site.
+            {t("registrationHelp")}
           </p>
         </div>
       </fieldset>

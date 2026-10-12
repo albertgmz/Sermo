@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   LoadingRegion,
@@ -7,9 +8,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("admin.loading");
   return (
-    <LoadingRegion label="Loading the dashboard…">
-      <h2 className="text-lg font-semibold">Dashboard</h2>
+    <LoadingRegion label={t("aria.dashboard")}>
+      <h2 className="text-lg font-semibold">{t("dashboardHeading")}</h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
           <StatTileSkeleton key={i} />

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   FormRowSkeleton,
@@ -6,8 +7,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("admin.loading");
   return (
-    <LoadingRegion label="Loading general settings…">
+    <LoadingRegion label={t("aria.settings")}>
       <CardSkeleton>
         <div className="space-y-5 p-4">
           <FormRowSkeleton />

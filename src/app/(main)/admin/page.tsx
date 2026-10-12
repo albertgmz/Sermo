@@ -1,6 +1,7 @@
 import { FolderOpen, MessageCircle, MessagesSquare, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
@@ -18,18 +19,20 @@ import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCategories, getForumStats, getUsers } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
 import { getCurrentUser } from "@/lib/session";
 
 export default async function AdminPage() {
   const user = await getCurrentUser();
   if (user?.role !== "admin") notFound();
+  const t = await getTranslations("admin.admin");
 
   return (
     <>
-      <h2 className="text-lg font-semibold">Dashboard</h2>
+      <h2 className="text-lg font-semibold">{t("heading")}</h2>
       <Suspense
         fallback={
-          <LoadingRegion label="Loading community totals…">
+          <LoadingRegion label={t("aria.loadingTotals")}>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[1, 2, 3, 4].map((row) => (
                 <StatTileSkeleton key={row} />
@@ -43,7 +46,7 @@ export default async function AdminPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Suspense
           fallback={
-            <LoadingRegion label="Loading recent activity…">
+            <LoadingRegion label={t("aria.loadingActivity")}>
               <CardSkeleton>
                 {[1, 2, 3, 4, 5, 6].map((row) => (
                   <div key={row} className="space-y-2 px-4 py-3">
@@ -60,7 +63,7 @@ export default async function AdminPage() {
         </Suspense>
         <Suspense
           fallback={
-            <LoadingRegion label="Loading newest members…">
+            <LoadingRegion label={t("aria.loadingMembers")}>
               <MemberListSkeleton />
             </LoadingRegion>
           }
@@ -73,6 +76,7 @@ export default async function AdminPage() {
 }
 
 async function AdminTotals() {
+  const t = await getTranslations("admin.adminTotals");
   const [categories, members] = await Promise.all([
     getCategories(),
     getUsers(),
@@ -81,24 +85,24 @@ async function AdminTotals() {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatTile
-        label="Forums"
+        label={t("forumsLabel")}
         value={formatNumber(forums.length)}
         icon={FolderOpen}
       />
       <StatTile
-        label="Members"
+        label={t("membersLabel")}
         value={formatNumber(members.length)}
         icon={Users}
       />
       <StatTile
-        label="Threads"
+        label={t("threadsLabel")}
         value={formatNumber(
           forums.reduce((sum, forum) => sum + forum.threadCount, 0),
         )}
         icon={MessagesSquare}
       />
       <StatTile
-        label="Posts"
+        label={t("postsLabel")}
         value={formatNumber(
           forums.reduce((sum, forum) => sum + forum.postCount, 0),
         )}
@@ -110,11 +114,9 @@ async function AdminTotals() {
 
 async function AdminActivity() {
   const activity = await getForumStats(6);
+  const t = await getTranslations("admin.adminActivity");
   return (
-    <SectionCard
-      title="Recent activity"
-      description="Latest posts across the forums"
-    >
+    <SectionCard title={t("title")} description={t("description")}>
       {activity.latestPosts.length ? (
         activity.latestPosts.map((thread) => (
           <div
@@ -131,11 +133,15 @@ async function AdminActivity() {
               </Link>
             </p>
             <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-              <UserLink
-                user={thread.lastPost.author}
-                className="relative z-10"
-              />{" "}
-              · {thread.forum.title}
+              {t.rich("byline", {
+                author: () => (
+                  <UserLink
+                    user={thread.lastPost.author}
+                    className="relative z-10"
+                  />
+                ),
+                forum: thread.forum.title,
+              })}
             </p>
             <RelativeTime
               date={thread.lastPost.createdAt}
@@ -144,10 +150,7 @@ async function AdminActivity() {
           </div>
         ))
       ) : (
-        <EmptyState
-          title="No activity yet"
-          description="New forum posts will appear here."
-        />
+        <EmptyState title={t("empty")} description={t("emptyDescription")} />
       )}
     </SectionCard>
   );
@@ -155,18 +158,32 @@ async function AdminActivity() {
 
 async function AdminNewestMembers() {
   const members = await getUsers();
+  const t = await getTranslations("admin.adminNewestMembers");
+  const tLevels = await getTranslations("lib.levels");
+  const tRoles = await getTranslations("lib.db.roles");
   const newestMembers = members
     .toSorted((a, b) => b.joinedAt.localeCompare(a.joinedAt))
     .slice(0, 5);
 
   return (
-    <SectionCard title="Newest members" description="The latest people to join">
+    <SectionCard title={t("title")} description={t("description")}>
       {newestMembers.length ? (
         newestMembers.map((member) => (
-          <MemberRow key={member.id} user={member} />
+          <MemberRow
+            key={member.id}
+            user={{
+              ...member,
+              title:
+                (member.permissions.includes("customTitle") &&
+                  member.customTitle) ||
+                (member.role === "member"
+                  ? tLevels(titleKeyForLevel(member.level.level))
+                  : tRoles(member.role)),
+            }}
+          />
         ))
       ) : (
-        <EmptyState title="No members yet" />
+        <EmptyState title={t("empty")} />
       )}
     </SectionCard>
   );

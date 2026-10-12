@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { previewForum } from "@/app/(main)/admin/actions";
 import { FormFooter } from "@/app/(main)/admin/form-footer";
@@ -16,6 +17,7 @@ export function ForumForm({
   title: string;
   description: string;
 }) {
+  const t = useTranslations("admin.forumForm");
   const [state, action, pending] = useActionState(
     previewForum.bind(null, id),
     null,
@@ -31,7 +33,7 @@ export function ForumForm({
         className="min-w-0 space-y-5 disabled:opacity-60"
       >
         <div className="space-y-2">
-          <Label htmlFor="forum-title">Forum name</Label>
+          <Label htmlFor="forum-title">{t("nameLabel")}</Label>
           <Input
             id="forum-title"
             name="title"
@@ -47,7 +49,7 @@ export function ForumForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="forum-description">Description</Label>
+          <Label htmlFor="forum-description">{t("descriptionLabel")}</Label>
           <Textarea
             id="forum-description"
             name="description"
@@ -63,29 +65,27 @@ export function ForumForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="forum-identifier">URL identifier</Label>
+          <Label htmlFor="forum-identifier">{t("identifierLabel")}</Label>
           <Input
             id="forum-identifier"
             name="identifier"
             value={identifier}
             onChange={(event) => setIdentifier(event.target.value)}
-            placeholder={`Default: ${id}`}
+            placeholder={t("identifierPlaceholder", { id })}
             maxLength={64}
             pattern="[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
-            title="Start with a lowercase letter. Use lowercase letters, numbers and single hyphens."
+            title={t("identifierTitle")}
             autoCapitalize="none"
             spellCheck={false}
             aria-invalid={state?.field === "identifier"}
             aria-describedby={`identifier-help${state?.field === "identifier" ? " form-error" : ""}`}
           />
           <p id="identifier-help" className="text-xs text-muted-foreground">
-            Leave blank to use the numeric ID ({id}). For a custom identifier,
-            start with a lowercase letter and use letters, numbers and single
-            hyphens.
+            {t("identifierHelp", { id })}
           </p>
           <div className="rounded-md border bg-muted/50 p-3">
             <p className="text-xs font-medium text-muted-foreground">
-              Resulting URL preview
+              {t("previewLabel")}
             </p>
             <output
               htmlFor="forum-identifier"

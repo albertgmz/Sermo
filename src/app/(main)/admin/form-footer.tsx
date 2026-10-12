@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { DemoState } from "@/app/(main)/admin/actions";
 import { Button } from "@/components/ui/button";
 
@@ -10,6 +11,7 @@ export function FormFooter({
   state: DemoState;
   pending: boolean;
 }) {
+  const t = useTranslations("admin.formFooter");
   return (
     <div className="space-y-3">
       <p
@@ -21,11 +23,9 @@ export function FormFooter({
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending} className="min-h-10">
-          {pending ? "Checking changes…" : "Save changes"}
+          {pending ? t("pending") : t("submit")}
         </Button>
-        <p className="text-xs text-muted-foreground">
-          Demo only · Changes are not stored
-        </p>
+        <p className="text-xs text-muted-foreground">{t("description")}</p>
       </div>
     </div>
   );
