@@ -1,7 +1,7 @@
 import { type apiKey, defaultKeyHasher } from "@better-auth/api-key";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { createAuthMiddleware } from "better-auth/api";
+import { createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { openAPI, type username } from "better-auth/plugins";
 import { type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
@@ -25,14 +25,60 @@ import {
 import { iso } from "../../time";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 
-function verificationClaim(request: Request | undefined): { email?: string; updateTo?: string } {
-  const token = request ? new URL(request.url).searchParams.get("token") : null;
+type VerificationClaim = { email?: string; updateTo?: string; exp?: number };
+
+/** The unverified payload of a verification token: Better Auth checks its signature itself. */
+function verificationClaim(token: string | null | undefined): VerificationClaim {
   if (!token) return {};
   try {
-    return JSON.parse(atob(token.split(".")[1]!)) as { email?: string; updateTo?: string };
+    return JSON.parse(atob(token.split(".")[1]!)) as VerificationClaim;
   } catch {
     return {};
   }
+}
+
+function verificationToken(request: Request | undefined): string | null {
+  return request ? new URL(request.url).searchParams.get("token") : null;
+}
+
+/**
+ * Better Auth's change-email token names the account only by its address and can be replayed
+ * until it expires. Each one is therefore recorded with the requesting account's id under a
+ * digest of the token, and the record is consumed when the link is followed.
+ */
+function changeEmailIdentifier(token: string): string {
+  return `change-email:${new Bun.CryptoHasher("sha256").update(token).digest("base64url")}`;
+}
+
+function invalidToken(): APIError {
+  return new APIError("UNAUTHORIZED", { message: "Invalid token", code: "INVALID_TOKEN" });
+}
+
+function accountBanned(): APIError {
+  return new APIError("FORBIDDEN", { message: "This account is banned.", code: "ACCOUNT_BANNED" });
+}
+
+function isBanned(ctx: Ctx, userId: number): boolean {
+  const row = prepared(ctx, "auth.banState", () =>
+    ctx.sqlite.prepare<{ banned_until: number | null; banned_permanently: number }, [number]>(
+      "SELECT banned_until, banned_permanently FROM users WHERE id = ?1",
+    ),
+  ).get(userId);
+  return (
+    !!row &&
+    (row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > ctx.now()))
+  );
+}
+
+/** The Cookie header without the named cookie and its chunks (`name.0`, `name.1`, ...). */
+function withoutCookie(header: string, name: string): string {
+  return header
+    .split(/;\s*/)
+    .filter((part) => {
+      const key = part.slice(0, part.indexOf("="));
+      return key !== name && !key.startsWith(`${name}.`);
+    })
+    .join("; ");
 }
 
 function promoteVerifiedMember(ctx: Ctx, userId: number): boolean {
@@ -84,7 +130,7 @@ function buildAuth(ctx: Ctx) {
     throw new Error("Better Auth username and API key plugins are required.");
   const mailEnabled = accountEmailEnabled(ctx);
   const emailChangeVerification = new WeakMap<Request, boolean>();
-  return betterAuth({
+  const auth = betterAuth({
     ...authSchemaOptions,
     secret: config.secret,
     baseURL: config.baseURL,
@@ -157,11 +203,19 @@ function buildAuth(ctx: Ctx) {
             sendVerificationEmail: async ({
               user,
               url,
+              token,
             }: {
               user: { id: string; email: string };
               url: string;
+              token: string;
             }) => {
-              const claim = verificationClaim(new Request(url));
+              const claim = verificationClaim(token);
+              if (claim.updateTo)
+                await (await auth.$context).internalAdapter.createVerificationValue({
+                  identifier: changeEmailIdentifier(token),
+                  value: String(user.id),
+                  expiresAt: new Date(claim.exp ? claim.exp * 1000 : Date.now() + 3_600_000),
+                });
               queueAccountEmail(
                 ctx,
                 {
@@ -178,7 +232,7 @@ function buildAuth(ctx: Ctx) {
               request?: Request,
             ) => {
               const userId = Number(user.id);
-              const claim = verificationClaim(request);
+              const claim = verificationClaim(verificationToken(request));
               const wasUnverified = request ? emailChangeVerification.get(request) === true : false;
               if (request) emailChangeVerification.delete(request);
               if (claim.updateTo && claim.email && claim.updateTo === user.email) {
@@ -197,15 +251,46 @@ function buildAuth(ctx: Ctx) {
       : {}),
     hooks: {
       before: createAuthMiddleware(async (hook) => {
-        if (!mailEnabled || hook.path !== "/verify-email" || !hook.request) return;
-        const claim = verificationClaim(hook.request);
-        if (!claim.updateTo || !claim.email) return;
-        const old = ctx.sqlite
-          .prepare<{ email_verified: number }, [string]>(
-            "SELECT email_verified FROM auth_user WHERE email = ?1",
-          )
-          .get(claim.email);
-        if (old) emailChangeVerification.set(hook.request, old.email_verified === 0);
+        if (hook.path === "/get-session") return;
+        // Only /get-session may answer from the session cookie cache. Every other endpoint reads
+        // the session row, so a revoked session can neither act here nor renew its cache cookie.
+        const cookie = hook.headers?.get("cookie");
+        if (cookie) {
+          hook.headers?.set(
+            "cookie",
+            withoutCookie(cookie, hook.context.authCookies.sessionData.name),
+          );
+          if (hook.path !== "/sign-out") {
+            const session = await getSessionFromCtx(hook);
+            if (session && isBanned(ctx, Number(session.user.id))) throw accountBanned();
+          }
+        }
+        if (hook.path === "/request-password-reset") {
+          const redirectTo: unknown = hook.body?.redirectTo;
+          if (typeof redirectTo !== "string" || !redirectTo.trim())
+            throw new APIError("BAD_REQUEST", {
+              message: "redirectTo is required.",
+              code: "REDIRECT_REQUIRED",
+            });
+        }
+        if (hook.path !== "/verify-email") return;
+        const token: unknown = hook.query?.token;
+        const claim = verificationClaim(typeof token === "string" ? token : null);
+        if (typeof token !== "string" || !claim.updateTo) return;
+        // Single use, and only for the account that asked: the address in the token may belong
+        // to a different account by now.
+        const pending = await hook.context.internalAdapter.consumeVerificationValue(
+          changeEmailIdentifier(token),
+        );
+        const holder = claim.email
+          ? ctx.sqlite
+              .prepare<{ id: number; email_verified: number }, [string]>(
+                "SELECT id, email_verified FROM auth_user WHERE email = ?1",
+              )
+              .get(claim.email)
+          : null;
+        if (!pending || !holder || pending.value !== String(holder.id)) throw invalidToken();
+        if (hook.request) emailChangeVerification.set(hook.request, holder.email_verified === 0);
       }),
       after: createAuthMiddleware(async (hook) => {
         if (hook.path === "/verify-email" && hook.request)
@@ -239,6 +324,13 @@ function buildAuth(ctx: Ctx) {
       }),
     },
     databaseHooks: {
+      session: {
+        create: {
+          before: async (session) => {
+            if (isBanned(ctx, Number(session.userId))) throw accountBanned();
+          },
+        },
+      },
       user: {
         create: {
           before: async (user, hookContext) => {
@@ -392,6 +484,7 @@ function buildAuth(ctx: Ctx) {
     },
     plugins: [usernamePlugin, apiKeyPlugin, openAPI()],
   });
+  return auth;
 }
 
 export type SermoAuth = ReturnType<typeof buildAuth>;
