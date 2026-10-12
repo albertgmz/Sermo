@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Art } from "@/components/forum/art";
 import { ForumIcon } from "@/components/forum/forum-icon";
 import { PrefixTag } from "@/components/forum/prefix-tag";
@@ -7,7 +8,6 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { Badge } from "@/components/ui/badge";
 import type { ForumView } from "@/lib/db";
-import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const quietClass = "text-xs text-muted-foreground";
@@ -22,6 +22,7 @@ export function ForumCard({
   forum: ForumView;
   className?: string;
 }) {
+  const t = useTranslations("forum.forumCard");
   const last = forum.lastPost;
   return (
     <li
@@ -52,11 +53,10 @@ export function ForumCard({
                 {forum.title}
               </Link>
             </h3>
-            {forum.isNew && <Badge>New</Badge>}
+            {forum.isNew && <Badge>{t("newBadge")}</Badge>}
           </div>
           <p className="mt-0.5 truncate text-xs text-foreground/80 tabular-nums">
-            {formatNumber(forum.threadCount)}{" "}
-            {forum.threadCount === 1 ? "thread" : "threads"}
+            {t("threads", { count: forum.threadCount })}
             {forum.subforums?.map((subforum) => (
               <span key={subforum.title}>
                 <span aria-hidden="true"> · </span>
@@ -98,7 +98,7 @@ export function ForumCard({
         </div>
       ) : (
         <p className={cn("flex h-10 items-center border-t px-3", quietClass)}>
-          No posts yet
+          {t("empty")}
         </p>
       )}
     </li>

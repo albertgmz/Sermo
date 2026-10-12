@@ -1,5 +1,52 @@
 {
   "relativeTime": {
     "title": "{date} at {time}"
+  },
+  "forumCard": {
+    "newBadge": "New",
+    "threads": "{count, plural, one {# thread} other {# threads}}",
+    "empty": "No posts yet"
+  },
+  "memberCard": {
+    "emptyAwards": "No awards yet",
+    "postsLabel": "Posts",
+    "reactionsLabel": "Reactions",
+    "joinedLabel": "Joined",
+    "profile": "View profile"
+  },
+  "memberCardTrigger": {
+    "aria": {
+      "label": "{name}'s member card"
+    }
+  },
+  "threadHoverCard": {
+    "lastReply": "Last reply",
+    "aria": {
+      "replies": "Replies",
+      "views": "Views"
+    }
+  },
+  "roleBadge": {
+    "admin": "Admin",
+    "moderator": "Mod"
+  },
+  "shareButton": {
+    "aria": {
+      "copied": "Link copied",
+      "copy": "Copy link"
+    }
+  },
+  "unreadDot": {
+    "aria": {
+      "label": "Unread"
+    }
+  },
+  "userStats": {
+    "messagesLabel": "Messages",
+    "reactionsLabel": "Reactions received",
+    "summary": "<label>{label}: </label>{value}"
+  },
+  "tabLinks": {
+    "count": "{count, number}"
   }
 }

@@ -1,5 +1,6 @@
 import { Eye, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Art } from "@/components/forum/art";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -28,6 +29,7 @@ export function ThreadHoverCard({
   className?: string;
   children?: React.ReactNode;
 }) {
+  const t = useTranslations("forum.threadHoverCard");
   const last = thread.lastPost;
   return (
     <HoverCard>
@@ -87,20 +89,20 @@ export function ThreadHoverCard({
           <div className="flex items-center gap-1">
             <dt>
               <MessageCircle aria-hidden="true" className="size-3.5" />
-              <span className="sr-only">Replies</span>
+              <span className="sr-only">{t("aria.replies")}</span>
             </dt>
             <dd>{formatCompact(thread.replyCount)}</dd>
           </div>
           <div className="flex items-center gap-1">
             <dt>
               <Eye aria-hidden="true" className="size-3.5" />
-              <span className="sr-only">Views</span>
+              <span className="sr-only">{t("aria.views")}</span>
             </dt>
             <dd>{formatCompact(thread.views)}</dd>
           </div>
           {thread.replyCount > 0 && (
             <div className="ml-auto flex min-w-0 gap-1">
-              <dt className="shrink-0">Last reply</dt>
+              <dt className="shrink-0">{t("lastReply")}</dt>
               <dd className="truncate">
                 <RelativeTime date={last.createdAt} /> ·{" "}
                 <UserLink user={last.author} />

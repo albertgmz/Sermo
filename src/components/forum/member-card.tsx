@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, XpBar } from "@/components/forum/level";
@@ -8,6 +9,8 @@ import { userNameClass } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
 import type { UserView } from "@/lib/db";
 import { formatCompact, formatDate } from "@/lib/format";
+import { titleKeyForLevel } from "@/lib/levels";
+import { can } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 export type MemberCardUser = Pick<
@@ -16,7 +19,8 @@ export type MemberCardUser = Pick<
   | "username"
   | "avatar"
   | "appearance"
-  | "title"
+  | "customTitle"
+  | "permissions"
   | "role"
   | "rank"
   | "donor"
@@ -35,6 +39,14 @@ export function MemberCard({
   user: MemberCardUser;
   className?: string;
 }) {
+  const t = useTranslations("forum.memberCard");
+  const tLevels = useTranslations("lib.levels");
+  const tRoles = useTranslations("lib.db.roles");
+  const title =
+    (can(user, "customTitle") && user.customTitle) ||
+    (user.role === "member"
+      ? tLevels(titleKeyForLevel(user.level.level))
+      : tRoles(user.role));
   return (
     <article
       className={cn(
@@ -57,7 +69,7 @@ export function MemberCard({
             </span>
             <UserBadges user={user} />
           </p>
-          <p className="truncate text-xs text-muted-foreground">{user.title}</p>
+          <p className="truncate text-xs text-muted-foreground">{title}</p>
         </div>
       </div>
       <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">
@@ -73,24 +85,24 @@ export function MemberCard({
             className="min-h-10 min-w-10 after:hidden"
           />
         ) : (
-          <span className="text-xs text-muted-foreground">No awards yet</span>
+          <span className="text-xs text-muted-foreground">{t("emptyAwards")}</span>
         )}
       </div>
       <dl className="mt-auto grid grid-cols-3 gap-2 border-t pt-3 text-xs">
         <div className="min-w-0">
-          <dt className="text-muted-foreground">Posts</dt>
+          <dt className="text-muted-foreground">{t("postsLabel")}</dt>
           <dd className="font-semibold tabular-nums">
             {formatCompact(user.postCount)}
           </dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-muted-foreground">Reactions</dt>
+          <dt className="text-muted-foreground">{t("reactionsLabel")}</dt>
           <dd className="font-semibold tabular-nums">
             {formatCompact(user.reactionCount)}
           </dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-muted-foreground">Joined</dt>
+          <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
           <dd className="truncate font-semibold">
             <time dateTime={user.joinedAt}>{formatDate(user.joinedAt)}</time>
           </dd>
@@ -103,7 +115,7 @@ export function MemberCard({
           "min-h-10 w-full",
         )}
       >
-        View profile
+        {t("profile")}
       </Link>
     </article>
   );
