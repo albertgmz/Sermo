@@ -11,6 +11,11 @@ export type SiteIdentity = {
   logo: { fileId: number; url: string } | null;
   icon: { fileId: number; url: string } | null;
   backdrop: { fileId: number; url: string } | null;
+  socialLinks: {
+    discord: string | null;
+    telegram: string | null;
+    x: string | null;
+  };
 };
 
 // The same for every visitor: asked without the visitor's cookies or address, so the answer can be
@@ -20,11 +25,15 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
   "use cache";
   cacheTag("site");
   try {
-    const { name, logo, icon, backdrop } = await callWith({}, siteGet, {});
+    const { name, logo, icon, backdrop, socialLinks } = await callWith(
+      {},
+      siteGet,
+      {},
+    );
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
     cacheLife({ stale: 60, revalidate: 60, expire: 3600 });
-    return { name, logo, icon, backdrop };
+    return { name, logo, icon, backdrop, socialLinks };
   } catch (error) {
     // The expiry stays above five minutes: a shorter entry is left out of the prerender and the
     // build then reports a cache miss for every page.
@@ -32,7 +41,13 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
     // `next build` prerenders without a backend, so nothing is logged during the build.
     if (process.env.NEXT_PHASE !== "phase-production-build")
       console.error("The site could not be read from the API", error);
-    return { name: defaultName, logo: null, icon: null, backdrop: null };
+    return {
+      name: defaultName,
+      logo: null,
+      icon: null,
+      backdrop: null,
+      socialLinks: { discord: null, telegram: null, x: null },
+    };
   }
 }
 
