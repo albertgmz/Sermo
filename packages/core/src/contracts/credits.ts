@@ -123,6 +123,32 @@ export const CreditRule = z
   })
   .meta({ id: "CreditRule" });
 
+/** What a member needs to know about a credit rule: no id, state, dates or other administration. */
+export const CreditWay = z
+  .object({
+    title: z.string(),
+    trigger: CreditRule.shape.trigger,
+    /** Signed and never 0. */
+    amount: z.number().int(),
+    /** At most `count` applications within the last `windowHours`; null = no limit. */
+    limit: CreditRule.shape.limit,
+    /** The forums the rule is restricted to that the viewer can see; empty = everywhere. */
+    forums: z.array(z.object({ id: Id, title: z.string() })),
+  })
+  .meta({ id: "CreditWay" });
+
+export const creditsWays = defineContract({
+  name: "credits.ways",
+  summary:
+    "The active credit rules as a member-facing list of ways to earn (or lose) credits, in " +
+    "the order of creditRules.list, at most 100. Open to everyone who can see the site, " +
+    "guests included. A rule restricted to some forums lists only those the viewer can see, " +
+    "and is left out when the viewer can see none of them.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ items: z.array(CreditWay) }),
+});
+
 const RuleInput = {
   title: z.string().trim().min(1).max(100),
   trigger: CreditRule.shape.trigger,
