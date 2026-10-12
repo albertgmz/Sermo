@@ -9,7 +9,7 @@ export function LiteModeToggle({ enabled }: { enabled: boolean }) {
   const search = useSearchParams().toString();
   return (
     <form action={setLiteMode}>
-      <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
+      <input type="hidden" name="mode" value={enabled ? "off" : "all"} />
       <input
         type="hidden"
         name="returnTo"

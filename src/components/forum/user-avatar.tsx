@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FRAMES, frameSrc } from "@/lib/frames";
-import { isLiteMode } from "@/lib/lite-mode";
+import { liteBlocks } from "@/lib/lite-mode";
 import type { Appearance, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +33,13 @@ export async function UserAvatar({
   link?: boolean;
   className?: string;
 }) {
-  const lite = await isLiteMode();
+  const [hideAvatar, hideFrame] = await Promise.all([
+    liteBlocks("avatars"),
+    liteBlocks("frames"),
+  ]);
   const linked = link && user.id !== undefined;
   const { box, text, framed } = SIZES[size];
-  const frame = (framed && user.appearance?.frame) || null;
+  const frame = (!hideFrame && framed && user.appearance?.frame) || null;
   const geometry = frame ? FRAMES[frame] : undefined;
   // The frame is drawn larger than the box and the picture shrinks into its
   // opening, so a framed avatar takes the same room as a plain one.
@@ -50,7 +53,7 @@ export async function UserAvatar({
         !linked && [className, unringed],
       )}
     >
-      {lite ? (
+      {hideAvatar ? (
         <LitePlaceholder
           compact={size === "xs" || size === "sm"}
           className="size-full rounded-full"
@@ -65,7 +68,7 @@ export async function UserAvatar({
           {user.username.slice(0, 2)}
         </AvatarFallback>
       )}
-      {!lite && frame && geometry && (
+      {frame && geometry && (
         <AvatarImage
           src={frameSrc(frame)}
           alt=""

@@ -32,6 +32,7 @@ export function ForumCard({
     >
       <div className="relative isolate flex min-h-20 flex-1 items-center gap-3 overflow-hidden px-3 py-3 md:min-h-24">
         <Art
+          category="forumArt"
           src={forum.image}
           className="absolute inset-0 -z-20 transition-transform duration-300 group-focus-within:scale-[1.03] group-hover:scale-[1.03] motion-reduce:transition-none"
         />

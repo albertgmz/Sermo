@@ -49,6 +49,7 @@ export default async function AwardPage({ params }: Props) {
 
       <section className="relative isolate flex flex-col items-center overflow-hidden rounded-lg border bg-card px-4 pb-8 text-center md:items-start md:px-10 md:py-14 md:text-left">
         <Art
+          category="awards"
           src={award.image}
           className="-mx-4 -mb-10 aspect-video self-stretch [mask-image:linear-gradient(to_bottom,black_55%,transparent)] md:absolute md:inset-y-0 md:right-0 md:-z-10 md:m-0 md:[mask-image:linear-gradient(to_left,black_55%,transparent)]"
         />

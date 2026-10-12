@@ -37,6 +37,8 @@ import {
   type ThreadView,
 } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
+import { stripMarkdownImages } from "@/lib/lite-markdown";
+import { liteBlocks } from "@/lib/lite-mode";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -68,8 +70,11 @@ function ThreadTitle({ thread, href }: { thread: ThreadView; href?: string }) {
 const BEFORE = 60;
 const AFTER = 100;
 
-function Excerpt({ body, term }: { body: string; term: string }) {
-  const text = body
+async function Excerpt({ body, term }: { body: string; term: string }) {
+  const source = (await liteBlocks("postImages"))
+    ? stripMarkdownImages(body)
+    : body;
+  const text = source
     .replace(/[*`>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();

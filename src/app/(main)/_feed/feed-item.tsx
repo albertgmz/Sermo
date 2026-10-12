@@ -11,6 +11,7 @@ import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
+import { ThreadExcerpt } from "@/components/forum/thread-excerpt";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
@@ -92,6 +93,7 @@ function Card({
       )}
       {cover && (
         <Art
+          category="threadCovers"
           src={threadCoverSrc(cover)}
           className="aspect-[4/1] w-full border-b sm:aspect-[5/1]"
         />
@@ -234,7 +236,7 @@ export function FeedItem({
       {!isThread && (
         <p className="mt-2 truncate border-l-2 pl-2.5 text-xs text-muted-foreground">
           <UserLink user={thread.author} className="font-medium" />:{" "}
-          {thread.excerpt}
+          <ThreadExcerpt thread={thread} />
         </p>
       )}
       <Body href={href}>{post.body}</Body>

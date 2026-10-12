@@ -4,6 +4,8 @@ import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import type { ConversationView, MessageView } from "@/lib/db";
+import { stripMarkdownImages } from "@/lib/lite-markdown";
+import { liteBlocks } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 function plain(markdown: string) {
@@ -15,7 +17,7 @@ function plain(markdown: string) {
 
 // Linked previews need a positioned row, without an enclosing link.
 // `ringClassName` matches the avatar ring to the surface the row sits on.
-export function ConversationPreview({
+export async function ConversationPreview({
   conversation,
   viewerId,
   linked = false,
@@ -35,6 +37,9 @@ export function ConversationPreview({
     (participant) => participant.id !== viewerId,
   );
   const last = conversation.lastMessage;
+  const body = (await liteBlocks("postImages"))
+    ? stripMarkdownImages(last.body)
+    : last.body;
   return (
     <>
       <span className="flex w-10 shrink-0 justify-center -space-x-3">
@@ -79,7 +84,7 @@ export function ConversationPreview({
             ) : (
               last.author.username
             )}
-            : {plain(last.body)}
+            : {plain(body)}
           </span>
           {conversation.unread && <UnreadDot />}
         </span>

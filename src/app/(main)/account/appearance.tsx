@@ -226,6 +226,7 @@ export function AppearancePanel({
                     )}
                   >
                     <Art
+                      category="profileCovers"
                       src={coverSrc(key)}
                       className="aspect-(--aspect-cover) w-full bg-[position:75%_30%]"
                     />

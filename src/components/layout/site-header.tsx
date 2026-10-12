@@ -18,7 +18,7 @@ import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getConversations, getNotifications, getUnreadCounts } from "@/lib/db";
-import { isLiteMode } from "@/lib/lite-mode";
+import { getLiteState } from "@/lib/lite-mode";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +62,10 @@ export function SiteHeader() {
             </div>
           }
         >
-          <MobileMenu className="-ml-2 md:hidden" />
+          <MobileMenu
+            className="-ml-2 md:hidden"
+            logo={<Logo className="-ml-2 px-2" />}
+          />
         </Suspense>
         <Logo markOnly className="w-10 justify-center md:hidden" />
         <Logo className="hidden md:inline-flex" />
@@ -107,7 +110,7 @@ export function SiteHeader() {
 }
 
 async function LiteTools() {
-  return <LiteModeToggle enabled={await isLiteMode()} />;
+  return <LiteModeToggle enabled={(await getLiteState()).master} />;
 }
 
 async function AccountTools() {

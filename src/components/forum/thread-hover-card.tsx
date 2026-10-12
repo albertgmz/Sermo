@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Art } from "@/components/forum/art";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { ThreadExcerpt } from "@/components/forum/thread-excerpt";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
@@ -46,6 +47,7 @@ export function ThreadHoverCard({
       <HoverCardContent align="start" className="w-80 p-0">
         {thread.cover && (
           <Art
+            category="threadCovers"
             src={threadCoverSrc(thread.cover)}
             className="aspect-[4/1] w-full rounded-t-[inherit] border-b"
           />
@@ -69,7 +71,7 @@ export function ThreadHoverCard({
             {thread.title}
           </p>
           <p className="mt-1 line-clamp-3 text-(length:--text-compact) text-muted-foreground [overflow-wrap:anywhere]">
-            {thread.excerpt}
+            <ThreadExcerpt thread={thread} />
           </p>
           <div className="mt-3 flex items-center gap-2">
             <UserAvatar user={thread.author} size="sm" />

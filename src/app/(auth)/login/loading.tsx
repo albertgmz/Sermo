@@ -1,5 +1,5 @@
 import { FormRowSkeleton, LoadingRegion } from "@/components/forum/skeletons";
-import { LogoMark } from "@/components/layout/logo";
+import { LogoMarkPlaceholder as LogoMark } from "@/components/layout/logo";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {

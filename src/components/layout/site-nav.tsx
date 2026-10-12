@@ -4,7 +4,6 @@ import { LayoutGrid, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Logo } from "@/components/layout/logo";
 import { isActivePath, NAV_LINKS, type NavLink } from "@/components/layout/nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +78,13 @@ export function HeaderNav({ className }: { className?: string }) {
   );
 }
 
-export function MobileMenu({ className }: { className?: string }) {
+export function MobileMenu({
+  className,
+  logo,
+}: {
+  className?: string;
+  logo: React.ReactNode;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   return (
@@ -101,9 +106,7 @@ export function MobileMenu({ className }: { className?: string }) {
         className="w-[min(20rem,85vw)] gap-0 [&_[data-slot=sheet-close]]:top-2 [&_[data-slot=sheet-close]]:right-2 [&_[data-slot=sheet-close]]:size-10"
       >
         <SheetHeader className="border-b py-2">
-          <SheetTitle render={<div />}>
-            <Logo className="-ml-2 px-2" />
-          </SheetTitle>
+          <SheetTitle render={<div />}>{logo}</SheetTitle>
           <SheetDescription className="sr-only">
             Site navigation
           </SheetDescription>

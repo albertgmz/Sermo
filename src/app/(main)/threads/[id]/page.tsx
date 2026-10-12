@@ -214,6 +214,7 @@ export default async function ThreadPage({
       >
         {thread.cover && (
           <Art
+            category="threadCovers"
             src={threadCoverSrc(thread.cover)}
             className="absolute inset-0 -z-10"
           />
