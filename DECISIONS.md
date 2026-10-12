@@ -1100,3 +1100,68 @@ the fields without their defaults. This was a defect before this work.
 
 **Every picture setter takes `fileId: null` to remove the picture**, instead of separate clear
 operations. Deleting an award or a shop item deletes its picture.
+
+### Forum content, site chrome and members
+
+**A forum list sorts by a generated column.** `threads.sort_at` is the later of the last post and
+the last bump, VIRTUAL and indexed. Everything that maintains `last_post_at` is untouched, and a
+bump is not a post: unread state, counters and last-post data do not move.
+
+**Rankings are computed in the background and kept per forum** (`rankings`, job every five
+minutes and at startup): the most replied-to, most reacted-to and most viewed threads, and the
+week's most reacted-to posts. A reader merges the rankings of the forums the viewer can see,
+filters by current state and ignored authors, then cuts. Two earlier designs were rejected by
+review: one global list (hidden forums pushed everything out, and its emptiness hinted at hidden
+activity) and a per-forum cap equal to the reader's size (nothing replaced filtered entries). No
+hot path counts or totals reactions.
+
+**The `following` feed covers the 100 members followed most recently.** It walks each followed
+author's newest content through an index and merges; an unbounded followed set would not be
+bounded work.
+
+**Navigation and static pages are data.** `navigation_entries` holds the header, the phone bar,
+the account menu and the footer in two levels; the entries the site ships with are seeded, carry
+a stable `builtin` key the client can attach presentation to, and can be renamed, reordered,
+switched off and re-audienced but not deleted or pointed elsewhere. `static_pages` holds Markdown
+pages by slug. No page is seeded: the starter loader creates them.
+
+**A page body is at most 20,000 characters.** The renderer is quadratic on emphasis runs: the
+worst case measured is 0.4 s at 10,000 characters and 1.7 s at 20,000, synchronous. Only
+administrators write pages; a longer text is split.
+
+**Member presentation is read in batches, separately from content.** Listings keep the small
+`UserSummary`. A page collects the member ids it shows and calls `users.cards` (avatar, frame,
+name colour, title, badges, level) or `users.authors` (the card plus cover, awards shown, level
+bounds, signature, counters) once. Both are open to everyone: they hold only what is drawn next
+to content that is itself visible. The alternative, widening `UserSummary` in every operation,
+would have changed every hot path and every contract.
+
+**A badge is a group's title, colour and style key.** `groups.badge` was already defined as a
+style key; a member shows one badge per group that has one, highest rank first. The style keys
+are the frontend's design system (`solid`, `tint`, `outline`, `heart`, and the built-in groups'
+`admin` and `moderator`); the choice per group is data.
+
+**The frontend's five "permissions" are real permissions**: `profile.signature`,
+`profile.customTitle`, `profile.awardSlots` (an integer), and, with the shop task,
+`profile.coverPreset` and a free rename. A signature or custom title a member loses the
+permission for stays stored and stops being shown.
+
+**Levels are settings** (`levelStep`, `levelTitles`); the level is computed from award XP, never
+stored. Signature and title limits and the member-of-the-month weights are settings too.
+
+**Member of the month is computed by a job, not in write paths.** `member_month_stats` is
+recomputed every ten minutes for the month in progress from bounded id ranges; when a month ends
+its winner is written once to `month_winners` and never rewritten.
+
+**Referrals: a member names their referrer once, in their first seven days**
+(`users.setReferrer`). The frontend counted referrals in leaderboards and standings but had no
+way to create one; this is the smallest real behaviour behind those numbers. **Owner review.**
+
+**Reputation and vouches are not built.** The frontend displayed both and nothing could ever
+change them (new members got 0; only the demo data had values). Reputation is shown as the
+existing reaction score; vouches are dropped from the screens. This departs from assumption A5,
+which asked for both to be built with the frontend's behaviour as the specification: there is no
+behaviour to specify. **Owner review.**
+
+**A birthday publishes its day and month only.** The year is stored for the member and never
+returned to others.
