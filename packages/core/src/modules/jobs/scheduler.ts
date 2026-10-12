@@ -26,6 +26,8 @@ export const purgeSql = {
   done: "SELECT id FROM jobs WHERE status = 'done' AND run_at < ?1 ORDER BY run_at, id LIMIT 1000",
 };
 
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 export function runViewsTask(ctx: Ctx): number {
   const views = flushViewCounts(ctx);
   flushDownloadCounts(ctx);
@@ -33,7 +35,8 @@ export function runViewsTask(ctx: Ctx): number {
   return views;
 }
 
-export function runHourlyTasks(ctx: Ctx): void {
+/** Yields to the event loop after every full batch; small tables finish within the call itself. */
+export async function runHourlyTasks(ctx: Ctx): Promise<void> {
   purgeExpiredCredentials(ctx);
   enqueueJob(
     ctx,
@@ -59,6 +62,7 @@ export function runHourlyTasks(ctx: Ctx): void {
       return rows;
     });
     if (batch.length < 1000) break;
+    await yieldToEventLoop();
     after = batch.at(-1)!.id;
   }
   const doneCutoff = ctx.now() - 7 * DAY_MS;
@@ -75,6 +79,7 @@ export function runHourlyTasks(ctx: Ctx): void {
       return rows.length;
     });
     if (size < 1000) break;
+    await yieldToEventLoop();
   }
 }
 

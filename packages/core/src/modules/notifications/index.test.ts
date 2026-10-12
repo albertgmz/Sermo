@@ -477,7 +477,7 @@ describe("notifications", () => {
       )
       .run(member.id, ctx.now());
     ctx.clock.advance(91 * 86_400_000);
-    runHourlyTasks(ctx);
+    await runHourlyTasks(ctx);
     await runDueJobs(ctx);
     expect(
       ctx.sqlite

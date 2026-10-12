@@ -238,11 +238,7 @@ function previousContent(ctx: Ctx, edit?: ContentEdit) {
 
 function checkQuoteDepth(tokens: Tokens.Generic[], depth = 0): void {
   for (const token of tokens) {
-    const next =
-      depth +
-      Number(
-        token.type === "blockquote" || (token.type === "sermoContainer" && token.kind === "quote"),
-      );
+    const next = depth + Number(token.type === "blockquote" || token.type === "sermoContainer");
     if (next > MAX_QUOTE_DEPTH)
       throw new ValidationError("Containers are nested too deeply.", [
         {
@@ -338,17 +334,25 @@ function render(
           ? (setting.newMemberMentionLimit ?? 3)
           : Math.min(permissionLimit, setting.newMemberMentionLimit ?? 3)
         : permissionLimit;
+      // Mentions the content already had stay whatever the current limit is; the limit only
+      // decides how many newly added members fit beside them.
       const accepted = new Set<number>();
-      for (const token of mentions) {
-        if (token.blocked) continue;
-        const old = previous.mentions.get(String(token.name).toLowerCase());
-        const user = byName.get(String(token.name).toLowerCase());
-        const resolved = old ?? (user && { id: user.id, label: user.username });
-        if (!resolved || (limit >= 0 && accepted.size >= limit && !accepted.has(resolved.id)))
-          continue;
-        token.userId = resolved.id;
-        token.displayName = resolved.label;
-        accepted.add(resolved.id);
+      for (const kept of [true, false]) {
+        for (const token of mentions) {
+          if (token.blocked) continue;
+          const old = previous.mentions.get(String(token.name).toLowerCase());
+          if (!!old !== kept) continue;
+          const user = byName.get(String(token.name).toLowerCase());
+          const resolved = old ?? (user && { id: user.id, label: user.username });
+          if (
+            !resolved ||
+            (!kept && limit >= 0 && accepted.size >= limit && !accepted.has(resolved.id))
+          )
+            continue;
+          token.userId = resolved.id;
+          token.displayName = resolved.label;
+          accepted.add(resolved.id);
+        }
       }
       mentionedUserIds.push(...accepted);
 
@@ -397,6 +401,13 @@ function render(
       canonicalSource(source, tokens as Tokens.Generic[]),
       quoteTokens,
     );
+    if (storedSource.length > MAX_BODY_LENGTH)
+      throw new ValidationError("The text is too long once quotes are attributed.", [
+        {
+          path: ["body"],
+          message: `The text with quote attributions may be at most ${MAX_BODY_LENGTH} characters long.`,
+        },
+      ]);
     html = marked.parser(tokens) as string;
   } catch (error) {
     if (error instanceof RangeError) {

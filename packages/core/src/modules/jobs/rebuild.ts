@@ -1,7 +1,7 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
-import { registerJobHandler } from "./queue";
+import { type ClaimedJob, completeRunningJob, registerJobHandler } from "./queue";
 
 export const REBUILD_CHUNK_SIZES = {
   threads: 50,
@@ -216,6 +216,32 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
   return { reaction_counts: reactionCounts(ctx, reactionsFor[stage]!, id) };
 }
 
+/**
+ * True when the row's counters depend on a thread that a merge or split is still renumbering.
+ * Its posts then sit at temporary positions or in the old thread, so any value computed from
+ * them would be wrong. Such rows are left for the next run (the transfer's own finish keeps their
+ * counters right), which cannot starve the rebuild: nothing waits and nothing is retried.
+ */
+function inTransfer(ctx: Ctx, stage: Stage, id: number): boolean {
+  if (stage === "threads")
+    return !!one(ctx, "transferThread", "SELECT 1 FROM thread_transfers WHERE thread_id = ?1", id);
+  if (stage === "nodes")
+    return !!one(
+      ctx,
+      "transferNode",
+      "SELECT 1 FROM threads t JOIN thread_transfers x ON x.thread_id = t.id WHERE t.node_id = ?1 LIMIT 1",
+      id,
+    );
+  if (stage === "users")
+    return !!one(
+      ctx,
+      "transferUser",
+      "SELECT 1 FROM posts p JOIN thread_transfers x ON x.thread_id = p.thread_id WHERE p.user_id = ?1 LIMIT 1",
+      id,
+    );
+  return false;
+}
+
 function updateChanged(ctx: Ctx, stage: Stage, row: Row, values: Record<string, Value>): boolean {
   const changes = Object.entries(values).filter(([key, value]) => row[key] !== value);
   if (changes.length > 0) {
@@ -233,11 +259,16 @@ function updateChanged(ctx: Ctx, stage: Stage, row: Row, values: Record<string, 
   return changes.length > 0;
 }
 
-/** Repairs one ID-range chunk and atomically queues its continuation. */
+/**
+ * Repairs one ID-range chunk and atomically queues its continuation. With the claimed `job`, the
+ * chunk also completes that job in the same transaction and does nothing if the run no longer
+ * owns it, so a replayed chunk cannot queue the chain a second time.
+ */
 export function rebuildCountersChunk(
   ctx: Ctx,
   progress: RebuildProgress = { stage: "threads", after: 0 },
   options: { enqueueNext?: boolean } = {},
+  job?: ClaimedJob,
 ): number {
   if (
     !stages.includes(progress.stage) ||
@@ -246,6 +277,7 @@ export function rebuildCountersChunk(
   )
     throw new TypeError("Invalid counter rebuild progress.");
   return writeTx(ctx, () => {
+    if (job && !completeRunningJob(ctx, job)) return 0;
     const chunkSize = REBUILD_CHUNK_SIZES[progress.stage];
     const rows = all<Row>(
       ctx,
@@ -255,8 +287,10 @@ export function rebuildCountersChunk(
       chunkSize,
     );
     let changed = 0;
-    for (const row of rows)
+    for (const row of rows) {
+      if (inTransfer(ctx, progress.stage, row.id)) continue;
       if (updateChanged(ctx, progress.stage, row, expected(ctx, progress.stage, row))) changed++;
+    }
     const nextStageIndex = stages.indexOf(progress.stage) + 1;
     const next: RebuildProgress | null =
       rows.length === chunkSize
@@ -266,12 +300,13 @@ export function rebuildCountersChunk(
           : null;
     if (next && options.enqueueNext !== false) {
       const now = ctx.now();
-      // The current running job relinquishes the key before the successor takes it.
-      prepared(ctx, "jobs.rebuild.releaseKey", () =>
-        ctx.sqlite.prepare(
-          "UPDATE jobs SET unique_key = NULL WHERE unique_key = 'rebuild-counters' AND status = 'running'",
-        ),
-      ).run();
+      // Without a claimed job, a running job relinquishes the key before the successor takes it.
+      if (!job)
+        prepared(ctx, "jobs.rebuild.releaseKey", () =>
+          ctx.sqlite.prepare(
+            "UPDATE jobs SET unique_key = NULL WHERE unique_key = 'rebuild-counters' AND status = 'running'",
+          ),
+        ).run();
       prepared(ctx, "jobs.rebuild.enqueueNext", () =>
         ctx.sqlite.prepare(
           "INSERT INTO jobs (type, payload, run_at, unique_key, created_at, updated_at) " +
@@ -285,7 +320,7 @@ export function rebuildCountersChunk(
 }
 
 export function registerJobHandlers(ctx: Ctx): void {
-  registerJobHandler(ctx, "rebuild-counters", (context, payload) => {
-    rebuildCountersChunk(context, payload as RebuildProgress);
+  registerJobHandler(ctx, "rebuild-counters", (context, payload, job) => {
+    rebuildCountersChunk(context, payload as RebuildProgress, {}, job);
   });
 }

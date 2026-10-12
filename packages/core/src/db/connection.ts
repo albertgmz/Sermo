@@ -14,9 +14,10 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url
 /** Opens a database file (or ":memory:") with the pragmas every connection must use. */
 export function openDatabase(path: string): Db {
   const sqlite = new Database(path, { create: true, strict: true });
+  // First, so that switching a new file to WAL waits for another process doing the same.
+  sqlite.run("PRAGMA busy_timeout = 5000");
   if (path !== ":memory:") sqlite.run("PRAGMA journal_mode = WAL");
   sqlite.run("PRAGMA synchronous = NORMAL");
-  sqlite.run("PRAGMA busy_timeout = 5000");
   sqlite.run("PRAGMA foreign_keys = ON");
   sqlite.run("PRAGMA temp_store = MEMORY");
   sqlite.run("PRAGMA cache_size = -65536"); // 64 MiB page cache

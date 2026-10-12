@@ -53,7 +53,7 @@ describe("job maintenance", () => {
       .prepare("UPDATE jobs SET status = 'done', updated_at = ?1 WHERE id = ?2")
       .run(ctx.now(), done);
     ctx.clock.advance(31 * 24 * 60 * 60_000);
-    runHourlyTasks(ctx);
+    await runHourlyTasks(ctx);
     expect(
       ctx.sqlite.prepare<{ n: number }, []>("SELECT COUNT(*) AS n FROM thread_reads").get()?.n,
     ).toBe(0);
@@ -121,7 +121,7 @@ describe("job maintenance", () => {
       .run(ctx.now() - 8 * 24 * 60 * 60_000, oldDone);
     expectNoTableScan(ctx, purgeSql.reads, [0]);
     expectNoTableScan(ctx, purgeSql.done, [ctx.now() - 7 * 24 * 60 * 60_000]);
-    runHourlyTasks(ctx);
+    await runHourlyTasks(ctx);
     expect(sizes).toEqual([1000, 2]);
     expect(
       ctx.sqlite

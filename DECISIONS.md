@@ -831,6 +831,27 @@ purchase). Otherwise the last member with `admin.permissions` could be someone w
 when an item expires, which no check at expiry time could refuse. For the same reason a group a
 shop item sells cannot be given `admin.permissions`, and cannot be deleted while the item exists.
 
+**Nor is administration earned.** A promotion cannot grant a group that has an entry for
+`admin.permissions`, and a group a promotion grants (listed by one, or still held through one
+while its deletion job runs) cannot be given such an entry. Promotions are evaluated by jobs that
+cannot refuse, so the last-administrator guard would otherwise count someone who stops being an
+administrator at the next sweep. The rule covers `never` as well as allow, for promotions and for
+sold groups: a group that denies `admin.permissions`, gained by meeting criteria or by a
+purchase, would take it from the last administrator just as silently. This was chosen over making
+the guard ignore administrators who depend on a grant, which does nothing about `never` and
+needs every combination resolved a second time. Accepted limit: a promotion stored before the
+rule that already grants such a group keeps being evaluated by the jobs, which can still demote
+its members; promoting or resetting by hand, or saving it, is refused until the group is removed
+from it, and demoting by hand is refused when it would leave no administrator.
+
+**The administrator guard runs on what is committed, and covers bans.** Operations that change
+permissions, groups, memberships or promotions reload the acting member inside their write
+transaction and authorize again there, so a member revoked by another process cannot act on the
+principal their request resolved earlier. A ban (manual, from spam cleanup, or from the warning
+threshold, where the warning is refused with it) cannot hit the last member who has
+`admin.permissions`; banning anyone else is never refused. Deleting a group moves its members to
+Member, so it is refused to anyone the Member group does not rank below, like any assignment.
+
 **Accepted limits of this pass.** A member whose only activity of a UTC day falls in the five
 seconds before midnight, and who is active again before the flush, gets the next day's
 `member.active_day` but not that day's (activity is buffered as one timestamp per member). Credit
@@ -857,3 +878,38 @@ it (about a second) is not paid if it is restored later. The balance repair job 
 whole ledger inside its chunk's transaction, which is milliseconds for the histories seeded and
 grows with a member's history. `credits.history` reads the balance and the page in two queries,
 so a movement committed in between shows for one response.
+
+## Review of the whole code base (after milestone 28)
+
+**Better Auth's own endpoints do not trust the cookie cache.** Only `/get-session`, which
+`resolveActor` uses, reads the cached session; every other Better Auth endpoint reads the session
+row, so a revoked session cannot renew its cache through them. A banned member cannot create a
+session or change their profile there (`ACCOUNT_BANNED`). The cache strip relies on Better Auth
+1.7.7 passing the hook's headers on; a test fails if an upgrade changes that.
+
+**Change-email links are bound to the account and work once.** Better Auth's link is a stateless
+token that finds the account by email, so a used link could later act on whoever registered with
+the old address. A verification row keyed by the token's digest now holds the requesting account
+id and is consumed before Better Auth runs. Better Auth still performs the final update by email;
+replacing that endpoint is the remaining step if it is ever needed.
+
+**Password reset requests need `redirectTo`** (`REDIRECT_REQUIRED` otherwise, the same answer
+whether or not the address exists). **A username is valid only if its lowercase form is too**, so
+every name accepted at sign-up can sign in in both forms; visually similar names in different
+scripts are not detected.
+
+**MCP tool calls are charged to the limit of their operation**, per call and with the same keys
+as REST, on top of the per-request MCP limit; a batch can no longer do a hundred writes as one
+request. A batch that contains a cancellation notification is rejected, because the SDK would
+never answer it. Published tool schemas never reject input the server accepts: length limits on
+trimmed strings move to the description.
+
+**The upload route takes bodies up to the largest upload the settings allow** (1 GiB); every
+other route keeps a 128 MiB ceiling, since their bodies are parsed in memory. A rejected
+multipart request stores nothing.
+
+**The counter rebuild leaves alone what a thread transfer is moving** (the thread, its node and
+its posters) and repairs it on the next run; deferring would wait forever on a failed transfer.
+One failing event subscriber no longer stops the others. The OpenAPI document lists anonymous
+access for every GET and every public-marked operation, which includes a few reads that do need
+an account.

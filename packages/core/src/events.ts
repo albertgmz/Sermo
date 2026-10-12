@@ -174,7 +174,8 @@ export function registerEventSubscriber(ctx: Ctx, name: string, handler: EventHa
 /**
  * Feeds new events to every registered subscriber in batches, yielding to the event loop between
  * batches so requests are never held up, until each is caught up or the time budget is spent.
- * Returns the number of events handled.
+ * A subscriber whose handler throws is logged and stops for this dispatch with its cursor on the
+ * failed event; the others carry on. Returns the number of events handled.
  */
 export async function dispatchEvents(
   ctx: Ctx,
@@ -183,8 +184,21 @@ export async function dispatchEvents(
   const deadline = performance.now() + (options.budgetMs ?? 500);
   let handled = 0;
   for (const [name, handler] of subscribers.get(ctx) ?? []) {
+    let count = 0;
+    const counted: EventHandler = async (event) => {
+      await handler(event);
+      count++;
+    };
     while (performance.now() < deadline) {
-      const count = await consumeEvents(ctx, name, handler, 100);
+      count = 0;
+      try {
+        await consumeEvents(ctx, name, counted, 100);
+      } catch (error) {
+        // The failed event stays at this subscriber's cursor for the next dispatch.
+        console.error(`[events:${name}]`, error);
+        handled += count;
+        break;
+      }
       handled += count;
       await new Promise((resolve) => setImmediate(resolve));
       if (count < 100) break;

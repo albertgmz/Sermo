@@ -9,6 +9,8 @@
  * - Post bodies live in `post_bodies`; other content tables keep their bodies inline.
  * - The FTS5 table `search_fts` and its triggers live in a hand-written migration, not here.
  */
+
+import { desc } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
   index,
@@ -501,8 +503,8 @@ export const threads = sqliteTable(
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
     index("threads_node_list").on(t.nodeId, t.isSticky, t.lastPostAt, t.id),
-    index("threads_public_feed").on(t.state, t.lastPostAt, t.id),
-    index("threads_node_feed").on(t.nodeId, t.state, t.lastPostAt, t.id),
+    index("threads_public_feed").on(t.state, desc(t.lastPostAt), desc(t.id)),
+    index("threads_node_feed").on(t.nodeId, t.state, desc(t.lastPostAt), desc(t.id)),
     index("threads_state_id").on(t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
   ],
@@ -986,6 +988,15 @@ export const moderatorLog = sqliteTable(
     index("moderator_log_node").on(t.nodeId, t.id),
   ],
 );
+
+/** Events whose public URLs still have to be submitted to IndexNow (see migration 0009). */
+export const indexnowPending = sqliteTable("indexnow_pending", {
+  eventId: integer("event_id")
+    .primaryKey()
+    .references(() => domainEvents.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
 
 /** Threads with a merge or split transfer pending or failed; guards replies and reorganization. */
 export const threadTransfers = sqliteTable(

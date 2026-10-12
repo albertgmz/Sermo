@@ -116,3 +116,48 @@ describe("durable domain events", () => {
     expect(await dispatchEvents(ctx)).toBe(2);
   });
 });
+
+describe("event dispatch isolation", () => {
+  test("a throwing subscriber is logged and retried while the others proceed", async () => {
+    const ctx = createTestContext();
+    writeTx(ctx, () => {
+      for (let i = 1; i <= 3; i++)
+        publishEvent(ctx, { type: "reaction.added", targetType: "post", targetId: i });
+    });
+    let failing = true;
+    const attempts: number[] = [];
+    const healthy: number[] = [];
+    registerEventSubscriber(ctx, "a-failing", (event) => {
+      attempts.push(event.targetId);
+      if (failing && event.targetId === 2) throw new Error("boom");
+    });
+    registerEventSubscriber(ctx, "b-healthy", (event) => {
+      healthy.push(event.targetId);
+    });
+    const errors: unknown[][] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args);
+    };
+    try {
+      // a-failing handles event 1, then fails on 2; b-healthy still handles all three.
+      expect(await dispatchEvents(ctx)).toBe(4);
+    } finally {
+      console.error = original;
+    }
+    expect(healthy).toEqual([1, 2, 3]);
+    expect(errors).toHaveLength(1);
+    expect(String(errors[0]![0])).toContain("a-failing");
+    const cursor = ctx.sqlite
+      .prepare<{ last_event_id: number }, [string]>(
+        "SELECT last_event_id FROM event_subscribers WHERE name = ?1",
+      )
+      .get("a-failing");
+    expect(cursor?.last_event_id).toBe(1);
+
+    failing = false;
+    expect(await dispatchEvents(ctx)).toBe(2);
+    expect(attempts).toEqual([1, 2, 2, 3]);
+    ctx.sqlite.close(true);
+  });
+});
