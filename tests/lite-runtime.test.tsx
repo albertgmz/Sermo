@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { NextRequest, type NextResponse } from "next/server";
 import { createElement, type ReactNode } from "react";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
+import { messages } from "../src/i18n/messages";
 import { LITE_CATEGORIES, LITE_COOKIE } from "../src/lib/lite-preferences";
 import { IMAGE_EXTENSIONS, owners, publicImages, read } from "./lite-scan";
 
@@ -22,6 +23,22 @@ const find = async (id: number) => (id === 101 ? { id } : null);
 function noDatabaseWrites(): never {
   throw new Error("LITE tests must not write the demo database");
 }
+// Components read their text from the message files; outside a request there
+// is no provider, so resolve keys straight from the same files.
+function translator(namespace: string) {
+  const t = (key: string) => {
+    let value: unknown = messages;
+    for (const part of `${namespace}.${key}`.split(".")) {
+      value = (value as Record<string, unknown> | undefined)?.[part];
+    }
+    return typeof value === "string" ? value : key;
+  };
+  return Object.assign(t, { rich: t });
+}
+mock.module("next-intl", () => ({ useTranslations: translator }));
+mock.module("next-intl/server", () => ({
+  getTranslations: async (namespace: string) => translator(namespace),
+}));
 mock.module("@/lib/db", () => ({
   getUserById: async (id: number) =>
     id === 101

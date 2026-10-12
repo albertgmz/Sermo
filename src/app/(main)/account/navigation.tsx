@@ -13,6 +13,8 @@ const GROUPS = [
     title: "settingsHeading",
     links: [
       { label: "appearance", href: "/account/appearance" },
+      // Labelled from the LITE messages.
+      { label: null, href: "/account/lite" },
       { label: "permissions", href: "/account/permissions" },
       { label: "security", href: "/account/security" },
     ],
@@ -22,6 +24,7 @@ const GROUPS = [
 export function AccountNavigation() {
   const pathname = usePathname();
   const t = useTranslations("account.navigation");
+  const lite = useTranslations("lite.navigation");
 
   return (
     <nav
@@ -54,7 +57,7 @@ export function AccountNavigation() {
                   aria-current={pathname === href ? "page" : undefined}
                   className="flex min-h-10 items-center rounded-md border border-transparent px-3 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:border-border aria-[current=page]:bg-muted aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
                 >
-                  {t(label)}
+                  {label ? t(label) : lite("label")}
                 </Link>
               </li>
             ))}

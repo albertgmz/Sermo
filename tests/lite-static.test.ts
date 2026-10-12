@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import messages from "../messages/en/lite.json";
 import { LITE_CATEGORIES } from "../src/lib/lite-preferences";
 import {
   artCategoryErrors,
@@ -139,13 +140,14 @@ test("registry labels, descriptions, folders and root files remain valid", () =>
     LITE_CATEGORIES.length,
   );
   for (const category of LITE_CATEGORIES) {
+    const text = messages.categories[category.key];
     expect(
-      category.label.trim().length,
-      `${category.key}: add a label`,
+      text?.label.trim().length ?? 0,
+      `${category.key}: add a label to messages/en/lite.json`,
     ).toBeGreaterThan(0);
     expect(
-      category.description.trim().length,
-      `${category.key}: add a description`,
+      text?.description.trim().length ?? 0,
+      `${category.key}: add a description to messages/en/lite.json`,
     ).toBeGreaterThan(0);
     for (const folder of category.folders) {
       const path = join(ROOT, "public", folder);
