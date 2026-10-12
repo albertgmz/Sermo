@@ -6,7 +6,6 @@ import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
-import { permissionTitle } from "../titles";
 import { saveItem } from "./actions";
 import { type EffectType, type Initial, ItemEffect } from "./item-effect";
 import type { Lookups } from "./lookups";
@@ -200,7 +199,7 @@ export async function ItemForm({
           permissions:
             lookups.permissions?.map((definition) => ({
               id: definition.id,
-              title: permissionTitle(definition.label),
+              title: definition.title,
               type: definition.type,
               unit: definition.unit,
             })) ?? null,

@@ -9,7 +9,6 @@ import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { saveAward } from "./actions";
-import { criterionTitle } from "./titles";
 
 export type Award = z.output<typeof awardsGet.output>;
 type Criterion = z.output<typeof awardsCriteria.output>["items"][number];
@@ -35,7 +34,7 @@ function CriterionRow({
   };
 }) {
   const id = `criterion-${definition.id}`;
-  const title = criterionTitle(definition.label);
+  const title = definition.title;
   return (
     <div className="space-y-2 rounded-lg border p-3">
       <label className="flex min-h-10 items-center gap-3 text-sm font-medium">
