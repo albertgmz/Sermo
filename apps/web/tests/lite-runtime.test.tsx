@@ -329,6 +329,9 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
   expect(matches("/account/picture")).toBe(false);
   expect(matches("/threads/12/uploads")).toBe(false);
   expect(matches("/threads/12/uploads/x")).toBe(true);
+  expect(matches("/admin/uploads")).toBe(false);
+  expect(matches("/admin/uploads/x")).toBe(true);
+  expect(matches("/admin/forums")).toBe(true);
   expect(matches("/threads/12")).toBe(true);
   for (const path of [
     "/_next/image?url=%2Favatars%2Ftest.jpg&w=640&q=75",
