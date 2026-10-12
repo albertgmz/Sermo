@@ -1469,7 +1469,11 @@ export const creditTransactions = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   // A member's history, newest first; the staff ledger of everyone walks the primary key.
-  (t) => [index("credit_transactions_user").on(t.userId, t.id)],
+  (t) => [
+    index("credit_transactions_user").on(t.userId, t.id),
+    // admin.activity: the manual adjustments of the last days.
+    index("credit_transactions_adjustment").on(t.createdAt).where(sql`type = 'adjustment'`),
+  ],
 );
 
 /**

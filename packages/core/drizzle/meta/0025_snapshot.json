@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "0519d745-01c0-45ea-b9a0-a0b183ff2343",
+  "id": "5d6d9331-ba9c-4d7d-b46e-a3dcd1477211",
   "prevId": "ef5e4e6b-e821-4310-b530-576648bb0157",
   "tables": {
     "announcements": {
@@ -1314,6 +1314,14 @@
             "id"
           ],
           "isUnique": false
+        },
+        "credit_transactions_adjustment": {
+          "name": "credit_transactions_adjustment",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false,
+          "where": "type = 'adjustment'"
         }
       },
       "foreignKeys": {

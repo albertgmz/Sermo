@@ -49,6 +49,20 @@ describe("administration schema matches the migration", () => {
   });
 });
 
+describe("manual credit adjustments have an index by time", () => {
+  test("the activity count is a range scan of the partial index", () => {
+    const ctx = createTestContext();
+    open.push(ctx);
+    const sql =
+      "SELECT count(*) FROM credit_transactions WHERE type = 'adjustment' AND created_at >= ?1";
+    expectNoTableScan(ctx, sql, [0], { allow: [] });
+    const plan = ctx.sqlite
+      .prepare<{ detail: string }, [number]>(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(0);
+    expect(plan.map((row) => row.detail).join(" ")).toContain("credit_transactions_adjustment");
+  });
+});
+
 describe("migration 0025 on a database that already holds members", () => {
   test("adds the rename time as null for everyone and the index", () => {
     const ctx = createContext({ path: ":memory:", config: { validateOutput: true } });

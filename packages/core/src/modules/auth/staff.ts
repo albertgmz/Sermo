@@ -38,6 +38,9 @@ export const GLOBAL_STAFF = flagsWhere((id) => {
   return def.scope === "global" && (def.category === "moderation" || def.category === "admin");
 });
 
+/** Permissions of the `admin` category. */
+export const ADMIN_PERMISSIONS = flagsWhere((id) => PERMISSIONS[id].category === "admin");
+
 export interface StaffAccess {
   panel: boolean;
   moderatesEverywhere: boolean;
@@ -50,7 +53,7 @@ const NOTHING: StaffAccess = Object.freeze({
   moderatedNodeIds: [],
 });
 
-interface NodeModeration {
+export interface NodeModeration {
   everywhere: boolean;
   nodeIds: number[];
 }
@@ -65,7 +68,7 @@ const CACHE_LIMIT = 1000;
  * forum is resolved in memory (never a query): `everywhere` when they hold one through a global
  * entry and nothing takes it away on any forum.
  */
-function moderation(ctx: Ctx, actor: Exclude<Actor, { kind: "guest" }>): NodeModeration {
+export function moderationOf(ctx: Ctx, actor: Exclude<Actor, { kind: "guest" }>): NodeModeration {
   const principal = actor.principal;
   if (principal && (principal.bannedPermanently || (principal.bannedUntil ?? 0) > ctx.now()))
     return { everywhere: false, nodeIds: [] };
@@ -125,7 +128,7 @@ export function staffAccess(
 ): StaffAccess {
   if (actor.kind === "guest") return NOTHING;
   const heldGlobally = GLOBAL_STAFF.some((id) => globals[id] === true);
-  const { everywhere, nodeIds } = moderation(ctx, actor);
+  const { everywhere, nodeIds } = moderationOf(ctx, actor);
   return {
     panel: heldGlobally || everywhere || nodeIds.length > 0,
     moderatesEverywhere: everywhere,
