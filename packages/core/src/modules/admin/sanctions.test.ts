@@ -14,6 +14,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { resolvedPermissions } from "../../permissions";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
+import { SCAN_CAP } from "../feed/scan";
 import { announcementsSql, approvalMessageSql, bansSql } from "./sanctions";
 
 const DAY = 86_400_000;
@@ -379,6 +380,86 @@ describe("moderatorLog.list filters", () => {
       if (!cursor) break;
     }
     expect(seen).toEqual(["settings.theme", "settings.update"]);
+  });
+
+  describe("an action prefix that matches little", () => {
+    /** Rows the log statements hand back, counted from now on. Call before the first request. */
+    function countLogRows(w: ReturnType<typeof world>) {
+      let rows = 0;
+      const original = w.ctx.sqlite.prepare.bind(w.ctx.sqlite);
+      // biome-ignore lint/suspicious/noExplicitAny: wraps whatever statement is prepared
+      (w.ctx.sqlite as any).prepare = (sql: string) => {
+        const statement = original(sql);
+        if (sql.includes("FROM moderator_log")) {
+          const all = statement.all.bind(statement);
+          statement.all = ((...args: unknown[]) => {
+            const found = all(...(args as never[]));
+            rows += found.length;
+            return found;
+          }) as typeof statement.all;
+        }
+        return statement;
+      };
+      return () => rows;
+    }
+
+    /** Oldest first: a match, noise, a match, noise, a match, then the newest noise. */
+    function sparse(w: ReturnType<typeof world>, actorId: number) {
+      const insert = w.ctx.sqlite.prepare(
+        "INSERT INTO moderator_log (actor_id, action, target_type, target_id, reason, details, created_at) VALUES (?1, ?2, 'x', 1, '', '{}', ?3)",
+      );
+      const add = (action: string, count: number) => {
+        for (let i = 0; i < count; i++) {
+          w.ctx.clock.advance(1);
+          insert.run(actorId, action, w.ctx.now());
+        }
+      };
+      w.ctx.sqlite.transaction(() => {
+        add("rare.first", 1);
+        add("bulk.noise", 1000);
+        add("rare.second", 1);
+        add("bulk.noise", 1500);
+        add("rare.third", 1);
+        add("bulk.noise", 500);
+      })();
+    }
+
+    for (const filter of ["none", "actor"] as const)
+      test(`every match is reachable by following cursors, and a call examines a bounded number of rows (${filter})`, async () => {
+        const w = world();
+        sparse(w, w.founder.id);
+        const examined = countLogRows(w);
+        const seen: string[] = [];
+        let cursor: string | undefined;
+        let calls = 0;
+        let before = 0;
+        let first: { items: unknown[]; nextCursor: string | null } | undefined;
+        do {
+          const page: { items: { action: string }[]; nextCursor: string | null } = await w.run(
+            "moderatorLog.list",
+            userActor(w.founder),
+            {
+              limit: 50,
+              action: "rare.",
+              ...(filter === "actor" ? { actorId: w.founder.id } : {}),
+              cursor,
+            },
+          );
+          first ??= page;
+          // At most the bound, plus the one row that tells whether the log goes on.
+          expect(examined() - before).toBeLessThanOrEqual(SCAN_CAP + 1);
+          before = examined();
+          seen.push(...page.items.map((item) => item.action));
+          cursor = page.nextCursor ?? undefined;
+          calls++;
+        } while (cursor && calls < 50);
+        expect(examined()).toBeGreaterThan(3000);
+        expect(seen).toEqual(["rare.third", "rare.second", "rare.first"]);
+        expect(calls).toBeGreaterThanOrEqual(Math.ceil(3000 / SCAN_CAP));
+        // The newest rows match nothing: the first page is empty but says where to go on.
+        expect(first!.items).toEqual([]);
+        expect(first!.nextCursor).not.toBeNull();
+      });
   });
 
   test("the visibility rule is unchanged: a forum moderator sees only their forum's entries", async () => {

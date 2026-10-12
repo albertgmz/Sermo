@@ -24,6 +24,7 @@ import {
 } from "../../permissions";
 import { iso } from "../../time";
 import { revokeUserCredentials } from "../auth";
+import { scanKeyset } from "../feed/scan";
 import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { assertAdministrator } from "../permissions";
@@ -691,73 +692,50 @@ export function listModeratorLog(
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
   // The walk follows the most selective index: the node's, then the actor's, else the time's.
-  // An action prefix has no index of its own: it filters inside the bounded walk below.
+  // An action prefix has no index of its own: it filters the rows a bounded walk examines, so a
+  // prefix that matches little costs no more than one that matches everything.
   const lead =
     input.nodeId !== undefined
       ? "node_id = ?4 AND id < ?2"
       : input.actorId !== undefined
         ? "actor_id = ?4 AND id < ?2"
         : "(created_at, id) < (?1, ?2)";
-  const extra: (number | string)[] = [];
+  const extra: number[] = [];
   let sql = `SELECT * FROM moderator_log WHERE ${lead}`;
-  let next = input.nodeId !== undefined || input.actorId !== undefined ? 5 : 4;
   if (input.nodeId !== undefined) extra.push(input.nodeId);
   else if (input.actorId !== undefined) extra.push(input.actorId);
   if (input.nodeId !== undefined && input.actorId !== undefined) {
-    sql += ` AND actor_id = ?${next++}`;
+    sql += " AND actor_id = ?5";
     extra.push(input.actorId);
-  }
-  if (input.action !== undefined) {
-    sql += ` AND action >= ?${next} AND action < ?${next + 1}`;
-    extra.push(input.action, input.action + String.fromCharCode(0xffff));
   }
   sql +=
     input.nodeId !== undefined || input.actorId !== undefined
       ? " ORDER BY id DESC LIMIT ?3"
       : " ORDER BY created_at DESC, id DESC LIMIT ?3";
-  const queue = query<{ id: number; created_at: number; node_id: number | null }>(
+  type LogRow = { id: number; created_at: number; node_id: number | null; action: string };
+  const queue = query<LogRow>(
     ctx,
-    input.nodeId === undefined && input.actorId === undefined && input.action === undefined
+    input.nodeId === undefined && input.actorId === undefined
       ? "logList"
-      : input.nodeId === undefined && input.actorId === undefined
-        ? "logActionList"
-        : `logFiltered.${input.nodeId !== undefined}.${input.actorId !== undefined}.${input.action !== undefined}`,
+      : `logFiltered.${input.nodeId !== undefined}.${input.actorId !== undefined}`,
     sql,
   );
-  const allowed: { id: number; created_at: number; node_id: number | null }[] = [];
-  let cursorAt = at;
-  let cursorId = id;
-  let examined = 0;
-  let exhausted = false;
-  const cap = limit * 4;
-  while (allowed.length <= limit && examined < cap) {
-    const batchSize = Math.min(limit + 1, cap - examined);
-    const rows = queue.all(cursorAt, cursorId, batchSize, ...extra);
-    for (const row of rows) {
-      examined++;
-      cursorAt = row.created_at;
-      cursorId = row.id;
-      if (
-        global ||
-        (row.node_id != null && can(ctx, actor, "forum.viewLog", { nodeId: row.node_id }))
-      )
-        allowed.push(row);
-      if (allowed.length > limit) break;
-    }
-    if (rows.length < batchSize) {
-      exhausted = true;
-      break;
-    }
-  }
-  return {
-    items: allowed.slice(0, limit),
-    nextCursor:
-      allowed.length > limit
-        ? encodeCursor([allowed[limit - 1]!.created_at, allowed[limit - 1]!.id])
-        : !exhausted && examined > 0
-          ? encodeCursor([cursorAt, cursorId])
-          : null,
-  };
+  const scan = scanKeyset<LogRow, [number, number]>({
+    before: input.cursor ? [at, id] : null,
+    limit,
+    fetch: (before, count) => queue.all(before?.[0] ?? at, before?.[1] ?? id, count, ...extra),
+    keyOf: (row) => [row.created_at, row.id],
+    accept: (rows) =>
+      new Set(
+        rows.filter(
+          (row) =>
+            (input.action === undefined || row.action.startsWith(input.action)) &&
+            (global ||
+              (row.node_id != null && can(ctx, actor, "forum.viewLog", { nodeId: row.node_id }))),
+        ),
+      ),
+  });
+  return { items: scan.items, nextCursor: scan.next ? encodeCursor(scan.next) : null };
 }
 
 function refreshThreadLast(ctx: Ctx, threadId: number) {
