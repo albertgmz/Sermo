@@ -1,48 +1,57 @@
 import type { Metadata } from "next";
+import { useFormatter, useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { StaticPage } from "@/app/(main)/(static)/static-page";
 
-export const metadata: Metadata = {
-  title: "Terms - forum/ui",
-};
-
-const CONTENT = `
-These terms are placeholder text for a demo forum. They describe, in general words, what a community like this one usually expects from its members.
-
-## Your account
-
-- You are responsible for what is posted from your account.
-- One account per person. Do not share it or sell it.
-- Choose a username that does not impersonate somebody else.
-
-## What you post
-
-You keep the rights to what you write. By posting, you allow the forum to display it to other members and visitors.
-
-Do not post:
-
-1. Spam, advertising or referral links outside the areas meant for them.
-2. Content that is illegal, hateful or that harasses another member.
-3. Private information about other people.
-
-## Moderation
-
-Staff may edit, move or remove content and may limit or close accounts that break these rules. Decisions can be discussed in private with a moderator, not in public threads.
-
-## Credits and upgrades
-
-Credits, awards and shop items have no monetary value and cannot be exchanged or refunded.
-
-## Changes
-
-These terms may change. The date at the top of the page shows the latest revision.
-`;
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("static.terms");
+  return {
+    title: t("metaTitle"),
+  };
+}
 
 export default function TermsPage() {
+  const t = useTranslations("static.terms");
+  const format = useFormatter();
+  const CONTENT = `
+${t("introduction")}
+
+## ${t("accountHeading")}
+
+- ${t("accountResponsibility")}
+- ${t("accountLimit")}
+- ${t("accountUsername")}
+
+## ${t("postsHeading")}
+
+${t("postsRights")}
+
+${t("postsRestrictions")}
+
+1. ${t("postsSpam")}
+2. ${t("postsAbuse")}
+3. ${t("postsPrivacy")}
+
+## ${t("moderationHeading")}
+
+${t("moderationDescription")}
+
+## ${t("creditsHeading")}
+
+${t("creditsDescription")}
+
+## ${t("changesHeading")}
+
+${t("changesDescription")}
+`;
+
   return (
     <StaticPage
       href="/terms"
-      title="Terms of service"
-      updated="September 1, 2026"
+      title={t("title")}
+      updated={format.dateTime(new Date("2026-09-01T00:00:00Z"), {
+        dateStyle: "long",
+      })}
       content={CONTENT}
     />
   );

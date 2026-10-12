@@ -1,29 +1,38 @@
 import type { Metadata } from "next";
+import { useFormatter, useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { ContactForm } from "@/app/(main)/(static)/contact/contact-form";
 import { StaticPage } from "@/app/(main)/(static)/static-page";
 
-export const metadata: Metadata = {
-  title: "Contact - forum/ui",
-};
-
-const CONTENT = `
-The details below are placeholders for a demo forum.
-
-## Contact details
-
-- **General questions**: hello@example.com
-- **Account and moderation**: support@example.com
-- **Postal address**: Example Street 1, 12345 Example City
-
-Staff usually answer within two working days. For anything about a specific post, include a link to it.
-`;
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("static.contact");
+  return {
+    title: t("metaTitle"),
+  };
+}
 
 export default function ContactPage() {
+  const t = useTranslations("static.contact");
+  const format = useFormatter();
+  const CONTENT = `
+${t("introduction")}
+
+## ${t("detailsHeading")}
+
+- ${t.rich("detailsGeneral", { strong: (chunks) => `**${chunks}**` })}
+- ${t.rich("detailsSupport", { strong: (chunks) => `**${chunks}**` })}
+- ${t.rich("detailsAddress", { strong: (chunks) => `**${chunks}**` })}
+
+${t("responseDescription")}
+`;
+
   return (
     <StaticPage
       href="/contact"
-      title="Contact"
-      updated="September 1, 2026"
+      title={t("title")}
+      updated={format.dateTime(new Date("2026-09-01T00:00:00Z"), {
+        dateStyle: "long",
+      })}
       content={CONTENT}
     >
       <ContactForm />
