@@ -40,7 +40,10 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     ]) {
       const response = await request(path, cookie);
       assert.equal(response.status, 307);
-      assert.equal(response.headers.get("location"), "http://localhost/login");
+      assert.equal(
+        response.headers.get("location"),
+        `http://localhost/login?next=${encodeURIComponent(path)}`,
+      );
     }
   }
   for (const cookie of ["", "all", "frames"]) {
