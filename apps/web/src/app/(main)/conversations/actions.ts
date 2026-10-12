@@ -46,7 +46,8 @@ export async function leaveAction(conversationId: number) {
   const left = await attempt(`/conversations/${conversationId}`, () =>
     call(conversationsLeave, { conversationId }),
   );
-  if (left.ok) revalidatePath("/", "layout");
+  if (!left.ok) redirect(`/conversations/${conversationId}`);
+  revalidatePath("/", "layout");
   redirect("/conversations");
 }
 
