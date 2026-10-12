@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { readdirSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { PERMISSIONS } from "../../../../../packages/core/src/permissions/registry";
 import {
   compile,
@@ -35,6 +37,12 @@ const administrator = standing(
   Object.keys(PERMISSIONS).filter((id) => id.startsWith("admin.")),
   { moderatesEverywhere: true },
 );
+
+// An address the screen answers: a record id is 7, any other parameter one word.
+const sampleOf = (path: string) =>
+  path.replace(/\[(\w+)\]/g, (_, name: string) =>
+    name === "id" ? "7" : "word",
+  );
 
 // Every screen built, so that the rules alone decide.
 const everything = compile(
@@ -125,7 +133,9 @@ test("a screen that is not built is never reachable, whoever asks", () => {
 
 test("a member with nothing in the panel opens nothing", () => {
   for (const screen of SCREENS) {
-    const path = screen.path.replace("[id]", "7").replace(/[w+]/g, "word");
+    const path = sampleOf(screen.path);
+    // The sample must be an address of this very screen, or the check below proves nothing.
+    expect(screenAt(path, everything)?.key, screen.key).toBe(screen.key);
     expect(may(member, path), screen.key).toBe(false);
   }
 });
@@ -186,4 +196,45 @@ test("a moderator everywhere and a full administrator open the moderation screen
   expect(may(administrator, "/admin/settings")).toBe(true);
   expect(may(administrator, "/admin/permissions/explain")).toBe(true);
   expect(may(administrator, "/admin/users/12/economy")).toBe(true);
+});
+
+// Routes under (staff) that are not screens of the registry: the panel's picture upload, which
+// the proxy does not gate (its matcher leaves it out) and which decides for itself.
+const NOT_SCREENS = ["/admin/uploads"];
+
+function routeFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return routeFiles(path);
+    return entry.name === "page.tsx" || entry.name === "route.ts" ? [path] : [];
+  });
+}
+
+const STAFF_ROOT = join(import.meta.dir);
+
+// The address a route file serves: route groups leave the path, a dynamic folder keeps its name.
+const addressOf = (file: string) => {
+  const parts = relative(STAFF_ROOT, join(file, ".."))
+    .split(sep)
+    .filter((part) => part !== "" && !/^\(.*\)$/.test(part));
+  return `/${parts.join("/")}`;
+};
+
+test("every page and route of the panel is a screen of the registry, or listed as none", () => {
+  const known = new Set(SCREENS.map((screen) => screen.path));
+  const found = routeFiles(STAFF_ROOT).map(addressOf);
+  expect(found.length).toBeGreaterThan(50);
+  for (const address of found) {
+    if (NOT_SCREENS.includes(address)) continue;
+    expect(known.has(address), address).toBe(true);
+  }
+  // An exception that no longer exists is not an exception.
+  for (const address of NOT_SCREENS) expect(found).toContain(address);
+});
+
+test("every screen marked built has a route file", () => {
+  const found = new Set(routeFiles(STAFF_ROOT).map(addressOf));
+  for (const screen of SCREENS.filter((s) => s.built)) {
+    expect(found.has(screen.path), screen.key).toBe(true);
+  }
 });
