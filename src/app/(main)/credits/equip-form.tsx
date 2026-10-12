@@ -1,14 +1,15 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { type EquipState, equipItem } from "@/app/(main)/credits/actions";
 import { PendingButton } from "@/components/forum/pending-button";
 import { cn } from "@/lib/utils";
 
 const ERRORS = {
-  not_owned: "You do not own this item.",
-  invalid: "This item cannot be equipped.",
-};
+  not_owned: "notOwned",
+  invalid: "invalid",
+} as const;
 
 export function EquipForm({
   itemId,
@@ -23,6 +24,7 @@ export function EquipForm({
   from: "shop" | "inventory";
   className?: string;
 }) {
+  const t = useTranslations("credits.equipForm");
   const [state, action] = useActionState<EquipState, FormData>(
     equipItem.bind(null, itemId, !equipped, from),
     null,
@@ -31,10 +33,10 @@ export function EquipForm({
     <form action={action} className={className}>
       <PendingButton
         variant={equipped ? "outline" : "secondary"}
-        aria-label={`${equipped ? "Unequip" : "Equip"} ${itemName}`}
+        aria-label={t(equipped ? "aria.unequip" : "aria.equip", { itemName })}
         className={cn("h-10 w-full", from === "inventory" && "md:h-8")}
       >
-        {equipped ? "Unequip" : "Equip"}
+        {t(equipped ? "unequip" : "equip")}
       </PendingButton>
       <output
         className={cn(
@@ -42,7 +44,7 @@ export function EquipForm({
           from === "shop" ? "h-4" : "empty:hidden",
         )}
       >
-        {state && ERRORS[state.error]}
+        {state && t(`errors.${ERRORS[state.error]}`)}
       </output>
     </form>
   );

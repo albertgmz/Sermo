@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { type BoostState, spendBoost } from "@/app/(main)/credits/actions";
 import { PendingButton } from "@/components/forum/pending-button";
@@ -12,11 +13,11 @@ import {
 } from "@/components/ui/select";
 
 const ERRORS = {
-  no_thread: "Choose one of your threads first.",
-  not_found: "This item or thread no longer exists.",
-  not_owned: "You have none of this item left.",
-  not_author: "You can only use this on your own threads.",
-};
+  no_thread: "noThread",
+  not_found: "notFound",
+  not_owned: "notOwned",
+  not_author: "notAuthor",
+} as const;
 
 export function BoostForm({
   itemId,
@@ -27,6 +28,7 @@ export function BoostForm({
   itemName: string;
   threads: { value: string; label: React.ReactNode }[];
 }) {
+  const t = useTranslations("credits.boostForm");
   const [state, action] = useActionState<BoostState, FormData>(
     spendBoost.bind(null, itemId),
     null,
@@ -36,10 +38,10 @@ export function BoostForm({
       <div className="flex gap-2">
         <Select name="thread" items={threads}>
           <SelectTrigger
-            aria-label={`Thread to use ${itemName} on`}
+            aria-label={t("aria.thread", { itemName })}
             className="w-full min-w-0 flex-1 data-[size=default]:h-10 md:data-[size=default]:h-8"
           >
-            <SelectValue placeholder="Choose a thread" />
+            <SelectValue placeholder={t("placeholder")} />
           </SelectTrigger>
           <SelectContent>
             {threads.map((thread) => (
@@ -54,14 +56,14 @@ export function BoostForm({
           </SelectContent>
         </Select>
         <PendingButton
-          aria-label={`Use ${itemName} on the chosen thread`}
+          aria-label={t("aria.submit", { itemName })}
           className="h-10 px-4 md:h-8 md:px-3"
         >
-          Use
+          {t("submit")}
         </PendingButton>
       </div>
       <output className="mt-1.5 block text-xs text-destructive empty:hidden">
-        {state && ERRORS[state.error]}
+        {state && t(`errors.${ERRORS[state.error]}`)}
       </output>
     </form>
   );
