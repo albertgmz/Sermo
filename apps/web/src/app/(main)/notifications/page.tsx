@@ -3,11 +3,10 @@ import { Bell, CheckCheck, ChevronDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { markAllRead } from "@/app/(main)/notifications/actions";
 import { notificationEntries } from "@/app/(main)/notifications/entries";
+import { MarkAllReadForm } from "@/app/(main)/notifications/mark-all-read";
 import { EmptyState } from "@/components/forum/empty-state";
 import { NotificationRow } from "@/components/forum/notification-row";
-import { PendingButton } from "@/components/forum/pending-button";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -44,16 +43,14 @@ export default async function NotificationsPage({
           </p>
         </div>
         {entries.length > 0 && (
-          <form action={markAllRead}>
-            <PendingButton
-              variant="outline"
-              disabled={list.unreadCount === 0}
-              className="h-10 px-3 md:h-8"
-            >
-              <CheckCheck />
-              {t("markAllRead")}
-            </PendingButton>
-          </form>
+          <MarkAllReadForm
+            variant="outline"
+            disabled={list.unreadCount === 0}
+            className="h-10 px-3 md:h-8"
+          >
+            <CheckCheck />
+            {t("markAllRead")}
+          </MarkAllReadForm>
         )}
       </div>
 

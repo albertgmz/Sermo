@@ -1,8 +1,7 @@
 import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { markAllRead } from "@/app/(main)/notifications/actions";
-import { PendingButton } from "@/components/forum/pending-button";
+import { MarkAllReadForm } from "@/app/(main)/notifications/mark-all-read";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { LoadedPanel } from "@/components/layout/loaded-panel";
 import {
@@ -76,17 +75,15 @@ export function AlertsPanel({
           <Link href="/notifications" className={footerLinkClass}>
             {t("viewAll")}
           </Link>
-          <form action={markAllRead}>
-            <PendingButton
-              variant="ghost"
-              size="sm"
-              disabled={unread === 0}
-              className="h-8 text-xs text-muted-foreground"
-            >
-              <CheckCheck />
-              {t("markAllRead")}
-            </PendingButton>
-          </form>
+          <MarkAllReadForm
+            variant="ghost"
+            size="sm"
+            disabled={unread === 0}
+            className="h-8 text-xs text-muted-foreground"
+          >
+            <CheckCheck />
+            {t("markAllRead")}
+          </MarkAllReadForm>
         </div>
       }
     />

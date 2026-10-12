@@ -1,6 +1,6 @@
 "use client";
 
-import { Paperclip, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { replyAction } from "@/app/(main)/threads/actions";
@@ -21,11 +21,7 @@ export function ReplyComposer({ threadId }: { threadId: number }) {
           {state.error}
         </p>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="outline" className="h-10 px-3">
-          <Paperclip />
-          {t("attach")}
-        </Button>
+      <div className="flex items-center justify-end gap-2">
         <Button
           type="submit"
           aria-label={t("aria.submit")}

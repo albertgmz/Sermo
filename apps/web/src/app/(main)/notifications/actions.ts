@@ -1,7 +1,6 @@
 "use server";
 
 import { notificationsMarkRead } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
@@ -17,21 +16,24 @@ async function origin() {
   return pathname.startsWith("//") ? "/notifications" : pathname + search;
 }
 
-export async function markAllRead() {
+export type MarkAllState = { error?: string };
+
+export async function markAllRead(
+  _previous: MarkAllState,
+): Promise<MarkAllState> {
   const marked = await attempt("/notifications", () =>
     call(notificationsMarkRead, { all: true }),
   );
-  if (marked.ok) revalidatePath("/", "layout");
+  if (!marked.ok) return { error: marked.error };
   redirect(await origin());
 }
 
 // Called when a notification is opened, so a refusal is nothing the visitor needs to hear about.
+// The page stays as it is; the unread count is right on the next page the member opens.
 export async function markOneRead(id: number) {
   try {
     await call(notificationsMarkRead, { ids: [id] });
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
-    return;
   }
-  revalidatePath("/", "layout");
 }
