@@ -279,7 +279,8 @@ describe("the standings job", () => {
     const members = Array.from({ length: 8 }, () => w.user());
     w.ctx.clock.set(JAN(20));
     // posts: 3,3,3,2,2,1,1,1 (+ a reaction pair so points and posts disagree for one member)
-    [3, 3, 3, 2, 2, 1, 1, 1].forEach((count, i) => c.posts(members[i]!.id, count, JAN(2)));
+    for (const [i, count] of [3, 3, 3, 2, 2, 1, 1, 1].entries())
+      c.posts(members[i]!.id, count, JAN(2));
     c.reactions(members[7]!.id, members[0]!.id, 20, JAN(3));
     refreshStandings(w.ctx);
     const expected = rows(w, 202601)
