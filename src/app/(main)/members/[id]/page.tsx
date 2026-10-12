@@ -8,6 +8,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { ProfileHeader } from "@/app/(main)/members/[id]/profile-header";
 import { Wall } from "@/app/(main)/members/[id]/wall";
 import { AwardIcon } from "@/components/forum/award-icon";
@@ -20,6 +21,13 @@ import { RoleBadge } from "@/components/forum/role-badge";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
+import {
+  FeedSkeleton,
+  LoadingRegion,
+  MemberListSkeleton,
+  ProfileHeaderSkeleton,
+  TabsSkeleton,
+} from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { Container } from "@/components/layout/container";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -31,6 +39,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getInventory,
   getProfilePosts,
@@ -355,24 +364,87 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   if (!user) notFound();
 
   const tab: Tab = TABS.find((value) => value === query.tab) ?? "wall";
-  const [following, wallPosts, posts, threads, reactionTypes, inventory] =
-    await Promise.all([
-      viewer ? isFollowing(viewer.id, user.id) : false,
-      getProfilePosts(user.id, viewer?.id ?? null),
-      getUserPosts(user.id, viewer?.id ?? null),
-      tab === "threads" ? getUserThreads(user.id) : [],
-      getReactionTypes(),
-      getInventory(user.id),
-    ]);
   const cards = (className?: string) => (
-    <ProfileCards
-      user={user}
-      inventory={inventory}
-      activity={posts.slice(0, 5)}
-      className={className}
-    />
+    <Suspense
+      fallback={
+        <LoadingRegion label="Loading profile details…">
+          <div className={cn("grid gap-4", className)}>
+            <MemberListSkeleton rows={1} />
+            <MemberListSkeleton rows={1} />
+            <MemberListSkeleton />
+          </div>
+        </LoadingRegion>
+      }
+    >
+      <ProfileDetails user={user} viewer={viewer} className={className} />
+    </Suspense>
   );
 
+  return (
+    <>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading profile header…">
+            <ProfileHeaderSkeleton />
+          </LoadingRegion>
+        }
+      >
+        <ProfileHeading user={user} viewer={viewer} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading profile sections…">
+            <Container className="pt-5">
+              <Skeleton className="mb-4 h-12 w-full" />
+              <TabsSkeleton />
+            </Container>
+          </LoadingRegion>
+        }
+      >
+        <ProfileTabs user={user} viewer={viewer} tab={tab} />
+      </Suspense>
+      {tab === "about" ? (
+        <PageLayout>
+          <About user={user} cards={cards("md:grid-cols-2")} />
+        </PageLayout>
+      ) : (
+        <PageLayout aside={cards()} asideOnMobile="hidden">
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading profile activity…">
+                <FeedSkeleton />
+              </LoadingRegion>
+            }
+          >
+            <ProfileActivity user={user} viewer={viewer} tab={tab} />
+          </Suspense>
+        </PageLayout>
+      )}
+    </>
+  );
+}
+
+async function ProfileHeading({
+  user,
+  viewer,
+}: {
+  user: UserView;
+  viewer: UserView | null;
+}) {
+  const following = viewer ? await isFollowing(viewer.id, user.id) : false;
+  return <ProfileHeader user={user} viewer={viewer} following={following} />;
+}
+
+async function ProfileTabs({
+  user,
+  viewer,
+  tab,
+}: {
+  user: UserView;
+  viewer: UserView | null;
+  tab: Tab;
+}) {
+  const wallPosts = await getProfilePosts(user.id, viewer?.id ?? null);
   const base = `/members/${user.id}`;
   const tabs = [
     { value: "wall", label: "Wall", href: base, count: wallPosts.length },
@@ -392,38 +464,69 @@ export default async function ProfilePage({ params, searchParams }: Props) {
   ];
 
   return (
+    <Container className="pt-5">
+      <LevelStrip user={user} />
+      <TabLinks tabs={tabs} active={tab} label="Profile sections" />
+    </Container>
+  );
+}
+
+async function ProfileDetails({
+  user,
+  viewer,
+  className,
+}: {
+  user: UserView;
+  viewer: UserView | null;
+  className?: string;
+}) {
+  const [inventory, posts] = await Promise.all([
+    getInventory(user.id),
+    getUserPosts(user.id, viewer?.id ?? null),
+  ]);
+  return (
+    <ProfileCards
+      user={user}
+      inventory={inventory}
+      activity={posts.slice(0, 5)}
+      className={className}
+    />
+  );
+}
+
+async function ProfileActivity({
+  user,
+  viewer,
+  tab,
+}: {
+  user: UserView;
+  viewer: UserView | null;
+  tab: Tab;
+}) {
+  const [wallPosts, posts, threads, reactionTypes] = await Promise.all([
+    tab === "wall" ? getProfilePosts(user.id, viewer?.id ?? null) : [],
+    tab === "posts" ? getUserPosts(user.id, viewer?.id ?? null) : [],
+    tab === "threads" ? getUserThreads(user.id) : [],
+    getReactionTypes(),
+  ]);
+  return (
     <>
-      <ProfileHeader user={user} viewer={viewer} following={following} />
-      <Container className="pt-5">
-        <LevelStrip user={user} />
-        <TabLinks tabs={tabs} active={tab} label="Profile sections" />
-      </Container>
-      {tab === "about" ? (
-        <PageLayout>
-          <About user={user} cards={cards("md:grid-cols-2")} />
-        </PageLayout>
+      {tab === "wall" ? (
+        <Wall
+          user={user}
+          viewer={viewer}
+          posts={wallPosts}
+          reactionTypes={reactionTypes}
+        />
       ) : (
-        <PageLayout aside={cards()} asideOnMobile="hidden">
-          {tab === "wall" ? (
-            <Wall
-              user={user}
-              viewer={viewer}
-              posts={wallPosts}
-              reactionTypes={reactionTypes}
-            />
+        <section className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
+          <h2 className="sr-only">{tab === "posts" ? "Posts" : "Threads"}</h2>
+          {tab === "posts" ? (
+            <Posts user={user} posts={posts} />
           ) : (
-            <section className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              <h2 className="sr-only">
-                {tab === "posts" ? "Posts" : "Threads"}
-              </h2>
-              {tab === "posts" ? (
-                <Posts user={user} posts={posts} />
-              ) : (
-                <Threads user={user} threads={threads} />
-              )}
-            </section>
+            <Threads user={user} threads={threads} />
           )}
-        </PageLayout>
+        </section>
       )}
     </>
   );

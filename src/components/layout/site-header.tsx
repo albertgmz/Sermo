@@ -1,5 +1,7 @@
 import { Bell, Inbox, Search } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { Container } from "@/components/layout/container";
 import {
   AlertsPanel,
@@ -11,12 +13,9 @@ import { Logo } from "@/components/layout/logo";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { buttonVariants } from "@/components/ui/button";
-import type {
-  ConversationView,
-  NotificationView,
-  UnreadCounts,
-  UserView,
-} from "@/lib/db";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getConversations, getNotifications, getUnreadCounts } from "@/lib/db";
+import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const PANEL = "hidden md:inline-flex";
@@ -46,87 +45,158 @@ function IconLink({
   );
 }
 
-export function SiteHeader({
-  user,
-  unread,
-  conversations,
-  notifications,
-}: {
-  user: UserView | null;
-  unread: UnreadCounts;
-  conversations: ConversationView[];
-  notifications: NotificationView[];
-}) {
+export function SiteHeader() {
   return (
     <header className="border-b bg-background">
       <Container className="flex h-14 items-center gap-1 md:gap-4">
-        <MobileMenu className="-ml-2 md:hidden" />
+        <Suspense
+          fallback={
+            <div className="-ml-2 md:hidden">
+              <LoadingRegion label="Loading menu…">
+                <Skeleton className="size-10" />
+              </LoadingRegion>
+            </div>
+          }
+        >
+          <MobileMenu className="-ml-2 md:hidden" />
+        </Suspense>
         <Logo markOnly className="w-10 justify-center md:hidden" />
         <Logo className="hidden md:inline-flex" />
-        <HeaderNav className="hidden md:flex" />
+        <Suspense
+          fallback={
+            <div className="hidden md:block">
+              <LoadingRegion label="Loading navigation…">
+                <div className="flex h-10 items-center gap-1">
+                  {[1, 2, 3, 4, 5, 6].map((item) => (
+                    <Skeleton key={item} className="h-10 w-16" />
+                  ))}
+                </div>
+              </LoadingRegion>
+            </div>
+          }
+        >
+          <HeaderNav className="hidden md:flex" />
+        </Suspense>
         <div className="ml-auto flex items-center gap-1 md:gap-2">
           <IconLink href="/search" label="Search">
             <Search />
           </IconLink>
           <SearchPanel className={PANEL} />
-          {user ? (
-            <>
-              <IconLink
-                href="/conversations"
-                label="Conversations"
-                unread={unread.conversations}
-              >
-                <Inbox />
-              </IconLink>
-              <MessagesPanel
-                user={user}
-                conversations={conversations}
-                unread={unread.conversations}
-                className={PANEL}
-              />
-              <IconLink
-                href="/notifications"
-                label="Notifications"
-                unread={unread.notifications}
-              >
-                <Bell />
-              </IconLink>
-              <AlertsPanel
-                notifications={notifications}
-                unread={unread.notifications}
-                className={PANEL}
-              />
-              <UserMenu
-                user={{
-                  id: user.id,
-                  username: user.username,
-                  title: user.title,
-                  avatar: user.avatar,
-                  appearance: { frame: user.appearance.frame },
-                }}
-              />
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "h-10 px-3 md:h-8",
-                )}
-              >
-                Log in
-              </Link>
-              <Link
-                href="/register"
-                className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
-              >
-                Create Account
-              </Link>
-            </>
-          )}
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading your menu…">
+                <Skeleton className="h-10 w-28 md:w-32" />
+              </LoadingRegion>
+            }
+          >
+            <AccountTools />
+          </Suspense>
         </div>
       </Container>
     </header>
+  );
+}
+
+async function AccountTools() {
+  const user = await getCurrentUser();
+  return (
+    <>
+      {user ? (
+        <>
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading messages…">
+                <Skeleton className="size-10" />
+              </LoadingRegion>
+            }
+          >
+            <MessageTools userId={user.id} />
+          </Suspense>
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading alerts…">
+                <Skeleton className="size-10" />
+              </LoadingRegion>
+            }
+          >
+            <AlertTools userId={user.id} />
+          </Suspense>
+          <UserMenu
+            user={{
+              id: user.id,
+              username: user.username,
+              title: user.title,
+              avatar: user.avatar,
+              appearance: { frame: user.appearance.frame },
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <Link
+            href="/login"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-10 px-3 md:h-8",
+            )}
+          >
+            Log in
+          </Link>
+          <Link
+            href="/register"
+            className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
+          >
+            Create Account
+          </Link>
+        </>
+      )}
+    </>
+  );
+}
+
+async function MessageTools({ userId }: { userId: number }) {
+  const [conversations, unread] = await Promise.all([
+    getConversations(userId),
+    getUnreadCounts(userId),
+  ]);
+  return (
+    <>
+      <IconLink
+        href="/conversations"
+        label="Conversations"
+        unread={unread.conversations}
+      >
+        <Inbox />
+      </IconLink>
+      <MessagesPanel
+        user={{ id: userId }}
+        conversations={conversations.slice(0, 5)}
+        unread={unread.conversations}
+        className={PANEL}
+      />
+    </>
+  );
+}
+
+async function AlertTools({ userId }: { userId: number }) {
+  const [notifications, unread] = await Promise.all([
+    getNotifications(userId),
+    getUnreadCounts(userId),
+  ]);
+  return (
+    <>
+      <IconLink
+        href="/notifications"
+        label="Notifications"
+        unread={unread.notifications}
+      >
+        <Bell />
+      </IconLink>
+      <AlertsPanel
+        notifications={notifications.slice(0, 6)}
+        unread={unread.notifications}
+        className={PANEL}
+      />
+    </>
   );
 }

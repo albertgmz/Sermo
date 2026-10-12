@@ -1,6 +1,7 @@
 import { CircleDollarSign, MessageCircle, Store } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { ForumSidebar } from "@/app/(main)/forums/forum-sidebar";
 import {
   ForumStats,
@@ -9,12 +10,18 @@ import {
 } from "@/app/(main)/forums/forum-stats";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { ForumCard } from "@/components/forum/forum-card";
+import {
+  ForumCategoriesSkeleton,
+  ForumStatsSkeleton,
+  LoadingRegion,
+  SidebarSkeleton,
+} from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { getCategories, getUsers, type UserView } from "@/lib/db";
+import { getCategories, getUsers } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import type { ForumTab } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -49,7 +56,8 @@ function forumsHref(tab: ForumTab, stats: StatsTab) {
   return query ? `/forums?${query}` : "/forums";
 }
 
-function GuestHero({ users }: { users: UserView[] }) {
+async function GuestHero() {
+  const users = (await getUsers()).slice(0, 5);
   return (
     <PageHero
       title="Ask questions. Share what you know."
@@ -88,25 +96,52 @@ export default async function ForumsPage({
   const stats: StatsTab =
     STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
     STATS_TABS[0].value;
-  const [user, categories] = await Promise.all([
-    getCurrentUser(),
-    getCategories(tab),
-  ]);
-  const heroUsers = user ? [] : (await getUsers()).slice(0, 5);
+  const user = await getCurrentUser();
 
   return (
     <>
-      {!user && <GuestHero users={heroUsers} />}
+      {!user && (
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading community introduction…">
+              <PageHero
+                title="Ask questions. Share what you know."
+                subtitle="Join a community of makers who trade ideas, feedback and good advice every day."
+              />
+            </LoadingRegion>
+          }
+        >
+          <GuestHero />
+        </Suspense>
+      )}
       <PageLayout
-        aside={<ForumSidebar viewer={user} />}
+        aside={
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading forum sidebar…">
+                <SidebarSkeleton />
+              </LoadingRegion>
+            }
+          >
+            <ForumSidebar viewer={user} />
+          </Suspense>
+        }
         className={user ? undefined : "pt-2"}
         mainClassName="space-y-(--page-gap)"
       >
-        <ForumStats
-          active={stats}
-          hrefFor={(value) => forumsHref(tab, value)}
-          viewerId={user?.id}
-        />
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading forum statistics…">
+              <ForumStatsSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <ForumStats
+            active={stats}
+            hrefFor={(value) => forumsHref(tab, value)}
+            viewerId={user?.id}
+          />
+        </Suspense>
 
         <TabLinks
           tabs={TABS.map((entry) => ({
@@ -118,24 +153,41 @@ export default async function ForumsPage({
           variant="segmented"
         />
 
-        {categories.map((category) => (
-          <CollapsiblePanel
-            key={category.id}
-            title={category.title}
-            storageKey={`forum-category-${category.id}-open`}
-          >
-            <ul className="grid gap-2 p-2 md:grid-cols-2">
-              {category.forums.map((forum) => (
-                <ForumCard
-                  key={forum.id}
-                  forum={forum}
-                  className="md:last:odd:col-span-2"
-                />
-              ))}
-            </ul>
-          </CollapsiblePanel>
-        ))}
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading forum categories…">
+              <ForumCategoriesSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <ForumCategories tab={tab} />
+        </Suspense>
       </PageLayout>
+    </>
+  );
+}
+
+async function ForumCategories({ tab }: { tab: ForumTab }) {
+  const categories = await getCategories(tab);
+  return (
+    <>
+      {categories.map((category) => (
+        <CollapsiblePanel
+          key={category.id}
+          title={category.title}
+          storageKey={`forum-category-${category.id}-open`}
+        >
+          <ul className="grid gap-2 p-2 md:grid-cols-2">
+            {category.forums.map((forum) => (
+              <ForumCard
+                key={forum.id}
+                forum={forum}
+                className="md:last:odd:col-span-2"
+              />
+            ))}
+          </ul>
+        </CollapsiblePanel>
+      ))}
     </>
   );
 }

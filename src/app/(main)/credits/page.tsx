@@ -1,6 +1,7 @@
 import { Check, Coins, Package, Plus, ReceiptText } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { BoostForm } from "@/app/(main)/credits/boost-form";
 import { BuyForm } from "@/app/(main)/credits/buy-form";
 import { EquipForm } from "@/app/(main)/credits/equip-form";
@@ -14,6 +15,13 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { Signature } from "@/components/forum/signature";
+import {
+  BalanceSkeleton,
+  LoadingRegion,
+  MemberListSkeleton,
+  ShopSkeleton,
+  TabsSkeleton,
+} from "@/components/forum/skeletons";
 import { TabLinks } from "@/components/forum/tab-links";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { userNameClass } from "@/components/forum/user-link";
@@ -921,7 +929,7 @@ function History({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
-export default async function CreditsPage({ searchParams }: Props) {
+async function CreditsContent({ searchParams }: Props) {
   const [query, viewer] = await Promise.all([searchParams, getCurrentUser()]);
   const [items, richest, owned, transactions, threads, held] =
     await Promise.all([
@@ -979,60 +987,105 @@ export default async function CreditsPage({ searchParams }: Props) {
 
   return (
     <>
+      {viewer ? (
+        <>
+          {tab === "shop" && <h2 className="sr-only">Shop</h2>}
+          <TabLinks tabs={tabs} active={tab} label="Credits sections" />
+        </>
+      ) : (
+        <h2 className="border-b pb-2 text-lg font-semibold tracking-tight">
+          Shop
+        </h2>
+      )}
+      {tab === "shop" && (
+        <Shop
+          items={items}
+          query={query}
+          viewer={viewer}
+          preview={
+            viewer ?? { username: "your_name", avatar: richest[0].avatar }
+          }
+          owned={new Map(inventory.map((item) => [item.id, item]))}
+          permissions={permissions}
+          sample={richest[0]}
+        />
+      )}
+      {tab === "inventory" && viewer && owned && (
+        <Inventory
+          owned={owned}
+          viewer={viewer}
+          threads={threads}
+          applied={
+            appliedItem && appliedThread
+              ? { item: appliedItem, thread: appliedThread }
+              : null
+          }
+        />
+      )}
+      {tab === "history" && <History transactions={transactions} />}
+    </>
+  );
+}
+
+async function CreditLeaders() {
+  const viewerId = (await getCurrentUser())?.id;
+  const richest = await getLeaderboard("credits", 10);
+  return (
+    <SectionCard title="Richest members" description="Ranked by credits">
+      <Leaderboard members={richest} by="credits" viewerId={viewerId} />
+    </SectionCard>
+  );
+}
+
+export default function CreditsPage(props: Props) {
+  return (
+    <>
       <PageHero
         title="Credits"
         subtitle="Earn credits by taking part in the community and spend them on cosmetics, boosts and permissions in the shop."
       />
-
       <Container>
-        <Balance viewer={viewer} />
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading your balance…">
+              <BalanceSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <CreditBalance />
+        </Suspense>
       </Container>
       <PageLayout
         className="pt-6"
         mainClassName="space-y-4"
         aside={
-          <SectionCard title="Richest members" description="Ranked by credits">
-            <Leaderboard members={richest} by="credits" viewerId={viewer?.id} />
-          </SectionCard>
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading richest members…">
+                <MemberListSkeleton rows={10} />
+              </LoadingRegion>
+            }
+          >
+            <CreditLeaders />
+          </Suspense>
         }
       >
-        {viewer ? (
-          <>
-            {tab === "shop" && <h2 className="sr-only">Shop</h2>}
-            <TabLinks tabs={tabs} active={tab} label="Credits sections" />
-          </>
-        ) : (
-          <h2 className="border-b pb-2 text-lg font-semibold tracking-tight">
-            Shop
-          </h2>
-        )}
-        {tab === "shop" && (
-          <Shop
-            items={items}
-            query={query}
-            viewer={viewer}
-            preview={
-              viewer ?? { username: "your_name", avatar: richest[0].avatar }
-            }
-            owned={new Map(inventory.map((item) => [item.id, item]))}
-            permissions={permissions}
-            sample={richest[0]}
-          />
-        )}
-        {tab === "inventory" && viewer && owned && (
-          <Inventory
-            owned={owned}
-            viewer={viewer}
-            threads={threads}
-            applied={
-              appliedItem && appliedThread
-                ? { item: appliedItem, thread: appliedThread }
-                : null
-            }
-          />
-        )}
-        {tab === "history" && <History transactions={transactions} />}
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading the shop…">
+              <TabsSkeleton />
+              <ShopSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <CreditsContent {...props} />
+        </Suspense>
       </PageLayout>
     </>
   );
+}
+
+async function CreditBalance() {
+  const viewer = await getCurrentUser();
+  return <Balance viewer={viewer} />;
 }

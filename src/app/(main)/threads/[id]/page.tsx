@@ -2,6 +2,7 @@ import { PenLine, Reply, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { react } from "@/app/(main)/actions";
 import {
   CoverControls,
@@ -22,12 +23,14 @@ import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
 import { Signature } from "@/components/forum/signature";
+import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserHoverCard } from "@/components/forum/user-hover-card";
 import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { threadCoverSrc } from "@/lib/appearance";
 import {
   getOwnedItems,
@@ -195,41 +198,11 @@ export default async function ThreadPage({
   const id = Number((await params).id);
   if (!Number.isInteger(id)) notFound();
   const viewer = await getCurrentUser();
-  const [thread, posts, reactionTypes] = await Promise.all([
-    getThread(id),
-    getPosts(id, viewer?.id ?? null),
-    getReactionTypes(),
-  ]);
+  const thread = await getThread(id);
   if (!thread) notFound();
 
   const own = viewer?.id === thread.authorId;
   const staff = viewer !== null && viewer.role !== "member";
-  const covers: OwnedCover[] =
-    own && viewer
-      ? (await getOwnedItems(viewer.id)).threadCover.flatMap((item) =>
-          item.effect.type === "threadCover"
-            ? [
-                {
-                  itemId: item.id,
-                  name: item.name.replace(/ thread cover$/, ""),
-                  src: threadCoverSrc(item.effect.cover),
-                  quantity: item.quantity,
-                },
-              ]
-            : [],
-        )
-      : [];
-  // One signature per member on the page: under their first post.
-  const signedPostIds = new Set(
-    posts
-      .filter(
-        (post, index) =>
-          can(post.author, "signature") &&
-          posts.findIndex((p) => p.authorId === post.authorId) === index,
-      )
-      .map((post) => post.id),
-  );
-
   return (
     <PageLayout className="pt-2">
       <header
@@ -275,26 +248,30 @@ export default async function ThreadPage({
       </header>
       {(own || (staff && thread.cover)) && (
         <div className="mt-3">
-          <CoverControls
-            threadId={thread.id}
-            hasCover={thread.cover !== null}
-            own={own}
-            covers={covers}
-          />
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading cover controls…">
+                <Skeleton className="h-10 w-32 md:h-8" />
+              </LoadingRegion>
+            }
+          >
+            <ThreadControls thread={thread} viewer={viewer} own={own} />
+          </Suspense>
         </div>
       )}
 
       <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
-        {posts.map((post) => (
-          <PostItem
-            key={post.id}
-            post={post}
-            highlighted={thread.highlighted && post.number === 1}
-            signed={signedPostIds.has(post.id)}
-            viewer={viewer}
-            reactionTypes={reactionTypes}
-          />
-        ))}
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading posts…">
+              <PostSkeleton />
+              <PostSkeleton />
+              <PostSkeleton />
+            </LoadingRegion>
+          }
+        >
+          <ThreadPosts id={id} thread={thread} viewer={viewer} />
+        </Suspense>
       </div>
 
       <section id="reply" aria-label="Reply" className="mt-4 scroll-mt-4">
@@ -326,5 +303,79 @@ export default async function ThreadPage({
         )}
       </section>
     </PageLayout>
+  );
+}
+
+async function ThreadControls({
+  thread,
+  viewer,
+  own,
+}: {
+  thread: NonNullable<Awaited<ReturnType<typeof getThread>>>;
+  viewer: UserView | null;
+  own: boolean;
+}) {
+  const covers: OwnedCover[] =
+    own && viewer
+      ? (await getOwnedItems(viewer.id)).threadCover.flatMap((item) =>
+          item.effect.type === "threadCover"
+            ? [
+                {
+                  itemId: item.id,
+                  name: item.name.replace(/ thread cover$/, ""),
+                  src: threadCoverSrc(item.effect.cover),
+                  quantity: item.quantity,
+                },
+              ]
+            : [],
+        )
+      : [];
+  return (
+    <CoverControls
+      threadId={thread.id}
+      hasCover={thread.cover !== null}
+      own={own}
+      covers={covers}
+    />
+  );
+}
+
+async function ThreadPosts({
+  id,
+  thread,
+  viewer,
+}: {
+  id: number;
+  thread: NonNullable<Awaited<ReturnType<typeof getThread>>>;
+  viewer: UserView | null;
+}) {
+  const [posts, reactionTypes] = await Promise.all([
+    getPosts(id, viewer?.id ?? null),
+    getReactionTypes(),
+  ]);
+  // One signature per member on the page: under their first post.
+  const signedPostIds = new Set(
+    posts
+      .filter(
+        (post, index) =>
+          can(post.author, "signature") &&
+          posts.findIndex((p) => p.authorId === post.authorId) === index,
+      )
+      .map((post) => post.id),
+  );
+
+  return (
+    <>
+      {posts.map((post) => (
+        <PostItem
+          key={post.id}
+          post={post}
+          highlighted={thread.highlighted && post.number === 1}
+          signed={signedPostIds.has(post.id)}
+          viewer={viewer}
+          reactionTypes={reactionTypes}
+        />
+      ))}
+    </>
   );
 }

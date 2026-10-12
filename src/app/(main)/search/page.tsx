@@ -1,11 +1,17 @@
 import { Search, SearchX } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { EmptyState } from "@/components/forum/empty-state";
 import { MemberRow } from "@/components/forum/member-row";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
+import {
+  CardSkeleton,
+  LoadingRegion,
+  TextSkeleton,
+} from "@/components/forum/skeletons";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserHoverCard } from "@/components/forum/user-hover-card";
 import { UserStats } from "@/components/forum/user-stats";
@@ -134,26 +140,6 @@ export default async function SearchPage({
     .find((entry) => entry.slug === first(params.forum));
   const prefix = prefixes.find((entry) => entry.key === first(params.prefix));
   const filtered = Boolean(member || titlesOnly || forum || prefix);
-
-  const found = await search(query, viewer?.id ?? null, {
-    titlesOnly,
-    member: member || undefined,
-    forumId: forum?.id,
-    prefixId: prefix?.id,
-  });
-  const { threads, posts } = found;
-  // The filters describe threads and posts, so a filtered search lists no
-  // members; a note below the form links to the ones that match.
-  const users = filtered ? [] : found.users;
-  const hiddenMembers = found.users.length - users.length;
-  const total = threads.length + posts.length + users.length;
-  const postThreads = new Map(
-    await Promise.all(
-      [...new Set(posts.map((post) => post.thread.id))].map(
-        async (id) => [id, await getThread(id)] as const,
-      ),
-    ),
-  );
 
   return (
     <PageLayout mainClassName="space-y-4">
@@ -290,6 +276,73 @@ export default async function SearchPage({
         </form>
       </search>
 
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading search results…">
+            <CardSkeleton>
+              <div className="p-4">
+                <TextSkeleton />
+              </div>
+              <div className="p-4">
+                <TextSkeleton />
+              </div>
+            </CardSkeleton>
+          </LoadingRegion>
+        }
+      >
+        <SearchResults
+          query={query}
+          viewerId={viewer?.id ?? null}
+          titlesOnly={titlesOnly}
+          member={member}
+          forumId={forum?.id}
+          prefixId={prefix?.id}
+          filtered={filtered}
+        />
+      </Suspense>
+    </PageLayout>
+  );
+}
+
+async function SearchResults({
+  query,
+  viewerId,
+  titlesOnly,
+  member,
+  forumId,
+  prefixId,
+  filtered,
+}: {
+  query: string;
+  viewerId: number | null;
+  titlesOnly: boolean;
+  member: string;
+  forumId?: number;
+  prefixId?: number;
+  filtered: boolean;
+}) {
+  const found = await search(query, viewerId, {
+    titlesOnly,
+    member: member || undefined,
+    forumId,
+    prefixId,
+  });
+  const { threads, posts } = found;
+  // The filters describe threads and posts, so a filtered search lists no
+  // members; a note below the form links to the ones that match.
+  const users = filtered ? [] : found.users;
+  const hiddenMembers = found.users.length - users.length;
+  const total = threads.length + posts.length + users.length;
+  const postThreads = new Map(
+    await Promise.all(
+      [...new Set(posts.map((post) => post.thread.id))].map(
+        async (id) => [id, await getThread(id)] as const,
+      ),
+    ),
+  );
+
+  return (
+    <>
       {hiddenMembers > 0 && (
         <p className="text-sm text-muted-foreground">
           {formatNumber(hiddenMembers)}{" "}
@@ -402,6 +455,6 @@ export default async function SearchPage({
           )}
         </>
       )}
-    </PageLayout>
+    </>
   );
 }

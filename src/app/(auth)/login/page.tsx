@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthCollage } from "@/app/(auth)/login/auth-collage";
 import { LoginForm } from "@/app/(auth)/login/login-form";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { LogoMark } from "@/components/layout/logo";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getUsers } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Log in - forum/ui",
 };
 
-export default async function LoginPage() {
-  const [first, second] = await getUsers();
-
+export default function LoginPage() {
   return (
     <main className="grid min-h-dvh flex-1 md:grid-cols-2">
       <div className="flex items-center justify-center px-4 py-10">
@@ -27,13 +28,15 @@ export default async function LoginPage() {
             Welcome back
           </h1>
           <LoginForm />
-          <p className="mt-4 text-xs text-muted-foreground">
-            Demo: log in as{" "}
-            <span className="font-mono text-foreground">{first.username}</span>{" "}
-            or{" "}
-            <span className="font-mono text-foreground">{second.username}</span>{" "}
-            with any password.
-          </p>
+          <Suspense
+            fallback={
+              <LoadingRegion label="Loading demo accounts…">
+                <Skeleton className="mt-4 h-8 w-full" />
+              </LoadingRegion>
+            }
+          >
+            <DemoAccounts />
+          </Suspense>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             No account yet?{" "}
             <Link
@@ -47,5 +50,17 @@ export default async function LoginPage() {
       </div>
       <AuthCollage className="hidden md:block" />
     </main>
+  );
+}
+
+async function DemoAccounts() {
+  const [first, second] = await getUsers();
+  return (
+    <p className="mt-4 text-xs text-muted-foreground">
+      Demo: log in as{" "}
+      <span className="font-mono text-foreground">{first.username}</span> or{" "}
+      <span className="font-mono text-foreground">{second.username}</span> with
+      any password.
+    </p>
   );
 }

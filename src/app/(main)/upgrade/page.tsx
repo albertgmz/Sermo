@@ -1,10 +1,16 @@
 import { Check, ChevronDown, Coins, Crown, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { RankForm } from "@/app/(main)/upgrade/rank-form";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Credits } from "@/components/forum/credits";
 import { LevelBadge, XpBar } from "@/components/forum/level";
+import {
+  CardSkeleton,
+  LoadingRegion,
+  TextSkeleton,
+} from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { DonorBadge, RankBadge } from "@/components/forum/user-badges";
 import { Container } from "@/components/layout/container";
@@ -14,6 +20,7 @@ import {
 } from "@/components/layout/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { nameColor } from "@/lib/appearance";
 import {
   type AwardView,
@@ -389,79 +396,57 @@ function Donor({ viewer }: { viewer: UserView | null }) {
   );
 }
 
-export default async function UpgradePage() {
-  const [viewer, ranks, awards] = await Promise.all([
-    getCurrentUser(),
-    getRanks(),
-    getAwards(),
-  ]);
-  const sample = viewer ?? (await getLeaderboard("xp", 1))[0];
-  const awardOf = (rank: Rank) =>
-    awards.find((award) => award.slug === rank.headline.award);
-  const top = ranks[ranks.length - 1];
-  const recommended = ranks[Math.floor(ranks.length / 2)];
-
+export default function UpgradePage() {
   return (
     <>
-      <Container className="flex items-center justify-between gap-10 py-12 md:py-20">
-        <div className="max-w-xl">
-          <h1 className={heroTitleClass}>
-            Ready to <span className="text-primary">level up</span>
-            <br />
-            your experience?
-          </h1>
-          <p className={cn("mt-4 max-w-md", heroSubtitleClass)}>
-            Spend your credits on a rank to unlock its name colour, an award
-            nobody else can earn and a set of lasting perks.
-          </p>
-          <p className="mt-5 flex max-w-md items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-sm text-pretty">
-            <Coins
-              aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 text-primary"
-            />
-            <span>
-              <span className="font-semibold">
-                Credits are earned by taking part, not bought.
-              </span>{" "}
-              <span className="text-muted-foreground">
-                {viewer ? (
-                  <>
-                    You have{" "}
-                    <span className="font-semibold text-foreground tabular-nums">
-                      {formatNumber(viewer.credits)}
-                    </span>{" "}
-                    to spend.
-                  </>
-                ) : (
-                  "No rank can be paid for with money."
-                )}
-              </span>
-            </span>
-          </p>
-        </div>
-        <HeroArt user={sample} rank={top} award={awardOf(top)} />
-      </Container>
-
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading upgrade details…">
+            <Container className="flex items-center justify-between gap-10 py-12 md:py-20">
+              <div className="w-full max-w-xl">
+                <h1 className={heroTitleClass}>
+                  Ready to <span className="text-primary">level up</span>
+                  <br />
+                  your experience?
+                </h1>
+                <p className={cn("mt-4 max-w-md", heroSubtitleClass)}>
+                  Spend your credits on a rank to unlock its name colour, an
+                  award nobody else can earn and a set of lasting perks.
+                </p>
+                <Skeleton className="mt-5 h-20 w-full max-w-md" />
+              </div>
+              <Skeleton className="hidden size-72 shrink-0 lg:block" />
+            </Container>
+          </LoadingRegion>
+        }
+      >
+        <UpgradeHero />
+      </Suspense>
       <Container className="space-y-12 pb-8">
-        <section aria-labelledby="ranks-title" className="space-y-8">
-          <h2 id="ranks-title" className="sr-only">
-            Ranks
-          </h2>
-          <ul className="grid gap-6 md:grid-cols-3 md:gap-4">
-            {ranks.map((rank) => (
-              <RankCard
-                key={rank.id}
-                rank={rank}
-                award={awardOf(rank)}
-                viewer={viewer}
-                username={viewer?.username ?? "your_name"}
-                recommended={rank.id === recommended.id}
-              />
-            ))}
-          </ul>
-          <Donor viewer={viewer} />
-        </section>
-
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading ranks…">
+              <div className="grid gap-6 md:grid-cols-3 md:gap-4">
+                {[1, 2, 3].map((rank) => (
+                  <CardSkeleton key={rank}>
+                    <div className="space-y-6 p-6">
+                      <Skeleton className="h-12 w-32" />
+                      <TextSkeleton />
+                      <div className="space-y-4">
+                        {[1, 2, 3, 4, 5, 6].map((row) => (
+                          <Skeleton key={row} className="h-5 w-full" />
+                        ))}
+                      </div>
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  </CardSkeleton>
+                ))}
+              </div>
+            </LoadingRegion>
+          }
+        >
+          <UpgradeRanks />
+        </Suspense>
         <section aria-labelledby="faq-title">
           <h2
             id="faq-title"
@@ -488,5 +473,90 @@ export default async function UpgradePage() {
         </section>
       </Container>
     </>
+  );
+}
+
+async function UpgradeHero() {
+  const [viewer, ranks, awards] = await Promise.all([
+    getCurrentUser(),
+    getRanks(),
+    getAwards(),
+  ]);
+  const sample = viewer ?? (await getLeaderboard("xp", 1))[0];
+  const awardOf = (rank: Rank) =>
+    awards.find((award) => award.slug === rank.headline.award);
+  const top = ranks[ranks.length - 1];
+
+  return (
+    <Container className="flex items-center justify-between gap-10 py-12 md:py-20">
+      <div className="max-w-xl">
+        <h1 className={heroTitleClass}>
+          Ready to <span className="text-primary">level up</span>
+          <br />
+          your experience?
+        </h1>
+        <p className={cn("mt-4 max-w-md", heroSubtitleClass)}>
+          Spend your credits on a rank to unlock its name colour, an award
+          nobody else can earn and a set of lasting perks.
+        </p>
+        <p className="mt-5 flex max-w-md items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-sm text-pretty">
+          <Coins
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 text-primary"
+          />
+          <span>
+            <span className="font-semibold">
+              Credits are earned by taking part, not bought.
+            </span>{" "}
+            <span className="text-muted-foreground">
+              {viewer ? (
+                <>
+                  You have{" "}
+                  <span className="font-semibold text-foreground tabular-nums">
+                    {formatNumber(viewer.credits)}
+                  </span>{" "}
+                  to spend.
+                </>
+              ) : (
+                "No rank can be paid for with money."
+              )}
+            </span>
+          </span>
+        </p>
+      </div>
+      <HeroArt user={sample} rank={top} award={awardOf(top)} />
+    </Container>
+  );
+}
+
+async function UpgradeRanks() {
+  const [viewer, ranks, awards] = await Promise.all([
+    getCurrentUser(),
+    getRanks(),
+    getAwards(),
+  ]);
+  const awardOf = (rank: Rank) =>
+    awards.find((award) => award.slug === rank.headline.award);
+  const recommended = ranks[Math.floor(ranks.length / 2)];
+
+  return (
+    <section aria-labelledby="ranks-title" className="space-y-8">
+      <h2 id="ranks-title" className="sr-only">
+        Ranks
+      </h2>
+      <ul className="grid gap-6 md:grid-cols-3 md:gap-4">
+        {ranks.map((rank) => (
+          <RankCard
+            key={rank.id}
+            rank={rank}
+            award={awardOf(rank)}
+            viewer={viewer}
+            username={viewer?.username ?? "your_name"}
+            recommended={rank.id === recommended.id}
+          />
+        ))}
+      </ul>
+      <Donor viewer={viewer} />
+    </section>
   );
 }

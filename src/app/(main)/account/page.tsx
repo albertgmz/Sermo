@@ -2,8 +2,11 @@ import { CalendarDays, Heart, MessageCircle, Star, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { StatsChart } from "@/app/(main)/account/stats-chart";
+import { CardSkeleton, LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getUserPosts } from "@/lib/db";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
@@ -13,7 +16,6 @@ export const metadata: Metadata = { title: "Account overview - forum/ui" };
 export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const posts = (await getUserPosts(user.id, user.id)).slice(0, 6);
   const now = new Date();
 
   return (
@@ -62,39 +64,61 @@ export default async function AccountPage() {
             ]}
           />
         </section>
-        <section className="min-w-0 rounded-lg border bg-card p-4">
-          <h2 className="text-sm font-semibold">Posting Activity</h2>
-          <p className="text-xs text-muted-foreground">
-            Your most recent posting activity.
-          </p>
-          {posts.length ? (
-            <ul className="mt-3 divide-y">
-              {posts.map((post) => (
-                <li key={post.id}>
-                  <Link
-                    href={`/threads/${post.thread.id}`}
-                    className="group flex min-h-12 flex-col justify-center py-2"
-                  >
-                    <span className="truncate text-sm font-medium underline-offset-4 group-hover:underline">
-                      {post.thread.title}
-                    </span>
-                    <time
-                      dateTime={post.createdAt}
-                      className="text-xs text-muted-foreground"
-                    >
-                      {formatRelativeTime(post.createdAt, now)}
-                    </time>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-6 text-sm text-muted-foreground">
-              You have not posted anything yet.
-            </p>
-          )}
-        </section>
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading posting activity…">
+              <CardSkeleton>
+                {[1, 2, 3, 4, 5, 6].map((row) => (
+                  <div key={row} className="space-y-2 px-4 py-3">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                ))}
+              </CardSkeleton>
+            </LoadingRegion>
+          }
+        >
+          <AccountActivity userId={user.id} now={now} />
+        </Suspense>
       </div>
     </div>
+  );
+}
+
+async function AccountActivity({ userId, now }: { userId: number; now: Date }) {
+  const posts = (await getUserPosts(userId, userId)).slice(0, 6);
+  return (
+    <section className="min-w-0 rounded-lg border bg-card p-4">
+      <h2 className="text-sm font-semibold">Posting Activity</h2>
+      <p className="text-xs text-muted-foreground">
+        Your most recent posting activity.
+      </p>
+      {posts.length ? (
+        <ul className="mt-3 divide-y">
+          {posts.map((post) => (
+            <li key={post.id}>
+              <Link
+                href={`/threads/${post.thread.id}`}
+                className="group flex min-h-12 flex-col justify-center py-2"
+              >
+                <span className="truncate text-sm font-medium underline-offset-4 group-hover:underline">
+                  {post.thread.title}
+                </span>
+                <time
+                  dateTime={post.createdAt}
+                  className="text-xs text-muted-foreground"
+                >
+                  {formatRelativeTime(post.createdAt, now)}
+                </time>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-6 text-sm text-muted-foreground">
+          You have not posted anything yet.
+        </p>
+      )}
+    </section>
   );
 }

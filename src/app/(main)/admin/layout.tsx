@@ -3,9 +3,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdminNavigation } from "@/app/(main)/admin/navigation";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -13,12 +15,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-async function AdminShell({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
-  if (user?.role !== "admin") notFound();
-
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <>
+      <Suspense>
+        <AdminAccess />
+      </Suspense>
       <PageHero
         title="Administration"
         subtitle="A closer look at your community."
@@ -29,7 +35,21 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
         <Badge variant="outline">Demo mode</Badge>
       </PageHero>
       <PageLayout mainClassName="space-y-4">
-        <AdminNavigation />
+        <Suspense
+          fallback={
+            <LoadingRegion label="Loading administration navigation…">
+              <div className="grid grid-cols-2 border-b sm:flex">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex h-11 items-center px-3">
+                    <Skeleton className="h-5 w-20" />
+                  </div>
+                ))}
+              </div>
+            </LoadingRegion>
+          }
+        >
+          <AdminNavigation />
+        </Suspense>
         <p className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
           Explore real community data. All changes here are demos and will not
           be stored.
@@ -40,22 +60,8 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <Suspense
-      fallback={
-        <PageLayout>
-          <output className="block py-8 text-sm text-muted-foreground">
-            Loading administration…
-          </output>
-        </PageLayout>
-      }
-    >
-      <AdminShell>{children}</AdminShell>
-    </Suspense>
-  );
+async function AdminAccess() {
+  const user = await getCurrentUser();
+  if (user?.role !== "admin") notFound();
+  return null;
 }

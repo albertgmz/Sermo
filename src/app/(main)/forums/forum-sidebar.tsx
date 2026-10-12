@@ -1,15 +1,22 @@
 import { Coins } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShopIcon } from "@/components/forum/shop-icon";
+import {
+  CardSkeleton,
+  LoadingRegion,
+  MemberListSkeleton,
+} from "@/components/forum/skeletons";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLeaderboard, getShopItems, type UserView } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -84,57 +91,89 @@ function JoinCard() {
   );
 }
 
-export async function ForumSidebar({ viewer }: { viewer: UserView | null }) {
-  const [items, topMembers] = await Promise.all([
-    getShopItems(),
-    getLeaderboard("xp", 5),
-  ]);
-  const latestItems = items.toSorted((a, b) => b.id - a.id).slice(0, 5);
-
+export function ForumSidebar({ viewer }: { viewer: UserView | null }) {
   return (
     <>
       {viewer ? <MemberSummary user={viewer} /> : <JoinCard />}
 
-      <SectionCard
-        title="Latest shop items"
-        action={
-          <Link href="/credits" className={viewAllClass}>
-            View all
-          </Link>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading latest shop items…">
+            <CardSkeleton>
+              {[1, 2, 3, 4, 5].map((row) => (
+                <div key={row} className="flex h-11 items-center gap-3 px-4">
+                  <Skeleton className="size-4" />
+                  <Skeleton className="h-5 w-2/3" />
+                </div>
+              ))}
+            </CardSkeleton>
+          </LoadingRegion>
         }
       >
-        {latestItems.map((item) => (
-          <Link
-            key={item.id}
-            href={`/credits?category=${item.category}`}
-            className="flex min-h-11 items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-muted/30"
-          >
-            <ShopIcon
-              category={item.category}
-              className="size-4 shrink-0 text-muted-foreground"
-            />
-            <span className="min-w-0 flex-1 truncate font-medium">
-              {item.name}
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
-              <Coins aria-hidden="true" className="size-3.5 text-primary" />
-              {formatNumber(item.price)}
-              <span className="sr-only"> credits</span>
-            </span>
-          </Link>
-        ))}
-      </SectionCard>
+        <LatestShopItems />
+      </Suspense>
 
-      <SectionCard
-        title="Top members"
-        action={
-          <Link href="/members?view=level" className={viewAllClass}>
-            View all
-          </Link>
+      <Suspense
+        fallback={
+          <LoadingRegion label="Loading top members…">
+            <MemberListSkeleton />
+          </LoadingRegion>
         }
       >
-        <Leaderboard members={topMembers} by="xp" viewerId={viewer?.id} />
-      </SectionCard>
+        <TopMembers viewer={viewer} />
+      </Suspense>
     </>
+  );
+}
+
+async function LatestShopItems() {
+  const items = await getShopItems();
+  const latestItems = items.toSorted((a, b) => b.id - a.id).slice(0, 5);
+  return (
+    <SectionCard
+      title="Latest shop items"
+      action={
+        <Link href="/credits" className={viewAllClass}>
+          View all
+        </Link>
+      }
+    >
+      {latestItems.map((item) => (
+        <Link
+          key={item.id}
+          href={`/credits?category=${item.category}`}
+          className="flex min-h-11 items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-muted/30"
+        >
+          <ShopIcon
+            category={item.category}
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {item.name}
+          </span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs tabular-nums text-muted-foreground">
+            <Coins aria-hidden="true" className="size-3.5 text-primary" />
+            {formatNumber(item.price)}
+            <span className="sr-only"> credits</span>
+          </span>
+        </Link>
+      ))}
+    </SectionCard>
+  );
+}
+
+async function TopMembers({ viewer }: { viewer: UserView | null }) {
+  const topMembers = await getLeaderboard("xp", 5);
+  return (
+    <SectionCard
+      title="Top members"
+      action={
+        <Link href="/members?view=level" className={viewAllClass}>
+          View all
+        </Link>
+      }
+    >
+      <Leaderboard members={topMembers} by="xp" viewerId={viewer?.id} />
+    </SectionCard>
   );
 }
