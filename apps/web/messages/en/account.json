@@ -167,8 +167,7 @@
       "newHint": "Use 8 to 256 characters.",
       "confirmLabel": "Confirm new password",
       "signOutOthers": "Sign out of all my other devices",
-      "submit": "Change password",
-      "pending": "Changing…"
+      "submit": "Change password"
     },
     "email": {
       "heading": "Email",
