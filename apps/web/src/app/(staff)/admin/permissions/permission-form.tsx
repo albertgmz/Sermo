@@ -33,12 +33,12 @@ export async function PermissionForm({
         value={"group" in target ? target.group : target.user}
       />
       {node !== undefined && <input type="hidden" name="node" value={node} />}
+      <ConfirmPassword />
       <PermissionMatrix
         permissions={permissions}
         entries={entries}
         allowNo={node !== undefined}
       />
-      <ConfirmPassword />
     </FormRows>
   );
 }

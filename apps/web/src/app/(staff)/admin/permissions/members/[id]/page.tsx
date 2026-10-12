@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { UserLink } from "@/components/forum/user-link";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -43,7 +42,7 @@ async function Matrix({
       <Notice searchParams={searchParams} shown={["saved"]} />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
-          <UserLink user={member} />
+          {member.username}
         </h2>
         <Link
           href={`/admin/permissions/explain?user=${userId}`}
