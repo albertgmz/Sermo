@@ -34,6 +34,13 @@ export async function ProfileForm({
     >
       <input type="hidden" name="id" value={userId} />
       {current && <input type="hidden" name="known" value="1" />}
+      {current && (
+        <>
+          <input type="hidden" name="was:about" value={current.about} />
+          <input type="hidden" name="was:location" value={current.location} />
+          <input type="hidden" name="was:website" value={current.website} />
+        </>
+      )}
       <FieldRow name="about" label={t("about")} htmlFor="profile-about">
         <Textarea
           id="profile-about"

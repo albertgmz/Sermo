@@ -409,8 +409,11 @@ test("the profile sends the shown fields, and the title and signature only when 
         id: "7",
         known: "1",
         about: "Hello",
+        "was:about": "Hi",
         location: "",
-        website: "",
+        "was:location": "Mars",
+        website: "https://a.example",
+        "was:website": "https://a.example",
         customTitle: "Founder",
         signature: "",
         "clear-signature": "on",
@@ -418,10 +421,10 @@ test("the profile sends the shown fields, and the title and signature only when 
       }),
     ),
   );
+  // The website is posted as it was shown, so it is not sent.
   expect(lastBody()).toEqual({
     about: "Hello",
     location: "",
-    website: "",
     customTitle: "Founder",
     signature: null,
     reason: "fix",
@@ -430,6 +433,29 @@ test("the profile sends the shown fields, and the title and signature only when 
     profile.saveProfile(
       null,
       form({ id: "7", about: "", location: "", website: "", reason: "" }),
+    ),
+  );
+  expect(lastBody()).toEqual({ reason: "" });
+});
+
+test("a field left as it was shown is not sent, so a change made meanwhile is not undone", async () => {
+  backend = fakeBackend({
+    "users.adminUpdateProfile": () => Response.json(member),
+  });
+  await redirectedTo(() =>
+    profile.saveProfile(
+      null,
+      form({
+        id: "7",
+        known: "1",
+        about: "As loaded",
+        "was:about": "As loaded",
+        location: "Mars",
+        "was:location": "Mars",
+        website: "",
+        "was:website": "",
+        reason: "",
+      }),
     ),
   );
   expect(lastBody()).toEqual({ reason: "" });

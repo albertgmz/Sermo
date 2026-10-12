@@ -21,7 +21,9 @@ const FIELDS = [
 ];
 
 // Saves the profile text of a member. Only the keys the form shows are sent: the three fields
-// read from the public profile when that read worked (`known`), and the title and signature only
+// read from the public profile when that read worked (`known`), and only when the posted value
+// differs from the one the form was built with (`was:<key>`), so a field the administrator did not
+// touch is not written back over a change made meanwhile. The title and signature are sent only
 // when something is typed or "remove" is ticked, because an administrator cannot read their
 // stored source and an empty box must not overwrite them.
 export async function saveProfile(
@@ -35,7 +37,9 @@ export async function saveProfile(
   const known = text(formData, "known") === "1";
   for (const key of ["about", "location", "website"] as const) {
     const value = text(formData, key);
-    if (known || value !== "") input[key] = value;
+    if (known ? value !== text(formData, `was:${key}`) : value !== "") {
+      input[key] = value;
+    }
   }
   for (const key of ["customTitle", "signature"] as const) {
     const value = text(formData, key);
