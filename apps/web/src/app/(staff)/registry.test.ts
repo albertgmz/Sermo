@@ -166,7 +166,11 @@ test("the navigation of a member lists only the built screens they may open", ()
     ]),
   ).toEqual([
     ["home", ["home"]],
-    ["moderation", ["moderationHome"]],
+    [
+      "moderation",
+      ["moderationHome", "moderationReports", "moderationApprovals"],
+    ],
+    ["tools", ["toolsModeratorLog"]],
   ]);
 });
 

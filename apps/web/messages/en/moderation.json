@@ -9,5 +9,165 @@
     "aria": {
       "loadingPending": "Loading pending work…"
     }
+  },
+  "common": {
+    "type": {
+      "thread": "Thread",
+      "post": "Post",
+      "profile_post": "Profile post",
+      "profile_post_comment": "Profile comment",
+      "conversation_message": "Private message",
+      "user": "Member"
+    },
+    "state": {
+      "open": "Open",
+      "assigned": "Assigned",
+      "resolved": "Resolved",
+      "rejected": "Rejected"
+    },
+    "content": {
+      "visible": "Visible",
+      "moderated": "Awaiting approval",
+      "deleted": "Deleted"
+    },
+    "where": {
+      "thread": "In thread {id}",
+      "threadTitled": "In thread {title}",
+      "wall": "On the wall of {name}",
+      "forum": "In {title}",
+      "conversation": "In a private conversation",
+      "member": "A member"
+    },
+    "gone": "This content cannot be read: it was removed or you may not see it.",
+    "authorUnknown": "Author unknown",
+    "forumFilter": "Forum",
+    "stateFilter": "State",
+    "all": "All",
+    "apply": "Apply",
+    "reset": "Reset",
+    "filters": "Filters",
+    "loading": "Loading…"
+  },
+  "notices": {
+    "stateSaved": "The report was updated.",
+    "approved": "The content was approved.",
+    "rejected": "The content was rejected."
+  },
+  "errors": {
+    "id": "That is not a valid record.",
+    "state": "Choose one of the offered states.",
+    "type": "That kind of content cannot be handled here.",
+    "decision": "Choose approve or reject."
+  },
+  "noticeFields": {
+    "reason": "Reason",
+    "reasonHelp": "Kept with the action in the moderator log.",
+    "notify": "Tell the member",
+    "notifyHelp": "Tell the member this action concerns.",
+    "message": "Message to the member",
+    "messageHelp": "Optional. Sent with the notification.",
+    "notifyYes": "Send a notification"
+  },
+  "reports": {
+    "metaTitle": "Reports",
+    "heading": "Reports",
+    "subtitle": "Reported content, newest first. You see the reports on content you may handle.",
+    "list": "Reports",
+    "emptyTitle": "No reports",
+    "emptyDescription": "Nothing matches these filters.",
+    "reportedBy": "Reported by {name}",
+    "others": "and {count, plural, one {# other} other {# others}}",
+    "reportCount": "{count, plural, one {# report} other {# reports}}",
+    "assignedTo": "Assigned to {name}",
+    "open": "Open case",
+    "reported": "Reported",
+    "loading": "Loading reports…",
+    "by": "By {name}"
+  },
+  "case": {
+    "metaTitle": "Report {id}",
+    "heading": "Report case {id}",
+    "back": "All reports",
+    "summaryHeading": "Case",
+    "target": "Reported",
+    "state": "State",
+    "assignedTo": "Assigned to",
+    "unassigned": "Nobody",
+    "opened": "Opened",
+    "updated": "Last change",
+    "closed": "Closed",
+    "reportCount": "Reports",
+    "contentHeading": "Reported content",
+    "contentDescription": "As the site stores it, with the pictures your lite settings allow.",
+    "reportsHeading": "Reports on it",
+    "reportsEmpty": "No reports are listed.",
+    "reportReason": "Reason",
+    "historyHeading": "History",
+    "historyDescription": "The backend keeps the state, who holds the case and when it changed; it does not keep a list of past changes.",
+    "linksHeading": "Act on it",
+    "linksDescription": "Content and members are handled where they live.",
+    "viewPublic": "View it on the site",
+    "viewAuthor": "Author's profile",
+    "viewAuthorPanel": "Author in the panel",
+    "viewMember": "Member's profile",
+    "viewMemberPanel": "Member in the panel",
+    "viewMessage": "Open the private message",
+    "messageHelp": "Private messages open through an audited view.",
+    "formHeading": "Decide",
+    "formDescription": "Change the state of the case, with a note.",
+    "stateLabel": "New state",
+    "stateHelp": "Assigning gives you the case. Resolved and rejected close it.",
+    "submit": "Save the state",
+    "loading": "Loading the case…",
+    "system": "Unknown"
+  },
+  "message": {
+    "metaTitle": "Reported private message",
+    "heading": "Reported private message",
+    "back": "Back to the case",
+    "loading": "Loading…"
+  },
+  "auditedRead": {
+    "heading": "This view is logged",
+    "warning": "Private conversations are not open to moderators. Opening this message shows it with the messages around it, and the moderator log records that you did, with your name and the time. Open it only to decide this case.",
+    "confirm": "Open and log the view",
+    "opening": "Opening…",
+    "viewHeading": "{title}",
+    "viewDescription": "The message under review is marked. The view was logged.",
+    "target": "Reported message",
+    "context": "Context",
+    "empty": "The conversation has no messages to show."
+  },
+  "approvals": {
+    "metaTitle": "Approvals",
+    "heading": "Approvals",
+    "subtitle": "Content waiting for approval, newest first. You see what you may approve.",
+    "list": "Approval queue",
+    "emptyTitle": "Nothing waiting",
+    "emptyDescription": "No content matches these filters.",
+    "review": "Review",
+    "added": "Submitted",
+    "loading": "Loading the queue…"
+  },
+  "review": {
+    "metaTitle": "Review {type} {id}",
+    "heading": "Review: {type} {id}",
+    "back": "All approvals",
+    "contentHeading": "Content",
+    "contentDescription": "As submitted, with the pictures your lite settings allow.",
+    "state": "State",
+    "author": "Author",
+    "submitted": "Submitted",
+    "notWaiting": "This content is no longer waiting for approval; the backend decides whether it may still be changed.",
+    "viewPublic": "View it on the site",
+    "viewAuthorPanel": "Author in the panel",
+    "messageHeading": "Private message",
+    "approveHeading": "Approve",
+    "approveDescription": "Makes the content visible to everyone who can see its place.",
+    "approveSubmit": "Approve",
+    "rejectHeading": "Reject",
+    "rejectDescription": "Deletes the content. Everyone but those who may see deleted content stops seeing it.",
+    "rejectSubmit": "Reject and delete",
+    "loading": "Loading the item…"
   }
 }
