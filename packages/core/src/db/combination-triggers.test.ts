@@ -467,13 +467,15 @@ describe("upgrades repair existing permission data", () => {
 
       applyMigrations(ctx, 17, 18);
       await execute(ctx, getOperation("promotions.delete"), userActor(second), { promotionId: 1 });
-      if (path === "apply while deletion is pending")
+      if (path === "apply while deletion is pending") {
+        // This database stops at an early migration; the erased-member check reads a later column.
+        ctx.sqlite.run("ALTER TABLE users ADD COLUMN erased_at integer");
         await execute(ctx, getOperation("promotions.apply"), userActor(second), {
           promotionId: 1,
           userId: first.id,
           action: "reset",
         });
-      else deletePromotionChunk(ctx, { promotionId: 1, after: 0, actorId: second.id });
+      } else deletePromotionChunk(ctx, { promotionId: 1, after: 0, actorId: second.id });
 
       expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
       expect(can(ctx, userActor(second), "admin.permissions")).toBe(false);

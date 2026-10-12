@@ -176,16 +176,20 @@ for (const seed of [0x12345678, 0x51a7e, 0xdecafbad]) {
           "SELECT stock FROM shop_items WHERE id = ?1",
           item.id,
         )[0]!.stock;
-        const inventory = rows<{ state: string }>(
+        const inventory = rows<{ state: string; expires_at: number | null }>(
           ctx,
-          "SELECT state FROM shop_inventory WHERE item_id = ?1 AND user_id = ?2",
+          "SELECT state, expires_at FROM shop_inventory WHERE item_id = ?1 AND user_id = ?2",
           item.id,
           recipient.id,
         )[0];
         const shouldFail =
           balance < item.price * quantity ||
           stock < quantity ||
-          (!item.isConsumable && inventory !== undefined && inventory.state !== "expired");
+          (!item.isConsumable &&
+            inventory !== undefined &&
+            inventory.state !== "expired" &&
+            // A row whose time has lapsed counts as expired before the job marks it.
+            !(inventory.expires_at !== null && inventory.expires_at <= ctx.now()));
         const before = databaseSnapshot(ctx);
         const purchase = () =>
           act(
