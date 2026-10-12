@@ -86,7 +86,7 @@ describe("upgrades repair existing permission data", () => {
     expect(expected(ctx, first.id).group_ids).toBe("2");
     expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     consistent();
     expect(can(ctx, userActor(first), "admin.permissions")).toBe(false);
@@ -103,7 +103,7 @@ describe("upgrades repair existing permission data", () => {
     expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
     expect(can(ctx, userActor(second), "admin.permissions")).toBe(false);
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
     ctx.sqlite
       .prepare("UPDATE users SET group_id = 2 WHERE id = ?1 AND group_id = 5")
       .run(first.id);
@@ -125,7 +125,7 @@ describe("upgrades repair existing permission data", () => {
         .all(definition("admin.permissions")),
     ).toEqual([{ user_id: first.id, value: 1 }]);
     const entries = ctx.sqlite.prepare("SELECT * FROM permission_entries ORDER BY id").all();
-    applyMigrations(ctx, 18);
+    applyMigrations(ctx, 18, 18);
     expect(ctx.sqlite.prepare("SELECT * FROM permission_entries ORDER BY id").all()).toEqual(
       entries,
     );
@@ -173,7 +173,7 @@ describe("upgrades repair existing permission data", () => {
           .run(definition("admin.permissions"), groupValue, first.id, memberValue);
         expect(can(ctx, userActor(first), "admin.permissions")).toBe(result === 1);
 
-        applyMigrations(ctx, 17);
+        applyMigrations(ctx, 17, 18);
 
         expect(
           ctx.sqlite
@@ -223,7 +223,7 @@ describe("upgrades repair existing permission data", () => {
       expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
       expect(can(ctx, userActor(second), "admin.permissions")).toBe(false);
 
-      applyMigrations(ctx, 17);
+      applyMigrations(ctx, 17, 18);
 
       consistent();
       expect(can(ctx, userActor(first), "admin.permissions")).toBe(false);
@@ -251,7 +251,7 @@ describe("upgrades repair existing permission data", () => {
       expect(actual(ctx, first.id).user_id).toBe(first.id);
       expect(actual(ctx, second.id).user_id).toBe(0);
 
-      applyMigrations(ctx, 17);
+      applyMigrations(ctx, 17, 18);
 
       consistent();
       expect(actual(ctx, first.id).user_id).toBe(0);
@@ -299,7 +299,7 @@ describe("upgrades repair existing permission data", () => {
         .get()!.version;
     const previousVersion = version();
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     consistent();
     expect(actual(ctx, first.id).group_ids).toBe([2, automatic, bought, replacement].join(","));
@@ -307,7 +307,7 @@ describe("upgrades repair existing permission data", () => {
     const combinations = ctx.sqlite
       .prepare("SELECT * FROM permission_combinations ORDER BY id")
       .all();
-    applyMigrations(ctx, 18);
+    applyMigrations(ctx, 18, 18);
     consistent();
     expect(ctx.sqlite.prepare("SELECT * FROM permission_combinations ORDER BY id").all()).toEqual(
       combinations,
@@ -390,7 +390,7 @@ describe("upgrades repair existing permission data", () => {
         )
         .get()!.count,
     ).toBe(3_900);
-    applyMigrations(ctx, 18);
+    applyMigrations(ctx, 18, 18);
     expect(mismatches()).toBe(0);
   }, 20_000);
 
@@ -415,7 +415,7 @@ describe("upgrades repair existing permission data", () => {
     expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
     expect(can(ctx, userActor(second), "admin.permissions")).toBe(false);
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
     await execute(ctx, getOperation("promotions.update"), userActor(first), {
       promotionId: 1,
       groupIds: [ordinary],
@@ -465,7 +465,7 @@ describe("upgrades repair existing permission data", () => {
       expect(can(ctx, userActor(first), "admin.permissions")).toBe(true);
       expect(can(ctx, userActor(second), "admin.permissions")).toBe(false);
 
-      applyMigrations(ctx, 17);
+      applyMigrations(ctx, 17, 18);
       await execute(ctx, getOperation("promotions.delete"), userActor(second), { promotionId: 1 });
       if (path === "apply while deletion is pending")
         await execute(ctx, getOperation("promotions.apply"), userActor(second), {
@@ -531,7 +531,7 @@ describe("upgrades repair existing permission data", () => {
         expect(can(ctx, userActor(second), "admin.permissions")).toBe(value === 1);
         const before = [first, second].map((user) => expected(ctx, user.id));
 
-        applyMigrations(ctx, 17);
+        applyMigrations(ctx, 17, 18);
 
         expect(
           ctx.sqlite
@@ -556,7 +556,7 @@ describe("upgrades repair existing permission data", () => {
           expect(actual(ctx, user.id)).toEqual(before[index]!);
           expect(can(ctx, userActor(user), "admin.permissions")).toBe(value === 1);
         }
-        applyMigrations(ctx, 18);
+        applyMigrations(ctx, 18, 18);
         evaluateMember(ctx, second.id);
         sweepChunk(ctx);
         if (state === "deleting")
@@ -751,7 +751,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     expect(count("users")).toBe(3_002);
     const combinations = count("permission_combinations");
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     expect(groupEntries(MEMBER)).toEqual([]);
     expect(memberEntries()).toEqual([]);
@@ -776,7 +776,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     const before = outcomes(users);
     expect(before).toEqual(users.map((user) => user.id === administrator.id));
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     expect(groupEntries(MEMBER)).toEqual([]);
     expect(memberEntries()).toEqual(
@@ -801,14 +801,14 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     const { ctx, users, outcomes, snapshot, permissionsVersion, memberEntries, materialised } =
       memberNeverScenario();
     const before = outcomes(users);
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
     expect(memberEntries().filter((entry) => entry.value === -1)).toHaveLength(
       materialised.length + 1,
     );
     const first = snapshot();
     const version = permissionsVersion();
 
-    applyMigrations(ctx, 18);
+    applyMigrations(ctx, 18, 18);
 
     expect(snapshot()).toEqual(first);
     expect(permissionsVersion()).toBeGreaterThan(version);
@@ -831,7 +831,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
       const before = outcomes(users);
       expect(before).toEqual([...expected.outcome]);
 
-      applyMigrations(ctx, 17);
+      applyMigrations(ctx, 17, 18);
 
       expect(groupEntries(UNCONFIRMED)).toEqual([]);
       expect(memberEntries()).toEqual(
@@ -856,7 +856,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     const unconfirmed = insertUser(ctx, { groupId: UNCONFIRMED });
     expect(outcomes([both, unconfirmed])).toEqual([false, true]);
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     expect(memberEntries()).toEqual([{ user_id: unconfirmed.id, value: 1 }]);
     expect(outcomes([both, unconfirmed])).toEqual([false, true]);
@@ -875,7 +875,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     ctx.sqlite.run("PRAGMA foreign_keys = ON");
     expect(count("user_group_grants WHERE user_id = 999999")).toBe(2);
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     expect(count("user_groups WHERE user_id = 999999")).toBe(0);
     expect(count("user_group_grants WHERE user_id = 999999")).toBe(0);
@@ -899,7 +899,7 @@ describe("0018 moves legacy admin.permissions decisions without changing anyone'
     );
     ctx.sqlite.run("PRAGMA foreign_keys = ON");
 
-    applyMigrations(ctx, 17);
+    applyMigrations(ctx, 17, 18);
 
     expect(count("user_groups WHERE group_id = 9999")).toBe(0);
     expect(count("user_group_grants")).toBe(0);

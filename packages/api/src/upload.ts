@@ -6,13 +6,14 @@ import {
   createStorage,
   SermoError,
   type StorageConfig,
+  schema,
   ValidationError,
 } from "@sermo/core";
 import busboy from "busboy";
 import { HTTPException } from "hono/http-exception";
 
-const purposes = new Set(["attachment", "avatar", "cover", "node_icon", "node_cover"]);
-type Purpose = "attachment" | "avatar" | "cover" | "node_icon" | "node_cover";
+const purposes = new Set<string>(schema.FILE_PURPOSES);
+type Purpose = (typeof schema.FILE_PURPOSES)[number];
 
 /**
  * Thrown for a non-multipart content type. Carries its own response (the same envelope as the

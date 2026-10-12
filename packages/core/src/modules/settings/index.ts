@@ -1,10 +1,12 @@
 import type * as z from "zod";
 import type { Actor } from "../../actor";
+import { requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { SiteSettings, settingsGet, settingsUpdate } from "../../contracts/settings";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { requirePermission } from "../../permissions";
+import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
 
 export type SiteSettingsValue = z.infer<typeof SiteSettings>;
@@ -47,6 +49,9 @@ const defaults: StoredSiteSettingsValue = {
   emailHourlyCap: 20,
   conversationEmailIncludesBody: false,
   digestInactiveDays: 3,
+  logoFileId: null,
+  iconFileId: null,
+  backdropFileId: null,
 };
 
 export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {
@@ -76,16 +81,31 @@ function quotaView(rows: readonly { group_id: number; value: number }[]): Record
   return groupUploadLimitBytes;
 }
 
+/** The settings that hold one of the site's own pictures, and the purpose their file is uploaded with. */
+const SITE_PICTURES = [
+  ["logoFileId", "site_logo"],
+  ["iconFileId", "site_icon"],
+  ["backdropFileId", "site_backdrop"],
+] as const;
+
 export function updateSiteSettings(
   ctx: Ctx,
   actor: Actor,
   changes: Partial<SiteSettingsValue>,
 ): SiteSettingsValue {
   requirePermission(ctx, actor, "admin.settings");
+  const user = requireAuthenticated(actor);
   return writeTx(ctx, () => {
     const rows = quotaRows(ctx);
+    const current = readSiteSettings(ctx);
+    for (const [key, purpose] of SITE_PICTURES) {
+      const wanted = changes[key];
+      if (wanted === undefined || wanted === current[key]) continue;
+      if (wanted !== null) attachUploadedFile(ctx, user.userId, wanted, purpose);
+      if (current[key] !== null) releaseFile(ctx, current[key]);
+    }
     const next = SiteSettings.parse({
-      ...readSiteSettings(ctx),
+      ...current,
       groupUploadLimitBytes: quotaView(rows),
       ...changes,
     });

@@ -1,3 +1,4 @@
+import { operations as appearance } from "./modules/appearance";
 import { operations as auth } from "./modules/auth";
 import { operations as awards } from "./modules/awards";
 import { operations as conversations } from "./modules/conversations";
@@ -46,6 +47,7 @@ export const operations: readonly AnyOperation[] = [
   ...creditRules,
   ...awards,
   ...shop,
+  ...appearance,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

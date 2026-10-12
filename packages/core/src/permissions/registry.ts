@@ -396,6 +396,8 @@ export const PERMISSIONS = {
   "admin.awards": globalAdmin("admin"),
   /** Manage shop categories and items, and see the purchase log and any inventory. */
   "admin.shop": globalAdmin("admin"),
+  /** Manage the picture and colour catalogs members choose their appearance from. */
+  "admin.appearance": globalAdmin("admin"),
 } as const satisfies Record<string, PermissionDefinition>;
 
 function globalModerator(category: BaseDefinition["category"]): FlagDefinition {

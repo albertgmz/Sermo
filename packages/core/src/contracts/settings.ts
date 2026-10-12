@@ -1,11 +1,11 @@
 import * as z from "zod";
-import { FILE_PURPOSES } from "../db/schema";
+import { UPLOAD_SETTING_PURPOSES } from "../db/schema";
 
 /** Languages with complete phrase catalogs. */
 export const SUPPORTED_LANGUAGES = ["en", "es"] as const;
 
 import { defineContract } from "../operation";
-import { Empty } from "./common";
+import { Empty, Id } from "./common";
 
 const Mime = z
   .string()
@@ -15,7 +15,8 @@ const MimeList = z.array(Mime).max(40);
 export const SiteSettings = z
   .object({
     maxUploadBytes: z.number().int().min(1).max(1_073_741_824),
-    allowedUploadTypes: z.record(z.enum(FILE_PURPOSES), MimeList),
+    /** Per member-facing purpose. Catalog and site pictures always take JPEG, PNG and WebP. */
+    allowedUploadTypes: z.record(z.enum(UPLOAD_SETTING_PURPOSES), MimeList),
     groupUploadLimitBytes: z.record(z.string().regex(/^[1-4]$/), z.number().int().min(0)),
     firstPostsToModerate: z.number().int().min(0).max(100),
     moderateLinksFromNewMembers: z.boolean(),
@@ -49,6 +50,14 @@ export const SiteSettings = z
     conversationEmailIncludesBody: z.boolean().default(false),
     /** The weekly digest goes to members who have not visited for at least this many days. */
     digestInactiveDays: z.number().int().min(1).max(365).default(3),
+    /**
+     * The site's own pictures: an unattached file the actor uploaded with the purpose
+     * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the
+     * previous file; null removes it.
+     */
+    logoFileId: Id.nullable().default(null),
+    iconFileId: Id.nullable().default(null),
+    backdropFileId: Id.nullable().default(null),
   })
   .meta({ id: "SiteSettings" });
 

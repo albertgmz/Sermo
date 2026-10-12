@@ -6,12 +6,14 @@ import { NotFoundError } from "../../errors";
 import type { Criterion } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { fileUrl } from "../storage/url";
 
 export type AwardRow = {
   id: number;
   name: string;
   description: string;
   icon: string;
+  image_file_id: number | null;
   tier: z.infer<typeof Award>["tier"];
   xp: number;
   credits: number;
@@ -82,6 +84,10 @@ export const awardValue = (row: AwardRow): z.infer<typeof Award> => ({
   name: row.name,
   description: row.description,
   icon: row.icon,
+  image:
+    row.image_file_id === null
+      ? null
+      : { fileId: row.image_file_id, url: fileUrl(row.image_file_id) },
   tier: row.tier,
   xp: row.xp,
   credits: row.credits,

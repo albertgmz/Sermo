@@ -2,6 +2,7 @@ import * as z from "zod";
 import { AWARD_TIERS } from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { ImageReference } from "./images";
 import { CriterionDefinition, PromotionCriterion } from "./promotions";
 
 /**
@@ -15,6 +16,8 @@ export const Award = z
     description: z.string(),
     /** An icon key or URL the client resolves. */
     icon: z.string(),
+    /** The award's picture (images.setAwardImage), or null. */
+    image: ImageReference,
     tier: z.enum(AWARD_TIERS),
     /** XP each grant adds to the member's total. */
     xp: z.number().int().nonnegative(),
