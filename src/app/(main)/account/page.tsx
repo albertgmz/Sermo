@@ -2,6 +2,7 @@ import { CalendarDays, Heart, MessageCircle, Star, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getFormatter, getNow, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AccountDetails } from "@/app/(main)/account/account-details";
 import {
@@ -12,10 +13,13 @@ import { PrefixTag } from "@/components/forum/prefix-tag";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
 import { getUserPosts } from "@/lib/db";
-import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatDateTime, formatNumber } from "@/lib/format";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Account overview - forum/ui" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("account.account");
+  return { title: t("metaTitle") };
+}
 
 export default async function AccountPage({
   searchParams,
@@ -24,12 +28,13 @@ export default async function AccountPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const now = new Date();
+  const now = await getNow();
+  const t = await getTranslations("account.account");
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 lg:pb-2">
-        <h1 className="text-2xl font-bold tracking-tight">Overview</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
         <p className="flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium">
           <CalendarDays className="size-4" />
           <time dateTime={now.toISOString()}>{formatDateTime(now)}</time>
@@ -38,22 +43,22 @@ export default async function AccountPage({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
-          label="Total Posts"
+          label={t("postsLabel")}
           icon={MessageCircle}
           value={formatNumber(user.postCount)}
         />
         <StatTile
-          label="Total Reactions"
+          label={t("reactionsLabel")}
           icon={Heart}
           value={formatNumber(user.reactionCount)}
         />
         <StatTile
-          label="Followers"
+          label={t("followersLabel")}
           icon={Users}
           value={formatNumber(user.followerCount)}
         />
         <StatTile
-          label="Total Reputation"
+          label={t("reputationLabel")}
           icon={Star}
           value={formatNumber(user.reputation)}
         />
@@ -62,7 +67,7 @@ export default async function AccountPage({
       <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Suspense
           fallback={
-            <LoadingRegion label="Loading account details…">
+            <LoadingRegion label={t("detailsLoading")}>
               <AccountDetailsSkeleton />
             </LoadingRegion>
           }
@@ -71,7 +76,7 @@ export default async function AccountPage({
         </Suspense>
         <Suspense
           fallback={
-            <LoadingRegion label="Loading posting activity…">
+            <LoadingRegion label={t("activityLoading")}>
               <AccountActivitySkeleton />
             </LoadingRegion>
           }
@@ -85,11 +90,13 @@ export default async function AccountPage({
 
 async function AccountActivity({ userId, now }: { userId: number; now: Date }) {
   const posts = (await getUserPosts(userId, userId)).slice(0, 6);
+  const t = await getTranslations("account.account");
+  const format = await getFormatter();
   return (
     <section className="min-w-0 rounded-lg border bg-card p-4">
-      <h2 className="text-sm font-semibold">Posting Activity</h2>
+      <h2 className="text-sm font-semibold">{t("activityHeading")}</h2>
       <p className="text-xs text-muted-foreground">
-        Your most recent posting activity.
+        {t("activityDescription")}
       </p>
       {posts.length ? (
         <ul className="mt-3 divide-y">
@@ -109,16 +116,14 @@ async function AccountActivity({ userId, now }: { userId: number; now: Date }) {
                   dateTime={post.createdAt}
                   className="text-xs text-muted-foreground"
                 >
-                  {formatRelativeTime(post.createdAt, now)}
+                  {format.relativeTime(new Date(post.createdAt), now)}
                 </time>
               </Link>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-6 text-sm text-muted-foreground">
-          You have not posted anything yet.
-        </p>
+        <p className="mt-6 text-sm text-muted-foreground">{t("empty")}</p>
       )}
     </section>
   );
