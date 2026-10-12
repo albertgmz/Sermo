@@ -20,20 +20,20 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
   can,
+  currentActor,
   memberActor,
   memberDisplay,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionsOf,
-  permissionValue,
   requestVersions,
   requirePermission,
 } from "../../permissions";
-import { renderContent, renderMarkdown, storeContentReferences } from "../../render";
+import { renderContent, storeContentReferences } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
-import { loadMemberAuthors } from "../members/cards";
-import { REFERRAL_WINDOW_MS } from "../members/referral";
+import { loadMemberDetails } from "../members/cards";
+import { REFERRAL_WINDOW_MS } from "../members/directory";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -58,6 +58,7 @@ import {
   touchProfile,
   WALL_SQL,
 } from "./shared";
+import { renderSignature } from "./signature";
 
 type ProfileRow = PrincipalRow & {
   id: number;
@@ -108,8 +109,8 @@ function readProfileRow(ctx: Ctx, userId: number): ProfileRow {
 function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileAccess) {
   const permissions = permissionsOf(ctx, actor);
   const viewerId = actorUserId(actor);
-  const author = loadMemberAuthors(ctx, actor, [row.id], { awards: false }).get(row.id)!;
-  const member = memberActor(row.id, row.group_id, row, requestVersions(ctx, actor));
+  const details = loadMemberDetails(ctx, actor, [row.id], { awards: false });
+  const author = details.authors.get(row.id)!;
   const lookup = (key: string, sql: string) =>
     viewerId !== null &&
     viewerId !== row.id &&
@@ -135,7 +136,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
     reactionScore: author.reactionScore,
     canPostOnWall: permissions.can("profile.view") && mayPostOnWall(ctx, actor, row.id, access),
     card: author.card,
-    customTitle: row.custom_title,
+    customTitle: details.mayShowTitle.get(row.id) ? row.custom_title : null,
     signatureHtml: author.signatureHtml,
     location: row.location,
     website: row.website,
@@ -150,7 +151,7 @@ function profileValue(ctx: Ctx, actor: Actor, row: ProfileRow, access?: ProfileA
       currentLevelXp: author.currentLevelXp,
       nextLevelXp: author.nextLevelXp,
     },
-    awardSlots: permissionValue(ctx, member, "profile.awardSlots"),
+    awardSlots: details.awardSlots.get(row.id)!,
     referralCount: row.referral_count,
     lastActivityAt: seen > 0 ? iso(seen - (seen % MINUTE_MS)) : null,
     viewer: {
@@ -202,6 +203,15 @@ function checkBirthday(now: number, birthday: { year?: number; month: number; da
   if (year !== undefined && probe.getTime() > now)
     throw new ValidationError("A birthday cannot be in the future.");
 }
+// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are stripped
+const INVISIBLE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\ufeff]/g;
+/** A title with its whitespace collapsed and its control and invisible characters removed. */
+const cleanTitle = (title: string) =>
+  title
+    .replace(/[\t-\r]/g, " ")
+    .replace(INVISIBLE, "")
+    .replace(/\s+/g, " ")
+    .trim();
 const two = (value: number) => String(value).padStart(2, "0");
 
 export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) => {
@@ -225,18 +235,23 @@ export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) =>
   if (input.socials?.discord !== undefined) changes.social_discord = input.socials.discord;
   if (input.socials?.telegram !== undefined) changes.social_telegram = input.socials.telegram;
   if (input.socials?.x !== undefined) changes.social_x = input.socials.x;
+  // Clearing a title or a signature is always allowed; setting one needs its permission.
+  let settingTitle = false;
+  let settingSignature = false;
   if (input.customTitle !== undefined) {
-    requirePermission(ctx, actor, "profile.customTitle");
-    const title = input.customTitle?.replace(/\s+/g, " ").trim() ?? "";
+    const title = cleanTitle(input.customTitle ?? "");
     if (title.length > settings.customTitleMaxLength)
       throw new ValidationError(
         `A title is at most ${settings.customTitleMaxLength} characters long.`,
       );
+    settingTitle = title !== "";
+    if (settingTitle) requirePermission(ctx, actor, "profile.customTitle");
     changes.custom_title = title === "" ? null : title;
   }
   if (input.signature !== undefined) {
-    requirePermission(ctx, actor, "profile.signature");
     const source = input.signature?.trim() ?? "";
+    settingSignature = source !== "";
+    if (settingSignature) requirePermission(ctx, actor, "profile.signature");
     if (source.length > settings.signatureMaxLength)
       throw new ValidationError(
         `A signature is at most ${settings.signatureMaxLength} characters long.`,
@@ -245,11 +260,16 @@ export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) =>
       throw new ValidationError(`A signature is at most ${settings.signatureMaxLines} lines long.`);
     // Rendered before the transaction opens.
     changes.signature_source = source === "" ? null : source;
-    changes.signature_html = source === "" ? null : renderMarkdown(source);
+    changes.signature_html = source === "" ? null : renderSignature(source);
   }
   const columns = Object.keys(changes);
   if (columns.length > 0)
     writeTx(ctx, () => {
+      // The actor may have lost a permission, or been banned, since the request began.
+      const current = currentActor(ctx, actor);
+      requirePermission(ctx, current, "profile.editOwn");
+      if (settingTitle) requirePermission(ctx, current, "profile.customTitle");
+      if (settingSignature) requirePermission(ctx, current, "profile.signature");
       ctx.sqlite
         .prepare(
           `UPDATE users SET ${columns.map((column, i) => `${column} = ?${i + 3}`).join(", ")}, content_updated_at = ?2 WHERE id = ?1`,
@@ -266,6 +286,7 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
   const settings = readSiteSettings(ctx);
   return {
     profile: profileValue(ctx, actor, row),
+    customTitle: row.custom_title,
     signatureSource: row.signature_source,
     birthYear: row.birth_year,
     referrerId: row.referred_by,

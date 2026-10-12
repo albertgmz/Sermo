@@ -171,6 +171,46 @@ describe("users.cards", () => {
     expect(everything.title).toBe("New member");
   });
 
+  test("the title and first badge agree with the display group of profiles.get", async () => {
+    const w = world();
+    const low = w.group({ title: "Low", rank: 20, badge: "low", userTitle: "Lowly" });
+    const mid = w.group({ title: "Mid", rank: 25, badge: "mid", userTitle: "Middling" });
+    const high = w.group({ title: "High", rank: 35, badge: "high" });
+    const top = w.group({ title: "Top", rank: 50, badge: "top", userTitle: "Topmost" });
+    const sql = w.ctx.sqlite;
+    sql.run("PRAGMA foreign_keys = OFF");
+    const cases = [
+      { by: [low, mid], promoted: [], bought: [] },
+      { by: [low], promoted: [mid], bought: [] },
+      { by: [], promoted: [low], bought: [high] },
+      { by: [low], promoted: [mid], bought: [high] },
+      { by: [mid], promoted: [top], bought: [low, high] },
+      { by: [], promoted: [], bought: [top] },
+    ];
+    for (const grants of cases) {
+      const user = w.user();
+      for (const id of grants.by)
+        sql.run(
+          `INSERT INTO user_groups (user_id, group_id, created_at) VALUES (${user.id}, ${id}, 0)`,
+        );
+      for (const id of grants.promoted)
+        sql.run(
+          `INSERT INTO user_group_grants (user_id, promotion_id, group_id, created_at) VALUES (${user.id}, ${user.id}, ${id}, 0)`,
+        );
+      for (const id of grants.bought)
+        sql.run(
+          `INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (${user.id}, ${user.id}, ${id}, 0)`,
+        );
+      const profile = await w.call("profiles.get", w.memberActor, { userId: user.id });
+      const display = profile.displayGroup;
+      expect(display).not.toBeNull();
+      const card = await one(w, user.id);
+      expect(card.title).toBe(display.userTitle !== "" ? display.userTitle : "New member");
+      expect(card.badges[0]?.label).toBe(display.title);
+      expect(profile.card).toEqual(card);
+    }
+  });
+
   test("the member's own name colour beats a group's", async () => {
     const w = world();
     const groupColor = w.color("name", "#111111");

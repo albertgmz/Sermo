@@ -202,6 +202,107 @@ describe("the standings job", () => {
     expect(marker()).toBe("202603");
   });
 
+  describe("catching up", () => {
+    const winnerMonths = (w: World) =>
+      w.ctx.sqlite
+        .prepare<{ month: number; user_id: number }, []>(
+          "SELECT month, user_id FROM month_winners ORDER BY month",
+        )
+        .all();
+    const marker = (w: World) =>
+      w.ctx.sqlite
+        .prepare<{ value: string }, [string]>("SELECT value FROM site_settings WHERE key = ?1")
+        .get(DECIDED_KEY)?.value;
+
+    test("a job that runs in January and next in March decides January and February", () => {
+      const w = world();
+      const c = content(w);
+      const [alice, bob] = [w.user(), w.user()];
+      w.ctx.clock.set(JAN(10));
+      c.posts(alice.id, 2, Date.UTC(2025, 11, 5));
+      refreshStandings(w.ctx);
+      expect(winnerMonths(w)).toEqual([{ month: 202512, user_id: alice.id }]);
+      c.posts(alice.id, 3, JAN(20));
+      c.posts(bob.id, 4, FEB(10));
+      w.ctx.clock.set(Date.UTC(2026, 2, 5));
+      refreshStandings(w.ctx);
+      expect(winnerMonths(w)).toEqual([
+        { month: 202512, user_id: alice.id },
+        { month: 202601, user_id: alice.id },
+        { month: 202602, user_id: bob.id },
+      ]);
+      expect(marker(w)).toBe("202602");
+    });
+
+    test("a site with posts in three past months and no marker gets three winners at once", async () => {
+      const w = world();
+      const c = content(w);
+      const [a, b, d] = [w.user(), w.user(), w.user()];
+      // Older than twelve months: not decided.
+      c.posts(d.id, 5, Date.UTC(2024, 10, 5));
+      c.posts(a.id, 1, Date.UTC(2025, 9, 5));
+      c.posts(b.id, 2, Date.UTC(2025, 10, 5));
+      c.posts(a.id, 3, Date.UTC(2025, 11, 5));
+      w.ctx.clock.set(JAN(15));
+      refreshStandings(w.ctx);
+      expect(winnerMonths(w)).toEqual([
+        { month: 202510, user_id: a.id },
+        { month: 202511, user_id: b.id },
+        { month: 202512, user_id: a.id },
+      ]);
+      expect(marker(w)).toBe("202512");
+      expect((await winners(w)).items.map((item) => [item.year, item.month])).toEqual([
+        [2025, 12],
+        [2025, 11],
+        [2025, 10],
+      ]);
+    });
+
+    test("a month nobody scored in is decided without a winner and not recomputed", () => {
+      const w = world();
+      const c = content(w);
+      const alice = w.user();
+      w.ctx.clock.set(JAN(10));
+      refreshStandings(w.ctx);
+      c.posts(alice.id, 1, JAN(20));
+      w.ctx.clock.set(Date.UTC(2026, 2, 5));
+      refreshStandings(w.ctx);
+      expect(winnerMonths(w)).toEqual([{ month: 202601, user_id: alice.id }]);
+      expect(marker(w)).toBe("202602");
+      // February content that appears afterwards is not picked up.
+      c.posts(alice.id, 9, FEB(20));
+      w.ctx.clock.set(Date.UTC(2026, 2, 6));
+      refreshStandings(w.ctx);
+      expect(winnerMonths(w)).toEqual([{ month: 202601, user_id: alice.id }]);
+      expect(rows(w, 202602)).toEqual([]);
+    });
+
+    test("the stats of months older than the previous one are removed, in batches", () => {
+      const w = world();
+      const insert = w.ctx.sqlite.prepare(
+        "INSERT INTO member_month_stats (month, user_id, posts, reactions, referrals, points_tenths) VALUES (?1, ?2, 1, 0, 0, 10)",
+      );
+      const users = Array.from({ length: 450 }, () => w.user().id);
+      for (const id of users) {
+        insert.run(202401, id);
+        insert.run(202402, id);
+      }
+      w.ctx.clock.set(JAN(15));
+      refreshStandings(w.ctx);
+      expect(rows(w, 202401)).toEqual([]);
+      expect(rows(w, 202402)).toEqual([]);
+    });
+
+    test("the previous and the current month keep their stats", () => {
+      const { w } = scenario();
+      refreshStandings(w.ctx);
+      w.ctx.clock.set(FEB(2));
+      refreshStandings(w.ctx);
+      expect(rows(w, 202512)).toEqual([]);
+      expect(rows(w, 202601).length).toBeGreaterThan(0);
+    });
+  });
+
   test("ties go to more posts, then to the lower id", () => {
     const w = world();
     const c = content(w);
@@ -357,6 +458,7 @@ describe("the standings job", () => {
     expectNoTableScan(w.ctx, standingSql.remove, [202601, "[1]"]);
     expectNoTableScan(w.ctx, standingSql.top, [202601]);
     expectNoTableScan(w.ctx, standingSql.winner, [202601]);
+    expectNoTableScan(w.ctx, standingSql.prune, [202512, 200]);
     expectNoTableScan(w.ctx, standingSql.decided, []);
     expectNoTableScan(w.ctx, standingSql.sameScore(columns), [202601, 5, 2, 0, 21]);
     expectNoTableScan(w.ctx, standingSql.samePoints(columns), [202601, 5, 2, 21]);

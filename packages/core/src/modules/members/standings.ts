@@ -1,4 +1,5 @@
 import * as z from "zod";
+import type { Actor } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { standingsMonth, standingsWinners } from "../../contracts/members";
 import { writeTx } from "../../db/tx";
@@ -8,12 +9,15 @@ import { requirePermission } from "../../permissions";
 import { scanKeyset } from "../feed/scan";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
+import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
 
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
 /** Members written, or stale rows removed, per transaction. */
 const WRITE_BATCH = 200;
+/** How many months back a run decides the months a missed run left open. */
+const CATCH_UP_MONTHS = 12;
 /** The marker row that says every month up to and including its value has been decided. */
 export const DECIDED_KEY = "standings.decided";
 
@@ -45,6 +49,8 @@ export const standingSql = {
     "DELETE FROM member_month_stats WHERE month = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
   top: "SELECT user_id, posts, reactions, referrals, points_tenths FROM member_month_stats WHERE month = ?1 ORDER BY points_tenths DESC, posts DESC, user_id LIMIT 1",
   winner: "SELECT 1 FROM month_winners WHERE month = ?1",
+  prune:
+    "DELETE FROM member_month_stats WHERE id IN (SELECT id FROM member_month_stats WHERE month < ?1 LIMIT ?2)",
   decided: `SELECT value FROM site_settings WHERE key = '${DECIDED_KEY}'`,
   markDecided:
     "INSERT INTO site_settings (key, value, updated_at) VALUES (?1, ?2, ?3) " +
@@ -73,9 +79,6 @@ const monthOf = (ms: number) => {
 const previousOf = ({ year, month }: { year: number; month: number }) =>
   month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 const startOf = ({ year, month }: { year: number; month: number }) => Date.UTC(year, month - 1, 1);
-
-const isBanned = (row: { banned_until: number | null; banned_permanently: number }, now: number) =>
-  row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > now);
 
 // The job ---------------------------------------------------------------------------------------
 
@@ -242,15 +245,15 @@ function* storeMonth(
 }
 
 /**
- * Decides the previous month once: its winner goes into `month_winners`, or, when nobody
+ * Decides a finished month once: its winner goes into `month_winners`, or, when nobody
  * scored, only the marker row `standings.decided` in `site_settings` records that the month is
  * settled so it is not recomputed again. The marker holds the latest decided month.
  */
-function* decidePrevious(
+function* decideMonth(
   ctx: Ctx,
-  previous: { year: number; month: number },
+  window: { year: number; month: number },
 ): Generator<void, void, void> {
-  const key = monthKey(previous.year, previous.month);
+  const key = monthKey(window.year, window.month);
   const settled = () => {
     const marker = prepared(ctx, "members.standingDecided", () =>
       ctx.sqlite.prepare<{ value: string }, []>(standingSql.decided),
@@ -263,7 +266,7 @@ function* decidePrevious(
     );
   };
   if (settled()) return;
-  const stats = yield* computeMonth(ctx, previous);
+  const stats = yield* computeMonth(ctx, window);
   yield* storeMonth(ctx, key, stats);
   writeTx(ctx, () => {
     if (settled()) return;
@@ -293,9 +296,23 @@ function* decidePrevious(
   yield;
 }
 
+/** Removes the stats of months before `before` in bounded batches: `month_winners` is the record. */
+function* pruneStats(ctx: Ctx, before: number): Generator<void, void, void> {
+  const prune = prepared(ctx, "members.standingPrune", () =>
+    ctx.sqlite.prepare<unknown, [number, number]>(standingSql.prune),
+  );
+  while (writeTx(ctx, () => prune.run(before, WRITE_BATCH).changes) === WRITE_BATCH) yield;
+}
+
 function* recompute(ctx: Ctx): Generator<void, void, void> {
   const current = monthOf(ctx.now());
-  yield* decidePrevious(ctx, previousOf(current));
+  const previous = previousOf(current);
+  // Every month a missed run left open, oldest first (decided months are skipped).
+  const open: { year: number; month: number }[] = [];
+  for (let window = previous, i = 0; i < CATCH_UP_MONTHS; i++, window = previousOf(window))
+    open.push(window);
+  for (const window of open.reverse()) yield* decideMonth(ctx, window);
+  yield* pruneStats(ctx, monthKey(previous.year, previous.month));
   const stats = yield* computeMonth(ctx, current);
   yield* storeMonth(ctx, monthKey(current.year, current.month), stats);
 }
@@ -334,9 +351,22 @@ interface EntryRow {
 
 const StandingCursor = z.tuple([z.number().int(), z.number().int(), z.number().int().positive()]);
 
+/** The rows of a batch the viewer is shown: not banned, and the member's profile may be opened. */
+const shownIn =
+  (ctx: Ctx, actor: Actor, now: number) =>
+  <Row extends EntryRow>(rows: Row[]) => {
+    const open = openableProfiles(
+      ctx,
+      actor,
+      rows.map((row) => row.user_id),
+    );
+    return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.user_id)));
+  };
+
 export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
+  const shown = shownIn(ctx, actor, now);
   const current = monthOf(now);
   const window = input.month === "current" ? current : previousOf(current);
   const key = monthKey(window.year, window.month);
@@ -368,7 +398,7 @@ export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) =>
       return rows;
     },
     keyOf: (row) => [row.points_tenths, row.posts, row.user_id],
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: shown,
   });
   const cards = loadMemberCards(
     ctx,
@@ -403,6 +433,7 @@ interface WinnerRow extends EntryRow {
 export const standingsWinnersOp = implement(standingsWinners, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
+  const shown = shownIn(ctx, actor, now);
   const current = monthOf(now);
   const statement = prepared(ctx, "members.standingWinners", () =>
     ctx.sqlite.prepare<WinnerRow, [number, number]>(standingSql.winners),
@@ -413,7 +444,7 @@ export const standingsWinnersOp = implement(standingsWinners, (ctx, actor, input
     fetch: (before, count) =>
       statement.all(before ? before[0] : monthKey(current.year, current.month), count),
     keyOf: (row) => [row.month],
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: shown,
   });
   const cards = loadMemberCards(
     ctx,

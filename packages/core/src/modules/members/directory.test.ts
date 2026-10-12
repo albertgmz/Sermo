@@ -9,7 +9,7 @@ import {
   ValidationError,
 } from "../../errors";
 import { expectNoTableScan } from "../../testing";
-import { birthdaySql, listSql, staffSql } from "./directory";
+import { birthdaySql, listSql, staffBanSql, staffSql } from "./directory";
 import { type World, world } from "./fixtures.test";
 
 const COLUMN = {
@@ -201,6 +201,21 @@ describe("users.staff", () => {
     expect(primary.id).toBeGreaterThan(0);
   });
 
+  test("banned staff are left out, an expired ban is not", async () => {
+    const w = world();
+    const names = async () =>
+      (await w.call("users.staff", GUEST, {})).items.map(
+        (item: { card: { id: number } }) => item.card.id,
+      );
+    expect(await names()).toContain(w.moderator.id);
+    w.set(w.moderator.id, { banned_until: w.ctx.now() + 86_400_000 });
+    expect(await names()).not.toContain(w.moderator.id);
+    w.set(w.moderator.id, { banned_until: w.ctx.now() - 1000 });
+    expect(await names()).toContain(w.moderator.id);
+    w.set(w.admin.id, { banned_permanently: 1 });
+    expect(await names()).toEqual([w.moderator.id]);
+  });
+
   test("a group that stops being staff drops out", async () => {
     const w = world();
     const group = (
@@ -234,6 +249,7 @@ describe("users.staff", () => {
       "shop_group_grants",
     ] as const)
       expectNoTableScan(w.ctx, staffSql.members(source), ["[3,4]"]);
+    expectNoTableScan(w.ctx, staffBanSql, ["[1,2]"]);
   });
 });
 
@@ -256,6 +272,29 @@ describe("users.birthdays", () => {
     w.ctx.clock.advance(86_400_000);
     const next = await w.call("users.birthdays", GUEST, {});
     expect(next.items.map((card: { id: number }) => card.id)).toEqual([other.id]);
+  });
+
+  test("on 28 February of a year without a 29th, those born on 29 February too", async () => {
+    const w = world();
+    const feb28 = w.user();
+    const feb29 = w.user();
+    const feb27 = w.user();
+    w.set(feb28.id, { birthday_md: "02-28" });
+    w.set(feb29.id, { birthday_md: "02-29" });
+    w.set(feb27.id, { birthday_md: "02-27" });
+    const ids = async () =>
+      (await w.call("users.birthdays", GUEST, {})).items.map((card: { id: number }) => card.id);
+    w.ctx.clock.set(Date.UTC(2026, 1, 28, 12));
+    expect(await ids()).toEqual([feb28.id, feb29.id]);
+    w.ctx.clock.set(Date.UTC(2026, 1, 27, 12));
+    expect(await ids()).toEqual([feb27.id]);
+    w.ctx.clock.set(Date.UTC(2026, 2, 1, 12));
+    expect(await ids()).toEqual([]);
+    // In a leap year the 29th is its own day and the 28th lists only its own.
+    w.ctx.clock.set(Date.UTC(2028, 1, 28, 12));
+    expect(await ids()).toEqual([feb28.id]);
+    w.ctx.clock.set(Date.UTC(2028, 1, 29, 12));
+    expect(await ids()).toEqual([feb29.id]);
   });
 
   test("at most 50", async () => {
@@ -310,6 +349,46 @@ describe("users.setReferrer", () => {
     ).rejects.toBeInstanceOf(ConflictError);
     expect(row(w, w.admin.id).referral_count).toBe(0);
     expect(row(w, old.id).referred_by).toBeNull();
+  });
+
+  test("needs profile.editOwn, and a banned member has lost it", async () => {
+    const w = world();
+    await w.call("permissions.set", w.adminActor, {
+      groupId: 2,
+      entries: [{ permission: "profile.editOwn", value: "never" }],
+    });
+    await expect(refer(w, w.memberActor, w.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    expect(row(w, w.moderator.id).referral_count).toBe(0);
+    const w2 = world();
+    w2.set(w2.member.id, { banned_permanently: 1 });
+    await expect(refer(w2, w2.memberActor, w2.moderator.id)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(row(w2, w2.moderator.id).referral_count).toBe(0);
+  });
+
+  test("a banned member cannot be named: not found, like a member who does not exist", async () => {
+    const w = world();
+    const gone = w.user();
+    const later = w.user();
+    w.set(gone.id, { banned_permanently: 1 });
+    w.set(later.id, { banned_until: w.ctx.now() + 86_400_000 });
+    for (const target of [gone, later])
+      await expect(refer(w, w.memberActor, target.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    w.set(later.id, { banned_until: w.ctx.now() - 1 });
+    await refer(w, w.memberActor, later.id);
+    expect(row(w, later.id).referral_count).toBe(1);
+  });
+
+  test("a member who named you as their referrer cannot be named back", async () => {
+    const w = world();
+    const other = w.user();
+    const otherActor = { kind: "user", userId: other.id, groupId: 2, sessionId: 0 };
+    await refer(w, otherActor, w.member.id);
+    await expect(refer(w, w.memberActor, other.id)).rejects.toBeInstanceOf(ConflictError);
+    expect(row(w, w.member.id).referred_by).toBeNull();
+    expect(row(w, other.id).referral_count).toBe(0);
+    expect(row(w, w.member.id).referral_count).toBe(1);
   });
 
   test("the last day of the window still works", async () => {

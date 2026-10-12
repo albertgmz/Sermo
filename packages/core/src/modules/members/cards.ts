@@ -89,6 +89,7 @@ interface LoadedMembers {
   cards: Map<number, Card>;
   /** The member's own permissions, not the viewer's. */
   mayShowSignature: Map<number, boolean>;
+  mayShowTitle: Map<number, boolean>;
   awardSlots: Map<number, number>;
   catalog: Catalogs;
   levelStep: number;
@@ -107,11 +108,13 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
   const rows = new Map<number, MemberRow>();
   const cards = new Map<number, Card>();
   const mayShowSignature = new Map<number, boolean>();
+  const mayShowTitle = new Map<number, boolean>();
   const awardSlots = new Map<number, number>();
   const result: LoadedMembers = {
     rows,
     cards,
     mayShowSignature,
+    mayShowTitle,
     awardSlots,
     catalog,
     levelStep: settings.levelStep,
@@ -153,14 +156,16 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
     const level = levelFor(row.award_xp, settings.levelStep).level;
     const custom = row.custom_title?.trim() ?? "";
     const groupTitle = held[0]?.user_title ?? "";
+    const mayTitle = can(ctx, member, "profile.customTitle");
     const title =
-      custom !== "" && can(ctx, member, "profile.customTitle")
+      custom !== "" && mayTitle
         ? custom
         : groupTitle !== ""
           ? groupTitle
           : levelTitle(level, settings.levelTitles);
     const frame = row.frame_id === null ? undefined : catalog.imageById.get(row.frame_id);
     mayShowSignature.set(row.id, can(ctx, member, "profile.signature"));
+    mayShowTitle.set(row.id, mayTitle);
     awardSlots.set(row.id, permissionValue(ctx, member, "profile.awardSlots"));
     cards.set(row.id, {
       id: row.id,
@@ -213,6 +218,19 @@ export function loadMemberAuthors(
   ids: Iterable<number>,
   options: { awards?: boolean } = {},
 ): Map<number, Author> {
+  return loadMemberDetails(ctx, viewer, ids, options).authors;
+}
+
+/**
+ * `loadMemberAuthors` plus what the loader resolved on the way: each member's own
+ * `profile.awardSlots` (-1 = all) and whether they may show a custom title.
+ */
+export function loadMemberDetails(
+  ctx: Ctx,
+  viewer: Actor,
+  ids: Iterable<number>,
+  options: { awards?: boolean } = {},
+) {
   const loaded = loadMembers(ctx, viewer, ids);
   const held = new Map<number, HeldAward[]>();
   if (loaded.rows.size > 0 && options.awards !== false)
@@ -249,5 +267,5 @@ export function loadMemberAuthors(
       signatureHtml: loaded.mayShowSignature.get(id) ? row.signature_html : null,
     });
   }
-  return authors;
+  return { authors, awardSlots: loaded.awardSlots, mayShowTitle: loaded.mayShowTitle };
 }

@@ -104,14 +104,12 @@ describe("profiles.update", () => {
   });
 
   describe("custom title", () => {
-    test("needs profile.customTitle, also to clear it", async () => {
+    test("needs profile.customTitle to set one; clearing is always allowed", async () => {
       const w = world();
       await expect(update(w, w.memberActor, { customTitle: "Boss" })).rejects.toBeInstanceOf(
         ForbiddenError,
       );
-      await expect(update(w, w.memberActor, { customTitle: null })).rejects.toBeInstanceOf(
-        ForbiddenError,
-      );
+      expect((await update(w, w.memberActor, { customTitle: null })).customTitle).toBeNull();
       await expect(update(w, GUEST, { customTitle: "x" })).rejects.toBeInstanceOf(
         UnauthenticatedError,
       );
@@ -154,20 +152,19 @@ describe("profiles.update", () => {
       await update(w, w.moderatorActor, { customTitle: "Boss" });
       w.ctx.sqlite.run(`UPDATE users SET group_id = 2 WHERE id = ${w.moderator.id}`);
       const profile = await w.call("profiles.get", w.memberActor, { userId: w.moderator.id });
-      expect(profile.customTitle).toBe("Boss");
+      expect(profile.customTitle).toBeNull();
       expect(profile.card.title).toBe("Member");
+      expect(stored(w, w.moderator.id, "custom_title")).toBe("Boss");
     });
   });
 
   describe("signature", () => {
-    test("needs profile.signature, also to clear it", async () => {
+    test("needs profile.signature to set one; clearing is always allowed", async () => {
       const w = world();
       await expect(update(w, w.memberActor, { signature: "hi" })).rejects.toBeInstanceOf(
         ForbiddenError,
       );
-      await expect(update(w, w.memberActor, { signature: null })).rejects.toBeInstanceOf(
-        ForbiddenError,
-      );
+      expect((await update(w, w.memberActor, { signature: null })).signatureHtml).toBeNull();
       await expect(update(w, GUEST, { signature: "hi" })).rejects.toBeInstanceOf(
         UnauthenticatedError,
       );

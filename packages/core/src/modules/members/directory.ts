@@ -12,14 +12,23 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
+import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
-import { REFERRAL_WINDOW_MS } from "./referral";
 
 type Sort = (typeof MEMBER_SORTS)[number];
+
+/** A member may name a referrer only while their account is younger than this. */
+export const REFERRAL_WINDOW_MS = 7 * 86_400_000;
+interface ReferralRow {
+  referred_by: number | null;
+  created_at: number;
+  banned_until: number | null;
+  banned_permanently: number;
+}
 
 /** The most members the staff list holds. */
 export const STAFF_LIMIT = 200;
@@ -65,9 +74,6 @@ export const listSql = {
     `SELECT ${LIST_COLUMNS} FROM users WHERE ${SORT_COLUMN[sort]} < ?1 ORDER BY ${SORT_COLUMN[sort]} DESC, id LIMIT ?2`,
 };
 
-const isBanned = (row: { banned_until: number | null; banned_permanently: number }, now: number) =>
-  row.banned_permanently === 1 || (row.banned_until !== null && row.banned_until > now);
-
 const NumericCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 const NewestCursor = z.tuple([z.number().int().positive()]);
 
@@ -75,7 +81,14 @@ export const usersListOp = implement(usersList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
   const sort = input.sort;
-  const accept = (rows: ListRow[]) => new Set(rows.filter((row) => !isBanned(row, now)));
+  const accept = (rows: ListRow[]) => {
+    const open = openableProfiles(
+      ctx,
+      actor,
+      rows.map((row) => row.id),
+    );
+    return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.id)));
+  };
 
   let items: ListRow[];
   let next: number[] | null;
@@ -151,6 +164,8 @@ export const staffSql = {
   members: (table: "users" | "user_groups" | "user_group_grants" | "shop_group_grants") =>
     `SELECT t.${table === "users" ? "id" : "user_id"} AS user_id, j.value AS group_id FROM json_each(?1) AS j CROSS JOIN ${table} AS t ON t.group_id = j.value LIMIT ${STAFF_LIMIT}`,
 };
+export const staffBanSql =
+  "SELECT id, banned_until, banned_permanently FROM users WHERE id IN (SELECT value FROM json_each(?1))";
 const STAFF_SOURCES = ["users", "user_groups", "user_group_grants", "shop_group_grants"] as const;
 
 export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
@@ -171,6 +186,14 @@ export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
       held.add(row.group_id);
       staffGroupsOf.set(row.user_id, held);
     }
+  const now = ctx.now();
+  for (const row of prepared(ctx, "members.staffBans", () =>
+    ctx.sqlite.prepare<
+      { id: number; banned_until: number | null; banned_permanently: number },
+      [string]
+    >(staffBanSql),
+  ).all(JSON.stringify([...staffGroupsOf.keys()])))
+    if (isBanned(row, now)) staffGroupsOf.delete(row.id);
   const byId = new Map(groups.map((group) => [group.id, group]));
   const username = loadUserSummaries(ctx, staffGroupsOf.keys());
   const ranked = [...staffGroupsOf].map(([userId, held]) => {
@@ -213,12 +236,28 @@ export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
       [string, number, number]
     >(birthdaySql),
   );
+  // In a year without a 29th, those born on 29 February celebrate on the 28th.
+  const leapDay =
+    day === "02-28" && new Date(Date.UTC(today.getUTCFullYear(), 1, 29)).getUTCMonth() !== 1;
   const scan = scanKeyset({
     before: null as number | null,
     limit: BIRTHDAY_LIMIT,
-    fetch: (before, count) => statement.all(day, before ?? 0, count),
+    fetch: (before, count) => {
+      const rows = statement.all(day, before ?? 0, count);
+      if (!leapDay) return rows;
+      return [...rows, ...statement.all("02-29", before ?? 0, count)]
+        .sort((a, b) => a.id - b.id)
+        .slice(0, count);
+    },
     keyOf: (row) => row.id,
-    accept: (rows) => new Set(rows.filter((row) => !isBanned(row, now))),
+    accept: (rows) => {
+      const open = openableProfiles(
+        ctx,
+        actor,
+        rows.map((row) => row.id),
+      );
+      return new Set(rows.filter((row) => !isBanned(row, now) && open.has(row.id)));
+    },
   });
   const cards = loadMemberCards(
     ctx,
@@ -230,39 +269,41 @@ export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
 
 // users.setReferrer -----------------------------------------------------------------------------
 
-export const usersSetReferrerOp = implement(
-  usersSetReferrer,
-  (ctx, actor, input) => {
-    const user = requireAuthenticated(actor);
-    if (input.userId === user.userId)
-      throw new ValidationError("You cannot name yourself as your referrer.");
-    return writeTx(ctx, () => {
-      const read = (id: number) =>
-        prepared(ctx, "members.referralRow", () =>
-          ctx.sqlite.prepare<{ referred_by: number | null; created_at: number }, [number]>(
-            "SELECT referred_by, created_at FROM users WHERE id = ?1",
-          ),
-        ).get(id);
-      // Re-read inside the transaction: another process may have changed either row.
-      const me = read(user.userId);
-      if (!me) throw new NotFoundError();
-      if (!read(input.userId)) throw new NotFoundError();
-      if (me.referred_by !== null) throw new ConflictError("You already named a referrer.");
-      if (ctx.now() - me.created_at >= REFERRAL_WINDOW_MS)
-        throw new ConflictError("A referrer can only be named in the first seven days.");
-      const changed = prepared(ctx, "members.setReferrer", () =>
-        ctx.sqlite.prepare<unknown, [number, number, number]>(
-          "UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3 AND referred_by IS NULL",
+export const usersSetReferrerOp = implement(usersSetReferrer, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
+  requirePermission(ctx, actor, "profile.editOwn");
+  if (input.userId === user.userId)
+    throw new ValidationError("You cannot name yourself as your referrer.");
+  return writeTx(ctx, () => {
+    // The actor may have lost the permission, or been banned, since the request began.
+    requirePermission(ctx, currentActor(ctx, actor), "profile.editOwn");
+    const read = (id: number) =>
+      prepared(ctx, "members.referralRow", () =>
+        ctx.sqlite.prepare<ReferralRow, [number]>(
+          "SELECT referred_by, created_at, banned_until, banned_permanently FROM users WHERE id = ?1",
         ),
-      ).run(input.userId, ctx.now(), user.userId).changes;
-      if (changed === 0) throw new ConflictError("You already named a referrer.");
-      prepared(ctx, "members.countReferral", () =>
-        ctx.sqlite.prepare<unknown, [number]>(
-          "UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1",
-        ),
-      ).run(input.userId);
-      return { ok: true as const };
-    });
-  },
-  { public: "Any signed-in member may name who brought them; it changes only their own row." },
-);
+      ).get(id);
+    // Re-read inside the transaction: another process may have changed either row.
+    const me = read(user.userId);
+    if (!me) throw new NotFoundError();
+    const referrer = read(input.userId);
+    if (!referrer || isBanned(referrer, ctx.now())) throw new NotFoundError();
+    if (me.referred_by !== null) throw new ConflictError("You already named a referrer.");
+    if (ctx.now() - me.created_at >= REFERRAL_WINDOW_MS)
+      throw new ConflictError("A referrer can only be named in the first seven days.");
+    if (referrer.referred_by === user.userId)
+      throw new ConflictError("That member named you as their referrer.");
+    const changed = prepared(ctx, "members.setReferrer", () =>
+      ctx.sqlite.prepare<unknown, [number, number, number]>(
+        "UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3 AND referred_by IS NULL",
+      ),
+    ).run(input.userId, ctx.now(), user.userId).changes;
+    if (changed === 0) throw new ConflictError("You already named a referrer.");
+    prepared(ctx, "members.countReferral", () =>
+      ctx.sqlite.prepare<unknown, [number]>(
+        "UPDATE users SET referral_count = referral_count + 1 WHERE id = ?1",
+      ),
+    ).run(input.userId);
+    return { ok: true as const };
+  });
+});
