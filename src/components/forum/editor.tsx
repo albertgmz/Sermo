@@ -46,17 +46,27 @@ import {
   $createParagraphNode,
   $getRoot,
   $getSelection,
+  $isElementNode,
   $isRangeSelection,
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
   CLEAR_EDITOR_COMMAND,
+  COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   createEditor,
+  DROP_COMMAND,
   type EditorState,
+  type ElementNode,
   FORMAT_TEXT_COMMAND,
+  type LexicalEditor,
   mergeRegister,
+  PASTE_COMMAND,
+  ParagraphNode,
   REDO_COMMAND,
+  RootNode,
+  TabNode,
   type TextFormatType,
+  TextNode,
   UNDO_COMMAND,
 } from "lexical";
 import {
@@ -73,23 +83,25 @@ import {
   TextQuote,
   Undo2,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const NODES = [
+  HeadingNode,
+  QuoteNode,
+  ListNode,
+  ListItemNode,
+  LinkNode,
+  AutoLinkNode,
+  CodeNode,
+  CodeHighlightNode,
+];
+
 const CONFIG: InitialConfigType = {
   namespace: "forum-editor",
-  nodes: [
-    HeadingNode,
-    QuoteNode,
-    ListNode,
-    ListItemNode,
-    LinkNode,
-    AutoLinkNode,
-    CodeNode,
-    CodeHighlightNode,
-  ],
+  nodes: NODES,
   theme: {
     heading: { h1: prose.h1, h2: prose.h2, h3: prose.h3 },
     quote: prose.blockquote,
@@ -113,16 +125,68 @@ const CONFIG: InitialConfigType = {
   },
 };
 
+function registerStyleTransforms(editor: LexicalEditor) {
+  // Transforms run before reconciliation. Register concrete classes because
+  // TextNode transforms do not cover TabNode or CodeHighlightNode subclasses.
+  return mergeRegister(
+    ...[RootNode, ParagraphNode, TextNode, TabNode, ...NODES].map((node) =>
+      editor.registerNodeTransform<TextNode | ElementNode>(node, (node) => {
+        if (node.getStyle()) node.setStyle("");
+        // Empty blocks can carry styles into later typing and list markers.
+        if ($isElementNode(node) && node.getTextStyle()) node.setTextStyle("");
+      }),
+    ),
+  );
+}
+
+function ContentSafetyPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useLayoutEffect(
+    () =>
+      mergeRegister(
+        registerStyleTransforms(editor),
+        editor.registerCommand(
+          PASTE_COMMAND,
+          (event) => {
+            // Never allow native insertion, even without a Lexical selection.
+            event.preventDefault();
+            const data = "clipboardData" in event ? event.clipboardData : null;
+            // Keep Lexical's JSON/HTML/text import and paste history boundary.
+            // The registered importers create no media nodes or resource attrs;
+            // pasted DOM stays inert, and transforms strip imported CSS.
+            return !data || data.files.length > 0;
+          },
+          COMMAND_PRIORITY_HIGH,
+        ),
+        editor.registerCommand(
+          DROP_COMMAND,
+          (event) => {
+            // External drops otherwise fall through to native DOM insertion.
+            event.preventDefault();
+            return true;
+          },
+          COMMAND_PRIORITY_HIGH,
+        ),
+      ),
+    [editor],
+  );
+
+  return null;
+}
+
 // A function `editorState` is applied by an update that only commits in a
 // microtask, so on the server the placeholder check still sees an empty editor
 // while the first client render sees the content. A serialized state is applied
 // synchronously, so both sides agree.
 function initialEditorState(markdown: string): string | undefined {
   const scratch = createEditor({ nodes: CONFIG.nodes });
+  const unregister = registerStyleTransforms(scratch);
   scratch.update(() => $convertFromMarkdownString(markdown, TRANSFORMERS), {
     discrete: true,
   });
   const state = scratch.getEditorState();
+  unregister();
   return state.isEmpty() ? undefined : JSON.stringify(state);
 }
 
@@ -457,6 +521,7 @@ export function Editor({
   });
   return (
     <LexicalComposer initialConfig={initialConfig}>
+      <ContentSafetyPlugin />
       <div
         className={cn(
           "min-w-0 rounded-lg border bg-card transition-colors focus-within:border-ring",
