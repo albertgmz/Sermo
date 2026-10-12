@@ -185,8 +185,16 @@ export function FeedItem({
             ),
           })
         }
-        // Reactions to wall posts are still kept with the profiles: only the count shows here.
-        reaction={null}
+        reaction={
+          <ReactionButton
+            action={react.bind(null, "profilePost", profilePost.id)}
+            total={profilePost.reactions.total}
+            viewerTypeId={profilePost.reactions.mine}
+            types={profilePost.state === "visible" ? picker : []}
+            viewerId={viewerId}
+            authorId={profilePost.author.id}
+          />
+        }
         summary={
           <ReactionSummary
             reactions={reactionsView(profilePost.reactions, reactionTypes)}
