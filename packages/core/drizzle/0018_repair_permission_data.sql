@@ -11,6 +11,8 @@ INSERT OR IGNORE INTO user_groups (user_id, group_id, created_at)
 SELECT g.user_id, g.group_id, min(g.created_at)
 FROM user_group_grants g
 JOIN administration_promotion_groups a ON a.group_id = g.group_id
+JOIN users u ON u.id = g.user_id
+JOIN groups gr ON gr.id = g.group_id
 GROUP BY g.user_id, g.group_id;
 --> statement-breakpoint
 DELETE FROM user_group_grants
@@ -28,10 +30,14 @@ WHERE EXISTS (
 DROP TABLE administration_promotion_groups;
 --> statement-breakpoint
 -- Verification changes Unconfirmed to Member without an administration request. Move legacy
--- decisions from those automatic groups to their current holders, preserving never over allow
--- across both groups and any existing member entry. Future members inherit neither decision.
+-- decisions from those automatic groups to their current holders so the outcome of
+-- admin.permissions does not change. An allow stays with every holder. A no is the same as no
+-- entry, so it is dropped. A never needs a member entry only for a holder who would otherwise
+-- resolve an allow once the group entry is gone (an allow from another group, a member entry or
+-- a purchase, and no other never); it wins over any allow, as before. Future members inherit
+-- neither decision.
 WITH legacy_entries AS MATERIALIZED (
-  SELECT e.permission_id, e.group_id, e.value FROM permission_entries e
+  SELECT e.id AS entry_id, e.permission_id, e.group_id, e.value FROM permission_entries e
   JOIN permission_definitions d ON d.id = e.permission_id
   JOIN groups g ON g.id = e.group_id
   WHERE d.key = 'admin.permissions' AND e.node_id = 0 AND e.user_id = 0
@@ -48,11 +54,39 @@ WITH legacy_entries AS MATERIALIZED (
   UNION ALL
   SELECT g.user_id, e.permission_id, e.value FROM shop_group_grants g
   JOIN legacy_entries e ON e.group_id = g.group_id
+), kept_groups AS MATERIALIZED (
+  SELECT e.group_id, e.value FROM permission_entries e
+  JOIN permission_definitions d ON d.id = e.permission_id
+  WHERE d.key = 'admin.permissions' AND e.node_id = 0 AND e.user_id = 0 AND e.group_id <> 0
+    AND e.value <> 0 AND e.id NOT IN (SELECT entry_id FROM legacy_entries)
+), remaining AS MATERIALIZED (
+  SELECT u.id AS user_id, k.value FROM users u JOIN kept_groups k ON k.group_id = u.group_id
+  UNION ALL
+  SELECT g.user_id, k.value FROM user_groups g JOIN kept_groups k ON k.group_id = g.group_id
+  UNION ALL
+  SELECT g.user_id, k.value FROM user_group_grants g JOIN kept_groups k ON k.group_id = g.group_id
+  UNION ALL
+  SELECT g.user_id, k.value FROM shop_group_grants g JOIN kept_groups k ON k.group_id = g.group_id
+  UNION ALL
+  SELECT e.user_id, e.value FROM permission_entries e
+  JOIN permission_definitions d ON d.id = e.permission_id
+  WHERE d.key = 'admin.permissions' AND e.group_id = 0 AND e.user_id <> 0 AND e.node_id = 0
+    AND e.value <> 0
+  UNION ALL
+  SELECT s.user_id, s.value FROM shop_permission_grants s
+  JOIN permission_definitions d ON d.id = s.permission_id
+  WHERE d.key = 'admin.permissions' AND s.value IN (1, -1)
+), decisions AS MATERIALIZED (
+  SELECT permission_id, user_id,
+    CASE WHEN min(value) = -1 THEN -1 ELSE max(value) END AS value
+  FROM holders GROUP BY user_id, permission_id
 )
 INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value)
-SELECT permission_id, 0, 0, user_id,
-  CASE WHEN min(value) = -1 THEN -1 ELSE max(value) END
-FROM holders GROUP BY user_id, permission_id
+SELECT permission_id, 0, 0, user_id, value FROM decisions
+WHERE value = 1
+  OR (value = -1
+    AND user_id IN (SELECT user_id FROM remaining WHERE value = 1)
+    AND user_id NOT IN (SELECT user_id FROM remaining WHERE value = -1))
 ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value =
   CASE WHEN permission_entries.value = -1 OR excluded.value = -1 THEN -1
     ELSE max(permission_entries.value, excluded.value) END;

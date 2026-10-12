@@ -123,10 +123,7 @@ describe("upgrades repair existing permission data", () => {
           "SELECT user_id, value FROM permission_entries WHERE permission_id = ?1 AND group_id = 0 ORDER BY user_id",
         )
         .all(definition("admin.permissions")),
-    ).toEqual([
-      { user_id: first.id, value: 1 },
-      { user_id: second.id, value: -1 },
-    ]);
+    ).toEqual([{ user_id: first.id, value: 1 }]);
     const entries = ctx.sqlite.prepare("SELECT * FROM permission_entries ORDER BY id").all();
     applyMigrations(ctx, 18);
     expect(ctx.sqlite.prepare("SELECT * FROM permission_entries ORDER BY id").all()).toEqual(
@@ -573,6 +570,341 @@ describe("upgrades repair existing permission data", () => {
           ).not.toBeNull();
         }
       });
+});
+
+describe("0018 moves legacy admin.permissions decisions without changing anyone's outcome", () => {
+  const MEMBER = 2;
+  const UNCONFIRMED = 5;
+  const KEY = "admin.permissions";
+
+  function fixture() {
+    const base = beforeCombinationUpdateTriggers();
+    const { ctx, group, definition } = base;
+    const permission = definition(KEY);
+    const setEntry = (groupId: number, userId: number, value: number) =>
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, ?3, ?4)",
+        )
+        .run(permission, groupId, userId, value);
+    const entryGroup = (title: string, value: number) => {
+      const id = group(title);
+      setEntry(id, 0, value);
+      return id;
+    };
+    const hand = (userId: number, groupId: number) =>
+      ctx.sqlite
+        .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+        .run(userId, groupId);
+    const promoted = (userId: number, groupId: number) => {
+      ctx.sqlite.run(
+        "INSERT OR IGNORE INTO promotions (id, title, group_ids, created_at, updated_at) VALUES (1, 'Legacy', '[]', 0, 0)",
+      );
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO user_group_grants (user_id, promotion_id, group_id, created_at) VALUES (?1, 1, ?2, 0)",
+        )
+        .run(userId, groupId);
+    };
+    const bought = (userId: number, groupId: number) =>
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, 1, ?2, 0)",
+        )
+        .run(userId, groupId);
+    const outcomes = (users: { id: number; groupId: number }[]) =>
+      users.map((user) => can(ctx, userActor(user), KEY));
+    const memberEntries = () =>
+      ctx.sqlite
+        .prepare<{ user_id: number; value: number }, [number]>(
+          "SELECT user_id, value FROM permission_entries WHERE permission_id = ?1 AND group_id = 0 ORDER BY user_id",
+        )
+        .all(permission);
+    const groupEntries = (groupId: number) =>
+      ctx.sqlite
+        .prepare("SELECT value FROM permission_entries WHERE permission_id = ?1 AND group_id = ?2")
+        .all(permission, groupId);
+    const count = (sql: string) =>
+      ctx.sqlite.prepare<{ n: number }, []>(`SELECT count(*) AS n FROM ${sql}`).get()!.n;
+    const snapshot = () =>
+      Object.fromEntries(
+        [
+          "permission_entries",
+          "permission_combinations",
+          "permission_layer_versions",
+          "user_groups",
+          "user_group_grants",
+          "shop_group_grants",
+        ]
+          .map((table) => [table, ctx.sqlite.prepare(`SELECT * FROM ${table} ORDER BY 1`).all()])
+          .concat([
+            ["users", ctx.sqlite.prepare("SELECT id, permission_combination_id FROM users").all()],
+            [
+              "cache_versions",
+              ctx.sqlite.prepare("SELECT * FROM cache_versions WHERE key <> 'permissions'").all(),
+            ],
+          ]),
+      );
+    const permissionsVersion = () =>
+      ctx.sqlite
+        .prepare<{ version: number }, []>(
+          "SELECT version FROM cache_versions WHERE key = 'permissions'",
+        )
+        .get()!.version;
+    return {
+      ...base,
+      setEntry,
+      entryGroup,
+      hand,
+      promoted,
+      bought,
+      outcomes,
+      memberEntries,
+      groupEntries,
+      count,
+      snapshot,
+      permissionsVersion,
+      permission,
+    };
+  }
+
+  /** A Member never, and a member for each way of holding an allow besides it. */
+  function memberNeverScenario() {
+    const f = fixture();
+    const { ctx, setEntry, entryGroup, hand, promoted, bought, permission } = f;
+    setEntry(MEMBER, 0, -1);
+    const primary = entryGroup("Primary allow", 1);
+    const secondary = entryGroup("Secondary allow", 1);
+    const automatic = entryGroup("Promotion allow", 1);
+    const shop = entryGroup("Shop allow", 1);
+    const other = entryGroup("Other never", -1);
+    const plain = insertUser(ctx);
+    const viaPrimary = insertUser(ctx, { groupId: primary });
+    hand(viaPrimary.id, MEMBER);
+    const viaHand = insertUser(ctx);
+    hand(viaHand.id, secondary);
+    const viaPromotion = insertUser(ctx);
+    promoted(viaPromotion.id, automatic);
+    const viaShopGroup = insertUser(ctx);
+    bought(viaShopGroup.id, shop);
+    const viaMemberEntry = insertUser(ctx);
+    setEntry(0, viaMemberEntry.id, 1);
+    const viaPurchase = insertUser(ctx);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO shop_permission_grants (user_id, inventory_id, permission_id, value, created_at) VALUES (?1, 1, ?2, 1, 0)",
+      )
+      .run(viaPurchase.id, permission);
+    const alsoDenied = insertUser(ctx);
+    hand(alsoDenied.id, secondary);
+    hand(alsoDenied.id, other);
+    const memberNo = insertUser(ctx);
+    setEntry(0, memberNo.id, 0);
+    const memberNever = insertUser(ctx);
+    setEntry(0, memberNever.id, -1);
+    const administrator = insertUser(ctx, { groupId: 4 });
+    const users = [
+      plain,
+      viaPrimary,
+      viaHand,
+      viaPromotion,
+      viaShopGroup,
+      viaMemberEntry,
+      viaPurchase,
+      alsoDenied,
+      memberNo,
+      memberNever,
+      administrator,
+    ];
+    return {
+      ...f,
+      users,
+      materialised: [
+        viaPrimary,
+        viaHand,
+        viaPromotion,
+        viaShopGroup,
+        viaMemberEntry,
+        viaPurchase,
+      ].map((user) => user.id),
+      memberNo,
+      memberNever,
+      administrator,
+    };
+  }
+
+  test("a Member never with many members and no allow writes no member entries", () => {
+    const f = fixture();
+    const { ctx, setEntry, outcomes, memberEntries, groupEntries, count } = f;
+    setEntry(MEMBER, 0, -1);
+    ctx.sqlite.transaction(() => {
+      ctx.sqlite.run(
+        "WITH RECURSIVE numbers(n) AS (VALUES (1000) UNION ALL SELECT n + 1 FROM numbers WHERE n < 3999) INSERT INTO auth_user (id, name, email, email_verified, username, display_username, created_at, updated_at) SELECT n, 'member' || n, 'member' || n || '@example.test', 0, 'member' || n, 'member' || n, 0, 0 FROM numbers",
+      );
+      ctx.sqlite.run(
+        "INSERT INTO users (id, username, username_key, group_id, created_at) SELECT id, username, username, 2, 0 FROM auth_user WHERE id >= 1000",
+      );
+    })();
+    const sample = [f.first, f.second, ...[1000, 2000, 3999].map((id) => ({ id, groupId: 2 }))];
+    const before = outcomes(sample);
+    expect(before.every((allowed) => !allowed)).toBe(true);
+    expect(count("users")).toBe(3_002);
+    const combinations = count("permission_combinations");
+
+    applyMigrations(ctx, 17);
+
+    expect(groupEntries(MEMBER)).toEqual([]);
+    expect(memberEntries()).toEqual([]);
+    expect(count("permission_combinations")).toBe(combinations);
+    expect(count("permission_combinations")).toBeLessThanOrEqual(6);
+    expect(outcomes(sample)).toEqual(before);
+  });
+
+  test("a Member never is written as a private never only where an allow would otherwise win", () => {
+    const {
+      ctx,
+      users,
+      materialised,
+      outcomes,
+      memberEntries,
+      groupEntries,
+      count,
+      administrator,
+      memberNo,
+      memberNever,
+    } = memberNeverScenario();
+    const before = outcomes(users);
+    expect(before).toEqual(users.map((user) => user.id === administrator.id));
+
+    applyMigrations(ctx, 17);
+
+    expect(groupEntries(MEMBER)).toEqual([]);
+    expect(memberEntries()).toEqual(
+      [
+        ...materialised.map((user_id) => ({ user_id, value: -1 })),
+        { user_id: memberNo.id, value: 0 },
+        { user_id: memberNever.id, value: -1 },
+      ].sort((a, b) => a.user_id - b.user_id),
+    );
+    expect(outcomes(users)).toEqual(before);
+    expect(count("user_group_grants")).toBe(0);
+    expect(
+      ctx.sqlite
+        .prepare(
+          "SELECT id FROM users WHERE permission_combination_id NOT IN (SELECT id FROM permission_combinations)",
+        )
+        .all(),
+    ).toEqual([]);
+  });
+
+  test("running the migration statements twice changes only the permissions cache version", () => {
+    const { ctx, users, outcomes, snapshot, permissionsVersion, memberEntries, materialised } =
+      memberNeverScenario();
+    const before = outcomes(users);
+    applyMigrations(ctx, 17);
+    expect(memberEntries().filter((entry) => entry.value === -1)).toHaveLength(
+      materialised.length + 1,
+    );
+    const first = snapshot();
+    const version = permissionsVersion();
+
+    applyMigrations(ctx, 18);
+
+    expect(snapshot()).toEqual(first);
+    expect(permissionsVersion()).toBeGreaterThan(version);
+    expect(outcomes(users)).toEqual(before);
+  });
+
+  for (const [value, expected] of [
+    [1, { entries: ["both", "both"], outcome: [true, true] }],
+    [0, { entries: [], outcome: [false, true] }],
+    [-1, { entries: ["second"], outcome: [false, false] }],
+  ] as const)
+    test(`an Unconfirmed entry of ${value} keeps every holder's outcome`, () => {
+      const { ctx, setEntry, entryGroup, hand, outcomes, memberEntries, groupEntries } = fixture();
+      const allow = entryGroup("Allow", 1);
+      setEntry(UNCONFIRMED, 0, value);
+      const alone = insertUser(ctx, { groupId: UNCONFIRMED });
+      const allowed = insertUser(ctx, { groupId: UNCONFIRMED });
+      hand(allowed.id, allow);
+      const users = [alone, allowed];
+      const before = outcomes(users);
+      expect(before).toEqual([...expected.outcome]);
+
+      applyMigrations(ctx, 17);
+
+      expect(groupEntries(UNCONFIRMED)).toEqual([]);
+      expect(memberEntries()).toEqual(
+        expected.entries.length === 0
+          ? []
+          : expected.entries[0] === "both"
+            ? [
+                { user_id: alone.id, value: 1 },
+                { user_id: allowed.id, value: 1 },
+              ]
+            : [{ user_id: allowed.id, value: -1 }],
+      );
+      expect(outcomes(users)).toEqual(before);
+    });
+
+  test("an Unconfirmed allow beside a Member never leaves no member entry and no administrator", () => {
+    const { ctx, setEntry, hand, outcomes, memberEntries } = fixture();
+    setEntry(UNCONFIRMED, 0, 1);
+    setEntry(MEMBER, 0, -1);
+    const both = insertUser(ctx, { groupId: UNCONFIRMED });
+    hand(both.id, MEMBER);
+    const unconfirmed = insertUser(ctx, { groupId: UNCONFIRMED });
+    expect(outcomes([both, unconfirmed])).toEqual([false, true]);
+
+    applyMigrations(ctx, 17);
+
+    expect(memberEntries()).toEqual([{ user_id: unconfirmed.id, value: 1 }]);
+    expect(outcomes([both, unconfirmed])).toEqual([false, true]);
+  });
+
+  test("an orphan promotion grant does not abort the migration or create a membership", () => {
+    const { ctx, first, promoted, entryGroup, count } = fixture();
+    const allow = entryGroup("Allow", 1);
+    promoted(first.id, allow);
+    ctx.sqlite.run("PRAGMA foreign_keys = OFF");
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO user_group_grants (user_id, promotion_id, group_id, created_at) VALUES (999999, 1, ?1, 0), (999999, 1, 4, 0)",
+      )
+      .run(allow);
+    ctx.sqlite.run("PRAGMA foreign_keys = ON");
+    expect(count("user_group_grants WHERE user_id = 999999")).toBe(2);
+
+    applyMigrations(ctx, 17);
+
+    expect(count("user_groups WHERE user_id = 999999")).toBe(0);
+    expect(count("user_group_grants WHERE user_id = 999999")).toBe(0);
+    expect(
+      ctx.sqlite.prepare("SELECT group_id FROM user_groups WHERE user_id = ?1").all(first.id),
+    ).toEqual([{ group_id: allow }]);
+  });
+
+  test("a promotion grant of a group that no longer exists does not abort the migration", () => {
+    const { ctx, first, definition, promoted, count } = fixture();
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, 9999, 0, 1)",
+      )
+      .run(definition(KEY));
+    promoted(first.id, 4);
+    ctx.sqlite.run("PRAGMA foreign_keys = OFF");
+    ctx.sqlite.run(
+      "INSERT INTO user_group_grants (user_id, promotion_id, group_id, created_at) VALUES (" +
+        `${first.id}, 1, 9999, 0)`,
+    );
+    ctx.sqlite.run("PRAGMA foreign_keys = ON");
+
+    applyMigrations(ctx, 17);
+
+    expect(count("user_groups WHERE group_id = 9999")).toBe(0);
+    expect(count("user_group_grants")).toBe(0);
+    expect(count(`user_groups WHERE user_id = ${first.id} AND group_id = 4`)).toBe(1);
+  });
 });
 
 describe("combination triggers cover UPDATE of the owner and of the group", () => {
