@@ -12,6 +12,8 @@ const incoming = new Headers({
   "x-forwarded-for": "203.0.113.9, 198.51.100.4",
 });
 const written: Record<string, unknown>[] = [];
+// While a page renders, Next's cookie store throws on a write; in an action it takes it.
+let renderTime = false;
 mock.module("server-only", () => ({}));
 // Bun applies module mocks to the whole run, so these match the ones in the site test.
 const nextCache = await import("next/cache");
@@ -23,7 +25,11 @@ mock.module("next/cache", () => ({
 mock.module("next/headers", () => ({
   headers: async () => incoming,
   cookies: async () => ({
-    set: (cookie: Record<string, unknown>) => written.push(cookie),
+    set: (cookie: Record<string, unknown>) => {
+      if (renderTime)
+        throw new Error("Cookies can only be modified in an action");
+      written.push(cookie);
+    },
   }),
 }));
 
@@ -283,6 +289,56 @@ test("no session is no account", async () => {
   assert.equal(await getCurrentAccount(), null);
   backend(answer([], { status: 401, body: { code: "UNAUTHORIZED" } }));
   assert.equal(await getCurrentAccount(), null);
+});
+
+test("reads made while a page renders ignore the cookies of the answer", async () => {
+  renderTime = true;
+  try {
+    written.length = 0;
+    backend(
+      answer(["sermo.session_data=fresh; Path=/; HttpOnly"], {
+        body: {
+          session: { id: "7", token: "secret-token" },
+          user: { email: "ann@example.test", emailVerified: true },
+        },
+      }),
+    );
+    assert.equal((await getCurrentAccount())?.sessionId, "7");
+    backend(
+      answer(["sermo.session_data=fresh; Path=/; HttpOnly"], {
+        body: [sessionRow],
+      }),
+    );
+    assert.equal((await listSessions()).sessions.length, 1);
+    // A dead cookie is expired by the backend; the read still reports it as no session.
+    const dead = () =>
+      backend(
+        answer(["sermo.session_token=; Max-Age=0; Path=/"], {
+          status: 401,
+          body: { code: "UNAUTHORIZED" },
+        }),
+      );
+    dead();
+    assert.equal(await getCurrentAccount(), null);
+    dead();
+    assert.equal((await listSessions()).code, "UNAUTHORIZED");
+    assert.deepEqual(written, []);
+  } finally {
+    renderTime = false;
+  }
+});
+
+test("a write the cookie store refuses in an action is not swallowed", async () => {
+  renderTime = true;
+  try {
+    backend(answer(["sermo.session_token=tok; Path=/"]));
+    await assert.rejects(
+      () => signInWithUsername("ann", "pw", false),
+      /Cookies/,
+    );
+  } finally {
+    renderTime = false;
+  }
 });
 
 test("revoking sends the token of one session, or nothing for the others", async () => {
