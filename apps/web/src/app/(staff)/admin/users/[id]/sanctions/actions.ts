@@ -18,10 +18,10 @@ import { memberOf, ticked } from "../../action-helpers";
 
 const KINDS = ["posting", "conversations", "profile_posts"] as const;
 const DAY = 24 * 60 * 60 * 1000;
-const MAX_DAYS = 36500;
 
 // A number of days typed in a form, as the end of the sanction: undefined for an empty field,
-// null for a value that is not a number of days, else the ISO time that many days from now.
+// null for a value that is not a number of days (or too many to be a date), else the ISO time
+// that many days from now. What counts as an acceptable length is the backend's to say.
 function endsAfter(
   formData: FormData,
   name: string,
@@ -29,8 +29,9 @@ function endsAfter(
   const raw = text(formData, name).trim();
   if (raw === "") return undefined;
   const days = whole(raw);
-  if (days === null || days < 1 || days > MAX_DAYS) return null;
-  return new Date(Date.now() + days * DAY).toISOString();
+  if (days === null) return null;
+  const end = new Date(Date.now() + days * DAY);
+  return Number.isNaN(end.getTime()) ? null : end.toISOString();
 }
 
 // What every moderation write may carry besides its own fields.

@@ -247,7 +247,6 @@ export function ItemEffect({
                 id={`${idPrefix}-permission`}
                 name="permission"
                 required
-                maxLength={100}
                 autoCapitalize="none"
                 value={permission}
                 onChange={(event) => setPermission(event.target.value)}

@@ -32,13 +32,7 @@ export async function EraseForm({ member }: { member: AdminMember }) {
           htmlFor="erase-reason"
           help={t("reasonHelp")}
         >
-          <Textarea
-            id="erase-reason"
-            name="reason"
-            rows={3}
-            required
-            maxLength={1000}
-          />
+          <Textarea id="erase-reason" name="reason" rows={3} required />
         </FieldRow>
         <ConfirmPassword id="erase-password" />
         <FieldRow

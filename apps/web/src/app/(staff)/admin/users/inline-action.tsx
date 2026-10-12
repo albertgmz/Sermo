@@ -71,7 +71,7 @@ export function InlineAction({
             <label htmlFor={reasonId} className="text-xs font-medium">
               {reason}
             </label>
-            <Input id={reasonId} name="reason" maxLength={1000} />
+            <Input id={reasonId} name="reason" />
           </div>
         )}
         <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">

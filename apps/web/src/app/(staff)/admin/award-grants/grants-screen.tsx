@@ -93,7 +93,7 @@ export async function GrantsScreen({
           htmlFor="grant-reason"
           help={t("noteHelp")}
         >
-          <Input id="grant-reason" name="reason" maxLength={500} />
+          <Input id="grant-reason" name="reason" />
         </FieldRow>
       </FormRows>
       <CursorList

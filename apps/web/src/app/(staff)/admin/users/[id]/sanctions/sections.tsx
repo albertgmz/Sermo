@@ -66,12 +66,7 @@ async function NoticeRows() {
         </label>
       </FieldRow>
       <FieldRow name="message" label={t("message")} htmlFor="sanction-message">
-        <Textarea
-          id="sanction-message"
-          name="message"
-          rows={2}
-          maxLength={1000}
-        />
+        <Textarea id="sanction-message" name="message" rows={2} />
       </FieldRow>
     </>
   );
@@ -162,13 +157,7 @@ export async function Warnings({
             />
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="warn-reason">
-            <Textarea
-              id="warn-reason"
-              name="reason"
-              rows={2}
-              required
-              maxLength={5000}
-            />
+            <Textarea id="warn-reason" name="reason" rows={2} required />
           </FieldRow>
           <FieldRow
             name="days"
@@ -270,13 +259,7 @@ export async function Restrictions({
             </select>
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="restrict-reason">
-            <Textarea
-              id="restrict-reason"
-              name="reason"
-              rows={2}
-              required
-              maxLength={5000}
-            />
+            <Textarea id="restrict-reason" name="reason" rows={2} required />
           </FieldRow>
           <FieldRow
             name="days"
@@ -378,13 +361,7 @@ export async function Bans({
       >
         <input type="hidden" name="id" value={userId} />
         <FieldRow name="reason" label={t("reason")} htmlFor="ban-reason">
-          <Textarea
-            id="ban-reason"
-            name="reason"
-            rows={2}
-            required
-            maxLength={5000}
-          />
+          <Textarea id="ban-reason" name="reason" rows={2} required />
         </FieldRow>
         <FieldRow
           name="days"

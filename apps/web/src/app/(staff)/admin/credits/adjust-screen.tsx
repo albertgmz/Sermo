@@ -110,7 +110,6 @@ export async function AdjustScreen({
               id="adjust-reason"
               name="reason"
               required
-              maxLength={500}
               defaultValue={reason}
             />
             <p className="text-xs text-muted-foreground">{t("reasonHelp")}</p>

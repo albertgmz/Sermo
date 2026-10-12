@@ -33,7 +33,6 @@ async function CategoryForm({ category }: { category?: Category }) {
           id={`${key}-name`}
           name="name"
           required
-          maxLength={100}
           defaultValue={category?.name}
         />
       </FieldRow>
@@ -45,7 +44,6 @@ async function CategoryForm({ category }: { category?: Category }) {
         <Input
           id={`${key}-description`}
           name="description"
-          maxLength={500}
           defaultValue={category?.description}
         />
       </FieldRow>

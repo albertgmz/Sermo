@@ -33,7 +33,6 @@ export async function RuleForm({
           id={`${key}-title`}
           name="title"
           required
-          maxLength={100}
           defaultValue={rule?.title}
         />
       </FieldRow>

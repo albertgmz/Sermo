@@ -125,7 +125,6 @@ export async function Maintenance({ searchParams }: { searchParams: Params }) {
                     <Input
                       id="spam-reason"
                       name="reason"
-                      maxLength={5000}
                       aria-describedby="spam-reason-help"
                     />
                     <p

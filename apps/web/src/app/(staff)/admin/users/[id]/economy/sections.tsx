@@ -134,7 +134,7 @@ export async function Adjust({
           />
         </FieldRow>
         <FieldRow name="reason" label={t("reason")} htmlFor="adjust-reason">
-          <Input id="adjust-reason" name="reason" required maxLength={500} />
+          <Input id="adjust-reason" name="reason" required />
         </FieldRow>
         <FieldRow name="confirm" label={t("confirmLabel")}>
           <label className="flex min-h-10 items-center gap-3 text-sm">
@@ -324,7 +324,7 @@ export async function Awards({
             </select>
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="grant-reason">
-            <Input id="grant-reason" name="reason" maxLength={500} />
+            <Input id="grant-reason" name="reason" />
           </FieldRow>
         </FormRows>
       )}

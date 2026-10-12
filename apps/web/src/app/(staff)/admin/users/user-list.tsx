@@ -143,7 +143,6 @@ export async function UserList({
                 id="users-prefix"
                 type="search"
                 name="q"
-                maxLength={64}
                 defaultValue={prefix}
               />
               <span className="font-normal text-muted-foreground">

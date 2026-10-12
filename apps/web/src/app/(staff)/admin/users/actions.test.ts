@@ -641,3 +641,25 @@ test("one session or all of them", async () => {
     await sessions.revokeSessions(null, form({ id: "7", sessionId: "-1" })),
   ).toEqual({ error: messages.adminUsers.errors.id });
 });
+
+test("the length of a sanction is the backend's to judge: zero and huge counts of days are sent or refused as dates", async () => {
+  backend = fakeBackend({
+    "bans.create": () => refusal(422, "validation", "Pick a later date."),
+  });
+  // No frontend ceiling: 36501 days is sent, and the backend's words come back.
+  expect(
+    await sanctions.banMember(
+      null,
+      form({ id: "7", reason: "x", days: "36501" }),
+    ),
+  ).toEqual({ error: "Pick a later date." });
+  expect(backend.asked).toHaveLength(1);
+  // A count that cannot be a date at all is refused here, not thrown.
+  expect(
+    await sanctions.banMember(
+      null,
+      form({ id: "7", reason: "x", days: "999999999999999" }),
+    ),
+  ).toEqual({ fields: { days: messages.adminUsers.errors.days } });
+  expect(backend.asked).toHaveLength(1);
+});
