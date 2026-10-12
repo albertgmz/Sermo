@@ -97,7 +97,9 @@ export async function describe(
     const post = await orGone(() => call(postsGet, { postId: id }));
     if (!post) return nothing;
     const thread = deep
-      ? await orGone(() => call(threadsGet, { threadId: post.threadId }))
+      ? await orGone(() =>
+          call(threadsGet, { threadId: post.threadId, countView: false }),
+        )
       : null;
     return {
       author: post.author,
@@ -114,7 +116,9 @@ export async function describe(
     };
   }
   if (type === "thread") {
-    const found = await orGone(() => call(threadsGet, { threadId: id }));
+    const found = await orGone(() =>
+      call(threadsGet, { threadId: id, countView: false }),
+    );
     if (!found) return nothing;
     const { thread } = found;
     const first = deep

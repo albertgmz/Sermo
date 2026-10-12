@@ -41,7 +41,7 @@ export default async function EditPostPage({
   }
   const [post, found] = await Promise.all([
     read(postsGet, { postId }),
-    read(threadsGet, { threadId }),
+    read(threadsGet, { threadId, countView: false }),
   ]);
   if (post.threadId !== threadId) notFound();
   const { thread, node, permissions, resolvedPermissions } = found;

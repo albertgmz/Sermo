@@ -1,21 +1,25 @@
+import type { nodesGet } from "@sermo/core/contracts";
 import { Bell, BellOff } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import type * as z from "zod";
 import {
   unwatchForumAction,
   watchForumAction,
 } from "@/app/(main)/forums/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { Label } from "@/components/ui/label";
-import { nodeWatch } from "@/lib/watching";
 
 // Watching a forum: for new threads only or for every new post, and by email if wanted. What the
-// member has chosen is read from the backend's list of their watches.
-export async function ForumWatch({ nodeId }: { nodeId: number }) {
-  const [t, watch] = await Promise.all([
-    getTranslations("forums.watch"),
-    nodeWatch(nodeId),
-  ]);
-  if (watch) {
+// member has chosen comes with the forum (`nodes.get`).
+export async function ForumWatch({
+  nodeId,
+  watching,
+}: {
+  nodeId: number;
+  watching: z.output<typeof nodesGet.output>["watching"];
+}) {
+  const t = await getTranslations("forums.watch");
+  if (watching) {
     return (
       <ActionForm
         action={unwatchForumAction.bind(null, nodeId)}
@@ -27,7 +31,7 @@ export async function ForumWatch({ nodeId }: { nodeId: number }) {
         }
       >
         <p className="text-sm text-muted-foreground">
-          {t("status", { mode: watch.mode, email: String(watch.email) })}
+          {t("status", { mode: watching.mode, email: String(watching.email) })}
         </p>
       </ActionForm>
     );
