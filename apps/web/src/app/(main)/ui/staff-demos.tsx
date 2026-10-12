@@ -6,8 +6,43 @@ import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { CursorList } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { LogTable } from "@/components/staff/log-table";
+import {
+  type MatrixPermission,
+  PermissionMatrix,
+} from "@/components/staff/permission-matrix";
 import { Input } from "@/components/ui/input";
 import { plainMember } from "@/lib/sermo/members";
+
+const MATRIX: MatrixPermission[] = [
+  {
+    id: "forum.react",
+    type: "flag",
+    scope: "node",
+    title: "Forum react",
+    category: "forum",
+    categoryTitle: "Forums",
+    unit: null,
+    initial: "Allow",
+  },
+  {
+    id: "forum.edit",
+    type: "flag",
+    scope: "node",
+    title: "Forum edit",
+    category: "forum",
+    categoryTitle: "Forums",
+    unit: null,
+  },
+  {
+    id: "general.maxLinks",
+    type: "integer",
+    scope: "global",
+    title: "General max links",
+    category: "general",
+    categoryTitle: "General",
+    unit: "count",
+  },
+];
 
 const NAV: NavSection[] = [
   {
@@ -191,6 +226,22 @@ export function StaffDemos() {
           </FieldRow>
           <ConfirmPassword id="sample-password" />
         </FormRows>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Permission matrix</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The permissions of one target as a form body, grouped by category,
+          with a filter box; allowNo adds the forum-only &quot;No&quot; state.
+          Inside FormRows it is read back with matrixChanges.
+        </p>
+        <div className="overflow-hidden rounded-lg border bg-card">
+          <PermissionMatrix
+            permissions={MATRIX}
+            entries={{ "forum.react": "allow", "general.maxLinks": 3 }}
+            allowNo
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
