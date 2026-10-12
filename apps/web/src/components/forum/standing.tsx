@@ -6,23 +6,22 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { AwardRow } from "@/components/forum/award-icon";
-import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { RankNumber } from "@/components/forum/leaderboard";
-import { LevelBadge, XpBar } from "@/components/forum/level";
+import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
-import type { MonthWinner, StandingEntry } from "@/lib/db";
 import { formatNumber } from "@/lib/format";
-import {
-  type Activity,
-  type Month,
-  POST_POINTS,
-  REACTIONS_PER_POINT,
-  REFERRAL_POINTS,
-} from "@/lib/standing";
+import type { MemberView } from "@/lib/sermo/views";
+import type { Activity, Month, Standing } from "@/lib/standing";
 import { cn } from "@/lib/utils";
+
+// One member's month: what they did and the points the backend gave for it.
+export type StandingEntry = Standing & {
+  user: { id: number; member: MemberView };
+};
+
+export type MonthWinner = StandingEntry & Month;
 
 export function monthLabel(
   format: ReturnType<typeof useFormatter>,
@@ -35,26 +34,10 @@ export function monthLabel(
   });
 }
 
-const PARTS: {
-  key: keyof Activity;
-  icon: LucideIcon;
-  points: (count: number) => number;
-}[] = [
-  {
-    key: "posts",
-    icon: MessageCircle,
-    points: (count) => count * POST_POINTS,
-  },
-  {
-    key: "reactions",
-    icon: Heart,
-    points: (count) => count / REACTIONS_PER_POINT,
-  },
-  {
-    key: "referrals",
-    icon: UserPlus,
-    points: (count) => count * REFERRAL_POINTS,
-  },
+const PARTS: { key: keyof Activity; icon: LucideIcon }[] = [
+  { key: "posts", icon: MessageCircle },
+  { key: "reactions", icon: Heart },
+  { key: "referrals", icon: UserPlus },
 ];
 
 function Points({ value, className }: { value: number; className?: string }) {
@@ -106,7 +89,6 @@ export function MonthHero({
       aria-labelledby="member-of-the-month"
       className="relative isolate overflow-hidden rounded-lg border bg-card"
     >
-      <CoverBackdrop cover={user.coverPicture} className="h-44" />
       <div className="p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <h2
@@ -135,21 +117,13 @@ export function MonthHero({
               {user.member.title}
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-start">
-              <div className="flex items-center gap-1.5">
-                <LevelBadge level={user.level} />
-                <XpBar level={user.level} label className="w-20" />
-              </div>
-              <AwardRow
-                awards={user.awards}
-                max={user.awardSlots.desktop}
-                maxMobile={user.awardSlots.mobile}
-              />
+              <LevelBadge level={user.member} />
             </div>
           </div>
         </div>
 
         <dl className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {PARTS.map(({ key, points }) => (
+          {PARTS.map(({ key }) => (
             <div
               key={key}
               className="min-w-0 rounded-md border bg-background/60 p-3"
@@ -160,11 +134,6 @@ export function MonthHero({
               <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
                 <span className="text-xl leading-tight font-bold tabular-nums">
                   {formatNumber(winner[key])}
-                </span>
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {t("pointsEqual", {
-                    points: formatNumber(points(winner[key])),
-                  })}
                 </span>
               </dd>
             </div>
@@ -179,16 +148,7 @@ export function MonthHero({
           </div>
         </dl>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-xs text-pretty text-muted-foreground">
-            {t("formula", {
-              postPoints: POST_POINTS,
-              reactions: REACTIONS_PER_POINT,
-              referralPoints: REFERRAL_POINTS,
-            })}
-          </p>
-          {action}
-        </div>
+        {action && <div className="mt-3 flex justify-end">{action}</div>}
       </div>
     </section>
   );
@@ -263,9 +223,12 @@ function StandingRow({
 export function StandingList({
   entries,
   viewerId,
+  start = 1,
 }: {
   entries: StandingEntry[];
   viewerId?: number;
+  // The rank of the first entry, where the list continues an earlier page.
+  start?: number;
 }) {
   return (
     <ol className="divide-y divide-border">
@@ -273,8 +236,8 @@ export function StandingList({
         <StandingRow
           key={entry.user.id}
           entry={entry}
-          rank={index + 1}
-          leader={index === 0}
+          rank={start + index}
+          leader={start === 1 && index === 0}
           viewer={entry.user.id === viewerId}
         />
       ))}

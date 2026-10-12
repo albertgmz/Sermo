@@ -9,6 +9,7 @@
   },
   "memberCard": {
     "emptyAwards": "No awards yet",
+    "awardCount": "{count, plural, one {# award} other {# awards}}",
     "postsLabel": "Posts",
     "reactionsLabel": "Reactions",
     "joinedLabel": "Joined",
@@ -120,8 +121,6 @@
     "heading": "Member of the month",
     "totalPoints": "Total points",
     "pts": "pts",
-    "pointsEqual": "= {points} pts",
-    "formula": "1 post = {postPoints, plural, one {# point} other {# points}} · {reactions, plural, one {# reaction} other {# reactions}} = 1 point · 1 referral = {referralPoints, plural, one {# point} other {# points}}",
     "parts": {
       "posts": "Posts",
       "reactions": "Reactions received",

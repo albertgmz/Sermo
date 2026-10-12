@@ -1,12 +1,13 @@
 import { useTranslations } from "next-intl";
 import {
   Leaderboard,
+  type LeaderboardKind,
+  type LeaderboardMember,
   LeaderboardScore,
   RankNumber,
 } from "@/components/forum/leaderboard";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import type { LeaderboardKind, UserView } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 export function Podium({
@@ -14,7 +15,7 @@ export function Podium({
   by,
   viewerId,
 }: {
-  members: UserView[];
+  members: LeaderboardMember[];
   by: LeaderboardKind;
   viewerId?: number;
 }) {
