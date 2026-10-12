@@ -16,6 +16,7 @@ import {
   check,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -36,7 +37,34 @@ export const REACTION_CONTENT_TYPES = [
 export type ReactionContentType = (typeof REACTION_CONTENT_TYPES)[number];
 export const JOB_STATUSES = ["pending", "running", "done", "failed"] as const;
 export const FILE_VISIBILITIES = ["unattached", "public", "private"] as const;
-export const FILE_PURPOSES = ["attachment", "avatar", "cover", "node_icon", "node_cover"] as const;
+/** Purposes a member uploads for; the allowed types of each are a site setting. */
+export const UPLOAD_SETTING_PURPOSES = [
+  "attachment",
+  "avatar",
+  "cover",
+  "node_icon",
+  "node_cover",
+] as const;
+/**
+ * Purposes of the pictures an administrator uploads for everyone: the catalogs members pick
+ * from, the art of awards and shop items, and the identity of the site. They are raster only,
+ * never count against a storage quota, and are never deleted while something refers to them.
+ */
+export const CATALOG_FILE_PURPOSES = [
+  "frame",
+  "cover_preset",
+  "thread_cover",
+  "award_image",
+  "shop_image",
+  "site_logo",
+  "site_icon",
+  "site_backdrop",
+] as const;
+export const FILE_PURPOSES = [...UPLOAD_SETTING_PURPOSES, ...CATALOG_FILE_PURPOSES] as const;
+/** Picture catalogs members choose from. */
+export const CATALOG_IMAGE_KINDS = ["frame", "profile_cover", "thread_cover"] as const;
+/** Colour catalogs: site accents, member name colours, thread prefix colours. */
+export const PALETTE_KINDS = ["accent", "name", "prefix"] as const;
 export const ATTACHMENT_CONTENT_TYPES = ["post", "profile_post", "conversation_message"] as const;
 export const REPORT_TARGET_TYPES = [
   "post",
@@ -198,10 +226,21 @@ export const users = sqliteTable(
     awardXp: counter("award_xp"),
     /** Units the member has bought in the shop, gifts to others included. */
     shopPurchaseCount: counter("shop_purchase_count"),
+    /** Chosen appearance: rows of palette_colors (accent, name) and of catalog_images. */
+    accentColorId: integer("accent_color_id"),
+    nameColorId: integer("name_color_id"),
+    frameId: integer("frame_id"),
+    /** A cover from the gallery; shown instead of an uploaded cover while set. */
+    coverPresetId: integer("cover_preset_id"),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
     index("users_permission_combination").on(t.permissionCombinationId),
+    // "Is this catalog entry in use?" before it is deleted; few members set each.
+    index("users_accent_color").on(t.accentColorId).where(sql`accent_color_id IS NOT NULL`),
+    index("users_name_color").on(t.nameColorId).where(sql`name_color_id IS NOT NULL`),
+    index("users_frame").on(t.frameId).where(sql`frame_id IS NOT NULL`),
+    index("users_cover_preset").on(t.coverPresetId).where(sql`cover_preset_id IS NOT NULL`),
   ],
 );
 
@@ -501,6 +540,8 @@ export const threads = sqliteTable(
     contentUpdatedAt: integer("content_updated_at"),
     /** Set on a merged thread's tombstone (state 'deleted'): the thread its id resolves to. */
     mergedIntoId: integer("merged_into_id"),
+    /** A catalog_images row of kind thread_cover. */
+    coverId: integer("cover_id"),
   },
   (t) => [
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY last_post_at DESC, id DESC
@@ -509,6 +550,7 @@ export const threads = sqliteTable(
     index("threads_node_feed").on(t.nodeId, t.state, desc(t.lastPostAt), desc(t.id)),
     index("threads_state_id").on(t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
+    index("threads_cover").on(t.coverId).where(sql`cover_id IS NOT NULL`),
   ],
 );
 
@@ -825,6 +867,8 @@ export const files = sqliteTable(
     createdAt: integer("created_at").notNull(),
     attachedAt: integer("attached_at"),
     deletedAt: integer("deleted_at"),
+    /** JSON measured at upload; for a frame, its opening (modules/images/frame-geometry.ts). */
+    meta: text("meta"),
   },
   (t) => [
     uniqueIndex("files_driver_key").on(t.driver, t.storageKey),
@@ -1452,6 +1496,7 @@ export const awards = sqliteTable("awards", {
   grantCount: counter("grant_count"),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
+  imageFileId: integer("image_file_id"),
 });
 
 /** One row per grant. A revoked grant keeps its row, so ids are never reused. */
@@ -1545,6 +1590,7 @@ export const shopItems = sqliteTable(
     position: integer("position").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
+    imageFileId: integer("image_file_id"),
   },
   // The catalog: a category's items in display order.
   (t) => [index("shop_items_category").on(t.categoryId, t.position, t.id)],
@@ -1605,4 +1651,54 @@ export const shopPurchases = sqliteTable(
     index("shop_purchases_buyer_item").on(t.buyerId, t.itemId),
     index("shop_purchases_item").on(t.itemId, t.id),
   ],
+);
+
+// ---------------------------------------------------------------------------
+// Appearance catalogs
+
+/**
+ * Pictures members choose from: avatar frames, profile covers, thread covers. An entry without a
+ * file is waiting for its picture and cannot be active.
+ */
+export const catalogImages = sqliteTable(
+  "catalog_images",
+  {
+    id: integer("id").primaryKey(),
+    kind: text("kind", { enum: CATALOG_IMAGE_KINDS }).notNull(),
+    name: text("name").notNull(),
+    fileId: integer("file_id").references(() => files.id),
+    /**
+     * Frames only: where the frame sits around the avatar box, in percent of the box (frame
+     * width, left and top offsets), and how far the picture shrinks into the opening.
+     */
+    frameWidth: real("frame_width"),
+    frameLeft: real("frame_left"),
+    frameTop: real("frame_top"),
+    frameScale: real("frame_scale"),
+    position: integer("position").notNull().default(0),
+    isActive: bool("is_active").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  // A catalog in display order.
+  (t) => [index("catalog_images_kind").on(t.kind, t.position, t.id)],
+);
+
+/** Colours administrators define: accents (with a foreground), name colours, prefix colours. */
+export const paletteColors = sqliteTable(
+  "palette_colors",
+  {
+    id: integer("id").primaryKey(),
+    kind: text("kind", { enum: PALETTE_KINDS }).notNull(),
+    name: text("name").notNull(),
+    /** #rrggbb. */
+    color: text("color").notNull(),
+    /** Accents only: the colour of text drawn on the accent. */
+    foreground: text("foreground"),
+    position: integer("position").notNull().default(0),
+    isActive: bool("is_active").notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("palette_colors_kind").on(t.kind, t.position, t.id)],
 );

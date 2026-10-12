@@ -2,6 +2,7 @@ import * as z from "zod";
 import { SHOP_INVENTORY_STATES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { ImageReference } from "./images";
 
 /**
  * What an item does. Two effects apply by themselves for as long as the item is held (a
@@ -58,6 +59,8 @@ export const ShopItem = z
     description: z.string(),
     /** An icon key or URL the client resolves. */
     icon: z.string(),
+    /** The item's picture (images.setShopItemImage), or null. */
+    image: ImageReference,
     price: z.number().int().nonnegative(),
     isActive: z.boolean(),
     /** Units left; null = unlimited. */

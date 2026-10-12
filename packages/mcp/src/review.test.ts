@@ -851,6 +851,7 @@ type Json = {
 const patternSamples: Record<string, string> = {
   "^B[A-Za-z0-9_-]{86}=?$": `B${"A".repeat(86)}`,
   "^[A-Za-z0-9_-]{21}[AQgw](==)?$": `${"A".repeat(21)}A`,
+  "^#[0-9a-fA-F]{6}$": "#aabbcc",
 };
 
 /** The smallest input the published schema describes: required properties only. */
