@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { buyRank, type RankState } from "@/app/(main)/upgrade/actions";
 import { PendingButton } from "@/components/forum/pending-button";
@@ -7,10 +8,10 @@ import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const ERRORS = {
-  not_found: "This rank is no longer available.",
-  not_higher: "You already have this rank or a higher one.",
-  insufficient_credits: "You do not have enough credits.",
-};
+  not_found: "notFound",
+  not_higher: "notHigher",
+  insufficient_credits: "insufficientCredits",
+} as const;
 
 export function RankForm({
   rankId,
@@ -25,6 +26,7 @@ export function RankForm({
   missing: number;
   highlighted: boolean;
 }) {
+  const t = useTranslations("upgrade.rankForm");
   const [state, action] = useActionState<RankState, FormData>(
     buyRank.bind(null, rankId),
     null,
@@ -32,9 +34,9 @@ export function RankForm({
 
   let status = "";
   if (state) {
-    status = ERRORS[state.error];
+    status = t(`errors.${ERRORS[state.error]}`);
   } else if (missing > 0) {
-    status = `You are ${formatNumber(missing)} credits short.`;
+    status = t("credits", { count: missing });
   }
 
   return (
@@ -42,10 +44,10 @@ export function RankForm({
       <PendingButton
         variant={highlighted ? "default" : "outline"}
         disabled={missing > 0}
-        aria-label={`Upgrade to ${rankName} for ${formatNumber(cost)} credits`}
+        aria-label={t("aria.submit", { rank: rankName, count: cost })}
         className="h-10 w-full"
       >
-        Upgrade for {formatNumber(cost)}
+        {t("submit", { cost: formatNumber(cost) })}
       </PendingButton>
       <output
         className={cn(

@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   CardSkeleton,
   LoadingRegion,
@@ -12,18 +13,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export default function Loading() {
+  const t = useTranslations("upgrade.loading");
   return (
-    <LoadingRegion label="Loading upgrades…">
+    <LoadingRegion label={t("aria.loading")}>
       <Container className="flex items-center justify-between gap-10 py-12 md:py-20">
         <div className="w-full max-w-xl">
           <h1 className={heroTitleClass}>
-            Ready to <span className="text-primary">level up</span>
-            <br />
-            your experience?
+            {t.rich("heading", {
+              highlight: (chunks) => (
+                <span className="text-primary">{chunks}</span>
+              ),
+              br: () => <br />,
+            })}
           </h1>
           <p className={cn("mt-4 max-w-md", heroSubtitleClass)}>
-            Spend your credits on a rank to unlock its name colour, an award
-            nobody else can earn and a set of lasting perks.
+            {t("description")}
           </p>
           <Skeleton className="mt-5 h-20 w-full max-w-md" />
         </div>
