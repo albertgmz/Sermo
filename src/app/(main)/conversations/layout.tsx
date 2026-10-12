@@ -2,6 +2,8 @@ import { MessagesSquare, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import {
   ConversationLink,
@@ -20,22 +22,26 @@ import { getConversations } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Conversations - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("conversations.layout");
+  return {
+    title: t("metaTitle"),
+  };
+}
 
 export default function ConversationsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("conversations.layout");
   return (
     <Container className="px-0 lg:px-4 lg:py-8">
       <div className="lg:flex lg:h-[calc(100dvh-12rem)] lg:min-h-[32rem] lg:overflow-hidden lg:rounded-lg lg:border lg:bg-card">
         <Suspense
           fallback={
             <div className="hidden min-w-0 flex-col lg:flex lg:w-[340px] lg:shrink-0 lg:border-r">
-              <LoadingRegion label="Loading conversation list…">
+              <LoadingRegion label={t("loadingList")}>
                 <div className="flex min-h-14 items-center justify-between gap-3 border-b px-4 py-2">
                   <Skeleton className="h-5 w-28" />
                   <Skeleton className="h-8 w-32" />
@@ -48,19 +54,19 @@ export default function ConversationsLayout({
           <ListPane>
             <header className="flex min-h-14 items-center justify-between gap-3 border-b px-4 py-2">
               <h1 className="text-base font-semibold tracking-tight">
-                Conversations
+                {t("heading")}
               </h1>
               <Link
                 href="/conversations/new"
                 className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
               >
                 <Plus />
-                New conversation
+                {t("newConversation")}
               </Link>
             </header>
             <Suspense
               fallback={
-                <LoadingRegion label="Loading conversations…">
+                <LoadingRegion label={t("loadingConversations")}>
                   <ConversationListSkeleton />
                 </LoadingRegion>
               }
@@ -79,6 +85,7 @@ async function ConversationList() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const conversations = await getConversations(user.id);
+  const t = await getTranslations("conversations.layout");
 
   return (
     <>
@@ -99,8 +106,8 @@ async function ConversationList() {
       ) : (
         <EmptyState
           icon={MessagesSquare}
-          title="No conversations yet"
-          description="Start one to talk privately with other members."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
         />
       )}
     </>

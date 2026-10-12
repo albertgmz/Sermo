@@ -2,6 +2,7 @@
 
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getClientInfo } from "@/lib/client";
 import {
   createConversation,
@@ -39,15 +40,16 @@ export async function startConversation(
 ): Promise<string> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const t = await getTranslations("conversations.actions.errors");
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const chosen = formData.getAll("to").map(Number);
   const participantIds = (await getUsers())
     .map((u) => u.id)
     .filter((id) => id !== user.id && chosen.includes(id));
-  if (!participantIds.length) return "Choose at least one recipient.";
-  if (!title) return "Enter a title.";
-  if (!body) return "Write a message.";
+  if (!participantIds.length) return t("recipientRequired");
+  if (!title) return t("titleRequired");
+  if (!body) return t("messageRequired");
   const conversation = await createConversation({
     title,
     authorId: user.id,

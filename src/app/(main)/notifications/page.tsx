@@ -1,6 +1,7 @@
 import { Bell, CheckCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { markAllRead } from "@/app/(main)/notifications/actions";
 import { EmptyState } from "@/components/forum/empty-state";
 import { NotificationRow } from "@/components/forum/notification-row";
@@ -9,25 +10,29 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { getNotifications } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "Notifications - forum/ui",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("notifications.notifications");
+  return {
+    title: t("metaTitle"),
+  };
+}
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const notifications = await getNotifications(user.id);
   const unread = notifications.filter((item) => !item.read).length;
+  const t = await getTranslations("notifications.notifications");
 
   return (
     <PageLayout>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Notifications
+            {t("heading")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {unread > 0 ? `${unread} unread` : "You are all caught up."}
+            {t("notifications", { count: unread })}
           </p>
         </div>
         {notifications.length > 0 && (
@@ -38,7 +43,7 @@ export default async function NotificationsPage() {
               className="h-10 px-3 md:h-8"
             >
               <CheckCheck />
-              Mark all as read
+              {t("markAllRead")}
             </PendingButton>
           </form>
         )}
@@ -48,8 +53,8 @@ export default async function NotificationsPage() {
         {notifications.length === 0 ? (
           <EmptyState
             icon={Bell}
-            title="No notifications yet"
-            description="Replies, reactions, follows and profile posts will show up here."
+            title={t("emptyTitle")}
+            description={t("emptyDescription")}
           />
         ) : (
           <ul className="divide-y divide-border">

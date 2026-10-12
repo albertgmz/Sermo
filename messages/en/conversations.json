@@ -1,1 +1,59 @@
-{}
+{
+  "layout": {
+    "metaTitle": "Conversations - forum/ui",
+    "heading": "Conversations",
+    "newConversation": "New conversation",
+    "loadingList": "Loading conversation list…",
+    "loadingConversations": "Loading conversations…",
+    "emptyTitle": "No conversations yet",
+    "emptyDescription": "Start one to talk privately with other members."
+  },
+  "conversations": {
+    "title": "Select a conversation",
+    "description": "Choose a conversation from the list or start a new one."
+  },
+  "conversation": {
+    "aria": {
+      "back": "Back to conversations"
+    },
+    "participantSeparator": ", ",
+    "authorSeparator": "·",
+    "placeholder": "Write a message…",
+    "submit": "Send message"
+  },
+  "newConversation": {
+    "aria": {
+      "back": "Back to conversations"
+    },
+    "heading": "New conversation"
+  },
+  "newConversationForm": {
+    "recipientsLabel": "Recipients",
+    "titleLabel": "Title",
+    "titlePlaceholder": "What is it about?",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Write your message...",
+    "submit": "Start conversation",
+    "errors": {
+      "recipientRequired": "Choose at least one recipient.",
+      "messageRequired": "Write a message."
+    }
+  },
+  "actions": {
+    "errors": {
+      "recipientRequired": "Choose at least one recipient.",
+      "titleRequired": "Enter a title.",
+      "messageRequired": "Write a message."
+    }
+  },
+  "loading": {
+    "label": "Loading conversations…",
+    "conversation": {
+      "label": "Loading messages…"
+    },
+    "newConversation": {
+      "label": "Loading the conversation form…",
+      "heading": "New conversation"
+    }
+  }
+}

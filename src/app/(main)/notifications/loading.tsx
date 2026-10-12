@@ -1,15 +1,17 @@
+import { useTranslations } from "next-intl";
 import { LoadingRegion, MemberRowSkeleton } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
+  const t = useTranslations("notifications.loading");
   return (
-    <LoadingRegion label="Loading notifications…">
+    <LoadingRegion label={t("label")}>
       <PageLayout>
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Notifications
+              {t("heading")}
             </h1>
             <Skeleton className="h-5 w-32" />
           </div>
