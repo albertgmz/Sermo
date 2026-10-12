@@ -18,7 +18,17 @@ import {
   usersSearchOp,
 } from "./posts";
 
-export { reactableProfileComment, reactableProfilePost } from "./shared";
+export {
+  latestComments,
+  mayViewProfile,
+  type PostRow as ProfilePostRow,
+  type ProfileAccess,
+  postValues as profilePostValues,
+  profileAccess,
+  reactableProfileComment,
+  reactableProfilePost,
+  requireProfileView,
+} from "./shared";
 
 export {
   profileCommentsCreateOp,

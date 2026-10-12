@@ -25,6 +25,7 @@ import {
   registerNotificationJobs,
   registerPromotionJobs,
   registerPushJobs,
+  registerRankingJobs,
   registerSeoJobs,
   registerShopJobs,
   registerSocialJobs,
@@ -447,6 +448,7 @@ async function main(): Promise<void> {
   registerCreditRuleJobs(ctx);
   registerAwardJobs(ctx);
   registerShopJobs(ctx);
+  registerRankingJobs(ctx);
   const emailTypes = {
     ...notificationChannels,
     defaults: {
