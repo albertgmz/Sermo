@@ -1,0 +1,38 @@
+# The only service that is published. It sends what the backend serves to `sermo` and everything
+# else to `web`, and it is the place that decides the client address: reverse_proxy replaces any
+# X-Forwarded-For, X-Forwarded-Proto and X-Forwarded-Host a client sent with the address, scheme
+# and host of the connection, because no trusted_proxies are configured. Keep it that way unless
+# another proxy is in front of this one (see "TLS" in docs/deployment.md).
+{
+	admin off
+	persist_config off
+	# TLS is not terminated here by default; see "TLS" in docs/deployment.md.
+	auto_https off
+}
+
+:8080 {
+	# Largest request body, for uploads. Keep it above the upload limit set in the administration
+	# panel (the default there is 25 MiB) plus about 1 MiB of form framing.
+	request_body {
+		max_size {$INGRESS_MAX_BODY:32MiB}
+	}
+
+	# Every path the backend serves to a browser or a crawler: Better Auth, the REST API (files
+	# included), the MCP endpoint, health, the sitemaps, the feeds, robots.txt and the IndexNow key
+	# file (<key>.txt).
+	@backend {
+		path /api/* /mcp /health /robots.txt /sitemap.xml /sitemaps/* /feed.atom /nodes/*/feed.atom /*.txt
+	}
+	handle @backend {
+		reverse_proxy sermo:3000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+# Answered by the ingress alone, for its own health check; not published.
+:8081 {
+	respond /ready 200
+}
