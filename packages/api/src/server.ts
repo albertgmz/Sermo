@@ -37,7 +37,13 @@ import {
 } from "@sermo/core";
 import { createApp } from "./app";
 
-/** Adapt RFC 8058 one-click posts to the contract's JSON input. */
+const JSON_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i;
+
+/**
+ * Adapt the two unsubscribe link flavours to the contract's JSON input: the browser link and the
+ * RFC 8058 one-click post both carry the token in the query string. A JSON request (the
+ * documented API form) is passed through untouched.
+ */
 export function adaptUnsubscribeRequest(request: Request): Request | Response {
   const url = new URL(request.url);
   if (url.pathname !== "/api/v1/unsubscribe") return request;
@@ -58,14 +64,23 @@ export function adaptUnsubscribeRequest(request: Request): Request | Response {
     });
   }
   if (request.method !== "POST") return request;
+  if (JSON_CONTENT_TYPE.test(request.headers.get("content-type") ?? "")) return request;
   const token = url.searchParams.get("token") ?? "";
   const headers = new Headers(request.headers);
   headers.set("content-type", "application/json");
+  headers.delete("content-length");
   return new Request(request.url, {
     method: "POST",
     headers,
     body: JSON.stringify({ token }),
   });
+}
+
+function unsubscribeMessage(status: number): string {
+  if (status >= 200 && status < 300) return "Your email preferences were updated.";
+  if (status === 429) return "Too many requests. Please wait a moment and try again.";
+  if (status >= 500) return "Something went wrong. Please try again later.";
+  return "This link is invalid or expired.";
 }
 
 export async function handleUnsubscribeRequest(
@@ -86,19 +101,72 @@ export async function handleUnsubscribeRequest(
     new URL(request.url).searchParams.get("confirm") === "1" &&
     new URL(request.url).pathname === "/api/v1/unsubscribe"
   ) {
-    const body = response.ok
-      ? "Your email preferences were updated."
-      : "This link is invalid or expired.";
-    return new Response(`<!doctype html><html><body><p>${body}</p></body></html>`, {
-      status: response.status,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
-        "Referrer-Policy": "no-referrer",
-      },
-    });
+    // Keep what the app set (cookies, rate-limit and security headers, Retry-After); replace only
+    // the headers that describe the body.
+    const headers = new Headers(response.headers);
+    headers.delete("Content-Length");
+    headers.delete("Content-Encoding");
+    headers.delete("ETag");
+    headers.set("Content-Type", "text/html; charset=utf-8");
+    headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+    headers.set("Referrer-Policy", "no-referrer");
+    return new Response(
+      `<!doctype html><html><body><p>${unsubscribeMessage(response.status)}</p></body></html>`,
+      { status: response.status, headers },
+    );
   }
   return response;
+}
+
+/**
+ * Transport ceiling for request bodies. It must admit the largest upload the settings allow
+ * (1 GiB, see the settings contract) plus multipart framing; the application limit
+ * (`maxUploadBytes`, enforced by storage while streaming to a temp file) is what rejects an
+ * oversized upload, with the normal error envelope.
+ */
+export const MAX_REQUEST_BODY_BYTES = 1024 * 1024 * 1024 + 1024 * 1024;
+/** Every other request keeps the ceiling Bun applied before the transport limit was raised. */
+export const MAX_NON_UPLOAD_BODY_BYTES = 128 * 1024 * 1024;
+
+/**
+ * Only the upload route may exceed `MAX_NON_UPLOAD_BODY_BYTES`: everything else is parsed in
+ * memory, so a larger transport ceiling must not apply to it.
+ */
+export function limitRequestBody(
+  request: Request,
+  limit = MAX_NON_UPLOAD_BODY_BYTES,
+): Request | Response {
+  if (request.method === "POST" && new URL(request.url).pathname === "/api/v1/files")
+    return request;
+  const tooLarge = () =>
+    Response.json(
+      { error: { code: "payload_too_large", message: "The request body is too large." } },
+      { status: 413 },
+    );
+  const declared = request.headers.get("content-length");
+  if (declared !== null) return Number(declared) > limit ? tooLarge() : request;
+  if (!request.body) return request;
+  let seen = 0;
+  const counted = request.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        seen += chunk.byteLength;
+        if (seen > limit) controller.error(new Error("Request body too large."));
+        else controller.enqueue(chunk);
+      },
+    }),
+  );
+  return new Request(request, { body: counted, duplex: "half" } as RequestInit);
+}
+
+export function handleRequest(
+  request: Request,
+  app: ReturnType<typeof createApp>,
+  server?: Parameters<typeof handleUnsubscribeRequest>[2],
+): Promise<Response> | Response {
+  const limited = limitRequestBody(request);
+  if (limited instanceof Response) return limited;
+  return handleUnsubscribeRequest(limited, app, server);
 }
 
 export interface ShutdownDependencies {
@@ -350,7 +418,8 @@ async function main(): Promise<void> {
   });
   const server = Bun.serve({
     port: config.port,
-    fetch: (request, server) => handleUnsubscribeRequest(request, app, server),
+    maxRequestBodySize: MAX_REQUEST_BODY_BYTES,
+    fetch: (request, server) => handleRequest(request, app, server),
   });
   console.info(`Sermo listening on ${server.url}`);
 

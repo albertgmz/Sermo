@@ -25,6 +25,24 @@ function relocateRefs(value: unknown, schemas: Record<string, unknown>): unknown
   return result;
 }
 
+const credentialSchemes = [
+  { sessionCookie: [] },
+  { secureSessionCookie: [] },
+  { bearerApiKey: [] },
+];
+
+/**
+ * Operations a guest may call, for the "anonymous" security alternative. A guest's access is
+ * decided per call by the permission engine, which the route table cannot see; the contracts do
+ * not say it either (an operation marked `public` only skips the permission check, and many of
+ * those, such as conversations.list, still need a signed-in actor). So the documented rule is
+ * deliberately wide: every read (GET) operation plus every operation marked `public`. The
+ * response is still a 401 or an empty result where a guest has no access.
+ */
+function allowsAnonymous(method: string, op: { public?: string }): boolean {
+  return method === "GET" || Boolean(op.public);
+}
+
 const errorSchema = {
   type: "object",
   required: ["error"],
@@ -113,7 +131,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       summary: op.summary,
       operationId: op.name,
       tags: [op.name.split(".")[0]],
-      security: [{ sessionCookie: [] }, { secureSessionCookie: [] }, { bearerApiKey: [] }],
+      security: allowsAnonymous(route.method, op) ? [...credentialSchemes, {}] : credentialSchemes,
       parameters,
       responses,
     };
@@ -167,6 +185,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
         400: { description: "Invalid upload" },
         401: { description: "Authentication required" },
         403: { description: "Origin rejected" },
+        415: { description: "Not multipart/form-data" },
       },
     },
   };
