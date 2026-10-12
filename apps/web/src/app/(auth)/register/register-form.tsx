@@ -23,7 +23,7 @@ function Required({ children }: { children: React.ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
-export function RegisterForm() {
+export function RegisterForm({ referrer }: { referrer?: string }) {
   const t = useTranslations("auth.registerForm");
   const [state, action, pending] = useActionState(register, {
     error: "",
@@ -34,6 +34,7 @@ export function RegisterForm() {
 
   return (
     <form action={action} className="space-y-4">
+      {referrer && <input type="hidden" name="ref" value={referrer} />}
       <div className="space-y-2">
         <Label htmlFor="register-username">
           {t.rich("usernameLabel", {
