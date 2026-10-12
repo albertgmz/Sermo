@@ -1,0 +1,184 @@
+{
+  "errors": {
+    "id": "That is not a valid record.",
+    "number": "Enter a whole number.",
+    "choice": "Choose one of the offered values."
+  },
+  "reactions": {
+    "metaTitle": "Reactions",
+    "heading": "Reactions",
+    "subtitle": "The reactions members can leave under a post, in the order they are offered.",
+    "loading": "Loading the reactions…",
+    "notices": {
+      "created": "Reaction added.",
+      "saved": "Reaction saved.",
+      "ordered": "Order saved.",
+      "activated": "Reaction is offered again.",
+      "deactivated": "Reaction is no longer offered."
+    },
+    "list": {
+      "heading": "Reaction types",
+      "description": "A new score applies to new reactions only; reactions already given keep theirs.",
+      "active": "Offered",
+      "inactive": "Not offered",
+      "deactivate": "Stop offering",
+      "activate": "Offer again",
+      "deactivateWarning": "Members will no longer be offered this reaction. Reactions already given stay on the posts.",
+      "activateWarning": "Members will be offered this reaction again."
+    },
+    "row": {
+      "emoji": "Emoji",
+      "title": "Label",
+      "score": "Score",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "order": {
+      "heading": "Order",
+      "description": "Types are offered by position, lowest first.",
+      "submit": "Save order"
+    },
+    "create": {
+      "heading": "New reaction type",
+      "description": "A reaction type cannot be deleted, only stopped from being offered.",
+      "submit": "Add reaction",
+      "emoji": "Emoji",
+      "emojiHelp": "The character shown on the button.",
+      "title": "Label",
+      "score": "Score",
+      "scoreHelp": "Leave empty to use the forum's default score.",
+      "position": "Position",
+      "positionHelp": "Where it is offered; lowest first.",
+      "active": "Offered",
+      "activeSwitch": "Offer this reaction to members"
+    }
+  },
+  "wordFilters": {
+    "metaTitle": "Word filters",
+    "heading": "Word filters",
+    "subtitle": "Words that are replaced or sent for moderation when a member posts them.",
+    "loading": "Loading the word filters…",
+    "notices": {
+      "created": "Filter added.",
+      "saved": "Filter saved.",
+      "removed": "Filter removed."
+    },
+    "list": {
+      "heading": "Filters",
+      "description": "What happens to a post is decided by the backend when it is posted.",
+      "emptyTitle": "No word filters",
+      "emptyDescription": "Nothing is replaced or held back by word.",
+      "active": "Active",
+      "inactive": "Off",
+      "remove": "Remove filter",
+      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed."
+    },
+    "row": {
+      "action": "Action",
+      "replace": "Replace the word",
+      "moderate": "Hold the post for moderation",
+      "replacement": "Replacement",
+      "active": "Active",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "create": {
+      "heading": "New filter",
+      "description": "Adding a term that already has a filter changes that filter.",
+      "submit": "Add filter",
+      "term": "Word",
+      "termHelp": "The word or phrase to look for. It cannot be renamed later.",
+      "action": "Action",
+      "actionHelp": "Replace swaps the word for the replacement; hold sends the post to the moderation queue.",
+      "replacement": "Replacement",
+      "replacementHelp": "Used when the action is to replace the word.",
+      "active": "Active",
+      "activeSwitch": "Apply this filter"
+    }
+  },
+  "pages": {
+    "metaTitle": "Pages",
+    "heading": "Pages",
+    "subtitle": "The text pages the site publishes about itself: terms, privacy, contact.",
+    "loading": "Loading the pages…",
+    "notices": {
+      "deleted": "Page deleted."
+    },
+    "list": {
+      "heading": "Pages",
+      "description": "Every page, published or not.",
+      "emptyTitle": "No pages yet",
+      "emptyDescription": "Create the first page below.",
+      "published": "Published",
+      "draft": "Not published",
+      "slug": "Slug",
+      "address": "Address",
+      "updated": "Saved",
+      "edit": "Edit"
+    },
+    "wellKnown": {
+      "terms": "The registration form links to this page as its terms.",
+      "privacy": "Has its own address on the site.",
+      "legal": "Has its own address on the site.",
+      "contact": "Has its own address on the site.",
+      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+    },
+    "suggestions": {
+      "heading": "Pages the site expects",
+      "description": "The site links to or reads these pages. They do not exist yet.",
+      "create": "Create"
+    },
+    "create": {
+      "heading": "New page",
+      "description": "The slug is part of the page's address and cannot be changed afterwards.",
+      "submit": "Create page",
+      "slug": "Slug",
+      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug."
+    },
+    "fields": {
+      "title": "Title",
+      "body": "Text",
+      "bodyHelp": "Markdown. It is rendered by the site when you save, and the text is kept exactly as written here.",
+      "published": "Published",
+      "publishedHelp": "A page that is not published is visible to administrators only.",
+      "publishedSwitch": "Show this page to everyone"
+    }
+  },
+  "pageEdit": {
+    "metaTitle": "Edit page",
+    "heading": "Edit page",
+    "subtitle": "The Markdown source of a page. Save, then open the public page to see it rendered.",
+    "loading": "Loading the page…",
+    "notices": {
+      "created": "Page created.",
+      "saved": "Page saved."
+    },
+    "published": "Published",
+    "draft": "Not published",
+    "wellKnown": {
+      "terms": "The registration form links to this page as its terms.",
+      "privacy": "Has its own address on the site.",
+      "legal": "Has its own address on the site.",
+      "contact": "Has its own address on the site.",
+      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+    },
+    "public": {
+      "heading": "On the site",
+      "address": "Public address",
+      "alias": "Also served at",
+      "preview": "Open the address to see the page as members read it, after saving.",
+      "hidden": "This page is not published, so the address is not available to members.",
+      "updated": "Last saved {date}."
+    },
+    "form": {
+      "heading": "Page",
+      "description": "Changes appear on the site when you save."
+    },
+    "delete": {
+      "heading": "Delete page",
+      "summary": "Delete this page",
+      "warning": "The page is deleted and its address stops working. Navigation entries that point at it are left alone.",
+      "submit": "Delete page"
+    }
+  }
+}
