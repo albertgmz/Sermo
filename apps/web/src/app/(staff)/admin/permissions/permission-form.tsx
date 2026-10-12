@@ -26,7 +26,13 @@ export async function PermissionForm({
 }) {
   const t = await getTranslations("adminGroups.matrix");
   return (
-    <FormRows action={savePermissions} heading={heading} submit={t("save")}>
+    <FormRows
+      // A new target, or entries changed by a save, start the form afresh (fields, password).
+      key={`${node ?? 0}:${"group" in target ? `g${target.group}` : `u${target.user}`}:${JSON.stringify(entries)}`}
+      action={savePermissions}
+      heading={heading}
+      submit={t("save")}
+    >
       <input
         type="hidden"
         name={"group" in target ? "group" : "user"}

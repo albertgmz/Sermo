@@ -76,7 +76,6 @@ function IntegerControl({
             type="number"
             inputMode="numeric"
             min={0}
-            required
             defaultValue={
               typeof value === "number" && value >= 0 ? value : undefined
             }
