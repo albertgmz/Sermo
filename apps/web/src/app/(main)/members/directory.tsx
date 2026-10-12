@@ -11,7 +11,6 @@ import { MemberRow } from "@/components/forum/member-row";
 import { SectionCard } from "@/components/forum/section-card";
 import { TabLinks } from "@/components/forum/tab-links";
 import { buttonVariants } from "@/components/ui/button";
-import { listCard } from "@/lib/member-items";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { cn } from "@/lib/utils";
@@ -96,7 +95,7 @@ async function Everyone({
     <>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
-          <MemberCard key={item.card.id} user={listCard(item)} />
+          <MemberCard key={item.card.id} user={item} />
         ))}
       </div>
       {nextCursor && <LoadMore href={`/members?${params}`} />}

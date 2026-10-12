@@ -70,11 +70,7 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
-import {
-  MemberBadge,
-  type MemberBadgeView,
-  UserBadges,
-} from "@/components/forum/user-badges";
+import { MemberBadge, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { HeaderPanel } from "@/components/layout/header-panel";
@@ -104,22 +100,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { ACCENTS, COVERS, coverSrc, NAME_COLORS } from "@/lib/appearance";
-import {
-  getAwards,
-  getCategories,
-  getCurrentMonthStanding,
-  getForumStats,
-  getLeaderboard,
-  getMemberOfTheMonth,
-  getPastWinners,
-  getPosts,
-  getPrefixes,
-  getRanks,
-  getReactionTypes,
-  getThread,
-  getUsers,
-} from "@/lib/db";
+import type { Browser, Os } from "@/lib/client";
 import {
   formatCompact,
   formatDate,
@@ -127,13 +108,43 @@ import {
   formatNumber,
   formatRelativeTime,
 } from "@/lib/format";
-import { DONOR_BADGE, frameView } from "@/lib/legacy-views";
 import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
-import { PERMISSIONS } from "@/lib/permissions";
-import type { MemberView } from "@/lib/sermo/views";
-import type { Browser, Os } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  ACCENTS,
+  ADMIN,
+  AWARDS,
+  BADGES,
+  CONVERSATIONS,
+  COVERED_CARD,
+  COVERS,
+  FORUMS,
+  FRAME_OF_GUEST,
+  FRAMED,
+  GUEST,
+  LEADERS,
+  LEVEL_HALF,
+  LEVEL_NEW,
+  LEVEL_START,
+  MEMBER,
+  MEMBERS,
+  MODERATOR,
+  memberOf,
+  NAME_COLORS,
+  NEWCOMER,
+  NOTIFICATIONS,
+  PERMISSION_ICONS,
+  PLAIN_CARD,
+  PREFIXES,
+  REACTION_TYPES,
+  REACTIONS,
+  SAMPLE_COUNTS,
+  SAMPLE_DATE,
+  STANDING,
+  THREADS,
+  WINNERS,
+} from "./samples";
 
 export const metadata: Metadata = {
   title: "Styleguide",
@@ -160,25 +171,6 @@ const TOKENS = [
   "tier-silver",
   "tier-gold",
   "tier-legendary",
-  "name-rose",
-  "name-coral",
-  "name-lime",
-  "name-emerald",
-  "name-cyan",
-  "name-sky",
-  "name-indigo",
-  "name-pink",
-  "name-silver",
-  "name-gold",
-  "name-legendary",
-  "prefix-sky",
-  "prefix-emerald",
-  "prefix-orange",
-  "prefix-violet",
-  "prefix-amber",
-  "prefix-cyan",
-  "prefix-rose",
-  "prefix-lime",
   "border",
   "input",
   "ring",
@@ -208,25 +200,6 @@ const NAV_SAMPLES = toNavItems(
   })),
 );
 
-const BADGE_SAMPLES: MemberBadgeView[] = [
-  { label: "Admin", color: "#dc2626", style: "solid" },
-  { label: "Mod", color: "#2dd4bf", style: "tint" },
-  { label: "Gold", color: "#eab308", style: "outline" },
-  { label: "Donor", color: "#fb7185", style: "heart" },
-  { label: "Group", color: null, style: "" },
-];
-
-const GUEST: MemberView = {
-  id: 0,
-  username: "guest",
-  avatar: null,
-  frame: null,
-  nameColor: null,
-  title: "Guest",
-  badges: [],
-  level: 1,
-};
-
 const RADII = [
   ["sm", "rounded-sm"],
   ["md", "rounded-md"],
@@ -254,11 +227,6 @@ const BROWSERS: Browser[] = [
 ];
 
 const SYSTEMS: Os[] = ["windows", "macos", "linux", "android", "ios", "other"];
-
-// The demo data holds picture paths; the components take the backend's picture shape.
-function awardArt<T extends { image: string }>(award: T) {
-  return { ...award, image: award.image ? { url: award.image } : null };
-}
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg", "xl", "2xl"] as const;
 
@@ -300,97 +268,10 @@ function Section({
 }
 
 export default async function StyleguidePage() {
-  const [
-    users,
-    categories,
-    awards,
-    reactionTypes,
-    posts,
-    prefixes,
-    ranks,
-    stats,
-    winner,
-    pastWinners,
-    race,
-    leaders,
-    lite,
-  ] = await Promise.all([
-    getUsers(),
-    getCategories(),
-    getAwards(),
-    getReactionTypes(),
-    getPosts(1, null),
-    getPrefixes(),
-    getRanks(),
-    getForumStats(2),
-    getMemberOfTheMonth(),
-    getPastWinners(3),
-    getCurrentMonthStanding(3),
-    getLeaderboard("xp", 6),
+  const [lite, liteText] = await Promise.all([
     getLiteState(),
+    getTranslations("lite.page.demo"),
   ]);
-  const liteText = await getTranslations("lite.page.demo");
-  const prefixCategory = categories.find((category) =>
-    category.forums.some((forum) => forum.lastPost?.prefix),
-  );
-  const prefixForum = prefixCategory?.forums.find(
-    (forum) => forum.lastPost?.prefix,
-  );
-  const prefixThread = prefixForum?.lastPost
-    ? await getThread(prefixForum.lastPost.threadId)
-    : null;
-  const forumCategory = prefixCategory ?? categories[0];
-  const [admin, moderator, member] = users;
-  const coveredMember = users.find((user) => user.appearance.cover);
-  const sampleWinner = winner ?? pastWinners[0];
-  const ranked = users.filter((user) => user.rank);
-  const reacted = posts.toSorted(
-    (a, b) => b.reactions.total - a.reactions.total,
-  )[0];
-  const sampleDate = users[0].joinedAt;
-  const memberOf = (id: number) =>
-    (users.find((user) => user.id === id) ?? admin).member;
-  const notifications = [
-    {
-      type: "thread.watched",
-      contentType: "post",
-      actors: [prefixThread?.lastPost.author ?? moderator],
-      actorCount: 1,
-      contentTitle: prefixThread?.title ?? "Sample thread",
-    },
-    {
-      type: "content.reaction",
-      contentType: "post",
-      actors: [member, admin],
-      actorCount: 4,
-      contentTitle: "Sample thread",
-      emoji: "👍",
-    },
-    {
-      type: "member.followed",
-      contentType: "user",
-      actors: [member],
-      actorCount: 1,
-      contentTitle: null,
-    },
-  ].map(({ emoji = "", ...item }, id) => ({
-    item: { ...item, id, data: {}, createdAt: sampleDate, read: id > 0 },
-    href: id === 0 && prefixThread ? `/threads/${prefixThread.id}` : "/ui",
-    emoji,
-  }));
-  const conversations = [
-    { title: "Sample conversation", participantCount: 2 },
-    { title: "Group conversation", participantCount: 3 },
-  ].map((item, id) => ({
-    ...item,
-    id,
-    isUnread: id === 0,
-    lastMessage: {
-      sentAt: sampleDate,
-      user: { id: moderator.id, username: moderator.username },
-    },
-  }));
-
   return (
     <>
       <PageHero
@@ -450,16 +331,23 @@ export default async function StyleguidePage() {
           </div>
         </Section>
 
-        <Section title="Accent presets">
+        <Section title="Accents">
           <p className="max-w-prose text-sm text-muted-foreground">
-            A member picks one for themselves; <code>data-accent</code>{" "}
-            recolours a subtree like these previews.
+            A site offers a palette of accents and a member picks one; the
+            choice sets <code>--primary</code> and its text colour on the root
+            of the document. These previews set them on a subtree.
           </p>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {ACCENTS.map((accent) => (
               <li
-                key={accent.key}
-                data-accent={accent.key}
+                key={accent.label}
+                style={
+                  {
+                    "--primary": accent.color,
+                    "--primary-foreground": accent.foreground,
+                    "--ring": accent.color,
+                  } as React.CSSProperties
+                }
                 className="space-y-3 rounded-lg border bg-card p-3"
               >
                 <p className="text-sm font-semibold text-primary">
@@ -509,8 +397,8 @@ export default async function StyleguidePage() {
               Muted text for descriptions and metadata.
             </p>
             <p className="text-xs text-muted-foreground">
-              Caption: {formatDateTime(sampleDate)} ·{" "}
-              {formatRelativeTime(sampleDate)} · {formatDate(sampleDate)} ·{" "}
+              Caption: {formatDateTime(SAMPLE_DATE)} ·{" "}
+              {formatRelativeTime(SAMPLE_DATE)} · {formatDate(SAMPLE_DATE)} ·{" "}
               {formatCompact(24512)} · {formatNumber(324472)}
             </p>
             <p className="font-mono text-sm">const mono = "Geist Mono";</p>
@@ -568,8 +456,8 @@ export default async function StyleguidePage() {
           <PageBreadcrumb
             items={[
               { label: "Home", href: "/" },
-              { label: categories[0].title, href: "/forums" },
-              { label: categories[0].forums[0].title },
+              { label: "General", href: "/forums" },
+              { label: FORUMS[1].title },
             ]}
           />
         </Section>
@@ -584,25 +472,24 @@ export default async function StyleguidePage() {
               <Star />
               Thread Author
             </Badge>
-            {BADGE_SAMPLES.map((badge) => (
+            {BADGES.map((badge) => (
               <MemberBadge key={badge.label} badge={badge} />
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {prefixes.map((prefix) => (
+            {PREFIXES.map((prefix) => (
               <PrefixTag key={prefix.id} prefix={prefix} />
             ))}
-            <PrefixTag prefix={prefixes[0]} icon={false} />
+            <PrefixTag prefix={PREFIXES[0]} icon={false} />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {ranks.map((rank) => (
-              <MemberBadge key={rank.id} badge={rank.badge} />
-            ))}
-            <MemberBadge badge={DONOR_BADGE} />
-            {ranked.map((user) => (
-              <span key={user.id} className="inline-flex items-center gap-1.5">
-                <UserLink user={user.member} className="text-sm" />
-                <UserBadges user={user.member} />
+            {MEMBERS.map((member) => (
+              <span
+                key={member.id}
+                className="inline-flex items-center gap-1.5"
+              >
+                <UserLink user={member} className="text-sm" />
+                <UserBadges user={member} />
               </span>
             ))}
           </div>
@@ -778,11 +665,11 @@ export default async function StyleguidePage() {
               <CardHeader>
                 <CardTitle>Groups</CardTitle>
                 <CardDescription>
-                  Explore {admin.username}'s groups.
+                  Explore {ADMIN.username}'s groups.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <MemberBadge badge={BADGE_SAMPLES[0]} />
+                <MemberBadge badge={BADGES[0]} />
               </CardContent>
             </Card>
             <Card>
@@ -791,7 +678,7 @@ export default async function StyleguidePage() {
                 <CardDescription>With a footer row.</CardDescription>
               </CardHeader>
               <CardContent className="text-muted-foreground">
-                {member.username} has no awards at this time.
+                {MEMBER.username} has no awards at this time.
               </CardContent>
               <CardFooter className="justify-end">
                 <Button variant="outline" size="sm">
@@ -805,33 +692,28 @@ export default async function StyleguidePage() {
         <Section title="Avatars and users">
           <div className="flex flex-wrap items-end gap-5">
             {AVATAR_SIZES.map((size) => (
-              <UserAvatar key={size} user={admin.member} size={size} />
+              <UserAvatar key={size} user={ADMIN} size={size} />
             ))}
             <UserAvatar user={GUEST} size="lg" link={false} />
           </div>
           <div className="flex flex-wrap items-end gap-5 pt-5">
             {AVATAR_SIZES.map((size) => (
-              <UserAvatar
-                key={size}
-                user={{ ...member.member, frame: frameView("627") }}
-                size={size}
-                link={false}
-              />
+              <UserAvatar key={size} user={FRAMED} size={size} link={false} />
             ))}
             <UserAvatar
-              user={{ ...GUEST, frame: frameView("598") }}
+              user={{ ...GUEST, frame: FRAME_OF_GUEST }}
               size="lg"
               link={false}
             />
           </div>
           <div className="flex flex-wrap gap-x-5 gap-y-3">
-            {users.map((user) => (
-              <UserAvatar key={user.id} user={user.member} size="lg" />
+            {MEMBERS.map((member) => (
+              <UserAvatar key={member.id} user={member} size="lg" />
             ))}
           </div>
           <div className="flex min-h-10 flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-            {users.map((user) => (
-              <UserLink key={user.id} user={user.member} />
+            {MEMBERS.map((member) => (
+              <UserLink key={member.id} user={member} />
             ))}
             <span className="flex items-center gap-2 text-muted-foreground">
               <SocialIcon network="discord" />
@@ -846,80 +728,90 @@ export default async function StyleguidePage() {
             <StatTile
               label="Total Posts"
               icon={MessagesSquare}
-              value={formatNumber(admin.postCount)}
+              value={formatNumber(SAMPLE_COUNTS.postCount)}
             />
             <StatTile
               label="Total Reactions"
               icon={Heart}
-              value={formatNumber(admin.reactionCount)}
+              value={formatNumber(SAMPLE_COUNTS.reactionCount)}
             />
             <StatTile
               label="Followers"
               icon={Users}
-              value={formatNumber(admin.followerCount)}
+              value={formatNumber(SAMPLE_COUNTS.followerCount)}
             />
             <StatTile
               label="Total Reputation"
               icon={Star}
-              value={formatNumber(admin.reputation)}
+              value={formatNumber(SAMPLE_COUNTS.reputation)}
             />
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-3">
-            <StatInline label="UID" value={admin.id} />
-            <StatInline label="Posts" value={admin.postCount} />
-            <StatInline label="Reactions" value={admin.reactionCount} />
-            <StatInline label="Credits" value={formatCompact(admin.credits)} />
+            <StatInline label="UID" value={ADMIN.id} />
+            <StatInline label="Posts" value={SAMPLE_COUNTS.postCount} />
+            <StatInline label="Reactions" value={SAMPLE_COUNTS.reactionCount} />
+            <StatInline
+              label="Credits"
+              value={formatCompact(SAMPLE_COUNTS.credits)}
+            />
             <StatInline
               label="Reputation"
-              value={formatNumber(admin.reputation)}
+              value={formatNumber(SAMPLE_COUNTS.reputation)}
             />
-            <StatInline label="Referrals" value={admin.referralCount} />
+            <StatInline label="Referrals" value={SAMPLE_COUNTS.referralCount} />
           </div>
         </Section>
 
         <Section title="Reactions">
           <div className="-ml-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <ReactionDemo types={reactionTypes} />
-            <ReactionDemo types={reactionTypes} initial={reactionTypes[1].id} />
-            <ReactionDemo types={reactionTypes} size="sm" />
+            <ReactionDemo types={REACTION_TYPES} />
+            <ReactionDemo
+              types={REACTION_TYPES}
+              initial={REACTION_TYPES[1].id}
+            />
+            <ReactionDemo types={REACTION_TYPES} size="sm" />
           </div>
           <p className="max-w-prose text-sm text-muted-foreground">
             Tap to like, tap again to remove. Hover, long-press or use the
             keyboard button after it to choose another reaction.
           </p>
           <div className="-ml-1 flex flex-wrap items-center gap-x-6 gap-y-1">
-            <ReactionSummary reactions={reacted.reactions} />
-            <ReactionSummary reactions={reacted.reactions} size="sm" />
+            <ReactionSummary reactions={REACTIONS} />
+            <ReactionSummary reactions={REACTIONS} size="sm" />
           </div>
         </Section>
 
         <Section title="Awards and levels">
           <ul className="flex flex-wrap gap-2">
-            {awards.map((award) => (
+            {AWARDS.map((award) => (
               <li key={award.id}>
-                <AwardIcon award={awardArt(award)} />
+                <AwardIcon award={award} />
               </li>
             ))}
           </ul>
           <div className="flex flex-wrap items-center gap-3">
-            <AwardIcon award={awardArt(awards[0])} size="sm" />
-            <AwardIcon award={awardArt(awards[0])} size="md" />
-            <AwardIcon award={awardArt(awards[0])} size="lg" />
+            <AwardIcon award={AWARDS[0]} size="sm" />
+            <AwardIcon award={AWARDS[0]} size="md" />
+            <AwardIcon award={AWARDS[0]} size="lg" />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <AwardRow awards={admin.awards.map(awardArt)} />
-            <AwardRow awards={moderator.awards.map(awardArt)} max={3} />
-            <AwardRow awards={member.awards.map(awardArt)} size="md" />
+            <AwardRow awards={AWARDS} />
+            <AwardRow awards={AWARDS} max={3} />
+            <AwardRow awards={AWARDS.slice(0, 3)} size="md" />
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <LevelBadge level={admin.level} />
-            <LevelBadge level={member.level} />
-            <XpBar level={admin.level} />
-            <XpBar level={moderator.level} label className="w-56" />
+            <LevelBadge level={ADMIN} />
+            <LevelBadge level={MEMBER} />
+            <XpBar level={LEVEL_START} />
+            <XpBar level={LEVEL_HALF} label className="w-56" />
           </div>
           <div className="space-y-2">
-            <UserStats user={admin} />
-            <UserStats user={member} />
+            <UserStats
+              user={{ level: LEVEL_HALF, postCount: 1280, reactionCount: 940 }}
+            />
+            <UserStats
+              user={{ level: LEVEL_NEW, postCount: 12, reactionCount: 3 }}
+            />
           </div>
         </Section>
 
@@ -952,8 +844,8 @@ export default async function StyleguidePage() {
 
         <Section title="Permission icons">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-            {PERMISSIONS.map((permission) => (
-              <li key={permission.key} className="flex items-center gap-2">
+            {PERMISSION_ICONS.map((permission) => (
+              <li key={permission.icon} className="flex items-center gap-2">
                 <PermissionIcon
                   permission={permission}
                   className="size-4 shrink-0"
@@ -968,16 +860,11 @@ export default async function StyleguidePage() {
 
         <Section title="Name colours">
           <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
-            {Object.entries(NAME_COLORS).map(([key, color]) => (
-              <li
-                key={key}
-                className={cn("flex items-center gap-2", color.text)}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn("size-2 rounded-full", color.dot)}
+            {NAME_COLORS.map(({ label, color }) => (
+              <li key={label} className="flex items-center gap-2">
+                <UserLink
+                  user={{ ...NEWCOMER, username: label, nameColor: color }}
                 />
-                {color.label}
               </li>
             ))}
           </ul>
@@ -985,17 +872,14 @@ export default async function StyleguidePage() {
 
         <Section title="Covers">
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {COVERS.slice(0, 3).map((cover, index) => {
+            {COVERS.map((cover, index) => {
               const variant = (["header", "full", "strip"] as const)[index];
               return (
                 <li
-                  key={cover.key}
+                  key={cover.label}
                   className="relative isolate overflow-hidden rounded-lg border bg-card p-4"
                 >
-                  <CoverBackdrop
-                    cover={{ url: coverSrc(cover.key) }}
-                    variant={variant}
-                  />
+                  <CoverBackdrop cover={cover.picture} variant={variant} />
                   <p className="text-sm font-semibold">
                     {cover.label}, {variant} variant
                   </p>
@@ -1018,24 +902,15 @@ export default async function StyleguidePage() {
             prefixes appear beside the title in both the link and its preview.
           </p>
           <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            {stats.latestPosts.map((thread) => (
+            {THREADS.map((thread) => (
               <ThreadHoverCard
                 key={thread.id}
                 thread={thread}
                 className="font-medium underline-offset-4 hover:underline"
               />
             ))}
-            {prefixThread &&
-              !stats.latestPosts.some(
-                (thread) => thread.id === prefixThread.id,
-              ) && (
-                <ThreadHoverCard
-                  thread={prefixThread}
-                  className="font-medium underline-offset-4 hover:underline"
-                />
-              )}
-            <UserLink user={admin.member} />
-            <UserLink user={(ranked[1] ?? member).member} />
+            <UserLink user={ADMIN} />
+            <UserLink user={MODERATOR} />
           </div>
         </Section>
 
@@ -1046,11 +921,12 @@ export default async function StyleguidePage() {
             with a placeholder.
           </p>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
-            <MemberCard user={coveredMember ?? admin} />
+            <MemberCard user={COVERED_CARD} />
+            <MemberCard user={PLAIN_CARD} />
             <SectionCard title="Member row">
-              <MemberRow user={admin.member} badgeLimit={1} />
-              <MemberRow user={moderator.member} badgeLimit={1}>
-                <LevelBadge level={moderator.level} />
+              <MemberRow user={ADMIN} badgeLimit={1} />
+              <MemberRow user={MODERATOR} badgeLimit={1}>
+                <LevelBadge level={MODERATOR} />
               </MemberRow>
             </SectionCard>
             <SectionCard
@@ -1058,15 +934,15 @@ export default async function StyleguidePage() {
               description="By XP, credits, posts, reactions, awards or referrals"
             >
               <Leaderboard
-                members={users.slice(0, 3)}
+                members={LEADERS.slice(0, 3)}
                 by="xp"
-                viewerId={moderator.id}
+                viewerId={MODERATOR.id}
               />
-              <Leaderboard members={users.slice(0, 3)} by="credits" />
-              <Leaderboard members={users.slice(0, 3)} by="posts" />
-              <Leaderboard members={users.slice(0, 2)} by="reactions" />
-              <Leaderboard members={users.slice(0, 2)} by="awards" />
-              <Leaderboard members={users.slice(0, 2)} by="referrals" />
+              <Leaderboard members={LEADERS.slice(0, 3)} by="credits" />
+              <Leaderboard members={LEADERS.slice(0, 3)} by="posts" />
+              <Leaderboard members={LEADERS.slice(0, 2)} by="reactions" />
+              <Leaderboard members={LEADERS.slice(0, 2)} by="awards" />
+              <Leaderboard members={LEADERS.slice(0, 2)} by="referrals" />
             </SectionCard>
           </div>
         </Section>
@@ -1077,18 +953,18 @@ export default async function StyleguidePage() {
               title="Ranking podium"
               description="Top three, followed by compact rows"
             >
-              <Podium members={leaders} by="xp" viewerId={leaders[1]?.id} />
+              <Podium members={LEADERS} by="xp" viewerId={LEADERS[1].card.id} />
             </SectionCard>
             <SectionCard
               title="Compact leaderboard"
               description="Continued ranks start at four"
             >
               <Leaderboard
-                members={leaders.slice(3)}
+                members={LEADERS.slice(3)}
                 by="xp"
                 start={4}
                 compact
-                viewerId={leaders[4]?.id}
+                viewerId={LEADERS[4].card.id}
               />
             </SectionCard>
           </div>
@@ -1106,11 +982,11 @@ export default async function StyleguidePage() {
               <SectionCard key={by} title={`Leaderboard score: ${by}`}>
                 <div className="flex flex-wrap items-center gap-3 p-3">
                   <span className="text-xs text-muted-foreground">Full</span>
-                  <LeaderboardScore by={by} member={leaders[0]} />
+                  <LeaderboardScore by={by} member={LEADERS[0]} />
                 </div>
                 <div className="flex flex-wrap items-center gap-3 p-3">
                   <span className="text-xs text-muted-foreground">Compact</span>
-                  <LeaderboardScore by={by} member={leaders[0]} compact />
+                  <LeaderboardScore by={by} member={LEADERS[0]} compact />
                 </div>
               </SectionCard>
             ))}
@@ -1120,10 +996,10 @@ export default async function StyleguidePage() {
         <Section title="Section card">
           <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
             <SectionCard
-              title={categories[0].title}
+              title={FORUMS[0].title}
               action={<Badge variant="outline">General</Badge>}
             >
-              {categories[0].forums.map((forum) => (
+              {FORUMS.map((forum) => (
                 <div
                   key={forum.id}
                   className="flex min-h-14 items-center gap-3 px-4 py-2"
@@ -1167,13 +1043,13 @@ export default async function StyleguidePage() {
         </Section>
 
         <Section title="Editor">
-          <EditorDemo defaultValue={reacted.body} />
+          <EditorDemo defaultValue={SAMPLE} />
         </Section>
 
         <Section title="Compact composer">
           <CompactComposer
             action={discard}
-            user={member.member}
+            user={MEMBER}
             placeholder="What's on your mind?"
             submitLabel="Post"
             className="max-w-xl"
@@ -1183,14 +1059,14 @@ export default async function StyleguidePage() {
         <Section title="Message row">
           <div className="max-w-xl divide-y divide-border overflow-hidden rounded-lg border bg-card">
             <MessageRow
-              author={moderator.member}
+              author={MODERATOR}
               context={
                 <>
-                  posted on <UserLink user={admin.member} />
+                  posted on <UserLink user={ADMIN} />
                   's profile
                 </>
               }
-              time={<RelativeTime date={sampleDate} />}
+              time={<RelativeTime date={SAMPLE_DATE} />}
               actions={
                 <>
                   <button
@@ -1210,8 +1086,8 @@ export default async function StyleguidePage() {
                 <div className="mt-2 space-y-3 border-l pl-3">
                   <MessageRow
                     compact
-                    author={admin.member}
-                    time={<RelativeTime date={sampleDate} />}
+                    author={ADMIN}
+                    time={<RelativeTime date={SAMPLE_DATE} />}
                   >
                     <MessageBody className="text-[0.8125rem]">
                       A compact row, used for comments.
@@ -1230,8 +1106,8 @@ export default async function StyleguidePage() {
               </MessageBody>
             </MessageRow>
             <MessageRow
-              author={member.member}
-              time={<RelativeTime date={sampleDate} />}
+              author={MEMBER}
+              time={<RelativeTime date={SAMPLE_DATE} />}
             >
               <MessageBody clamp>{SAMPLE}</MessageBody>
             </MessageRow>
@@ -1247,7 +1123,7 @@ export default async function StyleguidePage() {
           </p>
           <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
             <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              {notifications.map(({ item, href, emoji }, index) => (
+              {NOTIFICATIONS.map(({ item, href, emoji }, index) => (
                 <li key={item.id}>
                   <NotificationRow
                     item={item}
@@ -1260,7 +1136,7 @@ export default async function StyleguidePage() {
               ))}
             </ul>
             <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              {conversations.map((conversation) => (
+              {CONVERSATIONS.map((conversation) => (
                 <li key={conversation.id}>
                   <Link
                     href="/ui"
@@ -1268,7 +1144,7 @@ export default async function StyleguidePage() {
                   >
                     <ConversationPreview
                       conversation={conversation}
-                      member={moderator.member}
+                      member={MODERATOR}
                     />
                   </Link>
                 </li>
@@ -1294,7 +1170,7 @@ export default async function StyleguidePage() {
             className={headerIconClass}
           >
             <ul className="max-h-96 divide-y divide-border overflow-y-auto">
-              {notifications.map(({ item, href, emoji }) => (
+              {NOTIFICATIONS.map(({ item, href, emoji }) => (
                 <li key={item.id}>
                   <NotificationRow
                     item={item}
@@ -1323,7 +1199,7 @@ export default async function StyleguidePage() {
         <Section title="Credits amount">
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
             <Credits value={250} className="text-sm" />
-            <Credits value={admin.credits} className="text-base" />
+            <Credits value={SAMPLE_COUNTS.credits} className="text-base" />
             <Credits value={22000} className="text-2xl" />
           </div>
         </Section>
@@ -1334,14 +1210,14 @@ export default async function StyleguidePage() {
             box, so the picture never moves the layout.
           </p>
           <ul className="grid gap-3 sm:grid-cols-3">
-            {awards.slice(0, 3).map((award) => (
+            {AWARDS.slice(3, 6).map((award) => (
               <li
                 key={award.id}
                 className="relative isolate flex aspect-video items-end overflow-hidden rounded-lg border bg-card p-3"
               >
                 <Art
                   category="awards"
-                  src={award.image}
+                  src={award.image?.url ?? ""}
                   className="absolute inset-0 -z-10"
                 />
                 <p className="text-sm font-semibold">{award.name}</p>
@@ -1395,12 +1271,9 @@ export default async function StyleguidePage() {
             and the last post has a plain footer. The panel remembers whether it
             was left open. The last-post title includes its thread prefix.
           </p>
-          <CollapsiblePanel
-            title={forumCategory.title}
-            storageKey="styleguide-panel-open"
-          >
+          <CollapsiblePanel title="General" storageKey="styleguide-panel-open">
             <ul className="grid gap-2 p-2 md:grid-cols-2">
-              {forumCategory.forums.map((forum) => (
+              {FORUMS.map((forum) => (
                 <ForumCard key={forum.id} forum={forum} />
               ))}
             </ul>
@@ -1413,29 +1286,16 @@ export default async function StyleguidePage() {
             compact list of earlier winners.
           </p>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-            {sampleWinner ? (
-              <MonthHero winner={sampleWinner} />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No recorded monthly winner to preview yet.
-              </p>
-            )}
+            <MonthHero winner={WINNERS[0]} />
             <div className="grid gap-4">
               <SectionCard title="Standing">
-                <StandingList entries={race} viewerId={race[1]?.user.id} />
-                {race.length === 0 && (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    No activity recorded this month.
-                  </p>
-                )}
+                <StandingList
+                  entries={STANDING}
+                  viewerId={STANDING[1].card.id}
+                />
               </SectionCard>
               <SectionCard title="Winners" description="Compact">
-                <WinnerList winners={pastWinners} compact />
-                {pastWinners.length === 0 && (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    No earlier winners recorded.
-                  </p>
-                )}
+                <WinnerList winners={WINNERS.slice(1)} compact />
               </SectionCard>
             </div>
           </div>

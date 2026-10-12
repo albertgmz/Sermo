@@ -23,7 +23,6 @@ import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
-import { leaderboardMember } from "@/lib/member-items";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -97,11 +96,7 @@ async function Leaders() {
       title={t("leadersHeading")}
       description={t("leadersDescription")}
     >
-      <Leaderboard
-        members={richest.items.map(leaderboardMember)}
-        by="credits"
-        viewerId={user?.id}
-      />
+      <Leaderboard members={richest.items} by="credits" viewerId={user?.id} />
     </SectionCard>
   );
 }

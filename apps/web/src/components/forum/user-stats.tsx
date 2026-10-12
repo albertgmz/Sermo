@@ -1,7 +1,6 @@
 import { Heart, type LucideIcon, MessageCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { LevelBadge, XpBar } from "@/components/forum/level";
-import type { UserView } from "@/lib/db";
+import { type Level, LevelBadge, XpBar } from "@/components/forum/level";
 import { formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +30,7 @@ export function UserStats({
   user,
   className,
 }: {
-  user: Pick<UserView, "level" | "postCount" | "reactionCount">;
+  user: { level: Level; postCount: number; reactionCount: number };
   className?: string;
 }) {
   const t = useTranslations("forum.userStats");

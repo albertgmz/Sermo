@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import type { ReactionType } from "@/components/forum/reaction-button";
 import { ReactionUsers } from "@/components/forum/reaction-users";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -8,8 +9,16 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { ReactionsView } from "@/lib/db";
+import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
+
+// A summary of the reactions on one item: the counts by type and, where the list is at hand, who
+// reacted.
+export type ReactionsSummary = {
+  total: number;
+  byType: { type: ReactionType; count: number }[];
+  users?: { user: MemberView; type: ReactionType }[];
+};
 
 const TYPES_SHOWN = 3;
 
@@ -28,8 +37,7 @@ export function ReactionSummary({
   className,
 }: {
   // `users` when the list is at hand, `loadUsers` when it is read once the popover opens.
-  reactions: Pick<ReactionsView, "total" | "byType"> &
-    Partial<Pick<ReactionsView, "users">>;
+  reactions: ReactionsSummary;
   loadUsers?: () => Promise<React.ReactNode>;
   size?: keyof typeof SIZES;
   className?: string;
@@ -80,11 +88,8 @@ export function ReactionSummary({
                 key={user.id}
                 className="flex min-h-10 items-center gap-2 px-3 text-sm"
               >
-                <UserAvatar user={user.member} size="sm" />
-                <UserLink
-                  user={user.member}
-                  className="min-w-0 flex-1 truncate"
-                />
+                <UserAvatar user={user} size="sm" />
+                <UserLink user={user} className="min-w-0 flex-1 truncate" />
                 <span role="img" aria-label={type.label} title={type.label}>
                   {type.emoji}
                 </span>

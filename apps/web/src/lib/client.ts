@@ -1,5 +1,17 @@
-import { headers } from "next/headers";
-import type { Browser, ClientInfo, Os } from "@/lib/types";
+export type Browser =
+  | "chrome"
+  | "firefox"
+  | "safari"
+  | "edge"
+  | "opera"
+  | "other";
+
+export type Os = "windows" | "macos" | "linux" | "android" | "ios" | "other";
+
+export type ClientInfo = {
+  browser: Browser;
+  os: Os;
+};
 
 const BROWSERS: [Browser, RegExp][] = [
   ["edge", /Edg(e|A|iOS)?\//],
@@ -22,8 +34,4 @@ export function parseUserAgent(ua: string): ClientInfo {
     browser: BROWSERS.find(([, pattern]) => pattern.test(ua))?.[0] ?? "other",
     os: SYSTEMS.find(([, pattern]) => pattern.test(ua))?.[0] ?? "other",
   };
-}
-
-export async function getClientInfo(): Promise<ClientInfo> {
-  return parseUserAgent((await headers()).get("user-agent") ?? "");
 }

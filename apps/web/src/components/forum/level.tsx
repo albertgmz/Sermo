@@ -1,8 +1,34 @@
 import { useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
 import { formatNumber } from "@/lib/format";
-import type { Level } from "@/lib/levels";
 import { cn } from "@/lib/utils";
+
+// A level with the bounds the backend gave for it and how full the bar between them is.
+export type Level = {
+  level: number;
+  xp: number;
+  currentLevelXp: number;
+  nextLevelXp: number;
+  progress: number;
+};
+
+// The bounds of a level come from the backend; only the fill of the bar is worked out here.
+export function levelWithBounds(
+  level: number,
+  xp: number,
+  currentLevelXp: number,
+  nextLevelXp: number,
+): Level {
+  const span = nextLevelXp - currentLevelXp;
+  return {
+    level,
+    xp,
+    currentLevelXp,
+    nextLevelXp,
+    progress:
+      span > 0 ? Math.min(1, Math.max(0, (xp - currentLevelXp) / span)) : 0,
+  };
+}
 
 export function LevelBadge({
   level,

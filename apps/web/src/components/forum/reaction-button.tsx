@@ -17,8 +17,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { ReactionType } from "@/lib/types";
+
 import { cn } from "@/lib/utils";
+
+// What the picker offers and a summary names: the id is the backend's, the key its string form.
+export type ReactionType = {
+  id: number;
+  key: string;
+  label: string;
+  emoji: string;
+};
 
 const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 250;

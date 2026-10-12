@@ -16,7 +16,7 @@ import { ProfileHeader } from "@/app/(main)/members/[id]/profile-header";
 import { Wall } from "@/app/(main)/members/[id]/wall";
 import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { AwardIcon } from "@/components/forum/award-icon";
-import { LevelBadge, XpBar } from "@/components/forum/level";
+import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
-import { levelWithBounds } from "@/lib/levels";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";

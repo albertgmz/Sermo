@@ -1,7 +1,8 @@
-import type { Socials } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const PATHS: Record<keyof Socials, string> = {
+export type Network = "discord" | "telegram" | "x";
+
+const PATHS: Record<Network, string> = {
   discord:
     "M7 5.2c3.2-1.1 6.8-1.1 10 0 2.1 3.1 3.3 6.8 3.1 11.3-1.4 1.2-3 2-4.7 2.5l-1-1.9c-1.6.5-3.2.5-4.8 0l-1 1.9c-1.7-.5-3.3-1.3-4.7-2.5C3.7 12 4.9 8.3 7 5.2Zm2.3 5.3a1.6 1.9 0 1 0 0 3.8 1.6 1.9 0 0 0 0-3.8Zm5.4 0a1.6 1.9 0 1 0 0 3.8 1.6 1.9 0 0 0 0-3.8Z",
   telegram:
@@ -13,7 +14,7 @@ export function SocialIcon({
   network,
   className,
 }: {
-  network: keyof Socials;
+  network: Network;
   className?: string;
 }) {
   return (

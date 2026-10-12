@@ -40,7 +40,6 @@ import {
 } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { leaderboardMember, standingEntry } from "@/lib/member-items";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 
@@ -87,8 +86,8 @@ async function MonthView({
   const [latest, ...earlier] = winners.items;
   const current =
     latest?.year === standing.year && latest.month === standing.month;
-  const winner = current ? standingEntry(latest) : null;
-  const past = (current ? earlier : winners.items).map(standingEntry);
+  const winner = current ? latest : null;
+  const past = current ? earlier : winners.items;
   const monthName = format.dateTime(
     new Date(Date.UTC(standing.year, standing.month - 1, 1)),
     { month: "long", year: "numeric", timeZone: "UTC" },
@@ -102,7 +101,7 @@ async function MonthView({
           description={t("monthStanding", { month: monthName })}
         >
           <StandingList
-            entries={standing.items.map(standingEntry)}
+            entries={standing.items}
             viewerId={viewerId}
             start={start}
           />
@@ -158,12 +157,7 @@ async function RankingView({
   const { items, nextCursor } = await read(usersList, { sort, cursor });
   return (
     <SectionCard title={title}>
-      <Leaderboard
-        members={items.map(leaderboardMember)}
-        by={by}
-        viewerId={viewerId}
-        start={start}
-      />
+      <Leaderboard members={items} by={by} viewerId={viewerId} start={start} />
       {nextCursor && (
         <div className="p-3">
           <LoadMore href={nextHref(view, nextCursor, start + items.length)} />

@@ -6,21 +6,22 @@ import {
   Signature,
   Tag,
 } from "lucide-react";
-import type { Permission } from "@/lib/permissions";
 
-const ICONS: Record<Permission["icon"], LucideIcon> = {
+const ICONS = {
   signature: Signature,
   image: Image,
   tag: Tag,
   award: Award,
   "at-sign": AtSign,
-};
+} satisfies Record<string, LucideIcon>;
+
+export type PermissionIconKey = keyof typeof ICONS;
 
 export function PermissionIcon({
   permission,
   className,
 }: {
-  permission: Pick<Permission, "icon">;
+  permission: { icon: PermissionIconKey };
   className?: string;
 }) {
   const Icon = ICONS[permission.icon];

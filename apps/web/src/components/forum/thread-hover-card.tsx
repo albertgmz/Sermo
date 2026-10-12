@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { Art } from "@/components/forum/art";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { ThreadExcerpt } from "@/components/forum/thread-excerpt";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import {
@@ -15,14 +14,15 @@ import {
 import { formatCompact, formatDate } from "@/lib/format";
 import type { MemberView, PictureView, PrefixView } from "@/lib/sermo/views";
 
-// What the card needs of a thread. The JSON `ThreadView` has these fields as they are; a thread
-// from the backend is mapped to them by `threadCard` in lib/sermo/threads.ts.
+// What the card needs of a thread: a thread from the backend is mapped to it by `threadCard` in
+// lib/sermo/threads.ts.
 export type ThreadCardData = {
   id: number;
   title: string;
   prefix: PrefixView | null;
+  /** Plain text the backend wrote; it names no picture. */
   excerpt: string;
-  /** The excerpt is already plain text (the backend wrote it): no need to read the post again. */
+  /** Set by `threadCard`; the excerpt is always plain text. */
   plainExcerpt?: boolean;
   createdAt: string;
   views: number;
@@ -90,7 +90,7 @@ export function ThreadHoverCard({
             {thread.title}
           </p>
           <p className="mt-1 line-clamp-3 text-(length:--text-compact) text-muted-foreground [overflow-wrap:anywhere]">
-            <ThreadExcerpt thread={thread} />
+            {thread.excerpt}
           </p>
           <div className="mt-3 flex items-center gap-2">
             <UserAvatar user={thread.author.member} size="sm" />

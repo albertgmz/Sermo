@@ -3,7 +3,7 @@ import "server-only";
 import { reactionTypesList } from "@sermo/core/contracts";
 import { cache } from "react";
 import type * as z from "zod";
-import type { ReactionType } from "@/lib/types";
+import type { ReactionType } from "@/components/forum/reaction-button";
 import { read } from "./client";
 
 type ApiReactionType = z.output<

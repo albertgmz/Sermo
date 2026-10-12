@@ -13,12 +13,25 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { formatNumber } from "@/lib/format";
 import type { MemberView } from "@/lib/sermo/views";
-import type { Activity, Month, Standing } from "@/lib/standing";
 import { cn } from "@/lib/utils";
 
+// What a member did inside one calendar month (UTC), as the backend counts it.
+export type Activity = {
+  posts: number;
+  reactions: number;
+  referrals: number;
+};
+
+export type Month = {
+  year: number;
+  // 1 to 12.
+  month: number;
+};
+
 // One member's month: what they did and the points the backend gave for it.
-export type StandingEntry = Standing & {
-  user: { id: number; member: MemberView };
+export type StandingEntry = Activity & {
+  card: MemberView;
+  points: number;
 };
 
 export type MonthWinner = StandingEntry & Month;
@@ -83,7 +96,7 @@ export function MonthHero({
   const t = useTranslations("forum.standing");
   const tParts = useTranslations("forum.standing.parts");
   const format = useFormatter();
-  const { user } = winner;
+  const { card } = winner;
   return (
     <section
       aria-labelledby="member-of-the-month"
@@ -104,20 +117,20 @@ export function MonthHero({
         </div>
 
         <div className="mt-5 flex flex-col items-center gap-4 text-center sm:flex-row sm:gap-5 sm:text-left">
-          <UserAvatar user={user.member} size="2xl" />
+          <UserAvatar user={card} size="2xl" />
           <div className="min-w-0 max-w-full">
             <p className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:justify-start">
               <UserLink
-                user={user.member}
+                user={card}
                 className="max-w-full truncate text-2xl leading-10 tracking-tight"
               />
-              <UserBadges user={user.member} />
+              <UserBadges user={card} />
             </p>
             <p className="truncate text-sm text-muted-foreground">
-              {user.member.title}
+              {card.title}
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-start">
-              <LevelBadge level={user.member} />
+              <LevelBadge level={card} />
             </div>
           </div>
         </div>
@@ -191,11 +204,11 @@ function StandingRow({
       )}
       {compact ? (
         <UserAvatar
-          user={entry.user.member}
+          user={entry.card}
           className="relative after:absolute after:-inset-1"
         />
       ) : (
-        <UserAvatar user={entry.user.member} size="lg" />
+        <UserAvatar user={entry.card} size="lg" />
       )}
       <div className="min-w-0 flex-1">
         {label && (
@@ -205,10 +218,10 @@ function StandingRow({
         )}
         <p className="flex items-center gap-1.5">
           <UserLink
-            user={entry.user.member}
+            user={entry.card}
             className={cn("truncate", leader ? "text-base" : "text-sm")}
           />
-          <UserBadges user={entry.user.member} />
+          <UserBadges user={entry.card} />
         </p>
         {!compact && <Breakdown entry={entry} />}
       </div>
@@ -234,11 +247,11 @@ export function StandingList({
     <ol className="divide-y divide-border">
       {entries.map((entry, index) => (
         <StandingRow
-          key={entry.user.id}
+          key={entry.card.id}
           entry={entry}
           rank={start + index}
           leader={start === 1 && index === 0}
-          viewer={entry.user.id === viewerId}
+          viewer={entry.card.id === viewerId}
         />
       ))}
     </ol>

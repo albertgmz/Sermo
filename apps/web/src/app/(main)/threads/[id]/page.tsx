@@ -41,11 +41,15 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { DeleteControl } from "@/components/forum/delete-control";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
+import { levelWithBounds } from "@/components/forum/level";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { QuoteButton } from "@/components/forum/quote-button";
-import { ReactionButton } from "@/components/forum/reaction-button";
+import {
+  ReactionButton,
+  type ReactionType,
+} from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -61,7 +65,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
-import type { Level } from "@/lib/levels";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
@@ -73,7 +76,6 @@ import {
 import { getViewer } from "@/lib/sermo/session";
 import { type ApiPost, prefixView } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
-import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const QUIET_ICON =
@@ -92,21 +94,6 @@ function threadIdOf(raw: string) {
   const id = parseId(raw);
   if (id === null) notFound();
   return id;
-}
-
-// The bounds of the level come from the backend; only the bar's fill is worked out here.
-function levelOf(author: AuthorView): Level {
-  const span = author.nextLevelXp - author.currentLevelXp;
-  return {
-    level: author.member.level,
-    xp: author.xp,
-    currentLevelXp: author.currentLevelXp,
-    nextLevelXp: author.nextLevelXp,
-    progress:
-      span > 0
-        ? Math.min(1, Math.max(0, (author.xp - author.currentLevelXp) / span))
-        : 0,
-  };
 }
 
 function PostNote({
@@ -194,7 +181,12 @@ function PostItem({
           )}
           <UserStats
             user={{
-              level: levelOf(author),
+              level: levelWithBounds(
+                author.member.level,
+                author.xp,
+                author.currentLevelXp,
+                author.nextLevelXp,
+              ),
               postCount: author.postCount,
               reactionCount: author.reactionScore,
             }}

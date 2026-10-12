@@ -1,36 +1,37 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { AwardRow } from "@/components/forum/award-icon";
+import {
+  type AwardArt,
+  AwardRow,
+  DESKTOP_AWARD_SLOTS,
+  MOBILE_AWARD_SLOTS,
+} from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
-import { LevelBadge, XpBar } from "@/components/forum/level";
+import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCompact, formatDate } from "@/lib/format";
-import type { Level } from "@/lib/levels";
 import type { MemberView, PictureView } from "@/lib/sermo/views";
-import type { Award } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+// A member as the members list and a profile answer: the list item carries the counts only, the
+// profile adds the cover, the bounds of the level and the number of award slots.
 export type MemberCardUser = {
-  id: number;
-  member: MemberView;
-  coverPicture: PictureView | null;
-  // The bar needs the bounds of the level; where only the level is known, the badge stands alone.
-  level: Pick<Level, "level"> & Partial<Level>;
-  awards: Pick<Award, "id" | "name" | "icon" | "tier">[];
+  card: MemberView;
+  createdAt: string;
+  postCount: number;
+  reactionScore: number;
   // Where the awards themselves are not at hand, only how many there are.
   awardCount?: number;
-  awardSlots: { mobile: number; desktop: number };
-  postCount: number;
-  reactionCount: number;
-  joinedAt: string;
+  awards?: (AwardArt & { id: number })[];
+  awardSlots?: number;
+  cover?: PictureView | null;
+  // The bar needs the bounds of the level; without them the badge stands alone.
+  awardXp?: number;
+  level?: { currentLevelXp: number; nextLevelXp: number };
 };
-
-function hasBar(level: MemberCardUser["level"]): level is Level {
-  return level.progress !== undefined;
-}
 
 // What the card of a member shows when the profile cannot be opened: the name and nothing else.
 export function MemberCardMinimal({
@@ -60,7 +61,9 @@ export function MemberCard({
   className?: string;
 }) {
   const t = useTranslations("forum.memberCard");
-  const name = userNameProps(user.member);
+  const name = userNameProps(user.card);
+  const awards = user.awards ?? [];
+  const slots = user.awardSlots ?? DESKTOP_AWARD_SLOTS;
   return (
     <article
       className={cn(
@@ -68,9 +71,9 @@ export function MemberCard({
         className,
       )}
     >
-      <CoverBackdrop cover={user.coverPicture} variant="strip" />
+      <CoverBackdrop cover={user.cover ?? null} variant="strip" />
       <div className="flex items-end gap-5">
-        <UserAvatar user={user.member} size="xl" />
+        <UserAvatar user={user.card} size="xl" />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-1.5">
             <span
@@ -80,25 +83,35 @@ export function MemberCard({
               )}
               style={name.style}
             >
-              {user.member.username}
+              {user.card.username}
             </span>
-            <UserBadges user={user.member} />
+            <UserBadges user={user.card} />
           </p>
           <p className="truncate text-xs text-muted-foreground">
-            {user.member.title}
+            {user.card.title}
           </p>
         </div>
       </div>
       <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-1.5">
-          <LevelBadge level={user.level} />
-          {hasBar(user.level) && <XpBar level={user.level} className="w-16" />}
+          <LevelBadge level={user.card} />
+          {user.level && user.awardXp !== undefined && (
+            <XpBar
+              level={levelWithBounds(
+                user.card.level,
+                user.awardXp,
+                user.level.currentLevelXp,
+                user.level.nextLevelXp,
+              )}
+              className="w-16"
+            />
+          )}
         </div>
-        {user.awards.length > 0 ? (
+        {awards.length > 0 ? (
           <AwardRow
-            awards={user.awards}
-            max={user.awardSlots.desktop}
-            maxMobile={user.awardSlots.mobile}
+            awards={awards}
+            max={slots}
+            maxMobile={Math.min(slots, MOBILE_AWARD_SLOTS)}
             className="min-h-10 min-w-10 after:hidden"
           />
         ) : (
@@ -119,18 +132,18 @@ export function MemberCard({
         <div className="min-w-0">
           <dt className="text-muted-foreground">{t("reactionsLabel")}</dt>
           <dd className="font-semibold tabular-nums">
-            {formatCompact(user.reactionCount)}
+            {formatCompact(user.reactionScore)}
           </dd>
         </div>
         <div className="min-w-0">
           <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
           <dd className="truncate font-semibold">
-            <time dateTime={user.joinedAt}>{formatDate(user.joinedAt)}</time>
+            <time dateTime={user.createdAt}>{formatDate(user.createdAt)}</time>
           </dd>
         </div>
       </dl>
       <Link
-        href={`/members/${user.id}`}
+        href={`/members/${user.card.id}`}
         className={cn(
           buttonVariants({ variant: "outline" }),
           "min-h-10 w-full",

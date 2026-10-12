@@ -1,5 +1,4 @@
 import { MarkdownContent } from "@/components/forum/markdown-content";
-import { SIGNATURE_MAX_LINES } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 // A member's signature: small, muted and never taller than its line limit.
@@ -15,9 +14,8 @@ export function Signature({
 }) {
   return (
     <div
-      style={{ maxHeight: `${SIGNATURE_MAX_LINES}lh` }}
       className={cn(
-        "overflow-hidden text-xs leading-relaxed text-muted-foreground",
+        "max-h-[4lh] overflow-hidden text-xs leading-relaxed text-muted-foreground",
         className,
       )}
     >

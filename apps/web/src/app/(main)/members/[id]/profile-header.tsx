@@ -13,7 +13,7 @@ import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { SocialIcon } from "@/components/forum/social-icon";
+import { type Network, SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate, formatNumber } from "@/lib/format";
-import type { Socials } from "@/lib/types";
+
 import { cn } from "@/lib/utils";
 
 const SOCIALS = [
@@ -43,7 +43,7 @@ const SOCIALS = [
     url: (handle) => `https://x.com/${encodeURIComponent(handle)}`,
   },
 ] as const satisfies readonly {
-  network: keyof Socials;
+  network: Network;
   label: string;
   url: (handle: string) => string;
 }[];

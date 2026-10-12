@@ -12,7 +12,10 @@ import { WallComposer } from "@/app/(main)/members/wall-composer";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
-import { ReactionButton } from "@/components/forum/reaction-button";
+import {
+  ReactionButton,
+  type ReactionType,
+} from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -29,7 +32,6 @@ import {
 } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import type { MemberView } from "@/lib/sermo/views";
-import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type ApiWallPost = z.output<typeof profilePostsList.output>["items"][number];

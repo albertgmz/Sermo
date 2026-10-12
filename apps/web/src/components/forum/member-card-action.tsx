@@ -2,7 +2,6 @@
 
 import { awardsMember, profilesGet } from "@sermo/core/contracts";
 import { MemberCard, MemberCardMinimal } from "@/components/forum/member-card";
-import { profileCard } from "@/lib/member-items";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { isRecordId } from "@/lib/sermo/ids";
@@ -22,7 +21,10 @@ export async function loadMemberCard(id: number, name: string) {
     ]);
     return (
       <MemberCard
-        user={profileCard(profile, held.items)}
+        user={{
+          ...profile,
+          awards: held.items.map(({ award }) => award),
+        }}
         className="border-0 bg-transparent"
       />
     );

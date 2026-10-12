@@ -1,4 +1,4 @@
-import type { AwardTier } from "@/lib/types";
+import type { AwardTier } from "@/components/forum/award-icon";
 
 export const TIER_ORDER: AwardTier[] = [
   "legendary",
