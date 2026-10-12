@@ -226,6 +226,23 @@ export function StaffDemos() {
           </FieldRow>
           <ConfirmPassword id="sample-password" />
         </FormRows>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          With <code>disabled</code> the same form is read-only: every control
+          and the save button are off.
+        </p>
+        <FormRows
+          action={saveSample}
+          heading="Credit rule (read-only)"
+          disabled
+        >
+          <FieldRow name="title" label="Title" htmlFor="sample-title-off">
+            <Input
+              id="sample-title-off"
+              name="title"
+              defaultValue="Reply in a forum"
+            />
+          </FieldRow>
+        </FormRows>
       </div>
 
       <div className="space-y-2">
