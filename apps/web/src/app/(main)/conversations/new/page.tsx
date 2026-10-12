@@ -1,26 +1,26 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { findRecipients } from "@/app/(main)/conversations/actions";
 import { NewConversationForm } from "@/app/(main)/conversations/new/new-conversation-form";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { getUsers } from "@/lib/db";
-import { getCurrentUser } from "@/lib/session";
+import { EmptyState } from "@/components/forum/empty-state";
+import { getViewer } from "@/lib/sermo/session";
 
 export default async function NewConversationPage({
   searchParams,
-}: {
-  searchParams: Promise<{ to?: string | string[] }>;
-}) {
-  const { to } = await searchParams;
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  const users = (await getUsers()).filter((u) => u.id !== user.id);
+}: PageProps<"/conversations/new">) {
+  const [{ to }, { permissions }, t] = await Promise.all([
+    searchParams,
+    getViewer(),
+    getTranslations("conversations.newConversation"),
+  ]);
+  // A profile links here with the username of the member to write to.
   const preselected =
-    typeof to === "string"
-      ? users.find((u) => u.username.toLowerCase() === to.toLowerCase())
+    typeof to === "string" && permissions.canStartConversations
+      ? (await findRecipients(to)).find(
+          (user) => user.username.toLowerCase() === to.toLowerCase(),
+        )
       : undefined;
-  const t = await getTranslations("conversations.newConversation");
 
   return (
     <div className="lg:h-full lg:overflow-y-auto">
@@ -35,16 +35,15 @@ export default async function NewConversationPage({
         <h1 className="text-sm font-semibold">{t("heading")}</h1>
       </header>
       <div className="max-w-2xl p-4">
-        <NewConversationForm
-          users={users.map((recipient) => ({
-            id: recipient.id,
-            username: recipient.username,
-            avatar: (
-              <UserAvatar user={recipient.member} size="sm" link={false} />
-            ),
-          }))}
-          preselected={preselected?.id}
-        />
+        {permissions.canStartConversations ? (
+          <NewConversationForm preselected={preselected} />
+        ) : (
+          <EmptyState
+            icon={Lock}
+            title={t("cannotStartTitle")}
+            description={t("cannotStartDescription")}
+          />
+        )}
       </div>
     </div>
   );

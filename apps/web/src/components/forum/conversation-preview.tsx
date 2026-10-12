@@ -1,61 +1,52 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import type { ConversationView, MessageView } from "@/lib/db";
-import { filterLiteMarkdown } from "@/lib/lite-mode";
+import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-function plain(markdown: string) {
-  return markdown
-    .replace(/[*_~`>#]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// What the row needs of a conversation summary from the backend.
+export type ConversationItem = {
+  id: number;
+  title: string;
+  participantCount: number;
+  isUnread: boolean;
+  lastMessage: { sentAt: string; user: { id: number } };
+};
 
 // Linked previews need a positioned row, without an enclosing link.
 // `ringClassName` matches the avatar ring to the surface the row sits on.
-export async function ConversationPreview({
+export function ConversationPreview({
   conversation,
-  viewerId,
+  member,
   linked = false,
   ringClassName = "ring-card",
 }: {
-  conversation: Pick<
-    ConversationView,
-    "id" | "title" | "participants" | "unread"
-  > & {
-    lastMessage: Pick<MessageView, "author" | "body" | "createdAt">;
-  };
-  viewerId: number;
+  conversation: ConversationItem;
+  // The member who wrote the last message.
+  member: MemberView;
   linked?: boolean;
   ringClassName?: string;
 }) {
-  const others = conversation.participants.filter(
-    (participant) => participant.id !== viewerId,
-  );
-  const last = conversation.lastMessage;
-  const body = await filterLiteMarkdown(last.body);
+  const t = useTranslations("conversations.conversationPreview");
   return (
     <>
-      <span className="flex w-10 shrink-0 justify-center -space-x-3">
-        {others.slice(0, 2).map((other) => (
-          <UserAvatar
-            key={other.id}
-            user={other.member}
-            size={others.length > 1 ? "md" : "lg"}
-            link={false}
-            className={cn("ring-2", ringClassName)}
-          />
-        ))}
+      <span className="flex w-10 shrink-0 justify-center">
+        <UserAvatar
+          user={member}
+          size="lg"
+          link={false}
+          className={cn("ring-2", ringClassName)}
+        />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span
             className={cn(
               "min-w-0 flex-1 truncate text-sm",
-              conversation.unread ? "font-semibold" : "font-medium",
+              conversation.isUnread ? "font-semibold" : "font-medium",
             )}
           >
             {linked ? (
@@ -70,20 +61,23 @@ export async function ConversationPreview({
             )}
           </span>
           <RelativeTime
-            date={last.createdAt}
+            date={conversation.lastMessage.sentAt}
             className="shrink-0 text-xs text-muted-foreground"
           />
         </span>
         <span className="mt-0.5 flex items-center gap-2">
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-            {linked ? (
-              <UserLink user={last.author.member} className="relative z-10" />
-            ) : (
-              last.author.username
-            )}
-            : {plain(body)}
+            {t.rich("summary", {
+              participants: conversation.participantCount,
+              author: () =>
+                linked ? (
+                  <UserLink user={member} className="relative z-10" />
+                ) : (
+                  member.username
+                ),
+            })}
           </span>
-          {conversation.unread && <UnreadDot />}
+          {conversation.isUnread && <UnreadDot />}
         </span>
       </span>
     </>

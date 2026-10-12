@@ -10,7 +10,7 @@ import { getReactionTypes } from "@/lib/sermo/reactions";
 // Renders the rows on the server so the avatars keep reading the LITE cookie. Only called once
 // the list is first opened.
 export async function loadReactionUsers(
-  contentType: "post" | "profile_post",
+  contentType: "post" | "profile_post" | "conversation_message",
   contentId: number,
 ) {
   const [{ items }, types] = await Promise.all([

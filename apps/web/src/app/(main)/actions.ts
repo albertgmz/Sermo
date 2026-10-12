@@ -84,6 +84,23 @@ export async function react(
     revalidatePath("/", "layout");
     return;
   }
+  if (target === "message") {
+    // Messages live in the backend too: it refuses what the viewer may not do.
+    await attempt("/conversations", () =>
+      typeId === null
+        ? call(reactionsRemove, {
+            contentType: "conversation_message",
+            contentId: id,
+          })
+        : call(reactionsSet, {
+            contentType: "conversation_message",
+            contentId: id,
+            reactionTypeId: typeId,
+          }),
+    );
+    revalidatePath("/", "layout");
+    return;
+  }
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   await setReaction({ target, id, userId: user.id, typeId });
