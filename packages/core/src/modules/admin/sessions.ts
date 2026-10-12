@@ -9,9 +9,9 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
-import { getAuth } from "../auth";
+import { getAuth, markSessionsRevoked } from "../auth";
 import { appendModeratorLog } from "../moderation";
-import { requireMembersAdmin, targetMember } from "./shared";
+import { requireHeld, requireNotErased, requireTakeoverRights, targetMember } from "./shared";
 
 const SESSION_LIMIT = 100;
 export const sessionSql = {
@@ -53,15 +53,17 @@ export const usersAdminRevokeSessionsOp = implement(
   usersAdminRevokeSessions,
   async (ctx, actor, input) => {
     requireAuthenticated(actor);
-    requirePermission(ctx, actor, "admin.members", {
-      target: targetMember(ctx, actor, input.userId),
-    });
+    const target = targetMember(ctx, actor, input.userId);
+    requirePermission(ctx, actor, "admin.members", { target });
+    requireTakeoverRights(ctx, actor, target);
+    requireNotErased(ctx, input.userId);
     // The log first, in the transaction that re-checks the actor; Better Auth's deletes follow.
     const plan = writeTx(ctx, () => {
       const current = currentActor(ctx, actor);
-      requirePermission(ctx, current, "admin.members", {
-        target: targetMember(ctx, current, input.userId, true),
-      });
+      const fresh = targetMember(ctx, current, input.userId, true);
+      requirePermission(ctx, current, "admin.members", { target: fresh });
+      requireTakeoverRights(ctx, current, fresh);
+      requireNotErased(ctx, input.userId);
       let token: string | null = null;
       let revoked: number;
       if (input.sessionId === undefined) {
@@ -80,11 +82,19 @@ export const usersAdminRevokeSessionsOp = implement(
         sessionId: input.sessionId ?? null,
         revoked,
       });
+      // Every session at once: a cookie cache would keep the member in for minutes otherwise. One
+      // session alone cannot be singled out of the member's cache without a lookup per request,
+      // so that cached cookie lasts until the cache expires.
+      if (token === null) markSessionsRevoked(ctx, input.userId);
       return { token, revoked };
     });
     const authContext = await getAuth(ctx).$context;
     if (plan.token !== null) await authContext.internalAdapter.deleteSession(plan.token);
-    else await authContext.internalAdapter.deleteUserSessions(String(input.userId));
+    else {
+      await authContext.internalAdapter.deleteUserSessions(String(input.userId));
+      // A session that began between the transaction and the delete is cut too.
+      writeTx(ctx, () => markSessionsRevoked(ctx, input.userId));
+    }
     return { revoked: plan.revoked };
   },
 );
@@ -94,7 +104,7 @@ export const logSql =
   "SELECT id, actor_id, action, reason, details, created_at FROM moderator_log WHERE target_type = 'user' AND target_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3";
 
 export const usersAdminLogOp = implement(usersAdminLog, (ctx, actor, input) => {
-  requireMembersAdmin(ctx, actor);
+  requireHeld(ctx, actor, "admin.members");
   const cursor = input.cursor ? decodeCursor(input.cursor, Cursor)[0] : Number.MAX_SAFE_INTEGER;
   const rows = prepared(ctx, "admin.log", () =>
     ctx.sqlite.prepare<

@@ -25,6 +25,16 @@ async function world() {
 }
 
 describe("users.adminUpdateProfile", () => {
+  test("removing a picture the member does not have changes nothing and logs nothing", async () => {
+    const w = await world();
+    const view = await w.edit({ removeAvatar: true, removeCover: true });
+    expect(view.card.username).toBe("Target");
+    expect(w.logOf(w.target.id)).toEqual([]);
+    expect(
+      w.ctx.sqlite.prepare("SELECT 1 FROM domain_events WHERE type = 'content.edited'").get(),
+    ).toBeNull();
+  });
+
   test("sets the profile fields, a title and a signature included, whatever the member may show", async () => {
     const w = await world();
     const view = await w.edit({

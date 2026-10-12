@@ -87,6 +87,81 @@ describe("users.adminList and users.adminGet", () => {
     expect(seen).toHaveLength(1);
   });
 
+  /** Every page of a listing, following cursors, as member ids. */
+  async function walk(w: Awaited<ReturnType<typeof world>>, input: object, limit = 3) {
+    const ids: number[] = [];
+    let cursor: string | undefined;
+    for (let calls = 0; calls < 100; calls++) {
+      const page: { items: { card: { id: number } }[]; nextCursor: string | null } = await w.run(
+        "users.adminList",
+        w.founder.actor,
+        { ...input, limit, cursor },
+      );
+      ids.push(...page.items.map((m) => m.card.id));
+      if (!page.nextCursor) return ids;
+      cursor = page.nextCursor;
+    }
+    throw new Error("the listing did not end");
+  }
+
+  test("a group lists its primary and its by-hand members together, newest first, each once", async () => {
+    const w = await world();
+    const mine: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      await w.register(`Noise ${i}`);
+      const primary = await w.register(`Primary ${i}`, 3);
+      const byHand = await w.register(`ByHand ${i}`);
+      await w.run("users.setGroups", w.founder.actor, {
+        userId: byHand.id,
+        secondaryGroupIds: [3],
+      });
+      mine.push(primary.id, byHand.id);
+    }
+    // One of both kinds at once is listed once.
+    const both = await w.register("Both");
+    w.ctx.sqlite.prepare("UPDATE users SET group_id = 3 WHERE id = ?1").run(both.id);
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 3, 0)")
+      .run(both.id);
+    mine.push(both.id);
+    const expected = [...mine, w.moderator.id].sort((a, b) => b - a);
+    expect(await walk(w, { groupId: 3 })).toEqual(expected);
+    expect(await walk(w, { groupId: 3 }, 1)).toEqual(expected);
+    expect(await walk(w, { groupId: 3 }, 100)).toEqual(expected);
+  });
+
+  test("the unconfirmed state is read from its group, however many others there are", async () => {
+    const w = await world();
+    const unconfirmed: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      await w.register(`Member ${i}`);
+      unconfirmed.push((await w.register(`Waiting ${i}`, 5)).id);
+    }
+    expect(await walk(w, { state: "unconfirmed" }, 2)).toEqual(unconfirmed.reverse());
+  });
+
+  test("a prefix lists the usernames that start with it by username, then those matched by email alone", async () => {
+    const w = await world();
+    const alpha = await w.register("Alpha", undefined, "someone@example.test");
+    const alan = await w.register("Alan", undefined, "alan@example.test");
+    const zed = await w.register("Zed", undefined, "alzed@example.test");
+    const ann = await w.register("Ann", undefined, "al.ann@example.test");
+    await w.register("Bob", undefined, "bob@example.test");
+    const names = async (limit: number) =>
+      (await walk(w, { prefix: "AL" }, limit)).map(
+        (id) => [alpha, alan, zed, ann].find((m) => m.id === id)!.username,
+      );
+    // Usernames first (Alan, Alpha), then email only (al.ann@ before alzed@); nobody twice.
+    for (const limit of [1, 2, 3, 100])
+      expect(await names(limit)).toEqual(["Alan", "Alpha", "Ann", "Zed"]);
+    expect(await walk(w, { prefix: "alan" }, 1)).toEqual([alan.id]);
+    // A cursor from a prefix listing means nothing to a listing without one.
+    const page = await w.run("users.adminList", w.founder.actor, { prefix: "al", limit: 1 });
+    await expect(
+      w.run("users.adminList", w.founder.actor, { limit: 1, cursor: page.nextCursor }),
+    ).rejects.toBeDefined();
+  });
+
   test("get returns one member; a missing one is not found", async () => {
     const w = await world();
     const a = await w.register("Alpha");
@@ -127,14 +202,16 @@ describe("users.adminList and users.adminGet", () => {
 describe("the list statements", () => {
   test("each reads an index, newest first", async () => {
     const w = await world();
-    const sources: [keyof typeof adminSql, unknown[], boolean][] = [
-      ["all", [100, 10], false],
-      ["banned", [100, 10], false],
-      ["group", [100, 10, 3], true],
-      ["prefix", [100, 10, "a", "b"], true],
+    const sources: [keyof typeof adminSql, unknown[]][] = [
+      ["all", [100, 10]],
+      ["banned", [100, 10]],
+      ["erased", [100, 10]],
+      ["groupPrimary", [100, 10, 3]],
+      ["groupSecondary", [100, 10, 3]],
+      ["prefixName", ["", 10, "a", "b"]],
+      ["prefixEmail", ["", 10, "a", "b"]],
     ];
-    for (const [name, params, temp] of sources)
-      expectNoTableScan(w.ctx, adminSql[name], params, { allowTempBTree: temp });
+    for (const [name, params] of sources) expectNoTableScan(w.ctx, adminSql[name], params);
     expectNoTableScan(w.ctx, adminSql.rows, ["[1]"]);
     expectNoTableScan(w.ctx, adminSql.secondary, [3, "[1]"]);
   });

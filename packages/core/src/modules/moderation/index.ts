@@ -1357,9 +1357,10 @@ export function addWarning(
       exec(
         ctx,
         "autoBan",
-        "UPDATE users SET banned_until = max(coalesce(banned_until, 0), ?1) WHERE id = ?2",
+        "UPDATE users SET banned_until = max(coalesce(banned_until, 0), ?1), sessions_revoked_at = ?3 WHERE id = ?2",
         expires,
         userId,
+        now,
       );
       // The automatic ban obeys the same rule as a manual one (see insertBan).
       assertAdministrator(ctx, { userId, wasAdministrator });
@@ -1453,6 +1454,8 @@ function insertBan(
     ).lastInsertRowid,
   );
   refreshBanState(ctx, userId, now);
+  // The member's sessions end with the ban, cached copies included (the job deletes the rows).
+  exec(ctx, "banRevoke", "UPDATE users SET sessions_revoked_at = ?1 WHERE id = ?2", now, userId);
   // A ban takes every permission away: it may not leave the forum without an administrator.
   assertAdministrator(ctx, { userId, wasAdministrator });
   appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
@@ -1541,6 +1544,16 @@ export function liftBan(
       target: principalMember(ctx, ban.user_id),
     });
     if (ban.lifted_at != null) throw new ConflictError("This ban was already lifted.");
+    // An erased account stays closed: the ban that closed it is not lifted.
+    if (
+      read<{ erased_at: number | null }>(
+        ctx,
+        "banErased",
+        "SELECT erased_at FROM users WHERE id = ?1 AND erased_at IS NOT NULL",
+        ban.user_id,
+      )
+    )
+      throw new ConflictError("This member's account was erased; its ban cannot be lifted.");
     const now = ctx.now();
     exec(ctx, "liftBan", "UPDATE bans SET lifted_at = ?1 WHERE id = ?2", now, banId);
     refreshBanState(ctx, ban.user_id, now);

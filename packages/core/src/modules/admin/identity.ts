@@ -7,12 +7,17 @@ import { ConflictError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
-import { getAuth, promoteVerifiedMember } from "../auth";
+import { deletePendingTokens, getAuth, markSessionsRevoked, promoteVerifiedMember } from "../auth";
 import { checkUsername, renameThroughAuth } from "../auth/username";
 import { accountEmailEnabled } from "../email/account";
 import { appendModeratorLog } from "../moderation";
 import { loadAdminMember } from "./members";
-import { targetMember, verifyActorPassword } from "./shared";
+import {
+  requireNotErased,
+  requireTakeoverRights,
+  targetMember,
+  verifyActorPassword,
+} from "./shared";
 
 export const authVerifyPasswordOp = implement(
   authVerifyPassword,
@@ -45,8 +50,6 @@ function addressRefusal(error: unknown): unknown {
     : error;
 }
 
-const domainOf = (email: string) => email.slice(email.lastIndexOf("@") + 1);
-
 export const usersAdminUpdateIdentityOp = implement(
   usersAdminUpdateIdentity,
   async (ctx, actor, input) => {
@@ -57,6 +60,8 @@ export const usersAdminUpdateIdentityOp = implement(
     await verifyActorPassword(ctx, actor, input.actorPassword);
     const target = targetMember(ctx, actor, input.userId);
     requirePermission(ctx, actor, "admin.members", { target });
+    requireTakeoverRights(ctx, actor, target);
+    requireNotErased(ctx, input.userId);
     const own = prepared(ctx, "admin.identity", () =>
       ctx.sqlite.prepare<IdentityRow, [number]>(identitySql.member),
     ).get(input.userId);
@@ -104,19 +109,23 @@ export const usersAdminUpdateIdentityOp = implement(
     // meanwhile changes nothing. Better Auth's own writes cannot join this transaction.
     writeTx(ctx, () => {
       const current = currentActor(ctx, actor);
-      requirePermission(ctx, current, "admin.members", {
-        target: targetMember(ctx, current, input.userId, true),
-      });
+      const fresh = targetMember(ctx, current, input.userId, true);
+      requirePermission(ctx, current, "admin.members", { target: fresh });
+      requireTakeoverRights(ctx, current, fresh);
+      requireNotErased(ctx, input.userId);
       const log = (action: string, details: Record<string, unknown> = {}) =>
         appendModeratorLog(ctx, actor, action, "user", input.userId, "", details);
       if (plan.username) log("member.username", { from: own.username, to: plan.username.name });
       if (plan.email !== undefined || plan.emailVerified !== undefined)
         log("member.email", {
-          // Never the address itself: its domain, and what happened to it.
-          ...(plan.email !== undefined ? { changed: true, domain: domainOf(plan.email) } : {}),
+          // That it changed, never any part of the address.
+          ...(plan.email !== undefined ? { changed: true } : {}),
           ...(plan.emailVerified !== undefined ? { verified: plan.emailVerified } : {}),
         });
-      if (plan.passwordHash) log("member.password");
+      if (plan.passwordHash) {
+        log("member.password");
+        markSessionsRevoked(ctx, input.userId);
+      }
       if (plan.reset) log("member.passwordReset");
     });
 
@@ -130,6 +139,8 @@ export const usersAdminUpdateIdentityOp = implement(
           ...(plan.email !== undefined ? { email: plan.email } : {}),
           ...(plan.emailVerified !== undefined ? { emailVerified: plan.emailVerified } : {}),
         });
+        // A reset or change-email link requested for the old address must not outlive it.
+        if (plan.email !== undefined) await deletePendingTokens(ctx, input.userId);
         if (plan.emailVerified === true && own.group_id === GROUP_IDS.unconfirmed)
           promoteVerifiedMember(ctx, input.userId);
       }
@@ -160,8 +171,11 @@ export const usersAdminUpdateIdentityOp = implement(
             accountId: userId,
             password: plan.passwordHash,
           });
-        // A new password signs the member out everywhere, as a reset does.
+        // A new password signs the member out everywhere, as a reset does, and no earlier link
+        // may set another one.
         await authContext.internalAdapter.deleteUserSessions(userId);
+        writeTx(ctx, () => markSessionsRevoked(ctx, input.userId));
+        await deletePendingTokens(ctx, input.userId);
       }
       if (plan.reset) {
         step = "reset";
