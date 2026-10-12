@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
-import { groupLabel, groupsIfAllowed } from "../../groups/data";
+import { getGroups, groupLabel } from "../../groups/data";
 import { Notice } from "../../groups/notice";
 import { permissionTitle } from "../../groups/phrases";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
@@ -96,7 +96,7 @@ export async function ForumPermissions({
     notFound();
   }
   const [viewerGroups, definitions, listing] = await Promise.all([
-    groupsIfAllowed(),
+    getGroups(),
     getDefinitions(),
     read(permissionsListNode, { nodeId }),
   ]);

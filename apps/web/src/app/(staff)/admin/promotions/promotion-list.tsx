@@ -7,7 +7,7 @@ import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
-import { groupLabel, groupsIfAllowed } from "../groups/data";
+import { getGroups, groupLabel } from "../groups/data";
 import { Notice } from "../groups/notice";
 import { criterionTitle } from "../groups/phrases";
 import { runPromotions } from "./actions";
@@ -28,7 +28,7 @@ export async function PromotionList({
       getViewer(),
       read(promotionsList, {}),
       read(promotionsCriteria, {}),
-      groupsIfAllowed(),
+      getGroups(),
     ],
   );
   const log = hrefFor(viewer, "toolsPromotionLog");

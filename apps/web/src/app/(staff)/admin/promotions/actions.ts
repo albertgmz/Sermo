@@ -35,14 +35,11 @@ async function criteriaOf(formData: FormData) {
   return { criteria };
 }
 
-// The groups ticked, or typed as ids when the viewer could not be offered the list.
+// The groups ticked.
 function groupIdsOf(formData: FormData) {
-  const raw = formData
+  const ids = formData
     .getAll("groupIds")
-    .flatMap((value) => (typeof value === "string" ? [value] : []));
-  const typed = text(formData, "groupIdsText").trim();
-  if (typed) raw.push(...typed.split(/[\s,]+/).filter(Boolean));
-  const ids = raw.map(parseId);
+    .map((value) => (typeof value === "string" ? parseId(value) : null));
   if (ids.some((id) => id === null)) return null;
   return [...new Set(ids as number[])];
 }

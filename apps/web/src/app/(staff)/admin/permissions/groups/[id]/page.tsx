@@ -12,7 +12,7 @@ import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../../registry";
-import { groupsIfAllowed } from "../../../groups/data";
+import { getGroups } from "../../../groups/data";
 import { Notice } from "../../../groups/notice";
 import { FormSkeleton, PageHead } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
@@ -35,21 +35,21 @@ async function Matrix({
   const [t, viewer, groups, definitions, set] = await Promise.all([
     getTranslations("adminGroups.permissionGroup"),
     getViewer(),
-    groupsIfAllowed(),
+    getGroups(),
     getDefinitions(),
     read(permissionsList, { groupId }),
   ]);
-  const group = groups?.find((entry) => entry.id === groupId);
-  if (groups && !group) notFound();
+  const group = groups.find((entry) => entry.id === groupId);
+  if (!group) notFound();
   const edit = hrefFor(viewer, "groupsEdit");
   return (
     <>
       <Notice searchParams={searchParams} shown={["saved"]} />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
-          {group?.title ?? t("groupNumber", { id: groupId })}
+          {group.title}
         </h2>
-        {edit && group && (
+        {edit && (
           <Link
             href={`/admin/groups/${group.id}`}
             className={cn(
@@ -66,7 +66,7 @@ async function Matrix({
         heading={t("heading")}
         permissions={
           await matrixPermissions(definitions, {
-            builtin: group?.builtin,
+            builtin: group.builtin,
           })
         }
         entries={entriesOf(set)}

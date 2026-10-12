@@ -69,6 +69,12 @@ export async function GroupList({
                       </dd>
                     </div>
                     <div className="flex gap-1">
+                      <dt>{t("members")}</dt>
+                      <dd className="font-medium text-foreground">
+                        {group.memberCount}
+                      </dd>
+                    </div>
+                    <div className="flex gap-1">
                       <dt>{t("nameColour")}</dt>
                       <dd className="flex items-center gap-1 font-medium text-foreground">
                         {colour ? (

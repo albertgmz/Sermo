@@ -13,7 +13,7 @@
     "password": "Enter your password to confirm the change.",
     "value": "Enter a whole number for {title}.",
     "criterionValue": "Enter a whole number for every criterion you use.",
-    "groupIds": "Enter group ids as whole numbers, separated by commas."
+    "groupIds": "Choose the groups from the list."
   },
   "colourPicker": {
     "legend": "Name colour",
@@ -48,6 +48,7 @@
     "builtin": "Built in",
     "staff": "Staff",
     "rank": "Rank",
+    "members": "Members",
     "nameColour": "Name colour",
     "colourHidden": "Hidden colour",
     "none": "None",
@@ -100,7 +101,6 @@
     "criteriaHelp": "Tick the criteria to use, with their value. All of the ticked criteria must hold.",
     "groups": "Groups added",
     "groupsHelp": "The secondary groups the promotion adds while its criteria hold.",
-    "groupsTyped": "The ids of the groups the promotion adds, separated by commas. You may not list groups here.",
     "holds": "Must hold",
     "notHold": "Must not hold",
     "use": "use this criterion",
@@ -165,17 +165,13 @@
     "heading": "Groups",
     "description": "Highest rank first.",
     "rank": "Rank {rank}",
-    "edit": "Permissions",
-    "noList": "You may not list the groups. Enter the id of the group instead.",
-    "groupId": "Group id",
-    "open": "Open"
+    "edit": "Permissions"
   },
   "permissionGroup": {
     "metaTitle": "Permissions of a group",
     "pageHeading": "Permissions of a group",
     "subtitle": "The entries set on this group.",
     "loading": "Loading the permissions…",
-    "groupNumber": "Group {id}",
     "editGroup": "Edit the group",
     "heading": "Permissions"
   },

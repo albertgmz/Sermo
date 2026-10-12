@@ -87,7 +87,7 @@ test("only the criteria the backend lists and the form ticked are sent", async (
   });
 });
 
-test("group ids typed for a viewer who cannot list groups are read as ids", async () => {
+test("an edited promotion goes to its own address with the ticked groups", async () => {
   backend = fakeBackend({
     "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => Response.json(PROMOTION),
@@ -98,7 +98,9 @@ test("group ids typed for a viewer who cannot list groups are read as ids", asyn
       form([
         ["id", "5"],
         ["title", "Regulars"],
-        ["groupIdsText", "7, 9 7"],
+        ["groupIds", "7"],
+        ["groupIds", "9"],
+        ["groupIds", "7"],
       ]),
     ),
   );
@@ -136,7 +138,7 @@ test("group ids that are not ids are refused", async () => {
       null,
       form([
         ["title", "R"],
-        ["groupIdsText", "x"],
+        ["groupIds", "x"],
       ]),
     ),
   ).toEqual({ fields: { groupIds: messages.adminGroups.errors.groupIds } });

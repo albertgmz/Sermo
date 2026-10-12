@@ -5,7 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Section } from "@/components/staff/rows";
 import { call, read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { groupLabel, groupsIfAllowed } from "../../../groups/data";
+import { getGroups, groupLabel } from "../../../groups/data";
 import {
   getMember,
   holds,
@@ -38,7 +38,7 @@ async function Groups({
     getViewer(),
     getMember(userId),
     read(usersGetGroups, { userId }),
-    groupsIfAllowed(),
+    getGroups(),
   ]);
   const readOnly = isReadOnly(member);
   const status = holds(viewer, "admin.promotions")
@@ -52,35 +52,12 @@ async function Groups({
         searchParams={searchParams}
         shown={["saved", "promotionApplied"]}
       />
-      {groups ? (
-        <GroupsForm
-          userId={userId}
-          groups={groups}
-          held={held}
-          readOnly={readOnly}
-        />
-      ) : (
-        <Section heading={t("heading")} description={t("noList")}>
-          <dl className="divide-y text-sm">
-            {(
-              [
-                ["primary", [held.primaryGroupId]],
-                ["secondary", held.secondaryGroupIds],
-                ["promotion", held.promotionGroupIds],
-                ["purchased", held.purchasedGroupIds],
-              ] as const
-            ).map(([key, ids]) => (
-              <div
-                key={key}
-                className="grid gap-1 p-4 sm:grid-cols-[10rem_1fr]"
-              >
-                <dt className="font-medium">{t(`origin.${key}`)}</dt>
-                <dd>{ids.length ? ids.map(title).join(", ") : t("none")}</dd>
-              </div>
-            ))}
-          </dl>
-        </Section>
-      )}
+      <GroupsForm
+        userId={userId}
+        groups={groups}
+        held={held}
+        readOnly={readOnly}
+      />
       {status && (
         <Section heading={p("heading")} description={p("description")}>
           {status.items.length === 0 ? (

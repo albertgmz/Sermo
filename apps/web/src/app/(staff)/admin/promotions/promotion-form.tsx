@@ -6,7 +6,7 @@ import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
-import { groupsIfAllowed } from "../groups/data";
+import { getGroups } from "../groups/data";
 import { criterionTitle } from "../groups/phrases";
 import { savePromotion } from "./actions";
 
@@ -82,13 +82,12 @@ function CriterionRow({
 }
 
 // The promotion form, for a new rule (no `promotion`) or one being edited. The criteria are
-// whatever `promotions.criteria` lists; the target groups are the groups the viewer may list, or
-// typed ids when they may not.
+// whatever `promotions.criteria` lists; the target groups are every group.
 export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
   const [t, { items: criteria }, groups] = await Promise.all([
     getTranslations("adminGroups.promotionForm"),
     read(promotionsCriteria, {}),
-    groupsIfAllowed(),
+    getGroups(),
   ]);
   const values = new Map(
     promotion?.criteria.map((entry) => [entry.criterion, entry.value]),
@@ -159,39 +158,25 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
           ))}
         </div>
       </FieldRow>
-      <FieldRow
-        name="groupIds"
-        label={t("groups")}
-        htmlFor={groups ? undefined : "promotion-group-ids"}
-        help={groups ? t("groupsHelp") : t("groupsTyped")}
-      >
-        {groups ? (
-          <fieldset className="grid gap-1 sm:grid-cols-2">
-            <legend className="sr-only">{t("groups")}</legend>
-            {groups.map((group) => (
-              <label
-                key={group.id}
-                className="flex min-h-10 items-center gap-3 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  name="groupIds"
-                  value={group.id}
-                  defaultChecked={chosen.has(group.id)}
-                  className={checkbox}
-                />
-                {group.title}
-              </label>
-            ))}
-          </fieldset>
-        ) : (
-          <Input
-            id="promotion-group-ids"
-            name="groupIdsText"
-            inputMode="numeric"
-            defaultValue={promotion?.groupIds.join(", ")}
-          />
-        )}
+      <FieldRow name="groupIds" label={t("groups")} help={t("groupsHelp")}>
+        <fieldset className="grid gap-1 sm:grid-cols-2">
+          <legend className="sr-only">{t("groups")}</legend>
+          {groups.map((group) => (
+            <label
+              key={group.id}
+              className="flex min-h-10 items-center gap-3 text-sm"
+            >
+              <input
+                type="checkbox"
+                name="groupIds"
+                value={group.id}
+                defaultChecked={chosen.has(group.id)}
+                className={checkbox}
+              />
+              {group.title}
+            </label>
+          ))}
+        </fieldset>
       </FieldRow>
     </FormRows>
   );
