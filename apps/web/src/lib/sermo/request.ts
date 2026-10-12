@@ -52,3 +52,9 @@ export function buildRequest(operation: string, input: unknown): BuiltRequest {
     body: JSON.stringify(rest),
   };
 }
+
+// Whether an operation only reads (GET): a refusal to understand its input then means the address
+// the visitor asked for cannot exist.
+export function isRead(operation: string): boolean {
+  return byOperation.get(operation)?.method === "GET";
+}

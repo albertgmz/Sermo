@@ -1,9 +1,15 @@
+const RATE_LIMITED = "rate_limited";
+export const RATE_LIMITED_DIGEST = "sermo.rate_limited";
+
 export type SermoIssue = { path?: unknown; message?: string };
 
 export class SermoError extends Error {
   readonly code: string;
   readonly status: number;
   readonly issues?: SermoIssue[];
+  // Next sends an error's digest to the error boundary and keeps the message back, so a throttled
+  // visitor is told apart there by this value.
+  readonly digest?: string;
 
   constructor(
     code: string,
@@ -16,6 +22,7 @@ export class SermoError extends Error {
     this.code = code;
     this.status = status;
     this.issues = issues;
+    if (code === RATE_LIMITED) this.digest = RATE_LIMITED_DIGEST;
   }
 }
 

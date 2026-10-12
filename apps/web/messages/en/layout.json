@@ -97,5 +97,13 @@
     "aria": {
       "home": "{site} home"
     }
+  },
+  "routeError": {
+    "title": "Something went wrong",
+    "description": "The page could not be loaded. Try again in a moment.",
+    "throttledTitle": "Too many requests",
+    "throttledDescription": "You have asked for a lot of pages in a short time. Wait a moment and try again.",
+    "retry": "Try again",
+    "home": "Back to the home page"
   }
 }
