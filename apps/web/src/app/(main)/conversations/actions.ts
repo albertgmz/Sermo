@@ -10,6 +10,7 @@ import {
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 
 export type ReplyState = { error?: string };
@@ -19,6 +20,7 @@ export async function replyAction(
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
+  requireIds(conversationId);
   const body = String(formData.get("body") ?? "");
   const sent = await attempt(`/conversations/${conversationId}`, () =>
     call(conversationsReply, { conversationId, body }),
@@ -32,6 +34,7 @@ export async function replyAction(
 // conversation the member left) is nothing the visitor needs to hear about. The page stays as it
 // is; the unread counts are right on the next page the member opens.
 export async function markRead(conversationId: number) {
+  requireIds(conversationId);
   try {
     await call(conversationsMarkRead, { conversationId });
   } catch (error) {
@@ -45,6 +48,7 @@ export async function leaveAction(
   conversationId: number,
   _previous: LeaveState,
 ): Promise<LeaveState> {
+  requireIds(conversationId);
   const left = await attempt(`/conversations/${conversationId}`, () =>
     call(conversationsLeave, { conversationId }),
   );

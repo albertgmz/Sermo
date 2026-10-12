@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { SermoError } from "./errors";
 import { buildRequest } from "./request";
 
 test("path parameters leave the input and the rest becomes the query of a read", () => {
@@ -40,4 +41,17 @@ test("a write sends the rest of the input as a JSON body", () => {
 
 test("an operation outside the route table throws at once", () => {
   assert.throws(() => buildRequest("nothing.here", {}), /Unknown operation/);
+});
+
+test("a path parameter that fetch would resolve as a dot segment or that is empty is refused", () => {
+  for (const threadId of ["..", ".", ""]) {
+    assert.throws(
+      () => buildRequest("threads.get", { threadId }),
+      (error) => error instanceof SermoError && error.code === "validation",
+    );
+  }
+  assert.equal(
+    buildRequest("threads.get", { threadId: "a/b" }).path,
+    "/threads/a%2Fb",
+  );
 });

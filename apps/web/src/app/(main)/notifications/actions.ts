@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 
 // The form sits in the header panel too, so the member goes back to the page
@@ -31,6 +32,7 @@ export async function markAllRead(
 // Called when a notification is opened, so a refusal is nothing the visitor needs to hear about.
 // The page stays as it is; the unread count is right on the next page the member opens.
 export async function markOneRead(id: number) {
+  requireIds(id);
   try {
     await call(notificationsMarkRead, { ids: [id] });
   } catch (error) {

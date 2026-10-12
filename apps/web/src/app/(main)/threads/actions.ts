@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
+import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 
 export type ReplyState = {
@@ -16,6 +17,7 @@ export async function replyAction(
   _previous: ReplyState,
   formData: FormData,
 ): Promise<ReplyState> {
+  requireIds(threadId);
   const body = String(formData.get("body") ?? "");
   const created = await attempt(`/threads/${threadId}`, () =>
     call(postsCreate, { threadId, body }),
@@ -28,6 +30,7 @@ export async function replyAction(
 // Called by the page itself once it is shown, so a refusal (a dead session, a thread that
 // vanished) is nothing the visitor needs to hear about.
 export async function markRead(threadId: number, position: number) {
+  requireIds(threadId);
   try {
     await call(threadsMarkRead, { threadId, position });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { routes } from "@sermo/api/route-table";
+import { SermoError } from "./errors";
 
 export type BuiltRequest = {
   method: string;
@@ -32,7 +33,17 @@ export function buildRequest(operation: string, input: unknown): BuiltRequest {
       throw new Error(`${operation} needs ${name}.`);
     }
     delete rest[name];
-    return encodeURIComponent(String(value));
+    const segment = String(value);
+    // `fetch` resolves dot segments, so `..` would walk to another route. Nothing the backend
+    // knows is addressed by one, and an empty segment is no address either.
+    if (segment === "" || segment === "." || segment === "..") {
+      throw new SermoError(
+        "validation",
+        422,
+        `${operation} was given an unusable ${name}.`,
+      );
+    }
+    return encodeURIComponent(segment);
   });
   if (route.method === "GET" || route.method === "DELETE") {
     const params = new URLSearchParams();
