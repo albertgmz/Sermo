@@ -1,9 +1,17 @@
-import { Ellipsis, Mail, MessagesSquare, Pencil } from "lucide-react";
+import {
+  Cake,
+  Ellipsis,
+  Link2,
+  Mail,
+  MapPin,
+  MessagesSquare,
+  Pencil,
+} from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
+import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
-import { ClientIcons } from "@/components/forum/client-icons";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
@@ -18,11 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { UserView } from "@/lib/db";
 import { formatDate, formatNumber } from "@/lib/format";
-import { nameColorHex } from "@/lib/legacy-views";
-import { titleKeyForLevel } from "@/lib/levels";
-import { can } from "@/lib/permissions";
 import type { Socials } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -46,30 +50,29 @@ const iconButtonClass =
 const actionClass = "h-10 px-4 md:h-8 md:px-3";
 
 export function ProfileHeader({
-  user,
-  viewer,
-  following,
+  profile,
+  viewerId,
+  canMessage,
 }: {
-  user: UserView;
-  viewer: UserView | null;
-  following: boolean;
+  profile: Profile;
+  viewerId: number | null;
+  // The backend says whether the visitor may start a conversation.
+  canMessage: boolean;
 }) {
   const t = useTranslations("members.profileHeader");
-  const levels = useTranslations("lib.levels");
-  const roles = useTranslations("lib.db.roles");
-  const isOwn = viewer?.id === user.id;
-  const profileHref = `/members/${user.id}`;
-  const name = userNameProps({
-    nameColor: nameColorHex(user.appearance.nameColor),
-  });
-  const socials = SOCIALS.filter(({ network }) => user.socials[network]);
+  const format = useFormatter();
+  const isOwn = viewerId === profile.id;
+  const profileHref = `/members/${profile.id}`;
+  const { card, birthday } = profile;
+  const name = userNameProps(card);
+  const socials = SOCIALS.filter(({ network }) => profile.socials[network]);
   const stats = [
-    { label: t("uidLabel"), value: user.id },
-    { label: t("postsLabel"), value: formatNumber(user.postCount) },
-    { label: t("reactionsLabel"), value: formatNumber(user.reactionCount) },
-    { label: t("creditsLabel"), value: formatNumber(user.credits) },
-    { label: t("reputationLabel"), value: formatNumber(user.reputation) },
-    { label: t("vouchesLabel"), value: formatNumber(user.vouches) },
+    { label: t("postsLabel"), value: formatNumber(profile.postCount) },
+    { label: t("reputationLabel"), value: formatNumber(profile.reactionScore) },
+    { label: t("followersLabel"), value: formatNumber(profile.followerCount) },
+    { label: t("followingLabel"), value: formatNumber(profile.followingCount) },
+    { label: t("creditsLabel"), value: formatNumber(profile.credits) },
+    { label: t("referralsLabel"), value: formatNumber(profile.referralCount) },
   ];
 
   return (
@@ -78,11 +81,11 @@ export function ProfileHeader({
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-36 overflow-hidden bg-background md:h-56"
       >
-        {user.coverPicture && (
+        {profile.cover && (
           <Art
             category="profileCovers"
             className="absolute inset-0 bg-cover bg-center opacity-60"
-            src={user.coverPicture.url}
+            src={profile.cover.url}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/60 to-background" />
@@ -90,7 +93,7 @@ export function ProfileHeader({
 
       <Container className="relative pt-20 md:pt-44">
         <UserAvatar
-          user={user.member}
+          user={card}
           size="2xl"
           link={false}
           className="ring-4 ring-background"
@@ -106,12 +109,12 @@ export function ProfileHeader({
                 )}
                 style={name.style}
               >
-                {user.username}
+                {profile.username}
               </h1>
               <span aria-hidden="true" className="h-5 w-px bg-border" />
               <div className="-ml-2 flex items-center md:ml-0 md:gap-1">
                 {socials.map(({ network, label, url }) => {
-                  const handle = user.socials[network] as string;
+                  const handle = profile.socials[network];
                   const href = url(handle);
                   return (
                     <Link
@@ -155,49 +158,65 @@ export function ProfileHeader({
               </div>
             </div>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
-              {can(user, "customTitle") && user.customTitle
-                ? user.customTitle
-                : user.role === "member"
-                  ? levels(titleKeyForLevel(user.level.level))
-                  : roles(user.role)}
-              <UserBadges user={user.member} />
+              {card.title}
+              <UserBadges user={card} />
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.rich("joined", {
-                date: formatDate(user.joinedAt),
+                date: formatDate(profile.createdAt),
                 time: (chunks) => (
-                  <time dateTime={user.joinedAt}>{chunks}</time>
+                  <time dateTime={profile.createdAt}>{chunks}</time>
                 ),
               })}
-              <span aria-hidden="true"> · </span>
-              {t.rich("lastSeen", {
-                time: () => <RelativeTime date={user.lastSeen.at} />,
-              })}
-              <span aria-hidden="true"> · </span>
-              <ClientIcons client={user.lastSeen} />
+              {profile.lastActivityAt && (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  {t.rich("lastSeen", {
+                    time: () => (
+                      <RelativeTime date={profile.lastActivityAt ?? ""} />
+                    ),
+                  })}
+                </>
+              )}
             </p>
+            {(profile.location || profile.website || birthday) && (
+              <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {profile.location && (
+                  <li className="inline-flex items-center gap-1.5 [overflow-wrap:anywhere]">
+                    <MapPin aria-hidden="true" className="size-4 shrink-0" />
+                    {profile.location}
+                  </li>
+                )}
+                {profile.website && (
+                  <li className="inline-flex min-w-0 items-center gap-1.5">
+                    <Link2 aria-hidden="true" className="size-4 shrink-0" />
+                    <a
+                      href={profile.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate font-medium text-primary underline underline-offset-4 hover:no-underline"
+                    >
+                      {profile.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  </li>
+                )}
+                {birthday && (
+                  <li className="inline-flex items-center gap-1.5">
+                    <Cake aria-hidden="true" className="size-4 shrink-0" />
+                    {t("birthday", {
+                      date: format.dateTime(
+                        new Date(
+                          Date.UTC(2000, birthday.month - 1, birthday.day),
+                        ),
+                        { day: "numeric", month: "long", timeZone: "UTC" },
+                      ),
+                    })}
+                  </li>
+                )}
+              </ul>
+            )}
 
-            <p className="mt-2 text-sm text-muted-foreground">
-              {t.rich("followers", {
-                count: user.followerCount,
-                value: (chunks) => (
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {chunks}
-                  </span>
-                ),
-              })}
-              <span aria-hidden="true"> · </span>
-              {t.rich("following", {
-                count: user.followingCount,
-                value: (chunks) => (
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {chunks}
-                  </span>
-                ),
-              })}
-            </p>
-
-            {viewer && (
+            {viewerId !== null && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {isOwn ? (
                   <Link
@@ -213,21 +232,23 @@ export function ProfileHeader({
                 ) : (
                   <>
                     <FollowButton
-                      user={user}
-                      viewer={viewer}
-                      following={following}
+                      user={profile}
+                      following={profile.viewer.isFollowing}
+                      returnTo={profileHref}
                       className={actionClass}
                     />
-                    <Link
-                      href={`/conversations/new?to=${encodeURIComponent(user.username)}`}
-                      className={cn(
-                        buttonVariants({ variant: "outline" }),
-                        actionClass,
-                      )}
-                    >
-                      <Mail />
-                      {t("message")}
-                    </Link>
+                    {canMessage && (
+                      <Link
+                        href={`/conversations/new?to=${encodeURIComponent(profile.username)}`}
+                        className={cn(
+                          buttonVariants({ variant: "outline" }),
+                          actionClass,
+                        )}
+                      >
+                        <Mail />
+                        {t("message")}
+                      </Link>
+                    )}
                   </>
                 )}
               </div>
