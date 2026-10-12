@@ -218,3 +218,57 @@ test("media CSS URLs can span lines and use HTML entities", () => {
     "LITE MODE",
   );
 });
+
+test("an element that is never closed loses only its opening tag", () => {
+  const state = parseLiteCookie("postImages");
+  const cases: [string, string][] = [
+    [
+      "Use the <video> tag for clips.\n\nSecond paragraph stays?\n\n- item",
+      "Use the LITE MODE tag for clips.\n\nSecond paragraph stays?\n\n- item",
+    ],
+    [
+      "Array<object> and Map<string, embed> end",
+      "ArrayLITE MODE and Map<string, embed> end",
+    ],
+    [
+      "I export <svg> files from Figma.\n\nNext para",
+      "I export LITE MODE files from Figma.\n\nNext para",
+    ],
+    // An end tag of an outer element abandons the open one inside it.
+    ['a <div><video src="x.mp4"></div> tail', "a <div>LITE MODE</div> tail"],
+    [
+      "<div>\n\nUse <video> tag\n\n</div>\n\nend",
+      "<div>\n\nUse LITE MODE tag\n\n</div>\n\nend",
+    ],
+    // Nested: the inner media element closes, the outer one stays open.
+    [
+      'a <video><source src="x.mp4"></video> b <audio> c\n\nd',
+      "a LITE MODE b LITE MODE c\n\nd",
+    ],
+  ];
+  for (const [input, expected] of cases)
+    assert.equal(stripMarkdownImages(input, state), expected, input);
+});
+
+test("a closed element still disappears whole, URL included", () => {
+  const state = parseLiteCookie("postImages");
+  assert.equal(
+    stripMarkdownImages(
+      'a <video src="https://pictures.test/v.mp4">fallback</video> b',
+      state,
+    ),
+    "a LITE MODE b",
+  );
+});
+
+test("the label of a removed picture can be left out", () => {
+  assert.equal(
+    stripMarkdownImages(
+      "Hi ![a](https://pictures.test/a.png) <video> x\n\n![b][r]\n\n[r]: /frames/1.png",
+      undefined,
+      undefined,
+      "",
+    ),
+    "Hi   x\n\n\n\n",
+  );
+});

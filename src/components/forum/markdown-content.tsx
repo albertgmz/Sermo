@@ -59,7 +59,9 @@ export function MarkdownContent({
         components={{ ...components, ...images }}
         disallowedElements={skipImages ? ["img"] : undefined}
       >
-        {skipImages ? stripMarkdownImages(children) : children}
+        {skipImages
+          ? stripMarkdownImages(children, undefined, undefined, "")
+          : children}
       </ReactMarkdown>
     </div>
   );
