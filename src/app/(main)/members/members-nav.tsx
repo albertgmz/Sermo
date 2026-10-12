@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { VIEWS, type ViewValue, viewHref } from "@/app/(main)/members/views";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +23,11 @@ export function MembersNav({
   variant: keyof typeof VARIANTS;
   className?: string;
 }) {
+  const t = useTranslations("members.membersNav");
+  const views = useTranslations("members.views");
   return (
     <nav
-      aria-label="Member views"
+      aria-label={t("aria.views")}
       className={cn(VARIANTS[variant].nav, className)}
     >
       {VIEWS.map(({ value, label, icon: Icon }) => (
@@ -41,7 +44,7 @@ export function MembersNav({
             aria-hidden="true"
             className="size-4 shrink-0 group-aria-[current=page]:text-primary"
           />
-          {label}
+          {views(label)}
         </Link>
       ))}
     </nav>

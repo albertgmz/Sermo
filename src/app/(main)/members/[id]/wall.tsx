@@ -1,5 +1,6 @@
 import { MessageCircle, PenLine } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { react } from "@/app/(main)/actions";
 import { commentOnWallPost, postToWall } from "@/app/(main)/members/actions";
 import { ClientIcons } from "@/components/forum/client-icons";
@@ -16,6 +17,7 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { UserLink } from "@/components/forum/user-link";
 import { buttonVariants } from "@/components/ui/button";
 import type { ProfilePostView, UserView } from "@/lib/db";
+import { formatNumber } from "@/lib/format";
 import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,7 @@ function WallPost({
   viewer: UserView | null;
   reactionTypes: ReactionType[];
 }) {
+  const t = useTranslations("members.wall");
   const anchor = `profile-post-${post.id}`;
   return (
     <MessageRow
@@ -51,11 +54,11 @@ function WallPost({
           />
           <Link
             href={viewer ? `#${anchor}-comment` : "/login"}
-            aria-label={`Comment, ${post.comments.length} ${post.comments.length === 1 ? "comment" : "comments"}`}
+            aria-label={t("aria.comments", { count: post.comments.length })}
             className={messageActionClass}
           >
             <MessageCircle />
-            {post.comments.length}
+            {formatNumber(post.comments.length)}
           </Link>
           <ReactionSummary reactions={post.reactions} className="ml-auto" />
         </>
@@ -103,8 +106,8 @@ function WallPost({
                     post.profileUserId,
                     post.id,
                   )}
-                  placeholder="Write a comment…"
-                  submitLabel="Post comment"
+                  placeholder={t("commentPlaceholder")}
+                  submitLabel={t("commentSubmit")}
                 />
               </div>
             )}
@@ -128,32 +131,31 @@ export function Wall({
   posts: ProfilePostView[];
   reactionTypes: ReactionType[];
 }) {
+  const t = useTranslations("members.wall");
   return (
     <section className="overflow-hidden rounded-lg border bg-card">
-      <h2 className="sr-only">Wall</h2>
+      <h2 className="sr-only">{t("heading")}</h2>
       {viewer && (
         <CompactComposer
           action={postToWall.bind(null, user.id)}
           user={viewer}
-          placeholder={`Write something on ${user.username}'s profile…`}
-          submitLabel="Post"
+          placeholder={t("placeholder", { username: user.username })}
+          submitLabel={t("submit")}
           className="border-b p-4"
         />
       )}
       {posts.length === 0 ? (
         <EmptyState
           icon={PenLine}
-          title="No messages yet"
-          description={
-            <>
-              Be the first to write something on <UserLink user={user} />
-              's profile.
-            </>
-          }
+          title={t("emptyTitle")}
+          description={t.rich("emptyDescription", {
+            username: user.username,
+            user: () => <UserLink user={user} />,
+          })}
         >
           {!viewer && (
             <Link href="/login" className={cn(buttonVariants(), "h-10 px-4")}>
-              Log in to post
+              {t("login")}
             </Link>
           )}
         </EmptyState>
