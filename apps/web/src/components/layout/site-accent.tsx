@@ -1,17 +1,3 @@
-import type { User } from "@/lib/types";
-
-// While this marker is in the page the stylesheet recolours the whole
-// document, popups included: see the accent presets in globals.css. Only the
-// sign-in pages still use it, with the account of the demo data.
-export function SiteAccent({
-  user,
-}: {
-  user: Pick<User, "appearance"> | null;
-}) {
-  const accent = user?.appearance.accent;
-  return accent ? <span hidden data-site-accent={accent} /> : null;
-}
-
 export type AccentColors = { color: string; foreground: string | null };
 
 const HEX = /^#[0-9a-f]{6}$/i;
