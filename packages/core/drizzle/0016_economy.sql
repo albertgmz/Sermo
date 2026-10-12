@@ -61,6 +61,7 @@ CREATE TABLE `credit_rules` (
 	`limit_count` integer,
 	`limit_window_hours` integer,
 	`node_ids` text DEFAULT '[]' NOT NULL,
+	`created_after_event_id` integer DEFAULT 0 NOT NULL,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );
