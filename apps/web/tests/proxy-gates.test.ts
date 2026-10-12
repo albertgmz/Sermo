@@ -319,6 +319,20 @@ test("a full administrator opens the built screens; unknown and unbuilt addresse
   }
 });
 
+test("an address of the panel that cannot be decoded, or that looks like a picture, is still gated", async () => {
+  for (const path of [
+    "/admin/%E0%A4%A",
+    "/moderation/%FF",
+    "/admin/pages/a.png",
+    "/admin/logo.svg",
+  ]) {
+    reset();
+    isNotFound(await ask(path));
+    reset({ viewer: FULL_ADMINISTRATOR });
+    isNotFound(await ask(path, { cookie: SESSION }));
+  }
+});
+
 test("the panel's gate answers an action's POST and a prefetch like a page load", async () => {
   reset({ viewer: MEMBER });
   isNotFound(

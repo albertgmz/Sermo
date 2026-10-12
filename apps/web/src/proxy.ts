@@ -219,7 +219,12 @@ async function handleRequest(request: NextRequest) {
       },
     );
   }
-  if (isImageRequest(request.nextUrl.pathname)) {
+  // A picture's address is let through as it is, except in the panel: there a file name is no
+  // picture, and the gate below decides.
+  if (
+    isImageRequest(request.nextUrl.pathname) &&
+    !isStaffPath(request.nextUrl.pathname)
+  ) {
     const response = NextResponse.next();
     response.headers.set("Vary", "Cookie");
     return response;
@@ -230,6 +235,8 @@ async function handleRequest(request: NextRequest) {
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
+    // An address that cannot be decoded names no page of the panel either.
+    if (isStaffPath(request.nextUrl.pathname)) return notFound(request);
     return toPage(request);
   }
   const [, section, id, action] = pathname.split("/");

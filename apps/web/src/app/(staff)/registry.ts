@@ -53,7 +53,9 @@ export type Section = {
 const holds = (me: Standing, id: string) => me.resolvedPermissions[id] === true;
 
 // Whether the member moderates anywhere. Node permissions are not in `resolvedPermissions`, so a
-// moderator of a single forum is only visible here.
+// moderator of a single forum is only visible here. The summary says "holds some moderation
+// permission", not which one: the moderation screens open for any of them and the backend
+// narrows what each queue lists.
 const moderates = (me: Standing) =>
   me.staff.moderatesEverywhere || me.staff.moderatedNodeIds.length > 0;
 
@@ -290,7 +292,7 @@ export const SECTIONS = [
       {
         key: "usersEconomy",
         path: "/admin/users/[id]/economy",
-        access: ["admin.members", "credits.viewAny", "admin.shop"],
+        access: ["credits.viewAny", "credits.adjust", "admin.shop"],
         built: false,
         listed: false,
       },
@@ -610,7 +612,7 @@ function patternOf(path: string) {
     .map((part) => {
       const parameter = /^\[(\w+)\]$/.exec(part);
       if (!parameter) return part.replace(/[.*+?^${}()|\\]/g, "\\$&");
-      return parameter[1] === "id" ? "[1-9]\\d*" : "[A-Za-z0-9_-]+";
+      return parameter[1] === "id" ? "[1-9]\\d{0,14}" : "[A-Za-z0-9_-]+";
     })
     .join("/");
   return new RegExp(`^${source}$`);

@@ -106,6 +106,9 @@ test("an address finds its screen, a static path before a dynamic one", () => {
     "/admin/forums/12/permissions/extra",
     "/moderation/nothing",
     "/admin/users/5/groups/x",
+    "/admin/users/99999999999999999999",
+    "/admin/pages/a.png",
+    "/admin/pages/a b",
   ]) {
     expect(screenAt(path), path).toBeUndefined();
   }

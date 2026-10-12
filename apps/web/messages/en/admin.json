@@ -6,7 +6,6 @@
     "aria": {
       "navigation": "Administration",
       "openMenu": "Open the administration menu",
-      "closeMenu": "Close the menu",
       "loadingNavigation": "Loading the administration navigation…",
       "loadingAccount": "Loading your account…",
       "loadingTitle": "Loading the section…",
@@ -168,8 +167,7 @@
   },
   "formRows": {
     "save": "Save changes",
-    "saving": "Saving…",
-    "failed": "The changes were not saved."
+    "saving": "Saving…"
   },
   "confirmPassword": {
     "label": "Your password",
@@ -177,7 +175,6 @@
   },
   "logTable": {
     "filters": "Filters",
-    "search": "Search",
     "apply": "Apply filters",
     "reset": "Clear filters",
     "all": "All",
@@ -187,9 +184,7 @@
     "actor": "Actor",
     "action": "Action",
     "target": "Target",
-    "details": "Details",
     "showDetails": "Show details",
-    "noDetails": "No details",
     "system": "System",
     "emptyTitle": "No entries",
     "emptyDescription": "No entry matches these filters.",

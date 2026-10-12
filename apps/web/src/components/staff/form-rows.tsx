@@ -78,15 +78,14 @@ function SaveBar({ submit }: { submit: string }) {
   const { pending } = useFormStatus();
   return (
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-card/95 p-4 backdrop-blur-sm">
-      <Button type="submit" disabled={pending} className="min-h-10 px-4">
+      <Button
+        type="submit"
+        disabled={pending}
+        aria-live="polite"
+        className="min-h-10 px-4"
+      >
         {pending ? t("saving") : submit}
       </Button>
-      <output
-        aria-live="polite"
-        className="text-xs text-muted-foreground empty:hidden"
-      >
-        {pending ? t("saving") : null}
-      </output>
     </div>
   );
 }
