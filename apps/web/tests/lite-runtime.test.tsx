@@ -55,6 +55,24 @@ mock.module("@/lib/sermo/viewer", () => ({
       : null;
   },
 }));
+// The site comes from the backend; tests choose which identity pictures it has.
+let site: {
+  name: string;
+  logo: { fileId: number; url: string } | null;
+  icon: { fileId: number; url: string } | null;
+  backdrop: { fileId: number; url: string } | null;
+} = { name: "Sermo", logo: null, icon: null, backdrop: null };
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
+globalThis.fetch = (async () =>
+  Response.json({
+    ...site,
+    palette: { accents: [], nameColors: [], prefixColors: [] },
+  })) as unknown as typeof fetch;
 mock.module("@/lib/db", () => ({
   getUser: async (username: string) => {
     const id = Number(username.replace("member", ""));
@@ -488,6 +506,42 @@ test("site icon URL is absent when brand is blocked", async () => {
     const html = renderToStaticMarkup(await SiteIcon());
     if (mode === "brand" || mode === "all") noArtwork(html);
     else expect(html).toContain("/icon.svg");
+  }
+});
+
+test("backend identity pictures are absent from the page when brand is blocked", async () => {
+  site = {
+    name: "Garden Club",
+    logo: { fileId: 5, url: "/api/v1/files/5" },
+    icon: { fileId: 6, url: "/api/v1/files/6" },
+    backdrop: { fileId: 7, url: "/api/v1/files/7" },
+  };
+  try {
+    const draws = [
+      {
+        element: createElement(LogoMark, { className: "size-12" }),
+        url: "/api/v1/files/5",
+      },
+      {
+        element: createElement(PageBackdrop, { key: "backdrop" }),
+        url: "/api/v1/files/7",
+      },
+    ];
+    for (const mode of [undefined, "awards", "brand", "all"]) {
+      cookie = mode;
+      const blocked = mode === "brand" || mode === "all";
+      for (const { element, url } of draws) {
+        const html = await markup(element);
+        if (blocked) noArtwork(html);
+        else expect(html).toContain(url);
+        expect(html.includes(url)).toBe(!blocked);
+      }
+      const icon = renderToStaticMarkup(await SiteIcon());
+      expect(icon.includes("/api/v1/files/6")).toBe(!blocked);
+      expect(icon).not.toContain("/icon.svg");
+    }
+  } finally {
+    site = { name: "Sermo", logo: null, icon: null, backdrop: null };
   }
 });
 

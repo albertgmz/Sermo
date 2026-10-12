@@ -58,6 +58,8 @@ bun run start
 
 The fixture creates the members `nova` (administrator), `kestrel` (moderator), `ember` and `wren`, with two categories, four forums, six threads, a few reactions and one conversation. All four share the password in `SERMO_DEV_PASSWORD` (default `sermo-dev-password`). It refuses to run with `NODE_ENV=production` and does nothing when `nova` already exists.
 
+Once the API is up, start the web app with `bun run dev` in `apps/web`; it reads the site's name and pictures from the API.
+
 ## Authentication and clients
 
 Better Auth handles registration, sign-in, sessions, and API keys under `/api/auth`. Register with `POST /api/auth/sign-up/email` and a JSON body containing `email`, `password`, `name`, and `username`. The username is required, 3–32 characters long, and may contain letters, numbers, spaces, `.`, `-`, and `_`; use a letter or number at either end. An optional `displayUsername` must match the username apart from letter case; `name` is free text. Passwords must be 8–256 characters. Sign in with `POST /api/auth/sign-in/email` (email and password) or `POST /api/auth/sign-in/username` (username and password).
