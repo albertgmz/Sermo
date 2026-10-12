@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { Suspense } from "react";
+import { SiteIcon } from "@/components/layout/site-icon";
 import "./globals.css";
 
 const inter = Inter({
@@ -28,7 +30,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Suspense>
+          <SiteIcon />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

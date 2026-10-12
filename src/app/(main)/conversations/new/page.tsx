@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NewConversationForm } from "@/app/(main)/conversations/new/new-conversation-form";
+import { UserAvatar } from "@/components/forum/user-avatar";
 import { getUsers } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 
@@ -33,11 +34,10 @@ export default async function NewConversationPage({
       </header>
       <div className="max-w-2xl p-4">
         <NewConversationForm
-          users={users.map(({ id, username, avatar, appearance }) => ({
-            id,
-            username,
-            avatar,
-            appearance,
+          users={users.map((recipient) => ({
+            id: recipient.id,
+            username: recipient.username,
+            avatar: <UserAvatar user={recipient} size="sm" link={false} />,
           }))}
           preselected={preselected?.id}
         />

@@ -3,7 +3,6 @@
 import { useActionState, useState } from "react";
 import { startConversation } from "@/app/(main)/conversations/actions";
 import { Editor } from "@/components/forum/editor";
-import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -20,7 +19,7 @@ export function NewConversationForm({
   users,
   preselected,
 }: {
-  users: (AvatarUser & Pick<User, "id">)[];
+  users: (Pick<User, "id" | "username"> & { avatar: React.ReactNode })[];
   preselected?: number;
 }) {
   const [serverError, action, pending] = useActionState(startConversation, "");
@@ -52,7 +51,7 @@ export function NewConversationForm({
                   value={String(user.id)}
                   defaultChecked={user.id === preselected}
                 />
-                <UserAvatar user={user} size="sm" link={false} />
+                {user.avatar}
                 <span className="truncate">{user.username}</span>
               </Label>
             </li>

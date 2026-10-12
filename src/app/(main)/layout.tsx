@@ -38,7 +38,7 @@ async function Chrome() {
 export default function MainLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-dvh flex-1 flex-col pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
-      <Suspense fallback={<div className="h-14 border-b" />}>
+      <Suspense fallback={<div className="h-26 border-b" />}>
         <Chrome />
       </Suspense>
       <div className="relative isolate flex flex-1 flex-col">

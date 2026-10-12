@@ -1,8 +1,17 @@
+import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { isLiteMode } from "@/lib/lite-mode";
 import { cn } from "@/lib/utils";
 
 // A decorative picture drawn as a background, so it never shifts the layout:
 // the caller gives the box its size (an aspect ratio or absolute insets).
-export function Art({ src, className }: { src: string; className?: string }) {
+export async function Art({
+  src,
+  className,
+}: {
+  src: string;
+  className?: string;
+}) {
+  if (await isLiteMode()) return <LitePlaceholder className={className} />;
   return (
     <div
       aria-hidden="true"

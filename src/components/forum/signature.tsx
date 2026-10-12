@@ -1,4 +1,4 @@
-import { Markdown } from "@/components/forum/markdown";
+import { MarkdownContent } from "@/components/forum/markdown-content";
 import { SIGNATURE_MAX_LINES } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +21,12 @@ export function Signature({
         className,
       )}
     >
-      <Markdown className="text-xs leading-relaxed [&_:is(h3,h4,h5)]:text-xs [&_:is(h3,h4,h5)]:leading-relaxed [&_:is(h3,h4,h5)]:tracking-normal [&_:is(ul,ol)]:space-y-0 [&_a]:font-normal [&_a]:text-muted-foreground [&_a]:hover:text-foreground [&_img]:hidden [&>*+*]:mt-0">
+      <MarkdownContent
+        skipImages
+        className="text-xs leading-relaxed [&_:is(h3,h4,h5)]:text-xs [&_:is(h3,h4,h5)]:leading-relaxed [&_:is(h3,h4,h5)]:tracking-normal [&_:is(ul,ol)]:space-y-0 [&_a]:font-normal [&_a]:text-muted-foreground [&_a]:hover:text-foreground [&_img]:hidden [&>*+*]:mt-0"
+      >
         {children.replace(/\n/g, "  \n")}
-      </Markdown>
+      </MarkdownContent>
     </div>
   );
 }
