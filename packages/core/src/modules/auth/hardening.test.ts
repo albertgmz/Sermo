@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestContext } from "@sermo/core/testing";
+import { createTestContext, insertUser } from "@sermo/core/testing";
 import { ForbiddenError, UnauthenticatedError } from "../../errors";
 import { registerEmailJobs } from "../email";
 import { registerAccountEmailJobs } from "../email/account";
@@ -141,9 +141,41 @@ test("an unused change-email link only ever applies to the account that requeste
   expect([200, 302]).toContain((await http.follow(used, first.cookie)).status);
   const other = await register(client(ctx, "192.0.2.53"), "Other", "a@example.test");
 
-  expect((await http.follow(stale)).status).toBe(401);
+  const sessionsBefore = sessionCount(ctx, other.userId);
+  const rejected = await http.follow(stale);
+  expect(rejected.status).toBe(401);
+  expect(await rejected.json()).toMatchObject({ code: "INVALID_TOKEN" });
+  expect(rejected.headers.getSetCookie().some((value) => /session_token=[^;]/.test(value))).toBe(
+    false,
+  );
+  expect(sessionCount(ctx, other.userId)).toBe(sessionsBefore);
   expect(emailOf(ctx, other.userId)).toBe("a@example.test");
   expect(emailOf(ctx, first.userId)).toBe("c@example.test");
+});
+
+test("a consumed change-email link stays spent after its owner returns to the original address", async () => {
+  const ctx = createTestContext();
+  const capture = withMail(ctx);
+  const http = client(ctx, "192.0.2.76");
+  const owner = await register(http, "Owner", "a@example.test");
+  const changeTo = async (email: string) => {
+    expect((await http.post("/change-email", { newEmail: email }, owner.cookie)).status).toBe(200);
+    await runDueJobs(ctx);
+    const link = capture.messages.findLast(
+      (message) => message.to === email && /verify-email/.test(message.text),
+    )!.text;
+    expect([200, 302]).toContain((await http.follow(link, owner.cookie)).status);
+    return link;
+  };
+  const spent = await changeTo("b@example.test");
+  await changeTo("a@example.test");
+  const sessionsBefore = sessionCount(ctx, owner.userId);
+  const replay = await http.follow(spent);
+  expect(replay.status).toBe(401);
+  expect(await replay.json()).toMatchObject({ code: "INVALID_TOKEN" });
+  expect(replay.headers.getSetCookie()).toEqual([]);
+  expect(emailOf(ctx, owner.userId)).toBe("a@example.test");
+  expect(sessionCount(ctx, owner.userId)).toBe(sessionsBefore);
 });
 
 test("a revoked session cannot renew its cookie cache through Better Auth's endpoints", async () => {
@@ -218,7 +250,9 @@ test("a banned member cannot sign in or change their identity through Better Aut
     message: "This account is banned.",
   });
   expect(usernameOf()).toBe("Banned");
-  expect((await http.post("/api-key/create", { name: "key" }, cookie)).status).toBe(403);
+  const deniedKey = await http.post("/api-key/create", { name: "key" }, cookie);
+  expect(deniedKey.status).toBe(403);
+  expect(await deniedKey.json()).toMatchObject({ code: "ACCOUNT_BANNED" });
   await expect(resolveActor(ctx, new Headers({ cookie }))).rejects.toBeInstanceOf(ForbiddenError);
   // Signing out stays possible.
   expect((await http.post("/sign-out", {}, cookie)).status).toBe(200);
@@ -281,6 +315,13 @@ test("password reset requests without redirectTo are refused before anything is 
   expect(new Set(outcomes).size).toBe(1);
   expect(outcomes[0]).toStartWith("400 ");
   expect(outcomes[0]).toContain("REDIRECT_REQUIRED");
+  // HTTP origin validation rejects whitespace URLs before the hook; direct calls still need
+  // the hook's nonempty check.
+  await expect(
+    getAuth(ctx).api.requestPasswordReset({
+      body: { email: "reset@example.test", redirectTo: " \t " },
+    }),
+  ).rejects.toMatchObject({ statusCode: 400, body: { code: "REDIRECT_REQUIRED" } });
   await runDueJobs(ctx);
   expect(capture.messages).toHaveLength(mailBefore);
   expect(tokens()).toBe(0);
@@ -312,17 +353,6 @@ test("usernames whose lowercase form is not a valid username are refused", async
     0,
   );
 
-  const plain = await auth.api.signUpEmail({ body: body("ipek", "plain@example.test") });
-  await expect(
-    auth.api.updateUser({
-      headers: new Headers({ authorization: `Bearer ${plain.token}` }),
-      body: { username: "İpek" },
-    }),
-  ).rejects.toMatchObject({ statusCode: expect.any(Number) });
-  expect(ctx.sqlite.query<{ username: string }, []>("SELECT username FROM users").all()).toEqual([
-    { username: "ipek" },
-  ]);
-
   const signedUp = await auth.api.signUpEmail({ body: body("Éloise", "eloise@example.test") });
   const normalized = (signedUp.user as { username?: string }).username;
   expect(normalized).toBe("éloise");
@@ -330,4 +360,104 @@ test("usernames whose lowercase form is not a valid username are refused", async
     const signedIn = await auth.api.signInUsername({ body: { username, password: "password123" } });
     expect(signedIn?.user.id).toBe(signedUp.user.id);
   }
+});
+
+test("authenticated username changes reject names whose lowercase form is invalid", async () => {
+  const ctx = createTestContext();
+  const auth = getAuth(ctx);
+  await auth.api.signUpEmail({
+    body: { name: "ipek", username: "ipek", email: "plain@example.test", password: "password123" },
+  });
+  const signedIn = await client(ctx, "192.0.2.70").post("/sign-in/username", {
+    username: "ipek",
+    password: "password123",
+  });
+  expect(signedIn.status).toBe(200);
+  const cookie = cookieOf(signedIn);
+  expect(cookie).toContain("sermo.session_token=");
+  await expect(
+    auth.api.updateUser({
+      headers: new Headers({ cookie }),
+      body: { name: "Authenticated profile update" },
+    }),
+  ).resolves.toMatchObject({ status: true });
+  await expect(
+    auth.api.updateUser({
+      headers: new Headers({ cookie }),
+      body: { username: "İpek" },
+    }),
+  ).rejects.toMatchObject({ statusCode: 400, body: { code: "INVALID_USERNAME" } });
+  expect(ctx.sqlite.query<{ username: string }, []>("SELECT username FROM users").all()).toEqual([
+    { username: "ipek" },
+  ]);
+  expect(
+    ctx.sqlite.query<{ username: string }, []>("SELECT username FROM auth_user").all(),
+  ).toEqual([{ username: "ipek" }]);
+});
+
+test("username availability applies the rules for new usernames", async () => {
+  const auth = getAuth(createTestContext());
+  await expect(auth.api.isUsernameAvailable({ body: { username: "İpek" } })).rejects.toMatchObject({
+    statusCode: 422,
+    body: { code: "INVALID_USERNAME" },
+  });
+  await expect(auth.api.isUsernameAvailable({ body: { username: "Éloise" } })).resolves.toEqual({
+    available: true,
+  });
+});
+
+test("legacy Unicode usernames remain usable for username sign-in", async () => {
+  const ctx = createTestContext();
+  // Older registrations stored the display spelling and its lowercase lookup key separately.
+  const legacy = insertUser(ctx, { username: "İpek", email: "legacy@example.test" });
+  const password = "Password123!";
+  const hash = await Bun.password.hash(password, ctx.config.passwordHash);
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO auth_account (account_id, provider_id, user_id, password, created_at, updated_at) " +
+        "VALUES (?1, 'credential', ?2, ?3, ?4, ?4)",
+    )
+    .run(String(legacy.id), legacy.id, hash, ctx.now());
+  expect(
+    ctx.sqlite
+      .prepare<{ username: string; display_username: string }, [number]>(
+        "SELECT username, display_username FROM auth_user WHERE id = ?1",
+      )
+      .get(legacy.id),
+  ).toEqual({ username: "i\u0307pek", display_username: "İpek" });
+
+  for (const [index, username] of ["İpek", "İPEK"].entries()) {
+    const response = await client(ctx, `192.0.2.${71 + index}`).post("/sign-in/username", {
+      username,
+      password,
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      user: { id: String(legacy.id), username: "i\u0307pek", displayUsername: "İpek" },
+    });
+    expect(
+      (await resolveActor(ctx, new Headers({ cookie: cookieOf(response) }))).actor,
+    ).toMatchObject({
+      kind: "user",
+      userId: legacy.id,
+    });
+    expect(
+      (
+        await client(ctx, `192.0.2.${74 + index}`).post(
+          "/update-user",
+          { name: "Existing member" },
+          cookieOf(response),
+        )
+      ).status,
+    ).toBe(200);
+  }
+  const sessionsBefore = sessionCount(ctx, legacy.id);
+  const wrongPassword = await client(ctx, "192.0.2.73").post("/sign-in/username", {
+    username: "İpek",
+    password: "WrongPassword!",
+  });
+  expect(wrongPassword.status).toBe(401);
+  expect(await wrongPassword.json()).toMatchObject({ code: "INVALID_USERNAME_OR_PASSWORD" });
+  expect(cookieOf(wrongPassword)).toBe("");
+  expect(sessionCount(ctx, legacy.id)).toBe(sessionsBefore);
 });

@@ -12,9 +12,8 @@ export const USERNAME_PATTERN = /^[\p{L}\p{N}_](?:[\p{L}\p{N}_.\- ]*[\p{L}\p{N}_
 export const API_KEY_PREFIX = "sermo_";
 
 /**
- * Sign-in looks a username up by its lowercase form, so a name is valid only if that form obeys
- * the rule too. Lowercasing can add characters the rule excludes ("\u0130" becomes "i" plus a
- * combining dot); such a name could be registered but never typed back in its stored form.
+ * New usernames must also obey the rule after lowercasing ("\u0130" adds a combining dot).
+ * Sign-in keeps the historical rule so names stored before this restriction still work.
  */
 export function isValidUsername(value: string): boolean {
   return USERNAME_PATTERN.test(value) && USERNAME_PATTERN.test(value.toLowerCase());
@@ -25,7 +24,7 @@ export function authPlugins() {
     username({
       minUsernameLength: 3,
       maxUsernameLength: 32,
-      usernameValidator: isValidUsername,
+      usernameValidator: (value) => USERNAME_PATTERN.test(value),
       // The display form becomes the forum identity (users.username), so it obeys the same rule.
       // The auth module also requires it to equal the username apart from letter case.
       displayUsernameValidator: isValidUsername,
