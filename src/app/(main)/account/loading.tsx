@@ -1,8 +1,8 @@
 import {
-  LoadingRegion,
-  MemberListSkeleton,
-  StatTileSkeleton,
-} from "@/components/forum/skeletons";
+  AccountActivitySkeleton,
+  AccountDetailsSkeleton,
+} from "@/app/(main)/account/overview-skeletons";
+import { LoadingRegion, StatTileSkeleton } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
@@ -18,12 +18,9 @@ export default function Loading() {
             <StatTileSkeleton key={i} />
           ))}
         </div>
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-          <div className="rounded-lg border bg-card p-4">
-            <Skeleton className="mb-4 h-5 w-40" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-          <MemberListSkeleton rows={6} />
+        <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <AccountDetailsSkeleton />
+          <AccountActivitySkeleton />
         </div>
       </div>
     </LoadingRegion>

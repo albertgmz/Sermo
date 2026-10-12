@@ -81,7 +81,7 @@ export function PermissionsPanel({
         <h1 className="text-xl font-bold tracking-tight">Permissions</h1>
         <p className="text-xs text-muted-foreground">
           What your account can do, and where each permission comes from.{" "}
-          <Link href="/account/details" className={linkClass}>
+          <Link href="/account" className={linkClass}>
             Edit your username and title
           </Link>
         </p>

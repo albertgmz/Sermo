@@ -70,7 +70,7 @@ export async function saveTitle(
   const result = await setTitle(user.id, String(title ?? ""));
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect("/account/details?saved=title");
+  redirect("/account?saved=title");
 }
 
 export type UsernameState = {
@@ -90,7 +90,7 @@ export async function saveUsername(
   );
   if (!result.ok) return { error: result.error };
   revalidatePath("/", "layout");
-  redirect("/account/details?saved=username");
+  redirect("/account?saved=username");
 }
 
 export type DetailsState =
@@ -143,5 +143,5 @@ export async function saveDetails(
     }
   }
   revalidatePath("/", "layout");
-  redirect("/account/details?saved=details");
+  redirect("/account?saved=details");
 }
