@@ -30,6 +30,19 @@ export const SelfUser = z
   })
   .meta({ id: "SelfUser" });
 
+export const authCounters = defineContract({
+  name: "auth.counters",
+  summary:
+    "What the signed-in member has not seen yet: unread notifications, and unread " +
+    "conversations among their 100 most recently active ones (so at most 100). Zeros for guests.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    notifications: z.number().int().nonnegative(),
+    conversations: z.number().int().nonnegative(),
+  }),
+});
+
 export const authMe = defineContract({
   name: "auth.me",
   summary:

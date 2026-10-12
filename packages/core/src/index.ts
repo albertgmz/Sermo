@@ -31,6 +31,7 @@ export {
   runWeeklyDigest,
 } from "./modules/email";
 export { registerAccountEmailJobs } from "./modules/email/account";
+export { refreshRankings, registerRankingJobs } from "./modules/feed";
 export {
   enqueueJob,
   flushActivity,

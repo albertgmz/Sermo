@@ -7,6 +7,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { threadPresenter } from "../forums/presentation";
 import { maskMarkupForExcerpt } from "../seo/excerpt";
 
 const CANDIDATE_CAP = 1000;
@@ -17,7 +18,7 @@ export const searchSql = {
   details:
     // A merge stores position p as -(p + 1) while it renumbers; results return the real position.
     "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.state AS post_state, " +
-    "t.id AS thread_id, t.title, t.node_id, t.state AS thread_state " +
+    "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state " +
     "FROM posts p JOIN threads t ON t.id = p.thread_id " +
     "WHERE p.id IN (SELECT value FROM json_each(?1))",
   bodies:
@@ -32,6 +33,7 @@ type Detail = {
   thread_id: number;
   title: string;
   node_id: number;
+  prefix_id: number | null;
   thread_state: string;
 };
 
@@ -91,7 +93,9 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
       if (
         detail?.post_state === "visible" &&
         detail.thread_state === "visible" &&
-        nodes.has(detail.node_id)
+        nodes.has(detail.node_id) &&
+        (input.authorId === undefined || detail.user_id === input.authorId) &&
+        (input.prefixId === undefined || detail.prefix_id === input.prefixId)
       )
         accepted.push(detail);
       if (accepted.length === input.limit) break;
@@ -111,6 +115,7 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
     ctx.sqlite.prepare<{ post_id: number; body_source: string }, [string]>(searchSql.bodies),
   ).all(JSON.stringify(accepted.map((row) => row.id)));
   const source = new Map(bodies.map((row) => [row.post_id, row.body_source]));
+  const present = threadPresenter(ctx);
   return {
     items: accepted.map((row) => ({
       post: {
@@ -120,7 +125,13 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         author: users(row.user_id),
         excerpt: excerpt(source.get(row.id) ?? ""),
       },
-      thread: { id: row.thread_id, title: row.title, nodeId: row.node_id },
+      thread: {
+        id: row.thread_id,
+        title: row.title,
+        nodeId: row.node_id,
+        node: present.node(row.node_id),
+        prefix: present.prefix(row.prefix_id),
+      },
     })),
     nextCursor: hasMore ? encodeCursor([cursor]) : null,
   };

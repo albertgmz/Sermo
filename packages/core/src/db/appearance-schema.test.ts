@@ -9,7 +9,7 @@ describe("appearance schema matches the migration", () => {
   const columns = (table: string) =>
     ctx.sqlite
       .prepare<{ name: string; notnull: number; dflt_value: string | null }, []>(
-        `PRAGMA table_info(${table})`,
+        `PRAGMA table_xinfo(${table})`,
       )
       .all();
 

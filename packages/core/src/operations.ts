@@ -5,6 +5,7 @@ import { operations as conversations } from "./modules/conversations";
 import { operations as creditRules } from "./modules/credit-events";
 import { operations as credits } from "./modules/credits";
 import { operations as email } from "./modules/email";
+import { operations as feed } from "./modules/feed";
 import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
 import { operations as jobs } from "./modules/jobs";
@@ -28,6 +29,7 @@ export const operations: readonly AnyOperation[] = [
   ...auth,
   ...permissions,
   ...forums,
+  ...feed,
   ...profiles,
   ...promotions,
   ...push,

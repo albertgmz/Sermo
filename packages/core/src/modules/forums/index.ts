@@ -38,9 +38,11 @@ import {
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
+import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
+import { nodeTabs, threadPresenter } from "./presentation";
 
 type State = "visible" | "moderated" | "deleted";
-type ThreadRow = {
+export type ThreadRow = {
   id: number;
   node_id: number;
   user_id: number;
@@ -56,11 +58,17 @@ type ThreadRow = {
   last_post_id: number;
   last_poster_id: number;
   merged_into_id: number | null;
+  excerpt: string;
+  prefix_id: number | null;
+  cover_id: number | null;
+  highlighted_until: number | null;
+  bumped_at: number | null;
+  sort_at: number;
   thread_banned?: number;
   transfer_role?: string | null;
   transfer_failed_at?: number | null;
 };
-type PostRow = {
+export type PostRow = {
   id: number;
   thread_id: number;
   user_id: number;
@@ -105,8 +113,8 @@ function moderationPayload(
         message: notice.message,
       };
 }
-const threadColumns =
-  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, merged_into_id";
+export const threadColumns =
+  "id, node_id, user_id, title, state, is_sticky, is_locked, created_at, reply_count, view_count, first_post_id, last_post_at, last_post_id, last_poster_id, merged_into_id, excerpt, prefix_id, cover_id, highlighted_until, bumped_at, sort_at";
 const threadDetailColumns = threadColumns
   .split(", ")
   .map((column) => `t.${column}`)
@@ -114,17 +122,21 @@ const threadDetailColumns = threadColumns
 /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
 const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
-const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
+export const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
-  sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY last_post_at DESC, id DESC`,
-  threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (last_post_at, id) < (?4, ?5) ORDER BY last_post_at DESC, id DESC LIMIT ?6`,
+  sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
+  stickyByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND prefix_id = ?5 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
+  threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
+  threadPageByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?8 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
+  threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
+  postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
   lastPostPositions: `SELECT id, ${storedPosition("position")} AS position FROM posts WHERE id IN (SELECT value FROM json_each(?1))`,
   readBatch:
@@ -320,12 +332,19 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
     rows.map((r) => r.id),
   );
   const cutoff = ctx.now() - 30 * 86400000;
+  const present = threadPresenter(ctx);
   return rows.map((row) => {
     const read = reads.get(row.id);
     return {
       id: row.id,
       nodeId: row.node_id,
+      node: present.node(row.node_id),
       title: row.title,
+      prefix: present.prefix(row.prefix_id),
+      excerpt: row.excerpt,
+      cover: present.cover(row.cover_id),
+      highlightedUntil: isoOrNull(row.highlighted_until),
+      bumpedAt: isoOrNull(row.bumped_at),
       author: users(row.user_id),
       state: row.state,
       isSticky: !!row.is_sticky,
@@ -357,6 +376,21 @@ function postValues(
   firstPostId: number,
   detail = false,
 ) {
+  return postValuesMixed(
+    ctx,
+    actor,
+    rows.map((row) => ({ row, locked, nodeId, firstPostId })),
+    detail,
+  );
+}
+/** Posts of different threads on one page: authors, reactions and attachments load once. */
+export function postValuesMixed(
+  ctx: Ctx,
+  actor: Actor,
+  entries: { row: PostRow; locked: number; nodeId: number; firstPostId: number }[],
+  detail = false,
+) {
+  const rows = entries.map((entry) => entry.row);
   const users = loadUserSummaries(
     ctx,
     rows.map((r) => r.user_id),
@@ -368,14 +402,17 @@ function postValues(
     rows.map((r) => r.id),
   );
   const permissions = permissionsOf(ctx, actor);
-  const attachments = permissions.can("forum.viewAttachments", { nodeId })
+  const withAttachments = entries.filter((entry) =>
+    permissions.can("forum.viewAttachments", { nodeId: entry.nodeId }),
+  );
+  const attachments = withAttachments.length
     ? loadAttachments(
         ctx,
         "post",
-        rows.map((r) => r.id),
+        withAttachments.map((entry) => entry.row.id),
       )
     : new Map();
-  return rows.map((row) => ({
+  return entries.map(({ row, locked, nodeId, firstPostId }) => ({
     id: row.id,
     threadId: row.thread_id,
     position: row.position,
@@ -395,6 +432,20 @@ function postValues(
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
+/** The threads with these ids (any state), for pages that mix threads. */
+export function threadRowsByIds(ctx: Ctx, ids: number[]): ThreadRow[] {
+  if (ids.length === 0) return [];
+  return statement<ThreadRow, [string]>(ctx, "threadsByIds", forumSql.threadsByIds).all(
+    JSON.stringify(ids),
+  );
+}
+/** The posts with these ids and their rendered bodies, for pages that mix threads. */
+export function postRowsByIds(ctx: Ctx, ids: number[]): PostRow[] {
+  if (ids.length === 0) return [];
+  return statement<PostRow, [string]>(ctx, "postsByIds", forumSql.postsByIds).all(
+    JSON.stringify(ids),
+  );
+}
 function nodeRows(ctx: Ctx, id?: number): Map<number, NodeRow> {
   return new Map(
     (id === undefined
@@ -409,6 +460,7 @@ function nodeRows(ctx: Ctx, id?: number): Map<number, NodeRow> {
 }
 function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
   const tree = getNodeTree(ctx);
+  const tabs = nodeTabs(ctx);
   const rows = nodeRows(ctx, ids.length === 1 ? ids[0] : undefined);
   const users = loadUserSummaries(
     ctx,
@@ -430,6 +482,7 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
           };
     return {
       ...entry,
+      tabId: tabs.get(id) ?? null,
       icon:
         row.icon_file_id === null
           ? null
@@ -457,6 +510,13 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     };
   });
 }
+/** Thread shapes for rows a caller already filtered to what the viewer may open. */
+export const threadValuesFor = markPublic(
+  "Callers decide which threads the viewer may open; this only builds their shape.",
+  function threadValuesFor(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
+    return threadValues(ctx, actor, rows);
+  },
+);
 function threadValue(ctx: Ctx, actor: Actor, id: number) {
   return threadValues(ctx, actor, [threadRow(ctx, id)!])[0]!;
 }
@@ -515,18 +575,44 @@ function writeNodeSettings(
       .run(typeof value === "boolean" ? Number(value) : value, nodeId);
   }
 }
+/** A tab may be set only on a root category, and must exist. */
+function requireTabFor(
+  ctx: Ctx,
+  tabId: number | null | undefined,
+  parentId: number | null,
+  type: "category" | "forum",
+): void {
+  if (tabId == null) return;
+  if (parentId !== null || type !== "category")
+    throw new ValidationError("Only a root category can belong to a forum tab.");
+  if (!forumDb(ctx).prepare("SELECT 1 FROM forum_tabs WHERE id = ?1").get(tabId))
+    throw new ValidationError("That forum tab does not exist.");
+}
 export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.nodes");
   const id = writeTx(ctx, () => {
     if (input.parentId != null && !getNodeTree(ctx).get(input.parentId)) throw new NotFoundError();
+    requireTabFor(ctx, input.tabId, input.parentId, input.type);
     const row = forumDb(ctx)
-      .prepare<{ id: number }, [number | null, string, string, string, number, number]>(
-        "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
+      .prepare<
+        { id: number },
+        [number | null, string, string, string, number, number, number | null]
+      >(
+        "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at, tab_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id",
       )
-      .get(input.parentId, input.type, input.title, input.description, input.position, ctx.now())!;
+      .get(
+        input.parentId,
+        input.type,
+        input.title,
+        input.description,
+        input.position,
+        ctx.now(),
+        input.tabId ?? null,
+      )!;
     writeNodeSettings(ctx, row.id, input.settings);
     invalidate(ctx, "node_tree");
+    invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.created", targetType: "node", targetId: row.id });
     appendModeratorLog(ctx, actor, "node.create", "node", row.id, "", {}, row.id);
     return row.id;
@@ -543,20 +629,29 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
       throw new NotFoundError();
     if (input.parentId != null && tree.subtreeIds(input.nodeId).includes(input.parentId))
       throw new ValidationError("A node cannot be its own descendant.");
+    const parentId = input.parentId === undefined ? current.parentId : input.parentId;
+    requireTabFor(ctx, input.tabId, parentId, current.type);
+    const currentTab = forumDb(ctx)
+      .prepare<{ tab_id: number | null }, [number]>("SELECT tab_id FROM nodes WHERE id = ?1")
+      .get(input.nodeId)!.tab_id;
+    // A category moved under another node leaves the tabs: only root categories belong to one.
+    const tabId = parentId !== null ? null : input.tabId === undefined ? currentTab : input.tabId;
     forumDb(ctx)
       .prepare(
-        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4, content_updated_at = ?6 WHERE id = ?5",
+        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4, content_updated_at = ?6, tab_id = ?7 WHERE id = ?5",
       )
       .run(
-        input.parentId === undefined ? current.parentId : input.parentId,
+        parentId,
         input.title ?? current.title,
         input.description ?? current.description,
         input.position ?? current.position,
         input.nodeId,
         ctx.now(),
+        tabId,
       );
     writeNodeSettings(ctx, input.nodeId, input.settings);
     invalidate(ctx, "node_tree");
+    invalidate(ctx, "node_tabs");
     publishEvent(ctx, { type: "content.edited", targetType: "node", targetId: input.nodeId });
     appendModeratorLog(ctx, actor, "node.update", "node", input.nodeId, "", {}, input.nodeId);
   });
@@ -619,19 +714,22 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: input.nodeId }));
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: input.nodeId }));
   const cursor = input.cursor ? decodeCursor(input.cursor, threadCursor) : null;
+  const prefixId = input.prefixId;
   const sticky = cursor
     ? []
-    : statement<ThreadRow, [number, number, number, number]>(ctx, "sticky", forumSql.sticky).all(
-        input.nodeId,
-        viewModerated,
-        viewDeleted,
-        userId,
-      );
-  const rows = statement<ThreadRow, [number, number, number, number, number, number, number]>(
-    ctx,
-    "threadPage",
-    forumSql.threadPage,
-  ).all(
+    : prefixId === undefined
+      ? statement<ThreadRow, [number, number, number, number]>(ctx, "sticky", forumSql.sticky).all(
+          input.nodeId,
+          viewModerated,
+          viewDeleted,
+          userId,
+        )
+      : statement<ThreadRow, [number, number, number, number, number]>(
+          ctx,
+          "stickyByPrefix",
+          forumSql.stickyByPrefix,
+        ).all(input.nodeId, viewModerated, viewDeleted, userId, prefixId);
+  const pageParams = [
     input.nodeId,
     viewModerated,
     viewDeleted,
@@ -639,11 +737,23 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
     cursor?.[1] ?? Number.MAX_SAFE_INTEGER,
     input.limit + 1,
     userId,
-  );
+  ] as const;
+  const rows =
+    prefixId === undefined
+      ? statement<ThreadRow, [number, number, number, number, number, number, number]>(
+          ctx,
+          "threadPage",
+          forumSql.threadPage,
+        ).all(...pageParams)
+      : statement<ThreadRow, [number, number, number, number, number, number, number, number]>(
+          ctx,
+          "threadPageByPrefix",
+          forumSql.threadPageByPrefix,
+        ).all(...pageParams, prefixId);
   const page = rows.slice(0, input.limit);
   const values = threadValues(ctx, actor, [...sticky, ...page]);
   const nextCursor =
-    rows.length > input.limit ? encodeCursor([page.at(-1)!.last_post_at, page.at(-1)!.id]) : null;
+    rows.length > input.limit ? encodeCursor([page.at(-1)!.sort_at, page.at(-1)!.id]) : null;
   return { sticky: values.slice(0, sticky.length), items: values.slice(sticky.length), nextCursor };
 });
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
@@ -828,6 +938,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, input.nodeId);
+      if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId);
       const state =
         decision.moderated ||
         spam ||
@@ -837,8 +948,8 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
           : "visible";
       const now = ctx.now();
       const thread = forumDb(ctx)
-        .prepare<{ id: number }, [number, number, string, string, number, string]>(
-          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6) RETURNING id",
+        .prepare<{ id: number }, [number, number, string, string, number, string, number | null]>(
+          "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id, content_updated_at, excerpt, prefix_id) VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?2, ?5, ?6, ?7) RETURNING id",
         )
         .get(
           input.nodeId,
@@ -847,6 +958,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
           state,
           now,
           excerptFromMarkdown(content.source),
+          input.prefixId,
         )!;
       const post = forumDb(ctx)
         .prepare<{ id: number }, [number, number, number]>(
@@ -959,16 +1071,23 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 });
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
+  if (input.title === undefined && input.prefixId === undefined)
+    throw new ValidationError("Send a title, a prefix, or both.");
   const { row } = requireThread(ctx, actor, input.threadId);
   if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
+    if (input.prefixId != null && input.prefixId !== current.prefix_id)
+      requireActivePrefix(ctx, input.prefixId);
     forumDb(ctx)
-      .prepare("UPDATE threads SET title = ?1, content_updated_at = ?2 WHERE id = ?3")
-      .run(input.title, ctx.now(), row.id);
-    forumDb(ctx)
-      .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
-      .run(input.title, current.node_id, row.id);
+      .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
+      .run(input.prefixId === undefined ? current.prefix_id : input.prefixId, ctx.now(), row.id);
+    if (input.title !== undefined) {
+      forumDb(ctx).prepare("UPDATE threads SET title = ?1 WHERE id = ?2").run(input.title, row.id);
+      forumDb(ctx)
+        .prepare("UPDATE nodes SET last_thread_title = ?1 WHERE id = ?2 AND last_thread_id = ?3")
+        .run(input.title, current.node_id, row.id);
+    }
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "thread",
@@ -983,7 +1102,7 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         "thread",
         row.id,
         input.reason,
-        {},
+        input.prefixId === undefined ? {} : { prefixId: input.prefixId },
         row.node_id,
       );
   });
@@ -2375,4 +2494,5 @@ export const operations = [
   postsUpdateOp,
   postsDeleteOp,
   postsRestoreOp,
+  ...forumPrefixOperations,
 ];

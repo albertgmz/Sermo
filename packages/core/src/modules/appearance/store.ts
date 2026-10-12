@@ -138,6 +138,7 @@ export const inUseSql = {
   thread_cover: "SELECT 1 FROM threads WHERE cover_id = ?1 LIMIT 1",
   accent: "SELECT 1 FROM users WHERE accent_color_id = ?1 LIMIT 1",
   name: "SELECT 1 FROM users WHERE name_color_id = ?1 LIMIT 1",
+  prefix: "SELECT 1 FROM thread_prefixes WHERE color_id = ?1 LIMIT 1",
 } as const;
 
 function inUse(ctx: Ctx, sql: string, id: number): boolean {
@@ -153,5 +154,5 @@ export function catalogImageInUse(ctx: Ctx, kind: CatalogImageKind, id: number):
 
 /** Whether anything refers to the colour. Extend here when a new feature refers to colours. */
 export function paletteColorInUse(ctx: Ctx, kind: PaletteKind, id: number): boolean {
-  return kind === "prefix" ? false : inUse(ctx, inUseSql[kind], id);
+  return inUse(ctx, inUseSql[kind], id);
 }

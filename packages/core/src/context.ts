@@ -127,7 +127,13 @@ export function prepared<T>(ctx: Ctx, key: string, build: () => T): T {
 }
 
 /** Cache keys backed by rows in `cache_versions`. */
-export type CacheKey = "node_tree" | "permissions" | "reaction_types" | "appearance";
+export type CacheKey =
+  | "node_tree"
+  | "permissions"
+  | "reaction_types"
+  | "appearance"
+  | "thread_prefixes"
+  | "node_tabs";
 
 /**
  * Returns a cached value for `key`, rebuilding it when the key's version in `cache_versions`
