@@ -267,7 +267,7 @@
     "look": "Look",
     "liftThreadBan": "Lift the thread ban",
     "notBannedInThread": "This member is not banned in that thread.",
-    "threadUnavailable": "That thread's bans cannot be shown to you."
+    "threadUnavailable": "That thread's bans cannot be shown to you:"
   },
   "economy": {
     "metaTitle": "Member economy",

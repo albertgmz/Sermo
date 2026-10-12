@@ -8,7 +8,7 @@ import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text } from "../groups/form-errors";
 
-const ACTIONS = ["replace", "moderate"] as const;
+const ACTIONS = wordFiltersUpsert.input.shape.action.options;
 const FIELDS = ["term", "action", "replacement"];
 
 // Creates the filter for a term, or changes the one it already has: the backend keys filters by

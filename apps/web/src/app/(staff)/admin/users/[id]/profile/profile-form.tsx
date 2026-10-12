@@ -34,12 +34,18 @@ export async function ProfileForm({
     >
       <input type="hidden" name="id" value={userId} />
       {current && <input type="hidden" name="known" value="1" />}
+      {current && (
+        <>
+          <input type="hidden" name="was:about" value={current.about} />
+          <input type="hidden" name="was:location" value={current.location} />
+          <input type="hidden" name="was:website" value={current.website} />
+        </>
+      )}
       <FieldRow name="about" label={t("about")} htmlFor="profile-about">
         <Textarea
           id="profile-about"
           name="about"
           rows={5}
-          maxLength={5000}
           defaultValue={current?.about}
         />
       </FieldRow>
@@ -51,7 +57,6 @@ export async function ProfileForm({
         <Input
           id="profile-location"
           name="location"
-          maxLength={100}
           defaultValue={current?.location}
         />
       </FieldRow>
@@ -59,7 +64,6 @@ export async function ProfileForm({
         <Input
           id="profile-website"
           name="website"
-          maxLength={200}
           defaultValue={current?.website}
         />
       </FieldRow>
@@ -76,7 +80,6 @@ export async function ProfileForm({
         <Input
           id="profile-title"
           name="customTitle"
-          maxLength={100}
           placeholder={t("replacePlaceholder")}
         />
         <label className="flex min-h-10 items-center gap-3 text-sm">
@@ -94,7 +97,6 @@ export async function ProfileForm({
           id="profile-signature"
           name="signature"
           rows={3}
-          maxLength={2000}
           placeholder={t("replacePlaceholder")}
         />
         <label className="flex min-h-10 items-center gap-3 text-sm">
@@ -103,7 +105,7 @@ export async function ProfileForm({
         </label>
       </FieldRow>
       <FieldRow name="reason" label={t("reason")} htmlFor="profile-reason">
-        <Input id="profile-reason" name="reason" maxLength={1000} />
+        <Input id="profile-reason" name="reason" />
       </FieldRow>
     </FormRows>
   );

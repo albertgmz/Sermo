@@ -14,7 +14,9 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { savePromotion, runPromotions } = await import("./actions");
+const { savePromotion, deletePromotion, runPromotions } = await import(
+  "./actions"
+);
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
 afterEach(() => backend?.restore());
@@ -39,9 +41,10 @@ const PROMOTION = {
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
-function form(fields: [string, string][]) {
+function form(fields: [string, string][], password: string | null = "secret") {
   const data = new FormData();
   for (const [name, value] of fields) data.append(name, value);
+  if (password !== null) data.append("actorPassword", password);
   return data;
 }
 
@@ -56,6 +59,7 @@ async function redirectedTo(run: () => Promise<unknown>) {
 
 test("only the criteria the backend lists and the form ticked are sent", async () => {
   backend = fakeBackend({
+    "auth.verifyPassword": () => Response.json({ ok: true }),
     "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.create": () => Response.json(PROMOTION),
   });
@@ -89,6 +93,7 @@ test("only the criteria the backend lists and the form ticked are sent", async (
 
 test("an edited promotion goes to its own address with the ticked groups", async () => {
   backend = fakeBackend({
+    "auth.verifyPassword": () => Response.json({ ok: true }),
     "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => Response.json(PROMOTION),
   });
@@ -147,6 +152,7 @@ test("group ids that are not ids are refused", async () => {
 
 test("the refusal of a group is shown at the top", async () => {
   backend = fakeBackend({
+    "auth.verifyPassword": () => Response.json({ ok: true }),
     "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.create": () =>
       refusal(403, "forbidden", "The guest group cannot be granted."),
@@ -174,4 +180,64 @@ test("running the promotions reports the answer of the queue", async () => {
     "promotions.run": () => refusal(403, "forbidden", "Not allowed."),
   });
   expect(await runPromotions(null)).toEqual({ error: "Not allowed." });
+});
+
+test("a promotion is not written when the password is missing or wrong", async () => {
+  const fields: [string, string][] = [
+    ["id", "5"],
+    ["title", "Regulars"],
+    ["groupIds", "7"],
+  ];
+  backend = fakeBackend({
+    "promotions.criteria": () => Response.json(CRITERIA),
+    "promotions.update": () => Response.json(PROMOTION),
+  });
+  expect(await savePromotion(null, form(fields, null))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "promotions.criteria",
+  ]);
+  backend.restore();
+  backend = fakeBackend({
+    "promotions.criteria": () => Response.json(CRITERIA),
+    "auth.verifyPassword": () =>
+      refusal(403, "forbidden", "That is not your password."),
+    "promotions.update": () => Response.json(PROMOTION),
+  });
+  expect(await savePromotion(null, form(fields, "wrong"))).toEqual({
+    fields: { actorPassword: "That is not your password." },
+  });
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "promotions.criteria",
+    "auth.verifyPassword",
+  ]);
+  expect(backend.asked[1].body).toEqual({ password: "wrong" });
+});
+
+test("a promotion is deleted only after the password is confirmed", async () => {
+  backend = fakeBackend({
+    "auth.verifyPassword": () =>
+      refusal(429, "rate_limited", "Too many tries."),
+    "promotions.delete": () => Response.json({ ok: true }),
+  });
+  expect(await deletePromotion(null, form([["id", "5"]]))).toEqual({
+    fields: { actorPassword: "Too many tries." },
+  });
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+  ]);
+  backend.restore();
+  backend = fakeBackend({
+    "auth.verifyPassword": () => Response.json({ ok: true }),
+    "promotions.delete": () => Response.json({ ok: true }),
+  });
+  const digest = await redirectedTo(() =>
+    deletePromotion(null, form([["id", "5"]])),
+  );
+  expect(digest).toMatch(/;\/admin\/promotions\?notice=deleted;/);
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+    "promotions.delete",
+  ]);
 });

@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -14,9 +16,7 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
 import { deleteGroup } from "../actions";
-import { ConfirmDelete } from "../confirm-delete";
 import { GroupForm } from "../group-form";
-import { Notice } from "../notice";
 import { FormSkeleton, PageHead } from "../skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -41,7 +41,11 @@ async function Group({
   const permissions = hrefFor(viewer, "permissionsGroups");
   return (
     <>
-      <Notice searchParams={searchParams} shown={["created", "saved"]} />
+      <Notice
+        namespace="adminGroups.notices"
+        searchParams={searchParams}
+        shown={["created", "saved"]}
+      />
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
           {group.title}
@@ -60,10 +64,10 @@ async function Group({
         )}
       </div>
       <GroupForm group={group} />
-      <ConfirmDelete
+      <ConfirmStep
         action={deleteGroup}
-        id={group.id}
-        summary={t("deleteHeading")}
+        fields={{ id: group.id }}
+        heading={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
         password

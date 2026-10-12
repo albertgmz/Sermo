@@ -16,6 +16,7 @@ import {
   blocksImageRequest,
   isImageRequest,
   isUnknownUnsafePath,
+  normalizeImagePath,
   pictureInPageFolder,
 } from "@/lib/lite-images";
 import {
@@ -219,12 +220,15 @@ async function handleRequest(request: NextRequest) {
       },
     );
   }
+  // The panel is told by the same normalised path as a picture is: decoded, lower-cased, dots
+  // and spaces at the end of a name dropped. A spelling that reaches the panel on a file system
+  // that ignores those differences is still the panel here.
+  const staffRequest = isStaffPath(
+    normalizeImagePath(request.nextUrl.pathname),
+  );
   // A picture's address is let through as it is, except in the panel: there a file name is no
   // picture, and the gate below decides.
-  if (
-    isImageRequest(request.nextUrl.pathname) &&
-    !isStaffPath(request.nextUrl.pathname)
-  ) {
+  if (isImageRequest(request.nextUrl.pathname) && !staffRequest) {
     const response = NextResponse.next();
     response.headers.set("Vary", "Cookie");
     return response;
@@ -236,7 +240,7 @@ async function handleRequest(request: NextRequest) {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
     // An address that cannot be decoded names no page of the panel either.
-    if (isStaffPath(request.nextUrl.pathname)) return notFound(request);
+    if (staffRequest) return notFound(request);
     return toPage(request);
   }
   const [, section, id, action] = pathname.split("/");
@@ -244,7 +248,7 @@ async function handleRequest(request: NextRequest) {
   // The panel does not advertise itself: whoever may not open an address of it, a guest included,
   // gets the 404 of an address that does not exist. One `auth.me` read decides, and only for a
   // visitor with a session.
-  if (isStaffPath(pathname)) {
+  if (staffRequest || isStaffPath(pathname)) {
     const viewer = hasSession ? await viewerOf(request.headers) : null;
     if (!viewer || !mayOpenPath(viewer, pathname)) return notFound(request);
   }

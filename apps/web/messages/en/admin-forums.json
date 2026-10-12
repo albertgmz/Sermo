@@ -3,7 +3,7 @@
     "notAllowed": "This page is not allowed to send files.",
     "purpose": "That is not a kind of picture the panel uploads.",
     "noFile": "Choose a file to upload.",
-    "unreachable": "The upload could not reach the server.",
+    "tooLarge": "This file is too large to upload here.",
     "failed": "The file could not be uploaded."
   },
   "pictureField": {
@@ -136,6 +136,7 @@
     "description": "Members who moderate this forum and everything under it.",
     "everywhere": "Everywhere",
     "remove": "Remove",
+    "removeWarning": "{name} will no longer moderate this forum. Their other permissions stay as they are.",
     "password": "Your password",
     "none": "Nobody moderates this forum yet.",
     "truncated": "More members hold a moderation permission than the roster lists.",

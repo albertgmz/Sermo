@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { Notice } from "../content-kit/notice";
+import { Notice } from "@/components/staff/notice";
 import { FormSkeleton, PageHead } from "../groups/skeletons";
 import { EmailForm } from "./email-form";
 

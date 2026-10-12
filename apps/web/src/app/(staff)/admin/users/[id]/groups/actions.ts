@@ -10,10 +10,11 @@ import {
   formFailure,
   missingPassword,
   text,
+  unconfirmedPassword,
 } from "../../../groups/form-errors";
 import { memberOf } from "../../action-helpers";
 
-const PROMOTION_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
+const PROMOTION_ACTIONS = promotionsApply.input.shape.action.options;
 
 // Saves the primary group and the hand-assigned secondary groups (the full list). The
 // administrator's password goes with the write, which checks it first.
@@ -65,6 +66,9 @@ export async function applyPromotion(
   ) {
     return { error: t("promotion") };
   }
+  // The operation takes no password and changes the member's groups, so it is checked first.
+  const unconfirmed = await unconfirmedPassword(formData);
+  if (unconfirmed) return unconfirmed;
   try {
     await call(promotionsApply, {
       userId,

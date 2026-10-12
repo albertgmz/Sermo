@@ -16,12 +16,7 @@ export function NoticeFields({ idPrefix }: { idPrefix: string }) {
         htmlFor={`${idPrefix}-reason`}
         help={t("reasonHelp")}
       >
-        <Textarea
-          id={`${idPrefix}-reason`}
-          name="reason"
-          rows={3}
-          maxLength={1000}
-        />
+        <Textarea id={`${idPrefix}-reason`} name="reason" rows={3} />
       </FieldRow>
       <FieldRow
         name="notify"
@@ -46,12 +41,7 @@ export function NoticeFields({ idPrefix }: { idPrefix: string }) {
         htmlFor={`${idPrefix}-message`}
         help={t("messageHelp")}
       >
-        <Textarea
-          id={`${idPrefix}-message`}
-          name="message"
-          rows={2}
-          maxLength={1000}
-        />
+        <Textarea id={`${idPrefix}-message`} name="message" rows={2} />
       </FieldRow>
     </>
   );

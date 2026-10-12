@@ -1,11 +1,12 @@
 import {
   bansList,
+  Restriction,
   restrictionsList,
-  threadBansList,
   warningsList,
 } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Section, selectClass } from "@/components/staff/rows";
@@ -16,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
-import { InlineAction } from "../../inline-action";
 import {
   addRestriction,
   banMember,
@@ -25,10 +25,11 @@ import {
   liftRestriction,
   liftThreadBan,
 } from "./actions";
+import { lookupThreadBans } from "./thread-bans";
 
 type Params = Record<string, string | string[] | undefined>;
 
-const KINDS = ["posting", "conversations", "profile_posts"] as const;
+const KINDS = Restriction.shape.kind.options;
 
 // Who did it, drawn as a member: the sanctions carry only the id.
 async function moderators(ids: number[]) {
@@ -66,12 +67,7 @@ async function NoticeRows() {
         </label>
       </FieldRow>
       <FieldRow name="message" label={t("message")} htmlFor="sanction-message">
-        <Textarea
-          id="sanction-message"
-          name="message"
-          rows={2}
-          maxLength={1000}
-        />
+        <Textarea id="sanction-message" name="message" rows={2} />
       </FieldRow>
     </>
   );
@@ -162,13 +158,7 @@ export async function Warnings({
             />
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="warn-reason">
-            <Textarea
-              id="warn-reason"
-              name="reason"
-              rows={2}
-              required
-              maxLength={5000}
-            />
+            <Textarea id="warn-reason" name="reason" rows={2} required />
           </FieldRow>
           <FieldRow
             name="days"
@@ -238,10 +228,10 @@ export async function Restrictions({
                     <When at={item.expiresAt} none={t("never")} />
                   </p>
                   {item.active && mayChange && !readOnly && (
-                    <InlineAction
+                    <ConfirmStep
                       action={liftRestriction}
                       fields={{ id: userId, restrictionId: item.id }}
-                      label={t("liftRestriction")}
+                      summary={t("liftRestriction")}
                       reason={t("liftReason")}
                       danger={false}
                     />
@@ -270,13 +260,7 @@ export async function Restrictions({
             </select>
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="restrict-reason">
-            <Textarea
-              id="restrict-reason"
-              name="reason"
-              rows={2}
-              required
-              maxLength={5000}
-            />
+            <Textarea id="restrict-reason" name="reason" rows={2} required />
           </FieldRow>
           <FieldRow
             name="days"
@@ -357,10 +341,10 @@ export async function Bans({
                 )}
               </p>
               {ban.state === "active" && !readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={liftBan}
                   fields={{ id: userId, banId: ban.id }}
-                  label={t("liftBan")}
+                  summary={t("liftBan")}
                   reason={t("liftReason")}
                   danger={false}
                 />
@@ -378,13 +362,7 @@ export async function Bans({
       >
         <input type="hidden" name="id" value={userId} />
         <FieldRow name="reason" label={t("reason")} htmlFor="ban-reason">
-          <Textarea
-            id="ban-reason"
-            name="reason"
-            rows={2}
-            required
-            maxLength={5000}
-          />
+          <Textarea id="ban-reason" name="reason" rows={2} required />
         </FieldRow>
         <FieldRow
           name="days"
@@ -422,11 +400,8 @@ export async function ThreadBans({
   readOnly: boolean;
 }) {
   const t = await getTranslations("adminUsers.sanctions");
-  const found =
-    thread === null
-      ? null
-      : await ifAllowed(() => call(threadBansList, { threadId: thread }));
-  const mine = found?.items.find((ban) => ban.userId === userId);
+  const found = thread === null ? null : await lookupThreadBans(thread);
+  const mine = found?.items?.find((ban) => ban.userId === userId);
   return (
     <Section heading={t("threadBans")} description={t("threadBansHelp")}>
       <form method="get" className="flex flex-wrap items-end gap-3 p-4">
@@ -458,18 +433,20 @@ export async function ThreadBans({
                 {t("until")} <When at={mine.expiresAt} none={t("never")} />
               </p>
               {!readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={liftThreadBan}
                   fields={{ id: userId, threadId: thread }}
-                  label={t("liftThreadBan")}
+                  summary={t("liftThreadBan")}
                   reason={t("liftReason")}
                   danger={false}
                 />
               )}
             </div>
           ) : (
-            <p className="text-muted-foreground">
-              {found ? t("notBannedInThread") : t("threadUnavailable")}
+            <p className="text-muted-foreground [overflow-wrap:anywhere]">
+              {found?.refusal
+                ? `${t("threadUnavailable")} ${found.refusal}`
+                : t("notBannedInThread")}
             </p>
           )}
         </div>

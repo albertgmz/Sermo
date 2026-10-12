@@ -3,7 +3,9 @@
 // PermissionMatrix: the permissions of one target (a group, a member, or either on one forum) as
 // a form body: one row per permission, grouped by category, each with the states the engine
 // supports. Render it inside `FormRows` (with `ConfirmPassword`) and read the submitted form with
-// `matrixChanges` from ./permission-entries, which returns only the entries that changed.
+// `matrixChanges` from ./permission-entries, which returns only the entries that changed. Each
+// row carries a hidden field with the value it showed (`was:<id>`): "changed" means different
+// from that, not from what the backend holds when the form is posted.
 //
 // Props
 //   permissions  The permissions to show, in display order (see `MatrixPermission`). Built on the
@@ -29,7 +31,13 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { type MatrixValue, modeField, numberField } from "./permission-entries";
+import {
+  cellText,
+  type MatrixValue,
+  modeField,
+  numberField,
+  wasField,
+} from "./permission-entries";
 import { selectClass } from "./rows";
 
 export type MatrixPermission = {
@@ -190,6 +198,11 @@ export function PermissionMatrix({
                     )}
                   >
                     <div className="min-w-0">
+                      <input
+                        type="hidden"
+                        name={wasField(permission.id)}
+                        value={cellText(value)}
+                      />
                       <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
                         <span className="[overflow-wrap:anywhere]">
                           {permission.title}

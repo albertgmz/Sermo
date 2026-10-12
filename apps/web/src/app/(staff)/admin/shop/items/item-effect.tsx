@@ -14,6 +14,7 @@ import { useState } from "react";
 import { FieldRow } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
+import { isHexColor } from "@/lib/css-color";
 
 export type EffectType =
   | "permission"
@@ -186,7 +187,11 @@ export function ItemEffect({
                   <span
                     aria-hidden="true"
                     className="size-5 shrink-0 rounded-full border"
-                    style={{ backgroundColor: entry.color }}
+                    style={
+                      isHexColor(entry.color)
+                        ? { backgroundColor: entry.color }
+                        : undefined
+                    }
                   />
                   <span className="[overflow-wrap:anywhere]">{entry.name}</span>
                 </label>
@@ -247,7 +252,6 @@ export function ItemEffect({
                 id={`${idPrefix}-permission`}
                 name="permission"
                 required
-                maxLength={100}
                 autoCapitalize="none"
                 value={permission}
                 onChange={(event) => setPermission(event.target.value)}

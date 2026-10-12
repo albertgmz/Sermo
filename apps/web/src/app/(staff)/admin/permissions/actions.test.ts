@@ -39,9 +39,15 @@ const set = (entries: unknown[], nodeId: number | null = null) => ({
   entries,
 });
 
+// A cell the form posts showed "not set" unless the test says what it showed (`was:<id>`).
 function form(fields: Record<string, string>) {
   const data = new FormData();
   for (const [name, value] of Object.entries(fields)) data.set(name, value);
+  for (const name of Object.keys(fields)) {
+    if (name.startsWith("perm:") && !data.has(`was:${name.slice(5)}`)) {
+      data.set(`was:${name.slice(5)}`, "");
+    }
+  }
   return data;
 }
 
@@ -54,9 +60,9 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-const answers = (current: unknown[] = []) => ({
+// The matrix is not diffed against a fresh read of the target, so `permissions.list` has no answer.
+const answers = () => ({
   "permissions.definitions": () => Response.json(DEFINITIONS),
-  "permissions.list": () => Response.json(set(current)),
   "permissions.set": () => Response.json(set([])),
 });
 
@@ -109,9 +115,7 @@ test("a missing password is asked for without calling the backend", async () => 
 });
 
 test("only the changed entries are sent, with the password in the same write", async () => {
-  backend = fakeBackend(
-    answers([{ permission: "forum.react", value: "allow" }]),
-  );
+  backend = fakeBackend(answers());
   const digest = await redirectedTo(() =>
     savePermissions(
       null,
@@ -119,6 +123,7 @@ test("only the changed entries are sent, with the password in the same write", a
         group: "4",
         actorPassword: "secret",
         "perm:forum.react": "allow",
+        "was:forum.react": "allow",
         "perm:forum.edit": "never",
         "perm:forum.maxLinks": "value",
         "num:forum.maxLinks": "5",
@@ -226,4 +231,43 @@ test("the refusal of the change is shown at the top", async () => {
       }),
     ),
   ).toEqual({ error: "Cannot remove the last administrator." });
+});
+
+test("a cell the administrator did not touch keeps what another administrator set meanwhile", async () => {
+  // A loads the page: react is "allow", edit is not set. B then sets edit to "never". A changes
+  // only react and saves; edit is posted as it was shown, so it is not written back.
+  backend = fakeBackend(answers());
+  await redirectedTo(() =>
+    savePermissions(
+      null,
+      form({
+        group: "4",
+        actorPassword: "secret",
+        "perm:forum.react": "never",
+        "was:forum.react": "allow",
+        "perm:forum.edit": "",
+        "was:forum.edit": "",
+        "perm:forum.maxLinks": "unlimited",
+        "was:forum.maxLinks": "-1",
+      }),
+    ),
+  );
+  expect(backend.asked.map((entry) => entry.operation)).not.toContain(
+    "permissions.list",
+  );
+  expect(backend.asked.at(-1)?.body).toMatchObject({
+    entries: [{ permission: "forum.react", value: "never" }],
+  });
+});
+
+test("a cell without the value it showed is not written", async () => {
+  backend = fakeBackend(answers());
+  const data = form({ group: "4", actorPassword: "secret" });
+  data.set("perm:forum.react", "never");
+  expect(await savePermissions(null, data)).toEqual({
+    notice: messages.adminGroups.matrix.unchanged,
+  });
+  expect(backend.asked.map((entry) => entry.operation)).not.toContain(
+    "permissions.set",
+  );
 });

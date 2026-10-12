@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { translator } from "@/lib/test-intl";
+import { viewerBody } from "@/lib/test-viewer";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -7,10 +8,17 @@ mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 
-const { POST } = await import("./route");
+// Who is asking: the viewer module is replaced (other suites replace it too, and a replacement
+// outlives its file), `viewer` is what `auth.me` says, null for a session the backend refuses.
+let viewer: ReturnType<typeof viewerBody> | null = null;
+mock.module("@/lib/sermo/viewer", () => ({ viewerOf: async () => viewer }));
+
+const { PANEL_PURPOSES } = await import("@/lib/sermo/upload");
+const route = await import("./route");
+const { POST } = route;
 
 const realFetch = globalThis.fetch;
-let forwarded: { url: string; headers: Headers }[] = [];
+let forwarded: { url: string; headers: Headers; body: unknown }[] = [];
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
@@ -21,11 +29,18 @@ beforeEach(() => {
   process.env.SERMO_PUBLIC_URL = "http://localhost:3000";
   process.env.SERMO_API_URL = "http://127.0.0.1:8787";
   forwarded = [];
+  viewer = viewerBody(true);
+  viewer.staff.panel = true;
 });
 
+// The file endpoint of the backend answers what the test says.
 function backendAnswers(response: () => Response) {
   globalThis.fetch = (async (url: string, init: RequestInit) => {
-    forwarded.push({ url, headers: new Headers(init.headers) });
+    forwarded.push({
+      url,
+      headers: new Headers(init.headers),
+      body: init.body,
+    });
     return response();
   }) as unknown as typeof fetch;
 }
@@ -40,6 +55,7 @@ function upload(purpose: string | null, headers: Record<string, string> = {}) {
     headers: {
       origin: "http://localhost:3000",
       cookie: "sermo.session_token=abc",
+      "content-length": "200",
       ...headers,
     },
   });
@@ -49,6 +65,35 @@ test("a visitor without a session cookie gets a 404 before anything is read", as
   backendAnswers(() => Response.json({ id: 1 }));
   const response = await POST(upload("frame", { cookie: "" }));
   expect(response.status).toBe(404);
+  expect(forwarded).toEqual([]);
+});
+
+test("a member who is not in the panel gets a 404 for every method, and nothing is forwarded", async () => {
+  if (viewer) viewer.staff.panel = false;
+  backendAnswers(() => Response.json({ id: 1 }));
+  expect((await POST(upload("frame"))).status).toBe(404);
+  // Whatever the purpose, the origin or the body.
+  expect((await POST(upload("avatar"))).status).toBe(404);
+  expect(
+    (await POST(upload("frame", { origin: "http://evil.test" }))).status,
+  ).toBe(404);
+  for (const method of [
+    route.GET,
+    route.HEAD,
+    route.PUT,
+    route.PATCH,
+    route.DELETE,
+    route.OPTIONS,
+  ]) {
+    expect(method().status).toBe(404);
+  }
+  expect(forwarded).toEqual([]);
+});
+
+test("a session the backend does not accept gets a 404 too", async () => {
+  viewer = null;
+  backendAnswers(() => Response.json({ id: 1 }));
+  expect((await POST(upload("frame"))).status).toBe(404);
   expect(forwarded).toEqual([]);
 });
 
@@ -66,25 +111,15 @@ test("only the purposes the panel uploads for are accepted", async () => {
   for (const purpose of ["avatar", "cover", "attachment", "nonsense", null]) {
     expect((await POST(upload(purpose))).status, String(purpose)).toBe(400);
   }
-  for (const purpose of [
-    "frame",
-    "cover_preset",
-    "thread_cover",
-    "node_icon",
-    "node_cover",
-    "award_image",
-    "shop_image",
-    "site_logo",
-    "site_icon",
-    "site_backdrop",
-  ]) {
+  for (const purpose of PANEL_PURPOSES) {
     expect((await POST(upload(purpose))).status, purpose).toBe(200);
   }
 });
 
 test("the body is handed on as the visitor and the stored id is answered", async () => {
   backendAnswers(() => Response.json({ id: 42 }));
-  const response = await POST(upload("frame"));
+  const request = upload("frame");
+  const response = await POST(request);
   expect(await response.json()).toEqual({ id: 42 });
   expect(forwarded[0].url).toBe(
     "http://127.0.0.1:8787/api/v1/files?purpose=frame",
@@ -93,6 +128,7 @@ test("the body is handed on as the visitor and the stored id is answered", async
   expect(forwarded[0].headers.get("content-type")).toStartWith(
     "multipart/form-data",
   );
+  expect(forwarded[0].body).toBeInstanceOf(ReadableStream);
 });
 
 test("the backend's refusal and its status are passed on", async () => {
@@ -107,9 +143,9 @@ test("the backend's refusal and its status are passed on", async () => {
   expect(await response.json()).toEqual({ error: "You may not upload this." });
 });
 
-test("a body that is not a multipart form is refused", async () => {
+test("a body that is not a multipart form, or declares no length, or too much, is refused", async () => {
   backendAnswers(() => Response.json({ id: 1 }));
-  const request = new Request(
+  const plain = new Request(
     "http://localhost:3000/admin/uploads?purpose=frame",
     {
       method: "POST",
@@ -118,9 +154,16 @@ test("a body that is not a multipart form is refused", async () => {
         origin: "http://localhost:3000",
         cookie: "sermo.session_token=abc",
         "content-type": "text/plain",
+        "content-length": "1",
       },
     },
   );
-  expect((await POST(request)).status).toBe(400);
+  expect((await POST(plain)).status).toBe(400);
+  expect((await POST(upload("frame", { "content-length": "" }))).status).toBe(
+    411,
+  );
+  expect(
+    (await POST(upload("frame", { "content-length": "99999999999" }))).status,
+  ).toBe(413);
   expect(forwarded).toEqual([]);
 });

@@ -82,7 +82,7 @@ export async function AppearanceForm({
         </FieldRow>
       ))}
       <FieldRow name="reason" label={t("reason")} htmlFor="appearance-reason">
-        <Input id="appearance-reason" name="reason" maxLength={1000} />
+        <Input id="appearance-reason" name="reason" />
       </FieldRow>
     </FormRows>
   );

@@ -5,7 +5,7 @@ const IMAGE_EXTENSION =
 
 // These are page namespaces; an image suffix does not turn them into assets.
 const PAGE_PATH =
-  /^\/(?:admin|account|members|notifications|conversations|threads|forums|awards|ui|search|credits|upgrade|login|register|lite|terms|privacy|contact|legal|pages)(?:\/|$)/;
+  /^\/(?:admin|moderation|account|members|notifications|conversations|threads|forums|awards|ui|search|credits|upgrade|login|register|lite|terms|privacy|contact|legal|pages)(?:\/|$)/;
 const UNSAFE_ASSET_PATH = /:|~\d+(?:\.|\/|$)/;
 
 // A short name (THREAD~1) or a stream (logo.svg::$DATA) can address a

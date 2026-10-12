@@ -110,7 +110,6 @@ export async function ItemForm({
           id={`${key}-name`}
           name="name"
           required
-          maxLength={100}
           defaultValue={item?.name}
         />
       </FieldRow>
@@ -122,7 +121,6 @@ export async function ItemForm({
         <Input
           id={`${key}-description`}
           name="description"
-          maxLength={1000}
           defaultValue={item?.description}
         />
       </FieldRow>

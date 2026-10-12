@@ -353,6 +353,49 @@ test("group ids that are not record ids are refused before any call", async () =
   ).toEqual({ error: messages.adminUsers.errors.promotion });
 });
 
+const applied = {
+  promotionId: 2,
+  title: "Regulars",
+  state: "manual",
+  eligible: true,
+  grantedGroupIds: [],
+};
+
+test("a promotion is applied to a member only after the administrator's password is confirmed", async () => {
+  const fields = { id: "7", promotionId: "2", action: "promote" };
+  backend = fakeBackend({
+    "promotions.apply": () => Response.json(applied),
+  });
+  expect(await groups.applyPromotion(null, form(fields))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+  expect(backend.asked).toEqual([]);
+  backend.restore();
+  backend = fakeBackend({
+    "auth.verifyPassword": () =>
+      refusal(403, "forbidden", "That is not your password."),
+    "promotions.apply": () => Response.json(applied),
+  });
+  expect(
+    await groups.applyPromotion(null, form({ ...fields, actorPassword: "no" })),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+  ]);
+  backend.restore();
+  backend = fakeBackend({
+    "auth.verifyPassword": ok,
+    "promotions.apply": () => Response.json(applied),
+  });
+  await redirectedTo(() =>
+    groups.applyPromotion(null, form({ ...fields, actorPassword: "secret" })),
+  );
+  expect(backend.asked.map((call) => call.operation)).toEqual([
+    "auth.verifyPassword",
+    "promotions.apply",
+  ]);
+});
+
 // Profile and appearance ----------------------------------------------------------------------
 
 test("the profile sends the shown fields, and the title and signature only when typed or cleared", async () => {
@@ -366,8 +409,11 @@ test("the profile sends the shown fields, and the title and signature only when 
         id: "7",
         known: "1",
         about: "Hello",
+        "was:about": "Hi",
         location: "",
-        website: "",
+        "was:location": "Mars",
+        website: "https://a.example",
+        "was:website": "https://a.example",
         customTitle: "Founder",
         signature: "",
         "clear-signature": "on",
@@ -375,10 +421,10 @@ test("the profile sends the shown fields, and the title and signature only when 
       }),
     ),
   );
+  // The website is posted as it was shown, so it is not sent.
   expect(lastBody()).toEqual({
     about: "Hello",
     location: "",
-    website: "",
     customTitle: "Founder",
     signature: null,
     reason: "fix",
@@ -387,6 +433,29 @@ test("the profile sends the shown fields, and the title and signature only when 
     profile.saveProfile(
       null,
       form({ id: "7", about: "", location: "", website: "", reason: "" }),
+    ),
+  );
+  expect(lastBody()).toEqual({ reason: "" });
+});
+
+test("a field left as it was shown is not sent, so a change made meanwhile is not undone", async () => {
+  backend = fakeBackend({
+    "users.adminUpdateProfile": () => Response.json(member),
+  });
+  await redirectedTo(() =>
+    profile.saveProfile(
+      null,
+      form({
+        id: "7",
+        known: "1",
+        about: "As loaded",
+        "was:about": "As loaded",
+        location: "Mars",
+        "was:location": "Mars",
+        website: "",
+        "was:website": "",
+        reason: "",
+      }),
     ),
   );
   expect(lastBody()).toEqual({ reason: "" });
@@ -597,4 +666,26 @@ test("one session or all of them", async () => {
   expect(
     await sessions.revokeSessions(null, form({ id: "7", sessionId: "-1" })),
   ).toEqual({ error: messages.adminUsers.errors.id });
+});
+
+test("the length of a sanction is the backend's to judge: zero and huge counts of days are sent or refused as dates", async () => {
+  backend = fakeBackend({
+    "bans.create": () => refusal(422, "validation", "Pick a later date."),
+  });
+  // No frontend ceiling: 36501 days is sent, and the backend's words come back.
+  expect(
+    await sanctions.banMember(
+      null,
+      form({ id: "7", reason: "x", days: "36501" }),
+    ),
+  ).toEqual({ error: "Pick a later date." });
+  expect(backend.asked).toHaveLength(1);
+  // A count that cannot be a date at all is refused here, not thrown.
+  expect(
+    await sanctions.banMember(
+      null,
+      form({ id: "7", reason: "x", days: "999999999999999" }),
+    ),
+  ).toEqual({ fields: { days: messages.adminUsers.errors.days } });
+  expect(backend.asked).toHaveLength(1);
 });

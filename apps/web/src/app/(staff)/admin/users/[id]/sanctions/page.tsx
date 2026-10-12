@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { getMember, holds, isReadOnly, memberIdOf } from "../../data";
-import { Notice } from "../../notice";
 import { TabPage } from "../../tab-page";
 import { Bans, Restrictions, ThreadBans, Warnings } from "./sections";
 
@@ -33,6 +33,7 @@ async function Sanctions({
   return (
     <>
       <Notice
+        namespace="adminUsers.notices"
         searchParams={searchParams}
         shown={[
           "warned",
@@ -63,13 +64,13 @@ async function Sanctions({
       {holds(viewer, "member.ban") && (
         <Bans userId={userId} params={query} readOnly={readOnly} />
       )}
-      {holds(viewer, "forum.threadBan") && (
-        <ThreadBans
-          userId={userId}
-          thread={parseId(one(query.thread))}
-          readOnly={readOnly}
-        />
-      )}
+      {/* `forum.threadBan` is a permission of one forum: no site-wide list holds it, so the
+          lookup is offered to whoever may open the tab and the backend answers for the forum. */}
+      <ThreadBans
+        userId={userId}
+        thread={parseId(one(query.thread))}
+        readOnly={readOnly}
+      />
     </>
   );
 }

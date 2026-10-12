@@ -5,11 +5,11 @@ import { notFound } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { EconomyNotice } from "../../credits/shared";
-import { ConfirmDelete } from "../../groups/confirm-delete";
 import { FormSkeleton, PageHead } from "../../groups/skeletons";
 import { deleteAward } from "../actions";
 import { AwardForm } from "../award-form";
@@ -95,10 +95,10 @@ async function EditAward({
         }}
       />
       <AwardForm award={award} />
-      <ConfirmDelete
+      <ConfirmStep
         action={deleteAward}
-        id={award.id}
-        summary={t("deleteHeading")}
+        fields={{ id: award.id }}
+        heading={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
       />

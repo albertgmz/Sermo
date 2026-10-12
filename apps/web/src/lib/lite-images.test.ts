@@ -12,6 +12,9 @@ import { LITE_CATEGORIES, parseLiteCookie } from "./lite-preferences";
 test("image-looking page paths still run their access and id rules", () => {
   const paths = [
     "/admin/missing.svg",
+    "/moderation/reports/5.png",
+    "/%6Doderation/reports/5.png",
+    "/MODERATION/reports/5.png",
     "/account/missing.svg",
     "/members/999999.jpg",
     "/%61dmin/missing.svg",

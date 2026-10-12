@@ -1,17 +1,18 @@
 import { reactionTypesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
-import { InlineConfirm } from "../content-kit/inline-confirm";
-import { Notice } from "../content-kit/notice";
 import {
   createReactionType,
   saveReactionOrder,
   setReactionTypeActive,
 } from "./actions";
+
 import { ReactionRowForm } from "./row-form";
 
 // Every reaction type in the backend's display order, then the order form and the form for a new
@@ -60,7 +61,7 @@ export async function ReactionList({
                 title={item.title}
                 score={item.score}
               />
-              <InlineConfirm
+              <ConfirmStep
                 action={setReactionTypeActive}
                 fields={{
                   id: String(item.id),
@@ -77,7 +78,7 @@ export async function ReactionList({
                 submit={
                   item.isActive ? t("list.deactivate") : t("list.activate")
                 }
-                caution={item.isActive}
+                danger={item.isActive}
               />
             </li>
           ))}

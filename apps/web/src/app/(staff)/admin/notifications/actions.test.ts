@@ -99,6 +99,12 @@ const TYPES = {
 };
 const types = () => Response.json(TYPES);
 
+// The types a form showed: its hidden markers.
+const SHOWN: [string, string][] = [
+  ["types", "reply"],
+  ["types", "quote"],
+];
+
 const sent = () =>
   backend?.asked.filter((entry) => entry.operation === "settings.update");
 
@@ -112,6 +118,7 @@ test("turning one email default off sends the whole map and the retention, and o
     saveNotificationDefaults(
       null,
       form([
+        ...SHOWN,
         ["notificationRetentionDays", "60"],
         ["reply:inApp", "on"],
         ["quote:inApp", "on"],
@@ -139,6 +146,7 @@ test("a type left as it was keeps its stored entry and a required type is never 
     saveNotificationDefaults(
       null,
       form([
+        ...SHOWN,
         ["notificationRetentionDays", "90"],
         ["reply:inApp", "on"],
         ["reply:email", "on"],
@@ -156,7 +164,7 @@ test("a retention that is not a number is refused without a call", async () => {
   backend = fakeBackend({});
   const state = await saveNotificationDefaults(
     null,
-    form([["notificationRetentionDays", "many"]]),
+    form([...SHOWN, ["notificationRetentionDays", "many"]]),
   );
   expect(backend.asked).toEqual([]);
   expect(state).toEqual({
@@ -174,7 +182,85 @@ test("the backend's refusal of the retention is shown next to it", async () => {
   });
   const state = await saveNotificationDefaults(
     null,
-    form([["notificationRetentionDays", "99999"]]),
+    form([...SHOWN, ["notificationRetentionDays", "99999"]]),
   );
   expect(state).toEqual({ fields: { notificationRetentionDays: "Too big." } });
+});
+
+test("a request without the marker of the types is refused and nothing is read or written", async () => {
+  backend = fakeBackend({});
+  expect(
+    await saveNotificationDefaults(
+      null,
+      form([
+        ["notificationRetentionDays", "60"],
+        ["reply:inApp", "on"],
+      ]),
+    ),
+  ).toEqual({ error: messages.lib.errors.generic });
+  expect(backend.asked).toEqual([]);
+});
+
+test("a partial request changes only the types it names", async () => {
+  backend = fakeBackend({
+    "settings.get": settings,
+    "notifications.types": types,
+    "settings.update": settings,
+  });
+  // Only "reply" was shown; "quote" is stored with email off and has no cell in this request, so
+  // it is not read as "everything off".
+  await redirectedTo(() =>
+    saveNotificationDefaults(
+      null,
+      form([
+        ["types", "reply"],
+        ["notificationRetentionDays", "90"],
+        ["reply:inApp", "on"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    notificationRetentionDays: 90,
+    notificationDefaults: {
+      quote: OTHER,
+      reply: { inApp: true, email: false, push: false },
+    },
+  });
+});
+
+test("a type the backend added after the page was built keeps its stored value", async () => {
+  const added = {
+    id: "mention",
+    label: "mention",
+    description: "mention",
+    defaults: { inApp: true, email: true, push: true },
+    required: false,
+    channels: ["inApp", "email", "push"],
+  };
+  backend = fakeBackend({
+    "settings.get": () =>
+      Response.json({
+        ...SETTINGS,
+        notificationDefaults: { quote: OTHER, mention: added.defaults },
+      }),
+    "notifications.types": () =>
+      Response.json({ items: [...TYPES.items, added] }),
+    "settings.update": settings,
+  });
+  await redirectedTo(() =>
+    saveNotificationDefaults(
+      null,
+      form([
+        ...SHOWN,
+        ["notificationRetentionDays", "90"],
+        ["reply:inApp", "on"],
+        ["reply:email", "on"],
+        ["quote:inApp", "on"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    notificationRetentionDays: 90,
+    notificationDefaults: { quote: OTHER, mention: added.defaults },
+  });
 });

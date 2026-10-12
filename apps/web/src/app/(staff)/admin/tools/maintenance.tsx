@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { linkClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { parseId } from "@/lib/sermo/ids";
@@ -9,7 +10,6 @@ import { hrefFor } from "../../registry";
 import { MemberLink, memberNames } from "../logs/links";
 import { MemberPicker } from "../permissions/member-picker";
 import { runOperation, runSpamCleanup } from "./actions";
-import { OperationForm } from "./operation-form";
 
 type Params = PageProps<"/admin/tools">["searchParams"];
 
@@ -82,12 +82,14 @@ export async function Maintenance({ searchParams }: { searchParams: Params }) {
           description={t(`${key}.description`)}
           inputs={t(`${key}.inputs`)}
         >
-          <OperationForm
+          <ConfirmStep
             action={runOperation}
             fields={{ operation: key }}
             summary={t("run")}
             warning={t(`${key}.warning`)}
+            pendingLabel={t("running")}
             submit={t(`${key}.confirm`)}
+            danger={false}
           />
         </Card>
       ))}
@@ -108,12 +110,14 @@ export async function Maintenance({ searchParams }: { searchParams: Params }) {
                     {t("spam.change")}
                   </Link>
                 </p>
-                <OperationForm
+                <ConfirmStep
                   action={runSpamCleanup}
                   fields={{ userId: String(chosen) }}
                   summary={t("run")}
                   warning={t("spam.warning", { name })}
+                  pendingLabel={t("running")}
                   submit={t("spam.confirm")}
+                  danger={false}
                 >
                   <div className="space-y-1">
                     <label
@@ -125,7 +129,6 @@ export async function Maintenance({ searchParams }: { searchParams: Params }) {
                     <Input
                       id="spam-reason"
                       name="reason"
-                      maxLength={5000}
                       aria-describedby="spam-reason-help"
                     />
                     <p
@@ -135,7 +138,7 @@ export async function Maintenance({ searchParams }: { searchParams: Params }) {
                       {t("spam.reasonHelp")}
                     </p>
                   </div>
-                </OperationForm>
+                </ConfirmStep>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">{t("spam.pick")}</p>

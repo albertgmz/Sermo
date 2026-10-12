@@ -6,12 +6,12 @@ import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
-import { InlineConfirm } from "../../content-kit/inline-confirm";
-import { Notice } from "../../content-kit/notice";
 import { FormSkeleton, PageHead } from "../../groups/skeletons";
 import { deletePage, savePage } from "../actions";
 import { PageFields } from "../page-fields";
@@ -105,7 +105,7 @@ async function Editor({
       </FormRows>
       <Section heading={t("delete.heading")} className="border-destructive/30">
         <div className="px-4">
-          <InlineConfirm
+          <ConfirmStep
             action={deletePage}
             fields={{ id: slug }}
             summary={t("delete.summary")}

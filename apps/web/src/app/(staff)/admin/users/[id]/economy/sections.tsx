@@ -6,6 +6,7 @@ import {
 } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
@@ -15,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { ifAllowed } from "../../data";
-import { InlineAction } from "../../inline-action";
 import { adjustCredits, grantAward, revokeAward } from "./actions";
 
 const SHOP_INVENTORY_STATES = shopInventory.input.shape.state.options;
@@ -134,7 +134,7 @@ export async function Adjust({
           />
         </FieldRow>
         <FieldRow name="reason" label={t("reason")} htmlFor="adjust-reason">
-          <Input id="adjust-reason" name="reason" required maxLength={500} />
+          <Input id="adjust-reason" name="reason" required />
         </FieldRow>
         <FieldRow name="confirm" label={t("confirmLabel")}>
           <label className="flex min-h-10 items-center gap-3 text-sm">
@@ -287,10 +287,10 @@ export async function Awards({
                 {grant.reason && ` · ${grant.reason}`}
               </p>
               {mayGrant && !readOnly && (
-                <InlineAction
+                <ConfirmStep
                   action={revokeAward}
                   fields={{ id: userId, memberAwardId: grant.id }}
-                  label={t("revoke")}
+                  summary={t("revoke")}
                   reason={t("revokeReason")}
                   warning={t("revokeWarning")}
                 />
@@ -324,7 +324,7 @@ export async function Awards({
             </select>
           </FieldRow>
           <FieldRow name="reason" label={t("reason")} htmlFor="grant-reason">
-            <Input id="grant-reason" name="reason" maxLength={500} />
+            <Input id="grant-reason" name="reason" />
           </FieldRow>
         </FormRows>
       )}

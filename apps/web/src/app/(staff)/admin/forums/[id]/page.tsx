@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -14,7 +15,6 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
 import { FormSkeleton, ListSkeleton, PageHead } from "../../groups/skeletons";
-import { Notice } from "../notice";
 import { Moderators } from "./moderators";
 import { NodeForm } from "./node-form";
 import { PicturesForm } from "./pictures-form";
@@ -49,6 +49,7 @@ async function Node({
   return (
     <>
       <Notice
+        namespace="adminForums.notices"
         searchParams={searchParams}
         shown={["created", "saved", "pictures", "moderated", "unmoderated"]}
       />

@@ -4,17 +4,17 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { UserAvatar } from "@/components/forum/user-avatar";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { PictureField } from "@/components/staff/picture-field";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
-import { InlineForm } from "../forums/inline-form";
 import { deleteImage, saveImage } from "./actions";
 import { IMAGE_KINDS, type ImageKind } from "./kinds";
-import { Notice } from "./notice";
 import { PlacementEditor } from "./placement-editor";
 
 type Entry = z.output<typeof catalogImagesList.output>["items"][number];
@@ -179,6 +179,7 @@ export async function CatalogScreen({
   return (
     <>
       <Notice
+        namespace="adminAppearance.notices"
         searchParams={searchParams}
         shown={["created", "saved", "reset", "deleted", "deactivated"]}
       />
@@ -237,20 +238,14 @@ export async function CatalogScreen({
                 {editing === entry.id && (
                   <div className="space-y-4 border-t p-4">
                     <EntryForm kind={kind} entry={entry} />
-                    <div className="rounded-lg border border-destructive/30 p-4">
-                      <p className="text-sm text-pretty">
-                        {t("deleteWarning")}
-                      </p>
-                      <div className="mt-3">
-                        <InlineForm
-                          action={deleteImage}
-                          submit={t("delete")}
-                          variant="destructive"
-                        >
-                          <input type="hidden" name="kind" value={kind} />
-                          <input type="hidden" name="id" value={entry.id} />
-                        </InlineForm>
-                      </div>
+                    <div className="rounded-lg border border-destructive/30 px-4 py-1">
+                      <ConfirmStep
+                        action={deleteImage}
+                        fields={{ kind, id: entry.id }}
+                        summary={`${t("delete")}…`}
+                        warning={t("deleteWarning")}
+                        submit={t("delete")}
+                      />
                     </div>
                   </div>
                 )}

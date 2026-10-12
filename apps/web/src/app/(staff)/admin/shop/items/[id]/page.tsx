@@ -5,10 +5,10 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { EconomyNotice } from "../../../credits/shared";
-import { ConfirmDelete } from "../../../groups/confirm-delete";
 import { FormSkeleton, PageHead } from "../../../groups/skeletons";
 import { deleteItem } from "../actions";
 import { ItemForm } from "../item-form";
@@ -44,10 +44,10 @@ async function EditItem({
         }}
       />
       <ItemForm item={item} lookups={lookups} />
-      <ConfirmDelete
+      <ConfirmStep
         action={deleteItem}
-        id={item.id}
-        summary={t("deleteHeading")}
+        fields={{ id: item.id }}
+        heading={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
       />

@@ -122,7 +122,6 @@ export async function AwardForm({ award }: { award?: Award }) {
           id={`${key}-name`}
           name="name"
           required
-          maxLength={100}
           defaultValue={award?.name}
         />
       </FieldRow>
@@ -134,7 +133,6 @@ export async function AwardForm({ award }: { award?: Award }) {
         <Input
           id={`${key}-description`}
           name="description"
-          maxLength={500}
           defaultValue={award?.description}
         />
       </FieldRow>
@@ -219,7 +217,6 @@ export async function AwardForm({ award }: { award?: Award }) {
         <Input
           id={`${key}-icon`}
           name="icon"
-          maxLength={200}
           autoCapitalize="none"
           defaultValue={award?.icon}
         />

@@ -12,7 +12,12 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../groups/form-errors";
+import {
+  formFailure,
+  text,
+  unconfirmedPassword,
+  whole,
+} from "../groups/form-errors";
 
 const FIELDS = ["title", "isActive", "criteria", "groupIds"];
 
@@ -67,6 +72,9 @@ export async function savePromotion(
     criteria: parsed.criteria,
     groupIds,
   };
+  // Who is in which group follows from the rules, so a change to them asks for the password.
+  const unconfirmed = await unconfirmedPassword(formData);
+  if (unconfirmed) return unconfirmed;
   let saved: number;
   try {
     saved = (
@@ -89,6 +97,8 @@ export async function deletePromotion(
   const t = await getTranslations("adminGroups.errors");
   const promotionId = parseId(text(formData, "id"));
   if (promotionId === null) return { error: t("id") };
+  const unconfirmed = await unconfirmedPassword(formData);
+  if (unconfirmed) return unconfirmed;
   try {
     await call(promotionsDelete, { promotionId });
   } catch (error) {

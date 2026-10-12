@@ -1,16 +1,12 @@
 import { imagesSetAvatar, imagesSetCover } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
 import type { NextRequest } from "next/server";
+import { getTranslations } from "next-intl/server";
 import { failedPath } from "@/app/(main)/account/notice";
 import { errorMessage } from "@/lib/sermo/client";
-import { publicUrl } from "@/lib/sermo/config";
 import { SermoError } from "@/lib/sermo/errors";
-import {
-  callWith,
-  forwardFromHeaders,
-  hasSessionCookie,
-} from "@/lib/sermo/transport";
-import { isUploadPurpose, uploadWith } from "@/lib/sermo/upload";
+import { callWith, forwardFromHeaders } from "@/lib/sermo/transport";
+import { isPicturePurpose, receiveUpload } from "@/lib/sermo/upload";
 
 const ACCOUNT = "/account";
 
@@ -20,49 +16,34 @@ const see = (location: string) =>
     headers: { location, "cache-control": "no-store" },
   });
 
-// The browser says where the form was posted from; only this site's own pages may post here.
-function fromThisSite(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try {
-    const { host } = new URL(origin);
-    return (
-      host === request.headers.get("x-forwarded-host") ||
-      host === request.headers.get("host") ||
-      origin === new URL(publicUrl()).origin
-    );
-  } catch {
-    return false;
-  }
-}
+const signIn = () => see(`/login?next=${encodeURIComponent(ACCOUNT)}`);
 
 // A picture of a size the site allows is far larger than a server action takes, so it does not
-// travel as one: the body is handed on to the backend as it arrives, never read or held here, and
-// the backend says whether the picture is acceptable. Without a session cookie nothing is read.
+// travel as one: `receiveUpload` hands the body on to the backend as it arrives, never read or
+// held here, and the backend says whether the picture is acceptable. The checks that need no
+// body (session cookie, origin, content type, declared length) run before anything is read.
 // The proxy skips this path (its matcher) so that it does not buffer the body either.
 export async function POST(request: NextRequest) {
   const kind = request.nextUrl.searchParams.get("kind");
-  if (!isUploadPurpose(kind)) return new Response(null, { status: 400 });
-  if (!hasSessionCookie(request.headers.get("cookie") ?? undefined)) {
-    return see(`/login?next=${encodeURIComponent(ACCOUNT)}`);
+  if (!isPicturePurpose(kind)) return new Response(null, { status: 400 });
+  const received = await receiveUpload(request, kind);
+  if (!received.ok) {
+    if (received.reason === "session") return signIn();
+    if (received.reason === "origin")
+      return new Response(null, { status: 403 });
+    const message =
+      received.message ?? (await getTranslations("lib.errors"))("generic");
+    return see(failedPath(ACCOUNT, kind, message));
   }
-  if (!fromThisSite(request)) return new Response(null, { status: 403 });
-  const forward = forwardFromHeaders(request.headers);
   try {
-    const fileId = await uploadWith(forward, kind, {
-      body: request.body,
-      contentType: request.headers.get("content-type"),
-    });
     await callWith(
-      forward,
+      forwardFromHeaders(request.headers),
       kind === "avatar" ? imagesSetAvatar : imagesSetCover,
-      {
-        fileId,
-      },
+      { fileId: received.fileId },
     );
   } catch (error) {
     if (error instanceof SermoError && error.code === "unauthenticated") {
-      return see(`/login?next=${encodeURIComponent(ACCOUNT)}`);
+      return signIn();
     }
     return see(failedPath(ACCOUNT, kind, await errorMessage(error)));
   }

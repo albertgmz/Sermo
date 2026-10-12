@@ -55,7 +55,6 @@ export async function IdentityForm({
           id="member-username"
           name="username"
           required
-          maxLength={64}
           defaultValue={member.card.username}
         />
       </FieldRow>
@@ -65,7 +64,6 @@ export async function IdentityForm({
           name="email"
           type="email"
           required
-          maxLength={254}
           defaultValue={member.email}
         />
         <label className="flex min-h-10 items-center gap-3 text-sm">

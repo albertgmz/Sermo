@@ -7,6 +7,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -15,7 +16,6 @@ import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
 import { getGroups, groupLabel } from "../../groups/data";
-import { Notice } from "../../groups/notice";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
@@ -157,7 +157,11 @@ export async function ForumPermissions({
 
   return (
     <>
-      <Notice searchParams={searchParams} shown={["saved"]} />
+      <Notice
+        namespace="adminGroups.notices"
+        searchParams={searchParams}
+        shown={["saved"]}
+      />
       {picker}
       <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
         {node.title}

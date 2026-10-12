@@ -1,6 +1,7 @@
 import { staffModerators } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { MemberRow } from "@/components/forum/member-row";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -60,20 +61,19 @@ export async function Moderators({
                       <Badge variant="success">{t("everywhere")}</Badge>
                     )}
                     {onNode && (
-                      <InlineForm
+                      <ConfirmStep
                         action={setModerator}
-                        submit={t("remove")}
-                        variant="destructive"
-                      >
-                        <input type="hidden" name="id" value={nodeId} />
-                        <input
-                          type="hidden"
-                          name="userId"
-                          value={item.card.id}
-                        />
-                        <input type="hidden" name="remove" value="1" />
-                        <PasswordInput label={t("password")} />
-                      </InlineForm>
+                        fields={{
+                          id: nodeId,
+                          userId: item.card.id,
+                          remove: "1",
+                        }}
+                        summary={t("remove")}
+                        warning={t("removeWarning", {
+                          name: item.card.username,
+                        })}
+                        password
+                      />
                     )}
                   </MemberRow>
                 </li>

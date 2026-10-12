@@ -1,6 +1,7 @@
 import { promotionsCriteria, promotionsList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -8,7 +9,6 @@ import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
 import { getGroups, groupLabel } from "../groups/data";
-import { Notice } from "../groups/notice";
 import { runPromotions } from "./actions";
 import { PromotionForm } from "./promotion-form";
 import { RunNow } from "./run-now";
@@ -34,7 +34,11 @@ export async function PromotionList({
   const names = new Map(criteria.map((entry) => [entry.id, entry.title]));
   return (
     <>
-      <Notice searchParams={searchParams} shown={["deleted"]} />
+      <Notice
+        namespace="adminGroups.notices"
+        searchParams={searchParams}
+        shown={["deleted"]}
+      />
       <section className="overflow-hidden rounded-lg border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <h2 className="text-sm font-semibold">{t("heading")}</h2>

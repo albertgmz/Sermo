@@ -215,9 +215,9 @@ function ask(
   );
 }
 
-function isNotFound(response: Response | undefined) {
+function isNotFound(response: Response | undefined, label?: string) {
   assert.ok(response);
-  assert.equal(response.status, 404);
+  assert.equal(response.status, 404, label);
   assert.equal(
     response.headers.get("x-middleware-rewrite"),
     "http://localhost/not-found",
@@ -735,4 +735,38 @@ test("an id that is not plain decimal is a 404 for every kind of request, unaske
     }
   }
   assert.equal(asked.length, 0);
+});
+
+test("a picture-looking address under the moderation panel is the gate's 404, in any spelling, for a guest with LITE on", async () => {
+  for (const path of [
+    "/moderation/reports/5.png",
+    "/%6Doderation/reports/5.png",
+    "/MODERATION/reports/5.png",
+    "/Moderation./reports/5.png",
+    "/admin/users/5.png",
+    "/%41dmin/users/5.png",
+  ]) {
+    reset();
+    isNotFound(await ask(path, { cookie: "forum_lite=all" }), path);
+    assert.equal(state.viewerAsked, 0, path);
+    // And for a member with nothing in the panel.
+    reset({ viewer: MEMBER });
+    isNotFound(await ask(path, { cookie: `${SESSION}; forum_lite=all` }));
+  }
+});
+
+test("a record id that cannot be one is the gate's 404 on a numeric detail screen, for an administrator", async () => {
+  for (const path of [
+    "/admin/users/abc",
+    "/admin/users/0",
+    "/admin/users/012",
+    "/admin/users/1e3",
+    "/admin/forums/-1/permissions",
+    "/admin/groups/x",
+    "/admin/promotions/1.5",
+    "/moderation/reports/abc",
+  ]) {
+    reset({ viewer: FULL_ADMINISTRATOR });
+    isNotFound(await ask(path, { cookie: SESSION }));
+  }
 });

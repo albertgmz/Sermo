@@ -1,6 +1,7 @@
 import { awardsList, awardsMemberGrants } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
@@ -11,7 +12,6 @@ import { parseId } from "@/lib/sermo/ids";
 import { MemberChoice } from "../credits/member-choice";
 import { EconomyNotice, one } from "../credits/shared";
 import { memberNames } from "../logs/links";
-import { InlineAction } from "../users/inline-action";
 import { grantAward, revokeGrant } from "./actions";
 
 // Pick a member (the choice is in the address), then grant an award to them and see the grants
@@ -93,7 +93,7 @@ export async function GrantsScreen({
           htmlFor="grant-reason"
           help={t("noteHelp")}
         >
-          <Input id="grant-reason" name="reason" maxLength={500} />
+          <Input id="grant-reason" name="reason" />
         </FieldRow>
       </FormRows>
       <CursorList
@@ -134,10 +134,10 @@ export async function GrantsScreen({
                 {grant.reason && ` · ${grant.reason}`}
               </p>
             </div>
-            <InlineAction
+            <ConfirmStep
               action={revokeGrant}
               fields={{ userId, memberAwardId: grant.id }}
-              label={t("revoke")}
+              summary={t("revoke")}
               reason={t("revokeReason")}
               warning={t("revokeWarning")}
             />
