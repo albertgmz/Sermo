@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Ctx } from "@sermo/core";
-import { closeContext } from "@sermo/core";
-import { createTestContext } from "@sermo/core/testing";
+import { closeContext, updateSiteSettings } from "@sermo/core";
+import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { createApp } from "./app";
 
 const contexts: Ctx[] = [];
@@ -132,6 +132,50 @@ test("rejected MCP requests carry the refreshed cookies once, successful ones to
   expect(refreshed(limited)).toHaveLength(1);
 });
 
+test("MCP body and batch rejections through the app never duplicate refreshed cookies", async () => {
+  const { request } = setup();
+  const cookie = (await register(request))
+    .split("; ")
+    .find((part) => part.startsWith("sermo.session_token="))!;
+  const cases = [
+    { body: "{", status: 400 },
+    { body: "x".repeat(4 * 1024 * 1024 + 1), status: 413 },
+    {
+      body: JSON.stringify(
+        Array.from({ length: 101 }, (_, id) => ({ jsonrpc: "2.0", id, method: "ping" })),
+      ),
+      status: 400,
+    },
+    {
+      body: JSON.stringify([
+        call("nodes_list", {}, 1),
+        { jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } },
+      ]),
+      status: 400,
+    },
+    { body: JSON.stringify([call("nodes_list", {}, 7), call("nodes_list", {}, 7)]), status: 400 },
+    { body: "", headers: { accept: "application/json" }, status: 406 },
+    { body: "", headers: { "content-type": "text/plain" }, status: 415 },
+  ];
+  for (const entry of cases) {
+    const response = await request("/mcp", {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json",
+        cookie,
+        ...entry.headers,
+      },
+      body: entry.body,
+    });
+    expect(response.status).toBe(entry.status);
+    const cookies = response.headers.getSetCookie();
+    expect(cookies.filter((value) => value.startsWith("sermo.session_data="))).toHaveLength(1);
+    const names = cookies.map((value) => value.split("=")[0]);
+    expect(new Set(names).size).toBe(names.length);
+  }
+});
+
 test("known paths answer unsupported methods with 405 and an accurate Allow header", async () => {
   const { request } = setup({ trustedProxyHeader: null });
   const allow = async (method: string, path: string) => {
@@ -149,6 +193,56 @@ test("known paths answer unsupported methods with 405 and an accurate Allow head
   expect(operationRoute.headers.get("allow")).toContain("POST");
   for (const path of ["/nothing/here", "/api/v1/nothing", "/some-key.txt"]) {
     const response = await request(path, { method: "PUT" });
+    expect(response.status).toBe(404);
+    expect(response.headers.get("allow")).toBeNull();
+  }
+});
+
+test("only the currently configured IndexNow key path advertises GET and HEAD", async () => {
+  const { ctx, request } = setup();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  for (const key of ["example-key-123", "replacement-key-456", null]) {
+    updateSiteSettings(ctx, admin, { indexNowKey: key });
+    for (const name of ["example-key-123", "replacement-key-456", "unknown-key-789"]) {
+      const path = `/${name}.txt`;
+      const get = await request(path);
+      expect(get.status).toBe(name === key ? 200 : 404);
+      const head = await request(path, { method: "HEAD" });
+      expect(head.status).toBe(get.status);
+      expect(await head.text()).toBe("");
+      for (const method of ["POST", "PUT", "OPTIONS", "DELETE", "PATCH"]) {
+        const response = await request(path, { method });
+        expect(response.status).toBe(name === key ? 405 : 404);
+        expect(response.headers.get("allow")).toBe(name === key ? "GET, HEAD" : null);
+      }
+    }
+  }
+});
+
+test("IndexNow method detection matches decoded GET paths", async () => {
+  const { ctx, request } = setup();
+  updateSiteSettings(ctx, userActor(insertUser(ctx, { groupId: 4 })), {
+    indexNowKey: "example-key-123",
+  });
+  for (const path of [
+    "/%65xample-key-123.txt",
+    "/example-key-123%2etxt",
+    "/example-key-123.txt?ignored=1",
+  ]) {
+    expect((await request(path)).status).toBe(200);
+    for (const method of ["POST", "PUT", "OPTIONS"]) {
+      const response = await request(path, { method });
+      expect(response.status).toBe(405);
+      expect(response.headers.get("allow")).toBe("GET, HEAD");
+    }
+  }
+  for (const path of [
+    "/%ZZexample-key-123.txt",
+    "/example-key-123.txt%2F",
+    "/nested/example-key-123.txt",
+  ]) {
+    expect((await request(path)).status).toBe(404);
+    const response = await request(path, { method: "POST" });
     expect(response.status).toBe(404);
     expect(response.headers.get("allow")).toBeNull();
   }

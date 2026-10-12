@@ -372,6 +372,8 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const methods = knownRoutes
       .filter((route) => route.pattern.test(c.req.path))
       .map((route) => route.method);
+    const indexNowKey = readSiteSettings(ctx).indexNowKey;
+    if (indexNowKey && c.req.path === `/${indexNowKey}.txt`) methods.push("GET");
     if (methods.length) {
       if (methods.includes("GET")) methods.push("HEAD");
       c.header("Allow", [...new Set(methods)].join(", "));
