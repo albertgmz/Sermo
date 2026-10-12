@@ -47,7 +47,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     }
   }
   for (const cookie of ["", "all", "frames"]) {
-    for (const path of ["/foo:bar", "/forums/abc.png", "/awards/1.svg"]) {
+    for (const path of ["/foo:bar", "/forums/abc.gif", "/awards/1.avif"]) {
       const response = await request(path, cookie);
       assert.equal(response.status, 404, path);
       assert.equal(

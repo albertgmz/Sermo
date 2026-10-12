@@ -242,11 +242,11 @@ test("unsafe paths outside every picture folder are real 404s for every visitor"
 
 test("picture-looking paths inside page namespaces answer with a 404, not a placeholder", async () => {
   for (const path of [
-    "/forums/abc.png",
-    "/awards/1.svg",
-    "/awards/1.svg.",
-    "/forums/missing.jpg%20",
-    "/forums/1.webp::$DATA",
+    "/forums/abc.gif",
+    "/awards/1.avif",
+    "/awards/1.avif.",
+    "/forums/missing.gif%20",
+    "/forums/1.gif::$DATA",
   ])
     for (const mode of [undefined, "all", "forumArt", "awards"])
       notFound(await proxy(request(path, mode)), `${mode}: ${path}`);

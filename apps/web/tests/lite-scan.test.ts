@@ -50,7 +50,7 @@ test("the emission scanner recognizes every forbidden syntax, including multilin
 test("picture file paths in CSS strings require a gate too", () => {
   for (const source of [
     ':root { --picture: "/pictures/new.jpg" }',
-    ":root { --picture: '/covers/new.jpg' }",
+    ":root { --picture: '/media/new.jpg' }",
     ':root { --picture: "https://forum.test/pictures/new.png" }',
   ])
     expect(emissionHits("example.css", source).length, source).toBeGreaterThan(

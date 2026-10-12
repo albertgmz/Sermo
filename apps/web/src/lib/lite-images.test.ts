@@ -179,10 +179,10 @@ test("unsafe paths that are not pictures are unknown", () => {
 
 test("no page namespace is a picture folder, so a picture-looking path in one is no public file", () => {
   for (const path of [
-    "/forums/abc.png",
+    "/forums/abc.gif",
     "/AWARDS/1.SVG",
-    "/forums/1.webp.",
-    "/forums/1.webp::$DATA",
+    "/forums/1.gif.",
+    "/forums/1.gif::$DATA",
     "/forums/1",
     "/forums/1/missing.svg",
     "/pictures/tobi.jpg",
