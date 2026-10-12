@@ -52,7 +52,7 @@ export const BACKEND_PURPOSES: readonly string[] =
 // the contract's highest value for that limit, plus room for the multipart framing. The backend
 // holds the real limit and refuses a larger file itself while it reads.
 export const DECLARED_LENGTH_CEILING =
-  SiteSettings.shape.maxUploadBytes.maxValue + 1024 * 1024;
+  (SiteSettings.shape.maxUploadBytes.maxValue ?? 1024 ** 3) + 1024 * 1024;
 
 // The part of an incoming request that is passed on: its body is never read here, only handed on
 // as a stream, so the size of a file is not a size this app holds in memory.

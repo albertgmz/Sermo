@@ -423,10 +423,7 @@ export async function ThreadBans({
 }) {
   const t = await getTranslations("adminUsers.sanctions");
   const found = thread === null ? null : await lookupThreadBans(thread);
-  const mine =
-    found && "items" in found
-      ? found.items.find((ban) => ban.userId === userId)
-      : undefined;
+  const mine = found?.items?.find((ban) => ban.userId === userId);
   return (
     <Section heading={t("threadBans")} description={t("threadBansHelp")}>
       <form method="get" className="flex flex-wrap items-end gap-3 p-4">
@@ -469,7 +466,7 @@ export async function ThreadBans({
             </div>
           ) : (
             <p className="text-muted-foreground [overflow-wrap:anywhere]">
-              {found && "refusal" in found
+              {found?.refusal
                 ? `${t("threadUnavailable")} ${found.refusal}`
                 : t("notBannedInThread")}
             </p>

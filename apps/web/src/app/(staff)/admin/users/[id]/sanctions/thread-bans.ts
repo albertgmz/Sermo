@@ -11,13 +11,14 @@ import { SermoError } from "@/lib/sermo/errors";
 // (not found) or they hold no such permission there (forbidden).
 export async function lookupThreadBans(threadId: number) {
   try {
-    return { items: (await call(threadBansList, { threadId })).items };
+    const { items } = await call(threadBansList, { threadId });
+    return { items, refusal: null };
   } catch (error) {
     if (
       error instanceof SermoError &&
       (error.code === "forbidden" || error.code === "not_found")
     ) {
-      return { refusal: error.message };
+      return { items: null, refusal: error.message };
     }
     throw error;
   }

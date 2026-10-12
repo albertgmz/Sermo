@@ -111,7 +111,7 @@ test("a post from another site is refused before anything is read", async () => 
 test("a body that is no multipart form, or declares no length or too much, is refused before it is read", async () => {
   const asked = backend(Response.json({}));
   for (const headers of [
-    { "content-type": "text/plain" },
+    { "content-type": "text/plain" } as Record<string, string>,
     { "content-length": "" },
     { "content-length": "99999999999" },
   ]) {
