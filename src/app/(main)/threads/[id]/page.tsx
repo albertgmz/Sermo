@@ -42,7 +42,7 @@ import {
   type PostView,
   type UserView,
 } from "@/lib/db";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getCurrentUser } from "@/lib/session";
 import type { ReactionType } from "@/lib/types";
@@ -156,7 +156,7 @@ function PostItem({
               href={`#post-${post.id}`}
               className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
             >
-              {t("postNumber", { number: formatNumber(post.number) })}
+              {t("postNumber", { number: post.number })}
             </Link>
           </div>
         </div>
