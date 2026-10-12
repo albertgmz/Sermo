@@ -9,7 +9,9 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
+import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
+import { requireNotErased } from "../admin/erased";
 import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
@@ -89,7 +91,7 @@ export const operations = [
   }),
   implement(contracts.awardsCriteria, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.awards");
-    return { items: criterionDefinitions };
+    return { items: withTitles(viewerLanguage(ctx, actor), criterionDefinitions) };
   }),
   implement(contracts.awardsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
@@ -166,6 +168,7 @@ export const operations = [
       // Only award administrators may learn that an inactive award exists.
       if (!award.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
       memberXp(ctx, input.userId);
+      requireNotErased(ctx, input.userId);
       const grant = grantAward(ctx, award, input.userId, granter.userId, input.reason)!;
       return grantValues(ctx, [grant])[0]!;
     });

@@ -1274,9 +1274,10 @@ change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`),
 answers in fifteen minutes per member (`admin_password_failures`). Further answers, right ones
 included, are refused until the oldest wrong one leaves the window. A guess is recorded before the
 check, so answers sent together are counted, and a right answer gives its own guess back without
-clearing the earlier wrong ones. The refusal is a `ForbiddenError` (403): core has no
-rate-limit error type for the API to map to 429. **Owner review:** a distinct error needs a new
-error code in `errors.ts` and its status in the API and MCP adapters.
+clearing the earlier wrong ones. The refusal is a `RateLimitedError` (code
+`rate_limited`), which the API answers with 429 and the same body as its own request limiter
+(`{ error: { code: "rate_limited", message } }`), so clients see one kind of 429; MCP reports the
+same code.
 
 **Reaching an administrator takes `admin.permissions`.** Setting a password or address, ending
 sessions or erasing lets an administrator sign in as the member (or close them for good).
@@ -1302,3 +1303,56 @@ results are ordered by username (members whose username starts with it) and then
 matched by address alone); the cursor carries the position. **Owner review.** The rosters read each
 group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
 of kinds, and counts reports only for someone who handles them site-wide.
+
+**Group and permission writes can confirm with the password in the same call.** `permissions.set`,
+`users.setGroups`, `groups.create`, `groups.update`, `groups.delete` and `nodes.setModerator` take
+an optional `actorPassword`. When it is present it is checked first with `verifyActorPassword`, so
+it counts against the same five-in-fifteen-minutes limit as `users.adminUpdateIdentity`, only a
+session actor may send it (an API key that does is refused) and a wrong answer stops the request
+before anything is read or changed. Without it nothing is asked, so API clients and scripts keep
+working. This replaces the web app's two calls (`auth.verifyPassword`, then the write), which left
+a gap between the check and the change.
+
+**An erased member takes no further administrative or moderation write.** The rule that already
+covered identity, profile and sessions now covers every write that targets a member:
+`permissions.set` (for a member), `users.setGroups`, `nodes.setModerator`, `warnings.create`,
+`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant` and
+`promotions.apply` answer a conflict with one message (`requireNotErased`: "This member's account
+was erased."), checked inside the write transaction after the permission decision, so a caller who
+may not act is still told it is forbidden. Taking something away stays possible (lifting a ban is
+already refused for another reason; revoking an award, lifting a restriction or a warning's
+expiry do not add anything). Actions between members (following, ignoring, messaging, profile
+posts, naming a referrer) are not covered: they are the members' own, and an erased account is
+permanently banned, which the referrer rule already treats as absent.
+
+**Group names are readable by those who must pick a group.** `groups.list` and `groups.get`
+need any one of `admin.groups`, `admin.permissions`, `admin.promotions` or `admin.members`: the
+screens those open (entries for a group, a promotion's groups, a member's groups) show group
+names, and a holder of one of them could not read any. The writes still need `admin.groups`.
+Every group now carries `memberCount`: members with it as primary group plus those holding it by
+hand without it being their primary (promotion and shop grants are not counted). It is one
+statement for the whole list, two correlated counts per group over covering indexes
+(`users_group`, `user_groups_group`) and a point lookup on `users` for the overlap, so the cost is
+bounded by the number of groups and the size of each group's own index range; this is an
+administration read, never part of a page view.
+
+**The panel's pending work comes with `auth.counters`.** The queue reads return no total, and
+counting on every page view is against the rules, so `auth.counters` (the site header's read)
+gains `openReports` and `pendingApprovals`, each `{ count, more }`. They look at the newest 100
+entries of each queue (the queue reads' own statements, no cursor, limit 100, never a COUNT),
+count those the viewer may act on with the queue reads' own rule (`filterModeratable`, so a
+moderator of some forums sees only theirs), cap the number at 99, and set `more` when the window
+was full, so the interface can write "99+". A scoped moderator in a busy site may see a small
+number with `more` set: the 100 entries were not all theirs. Everyone who holds none of the
+permissions that open a queue (a guest, a plain member, a moderator without report or approval
+rights) pays no statement for it: the check is the permission state already in memory, and a test
+holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
+of the panel's home page the numbers are not cached: they are a few indexed rows for staff only.
+
+**Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
+my password?" without any limit beyond 100 requests per ten seconds per address) is no longer
+served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
+asks for the current password and Better Auth limits it to three requests per ten seconds per
+address, which a stolen session can multiply with addresses; it now takes a guess from the same
+five-in-fifteen-minutes count per member as the administration checks (a success gives its guess
+back) and answers 429 once they are used up.

@@ -11,11 +11,18 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { countersSql } from "./index";
 
+/** What a viewer who handles no queue gets for the two queue counters. */
+const QUIET = {
+  openReports: { count: 0, more: false },
+  pendingApprovals: { count: 0, more: false },
+};
 type TestContext = ReturnType<typeof createTestContext>;
 const counters = (ctx: TestContext, actor: Parameters<typeof execute>[2]) =>
   execute(ctx, getOperation("auth.counters"), actor, {}) as Promise<{
     notifications: number;
     conversations: number;
+    openReports: { count: number; more: boolean };
+    pendingApprovals: { count: number; more: boolean };
   }>;
 
 function conversation(
@@ -41,7 +48,7 @@ function conversation(
 describe("auth.counters", () => {
   test("guests get zeros", async () => {
     const ctx = createTestContext();
-    expect(await counters(ctx, GUEST)).toEqual({ notifications: 0, conversations: 0 });
+    expect(await counters(ctx, GUEST)).toEqual({ notifications: 0, conversations: 0, ...QUIET });
   });
 
   test("an API-key actor gets its member's counters", async () => {
@@ -49,13 +56,17 @@ describe("auth.counters", () => {
     const user = insertUser(ctx);
     ctx.sqlite.prepare("UPDATE users SET unread_notification_count = 3 WHERE id = ?1").run(user.id);
     conversation(ctx, user.id, 1000, 10, 0);
-    expect(await counters(ctx, tokenActor(user))).toEqual({ notifications: 3, conversations: 1 });
+    expect(await counters(ctx, tokenActor(user))).toEqual({
+      notifications: 3,
+      conversations: 1,
+      ...QUIET,
+    });
   });
 
   test("a member with nothing unread gets zeros", async () => {
     const ctx = createTestContext();
     const member = userActor(insertUser(ctx));
-    expect(await counters(ctx, member)).toEqual({ notifications: 0, conversations: 0 });
+    expect(await counters(ctx, member)).toEqual({ notifications: 0, conversations: 0, ...QUIET });
   });
 
   test("notifications come from the member's counter, conversations from unread inbox entries", async () => {
@@ -69,8 +80,16 @@ describe("auth.counters", () => {
     conversation(ctx, user.id, 4000, 40, 1, "left"); // not in the inbox
     conversation(ctx, other.id, 5000, 50, 0); // someone else's
     conversation(ctx, user.id, 500, null, 0); // no message yet: not unread
-    expect(await counters(ctx, userActor(user))).toEqual({ notifications: 4, conversations: 2 });
-    expect(await counters(ctx, userActor(other))).toEqual({ notifications: 0, conversations: 1 });
+    expect(await counters(ctx, userActor(user))).toEqual({
+      notifications: 4,
+      conversations: 2,
+      ...QUIET,
+    });
+    expect(await counters(ctx, userActor(other))).toEqual({
+      notifications: 0,
+      conversations: 1,
+      ...QUIET,
+    });
   });
 
   test("only the 100 most recently active conversations count", async () => {

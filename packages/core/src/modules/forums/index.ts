@@ -26,6 +26,8 @@ import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
+import { requireNotErased } from "../admin/erased";
+import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import {
@@ -354,6 +356,13 @@ function mayDelete(
     (!locked && permissions.can("forum.deleteOwn", { nodeId, ownerId }))
   );
 }
+/** Removing a thread's cover: the author of a visible thread, or whoever may edit others' threads. */
+function mayRemoveCover(ctx: Ctx, actor: Actor, row: ThreadRow): boolean {
+  return (
+    can(ctx, actor, "forum.editAny", { nodeId: row.node_id }) ||
+    (row.user_id === actorUserId(actor) && row.state === "visible")
+  );
+}
 function canModerate(ctx: Ctx, actor: Actor, nodeId: number): boolean {
   return (
     can(ctx, actor, "forum.deleteAny", { nodeId }) || can(ctx, actor, "forum.approve", { nodeId })
@@ -489,6 +498,7 @@ export function postValuesMixed(
       row.id !== firstPostId &&
       row.state !== "deleted" &&
       mayDelete(permissions, nodeId, row.user_id, locked),
+    canReport: permissions.can("report.create"),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
 }
@@ -600,9 +610,20 @@ export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
   };
 });
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
-  requireNode(ctx, actor, input.nodeId);
+  const { node } = requireNode(ctx, actor, input.nodeId);
+  const userId = actorUserId(actor);
+  // Only forums can be watched: a category needs no lookup.
+  const watch =
+    userId === null || node.type !== "forum"
+      ? undefined
+      : statement<{ mode: "threads" | "posts"; email: number }, [number, number]>(
+          ctx,
+          "nodeWatching",
+          "SELECT mode, email FROM node_watches WHERE node_id = ?1 AND user_id = ?2",
+        ).get(input.nodeId, userId);
   return {
     node: nodeValues(ctx, actor, [input.nodeId])[0]!,
+    watching: watch ? { mode: watch.mode, email: !!watch.email } : null,
     seo: seoForNode(ctx, actor, input.nodeId),
     breadcrumbs: getNodeTree(ctx)
       .ancestors(input.nodeId)
@@ -718,53 +739,58 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
   return nodeValues(ctx, actor, [input.nodeId])[0]!;
 });
 
-export const nodesSetModeratorOp = implement(contracts.nodesSetModerator, (ctx, actor, input) => {
-  requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.permissions");
-  return writeTx(ctx, () => {
-    if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
-    if (
-      !forumDb(ctx)
-        .prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1")
-        .get(input.userId)
-    )
-      throw new NotFoundError();
-    const ids = Object.entries(PERMISSIONS)
-      .filter(
-        ([id, def]) =>
-          def.scope === "node" &&
-          (("legacy" in def && def.legacy === PERMISSIONS["forum.viewModerated"].legacy) ||
-            id === "forum.viewLog" ||
-            id === "forum.bypassNodeRules"),
+export const nodesSetModeratorOp = implement(
+  contracts.nodesSetModerator,
+  async (ctx, actor, input) => {
+    requireAuthenticated(actor);
+    await confirmActorPassword(ctx, actor, input.actorPassword);
+    requirePermission(ctx, actor, "admin.permissions");
+    return writeTx(ctx, () => {
+      if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
+      if (
+        !forumDb(ctx)
+          .prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1")
+          .get(input.userId)
       )
-      .map(([id]) => id);
-    const values = JSON.stringify(ids);
-    if (input.remove) {
-      forumDb(ctx)
-        .prepare(
-          "DELETE FROM permission_entries WHERE node_id = ?1 AND user_id = ?2 AND group_id = 0 AND value = 1 AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)))",
+        throw new NotFoundError();
+      requireNotErased(ctx, input.userId);
+      const ids = Object.entries(PERMISSIONS)
+        .filter(
+          ([id, def]) =>
+            def.scope === "node" &&
+            (("legacy" in def && def.legacy === PERMISSIONS["forum.viewModerated"].legacy) ||
+              id === "forum.viewLog" ||
+              id === "forum.bypassNodeRules"),
         )
-        .run(input.nodeId, input.userId, values);
-    } else {
-      forumDb(ctx)
-        .prepare(
-          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, ?1, 0, ?2, 1 FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)) ON CONFLICT (group_id, user_id, node_id, permission_id) DO NOTHING",
-        )
-        .run(input.nodeId, input.userId, values);
-    }
-    appendModeratorLog(
-      ctx,
-      actor,
-      input.remove ? "node.moderator.remove" : "node.moderator.add",
-      "node",
-      input.nodeId,
-      "",
-      { userId: input.userId },
-      input.nodeId,
-    );
-    return { ok: true as const };
-  });
-});
+        .map(([id]) => id);
+      const values = JSON.stringify(ids);
+      if (input.remove) {
+        forumDb(ctx)
+          .prepare(
+            "DELETE FROM permission_entries WHERE node_id = ?1 AND user_id = ?2 AND group_id = 0 AND value = 1 AND permission_id IN (SELECT id FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)))",
+          )
+          .run(input.nodeId, input.userId, values);
+      } else {
+        forumDb(ctx)
+          .prepare(
+            "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, ?1, 0, ?2, 1 FROM permission_definitions WHERE key IN (SELECT value FROM json_each(?3)) ON CONFLICT (group_id, user_id, node_id, permission_id) DO NOTHING",
+          )
+          .run(input.nodeId, input.userId, values);
+      }
+      appendModeratorLog(
+        ctx,
+        actor,
+        input.remove ? "node.moderator.remove" : "node.moderator.add",
+        "node",
+        input.nodeId,
+        "",
+        { userId: input.userId },
+        input.nodeId,
+      );
+      return { ok: true as const };
+    });
+  },
+);
 
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
@@ -829,11 +855,23 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
     targetId = next;
   }
   const { row, node } = requireThread(ctx, actor, targetId);
-  ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
+  if (input.countView) ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
+  const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },
+    watching:
+      userId === null
+        ? null
+        : (() => {
+            const watch = statement<{ email: number }, [number, number]>(
+              ctx,
+              "threadWatching",
+              "SELECT email FROM thread_watches WHERE thread_id = ?1 AND user_id = ?2",
+            ).get(row.id, userId);
+            return watch ? { email: !!watch.email } : null;
+          })(),
     permissions: {
       canReply:
         can(ctx, actor, "forum.reply", {
@@ -843,6 +881,11 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
         (!row.is_locked || can(ctx, actor, "forum.replyLocked", { nodeId: node.id })),
       canEditTitle: mayEditTitle(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
+      // Reporting targets the first post, and watching needs a visible thread: both are open to
+      // a signed-in viewer who got this far; reporting also needs the permission (createReport).
+      canReport: can(ctx, actor, "report.create"),
+      canRemoveCover: userId !== null && mayRemoveCover(ctx, actor, row),
+      canWatch: userId !== null,
     },
     resolvedPermissions: resolvedPermissions(ctx, actor, { nodeId: node.id }),
   };
@@ -1171,10 +1214,8 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
 export const threadsRemoveCoverOp = implement(contracts.threadsRemoveCover, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
+  if (!mayRemoveCover(ctx, actor, row)) throw new ForbiddenError();
   const moderator = can(ctx, actor, "forum.editAny", { nodeId: row.node_id });
-  // The author of a visible thread, or whoever may edit other members' threads there.
-  if (!moderator && !(row.user_id === actorUserId(actor) && row.state === "visible"))
-    throw new ForbiddenError();
   writeTx(ctx, () => {
     const current = threadRow(ctx, row.id)!;
     if (current.cover_id === null) return;
