@@ -159,42 +159,49 @@ export async function consumeEvents(
 }
 
 type EventHandler = (event: DomainEvent) => void | Promise<void>;
-const subscribers = new WeakMap<Ctx, Map<string, EventHandler>>();
+type Subscriber = { handler: EventHandler; retryAt: number };
+const subscribers = new WeakMap<Ctx, Map<string, Subscriber>>();
 
 /**
  * Registers a subscriber that `dispatchEvents` feeds promptly (the server dispatches every
  * second). The name is its durable cursor; handlers must be idempotent.
  */
 export function registerEventSubscriber(ctx: Ctx, name: string, handler: EventHandler): void {
-  const map = subscribers.get(ctx) ?? new Map<string, EventHandler>();
-  map.set(name, handler);
+  const map = subscribers.get(ctx) ?? new Map<string, Subscriber>();
+  map.set(name, { handler, retryAt: map.get(name)?.retryAt ?? 0 });
   subscribers.set(ctx, map);
 }
 
 /**
  * Feeds new events to every registered subscriber in batches, yielding to the event loop between
- * batches so requests are never held up, until each is caught up or the time budget is spent.
- * A subscriber whose handler throws is logged and stops for this dispatch with its cursor on the
- * failed event; the others carry on. Returns the number of events handled.
+ * batches. Each subscriber gets its own share of the budget and at least one batch, so a slow
+ * handler cannot spend another subscriber's turn. Batches may overrun their slice.
+ * A failed handler is logged and backs off for one second, keeping its durable cursor on the
+ * failed event; the others carry on. Returns the number of events handled successfully.
  */
 export async function dispatchEvents(
   ctx: Ctx,
   options: { budgetMs?: number } = {},
 ): Promise<number> {
-  const deadline = performance.now() + (options.budgetMs ?? 500);
+  const budgetMs = options.budgetMs ?? 500;
+  if (budgetMs <= 0) return 0;
+  const registered = [...(subscribers.get(ctx) ?? [])];
   let handled = 0;
-  for (const [name, handler] of subscribers.get(ctx) ?? []) {
+  for (const [name, subscriber] of registered) {
+    if (ctx.now() < subscriber.retryAt) continue;
+    const deadline = performance.now() + budgetMs / registered.length;
     let count = 0;
     const counted: EventHandler = async (event) => {
-      await handler(event);
+      await subscriber.handler(event);
       count++;
     };
-    while (performance.now() < deadline) {
+    do {
       count = 0;
       try {
         await consumeEvents(ctx, name, counted, 100);
       } catch (error) {
-        // The failed event stays at this subscriber's cursor for the next dispatch.
+        // Start the backoff after the failure, including time spent awaiting the handler.
+        subscriber.retryAt = ctx.now() + 1000;
         console.error(`[events:${name}]`, error);
         handled += count;
         break;
@@ -202,7 +209,7 @@ export async function dispatchEvents(
       handled += count;
       await new Promise((resolve) => setImmediate(resolve));
       if (count < 100) break;
-    }
+    } while (performance.now() < deadline);
   }
   return handled;
 }

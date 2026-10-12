@@ -88,18 +88,32 @@ function reactionCounts(ctx: Ctx, type: string, id: number): string {
 
 function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
   const id = row.id;
+  const pending = inTransfer(ctx, stage, id);
+  if (pending && stage !== "users") return {};
   if (stage === "threads") {
+    const failedMerge = !!one(
+      ctx,
+      "failedMergeTarget",
+      "SELECT 1 FROM thread_transfers WHERE thread_id = ?1 AND role = 'merge_target' AND failed_at IS NOT NULL",
+      id,
+    );
+    // The target's first post stays at zero; every other post is sorted by creation time.
+    // Negative positions are unfinished renumbering, not a new first or last post.
     const first = one<{ id: number }>(
       ctx,
-      "firstPost",
-      "SELECT id FROM posts WHERE thread_id = ?1 ORDER BY position, id LIMIT 1",
+      failedMerge ? "mergeFirstPost" : "firstPost",
+      failedMerge
+        ? "SELECT id FROM posts WHERE thread_id = ?1 AND position = 0 LIMIT 1"
+        : "SELECT id FROM posts WHERE thread_id = ?1 ORDER BY position, id LIMIT 1",
       id,
     );
     const last = one<{ id: number; created_at: number; user_id: number }>(
       ctx,
-      "lastPost",
+      failedMerge ? "mergeLastPost" : "lastPost",
       "SELECT id, created_at, user_id FROM posts WHERE thread_id = ?1 AND state = 'visible' " +
-        "ORDER BY position DESC, id DESC LIMIT 1",
+        (failedMerge
+          ? "ORDER BY (position = 0), created_at DESC, id DESC LIMIT 1"
+          : "ORDER BY position DESC, id DESC LIMIT 1"),
       id,
     );
     const count = one<{ n: number }>(
@@ -117,6 +131,8 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
     };
   }
   if (stage === "nodes") {
+    // Transfers maintain these thread counters in each chunk, even while post positions are
+    // temporary. Aggregating them is safe without waiting for the transfer to finish.
     const counts = one<{ threads: number; posts: number }>(
       ctx,
       "nodeCounts",
@@ -156,17 +172,23 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
     };
   }
   if (stage === "users") {
-    const posts = one<{ n: number }>(
-      ctx,
-      "userPosts",
-      "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id " +
-        "WHERE p.user_id = ?1 AND p.state = 'visible' AND t.state = 'visible'",
-      id,
-    )!.n;
     const score = one<{ n: number }>(
       ctx,
       "userScore",
       "SELECT COALESCE(SUM(score), 0) AS n FROM reactions WHERE content_user_id = ?1",
+      id,
+    )!.n;
+    if (pending) return { reaction_score: score };
+    // A merge tombstones sources before moving their posts. Unmoved posts retain their
+    // original contribution until the retry applies targetVisible - sourceVisible.
+    const posts = one<{ n: number }>(
+      ctx,
+      "userPosts",
+      "SELECT COUNT(*) AS n FROM posts p JOIN threads t ON t.id = p.thread_id " +
+        "WHERE p.user_id = ?1 AND p.state = 'visible' AND (t.state = 'visible' OR EXISTS (" +
+        "SELECT 1 FROM thread_transfers x JOIN jobs j ON j.unique_key = x.job_key || '.' || x.thread_id " +
+        "WHERE x.thread_id = t.id AND x.role = 'merge_source' AND x.failed_at IS NOT NULL " +
+        "AND j.type = 'forums.merge' AND json_extract(j.payload, '$.sourceVisible') = 1))",
       id,
     )!.n;
     return { post_count: posts, reaction_score: score };
@@ -219,24 +241,22 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
 /**
  * True when the row's counters depend on a thread that a merge or split is still renumbering.
  * Its posts then sit at temporary positions or in the old thread, so any value computed from
- * them would be wrong. Such rows are left for the next run (the transfer's own finish keeps their
- * counters right), which cannot starve the rebuild: nothing waits and nothing is retried.
+ * them would be wrong. Pending transfers keep their dependent counters until the next run;
+ * reaction scores, node aggregates and the stable counters of failed transfers can be repaired.
  */
 function inTransfer(ctx: Ctx, stage: Stage, id: number): boolean {
   if (stage === "threads")
-    return !!one(ctx, "transferThread", "SELECT 1 FROM thread_transfers WHERE thread_id = ?1", id);
-  if (stage === "nodes")
     return !!one(
       ctx,
-      "transferNode",
-      "SELECT 1 FROM threads t JOIN thread_transfers x ON x.thread_id = t.id WHERE t.node_id = ?1 LIMIT 1",
+      "transferThread",
+      "SELECT 1 FROM thread_transfers WHERE thread_id = ?1 AND failed_at IS NULL",
       id,
     );
   if (stage === "users")
     return !!one(
       ctx,
       "transferUser",
-      "SELECT 1 FROM posts p JOIN thread_transfers x ON x.thread_id = p.thread_id WHERE p.user_id = ?1 LIMIT 1",
+      "SELECT 1 FROM posts p JOIN thread_transfers x ON x.thread_id = p.thread_id WHERE p.user_id = ?1 AND x.failed_at IS NULL LIMIT 1",
       id,
     );
   return false;
@@ -288,7 +308,6 @@ export function rebuildCountersChunk(
     );
     let changed = 0;
     for (const row of rows) {
-      if (inTransfer(ctx, progress.stage, row.id)) continue;
       if (updateChanged(ctx, progress.stage, row, expected(ctx, progress.stage, row))) changed++;
     }
     const nextStageIndex = stages.indexOf(progress.stage) + 1;

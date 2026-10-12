@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Ctx } from "./context";
 import { invalidate } from "./context";
 import { writeTx } from "./db/tx";
@@ -118,6 +118,97 @@ describe("durable domain events", () => {
 });
 
 describe("event dispatch isolation", () => {
+  test("slow failures cannot exhaust another subscriber's turn", async () => {
+    const ctx = createTestContext();
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    const attempts: number[] = [];
+    const healthy: number[] = [];
+    registerEventSubscriber(ctx, "slow", async (event) => {
+      attempts.push(event.targetId);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      throw new Error("slow failure");
+    });
+    registerEventSubscriber(ctx, "healthy", (event) => {
+      healthy.push(event.targetId);
+    });
+    try {
+      const handled: number[] = [];
+      for (let id = 1; id <= 3; id++) {
+        writeTx(ctx, () => {
+          publishEvent(ctx, { type: "reaction.added", targetType: "post", targetId: id });
+        });
+        handled.push(await dispatchEvents(ctx, { budgetMs: 5 }));
+        ctx.clock.advance(1000);
+      }
+      expect(handled).toEqual([1, 1, 1]);
+      expect(healthy).toEqual([1, 2, 3]);
+      expect(attempts).toEqual([1, 1, 1]);
+      expect(
+        ctx.sqlite.prepare("SELECT last_event_id FROM event_subscribers WHERE name = 'slow'").get(),
+      ).toBeNull();
+    } finally {
+      errors.mockRestore();
+      ctx.sqlite.close(true);
+    }
+  });
+
+  test("a slow successful subscriber gives every later subscriber a turn", async () => {
+    const ctx = createTestContext();
+    writeTx(ctx, () => {
+      publishEvent(ctx, { type: "reaction.added", targetType: "post", targetId: 1 });
+    });
+    const seen: string[] = [];
+    for (const name of ["slow", "second", "third"]) {
+      registerEventSubscriber(ctx, name, async () => {
+        if (name === "slow") await new Promise((resolve) => setTimeout(resolve, 15));
+        seen.push(name);
+      });
+    }
+    try {
+      expect(await dispatchEvents(ctx, { budgetMs: 5 })).toBe(3);
+      expect(seen).toEqual(["slow", "second", "third"]);
+    } finally {
+      ctx.sqlite.close(true);
+    }
+  });
+
+  test("failed subscribers back off independently and resume at the failed event", async () => {
+    const ctx = createTestContext();
+    const other = createTestContext();
+    const errors = spyOn(console, "error").mockImplementation(() => {});
+    let attempts = 0;
+    let failing = true;
+    for (const context of [ctx, other]) {
+      writeTx(context, () => {
+        publishEvent(context, { type: "reaction.added", targetType: "post", targetId: 1 });
+      });
+    }
+    registerEventSubscriber(ctx, "same-name", () => {
+      attempts++;
+      if (failing) throw new Error("retry later");
+    });
+    registerEventSubscriber(other, "same-name", () => {});
+    try {
+      expect(await dispatchEvents(ctx)).toBe(0);
+      for (let i = 0; i < 5; i++) expect(await dispatchEvents(ctx)).toBe(0);
+      expect(attempts).toBe(1);
+      expect(errors).toHaveBeenCalledTimes(1);
+      expect(await dispatchEvents(other)).toBe(1);
+      ctx.clock.advance(999);
+      expect(await dispatchEvents(ctx)).toBe(0);
+      expect(attempts).toBe(1);
+      failing = false;
+      ctx.clock.advance(1);
+      expect(await dispatchEvents(ctx)).toBe(1);
+      expect(attempts).toBe(2);
+      expect(await dispatchEvents(ctx)).toBe(0);
+    } finally {
+      errors.mockRestore();
+      ctx.sqlite.close(true);
+      other.sqlite.close(true);
+    }
+  });
+
   test("a throwing subscriber is logged and retried while the others proceed", async () => {
     const ctx = createTestContext();
     writeTx(ctx, () => {
@@ -156,6 +247,8 @@ describe("event dispatch isolation", () => {
     expect(cursor?.last_event_id).toBe(1);
 
     failing = false;
+    expect(await dispatchEvents(ctx)).toBe(0);
+    ctx.clock.advance(1000);
     expect(await dispatchEvents(ctx)).toBe(2);
     expect(attempts).toEqual([1, 2, 2, 3]);
     ctx.sqlite.close(true);

@@ -2,6 +2,9 @@ import { convert } from "html-to-text";
 import type { TokenizerAndRendererExtension } from "marked";
 import { ValidationError } from "../errors";
 
+export const MAX_QUOTE_DEPTH = 10;
+export const MAX_SPOILER_DEPTH = 10;
+
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
     switch (character) {
@@ -40,7 +43,7 @@ export const containerExtension: TokenizerAndRendererExtension = {
   tokenizer(source) {
     const open = opening.exec(source);
     if (!open) return;
-    const kind = open[1]!;
+    const kind = open[1] as "quote" | "spoiler";
     const attributes = open[2] ?? "";
     const quote =
       kind === "quote" ? /^post=([1-9]\d*)(?: author="([^"\n]*)")?$/.exec(attributes) : null;
@@ -48,7 +51,8 @@ export const containerExtension: TokenizerAndRendererExtension = {
     if ((kind === "quote" && !quote) || (kind === "spoiler" && !spoiler)) return;
 
     let offset = open[0].length;
-    let depth = 1;
+    const containers = [kind];
+    const depths = { quote: Number(kind === "quote"), spoiler: Number(kind === "spoiler") };
     let fence: { marker: string; length: number } | null = null;
     while (offset < source.length) {
       const next = source.indexOf("\n", offset);
@@ -66,14 +70,16 @@ export const containerExtension: TokenizerAndRendererExtension = {
       } else if (fenceMatch) {
         fence = { marker: fenceMatch[1]![0]!, length: fenceMatch[1]!.length };
       } else if (opening.test(line)) {
-        depth++;
-        if (depth > 10)
+        const nestedKind = opening.exec(line)![1] as "quote" | "spoiler";
+        containers.push(nestedKind);
+        depths[nestedKind]++;
+        if (depths.quote > MAX_QUOTE_DEPTH || depths.spoiler > MAX_SPOILER_DEPTH)
           throw new ValidationError("Containers are nested too deeply.", [
             { path: ["body"], message: "Containers may be nested at most 10 levels deep." },
           ]);
       } else if (closing.test(line)) {
-        depth--;
-        if (depth === 0) {
+        depths[containers.pop()!]--;
+        if (containers.length === 0) {
           const body = source.slice(open[0].length, offset);
           return {
             type: "sermoContainer",

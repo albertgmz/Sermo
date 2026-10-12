@@ -2787,6 +2787,34 @@
           ],
           "isUnique": false
         },
+        "notifications_user_group": {
+          "name": "notifications_user_group",
+          "columns": [
+            "user_id",
+            "epoch",
+            "group_key"
+          ],
+          "isUnique": true,
+          "where": "read_at IS NULL AND group_key IS NOT NULL"
+        },
+        "notifications_user_unread": {
+          "name": "notifications_user_unread",
+          "columns": [
+            "user_id",
+            "id"
+          ],
+          "isUnique": false,
+          "where": "read_at IS NULL"
+        },
+        "notifications_user_thread": {
+          "name": "notifications_user_thread",
+          "columns": [
+            "user_id",
+            "thread_id"
+          ],
+          "isUnique": false,
+          "where": "read_at IS NULL AND thread_id IS NOT NULL"
+        },
         "notifications_content": {
           "name": "notifications_content",
           "columns": [
@@ -2794,6 +2822,35 @@
             "content_id"
           ],
           "isUnique": false
+        },
+        "notifications_read_purge": {
+          "name": "notifications_read_purge",
+          "columns": [
+            "read_at",
+            "id"
+          ],
+          "isUnique": false,
+          "where": "read_at IS NOT NULL"
+        },
+        "notifications_thread": {
+          "name": "notifications_thread",
+          "columns": [
+            "thread_id",
+            "id"
+          ],
+          "isUnique": false,
+          "where": "thread_id IS NOT NULL"
+        },
+        "notifications_user_unread_recent": {
+          "name": "notifications_user_unread_recent",
+          "columns": [
+            "user_id",
+            "epoch",
+            "updated_at",
+            "id"
+          ],
+          "isUnique": false,
+          "where": "read_at IS NULL"
         }
       },
       "foreignKeys": {
@@ -3001,7 +3058,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "permission_entries_one_target": {
+          "name": "permission_entries_one_target",
+          "value": "(group_id = 0) <> (user_id = 0)"
+        }
+      }
     },
     "permission_layer_versions": {
       "name": "permission_layer_versions",
@@ -7198,7 +7260,6 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "schemas": {},
     "tables": {},
     "columns": {}
   },

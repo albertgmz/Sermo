@@ -35,9 +35,31 @@ export function runViewsTask(ctx: Ctx): number {
   return views;
 }
 
-/** Yields to the event loop after every full batch; small tables finish within the call itself. */
-export async function runHourlyTasks(ctx: Ctx): Promise<void> {
-  purgeExpiredCredentials(ctx);
+type CredentialPurgeCursor = { sessions: number; apiKeys: number; verifications: number };
+type CredentialPurgeBatch = (
+  ctx: Ctx,
+  after?: CredentialPurgeCursor,
+) => {
+  sessions: number;
+  apiKeys: number;
+  verifications: number;
+  more?: boolean;
+  after?: CredentialPurgeCursor;
+};
+
+/** Yields before credential cleanup and between full maintenance batches. */
+export async function runHourlyTasks(
+  ctx: Ctx,
+  purgeCredentials: CredentialPurgeBatch = purgeExpiredCredentials,
+): Promise<void> {
+  // The auth implementation must bound rows scanned (including live rows), returning the
+  // last scanned ids and `more` for incremental cleanup.
+  // The legacy purge returns only counts and still performs one unbounded synchronous batch.
+  let credentials: ReturnType<CredentialPurgeBatch> | undefined;
+  do {
+    await yieldToEventLoop();
+    credentials = purgeCredentials(ctx, credentials?.after);
+  } while (credentials.more);
   enqueueJob(
     ctx,
     "notifications.retention",

@@ -10,6 +10,8 @@ import {
   containerExtension,
   inlineSpoilerExtension,
   inlineSpoilerLineExtension,
+  MAX_QUOTE_DEPTH,
+  MAX_SPOILER_DEPTH,
   mentionExtension,
 } from "./markdown/extensions";
 import {
@@ -121,7 +123,6 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
  * worst cases measured stay around 45 ms. Deep quote nesting overflows the parser's stack.
  */
 export const MAX_BODY_LENGTH = 10_000;
-const MAX_QUOTE_DEPTH = 10;
 const TOO_DEEP_QUOTES = new RegExp(`^(?:[ \t]{0,3}>){${MAX_QUOTE_DEPTH + 1}}`, "m");
 
 /** Throws ValidationError for input that cannot be rendered safely. */
@@ -192,10 +193,14 @@ function canonicalQuoteLines(source: string, quotes: Tokens.Generic[]): string {
     .join("\n");
 }
 
-function previousMentions(html: string): Map<string, { id: number; label: string }> {
+function previousRenderedReferences(html: string) {
   const mentions = new Map<string, { id: number; label: string }>();
+  const quoteAuthors = new Map<number, string>();
   convert(html, {
-    selectors: [{ selector: "a.mention", format: "captureMention" }],
+    selectors: [
+      { selector: "a.mention", format: "captureMention" },
+      { selector: "blockquote.quote", format: "captureQuote" },
+    ],
     formatters: {
       captureMention(element, walk, builder) {
         const id = Number(element.attribs?.["data-user-id"]);
@@ -205,9 +210,17 @@ function previousMentions(html: string): Map<string, { id: number; label: string
         }
         walk(element.children, builder);
       },
+      captureQuote(element, walk, builder) {
+        const id = Number(element.attribs?.["data-post-id"]);
+        const citation = element.children.find((child) => child.name === "cite");
+        const link = citation?.children.find((child) => child.name === "a");
+        const author = link?.children.map((child) => child.data ?? "").join("");
+        if (Number.isSafeInteger(id) && id > 0 && author) quoteAuthors.set(id, author);
+        walk(element.children, builder);
+      },
     },
   });
-  return mentions;
+  return { mentions, quoteAuthors };
 }
 
 type ContentEdit = { contentType: ContentType; contentId: number; authorId: number };
@@ -216,6 +229,8 @@ function previousContent(ctx: Ctx, edit?: ContentEdit) {
   if (!edit)
     return {
       mentions: new Map<string, { id: number; label: string }>(),
+      mentionedUserIds: new Set<number>(),
+      quoteAuthors: new Map<number, string>(),
       quotes: new Map<number, number>(),
     };
   const source = {
@@ -225,29 +240,43 @@ function previousContent(ctx: Ctx, edit?: ContentEdit) {
     conversation_message: "SELECT body_html FROM conversation_messages WHERE id = ?1",
   }[edit.contentType];
   const row = ctx.sqlite.prepare<{ body_html: string }, [number]>(source).get(edit.contentId);
+  const mentions = prepared(ctx, "markdown.existingMentions", () =>
+    ctx.sqlite.prepare<{ user_id: number }, [string, number]>(
+      "SELECT user_id FROM content_mentions WHERE content_type = ?1 AND content_id = ?2",
+    ),
+  ).all(edit.contentType, edit.contentId);
   const quotes = prepared(ctx, "markdown.previousQuotes", () =>
     ctx.sqlite.prepare<{ quoted_post_id: number; quoted_user_id: number }, [string, number]>(
       "SELECT quoted_post_id, quoted_user_id FROM content_quotes WHERE content_type = ?1 AND content_id = ?2",
     ),
   ).all(edit.contentType, edit.contentId);
   return {
-    mentions: previousMentions(row?.body_html ?? ""),
+    ...previousRenderedReferences(row?.body_html ?? ""),
+    mentionedUserIds: new Set(mentions.map((mention) => mention.user_id)),
     quotes: new Map(quotes.map((quote) => [quote.quoted_post_id, quote.quoted_user_id])),
   };
 }
 
-function checkQuoteDepth(tokens: Tokens.Generic[], depth = 0): void {
+function checkContainerDepth(tokens: Tokens.Generic[], quoteDepth = 0, spoilerDepth = 0): void {
   for (const token of tokens) {
-    const next = depth + Number(token.type === "blockquote" || token.type === "sermoContainer");
-    if (next > MAX_QUOTE_DEPTH)
+    const nextQuotes =
+      quoteDepth +
+      Number(
+        token.type === "blockquote" || (token.type === "sermoContainer" && token.kind === "quote"),
+      );
+    const nextSpoilers =
+      spoilerDepth + Number(token.type === "sermoContainer" && token.kind === "spoiler");
+    if (nextQuotes > MAX_QUOTE_DEPTH || nextSpoilers > MAX_SPOILER_DEPTH)
       throw new ValidationError("Containers are nested too deeply.", [
         {
           path: ["body"],
           message: `Containers may be nested at most ${MAX_QUOTE_DEPTH} levels deep.`,
         },
       ]);
-    if (token.tokens) checkQuoteDepth(token.tokens, next);
-    if (token.items) for (const item of token.items) checkQuoteDepth(item.tokens ?? [], next);
+    if (token.tokens) checkContainerDepth(token.tokens, nextQuotes, nextSpoilers);
+    if (token.items)
+      for (const item of token.items)
+        checkContainerDepth(item.tokens ?? [], nextQuotes, nextSpoilers);
   }
 }
 
@@ -273,7 +302,7 @@ function render(
   try {
     const marked = markedFor(source);
     const tokens = marked.lexer(source);
-    checkQuoteDepth(tokens as Tokens.Generic[]);
+    checkContainerDepth(tokens as Tokens.Generic[]);
     const mentions: Tokens.Generic[] = [];
     const quoteTokens: Tokens.Generic[] = [];
     marked.walkTokens(tokens, (token) => {
@@ -341,14 +370,10 @@ function render(
         for (const token of mentions) {
           if (token.blocked) continue;
           const old = previous.mentions.get(String(token.name).toLowerCase());
-          if (!!old !== kept) continue;
           const user = byName.get(String(token.name).toLowerCase());
           const resolved = old ?? (user && { id: user.id, label: user.username });
-          if (
-            !resolved ||
-            (!kept && limit >= 0 && accepted.size >= limit && !accepted.has(resolved.id))
-          )
-            continue;
+          if (!resolved || previous.mentionedUserIds.has(resolved.id) !== kept) continue;
+          if (!kept && limit >= 0 && accepted.size >= limit && !accepted.has(resolved.id)) continue;
           token.userId = resolved.id;
           token.displayName = resolved.label;
           accepted.add(resolved.id);
@@ -392,7 +417,7 @@ function render(
         ) {
           throw new ValidationError("The quoted post is not visible.");
         }
-        token.resolvedAuthor = row.username;
+        token.resolvedAuthor = previous.quoteAuthors.get(row.id) ?? row.username;
         if (!quotes.some((quote) => quote.postId === row.id))
           quotes.push({ postId: row.id, userId: previous.quotes.get(row.id) ?? row.user_id });
       }

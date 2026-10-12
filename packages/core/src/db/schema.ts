@@ -10,9 +10,10 @@
  * - The FTS5 table `search_fts` and its triggers live in a hand-written migration, not here.
  */
 
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
+  check,
   index,
   integer,
   sqliteTable,
@@ -259,6 +260,7 @@ export const permissionEntries = sqliteTable(
   (t) => [
     uniqueIndex("permission_entries_target").on(t.groupId, t.userId, t.nodeId, t.permissionId),
     index("permission_entries_node").on(t.nodeId),
+    check("permission_entries_one_target", sql`(group_id = 0) <> (user_id = 0)`),
   ],
 );
 
@@ -1182,7 +1184,6 @@ export const userIgnores = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // Notifications, email, push
-// Partial indexes on notifications are declared in migration 0010, not here.
 
 export const notifications = sqliteTable(
   "notifications",
@@ -1216,7 +1217,19 @@ export const notifications = sqliteTable(
   },
   (t) => [
     index("notifications_user_recent").on(t.userId, t.updatedAt, t.id),
+    uniqueIndex("notifications_user_group")
+      .on(t.userId, t.epoch, t.groupKey)
+      .where(sql`read_at IS NULL AND group_key IS NOT NULL`),
+    index("notifications_user_unread").on(t.userId, t.id).where(sql`read_at IS NULL`),
+    index("notifications_user_thread")
+      .on(t.userId, t.threadId)
+      .where(sql`read_at IS NULL AND thread_id IS NOT NULL`),
     index("notifications_content").on(t.contentType, t.contentId),
+    index("notifications_read_purge").on(t.readAt, t.id).where(sql`read_at IS NOT NULL`),
+    index("notifications_thread").on(t.threadId, t.id).where(sql`thread_id IS NOT NULL`),
+    index("notifications_user_unread_recent")
+      .on(t.userId, t.epoch, t.updatedAt, t.id)
+      .where(sql`read_at IS NULL`),
   ],
 );
 
