@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { getCounters } from "@/components/layout/header-data";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems, toNavItems } from "@/components/layout/nav";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
@@ -9,7 +10,6 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { StaffBar } from "@/components/layout/staff-bar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getUnreadCounts } from "@/lib/db";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getCurrentUser } from "@/lib/session";
 
@@ -28,9 +28,7 @@ async function MobileNavigation() {
     getCurrentUser(),
     getNavigation(),
   ]);
-  const unread = user
-    ? await getUnreadCounts(user.id)
-    : { conversations: 0, notifications: 0 };
+  const unread = await getCounters();
   const items = mobileItems(
     toNavItems(navigation.mobile, user && `/members/${user.id}`),
   );

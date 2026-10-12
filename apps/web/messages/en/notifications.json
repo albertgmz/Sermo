@@ -4,8 +4,37 @@
     "heading": "Notifications",
     "notifications": "{count, plural, =0 {You are all caught up.} one {# unread} other {# unread}}",
     "markAllRead": "Mark all as read",
+    "nextPage": "Older notifications",
     "emptyTitle": "No notifications yet",
     "emptyDescription": "Replies, reactions, follows and profile posts will show up here."
+  },
+  "notificationRow": {
+    "someone": "Someone",
+    "actors": "{shown, plural, one {{others, plural, =0 {<first></first>} one {<first></first> and # other} other {<first></first> and # others}}} other {{others, plural, =0 {<first></first> and <second></second>} one {<first></first>, <second></second> and # other} other {<first></first>, <second></second> and # others}}}}",
+    "texts": {
+      "threadWatched": "<actors></actors> replied in {titled, select, yes {“{title}”} other {a thread you watch}}",
+      "nodeThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {in a forum you watch}}",
+      "nodePost": "<actors></actors> posted in {titled, select, yes {“{title}”} other {a forum you watch}}",
+      "contentQuoted": "<actors></actors> quoted you{titled, select, yes { in “{title}”} other {}}",
+      "contentMentioned": "<actors></actors> mentioned you{titled, select, yes { in “{title}”} other {}}",
+      "contentReaction": "<actors></actors> reacted {emoji} to your {kind, select, post {post} profile_post {wall post} profile_post_comment {comment} conversation_message {message} other {content}}{titled, select, yes { in “{title}”} other {}}",
+      "profilePost": "<actors></actors> wrote on your profile",
+      "profileComment": "<actors></actors> commented on your wall post",
+      "profileCommented": "<actors></actors> also commented on a wall post you commented on",
+      "memberThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {}}",
+      "memberFollowed": "<actors></actors> started following you",
+      "conversationAdded": "<actors></actors> added you to the conversation {titled, select, yes {“{title}”} other {}}",
+      "conversationMessage": "<actors></actors> wrote in the conversation {titled, select, yes {“{title}”} other {}}",
+      "moderationContent": "{action, select, deleted {Your content was deleted} rejected {Your content was rejected} approved {Your content was approved} undeleted {Your content was restored} moved {Your thread was moved} locked {Your thread was locked} unlocked {Your thread was unlocked} edited {A moderator edited your content} merged {Your thread was merged} split {Your thread was split} other {A moderator acted on your content}}{titled, select, yes { in “{title}”} other {}}",
+      "moderationMember": "{action, select, warned {You received a warning} thread_banned {You were banned from starting threads} thread_ban_lifted {Your thread ban was lifted} restricted {Your account was restricted} restriction_lifted {The restriction on your account was lifted} other {A moderator acted on your account}}",
+      "reportResolved": "{state, select, resolved {Your report was resolved} rejected {Your report was rejected} other {Your report was updated}}",
+      "moderatorReport": "A new report is waiting for review",
+      "moderatorApproval": "Content from <actors></actors> is waiting for approval",
+      "memberGroups": "Your member groups changed",
+      "announcement": "Announcement: {titled, select, yes {“{title}”} other {read it}}",
+      "accountSecurity": "There is a security notice about your account",
+      "unknown": "You have a new notification"
+    }
   },
   "loading": {
     "label": "Loading notifications…",

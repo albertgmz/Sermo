@@ -351,33 +351,46 @@ export default async function StyleguidePage() {
     (a, b) => b.reactions.total - a.reactions.total,
   )[0];
   const sampleDate = users[0].joinedAt;
+  const memberOf = (id: number) =>
+    (users.find((user) => user.id === id) ?? admin).member;
   const notifications = [
     {
-      actor: prefixThread?.lastPost.author ?? moderator,
-      text: `replied to your thread “${prefixThread?.title ?? "Sample thread"}”`,
-      prefix: prefixThread?.prefix,
+      type: "thread.watched",
+      contentType: "post",
+      actors: [prefixThread?.lastPost.author ?? moderator],
+      actorCount: 1,
+      contentTitle: prefixThread?.title ?? "Sample thread",
     },
-    { actor: member, text: "started following you" },
-    { actor: admin, text: "wrote on your profile" },
-  ].map((item, id) => ({
-    ...item,
-    id,
+    {
+      type: "content.reaction",
+      contentType: "post",
+      actors: [member, admin],
+      actorCount: 4,
+      contentTitle: "Sample thread",
+      emoji: "👍",
+    },
+    {
+      type: "member.followed",
+      contentType: "user",
+      actors: [member],
+      actorCount: 1,
+      contentTitle: null,
+    },
+  ].map(({ emoji = "", ...item }, id) => ({
+    item: { ...item, id, data: {}, createdAt: sampleDate, read: id > 0 },
     href: id === 0 && prefixThread ? `/threads/${prefixThread.id}` : "/ui",
-    createdAt:
-      id === 0 && prefixThread ? prefixThread.lastPost.createdAt : sampleDate,
-    read: id > 0,
+    emoji,
   }));
   const conversations = [
-    { title: "Sample conversation", participants: [admin, moderator] },
-    { title: "Group conversation", participants: [admin, moderator, member] },
+    { title: "Sample conversation", participantCount: 2 },
+    { title: "Group conversation", participantCount: 3 },
   ].map((item, id) => ({
     ...item,
     id,
-    unread: id === 0,
+    isUnread: id === 0,
     lastMessage: {
-      author: moderator,
-      body: "The **last message** shows here as plain text.",
-      createdAt: sampleDate,
+      sentAt: sampleDate,
+      user: { id: moderator.id, username: moderator.username },
     },
   }));
 
@@ -1227,14 +1240,21 @@ export default async function StyleguidePage() {
         <Section title="Notification and conversation rows">
           <p className="max-w-prose text-sm text-muted-foreground">
             The rows of the header panels and of the notifications and
-            conversations pages. A conversation row brings its own link. Thread
-            notifications keep the prefix beside the quoted title.
+            conversations pages. A conversation row brings its own link. A
+            notification names its actors, three at most by name, and its text
+            comes from the type the backend sent.
           </p>
           <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
             <ul className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              {notifications.slice(0, 2).map((item, index) => (
+              {notifications.map(({ item, href, emoji }, index) => (
                 <li key={item.id}>
-                  <NotificationRow item={item} size={index > 0 ? "lg" : "md"} />
+                  <NotificationRow
+                    item={item}
+                    href={href}
+                    emoji={emoji}
+                    member={memberOf}
+                    size={index > 0 ? "lg" : "md"}
+                  />
                 </li>
               ))}
             </ul>
@@ -1247,7 +1267,7 @@ export default async function StyleguidePage() {
                   >
                     <ConversationPreview
                       conversation={conversation}
-                      viewerId={admin.id}
+                      member={moderator.member}
                     />
                   </Link>
                 </li>
@@ -1273,9 +1293,14 @@ export default async function StyleguidePage() {
             className={headerIconClass}
           >
             <ul className="max-h-96 divide-y divide-border overflow-y-auto">
-              {notifications.map((item) => (
+              {notifications.map(({ item, href, emoji }) => (
                 <li key={item.id}>
-                  <NotificationRow item={item} />
+                  <NotificationRow
+                    item={item}
+                    href={href}
+                    emoji={emoji}
+                    member={memberOf}
+                  />
                 </li>
               ))}
             </ul>
