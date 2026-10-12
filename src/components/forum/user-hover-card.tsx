@@ -25,7 +25,7 @@ export function UserHoverCard({
       <HoverCardTrigger
         render={
           <Link
-            href={`/members/${user.username}`}
+            href={`/members/${user.id}`}
             className={cn(userLinkClass, userNameClass(user), className)}
           />
         }

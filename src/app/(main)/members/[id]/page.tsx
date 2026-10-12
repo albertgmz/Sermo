@@ -8,8 +8,8 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ProfileHeader } from "@/app/(main)/members/[username]/profile-header";
-import { Wall } from "@/app/(main)/members/[username]/wall";
+import { ProfileHeader } from "@/app/(main)/members/[id]/profile-header";
+import { Wall } from "@/app/(main)/members/[id]/wall";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge, XpBar } from "@/components/forum/level";
@@ -35,7 +35,7 @@ import {
   getInventory,
   getProfilePosts,
   getReactionTypes,
-  getUser,
+  getUserById,
   getUserPosts,
   getUserThreads,
   type InventoryItemView,
@@ -50,7 +50,7 @@ import { getCurrentUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 type Props = {
-  params: Promise<{ username: string }>;
+  params: Promise<{ id: string }>;
   searchParams: Promise<{ tab?: string | string[] }>;
 };
 
@@ -61,8 +61,9 @@ const titleLinkClass =
   "text-sm font-semibold underline-offset-4 [overflow-wrap:anywhere] hover:underline";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { username } = await params;
-  return { title: `${decodeURIComponent(username)} - forum/ui` };
+  const { id } = await params;
+  const user = await getUserById(Number(id));
+  return { title: `${user?.username ?? "Member"} - forum/ui` };
 }
 
 function LevelStrip({ user }: { user: UserView }) {
@@ -81,7 +82,7 @@ function LevelStrip({ user }: { user: UserView }) {
         / {formatNumber(level.nextLevelXp)} XP
       </p>
       <Link
-        href={`/members/${user.username}?tab=about#awards`}
+        href={`/members/${user.id}?tab=about#awards`}
         className="relative ml-auto text-xs text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3 hover:text-foreground"
       >
         <span className="font-semibold text-foreground tabular-nums">
@@ -132,7 +133,7 @@ function ProfileCards({
               {user.awards.map((award) => (
                 <li key={award.id}>
                   <Link
-                    href={`/awards/${award.slug}`}
+                    href={`/awards/${award.id}`}
                     className="inline-flex size-10 items-center justify-center rounded-md transition-colors hover:bg-muted"
                   >
                     <AwardIcon award={award} />
@@ -263,7 +264,7 @@ function Threads({ user, threads }: { user: UserView; threads: ThreadView[] }) {
       </h3>
       <p className="mt-0.5 text-xs text-muted-foreground">
         <Link
-          href={`/forums/${thread.forum.slug}`}
+          href={`/forums/${thread.forum.id}`}
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           {thread.forum.title}
@@ -345,12 +346,12 @@ function About({ user, cards }: { user: UserView; cards: React.ReactNode }) {
 }
 
 export default async function ProfilePage({ params, searchParams }: Props) {
-  const [{ username }, query, viewer] = await Promise.all([
+  const [{ id }, query, viewer] = await Promise.all([
     params,
     searchParams,
     getCurrentUser(),
   ]);
-  const user = await getUser(decodeURIComponent(username));
+  const user = await getUserById(Number(id));
   if (!user) notFound();
 
   const tab: Tab = TABS.find((value) => value === query.tab) ?? "wall";
@@ -372,7 +373,7 @@ export default async function ProfilePage({ params, searchParams }: Props) {
     />
   );
 
-  const base = `/members/${user.username}`;
+  const base = `/members/${user.id}`;
   const tabs = [
     { value: "wall", label: "Wall", href: base, count: wallPosts.length },
     {

@@ -63,7 +63,7 @@ function NewestMembers({ members }: { members: UserView[] }) {
             <TooltipTrigger
               render={
                 <Link
-                  href={`/members/${member.username}`}
+                  href={`/members/${member.id}`}
                   aria-label={member.username}
                   className="block rounded-full"
                 />

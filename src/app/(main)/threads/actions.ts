@@ -37,7 +37,7 @@ export async function replyAction(
     client: await getClientInfo(),
   });
   revalidatePath(`/threads/${thread.id}`);
-  revalidatePath(`/forums/${thread.forum.slug}`);
+  revalidatePath(`/forums/${thread.forum.id}`);
   revalidatePath("/forums");
   redirect(`/threads/${thread.id}#post-${post.id}`);
 }

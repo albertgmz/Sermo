@@ -30,7 +30,7 @@ async function Chrome() {
         conversations={conversations.slice(0, PANEL_CONVERSATIONS)}
         notifications={notifications.slice(0, PANEL_NOTIFICATIONS)}
       />
-      <MobileNav user={user && { username: user.username }} unread={unread} />
+      <MobileNav user={user && { id: user.id }} unread={unread} />
     </>
   );
 }

@@ -113,7 +113,7 @@ function AwardCard({
             )}
           >
             <Link
-              href={`/awards/${award.slug}`}
+              href={`/awards/${award.id}`}
               className="rounded-lg outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
               {award.name}

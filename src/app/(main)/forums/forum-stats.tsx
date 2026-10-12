@@ -111,7 +111,7 @@ function ThreadRow({
         </ThreadHoverCard>
         <p className="truncate text-xs text-muted-foreground">
           <Link
-            href={`/forums/${thread.forum.slug}`}
+            href={`/forums/${thread.forum.id}`}
             className="font-medium underline-offset-4 hover:text-foreground hover:underline"
           >
             {thread.forum.title}

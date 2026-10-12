@@ -50,7 +50,7 @@ export function ProfileHeader({
   following: boolean;
 }) {
   const isOwn = viewer?.id === user.id;
-  const profileHref = `/members/${user.username}`;
+  const profileHref = `/members/${user.id}`;
   const socials = SOCIALS.filter(({ network }) => user.socials[network]);
   const stats = [
     { label: "UID", value: user.id },

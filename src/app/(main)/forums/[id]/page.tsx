@@ -22,11 +22,11 @@ const filterClass =
   "inline-flex h-10 shrink-0 items-center rounded-md px-1 transition-opacity md:h-7";
 
 function PrefixFilter({
-  slug,
+  id,
   prefixes,
   active,
 }: {
-  slug: string;
+  id: number;
   prefixes: Prefix[];
   active: Prefix | undefined;
 }) {
@@ -36,7 +36,7 @@ function PrefixFilter({
       className="-mx-1 mt-3 flex overflow-x-auto [scrollbar-width:none]"
     >
       <Link
-        href={`/forums/${slug}`}
+        href={`/forums/${id}`}
         scroll={false}
         aria-current={active ? undefined : "true"}
         className={cn(
@@ -49,7 +49,7 @@ function PrefixFilter({
       {prefixes.map((prefix) => (
         <Link
           key={prefix.id}
-          href={`/forums/${slug}?prefix=${prefix.key}`}
+          href={`/forums/${id}?prefix=${prefix.key}`}
           scroll={false}
           aria-current={prefix.id === active?.id ? "true" : undefined}
           className={cn(
@@ -145,20 +145,17 @@ function ThreadRow({ thread }: { thread: ThreadView }) {
 
 export async function generateMetadata({
   params,
-}: PageProps<"/forums/[slug]">): Promise<Metadata> {
-  const forum = await getForum((await params).slug);
+}: PageProps<"/forums/[id]">): Promise<Metadata> {
+  const forum = await getForum(Number((await params).id));
   return { title: `${forum?.title ?? "Forum"} - forum/ui` };
 }
 
 export default async function ForumPage({
   params,
   searchParams,
-}: PageProps<"/forums/[slug]">) {
-  const [{ slug }, { prefix: param }] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const forum = await getForum(slug);
+}: PageProps<"/forums/[id]">) {
+  const [{ id }, { prefix: param }] = await Promise.all([params, searchParams]);
+  const forum = await getForum(Number(id));
   if (!forum) notFound();
   const [user, all] = await Promise.all([
     getCurrentUser(),
@@ -175,7 +172,7 @@ export default async function ForumPage({
 
   const newThread = user && (
     <Link
-      href={`/forums/${forum.slug}/new`}
+      href={`/forums/${forum.id}/new`}
       className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
     >
       <Plus />
@@ -205,7 +202,7 @@ export default async function ForumPage({
       </div>
 
       {prefixes.length > 0 && (
-        <PrefixFilter slug={forum.slug} prefixes={prefixes} active={active} />
+        <PrefixFilter id={forum.id} prefixes={prefixes} active={active} />
       )}
 
       <div

@@ -27,7 +27,7 @@ export function MobileNav({
   user,
   unread,
 }: {
-  user: Pick<User, "username"> | null;
+  user: Pick<User, "id"> | null;
   unread: UnreadCounts;
 }) {
   const pathname = usePathname();
@@ -55,7 +55,7 @@ export function MobileNav({
           },
           {
             label: "Profile",
-            href: `/members/${user.username}`,
+            href: `/members/${user.id}`,
             icon: UserRound,
             match: ["/account"],
           },

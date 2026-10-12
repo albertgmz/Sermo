@@ -15,7 +15,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { User } from "@/lib/types";
 
-export function UserMenu({ user }: { user: AvatarUser & Pick<User, "title"> }) {
+export function UserMenu({
+  user,
+}: {
+  user: AvatarUser & Pick<User, "id" | "title">;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -37,7 +41,7 @@ export function UserMenu({ user }: { user: AvatarUser & Pick<User, "title"> }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"
-          render={<Link href={`/members/${user.username}`} />}
+          render={<Link href={`/members/${user.id}`} />}
         >
           <UserRound />
           Your profile
