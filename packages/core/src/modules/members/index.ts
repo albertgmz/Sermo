@@ -2,8 +2,10 @@ import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
 import { loadMemberAuthors, loadMemberCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersSetReferrerOp, usersStaffOp } from "./directory";
+import { standingsMonthOp, standingsWinnersOp } from "./standings";
 
 export { loadMemberAuthors, loadMemberCards } from "./cards";
+export { refreshStandings, registerStandingJobs } from "./standings";
 
 export const usersCardsOp = implement(
   usersCards,
@@ -36,4 +38,6 @@ export const operations = [
   usersStaffOp,
   usersBirthdaysOp,
   usersSetReferrerOp,
+  standingsMonthOp,
+  standingsWinnersOp,
 ];

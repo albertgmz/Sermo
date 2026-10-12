@@ -1,0 +1,365 @@
+import { describe, expect, test } from "bun:test";
+import { GUEST } from "../../actor";
+import { ForbiddenError, ValidationError } from "../../errors";
+import { expectNoTableScan, insertNode } from "../../testing";
+import { runDueJobs } from "../jobs/queue";
+import { runMinuteTasks } from "../jobs/scheduler";
+import { type World, world } from "./fixtures.test";
+import { DECIDED_KEY, refreshStandings, registerStandingJobs, standingSql } from "./standings";
+
+const DEC = (day: number) => Date.UTC(2025, 11, day, 12);
+const JAN = (day: number) => Date.UTC(2026, 0, day, 12);
+const FEB = (day: number) => Date.UTC(2026, 1, day, 12);
+
+/** Content with explicit dates. Insert it in date order: the job relies on ids growing with time. */
+function content(w: World) {
+  const node = insertNode(w.ctx, {}).id;
+  let sequence = 0;
+  let reactionId = 0;
+  const thread = (userId: number, at: number, state = "visible") =>
+    w.ctx.sqlite
+      .prepare<{ id: number }, [number, number, string, number]>(
+        "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, 't', ?3, ?4, ?4, ?2) RETURNING id",
+      )
+      .get(node, userId, state, at)!.id;
+  const post = (userId: number, threadId: number, at: number, state = "visible") => {
+    sequence += 1;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO posts (thread_id, user_id, position, state, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      )
+      .run(threadId, userId, sequence, state, at);
+  };
+  const reactions = (authorId: number, reactorId: number, count: number, at: number) => {
+    for (let i = 0; i < count; i++) {
+      reactionId += 1;
+      w.ctx.sqlite
+        .prepare(
+          "INSERT INTO reactions (content_type, content_id, user_id, content_user_id, reaction_type_id, score, created_at) VALUES ('post', ?1, ?2, ?3, 1, 1, ?4)",
+        )
+        .run(reactionId, reactorId, authorId, at);
+    }
+  };
+  const posts = (userId: number, count: number, at: number) => {
+    const id = thread(userId, at);
+    for (let i = 0; i < count; i++) post(userId, id, at);
+  };
+  const referral = (referrerId: number, memberId: number, at: number) =>
+    w.set(memberId, { referred_by: referrerId, referred_at: at });
+  return { thread, post, posts, reactions, referral };
+}
+
+type Entry = {
+  card: { id: number };
+  posts: number;
+  reactions: number;
+  referrals: number;
+  points: number;
+};
+const month = (
+  w: World,
+  which: "current" | "previous",
+  extra: object = {},
+  actor: object = w.memberActor,
+) =>
+  w.call("standings.month", actor, { month: which, ...extra }) as Promise<{
+    items: Entry[];
+    nextCursor: string | null;
+    year: number;
+    month: number;
+  }>;
+const winners = (w: World, actor: object = w.memberActor) =>
+  w.call("standings.winners", actor, {}) as Promise<{
+    items: (Entry & { year: number; month: number })[];
+  }>;
+const rows = (w: World, key: number) =>
+  w.ctx.sqlite
+    .prepare<
+      {
+        user_id: number;
+        posts: number;
+        reactions: number;
+        referrals: number;
+        points_tenths: number;
+      },
+      [number]
+    >(
+      "SELECT user_id, posts, reactions, referrals, points_tenths FROM member_month_stats WHERE month = ?1 ORDER BY user_id",
+    )
+    .all(key);
+
+/** December and January of a small forum; the clock sits in the middle of January. */
+function scenario() {
+  const w = world();
+  const c = content(w);
+  const [alice, bob, carol, dave, erin] = [1, 2, 3, 4, 5].map((i) => w.user({ username: `m${i}` }));
+  w.ctx.clock.set(JAN(15));
+  // December: alice 2 posts and a referral (22 points) beats bob's 3 posts and 10 reactions (4).
+  c.posts(alice!.id, 2, DEC(3));
+  c.posts(bob!.id, 3, DEC(4));
+  c.reactions(bob!.id, carol!.id, 10, DEC(5));
+  c.referral(alice!.id, dave!.id, DEC(10));
+  // January: counted and not counted.
+  c.posts(alice!.id, 1, JAN(2));
+  const hidden = c.thread(alice!.id, JAN(2), "deleted");
+  c.post(alice!.id, hidden, JAN(2));
+  const visible = c.thread(alice!.id, JAN(2));
+  c.post(alice!.id, visible, JAN(2), "deleted");
+  c.post(alice!.id, visible, JAN(2), "moderated");
+  c.posts(bob!.id, 2, JAN(3));
+  c.reactions(bob!.id, carol!.id, 25, JAN(4));
+  c.reactions(carol!.id, bob!.id, 5, JAN(5));
+  c.referral(carol!.id, erin!.id, JAN(6));
+  // February content is outside January.
+  c.posts(dave!.id, 4, FEB(1));
+  c.reactions(dave!.id, bob!.id, 30, FEB(1));
+  return { w, c, alice: alice!, bob: bob!, carol: carol!, dave: dave!, erin: erin! };
+}
+
+describe("the standings job", () => {
+  test("counts visible posts in visible threads, reactions received and referrals of the month", () => {
+    const { w, alice, bob, carol } = scenario();
+    refreshStandings(w.ctx);
+    const jan = rows(w, 202601);
+    expect(jan).toEqual([
+      { user_id: alice.id, posts: 1, reactions: 0, referrals: 0, points_tenths: 10 },
+      { user_id: bob.id, posts: 2, reactions: 25, referrals: 0, points_tenths: 45 },
+      { user_id: carol.id, posts: 0, reactions: 5, referrals: 1, points_tenths: 205 },
+    ]);
+  });
+
+  test("standings.month lists the month most points first and says which month it is", async () => {
+    const { w, alice, bob, carol } = scenario();
+    refreshStandings(w.ctx);
+    const current = await month(w, "current");
+    expect([current.year, current.month]).toEqual([2026, 1]);
+    expect(current.items.map((entry) => entry.card.id)).toEqual([carol.id, bob.id, alice.id]);
+    expect(current.items[0]).toMatchObject({ posts: 0, reactions: 5, referrals: 1, points: 20.5 });
+    expect(current.nextCursor).toBeNull();
+    const previous = await month(w, "previous");
+    expect([previous.year, previous.month]).toEqual([2025, 12]);
+    expect(previous.items.map((entry) => entry.card.id)).toEqual([alice.id, bob.id]);
+    expect(previous.items[0]).toMatchObject({ posts: 2, referrals: 1, points: 22 });
+    expect(previous.items[1]).toMatchObject({ posts: 3, reactions: 10, points: 4 });
+  });
+
+  test("the previous month's winner is decided once and never rewritten", async () => {
+    const { w, c, alice, bob } = scenario();
+    refreshStandings(w.ctx);
+    const decided = w.ctx.sqlite
+      .prepare<{ month: number; user_id: number; points_tenths: number }, []>(
+        "SELECT month, user_id, points_tenths FROM month_winners",
+      )
+      .all();
+    expect(decided).toEqual([{ month: 202512, user_id: alice.id, points_tenths: 220 }]);
+    // Changing December afterwards (a late reaction) changes nothing.
+    c.reactions(bob.id, alice.id, 500, DEC(30));
+    w.ctx.clock.advance(60_000);
+    refreshStandings(w.ctx);
+    expect(
+      w.ctx.sqlite.prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners").all(),
+    ).toEqual([{ user_id: alice.id }]);
+    expect((await winners(w)).items).toMatchObject([{ year: 2025, month: 12, points: 22 }]);
+  });
+
+  test("a month rollover decides the finished month and starts the new one", async () => {
+    const { w, alice, carol, dave } = scenario();
+    refreshStandings(w.ctx);
+    w.ctx.clock.set(FEB(2));
+    refreshStandings(w.ctx);
+    const list = (await winners(w)).items;
+    expect(list.map((item) => [item.year, item.month, item.card.id])).toEqual([
+      [2026, 1, carol.id],
+      [2025, 12, alice.id],
+    ]);
+    const current = await month(w, "current");
+    expect([current.year, current.month]).toEqual([2026, 2]);
+    // January moved to "previous" and keeps its last standing.
+    expect((await month(w, "previous")).items[0]!.card.id).toBe(carol.id);
+    expect(current.items).toMatchObject([
+      { card: { id: dave.id }, posts: 4, reactions: 30, points: 7 },
+    ]);
+  });
+
+  test("a month in which nobody scored gets no winner and is not recomputed", async () => {
+    const w = world();
+    w.ctx.clock.set(Date.UTC(2026, 3, 10));
+    refreshStandings(w.ctx);
+    expect(w.ctx.sqlite.prepare("SELECT 1 FROM month_winners").get()).toBeNull();
+    const marker = () =>
+      w.ctx.sqlite
+        .prepare<{ value: string }, [string]>("SELECT value FROM site_settings WHERE key = ?1")
+        .get(DECIDED_KEY)?.value;
+    expect(marker()).toBe("202603");
+    // Content for March that shows up afterwards is not picked up: the month is settled.
+    const c = content(w);
+    const member = w.user();
+    c.posts(member.id, 3, Date.UTC(2026, 2, 5));
+    refreshStandings(w.ctx);
+    expect(w.ctx.sqlite.prepare("SELECT 1 FROM month_winners").get()).toBeNull();
+    expect(rows(w, 202603)).toEqual([]);
+    expect((await winners(w)).items).toEqual([]);
+    expect(marker()).toBe("202603");
+  });
+
+  test("ties go to more posts, then to the lower id", () => {
+    const w = world();
+    const c = content(w);
+    const [many, few, same] = [w.user(), w.user(), w.user()];
+    w.ctx.clock.set(Date.UTC(2026, 1, 3));
+    // Two points each: two posts, or one post and ten reactions, or the same as `few`.
+    c.posts(many.id, 2, JAN(3));
+    c.posts(few.id, 1, JAN(3));
+    c.reactions(few.id, many.id, 10, JAN(3));
+    c.posts(same.id, 1, JAN(3));
+    c.reactions(same.id, many.id, 10, JAN(4));
+    refreshStandings(w.ctx);
+    const winner = w.ctx.sqlite
+      .prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners WHERE month = 202601")
+      .get();
+    expect(winner?.user_id).toBe(many.id);
+    // Without `many`, the two with equal posts split on id.
+    const second = world();
+    const d = content(second);
+    const [low, high] = [second.user(), second.user()];
+    second.ctx.clock.set(Date.UTC(2026, 1, 3));
+    d.posts(high.id, 1, JAN(3));
+    d.posts(low.id, 1, JAN(3));
+    refreshStandings(second.ctx);
+    expect(
+      second.ctx.sqlite.prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners").get()
+        ?.user_id,
+    ).toBe(low.id);
+  });
+
+  test("a member who loses their points loses their row, and the month never empties", () => {
+    const { w, alice } = scenario();
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).toContain(alice.id);
+    w.ctx.sqlite.run(
+      `UPDATE posts SET state = 'deleted' WHERE user_id = ${alice.id} AND created_at >= ${JAN(1)} AND created_at < ${FEB(1)}`,
+    );
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).not.toContain(alice.id);
+    expect(rows(w, 202601)).toHaveLength(2);
+  });
+
+  test("the points follow the site's standing settings", async () => {
+    const { w, alice, bob } = scenario();
+    await w.call("settings.update", w.adminActor, {
+      standingPostPoints: 3,
+      standingReactionsPerPoint: 5,
+      standingReferralPoints: 0,
+    });
+    refreshStandings(w.ctx);
+    const byUser = new Map(rows(w, 202601).map((row) => [row.user_id, row.points_tenths]));
+    expect(byUser.get(alice.id)).toBe(30);
+    expect(byUser.get(bob.id)).toBe(110);
+    // Carol only has a referral (worth nothing now) and 5 reactions: 1 point.
+    expect([...byUser.values()].sort((a, b) => a - b)).toEqual([10, 30, 110]);
+  });
+
+  test("banned members are left out of the standings and the winners at read time", async () => {
+    const { w, alice, carol } = scenario();
+    refreshStandings(w.ctx);
+    w.ctx.clock.set(FEB(2));
+    refreshStandings(w.ctx);
+    w.set(carol.id, { banned_permanently: 1 });
+    w.set(alice.id, { banned_until: FEB(2) + 86_400_000 });
+    const previous = await month(w, "previous");
+    expect(previous.items.map((entry) => entry.card.id)).not.toContain(carol.id);
+    expect((await winners(w)).items).toEqual([]);
+    w.set(alice.id, { banned_until: FEB(2) - 1 });
+    expect((await winners(w)).items.map((item) => item.card.id)).toEqual([alice.id]);
+  });
+
+  test("pages through the standing with keyset pagination, ties included", async () => {
+    const w = world();
+    const c = content(w);
+    const members = Array.from({ length: 8 }, () => w.user());
+    w.ctx.clock.set(JAN(20));
+    // posts: 3,3,3,2,2,1,1,1 (+ a reaction pair so points and posts disagree for one member)
+    [3, 3, 3, 2, 2, 1, 1, 1].forEach((count, i) => c.posts(members[i]!.id, count, JAN(2)));
+    c.reactions(members[7]!.id, members[0]!.id, 20, JAN(3));
+    refreshStandings(w.ctx);
+    const expected = rows(w, 202601)
+      .sort(
+        (a, b) => b.points_tenths - a.points_tenths || b.posts - a.posts || a.user_id - b.user_id,
+      )
+      .map((row) => row.user_id);
+    for (const limit of [1, 3, 20]) {
+      const seen: number[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 20; page++) {
+        const result = await month(w, "current", { limit, cursor });
+        seen.push(...result.items.map((entry) => entry.card.id));
+        if (!result.nextCursor) break;
+        cursor = result.nextCursor;
+      }
+      expect(seen).toEqual(expected);
+    }
+    // Three posts and one post plus twenty reactions both make 3 points: more posts first.
+    expect(expected.slice(0, 4)).toEqual([0, 1, 2, 7].map((i) => members[i]!.id));
+  });
+
+  test("requires profile.view, and open to guests otherwise", async () => {
+    const w = world();
+    expect((await month(w, "current", {}, GUEST)).items).toEqual([]);
+    expect((await winners(w, GUEST)).items).toEqual([]);
+    const group = (await w.call("groups.create", w.adminActor, { title: "Blind", rank: 1 })).id;
+    await w.call("permissions.set", w.adminActor, {
+      groupId: group,
+      entries: [{ permission: "profile.view", value: "never" }],
+    });
+    const blind = w.user({ groupId: group });
+    const actor = { kind: "user", userId: blind.id, groupId: group, sessionId: 0 };
+    await expect(month(w, "current", {}, actor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(winners(w, actor)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(month(w, "current", { cursor: "bad" })).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("runs as a job: registering twice queues one, and every tenth minute schedules it", async () => {
+    const { w, alice } = scenario();
+    registerStandingJobs(w.ctx);
+    registerStandingJobs(w.ctx);
+    const queued = () =>
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT count(*) AS n FROM jobs WHERE type = 'standings.refresh' AND status = 'pending'",
+        )
+        .get()!.n;
+    expect(queued()).toBe(1);
+    expect(await runDueJobs(w.ctx)).toBeGreaterThanOrEqual(1);
+    expect(rows(w, 202601).map((row) => row.user_id)).toContain(alice.id);
+    expect(queued()).toBe(0);
+    w.ctx.clock.set(Date.UTC(2026, 0, 15, 12, 5, 0));
+    runMinuteTasks(w.ctx);
+    expect(queued()).toBe(0);
+    w.ctx.clock.set(Date.UTC(2026, 0, 15, 12, 10, 0));
+    runMinuteTasks(w.ctx);
+    runMinuteTasks(w.ctx);
+    expect(queued()).toBe(1);
+  });
+
+  test("every statement reads an index or a bounded key range", () => {
+    const { w } = scenario();
+    const columns = standingSql.entryColumns;
+    expectNoTableScan(w.ctx, standingSql.rowAtOrAfter("posts"), [10]);
+    expectNoTableScan(w.ctx, standingSql.rowAtOrAfter("reactions"), [10]);
+    expectNoTableScan(w.ctx, standingSql.lastId("posts"), []);
+    expectNoTableScan(w.ctx, standingSql.lastId("reactions"), []);
+    expectNoTableScan(w.ctx, standingSql.posts, [1, 100, 0, 10]);
+    expectNoTableScan(w.ctx, standingSql.reactions, [1, 100, 0, 10]);
+    expectNoTableScan(w.ctx, standingSql.visibleThreads, ["[1,2]"]);
+    expectNoTableScan(w.ctx, standingSql.referrals, [0, 10, 0, 0, 100]);
+    expectNoTableScan(w.ctx, standingSql.stored, [202601, 0, 10]);
+    expectNoTableScan(w.ctx, standingSql.remove, [202601, "[1]"]);
+    expectNoTableScan(w.ctx, standingSql.top, [202601]);
+    expectNoTableScan(w.ctx, standingSql.winner, [202601]);
+    expectNoTableScan(w.ctx, standingSql.decided, []);
+    expectNoTableScan(w.ctx, standingSql.sameScore(columns), [202601, 5, 2, 0, 21]);
+    expectNoTableScan(w.ctx, standingSql.samePoints(columns), [202601, 5, 2, 21]);
+    expectNoTableScan(w.ctx, standingSql.lowerPoints(columns), [202601, 5, 21]);
+    expectNoTableScan(w.ctx, standingSql.winners, [202602, 12]);
+  });
+});
