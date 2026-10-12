@@ -33,6 +33,44 @@ function giveBack(ctx: Ctx, inventoryId: number): void {
   });
 }
 
+/**
+ * The registration rules for a username: Better Auth's length bounds, the pattern, and the same
+ * pattern after lowercasing (the stored key). Returns the stored key.
+ */
+export function checkUsername(name: string): string {
+  if (name.length < MIN_LENGTH || name.length > MAX_LENGTH || !isValidUsername(name))
+    throw new ValidationError(
+      `A username is ${MIN_LENGTH} to ${MAX_LENGTH} letters, numbers, spaces, dots, dashes or underscores, and starts and ends with a letter or number.`,
+    );
+  return name.toLowerCase();
+}
+
+/**
+ * Changes a member's username through Better Auth (never by writing its tables), under the
+ * rename marker its update hook requires. Only the display form changes when the name differs
+ * in case alone: Better Auth then has no other holder of the name to tell apart from the member.
+ * Refusals come back as the forum's own errors.
+ */
+export async function renameThroughAuth(
+  ctx: Ctx,
+  userId: number,
+  name: string,
+  currentKey: string,
+): Promise<void> {
+  const key = name.toLowerCase();
+  const authContext = await getAuth(ctx).$context;
+  try {
+    await asUsernameChange(userId, () =>
+      authContext.internalAdapter.updateUser(
+        String(userId),
+        key === currentKey ? { displayUsername: name } : { username: key, displayUsername: name },
+      ),
+    );
+  } catch (error) {
+    throw refusal(error);
+  }
+}
+
 /** What Better Auth refused, as the forum's own errors. */
 function refusal(error: unknown): unknown {
   if (!(error instanceof APIError)) return error;
@@ -47,13 +85,7 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
   const name = input.username;
-  // The registration rules: Better Auth's length bounds, the pattern, and the same pattern after
-  // lowercasing (the stored key).
-  if (name.length < MIN_LENGTH || name.length > MAX_LENGTH || !isValidUsername(name))
-    throw new ValidationError(
-      `A username is ${MIN_LENGTH} to ${MAX_LENGTH} letters, numbers, spaces, dots, dashes or underscores, and starts and ends with a letter or number.`,
-    );
-  const key = name.toLowerCase();
+  const key = checkUsername(name);
   const own = ctx.sqlite
     .prepare<{ username: string; username_key: string }, [number]>(
       "SELECT username, username_key FROM users WHERE id = ?1",
@@ -80,25 +112,15 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
   });
 
   try {
-    const authContext = await getAuth(ctx).$context;
-    await asUsernameChange(user.userId, () =>
-      // Only the display form changes when the name differs in case alone: Better Auth then has
-      // no other holder of the name to tell apart from the member.
-      authContext.internalAdapter.updateUser(
-        String(user.userId),
-        key === own.username_key
-          ? { displayUsername: name }
-          : { username: key, displayUsername: name },
-      ),
-    );
+    await renameThroughAuth(ctx, user.userId, name, own.username_key);
   } catch (error) {
     if (spent !== null) giveBack(ctx, spent);
-    throw refusal(error);
+    throw error;
   }
 
   return writeTx(ctx, () => {
     ctx.sqlite
-      .prepare("UPDATE users SET content_updated_at = ?1 WHERE id = ?2")
+      .prepare("UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2")
       .run(ctx.now(), user.userId);
     publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: user.userId });
     return {

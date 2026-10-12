@@ -55,12 +55,19 @@ async function world() {
   return { ctx, admin, memberRow, member, run, buyUnits, rename, stored, units };
 }
 
+const changedAt = (w: { ctx: ReturnType<typeof createTestContext> }, id: number) =>
+  w.ctx.sqlite
+    .prepare<{ at: number | null }, [number]>("SELECT username_changed_at AS at FROM users WHERE id = ?1")
+    .get(id)!.at;
+
 describe("users.changeUsername", () => {
   test("a unit pays for one change, and the forum and Better Auth both follow", async () => {
     const w = await world();
     await w.buyUnits(2);
     w.ctx.clock.advance(1000);
+    expect(changedAt(w, w.memberRow.id)).toBeNull();
     expect(await w.rename("Fresh Name")).toEqual({ username: "Fresh Name", remaining: 1 });
+    expect(changedAt(w, w.memberRow.id)).toBe(w.ctx.now());
     expect(w.stored()).toEqual({
       forum: { username: "Fresh Name", username_key: "fresh name" },
       identity: { username: "fresh name", display_username: "Fresh Name" },
@@ -153,6 +160,7 @@ describe("users.changeUsername", () => {
     expect(w.units()).toEqual(before);
     expect(w.stored().forum.username).toBe("Member");
     expect(w.stored(taken.id).forum.username).toBe("Taken Name");
+    expect(changedAt(w, w.memberRow.id)).toBeNull();
     // Unicode letters follow the registration rule.
     expect(await w.rename("Éloïse")).toMatchObject({ username: "Éloïse" });
   });

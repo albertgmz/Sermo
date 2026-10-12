@@ -103,9 +103,20 @@ export const moderatorLogList = defineContract({
   name: "moderatorLog.list",
   summary:
     "Read the append-only moderator log: everything with moderatorLog.view, otherwise the " +
-    "entries of nodes where the actor has forum.viewLog. nodeId limits it to one node.",
+    "entries of nodes where the actor has forum.viewLog. nodeId limits it to one node; " +
+    "`actorId` to what one member did; `action` to actions that start with that text (for " +
+    "example `settings.` or `navigation.`).",
   kind: "read",
-  input: z.object({ nodeId: Id.optional(), ...pageInput }),
+  input: z.object({
+    nodeId: Id.optional(),
+    actorId: Id.optional(),
+    action: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z0-9_.]{1,60}$/)
+      .optional(),
+    ...pageInput,
+  }),
   output: Page(
     z.object({
       id: Id,
