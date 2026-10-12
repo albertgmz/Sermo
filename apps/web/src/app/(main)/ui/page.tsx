@@ -81,6 +81,7 @@ import { UserStats } from "@/components/forum/user-stats";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { headerIconClass } from "@/components/layout/header-panels";
 import { Logo, LogoMark } from "@/components/layout/logo";
+import { toNavItems } from "@/components/layout/nav";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import {
@@ -197,6 +198,24 @@ const TOKENS = [
 ];
 
 // Hand-built samples of the shapes the shared components draw.
+// The entries a site ships with; a real site reads them from the navigation.
+const NAV_SAMPLES = toNavItems(
+  [
+    ["header.home", "Home", "/"],
+    ["header.forums", "Forums", "/forums"],
+    ["header.members", "Members", "/members"],
+    ["header.upgrade", "Upgrade", "/upgrade"],
+    ["header.awards", "Awards", "/awards"],
+    ["header.credits", "Credits", "/credits"],
+  ].map(([builtin, title, target], id) => ({
+    id,
+    title,
+    target,
+    builtin,
+    children: [],
+  })),
+);
+
 const BADGE_SAMPLES: MemberBadgeView[] = [
   { label: "Admin", color: "#dc2626", style: "solid" },
   { label: "Mod", color: "#2dd4bf", style: "tint" },
@@ -741,9 +760,12 @@ export default async function StyleguidePage() {
               <LogoMark />
               Logo mark
             </span>
-            <MobileMenu logo={<Logo className="-ml-2 px-2" />} />
+            <MobileMenu
+              links={NAV_SAMPLES}
+              logo={<Logo className="-ml-2 px-2" />}
+            />
           </div>
-          <HeaderNav className="flex flex-wrap" />
+          <HeaderNav links={NAV_SAMPLES} className="flex flex-wrap" />
           <SearchForm />
           <StaffBar user={{ role: admin.role }} />
           <StaffBar user={{ role: moderator.role }} />

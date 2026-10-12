@@ -6,15 +6,6 @@
     "defaultName": "Sermo"
   },
   "siteNav": {
-    "links": {
-      "home": "Home",
-      "forums": "Forums",
-      "members": "Members",
-      "upgrade": "Upgrade",
-      "awards": "Awards",
-      "credits": "Credits",
-      "components": "Components"
-    },
     "placeholder": "Search...",
     "description": "Site navigation",
     "aria": {
@@ -25,12 +16,6 @@
     }
   },
   "mobileNav": {
-    "home": "Home",
-    "forums": "Forums",
-    "messages": "Messages",
-    "alerts": "Alerts",
-    "profile": "Profile",
-    "login": "Log in",
     "unread": "{label}<unread>, {count, plural, one {# unread} other {# unread}}</unread>",
     "aria": {
       "primary": "Primary"
@@ -86,8 +71,6 @@
     }
   },
   "userMenu": {
-    "profile": "Your profile",
-    "account": "Account",
     "logout": "Log out",
     "aria": {
       "account": "Account menu"
@@ -105,22 +88,9 @@
   "siteFooter": {
     "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
     "copyright": "© 2026 <brand>{site}</brand>. All rights reserved.",
-    "columns": {
-      "community": "Community",
-      "useful": "Useful links",
-      "legal": "Legal"
-    },
-    "links": {
-      "forums": "Forums",
-      "members": "Members",
-      "awards": "Awards",
-      "credits": "Credits",
-      "upgrade": "Upgrade",
-      "styleguide": "Styleguide",
-      "terms": "Terms",
-      "privacy": "Privacy",
-      "legal": "Legal notice",
-      "contact": "Contact"
+    "loadingLinks": "Loading links…",
+    "aria": {
+      "more": "More links"
     }
   },
   "logo": {

@@ -1,0 +1,41 @@
+import { prose } from "@/components/forum/prose";
+import { stripHtmlMedia } from "@/lib/lite-markdown";
+import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { cn } from "@/lib/utils";
+
+// The same look as the Markdown component, for elements that arrive as HTML. Each rule repeats a
+// class of `prose` on the elements below the root.
+const elements = cn(
+  "[&_h1]:text-xl [&_h1]:leading-snug [&_h1]:font-semibold [&_h1]:tracking-tight",
+  "[&_h2]:text-lg [&_h2]:leading-snug [&_h2]:font-semibold [&_h2]:tracking-tight",
+  "[&_:is(h3,h4,h5,h6)]:text-base [&_:is(h3,h4,h5,h6)]:leading-snug [&_:is(h3,h4,h5,h6)]:font-semibold",
+  "[&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5 [&_ul]:marker:text-muted-foreground",
+  "[&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_ol]:marker:text-muted-foreground",
+  "[&_li]:pl-0.5",
+  "[&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground",
+  "[&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 [&_a:hover]:no-underline",
+  "[&_strong]:font-semibold [&_em]:italic [&_del]:text-muted-foreground [&_del]:line-through",
+  "[&_code]:rounded-sm [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
+  "[&_pre]:block [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:bg-muted/40 [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-(length:--text-compact) [&_pre]:leading-relaxed [&_pre]:whitespace-pre",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  "[&_hr]:border-border",
+  "[&_img]:h-auto [&_img]:max-w-full",
+);
+
+// Renders HTML the backend produced and sanitised; the text is not parsed or changed here. LITE
+// mode removes its pictures on the server first.
+export async function HtmlContent(props: {
+  children: string;
+  className?: string;
+}) {
+  const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
+  return (
+    <div
+      className={cn(prose.root, elements, props.className)}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: the backend sanitises this HTML when the page is saved.
+      dangerouslySetInnerHTML={{
+        __html: stripHtmlMedia(props.children, state, origin),
+      }}
+    />
+  );
+}
