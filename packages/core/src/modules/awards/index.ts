@@ -9,6 +9,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
+import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/shared";
 import { releaseFile } from "../images/attach";
@@ -90,7 +91,7 @@ export const operations = [
   }),
   implement(contracts.awardsCriteria, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.awards");
-    return { items: criterionDefinitions };
+    return { items: withTitles(viewerLanguage(ctx, actor), criterionDefinitions) };
   }),
   implement(contracts.awardsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");

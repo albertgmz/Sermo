@@ -29,6 +29,7 @@ import {
   eligible,
   type MemberFacts,
 } from "../../shared/criteria";
+import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/shared";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
@@ -393,7 +394,7 @@ export const operations = [
   implement(contracts.promotionsCriteria, (ctx, actor) =>
     readWithCurrentActor(ctx, actor, (current) => {
       requirePermission(ctx, current, "admin.promotions");
-      return { items: criterionDefinitions };
+      return { items: withTitles(viewerLanguage(ctx, current), criterionDefinitions) };
     }),
   ),
   implement(contracts.promotionsList, (ctx, actor) =>

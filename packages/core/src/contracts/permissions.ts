@@ -179,6 +179,12 @@ export const PermissionDefinitionSchema = z
     /** Phrase keys for the admin UI. */
     label: z.string(),
     description: z.string(),
+    /** The label in the viewer's language; a readable form of the id when there is no phrase. */
+    title: z.string(),
+    /** The description in the viewer's language; empty when there is no phrase. */
+    help: z.string(),
+    /** The title of the category, in the viewer's language. */
+    categoryTitle: z.string(),
     /** Built-in group key -> default applied when the permission first appeared. */
     defaults: z.record(z.string(), z.union([z.enum(["allow", "never"]), z.number().int()])),
     /** Conditions the check applies on top of the entries. */

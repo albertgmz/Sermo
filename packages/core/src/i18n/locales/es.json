@@ -297,5 +297,12 @@
   "shop.effect.threadCover": "Portada del tema",
   "shop.effect.highlight": "Destacar un tema",
   "shop.effect.bump": "Subir un tema",
-  "shop.effect.usernameChange": "Cambio de nombre de usuario"
+  "shop.effect.usernameChange": "Cambio de nombre de usuario",
+  "permission.category.general": "General",
+  "permission.category.forum": "Foros",
+  "permission.category.profile": "Perfiles",
+  "permission.category.conversation": "Conversaciones",
+  "permission.category.moderation": "Moderación",
+  "permission.category.economy": "Economía",
+  "permission.category.admin": "Administración"
 }

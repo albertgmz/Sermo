@@ -297,5 +297,12 @@
   "shop.effect.threadCover": "Thread cover",
   "shop.effect.highlight": "Thread highlight",
   "shop.effect.bump": "Thread bump",
-  "shop.effect.usernameChange": "Username change"
+  "shop.effect.usernameChange": "Username change",
+  "permission.category.general": "General",
+  "permission.category.forum": "Forums",
+  "permission.category.profile": "Profiles",
+  "permission.category.conversation": "Conversations",
+  "permission.category.moderation": "Moderation",
+  "permission.category.economy": "Economy",
+  "permission.category.admin": "Administration"
 }

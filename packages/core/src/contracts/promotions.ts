@@ -32,6 +32,10 @@ export const CriterionDefinition = z
     /** Phrase keys. */
     label: z.string(),
     description: z.string(),
+    /** The label in the viewer's language; a readable form of the id when there is no phrase. */
+    title: z.string(),
+    /** The description in the viewer's language; empty when there is no phrase. */
+    help: z.string(),
     /** How `value` is read: a minimum, a maximum, yes/no (1 = must hold), or a shop item id. */
     kind: z.enum(["atLeast", "atMost", "below", "boolean", "item"]),
     unit: z.enum(["count", "days", "points", "boolean", "item"]),

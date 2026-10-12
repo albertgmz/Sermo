@@ -38,6 +38,7 @@ import {
   requirePermission,
   resolvedPermissions,
 } from "../../permissions";
+import { helpFor, titleFor, viewerLanguage } from "../../shared/language";
 import { confirmActorPassword, requireNotErased } from "../admin/shared";
 import { appendModeratorLog } from "../moderation";
 
@@ -397,16 +398,21 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
 export const permissionsDefinitionsOp = implement(permissionsDefinitions, (ctx, actor) =>
   readWithCurrentActor(ctx, actor, (current) => {
     admin(ctx, current, "admin.permissions");
+    const language = viewerLanguage(ctx, current);
     return {
       items: PERMISSION_IDS.map((id) => {
         const def: PermissionDefinition = PERMISSIONS[id];
+        const phrases = permissionPhrases(id);
         return {
           id,
           scope: def.scope,
           type: def.type,
           category: def.category,
           unit: def.type === "integer" ? def.unit : null,
-          ...permissionPhrases(id),
+          ...phrases,
+          title: titleFor(language, phrases.label, id),
+          help: helpFor(language, phrases.description),
+          categoryTitle: titleFor(language, `permission.category.${def.category}`, def.category),
           defaults: def.defaults,
           requiresAccount: def.type === "flag" && !!def.requiresAccount,
           restriction: def.type === "flag" ? (def.restriction ?? null) : null,
