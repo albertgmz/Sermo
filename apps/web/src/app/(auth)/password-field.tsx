@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 
 export function PasswordField({
   id,
+  name = "password",
   autoComplete,
   required,
   onValueChange,
 }: {
   id: string;
+  name?: string;
   autoComplete: string;
   required?: boolean;
   onValueChange?: (value: string) => void;
@@ -23,7 +25,7 @@ export function PasswordField({
     <div className="flex">
       <Input
         id={id}
-        name="password"
+        name={name}
         type={visible ? "text" : "password"}
         autoComplete={autoComplete}
         required={required}

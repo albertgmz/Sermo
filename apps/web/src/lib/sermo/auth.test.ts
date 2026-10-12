@@ -13,6 +13,13 @@ const incoming = new Headers({
 });
 const written: Record<string, unknown>[] = [];
 mock.module("server-only", () => ({}));
+// Bun applies module mocks to the whole run, so these match the ones in the site test.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next/headers", () => ({
   headers: async () => incoming,
   cookies: async () => ({
@@ -20,9 +27,22 @@ mock.module("next/headers", () => ({
   }),
 }));
 
-const { signInWithUsername, signInWithEmail, signUp, signOut } = await import(
-  "./auth"
-);
+const {
+  changePassword,
+  getCurrentAccount,
+  listSessions,
+  mailAvailable,
+  requestEmailChange,
+  requestPasswordReset,
+  resetPassword,
+  revokeOtherSessions,
+  revokeSession,
+  sendVerificationEmail,
+  signInWithUsername,
+  signInWithEmail,
+  signUp,
+  signOut,
+} = await import("./auth");
 
 type Sent = { url: string; method?: string; body?: unknown; headers: Headers };
 
@@ -181,4 +201,203 @@ test("sign-out sends no body", async () => {
   assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/sign-out");
   assert.equal(seen[0].body, undefined);
   assert.equal(seen[0].headers.get("content-type"), null);
+});
+
+const sessionRow = {
+  id: "7",
+  token: "secret-token",
+  createdAt: "2026-10-01T10:00:00.000Z",
+  expiresAt: "2026-10-31T10:00:00.000Z",
+  ipAddress: "203.0.113.9",
+  userAgent: "agent/1",
+  userId: "3",
+  updatedAt: "2026-10-01T10:00:00.000Z",
+};
+
+test("sessions are listed with a GET and keep only the fields the page needs", async () => {
+  const seen = backend(
+    answer([], {
+      body: [
+        sessionRow,
+        { ...sessionRow, id: "8", ipAddress: null, userAgent: undefined },
+      ],
+    }),
+  );
+  const result = await listSessions();
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/list-sessions");
+  assert.equal(seen[0].method, "GET");
+  assert.equal(seen[0].body, undefined);
+  assert.equal(seen[0].headers.get("cookie"), "sermo.session_token=old");
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.sessions, [
+    {
+      id: "7",
+      token: "secret-token",
+      createdAt: sessionRow.createdAt,
+      expiresAt: sessionRow.expiresAt,
+      ipAddress: "203.0.113.9",
+      userAgent: "agent/1",
+    },
+    {
+      id: "8",
+      token: "secret-token",
+      createdAt: sessionRow.createdAt,
+      expiresAt: sessionRow.expiresAt,
+      ipAddress: null,
+      userAgent: null,
+    },
+  ]);
+});
+
+test("a refused listing has no sessions and carries the error code", async () => {
+  backend(answer([], { status: 403, body: { code: "SESSION_NOT_FRESH" } }));
+  const result = await listSessions();
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "SESSION_NOT_FRESH");
+  assert.deepEqual(result.sessions, []);
+});
+
+test("the current account is read from the database, not the cookie cache", async () => {
+  const seen = backend(
+    answer([], {
+      body: {
+        session: { id: "7", token: "secret-token" },
+        user: { email: "ann@example.test", emailVerified: true },
+      },
+    }),
+  );
+  assert.deepEqual(await getCurrentAccount(), {
+    sessionId: "7",
+    email: "ann@example.test",
+    emailVerified: true,
+  });
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/get-session?disableCookieCache=true",
+  );
+  assert.equal(seen[0].method, "GET");
+});
+
+test("no session is no account", async () => {
+  backend(new Response("null", { status: 200 }));
+  assert.equal(await getCurrentAccount(), null);
+  backend(answer([], { status: 401, body: { code: "UNAUTHORIZED" } }));
+  assert.equal(await getCurrentAccount(), null);
+});
+
+test("revoking sends the token of one session, or nothing for the others", async () => {
+  let seen = backend(answer([], { body: { status: true } }));
+  assert.equal((await revokeSession("secret-token")).ok, true);
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/revoke-session");
+  assert.equal(seen[0].method, "POST");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), { token: "secret-token" });
+  seen = backend(answer([], { body: { status: true } }));
+  assert.equal((await revokeOtherSessions()).ok, true);
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/revoke-other-sessions",
+  );
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {});
+});
+
+test("changing the password sends both passwords and delivers the new session cookie", async () => {
+  written.length = 0;
+  const seen = backend(
+    answer(["sermo.session_token=fresh; Max-Age=604800; Path=/; HttpOnly"], {
+      body: { token: "fresh", user: {} },
+    }),
+  );
+  const result = await changePassword({
+    currentPassword: "old-password",
+    newPassword: "new-password",
+    revokeOtherSessions: true,
+  });
+  assert.deepEqual(result, { ok: true, code: undefined, signedIn: true });
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/change-password");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    currentPassword: "old-password",
+    newPassword: "new-password",
+    revokeOtherSessions: true,
+  });
+  assert.equal(written[0].value, "fresh");
+});
+
+test("a refused password change keeps its error code", async () => {
+  backend(answer([], { status: 400, body: { code: "INVALID_PASSWORD" } }));
+  const result = await changePassword({
+    currentPassword: "wrong",
+    newPassword: "new-password",
+    revokeOtherSessions: false,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, "INVALID_PASSWORD");
+});
+
+test("the email calls ask for the link to come back to this site", async () => {
+  let seen = backend(answer([], { body: { status: true } }));
+  await requestEmailChange("new@example.test");
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/change-email");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    newEmail: "new@example.test",
+    callbackURL: "http://localhost:3000/verify-email?done=1",
+  });
+  seen = backend(answer([], { body: { status: true } }));
+  await sendVerificationEmail("ann@example.test");
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/send-verification-email",
+  );
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    email: "ann@example.test",
+    callbackURL: "http://localhost:3000/verify-email?done=1",
+  });
+  seen = backend(answer([], { body: { status: true } }));
+  await requestPasswordReset("ann@example.test");
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/request-password-reset",
+  );
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    email: "ann@example.test",
+    redirectTo: "http://localhost:3000/reset-password",
+  });
+  seen = backend(answer([], { body: { status: true } }));
+  await signUp({ username: "ann", email: "ann@example.test", password: "pw" });
+  assert.equal(
+    JSON.parse(String(seen[0].body)).callbackURL,
+    "http://localhost:3000/verify-email?done=1",
+  );
+});
+
+test("the reset sends the token with the new password", async () => {
+  const seen = backend(answer([], { body: { status: true } }));
+  assert.equal((await resetPassword("abc", "new-password")).ok, true);
+  assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/reset-password");
+  assert.deepEqual(JSON.parse(String(seen[0].body)), {
+    token: "abc",
+    newPassword: "new-password",
+  });
+});
+
+test("mail is available unless the backend says verification email is not enabled", async () => {
+  const seen = backend(
+    answer([], {
+      status: 400,
+      body: { code: "VERIFICATION_EMAIL_NOT_ENABLED" },
+    }),
+  );
+  assert.equal(await mailAvailable(), false);
+  assert.equal(
+    seen[0].url,
+    "http://127.0.0.1:8787/api/auth/send-verification-email",
+  );
+  assert.equal(seen[0].headers.get("cookie"), null);
+  backend(answer([], { body: { status: true } }));
+  assert.equal(await mailAvailable(), true);
+  backend(answer([], { status: 429, body: { code: "TOO_MANY_REQUESTS" } }));
+  assert.equal(await mailAvailable(), true);
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed");
+  }) as unknown as typeof fetch;
+  assert.equal(await mailAvailable(), true);
 });

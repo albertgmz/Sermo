@@ -1,9 +1,10 @@
 import { useTranslations } from "next-intl";
 import {
-  CardSkeleton,
-  LoadingRegion,
-  MemberRowSkeleton,
-} from "@/components/forum/skeletons";
+  EmailSkeleton,
+  PasswordSkeleton,
+  SessionsSkeleton,
+} from "@/app/(main)/account/security/skeletons";
+import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
@@ -14,10 +15,9 @@ export default function Loading() {
         <h1 className="text-2xl font-bold tracking-tight">
           {t("securityHeading")}
         </h1>
-        <CardSkeleton>
-          <MemberRowSkeleton />
-          <MemberRowSkeleton />
-        </CardSkeleton>
+        <SessionsSkeleton />
+        <PasswordSkeleton />
+        <EmailSkeleton />
         <section className="rounded-lg border bg-card p-4">
           <h2 className="text-sm font-semibold">{t("logoutHeading")}</h2>
           <p className="mt-1 text-xs text-muted-foreground">
