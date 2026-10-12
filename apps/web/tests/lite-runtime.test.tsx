@@ -21,7 +21,6 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
 }));
 const posts = { body: "" };
-const find = async (id: number) => (id === 101 ? { id } : null);
 function noDatabaseWrites(): never {
   throw new Error("LITE tests must not write the demo database");
 }
@@ -68,12 +67,13 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
-// Forums, threads, members and conversations are asked of the backend, which knows only
+// Forums, threads, members, conversations and awards are asked of the backend, which knows only
 // record 101.
 globalThis.fetch = (async (input: string) => {
-  const record = /\/api\/v1\/(?:nodes|threads|users|conversations)\/(\d+)/.exec(
-    String(input),
-  );
+  const record =
+    /\/api\/v1\/(?:nodes|threads|users|conversations|awards)\/(\d+)/.exec(
+      String(input),
+    );
   if (record && Number(record[1]) !== 101) {
     return Response.json(
       { error: { code: "not_found", message: "Not found." } },
@@ -97,7 +97,6 @@ mock.module("@/lib/db", () => ({
       : id === 102
         ? { id, role: "admin" }
         : null,
-  getAward: find,
   getPosts: async () => [{ body: posts.body }],
   changeUsername: noDatabaseWrites,
   setAppearance: noDatabaseWrites,
