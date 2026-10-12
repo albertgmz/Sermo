@@ -263,20 +263,39 @@ test("a moderator is added and removed through the node", async () => {
     "nodes.setModerator": () => Response.json({ ok: true }),
   });
   const added = await redirectedTo(() =>
-    setModerator(null, form({ id: "9", userId: "4" })),
+    setModerator(null, form({ id: "9", userId: "4", actorPassword: "secret" })),
   );
   expect(added).toMatch(/notice=moderated#moderators/);
   const removed = await redirectedTo(() =>
-    setModerator(null, form({ id: "9", userId: "4", remove: "1" })),
+    setModerator(
+      null,
+      form({ id: "9", userId: "4", remove: "1", actorPassword: "secret" }),
+    ),
   );
   expect(removed).toMatch(/notice=unmoderated#moderators/);
   expect(backend.asked.map((call) => call.body)).toEqual([
-    { remove: false },
-    { remove: true },
+    { remove: false, actorPassword: "secret" },
+    { remove: true, actorPassword: "secret" },
   ]);
   expect(await setModerator(null, form({ id: "9", userId: "me" }))).toEqual({
     error: messages.adminForums.errors.id,
   });
+  expect(await setModerator(null, form({ id: "9", userId: "4" }))).toEqual({
+    fields: { actorPassword: messages.adminGroups.errors.password },
+  });
+});
+
+test("a wrong password for a moderator change shows on the password field", async () => {
+  backend = fakeBackend({
+    "nodes.setModerator": () =>
+      refusal(403, "forbidden", "That is not your password."),
+  });
+  expect(
+    await setModerator(
+      null,
+      form({ id: "9", userId: "4", actorPassword: "nope" }),
+    ),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
 });
 
 test("the backend's refusal of a moderator is shown", async () => {
@@ -284,7 +303,12 @@ test("the backend's refusal of a moderator is shown", async () => {
     "nodes.setModerator": () =>
       refusal(403, "forbidden", "You may not change permissions."),
   });
-  expect(await setModerator(null, form({ id: "9", userId: "4" }))).toEqual({
+  expect(
+    await setModerator(
+      null,
+      form({ id: "9", userId: "4", actorPassword: "secret" }),
+    ),
+  ).toEqual({
     error: "You may not change permissions.",
   });
 });

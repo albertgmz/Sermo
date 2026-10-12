@@ -10,9 +10,10 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "./form-errors";
+import { formFailure, missingPassword, text, whole } from "./form-errors";
 
 const FIELDS = [
+  "actorPassword",
   "title",
   "description",
   "rank",
@@ -61,12 +62,15 @@ export async function saveGroup(
   if (raw !== "" && groupId === null) return { error: t("id") };
   const parsed = await groupFields(formData, groupId === null);
   if (parsed.fail) return parsed.fail;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  const actorPassword = text(formData, "actorPassword");
   let saved: number;
   try {
     saved = (
       groupId === null
-        ? await call(groupsCreate, parsed.fields)
-        : await call(groupsUpdate, { groupId, ...parsed.fields })
+        ? await call(groupsCreate, { ...parsed.fields, actorPassword })
+        : await call(groupsUpdate, { groupId, ...parsed.fields, actorPassword })
     ).id;
   } catch (error) {
     return formFailure(error, FIELDS);
@@ -83,10 +87,15 @@ export async function deleteGroup(
   const t = await getTranslations("adminGroups.errors");
   const groupId = parseId(text(formData, "id"));
   if (groupId === null) return { error: t("id") };
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
-    await call(groupsDelete, { groupId });
+    await call(groupsDelete, {
+      groupId,
+      actorPassword: text(formData, "actorPassword"),
+    });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   redirect("/admin/groups?notice=deleted");
 }

@@ -66,6 +66,7 @@ async function Group({
         summary={t("deleteHeading")}
         warning={t("deleteWarning")}
         submit={t("delete")}
+        password
       />
     </>
   );

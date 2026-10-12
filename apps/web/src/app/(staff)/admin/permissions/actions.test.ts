@@ -55,7 +55,6 @@ async function redirectedTo(run: () => Promise<unknown>) {
 }
 
 const answers = (current: unknown[] = []) => ({
-  "auth.verifyPassword": () => Response.json({ ok: true }),
   "permissions.definitions": () => Response.json(DEFINITIONS),
   "permissions.list": () => Response.json(set(current)),
   "permissions.set": () => Response.json(set([])),
@@ -63,18 +62,40 @@ const answers = (current: unknown[] = []) => ({
 
 test("a wrong password changes nothing and shows on the password field", async () => {
   backend = fakeBackend({
-    "auth.verifyPassword": () =>
-      refusal(403, "forbidden", "The password is not correct."),
+    ...answers(),
+    "permissions.set": () =>
+      refusal(403, "forbidden", "That is not your password."),
   });
   expect(
     await savePermissions(
       null,
       form({ group: "4", actorPassword: "nope", "perm:forum.react": "allow" }),
     ),
-  ).toEqual({ fields: { actorPassword: "The password is not correct." } });
-  expect(backend.asked.map((entry) => entry.operation)).toEqual([
-    "auth.verifyPassword",
-  ]);
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(backend.asked.at(-1)).toMatchObject({
+    operation: "permissions.set",
+    body: { actorPassword: "nope" },
+  });
+});
+
+test("the limit on wrong passwords shows its own message on the password field", async () => {
+  backend = fakeBackend({
+    ...answers(),
+    "permissions.set": () =>
+      refusal(
+        429,
+        "rate_limited",
+        "Too many wrong passwords. Try again later.",
+      ),
+  });
+  expect(
+    await savePermissions(
+      null,
+      form({ group: "4", actorPassword: "nope", "perm:forum.react": "allow" }),
+    ),
+  ).toEqual({
+    fields: { actorPassword: "Too many wrong passwords. Try again later." },
+  });
 });
 
 test("a missing password is asked for without calling the backend", async () => {
@@ -87,7 +108,7 @@ test("a missing password is asked for without calling the backend", async () => 
   expect(backend.asked).toEqual([]);
 });
 
-test("the password is checked first, then only the changed entries are sent", async () => {
+test("only the changed entries are sent, with the password in the same write", async () => {
   backend = fakeBackend(
     answers([{ permission: "forum.react", value: "allow" }]),
   );
@@ -105,10 +126,9 @@ test("the password is checked first, then only the changed entries are sent", as
     ),
   );
   expect(digest).toMatch(/;\/admin\/permissions\/groups\/4\?notice=saved;/);
-  expect(backend.asked[0]).toMatchObject({
-    operation: "auth.verifyPassword",
-    body: { password: "secret" },
-  });
+  expect(backend.asked.map((entry) => entry.operation)).not.toContain(
+    "auth.verifyPassword",
+  );
   expect(backend.asked.at(-1)).toMatchObject({
     operation: "permissions.set",
     body: {
@@ -118,6 +138,7 @@ test("the password is checked first, then only the changed entries are sent", as
         { permission: "forum.edit", value: "never" },
         { permission: "forum.maxLinks", value: 5 },
       ],
+      actorPassword: "secret",
     },
   });
 });
@@ -156,6 +177,7 @@ test("on a forum only the forum permissions are read, and No is allowed", async 
     userId: 9,
     nodeId: 3,
     entries: [{ permission: "forum.edit", value: "no" }],
+    actorPassword: "secret",
   });
 });
 

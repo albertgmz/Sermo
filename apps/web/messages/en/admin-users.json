@@ -28,7 +28,6 @@
   "errors": {
     "id": "That is not a valid record.",
     "passwordMode": "Choose what to do with the password.",
-    "password": "Enter your password to confirm the change.",
     "newPassword": "Enter the new password.",
     "unchanged": "Nothing to change.",
     "reason": "Enter a reason.",
