@@ -211,7 +211,13 @@ async function SuggestedMembers() {
     <SectionCard title={t("membersTitle")}>
       {suggestions.map(({ card }) => (
         <MemberRow key={card.id} user={card} badgeLimit={1}>
-          {user && <FollowButton user={card} following={false} returnTo="/" />}
+          {user && (
+            <FollowButton
+              user={{ id: card.id, username: card.username }}
+              following={false}
+              returnTo="/"
+            />
+          )}
         </MemberRow>
       ))}
     </SectionCard>

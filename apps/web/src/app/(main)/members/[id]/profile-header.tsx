@@ -232,7 +232,7 @@ export function ProfileHeader({
                 ) : (
                   <>
                     <FollowButton
-                      user={profile}
+                      user={{ id: profile.id, username: profile.username }}
                       following={profile.viewer.isFollowing}
                       returnTo={profileHref}
                       className={actionClass}
