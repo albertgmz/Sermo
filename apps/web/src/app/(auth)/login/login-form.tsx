@@ -40,7 +40,7 @@ export function LoginForm({ next }: { next: string }) {
         <Label htmlFor="login-password">{t("passwordLabel")}</Label>
         <PasswordField id="login-password" autoComplete="current-password" />
         <Link
-          href="#"
+          href="/forgot-password"
           className="inline-flex min-h-10 items-center text-sm underline-offset-4 hover:underline md:min-h-0"
         >
           {t("forgotPassword")}

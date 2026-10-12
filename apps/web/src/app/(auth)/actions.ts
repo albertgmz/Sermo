@@ -5,7 +5,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import {
-  type AuthResult,
+  requestPasswordReset,
+  resetPassword,
+  sendVerificationEmail,
   signInWithEmail,
   signInWithUsername,
   signUp,
@@ -34,12 +36,18 @@ const ERRORS: Record<string, string> = {
   PASSWORD_TOO_LONG: "passwordTooLong",
   ACCOUNT_BANNED: "banned",
   RATE_LIMITED: "rateLimited",
+  RESET_PASSWORD_DISABLED: "mailOff",
+  VERIFICATION_EMAIL_NOT_ENABLED: "mailOff",
+  INVALID_TOKEN: "invalidToken",
 };
 
-async function failure(result: AuthResult, username: string) {
+async function describe(code: string | undefined) {
   const t = await getTranslations("auth.actions.errors");
-  const key = (result.code && ERRORS[result.code]) || "generic";
-  return { error: t(key as "generic"), username };
+  return t(((code && ERRORS[code]) || "generic") as "generic");
+}
+
+async function failure(result: { code?: string }, username: string) {
+  return { error: await describe(result.code), username };
 }
 
 export async function login(
@@ -94,4 +102,69 @@ export async function register(
   if (!result.ok) return failure(result, username);
   if (result.signedIn) await refer(formData.get("ref"));
   redirect(result.signedIn ? "/" : "/login?registered=1");
+}
+
+export type FormState = { error: string } | null;
+
+// Better Auth answers a malformed address (not the lack of an account) with this code.
+const MALFORMED = "VALIDATION_ERROR";
+
+async function emailFailure(code: string | undefined) {
+  const t = await getTranslations("auth.actions.errors");
+  return {
+    error: code === MALFORMED ? t("invalidEmail") : await describe(code),
+  };
+}
+
+// The answer never depends on whether the address has an account.
+export async function forgotPassword(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const t = await getTranslations("auth.forgotPassword");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: t("errors.required") };
+  const result = await requestPasswordReset(email);
+  if (!result.ok) return emailFailure(result.code);
+  redirect("/forgot-password?sent=1");
+}
+
+export async function choosePassword(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const t = await getTranslations("auth.actions.errors");
+  const token = String(formData.get("token") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+  if (!token) redirect("/reset-password?error=INVALID_TOKEN");
+  if (!password) return { error: t("passwordRequired") };
+  if (password !== confirm) return { error: t("passwordMismatch") };
+  const result = await resetPassword(token, password);
+  if (!result.ok) {
+    if (result.code === "INVALID_TOKEN") {
+      redirect("/reset-password?error=INVALID_TOKEN");
+    }
+    return { error: await describe(result.code) };
+  }
+  redirect("/login?reset=1");
+}
+
+// For a visitor who has no session, so it needs the address. A signed-in member who asks for an
+// address that is not theirs, or one already confirmed, gets the same answer as everyone.
+const NEUTRAL = ["EMAIL_ALREADY_VERIFIED", "EMAIL_MISMATCH"];
+
+export async function resendVerification(
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const t = await getTranslations("auth.actions.errors");
+  const email = String(formData.get("email") ?? "").trim();
+  const from = formData.get("from") === "verify" ? "/verify-email" : "/login";
+  if (!email) return { error: t("invalidEmail") };
+  const result = await sendVerificationEmail(email);
+  if (!result.ok && !(result.code && NEUTRAL.includes(result.code))) {
+    return emailFailure(result.code);
+  }
+  redirect(`${from}?resent=1`);
 }

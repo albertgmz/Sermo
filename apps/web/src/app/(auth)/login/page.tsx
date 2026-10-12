@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AuthCollage } from "@/app/(auth)/login/auth-collage";
 import { LoginForm } from "@/app/(auth)/login/login-form";
+import { ResendForm } from "@/app/(auth)/resend-form";
 import { LogoMark } from "@/components/layout/logo";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { getSite } from "@/lib/sermo/site";
@@ -16,7 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const t = await getTranslations("auth.login");
-  const [{ next, registered }, site] = await Promise.all([
+  const resend = await getTranslations("auth.resendForm");
+  const [{ next, registered, reset, resent }, site] = await Promise.all([
     searchParams,
     getSite(),
   ]);
@@ -34,12 +36,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <h1 className="mt-3 mb-8 text-center text-3xl font-bold tracking-tight">
             {t("heading")}
           </h1>
-          {registered && (
+          {(registered || reset || resent) && (
             <p
               role="status"
               className="mb-4 text-center text-sm text-muted-foreground"
             >
-              {t("registeredNotice")}
+              {resent
+                ? t("resentNotice")
+                : reset
+                  ? t("resetNotice")
+                  : t("registeredNotice")}
             </p>
           )}
           <LoginForm next={safeReturnPath(next)} />
@@ -55,6 +61,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               ),
             })}
           </p>
+          {registered && (
+            <div className="mt-6 space-y-4 border-t pt-6">
+              <h2 className="text-center text-sm font-semibold">
+                {resend("heading")}
+              </h2>
+              <ResendForm from="login" />
+            </div>
+          )}
         </div>
       </div>
       <AuthCollage className="hidden md:block" />
