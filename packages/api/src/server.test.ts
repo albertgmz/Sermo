@@ -205,3 +205,19 @@ test("SMTP settings accept loopback sites over HTTP and an explicit STARTTLS set
     "SERMO_SMTP_REQUIRE_TLS",
   );
 });
+
+test("rate limits come from the environment and must be positive integers", () => {
+  const base = {
+    BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
+    BETTER_AUTH_URL: "http://localhost:3000",
+  };
+  expect(readConfiguration(base).rateLimits).toEqual({});
+  expect(
+    readConfiguration({ ...base, SERMO_RATE_LIMIT_READ: "3000", SERMO_RATE_LIMIT_MCP: "5" })
+      .rateLimits,
+  ).toEqual({ read: 3000, mcp: 5 });
+  for (const value of ["0", "-1", "1.5", "many"])
+    expect(() => readConfiguration({ ...base, SERMO_RATE_LIMIT_WRITE: value })).toThrow(
+      "SERMO_RATE_LIMIT_WRITE",
+    );
+});
