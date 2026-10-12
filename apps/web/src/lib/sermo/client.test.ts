@@ -1,0 +1,103 @@
+import { afterEach, mock, test } from "bun:test";
+import assert from "node:assert/strict";
+import * as z from "zod";
+import { SermoError } from "./errors";
+
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+let incoming = new Headers();
+mock.module("server-only", () => ({}));
+mock.module("next/headers", () => ({
+  headers: async () => incoming,
+  cookies: async () => ({ set: () => {} }),
+}));
+
+const { read } = await import("./client");
+
+const contract = {
+  name: "threads.get",
+  input: z.object({ threadId: z.number() }),
+  output: z.object({ title: z.string() }),
+};
+
+function backend(response: Response) {
+  globalThis.fetch = (async () => response) as unknown as typeof fetch;
+}
+
+const refusal = (status: number, code: string) =>
+  Response.json({ error: { code, message: code } }, { status });
+
+// notFound() and redirect() throw errors carrying a digest; that is what Next reads.
+async function digestOf(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (error) {
+    const digest = (error as { digest?: unknown }).digest;
+    if (typeof digest === "string") return digest;
+    throw error;
+  }
+  throw new Error("expected read() to throw");
+}
+
+function redirectedTo(path?: string) {
+  incoming = new Headers(path === undefined ? {} : { "x-sermo-path": path });
+  backend(refusal(401, "unauthenticated"));
+  return digestOf(read(contract, { threadId: 1 }));
+}
+
+test("a record that is found is returned", async () => {
+  incoming = new Headers();
+  backend(Response.json({ title: "Hi" }));
+  assert.deepEqual(await read(contract, { threadId: 1 }), { title: "Hi" });
+});
+
+test("not_found is a 404", async () => {
+  incoming = new Headers();
+  backend(refusal(404, "not_found"));
+  assert.match(
+    await digestOf(read(contract, { threadId: 1 })),
+    /^NEXT_HTTP_ERROR_FALLBACK;404/,
+  );
+});
+
+test("unauthenticated goes to the login page with the path the visitor asked for", async () => {
+  assert.match(
+    await redirectedTo("/account?tab=x"),
+    /^NEXT_REDIRECT;[a-z]+;\/login\?next=%2Faccount%3Ftab%3Dx;/,
+  );
+});
+
+test("unauthenticated without a usable path goes to the plain login page", async () => {
+  for (const path of [
+    undefined,
+    "",
+    "//evil.example",
+    "https://evil.example",
+    "/login",
+    "/register?x=1",
+    "no-slash",
+  ]) {
+    assert.match(
+      await redirectedTo(path),
+      /^NEXT_REDIRECT;[a-z]+;\/login;/,
+      String(path),
+    );
+  }
+});
+
+test("other errors are rethrown", async () => {
+  incoming = new Headers();
+  for (const [status, code] of [
+    [403, "forbidden"],
+    [500, "internal"],
+  ] as const) {
+    backend(refusal(status, code));
+    await assert.rejects(
+      read(contract, { threadId: 1 }),
+      (error) => error instanceof SermoError && error.code === code,
+    );
+  }
+});
