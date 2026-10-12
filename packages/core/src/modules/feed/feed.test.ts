@@ -335,6 +335,30 @@ describe("feed.list top", () => {
   });
 });
 
+describe("feed.list following with more than 100 follows", () => {
+  test("the following scope walks the 100 most recent follows; items elsewhere still flag every followed author", async () => {
+    const w = world();
+    const members = Array.from({ length: 101 }, (_, i) =>
+      insertUser(w.ctx, { username: `followed${i}` }),
+    );
+    const follow = w.ctx.sqlite.prepare(
+      "INSERT INTO user_follows (user_id, followed_id, created_at) VALUES (?1, ?2, ?3)",
+    );
+    for (const [i, member] of members.entries()) follow.run(w.bobUser.id, member.id, i + 1);
+    const oldest = members[0]!;
+    const newest = members[100]!;
+    await w.thread(userActor(oldest), w.open.id, "From the oldest follow");
+    await w.thread(userActor(newest), w.open.id, "From the newest follow");
+    const following = await w.call("feed.list", w.bob, { scope: "following", limit: 20 });
+    expect(following.items.map(describeItem)).toEqual(["thread:From the newest follow body"]);
+    const latest = await w.call("feed.list", w.bob, { limit: 20 });
+    expect(latest.items.map((item: Item) => [describeItem(item), item.following])).toEqual([
+      ["thread:From the newest follow body", true],
+      ["thread:From the oldest follow body", true],
+    ]);
+  });
+});
+
 describe("feed.list wall posts", () => {
   test("a page of wall posts on many walls runs about as many statements as one wall", async () => {
     const one = world();
