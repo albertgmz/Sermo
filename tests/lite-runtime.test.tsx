@@ -20,6 +20,7 @@ mock.module("next/headers", () => ({
   }),
   headers: async () => new Headers(),
 }));
+const posts = { body: "" };
 const find = async (id: number) => (id === 101 ? { id } : null);
 function noDatabaseWrites(): never {
   throw new Error("LITE tests must not write the demo database");
@@ -51,6 +52,11 @@ mock.module("@/lib/db", () => ({
   getConversation: find,
   getForum: find,
   getThread: find,
+  getPosts: async () => [{ body: posts.body }],
+  changeUsername: noDatabaseWrites,
+  setAppearance: noDatabaseWrites,
+  setSignature: noDatabaseWrites,
+  setTitle: noDatabaseWrites,
   endSession: noDatabaseWrites,
   recordSignIn: noDatabaseWrites,
 }));
@@ -66,6 +72,13 @@ const { Markdown } = await import("../src/components/forum/markdown");
 const { SiteIcon } = await import("../src/components/layout/site-icon");
 const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
+const { Signature } = await import("../src/components/forum/signature");
+const { ThreadExcerpt } = await import(
+  "../src/components/forum/thread-excerpt"
+);
+const { PermissionsPanel } = await import(
+  "../src/app/(main)/account/permissions"
+);
 const { EditorDemo } = await import("../src/app/(main)/ui/editor-demo");
 const { FRAMES } = await import("../src/lib/frames");
 
@@ -444,9 +457,11 @@ test("media HTML typed as text never reaches the page or editor props", async ()
   const html = await markup(<Markdown>{source}</Markdown>);
   expect(html).not.toMatch(/pictures\.test|M0 0h9/);
   expect(html).toContain("Hi");
-  expect((await editorValue(source)).value).not.toMatch(
-    /pictures\.test|M0 0h9/,
-  );
+  expect(html).toContain("end");
+  const { value } = await editorValue(source);
+  expect(value).not.toMatch(/pictures\.test|M0 0h9/);
+  expect(value.startsWith("Hi ")).toBe(true);
+  expect(value.endsWith(" end\n")).toBe(true);
 });
 
 test("the server filters Markdown before passing editor props to the client", async () => {
@@ -462,4 +477,130 @@ test("the server filters Markdown before passing editor props to the client", as
       expect(value).toContain("[LITE MODE](/destination)");
     } else expect(value).toBe(source);
   }
+});
+
+const unclosed: [source: string, tail: string][] = [
+  [
+    "Use the <video> tag for clips.\n\nSecond paragraph stays?\n\n- item",
+    "item",
+  ],
+  ["Array<object> and Map<string, embed> end", "end"],
+  ["I export <svg> files from Figma.\n\nNext para", "Next para"],
+];
+
+test("tag-looking text never costs the reader the text after it", async () => {
+  cookie = "postImages";
+  for (const [source, tail] of unclosed) {
+    const html = await markup(<Markdown>{source}</Markdown>);
+    expect(html, source).toContain(tail);
+    const { value } = await editorValue(source);
+    expect(value.trimEnd().endsWith(tail), source).toBe(true);
+  }
+});
+
+test("a signature never shows its pictures or the LITE label, whatever the visitor chose", async () => {
+  const source = [
+    "Hello ![banner](https://pictures.test/b.png) world",
+    "![full][ref] after the reference",
+    "Use the <video> tag, Array<object> and <svg> files here",
+    "",
+    "[ref]: /frames/619.png",
+  ].join("\n");
+  for (const mode of [undefined, "avatars", "postImages", "all"]) {
+    cookie = mode;
+    const html = await markup(<Signature>{source}</Signature>);
+    expect(html, String(mode)).not.toMatch(
+      /LITE MODE|pictures\.test|\/frames\/|<img/,
+    );
+    for (const text of [
+      "Hello",
+      "world",
+      "after the reference",
+      "tag,",
+      "files here",
+    ])
+      expect(html, `${mode}: ${text}`).toContain(text);
+  }
+});
+
+test("a thread excerpt never prints the URL of a blocked picture", async () => {
+  const bodies = [
+    "Look ![f][r] here\n\n[r]: /frames/619.png",
+    'Look <img src="/frames/619.png"> here',
+  ];
+  let id = 900;
+  for (const body of bodies) {
+    posts.body = body;
+    cookie = "frames";
+    const blocked = await ThreadExcerpt({
+      thread: { id: id++, excerpt: "stored /frames/619.png" },
+    });
+    expect(blocked, body).not.toContain("/frames/");
+    expect(blocked, body).toContain("Look");
+    expect(blocked, body).toContain("here");
+    cookie = undefined;
+    expect(
+      await ThreadExcerpt({
+        thread: { id: id++, excerpt: "stored /frames/619.png" },
+      }),
+    ).toBe("stored /frames/619.png");
+  }
+});
+
+type Found = { props: Record<string, unknown> };
+function findForm(node: unknown): Found | undefined {
+  if (!node || typeof node !== "object") return undefined;
+  if (Array.isArray(node)) return node.map(findForm).find(Boolean);
+  const element = node as { type?: unknown; props?: Record<string, unknown> };
+  if (
+    typeof element.type === "function" &&
+    element.type.name === "SignatureForm"
+  )
+    return element as Found;
+  return findForm(element.props?.children);
+}
+
+const stored =
+  "Shop: ![logo](https://pictures.test/l.png) <video> demo below\nline two";
+async function signaturePanel() {
+  const user = { id: 101, signature: stored, rank: { name: "Rank" } };
+  const permission = {
+    key: "signature",
+    granted: true,
+    source: "staff",
+  };
+  return PermissionsPanel({
+    // biome-ignore lint/suspicious/noExplicitAny: a thin stand-in for the view types.
+    user: user as any,
+    // biome-ignore lint/suspicious/noExplicitAny: a thin stand-in for the view types.
+    permissions: [permission] as any,
+    prices: {},
+    saved: undefined,
+  });
+}
+
+test("the signature editor never starts from filtered text", async () => {
+  cookie = "postImages";
+  const form = findForm(await signaturePanel());
+  expect(form).toBeDefined();
+  expect(form?.props.signature).toBe("");
+  expect(form?.props.hidden).toBe(true);
+  expect(JSON.stringify(form?.props)).not.toMatch(/pictures\.test|LITE MODE/);
+  cookie = undefined;
+  const open = findForm(await signaturePanel());
+  expect(open?.props.signature).toBe(stored);
+  expect(open?.props.hidden).toBe(false);
+});
+
+test("a hidden signature shows the replace note and offers nothing to save", async () => {
+  const { SignatureForm } = await import(
+    "../src/app/(main)/account/permission-forms"
+  );
+  const html = await markup(
+    <SignatureForm signature="" hidden locked={false} saved={false} />,
+  );
+  expect(html).toContain(messages.account.permissionForms.hiddenNotice);
+  expect(html).not.toMatch(/pictures\.test|LITE MODE/);
+  // Save stays disabled while the editor is empty, so the stored text is kept.
+  expect(html).toMatch(/<button[^>]*disabled[^>]*>Save signature/);
 });

@@ -88,7 +88,11 @@ export async function PermissionsPanel({
   const signature = permissions.find(
     (permission) => permission.key === "signature",
   );
-  const signatureText = await filterLiteMarkdown(user.signature ?? "");
+  // The editor saves whatever it holds, so it never gets filtered text: when
+  // LITE changes the signature the editor starts empty and says why.
+  const stored = user.signature ?? "";
+  const hidden = (await filterLiteMarkdown(stored)) !== stored;
+  const signatureText = hidden ? "" : stored;
   const t = await getTranslations("account.permissions");
   const labels = await getTranslations("lib.permissions");
 
@@ -159,8 +163,9 @@ export async function PermissionsPanel({
             description={t("signatureDescription")}
           >
             <SignatureForm
-              key={signatureText}
+              key={`${hidden}${signatureText}`}
               signature={signatureText}
+              hidden={hidden}
               locked={!signature.granted}
               saved={saved === "signature"}
             />

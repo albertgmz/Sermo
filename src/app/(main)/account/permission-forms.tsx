@@ -44,10 +44,12 @@ const SIGNATURE_ERRORS = {
 
 export function SignatureForm({
   signature,
+  hidden,
   locked,
   saved,
 }: {
   signature: string;
+  hidden: boolean;
   locked: boolean;
   saved: boolean;
 }) {
@@ -57,6 +59,8 @@ export function SignatureForm({
     null,
   );
   const [value, setValue] = useState(signature);
+  // A signature whose pictures LITE hides is not offered for editing.
+  const has = hidden || signature !== "";
   const text = value.replace(/\r\n?/g, "\n").trim();
   const lines = text ? text.split("\n").length : 0;
   const over =
@@ -85,6 +89,9 @@ export function SignatureForm({
             <Signature>{signature}</Signature>
           </div>
         )}
+        {hidden && (
+          <p className="text-xs text-muted-foreground">{t("hiddenNotice")}</p>
+        )}
         {!locked && (
           <div inert={pending}>
             <Editor
@@ -92,9 +99,7 @@ export function SignatureForm({
               defaultValue={signature}
               aria-invalid={over || undefined}
               aria-describedby={over ? "signature-count" : undefined}
-              placeholder={
-                signature ? t("replacementPlaceholder") : t("placeholder")
-              }
+              placeholder={has ? t("replacementPlaceholder") : t("placeholder")}
               onChange={setValue}
             />
           </div>
@@ -129,7 +134,7 @@ export function SignatureForm({
             variant="outline"
             name="clear"
             value="1"
-            disabled={!signature}
+            disabled={!has}
             className={actionClass}
           >
             {t("clear")}
