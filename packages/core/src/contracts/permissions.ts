@@ -262,7 +262,7 @@ export const PermissionExplanation = z
     /** One row per group of the member (and their member-specific entries): the deciding entry. */
     layers: z.array(
       z.object({
-        kind: z.enum(["group", "member"]),
+        kind: z.enum(["group", "member", "purchase"]),
         groupId: Id.nullable(),
         userId: Id.nullable(),
         title: z.string().nullable(),

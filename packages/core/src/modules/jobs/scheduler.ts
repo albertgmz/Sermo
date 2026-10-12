@@ -12,6 +12,7 @@ import { registerJobHandlers } from "./rebuild";
 export const SCHEDULES = {
   events: "* * * * * *",
   views: "*/5 * * * * *",
+  minute: "0 * * * * *",
   hourly: "0 0 * * * *",
   daily: "0 0 3 * * *",
   weekly: "0 0 4 * * 1",
@@ -77,8 +78,15 @@ export function runHourlyTasks(ctx: Ctx): void {
   }
 }
 
+/** Temporary shop items end within a minute of their expiry. */
+export function runMinuteTasks(ctx: Ctx): void {
+  enqueueJob(ctx, "shop.expire", {}, { uniqueKey: "shop.expire" });
+}
+
 export function runDailyTasks(ctx: Ctx): void {
   enqueueJob(ctx, "promotions.sweep", { after: 0 }, { uniqueKey: "promotions.sweep" });
+  enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
+  enqueueJob(ctx, "credits.recalculate", { after: 0 }, { uniqueKey: "credits.recalculate" });
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
   enqueueJob(
     ctx,
@@ -104,6 +112,9 @@ export function startScheduler(ctx: Ctx): () => void {
     new Cron(SCHEDULES.views, { name: "jobs.views", protect: true, catch: onError }, () => {
       runViewsTask(ctx);
     }),
+    new Cron(SCHEDULES.minute, { name: "jobs.minute", protect: true, catch: onError }, () =>
+      runMinuteTasks(ctx),
+    ),
     new Cron(SCHEDULES.hourly, { name: "jobs.hourly", protect: true, catch: onError }, () =>
       runHourlyTasks(ctx),
     ),

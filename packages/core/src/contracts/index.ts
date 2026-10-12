@@ -1,6 +1,8 @@
 export * from "./auth";
+export * from "./awards";
 export * from "./common";
 export * from "./conversations";
+export * from "./credits";
 export * from "./forums";
 export * from "./images";
 export * from "./moderation";
@@ -12,5 +14,6 @@ export * from "./reactions";
 export * from "./search";
 export * from "./seo";
 export * from "./settings";
+export * from "./shop";
 export * from "./social";
 export * from "./storage";

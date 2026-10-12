@@ -389,7 +389,8 @@ export function combinationsGranting(ctx: Ctx, id: FlagPermissionId): number[] {
 // Explain ----------------------------------------------------------------------------------
 
 export interface LayerExplanation {
-  kind: "group" | "member";
+  /** `purchase`: the permissions the member holds through shop items. */
+  kind: "group" | "member" | "purchase";
   groupId: number | null;
   userId: number | null;
   title: string | null;
@@ -458,11 +459,11 @@ export function explainPermission(
   const layers: LayerExplanation[] = resolved.combination.layerKeys.map((key) => {
     const layer = resolved.state.layers.get(key);
     const entry = layer ? deciding(layer.entries, id, chain) : null;
-    const isMember = key.startsWith("u:");
+    const isMember = !key.startsWith("g:");
     const groupId = isMember ? null : Number(key.slice(2));
     const raw = entry?.value;
     return {
-      kind: isMember ? "member" : "group",
+      kind: key.startsWith("p:") ? "purchase" : isMember ? "member" : "group",
       groupId,
       userId: isMember ? Number(key.slice(2)) : null,
       title: groupId === null ? null : (resolved.state.groups.get(groupId)?.title ?? null),

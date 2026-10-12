@@ -1,5 +1,8 @@
 import { operations as auth } from "./modules/auth";
+import { operations as awards } from "./modules/awards";
 import { operations as conversations } from "./modules/conversations";
+import { operations as creditRules } from "./modules/credit-events";
+import { operations as credits } from "./modules/credits";
 import { operations as email } from "./modules/email";
 import { operations as forums } from "./modules/forums";
 import { operations as images } from "./modules/images";
@@ -14,6 +17,7 @@ import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
 import { operations as seo } from "./modules/seo";
 import { operations as settings } from "./modules/settings";
+import { operations as shop } from "./modules/shop";
 import { operations as social } from "./modules/social";
 import { operations as storage } from "./modules/storage";
 import type { AnyOperation } from "./operation";
@@ -38,6 +42,10 @@ export const operations: readonly AnyOperation[] = [
   ...notifications,
   ...seo,
   ...social,
+  ...credits,
+  ...creditRules,
+  ...awards,
+  ...shop,
 ];
 
 export const operationsByName: ReadonlyMap<string, AnyOperation> = new Map(

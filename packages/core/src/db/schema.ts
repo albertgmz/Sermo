@@ -53,6 +53,43 @@ export const PROFILE_POST_PRIVACY = ["members", "followed", "self"] as const;
 export const NODE_WATCH_MODES = ["threads", "posts"] as const;
 export const RESTRICTION_KINDS = ["posting", "conversations", "profile_posts"] as const;
 export type RestrictionKind = (typeof RESTRICTION_KINDS)[number];
+/**
+ * Kinds of credit ledger rows. The column is plain text, so a later feature (a lottery, a wager)
+ * adds its kinds here without a migration.
+ */
+export const CREDIT_TRANSACTION_TYPES = [
+  "adjustment",
+  "event",
+  "event_reversal",
+  "award",
+  "award_revoked",
+  "purchase",
+] as const;
+export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
+/** Facts Sermo already records that a credit rule can react to. */
+export const CREDIT_TRIGGERS = [
+  "thread_created",
+  "reply_posted",
+  "reply_received",
+  "reaction_given",
+  "reaction_received",
+  "profile_post_created",
+  "profile_post_received",
+  "followed",
+  "registered",
+  "daily_activity",
+  "warning_received",
+  "award_received",
+] as const;
+export type CreditTrigger = (typeof CREDIT_TRIGGERS)[number];
+export const CREDIT_APPLICATION_STATES = ["applied", "reverted"] as const;
+export const AWARD_TIERS = ["bronze", "silver", "gold", "legendary"] as const;
+/**
+ * `active`: a non-consumable item in effect. `unused`: a consumable with units left. `used`: a
+ * consumable with none left. `expired`: a temporary item past its end.
+ */
+export const SHOP_INVENTORY_STATES = ["active", "unused", "used", "expired"] as const;
+export type ShopInventoryState = (typeof SHOP_INVENTORY_STATES)[number];
 /** Stored in users.restricted_*_until for a restriction without expiry (year 9999). */
 export const RESTRICTION_PERMANENT = 253_402_300_799_999;
 
@@ -152,6 +189,12 @@ export const users = sqliteTable(
     emailWindowStart: counter("email_window_start"),
     emailWindowCount: counter("email_window_count"),
     lastDigestAt: integer("last_digest_at"),
+    /** Credit balance: always the sum of the member's credit_transactions. */
+    credits: counter("credits"),
+    /** XP of the awards the member holds (each grant counts). */
+    awardXp: counter("award_xp"),
+    /** Units the member has bought in the shop, gifts to others included. */
+    shopPurchaseCount: counter("shop_purchase_count"),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
@@ -240,6 +283,53 @@ export const permissionLayerVersions = sqliteTable(
     version: integer("version").notNull().default(0),
   },
   (t) => [uniqueIndex("permission_layer_versions_layer").on(t.groupId, t.userId)],
+);
+
+/**
+ * Permissions a member holds through a shop item, while it is in their inventory. They resolve
+ * as one more layer of the member's combination, beside the member-specific entries. Written
+ * only through src/permissions/grants.ts.
+ */
+export const shopPermissionGrants = sqliteTable(
+  "shop_permission_grants",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    inventoryId: integer("inventory_id").notNull(),
+    permissionId: integer("permission_id")
+      .notNull()
+      .references(() => permissionDefinitions.id),
+    /** Flags: 1 (allow). Integers: the value, -1 meaning unlimited. */
+    value: integer("value").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("shop_permission_grants_key").on(t.inventoryId, t.permissionId),
+    index("shop_permission_grants_user").on(t.userId, t.permissionId),
+  ],
+);
+
+/** Secondary groups a member holds through a shop item (paid ranks). */
+export const shopGroupGrants = sqliteTable(
+  "shop_group_grants",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    inventoryId: integer("inventory_id").notNull(),
+    groupId: integer("group_id")
+      .notNull()
+      .references(() => groups.id),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("shop_group_grants_key").on(t.inventoryId, t.groupId),
+    index("shop_group_grants_user").on(t.userId, t.groupId),
+    index("shop_group_grants_group").on(t.groupId, t.userId),
+  ],
 );
 
 // ---------------------------------------------------------------------------
@@ -1220,3 +1310,262 @@ export const eventSubscribers = sqliteTable("event_subscribers", {
   lastEventId: integer("last_event_id").notNull().default(0),
   updatedAt: integer("updated_at").notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Credits
+
+/**
+ * The credit ledger: one row per balance change, written in the same transaction as
+ * users.credits (see shared/credits.ts, the only writer). Rows are never updated or deleted.
+ */
+export const creditTransactions = sqliteTable(
+  "credit_transactions",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Signed, never 0. */
+    amount: integer("amount").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    type: text("type", { enum: CREDIT_TRANSACTION_TYPES }).notNull(),
+    /** What caused it, as a generic reference (e.g. "shop_purchase" 12); null for none. */
+    sourceType: text("source_type"),
+    sourceId: integer("source_id"),
+    /** Who did it; null for the system. */
+    actorId: integer("actor_id"),
+    reason: text("reason").notNull().default(""),
+    createdAt: integer("created_at").notNull(),
+  },
+  // A member's history, newest first; the staff ledger of everyone walks the primary key.
+  (t) => [index("credit_transactions_user").on(t.userId, t.id)],
+);
+
+/**
+ * "When <trigger> happens, the member gains or loses <amount>." Ids are never reused
+ * (AUTOINCREMENT), so applications of a deleted rule can never be mistaken for a later rule's.
+ */
+export const creditRules = sqliteTable("credit_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  trigger: text("trigger", { enum: CREDIT_TRIGGERS }).notNull(),
+  amount: integer("amount").notNull(),
+  isActive: bool("is_active").notNull().default(true),
+  /** At most this many applications per member within the window; null = no limit. */
+  limitCount: integer("limit_count"),
+  limitWindowHours: integer("limit_window_hours"),
+  /** JSON array of forum ids the rule is restricted to; empty = everywhere. */
+  nodeIds: text("node_ids").notNull().default("[]"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/**
+ * One row per (rule, member, source): the unique key is what makes event processing
+ * idempotent. The source is the content, member, warning, award grant or day the rule paid for;
+ * `source_user_id` is the other member involved (the reactor, the follower), 0 for none.
+ * Hiding the source content flips the row to `reverted` and restoring it flips it back, each
+ * with a ledger row of the stored amount; `last_event_id` ignores replays of older events.
+ */
+export const creditRuleApplications = sqliteTable(
+  "credit_rule_applications",
+  {
+    id: integer("id").primaryKey(),
+    ruleId: integer("rule_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceType: text("source_type").notNull(),
+    sourceId: integer("source_id").notNull(),
+    sourceUserId: integer("source_user_id").notNull().default(0),
+    /** The rule's amount when it was applied; reversals use it, whatever the rule says now. */
+    amount: integer("amount").notNull(),
+    state: text("state", { enum: CREDIT_APPLICATION_STATES }).notNull().default("applied"),
+    lastEventId: integer("last_event_id").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("credit_rule_applications_key").on(
+      t.ruleId,
+      t.userId,
+      t.sourceType,
+      t.sourceId,
+      t.sourceUserId,
+    ),
+    // Everything a piece of content paid, to revert or re-apply it.
+    index("credit_rule_applications_source").on(t.sourceType, t.sourceId),
+    // The per-member limit: applications of a rule within its window.
+    index("credit_rule_applications_limit").on(t.ruleId, t.userId, t.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Awards
+
+export const awards = sqliteTable("awards", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  /** An icon key or URL the client resolves; opaque to the server. */
+  icon: text("icon").notNull().default(""),
+  tier: text("tier", { enum: AWARD_TIERS }).notNull(),
+  xp: integer("xp").notNull().default(0),
+  /** Credits paid through the ledger with each grant. */
+  credits: integer("credits").notNull().default(0),
+  /** Whether a member can hold it more than once. */
+  isStackable: bool("is_stackable").notNull().default(false),
+  isActive: bool("is_active").notNull().default(true),
+  /** JSON array of {criterion, value} (shared/criteria.ts); empty = granted by hand only. */
+  criteria: text("criteria").notNull().default("[]"),
+  /** Grants currently held, over all members. */
+  grantCount: counter("grant_count"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+/** One row per grant. A revoked grant keeps its row, so ids are never reused. */
+export const memberAwards = sqliteTable(
+  "member_awards",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    awardId: integer("award_id")
+      .notNull()
+      .references(() => awards.id),
+    /** Null for an automatic grant. */
+    grantedBy: integer("granted_by"),
+    reason: text("reason").notNull().default(""),
+    /** The award's XP and credits when it was granted; revoking takes back exactly these. */
+    xp: integer("xp").notNull(),
+    credits: integer("credits").notNull(),
+    createdAt: integer("created_at").notNull(),
+    revokedAt: integer("revoked_at"),
+    revokedBy: integer("revoked_by"),
+  },
+  (t) => [
+    // A member's held grants (revoked_at IS NULL), newest first.
+    index("member_awards_user").on(t.userId, t.revokedAt, t.id),
+    // An award's holders, newest first.
+    index("member_awards_award").on(t.awardId, t.revokedAt, t.id),
+  ],
+);
+
+/**
+ * Held grants per member and award, for listings. The row outlives its grants: `auto_granted`
+ * records that the criteria already granted the award once, so revoking it is final.
+ */
+export const memberAwardTotals = sqliteTable(
+  "member_award_totals",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    awardId: integer("award_id")
+      .notNull()
+      .references(() => awards.id),
+    count: counter("count"),
+    autoGranted: bool("auto_granted").notNull().default(false),
+    lastGrantedAt: integer("last_granted_at"),
+  },
+  (t) => [uniqueIndex("member_award_totals_user_award").on(t.userId, t.awardId)],
+);
+
+// ---------------------------------------------------------------------------
+// Shop
+
+export const shopCategories = sqliteTable("shop_categories", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  position: integer("position").notNull().default(0),
+  isActive: bool("is_active").notNull().default(true),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const shopItems = sqliteTable(
+  "shop_items",
+  {
+    id: integer("id").primaryKey(),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => shopCategories.id),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    icon: text("icon").notNull().default(""),
+    price: integer("price").notNull(),
+    isActive: bool("is_active").notNull().default(true),
+    /** Units left; null = unlimited. */
+    stock: integer("stock"),
+    /** Held in a quantity and used up one unit at a time; otherwise bought once. */
+    isConsumable: bool("is_consumable").notNull().default(false),
+    isGiftable: bool("is_giftable").notNull().default(false),
+    /** How long a non-consumable item lasts from purchase; null = permanent. */
+    durationSeconds: integer("duration_seconds"),
+    /** JSON, validated by the ShopEffect contract. */
+    effect: text("effect").notNull(),
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  // The catalog: a category's items in display order.
+  (t) => [index("shop_items_category").on(t.categoryId, t.position, t.id)],
+);
+
+/** What a member holds: one row per member and item. */
+export const shopInventory = sqliteTable(
+  "shop_inventory",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => shopItems.id),
+    state: text("state", { enum: SHOP_INVENTORY_STATES }).notNull(),
+    /** Units left of a consumable; 1 for other items. */
+    quantity: integer("quantity").notNull().default(1),
+    /** End of a temporary item; null = permanent. */
+    expiresAt: integer("expires_at"),
+    acquiredAt: integer("acquired_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("shop_inventory_user_item").on(t.userId, t.itemId),
+    // A member's inventory by state, most recently changed first.
+    index("shop_inventory_user_state").on(t.userId, t.state, t.updatedAt, t.id),
+    // The expiry job: active items whose end has passed.
+    index("shop_inventory_expiry").on(t.state, t.expiresAt),
+  ],
+);
+
+/** The purchase log. The buyer pays; the recipient (the buyer, unless it is a gift) receives. */
+export const shopPurchases = sqliteTable(
+  "shop_purchases",
+  {
+    id: integer("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => shopItems.id),
+    buyerId: integer("buyer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recipientId: integer("recipient_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull().default(1),
+    /** Total paid. */
+    price: integer("price").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("shop_purchases_buyer").on(t.buyerId, t.id),
+    // "Has bought item X" (criteria), and the log filtered by buyer and item.
+    index("shop_purchases_buyer_item").on(t.buyerId, t.itemId),
+    index("shop_purchases_item").on(t.itemId, t.id),
+  ],
+);

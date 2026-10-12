@@ -17,15 +17,16 @@ import {
   type PrincipalRow,
   requirePermission,
 } from "../../permissions";
-import { iso } from "../../time";
-import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import {
+  attachPurchasedItems,
   type Criterion,
   criterionDefinitions,
   criterionIds,
   eligible,
   type MemberFacts,
-} from "./criteria";
+} from "../../shared/criteria";
+import { iso } from "../../time";
+import { enqueueJob, registerJobHandler } from "../jobs/queue";
 
 type PromotionRow = {
   id: number;
@@ -53,7 +54,7 @@ const CHUNK = 200;
 const PROMOTION_SQL =
   "SELECT id, title, is_active, criteria, group_ids, created_at, updated_at FROM promotions";
 const memberSql =
-  "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, a.email_verified, coalesce((SELECT sum(w.points) FROM warnings w WHERE w.user_id = u.id AND (w.expires_at IS NULL OR w.expires_at > ?2)), 0) AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1";
+  "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, coalesce((SELECT sum(w.points) FROM warnings w WHERE w.user_id = u.id AND (w.expires_at IS NULL OR w.expires_at > ?2)), 0) AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1";
 
 function all<T extends object>(
   ctx: Ctx,
@@ -122,6 +123,7 @@ const value = (row: PromotionRow) => ({
 function member(ctx: Ctx, id: number): MemberRow {
   const row = one<MemberRow>(ctx, "member", memberSql, id, ctx.now());
   if (!row) throw new NotFoundError();
+  attachPurchasedItems(ctx, [row], rows(ctx).map(conditions));
   return row;
 }
 function target(ctx: Ctx, id: number): Actor {
@@ -314,6 +316,7 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
   return writeTx(ctx, () => {
     const m = one<MemberRow>(ctx, "member", memberSql, userId, ctx.now());
     if (!m) return 0;
+    attachPurchasedItems(ctx, [m], rows(ctx).map(conditions));
     const states = all<StateRow>(
       ctx,
       "memberStates",
@@ -524,7 +527,7 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     const members = all<MemberRow>(
       ctx,
       "sweepPage",
-      "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, a.email_verified, 0 AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id > ?1 ORDER BY u.id LIMIT ?2",
+      "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, 0 AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id > ?1 ORDER BY u.id LIMIT ?2",
       after,
       CHUNK,
     );
@@ -573,6 +576,7 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     for (const row of handGroups) countGroup(row.user_id, row.group_id, 1);
     for (const row of grantRows) countGroup(row.user_id, row.group_id, 1);
     const active = evaluationRows(ctx);
+    attachPurchasedItems(ctx, members, active.map(conditions));
     const now = ctx.now();
     for (const m of members) {
       m.warning_points = points.get(m.id) ?? 0;
@@ -744,7 +748,8 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
       )?.user_id ?? null;
   }
   if (event.type === "reaction.added") userId = Number(event.payload.contentUserId) || null;
-  if (event.type === "member.warned") userId = event.targetId;
+  if (event.type === "member.warned" || event.type === "credits.changed") userId = event.targetId;
+  if (event.type === "shop.purchased") userId = Number(event.payload.buyerId) || null;
   if (event.type === "content.edited" && event.targetType === "profile") userId = event.targetId;
   if (event.type === "member.groups_changed" && event.payload.source === "admin")
     userId = event.targetId;

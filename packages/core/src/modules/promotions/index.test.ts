@@ -13,8 +13,8 @@ import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../err
 import { dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
+import { criteria, eligible } from "../../shared/criteria";
 import { enqueueJob, runDueJobs } from "../jobs/queue";
-import { criteria, eligible } from "./criteria";
 import { deletePromotionChunk, evaluateMember, registerPromotionJobs, sweepChunk } from "./index";
 
 const op = (name: string) => getOperation(`promotions.${name}`);
@@ -36,8 +36,10 @@ describe("promotions", () => {
       avatar_file_id: 8,
       last_activity_at: now - 2 * 86_400_000,
       warning_points: 1,
+      credits: 0,
+      shop_purchase_count: 0,
     };
-    expect(criteria).toHaveLength(8);
+    expect(criteria).toHaveLength(12);
     expect(
       eligible(
         facts,

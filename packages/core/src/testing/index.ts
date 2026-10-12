@@ -120,6 +120,9 @@ const SMALL_TABLES = new Set([
   "node_permissions",
   "reaction_types",
   "cache_versions",
+  "credit_rules",
+  "awards",
+  "shop_categories",
 ]);
 
 /**

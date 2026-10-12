@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { holdCheckpoints } from "../../db/checkpointer";
 import { writeTx } from "../../db/tx";
+import { publishEvent } from "../../events";
 export interface EnqueueOptions {
   runAt?: number;
   uniqueKey?: string;
@@ -254,7 +255,12 @@ export function flushDownloadCounts(ctx: Ctx): number {
   return batch.length;
 }
 
-/** Writes buffered member activity (`users.last_activity_at`), never moving it backwards. */
+const DAY_MS = 86_400_000;
+
+/**
+ * Writes buffered member activity (`users.last_activity_at`), never moving it backwards, and
+ * publishes `member.active_day` for a member's first activity of a UTC day.
+ */
 export function flushActivity(ctx: Ctx): number {
   const batch = [...ctx.activity];
   ctx.activity.clear();
@@ -266,7 +272,24 @@ export function flushActivity(ctx: Ctx): number {
           "UPDATE users SET last_activity_at = ?1 WHERE id = ?2 AND (last_activity_at IS NULL OR last_activity_at < ?1)",
         ),
       );
-      for (const [id, at] of batch) update.run(at, id);
+      const previous = prepared(ctx, "jobs.activityBefore", () =>
+        ctx.sqlite.prepare<{ last_activity_at: number | null }, [number]>(
+          "SELECT last_activity_at FROM users WHERE id = ?1",
+        ),
+      );
+      for (const [id, at] of batch) {
+        const before = previous.get(id);
+        if (!before) continue;
+        update.run(at, id);
+        const day = Math.floor(at / DAY_MS);
+        if (before.last_activity_at === null || Math.floor(before.last_activity_at / DAY_MS) < day)
+          publishEvent(ctx, {
+            type: "member.active_day",
+            targetType: "user",
+            targetId: id,
+            payload: { day },
+          });
+      }
     });
   } catch (error) {
     for (const [id, at] of batch) ctx.activity.set(id, Math.max(ctx.activity.get(id) ?? 0, at));

@@ -20,7 +20,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { closeContext, createContext, DEFAULT_CONFIG, renderMarkdown } from "@sermo/core";
+import { closeContext, createContext, DEFAULT_CONFIG, renderMarkdown, schema } from "@sermo/core";
 import { Rng, ZipfSampler } from "./rng";
 
 export const SIZES = {
@@ -56,10 +56,18 @@ export const SIZES = {
   hotNodeWatchers: 50_000,
   follows: 100_000,
   ignores: 50_000,
+  creditRuleApplications: 400_000,
+  awards: 60,
+  memberAwards: 150_000,
+  shopCategories: 6,
+  shopItems: 90,
+  shopPurchases: 80_000,
+  /** Members holding a purchased permission or group. */
+  shopGrantHolders: 1_000,
 } as const;
 
 /** Bump when the generator's output changes. */
-const SEED_VERSION = 7;
+const SEED_VERSION = 8;
 const SEED = 20261004;
 const T0 = Date.UTC(2021, 0, 1);
 const T1 = Date.UTC(2026, 0, 1);
@@ -102,6 +110,28 @@ export interface SeedMeta {
   notificationHeavyUserIds: number[];
   /** Members with the most followers, most first. */
   popularUserIds: number[];
+  economy: {
+    /** One rule per credit trigger (in CREDIT_TRIGGERS order), then two extra rules. */
+    ruleIds: number[];
+    awardIds: number[];
+    /** Active awards a member can hold more than once. */
+    stackableAwardIds: number[];
+    /** A member holding about 800 grants. */
+    awardHeavyUserId: number;
+    /** Members with the highest balances, richest first. */
+    richUserIds: number[];
+    /** Members with the most inventory rows, most first. */
+    inventoryHeavyUserIds: number[];
+    categoryIds: number[];
+    /** Active items by kind; `permanent`, `consumable` and `temporary` are giftable. */
+    itemIds: {
+      permanent: number[];
+      consumable: number[];
+      temporary: number[];
+      permission: number[];
+      group: number[];
+    };
+  };
 }
 
 export function benchDir(): string {
@@ -764,12 +794,18 @@ async function generate(path: string): Promise<SeedMeta> {
   });
   log("third pass: groups, watches, follows, notifications", started);
   for (const t of triggers) db.run(t.sql);
+  const economy = seedEconomy(db, {
+    totalUsers: U + SIZES.lurkers,
+    forumIds,
+    customGroupIds: thirdPass.customGroupIds,
+  });
+  log("economy: credits, awards, shop", started);
 
   db.run("ANALYZE");
   db.run("PRAGMA wal_checkpoint(TRUNCATE)");
   log("analyze", started);
 
-  const meta = { ...buildMeta(db, vocab, forumIds), ...thirdPass };
+  const meta = { ...buildMeta(db, vocab, forumIds), ...thirdPass, ...economy };
   closeContext(ctx);
   for (const suffix of ["-wal", "-shm"]) rmSync(path + suffix, { force: true });
   return meta;
@@ -1242,11 +1278,428 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   };
 }
 
+type EconomyMeta = Pick<SeedMeta, "economy">;
+
+/** Item ids by 1-based position within each block of ITEM_KINDS. */
+const ITEM_KINDS = [
+  "frame",
+  "nameColor",
+  "threadCover",
+  "highlight",
+  "bump",
+  "usernameChange",
+  "temporaryFrame",
+  "permission",
+  "group",
+] as const;
+
+/**
+ * Credits, credit rules, awards and the shop. Runs after the triggers are restored, with its own
+ * random sequence, so earlier content is unchanged and the combination triggers place members
+ * who hold a purchased permission or group. Every denormalized value (balances, XP, award
+ * totals and counts, purchase counts, stock) is computed as the services maintain it.
+ */
+function seedEconomy(
+  db: Database,
+  input: { totalUsers: number; forumIds: number[]; customGroupIds: number[] },
+): EconomyMeta {
+  const rng = new Rng(SEED + 1);
+  const users = input.totalUsers;
+  const now = T1;
+  const balance = new Int32Array(users + 1);
+  let ledgerAt = T0;
+  const insertLedger = db.prepare(
+    "INSERT INTO credit_transactions (user_id, amount, balance_after, type, source_type, source_id, actor_id, reason, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+  );
+  const ledger = (
+    userId: number,
+    amount: number,
+    type: string,
+    sourceType: string | null,
+    sourceId: number | null,
+    actorId: number | null,
+    reason = "",
+  ) => {
+    balance[userId] = balance[userId]! + amount;
+    ledgerAt += 225_000;
+    insertLedger.run(
+      userId,
+      amount,
+      balance[userId]!,
+      type,
+      sourceType,
+      sourceId,
+      actorId,
+      reason,
+      ledgerAt,
+    );
+  };
+
+  // Rules: one per trigger, plus a forum-restricted and an inactive one.
+  const rules: [string, string, number, number | null, number | null, number[], number][] =
+    schema.CREDIT_TRIGGERS.map((trigger, i) => [
+      `Rule ${i + 1}: ${trigger}`,
+      trigger,
+      trigger === "warning_received" ? -10 : trigger === "thread_created" ? 5 : 2,
+      trigger === "registered" || trigger === "warning_received" ? null : 50,
+      trigger === "registered" || trigger === "warning_received" ? null : 24,
+      [],
+      1,
+    ]);
+  rules.push(["Featured forums bonus", "thread_created", 10, 5, 24, input.forumIds.slice(0, 3), 1]);
+  rules.push(["Retired reply bonus", "reply_posted", 1, null, null, [], 0]);
+  tx(db, () => {
+    const insert = db.prepare(
+      "INSERT INTO credit_rules (title, trigger, amount, is_active, limit_count, limit_window_hours, node_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+    );
+    for (const [title, trigger, amount, count, hours, nodeIds, active] of rules)
+      insert.run(title, trigger, amount, active, count, hours, JSON.stringify(nodeIds), now);
+  });
+  const ruleIds = rules.map((_, i) => i + 1);
+  const threadRule = 1 + schema.CREDIT_TRIGGERS.indexOf("thread_created");
+  const replyRule = 1 + schema.CREDIT_TRIGGERS.indexOf("reply_posted");
+
+  // Applications: what visible threads and replies paid their authors, each with its ledger row.
+  const sources = [
+    ...db
+      .query<{ id: number; user_id: number }, []>(
+        "SELECT id, user_id FROM threads WHERE state = 'visible' ORDER BY id",
+      )
+      .all()
+      .map((row) => ({ ...row, rule: threadRule, type: "thread", amount: 5 })),
+  ];
+  for (const row of db
+    .query<{ id: number; user_id: number }, [number]>(
+      "SELECT id, user_id FROM posts WHERE state = 'visible' AND position > 0 ORDER BY id LIMIT ?1",
+    )
+    .all(SIZES.creditRuleApplications - sources.length))
+    sources.push({ ...row, rule: replyRule, type: "post", amount: 2 });
+  const insertApplication = db.prepare(
+    "INSERT INTO credit_rule_applications (rule_id, user_id, source_type, source_id, amount, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  );
+  batched(db, sources.length, (i) => {
+    const source = sources[i]!;
+    insertApplication.run(source.rule, source.user_id, source.type, source.id, source.amount, now);
+    ledger(source.user_id, source.amount, "event", "credit_rule", source.rule, null);
+  });
+
+  // Awards: every fifth is stackable, every third pays credits, every fourth has criteria.
+  const awardXp: number[] = [0];
+  const awardCredits: number[] = [0];
+  const stackable: boolean[] = [false];
+  tx(db, () => {
+    const insert = db.prepare(
+      "INSERT INTO awards (id, name, description, icon, tier, xp, credits, is_stackable, is_active, criteria, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+    );
+    for (let id = 1; id <= SIZES.awards; id++) {
+      const xp = 10 * rng.int(1, 50);
+      const credits = id % 3 === 0 ? 25 * rng.int(1, 8) : 0;
+      const criteria =
+        id % 4 === 0
+          ? [
+              { criterion: "post_count", value: rng.int(1, 40) * 25 },
+              { criterion: "credits_at_least", value: rng.int(1, 20) * 100 },
+            ]
+          : [];
+      awardXp.push(xp);
+      awardCredits.push(credits);
+      stackable.push(id % 5 === 0);
+      insert.run(
+        id,
+        `Award ${id}`,
+        `Seeded award ${id}`,
+        `award-${id}`,
+        schema.AWARD_TIERS[id % schema.AWARD_TIERS.length]!,
+        xp,
+        credits,
+        id % 5 === 0 ? 1 : 0,
+        id % 10 === 7 ? 0 : 1,
+        JSON.stringify(criteria),
+        now,
+      );
+    }
+  });
+
+  // Grants: spread over all members; member 25 holds many (a full profile), 2% are revoked.
+  const heavyMember = 25;
+  const xpTotal = new Int32Array(users + 1);
+  const held = new Map<number, { count: number; last: number }>();
+  const grantCount = new Int32Array(SIZES.awards + 1);
+  const insertGrant = db.prepare(
+    "INSERT INTO member_awards (user_id, award_id, granted_by, reason, xp, credits, created_at, revoked_at, revoked_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+  );
+  let grantId = 0;
+  let attempt = 0;
+  while (grantId < SIZES.memberAwards) {
+    tx(db, () => {
+      for (let n = 0; n < 50_000 && grantId < SIZES.memberAwards; attempt++) {
+        const userId = attempt % 40 === 0 ? heavyMember : 1 + ((attempt * 48_271) % users);
+        const awardId = 1 + ((attempt * 31 + Math.floor(attempt / 60)) % SIZES.awards);
+        const key = userId * 64 + awardId;
+        const entry = held.get(key);
+        if (entry && !stackable[awardId]) continue;
+        grantId++;
+        n++;
+        const at = T0 + Math.floor(((T1 - T0) / SIZES.memberAwards) * grantId);
+        const revoked = grantId % 50 === 0;
+        const automatic = grantId % 4 === 0;
+        insertGrant.run(
+          userId,
+          awardId,
+          automatic ? null : 1,
+          automatic ? "" : "Seeded grant",
+          awardXp[awardId]!,
+          awardCredits[awardId]!,
+          at,
+          revoked ? at + DAY : null,
+          revoked ? 1 : null,
+        );
+        if (awardCredits[awardId])
+          ledger(userId, awardCredits[awardId]!, "award", "member_award", grantId, null);
+        if (revoked) {
+          if (awardCredits[awardId])
+            ledger(userId, -awardCredits[awardId]!, "award_revoked", "member_award", grantId, 1);
+          if (!entry) held.set(key, { count: 0, last: at });
+          continue;
+        }
+        if (entry) {
+          entry.count++;
+          entry.last = at;
+        } else held.set(key, { count: 1, last: at });
+        xpTotal[userId] = xpTotal[userId]! + awardXp[awardId]!;
+        grantCount[awardId] = grantCount[awardId]! + 1;
+      }
+    });
+  }
+  const insertTotal = db.prepare(
+    "INSERT INTO member_award_totals (user_id, award_id, count, auto_granted, last_granted_at) VALUES (?1, ?2, ?3, 0, ?4)",
+  );
+  const totals = [...held];
+  batched(db, totals.length, (i) => {
+    const [key, entry] = totals[i]!;
+    insertTotal.run(Math.floor(key / 64), key % 64, entry.count, entry.last);
+  });
+  tx(db, () => {
+    const update = db.prepare("UPDATE awards SET grant_count = ?1 WHERE id = ?2");
+    for (let id = 1; id <= SIZES.awards; id++) update.run(grantCount[id]!, id);
+  });
+
+  // Shop: categories and items. Items repeat ITEM_KINDS in order, so item id -> kind is known.
+  const permissionEffects = [
+    { type: "permission", permission: "forum.uploadAttachments" },
+    { type: "permission", permission: "attachment.storageQuota", value: 5 * 1024 * 1024 * 1024 },
+    { type: "permission", permission: "conversation.maxRecipients", value: -1 },
+    { type: "permission", permission: "forum.editOwnTimeLimit", value: -1 },
+  ];
+  const items: { price: number; consumable: boolean; duration: number | null; kind: string }[] = [
+    { price: 0, consumable: false, duration: null, kind: "" },
+  ];
+  const stockLeft: (number | null)[] = [null];
+  tx(db, () => {
+    const insertCategory = db.prepare(
+      "INSERT INTO shop_categories (id, name, description, position, is_active, created_at, updated_at) VALUES (?1, ?2, '', ?1, ?3, ?4, ?4)",
+    );
+    for (let id = 1; id <= SIZES.shopCategories; id++)
+      insertCategory.run(id, `Category ${id}`, id === SIZES.shopCategories ? 0 : 1, now);
+    const insertItem = db.prepare(
+      "INSERT INTO shop_items (id, category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, created_at, updated_at) VALUES (?1, ?2, ?3, '', ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?1, ?12, ?12)",
+    );
+    for (let id = 1; id <= SIZES.shopItems; id++) {
+      const kind = ITEM_KINDS[(id - 1) % ITEM_KINDS.length]!;
+      const round = Math.floor((id - 1) / ITEM_KINDS.length);
+      const consumable = kind === "highlight" || kind === "bump" || kind === "usernameChange";
+      const duration =
+        kind === "temporaryFrame" || (kind === "group" && round % 2 === 1) ? 30 * 86_400 : null;
+      const effect =
+        kind === "frame" || kind === "temporaryFrame"
+          ? { type: "frame", frame: `frame-${id}` }
+          : kind === "nameColor"
+            ? {
+                type: "nameColor",
+                color: `#${(id * 1_234_567).toString(16).padStart(6, "0").slice(-6)}`,
+              }
+            : kind === "threadCover"
+              ? { type: "threadCover", cover: `cover-${id}` }
+              : kind === "highlight"
+                ? { type: "highlight", days: 1 + (id % 7) }
+                : kind === "permission"
+                  ? permissionEffects[round % permissionEffects.length]!
+                  : kind === "group"
+                    ? { type: "group", groupId: input.customGroupIds[round]! }
+                    : { type: kind };
+      const price = 10 * rng.int(1, 50);
+      // A third of the items have a stock, large enough that benchmarks never exhaust it.
+      const stock = id % 3 === 0 ? 1_000_000 : null;
+      items.push({ price, consumable, duration, kind });
+      stockLeft.push(stock);
+      insertItem.run(
+        id,
+        1 + (round % (SIZES.shopCategories - 1)),
+        `Item ${id}`,
+        `item-${id}`,
+        price,
+        id > SIZES.shopItems - ITEM_KINDS.length ? 0 : 1,
+        stock,
+        consumable ? 1 : 0,
+        kind === "permission" || kind === "group" ? 0 : 1,
+        duration,
+        JSON.stringify(effect),
+        now,
+      );
+    }
+  });
+
+  // Purchases: the buyer is charged (topped up by an adjustment first when short), the
+  // recipient's inventory row is created or grows. Temporary items bought in the first half of
+  // the range have expired; the rest end far in the future, so benchmarks never expire them.
+  const definitionIds = new Map(
+    db
+      .query<{ id: number; key: string }, []>("SELECT id, key FROM permission_definitions")
+      .all()
+      .map((row) => [row.key, row.id]),
+  );
+  const farFuture = Date.UTC(2100, 0, 1);
+  const inventory = new Map<number, { id: number; quantity: number }>();
+  const purchaseCount = new Int32Array(users + 1);
+  const insertPurchase = db.prepare(
+    "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, quantity, price, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+  );
+  const insertInventory = db.prepare(
+    "INSERT INTO shop_inventory (id, user_id, item_id, state, quantity, expires_at, acquired_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
+  );
+  const growInventory = db.prepare(
+    "UPDATE shop_inventory SET quantity = ?1, state = 'unused', updated_at = ?2 WHERE id = ?3",
+  );
+  const insertPermissionGrant = db.prepare(
+    "INSERT INTO shop_permission_grants (user_id, inventory_id, permission_id, value, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+  );
+  const insertGroupGrant = db.prepare(
+    "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, ?2, ?3, ?4)",
+  );
+  const sellable = SIZES.shopItems - ITEM_KINDS.length;
+  let purchaseId = 0;
+  let inventoryId = 0;
+  let grantHolders = 0;
+  attempt = 0;
+  while (purchaseId < SIZES.shopPurchases) {
+    tx(db, () => {
+      for (let n = 0; n < 20_000 && purchaseId < SIZES.shopPurchases; attempt++) {
+        const itemId = 1 + ((attempt * 37) % sellable);
+        const item = items[itemId]!;
+        const grants = item.kind === "permission" || item.kind === "group";
+        // Purchased permissions and groups stay rare: each holder has a combination to resolve.
+        if (grants && (attempt % 8 !== 0 || grantHolders >= SIZES.shopGrantHolders)) continue;
+        const buyerId = 22 + ((attempt * 48_271) % (users - 21));
+        const gift = !grants && attempt % 20 === 0;
+        const recipientId = gift ? 22 + ((attempt * 7919 + 1) % (users - 21)) : buyerId;
+        const key = recipientId * 128 + itemId;
+        const owned = inventory.get(key);
+        if (owned && !item.consumable) continue;
+        const quantity = item.consumable ? rng.int(1, 3) : 1;
+        const cost = item.price * quantity;
+        const at = T0 + Math.floor(((T1 - T0) / SIZES.shopPurchases) * purchaseId);
+        if (balance[buyerId]! < cost)
+          ledger(
+            buyerId,
+            cost - balance[buyerId]! + 100,
+            "adjustment",
+            null,
+            null,
+            1,
+            "Seeded top-up",
+          );
+        purchaseId++;
+        n++;
+        insertPurchase.run(itemId, buyerId, recipientId, quantity, cost, at);
+        ledger(buyerId, -cost, "purchase", "shop_purchase", purchaseId, buyerId);
+        purchaseCount[buyerId] = purchaseCount[buyerId]! + quantity;
+        if (stockLeft[itemId] !== null) stockLeft[itemId] = stockLeft[itemId]! - quantity;
+        if (owned) {
+          owned.quantity += quantity;
+          growInventory.run(owned.quantity, at, owned.id);
+          continue;
+        }
+        inventoryId++;
+        const expired = item.duration !== null && purchaseId < SIZES.shopPurchases / 2;
+        // One consumable row in ten has been used up.
+        const usedUp = item.consumable && inventoryId % 10 === 0;
+        inventory.set(key, { id: inventoryId, quantity: usedUp ? 0 : quantity });
+        insertInventory.run(
+          inventoryId,
+          recipientId,
+          itemId,
+          expired ? "expired" : item.consumable ? (usedUp ? "used" : "unused") : "active",
+          usedUp ? 0 : quantity,
+          item.duration === null ? null : expired ? at + item.duration * 1000 : farFuture,
+          at,
+        );
+        if (!grants || expired) continue;
+        grantHolders++;
+        const round = Math.floor((itemId - 1) / ITEM_KINDS.length);
+        if (item.kind === "group")
+          insertGroupGrant.run(recipientId, inventoryId, input.customGroupIds[round]!, at);
+        else {
+          const effect = permissionEffects[round % permissionEffects.length]!;
+          insertPermissionGrant.run(
+            recipientId,
+            inventoryId,
+            definitionIds.get(effect.permission)!,
+            effect.value ?? 1,
+            at,
+          );
+        }
+      }
+    });
+  }
+  tx(db, () => {
+    const update = db.prepare("UPDATE shop_items SET stock = ?1 WHERE id = ?2");
+    for (let id = 1; id <= SIZES.shopItems; id++)
+      if (stockLeft[id] !== null) update.run(stockLeft[id]!, id);
+  });
+
+  const updateUser = db.prepare(
+    "UPDATE users SET credits = ?1, award_xp = ?2, shop_purchase_count = ?3 WHERE id = ?4",
+  );
+  batched(db, users, (i) => {
+    const id = i + 1;
+    if (balance[id] || xpTotal[id] || purchaseCount[id])
+      updateUser.run(balance[id]!, xpTotal[id]!, purchaseCount[id]!, id);
+  });
+
+  const ids = (sql: string) =>
+    db
+      .query<{ id: number }, []>(sql)
+      .all()
+      .map((r) => r.id);
+  const itemsOfKind = (kind: (typeof ITEM_KINDS)[number]) =>
+    range(1, sellable).filter((id) => items[id]!.kind === kind);
+  return {
+    economy: {
+      ruleIds,
+      awardIds: range(1, SIZES.awards),
+      stackableAwardIds: range(1, SIZES.awards).filter((id) => stackable[id] && id % 10 !== 7),
+      awardHeavyUserId: heavyMember,
+      richUserIds: ids("SELECT id FROM users WHERE group_id = 2 ORDER BY credits DESC LIMIT 200"),
+      inventoryHeavyUserIds: ids(
+        "SELECT user_id AS id FROM shop_inventory GROUP BY user_id ORDER BY count(*) DESC LIMIT 10",
+      ),
+      categoryIds: range(1, SIZES.shopCategories),
+      itemIds: {
+        permanent: itemsOfKind("frame"),
+        consumable: itemsOfKind("bump"),
+        temporary: itemsOfKind("temporaryFrame"),
+        permission: itemsOfKind("permission"),
+        group: itemsOfKind("group"),
+      },
+    },
+  };
+}
+
 function buildMeta(
   db: Database,
   vocab: string[],
   forumIds: number[],
-): Omit<SeedMeta, keyof ThirdPassMeta> {
+): Omit<SeedMeta, keyof ThirdPassMeta | keyof EconomyMeta> {
   const ids = (sql: string) =>
     db
       .query<{ id: number }, []>(sql)

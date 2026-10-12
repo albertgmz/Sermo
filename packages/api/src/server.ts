@@ -14,6 +14,9 @@ import {
   notificationChannels,
   notificationPushPhrase,
   registerAccountEmailJobs,
+  registerAwardJobs,
+  registerCreditJobs,
+  registerCreditRuleJobs,
   registerEmailJobs,
   registerEmailTypes,
   registerJobHandlers,
@@ -22,6 +25,7 @@ import {
   registerPromotionJobs,
   registerPushJobs,
   registerSeoJobs,
+  registerShopJobs,
   registerSocialJobs,
   registerStorageJobs,
   s3Driver,
@@ -301,6 +305,10 @@ async function main(): Promise<void> {
   registerPromotionJobs(ctx);
   registerSeoJobs(ctx);
   registerSocialJobs(ctx);
+  registerCreditJobs(ctx);
+  registerCreditRuleJobs(ctx);
+  registerAwardJobs(ctx);
+  registerShopJobs(ctx);
   const emailTypes = {
     ...notificationChannels,
     defaults: {

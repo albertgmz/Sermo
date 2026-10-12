@@ -18,6 +18,9 @@ export {
   revokeUserCredentials,
   type SermoAuth,
 } from "./modules/auth";
+export { registerAwardJobs } from "./modules/awards";
+export { registerCreditRuleJobs } from "./modules/credit-events";
+export { registerCreditJobs } from "./modules/credits";
 export {
   closeEmail,
   deliverEmail,
@@ -55,6 +58,7 @@ export {
   sitemapShard,
 } from "./modules/seo";
 export { readSiteSettings, updateSiteSettings } from "./modules/settings";
+export { registerShopJobs } from "./modules/shop";
 export { registerSocialJobs } from "./modules/social";
 export type { StorageConfig, StorageDriver } from "./modules/storage";
 export {

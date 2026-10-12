@@ -1,6 +1,7 @@
 /**
- * In-memory permission state. Entries are loaded per layer (one group's entries, or one member's
- * entries); a layer resolves node inheritance once; a combination (a member's set of layers) is
+ * In-memory permission state. Entries are loaded per layer (one group's entries, one member's
+ * entries, or the permissions a member holds through shop items); a layer resolves node
+ * inheritance once; a combination (a member's set of layers) is
  * resolved from its layers on first use and precomputed in the background in small batches.
  *
  * Freshness: the state records the `permissions` and `node_tree` cache versions it reflects.
@@ -123,6 +124,13 @@ export interface PermissionState {
 
 export const layerKey = (groupId: number, userId: number) =>
   userId ? `u:${userId}` : `g:${groupId}`;
+/**
+ * The layer of permissions a member holds through shop items (shop_permission_grants). It is a
+ * layer of its own, so a purchase combines with the member's other layers by the usual rule (any
+ * never denies, otherwise any allow grants, integers take the highest) and can never overwrite an
+ * entry an admin set. It shares the member layer's version row.
+ */
+export const purchasedLayerKey = (userId: number) => `p:${userId}`;
 export const combinationKey = (userId: number, groupIds: readonly number[]) =>
   `${userId}|${groupIds.join(",")}`;
 
@@ -227,12 +235,36 @@ function loadAllEntries(ctx: Ctx, keys: Map<number, PermissionId>): Map<string, 
   }
   const result = new Map<string, EntryRow[]>();
   for (const [key, rows] of byLayer) result.set(key, toEntries(rows, keys));
+  const purchased = new Map<number, RawEntry[]>();
+  for (const row of ctx.sqlite
+    .prepare<RawEntry, []>(`${PURCHASED_SQL} GROUP BY user_id, permission_id`)
+    .all()) {
+    const list = purchased.get(row.user_id);
+    if (list) list.push(row);
+    else purchased.set(row.user_id, [row]);
+  }
+  for (const [userId, rows] of purchased)
+    result.set(purchasedLayerKey(userId), toEntries(rows, keys));
   return result;
 }
 
+/** One entry per permission: several items granting the same integer give the highest value. */
+const PURCHASED_SQL =
+  "SELECT permission_id, 0 AS node_id, 0 AS group_id, user_id, " +
+  "CASE WHEN min(value) = -1 THEN -1 ELSE max(value) END AS value FROM shop_permission_grants";
+
 function loadLayerEntries(ctx: Ctx, key: string, keys: Map<number, PermissionId>): EntryRow[] {
-  const [kind, raw] = key.split(":") as ["g" | "u", string];
+  const [kind, raw] = key.split(":") as ["g" | "u" | "p", string];
   const id = Number(raw);
+  if (kind === "p")
+    return toEntries(
+      ctx.sqlite
+        .prepare<RawEntry, [number]>(
+          `${PURCHASED_SQL} WHERE user_id = ?1 GROUP BY user_id, permission_id`,
+        )
+        .all(id),
+      keys,
+    );
   return toEntries(
     ctx.sqlite
       .prepare<RawEntry, [number, number]>(
@@ -341,11 +373,11 @@ export function buildLayer(
       else nodeInt[i * nodeInts + slot.index] = entry.value;
     }
   }
-  const [kind, raw] = key.split(":") as ["g" | "u", string];
+  const [kind, raw] = key.split(":") as ["g" | "u" | "p", string];
   return {
     key,
     groupId: kind === "g" ? Number(raw) : 0,
-    userId: kind === "u" ? Number(raw) : 0,
+    userId: kind === "g" ? 0 : Number(raw),
     entries,
     globalAllow,
     globalNever,
@@ -383,7 +415,7 @@ export function computeCombination(
   const { globalWords, nodeWords, globalInts, nodeInts } = LAYOUT;
   const n = state.tree.entries.length;
   const layerKeys = def.groupIds.filter((g) => state.groups.has(g)).map((g) => layerKey(g, 0));
-  if (def.userId) layerKeys.push(layerKey(0, def.userId));
+  if (def.userId) layerKeys.push(layerKey(0, def.userId), purchasedLayerKey(def.userId));
   const layers = layerKeys.map((key) => layerFor(state, key));
 
   const globalAllow = new Uint32Array(globalWords);
@@ -499,7 +531,10 @@ function refresh(ctx: Ctx, state: PermissionState, versions: PermissionVersions)
     const layerVersions = loadLayerVersions(ctx);
     const changed = new Set<string>();
     for (const [key, version] of layerVersions)
-      if (definitionsChanged || state.layerVersions.get(key) !== version) changed.add(key);
+      if (definitionsChanged || state.layerVersions.get(key) !== version) {
+        changed.add(key);
+        if (key.startsWith("u:")) changed.add(purchasedLayerKey(Number(key.slice(2))));
+      }
     for (const key of state.layers.keys())
       if (!layerVersions.has(key) && state.layerVersions.has(key)) changed.add(key);
     state.layerVersions = layerVersions;

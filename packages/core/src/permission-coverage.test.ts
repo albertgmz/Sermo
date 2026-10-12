@@ -15,16 +15,25 @@ import * as walk from "acorn-walk";
 import { PERMISSION_IDS, PERMISSIONS, type PermissionDefinition } from "./permissions/registry";
 
 /**
- * Modules not yet converted to the permission check. Every module was converted in milestone
- * 19; the list stays empty.
+ * Modules whose operations are not implemented yet. A module's worker removes its name when its
+ * checks land; the list must end empty.
  */
-const PENDING_MODULES = new Set<string>();
+const PENDING_MODULES = new Set<string>(["credits", "credit-events", "awards", "shop"]);
 
 /**
  * Registered permissions whose feature is still being built. A feature's worker removes its
  * permissions from this list when the checks land; the list must end empty.
  */
-const PENDING_PERMISSIONS = new Set<string>([]);
+const PENDING_PERMISSIONS = new Set<string>([
+  "credits.adjust",
+  "credits.viewAny",
+  "admin.creditRules",
+  "award.grant",
+  "admin.awards",
+  "shop.buy",
+  "shop.gift",
+  "admin.shop",
+]);
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */

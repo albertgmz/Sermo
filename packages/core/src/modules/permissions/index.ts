@@ -169,6 +169,7 @@ export const groupsDeleteOp = implement(groupsDelete, (ctx, actor, input) => {
     ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_groups WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM user_group_grants WHERE group_id = ?1").run(group.id);
+    ctx.sqlite.prepare("DELETE FROM shop_group_grants WHERE group_id = ?1").run(group.id);
     ctx.sqlite.prepare("DELETE FROM permission_entries WHERE group_id = ?1").run(group.id);
     ctx.sqlite
       .prepare(

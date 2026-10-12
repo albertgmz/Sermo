@@ -719,3 +719,108 @@ under an extreme write rate). Background jobs now hold checkpoints while they ru
 still runs at least every 30 s and keeps checkpointing until the WAL stops growing. Notification
 reads during a 20,000-recipient fan-out went from max 81–134 ms to 7–10 ms. Request writes do not
 hold checkpoints, so a request write can still meet a checkpoint; owner review.
+
+## Milestone 28: economy foundation (credits, credit rules, awards, shop)
+
+**One additive migration** (`0016_economy`) holds the whole pass: three counters on `users`
+(`credits`, `award_xp`, `shop_purchase_count`), the ledger, credit rules and their applications,
+awards, grants and per-member totals, shop categories, items, inventory and purchases, and the two
+tables of purchased permissions and groups. The product references were the DragonByte Credits and
+Shop add-ons; the owner asked for the idea, not a copy, so one currency, no transfers between
+members, no real-money purchases, and no item types that act on other members' content.
+
+**The balance is a counter with a ledger behind it, and one function writes both.**
+`shared/credits.ts moveCredits` updates `users.credits`, appends the `credit_transactions` row
+with the resulting balance and publishes `credits.changed`, inside the caller's transaction. No
+other code writes either table, so the balance always equals the sum of the member's ledger; a
+daily job recomputes balances from the ledger as a repair. A purchase is a conditional UPDATE
+(`requireFunds`), so two concurrent purchases can never both spend the same credits.
+
+**Balances may go below zero, but never through a purchase.** Penalties (a negative rule, a
+revoked award's credits, a reversal of hidden content, a manual removal) apply in full; if they
+stopped at zero, spending first would dodge them. Owner review.
+
+**The ledger is ready for wagers and a lottery without being built for them.** The row type is
+plain text checked in code, the cause is a generic `(source_type, source_id)` reference, and
+`moveCredits` takes several members' movements in one transaction, which is what a pot or a bet
+needs. Nothing else of those features exists.
+
+**Credit rules pay once per source, through an applications table.** A rule's payment to a member
+for one source (a thread, a post, one member's reaction on one item, a follower, a warning, an
+award grant, a day) is a row in `credit_rule_applications` with a unique key, so reprocessing an
+event never pays twice, and un-reacting and reacting again, or unfollowing and following again,
+is not a farm. Each row stores the amount it paid and the last event applied to it: hiding the
+content flips it to `reverted` with a ledger row of exactly that amount, restoring flips it back,
+and replays of older events are ignored. The same table serves the per-member limit (a count over
+a rolling window of hours, reverted rows included, so deleting does not free the limit).
+
+**Hiding a thread takes back what the thread itself paid, not what its replies paid.** Reverting
+every reply of a 10,000-reply thread would move credits of thousands of members in one event, for
+content they did not remove. Reply rules are bounded by their limits. Owner review.
+
+**Rule ids are never reused** (`AUTOINCREMENT`, the one table that uses it): applications outlive
+a deleted rule so their content can still be reverted, and a later rule must not inherit them.
+
+**Two new events feed rules that had no fact to react to:** `member.registered` (published with
+the member's row) and `member.active_day` (published when buffered activity is flushed and the
+member's last activity was on an earlier UTC day, so reads still never write).
+
+**Awards cover achievements; there is no second concept.** Each grant is a row carrying the XP
+and credits it gave, so revoking one grant takes back exactly those, whatever the award says now.
+A revoked grant keeps its row (`revoked_at`), which keeps the history and means grant ids are
+never reused. `member_award_totals` holds the count per member and award for listings, and
+outlives its grants so that an award the criteria granted once is neither re-granted after a
+revocation nor taken back when the criteria stop holding (an achievement stays earned).
+`users.award_xp` is the member's total; clients derive the level from it.
+
+**Criteria are shared.** `modules/promotions/criteria.ts` moved to `shared/criteria.ts`, and
+promotions and awards both use it. Four criteria were added: credits at least / at most, has
+bought item X, has bought at least N units (`users.shop_purchase_count`). "Has bought" reads the
+purchase log by buyer, so a gift counts for the member who paid.
+
+**A purchased permission is a layer of its own in the member's combination.** Storing it as a
+member-specific permission entry would let a purchase overwrite an entry an admin set, and its
+expiry delete it. Instead `shop_permission_grants` rows load as a second per-member layer beside
+the member entries (`p:<userId>`, sharing the member layer's version row), so the usual rule
+applies unchanged: any `never` denies, otherwise any allow grants, integers take the highest, and
+bans and restrictions still override. Triggers on the table make the member's combination private
+and bump the layer and cache versions, so a purchase or an expiry is seen by the next request in
+every process. A node permission is granted on every node (items sell capabilities; access to one
+forum is sold as a group). `permissions.explain` reports the layer as `purchase`.
+
+**A purchased group has its own table too** (`shop_group_grants`), for the reason promotions got
+theirs: removing it on expiry must never remove a group an admin assigned or a promotion granted.
+The eight combination triggers of `0011` were recreated with the extra union. Paid ranks are items
+with a `group` effect.
+
+**Selling a permission or a group needs `admin.permissions` as well as `admin.shop`**, and a
+sold group must rank below the admin, as with promotions: creating such an item is editing
+permissions.
+
+**Only the permission and group effects apply in this pass.** The others (frame, name color,
+thread cover, highlight, bump, username change) are stored and validated, and using the item
+publishes `shop.item_used` for a later subscriber. A grant holds while the inventory row is held:
+a non-consumable until it expires, a consumable while units are left.
+
+**Temporary items end within a minute of their expiry, not at the instant.** A job marks them
+expired and removes their grants; checking the expiry inside every permission check would put a
+query (or a per-member timer) on the one path that must stay a memory lookup. Owner review.
+
+**An item that was bought keeps its effect, kind and duration**, and an item or award that was
+ever bought or granted can only be deactivated, not deleted: members hold what they paid for, and
+the purchase log and grant history keep their references.
+
+**Gifts are decided at purchase.** The purchase stores buyer and recipient separately; the charge
+goes to the buyer and the item to the recipient's inventory. An item already in an inventory
+cannot be given away.
+
+**No hierarchy condition on `credits.adjust` and `award.grant`.** Giving credits or an award is
+not a sanction, and with the condition the only administrator could not credit themselves or a
+colleague. The cost is that a moderator given `credits.adjust` could debit an administrator.
+Owner review.
+
+**The seed gains the economy** after all earlier content and with its own random sequence:
+14 credit rules, 400,000 rule applications with their ledger rows, 60 awards and 150,000 grants
+(one member holds about 800), 6 categories, 90 items and 80,000 purchases with inventories,
+1,000 members holding a purchased permission or group, and every balance, XP total, award total
+and stock computed as the services maintain them (about 600,000 ledger rows).

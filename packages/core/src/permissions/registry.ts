@@ -25,7 +25,14 @@ export type LegacyFlag =
 interface BaseDefinition {
   readonly scope: "global" | "node";
   /** Admin UI grouping. */
-  readonly category: "general" | "forum" | "profile" | "conversation" | "moderation" | "admin";
+  readonly category:
+    | "general"
+    | "forum"
+    | "profile"
+    | "conversation"
+    | "moderation"
+    | "economy"
+    | "admin";
   /** Translated from this legacy group flag (node overrides follow the flag's node column). */
   readonly legacy?: LegacyFlag;
 }
@@ -353,6 +360,29 @@ export const PERMISSIONS = {
   "wordFilter.manage": globalAdmin("moderation"),
   "moderatorLog.view": globalAdmin("moderation"),
 
+  // Economy (global) --------------------------------------------------------------------
+  /** Give or take credits by hand, with a reason. */
+  "credits.adjust": globalAdmin("economy"),
+  /** See any member's credit ledger (members always see their own). */
+  "credits.viewAny": globalModerator("economy"),
+  /** Grant awards to members by hand, and revoke grants. */
+  "award.grant": globalModerator("economy"),
+  "shop.buy": {
+    scope: "global",
+    category: "economy",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Buy a giftable item for another member; needs shop.buy as well. */
+  "shop.gift": {
+    scope: "global",
+    category: "economy",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+
   // Administration ----------------------------------------------------------------------
   "admin.nodes": globalAdmin("admin"),
   "admin.groups": globalAdmin("admin"),
@@ -362,6 +392,10 @@ export const PERMISSIONS = {
   "admin.announcements": globalAdmin("admin"),
   "admin.settings": globalAdmin("admin"),
   "admin.reactionTypes": globalAdmin("admin"),
+  "admin.creditRules": globalAdmin("admin"),
+  "admin.awards": globalAdmin("admin"),
+  /** Manage shop categories and items, and see the purchase log and any inventory. */
+  "admin.shop": globalAdmin("admin"),
 } as const satisfies Record<string, PermissionDefinition>;
 
 function globalModerator(category: BaseDefinition["category"]): FlagDefinition {

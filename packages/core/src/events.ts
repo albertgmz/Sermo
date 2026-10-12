@@ -17,8 +17,12 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  * - `reaction.added`: target the reacted content (targetType is the reaction content type);
  *   payload { userId, contentUserId, reactionTypeId }.
  * - `member.groups_changed`: target the member (targetType "user"); payload { added, removed,
- *   source: "promotion" | "admin" | "verification", promotionId?, actorId? }; "verification"
- *   is a confirmed email moving the member from Unconfirmed to Member.
+ *   source: "promotion" | "admin" | "verification" | "shop", promotionId?, actorId? };
+ *   "verification" is a confirmed email moving the member from Unconfirmed to Member; "shop" is
+ *   a group bought as a shop item, or lost when that item expired.
+ * - `member.registered`: target the new member; no payload. Published with the member's row.
+ * - `member.active_day`: target the member; payload { day } (days since the Unix epoch, UTC).
+ *   Published once per member and day, when their buffered activity is flushed.
  * - `member.followed`: target the followed member; payload { followerId }.
  * - `member.warned`, `member.banned`, `member.restricted`, `member.thread_banned`: target the
  *   member; payload { moderatorId, reason, expiresAt?, notify, message?, ...details }. Lifting a
@@ -34,6 +38,15 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  * - `announcement.published`: target the announcement; payload { userId }.
  * - `notification.created`: one per fan-out batch, target the first notification; payload
  *   { notificationIds, userIds } (for future real-time delivery).
+ * - `credits.changed`: one per ledger row, target the member; payload { transactionId, amount,
+ *   balance, type, sourceType, sourceId, actorId }. Published by `moveCredits` only.
+ * - `award.granted`, `award.revoked`: target the member; payload { memberAwardId, awardId, xp,
+ *   credits, actorId } (actorId null for an automatic grant) plus `reason`.
+ * - `shop.purchased`: target the purchase (targetType "shop_purchase"); payload { itemId,
+ *   buyerId, recipientId, quantity, price, inventoryId }.
+ * - `shop.item_used`: target the inventory row (targetType "shop_inventory"); payload { userId,
+ *   itemId, effect, threadId?, value?, quantityLeft }. Applying the effect is the subscriber's
+ *   work; permission and group items never publish it (they apply while held).
  */
 export const EVENT_TYPES = [
   ...CONTENT_EVENT_TYPES,
@@ -50,6 +63,13 @@ export const EVENT_TYPES = [
   "conversation.participants_added",
   "announcement.published",
   "notification.created",
+  "member.registered",
+  "member.active_day",
+  "credits.changed",
+  "award.granted",
+  "award.revoked",
+  "shop.purchased",
+  "shop.item_used",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];

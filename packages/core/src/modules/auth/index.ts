@@ -296,17 +296,24 @@ function buildAuth(ctx: Ctx) {
                 code: "USERNAME_REQUIRED",
               });
             try {
-              ctx.sqlite
-                .prepare(
-                  "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-                )
-                .run(
-                  Number(user.id),
-                  display,
-                  normalized,
-                  mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
-                  ctx.now(),
-                );
+              writeTx(ctx, () => {
+                ctx.sqlite
+                  .prepare(
+                    "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                  )
+                  .run(
+                    Number(user.id),
+                    display,
+                    normalized,
+                    mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
+                    ctx.now(),
+                  );
+                publishEvent(ctx, {
+                  type: "member.registered",
+                  targetType: "user",
+                  targetId: Number(user.id),
+                });
+              });
             } catch (error) {
               const mapped = userConstraintError(error);
               if (mapped) throw mapped;
@@ -478,6 +485,7 @@ function groupFor(ctx: Ctx, userId: number): number {
         "INSERT INTO users (id, username, username_key, group_id, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
       )
       .run(userId, username, normalized, repairedGroup, identity.created_at);
+    publishEvent(ctx, { type: "member.registered", targetType: "user", targetId: userId });
     return repairedGroup;
   });
 }

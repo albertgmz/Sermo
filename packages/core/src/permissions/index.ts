@@ -20,6 +20,12 @@ export {
   viewableNodeIds,
 } from "./check";
 export {
+  grantPurchased,
+  type PurchasedGrant,
+  revokePurchased,
+  validatePurchasedGrant,
+} from "./grants";
+export {
   type FlagPermissionId,
   type IntegerPermissionId,
   PERMISSION_IDS,

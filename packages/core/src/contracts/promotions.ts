@@ -3,7 +3,7 @@ import { USER_PROMOTION_STATES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp } from "./common";
 
-/** One condition of a promotion; `criterion` is an id from promotions.criteria. */
+/** One condition on a member; `criterion` is an id from promotions.criteria or awards.criteria. */
 export const PromotionCriterion = z
   .object({
     criterion: z.string().min(1).max(50),
@@ -32,9 +32,9 @@ export const CriterionDefinition = z
     /** Phrase keys. */
     label: z.string(),
     description: z.string(),
-    /** How `value` is read: a minimum, a maximum, or yes/no (1 = must hold). */
-    kind: z.enum(["atLeast", "atMost", "below", "boolean"]),
-    unit: z.enum(["count", "days", "points", "boolean"]),
+    /** How `value` is read: a minimum, a maximum, yes/no (1 = must hold), or a shop item id. */
+    kind: z.enum(["atLeast", "atMost", "below", "boolean", "item"]),
+    unit: z.enum(["count", "days", "points", "boolean", "item"]),
   })
   .meta({ id: "PromotionCriterionDefinition" });
 
