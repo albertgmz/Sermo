@@ -22,7 +22,12 @@ test("every subset round-trips in registry order and blocks exactly its categori
       expect(blocks(state, key)).toBe(selected.includes(key));
       expect(blocks({ ...state, master: true }, key)).toBe(true);
     }
-    expect(serializeLiteCookie({ ...state, master: true })).toBe("all");
+    // The master flag is stored next to the selection, never instead of it.
+    const withMaster = { master: true, blocked: selected };
+    const masterCookie = serializeLiteCookie(withMaster);
+    expect(masterCookie).toBe(["all", ...selected].join("."));
+    expect(parseLiteCookie(masterCookie)).toEqual(withMaster);
+    expect(parseLiteCookie(cookie)).toEqual(state);
   }
 });
 
@@ -35,7 +40,8 @@ test("legacy, empty, unknown, whitespace and duplicate tokens have stable canoni
     ["all", "all"],
     ["1", "all"],
     ["unknown", ""],
-    ["all.avatars", "avatars"],
+    ["all.avatars", "all.avatars"],
+    ["avatars.all", "all.avatars"],
     ["1.frames", "frames"],
     [" all ", ""],
     [" avatars ", ""],
@@ -52,7 +58,8 @@ test("legacy, empty, unknown, whitespace and duplicate tokens have stable canoni
     expect(parseLiteCookie(canonical)).toEqual(state);
     for (const { key } of LITE_CATEGORIES)
       expect(blocks(state, key)).toBe(
-        canonical === "all" || canonical.split(".").includes(key),
+        canonical.split(".").includes("all") ||
+          canonical.split(".").includes(key),
       );
   }
   const allSelected = parseLiteCookie(

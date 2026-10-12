@@ -16,6 +16,7 @@ mock.module("next/headers", () => ({
       name === LITE_COOKIE && cookie !== undefined
         ? { name, value: cookie }
         : undefined,
+    toString: () => (cookie === undefined ? "" : `${LITE_COOKIE}=${cookie}`),
   }),
   headers: async () => new Headers(),
 }));

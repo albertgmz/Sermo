@@ -33,7 +33,11 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
         "http://localhost/not-found",
       );
     }
-    for (const path of ["/account/missing.svg", "/%61ccount/missing.svg", "/elsewhere/123/new/missing.svg"]) {
+    for (const path of [
+      "/account/missing.svg",
+      "/%61ccount/missing.svg",
+      "/elsewhere/123/new/missing.svg",
+    ]) {
       const response = await request(path, cookie);
       assert.equal(response.status, 307);
       assert.equal(response.headers.get("location"), "http://localhost/login");

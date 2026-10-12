@@ -42,6 +42,12 @@ const PATH_ONLY: Record<string, string> = {
     "Returns a text-only SVG placeholder, never the requested artwork.",
 };
 
+// Filters that name picture attributes in order to remove them from member text.
+const FILTER_ONLY: Record<string, string> = {
+  "src/lib/lite-markdown.ts":
+    "Removes picture attributes from Markdown HTML; emits none.",
+};
+
 const INLINE_ART: Record<string, { category: string; reason: string }> = {
   "src/components/forum/award-icon.tsx": {
     category: "awards",
@@ -81,7 +87,8 @@ test("only reviewed LITE gates emit pictures", () => {
       .filter(
         ({ kind }) =>
           !EMISSION_GATES[path] &&
-          !(PATH_ONLY[path] && kind === "registered picture path"),
+          !(PATH_ONLY[path] && kind === "registered picture path") &&
+          !(FILTER_ONLY[path] && kind === "image attribute"),
       )
       .map(
         ({ line, kind }) =>
