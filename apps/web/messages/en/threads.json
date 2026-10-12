@@ -119,6 +119,7 @@
     "signIn": "Sign in to attach files.",
     "noFile": "Choose a file to attach.",
     "notAllowed": "You cannot attach files here.",
-    "failed": "The file could not be uploaded."
+    "failed": "The file could not be uploaded.",
+    "tooLarge": "This file is too large to upload here."
   }
 }

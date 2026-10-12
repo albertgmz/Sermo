@@ -7,6 +7,7 @@ import {
 } from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
+  $createParagraphNode,
   $getRoot,
   $getSelection,
   $isRangeSelection,
@@ -43,7 +44,10 @@ export function InsertPlugin({ event }: { event: string }) {
           `${current ? `${current}\n\n` : ""}${markdown}\n\n`,
           TRANSFORMERS,
         );
-        $getRoot().selectEnd();
+        // The caret goes on a paragraph of its own, below the quote.
+        const below = $createParagraphNode();
+        $getRoot().append(below);
+        below.select();
       });
       editor.focus();
     };

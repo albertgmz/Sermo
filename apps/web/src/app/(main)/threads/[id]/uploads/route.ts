@@ -17,10 +17,15 @@ const failure = (error: string, status: number) =>
   );
 
 // Takes one file for a post in the forum whose id is in the address (the segment is called id like
-// its siblings, but here it names a forum) and hands it on to the backend as the visitor, without
-// reading it: a file does not go through a server action, whose body the app would have to
-// allow at a large size. The answer is the id the backend stored the file under, which the post
-// then names when it is saved. The forum is only there to ask whether the visitor may attach.
+// its siblings, but here it names a forum) and hands it on to the backend as the visitor. A file
+// does not go through a server action, whose body the app would have to allow at a large size.
+// The answer is the id the backend stored the file under, which the post then names when it is
+// saved. The forum is only there to ask whether the visitor may attach.
+//
+// The proxy buffers the body of every request up to a limit and passes on only that much of a
+// larger one, as if the visitor had sent no more. A file cut short that way would reach the
+// backend as a broken form and be refused with a message that says nothing, so the length the
+// visitor declared is compared with what arrived first.
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -33,6 +38,11 @@ export async function POST(
   const type = request.headers.get("content-type");
   if (!request.body || !type?.startsWith("multipart/form-data")) {
     return failure(t("noFile"), 400);
+  }
+  const body = await request.arrayBuffer();
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > body.byteLength) {
+    return failure(t("tooLarge"), 413);
   }
   try {
     const { resolvedPermissions } = await callWith(forward, nodesGet, {
@@ -48,11 +58,10 @@ export async function POST(
       {
         method: "POST",
         headers,
-        body: request.body,
-        duplex: "half",
+        body,
         cache: "no-store",
         redirect: "manual",
-      } as RequestInit,
+      },
     );
     const payload: unknown = await response.json().catch(() => null);
     const stored = (payload as { id?: unknown } | null)?.id;

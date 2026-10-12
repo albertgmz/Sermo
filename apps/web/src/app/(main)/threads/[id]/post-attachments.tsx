@@ -65,7 +65,8 @@ export async function PostAttachments({
           {pictures.map((file) => {
             const box = {
               aspectRatio: `${file.width} / ${file.height}`,
-              width: `min(100%, ${Math.min(file.width ?? 0, 320)}px)`,
+              width: Math.min(file.width ?? 0, 320),
+              maxWidth: "100%",
             };
             return (
               <li key={file.fileId} className="min-w-0 max-w-full">
