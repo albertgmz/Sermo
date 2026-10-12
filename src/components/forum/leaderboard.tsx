@@ -10,7 +10,7 @@ import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import type { LeaderboardKind, UserView } from "@/lib/db";
-import { formatNumber } from "@/lib/format";
+import { formatCompact, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const MEDAL_CLASSES = [
@@ -79,11 +79,37 @@ const COUNTS: Record<
   },
 };
 
-function Count({ by, member }: { by: keyof typeof COUNTS; member: UserView }) {
+export function LeaderboardScore({
+  by,
+  member,
+  compact = false,
+}: {
+  by: LeaderboardKind;
+  member: UserView;
+  compact?: boolean;
+}) {
+  if (by === "xp") {
+    return (
+      <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
+        <LevelBadge level={member.level} />
+        <span
+          title={`${formatNumber(member.xp)} XP`}
+          className="whitespace-nowrap text-sm font-semibold tabular-nums"
+        >
+          {compact ? formatCompact(member.xp) : formatNumber(member.xp)}
+          <span className="text-xs font-medium text-muted-foreground"> XP</span>
+        </span>
+      </span>
+    );
+  }
+
   const { icon: Icon, unit, value, accent } = COUNTS[by];
   const count = value(member);
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums">
+    <span
+      title={`${formatNumber(count)} ${unit[count === 1 ? 0 : 1]}`}
+      className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tabular-nums"
+    >
       <Icon
         aria-hidden="true"
         className={cn(
@@ -91,7 +117,7 @@ function Count({ by, member }: { by: keyof typeof COUNTS; member: UserView }) {
           accent ? "text-primary" : "text-muted-foreground",
         )}
       />
-      {formatNumber(count)}
+      {compact ? formatCompact(count) : formatNumber(count)}
       <span className="sr-only"> {unit[count === 1 ? 0 : 1]}</span>
     </span>
   );
@@ -101,28 +127,39 @@ export function Leaderboard({
   members,
   by,
   viewerId,
+  start = 1,
+  compact = false,
 }: {
   members: UserView[];
   by: LeaderboardKind;
   viewerId?: number;
+  start?: number;
+  compact?: boolean;
 }) {
   return (
-    <ol className="divide-y divide-border">
+    <ol start={start} className="divide-y divide-border">
       {members.map((member, index) => (
         <li
           key={member.id}
           className={cn(
             "flex min-h-12 items-center gap-3 px-4 py-2",
+            compact && "min-h-10 gap-2 px-3 py-0",
             member.id === viewerId && "bg-primary/5",
           )}
         >
-          <RankNumber rank={index + 1} />
+          <RankNumber rank={start + index} />
           <UserAvatar
             user={member}
             className="relative after:absolute after:-inset-1"
           />
-          <UserLink user={member} className="min-w-0 flex-1 truncate text-sm" />
-          {by === "xp" ? (
+          <UserLink
+            user={member}
+            className={cn(
+              "min-w-0 flex-1 truncate text-sm",
+              compact && "min-h-10 content-center",
+            )}
+          />
+          {by === "xp" && !compact ? (
             <>
               <LevelBadge level={member.level} />
               <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
@@ -134,7 +171,7 @@ export function Leaderboard({
               </span>
             </>
           ) : (
-            <Count by={by} member={member} />
+            <LeaderboardScore by={by} member={member} compact={compact} />
           )}
         </li>
       ))}
