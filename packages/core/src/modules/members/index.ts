@@ -1,5 +1,6 @@
 import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
+import { usersChangeUsernameOp } from "../auth/username";
 import { loadMemberAuthors, loadMemberCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersSetReferrerOp, usersStaffOp } from "./directory";
 import { standingsMonthOp, standingsWinnersOp } from "./standings";
@@ -40,4 +41,5 @@ export const operations = [
   usersSetReferrerOp,
   standingsMonthOp,
   standingsWinnersOp,
+  usersChangeUsernameOp,
 ];

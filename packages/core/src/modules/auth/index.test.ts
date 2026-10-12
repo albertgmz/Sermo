@@ -22,6 +22,7 @@ import {
   resolveActor,
   revokeUserCredentials,
 } from "./index";
+import { asUsernameChange } from "./rename-marker";
 
 const identity = {
   name: "Alice",
@@ -138,15 +139,17 @@ test("forum username uniqueness errors become bad requests", async () => {
   });
 
   const updateCtx = createTestContext();
-  const { cookie } = await signUp(updateCtx);
+  const { cookie, user: registered } = await signUp(updateCtx);
   updateCtx.sqlite.run(
     "CREATE TRIGGER reject_forum_update BEFORE UPDATE OF username_key ON users BEGIN SELECT RAISE(ABORT, 'UNIQUE constraint failed: users.username_key'); END",
   );
   await expect(
-    getAuth(updateCtx).api.updateUser({
-      headers: new Headers({ cookie }),
-      body: { username: "Alice_2" },
-    }),
+    asUsernameChange(Number(registered.user.id), () =>
+      getAuth(updateCtx).api.updateUser({
+        headers: new Headers({ cookie }),
+        body: { username: "Alice_2" },
+      }),
+    ),
   ).rejects.toMatchObject({ statusCode: 400, body: { code: "USERNAME_IS_ALREADY_TAKEN" } });
 });
 
@@ -534,10 +537,11 @@ test("missing forum profile is repaired when resolving an API key", async () => 
 test("username updates keep the forum profile in sync", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  await getAuth(ctx).api.updateUser({
-    headers: new Headers({ cookie }),
-    body: { username: "Alice_2" },
-  });
+  const rename = (body: object) =>
+    asUsernameChange(Number(user.user.id), () =>
+      getAuth(ctx).api.updateUser({ headers: new Headers({ cookie }), body }),
+    );
+  await rename({ username: "Alice_2" });
   expect(
     ctx.sqlite
       .prepare<{ username: string; username_key: string }, [number]>(
@@ -552,10 +556,7 @@ test("username updates keep the forum profile in sync", async () => {
       )
       .get(Number(user.user.id))?.display_username,
   ).toBe("Alice_2");
-  await getAuth(ctx).api.updateUser({
-    headers: new Headers({ cookie }),
-    body: { username: "Alice_3", displayUsername: "Alice_3" },
-  });
+  await rename({ username: "Alice_3", displayUsername: "Alice_3" });
   expect(
     ctx.sqlite
       .prepare<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?1")
@@ -584,10 +585,12 @@ test("username and display username cannot be cleared", async () => {
 test("display-only case changes preserve the normalized username", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  await getAuth(ctx).api.updateUser({
-    headers: new Headers({ cookie }),
-    body: { displayUsername: "ALICE_1" },
-  });
+  await asUsernameChange(Number(user.user.id), () =>
+    getAuth(ctx).api.updateUser({
+      headers: new Headers({ cookie }),
+      body: { displayUsername: "ALICE_1" },
+    }),
+  );
   expect(
     ctx.sqlite
       .prepare<{ username: string; username_key: string }, [number]>(
