@@ -60,7 +60,7 @@ export function HeaderNav({ className }: { className?: string }) {
             isActivePath(pathname, link.href, link.match) ? "page" : undefined
           }
           className={cn(
-            "inline-flex h-8 items-center rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground",
+            "inline-flex h-10 items-center rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground",
             link.highlight && "text-primary hover:text-primary/80",
           )}
         >
@@ -71,7 +71,7 @@ export function HeaderNav({ className }: { className?: string }) {
         href="/ui"
         aria-label="Components"
         aria-current={isActivePath(pathname, "/ui") ? "page" : undefined}
-        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground"
+        className="inline-flex size-10 items-center justify-center rounded-md border-b-2 border-transparent text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
       >
         <LayoutGrid className="size-4" />
       </Link>
@@ -123,7 +123,7 @@ export function MobileMenu({ className }: { className?: string }) {
                   : undefined
               }
               className={cn(
-                "flex h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:text-foreground",
+                "flex h-11 items-center rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground",
                 link.highlight && "text-primary",
               )}
             >
