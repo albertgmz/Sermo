@@ -2,5 +2,128 @@
   "layout": {
     "metaTitle": "forum/ui",
     "metaDescription": "A forum interface kit."
+  },
+  "siteNav": {
+    "links": {
+      "home": "Home",
+      "forums": "Forums",
+      "members": "Members",
+      "upgrade": "Upgrade",
+      "awards": "Awards",
+      "credits": "Credits",
+      "components": "Components"
+    },
+    "placeholder": "Search...",
+    "description": "Site navigation",
+    "aria": {
+      "search": "Search",
+      "submit": "Submit search",
+      "main": "Main",
+      "open": "Open menu"
+    }
+  },
+  "mobileNav": {
+    "home": "Home",
+    "forums": "Forums",
+    "messages": "Messages",
+    "alerts": "Alerts",
+    "profile": "Profile",
+    "login": "Log in",
+    "unread": "{label}<unread>, {count, plural, one {# unread} other {# unread}}</unread>",
+    "aria": {
+      "primary": "Primary"
+    }
+  },
+  "headerPanel": {
+    "aria": {
+      "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
+    }
+  },
+  "siteHeader": {
+    "loadingMenu": "Loading menu…",
+    "loadingNavigation": "Loading navigation…",
+    "loadingAccount": "Loading your menu…",
+    "loadingMessages": "Loading messages…",
+    "loadingAlerts": "Loading alerts…",
+    "search": "Search",
+    "conversations": "Conversations",
+    "notifications": "Notifications",
+    "login": "Log in",
+    "register": "Create Account",
+    "aria": {
+      "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
+    }
+  },
+  "headerPanels": {
+    "messages": {
+      "label": "Conversations",
+      "title": "Messages",
+      "empty": "No conversations yet",
+      "viewAll": "View all",
+      "new": "New conversation"
+    },
+    "alerts": {
+      "label": "Notifications",
+      "title": "Alerts",
+      "empty": "No new alerts",
+      "viewAll": "View all",
+      "markAllRead": "Mark all as read"
+    },
+    "search": {
+      "label": "Search",
+      "title": "Search",
+      "placeholder": "Search...",
+      "titlesOnly": "Search titles only",
+      "byMember": "By member",
+      "username": "Username",
+      "advanced": "Advanced search",
+      "submit": "Search",
+      "aria": {
+        "search": "Search"
+      }
+    }
+  },
+  "userMenu": {
+    "profile": "Your profile",
+    "account": "Account",
+    "logout": "Log out",
+    "aria": {
+      "account": "Account menu"
+    }
+  },
+  "staffBar": {
+    "moderator": "Moderator",
+    "admin": "Admin",
+    "links": {
+      "approvalQueue": "Approval queue",
+      "reports": "Reports",
+      "moderatorLog": "Moderator log"
+    }
+  },
+  "siteFooter": {
+    "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
+    "copyright": "© 2026 <brand>forum/ui</brand>. All rights reserved.",
+    "columns": {
+      "community": "Community",
+      "useful": "Useful links",
+      "legal": "Legal"
+    },
+    "links": {
+      "forums": "Forums",
+      "members": "Members",
+      "awards": "Awards",
+      "credits": "Credits",
+      "upgrade": "Upgrade",
+      "styleguide": "Styleguide",
+      "terms": "Terms",
+      "privacy": "Privacy",
+      "legal": "Legal notice",
+      "contact": "Contact"
+    }
+  },
+  "logo": {
+    "aria": {
+      "home": "forum/ui home"
+    }
   }
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { liteBlocks } from "@/lib/lite-mode";
@@ -65,10 +66,11 @@ function LogoLink({
 }: LogoProps & {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("layout.logo");
   return (
     <Link
       href={href}
-      aria-label="forum/ui home"
+      aria-label={t("aria.home")}
       className={cn(
         "inline-flex h-10 shrink-0 items-center gap-2 rounded-md font-bold tracking-tight",
         className,

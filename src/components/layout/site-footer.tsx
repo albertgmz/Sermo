@@ -19,33 +19,34 @@ const SOCIALS = [
 
 const COLUMNS = [
   {
-    title: "Community",
+    title: "community",
     links: [
-      { label: "Forums", href: "/forums" },
-      { label: "Members", href: "/members" },
-      { label: "Awards", href: "/awards" },
+      { label: "forums", href: "/forums" },
+      { label: "members", href: "/members" },
+      { label: "awards", href: "/awards" },
     ],
   },
   {
-    title: "Useful links",
+    title: "useful",
     links: [
-      { label: "Credits", href: "/credits" },
-      { label: "Upgrade", href: "/upgrade" },
-      { label: "Styleguide", href: "/ui" },
+      { label: "credits", href: "/credits" },
+      { label: "upgrade", href: "/upgrade" },
+      { label: "styleguide", href: "/ui" },
     ],
   },
   {
-    title: "Legal",
+    title: "legal",
     links: [
-      { label: "Terms", href: "/terms" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Legal notice", href: "/legal" },
-      { label: "Contact", href: "/contact" },
+      { label: "terms", href: "/terms" },
+      { label: "privacy", href: "/privacy" },
+      { label: "legal", href: "/legal" },
+      { label: "contact", href: "/contact" },
     ],
   },
-];
+] as const;
 
 export function SiteFooter() {
+  const t = useTranslations("layout.siteFooter");
   const lite = useTranslations("lite.siteFooter");
   return (
     <footer className="mt-auto pt-12 pb-6 text-sm">
@@ -54,8 +55,7 @@ export function SiteFooter() {
           <div>
             <Logo className="-ml-1 px-1" />
             <p className="mt-1 max-w-xs text-pretty text-muted-foreground">
-              A forum interface kit: reusable components, page templates and
-              careful CSS.
+              {t("tagline")}
             </p>
             <ul className="mt-2 -ml-2.5 flex items-center">
               {SOCIALS.map(({ network, label }) => (
@@ -87,9 +87,9 @@ export function SiteFooter() {
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
             {COLUMNS.map(({ title, links }) => (
-              <nav key={title} aria-label={title}>
+              <nav key={title} aria-label={t(`columns.${title}`)}>
                 <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  {title}
+                  {t(`columns.${title}`)}
                 </h2>
                 <ul className="mt-1">
                   {links.map(({ label, href }) => (
@@ -98,7 +98,7 @@ export function SiteFooter() {
                         href={href}
                         className="inline-flex h-10 items-center rounded-md font-medium transition-colors hover:text-primary md:h-8"
                       >
-                        {label}
+                        {t(`links.${label}`)}
                       </Link>
                     </li>
                   ))}
@@ -108,8 +108,11 @@ export function SiteFooter() {
           </div>
         </div>
         <p className="mt-8 border-t pt-4 text-xs text-muted-foreground">
-          © 2026 <span className="text-foreground">forum/ui</span>. All rights
-          reserved.
+          {t.rich("copyright", {
+            brand: (chunks) => (
+              <span className="text-foreground">{chunks}</span>
+            ),
+          })}
         </p>
       </Container>
     </footer>

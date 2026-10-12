@@ -3,6 +3,7 @@
 import { LayoutGrid, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { isActivePath, NAV_LINKS, type NavLink } from "@/components/layout/nav";
 import { Button } from "@/components/ui/button";
@@ -19,25 +20,26 @@ import { cn } from "@/lib/utils";
 
 const MENU_LINKS: NavLink[] = [
   ...NAV_LINKS,
-  { label: "Components", href: "/ui" },
+  { label: "components", href: "/ui" },
 ];
 
 export function SearchForm({ className }: { className?: string }) {
+  const t = useTranslations("layout.siteNav");
   return (
     <search className={className}>
       <form action="/search" className="relative">
         <Input
           type="search"
           name="q"
-          placeholder="Search..."
-          aria-label="Search"
+          placeholder={t("placeholder")}
+          aria-label={t("aria.search")}
           className="bg-card pr-10 md:pr-8 [&::-webkit-search-cancel-button]:hidden"
         />
         <Button
           type="submit"
           variant="secondary"
           size="icon-xs"
-          aria-label="Submit search"
+          aria-label={t("aria.submit")}
           className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground md:right-1"
         >
           <Search />
@@ -48,9 +50,13 @@ export function SearchForm({ className }: { className?: string }) {
 }
 
 export function HeaderNav({ className }: { className?: string }) {
+  const t = useTranslations("layout.siteNav");
   const pathname = usePathname();
   return (
-    <nav aria-label="Main" className={cn("items-center gap-1", className)}>
+    <nav
+      aria-label={t("aria.main")}
+      className={cn("items-center gap-1", className)}
+    >
       {NAV_LINKS.map((link) => (
         <Link
           key={link.label}
@@ -63,12 +69,12 @@ export function HeaderNav({ className }: { className?: string }) {
             link.highlight && "text-primary hover:text-primary/80",
           )}
         >
-          {link.label}
+          {t(`links.${link.label}`)}
         </Link>
       ))}
       <Link
         href="/ui"
-        aria-label="Components"
+        aria-label={t("links.components")}
         aria-current={isActivePath(pathname, "/ui") ? "page" : undefined}
         className="inline-flex size-10 items-center justify-center rounded-md border-b-2 border-transparent text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
       >
@@ -85,6 +91,7 @@ export function MobileMenu({
   className?: string;
   logo: React.ReactNode;
 }) {
+  const t = useTranslations("layout.siteNav");
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   return (
@@ -94,7 +101,7 @@ export function MobileMenu({
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Open menu"
+            aria-label={t("aria.open")}
             className={cn("size-10", className)}
           />
         }
@@ -108,13 +115,13 @@ export function MobileMenu({
         <SheetHeader className="border-b py-2">
           <SheetTitle render={<div />}>{logo}</SheetTitle>
           <SheetDescription className="sr-only">
-            Site navigation
+            {t("description")}
           </SheetDescription>
         </SheetHeader>
         <div className="border-b p-4">
           <SearchForm />
         </div>
-        <nav aria-label="Main" className="flex flex-col p-2">
+        <nav aria-label={t("aria.main")} className="flex flex-col p-2">
           {MENU_LINKS.map((link) => (
             <Link
               key={link.label}
@@ -130,7 +137,7 @@ export function MobileMenu({
                 link.highlight && "text-primary",
               )}
             >
-              {link.label}
+              {t(`links.${link.label}`)}
             </Link>
           ))}
         </nav>

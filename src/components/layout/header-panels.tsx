@@ -1,5 +1,6 @@
 import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { markAllRead } from "@/app/(main)/notifications/actions";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { NotificationRow } from "@/components/forum/notification-row";
@@ -36,10 +37,11 @@ export function MessagesPanel({
   unread: number;
   className?: string;
 }) {
+  const t = useTranslations("layout.headerPanels.messages");
   return (
     <HeaderPanel
-      label="Conversations"
-      title="Messages"
+      label={t("label")}
+      title={t("title")}
       unread={unread}
       icon={<Inbox />}
       className={cn(headerIconClass, className)}
@@ -60,14 +62,14 @@ export function MessagesPanel({
           ))}
         </ul>
       ) : (
-        <p className={emptyClass}>No conversations yet</p>
+        <p className={emptyClass}>{t("empty")}</p>
       )}
       <div className={footerClass}>
         <Link href="/conversations" className={footerLinkClass}>
-          View all
+          {t("viewAll")}
         </Link>
         <Link href="/conversations/new" className={footerLinkClass}>
-          New conversation
+          {t("new")}
         </Link>
       </div>
     </HeaderPanel>
@@ -83,10 +85,11 @@ export function AlertsPanel({
   unread: number;
   className?: string;
 }) {
+  const t = useTranslations("layout.headerPanels.alerts");
   return (
     <HeaderPanel
-      label="Notifications"
-      title="Alerts"
+      label={t("label")}
+      title={t("title")}
       unread={unread}
       icon={<Bell />}
       className={cn(headerIconClass, className)}
@@ -100,11 +103,11 @@ export function AlertsPanel({
           ))}
         </ul>
       ) : (
-        <p className={emptyClass}>No new alerts</p>
+        <p className={emptyClass}>{t("empty")}</p>
       )}
       <div className={footerClass}>
         <Link href="/notifications" className={footerLinkClass}>
-          View all
+          {t("viewAll")}
         </Link>
         <form action={markAllRead}>
           <PendingButton
@@ -114,7 +117,7 @@ export function AlertsPanel({
             className="h-8 text-xs text-muted-foreground"
           >
             <CheckCheck />
-            Mark all as read
+            {t("markAllRead")}
           </PendingButton>
         </form>
       </div>
@@ -123,10 +126,11 @@ export function AlertsPanel({
 }
 
 export function SearchPanel({ className }: { className?: string }) {
+  const t = useTranslations("layout.headerPanels.search");
   return (
     <HeaderPanel
-      label="Search"
-      title="Search"
+      label={t("label")}
+      title={t("title")}
       icon={<Search />}
       className={cn(headerIconClass, className)}
     >
@@ -136,32 +140,32 @@ export function SearchPanel({ className }: { className?: string }) {
             <Input
               type="search"
               name="q"
-              placeholder="Search..."
-              aria-label="Search"
+              placeholder={t("placeholder")}
+              aria-label={t("aria.search")}
             />
             <div className="flex items-center gap-2">
               <Checkbox id="header-search-titles" name="titles" value="1" />
               <Label htmlFor="header-search-titles" className="font-normal">
-                Search titles only
+                {t("titlesOnly")}
               </Label>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="header-search-member">By member</Label>
+              <Label htmlFor="header-search-member">{t("byMember")}</Label>
               <Input
                 id="header-search-member"
                 name="member"
-                placeholder="Username"
+                placeholder={t("username")}
                 autoComplete="off"
               />
             </div>
           </div>
           <div className={footerClass}>
             <Link href="/search" className={footerLinkClass}>
-              Advanced search
+              {t("advanced")}
             </Link>
             <Button type="submit">
               <Search />
-              Search
+              {t("submit")}
             </Button>
           </div>
         </form>
