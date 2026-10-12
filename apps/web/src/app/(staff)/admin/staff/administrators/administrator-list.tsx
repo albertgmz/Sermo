@@ -6,7 +6,6 @@ import { MemberRow } from "@/components/forum/member-row";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
-import { permissionTitle } from "../../groups/phrases";
 import { getDefinitions } from "../../permissions/data";
 
 const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
@@ -29,10 +28,7 @@ export async function AdministratorList() {
     );
   }
   const titles = new Map(
-    definitions.map((definition) => [
-      definition.id,
-      permissionTitle(definition.label),
-    ]),
+    definitions.map((definition) => [definition.id, definition.title]),
   );
   return (
     <section className="overflow-hidden rounded-lg border bg-card">

@@ -148,15 +148,6 @@
     "save": "Save permissions",
     "unchanged": "Nothing to change."
   },
-  "categories": {
-    "general": "General",
-    "forum": "Forums",
-    "profile": "Profiles",
-    "conversation": "Conversations",
-    "moderation": "Moderation",
-    "economy": "Economy",
-    "admin": "Administration"
-  },
   "permissionGroups": {
     "metaTitle": "Group permissions",
     "pageHeading": "Group permissions",

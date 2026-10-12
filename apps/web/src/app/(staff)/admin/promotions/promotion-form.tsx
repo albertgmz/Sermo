@@ -7,7 +7,6 @@ import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { getGroups } from "../groups/data";
-import { criterionTitle } from "../groups/phrases";
 import { savePromotion } from "./actions";
 
 type Promotion = z.output<typeof promotionsGet.output>;
@@ -43,16 +42,21 @@ function CriterionRow({
           className={checkbox}
         />
         <span>
-          {criterionTitle(definition.label)}
+          {definition.title}
           <span className="sr-only"> ({labels.use})</span>
         </span>
       </label>
+      {definition.help && (
+        <p className="text-xs text-pretty text-muted-foreground">
+          {definition.help}
+        </p>
+      )}
       {definition.kind === "boolean" ? (
         <select
           id={id}
           name={`value:${definition.id}`}
           defaultValue={current ?? 1}
-          aria-label={criterionTitle(definition.label)}
+          aria-label={definition.title}
           className={selectClass}
         >
           <option value={1}>{labels.holds}</option>
@@ -69,7 +73,7 @@ function CriterionRow({
             type="number"
             inputMode="numeric"
             min={0}
-            aria-label={criterionTitle(definition.label)}
+            aria-label={definition.title}
             defaultValue={current ?? 0}
           />
           <span className="shrink-0 text-xs text-muted-foreground">

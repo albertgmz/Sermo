@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { hrefFor } from "../../registry";
 import { getGroups, groupLabel } from "../groups/data";
 import { Notice } from "../groups/notice";
-import { criterionTitle } from "../groups/phrases";
 import { runPromotions } from "./actions";
 import { PromotionForm } from "./promotion-form";
 import { RunNow } from "./run-now";
@@ -32,9 +31,7 @@ export async function PromotionList({
     ],
   );
   const log = hrefFor(viewer, "toolsPromotionLog");
-  const names = new Map(
-    criteria.map((entry) => [entry.id, criterionTitle(entry.label)]),
-  );
+  const names = new Map(criteria.map((entry) => [entry.id, entry.title]));
   return (
     <>
       <Notice searchParams={searchParams} shown={["deleted"]} />

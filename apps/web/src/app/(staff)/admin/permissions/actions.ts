@@ -12,7 +12,6 @@ import { matrixChanges } from "@/components/staff/permission-entries";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, missingPassword, text } from "../groups/form-errors";
-import { permissionTitle } from "../groups/phrases";
 import { entriesOf } from "./data";
 
 // Saves the permission matrix of one target: a group (`group`), a member (`user`) or either on
@@ -56,9 +55,7 @@ export async function savePermissions(
       const definition = items.find((entry) => entry.id === result.invalid);
       return {
         error: t("value", {
-          title: definition
-            ? permissionTitle(definition.label)
-            : result.invalid,
+          title: definition ? definition.title : result.invalid,
         }),
       };
     }

@@ -16,7 +16,6 @@ import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
 import { getGroups, groupLabel } from "../../groups/data";
 import { Notice } from "../../groups/notice";
-import { permissionTitle } from "../../groups/phrases";
 import { entriesOf, getDefinitions, matrixPermissions } from "../data";
 import { MemberPicker } from "../member-picker";
 import { PermissionForm } from "../permission-form";
@@ -113,10 +112,7 @@ export async function ForumPermissions({
   const nameOf = (id: number) =>
     cards.find((card) => card.id === id)?.username ?? `#${id}`;
   const titles = new Map(
-    definitions.map((definition) => [
-      definition.id,
-      permissionTitle(definition.label),
-    ]),
+    definitions.map((definition) => [definition.id, definition.title]),
   );
   const valueText = (value: string | number) =>
     value === "allow"
