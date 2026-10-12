@@ -1,23 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { expectNoTableScan } from "@sermo/core/testing";
+import { expectNoTableScan, insertNode } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { enqueueJob, runDueJobs } from "../jobs/queue";
 import { runMinuteTasks } from "../jobs/scheduler";
-import { world } from "./fixtures.test";
-import {
-  RANKED_EXAMINE_CAP,
-  rankingSql,
-  reactionTotal,
-  refreshRankings,
-  registerRankingJobs,
-} from "./rankings";
+import { fillThreads, world } from "./fixtures.test";
+import { rankingSql, reactionTotal, refreshRankings, registerRankingJobs } from "./rankings";
 
 const DAY = 86_400_000;
 const ids = (page: { items: { id: number }[] }) => page.items.map((thread) => thread.id);
 const stored = (w: ReturnType<typeof world>, kind: string) =>
   w.ctx.sqlite
-    .prepare<{ target_id: number; score: number; position: number }, [string]>(
-      "SELECT position, target_id, score FROM rankings WHERE kind = ?1 ORDER BY position",
+    .prepare<{ target_id: number; score: number; position: number; node_id: number }, [string]>(
+      "SELECT node_id, position, target_id, score FROM rankings WHERE kind = ?1 ORDER BY score DESC, position, target_id",
     )
     .all(kind);
 
@@ -78,20 +72,27 @@ describe("the ranking job", () => {
     expect(stored(w, "mostReplied").map((row) => row.target_id)).toEqual([live.thread.id]);
   });
 
-  test("each ranking keeps 100 threads and a rerun replaces the rows rather than adding", async () => {
+  test("each ranking keeps 20 threads per forum and a rerun replaces the rows rather than adding", async () => {
     const w = world();
-    const category = w.open.id;
+    const other = insertNode(w.ctx, { parentId: w.category.id });
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO threads (node_id, user_id, title, state, created_at, reply_count, view_count, last_post_at, last_poster_id) VALUES (?1, ?2, 't', 'visible', ?3, ?4, ?4, ?3, ?2)",
     );
-    for (let i = 0; i < 130; i++) insert.run(category, w.aliceUser.id, w.ctx.now(), i);
+    for (let i = 0; i < 30; i++) insert.run(w.open.id, w.aliceUser.id, w.ctx.now(), i);
+    for (let i = 0; i < 3; i++) insert.run(other.id, w.aliceUser.id, w.ctx.now(), 1000 + i);
     refreshRankings(w.ctx);
     refreshRankings(w.ctx);
     const replied = stored(w, "mostReplied");
-    expect(replied).toHaveLength(100);
-    expect(replied[0]!.score).toBe(129);
-    expect(replied.at(-1)!.score).toBe(30);
-    expect(stored(w, "mostViewed")).toHaveLength(100);
+    const inOpen = replied.filter((row) => row.node_id === w.open.id);
+    expect(inOpen).toHaveLength(20);
+    expect(inOpen[0]!.score).toBe(29);
+    expect(inOpen.at(-1)!.score).toBe(10);
+    expect(inOpen.map((row) => row.position)).toEqual([...inOpen.keys()]);
+    const inOther = replied.filter((row) => row.node_id === other.id);
+    expect(inOther.map((row) => row.score)).toEqual([1002, 1001, 1000]);
+    expect(stored(w, "mostViewed")).toHaveLength(23);
+    // A forum with nothing gets no rows.
+    expect(replied.some((row) => row.node_id === w.secret.id)).toBe(false);
   });
 
   test("feedTop: the week's most reacted-to visible posts, positive totals only, best first", async () => {
@@ -127,7 +128,7 @@ describe("the ranking job", () => {
     ]);
   });
 
-  test("feedTop keeps the 200 best", () => {
+  test("feedTop keeps the 50 best of each forum", () => {
     const w = world();
     const thread = w.ctx.sqlite
       .prepare<{ id: number }, [number, number, number]>(
@@ -137,12 +138,12 @@ describe("the ranking job", () => {
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5)",
     );
-    for (let i = 0; i < 230; i++)
+    for (let i = 0; i < 80; i++)
       insert.run(thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 1}}`);
     refreshRankings(w.ctx);
     const top = stored(w, "feedTop");
-    expect(top).toHaveLength(200);
-    expect(top[0]!.score).toBe(230);
+    expect(top).toHaveLength(50);
+    expect(top[0]!.score).toBe(80);
     expect(top.at(-1)!.score).toBe(31);
   });
 
@@ -181,6 +182,25 @@ describe("the ranking job", () => {
     expect(reactionTotal('{"1":2,"4":5}')).toBe(7);
   });
 
+  test("a malformed reaction_counts counts as zero and does not fail the refresh", async () => {
+    const w = world();
+    const good = await w.thread(w.alice, w.open.id, "Good");
+    const bad = await w.thread(w.alice, w.open.id, "Bad");
+    const set = (id: number, counts: string) =>
+      w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = ?1 WHERE id = ?2").run(counts, id);
+    set(good.post.id, '{"1":2}');
+    set(bad.post.id, "{not json");
+    expect(reactionTotal("{not json")).toBe(0);
+    expect(reactionTotal("null")).toBe(0);
+    expect(reactionTotal("[1]")).toBe(0);
+    refreshRankings(w.ctx);
+    expect(stored(w, "mostReacted").map((row) => [row.target_id, row.score])).toEqual([
+      [good.thread.id, 2],
+      [bad.thread.id, 0],
+    ]);
+    expect(stored(w, "feedTop").map((row) => row.target_id)).toEqual([good.post.id]);
+  });
+
   test("every query of the job is bounded by an index", () => {
     const w = world();
     expectNoTableScan(w.ctx, rankingSql.activeThreads, [0, 100, 100, 2000]);
@@ -190,6 +210,7 @@ describe("the ranking job", () => {
     expectNoTableScan(w.ctx, rankingSql.recentPosts, [1, 2001, 0]);
     expectNoTableScan(w.ctx, rankingSql.visibleThreads, ["[1]"]);
     expectNoTableScan(w.ctx, rankingSql.replace, ["feedTop"]);
+    expectNoTableScan(w.ctx, rankingSql.stored, ["mostReplied", "[1,2]"]);
   });
 });
 
@@ -234,29 +255,106 @@ describe("threads.ranked", () => {
     ]);
   });
 
-  test("looks through a bounded number of hidden rows, then returns what it found", async () => {
+  test("newer threads in a forum the viewer cannot see do not push out what they can", async () => {
     const w = world();
     const visible = await w.thread(w.alice, w.open.id, "Visible");
-    const insert = w.ctx.sqlite.prepare(
-      "INSERT INTO threads (node_id, user_id, title, state, created_at, last_post_at, last_poster_id) VALUES (?1, ?2, 'h', 'visible', ?3, ?3, ?2)",
-    );
-    for (let i = 0; i < RANKED_EXAMINE_CAP; i++)
-      insert.run(w.secret.id, w.aliceUser.id, w.ctx.now() + i + 1);
-    // The visible thread is older than the cap allows the request to reach.
-    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestThreads" }))).toEqual([]);
-    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestPosts" }))).toEqual([]);
-    // Fewer hidden rows than the cap: found.
-    w.ctx.sqlite.prepare("DELETE FROM threads WHERE title = 'h' AND id % 2 = 0").run();
-    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestThreads" }))).toEqual([
+    fillThreads(w.ctx, w.secret.id, w.aliceUser.id, 400, { at: (i) => w.ctx.now() + i + 1 });
+    for (const by of ["latestThreads", "latestPosts"])
+      expect(ids(await w.call("threads.ranked", w.bob, { by }))).toEqual([visible.thread.id]);
+    expect(ids(await w.call("threads.ranked", GUEST, { by: "latestPosts" }))).toEqual([
       visible.thread.id,
     ]);
+    // Those who can see the forum get the newest of both, merged.
+    const staff = await w.call("threads.ranked", w.admin, { by: "latestThreads", limit: 20 });
+    expect(staff.items).toHaveLength(20);
+    expect(staff.items[0].node.id).toBe(w.secret.id);
+  });
+
+  test("merges the newest threads of the forums the viewer can see", async () => {
+    const w = world();
+    const other = insertNode(w.ctx, { parentId: w.category.id });
+    const a = await w.thread(w.alice, w.open.id, "a");
+    const b = await w.thread(w.alice, other.id, "b");
+    await w.thread(w.admin, w.secret.id, "hidden");
+    const c = await w.thread(w.alice, w.open.id, "c");
+    await w.reply(w.bob, a.thread.id, "bump a");
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestThreads" }))).toEqual([
+      c.thread.id,
+      b.thread.id,
+      a.thread.id,
+    ]);
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestPosts" }))).toEqual([
+      a.thread.id,
+      c.thread.id,
+      b.thread.id,
+    ]);
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestThreads", limit: 2 }))).toEqual([
+      c.thread.id,
+      b.thread.id,
+    ]);
+  });
+
+  test("busy hidden forums do not empty the stored rankings of a viewer who cannot see them", async () => {
+    const w = world();
+    const visible = await w.thread(w.alice, w.open.id, "Visible");
+    await w.reply(w.bob, visible.thread.id, "one");
+    fillThreads(w.ctx, w.secret.id, w.aliceUser.id, 100, { replies: (i) => 1000 + i });
+    refreshRankings(w.ctx);
+    expect(ids(await w.call("threads.ranked", GUEST, { by: "mostReplied" }))).toEqual([
+      visible.thread.id,
+    ]);
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "mostReplied" }))).toEqual([
+      visible.thread.id,
+    ]);
+    const staff = await w.call("threads.ranked", w.admin, { by: "mostReplied", limit: 20 });
+    expect(staff.items).toHaveLength(20);
+    expect(
+      staff.items.every((item: { node: { id: number } }) => item.node.id === w.secret.id),
+    ).toBe(true);
+    expect(
+      ids(await w.call("threads.ranked", w.admin, { by: "mostReplied", limit: 20 })),
+    ).not.toContain(visible.thread.id);
+  });
+
+  test("a thread in a forum whose ancestor is hidden is left out everywhere", async () => {
+    const w = world();
+    const child = insertNode(w.ctx, { parentId: w.secret.id });
+    const open = await w.thread(w.alice, w.open.id, "Open");
+    const deep = await w.thread(w.admin, child.id, "Deep");
+    await w.reply(w.admin, deep.thread.id, "x");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":5}' WHERE id = ?1")
+      .run(deep.post.id);
+    refreshRankings(w.ctx);
+    for (const by of ["latestPosts", "latestThreads", "mostReplied", "mostReacted", "mostViewed"]) {
+      expect(ids(await w.call("threads.ranked", w.bob, { by }))).not.toContain(deep.thread.id);
+      expect(ids(await w.call("threads.ranked", w.admin, { by }))).toContain(deep.thread.id);
+    }
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "latestThreads" }))).toEqual([
+      open.thread.id,
+    ]);
+  });
+
+  test("a thread moved into a forum the viewer cannot see after the last refresh drops out", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Moving");
+    await w.reply(w.bob, t.thread.id, "x");
+    refreshRankings(w.ctx);
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "mostReplied" }))).toEqual([
+      t.thread.id,
+    ]);
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2")
+      .run(w.secret.id, t.thread.id);
+    expect(ids(await w.call("threads.ranked", w.bob, { by: "mostReplied" }))).toEqual([]);
   });
 
   test("the live queries read their indexes", () => {
     const w = world();
     expectNoTableScan(w.ctx, rankingSql.latestPosts, [100, 100, 40]);
     expectNoTableScan(w.ctx, rankingSql.latestThreads, [100, 40]);
-    expectNoTableScan(w.ctx, rankingSql.stored, ["mostReplied"]);
+    expectNoTableScan(w.ctx, rankingSql.latestPostsIn, ["[1,2]", 20]);
+    expectNoTableScan(w.ctx, rankingSql.latestThreadsIn, ["[1,2]", 20]);
     const plan = (sql: string, params: unknown[]) =>
       w.ctx.sqlite
         .prepare<{ detail: string }, never[]>(`EXPLAIN QUERY PLAN ${sql}`)
@@ -265,5 +363,10 @@ describe("threads.ranked", () => {
         .join("\n");
     expect(plan(rankingSql.latestPosts, [100, 100, 40])).toContain("threads_public_feed");
     expect(plan(rankingSql.latestThreads, [100, 40])).toContain("threads_state_id");
+    expect(plan(rankingSql.latestPostsIn, ["[1,2]", 20])).toContain("threads_node_feed");
+    expect(plan(rankingSql.latestThreadsIn, ["[1,2]", 20])).toContain("threads_node_state_id");
+    expect(plan(rankingSql.stored, ["mostReplied", "[1,2]"])).toContain(
+      "rankings_kind_node_position",
+    );
   });
 });

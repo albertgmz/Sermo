@@ -5,7 +5,7 @@ import { invalidate } from "../../context";
 import { UnauthenticatedError } from "../../errors";
 import { feedSql } from "./feed";
 import { fillPosts, type World, world } from "./fixtures.test";
-import { refreshRankings } from "./rankings";
+import { rankingSql, refreshRankings } from "./rankings";
 import { viewerSql } from "./viewer";
 
 // biome-ignore lint/suspicious/noExplicitAny: feed items are checked field by field below
@@ -289,6 +289,31 @@ describe("feed.list top", () => {
     ]);
   });
 
+  test("better posts in a forum the viewer cannot see do not push out the ones they can", async () => {
+    const w = world();
+    const open = await w.thread(w.alice, w.open.id, "Open");
+    const hidden = await w.thread(w.admin, w.secret.id, "Hidden");
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET reaction_counts = '{\"1\":1}' WHERE id = ?1")
+      .run(open.post.id);
+    const insert = w.ctx.sqlite.prepare<{ id: number }, [number, number, number, number, string]>(
+      "INSERT INTO posts (thread_id, user_id, position, state, created_at, reaction_counts) VALUES (?1, ?2, ?3, 'visible', ?4, ?5) RETURNING id",
+    );
+    const body = w.ctx.sqlite.prepare(
+      "INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, 'x', '<p>x</p>')",
+    );
+    for (let i = 1; i <= 200; i++)
+      body.run(insert.get(hidden.thread.id, w.aliceUser.id, i, w.ctx.now(), `{"1":${i + 10}}`)!.id);
+    refreshRankings(w.ctx);
+    for (const viewer of [w.bob, GUEST])
+      expect((await w.call("feed.list", viewer, { scope: "top" })).items.map(describeItem)).toEqual(
+        ["thread:Open body"],
+      );
+    const staff = await w.call("feed.list", w.admin, { scope: "top" });
+    expect(staff.items).toHaveLength(50);
+    expect(staff.items.every((item: Item) => item.thread.node.id === w.secret.id)).toBe(true);
+  });
+
   test("shows at most 50 and an empty ranking is an empty page", async () => {
     const w = world();
     expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual({
@@ -316,7 +341,7 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, feedSql.followedWall, ["[1,2]", 100, 20]);
     expectNoTableScan(w.ctx, feedSql.wallOwners, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.wallRows, ["[1,2]"]);
-    expectNoTableScan(w.ctx, feedSql.top);
+    expectNoTableScan(w.ctx, rankingSql.stored, ["feedTop", "[1,2]"]);
     expectNoTableScan(w.ctx, feedSql.topPosts, ["[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.ignored, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.principals, ["[1,2]"]);

@@ -15,13 +15,12 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
+import { FEED_TOP_SIZE, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
 /** Posts examined per source per request, at most. */
 export const FEED_EXAMINE_CAP = SCAN_CAP;
-/** The most items the `top` scope returns. */
-export const FEED_TOP_LIMIT = 50;
 const MIN_BATCH = 10;
 
 type PostCandidate = {
@@ -54,7 +53,6 @@ export const feedSql = {
   wallOwners:
     "SELECT u.id, u.profile_view_privacy, u.profile_post_privacy, EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = u.id AND f.followed_id = ?1) AS follows FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))",
   wallRows: "SELECT * FROM profile_posts WHERE id IN (SELECT value FROM json_each(?1))",
-  top: "SELECT target_id FROM rankings WHERE kind = 'feedTop' ORDER BY position",
   topPosts:
     "SELECT id, thread_id, user_id, state, created_at FROM posts WHERE id IN (SELECT value FROM json_each(?1))",
 };
@@ -278,11 +276,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const threads = new Map<number, ThreadRow>();
 
   if (scope === "top") {
-    const ids = prepared(ctx, "feed.top", () =>
-      ctx.sqlite.prepare<{ target_id: number }, []>(feedSql.top),
-    )
-      .all()
-      .map((row) => row.target_id);
+    const ids = storedRanking(ctx, "feedTop", nodes, FEED_TOP_SIZE).map((row) => row.target_id);
     const byId = new Map(
       (ids.length === 0
         ? []
@@ -295,7 +289,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
     const passing = acceptPosts(ctx, actor, nodes, threads)(candidates);
     const picked: Picked[] = candidates
       .filter((row) => passing.has(row))
-      .slice(0, FEED_TOP_LIMIT)
+      .slice(0, FEED_TOP_SIZE)
       .map((row) => ({ kind: "post", row }));
     return { items: build(ctx, actor, picked, threads), nextCursor: null };
   }

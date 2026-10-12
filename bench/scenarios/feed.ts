@@ -39,13 +39,13 @@ export const scenarios: Scenario[] = [
     name: "feed.list top",
     kind: "read",
     setup(env) {
-      const insert = env.ctx.sqlite.prepare(
-        "INSERT INTO rankings (kind, position, target_id, score) VALUES ('feedTop', ?1, ?2, ?3)",
-      );
+      // The posts spread over their forums, best first within each forum.
       env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'feedTop'");
-      env.meta.postAuthors.slice(0, 200).forEach(([postId], index) => {
-        insert.run(index, postId, 200 - index);
-      });
+      env.ctx.sqlite
+        .prepare(
+          "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'feedTop', node_id, row_number() OVER (PARTITION BY node_id ORDER BY score DESC, id) - 1, id, score FROM (SELECT p.id AS id, t.node_id AS node_id, 1000 - j.key AS score FROM json_each(?1) AS j JOIN posts p ON p.id = j.value JOIN threads t ON t.id = p.thread_id)",
+        )
+        .run(JSON.stringify(env.meta.postAuthors.slice(0, 200).map(([postId]) => postId)));
     },
     run: (env, i) => env.call("feed.list", env.actors.member(i), { scope: "top" }),
   },
@@ -60,7 +60,7 @@ export const scenarios: Scenario[] = [
     setup(env) {
       env.ctx.sqlite.exec("DELETE FROM rankings WHERE kind = 'mostReplied'");
       env.ctx.sqlite.exec(
-        "INSERT INTO rankings (kind, position, target_id, score) SELECT 'mostReplied', row_number() OVER (ORDER BY reply_count DESC, id DESC) - 1, id, reply_count FROM (SELECT id, reply_count FROM threads WHERE state = 'visible' ORDER BY reply_count DESC, id DESC LIMIT 100)",
+        "INSERT INTO rankings (kind, node_id, position, target_id, score) SELECT 'mostReplied', node_id, rank - 1, id, reply_count FROM (SELECT id, node_id, reply_count, row_number() OVER (PARTITION BY node_id ORDER BY reply_count DESC, id DESC) AS rank FROM threads WHERE state = 'visible' AND reply_count > 0) WHERE rank <= 20",
       );
     },
     run: (env, i) => env.call("threads.ranked", env.actors.member(i), { by: "mostReplied" }),
