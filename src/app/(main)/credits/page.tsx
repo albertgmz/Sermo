@@ -430,7 +430,7 @@ function PermissionExample({
             <li key={key}>
               <Art
                 src={coverSrc(key)}
-                className="aspect-[5/2] rounded-sm border"
+                className="aspect-(--aspect-cover) rounded-sm border"
               />
             </li>
           ))}
@@ -825,7 +825,7 @@ function Inventory({
               {applied.thread.prefix && (
                 <PrefixTag
                   prefix={applied.thread.prefix}
-                  className="mr-1.5 align-[0.0625rem]"
+                  className="mr-1.5 align-(--prefix-offset)"
                 />
               )}
               {applied.thread.title}

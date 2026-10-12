@@ -23,7 +23,7 @@ export default function Loading() {
             </div>
           ))}
         </div>
-        <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3">
+        <div className="sticky bottom-(--spacing-mobile-nav) border-t bg-background p-2 md:bottom-0 lg:static lg:bg-transparent lg:p-3">
           <Skeleton className="h-16 w-full" />
         </div>
       </div>

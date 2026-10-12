@@ -106,7 +106,7 @@ function ThreadRow({
           {thread.prefix && (
             <PrefixTag
               prefix={thread.prefix}
-              className="mr-1.5 align-[0.0625rem]"
+              className="mr-1.5 align-(--prefix-offset)"
             />
           )}
           {thread.title}

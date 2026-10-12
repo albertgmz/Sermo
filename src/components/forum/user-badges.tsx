@@ -21,7 +21,7 @@ export function RankBadge({
     <span
       title={`${rank.name} rank`}
       className={cn(
-        "inline-flex h-4 shrink-0 items-center rounded-sm border px-1 text-[0.625rem] leading-none font-semibold tracking-wide whitespace-nowrap uppercase",
+        "inline-flex h-4 shrink-0 items-center rounded-sm border px-1 text-(length:--text-tiny) leading-none font-semibold tracking-wide whitespace-nowrap uppercase",
         nameColor(rank.headline.nameColor)?.text ?? "text-muted-foreground",
         className,
       )}

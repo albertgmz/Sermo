@@ -36,7 +36,7 @@ export function ThreadHoverCard({
             {thread.prefix && (
               <PrefixTag
                 prefix={thread.prefix}
-                className="mr-1.5 align-[0.0625rem]"
+                className="mr-1.5 align-(--prefix-offset)"
               />
             )}
             {thread.title}
@@ -63,12 +63,12 @@ export function ThreadHoverCard({
             {thread.prefix && (
               <PrefixTag
                 prefix={thread.prefix}
-                className="mr-1.5 align-[0.0625rem]"
+                className="mr-1.5 align-(--prefix-offset)"
               />
             )}
             {thread.title}
           </p>
-          <p className="mt-1 line-clamp-3 text-[0.8125rem] text-muted-foreground [overflow-wrap:anywhere]">
+          <p className="mt-1 line-clamp-3 text-(length:--text-compact) text-muted-foreground [overflow-wrap:anywhere]">
             {thread.excerpt}
           </p>
           <div className="mt-3 flex items-center gap-2">

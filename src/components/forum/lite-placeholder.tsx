@@ -13,7 +13,7 @@ export function LitePlaceholder({
       role="img"
       data-slot="lite-placeholder"
       className={cn(
-        "pointer-events-none flex items-center justify-center overflow-hidden bg-muted text-center font-mono text-[0.625rem] leading-tight text-muted-foreground",
+        "pointer-events-none flex items-center justify-center overflow-hidden bg-muted text-center font-mono text-(length:--text-tiny) leading-tight text-muted-foreground",
         className,
       )}
     >

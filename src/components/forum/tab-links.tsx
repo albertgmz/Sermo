@@ -16,7 +16,7 @@ const VARIANTS = {
   },
   segmented: {
     nav: "w-full gap-0.5 rounded-lg border bg-card p-[3px] sm:w-fit",
-    link: "h-10 flex-1 justify-center rounded-md px-3 aria-[current=page]:bg-muted sm:flex-none md:h-7 md:px-2.5 md:text-[0.8rem]",
+    link: "h-10 flex-1 justify-center rounded-md px-3 aria-[current=page]:bg-muted sm:flex-none md:h-7 md:px-2.5 md:text-(length:--text-control-sm)",
   },
   plain: {
     nav: "overflow-x-auto [scrollbar-width:none]",

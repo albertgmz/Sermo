@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 const SIZES = {
   xs: { box: "size-5", text: "text-[0.5rem]", framed: false },
-  sm: { box: "size-6", text: "text-[0.625rem]", framed: true },
+  sm: { box: "size-6", text: "text-(length:--text-tiny)", framed: true },
   md: { box: "size-8", text: "text-xs", framed: true },
   lg: { box: "size-10", text: "text-sm", framed: true },
   xl: { box: "size-16", text: "text-xl", framed: true },

@@ -90,7 +90,7 @@ function WallPost({
                   </>
                 }
               >
-                <MessageBody className="text-[0.8125rem]">
+                <MessageBody className="text-(length:--text-compact)">
                   {comment.body}
                 </MessageBody>
               </MessageRow>

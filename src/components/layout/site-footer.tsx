@@ -56,7 +56,10 @@ export function SiteFooter() {
                     aria-label={label}
                     className="inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    <SocialIcon network={network} className="size-[1.125rem]" />
+                    <SocialIcon
+                      network={network}
+                      className="size-(--spacing-inline-icon)"
+                    />
                   </Link>
                 </li>
               ))}

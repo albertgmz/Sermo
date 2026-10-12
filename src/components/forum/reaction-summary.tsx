@@ -14,8 +14,8 @@ const TYPES_SHOWN = 3;
 const SIZES = {
   default: { trigger: "text-xs", emoji: "size-5 text-xs" },
   sm: {
-    trigger: "-my-1.5 min-w-10 text-[0.6875rem] md:my-0",
-    emoji: "size-4 text-[0.625rem]",
+    trigger: "-my-1.5 min-w-10 text-(length:--text-caption) md:my-0",
+    emoji: "size-4 text-(length:--text-tiny)",
   },
 };
 

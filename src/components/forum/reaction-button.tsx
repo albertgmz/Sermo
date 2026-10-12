@@ -24,7 +24,7 @@ const LONG_PRESS_MS = 450;
 
 const SIZES = {
   default: "",
-  sm: "text-[0.6875rem] md:h-7 md:min-w-7 [&_svg]:size-3.5",
+  sm: "text-(length:--text-caption) md:h-7 md:min-w-7 [&_svg]:size-3.5",
 };
 
 export function ReactionButton({

@@ -129,13 +129,13 @@ function PostItem({
           </div>
           <div className="flex shrink-0 items-center">
             {highlighted && (
-              <span className="mr-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-primary">
+              <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary">
                 <Sparkles aria-hidden="true" className="size-3" />
                 <span className={LABEL}>Highlighted</span>
               </span>
             )}
             {post.isThreadAuthor && (
-              <span className="mr-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+              <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
                 <PenLine
                   aria-hidden="true"
                   className="hidden size-3 sm:block"

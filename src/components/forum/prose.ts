@@ -13,6 +13,6 @@ export const prose = {
   em: "italic",
   del: "text-muted-foreground line-through",
   code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.85em]",
-  pre: "block overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-[0.8125rem] leading-relaxed whitespace-pre",
+  pre: "block overflow-x-auto rounded-md border bg-muted/40 p-3 font-mono text-(length:--text-compact) leading-relaxed whitespace-pre",
   hr: "border-border",
 };
