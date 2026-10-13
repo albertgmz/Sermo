@@ -36,6 +36,7 @@
       "wall": "On the wall of {name}",
       "forum": "In {title}",
       "conversation": "In a private conversation",
+      "hidden": "Place not shown",
       "member": "A member"
     },
     "gone": "This content cannot be read: it was removed or you may not see it.",
@@ -81,8 +82,7 @@
     "assignedTo": "Assigned to {name}",
     "open": "Open case",
     "reported": "Reported",
-    "loading": "Loading reports…",
-    "by": "By {name}"
+    "loading": "Loading reports…"
   },
   "case": {
     "metaTitle": "Report {id}",

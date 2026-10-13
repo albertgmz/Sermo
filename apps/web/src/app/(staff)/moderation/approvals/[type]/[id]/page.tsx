@@ -70,7 +70,7 @@ async function Review({ params }: { params: Props["params"] }) {
     getTranslations("moderation.common.content"),
     getFormatter(),
     getViewer(),
-    describe(type, id, true),
+    describe(type, id),
   ]);
   if (type !== "conversation_message" && detail.state === null) notFound();
   const name = await memberNames([

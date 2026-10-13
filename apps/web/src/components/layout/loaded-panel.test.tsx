@@ -13,7 +13,11 @@ mock.module("react", () => ({
   },
   useTransition: () => [false, (run: () => void) => run()],
 }));
+// A stand-in for one hook keeps the other exports of the library, so a module that imports
+// another of them still links after this suite has run.
+const realIntl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
+  ...realIntl,
   useTranslations: () => (key: string) => key,
 }));
 let change: ((open: boolean) => void) | undefined;

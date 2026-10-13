@@ -17,7 +17,11 @@ mock.module("react-dom", () => ({
     action: null,
   }),
 }));
+// A stand-in for one hook keeps the other exports of the library, so a module that imports
+// another of them still links after this suite has run.
+const realIntl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
+  ...realIntl,
   useTranslations: (namespace: string) => (key: string) => {
     let value: unknown = messages;
     for (const part of `${namespace}.${key}`.split(".")) {

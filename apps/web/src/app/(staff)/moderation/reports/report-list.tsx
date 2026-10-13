@@ -9,9 +9,9 @@ import { call, read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { cn } from "@/lib/utils";
 import { memberNames } from "../../admin/logs/links";
-import { describe, orGone } from "../content";
+import { orGone } from "../content";
 import { FilterBar, first, forumOptions } from "../filter-bar";
-import { Where } from "../where";
+import { QueuePlace } from "../where";
 
 type Params = PageProps<"/moderation/reports">["searchParams"];
 
@@ -32,8 +32,8 @@ function stateOf(raw: string | string[] | undefined): State | undefined {
   return STATES.find((state) => state === first(raw));
 }
 
-// The report queue as the backend returns it for this viewer. The read names the reported item
-// and the counts only; what each row shows of the content and of who reported it is read per row.
+// The report queue as the backend returns it for this viewer. Each row carries an excerpt of the
+// reported content and the place it is in; only who reported it is read per row.
 export async function ReportList({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
   const state = stateOf(params.state);
@@ -52,17 +52,13 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
   ]);
   const rows = await Promise.all(
     page.items.map(async (group) => {
-      const [detail, full] = await Promise.all([
-        describe(group.targetType, group.targetId, false),
-        orGone(() => call(reportsGet, { groupId: group.id })),
-      ]);
-      return { group, detail, reporterId: full?.reports[0]?.reporterId };
+      const full = await orGone(() => call(reportsGet, { groupId: group.id }));
+      return { group, reporterId: full?.reports[0]?.reporterId };
     }),
   );
-  const ids = rows.flatMap(({ group, detail, reporterId }) => [
+  const ids = rows.flatMap(({ group, reporterId }) => [
     ...(reporterId ? [reporterId] : []),
     ...(group.assignedToId ? [group.assignedToId] : []),
-    ...(detail.where?.kind === "wall" ? [detail.where.id] : []),
   ]);
   const name = await memberNames(ids);
   return (
@@ -83,7 +79,7 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
           forums={forums}
         />
       }
-      render={({ group, detail, reporterId }) => (
+      render={({ group, reporterId }) => (
         <article className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
           <div className="min-w-0 flex-1 space-y-1.5">
             <p className="flex flex-wrap items-center gap-2">
@@ -95,16 +91,13 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
                 {t("reportCount", { count: group.reportCount })}
               </Badge>
             </p>
-            {detail.excerpt && (
+            {group.excerpt && (
               <p className="line-clamp-2 text-sm [overflow-wrap:anywhere]">
-                {detail.excerpt}
+                {group.excerpt}
               </p>
             )}
             <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-              <Where where={detail.where} name={name} />
-              {detail.author && (
-                <span>{t("by", { name: detail.author.username })}</span>
-              )}
+              <QueuePlace where={group.where} />
             </p>
             <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
               {reporterId && (
