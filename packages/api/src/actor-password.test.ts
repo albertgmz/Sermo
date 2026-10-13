@@ -78,6 +78,9 @@ test("a browser session cannot change groups without the password; an API key ca
     actorPassword: "nope-nope-1",
   });
   expect(wrong.status).toBe(403);
+  expect(await wrong.json()).toMatchObject({
+    error: { code: "forbidden", issues: [{ path: ["actorPassword"] }] },
+  });
   expect(groups()).toBe(before);
 
   const right = await asSession("POST", "/groups", { title: "Helpers", actorPassword: PASSWORD });
@@ -192,4 +195,33 @@ test("a promotion is deleted with the password in the body, and a path parameter
     .all()
     .map((row) => (JSON.parse(row.payload) as { promotionId: number }).promotionId);
   expect(queued).toEqual([removed]);
+});
+
+test("missing, wrong and too many wrong passwords all name the password field, under their own codes", async () => {
+  const { asSession } = await setup();
+  const outcome = async (body: object) => {
+    const response = await asSession("POST", "/groups", { title: "Helpers", ...body });
+    const { error } = (await response.json()) as {
+      error: { code: string; issues?: { path: string[] }[] };
+    };
+    return [response.status, error.code, error.issues?.map((issue) => issue.path)];
+  };
+  expect(await outcome({})).toEqual([400, "validation", [["actorPassword"]]]);
+  for (let i = 0; i < 5; i++)
+    expect(await outcome({ actorPassword: "nope-nope-1" })).toEqual([
+      403,
+      "forbidden",
+      [["actorPassword"]],
+    ]);
+  expect(await outcome({ actorPassword: "nope-nope-1" })).toEqual([
+    429,
+    "rate_limited",
+    [["actorPassword"]],
+  ]);
+  // The right password is refused as well once the session has used its guesses up.
+  expect(await outcome({ actorPassword: PASSWORD })).toEqual([
+    429,
+    "rate_limited",
+    [["actorPassword"]],
+  ]);
 });

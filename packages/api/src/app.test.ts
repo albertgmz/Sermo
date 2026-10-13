@@ -68,7 +68,11 @@ test("the wrong-password limit answers 429 with the body of the request limiter"
   const limited = await verify();
   expect(limited.status).toBe(429);
   expect(await limited.json()).toEqual({
-    error: { code: "rate_limited", message: "Too many wrong passwords. Try again later." },
+    error: {
+      code: "rate_limited",
+      message: "Too many wrong passwords. Try again later.",
+      issues: [{ path: ["password"], message: "Too many wrong passwords" }],
+    },
   });
 });
 

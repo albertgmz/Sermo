@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { RateLimitedError } from "../../errors";
+import { ForbiddenError, RateLimitedError } from "../../errors";
 import { accounts, closeAll, PASSWORD } from "./fixtures.test";
 
 afterEach(closeAll);
@@ -57,5 +57,20 @@ describe("wrong passwords are limited per session and per member", () => {
       for (let i = 0; i < wrongs; i++)
         await expect(w.verify(sessionId, WRONG)).rejects.toThrow(/not your/);
     expect(await w.verify(5, PASSWORD)).toEqual({ ok: true });
+  });
+});
+
+describe("a password refusal names the password field it came from", () => {
+  test("wrong and too many wrong answers carry the path of the input", async () => {
+    const w = await world();
+    const wrong = await w.verify(1, WRONG).catch((error: unknown) => error);
+    expect(wrong).toBeInstanceOf(ForbiddenError);
+    expect((wrong as ForbiddenError).issues?.map((issue) => issue.path)).toEqual([["password"]]);
+    for (let i = 0; i < 4; i++) await w.verify(1, WRONG).catch(() => undefined);
+    const limited = await w.verify(1, WRONG).catch((error: unknown) => error);
+    expect(limited).toBeInstanceOf(RateLimitedError);
+    expect((limited as RateLimitedError).issues?.map((issue) => issue.path)).toEqual([
+      ["password"],
+    ]);
   });
 });

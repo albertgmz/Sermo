@@ -22,7 +22,7 @@ import {
 export const authVerifyPasswordOp = implement(
   authVerifyPassword,
   async (ctx, actor, input) => {
-    await verifyActorPassword(ctx, actor, input.password);
+    await verifyActorPassword(ctx, actor, input.password, "password");
     return { ok: true as const };
   },
   { public: "A signed-in member checks only their own password; nothing is read or changed." },

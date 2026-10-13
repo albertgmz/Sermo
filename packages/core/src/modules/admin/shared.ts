@@ -77,20 +77,28 @@ export function requireTakeoverRights(ctx: Ctx, actor: Actor, target: Actor): vo
  */
 export const verifyActorPassword = markPublic(
   "Checks the actor's own password; it grants nothing.",
-  async (ctx: Ctx, actor: Actor, password: string): Promise<{ userId: number }> => {
+  async (
+    ctx: Ctx,
+    actor: Actor,
+    password: string,
+    field = "actorPassword",
+  ): Promise<{ userId: number }> => {
     const user = requireAuthenticated(actor);
     if (actor.kind !== "user")
       throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
-    const guess = takePasswordGuess(ctx, user.userId, actor.sessionId);
+    const guess = takePasswordGuess(ctx, user.userId, actor.sessionId, field);
+    const wrong = () =>
+      new ForbiddenError("That is not your password.", [
+        { path: [field], message: "Wrong password" },
+      ]);
     const authContext = await getAuth(ctx).$context;
     const account = await authContext.internalAdapter.findCredentialAccount(String(user.userId));
     if (!account?.password) {
       // Spend the same time as a wrong password would, so the answer does not tell the two apart.
       await authContext.password.hash(password);
-      throw new ForbiddenError("That is not your password.");
+      throw wrong();
     }
-    if (!(await authContext.password.verify({ hash: account.password, password })))
-      throw new ForbiddenError("That is not your password.");
+    if (!(await authContext.password.verify({ hash: account.password, password }))) throw wrong();
     forgivePasswordGuess(ctx, guess);
     return { userId: user.userId };
   },

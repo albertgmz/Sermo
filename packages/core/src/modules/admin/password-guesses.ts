@@ -25,9 +25,15 @@ export const passwordGuessSql = {
 /**
  * Takes one of the session's guesses (and one of the member's) for the window, or refuses when
  * either is used up. A guess is recorded before the password is checked, so answers sent in
- * parallel are counted as well. Pass session 0 for an in-process caller.
+ * parallel are counted as well. Pass session 0 for an in-process caller. A refusal names the
+ * password `field` of the input it came from, as the other password refusals do.
  */
-export function takePasswordGuess(ctx: Ctx, userId: number, sessionId: number): number {
+export function takePasswordGuess(
+  ctx: Ctx,
+  userId: number,
+  sessionId: number,
+  field = "actorPassword",
+): number {
   return writeTx(ctx, () => {
     const now = ctx.now();
     const since = now - WRONG_PASSWORD_WINDOW_MS;
@@ -41,7 +47,9 @@ export function takePasswordGuess(ctx: Ctx, userId: number, sessionId: number): 
       ctx.sqlite.prepare<{ n: number }, [number, number, number]>(passwordGuessSql.memberRecent),
     ).get(userId, since, WRONG_PASSWORD_MEMBER_LIMIT)!.n;
     if (session >= WRONG_PASSWORD_SESSION_LIMIT || member >= WRONG_PASSWORD_MEMBER_LIMIT)
-      throw new RateLimitedError("Too many wrong passwords. Try again later.");
+      throw new RateLimitedError("Too many wrong passwords. Try again later.", [
+        { path: [field], message: "Too many wrong passwords" },
+      ]);
     return ctx.sqlite
       .prepare<{ id: number }, [number, number, number]>(passwordGuessSql.add)
       .get(userId, sessionId, now)!.id;
