@@ -1,7 +1,7 @@
 "use server";
 
 import { reactionsRemove, reactionsSet } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { normalizeImagePath } from "@/lib/lite-images";
@@ -73,9 +73,6 @@ async function pageOfRequest(): Promise<string> {
   return safeReturnPath(pathname + search);
 }
 
-// The routes where a reaction can be made: the only pages worth revalidating for one.
-const REACTION_PAGES = /^\/(threads|members|conversations)\/[^/]+(\/|$)/;
-
 export async function react(
   target: ReactionTarget,
   id: number,
@@ -97,8 +94,9 @@ export async function react(
         }),
   );
   if (!done.ok) return { error: done.error };
-  // Only the page the reaction was made on shows it.
-  const path = page.split(/[?#]/)[0];
-  if (REACTION_PAGES.test(path)) revalidatePath(path);
+  // The page the member is on is drawn again with the reaction in it: the button keeps its own
+  // choice only until the action ends. Which page that is does not matter, and nothing is cached
+  // per visitor, so no path is named.
+  refresh();
   return {};
 }

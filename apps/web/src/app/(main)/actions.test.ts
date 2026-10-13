@@ -4,10 +4,12 @@ const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
   revalidated.length = 0;
+  refreshed = 0;
 });
 
 let incoming = new Headers();
 const revalidated: unknown[][] = [];
+let refreshed = 0;
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => incoming,
@@ -21,6 +23,9 @@ const nextCache = await import("next/cache");
 mock.module("next/cache", () => ({
   ...nextCache,
   revalidatePath: (...args: unknown[]) => revalidated.push(args),
+  refresh: () => {
+    refreshed += 1;
+  },
 }));
 
 const source = "./actions.ts?reactions";
@@ -57,14 +62,33 @@ function onPage(referer?: string, host = referer && new URL(referer).host) {
   incoming = new Headers(referer && host ? { referer, host } : {});
 }
 
-test("a reaction revalidates the page it was made on and nothing else", async () => {
+test("a reaction is one write, refreshes the page once and revalidates no path", async () => {
   onPage("http://localhost:3105/threads/5?page=2");
   const asked = backend(Response.json(SUMMARY));
   expect(await react("post", 9, 2)).toEqual({});
-  expect(revalidated).toEqual([["/threads/5"]]);
+  expect(refreshed).toBe(1);
+  expect(revalidated).toEqual([]);
   expect(asked).toHaveLength(1);
   expect(asked[0].path).toBe("/api/v1/reactions/post/9");
   expect(asked[0].body).toEqual({ reactionTypeId: 2 });
+});
+
+// Every page that draws the reactions element: the feed and its views, a thread, a profile and
+// its tabs, a conversation.
+test("a reaction shows the page it was made on again, wherever that is", async () => {
+  for (const referer of [
+    "http://localhost:3105/",
+    "http://localhost:3105/?tab=top&cursor=abc",
+    "http://localhost:3105/threads/5?page=2",
+    "http://localhost:3105/members/7?tab=wall",
+    "http://localhost:3105/conversations/3",
+  ]) {
+    refreshed = 0;
+    onPage(referer);
+    backend(Response.json(SUMMARY));
+    expect(await react("post", 9, 2)).toEqual({});
+    expect(refreshed, referer).toBe(1);
+  }
 });
 
 test("a message, a wall post and a wall comment are reacted to under their backend names", async () => {
@@ -81,12 +105,13 @@ test("a message, a wall post and a wall comment are reacted to under their backe
   }
 });
 
-test("the backend's refusal goes back to the button and revalidates nothing", async () => {
+test("the backend's refusal goes back to the button and refreshes nothing", async () => {
   onPage("http://localhost:3105/threads/5");
   backend(refusal(403, "forbidden", "You cannot react to your own post."));
   expect(await react("post", 9, 2)).toEqual({
     error: "You cannot react to your own post.",
   });
+  expect(refreshed).toBe(0);
   expect(revalidated).toEqual([]);
 });
 
@@ -102,6 +127,7 @@ test("a guest is sent to sign in and back to the page they were on", async () =>
   expect(digest).toMatch(
     /^NEXT_REDIRECT;[a-z]+;\/login\?next=%2Fthreads%2F5%3Fpage%3D2;/,
   );
+  expect(refreshed).toBe(0);
   expect(revalidated).toEqual([]);
 });
 
@@ -110,24 +136,18 @@ test("a target the page cannot have sent is ignored without asking the backend",
   const asked = backend(Response.json(SUMMARY));
   expect(await react("thread" as never, 9, 2)).toEqual({});
   expect(asked).toHaveLength(0);
+  expect(refreshed).toBe(0);
 });
 
-test("a referer from another host revalidates nothing", async () => {
-  onPage("https://evil.example/threads/5", "forum.example");
-  backend(Response.json(SUMMARY));
-  expect(await react("post", 9, 2)).toEqual({});
-  expect(revalidated).toEqual([]);
-});
-
-test("a page that is not one where reactions are made is not revalidated", async () => {
-  for (const referer of [
-    "http://localhost:3105/account/security",
-    "http://localhost:3105/",
-    "http://localhost:3105/threads",
+test("no path is revalidated, whatever the referer says", async () => {
+  for (const [referer, host] of [
+    ["https://evil.example/threads/5", "forum.example"],
+    ["http://localhost:3105/account/security", "localhost:3105"],
+    ["http://localhost:3105/threads", "localhost:3105"],
   ]) {
-    onPage(referer);
+    onPage(referer, host);
     backend(Response.json(SUMMARY));
-    await react("post", 9, 2);
+    expect(await react("post", 9, 2)).toEqual({});
   }
   expect(revalidated).toEqual([]);
 });
