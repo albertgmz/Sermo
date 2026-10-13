@@ -18,7 +18,7 @@
     "general": {
       "metaTitle": "General settings",
       "heading": "General",
-      "subtitle": "The site's name, default language, profile posts and the accounts it links to.",
+      "subtitle": "The site's name, default language, profile posts, the forum statistics panel and the accounts it links to.",
       "formHeading": "General settings",
       "linksHeading": "Social links",
       "linksDescription": "The site's own accounts elsewhere, shown in the footer."
@@ -92,6 +92,11 @@
       "label": "Profile posts",
       "help": "Off: nobody can create profile posts or comments.",
       "switch": "Allow profile posts and comments"
+    },
+    "forumStatsEnabled": {
+      "label": "Forum statistics",
+      "help": "On: the forum list shows a panel with the latest, most replied, most reacted and most viewed threads.",
+      "switch": "Show the forum statistics panel"
     },
     "newMemberDays": {
       "label": "New-member period",

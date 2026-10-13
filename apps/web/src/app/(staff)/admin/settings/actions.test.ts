@@ -109,7 +109,7 @@ const LEVEL_FIELDS: [string, string][] = [
   ["standingReferralPoints", "10"],
 ];
 
-test("the general form sends its three keys and the whole social links, and expires the site cache", async () => {
+test("the general form sends its four keys and the whole social links, and expires the site cache", async () => {
   backend = fakeBackend({ "settings.get": read, "settings.update": read });
   const digest = await redirectedTo(() =>
     saveGeneral(
@@ -118,6 +118,7 @@ test("the general form sends its three keys and the whole social links, and expi
         [
           ["siteName", "Forum"],
           ["defaultLanguage", "es"],
+          ["forumStatsEnabled", "on"],
           ["socialLinks.discord", "https://d.example"],
           ["socialLinks.telegram", "https://t.example"],
           ["socialLinks.x", "  "],
@@ -132,6 +133,7 @@ test("the general form sends its three keys and the whole social links, and expi
     siteName: "Forum",
     defaultLanguage: "es",
     profilePostsEnabled: false,
+    forumStatsEnabled: true,
     socialLinks: {
       discord: "https://d.example",
       telegram: "https://t.example",

@@ -28,6 +28,8 @@ export const Site = z
      * site's catalogs keep a fixed 25 MiB whatever this says.
      */
     maxUploadBytes: z.number().int().positive(),
+    /** Whether the forum list shows the forum statistics panel (the site setting). */
+    forumStatsEnabled: z.boolean(),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),
@@ -40,7 +42,8 @@ export const siteGet = defineContract({
   name: "site.get",
   summary:
     "The site as every visitor sees it: its name, its logo, icon and backdrop, and the active " +
-    "colours of each catalog in display order, and the upload size limit. Open to everyone.",
+    "colours of each catalog in display order, the upload size limit and whether the forum " +
+    "statistics panel is shown. Open to everyone.",
   kind: "read",
   input: Empty,
   output: Site,

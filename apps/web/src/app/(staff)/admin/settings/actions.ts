@@ -29,6 +29,7 @@ const GENERAL: Spec = {
   siteDescription: "text",
   defaultLanguage: "language",
   profilePostsEnabled: "bool",
+  forumStatsEnabled: "bool",
 };
 
 export async function saveGeneral(

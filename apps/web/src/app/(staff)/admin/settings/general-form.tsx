@@ -56,6 +56,7 @@ export async function GeneralForm() {
         name="profilePostsEnabled"
         value={settings.profilePostsEnabled}
       />
+      <SwitchRow name="forumStatsEnabled" value={settings.forumStatsEnabled} />
       {networks.map((network) => (
         <FieldRow
           key={network}

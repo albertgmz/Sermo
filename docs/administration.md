@@ -672,6 +672,11 @@ as a missing one. Turning off the site setting `profilePostsEnabled` (default on
 profile posts and comments for everyone, including holders of `profile.bypassPrivacy`; existing
 ones stay visible.
 
+The forum statistics panel of the forum list (the ranked thread lists: latest posts, latest
+threads, most replied, most reacted, most viewed) is shown only while the site setting
+`forumStatsEnabled` is on (default off; General settings in the panel). `GET /site` (`site.get`)
+carries the switch for the web app; `threads.ranked` itself answers either way.
+
 ## Notifications
 
 Members read notifications with `GET /notifications` (`notifications.list`, optionally

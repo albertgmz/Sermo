@@ -108,3 +108,30 @@ test("settings stored before the description existed still parse", async () => {
     .run(JSON.stringify(stored));
   expect((await run(ctx, "site.get", GUEST)).description).toBe("");
 });
+
+test("the forum statistics panel is off until an administrator turns it on, and site.get follows", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  expect((await run(ctx, "settings.get", admin)).forumStatsEnabled).toBe(false);
+  expect((await run(ctx, "site.get", GUEST)).forumStatsEnabled).toBe(false);
+  await run(ctx, "settings.update", admin, { forumStatsEnabled: true });
+  expect((await run(ctx, "site.get", GUEST)).forumStatsEnabled).toBe(true);
+  await run(ctx, "settings.update", admin, { siteName: "Birds" });
+  expect((await run(ctx, "site.get", GUEST)).forumStatsEnabled).toBe(true);
+});
+
+test("settings stored before the forum statistics switch existed still parse, with it off", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  await run(ctx, "settings.update", admin, { siteName: "Old" });
+  const stored = JSON.parse(
+    ctx.sqlite
+      .prepare<{ value: string }, []>("SELECT value FROM site_settings WHERE key = 'configuration'")
+      .get()!.value,
+  );
+  delete stored.forumStatsEnabled;
+  ctx.sqlite
+    .prepare("UPDATE site_settings SET value = ?1 WHERE key = 'configuration'")
+    .run(JSON.stringify(stored));
+  expect((await run(ctx, "site.get", GUEST)).forumStatsEnabled).toBe(false);
+});

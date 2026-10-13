@@ -30,6 +30,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
     backdrop: null,
     socialLinks: { discord: null, telegram: null, x: null },
     maxUploadBytes: 5 * 1024 * 1024,
+    forumStatsEnabled: false,
     palette: { accents: [], nameColors: [], prefixColors: [] },
     ...over,
   };

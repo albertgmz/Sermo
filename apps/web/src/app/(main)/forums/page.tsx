@@ -24,6 +24,7 @@ import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
+import { getSite } from "@/lib/sermo/site";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -64,7 +65,10 @@ export default async function ForumsPage({
     STATS_TABS.find((entry) => entry.value === statsParam)?.value ??
     STATS_TABS[0].value;
   const selected = typeof tab === "string" ? tab : null;
-  const { user } = await getViewer();
+  const [{ user }, { forumStatsEnabled }] = await Promise.all([
+    getViewer(),
+    getSite(),
+  ]);
   const t = await getTranslations("forums.forums");
 
   return (
@@ -74,18 +78,20 @@ export default async function ForumsPage({
         className={user ? undefined : "pt-2"}
         mainClassName="space-y-(--page-gap)"
       >
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("aria.loadingStatistics")}>
-              <ForumStatsSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <ForumStats
-            active={stats}
-            hrefFor={(value) => forumsHref(selected, value)}
-          />
-        </Suspense>
+        {forumStatsEnabled && (
+          <Suspense
+            fallback={
+              <LoadingRegion label={t("aria.loadingStatistics")}>
+                <ForumStatsSkeleton />
+              </LoadingRegion>
+            }
+          >
+            <ForumStats
+              active={stats}
+              hrefFor={(value) => forumsHref(selected, value)}
+            />
+          </Suspense>
+        )}
 
         <Suspense
           fallback={

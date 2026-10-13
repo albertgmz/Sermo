@@ -50,6 +50,8 @@ export const SiteSettings = z
     newMemberMentionLimit: z.number().int().min(0).max(100).default(3),
     /** Off: nobody can create profile posts or comments. */
     profilePostsEnabled: z.boolean().default(true),
+    /** On: the forum list shows the forum statistics panel (the ranked thread lists). */
+    forumStatsEnabled: z.boolean().default(false),
     /** Read notifications older than this are purged. */
     notificationRetentionDays: z.number().int().min(1).max(3650).default(90),
     /** Admin defaults per notification type and channel; types not listed use their registry defaults. */

@@ -21,6 +21,8 @@ export type SiteIdentity = {
   };
   // The most a member's file may have, in bytes; null when the site could not be read.
   maxUploadBytes: number | null;
+  // Whether the forum list shows the statistics panel; off when the site could not be read.
+  forumStatsEnabled: boolean;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
 };
@@ -40,8 +42,16 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
   cacheTag("site");
   try {
     const site = await callWith({}, siteGet, {});
-    const { name, logo, icon, backdrop, socialLinks, maxUploadBytes, palette } =
-      site;
+    const {
+      name,
+      logo,
+      icon,
+      backdrop,
+      socialLinks,
+      maxUploadBytes,
+      forumStatsEnabled,
+      palette,
+    } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
     cacheLife({ stale: 60, revalidate: 60, expire: 3600 });
@@ -53,6 +63,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       backdrop,
       socialLinks,
       maxUploadBytes,
+      forumStatsEnabled,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -74,6 +85,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       backdrop: null,
       socialLinks: { discord: null, telegram: null, x: null },
       maxUploadBytes: null,
+      forumStatsEnabled: false,
       accents: [],
     };
   }

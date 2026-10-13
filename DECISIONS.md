@@ -1639,3 +1639,14 @@ button, the staff list and the head of the permission pages; on the public side 
 purpose: the create-or-edit props of each staff form (as many parameters as lines saved), the
 toolbar buttons of the editor, the `<output>` status lines (a polite live region, not an alert),
 and the staff mobile menu against the site navigation.
+
+## Forum statistics panel as a site setting
+
+**The forum statistics panel is optional and off by default.** The site setting
+`forumStatsEnabled` (General settings in the panel) decides whether the forum list shows the
+ranked thread lists. It lives in the settings JSON like `profilePostsEnabled`, so there is no
+migration and a site that upgrades has it off. `site.get` carries it: the forum list page and its
+loading skeleton read it from the cached site, so a guest's page costs no extra request and the
+skeleton has the shape of what settles. When the site cannot be read the panel is left out.
+`threads.ranked` is not gated: the home feed's sidebar uses it too, and it shows nothing a visitor
+cannot already list.
