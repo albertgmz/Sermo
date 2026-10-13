@@ -44,14 +44,7 @@ describe("navigation.get", () => {
   test("a guest sees the shipped links of their audience, in order, children nested", async () => {
     const { ctx, titles } = setup();
     const view = await run(ctx, "navigation.get", GUEST);
-    expect(titles(view.header)).toEqual([
-      "Home",
-      "Forums",
-      "Members",
-      "Upgrade",
-      "Awards",
-      "Credits",
-    ]);
+    expect(titles(view.header)).toEqual(["Home", "Forums", "Members", "Awards", "Credits"]);
     expect(titles(view.mobile)).toEqual(["Home", "Forums", "Log in"]);
     expect(view.account).toEqual([]);
     expect(titles(view.footer)).toEqual(["Community", "Useful", "Legal"]);
@@ -81,7 +74,7 @@ describe("navigation.get", () => {
     for (const actor of [member, token]) {
       const view = await run(ctx, "navigation.get", actor);
       expect(titles(view.mobile)).toEqual(["Home", "Forums", "Messages", "Alerts", "Profile"]);
-      expect(titles(view.account)).toEqual(["Profile", "Account"]);
+      expect(titles(view.account)).toEqual(["Profile", "Account", "Upgrade"]);
     }
   });
 

@@ -68,7 +68,7 @@ export function SiteHeader() {
             <div className="hidden md:block">
               <LoadingRegion label={t("loadingNavigation")}>
                 <div className="flex h-10 items-center gap-1">
-                  {[1, 2, 3, 4, 5, 6].map((item) => (
+                  {[1, 2, 3, 4, 5].map((item) => (
                     <Skeleton key={item} className="h-10 w-16" />
                   ))}
                 </div>

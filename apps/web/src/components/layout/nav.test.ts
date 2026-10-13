@@ -28,9 +28,8 @@ function entry(
   return { id: next, title, target, builtin, children };
 }
 
-const [forums, upgrade, custom, external, heading] = toNavItems([
+const [forums, custom, external, heading] = toNavItems([
   entry("header.forums", "/forums"),
-  entry("header.upgrade", "/upgrade"),
   entry(null, "/pages/rules", "Rules"),
   entry(null, "https://example.test/a"),
   entry("footer.legal", null, "Legal", [entry(null, "/terms")]),
@@ -98,11 +97,6 @@ test("an external target opens safely and is never current", () => {
   });
 });
 
-test("only the upgrade entry is highlighted", () => {
-  expect(upgrade.highlight).toBe(true);
-  expect([forums, custom, external].some((item) => item.highlight)).toBe(false);
-});
-
 test("a heading has no link and is never current", () => {
   expect(heading.href).toBeNull();
   expect(isCurrent("/", heading)).toBe(false);
@@ -140,5 +134,6 @@ test("the account menu is a flat list in the data's order", () => {
 test("known keys have their own icon and every other entry a generic one", () => {
   expect(iconFor("mobile.home")).not.toBe(iconFor(null));
   expect(iconFor("mobile.messages")).not.toBe(iconFor("mobile.alerts"));
+  expect(iconFor("account.upgrade")).not.toBe(iconFor(null));
   expect(iconFor("something.else")).toBe(iconFor(null));
 });

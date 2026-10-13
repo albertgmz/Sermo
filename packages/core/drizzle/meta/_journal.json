@@ -211,6 +211,13 @@
       "when": 1791855775131,
       "tag": "0029_sign_in_failures",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1791859375131,
+      "tag": "0030_upgrade_in_account_menu",
+      "breakpoints": true
     }
   ]
 }

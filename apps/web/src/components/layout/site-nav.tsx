@@ -60,7 +60,6 @@ const headerLink =
 
 function HeaderEntry({ entry }: { entry: NavItem }) {
   const pathname = usePathname();
-  const highlight = entry.highlight && "text-primary hover:text-primary/80";
   if (entry.children.length > 0) {
     // A heading has no page of its own: its label opens the children. An entry with a page
     // keeps it as the first line of the menu.
@@ -74,7 +73,6 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
           className={cn(
             headerLink,
             "group gap-1 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            highlight,
           )}
         >
           {entry.title}
@@ -102,7 +100,7 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
     <Link
       {...linkProps(entry)}
       aria-current={isCurrent(pathname, entry) ? "page" : undefined}
-      className={cn(headerLink, highlight)}
+      className={headerLink}
     >
       {entry.title}
     </Link>
@@ -149,7 +147,7 @@ function MenuLink({
       {...linkProps(entry)}
       onClick={onNavigate}
       aria-current={isCurrent(pathname, entry) ? "page" : undefined}
-      className={cn(menuLink, entry.highlight && "text-primary")}
+      className={menuLink}
     >
       {entry.title}
     </Link>

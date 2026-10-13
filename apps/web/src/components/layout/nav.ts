@@ -1,5 +1,6 @@
 import {
   Bell,
+  Crown,
   House,
   Inbox,
   Link as LinkIcon,
@@ -21,7 +22,6 @@ export type NavItem = {
   external: boolean;
   builtin: string | null;
   match: string[];
-  highlight: boolean;
   children: NavItem[];
 };
 
@@ -36,6 +36,7 @@ const ICONS: Record<string, LucideIcon> = {
   "mobile.login": LogIn,
   "account.profile": UserRound,
   "account.settings": Settings,
+  "account.upgrade": Crown,
 };
 
 // Paths that also mark an entry as current.
@@ -45,7 +46,6 @@ const MATCH: Record<string, string[]> = {
   "mobile.profile": ["/account"],
 };
 
-const HIGHLIGHT = "header.upgrade";
 // These lead to the signed-in member's own profile whatever target is stored.
 const OWN_PROFILE = new Set(["mobile.profile", "account.profile"]);
 const MOBILE_LIMIT = 5;
@@ -72,7 +72,6 @@ function item(
     external: !!href && isExternal(href),
     builtin: entry.builtin,
     match: (entry.builtin && MATCH[entry.builtin]) || [],
-    highlight: entry.builtin === HIGHLIGHT,
     children,
   };
 }

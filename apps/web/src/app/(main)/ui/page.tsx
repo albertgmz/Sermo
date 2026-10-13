@@ -192,7 +192,6 @@ const NAV_SAMPLES = toNavItems(
     ["header.home", "Home", "/"],
     ["header.forums", "Forums", "/forums"],
     ["header.members", "Members", "/members"],
-    ["header.upgrade", "Upgrade", "/upgrade"],
     ["header.awards", "Awards", "/awards"],
     ["header.credits", "Credits", "/credits"],
   ].map(([builtin, title, target], id) => ({

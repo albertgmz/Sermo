@@ -1657,3 +1657,17 @@ cannot already list.
 `main` raises it, by a patch step unless the change calls for more; a task branch raises it once,
 in the commit that is merged. The `version` fields of the packages are not maintained and nothing
 reads the file yet: it is the number a person or a release note names.
+
+## The Upgrade link lives in the account menu
+
+**Upgrade is an entry of the member's own menu, not of the header or the footer.** Migration
+`0030` moves the built-in entry `header.upgrade` to the account location as `account.upgrade`
+(after whatever the menu already holds, for members; a title, a switched-off state or a permission
+audience an administrator set are kept; an audience of guests becomes members, the only people
+the menu is drawn for) and deletes `footer.useful.upgrade`. Entries an administrator placed under
+it move with it so the rows stay consistent, but the account menu is a flat list and does not draw
+the children of an entry that has its own page: they have to be moved by hand. The navigation
+shows a guest no link to `/upgrade`; the page itself is unchanged and the shop's rank ladder still
+links to it for everyone. The
+header no longer marks any entry in the accent colour: that was drawn for this one entry only.
+The migration changes the benchmark seed's hash.
