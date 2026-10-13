@@ -11,7 +11,7 @@ import { closeContext, invalidate } from "../../context";
 import { ForbiddenError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
-import { traceStatements } from "../statement-trace.test";
+import { traceStatements } from "../statement-trace";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
 afterEach(() => {

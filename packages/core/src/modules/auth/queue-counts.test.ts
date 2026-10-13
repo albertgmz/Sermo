@@ -18,7 +18,7 @@ import {
   QUEUE_WINDOW,
   reportQueueSql,
 } from "../moderation";
-import { traceStatements } from "../statement-trace.test";
+import { traceStatements } from "../statement-trace";
 
 type Count = { count: number; more: boolean; cap: number };
 const QUIET = { count: 0, more: false, cap: 99 };
