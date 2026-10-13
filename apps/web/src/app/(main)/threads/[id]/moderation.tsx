@@ -21,7 +21,7 @@ import {
 } from "@/app/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { DeleteControl } from "@/components/forum/delete-control";
-import { ForumPicker } from "@/components/forum/forum-picker";
+import { type ForumOption, ForumPicker } from "@/components/forum/forum-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,10 +47,21 @@ function Section({
   );
 }
 
+// The forums a picker offers, as only what it shows: a forum's icon and cover are pictures and
+// must not travel to the browser through a client component's props (LITE mode).
+export function forumOptions(
+  items: z.output<typeof nodesList.output>["items"],
+  except?: number,
+): ForumOption[] {
+  return items
+    .filter((node) => node.type === "forum" && node.id !== except)
+    .map(({ id, title, depth }) => ({ id, title, depth }));
+}
+
 // The forums the backend lists, apart from the one the thread is in.
 export async function forumsOtherThan(nodeId: number) {
   const { items } = await read(nodesList, {});
-  return items.filter((node) => node.type === "forum" && node.id !== nodeId);
+  return forumOptions(items, nodeId);
 }
 
 // Everything a moderator can do to the thread as a whole, behind one button. The caller shows it
@@ -193,7 +204,7 @@ export async function SplitPanel({ thread }: { thread: Thread }) {
     getTranslations("threads.moderation"),
     read(nodesList, {}),
   ]);
-  const forums = items.filter((node) => node.type === "forum");
+  const forums = forumOptions(items);
   return (
     <section
       aria-label={t("splitHeading")}
