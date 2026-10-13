@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import {
   type MarkAllState,
   markAllRead,
 } from "@/app/(main)/notifications/actions";
+import { markAllThenRefresh } from "@/app/(main)/notifications/mark-all";
 import { PendingButton } from "@/components/forum/pending-button";
 
 // Marks every notification read. The backend's reason is shown if it refuses.
@@ -21,7 +23,12 @@ export function MarkAllReadForm({
   className?: string;
   children: React.ReactNode;
 }) {
-  const [state, action] = useActionState<MarkAllState>(markAllRead, {});
+  const router = useRouter();
+  const [state, action] = useActionState<MarkAllState>(
+    (previous) =>
+      markAllThenRefresh(markAllRead, () => router.refresh(), previous),
+    {},
+  );
   return (
     <form action={action} className="flex flex-col items-end">
       <PendingButton
