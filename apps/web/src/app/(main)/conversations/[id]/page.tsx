@@ -224,7 +224,7 @@ async function Messages({
                 )}
                 <div
                   className={cn(
-                    "max-w-full min-w-0 rounded-xl border px-3 py-2",
+                    "max-w-full min-w-0 rounded-4xl border px-3.5 py-2",
                     mine
                       ? "rounded-br-sm border-primary/25 bg-primary/15"
                       : "rounded-bl-sm bg-muted/60",

@@ -14,7 +14,7 @@ export function MessagesSkeleton() {
           )}
         >
           {index !== 1 && <Skeleton className="size-8 shrink-0 rounded-full" />}
-          <Skeleton className={cn("h-14 rounded-xl", width)} />
+          <Skeleton className={cn("h-14 rounded-4xl", width)} />
         </div>
       ))}
     </div>

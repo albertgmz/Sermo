@@ -32,7 +32,11 @@ export function ReplyForm({
       )}
       <div className="flex flex-wrap items-end gap-2">
         <AttachmentField compact onBusy={setUploading} />
-        <LazyEditor name="body" placeholder={placeholder} className="flex-1" />
+        <LazyEditor
+          name="body"
+          placeholder={placeholder}
+          className="flex-1 rounded-4xl"
+        />
         <PendingButton
           size="icon"
           aria-label={submitLabel}
