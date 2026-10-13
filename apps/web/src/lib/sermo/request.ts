@@ -20,7 +20,7 @@ function append(params: URLSearchParams, key: string, value: unknown) {
 }
 
 // Turns an operation name and its input into the HTTP request the API maps back to it: path
-// parameters come out of the input, the rest is the query (GET, DELETE) or a JSON body.
+// parameters come out of the input, the rest is the query (GET) or a JSON body.
 export function buildRequest(operation: string, input: unknown): BuiltRequest {
   const route = byOperation.get(operation);
   if (!route) throw new Error(`Unknown operation ${operation}.`);
@@ -45,7 +45,7 @@ export function buildRequest(operation: string, input: unknown): BuiltRequest {
     }
     return encodeURIComponent(segment);
   });
-  if (route.method === "GET" || route.method === "DELETE") {
+  if (route.method === "GET") {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(rest)) append(params, key, value);
     const query = params.toString();
@@ -56,11 +56,14 @@ export function buildRequest(operation: string, input: unknown): BuiltRequest {
       body: undefined,
     };
   }
+  // A DELETE sends its fields in a body as well (the API merges it as it does for a POST): a
+  // password in the query string would be recorded by every proxy and access log on the way.
+  const body = JSON.stringify(rest);
   return {
     method: route.method,
     path,
     query: "",
-    body: JSON.stringify(rest),
+    body: route.method === "DELETE" && body === "{}" ? undefined : body,
   };
 }
 

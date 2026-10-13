@@ -69,7 +69,7 @@ test("a grant and a revoke return to the member with a notice", async () => {
   ).toMatch(/userId=4&notice=revoked/);
   expect(backend.asked.map((call) => call.body)).toEqual([
     { awardId: 2, reason: "Well done" },
-    undefined,
+    { reason: "Mistake" },
   ]);
 });
 
