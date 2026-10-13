@@ -5,6 +5,7 @@ import { GROUP_IDS } from "../../db/schema";
 import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
+import { traceStatements } from "../statement-trace";
 import {
   groupsCreateOp,
   groupsGetOp,
@@ -118,7 +119,7 @@ describe("reading groups", () => {
     ).toBe(1);
     const get = await execute(w.ctx, groupsGetOp, w.admin, { groupId: helpers.id });
     expect(get.memberCount).toBe(3);
-    const list = await execute(w.ctx, groupsListOp, w.admin, {});
+    const list = await execute(w.ctx, groupsListOp, w.admin, { counts: true });
     expect(list.items.find((g) => g.id === helpers.id)!.memberCount).toBe(3);
     const members = list.items.find((g) => g.id === GROUP_IDS.member)!.memberCount;
     expect(members).toBe(
@@ -131,6 +132,43 @@ describe("reading groups", () => {
       title: "Aides",
     });
     expect(renamed.memberCount).toBe(3);
+  });
+
+  test("groups.list counts members only when asked, and groups.get always does", async () => {
+    const w = world();
+    const trace = traceStatements(w.ctx);
+    const member = insertUser(w.ctx, {});
+    await execute(w.ctx, usersSetGroupsOp, w.admin, { userId: member.id });
+    trace.sql.length = 0;
+    trace.inTransaction.length = 0;
+    const plain = await execute(w.ctx, groupsListOp, w.admin, {});
+    expect(plain.items.length).toBeGreaterThan(0);
+    expect(plain.items.every((g) => g.memberCount === null)).toBe(true);
+    expect(trace.count(/count[(]/i)).toBe(0);
+    const counted = await execute(w.ctx, groupsListOp, w.admin, { counts: true });
+    expect(counted.items.every((g) => typeof g.memberCount === "number")).toBe(true);
+    expect(trace.count(/count[(]/i)).toBe(1);
+    const get = await execute(w.ctx, groupsGetOp, w.admin, { groupId: GROUP_IDS.member });
+    expect(typeof get.memberCount).toBe("number");
+  });
+
+  test("groups.update counts after its write transaction, not inside it", async () => {
+    const w = world();
+    const trace = traceStatements(w.ctx);
+    const group = await execute(w.ctx, groupsCreateOp, w.admin, { title: "Helpers", rank: 5 });
+    trace.sql.length = 0;
+    trace.inTransaction.length = 0;
+    const updated = await execute(w.ctx, groupsUpdateOp, w.admin, {
+      groupId: group.id,
+      title: "Aides",
+    });
+    expect(updated.memberCount).toBe(0);
+    const counting = trace.sql.flatMap((text, i) => (/count[(]/i.test(text) ? [i] : []));
+    expect(counting).toHaveLength(1);
+    expect(trace.inTransaction[counting[0]!]).toBe(false);
+    // The write itself ran inside one.
+    const update = trace.sql.findIndex((text) => text.startsWith("UPDATE groups"));
+    expect(trace.inTransaction[update]).toBe(true);
   });
 
   test("the counting reads use indexes only", () => {

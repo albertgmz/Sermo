@@ -66,7 +66,7 @@ type EntryRow = {
   value: number;
   type: "flag" | "integer";
 };
-const groupValue = (g: GroupRow & { member_count?: number }) => ({
+const groupValue = (g: GroupRow & { member_count?: number | null }) => ({
   id: g.id,
   title: g.title,
   description: g.description,
@@ -76,7 +76,7 @@ const groupValue = (g: GroupRow & { member_count?: number }) => ({
   builtin: g.builtin,
   nameColorId: g.name_color_id,
   isStaff: !!g.is_staff,
-  memberCount: g.member_count ?? 0,
+  memberCount: g.member_count ?? null,
 });
 /**
  * A group's members: those with it as primary group (index users_group) plus those holding it
@@ -84,6 +84,8 @@ const groupValue = (g: GroupRow & { member_count?: number }) => ({
  * on users each). Promotion and shop grants are not counted.
  */
 export const groupsSql = {
+  plain:
+    "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff FROM groups",
   counted:
     "SELECT id, title, description, rank, user_title, badge, builtin, name_color_id, is_staff, (SELECT count(*) FROM users u WHERE u.group_id = groups.id) + (SELECT count(*) FROM user_groups ug WHERE ug.group_id = groups.id AND NOT EXISTS (SELECT 1 FROM users p WHERE p.id = ug.user_id AND p.group_id = groups.id)) AS member_count FROM groups",
 };
@@ -194,15 +196,21 @@ export const assertAdministrator = (
     throw new ConflictError("Cannot remove the last administrator.");
 };
 
-export const groupsListOp = implement(groupsList, (ctx, actor) =>
+export const groupsListOp = implement(groupsList, (ctx, actor, input) =>
   readWithCurrentActor(ctx, actor, (current) => {
     requireGroupReader(ctx, current);
     return {
-      items: prepared(ctx, "permissions.groups", () =>
-        ctx.sqlite.prepare<CountedGroupRow, []>(`${groupsSql.counted} ORDER BY rank DESC, id`),
-      )
-        .all()
-        .map(groupValue),
+      items: input.counts
+        ? prepared(ctx, "permissions.groups", () =>
+            ctx.sqlite.prepare<CountedGroupRow, []>(`${groupsSql.counted} ORDER BY rank DESC, id`),
+          )
+            .all()
+            .map(groupValue)
+        : prepared(ctx, "permissions.groupsPlain", () =>
+            ctx.sqlite.prepare<GroupRow, []>(`${groupsSql.plain} ORDER BY rank DESC, id`),
+          )
+            .all()
+            .map(groupValue),
     };
   }),
 );
@@ -237,13 +245,14 @@ export const groupsCreateOp = implement(groupsCreate, async (ctx, actor, input) 
         ).lastInsertRowid,
     );
     appendModeratorLog(ctx, actor, "group.create", "group", id);
-    return groupValue(getGroup(ctx, id)!);
+    // A new group has no members.
+    return groupValue({ ...getGroup(ctx, id)!, member_count: 0 });
   });
 });
 export const groupsUpdateOp = implement(groupsUpdate, async (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");
   await confirmActorPassword(ctx, actor, input.actorPassword);
-  return writeTx(ctx, () => {
+  const id = writeTx(ctx, () => {
     const current = adminNow(ctx, actor, "admin.groups");
     const old = getGroup(ctx, input.groupId);
     if (!old) throw new NotFoundError();
@@ -268,8 +277,12 @@ export const groupsUpdateOp = implement(groupsUpdate, async (ctx, actor, input) 
         Number(input.isStaff ?? !!old.is_staff),
       );
     appendModeratorLog(ctx, actor, "group.update", "group", old.id);
-    return groupValue(getCountedGroup(ctx, old.id)!);
+    return old.id;
   });
+  // The members are counted after the write transaction has committed, not inside it.
+  const group = getCountedGroup(ctx, id);
+  if (!group) throw new NotFoundError();
+  return groupValue(group);
 });
 export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) => {
   admin(ctx, actor, "admin.groups");

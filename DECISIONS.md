@@ -1354,8 +1354,11 @@ permanently banned, which the referrer rule already treats as absent.
 need any one of `admin.groups`, `admin.permissions`, `admin.promotions` or `admin.members`: the
 screens those open (entries for a group, a promotion's groups, a member's groups) show group
 names, and a holder of one of them could not read any. The writes still need `admin.groups`.
-Every group now carries `memberCount`: members with it as primary group plus those holding it by
-hand without it being their primary (promotion and shop grants are not counted). It is one
+Every group carries `memberCount`: members with it as primary group plus those holding it by
+hand without it being their primary (promotion and shop grants are not counted). `groups.get`
+always counts; `groups.list` counts only with `counts: true` (otherwise `memberCount` is null and
+no counting statement runs), because most screens only need the names; `groups.update` counts
+after its write transaction has committed, never inside it. The count is one
 statement for the whole list, two correlated counts per group over covering indexes
 (`users_group`, `user_groups_group`) and a point lookup on `users` for the overlap, so the cost is
 bounded by the number of groups and the size of each group's own index range; this is an
