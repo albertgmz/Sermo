@@ -1110,7 +1110,8 @@ bump is not a post: unread state, counters and last-post data do not move.
 **Rankings are computed in the background and kept per forum** (`rankings`, job every five
 minutes and at startup): the most replied-to, most reacted-to and most viewed threads, and the
 week's most reacted-to posts. A reader merges the rankings of the forums the viewer can see,
-filters by current state and ignored authors, then cuts. Two earlier designs were rejected by
+filters by current state and ignored authors, then cuts (`threads.ranked` applies the viewer's
+ignores to the three "most" rankings; `latestPosts` and `latestThreads` do not). Two earlier designs were rejected by
 review: one global list (hidden forums pushed everything out, and its emptiness hinted at hidden
 activity) and a per-forum cap equal to the reader's size (nothing replaced filtered entries). No
 hot path counts or totals reactions.

@@ -237,7 +237,8 @@ export const standingsWinners = defineContract({
 export const usersChangeUsername = defineContract({
   name: "users.changeUsername",
   summary:
-    "Change your own username. Free for holders of profile.renameFree; otherwise it takes one " +
+    "Change your own username. Requires profile.editOwn. Free for holders of profile.renameFree; " +
+    "otherwise it also requires the shop purchase permission (shop.buy) and takes one " +
     "unit of a `usernameChange` shop item from the inventory (a conflict when there is none). " +
     "The name obeys the registration rules and must be free, compared without regard to case " +
     "(changing only the case of one's own name is allowed). The unit is taken first and given " +

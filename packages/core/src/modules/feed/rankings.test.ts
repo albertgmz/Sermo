@@ -228,6 +228,22 @@ describe("the ranking job", () => {
 });
 
 describe("threads.ranked", () => {
+  test("the three most rankings leave out threads of members the viewer ignores", async () => {
+    const w = world();
+    const mine = await w.thread(w.alice, w.open.id, "Mine");
+    const theirs = await w.thread(w.carol, w.open.id, "Theirs");
+    for (const thread of [mine, theirs]) await w.reply(w.bob, thread.thread.id, "r");
+    refreshRankings(w.ctx);
+    const read = (actor: typeof w.bob) => w.call("threads.ranked", actor, { by: "mostReplied" });
+    expect(ids(await read(w.bob))).toContain(theirs.thread.id);
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, 0)")
+      .run(w.bobUser.id, w.carolUser.id);
+    expect(ids(await read(w.bob))).toEqual([mine.thread.id]);
+    // Only for the member who ignores.
+    expect(ids(await read(w.alice))).toContain(theirs.thread.id);
+  });
+
   test("latestPosts and latestThreads order by activity and by creation", async () => {
     const w = world();
     const t1 = await w.thread(w.alice, w.open.id, "One");
