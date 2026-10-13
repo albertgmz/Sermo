@@ -67,3 +67,12 @@ test("social links must be http(s) URLs", async () => {
     }),
   ).rejects.toBeInstanceOf(ValidationError);
 });
+
+test("site.get tells every visitor the upload limit, and follows settings.update", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  expect((await run(ctx, "site.get", GUEST)).maxUploadBytes).toBe(25 * 1024 * 1024);
+  await run(ctx, "settings.update", admin, { maxUploadBytes: 1_000_000 });
+  expect((await run(ctx, "site.get", GUEST)).maxUploadBytes).toBe(1_000_000);
+  expect((await run(ctx, "site.get", userActor(insertUser(ctx)))).maxUploadBytes).toBe(1_000_000);
+});
