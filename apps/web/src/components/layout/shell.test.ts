@@ -44,6 +44,11 @@ test("the staff bar links the panel when it holds something and moderation when 
   expect(
     staffLinks(standing({ "admin.announcements": true }, { panel: true })),
   ).toEqual({ admin: true, moderation: false });
+  // A permission that opens a screen but makes the backend report no panel still gets the link.
+  expect(staffLinks(standing({ "award.grant": true }))).toEqual({
+    admin: true,
+    moderation: false,
+  });
   // A moderator of one forum has no global flag: the staff summary shows them.
   expect(
     staffLinks(standing({}, { panel: true, moderatedNodeIds: [3] })),

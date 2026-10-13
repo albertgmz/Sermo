@@ -8,11 +8,11 @@ import type { Counters } from "@/components/layout/header-data";
 const ITEM =
   "inline-flex h-10 items-center rounded-md px-2 font-medium outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-8";
 
-// What the staff bar links to for this viewer: the panel when the backend says there is anything
-// in it for them, and the moderation landing when they may open a moderation screen.
+// What the staff bar links to for this viewer: the panel when it has a home for them (the backend
+// says there is anything in it, or a screen of it opens), and the moderation landing when they may open a moderation screen.
 export function staffLinks(viewer: Standing) {
   return {
-    admin: viewer.staff.panel,
+    admin: canOpen(viewer, screenByKey("home")),
     moderation: canOpen(viewer, screenByKey("moderationHome")),
   };
 }
