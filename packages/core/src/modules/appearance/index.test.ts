@@ -623,6 +623,26 @@ describe("catalog pictures", () => {
     }
   });
 
+  test("a replaced picture gets a new file id and the old file is queued for deletion", async () => {
+    const s = await setup();
+    const image = await addImage(s, "profile_cover");
+    const oldId = image.image!.fileId;
+    const next = await s.upload(s.admin, "cover_preset", await solid());
+    const updated = (await run(s.ctx, "catalogImages.update", s.admin, {
+      imageId: image.id,
+      fileId: next.id,
+    })) as { image: { fileId: number; url: string } };
+    expect(next.id).not.toBe(oldId);
+    expect(updated.image).toEqual({ fileId: next.id, url: `/api/v1/files/${next.id}` });
+    expect(
+      row(s.ctx, "SELECT 1 FROM jobs WHERE unique_key = ?1", `storage.deletePermanent.${oldId}`),
+    ).not.toBeNull();
+    // The file already in use cannot be sent again as if it were a new upload.
+    await expect(
+      run(s.ctx, "catalogImages.update", s.admin, { imageId: image.id, fileId: next.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
   test("the in-use lookups hit the partial indexes", async () => {
     const { ctx } = await setup();
     for (const sql of Object.values(inUseSql)) expectNoTableScan(ctx, sql, [1]);

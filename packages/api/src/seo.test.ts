@@ -35,5 +35,13 @@ test("public SEO routes serve XML, Atom, robots and only the configured IndexNow
   expect(old.status).toBe(301);
   expect(old.headers.get("location")).toBe(`/forums/${node.id}/feed.atom`);
   expect((await app.request("/example-key-123.txt")).status).toBe(200);
+  const robotsAgain = await (await app.request("/robots.txt")).text();
+  expect(robotsAgain).toContain("Allow: /api/v1/files/");
+  expect(robotsAgain.indexOf("Allow: /api/v1/files/")).toBeLessThan(
+    robotsAgain.indexOf("Disallow: /api/\n"),
+  );
+  expect(robotsAgain).toContain("Disallow: /api/\n");
+  updateSiteSettings(ctx, admin, { siteName: "Acme Talk" });
+  expect(await (await app.request("/feed.atom")).text()).toContain("<title>Acme Talk</title>");
   expect((await app.request("/different-key.txt")).status).toBe(404);
 });

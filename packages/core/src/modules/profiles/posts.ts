@@ -180,7 +180,7 @@ export const profilesGetOp = implement(profilesGet, (ctx, actor, input) => {
     input.userId,
     "",
     {
-      siteName: "Sermo",
+      siteName: settings.siteName,
       nodeTitle: settings.nodeTitleTemplate,
       threadTitle: settings.threadTitleTemplate,
       profileTitle: settings.profileTitleTemplate,

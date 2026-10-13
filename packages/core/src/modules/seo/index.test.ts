@@ -415,3 +415,29 @@ test("sitemap shards cap exactly at 50,000 URLs", () => {
   expect((sitemapShard(ctx, base, "node", 1).match(/<url>/g) ?? []).length).toBe(50_000);
   expect((sitemapShard(ctx, base, "node", 2).match(/<url>/g) ?? []).length).toBe(1);
 });
+
+test("page titles, structured data and the feed name the site by its site name setting", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const author = insertUser(ctx, { username: "Writer" });
+  const node = insertNode(ctx, { title: "Lounge" });
+  invalidate(ctx, "node_tree");
+  const made = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Hello",
+    body: "Body",
+  });
+  updateSiteSettings(ctx, admin, { siteName: "Acme Talk" });
+  const call = (name: string, input: object) =>
+    // biome-ignore lint/suspicious/noExplicitAny: tests read the output of any operation
+    execute(ctx, getOperation(name), GUEST, input as never) as Promise<any>;
+  expect((await call("seo.thread", { threadId: made.thread.id })).title).toBe("Hello | Acme Talk");
+  expect((await call("seo.node", { nodeId: node.id })).title).toBe("Lounge | Acme Talk");
+  expect((await call("seo.profile", { userId: author.id })).title).toBe("Writer | Acme Talk");
+  expect((await call("profiles.get", { userId: author.id })).seo.title).toBe("Writer | Acme Talk");
+  expect(JSON.stringify(await call("seo.thread", { threadId: made.thread.id }))).not.toContain(
+    "Sermo",
+  );
+  updateSiteSettings(ctx, admin, { siteName: "Other" });
+  expect((await call("seo.thread", { threadId: made.thread.id })).title).toBe("Hello | Other");
+});
