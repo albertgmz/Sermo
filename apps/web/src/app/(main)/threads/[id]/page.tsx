@@ -248,6 +248,8 @@ function PostItem({
           </div>
         </div>
 
+        {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
+            whose refusal is shown under the split form if the hint is ever wrong. */}
         {selecting && !isFirst && (
           <label className="mt-1 flex min-h-10 items-center gap-2 text-sm">
             <input

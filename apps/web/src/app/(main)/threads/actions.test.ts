@@ -109,6 +109,21 @@ test("a refusal of the backend is what the form shows", async () => {
   );
 });
 
+test("a refusal of a restore or a split, which the page only hints at, is shown", async () => {
+  answer = refusal;
+  const shown = { error: "You may not do that." };
+  assert.deepEqual(await actions.restoreThreadAction(7, {}), shown);
+  assert.deepEqual(await actions.restorePostAction(7, 31, {}), shown);
+  assert.deepEqual(
+    await actions.splitThreadAction(
+      7,
+      {},
+      form({ postIds: ["1"], nodeId: "3", title: "Split" }),
+    ),
+    shown,
+  );
+});
+
 test("editing a post sends the source and goes back to the post", async () => {
   answer = { status: 200, body: post };
   const digest = await redirectedTo(() =>

@@ -45,7 +45,10 @@ export function threadMay(resolved: Resolved): ThreadMay {
   };
 }
 
-// Whether the viewer may bring a post or thread in this state back.
+// Whether to offer bringing a post or thread in this state back. A display hint that copies the
+// backend's rule for threads.restore and posts.restore: a deleted one needs forum.undelete and one
+// waiting for approval needs forum.approve. If the backend's rule changes the button is wrongly
+// shown or hidden, and a refusal comes back as the message under the button; it decides nothing.
 export function mayRestore(
   may: ThreadMay,
   state: "visible" | "moderated" | "deleted",
