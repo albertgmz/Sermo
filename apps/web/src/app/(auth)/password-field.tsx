@@ -40,7 +40,9 @@ export function PasswordField({
         className="h-10 w-20 rounded-l-none border-l-0 text-muted-foreground md:h-8"
       >
         {visible ? <EyeOff /> : <Eye />}
-        {visible ? t("hide") : t("show")}
+        {/* In an element of its own: a browser's page translation replaces a bare text node,
+            and swapping the label then fails and takes the page down. */}
+        <span>{visible ? t("hide") : t("show")}</span>
       </Button>
     </div>
   );
