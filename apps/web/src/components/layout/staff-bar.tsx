@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { type PendingCount, pendingTotal } from "@/app/(staff)/pending-count";
 import { canOpen, type Standing, screenByKey } from "@/app/(staff)/registry";
 import { Container } from "@/components/layout/container";
@@ -35,12 +35,11 @@ export function StaffBar({
   pending?: PendingCount | null;
 }) {
   const t = useTranslations("layout.staffBar");
-  const format = useFormatter();
   const badge =
     pending &&
     (pending.more
-      ? t("capped", { count: format.number(pending.count) })
-      : format.number(pending.count));
+      ? t("capped", { count: pending.count })
+      : String(pending.count));
   return (
     <div className="border-b bg-background text-xs text-muted-foreground">
       <Container className="flex items-center">
