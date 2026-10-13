@@ -355,7 +355,16 @@ describe("checkpointer", () => {
     for (let i = 0; i < 200; i++) insertUser(ctx);
     expect(walSize()).toBeGreaterThan(held);
     release();
-    await Bun.sleep(200);
+    // The checkpoint that follows the release copies everything the hold let pile up, which
+    // takes longer the larger the schema's writes are: wait until a write no longer makes the
+    // WAL grow (at most five seconds) instead of a fixed pause.
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      await Bun.sleep(50);
+      const before = walSize();
+      insertUser(ctx);
+      if (walSize() === before || Date.now() > deadline) break;
+    }
     const released = walSize();
     for (let i = 0; i < 200; i++) insertUser(ctx);
     expect(walSize()).toBe(released);
