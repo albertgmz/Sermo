@@ -21,7 +21,8 @@ export function MemberRow({
       <UserAvatar user={user} size="lg" />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2">
-          <UserLink user={user} className="truncate text-sm" />
+          {/* Padding gives the name a 40px touch target; the negative margin keeps the row as tall as before. */}
+          <UserLink user={user} className="-my-2.5 truncate py-2.5 text-sm" />
           <UserBadges user={user} limit={badgeLimit} />
         </p>
         <p className="truncate text-xs text-muted-foreground">{user.title}</p>
