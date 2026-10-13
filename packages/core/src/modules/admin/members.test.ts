@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { expectNoTableScan, tokenActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
-import { accounts, closeAll } from "./fixtures.test";
+import { accounts, closeAll, PASSWORD } from "./fixtures.test";
 import { adminSql } from "./members";
 
 afterEach(closeAll);
@@ -246,5 +246,37 @@ describe("auth.verifyPassword", () => {
     await expect(
       w.run("auth.verifyPassword", w.moderator.actor, { password: "Password123!" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("administration does not cross the hierarchy", () => {
+  test("a lower-ranked holder of admin.members sees no address or log of a higher-ranked member", async () => {
+    const w = await world();
+    await w.run("permissions.set", w.founder.actor, {
+      groupId: 3,
+      entries: [{ permission: "admin.members", value: "allow" }],
+      actorPassword: PASSWORD,
+    });
+    const plain = await w.register("Plain");
+    const list = await w.run("users.adminList", w.moderator.actor, {});
+    const by = (id: number) => list.items.find((m: { card: { id: number } }) => m.card.id === id);
+    // They still see who exists, but not the address of anyone who outranks them.
+    expect(by(w.founder.id)).toMatchObject({ email: null, canEdit: false });
+    expect(by(plain.id)).toMatchObject({ email: "plain@example.test", canEdit: true });
+    expect(by(w.moderator.id)).toMatchObject({ email: "moderator@example.test" });
+    expect(
+      (await w.run("users.adminGet", w.moderator.actor, { userId: w.founder.id })).email,
+    ).toBeNull();
+    // Nor can they find it letter by letter through the prefix search.
+    const probe = await w.run("users.adminList", w.moderator.actor, { prefix: "founder@" });
+    expect(probe.items).toEqual([]);
+    const own = await w.run("users.adminList", w.founder.actor, { prefix: "founder@" });
+    expect(own.items).toHaveLength(1);
+    // Their log is not theirs to read; a member they outrank and their own log are.
+    await expect(
+      w.run("users.adminLog", w.moderator.actor, { userId: w.founder.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await w.run("users.adminLog", w.moderator.actor, { userId: plain.id });
+    await w.run("users.adminLog", w.moderator.actor, { userId: w.moderator.id });
   });
 });

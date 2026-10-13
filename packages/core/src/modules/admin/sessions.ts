@@ -1,12 +1,12 @@
 import * as z from "zod";
-import { requireAuthenticated } from "../../actor";
+import { actorUserId, requireAuthenticated } from "../../actor";
 import { prepared } from "../../context";
 import { usersAdminLog, usersAdminRevokeSessions, usersAdminSessions } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { currentActor, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { getAuth, markSessionsRevoked, revokeApiKeys } from "../auth";
@@ -107,6 +107,12 @@ export const logSql =
 
 export const usersAdminLogOp = implement(usersAdminLog, (ctx, actor, input) => {
   requireHeld(ctx, actor, "admin.members");
+  // The log of a member who ranks at or above the actor is not theirs to read (their own is).
+  if (
+    input.userId !== actorUserId(actor) &&
+    !can(ctx, actor, "admin.members", { target: targetMember(ctx, actor, input.userId) })
+  )
+    throw new NotFoundError();
   const cursor = input.cursor ? decodeCursor(input.cursor, Cursor)[0] : Number.MAX_SAFE_INTEGER;
   const rows = prepared(ctx, "admin.log", () =>
     ctx.sqlite.prepare<

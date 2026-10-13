@@ -125,7 +125,8 @@ export const ACCOUNT_STATES = ["valid", "unconfirmed", "banned", "erased"] as co
 export const AdminMember = z
   .object({
     card: MemberCard,
-    email: z.string(),
+    /** Null for a member who ranks at or above the viewer (`canEdit` is false). */
+    email: z.string().nullable(),
     emailVerified: z.boolean(),
     /**
      * `erased` once an administrator erased the account (it wins over the rest), `banned`
@@ -153,7 +154,8 @@ export const usersAdminList = defineContract({
     "`prefix`. With `prefix` the order is by username (those whose username starts with it) and " +
     "then by email (those matched by email alone), not newest first. A page may be short, even " +
     "empty, when filters leave few of the rows examined; continue with `nextCursor` until it is " +
-    "null. Requires admin.members.",
+    "null. A member who ranks at or above the actor is listed with `email` null (`canEdit` " +
+    "false) and is not found by an email prefix. Requires admin.members.",
   kind: "read",
   input: z.object({
     state: z.enum(ACCOUNT_STATES).optional(),
@@ -166,7 +168,9 @@ export const usersAdminList = defineContract({
 
 export const usersAdminGet = defineContract({
   name: "users.adminGet",
-  summary: "One member for administration. Requires admin.members.",
+  summary:
+    "One member for administration; `email` is null for a member who ranks at or above the " +
+    "actor. Requires admin.members.",
   kind: "read",
   input: z.object({ userId: Id }),
   output: AdminMember,
@@ -284,7 +288,8 @@ export const usersAdminLog = defineContract({
   name: "users.adminLog",
   summary:
     "The moderator log entries about one member, newest first: administrative edits, group " +
-    "changes, warnings, bans, restrictions and session revocations. Requires admin.members.",
+    "changes, warnings, bans, restrictions and session revocations. Requires admin.members " +
+    "over the member: a member who ranks at or above the actor is not found (the actor's own log is).",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(
