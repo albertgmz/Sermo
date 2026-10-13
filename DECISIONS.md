@@ -1601,3 +1601,41 @@ the old file is queued for permanent deletion by the storage job. A client that 
 address keeps showing the old picture from its cache until it reads the entry again (it then gets
 the new address, so the old one is simply no longer referenced); once the job has run, the old
 address answers not found.
+
+## Shared pieces instead of one per screen (conversations, posts, reactions)
+
+**Conversations read like forum threads.** The two-pane chat (a list pane on the left, bubbles, a
+sticky one-line composer) is gone. `/conversations` is a full-width list, a conversation is a page
+shaped like a thread (title, participants in the aside, messages in one card, the reply form at the
+end), and `/conversations/new` is a form page like a new thread. Reason: the chat felt like another
+product inside the forum, and every chat-only piece had to be built and kept apart from the rest.
+
+**One frame for a thread post and a conversation message.** `components/forum/post-frame.tsx`
+(`PostFrame`, `PostNote`) draws the author, the time, the body, the actions and the signature; the
+thread page and the conversation page pass what differs (post number, share, quote, edit, the
+moderation block). A message shows the same author header and signature a post does. The profile
+wall keeps `MessageRow`, which is a lighter row on purpose.
+
+**One reactions element.** `components/forum/reactions.tsx` (`Reactions`) is the only way an item
+shows and takes reactions: thread posts, wall posts and comments, the feed and conversation
+messages. The number is shown once (on the button, or on the summary when there is nothing to
+press), and nothing is drawn for an own item without reactions. Only it and the styleguide import
+`ReactionButton` and `ReactionSummary`.
+
+**A reaction refreshes the page it was made on, whichever it is.** The `react` action used to
+revalidate the path only when it matched a list of routes (threads, members, conversations); the
+home feed was not in it, so a reaction made there fell back to the old state until a reload. The
+action now calls `refresh()` and names no path, so a new screen with reactions needs nothing added.
+Not tested: whether a page visited earlier can show a stale reaction when the visitor goes back to
+it, since `refresh()` does not empty the client's cache of other pages as `revalidatePath` did.
+
+**Duplicated code is measured.** `bun run dupes` runs jscpd (`.jscpd.json`: tests, migrations and
+build output left out; five lines and fifty tokens). It finds literal copies only. After the first
+pass the count went from 143 clones (1,649 lines) to 102. What was shared: in the staff panel the
+screen frame (`ScreenFrame`, `StreamedPanel`), the notice, the criteria fields of awards and
+promotions with `criteriaOf`, `RunNow`, the entity form rows and entry lists, the pending submit
+button, the staff list and the head of the permission pages; on the public side `LoadMore`,
+`FormError`, `FormFooter` and the answer of the two attachment upload routes. Left as they are, on
+purpose: the create-or-edit props of each staff form (as many parameters as lines saved), the
+toolbar buttons of the editor, the `<output>` status lines (a polite live region, not an alert),
+and the staff mobile menu against the site navigation.
