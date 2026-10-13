@@ -210,7 +210,8 @@ export const resetPassword = (token: string, newPassword: string) =>
 
 // An address nobody has: asking for its verification email sends nothing when mail is on and is
 // refused with VERIFICATION_EMAIL_NOT_ENABLED when it is off. The one probe with no effect,
-// which is why the answer is kept for a while; every mail endpoint is rate limited per address.
+// which is why the answer is kept for a few minutes; every mail endpoint is rate limited per
+// address. A change of the mail setting shows within five minutes.
 const PROBE_ADDRESS = "mail-check@example.invalid";
 
 async function probeMail(): Promise<boolean> {
@@ -226,7 +227,7 @@ async function probeMail(): Promise<boolean> {
     try {
       code = ((await response.json()) as { code?: unknown }).code;
     } catch {}
-    cacheLife({ stale: 300, revalidate: 1800, expire: 3600 });
+    cacheLife({ stale: 60, revalidate: 300, expire: 600 });
     return code !== "VERIFICATION_EMAIL_NOT_ENABLED";
   } catch {
     // Unreachable: show the forms, the attempt reports the failure. Asked again soon.

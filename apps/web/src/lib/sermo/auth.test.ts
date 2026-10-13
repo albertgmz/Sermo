@@ -1,5 +1,6 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -456,4 +457,12 @@ test("mail is available unless the backend says verification email is not enable
     throw new TypeError("fetch failed");
   }) as unknown as typeof fetch;
   assert.equal(await mailAvailable(), true);
+});
+
+test("the answer about mail is kept for five minutes, not longer", () => {
+  const source = readFileSync(`${import.meta.dir}/auth.ts`, "utf8");
+  assert.ok(
+    source.includes("cacheLife({ stale: 60, revalidate: 300, expire: 600 })"),
+  );
+  assert.ok(!source.includes("revalidate: 1800"));
 });
