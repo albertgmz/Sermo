@@ -272,3 +272,27 @@ test("deleting calls the operation and a built-in entry's refusal is shown", asy
     error: messages.adminSetup.errors.id,
   });
 });
+
+test("an order refused part-way says that the earlier entries were saved", async () => {
+  let answered = 0;
+  backend = fakeBackend({
+    "navigation.list": () =>
+      Response.json({ items: [entry(1, 0), entry(2, 1), entry(3, 2)] }),
+    "navigation.update": () =>
+      ++answered === 2
+        ? refusal(403, "forbidden", "No.")
+        : Response.json(ENTRY),
+  });
+  const state = await saveOrder(
+    null,
+    form([
+      ["position.1", "4"],
+      ["position.2", "5"],
+      ["position.3", "6"],
+    ]),
+  );
+  expect(state).toEqual({ error: messages.admin.ordering.partial });
+  expect(
+    backend.asked.filter((asked) => asked.operation === "navigation.update"),
+  ).toHaveLength(2);
+});

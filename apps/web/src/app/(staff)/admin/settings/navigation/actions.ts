@@ -14,7 +14,13 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../../groups/form-errors";
+import {
+  formFailure,
+  type OrderChange,
+  saveInOrder,
+  text,
+  whole,
+} from "../../groups/form-errors";
 
 const BACK = "/admin/settings/navigation";
 
@@ -126,20 +132,23 @@ export async function saveOrder(
   const t = await getTranslations("adminSetup.errors");
   const { items } = await call(navigationList, {});
   const stored = new Map(items.map((item) => [item.id, item.position]));
-  const changes: { entryId: number; position: number }[] = [];
+  const titles = new Map(items.map((item) => [item.id, item.title]));
+  const changes: OrderChange[] = [];
   for (const [name, value] of formData.entries()) {
     if (!name.startsWith("position.") || typeof value !== "string") continue;
     const entryId = parseId(name.slice("position.".length));
     if (entryId === null || !stored.has(entryId)) return { error: t("id") };
     const position = whole(value);
     if (position === null) return { error: t("number") };
-    if (position !== stored.get(entryId)) changes.push({ entryId, position });
+    if (position !== stored.get(entryId)) {
+      changes.push({
+        title: titles.get(entryId) ?? `#${entryId}`,
+        save: () => call(navigationUpdate, { entryId, position }),
+      });
+    }
   }
-  try {
-    for (const change of changes) await call(navigationUpdate, change);
-  } catch (error) {
-    return formFailure(error, []);
-  }
+  const { state } = await saveInOrder(changes);
+  if (state) return state;
   done("saved");
 }
 

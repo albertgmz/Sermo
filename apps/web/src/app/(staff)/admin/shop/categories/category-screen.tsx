@@ -147,6 +147,11 @@ export async function CategoryScreen({
                   name={`before:${category.id}`}
                   value={category.position}
                 />
+                <input
+                  type="hidden"
+                  name={`title:${category.id}`}
+                  value={category.name}
+                />
                 <Input
                   id={`position-${category.id}`}
                   name={`position:${category.id}`}

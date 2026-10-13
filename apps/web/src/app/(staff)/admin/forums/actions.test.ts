@@ -404,3 +404,32 @@ test("deleting a prefix in use says it was deactivated", async () => {
   );
   expect(digest).toMatch(/notice=deactivated/);
 });
+
+test("an order refused part-way keeps what was saved, renews the public pages and names the row", async () => {
+  let answered = 0;
+  backend = fakeBackend({
+    "nodes.update": () =>
+      ++answered === 2
+        ? refusal(403, "forbidden", "Not allowed.")
+        : Response.json(NODE),
+  });
+  const state = await saveOrder(
+    null,
+    form({
+      "before:1": "0",
+      "position:1": "5",
+      "title:1": "News",
+      "before:2": "1",
+      "position:2": "6",
+      "title:2": "Rules",
+      "before:3": "2",
+      "position:3": "7",
+      "title:3": "Help",
+    }),
+  );
+  expect(state).toEqual({ error: messages.admin.ordering.partial });
+  expect(backend.asked.map((call) => call.path)).toEqual([
+    "/api/v1/nodes/1",
+    "/api/v1/nodes/2",
+  ]);
+});

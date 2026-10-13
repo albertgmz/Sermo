@@ -22,6 +22,8 @@ import { parseId } from "@/lib/sermo/ids";
 import {
   formFailure,
   missingPassword,
+  type OrderChange,
+  saveInOrder,
   text,
   whole,
 } from "../groups/form-errors";
@@ -161,24 +163,23 @@ export async function saveOrder(
   formData: FormData,
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminForums.errors");
-  const changes: { nodeId: number; position: number }[] = [];
+  const changes: OrderChange[] = [];
   for (const [key] of formData) {
     if (!key.startsWith("position:")) continue;
     const nodeId = parseId(key.slice("position:".length));
     const position = whole(text(formData, key));
     if (nodeId === null || position === null) return { error: t("order") };
     if (position !== whole(text(formData, `before:${nodeId}`))) {
-      changes.push({ nodeId, position });
+      changes.push({
+        title: text(formData, `title:${nodeId}`) || `#${nodeId}`,
+        save: () => call(nodesUpdate, { nodeId, position }),
+      });
     }
   }
-  for (const change of changes) {
-    try {
-      await call(nodesUpdate, change);
-    } catch (error) {
-      return formFailure(error, []);
-    }
-  }
-  renewPublic();
+  const { saved, state } = await saveInOrder(changes);
+  // What was saved before a refusal is on the public pages too.
+  if (saved > 0) renewPublic();
+  if (state) return state;
   redirect("/admin/forums?notice=ordered");
 }
 

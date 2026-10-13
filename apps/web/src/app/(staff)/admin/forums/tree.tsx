@@ -90,6 +90,11 @@ export async function ForumTree({
                   name={`before:${node.id}`}
                   value={node.position}
                 />
+                <input
+                  type="hidden"
+                  name={`title:${node.id}`}
+                  value={node.title}
+                />
                 <Input
                   id={`position-${node.id}`}
                   name={`position:${node.id}`}

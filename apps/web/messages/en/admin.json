@@ -169,6 +169,10 @@
     "save": "Save changes",
     "saving": "Saving…"
   },
+  "ordering": {
+    "none": "Nothing was saved. “{title}” was refused: {message}",
+    "partial": "Saved {saved} of {total}. “{title}” was refused: {message}"
+  },
   "confirmPassword": {
     "label": "Your password",
     "help": "Enter your own password to confirm this change. It is checked before anything is saved."
