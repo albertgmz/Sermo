@@ -147,7 +147,6 @@
     "commentSubmit": "Post comment",
     "heading": "Wall",
     "placeholder": "Write something on {username}'s profile…",
-    "submit": "Post",
     "emptyTitle": "No messages yet",
     "emptyDescription": "Be the first to write something on <user>{username}</user>'s profile.",
     "login": "Log in to post",
@@ -156,6 +155,14 @@
     "showMoreComments": "Show more comments",
     "olderComments": "Older comments",
     "fewerComments": "Show fewer comments"
+  },
+  "postComposer": {
+    "title": "New post",
+    "post": "Post",
+    "aria": {
+      "close": "Close",
+      "attach": "Add a picture or a file"
+    }
   },
   "profileLoading": { "label": "Loading the profile…" }
 }
