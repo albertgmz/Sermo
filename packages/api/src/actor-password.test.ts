@@ -45,11 +45,11 @@ async function setup() {
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;
-  const asSession = (method: string, path: string, body: object) =>
+  const asSession = (method: string, path: string, body?: object) =>
     send(`/api/v1${path}`, {
       method,
       headers: { "content-type": "application/json", origin: ORIGIN, cookie },
-      body: JSON.stringify(body),
+      body: body && JSON.stringify(body),
     });
   const asKey = (method: string, path: string, body: object) =>
     send(`/api/v1${path}`, {
@@ -59,7 +59,7 @@ async function setup() {
     });
   const groups = () =>
     ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM groups").get()!.n;
-  return { id, asSession, asKey, groups };
+  return { id, ctx, asSession, asKey, groups };
 }
 
 test("a browser session cannot change groups without the password; an API key can", async () => {
@@ -124,4 +124,72 @@ test("every guarded route holds a browser session to the password", async () => 
       error: { issues: [{ path: ["actorPassword"] }] },
     });
   }
+});
+
+test("a DELETE takes the password from its JSON body, or from the query as before", async () => {
+  const { asSession, asKey, groups } = await setup();
+  const make = async (title: string) =>
+    ((await (await asKey("POST", "/groups", { title })).json()) as { id: number }).id;
+  const before = groups();
+
+  const inBody = await make("By body");
+  expect((await asSession("DELETE", `/groups/${inBody}`, {})).status).toBe(400);
+  expect((await asSession("DELETE", `/groups/${inBody}`, { actorPassword: PASSWORD })).status).toBe(
+    200,
+  );
+
+  const inQuery = await make("By query");
+  const queried = await asSession("DELETE", `/groups/${inQuery}?actorPassword=${PASSWORD}`);
+  expect(queried.status).toBe(200);
+  expect(groups()).toBe(before);
+});
+
+test("a field in both the body and the query of a DELETE takes the body's value", async () => {
+  const { asSession, asKey, groups } = await setup();
+  const make = async (title: string) =>
+    ((await (await asKey("POST", "/groups", { title })).json()) as { id: number }).id;
+  const first = await make("First");
+  const before = groups();
+
+  const wrongBody = await asSession("DELETE", `/groups/${first}?actorPassword=${PASSWORD}`, {
+    actorPassword: "nope-nope-1",
+  });
+  expect(wrongBody.status).toBe(403);
+  expect(groups()).toBe(before);
+
+  const rightBody = await asSession("DELETE", `/groups/${first}?actorPassword=nope-nope-1`, {
+    actorPassword: PASSWORD,
+  });
+  expect(rightBody.status).toBe(200);
+  expect(groups()).toBe(before - 1);
+});
+
+test("a promotion is deleted with the password in the body, and a path parameter beats a body one", async () => {
+  const { ctx, asSession, asKey } = await setup();
+  const group = (await (await asKey("POST", "/groups", { title: "Target" })).json()) as {
+    id: number;
+  };
+  const rule = async (title: string) =>
+    (
+      (await (
+        await asKey("POST", "/promotions", {
+          title,
+          criteria: [{ criterion: "post_count", value: 1000 }],
+          groupIds: [group.id],
+        })
+      ).json()) as { id: number }
+    ).id;
+  const kept = await rule("Kept");
+  const removed = await rule("Removed");
+  const response = await asSession("DELETE", `/promotions/${removed}`, {
+    promotionId: kept,
+    actorPassword: PASSWORD,
+  });
+  expect(response.status).toBe(200);
+  // The removal is queued, for the rule in the path.
+  const queued = ctx.sqlite
+    .prepare<{ payload: string }, []>("SELECT payload FROM jobs WHERE type = 'promotions.delete'")
+    .all()
+    .map((row) => (JSON.parse(row.payload) as { promotionId: number }).promotionId);
+  expect(queued).toEqual([removed]);
 });

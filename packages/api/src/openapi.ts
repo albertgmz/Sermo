@@ -103,7 +103,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     const bodyProperties: Record<string, unknown> = {};
     const bodyRequired: string[] = [];
     for (const [name, schema] of Object.entries(properties)) {
-      if (pathFields.includes(name) || route.method === "GET" || route.method === "DELETE") {
+      if (pathFields.includes(name) || route.method === "GET") {
         parameters.push({
           name,
           in: pathFields.includes(name) ? "path" : "query",
@@ -135,9 +135,18 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       parameters,
       responses,
     };
-    if (route.method !== "GET" && route.method !== "DELETE") {
+    if (route.method === "DELETE" && Object.keys(bodyProperties).length > 0)
+      endpoint.description =
+        "Fields other than the path parameters go in the JSON body (use it for a secret); " +
+        "query parameters of the same names are accepted for clients that send no body, and the " +
+        "body wins when a field is in both.";
+    if (
+      route.method !== "GET" &&
+      (route.method !== "DELETE" || Object.keys(bodyProperties).length)
+    ) {
       endpoint.requestBody = {
-        required: bodyRequired.length > 0,
+        // A DELETE may send its fields in the query instead, so its body is never required.
+        required: route.method !== "DELETE" && bodyRequired.length > 0,
         content: {
           "application/json": {
             schema: {

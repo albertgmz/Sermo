@@ -348,7 +348,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         const params = new URL(c.req.url).searchParams;
         for (const name of new Set(params.keys()))
           raw[name] = coerceQueryValues(params.getAll(name), properties[name]);
-      } else {
+      }
+      // A DELETE may carry a JSON body too, so a secret need not travel in the URL; its fields
+      // win over the same field in the query.
+      if (route.method !== "GET") {
         const body = await c.req.raw.text();
         if (body) {
           let parsed: unknown;
