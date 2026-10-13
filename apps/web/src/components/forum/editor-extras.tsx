@@ -23,6 +23,7 @@ import {
 } from "lexical";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
+import { $insertMention } from "@/components/forum/editor-commands";
 import { mentionOf } from "@/components/forum/mention-text";
 import { cn } from "@/lib/utils";
 
@@ -62,16 +63,7 @@ export function InsertPlugin({ event }: { event: string }) {
 
 // Replaces the "@" and what follows it, up to the caret, with the mention of the chosen member.
 function insertMention(editor: LexicalEditor, hit: MemberHit) {
-  editor.update(() => {
-    const selection = $getSelection();
-    if (!$isRangeSelection(selection)) return;
-    const node = selection.anchor.getNode();
-    if (!$isTextNode(node)) return;
-    const offset = selection.anchor.offset;
-    const start = node.getTextContent().slice(0, offset).lastIndexOf("@");
-    if (start < 0) return;
-    node.spliceText(start, offset - start, `${mentionOf(hit.username)} `, true);
-  });
+  editor.update(() => $insertMention(mentionOf(hit.username)));
 }
 
 // Offers the members whose name starts with what is typed after an "@", and puts the chosen one in

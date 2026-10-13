@@ -85,6 +85,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { $applyLink } from "@/components/forum/editor-commands";
 import {
   InsertPlugin,
   type MemberHit,
@@ -332,7 +333,7 @@ function Toolbar() {
       return;
     }
     const url = window.prompt(t("linkPrompt"), "https://");
-    if (url) editor.dispatchCommand(TOGGLE_LINK_COMMAND, url);
+    if (url) editor.update(() => $applyLink(url));
   }
 
   return (
