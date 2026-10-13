@@ -227,6 +227,7 @@
     "choosePermission": "Choose…",
     "forum": "Forum (optional)",
     "noForum": "No forum",
+    "forumRequired": "Choose a forum: this permission applies per forum.",
     "explain": "Explain",
     "pickFirst": "Choose a member below first.",
     "pickMember": "Choose a member",

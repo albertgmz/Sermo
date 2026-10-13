@@ -56,8 +56,21 @@ export async function Explain({
   const search = (user: number) =>
     `?${new URLSearchParams({ ...keep, user: String(user) })}`;
 
+  // A permission of forum scope is answered for a forum only; the backend would refuse the
+  // question in its own words, so the form says it first.
+  const needsForum = chosen?.scope === "node" && nodeId === null;
+
   let answer: React.ReactNode = null;
-  if (member && chosen) {
+  if (member && chosen && needsForum) {
+    answer = (
+      <p
+        role="alert"
+        className="rounded-lg border bg-card p-4 text-sm text-destructive"
+      >
+        {t("forumRequired")}
+      </p>
+    );
+  } else if (member && chosen) {
     try {
       const result = await call(permissionsExplain, {
         userId: member.id,
