@@ -311,6 +311,7 @@ export const operations = [
       const lists = catalogs(ctx);
       return {
         name: settings.siteName,
+        description: settings.siteDescription,
         logo: publicPicture(ctx, settings.logoFileId),
         icon: publicPicture(ctx, settings.iconFileId),
         backdrop: publicPicture(ctx, settings.backdropFileId),

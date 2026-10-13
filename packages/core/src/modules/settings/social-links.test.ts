@@ -76,3 +76,35 @@ test("site.get tells every visitor the upload limit, and follows settings.update
   expect((await run(ctx, "site.get", GUEST)).maxUploadBytes).toBe(1_000_000);
   expect((await run(ctx, "site.get", userActor(insertUser(ctx)))).maxUploadBytes).toBe(1_000_000);
 });
+
+test("site.get returns the site description; an update that does not send it keeps it", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  expect((await run(ctx, "site.get", GUEST)).description).toBe("");
+  await run(ctx, "settings.update", admin, { siteDescription: "  A forum about birds.  " });
+  expect((await run(ctx, "site.get", GUEST)).description).toBe("A forum about birds.");
+  await run(ctx, "settings.update", admin, { siteName: "Birds" });
+  expect((await run(ctx, "site.get", GUEST)).description).toBe("A forum about birds.");
+  expect((await run(ctx, "settings.get", admin)).siteDescription).toBe("A forum about birds.");
+  await run(ctx, "settings.update", admin, { siteDescription: "" });
+  expect((await run(ctx, "site.get", GUEST)).description).toBe("");
+  await expect(
+    run(ctx, "settings.update", admin, { siteDescription: "x".repeat(301) }),
+  ).rejects.toBeInstanceOf(ValidationError);
+});
+
+test("settings stored before the description existed still parse", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  await run(ctx, "settings.update", admin, { siteName: "Old" });
+  const stored = JSON.parse(
+    ctx.sqlite
+      .prepare<{ value: string }, []>("SELECT value FROM site_settings WHERE key = 'configuration'")
+      .get()!.value,
+  );
+  delete stored.siteDescription;
+  ctx.sqlite
+    .prepare("UPDATE site_settings SET value = ?1 WHERE key = 'configuration'")
+    .run(JSON.stringify(stored));
+  expect((await run(ctx, "site.get", GUEST)).description).toBe("");
+});
