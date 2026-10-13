@@ -45,7 +45,7 @@ export const scenarios: Scenario[] = [
     name: "seo.feed populated node",
     kind: "read",
     async run(env) {
-      const response = await env.request(`/nodes/${env.meta.bigForumIds[0]}/feed.atom`);
+      const response = await env.request(`/forums/${env.meta.bigForumIds[0]}/feed.atom`);
       if (!response.ok) throw new Error(`Node feed returned ${response.status}`);
       await response.text();
     },
