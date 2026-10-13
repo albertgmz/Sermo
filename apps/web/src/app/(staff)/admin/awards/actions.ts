@@ -13,7 +13,7 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../groups/form-errors";
+import { criteriaOf, formFailure, text, whole } from "../groups/form-errors";
 
 const FIELDS = [
   "name",
@@ -28,21 +28,6 @@ const FIELDS = [
 ];
 
 const TIERS: readonly string[] = awardsCreate.input.shape.tier.options;
-
-// The criteria the form offered, as the backend takes them. Only the criteria the backend lists
-// are read, so a field invented by a client is ignored; a value is a whole number (a yes/no
-// criterion sends 1 or 0) and its range is the backend's.
-async function criteriaOf(formData: FormData) {
-  const { items } = await call(awardsCriteria, {});
-  const criteria: { criterion: string; value: number }[] = [];
-  for (const definition of items) {
-    if (formData.get(`use:${definition.id}`) === null) continue;
-    const value = whole(text(formData, `value:${definition.id}`).trim());
-    if (value === null) return null;
-    criteria.push({ criterion: definition.id, value });
-  }
-  return criteria;
-}
 
 // A new award (no id) or a change of one. A new picture is the file uploaded first; it is
 // attached after the award is saved, which is the only moment an award has an id.
@@ -65,9 +50,9 @@ export async function saveAward(
   if (fileId === null) return { error: t("file") };
   const removePicture = text(formData, "fileIdRemove") === "1";
 
-  let criteria: Awaited<ReturnType<typeof criteriaOf>>;
+  let criteria: ReturnType<typeof criteriaOf>;
   try {
-    criteria = await criteriaOf(formData);
+    criteria = criteriaOf((await call(awardsCriteria, {})).items, formData);
   } catch (error) {
     return formFailure(error, []);
   }

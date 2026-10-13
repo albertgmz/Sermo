@@ -93,3 +93,20 @@ export const text = (formData: FormData, name: string) => {
 // A whole number typed in a field, or null.
 export const whole = (raw: string) =>
   /^-?\d{1,15}$/.test(raw.trim()) ? Number(raw.trim()) : null;
+
+// The criteria a form offered, as the backend takes them, or null when a ticked one has no whole
+// number for a value. `offered` is the list the backend gave the form (so a field invented by a
+// client is ignored); a yes/no criterion sends 1 or 0 and the range is the backend's.
+export function criteriaOf(
+  offered: readonly { id: string }[],
+  formData: FormData,
+) {
+  const criteria: { criterion: string; value: number }[] = [];
+  for (const definition of offered) {
+    if (formData.get(`use:${definition.id}`) === null) continue;
+    const value = whole(text(formData, `value:${definition.id}`).trim());
+    if (value === null) return null;
+    criteria.push({ criterion: definition.id, value });
+  }
+  return criteria;
+}

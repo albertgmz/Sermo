@@ -2,6 +2,7 @@ import { promotionsCriteria, promotionsList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Notice } from "@/components/staff/notice";
+import { RunNow } from "@/components/staff/run-now";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -11,7 +12,6 @@ import { hrefFor } from "../../registry";
 import { getGroups, groupLabel } from "../groups/data";
 import { runPromotions } from "./actions";
 import { PromotionForm } from "./promotion-form";
-import { RunNow } from "./run-now";
 
 const link = cn(buttonVariants({ variant: "outline" }), "min-h-10 px-4");
 
@@ -103,7 +103,7 @@ export async function PromotionList({
           <h2 className="text-sm font-semibold">{t("runHeading")}</h2>
           <p className="text-xs text-muted-foreground">{t("runDescription")}</p>
         </div>
-        <RunNow action={runPromotions} />
+        <RunNow action={runPromotions} namespace="adminGroups.promotions" />
         {log && (
           <Link
             href={log}

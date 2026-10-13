@@ -3,6 +3,7 @@ import { awardsCreate, awardsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
+import { CriteriaFields } from "@/components/staff/criteria-fields";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
@@ -11,77 +12,9 @@ import { read } from "@/lib/sermo/client";
 import { saveAward } from "./actions";
 
 export type Award = z.output<typeof awardsGet.output>;
-type Criterion = z.output<typeof awardsCriteria.output>["items"][number];
 
 const TIERS = awardsCreate.input.shape.tier.options;
 const checkbox = "size-5";
-
-// One criterion as the backend describes it: a switch to use it, and a control for its value
-// chosen by its `kind` (a yes/no choice, a shop item id, or a number with its unit).
-function CriterionRow({
-  definition,
-  current,
-  labels,
-}: {
-  definition: Criterion;
-  current: number | undefined;
-  labels: {
-    kind: string;
-    unit: string;
-    holds: string;
-    notHold: string;
-    use: string;
-  };
-}) {
-  const id = `criterion-${definition.id}`;
-  const title = definition.title;
-  return (
-    <div className="space-y-2 rounded-lg border p-3">
-      <label className="flex min-h-10 items-center gap-3 text-sm font-medium">
-        <input
-          type="checkbox"
-          name={`use:${definition.id}`}
-          defaultChecked={current !== undefined}
-          className={checkbox}
-        />
-        <span>
-          {title}
-          <span className="sr-only"> ({labels.use})</span>
-        </span>
-      </label>
-      {definition.kind === "boolean" ? (
-        <select
-          id={id}
-          name={`value:${definition.id}`}
-          defaultValue={current ?? 1}
-          aria-label={title}
-          className={selectClass}
-        >
-          <option value={1}>{labels.holds}</option>
-          <option value={0}>{labels.notHold}</option>
-        </select>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {labels.kind}
-          </span>
-          <Input
-            id={id}
-            name={`value:${definition.id}`}
-            type="number"
-            inputMode="numeric"
-            min={0}
-            aria-label={title}
-            defaultValue={current ?? 0}
-          />
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {labels.unit}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // The award form, for a new award (no `award`) or one being edited. The automatic criteria are
 // whatever `awards.criteria` lists; none ticked means the award is given by hand only.
@@ -94,20 +27,6 @@ export async function AwardForm({ award }: { award?: Award }) {
   const values = new Map(
     award?.criteria.map((entry) => [entry.criterion, entry.value]),
   );
-  const kinds = {
-    atLeast: t("kinds.atLeast"),
-    atMost: t("kinds.atMost"),
-    below: t("kinds.below"),
-    boolean: "",
-    item: t("kinds.item"),
-  };
-  const units = {
-    count: t("units.count"),
-    days: t("units.days"),
-    points: t("units.points"),
-    boolean: "",
-    item: "",
-  };
   return (
     <FormRows
       action={saveAward}
@@ -239,24 +158,12 @@ export async function AwardForm({ award }: { award?: Award }) {
           {t("activeHelp")}
         </label>
       </FieldRow>
-      <FieldRow name="criteria" label={t("criteria")} help={t("criteriaHelp")}>
-        <div className="grid gap-2 lg:grid-cols-2">
-          {criteria.map((definition) => (
-            <CriterionRow
-              key={definition.id}
-              definition={definition}
-              current={values.get(definition.id)}
-              labels={{
-                kind: kinds[definition.kind],
-                unit: units[definition.unit],
-                holds: t("holds"),
-                notHold: t("notHold"),
-                use: t("use"),
-              }}
-            />
-          ))}
-        </div>
-      </FieldRow>
+      <CriteriaFields
+        namespace="adminEconomy.awards.form"
+        criteria={criteria}
+        values={values}
+        showHelp={false}
+      />
     </FormRows>
   );
 }

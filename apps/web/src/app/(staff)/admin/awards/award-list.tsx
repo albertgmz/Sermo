@@ -3,12 +3,12 @@ import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Section } from "@/components/staff/rows";
+import { RunNow } from "@/components/staff/run-now";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { EconomyNotice } from "../credits/shared";
 import { runAwards } from "./actions";
 import { AwardForm } from "./award-form";
-import { RunNow } from "./run-now";
 
 // Every award, best tier first as the backend orders them (inactive ones too, for an
 // administrator), each linking to its editor; then the sweep and the form for a new award. The
@@ -84,7 +84,7 @@ export async function AwardList({
       </section>
       <Section heading={t("runHeading")} description={t("runHelp")}>
         <div className="p-4">
-          <RunNow action={runAwards} />
+          <RunNow action={runAwards} namespace="adminEconomy.awards" />
         </div>
       </Section>
       <AwardForm />

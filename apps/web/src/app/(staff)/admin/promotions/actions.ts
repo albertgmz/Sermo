@@ -13,32 +13,13 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import {
+  criteriaOf,
   formFailure,
   missingPassword,
   text,
-  whole,
 } from "../groups/form-errors";
 
 const FIELDS = ["title", "isActive", "criteria", "groupIds", "actorPassword"];
-
-// The criteria the form offered, as the backend takes them. Only the criteria the backend lists
-// are read, so a field invented by a client is ignored. Every value is a whole number (a yes/no
-// criterion sends 1 or 0); the backend holds the range.
-async function criteriaOf(formData: FormData) {
-  const t = await getTranslations("adminGroups.errors");
-  const { items } = await call(promotionsCriteria, {});
-  const criteria: { criterion: string; value: number }[] = [];
-  for (const definition of items) {
-    if (formData.get(`use:${definition.id}`) === null) continue;
-    const raw = text(formData, `value:${definition.id}`).trim();
-    const value = whole(raw);
-    if (value === null) {
-      return { fail: { fields: { criteria: t("criterionValue") } } };
-    }
-    criteria.push({ criterion: definition.id, value });
-  }
-  return { criteria };
-}
 
 // The groups ticked.
 function groupIdsOf(formData: FormData) {
@@ -59,17 +40,19 @@ export async function savePromotion(
   if (raw !== "" && promotionId === null) return { error: t("id") };
   const groupIds = groupIdsOf(formData);
   if (groupIds === null) return { fields: { groupIds: t("groupIds") } };
-  let parsed: Awaited<ReturnType<typeof criteriaOf>>;
+  let criteria: ReturnType<typeof criteriaOf>;
   try {
-    parsed = await criteriaOf(formData);
+    criteria = criteriaOf((await call(promotionsCriteria, {})).items, formData);
   } catch (error) {
     return formFailure(error, []);
   }
-  if (parsed.fail) return parsed.fail;
+  if (criteria === null) {
+    return { fields: { criteria: t("criterionValue") } };
+  }
   const fields = {
     title: text(formData, "title"),
     isActive: formData.get("isActive") !== null,
-    criteria: parsed.criteria,
+    criteria,
     groupIds,
   };
   // Who is in which group follows from the rules, so a change to them asks for the password,
