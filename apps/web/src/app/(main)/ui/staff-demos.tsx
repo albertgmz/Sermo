@@ -298,7 +298,7 @@ export function StaffDemos() {
           under the button. With <code>password</code> it asks for the
           administrator&apos;s own password and shows a refusal on that field;
           with <code>heading</code> it becomes the panel of a record&apos;s
-          page. Send the form empty to see the refusal.
+          page. Type <code>wrong</code> as the password to see the refusal.
         </p>
         <div className="space-y-4">
           <ConfirmStep
