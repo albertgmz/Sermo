@@ -1,15 +1,29 @@
 # Sermo
 
-Sermo is a forum backend with a REST API and an MCP tool endpoint. It runs on Bun, TypeScript, SQLite, Hono, and Better Auth. There is no frontend yet.
+Sermo is forum software: a backend with a REST API and an MCP tool endpoint, and a web app that is the forum people use, with its administration and moderation panel. The backend runs on Bun, TypeScript, SQLite, Hono, and Better Auth; the web app is Next.js and React.
 
-`packages/core` owns business rules and every permission check. `packages/api` serves REST; `packages/mcp` serves MCP. REST routes, the OpenAPI document and MCP tools are all derived from one operation registry in core. The OpenAPI document also covers every `/api/auth/*` endpoint. The single server process also runs migrations, the job worker, scheduler, and WAL checkpointer.
+## What is in the repository
+
+| Path | What it is |
+| --- | --- |
+| `packages/core` | Business rules, every permission check, the schema and its migrations. |
+| `packages/api` | The HTTP server: REST under `/api/v1`, Better Auth under `/api/auth`, `/mcp`. |
+| `packages/mcp` | The MCP adapter: one tool per operation. |
+| `apps/web` | The web app. It keeps no data and reaches the backend only over REST ([apps/web/README.md](apps/web/README.md)). |
+| `scripts/starter` | Starter content for a fresh site ([scripts/starter/README.md](scripts/starter/README.md)). |
+| `bench` | The benchmark: its seed generator and scenarios. |
+| `docs` | Guides for deployment and for forum operators. |
+| `DECISIONS.md` | Every design decision and its reason. |
+
+REST routes, the OpenAPI document and MCP tools are all derived from one operation registry in core. The OpenAPI document also covers every `/api/auth/*` endpoint. The single server process also runs migrations, the job worker, scheduler, and WAL checkpointer.
 
 ## Run it
 
 1. Copy the configuration: `cp .env.example .env`.
 2. Put a random secret in `BETTER_AUTH_SECRET` and set the three `SERMO_ADMIN_*` values for the first administrator.
 3. Run `docker compose up --build -d`.
-4. Open `http://localhost:8080`. The API description is at `http://localhost:8080/api/v1/openapi.json`.
+4. Open `http://localhost:8080` and sign in as that administrator. The API description is at `http://localhost:8080/api/v1/openapi.json`.
+5. A new site is empty. `docker compose exec sermo bun run starter:load --admin <username>` fills it with the starter forums, pictures, shop, awards and pages; everything it loads can be changed afterwards in the administration panel.
 
 Three containers run: the backend, the web app and an ingress that is the only published port. [docs/deployment.md](docs/deployment.md) covers the layout, configuration, first run, upgrades, backups, the upload limit and TLS.
 
@@ -30,7 +44,7 @@ bun install
 bun run start
 ```
 
-The local database defaults to `./data/sermo.db`. `bun run check:fast` runs typecheck, lint, and tests. `bun run check` adds the full benchmark.
+The local database defaults to `./data/sermo.db`. `bun run check:fast` runs typecheck, lint and the tests of the backend, then the web app's typecheck, tests and production build. `bun run check` adds the full benchmark.
 
 The benchmark seeds a deterministic database with about 1 million posts and 2 million reactions in `SERMO_BENCH_DIR` (default `~/.cache/sermo-bench`), outside the repository. The seed is about 2.6 GB; each checkout keeps a working copy beside it, so the first run needs about 5.4 GB. Seeding takes about 45 seconds and repeats when migrations or the seed version change. Every scenario goes through the HTTP app and its middleware. Reads must have p95 at or below 20 ms, writes p95 at or below 50 ms, and no request may exceed 200 ms; password hashing is exempt. To run a subset:
 
@@ -60,7 +74,7 @@ bun run start
 
 The fixture creates the members `nova` (administrator), `kestrel` (moderator), `ember` and `wren`, with two categories, four forums, six threads, a few reactions and one conversation. All four share the password in `SERMO_DEV_PASSWORD` (default `sermo-dev-password`). It refuses to run with `NODE_ENV=production` and does nothing when `nova` already exists.
 
-Once the API is up, start the web app with `bun run dev` in `apps/web`; it reads the site's name and pictures from the API.
+Once the API is up, start the web app with `bun run dev` in `apps/web`; it reads the site's name and pictures from the API. `bun run starter:load --admin nova` adds the starter forums, shop, awards and pages to the fixture's site.
 
 ## Authentication and clients
 
