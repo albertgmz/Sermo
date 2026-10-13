@@ -1569,8 +1569,7 @@ holders and fails above five seconds.
 **Rolling back.** After migration `0024` the shop effects are stored in a shape that `main`'s code
 rejects (they refer to catalog entries by id). Going back to `main`'s code therefore needs a
 database restored from a backup taken before the upgrade; running the old code on the upgraded
-database fails when it reads a shop item. Nothing else needs undoing. Newer migrations only add
-columns, tables and indexes, which the old code ignores.
+database fails when it reads a shop item.
 
 **Custom staff groups.** Migration `0023` marks only the built-in Moderator and Administrator
 groups as staff (`groups.is_staff`). Groups an owner made for staff before the upgrade need "listed
