@@ -162,6 +162,27 @@ describe("the standings job", () => {
     expect((await winners(w)).items).toMatchObject([{ year: 2025, month: 12, points: 22 }]);
   });
 
+  test("the winner is the best placed member who is neither banned nor erased when it is written", async () => {
+    const { w, alice, bob } = scenario();
+    w.ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(alice.id);
+    refreshStandings(w.ctx);
+    expect(
+      w.ctx.sqlite.prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners").all(),
+    ).toEqual([{ user_id: bob.id }]);
+    expect((await winners(w)).items).toMatchObject([{ year: 2025, month: 12, points: 4 }]);
+  });
+
+  test("an erased leader and an expired ban do not stop the next member or the leader", () => {
+    const { w, alice, bob } = scenario();
+    // Bob's ban has ended, Alice is erased: Bob wins.
+    w.ctx.sqlite.prepare("UPDATE users SET erased_at = 1 WHERE id = ?1").run(alice.id);
+    w.ctx.sqlite.prepare("UPDATE users SET banned_until = 1 WHERE id = ?1").run(bob.id);
+    refreshStandings(w.ctx);
+    expect(
+      w.ctx.sqlite.prepare<{ user_id: number }, []>("SELECT user_id FROM month_winners").all(),
+    ).toEqual([{ user_id: bob.id }]);
+  });
+
   test("a month rollover decides the finished month and starts the new one", async () => {
     const { w, alice, carol, dave } = scenario();
     refreshStandings(w.ctx);
@@ -456,7 +477,7 @@ describe("the standings job", () => {
     expectNoTableScan(w.ctx, standingSql.referrals, [0, 10, 0, 0, 100]);
     expectNoTableScan(w.ctx, standingSql.stored, [202601, 0, 10]);
     expectNoTableScan(w.ctx, standingSql.remove, [202601, "[1]"]);
-    expectNoTableScan(w.ctx, standingSql.top, [202601]);
+    expectNoTableScan(w.ctx, standingSql.top, [202601, 1_000]);
     expectNoTableScan(w.ctx, standingSql.winner, [202601]);
     expectNoTableScan(w.ctx, standingSql.prune, [202512, 200]);
     expectNoTableScan(w.ctx, standingSql.decided, []);

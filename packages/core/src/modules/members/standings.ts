@@ -47,7 +47,8 @@ export const standingSql = {
     "SELECT user_id FROM member_month_stats WHERE month = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3",
   remove:
     "DELETE FROM member_month_stats WHERE month = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
-  top: "SELECT user_id, posts, reactions, referrals, points_tenths FROM member_month_stats WHERE month = ?1 ORDER BY points_tenths DESC, posts DESC, user_id LIMIT 1",
+  // The best placed member who is neither banned nor erased when the winner is written.
+  top: "SELECT s.user_id, s.posts, s.reactions, s.referrals, s.points_tenths FROM member_month_stats s JOIN users u ON u.id = s.user_id WHERE s.month = ?1 AND u.erased_at IS NULL AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?2) ORDER BY s.points_tenths DESC, s.posts DESC, s.user_id LIMIT 1",
   winner: "SELECT 1 FROM month_winners WHERE month = ?1",
   prune:
     "DELETE FROM member_month_stats WHERE id IN (SELECT id FROM member_month_stats WHERE month < ?1 LIMIT ?2)",
@@ -279,9 +280,9 @@ function* decideMonth(
           referrals: number;
           points_tenths: number;
         },
-        [number]
+        [number, number]
       >(standingSql.top),
-    ).get(key);
+    ).get(key, ctx.now());
     const now = ctx.now();
     if (top)
       prepared(ctx, "members.standingInsertWinner", () =>
