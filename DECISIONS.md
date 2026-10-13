@@ -1542,3 +1542,15 @@ the web app always receive exactly one address, never the list a proxy chain wou
 `trusted_proxies` behind another proxy every visitor shares that proxy's address, which turns the
 per-address limits into site-wide ones; `docs/deployment.md` says so. The backend refuses to start
 when `BETTER_AUTH_SECRET` is shorter than 32 characters.
+
+## Upgrading and rolling back
+
+**Migration `0026` was rewritten before it shipped.** Its backfill looked up each inventory row's
+purchases by item and recipient with only the `(item_id, id)` index to help, so an item held by many
+members cost a scan of all its purchases per holder (17 s for 20,000 holders, inside the start-up
+transaction). It now creates a temporary index on `(item_id, recipient_id, id)`, runs the same two
+updates, and drops the index in the same migration. The result is identical. Drizzle records an
+applied migration by its journal timestamp, not by the file's content (it applies a migration only
+when the timestamp is newer than the last recorded one), so a developer database that already ran
+the old `0026` does nothing: it is neither rerun nor flagged. A test runs the statements over 20,000
+holders and fails above five seconds.
