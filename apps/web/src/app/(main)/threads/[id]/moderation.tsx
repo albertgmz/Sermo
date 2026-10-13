@@ -3,6 +3,7 @@ import { ChevronDown, ListChecks, Shield } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { MergeControl } from "@/app/(main)/threads/[id]/merge-control";
 import {
   mayRestore,
   type ThreadMay,
@@ -11,6 +12,7 @@ import {
   deleteThreadAction,
   mergeThreadAction,
   moveThreadAction,
+  previewMergeAction,
   removeCoverAction,
   restoreThreadAction,
   setLockedAction,
@@ -100,9 +102,12 @@ export async function ModerationMenu({
               />
             )}
             {mayRemoveCover && (
-              <ActionForm
+              <DeleteControl
                 action={removeCoverAction.bind(null, id)}
-                submit={t("removeCover")}
+                label={t("removeCover")}
+                confirm={t("removeCoverConfirm")}
+                cancel={t("cancel")}
+                warning={t("removeCoverWarning")}
               />
             )}
           </div>
@@ -110,9 +115,12 @@ export async function ModerationMenu({
 
         {may.move && forums.length > 0 && (
           <Section title={t("moveHeading")}>
-            <ActionForm
+            <DeleteControl
               action={moveThreadAction.bind(null, id)}
-              submit={t("move")}
+              label={t("move")}
+              confirm={t("moveConfirm")}
+              cancel={t("cancel")}
+              variant="outline"
             >
               <Label id="move-forum" className="sr-only">
                 {t("moveLabel")}
@@ -123,27 +131,16 @@ export async function ModerationMenu({
                 labelledBy="move-forum"
                 placeholder={t("movePlaceholder")}
               />
-            </ActionForm>
+            </DeleteControl>
           </Section>
         )}
 
         {may.merge && (
           <Section title={t("mergeHeading")}>
-            <ActionForm
-              action={mergeThreadAction.bind(null, id)}
-              submit={t("merge")}
-            >
-              <Label htmlFor="merge-target" className="text-muted-foreground">
-                {t("mergeLabel")}
-              </Label>
-              <Input
-                id="merge-target"
-                name="target"
-                required
-                autoComplete="off"
-                placeholder={t("mergePlaceholder")}
-              />
-            </ActionForm>
+            <MergeControl
+              preview={previewMergeAction.bind(null, id)}
+              merge={mergeThreadAction.bind(null, id)}
+            />
           </Section>
         )}
 
@@ -203,10 +200,14 @@ export async function SplitPanel({ thread }: { thread: Thread }) {
       className="mt-3 space-y-3 rounded-lg border bg-card p-3"
     >
       <p className="text-sm text-muted-foreground">{t("splitTick")}</p>
-      <ActionForm
+      <DeleteControl
         id={SPLIT_FORM}
         action={splitThreadAction.bind(null, thread.id)}
-        submit={t("split")}
+        label={t("split")}
+        confirm={t("splitConfirm")}
+        cancel={t("cancel")}
+        reasonLabel={t("reason")}
+        variant="outline"
       >
         <Label htmlFor="split-title" className="text-muted-foreground">
           {t("splitTitle")}
@@ -222,14 +223,7 @@ export async function SplitPanel({ thread }: { thread: Thread }) {
           placeholder={t("movePlaceholder")}
           defaultValue={thread.nodeId}
         />
-        <Input
-          name="reason"
-          maxLength={1000}
-          aria-label={t("reason")}
-          placeholder={t("reason")}
-          autoComplete="off"
-        />
-      </ActionForm>
+      </DeleteControl>
       <Link
         href={`/threads/${thread.id}`}
         className={cn(buttonVariants({ variant: "ghost" }), "h-10 px-3")}

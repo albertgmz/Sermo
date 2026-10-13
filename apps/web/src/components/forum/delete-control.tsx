@@ -8,13 +8,30 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-// A delete button that asks first: it opens a small form with the reason and a confirming button.
+// A button that asks first: it opens a small form with a confirming button (and, when
+// `reasonLabel` is given, a reason field). It is the one confirm step of the forum's irreversible
+// actions: deleting, removing a cover, moving, splitting.
+//
+// Props
+//   action       The server action the confirming button submits.
+//   label        The button that opens the step.
+//   confirm      The confirming button.
+//   cancel       Closes the step.
+//   reasonLabel  Label and placeholder of the optional reason field; none when left out.
+//   warning      A line saying what the action does, above the fields.
+//   variant      "destructive" (default) or "outline" for an action that is not a deletion.
+//   id           Id of the form once open, for controls elsewhere that submit with it.
+//   children     The action's own inputs, shown in the step above the reason.
 export function DeleteControl({
   action,
   label,
   confirm,
   cancel,
   reasonLabel,
+  warning,
+  variant = "destructive",
+  id,
+  children,
 }: {
   action: (
     previous: ActionFormState,
@@ -23,14 +40,18 @@ export function DeleteControl({
   label: string;
   confirm: string;
   cancel: string;
-  reasonLabel: string;
+  reasonLabel?: string;
+  warning?: string;
+  variant?: "destructive" | "outline";
+  id?: string;
+  children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
       <Button
         type="button"
-        variant="destructive"
+        variant={variant}
         className="h-10 px-3"
         onClick={() => setOpen(true)}
       >
@@ -40,9 +61,10 @@ export function DeleteControl({
   }
   return (
     <ActionForm
+      id={id}
       action={action}
       submit={confirm}
-      variant="destructive"
+      variant={variant}
       aside={
         <Button
           type="button"
@@ -54,13 +76,17 @@ export function DeleteControl({
         </Button>
       }
     >
-      <Input
-        name="reason"
-        maxLength={1000}
-        aria-label={reasonLabel}
-        placeholder={reasonLabel}
-        autoComplete="off"
-      />
+      {warning && <p className="text-sm text-pretty">{warning}</p>}
+      {children}
+      {reasonLabel && (
+        <Input
+          name="reason"
+          maxLength={1000}
+          aria-label={reasonLabel}
+          placeholder={reasonLabel}
+          autoComplete="off"
+        />
+      )}
     </ActionForm>
   );
 }
