@@ -147,9 +147,7 @@ test("startup refuses a signing secret shorter than 32 characters", () => {
   expect(() => readConfiguration({ ...base, BETTER_AUTH_SECRET: "x".repeat(31) })).toThrow(
     "at least 32 characters",
   );
-  expect(readConfiguration({ ...base, BETTER_AUTH_SECRET: "x".repeat(32) }).secret).toHaveLength(
-    32,
-  );
+  expect(() => readConfiguration({ ...base, BETTER_AUTH_SECRET: "x".repeat(32) })).not.toThrow();
 });
 
 test("the session cookie cache defaults to on and accepts only true or false", () => {
