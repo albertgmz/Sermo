@@ -10,11 +10,19 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { leaveAction, markRead } = await import("./actions");
+const revalidated: unknown[][] = [];
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  revalidatePath: (...args: unknown[]) => revalidated.push(args),
+}));
+
+const { leaveAction, markRead, startConversation } = await import("./actions");
 const { markOneRead } = await import("../notifications/actions");
 
 beforeEach(() => {
   asked.length = 0;
+  revalidated.length = 0;
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     asked.push({ method: init.method ?? "GET", url });
     return Response.json({ ok: true });
@@ -51,4 +59,42 @@ test("a conversation id that is not a record id never becomes a path", async () 
     await assert.rejects(() => markOneRead(id));
   }
   assert.equal(asked.length, 0);
+});
+
+test("starting a conversation refreshes the list in the layout before going to the new page", async () => {
+  const user = { id: 3, username: "ember" };
+  const stamp = "2026-10-13T03:57:31.497Z";
+  globalThis.fetch = (async () =>
+    Response.json({
+      conversation: {
+        id: 3,
+        title: "T",
+        starter: user,
+        createdAt: stamp,
+        lastMessage: { messageId: 3, sentAt: stamp, user },
+        messageCount: 1,
+        participantCount: 2,
+        isUnread: false,
+        participants: [{ user, state: "active" }],
+        canReply: true,
+      },
+      message: {
+        id: 3,
+        conversationId: 3,
+        author: user,
+        state: "visible",
+        createdAt: stamp,
+        bodyHtml: "<p>hi</p>",
+        attachmentCount: 0,
+        attachments: [],
+        reactions: { counts: {}, total: 0, mine: null },
+      },
+    })) as unknown as typeof fetch;
+  const form = new FormData();
+  form.set("title", "T");
+  form.set("body", "hi");
+  form.append("recipientIds", "4");
+  const digest = await redirectedTo(() => startConversation({}, form));
+  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
 });
