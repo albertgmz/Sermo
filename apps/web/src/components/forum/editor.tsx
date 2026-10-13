@@ -20,6 +20,7 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS,
 } from "@lexical/markdown";
+import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { ClearEditorPlugin } from "@lexical/react/LexicalClearEditorPlugin";
 import {
   type InitialConfigType,
@@ -85,6 +86,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { $applyLink } from "@/components/forum/editor-commands";
 import {
   InsertPlugin,
@@ -266,7 +268,7 @@ function Divider() {
   return <span className="mx-1 h-5 w-px shrink-0 bg-border" />;
 }
 
-function Toolbar() {
+function Toolbar({ className }: { className?: string }) {
   const t = useTranslations("editor.editor");
   const [editor] = useLexicalComposerContext();
   const [state, setState] = useState<ToolbarState>({
@@ -340,7 +342,10 @@ function Toolbar() {
     <div
       role="toolbar"
       aria-label={t("aria.formatting")}
-      className="flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]"
+      className={cn(
+        "flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]",
+        className,
+      )}
     >
       {FORMATS.map(({ format, label, icon }) => (
         <ToolbarButton
@@ -502,6 +507,12 @@ export type EditorProps = {
   defaultValue?: string;
   minHeight?: number;
   compact?: boolean;
+  // The formatting bar. A compact editor has none unless it is asked for.
+  toolbar?: boolean;
+  // Where the formatting bar is drawn instead, for a composer that has a bar of its own.
+  toolbarContainer?: HTMLElement | null;
+  // Takes the focus once it is on the page, with the caret after what it holds.
+  autoFocus?: boolean;
   onChange?: (markdown: string) => void;
   resetKey?: string | number;
   className?: string;
@@ -522,6 +533,9 @@ export function Editor({
   defaultValue,
   minHeight,
   compact = false,
+  toolbar = !compact,
+  toolbarContainer,
+  autoFocus,
   onChange,
   resetKey,
   className,
@@ -550,7 +564,12 @@ export function Editor({
           className,
         )}
       >
-        {!compact && <Toolbar />}
+        {toolbar && <Toolbar />}
+        {toolbarContainer &&
+          createPortal(
+            <Toolbar className="border-b-0 p-0" />,
+            toolbarContainer,
+          )}
         <div className="relative">
           <RichTextPlugin
             contentEditable={
@@ -603,6 +622,7 @@ export function Editor({
       <LinkPlugin />
       <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       <ClearEditorPlugin />
+      {autoFocus && <AutoFocusPlugin />}
       {insertEvent && <InsertPlugin event={insertEvent} />}
     </LexicalComposer>
   );

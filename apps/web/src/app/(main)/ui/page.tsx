@@ -22,6 +22,7 @@ import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
 import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/(main)/ui/staff-demos";
 import { Art } from "@/components/forum/art";
+import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
@@ -32,6 +33,7 @@ import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { LazyEditor } from "@/components/forum/lazy-editor";
 import {
   Leaderboard,
   LeaderboardScore,
@@ -1056,6 +1058,33 @@ export default async function StyleguidePage() {
             submitLabel="Post"
             className="max-w-xl"
           />
+        </Section>
+
+        <Section title="Lazy editor">
+          <p className="text-sm text-muted-foreground">
+            A one-line box that loads the editor, with its formatting bar, when
+            it is entered. Used by the wall, comment and conversation composers.
+          </p>
+          <LazyEditor
+            name="body"
+            placeholder="Write a message…"
+            className="max-w-xl"
+          />
+        </Section>
+
+        <Section title="Attachment field, compact">
+          <p className="text-sm text-muted-foreground">
+            The paperclip alone, for a composer's own row: the chosen files take
+            a line before it and scroll once they are many.
+          </p>
+          <div className="flex max-w-xl flex-wrap items-end gap-2">
+            <AttachmentField compact />
+            <LazyEditor
+              name="message"
+              placeholder="Write a message…"
+              className="flex-1 rounded-4xl"
+            />
+          </div>
         </Section>
 
         <Section title="Message row">

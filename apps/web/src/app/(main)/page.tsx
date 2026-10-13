@@ -8,7 +8,7 @@ import { Suspense } from "react";
 import { FeedItem } from "@/app/(main)/_feed/feed-item";
 import { FeedSidebar } from "@/app/(main)/_feed/feed-sidebar";
 import { postToWall } from "@/app/(main)/members/actions";
-import { WallComposer } from "@/app/(main)/members/wall-composer";
+import { PostComposer } from "@/app/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
 import {
   FeedSkeleton,
@@ -99,11 +99,11 @@ async function HomeComposer() {
       aria-label={t("aria.newPost")}
       className="overflow-hidden rounded-lg border bg-card"
     >
-      <WallComposer
+      <PostComposer
         action={postToWall.bind(null, user.id, "/")}
         avatar={<UserAvatar user={member(user.id)} size="lg" />}
+        name={user.username}
         placeholder={t("placeholder")}
-        submitLabel={t("submit")}
         className="p-4"
       />
       <div className="flex items-center justify-between gap-3 border-t py-2 pr-2 pl-4">

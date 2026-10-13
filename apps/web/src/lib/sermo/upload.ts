@@ -178,7 +178,7 @@ const refuse = (
 
 const MULTIPART = /^multipart\/form-data\s*(?:;|$)/i;
 
-// What an upload route does with a request, in one place so the three routes cannot differ: the
+// What an upload route does with a request, in one place so the upload routes cannot differ: the
 // checks that cost nothing and need no body (a session cookie, this site's origin, a multipart
 // content type, a declared length within the site's limit for the purpose), then the body is streamed to the backend as
 // the visitor and the stored file's id is answered. Nothing is read before the checks pass, and

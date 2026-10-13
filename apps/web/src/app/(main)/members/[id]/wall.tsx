@@ -8,7 +8,9 @@ import { react } from "@/app/(main)/actions";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { commentOnWallPost, postToWall } from "@/app/(main)/members/actions";
 import { LoadMore } from "@/app/(main)/members/load-more";
+import { PostComposer } from "@/app/(main)/members/post-composer";
 import { WallComposer } from "@/app/(main)/members/wall-composer";
+import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
@@ -249,6 +251,7 @@ function WallPost({
     >
       <StateNote state={post.state} />
       <HtmlContent>{post.bodyHtml}</HtmlContent>
+      <PostAttachments attachments={post.attachments} />
     </MessageRow>
   );
 }
@@ -292,11 +295,11 @@ export async function Wall({
     <section className="overflow-hidden rounded-lg border bg-card">
       <h2 className="sr-only">{t("heading")}</h2>
       {viewer.user && profile.canPostOnWall && (
-        <WallComposer
+        <PostComposer
           action={postToWall.bind(null, profile.id, returnTo)}
           avatar={<UserAvatar user={member(viewer.user.id)} size="lg" />}
+          name={viewer.user.username}
           placeholder={t("placeholder", { username: profile.username })}
-          submitLabel={t("submit")}
           className="border-b p-4"
         />
       )}

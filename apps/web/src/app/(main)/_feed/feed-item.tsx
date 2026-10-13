@@ -5,6 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/(main)/_feed/clamped-body";
 import { react } from "@/app/(main)/actions";
+import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { HtmlContent } from "@/components/forum/html-content";
@@ -213,6 +214,7 @@ export function FeedItem({
         noun="comments"
       >
         <Body href={href}>{profilePost.bodyHtml}</Body>
+        <PostAttachments attachments={profilePost.attachments} />
       </Card>
     );
   }

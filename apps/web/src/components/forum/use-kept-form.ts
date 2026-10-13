@@ -10,6 +10,8 @@ export type KeptState = {
 
 // A form's action state, submitted by hand so that React does not reset the form once the action
 // has answered: a refused post keeps what the member wrote.
+// What empties the form is the redirect an action ends in once the post is taken: Next then draws
+// the page's forms anew, so text, files and anything open (a dialog) start over.
 export function useKeptForm(
   action: (previous: KeptState, formData: FormData) => Promise<KeptState>,
 ) {

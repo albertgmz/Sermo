@@ -137,6 +137,14 @@
       "remove": "Remove {name}"
     }
   },
+  "attachments": {
+    "signIn": "Sign in to attach files.",
+    "noFile": "Choose a file to attach.",
+    "notAllowed": "You cannot attach files here.",
+    "failed": "The file could not be uploaded.",
+    "tooLarge": "This file is too large to upload here.",
+    "overLimit": "This file is larger than the {size} MB the site allows."
+  },
   "mentionMenu": {
     "found": "{count, plural, one {# member found} other {# members found}}",
     "aria": {

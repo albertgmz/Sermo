@@ -22,6 +22,7 @@ import { ConversationSync } from "@/app/(main)/conversations/[id]/conversation-s
 import { LeaveForm } from "@/app/(main)/conversations/[id]/leave-form";
 import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skeleton";
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
+import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
 import { ReactionButton } from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
@@ -190,44 +191,64 @@ async function Messages({
           {t("earlier")}
         </Link>
       )}
-      <ol>
+      <ol className="px-3 lg:px-4">
         {messages.map((message, index) => {
           const grouped = messages[index - 1]?.author.id === message.author.id;
           const author = member(message.author.id);
+          const mine = message.author.id === user?.id;
           return (
             <li
               key={message.id}
               id={`message-${message.id}`}
               className={cn(
-                "flex scroll-mt-4 gap-3 px-4",
-                grouped ? "pt-1.5" : "pt-4",
+                "flex scroll-mt-4 items-end gap-2",
+                mine && "flex-row-reverse",
+                grouped ? "pt-1" : "pt-4",
               )}
             >
-              <div className="w-10 shrink-0">
-                {!grouped && <UserAvatar user={author} size="lg" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                {!grouped && (
-                  <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-sm">
-                    <UserLink user={author} />
-                    <span aria-hidden="true" className="text-muted-foreground">
-                      {t("authorSeparator")}
-                    </span>
-                    <RelativeTime
-                      date={message.createdAt}
-                      className="text-xs text-muted-foreground"
+              {!mine && (
+                <div className="w-8 shrink-0 self-start">
+                  {!grouped && (
+                    <UserAvatar
+                      user={author}
+                      className="relative block after:absolute after:-inset-1"
                     />
+                  )}
+                </div>
+              )}
+              <div
+                className={cn(
+                  "flex max-w-[80%] min-w-0 flex-col",
+                  mine ? "items-end" : "items-start",
+                )}
+              >
+                {!mine && !grouped && (
+                  <p className="mb-0.5 px-1 text-xs">
+                    <UserLink user={author} />
                   </p>
                 )}
-                {message.state === "moderated" && (
-                  <MessageNote icon={Hourglass}>
-                    {t("awaitingApproval")}
-                  </MessageNote>
-                )}
-                {message.state === "deleted" && (
-                  <MessageNote icon={Trash2}>{t("deleted")}</MessageNote>
-                )}
-                <HtmlContent>{message.bodyHtml}</HtmlContent>
+                <div
+                  className={cn(
+                    "max-w-full min-w-0 rounded-4xl border px-3.5 py-2",
+                    mine
+                      ? "rounded-br-sm border-primary/25 bg-primary/15"
+                      : "rounded-bl-sm bg-muted/60",
+                  )}
+                >
+                  {message.state === "moderated" && (
+                    <MessageNote icon={Hourglass}>
+                      {t("awaitingApproval")}
+                    </MessageNote>
+                  )}
+                  {message.state === "deleted" && (
+                    <MessageNote icon={Trash2}>{t("deleted")}</MessageNote>
+                  )}
+                  <HtmlContent>{message.bodyHtml}</HtmlContent>
+                  <PostAttachments attachments={message.attachments} />
+                  <p className="mt-1 text-right text-(length:--text-caption) leading-none text-muted-foreground">
+                    <RelativeTime date={message.createdAt} />
+                  </p>
+                </div>
                 <ReactionSummary
                   reactions={reactionsView(message.reactions, reactionTypes)}
                   loadUsers={loadReactionUsers.bind(
@@ -236,7 +257,6 @@ async function Messages({
                     message.id,
                   )}
                   size="sm"
-                  className="-ml-1"
                 />
               </div>
               <ReactionButton
@@ -247,7 +267,7 @@ async function Messages({
                 viewerId={user?.id ?? null}
                 authorId={message.author.id}
                 size="sm"
-                className="-mr-2 shrink-0"
+                className="shrink-0"
               />
             </li>
           );

@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
-import { requireIds } from "@/lib/sermo/ids";
+import { formIds, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 
 export type ReplyState = { error?: string };
@@ -23,8 +23,9 @@ export async function replyAction(
 ): Promise<ReplyState> {
   requireIds(conversationId);
   const body = String(formData.get("body") ?? "");
+  const attachmentIds = formIds(formData, "attachmentIds");
   const sent = await attempt(`/conversations/${conversationId}`, () =>
-    call(conversationsReply, { conversationId, body }),
+    call(conversationsReply, { conversationId, body, attachmentIds }),
   );
   if (!sent.ok) return { error: sent.error };
   // The page the member lands on is rendered afresh, with their message on it.
@@ -69,8 +70,9 @@ export async function startConversation(
   const title = String(formData.get("title") ?? "");
   const body = String(formData.get("body") ?? "");
   const recipientIds = formData.getAll("recipientIds").map(Number);
+  const attachmentIds = formIds(formData, "attachmentIds");
   const created = await attempt("/conversations/new", () =>
-    call(conversationsCreate, { title, recipientIds, body }),
+    call(conversationsCreate, { title, recipientIds, body, attachmentIds }),
   );
   if (!created.ok) return { error: created.error, title };
   // The list beside the page is drawn by the layout, which a redirect between its pages keeps as
