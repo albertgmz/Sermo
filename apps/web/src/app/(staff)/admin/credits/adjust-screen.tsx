@@ -2,6 +2,7 @@ import { creditsLedger } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Row, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { ifAllowed } from "../users/data";
 import { adjustCredits } from "./actions";
 import { MemberChoice } from "./member-choice";
 import { adjustmentRefusal } from "./review";
-import { EconomyNotice, one } from "./shared";
+import { one } from "./shared";
 
 type Params = Awaited<PageProps<"/admin/credits">["searchParams"]>;
 
@@ -57,7 +58,7 @@ export async function AdjustScreen({
   if (userId === null) {
     return (
       <>
-        <EconomyNotice searchParams={searchParams} shown={notices} />
+        <Notice searchParams={searchParams} notices={notices} />
         {picker}
       </>
     );
@@ -96,7 +97,7 @@ export async function AdjustScreen({
 
   return (
     <>
-      <EconomyNotice searchParams={searchParams} shown={notices} />
+      <Notice searchParams={searchParams} notices={notices} />
       {picker}
       <Section
         heading={t("formHeading", { name: name(userId) })}

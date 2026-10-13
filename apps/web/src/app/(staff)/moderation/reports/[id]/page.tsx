@@ -7,6 +7,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { Notice } from "@/components/staff/notice";
 import { Help, linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
@@ -16,7 +17,6 @@ import { PageHead } from "../../../admin/groups/skeletons";
 import { MemberLink, memberNames, panelHref } from "../../../admin/logs/links";
 import { hrefFor } from "../../../registry";
 import { describe } from "../../content";
-import { Notice } from "../../notice";
 import { ContentSkeleton, FormSkeleton } from "../../skeletons";
 import { Where } from "../../where";
 import { STATE_BADGE } from "../report-list";
@@ -107,7 +107,11 @@ async function Case({
       <Link href="/moderation/reports" className={linkClass}>
         {t("back")}
       </Link>
-      <Notice searchParams={searchParams} />
+      <Notice
+        namespace="moderation.notices"
+        searchParams={searchParams}
+        shown={["stateSaved", "approved", "rejected"]}
+      />
       <Section heading={t("summaryHeading")}>
         <dl className="grid gap-x-6 gap-y-3 p-4 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
           <dt className="text-muted-foreground">{t("target")}</dt>

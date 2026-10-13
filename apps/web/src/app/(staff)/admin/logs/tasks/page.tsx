@@ -2,14 +2,12 @@ import { adminJobs } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
 import { RelativeTime } from "@/components/forum/relative-time";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
 import { Section } from "@/components/staff/rows";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { ContentSkeleton } from "../../../moderation/skeletons";
-import { PageHead } from "../../groups/skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminTools.tasks");
@@ -19,18 +17,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function TasksPage() {
   const t = useTranslations("adminTools.tasks");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <ContentSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <Tasks />
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<ContentSkeleton />}
+    >
+      <Tasks />
+    </ScreenFrame>
   );
 }
 
@@ -43,7 +37,7 @@ async function Tasks() {
     read(adminJobs, {}),
   ]);
   return (
-    <div className="space-y-4">
+    <>
       <div className="grid gap-3 sm:grid-cols-3">
         <StatTile label={t("pending")} value={format.number(jobs.pending)} />
         <StatTile label={t("running")} value={format.number(jobs.running)} />
@@ -88,6 +82,6 @@ async function Tasks() {
           </p>
         )}
       </Section>
-    </div>
+    </>
   );
 }

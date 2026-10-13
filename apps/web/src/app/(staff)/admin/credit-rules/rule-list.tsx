@@ -2,10 +2,11 @@ import { creditRulesList, nodesList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { EconomyNotice, one } from "../credits/shared";
+import { one } from "../credits/shared";
 import { deleteRule } from "./actions";
 import { RuleForm } from "./rule-form";
 
@@ -29,9 +30,9 @@ export async function RuleList({ searchParams }: { searchParams: Search }) {
   const titleOf = new Map(nodes.map((node) => [node.id, node.title]));
   return (
     <>
-      <EconomyNotice
+      <Notice
         searchParams={searchParams}
-        shown={{
+        notices={{
           created: t("notices.created"),
           saved: t("notices.saved"),
           deleted: t("notices.deleted"),

@@ -3,8 +3,8 @@ import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { Notice } from "@/components/staff/notice";
 import { PageHead } from "../../admin/groups/skeletons";
-import { Notice } from "../notice";
 import { QueueSkeleton } from "../skeletons";
 import { ApprovalList } from "./approval-list";
 
@@ -28,7 +28,11 @@ export default function ApprovalsPage({
         }
       >
         <div className="space-y-4">
-          <Notice searchParams={searchParams} />
+          <Notice
+            namespace="moderation.notices"
+            searchParams={searchParams}
+            shown={["stateSaved", "approved", "rejected"]}
+          />
           <ApprovalList searchParams={searchParams} />
         </div>
       </Suspense>

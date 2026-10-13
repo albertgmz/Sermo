@@ -2,10 +2,10 @@ import { awardsList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { AwardIcon } from "@/components/forum/award-icon";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
-import { EconomyNotice } from "../credits/shared";
 import { runAwards } from "./actions";
 import { AwardForm } from "./award-form";
 import { RunNow } from "./run-now";
@@ -25,9 +25,9 @@ export async function AwardList({
   ]);
   return (
     <>
-      <EconomyNotice
+      <Notice
         searchParams={searchParams}
-        shown={{
+        notices={{
           created: t("notices.created"),
           deleted: t("notices.deleted"),
         }}

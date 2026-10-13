@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListFormSkeleton } from "../groups/skeletons";
 import { AdjustScreen } from "./adjust-screen";
-import { EconomyFrame } from "./shared";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminEconomy.adjust");
@@ -14,12 +15,13 @@ export default function CreditsPage({
 }: PageProps<"/admin/credits">) {
   const t = useTranslations("adminEconomy.adjust");
   return (
-    <EconomyFrame
+    <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
-      loading={t("loading")}
+      label={t("loading")}
+      fallback={<ListFormSkeleton />}
     >
       <AdjustScreen searchParams={searchParams} />
-    </EconomyFrame>
+    </ScreenFrame>
   );
 }

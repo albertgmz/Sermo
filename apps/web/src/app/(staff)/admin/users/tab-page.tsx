@@ -1,5 +1,4 @@
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
+import { StreamedPanel } from "@/components/staff/screen-frame";
 import { FormSkeleton } from "../groups/skeletons";
 
 // The frame of a tab's content: it streams in below the member's header with a form-shaped
@@ -14,14 +13,8 @@ export function TabPage({
   rows?: number;
 }) {
   return (
-    <Suspense
-      fallback={
-        <LoadingRegion label={label}>
-          <FormSkeleton rows={rows} />
-        </LoadingRegion>
-      }
-    >
-      <div className="space-y-4">{children}</div>
-    </Suspense>
+    <StreamedPanel label={label} fallback={<FormSkeleton rows={rows} />}>
+      {children}
+    </StreamedPanel>
   );
 }

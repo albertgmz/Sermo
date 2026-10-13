@@ -20,7 +20,9 @@ export async function Notice({
         | "adminAppearance.notices"
         | "adminForums.notices"
         | "adminGroups.notices"
-        | "adminUsers.notices";
+        | "adminSetup.notices"
+        | "adminUsers.notices"
+        | "moderation.notices";
       shown: readonly string[];
     }
 )) {

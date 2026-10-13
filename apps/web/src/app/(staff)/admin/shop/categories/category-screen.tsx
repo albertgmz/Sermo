@@ -5,12 +5,13 @@ import type * as z from "zod";
 import { getLadder } from "@/app/(main)/upgrade/ladder";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { EconomyNotice, one } from "../../credits/shared";
+import { one } from "../../credits/shared";
 import { deleteCategory, saveCategory, saveCategoryOrder } from "./actions";
 
 type Category = z.output<typeof shopCategoriesList.output>["items"][number];
@@ -113,9 +114,9 @@ export async function CategoryScreen({
   const editingCategory = items.find((category) => category.id === editing);
   return (
     <>
-      <EconomyNotice
+      <Notice
         searchParams={searchParams}
-        shown={{
+        notices={{
           created: t("notices.created"),
           saved: t("notices.saved"),
           ordered: t("notices.ordered"),

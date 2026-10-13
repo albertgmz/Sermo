@@ -4,10 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
@@ -17,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { hrefFor } from "../../../registry";
 import { deleteGroup } from "../actions";
 import { GroupForm } from "../group-form";
-import { FormSkeleton, PageHead } from "../skeletons";
+import { FormSkeleton } from "../skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminGroups.edit");
@@ -82,19 +81,13 @@ export default function GroupPage({
 }: PageProps<"/admin/groups/[id]">) {
   const t = useTranslations("adminGroups.edit");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Group params={params} searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<FormSkeleton />}
+    >
+      <Group params={params} searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

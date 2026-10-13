@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HeadingSkeleton } from "../../skeletons";
 
 const ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -25,6 +26,16 @@ export function ListSkeleton({ rows = 4 }: { rows?: number }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// A list panel and a form panel: the skeleton of a screen listing its rows above a creation form.
+export function ListFormSkeleton({ formRows }: { formRows?: number }) {
+  return (
+    <div className="space-y-4">
+      <ListSkeleton />
+      <FormSkeleton rows={formRows} />
     </div>
   );
 }
@@ -79,10 +90,7 @@ export function LoadingPage({ children }: { children: React.ReactNode }) {
   return (
     <LoadingRegion label={t("label")}>
       <div className="space-y-6">
-        <div aria-hidden="true" className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-72 max-w-full" />
-        </div>
+        <HeadingSkeleton />
         <div className="space-y-4">{children}</div>
       </div>
     </LoadingRegion>
