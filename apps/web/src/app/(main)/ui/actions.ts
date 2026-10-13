@@ -27,15 +27,15 @@ export async function saveSample(
   return { notice: "Saved. The styleguide stores nothing." };
 }
 
-// The styleguide's confirmation step: refuses a missing password under its field, otherwise
+// The styleguide's confirmation step: refuses the password "wrong" under its field, otherwise
 // confirms and changes nothing.
 export async function confirmSample(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
   await new Promise((resolve) => setTimeout(resolve, 600));
-  if (formData.has("actorPassword") && !formData.get("actorPassword")) {
-    return { fields: { actorPassword: "Enter your password." } };
+  if (formData.get("actorPassword") === "wrong") {
+    return { fields: { actorPassword: "That is not your password." } };
   }
   return { notice: "Done. The styleguide changes nothing." };
 }
