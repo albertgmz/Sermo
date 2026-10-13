@@ -1246,8 +1246,18 @@ birthday, social handles, what they wear, avatar and cover); queued account emai
 which hold the old address and sometimes a reset link, are deleted; last, the name becomes
 `Deleted member <id>`, or the first free `Deleted member <id>-<n>` (n up to 20) when an account
 from before the name was reserved holds it. The name goes last because nothing else depends on it.
-What stays: what the member wrote (under the new name), their ledger, warnings and every log
-entry. An erased member is marked, not just banned: `bans.lift` refuses them, a session cannot
+Also removed in the profile step: the member's rows in `email_failures` (by member and by their old
+address), the old address in `undeliverable_emails` (both are deleted just before the address is
+replaced, because afterwards the old address is unknown and a rerun could not find it), their
+`push_subscriptions`, `auth_user.image` (through Better Auth), every account email job of the member
+that is not running (finished ones hold the address too), and the referral links: their own
+`referred_by`/`referred_at` end and the referrer's `referral_count` drops by one; members they
+referred lose their `referred_by`/`referred_at` (a referred member can then name a referrer again
+inside the first seven days) and the erased member's own count becomes 0. The month standings keep
+what they already counted. What stays: what the member wrote (under the new name), their ledger,
+warnings and every log entry. **Owner review:** `@name` mentions and quotation attributions
+inside other members' posts keep the old name; rewriting other people's posts is not done, so the
+name of an erased member can still be found there (a test lists the only table that holds it). An erased member is marked, not just banned: `bans.lift` refuses them, a session cannot
 start for them even with no ban in force, Better Auth's reset-password endpoint refuses a link of
 theirs and its request endpoint makes none, `AdminMember.state` is `erased` (it wins over
 `banned`), and every administrative write on them (identity, profile, sessions) is a conflict;

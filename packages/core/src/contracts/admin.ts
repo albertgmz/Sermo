@@ -310,9 +310,14 @@ export const usersAdminErase = defineContract({
     "account; their username becomes `Deleted member <id>` (with `-1`, `-2`, ... added if " +
     "that name is somehow taken); their about text, title, " +
     "signature, location, website, birthday, social handles, avatar and cover are removed and " +
-    "what they wear is taken off; their follows in both directions end. What they wrote " +
-    "(threads, posts, wall posts, messages) stays as it is under the new name, and their " +
-    "ledger, warnings and log entries are kept. It cannot be undone. If a run stops part way, " +
+    "what they wear is taken off; their follows in both directions end; the address's " +
+    "delivery records (rejected addresses, failed sends), finished account emails, push " +
+    "devices and the profile picture of the login are removed; their referrer link, and the " +
+    "link of the members they referred, end (the referrer's count drops by one). What they " +
+    "wrote (threads, posts, wall posts, messages) stays as it is under the new name, and " +
+    "their ledger, warnings and log entries are kept. Not rewritten: `@name` mentions and " +
+    "quotation attributions inside other members' posts, which keep the old name. It cannot " +
+    "be undone. If a run stops part way, " +
     "run it again: it finishes what is left and writes no second log entry. The actor's own " +
     "password is required (five wrong answers in fifteen minutes block further attempts). " +
     "Requires admin.members over the member, and also admin.permissions when the member holds " +

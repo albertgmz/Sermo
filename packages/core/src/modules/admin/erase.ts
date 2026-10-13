@@ -25,7 +25,16 @@ export const eraseSql = {
     "SELECT u.username, u.username_key, u.banned_permanently, u.erased_at, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
   mark: "UPDATE users SET erased_at = ?2, sessions_revoked_at = ?2 WHERE id = ?1 AND erased_at IS NULL",
   holder: "SELECT id FROM users WHERE username_key = ?1",
-  mail: "DELETE FROM jobs WHERE type = 'email.account' AND status IN ('pending', 'failed') AND json_extract(payload, '$.userId') = ?1",
+  // Every account email of the member that is not running, finished ones included: they hold the address.
+  mail: "DELETE FROM jobs WHERE type = 'email.account' AND status <> 'running' AND json_extract(payload, '$.userId') = ?1",
+  rejectedAddress: "DELETE FROM undeliverable_emails WHERE email = ?1",
+  failedMail: "DELETE FROM email_failures WHERE user_id = ?1 OR email = ?2",
+  pushDevices: "DELETE FROM push_subscriptions WHERE user_id = ?1",
+  // The referrer loses one referral; the member's own links, and the links of those they referred, end.
+  uncountReferral:
+    "UPDATE users SET referral_count = max(referral_count - 1, 0) WHERE id = (SELECT referred_by FROM users WHERE id = ?1)",
+  endReferrals:
+    "UPDATE users SET referred_by = NULL, referred_at = NULL, referral_count = CASE WHEN id = ?1 THEN 0 ELSE referral_count END WHERE id = ?1 OR referred_by = ?1",
   clear:
     "UPDATE users SET about = '', custom_title = NULL, signature_source = NULL, signature_html = NULL, location = '', website = '', birthday_md = NULL, birth_year = NULL, social_discord = '', social_telegram = '', social_x = '', accent_color_id = NULL, name_color_id = NULL, frame_id = NULL, cover_preset_id = NULL, content_updated_at = ?2 WHERE id = ?1",
   touch: "UPDATE users SET content_updated_at = ?1, username_changed_at = ?1 WHERE id = ?2",
@@ -51,7 +60,7 @@ async function renameErased(ctx: Ctx, userId: number): Promise<void> {
   const own = readMember(ctx, userId);
   if (!own) return;
   const base = `Deleted member ${userId}`;
-  if (new RegExp(`^${base.toLowerCase()}(-d+)?$`).test(own.username_key)) return;
+  if (new RegExp(`^${base.toLowerCase()}(-[0-9]+)?$`).test(own.username_key)) return;
   for (let n = 0; n <= SUFFIXES; n++) {
     const name = n === 0 ? base : `${base}-${n}`;
     const holder = prepared(ctx, "admin.erase.holder", () =>
@@ -105,7 +114,15 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
   const placeholder = `erased-${input.userId}@invalid`;
   const now = readMember(ctx, input.userId);
   if (now && now.email !== placeholder)
-    await authContext.internalAdapter.updateUser(id, { email: placeholder, emailVerified: false });
+    // The old address leaves the delivery records before it is replaced; afterwards it is unknown.
+    writeTx(ctx, () => {
+      ctx.sqlite.prepare(eraseSql.rejectedAddress).run(now.email);
+      ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, now.email);
+    });
+  await authContext.internalAdapter.updateUser(id, {
+    ...(now && now.email !== placeholder ? { email: placeholder, emailVerified: false } : {}),
+    image: null,
+  });
   await authContext.internalAdapter.deleteAccounts(id);
   // 4. The forum side: follows, then the profile, the pictures and the queued mail.
   endMemberFollows(ctx, input.userId);
@@ -114,6 +131,10 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
     clearMemberPicture(ctx, input.userId, "avatar");
     clearMemberPicture(ctx, input.userId, "cover");
     prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(input.userId);
+    ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, "");
+    ctx.sqlite.prepare(eraseSql.pushDevices).run(input.userId);
+    ctx.sqlite.prepare(eraseSql.uncountReferral).run(input.userId);
+    ctx.sqlite.prepare(eraseSql.endReferrals).run(input.userId);
   });
   // 5. The name, last. Credentials created since step 2 would go too.
   await renameErased(ctx, input.userId);
