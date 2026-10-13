@@ -354,17 +354,23 @@ for (const seed of [0x12345678, 0x51a7e, 0xdecafbad]) {
         {
           name: "use",
           run: async () => {
-            const held = rows<{ id: number; user_id: number }>(
+            const held = rows<{ id: number; user_id: number; type: string }>(
               ctx,
-              "SELECT inv.id, inv.user_id FROM shop_inventory inv JOIN shop_items it ON it.id = inv.item_id WHERE inv.state = 'unused' AND inv.quantity > 0 AND json_extract(it.effect, '$.type') = 'permission' ORDER BY inv.id",
+              "SELECT inv.id, inv.user_id, json_extract(it.effect, '$.type') AS type FROM shop_inventory inv JOIN shop_items it ON it.id = inv.item_id WHERE inv.state = 'unused' AND inv.quantity > 0 ORDER BY inv.id",
             );
             if (held.length) {
               const inventory = pick(held);
-              await act(
-                "shop.use",
-                { inventoryId: inventory.id },
-                userActor(members.find((user) => user.id === inventory.user_id)!),
-              );
+              const actor = userActor(members.find((user) => user.id === inventory.user_id)!);
+              if (inventory.type === "permission")
+                await act("shop.use", { inventoryId: inventory.id }, actor);
+              else {
+                // Worn and spent elsewhere: using it is refused and changes nothing.
+                const before = databaseSnapshot(ctx);
+                await expect(
+                  act("shop.use", { inventoryId: inventory.id }, actor),
+                ).rejects.toBeInstanceOf(ConflictError);
+                expect(databaseSnapshot(ctx)).toEqual(before);
+              }
             }
           },
         },

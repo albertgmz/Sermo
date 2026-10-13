@@ -2,6 +2,7 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 import { MemberCard } from "./members";
+import { BirthdayInput, Handle } from "./profiles";
 
 /*
  * What the administration panel needs beyond the operations each feature already has: who the
@@ -125,7 +126,8 @@ export const ACCOUNT_STATES = ["valid", "unconfirmed", "banned", "erased"] as co
 export const AdminMember = z
   .object({
     card: MemberCard,
-    email: z.string(),
+    /** Null for a member who ranks at or above the viewer (`canEdit` is false). */
+    email: z.string().nullable(),
     emailVerified: z.boolean(),
     /**
      * `erased` once an administrator erased the account (it wins over the rest), `banned`
@@ -153,7 +155,8 @@ export const usersAdminList = defineContract({
     "`prefix`. With `prefix` the order is by username (those whose username starts with it) and " +
     "then by email (those matched by email alone), not newest first. A page may be short, even " +
     "empty, when filters leave few of the rows examined; continue with `nextCursor` until it is " +
-    "null. Requires admin.members.",
+    "null. A member who ranks at or above the actor is listed with `email` null (`canEdit` " +
+    "false) and is not found by an email prefix. Requires admin.members.",
   kind: "read",
   input: z.object({
     state: z.enum(ACCOUNT_STATES).optional(),
@@ -166,7 +169,9 @@ export const usersAdminList = defineContract({
 
 export const usersAdminGet = defineContract({
   name: "users.adminGet",
-  summary: "One member for administration. Requires admin.members.",
+  summary:
+    "One member for administration; `email` is null for a member who ranks at or above the " +
+    "actor. Requires admin.members.",
   kind: "read",
   input: z.object({ userId: Id }),
   output: AdminMember,
@@ -179,8 +184,9 @@ export const authVerifyPassword = defineContract({
   name: "auth.verifyPassword",
   summary:
     "Check the signed-in member's own password without changing anything; a wrong password is " +
-    "refused, and after five wrong answers in fifteen minutes every answer is refused until the " +
-    "window moves on (a right answer does not clear the wrong ones). For clients that ask for " +
+    "refused, and after five wrong answers in fifteen minutes from one session (twenty from all of " +
+    "the member's sessions) every answer is refused until the window moves on (a right answer " +
+    "does not clear the wrong ones). For clients that ask for " +
     "the password again before a sensitive change. Session actors only (not API keys).",
   kind: "write",
   input: z.object({ password: ActorPassword }),
@@ -194,11 +200,12 @@ export const usersAdminUpdateIdentity = defineContract({
     "actor's own password is required and checked first. `username` obeys the registration " +
     'rules and must be free (a name that begins with "deleted member" is never free). ' +
     "`email` is stored in lower case and marked verified or not by " +
-    "`emailVerified` (default: unchanged). `password` sets a new one and signs the member out " +
+    "`emailVerified` (default: unchanged). `password` sets a new one, revokes their API keys and signs the member out " +
     "everywhere; `sendPasswordReset` instead emails them a reset link (a conflict when mail is " +
     "not configured). A new password or address also cancels the reset and change-email links " +
     "the member requested before. Five wrong answers of the actor's own password in fifteen " +
-    "minutes block further attempts until the window moves on. Requires admin.members over the " +
+    "minutes from one session (twenty from all their sessions) block further attempts until " +
+    "the window moves on. Requires admin.members over the " +
     "member, and also admin.permissions when the member holds any administration permission; " +
     "a conflict for an erased member; session actors only.",
   kind: "write",
@@ -217,7 +224,8 @@ export const usersAdminUpdateIdentity = defineContract({
 export const usersAdminUpdateProfile = defineContract({
   name: "users.adminUpdateProfile",
   summary:
-    "Edit another member's profile: the fields of profiles.update (a title and a signature can " +
+    "Edit another member's profile: the fields of profiles.update, birthday and socials " +
+    "included (a title and a signature can " +
     "be set whether or not the member holds the permission to show them), what they wear " +
     "(any active catalog entry, held or not; null takes it off), and `removeAvatar` / " +
     "`removeCover` to delete their uploaded pictures. Only the keys sent change. Requires " +
@@ -228,6 +236,8 @@ export const usersAdminUpdateProfile = defineContract({
     about: z.string().trim().max(5000).optional(),
     location: z.string().trim().max(100).optional(),
     website: z.string().trim().max(200).optional(),
+    birthday: BirthdayInput.nullable().optional(),
+    socials: z.object({ discord: Handle, telegram: Handle, x: Handle }).partial().optional(),
     customTitle: z.string().trim().max(100).nullable().optional(),
     signature: z.string().trim().max(2000).nullable().optional(),
     accentId: Id.nullable().optional(),
@@ -268,7 +278,7 @@ export const usersAdminRevokeSessions = defineContract({
     "Sign a member out: one session by id, or all of them when `sessionId` is omitted. Signing " +
     "out all of them takes effect on the member's next request, even with the session cookie " +
     "cache on; one session by id also leaves the member's cached cookie valid until the cache " +
-    "expires (at most five minutes). Their API keys are not touched. Requires admin.members " +
+    "expires (at most five minutes). Signing out all of them also revokes the member's API keys. Requires admin.members " +
     "over the member, and also admin.permissions when the member holds any administration " +
     "permission; a conflict for an erased member.",
   kind: "write",
@@ -284,7 +294,8 @@ export const usersAdminLog = defineContract({
   name: "users.adminLog",
   summary:
     "The moderator log entries about one member, newest first: administrative edits, group " +
-    "changes, warnings, bans, restrictions and session revocations. Requires admin.members.",
+    "changes, warnings, bans, restrictions and session revocations. Requires admin.members " +
+    "over the member: a member who ranks at or above the actor is not found (the actor's own log is).",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(
@@ -310,11 +321,17 @@ export const usersAdminErase = defineContract({
     "account; their username becomes `Deleted member <id>` (with `-1`, `-2`, ... added if " +
     "that name is somehow taken); their about text, title, " +
     "signature, location, website, birthday, social handles, avatar and cover are removed and " +
-    "what they wear is taken off; their follows in both directions end. What they wrote " +
-    "(threads, posts, wall posts, messages) stays as it is under the new name, and their " +
-    "ledger, warnings and log entries are kept. It cannot be undone. If a run stops part way, " +
+    "what they wear is taken off; their follows in both directions end; the address's " +
+    "delivery records (rejected addresses, failed sends), finished account emails, push " +
+    "devices and the profile picture of the login are removed; their referrer link, and the " +
+    "link of the members they referred, end (the referrer's count drops by one). What they " +
+    "wrote (threads, posts, wall posts, messages) stays as it is under the new name, and " +
+    "their ledger, warnings and log entries are kept. Not rewritten: `@name` mentions and " +
+    "quotation attributions inside other members' posts, which keep the old name. It cannot " +
+    "be undone. If a run stops part way, " +
     "run it again: it finishes what is left and writes no second log entry. The actor's own " +
-    "password is required (five wrong answers in fifteen minutes block further attempts). " +
+    "password is required (five wrong answers in fifteen minutes from one session, twenty from " +
+    "all their sessions, block further attempts). " +
     "Requires admin.members over the member, and also admin.permissions when the member holds " +
     "any administration permission; refused for the last member holding admin.permissions; " +
     "session actors only.",
@@ -336,7 +353,8 @@ export const bansList = defineContract({
   summary:
     "The ban register, newest first: every ban with who gave it, why, when it ends and whether " +
     "it was lifted. `state` narrows it to bans in force, bans that ran out, or bans lifted by " +
-    "hand; `userId` to one member. Requires member.ban.",
+    "hand; `userId` to one member. A page may be empty while `nextCursor` is set (the state " +
+    "filter is applied to the rows examined); continue until it is null. Requires member.ban.",
   kind: "read",
   input: z.object({
     state: z.enum(BAN_STATES).optional(),

@@ -148,7 +148,11 @@ test("account security email flow through the HTTP app", async () => {
     });
     expect(newSignin.status).toBe(200);
     const newCookie = cookieOf(newSignin);
-    const key = await post("/api/auth/api-key/create", { name: "test key" }, newCookie);
+    const key = await post(
+      "/api/auth/api-key/create",
+      { name: "test key", password: "NewPassword123!" },
+      newCookie,
+    );
     expect(key.status).toBe(200);
     await runDueJobs(ctx);
     expect(capture.messages.some((message) => message.subject.includes("API key"))).toBe(true);

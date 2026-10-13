@@ -41,7 +41,7 @@ async function setup() {
   const created = await send("/api/auth/api-key/create", {
     method: "POST",
     headers: { "content-type": "application/json", origin: ORIGIN, cookie },
-    body: JSON.stringify({ name: "script" }),
+    body: JSON.stringify({ name: "script", password: PASSWORD }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;

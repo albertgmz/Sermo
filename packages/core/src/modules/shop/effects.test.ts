@@ -780,6 +780,50 @@ describe("a stored effect that cannot be read", () => {
 });
 
 describe("migration 0026", () => {
+  test("backfills 20,000 holders of one item in seconds, not minutes, and leaves no index behind", async () => {
+    const f = fixture();
+    const item = await f.sell({ type: "bump" }, { name: "Popular", price: 10 });
+    const holders = 20_000;
+    f.ctx.sqlite.run("PRAGMA foreign_keys = OFF");
+    f.ctx.sqlite
+      .prepare(
+        "WITH RECURSIVE n(i) AS (SELECT 100000 UNION ALL SELECT i + 1 FROM n WHERE i < ?1) " +
+          "INSERT INTO shop_inventory (user_id, item_id, state, quantity, paid_price, acquired_at, updated_at) " +
+          "SELECT i, ?2, 'active', 1, 0, 0, 0 FROM n",
+      )
+      .run(100000 + holders - 1, item.id);
+    f.ctx.sqlite
+      .prepare(
+        "WITH RECURSIVE n(i) AS (SELECT 100000 UNION ALL SELECT i + 1 FROM n WHERE i < ?1) " +
+          "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, quantity, price, created_at) " +
+          "SELECT ?2, i, i, 1, 1 + (i % 7), 0 FROM n",
+      )
+      .run(100000 + holders - 1, item.id);
+    f.ctx.sqlite.run("PRAGMA foreign_keys = ON");
+    const sql = readFileSync(
+      new URL("../../../drizzle/0026_shop_paid_price.sql", import.meta.url),
+      "utf8",
+    );
+    const started = performance.now();
+    for (const statement of sql.split("--> statement-breakpoint").slice(1))
+      f.ctx.sqlite.run(statement);
+    const seconds = (performance.now() - started) / 1000;
+    // The quadratic form took about 17 s for this; the linear one a fraction of a second.
+    expect(seconds).toBeLessThan(5);
+    expect(
+      f.ctx.sqlite
+        .prepare(
+          "SELECT count(*) AS n FROM shop_inventory WHERE item_id = ?1 AND paid_price = 1 + (user_id % 7)",
+        )
+        .get(item.id),
+    ).toEqual({ n: holders });
+    expect(
+      f.ctx.sqlite
+        .prepare("SELECT 1 FROM sqlite_master WHERE name = 'shop_purchases_paid_price_tmp'")
+        .get(),
+    ).toBeNull();
+  }, 60_000);
+
   test("backfills what was paid from the purchase record, else the item's price, and takes non-consumable username changes off sale", async () => {
     const f = fixture();
     f.fund();

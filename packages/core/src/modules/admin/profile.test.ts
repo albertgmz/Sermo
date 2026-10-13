@@ -25,6 +25,26 @@ async function world() {
 }
 
 describe("users.adminUpdateProfile", () => {
+  test("sets and clears the birthday and the social handles like profiles.update", async () => {
+    const w = await world();
+    await w.edit({
+      birthday: { year: 1990, month: 5, day: 17 },
+      socials: { discord: "target#1", x: "target_x" },
+    });
+    expect(w.stored()).toMatchObject({
+      birthday_md: "05-17",
+      birth_year: 1990,
+      social_discord: "target#1",
+      social_telegram: "",
+      social_x: "target_x",
+    });
+    await expect(w.edit({ birthday: { month: 2, day: 31 } })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await w.edit({ birthday: null, socials: { x: "" } });
+    expect(w.stored()).toMatchObject({ birthday_md: null, birth_year: null, social_x: "" });
+  });
+
   test("removing a picture the member does not have changes nothing and logs nothing", async () => {
     const w = await world();
     const view = await w.edit({ removeAvatar: true, removeCover: true });

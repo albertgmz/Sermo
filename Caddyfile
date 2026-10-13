@@ -1,8 +1,10 @@
 # The only service that is published. It sends what the backend serves to `sermo` and everything
-# else to `web`, and it is the place that decides the client address: reverse_proxy replaces any
-# X-Forwarded-For, X-Forwarded-Proto and X-Forwarded-Host a client sent with the address, scheme
-# and host of the connection, because no trusted_proxies are configured. Keep it that way unless
-# another proxy is in front of this one (see "TLS" in docs/deployment.md).
+# else to `web`, and it is the place that decides the client address. Both upstreams receive
+# X-Forwarded-For set to {client_ip} alone: the address of the connection when no trusted_proxies
+# are configured (any value the client sent is ignored), or the real client address when the
+# connection comes from a configured trusted proxy. One value, never a list, whatever is in front.
+# If another proxy or load balancer is in front of this one, name it with trusted_proxies (see
+# "TLS" in docs/deployment.md).
 {
 	admin off
 	persist_config off
@@ -21,14 +23,18 @@
 	# included), the MCP endpoint, health, the sitemaps, the feeds, robots.txt and the IndexNow key
 	# file (<key>.txt).
 	@backend {
-		path /api/* /mcp /health /robots.txt /sitemap.xml /sitemaps/* /feed.atom /nodes/*/feed.atom /*.txt
+		path /api/* /mcp /health /robots.txt /sitemap.xml /sitemaps/* /feed.atom /forums/*/feed.atom /nodes/*/feed.atom /*.txt
 	}
 	handle @backend {
-		reverse_proxy sermo:3000
+		reverse_proxy sermo:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy web:3000 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 }
 

@@ -615,3 +615,138 @@ describe("an erased member stays closed", () => {
     expect(links()).toBe(0);
   });
 });
+
+describe("what an erasure leaves of the member", () => {
+  const ADDRESS = "target@example.test";
+  const AGENT = "Seed-Agent/9.9";
+  const ADDRESS_IP = "203.0.113.77";
+
+  /** Identifying data in every place the member could have left it. */
+  async function seeded() {
+    const w = await world();
+    const run = (sql: string, ...params: (string | number)[]) =>
+      w.ctx.sqlite.prepare(sql).run(...params);
+    const now = w.ctx.now();
+    run(
+      "UPDATE auth_session SET ip_address = ?1, user_agent = ?2 WHERE user_id = ?3",
+      ADDRESS_IP,
+      AGENT,
+      w.target.id,
+    );
+    run("UPDATE auth_user SET image = 'https://img.example/target.png' WHERE id = ?1", w.target.id);
+    run(
+      "INSERT INTO undeliverable_emails (email, reason, created_at) VALUES (?1, 'rejected', ?2), ('other@example.test', 'rejected', ?2)",
+      ADDRESS,
+      now,
+    );
+    run(
+      "INSERT INTO email_failures (user_id, email, template, error, permanent, created_at) VALUES (?1, ?2, 'welcome', 'boom', 1, ?3), (?4, 'fan@example.test', 'welcome', 'boom', 1, ?3)",
+      w.target.id,
+      ADDRESS,
+      now,
+      w.fan.id,
+    );
+    run(
+      "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent, created_at) VALUES (?1, 'https://push.example/t', 'k', 'a', ?2, ?3), (?4, 'https://push.example/f', 'k', 'a', 'x', ?3)",
+      w.target.id,
+      AGENT,
+      now,
+      w.fan.id,
+    );
+    run(
+      "INSERT INTO jobs (type, payload, status, run_at, attempts, created_at, updated_at) VALUES ('email.account', ?1, 'done', ?3, 1, ?3, ?3), ('email.account', ?2, 'done', ?3, 1, ?3, ?3)",
+      JSON.stringify({ kind: "welcome", userId: w.target.id, email: ADDRESS }),
+      JSON.stringify({ kind: "welcome", userId: w.fan.id, email: "fan@example.test" }),
+      now,
+    );
+    // The target named the idol as referrer; the fan named the target.
+    run(
+      "UPDATE users SET referred_by = ?1, referred_at = ?3 WHERE id = ?2",
+      w.idol.id,
+      w.target.id,
+      now,
+    );
+    run("UPDATE users SET referral_count = 1 WHERE id = ?1", w.idol.id);
+    run(
+      "UPDATE users SET referred_by = ?1, referred_at = ?3 WHERE id = ?2",
+      w.target.id,
+      w.fan.id,
+      now,
+    );
+    run("UPDATE users SET referral_count = 1 WHERE id = ?1", w.target.id);
+    // Someone else's words about them, which an erasure does not rewrite.
+    await w.run("posts.create", w.fan.actor, {
+      threadId: w.thread.thread.id,
+      body: "Thanks @Target for the help",
+    });
+    return w;
+  }
+
+  /** Every table's rows, as text, that contain `needle`. */
+  const tablesHolding = (w: Awaited<ReturnType<typeof seeded>>, needle: RegExp) =>
+    w.ctx.sqlite
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+      )
+      .all()
+      .map(({ name }) => name)
+      .filter((name) =>
+        w.ctx.sqlite
+          .query<Record<string, unknown>, []>(`SELECT * FROM "${name}"`)
+          .all()
+          .some((row) => needle.test(JSON.stringify(row))),
+      );
+
+  test("the address, the network address and the browser are in no table afterwards", async () => {
+    const w = await seeded();
+    expect(tablesHolding(w, /target@example\.test/i).length).toBeGreaterThan(0);
+    await w.erase();
+    expect(tablesHolding(w, /target@example\.test/i)).toEqual([]);
+    expect(tablesHolding(w, new RegExp(ADDRESS_IP.replace(/\./g, ".")))).toEqual([]);
+    expect(tablesHolding(w, /Seed-Agent/)).toEqual([]);
+    expect(tablesHolding(w, /img\.example\/target/)).toEqual([]);
+  });
+
+  test("the old name remains only where other members wrote it", async () => {
+    const w = await seeded();
+    await w.erase();
+    // Documented: a mention or a quotation of the name inside other members' posts is not
+    // rewritten; the moderator log never held the name.
+    const hits = tablesHolding(w, /\bTarget\b/);
+    expect(hits.sort()).toEqual(["post_bodies"]);
+  });
+
+  test("removes only their own delivery records, devices and finished account emails", async () => {
+    const w = await seeded();
+    await w.erase();
+    const count = (sql: string) => w.ctx.sqlite.query<{ n: number }, []>(sql).get()!.n;
+    expect(count("SELECT count(*) AS n FROM undeliverable_emails")).toBe(1);
+    expect(count("SELECT count(*) AS n FROM email_failures")).toBe(1);
+    expect(count("SELECT count(*) AS n FROM push_subscriptions")).toBe(1);
+    expect(count("SELECT count(*) AS n FROM jobs WHERE type = 'email.account'")).toBe(1);
+  });
+
+  test("ends their referral links and keeps the counters consistent", async () => {
+    const w = await seeded();
+    await w.erase();
+    expect(w.user()).toMatchObject({ referred_by: null, referred_at: null, referral_count: 0 });
+    // The member they named loses one; the member who named them has no referrer any more.
+    expect(w.user(w.idol.id)).toMatchObject({ referral_count: 0 });
+    expect(w.user(w.fan.id)).toMatchObject({ referred_by: null, referred_at: null });
+    await w.erase();
+    expect(w.user(w.idol.id)).toMatchObject({ referral_count: 0 });
+  });
+
+  test("a name that already is Deleted member <id>-<n> is kept, not renamed", async () => {
+    const w = await world();
+    const name = `Deleted member ${w.target.id}-3`;
+    w.ctx.sqlite
+      .prepare("UPDATE users SET username = ?1, username_key = ?2 WHERE id = ?3")
+      .run(name, name.toLowerCase(), w.target.id);
+    w.ctx.sqlite
+      .prepare("UPDATE auth_user SET name = ?1, username = ?2, display_username = ?1 WHERE id = ?3")
+      .run(name, name.toLowerCase(), w.target.id);
+    await w.erase();
+    expect(w.user()).toMatchObject({ username: name, username_key: name.toLowerCase() });
+  });
+});

@@ -4,6 +4,7 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentialsBatch } from "../auth";
+import { pruneSignInFailures } from "../auth/sign-in-limit";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
@@ -18,12 +19,15 @@ export const SCHEDULES = {
   weekly: "0 0 4 * * 1",
 } as const;
 const DAY_MS = 24 * 60 * 60_000;
+const FAILED_BATCHES = 5;
 
 export const purgeSql = {
   reads:
     "SELECT r.id, t.last_post_at FROM thread_reads r JOIN threads t ON t.id = r.thread_id " +
     "WHERE r.id > ?1 ORDER BY r.id LIMIT 1000",
   done: "SELECT id FROM jobs WHERE status = 'done' AND run_at < ?1 ORDER BY run_at, id LIMIT 1000",
+  failed:
+    "SELECT id FROM jobs WHERE status = 'failed' AND run_at < ?1 ORDER BY run_at, id LIMIT 1000",
 };
 
 const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -64,6 +68,7 @@ export async function runHourlyTasks(
     {},
     { uniqueKey: `notification-retention:${Math.floor(ctx.now() / 3_600_000)}` },
   );
+  pruneSignInFailures(ctx);
   queueSeoEvents(ctx);
   queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;
@@ -95,6 +100,21 @@ export async function runHourlyTasks(
   while (true) {
     const size = writeTx(ctx, () => {
       const rows = doneBatch.all(doneCutoff);
+      if (rows.length > 0) deleteDone.run(JSON.stringify(rows.map((row) => row.id)));
+      return rows.length;
+    });
+    if (size < 1000) break;
+    await yieldToEventLoop();
+  }
+  // Failed jobs stay a month for inspection (admin.jobs counts them), then go; at most
+  // FAILED_BATCHES batches per run, the next run continues.
+  const failedCutoff = ctx.now() - 30 * DAY_MS;
+  const failedBatch = prepared(ctx, "jobs.oldFailed", () =>
+    ctx.sqlite.prepare<{ id: number }, [number]>(purgeSql.failed),
+  );
+  for (let batches = 0; batches < FAILED_BATCHES; batches++) {
+    const size = writeTx(ctx, () => {
+      const rows = failedBatch.all(failedCutoff);
       if (rows.length > 0) deleteDone.run(JSON.stringify(rows.map((row) => row.id)));
       return rows.length;
     });

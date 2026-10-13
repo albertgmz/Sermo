@@ -36,6 +36,12 @@ export const MemberCard = z
     ),
     /** From the XP of the awards held and the site's level settings; 1 or more. */
     level: z.number().int().positive(),
+    /**
+     * True when the viewer may not open this member's profile: `users.cards` and `users.authors`
+     * then answer a minimal card (id, username, avatar, frame, name colour and badges; the title
+     * is empty and the level 1). False everywhere else.
+     */
+    restricted: z.boolean(),
   })
   .meta({ id: "MemberCard" });
 
@@ -44,7 +50,9 @@ export const usersCards = defineContract({
   summary:
     "The cards of up to 100 members in one call, in no particular order. Unknown ids are left " +
     "out. Open to everyone: a card holds only what is shown next to a name wherever that " +
-    "member's content is visible.",
+    "member's content is visible. For a member whose profile the viewer may not open " +
+    "(their profile privacy, or the viewer lacks profile.view) the card is minimal and " +
+    "`restricted` is true: title empty, level 1.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(100) }),
   output: z.object({ items: z.array(MemberCard) }),
@@ -87,7 +95,10 @@ export const usersAuthors = defineContract({
     "Up to 50 members as authors, in one call and in no particular order: each one's card, " +
     "profile cover, counters, level bounds, the awards they show and their signature. Unknown " +
     "ids are left out. Open to everyone, like users.cards: it holds only what is drawn around " +
-    "that member's content wherever the content is visible.",
+    "that member's content wherever the content is visible. For a member whose profile the " +
+    "viewer may not open the card is the minimal one (`card.restricted` true) and the cover is " +
+    "null, the join date is the epoch, the counters are zero, the next level bound is 1, the " +
+    "awards are empty and the signature is null: a client shows only the card.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(50) }),
   output: z.object({ items: z.array(MemberAuthor) }),
@@ -226,7 +237,8 @@ export const standingsWinners = defineContract({
 export const usersChangeUsername = defineContract({
   name: "users.changeUsername",
   summary:
-    "Change your own username. Free for holders of profile.renameFree; otherwise it takes one " +
+    "Change your own username. Requires profile.editOwn. Free for holders of profile.renameFree; " +
+    "otherwise it also requires the shop purchase permission (shop.buy) and takes one " +
     "unit of a `usernameChange` shop item from the inventory (a conflict when there is none). " +
     "The name obeys the registration rules and must be free, compared without regard to case " +
     "(changing only the case of one's own name is allowed). The unit is taken first and given " +

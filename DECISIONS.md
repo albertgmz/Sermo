@@ -1110,7 +1110,8 @@ bump is not a post: unread state, counters and last-post data do not move.
 **Rankings are computed in the background and kept per forum** (`rankings`, job every five
 minutes and at startup): the most replied-to, most reacted-to and most viewed threads, and the
 week's most reacted-to posts. A reader merges the rankings of the forums the viewer can see,
-filters by current state and ignored authors, then cuts. Two earlier designs were rejected by
+filters by current state and ignored authors, then cuts (`threads.ranked` applies the viewer's
+ignores to the three "most" rankings; `latestPosts` and `latestThreads` do not). Two earlier designs were rejected by
 review: one global list (hidden forums pushed everything out, and its emptiness hinted at hidden
 activity) and a per-forum cap equal to the reader's size (nothing replaced filtered entries). No
 hot path counts or totals reactions.
@@ -1246,8 +1247,18 @@ birthday, social handles, what they wear, avatar and cover); queued account emai
 which hold the old address and sometimes a reset link, are deleted; last, the name becomes
 `Deleted member <id>`, or the first free `Deleted member <id>-<n>` (n up to 20) when an account
 from before the name was reserved holds it. The name goes last because nothing else depends on it.
-What stays: what the member wrote (under the new name), their ledger, warnings and every log
-entry. An erased member is marked, not just banned: `bans.lift` refuses them, a session cannot
+Also removed in the profile step: the member's rows in `email_failures` (by member and by their old
+address), the old address in `undeliverable_emails` (both are deleted just before the address is
+replaced, because afterwards the old address is unknown and a rerun could not find it), their
+`push_subscriptions`, `auth_user.image` (through Better Auth), every account email job of the member
+that is not running (finished ones hold the address too), and the referral links: their own
+`referred_by`/`referred_at` end and the referrer's `referral_count` drops by one; members they
+referred lose their `referred_by`/`referred_at` (a referred member can then name a referrer again
+inside the first seven days) and the erased member's own count becomes 0. The month standings keep
+what they already counted. What stays: what the member wrote (under the new name), their ledger,
+warnings and every log entry. **Owner review:** `@name` mentions and quotation attributions
+inside other members' posts keep the old name; rewriting other people's posts is not done, so the
+name of an erased member can still be found there (a test lists the only table that holds it). An erased member is marked, not just banned: `bans.lift` refuses them, a session cannot
 start for them even with no ban in force, Better Auth's reset-password endpoint refuses a link of
 theirs and its request endpoint makes none, `AdminMember.state` is `erased` (it wins over
 `banned`), and every administrative write on them (identity, profile, sessions) is a conflict;
@@ -1330,7 +1341,9 @@ fixture, jobs, tests) never carry the marker and are not asked; a new caller tha
 sessions from cookies and should be held to the rule must set it. The promotion writes are
 included because a promotion grants groups to members. Group names stay readable without it.
 **Owner review:** API keys are exempt, so a stolen key can change groups and permissions without
-the password; the alternative is to forbid these writes to keys altogether. `DELETE` routes read
+the password; the alternative is to forbid these writes to keys altogether. The exemption is only
+as good as the difficulty of getting a key, so a key can no longer be had with a cookie alone: see
+"API keys are credentials" below. `DELETE` routes read
 their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
 password there.
 
@@ -1394,6 +1407,54 @@ rights) pays no statement for it: the check is the permission state already in m
 holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
 of the panel's home page the numbers are not cached: they are a few indexed rows for staff only.
 
+**API keys are credentials.** A key acts without the password rule, so walking around the rule
+by minting one from a stolen browser session had to be closed. `POST /api/auth/api-key/create`
+from a session now needs the member's current password in the body (`{ "name": "...", "password":
+"..." }`): a missing one is a 400 (`PASSWORD_REQUIRED`), a wrong one a 403 (`INVALID_PASSWORD`),
+and the answers are counted with the same limits as `actorPassword` (five wrong per session,
+twenty per member in fifteen minutes; a further answer, right ones included, is a 429). A call made
+in-process with a `userId` and no session (loaders, tests) is not asked. A member's own change of
+password, a reset by link, an administrator setting the password and an administrator signing the
+member out of every session each revoke all the member's API keys; revoking one session by id does
+not. What a key can and cannot do:
+
+- A key acts with the permissions of its member, on every operation that does not ask for a session.
+  That includes the group, permission and promotion writes that otherwise take `actorPassword`
+  (the key is not asked, and refused if it sends one: the Owner review item above).
+- A key cannot create, list or delete keys, change the member's password, address or username through
+  Better Auth, or open a session (those endpoints need a session cookie, and a request with a key is
+  unauthenticated there).
+- A key cannot call `auth.verifyPassword`, `users.adminUpdateIdentity` or `users.adminErase`, which
+  need the acting member's own password and a session.
+- A key stops working when the member is banned or erased, when its expiry passes, and in the
+  cases of the previous paragraph.
+
+**Sign-in counts wrong passwords per account and address.** `/sign-in/email` and
+`/sign-in/username` had only Better Auth's three requests per ten seconds per address, which
+rotating addresses multiply. Now ten wrong passwords in fifteen minutes for one account name (or
+address) as typed, from one client address, end that account's sign-ins from that address with a 429
+(`TOO_MANY_ATTEMPTS`), right passwords included, until the oldest wrong one leaves the window.
+Other addresses are not affected, so a stranger cannot lock the owner out from elsewhere. The count
+is kept for names that do not exist too, so the answer never tells an unknown account from a known
+one. It does not reuse `admin_password_failures` (a row there belongs to a member by foreign key,
+which an unknown account has not): `sign_in_failures` (migration 0029) holds one row per wrong
+answer under a SHA-256 digest of the account and address, so it stores neither; it is pruned per key
+on every write and in bounded batches by the hourly cleanup. A request with no client address
+(an in-process call) is not counted. A guess is recorded before the password is checked and given
+back when the answer was anything but a wrong password.
+
+**Cards respect profile privacy.** `users.cards` and `users.authors` answered the full block for any
+id, so a member whose profile the viewer cannot open (`profileViewPrivacy`, or the viewer lacks
+`profile.view`) still showed title, cover, join date, counters and signature, and a guest could
+walk the member table by id. For such a member both now return the minimal card: id, username,
+avatar, frame, name colour and badges (what is drawn next to a post; there is no separate staff
+flag, the staff groups' badges carry it), title empty, level 1, and `restricted: true`; the author
+block also has a null cover, the epoch as join date, zero counters, `nextLevelXp` 1, no awards and a
+null signature. The rule is the one of `profiles.get` (the member themselves, or a holder of
+`profile.bypassPrivacy`, or the privacy mode against the viewer), decided for the whole batch from
+one privacy query and the viewer resolved once. Other loaders (administration, directory, standings)
+are unchanged and report `restricted: false`. Banned and erased members are treated as before.
+
 **Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
 my password?" without any limit beyond 100 requests per ten seconds per address) is no longer
 served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
@@ -1423,9 +1484,17 @@ path, session cookies and the `Origin` check see one origin (`BETTER_AUTH_URL` e
 the browser bar), and file downloads never pass through Next. Paths routed to the backend, taken
 from the route table in `packages/api/src/app.ts`: `/api/*` (Better Auth, REST, files, OpenAPI),
 `/mcp`, `/health`, `/robots.txt`, `/sitemap.xml`, `/sitemaps/*`, `/feed.atom`,
-`/nodes/*/feed.atom`, and `/*.txt` (the IndexNow key file; the web app serves no `.txt`). The web
+`/forums/*/feed.atom` (and `/nodes/*/feed.atom`, which answers 301 to it), and `/*.txt` (the IndexNow key file; the web app serves no `.txt`). The web
 app has no routes of its own under any of these. Uploads from the pages are Next route handlers and
 travel ingress, `web`, backend.
+
+**One public address scheme.** Everything the backend publishes as a page address (sitemaps,
+feeds, canonical links, structured data, push links) is `/forums/<id>-<slug>`, `/threads/<id>-<slug>`
+and `/members/<id>-<slug>`, the addresses the web app serves; the slug is cosmetic and the number
+decides. The per-forum feed is `/forums/<id>/feed.atom` (the slugged form is accepted too); the
+earlier `/nodes/<id>/feed.atom` answers 301 to it. The REST API's own `/api/v1/nodes/...` routes
+are unchanged. Static pages are served by the web app at `/pages/<slug>`; the sitemaps do not list
+them.
 
 **The build-time `/api` rewrite is acceptable and `next.config.ts` is unchanged.** The rewrite is
 fixed when the image is built, but with the ingress it only answers when the web app is reached
@@ -1458,8 +1527,8 @@ value breaks the deployment.
 (default 32MiB, Caddy `request_body max_size`), and the backend's fixed transport ceiling. The first
 two are raised together. Caddy does not buffer request bodies unless asked to.
 
-**Health checks and ordering.** Backend: its `/health`. Web: a static file, so its health does not
-depend on the backend. Ingress: a separate internal listener (`:8081/ready`) so it reports itself
+**Health checks and ordering.** Backend: its `/health`. Web: a check that the port answers, so its health
+does not depend on the backend. Ingress: a separate internal listener (`:8081/ready`) so it reports itself
 only. `web` waits for `sermo` to be healthy; the ingress waits for both. Restart `unless-stopped`;
 stop periods 40 s (backend, existing), 20 s, 10 s.
 
@@ -1477,4 +1546,39 @@ administrator exists). There is no CLI and the first registered member is not pr
 gap only if the variables are left empty.
 
 **TLS** is out of scope; the docs say it goes at the ingress, or in front of it with
-`trusted_proxies` set.
+`trusted_proxies` set. Both upstreams get `header_up X-Forwarded-For {client_ip}`: Caddy defines
+`client_ip` as the connection's address, or, when the connection comes from a configured trusted
+proxy, the real client parsed from the forwarded header. Setting it explicitly means the backend and
+the web app always receive exactly one address, never the list a proxy chain would append. Without
+`trusted_proxies` behind another proxy every visitor shares that proxy's address, which turns the
+per-address limits into site-wide ones; `docs/deployment.md` says so. The backend refuses to start
+when `BETTER_AUTH_SECRET` is shorter than 32 characters.
+
+## Upgrading and rolling back
+
+**Migration `0026` was rewritten before it shipped.** Its backfill looked up each inventory row's
+purchases by item and recipient with only the `(item_id, id)` index to help, so an item held by many
+members cost a scan of all its purchases per holder (17 s for 20,000 holders, inside the start-up
+transaction). It now creates a temporary index on `(item_id, recipient_id, id)`, runs the same two
+updates, and drops the index in the same migration. The result is identical. Drizzle records an
+applied migration by its journal timestamp, not by the file's content (it applies a migration only
+when the timestamp is newer than the last recorded one), so a developer database that already ran
+the old `0026` does nothing: it is neither rerun nor flagged. A test runs the statements over 20,000
+holders and fails above five seconds.
+
+**Rolling back.** After migration `0024` the shop effects are stored in a shape that `main`'s code
+rejects (they refer to catalog entries by id). Going back to `main`'s code therefore needs a
+database restored from a backup taken before the upgrade; running the old code on the upgraded
+database fails when it reads a shop item.
+
+**Custom staff groups.** Migration `0023` marks only the built-in Moderator and Administrator
+groups as staff (`groups.is_staff`). Groups an owner made for staff before the upgrade need "listed
+as staff" ticked once; `docs/deployment.md` says so under Upgrade.
+
+**Catalog pictures are immutable by file id.** A picture is served from `/api/v1/files/<id>` with a
+year-long cache, and replacing one requires a new upload (a new file id; the old id is refused as
+a replacement because it is no longer an unattached upload). The entry then points at the new id and
+the old file is queued for permanent deletion by the storage job. A client that cached the old
+address keeps showing the old picture from its cache until it reads the entry again (it then gets
+the new address, so the old one is simply no longer referenced); once the job has run, the old
+address answers not found.

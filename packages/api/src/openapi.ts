@@ -1,4 +1,4 @@
-import { type Ctx, getAuth } from "@sermo/core";
+import { type Ctx, getAuth, schema } from "@sermo/core";
 import * as z from "zod";
 import { routeOperations } from "./routes";
 
@@ -173,7 +173,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
           in: "query",
           schema: {
             type: "string",
-            enum: ["attachment", "avatar", "cover", "node_icon", "node_cover"],
+            enum: [...schema.FILE_PURPOSES],
           },
         },
       ],
@@ -214,7 +214,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     ["/sitemap.xml", "seo.sitemapIndex", "application/xml"],
     ["/sitemaps/{name}", "seo.sitemapShard", "application/xml"],
     ["/feed.atom", "seo.siteFeed", "application/atom+xml"],
-    ["/nodes/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
+    ["/forums/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
     ["/{key}.txt", "seo.indexNowKey", "text/plain"],
   ] as const) {
     paths[path] = {

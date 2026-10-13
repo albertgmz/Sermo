@@ -6,7 +6,7 @@ import { implement } from "../../operation";
 import { getNodeTree } from "../../permissions";
 import { type ThreadRow, threadColumns, threadRowsByIds, threadValuesFor } from "../forums";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
-import { visibleNodes } from "./viewer";
+import { ignoredAmong, visibleNodes } from "./viewer";
 
 const DAY = 86_400_000;
 /** Threads count for the "most" rankings while their last post is this recent. */
@@ -338,9 +338,19 @@ export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
         chunk.map((row) => row.target_id),
       ).map((row) => [row.id, row]),
     );
+    const ignored = ignoredAmong(
+      ctx,
+      actor,
+      [...byId.values()].map((thread) => thread.user_id),
+    );
     return chunk.flatMap((row) => {
       const thread = byId.get(row.target_id);
-      return thread && thread.state === "visible" && nodes.has(thread.node_id) ? [thread] : [];
+      return thread &&
+        thread.state === "visible" &&
+        nodes.has(thread.node_id) &&
+        !ignored.has(thread.user_id)
+        ? [thread]
+        : [];
     });
   });
   return { items: threadValuesFor(ctx, actor, rows) };

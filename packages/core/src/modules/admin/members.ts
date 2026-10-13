@@ -1,5 +1,5 @@
 import * as z from "zod";
-import type { Actor } from "../../actor";
+import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { AdminMember } from "../../contracts/admin";
 import { usersAdminGet, usersAdminList } from "../../contracts/admin";
@@ -87,9 +87,13 @@ export function buildAdminMembers(ctx: Ctx, actor: Actor, rows: AdminRow[]): Map
     const card = cards.get(row.id);
     if (!card) continue;
     const seen = Math.max(row.last_activity_at ?? 0, ctx.activity.get(row.id) ?? 0);
+    const editable = grants.can("admin.members", {
+      target: memberActor(row.id, row.group_id, row, versions),
+    });
     result.set(row.id, {
       card,
-      email: row.email,
+      // The address of a member who ranks at or above the actor is not shown to them.
+      email: editable || row.id === actorUserId(actor) ? row.email : null,
       emailVerified: !!row.email_verified,
       state: accountState(row, now),
       erasedAt: isoOrNull(row.erased_at),
@@ -98,9 +102,7 @@ export function buildAdminMembers(ctx: Ctx, actor: Actor, rows: AdminRow[]): Map
       usernameChangedAt: isoOrNull(row.username_changed_at),
       postCount: row.post_count,
       credits: row.credits,
-      canEdit: grants.can("admin.members", {
-        target: memberActor(row.id, row.group_id, row, versions),
-      }),
+      canEdit: editable,
     });
   }
   return result;
@@ -218,6 +220,8 @@ export const usersAdminListOp = implement(usersAdminList, (ctx, actor, input) =>
         : ids(source, [cursor, count]).map((row) => row.id);
     return list.map((id) => ({ id, at: [id] }));
   };
+  const grants = permissionsOf(ctx, actor);
+  const versions = requestVersions(ctx, actor);
   const scan = scanKeyset<Item, Key>({
     before: input.cursor
       ? (decodeCursor(input.cursor, source === "prefix" ? PrefixCursor : Cursor) as Key)
@@ -250,6 +254,17 @@ export const usersAdminListOp = implement(usersAdminList, (ctx, actor, input) =>
           : new Set<number>();
       return new Set(
         rows.filter((row) => {
+          // Found by address alone: only for a member the actor outranks, or the search would
+          // confirm the characters of a higher-ranked member's address one by one.
+          if (
+            source === "prefix" &&
+            row.at[0] === 2 &&
+            row.id !== actorUserId(actor) &&
+            !grants.can("admin.members", {
+              target: memberActor(row.id, row.group_id, row, versions),
+            })
+          )
+            return false;
           // Listed already among the usernames.
           if (
             source === "prefix" &&

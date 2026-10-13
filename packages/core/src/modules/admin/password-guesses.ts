@@ -1,6 +1,6 @@
 import { type Ctx, prepared } from "../../context";
 import { writeTx } from "../../db/tx";
-import { RateLimitedError } from "../../errors";
+import { ForbiddenError, RateLimitedError } from "../../errors";
 
 /**
  * Wrong answers one session may give, and one member across all their sessions, in the window.
@@ -59,4 +59,43 @@ export function takePasswordGuess(
 /** Gives a guess back after the password proved right. */
 export function forgivePasswordGuess(ctx: Ctx, guess: number): void {
   writeTx(ctx, () => ctx.sqlite.prepare(passwordGuessSql.forgive).run(guess));
+}
+
+/** The parts of Better Auth's context a password check reads. */
+export interface PasswordChecker {
+  internalAdapter: {
+    findCredentialAccount(userId: string): Promise<{ password?: string | null } | null>;
+  };
+  password: {
+    hash(password: string): Promise<string>;
+    verify(data: { hash: string; password: string }): Promise<boolean>;
+  };
+}
+
+/**
+ * The member's own password, checked the way Better Auth checks a sign-in and under the
+ * wrong-answer limits above (`RateLimitedError` once they are used up, `ForbiddenError` for a
+ * wrong answer). A right answer gives its guess back but does not clear the earlier wrong ones.
+ */
+export async function checkOwnPassword(
+  ctx: Ctx,
+  authContext: PasswordChecker,
+  userId: number,
+  sessionId: number,
+  password: string,
+  field = "actorPassword",
+): Promise<void> {
+  const guess = takePasswordGuess(ctx, userId, sessionId, field);
+  const wrong = () =>
+    new ForbiddenError("That is not your password.", [
+      { path: [field], message: "Wrong password" },
+    ]);
+  const account = await authContext.internalAdapter.findCredentialAccount(String(userId));
+  if (!account?.password) {
+    // Spend the same time as a wrong password would, so the answer does not tell the two apart.
+    await authContext.password.hash(password);
+    throw wrong();
+  }
+  if (!(await authContext.password.verify({ hash: account.password, password }))) throw wrong();
+  forgivePasswordGuess(ctx, guess);
 }

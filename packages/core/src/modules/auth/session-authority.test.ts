@@ -190,7 +190,12 @@ for (const prefix of ["", "__Secure-", "__Host-"])
 for (const state of ["revoked", "expired"])
   test(`${state} session cannot mint a non-expiring API key through a cached cookie`, async () => {
     const { ctx, auth, request, userId, token, data, cookie } = await setup();
-    const live = await request("/api-key/create", "POST", { name: "live" }, cookie);
+    const live = await request(
+      "/api-key/create",
+      "POST",
+      { name: "live", password: "Password123!" },
+      cookie,
+    );
     expect(live.status).toBe(200);
     const key = (await live.json()) as { key: string; expiresAt: null };
     expect(key.expiresAt).toBeNull();

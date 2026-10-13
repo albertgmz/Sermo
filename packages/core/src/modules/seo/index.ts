@@ -19,7 +19,7 @@ function config(ctx: Ctx) {
   return {
     baseURL: ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000",
     templates: {
-      siteName: "Sermo",
+      siteName: settings.siteName,
       nodeTitle: settings.nodeTitleTemplate,
       threadTitle: settings.threadTitleTemplate,
       profileTitle: settings.profileTitleTemplate,

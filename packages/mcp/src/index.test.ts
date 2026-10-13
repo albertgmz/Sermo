@@ -3,7 +3,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { execute, GUEST, operations } from "@sermo/core";
-import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import {
+  createKeyFromSession,
+  createTestContext,
+  insertUser,
+  userActor,
+} from "@sermo/core/testing";
 import { getAuth, resolveActor } from "../../core/src/modules/auth";
 import { nodesCreateOp } from "../../core/src/modules/forums";
 import { createMcpHandler, toolInputSchema } from "./index";
@@ -85,10 +90,7 @@ test("API key client lists registry tools and creates and reads a thread and rep
     type: "forum",
     title: "General",
   });
-  const key = await auth.api.createApiKey({
-    headers: new Headers({ cookie: sessionCookie }),
-    body: { name: "mcp-test" },
-  });
+  const key = await createKeyFromSession(auth, sessionCookie, "mcp-test");
   const { mcp, transport } = client(`Bearer ${key.key}`);
   await mcp.connect(transport);
   try {
@@ -301,10 +303,7 @@ test("bad and disabled API keys reject a real call before an operation runs", as
     .getSetCookie()
     .map((value) => value.split(";")[0])
     .join("; ");
-  const key = await auth.api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "mcp" },
-  });
+  const key = await createKeyFromSession(auth, cookie, "mcp");
   const admin = userActor(insertUser(ctx, { groupId: 4 }));
   const forum = await execute(ctx, nodesCreateOp, admin, {
     parentId: null,

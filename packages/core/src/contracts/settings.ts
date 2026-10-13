@@ -42,6 +42,8 @@ export const SiteSettings = z
       .nullable(),
     /** Shown in emails and titles. */
     siteName: z.string().trim().min(1).max(100).default("Sermo"),
+    /** A sentence about the site, for the meta description and the footer; empty when none. */
+    siteDescription: z.string().trim().max(300).default(""),
     /** Language for guests and members who have not chosen one. */
     defaultLanguage: z.enum(SUPPORTED_LANGUAGES).default("en"),
     /** Mentions per item for members younger than newMemberDays (mention.maxPerItem applies too). */

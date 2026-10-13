@@ -288,16 +288,20 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     });
   });
   app.get("/feed.atom", (c) =>
-    c.text(atomFeed(ctx, siteURL, "Sermo"), 200, {
+    c.text(atomFeed(ctx, siteURL, readSiteSettings(ctx).siteName), 200, {
       "content-type": "application/atom+xml; charset=utf-8",
     }),
   );
-  app.get("/nodes/:nodeId/feed.atom", (c) => {
+  // The address this feed had before forums moved to /forums: kept answering with a redirect.
+  app.get("/nodes/:nodeId/feed.atom", (c) =>
+    c.redirect(`/forums/${encodeURIComponent(c.req.param("nodeId"))}/feed.atom`, 301),
+  );
+  app.get("/forums/:nodeId/feed.atom", (c) => {
     const match = /^(\d+)(?:-[^/]+)?$/.exec(c.req.param("nodeId"));
     const id = Number(match?.[1]);
     if (!Number.isSafeInteger(id) || id < 1)
       return c.json(errorBody("validation", "Invalid node ID."), 400);
-    return c.text(atomFeed(ctx, siteURL, "Sermo", id), 200, {
+    return c.text(atomFeed(ctx, siteURL, readSiteSettings(ctx).siteName, id), 200, {
       "content-type": "application/atom+xml; charset=utf-8",
     });
   });

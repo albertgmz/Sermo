@@ -175,5 +175,5 @@ export function sitemapIndex(ctx: Ctx, baseURL: string): string {
 
 export function robotsTxt(baseURL: string): string {
   const sitemap = new URL("/sitemap.xml", requireBaseURL(baseURL)).href;
-  return `User-agent: *\nDisallow: /search\nDisallow: /api/\nDisallow: /mcp\nSitemap: ${sitemap}\n`;
+  return `User-agent: *\nDisallow: /search\nAllow: /api/v1/files/\nDisallow: /api/\nDisallow: /mcp\nSitemap: ${sitemap}\n`;
 }

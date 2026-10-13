@@ -15,6 +15,7 @@ type Card = {
   title: string;
   badges: { label: string; color: string | null; style: string }[];
   level: number;
+  restricted: boolean;
 };
 const cards = async (w: ReturnType<typeof world>, ids: number[], actor: object = w.memberActor) =>
   (await w.call("users.cards", actor, { userIds: ids })).items as Card[];
@@ -32,6 +33,7 @@ describe("users.cards", () => {
       title: "Member",
       badges: [],
       level: 1,
+      restricted: false,
     });
   });
 

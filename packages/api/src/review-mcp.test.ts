@@ -187,6 +187,7 @@ test("known paths answer unsupported methods with 405 and an accurate Allow head
   expect(await allow("PUT", "/health")).toEqual([405, "GET, HEAD"]);
   expect(await allow("POST", "/robots.txt")).toEqual([405, "GET, HEAD"]);
   expect(await allow("PUT", "/nodes/3/feed.atom")).toEqual([405, "GET, HEAD"]);
+  expect(await allow("PUT", "/forums/3/feed.atom")).toEqual([405, "GET, HEAD"]);
   expect(await allow("PUT", "/api/v1/openapi.json")).toEqual([405, "GET, HEAD"]);
   const operationRoute = await request("/api/v1/nodes", { method: "PUT" });
   expect(operationRoute.status).toBe(405);

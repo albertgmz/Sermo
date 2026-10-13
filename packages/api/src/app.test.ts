@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, ensureAdmin, localDriver, operations } from "@sermo/core";
+import { closeContext, ensureAdmin, localDriver, operations, schema } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
 import { coerceQueryValues, createApp } from "./app";
 import { buildOpenApiDocument } from "./openapi";
@@ -157,6 +157,12 @@ test("OpenAPI covers REST and Better Auth routes with resolvable references", as
     );
   expect(document.paths["/api/auth/sign-up/email"]?.post).toBeDefined();
   expect(document.paths["/api/auth/api-key/create"]?.post).toBeDefined();
+  const upload = document.paths["/api/v1/files"]?.post as unknown as {
+    parameters: { name: string; schema: { enum: string[] } }[];
+  };
+  const purposes = upload.parameters.find((parameter) => parameter.name === "purpose")!.schema.enum;
+  expect(purposes).toEqual([...schema.FILE_PURPOSES]);
+  expect(purposes.length).toBeGreaterThan(5);
   for (const [path, method] of [
     ["/api/auth/send-verification-email", "post"],
     ["/api/auth/verify-email", "get"],
@@ -280,7 +286,7 @@ test("Better Auth sessions, username sign-in, sign-out, and API keys", async () 
       origin: "http://localhost:3000",
       cookie: currentCookie,
     },
-    body: JSON.stringify({ name: "test" }),
+    body: JSON.stringify({ name: "test", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = (await created.json()) as { id: string; key: string };
@@ -333,7 +339,7 @@ test("cookie writes enforce CSRF and JSON while API keys can write", async () =>
   const created = await request("/api/auth/api-key/create", {
     method: "POST",
     headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
-    body: JSON.stringify({ name: "csrf" }),
+    body: JSON.stringify({ name: "csrf", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;
@@ -638,7 +644,7 @@ test("API-key write bypasses cookie CSRF and a second user has an independent li
       origin: "http://localhost:3000",
       "content-type": "application/json",
     },
-    body: JSON.stringify({ name: "write" }),
+    body: JSON.stringify({ name: "write", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;
@@ -685,7 +691,7 @@ test("real MCP route lists and calls tools with an API key and refreshes session
   const created = await request("/api/auth/api-key/create", {
     method: "POST",
     headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
-    body: JSON.stringify({ name: "mcp" }),
+    body: JSON.stringify({ name: "mcp", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;

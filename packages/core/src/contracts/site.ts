@@ -11,6 +11,8 @@ import { ImageReference } from "./images";
 export const Site = z
   .object({
     name: z.string(),
+    /** The site's description (up to 300 characters); empty when none is set. */
+    description: z.string(),
     logo: ImageReference,
     icon: ImageReference,
     backdrop: ImageReference,

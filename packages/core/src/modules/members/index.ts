@@ -1,7 +1,7 @@
 import { usersAuthors, usersCards } from "../../contracts/members";
 import { implement } from "../../operation";
 import { usersChangeUsernameOp } from "../auth/username";
-import { loadMemberAuthors, loadMemberCards } from "./cards";
+import { loadViewerAuthors, loadViewerCards } from "./cards";
 import { usersBirthdaysOp, usersListOp, usersSetReferrerOp, usersStaffOp } from "./directory";
 import { standingsMonthOp, standingsWinnersOp } from "./standings";
 
@@ -11,7 +11,7 @@ export { refreshStandings, registerStandingJobs } from "./standings";
 export const usersCardsOp = implement(
   usersCards,
   (ctx, actor, input) => {
-    const cards = loadMemberCards(ctx, actor, input.userIds);
+    const cards = loadViewerCards(ctx, actor, input.userIds);
     return { items: [...new Set(input.userIds)].flatMap((id) => cards.get(id) ?? []) };
   },
   {
@@ -23,7 +23,7 @@ export const usersCardsOp = implement(
 export const usersAuthorsOp = implement(
   usersAuthors,
   (ctx, actor, input) => {
-    const authors = loadMemberAuthors(ctx, actor, input.userIds);
+    const authors = loadViewerAuthors(ctx, actor, input.userIds);
     return { items: [...new Set(input.userIds)].flatMap((id) => authors.get(id) ?? []) };
   },
   {

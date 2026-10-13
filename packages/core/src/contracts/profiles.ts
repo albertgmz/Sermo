@@ -121,11 +121,17 @@ export const profilesGet = defineContract({
   output: Profile.extend({ seo: SeoMetadata }),
 });
 
-const Handle = z
+export const Handle = z
   .string()
   .trim()
   .max(40)
   .regex(/^[A-Za-z0-9_.#-]*$/, "Use letters, digits, dots, underscores, hyphens and #.");
+
+export const BirthdayInput = z.object({
+  year: z.number().int().min(1900).max(2100).optional(),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+});
 
 export const profilesUpdate = defineContract({
   name: "profiles.update",
@@ -150,14 +156,7 @@ export const profilesUpdate = defineContract({
         message: "Use an http(s) URL without control characters.",
       })
       .optional(),
-    birthday: z
-      .object({
-        year: z.number().int().min(1900).max(2100).optional(),
-        month: z.number().int().min(1).max(12),
-        day: z.number().int().min(1).max(31),
-      })
-      .nullable()
-      .optional(),
+    birthday: BirthdayInput.nullable().optional(),
     socials: z.object({ discord: Handle, telegram: Handle, x: Handle }).partial().optional(),
     customTitle: z.string().trim().max(100).nullable().optional(),
     signature: z.string().trim().max(2000).nullable().optional(),

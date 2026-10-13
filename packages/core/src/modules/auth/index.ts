@@ -38,10 +38,15 @@ import {
   resolvedPermissions,
 } from "../../permissions";
 import { iso } from "../../time";
-import { forgivePasswordGuess, takePasswordGuess } from "../admin/password-guesses";
+import {
+  checkOwnPassword,
+  forgivePasswordGuess,
+  takePasswordGuess,
+} from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { queueCounts } from "../moderation";
 import { usernameChange } from "./rename-marker";
+import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
 
 /**
@@ -95,6 +100,12 @@ const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
 
 /** The wrong-password guess a change-password request took, to give back when it succeeds. */
 const PASSWORD_GUESS = "sermoPasswordGuess";
+
+/** The wrong-password count a sign-in request took, to give back when it was not one. */
+const SIGN_IN_GUESS = "sermoSignInGuess";
+
+/** The member a reset-password link belongs to, to end their API keys once it is used. */
+const RESET_HOLDER = "sermoResetHolder";
 
 function withoutSessionCookies(hook: AuthHookContext) {
   const strip = (name: string) => name.toLowerCase().replace(/^__(?:secure|host)-/, "");
@@ -450,6 +461,58 @@ function buildAuth(ctx: Ctx) {
               });
             }
           }
+          if (hook.path === "/sign-in/email" || hook.path === "/sign-in/username") {
+            // Better Auth's own limit is three requests per ten seconds per address. This one
+            // counts wrong passwords per account and address: ten in fifteen minutes, then the
+            // sign-in answers as rate limited for that account from that address only.
+            const tried: unknown =
+              hook.path === "/sign-in/email" ? hook.body?.email : hook.body?.username;
+            const ip = (hook.headers ?? hook.request?.headers)?.get(
+              ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip",
+            );
+            if (typeof tried === "string" && ip)
+              try {
+                Reflect.set(hook.context, SIGN_IN_GUESS, takeSignInGuess(ctx, tried, ip));
+              } catch (error) {
+                if (!(error instanceof RateLimitedError)) throw error;
+                throw new APIError("TOO_MANY_REQUESTS", {
+                  code: "TOO_MANY_ATTEMPTS",
+                  message: error.message,
+                });
+              }
+          }
+          if (hook.path === "/api-key/create" && hook.context.session) {
+            // A key acts without the password rule, so minting one from a session takes the
+            // member's current password, under the same wrong-answer limits as everywhere else.
+            const password: unknown = hook.body?.password;
+            if (typeof password !== "string" || !password)
+              throw new APIError("BAD_REQUEST", {
+                code: "PASSWORD_REQUIRED",
+                message: "Your current password is required to create an API key.",
+              });
+            try {
+              await checkOwnPassword(
+                ctx,
+                hook.context,
+                Number(hook.context.session.user.id),
+                Number(hook.context.session.session.id),
+                password,
+                "password",
+              );
+            } catch (error) {
+              if (error instanceof RateLimitedError)
+                throw new APIError("TOO_MANY_REQUESTS", {
+                  code: "TOO_MANY_ATTEMPTS",
+                  message: error.message,
+                });
+              if (error instanceof ForbiddenError)
+                throw new APIError("FORBIDDEN", {
+                  code: "INVALID_PASSWORD",
+                  message: error.message,
+                });
+              throw error;
+            }
+          }
           if (hook.path === "/reset-password") {
             // An erased member's link is dead even if one survived the erasure.
             const token: unknown = hook.body?.token ?? hook.query?.token;
@@ -460,6 +523,7 @@ function buildAuth(ctx: Ctx) {
                   )
                 : null;
             const holder = Number(pending?.value);
+            if (Number.isSafeInteger(holder)) Reflect.set(hook.context, RESET_HOLDER, holder);
             if (
               Number.isSafeInteger(holder) &&
               prepared(ctx, "auth.erasedMember", () =>
@@ -600,6 +664,18 @@ function buildAuth(ctx: Ctx) {
           returned instanceof APIError &&
           (returned.body as { code?: unknown } | undefined)?.code === "INVALID_PASSWORD";
         if (typeof guess === "number" && !wrongPassword) forgivePasswordGuess(ctx, guess);
+        const signIn = Reflect.get(hook.context, SIGN_IN_GUESS);
+        const wrongSignIn =
+          returned instanceof APIError &&
+          /^INVALID_(?:EMAIL|USERNAME)_OR_PASSWORD$/.test(
+            String((returned.body as { code?: unknown } | undefined)?.code),
+          );
+        if (typeof signIn === "number" && !wrongSignIn) forgiveSignInGuess(ctx, signIn);
+        // A new password also ends the member's API keys: they are credentials too.
+        if (!failed && (hook.path === "/change-password" || hook.path === "/reset-password")) {
+          const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;
+          if (holder !== undefined) await revokeApiKeys(ctx, Number(holder));
+        }
         if (!mailEnabled) return;
         if (failed) return;
         if (hook.path === "/change-password") {
@@ -823,6 +899,12 @@ export function getAuth(ctx: Ctx): SermoAuth {
 export async function revokeUserCredentials(ctx: Ctx, userId: number): Promise<void> {
   const authContext = await getAuth(ctx).$context;
   await authContext.internalAdapter.deleteUserSessions(String(userId));
+  await revokeApiKeys(ctx, userId);
+}
+
+/** Deletes every API key of the member: a key is a credential that outlives a password change. */
+export async function revokeApiKeys(ctx: Ctx, userId: number): Promise<void> {
+  const authContext = await getAuth(ctx).$context;
   await authContext.adapter.deleteMany({
     model: "apikey",
     where: [{ field: "referenceId", value: String(userId) }],
