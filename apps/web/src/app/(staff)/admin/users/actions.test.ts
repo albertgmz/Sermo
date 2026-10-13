@@ -40,6 +40,7 @@ const card = {
   nameColor: null,
   title: "",
   badges: [],
+  restricted: false,
   level: 1,
 };
 const member = {

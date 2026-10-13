@@ -61,6 +61,7 @@ const SETTINGS = {
   profileTitleTemplate: "{username} | {site}",
   indexNowKey: null,
   siteName: "Sermo",
+  siteDescription: "",
   defaultLanguage: "en",
   newMemberMentionLimit: 3,
   profilePostsEnabled: true,

@@ -43,6 +43,7 @@ const card = {
   nameColor: null,
   title: "Member",
   badges: [],
+  restricted: false,
   level: 1,
 };
 

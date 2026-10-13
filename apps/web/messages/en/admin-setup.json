@@ -80,6 +80,10 @@
       "label": "Site name",
       "help": "Shown in emails and titles."
     },
+    "siteDescription": {
+      "label": "Site description",
+      "help": "One or two sentences about the site. Shown to search engines and in the footer; leave empty to show neither."
+    },
     "defaultLanguage": {
       "label": "Default language",
       "help": "Language for guests and members who have not chosen one."

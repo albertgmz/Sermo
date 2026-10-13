@@ -26,6 +26,7 @@ const knownIn =
 
 const GENERAL: Spec = {
   siteName: "text",
+  siteDescription: "text",
   defaultLanguage: "language",
   profilePostsEnabled: "bool",
 };

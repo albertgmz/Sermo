@@ -11,7 +11,7 @@ import {
 const SEO: Seo = {
   title: "General | Sermo",
   description: "Talk about anything.",
-  canonical: "http://site.example/nodes/3-general",
+  canonical: "http://site.example/forums/3-general",
   robots: "index,follow",
   jsonLd: [{ "@type": "BreadcrumbList" }],
 };

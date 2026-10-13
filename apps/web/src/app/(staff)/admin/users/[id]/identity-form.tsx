@@ -38,7 +38,7 @@ export async function IdentityForm({
     >
       <input type="hidden" name="id" value={member.card.id} />
       <input type="hidden" name="usernameWas" value={member.card.username} />
-      <input type="hidden" name="emailWas" value={member.email} />
+      <input type="hidden" name="emailWas" value={member.email ?? ""} />
       <input
         type="hidden"
         name="verifiedWas"
@@ -64,7 +64,7 @@ export async function IdentityForm({
           name="email"
           type="email"
           required
-          defaultValue={member.email}
+          defaultValue={member.email ?? ""}
         />
         <label className="flex min-h-10 items-center gap-3 text-sm">
           <input

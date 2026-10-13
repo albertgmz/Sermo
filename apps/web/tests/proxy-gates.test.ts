@@ -128,7 +128,7 @@ const NODE = {
 function seoOf(canonical: string, redirect: boolean) {
   return Response.json({ ...NODE.seo, canonical, redirect });
 }
-const FORUM_3 = seoOf("http://localhost/nodes/3-general", false);
+const FORUM_3 = seoOf("http://localhost/forums/3-general", false);
 const CONVERSATION = {
   id: 5,
   title: "Seed swap",
@@ -442,7 +442,7 @@ test("the legacy LITE cookie is replaced on a page that carries the header", asy
 test("a forum is a 404 when the backend says it is not found, and only then", async () => {
   backend({
     "/api/v1/seo/nodes/3": FORUM_3,
-    "/api/v1/seo/nodes/42": seoOf("http://localhost/nodes/42-x", false),
+    "/api/v1/seo/nodes/42": seoOf("http://localhost/forums/42-x", false),
   });
   passes(await ask("/forums/3-general"));
   passes(await ask("/forums/42-x"));
@@ -628,13 +628,13 @@ test("an address that is not the canonical one is a 308 to it, with the one read
     ],
     [
       "/forums/3",
-      "http://localhost/nodes/3-general",
+      "http://localhost/forums/3-general",
       "/api/v1/seo/nodes/3",
       "/forums/3-general",
     ],
     [
       "/forums/3-stale",
-      "http://localhost/nodes/3-general",
+      "http://localhost/forums/3-general",
       "/api/v1/seo/nodes/3",
       "/forums/3-general",
     ],
@@ -671,7 +671,7 @@ test("the backend is asked for the address as it will be served, forums under th
   assert.deepEqual(seoQuery(asked), [
     {
       path: "/api/v1/seo/nodes/3",
-      requestedPath: "/nodes/3-general",
+      requestedPath: "/forums/3-general",
       page: null,
     },
     {

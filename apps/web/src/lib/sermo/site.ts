@@ -25,11 +25,8 @@ export type SiteIdentity = {
   accents: { id: number; color: string; foreground: string | null }[];
 };
 
-// The one place that reads the site's description. `site.get` may not carry the field (an older
-// backend), so the answer is read through a type that makes it optional: this compiles whether the
-// contract has `description: string` or has nothing, and gives "" for anything that is not text.
-// Once the field is in the contract, this is `site.description`. (Until then the contract's parse
-// drops the field, so the answer is always empty.)
+// The one place that reads the site's description: "" when the site has none or the answer
+// carries anything that is not text.
 export function siteDescription(site: object): string {
   const { description } = site as { description?: unknown };
   return typeof description === "string" ? description.trim() : "";

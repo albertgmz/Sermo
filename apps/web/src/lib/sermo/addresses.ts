@@ -5,7 +5,7 @@
 // This app's name for forums, in every address it serves and links to.
 export const FORUM_PREFIX = "forums";
 // The name the backend's canonical addresses and SEO reads use for forums.
-export const BACKEND_FORUM_PREFIX = "nodes";
+export const BACKEND_FORUM_PREFIX = "forums";
 // An older name for forums whose addresses are still out there; they are sent to the current one.
 export const LEGACY_FORUM_PREFIX = "nodes";
 

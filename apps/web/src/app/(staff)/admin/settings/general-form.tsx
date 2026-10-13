@@ -30,6 +30,7 @@ export async function GeneralForm() {
   return (
     <FormRows action={saveGeneral} heading={t("formHeading")}>
       <TextRow name="siteName" value={settings.siteName} />
+      <TextRow name="siteDescription" value={settings.siteDescription} />
       <FieldRow
         name="defaultLanguage"
         label={f("defaultLanguage.label")}

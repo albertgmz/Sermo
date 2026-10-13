@@ -24,6 +24,7 @@ export function groupBody(over: Record<string, unknown> = {}) {
 export function siteBody(over: Record<string, unknown> = {}) {
   return {
     name: "Garden Club",
+    description: "",
     logo: null,
     icon: null,
     backdrop: null,
