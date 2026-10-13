@@ -1,0 +1,16 @@
+{
+  "format": ["typescript", "tsx"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/drizzle/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/test-*.ts",
+    "**/testing/**"
+  ],
+  "minLines": 5,
+  "minTokens": 50,
+  "reporters": ["consoleFull", "json"],
+  "output": ".tmp-run/jscpd"
+}

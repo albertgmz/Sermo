@@ -17,6 +17,7 @@
     "test": "bun test ./packages ./scripts",
     "seed": "bun bench/seed.ts",
     "bench": "bun bench/run.ts",
+    "dupes": "jscpd apps/web/src packages scripts bench",
     "db:generate": "cd packages/core && drizzle-kit generate",
     "check": "bun run typecheck && bun run lint && bun run test && bun run check:web && bun run bench",
     "check:fast": "bun run typecheck && bun run lint && bun run test && bun run check:web",
@@ -29,6 +30,7 @@
     "@types/bun": "1.4.2",
     "@types/busboy": "1.5.4",
     "@types/node": "26.6.4",
+    "jscpd": "4.0.5",
     "typescript": "7.0.2"
   },
   "dependencies": {
