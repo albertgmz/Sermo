@@ -30,8 +30,9 @@ export async function AdjustScreen({
   searchParams: PageProps<"/admin/credits">["searchParams"];
 }) {
   const params: Params = await searchParams;
-  const [t, format, viewer] = await Promise.all([
+  const [t, kinds, format, viewer] = await Promise.all([
     getTranslations("adminEconomy.adjust"),
+    getTranslations("credits.history.types"),
     getFormatter(),
     getViewer(),
   ]);
@@ -211,7 +212,8 @@ export async function AdjustScreen({
                   </p>
                   <div className="min-w-0 space-y-0.5 [overflow-wrap:anywhere]">
                     <p>
-                      <Badge variant="secondary">{row.type}</Badge> {row.reason}
+                      <Badge variant="secondary">{kinds(row.type)}</Badge>{" "}
+                      {row.reason}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {row.actor &&
