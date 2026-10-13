@@ -233,6 +233,17 @@ function legacyForumRedirect(request: NextRequest) {
   return NextResponse.redirect(target, 308);
 }
 
+// The viewer for a gate: null for a guest, undefined when the backend could not be asked.
+async function visitorOf(request: NextRequest, hasSession: boolean) {
+  if (!hasSession) return null;
+  try {
+    return await viewerOf(request.headers);
+  } catch (error) {
+    if (error instanceof SermoError) return undefined;
+    throw error;
+  }
+}
+
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
@@ -279,14 +290,17 @@ async function handleRequest(request: NextRequest) {
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
   // The panel does not advertise itself: whoever may not open an address of it, a guest included,
   // gets the 404 of an address that does not exist. One `auth.me` read decides, and only for a
-  // visitor with a session.
+  // visitor with a session. When that read fails the backend has not said they may not, so the
+  // panel's page is let through: each of its reads is the backend's own to refuse.
   if (staffRequest || isStaffPath(pathname)) {
-    const viewer = hasSession ? await viewerOf(request.headers) : null;
-    if (!viewer || !mayOpenPath(viewer, pathname)) return notFound(request);
+    const viewer = await visitorOf(request, hasSession);
+    if (viewer !== undefined && (!viewer || !mayOpenPath(viewer, pathname)))
+      return notFound(request);
   }
-  // The styleguide is for the panel's people: the same one read decides.
+  // The styleguide is for the panel's people: the same one read decides, and without it the
+  // answer is no.
   if (isStyleguidePath(pathname)) {
-    const viewer = hasSession ? await viewerOf(request.headers) : null;
+    const viewer = await visitorOf(request, hasSession);
     if (!viewer || !mayOpenStyleguide(viewer)) return notFound(request);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";

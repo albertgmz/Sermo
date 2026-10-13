@@ -19,19 +19,62 @@ import {
 
 type Viewer = z.output<typeof authMe.output>;
 
+// What the shell draws when nothing could be learned about the visitor: a guest who may do
+// nothing in particular.
+const UNKNOWN: Viewer = {
+  user: null,
+  permissions: {
+    isAdmin: false,
+    isModerator: false,
+    canViewProfiles: false,
+    canPostProfile: false,
+    canStartConversations: false,
+    canReact: false,
+  },
+  resolvedPermissions: {},
+  staff: {
+    panel: false,
+    moderatesEverywhere: false,
+    moderatedNodeIds: [],
+    moderatedNodesTruncated: false,
+  },
+};
+
 // Who is asking, settled once per request. The backend refuses every request that carries a
 // session it no longer accepts (a dead cookie, a banned account), whatever is asked. So a cookie
 // is tried on auth.me first and, if refused, left out of every call that follows: the visitor
 // then reads the site as a guest instead of each read failing on its own. Nothing is written.
+//
+// When auth.me itself fails (throttled, an outage, an answer that makes no sense) the backend has
+// said nothing about the session: the cookie stays on every call that follows, the shell is drawn
+// for a guest and `unconfirmed` says so, and the page's own reads decide what they show.
 const visitor = cache(
-  async (): Promise<{ forward: Forward; viewer: Viewer | null }> => {
+  async (): Promise<{
+    forward: Forward;
+    viewer: Viewer | null;
+    unconfirmed: boolean;
+  }> => {
     const forward = forwardFromHeaders(await headers());
-    if (!sermoCookies(forward.cookie)) return { forward, viewer: null };
+    if (!sermoCookies(forward.cookie)) {
+      return { forward, viewer: null, unconfirmed: false };
+    }
     try {
-      return { forward, viewer: await callWith(forward, authMe, {}) };
+      return {
+        forward,
+        viewer: await callWith(forward, authMe, {}),
+        unconfirmed: false,
+      };
     } catch (error) {
-      if (!(error instanceof SermoError && isSignedOut(error))) throw error;
-      return { forward: { ...forward, cookie: undefined }, viewer: null };
+      if (!(error instanceof SermoError)) throw error;
+      if (!isSignedOut(error)) {
+        console.error("The session could not be confirmed", error);
+        return { forward, viewer: null, unconfirmed: true };
+      }
+      return {
+        forward: { ...forward, cookie: undefined },
+        viewer: null,
+        unconfirmed: false,
+      };
     }
   },
 );
@@ -44,8 +87,15 @@ export async function forwardFromRequest(): Promise<Forward> {
 
 // The visitor as the backend sees them: the auth.me answer, a guest for a refused session.
 export async function viewerOfRequest(): Promise<Viewer> {
-  const { forward, viewer } = await visitor();
+  const { forward, viewer, unconfirmed } = await visitor();
+  if (unconfirmed) return UNKNOWN;
   return viewer ?? callWith(forward, authMe, {});
+}
+
+// Whether the backend could not say who is asking, so the page is drawn for a guest without the
+// visitor being one. A page that is only for members uses `getMember`.
+export async function sessionUnconfirmed(): Promise<boolean> {
+  return (await visitor()).unconfirmed;
 }
 
 export async function call<I extends z.ZodType, O extends z.ZodType>(

@@ -1,4 +1,4 @@
-import { afterEach, mock, test } from "bun:test";
+import { afterEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
 
 const realFetch = globalThis.fetch;
@@ -12,7 +12,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { getViewerCard } = await import("./header-data");
+const { getCounters, getViewerCard } = await import("./header-data");
 
 const member = {
   user: {
@@ -67,3 +67,55 @@ test("a failure that is not the backend's answer is not hidden", async () => {
   }) as unknown as typeof fetch;
   await assert.rejects(getViewerCard(), RangeError);
 });
+
+// The shell's data helpers run above every error boundary: a failed auth.me must not reach them as
+// an error, whatever way it fails.
+const MEFAILS: [string, () => Promise<Response>][] = [
+  [
+    "429",
+    async () =>
+      Response.json(
+        { error: { code: "rate_limited", message: "Slow down" } },
+        { status: 429 },
+      ),
+  ],
+  [
+    "500",
+    async () =>
+      Response.json(
+        { error: { code: "internal", message: "Broken" } },
+        { status: 500 },
+      ),
+  ],
+  [
+    "a network failure",
+    async () => {
+      throw new TypeError("fetch failed");
+    },
+  ],
+  ["a contract mismatch", async () => Response.json({ user: 7 })],
+];
+
+for (const [what, answer] of MEFAILS) {
+  test(`the shell's helpers draw a guest when auth.me fails with ${what}`, async () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {});
+    const asked: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      asked.push(new URL(url).pathname);
+      return answer();
+    }) as unknown as typeof fetch;
+    try {
+      assert.equal(await getViewerCard(), null);
+      assert.deepEqual(await getCounters(), {
+        conversations: 0,
+        notifications: 0,
+        openReports: { count: 0, more: false },
+        pendingApprovals: { count: 0, more: false },
+      });
+      // Nothing but the one read that failed went out: no member's data is asked for a guest.
+      assert.deepEqual([...new Set(asked)], ["/api/v1/me"]);
+    } finally {
+      quiet.mockRestore();
+    }
+  });
+}

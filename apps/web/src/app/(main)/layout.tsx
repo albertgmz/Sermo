@@ -5,6 +5,7 @@ import { getAccent, getCounters } from "@/components/layout/header-data";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems, toNavItems } from "@/components/layout/nav";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
+import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -52,6 +53,9 @@ export default function MainLayout({ children }: LayoutProps<"/">) {
   const t = useTranslations("home.layout");
   return (
     <div className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0">
+      <Suspense>
+        <SessionNotice />
+      </Suspense>
       <Suspense>
         <Chrome />
       </Suspense>

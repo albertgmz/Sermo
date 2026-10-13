@@ -15,7 +15,7 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
-import { getViewer } from "@/lib/sermo/session";
+import { getMember } from "@/lib/sermo/session";
 import { prefixChoices, prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,7 +31,7 @@ export default async function EditPostPage({
   const postId = parseId(rawPost);
   if (threadId === null || postId === null) notFound();
   const [{ user }, t] = await Promise.all([
-    getViewer(),
+    getMember(),
     getTranslations("threads.edit"),
   ]);
   if (!user) {

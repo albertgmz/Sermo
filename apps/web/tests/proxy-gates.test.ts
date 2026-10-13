@@ -1,6 +1,7 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import { SermoError } from "../src/lib/sermo/errors";
 
 // The part of the `auth.me` answer the panel's gate reads.
 type Viewer = {
@@ -46,10 +47,13 @@ const FULL_ADMINISTRATOR = viewerWith(
 const state = {
   viewer: null as Viewer | null,
   viewerAsked: 0,
+  // When set, the viewer read fails with this instead of answering.
+  fail: null as (() => Promise<never>) | null,
 };
 mock.module("server-only", () => ({}));
 mock.module("@/lib/sermo/viewer", () => ({
   viewerOf: async () => {
+    if (state.fail) return state.fail();
     state.viewerAsked += 1;
     return state.viewer;
   },
@@ -163,6 +167,7 @@ function reset(overrides: Partial<typeof state> = {}) {
   Object.assign(state, {
     viewer: null,
     viewerAsked: 0,
+    fail: null,
     ...overrides,
   });
 }
@@ -921,4 +926,17 @@ test("the styleguide is gated for a prefetch and an action's POST too", async ()
       headers: { "next-action": "abc" },
     }),
   );
+});
+
+test("a panel address is let through to its page when the viewer read fails, the styleguide is not", async () => {
+  reset({
+    fail: async () => {
+      throw new SermoError("internal", 500, "down");
+    },
+  });
+  passes(await ask("/admin", { cookie: SESSION }));
+  passes(await ask("/moderation/reports", { cookie: SESSION }));
+  isNotFound(await ask("/ui", { cookie: SESSION }));
+  // Without a session there is nothing to ask: a guest still gets the 404.
+  isNotFound(await ask("/admin"));
 });

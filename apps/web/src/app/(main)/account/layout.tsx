@@ -17,7 +17,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { authorsFor } from "@/lib/sermo/members";
 import { NOINDEX } from "@/lib/sermo/seo";
-import { getViewer } from "@/lib/sermo/session";
+import { getMember } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { robots: NOINDEX };
@@ -68,7 +68,7 @@ export default function AccountLayout({
 }
 
 async function AccountHeader() {
-  const { user } = await getViewer();
+  const { user } = await getMember();
   if (!user) redirect("/login");
   const t = await getTranslations("account.layout");
   const author = (await authorsFor([user]))(user.id);

@@ -105,14 +105,19 @@ test("an unreachable backend gives four empty lists and is logged outside the bu
   const logged = spyOn(console, "error").mockImplementation(() => {});
   const phase = process.env.NEXT_PHASE;
   const empty = { header: [], mobile: [], account: [], footer: [] };
+  // The read of the session logs its own failure; this is about the navigation's.
+  const navigationLogs = () =>
+    logged.mock.calls.filter(([message]) =>
+      String(message).startsWith("The navigation"),
+    ).length;
   try {
     process.env.NEXT_PHASE = "phase-production-server";
     assert.deepEqual(await getNavigation(), empty);
-    assert.equal(logged.mock.calls.length, 1);
+    assert.equal(navigationLogs(), 1);
 
     process.env.NEXT_PHASE = "phase-production-build";
     assert.deepEqual(await getNavigation(), empty);
-    assert.equal(logged.mock.calls.length, 1);
+    assert.equal(navigationLogs(), 1);
   } finally {
     if (phase === undefined) delete process.env.NEXT_PHASE;
     else process.env.NEXT_PHASE = phase;

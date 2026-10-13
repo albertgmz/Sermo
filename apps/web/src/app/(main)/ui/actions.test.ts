@@ -56,11 +56,12 @@ test("a caller who may open the styleguide gets the demo answers, at once", asyn
   expect(await actions.saveSample(STATE, form())).toMatchObject({
     fields: { title: "Enter a title." },
   });
-  expect(await actions.saveSample(STATE, form({ title: "t" }))).toMatchObject({
-    notice: expect.any(String),
-  });
-  expect(
-    await actions.confirmSample(STATE, form({ actorPassword: "wrong" })),
-  ).toMatchObject({ fields: { actorPassword: expect.any(String) } });
+  const saved = await actions.saveSample(STATE, form({ title: "t" }));
+  expect(typeof saved?.notice).toBe("string");
+  const refused = await actions.confirmSample(
+    STATE,
+    form({ actorPassword: "wrong" }),
+  );
+  expect(typeof refused?.fields?.actorPassword).toBe("string");
   expect(performance.now() - start).toBeLessThan(500);
 });

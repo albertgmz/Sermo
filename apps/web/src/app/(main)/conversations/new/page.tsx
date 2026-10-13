@@ -4,14 +4,14 @@ import { getTranslations } from "next-intl/server";
 import { findRecipients } from "@/app/(main)/conversations/actions";
 import { NewConversationForm } from "@/app/(main)/conversations/new/new-conversation-form";
 import { EmptyState } from "@/components/forum/empty-state";
-import { getViewer } from "@/lib/sermo/session";
+import { getMember } from "@/lib/sermo/session";
 
 export default async function NewConversationPage({
   searchParams,
 }: PageProps<"/conversations/new">) {
   const [{ to }, { permissions }, t] = await Promise.all([
     searchParams,
-    getViewer(),
+    getMember(),
     getTranslations("conversations.newConversation"),
   ]);
   // A profile links here with the username of the member to write to.

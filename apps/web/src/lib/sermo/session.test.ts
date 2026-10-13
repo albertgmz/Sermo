@@ -1,5 +1,6 @@
-import { afterEach, mock, test } from "bun:test";
+import { afterEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
+import { authCounters } from "@sermo/core/contracts";
 import { SermoError } from "./errors";
 
 const realFetch = globalThis.fetch;
@@ -18,7 +19,8 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { getViewer } = await import("./session");
+const { call, sessionUnconfirmed } = await import("./client");
+const { getMember, getViewer } = await import("./session");
 
 const guest = {
   user: null,
@@ -88,13 +90,76 @@ for (const [status, code] of [
   });
 }
 
-test("any other error is rethrown", async () => {
-  const seen = backend(refusal(500, "internal"));
-  await assert.rejects(
-    getViewer(),
-    (error) => error instanceof SermoError && error.code === "internal",
-  );
-  assert.equal(seen.length, 1);
+// What auth.me can do wrong that is not the backend's answer about the session.
+const FAILURES: [string, () => Promise<Response>][] = [
+  ["a throttled read", async () => refusal(429, "rate_limited")],
+  ["a server error", async () => refusal(500, "internal")],
+  ["an outage", async () => refusal(503, "internal")],
+  [
+    "a connection that fails",
+    async () => {
+      throw new TypeError("fetch failed");
+    },
+  ],
+  ["an answer that breaks the contract", async () => Response.json({ x: 1 })],
+];
+
+for (const [what, answer] of FAILURES) {
+  test(`${what} on auth.me draws a guest, keeps the cookie and asks nothing more`, async () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {});
+    const seen: Headers[] = [];
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      seen.push(new Headers(init.headers));
+      return answer();
+    }) as unknown as typeof fetch;
+    try {
+      const viewer = await getViewer();
+      assert.equal(viewer.user, null);
+      assert.equal(viewer.staff.panel, false);
+      assert.equal(await sessionUnconfirmed(), true);
+      // The page's own reads still go out as the visitor, session cookie included.
+      globalThis.fetch = (async (_url: string, init: RequestInit) => {
+        seen.push(new Headers(init.headers));
+        return Response.json({
+          conversations: 0,
+          notifications: 0,
+          openReports: { count: 0, more: false, cap: 99 },
+          pendingApprovals: { count: 0, more: false, cap: 99 },
+        });
+      }) as unknown as typeof fetch;
+      await call(authCounters, {});
+      assert.equal(seen.at(-1)?.get("cookie"), "sermo.session_token=dead");
+    } finally {
+      quiet.mockRestore();
+    }
+  });
+
+  test(`${what} on auth.me makes a members-only page fail instead of sending the member to sign in`, async () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {});
+    globalThis.fetch = (async () => answer()) as unknown as typeof fetch;
+    try {
+      await assert.rejects(getMember(), (error) => {
+        assert.ok(error instanceof SermoError);
+        assert.equal(error.code, "internal");
+        return true;
+      });
+    } finally {
+      quiet.mockRestore();
+    }
+  });
+}
+
+test("a confirmed session is not marked, and a member passes a members-only page", async () => {
+  backend(Response.json(member));
+  assert.equal(await sessionUnconfirmed(), false);
+  // Outside a render nothing is shared, so the check and the viewer each ask.
+  backend(Response.json(member), Response.json(member));
+  assert.equal((await getMember()).user?.username, "ann");
+});
+
+test("a dead cookie is a confirmed guest, not an unconfirmed one", async () => {
+  backend(refusal(401, "unauthenticated"), Response.json(guest));
+  assert.equal(await sessionUnconfirmed(), false);
 });
 
 test("a guest answer that is refused again is rethrown", async () => {
