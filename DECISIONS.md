@@ -1334,6 +1334,20 @@ the password; the alternative is to forbid these writes to keys altogether. `DEL
 their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
 password there.
 
+**Panel reads carry what a screen needs to draw a row.** `reports.list` and `approvals.list`
+rows gain `excerpt` (plain text from the stored source, markup and tags removed, at most 200
+characters) and `where` (`{ kind: "thread" | "profile", id, title }`), from one batched lookup per
+kind of content on the page (no lookup per row; a test holds the statement count constant as the
+page grows). Messages of a conversation are never described (empty excerpt, `where` null):
+nothing but `reports.viewConversationMessage`, which is logged, lets a non-participant read a
+conversation. A profile the viewer may not see (privacy, no `profile.bypassPrivacy`) is not
+described either. `reports.list` already carried `reportCount`. `site.get` carries
+`maxUploadBytes` (the member upload limit the API enforces; catalog pictures keep 25 MiB).
+`notifications.types` marks the watch types with `emailFollowsWatch` (their email default is
+forced on). `creditRules.list` returns `triggers` with `acceptsForums`. The edit-member history
+can already filter `credits.ledger` and `promotions.log` by `userId`; `awards.memberGrants` lists
+the grants a member holds now (revoked ones are not in it).
+
 **An erased member takes no further administrative or moderation write.** The rule that already
 covered identity, profile and sessions now covers every write that targets a member:
 `permissions.set` (for a member), `users.setGroups`, `nodes.setModerator`, `warnings.create`,

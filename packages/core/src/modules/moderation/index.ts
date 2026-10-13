@@ -34,6 +34,7 @@ import { mayViewProfile } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
 import { type Notice, noticeForOther } from "./notify";
+import { describeQueueItems, NO_CONTEXT, queueContextKey } from "./queue-context";
 import { restrictionsCreateOp, restrictionsLiftOp, restrictionsListOp } from "./restrictions";
 
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
@@ -2035,9 +2036,21 @@ export const operations = [
   implement(contracts.reportsCreate, (ctx, actor, input) =>
     createReport(ctx, actor, input.target, input.reason),
   ),
-  implement(contracts.reportsList, (ctx, actor, input) =>
-    contracts.reportsList.output.parse(page(listReports(ctx, actor, input))),
-  ),
+  implement(contracts.reportsList, (ctx, actor, input) => {
+    const result = listReports(ctx, actor, input);
+    const context = describeQueueItems(
+      ctx,
+      actor,
+      result.items.map((row) => ({ type: row.target_type, id: row.target_id })),
+    );
+    return contracts.reportsList.output.parse({
+      nextCursor: result.nextCursor,
+      items: result.items.map((row) => ({
+        ...publicRow(row),
+        ...(context.get(queueContextKey(row.target_type, row.target_id)) ?? NO_CONTEXT),
+      })),
+    });
+  }),
   implement(contracts.reportsGet, (ctx, actor, input) => {
     const group = getReportGroup(ctx, actor, input.groupId);
     return contracts.reportsGet.output.parse({
@@ -2057,12 +2070,18 @@ export const operations = [
   ),
   implement(contracts.approvalsList, (ctx, actor, input) => {
     const result = listApprovals(ctx, actor, input);
+    const context = describeQueueItems(
+      ctx,
+      actor,
+      result.items.map((row) => ({ type: row.type, id: row.id })),
+    );
     return contracts.approvalsList.output.parse({
       items: result.items.map((row) => ({
         type: row.type,
         id: row.id,
         authorId: row.user_id,
         createdAt: iso(row.created_at!),
+        ...(context.get(queueContextKey(row.type, row.id)) ?? NO_CONTEXT),
       })),
       nextCursor: result.nextCursor,
     });
