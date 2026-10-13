@@ -116,9 +116,16 @@ test("a reply and a new conversation name the files attached to them", async () 
     reactions: { counts: {}, total: 0, mine: null },
   };
   const sent: unknown[] = [];
-  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+  // A reply is answered with the message; the conversation is refused, which is enough to see
+  // what was asked.
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
     sent.push(JSON.parse(String(init.body)));
-    return Response.json(message);
+    return url.endsWith("/messages")
+      ? Response.json(message)
+      : Response.json(
+          { error: { code: "forbidden", message: "No." } },
+          { status: 403 },
+        );
   }) as unknown as typeof fetch;
 
   const reply = new FormData();

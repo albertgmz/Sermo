@@ -16,9 +16,12 @@ beforeEach(() => {
   asked.length = 0;
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     asked.push({ url, body: JSON.parse(String(init.body)) });
-    // Not a post: the action answers with an error instead of a redirect, which is enough to see
-    // what was asked.
-    return Response.json({});
+    // A refusal: the action answers with it instead of a redirect, which is enough to see what
+    // was asked.
+    return Response.json(
+      { error: { code: "forbidden", message: "No." } },
+      { status: 403 },
+    );
   }) as unknown as typeof fetch;
 });
 afterEach(() => {
@@ -63,4 +66,52 @@ test("a comment carries no files: the backend takes none for it", async () => {
     form({ body: "hi", attachmentIds: ["4"] }),
   );
   assert.deepEqual(asked[0].body, { body: "hi" });
+});
+
+// The wall composer keeps what was written by not letting React reset its form, so what empties
+// and closes it is the redirect alone: Next draws the page's forms anew when an action ends in
+// one. A refusal must therefore come back as a state, and a post that was taken must redirect.
+test("a wall post that was taken ends in a redirect to the page it was written on", async () => {
+  globalThis.fetch = (async () =>
+    Response.json({
+      id: 9,
+      profileUserId: 5,
+      author: { id: 3, username: "ember" },
+      state: "visible",
+      createdAt: "2026-10-13T03:57:31.497Z",
+      editedAt: null,
+      bodyHtml: "<p>hi</p>",
+      bodySource: "hi",
+      attachmentCount: 0,
+      attachments: [],
+      reactions: { counts: {}, total: 0, mine: null },
+      commentCount: 0,
+      latestComments: [],
+      canEdit: true,
+      canDelete: true,
+      canComment: true,
+    })) as unknown as typeof fetch;
+  for (const page of ["/", "/members/5"]) {
+    const digest = await postToWall(5, page, {}, form({ body: "hi" })).then(
+      () => undefined,
+      (error: { digest?: unknown }) => String(error.digest),
+    );
+    assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
+    assert.equal(digest?.split(";")[2], page);
+  }
+});
+
+test("a refused wall post answers the form it came from and goes nowhere", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(
+      { error: { code: "validation", message: "Write something first." } },
+      { status: 422 },
+    )) as unknown as typeof fetch;
+  const state = await postToWall(
+    5,
+    "/",
+    {},
+    form({ body: "", attachmentIds: ["4"] }),
+  );
+  assert.deepEqual(state, { error: "Write something first." });
 });
