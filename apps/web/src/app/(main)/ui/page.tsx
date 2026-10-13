@@ -22,6 +22,7 @@ import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
 import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/(main)/ui/staff-demos";
 import { Art } from "@/components/forum/art";
+import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
@@ -1069,6 +1070,21 @@ export default async function StyleguidePage() {
             placeholder="Write a message…"
             className="max-w-xl"
           />
+        </Section>
+
+        <Section title="Attachment field, compact">
+          <p className="text-sm text-muted-foreground">
+            The paperclip alone, for a composer's own row: the chosen files take
+            a line before it and scroll once they are many.
+          </p>
+          <div className="flex max-w-xl flex-wrap items-end gap-2">
+            <AttachmentField compact />
+            <LazyEditor
+              name="message"
+              placeholder="Write a message…"
+              className="flex-1 rounded-4xl"
+            />
+          </div>
         </Section>
 
         <Section title="Message row">
