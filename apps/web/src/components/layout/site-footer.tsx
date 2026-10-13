@@ -2,7 +2,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { LiteStatus } from "@/app/(main)/lite/status";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
@@ -14,9 +13,7 @@ import {
   toNavItems,
 } from "@/components/layout/nav";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";
-import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
 
 const SOCIALS = [
@@ -32,12 +29,12 @@ const PLACEHOLDER_COLUMNS = [
   { column: 3, links: [1, 2, 3, 4] },
 ];
 
+// Two columns side by side on a phone, so the lists do not stack into one long strip.
 const COLUMN_GRID =
-  "grid gap-6 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]";
+  "grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] sm:gap-6";
 
 export function SiteFooter() {
   const t = useTranslations("layout.siteFooter");
-  const lite = useTranslations("lite.siteFooter");
   return (
     <footer className="mt-auto pt-12 pb-6 text-sm">
       <Container>
@@ -49,17 +46,6 @@ export function SiteFooter() {
             </Suspense>
             <Suspense>
               <FooterSocials />
-            </Suspense>
-            <Suspense
-              fallback={
-                <LoadingRegion label={lite("loadingLabel")}>
-                  <div className="flex h-10 w-48 items-center">
-                    <Skeleton className="h-4 w-full" />
-                  </div>
-                </LoadingRegion>
-              }
-            >
-              <FooterLiteLink />
             </Suspense>
           </div>
           <Suspense
@@ -207,21 +193,5 @@ async function FooterCopyright() {
         brand: (chunks) => <span className="text-foreground">{chunks}</span>,
       })}
     </p>
-  );
-}
-
-async function FooterLiteLink() {
-  const [state, { user }] = await Promise.all([getLiteState(), getViewer()]);
-  const t = await getTranslations("lite.siteFooter");
-  return (
-    <Link
-      href={user ? "/account/lite" : "/lite"}
-      className="flex min-h-10 w-48 items-center justify-between gap-2 rounded-md text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-    >
-      <span>{t("label")}</span>
-      <span>
-        <LiteStatus state={state} />
-      </span>
-    </Link>
   );
 }

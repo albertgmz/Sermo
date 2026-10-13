@@ -33,10 +33,6 @@
       "disable": "Turn off LITE mode"
     }
   },
-  "siteFooter": {
-    "label": "LITE mode",
-    "loadingLabel": "Loading LITE mode…"
-  },
   "navigation": {
     "label": "LITE mode"
   },

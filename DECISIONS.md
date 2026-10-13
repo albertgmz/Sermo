@@ -1181,6 +1181,11 @@ panel's action), as forum software commonly does. Below `md` they used to be pla
 remain. The panel is capped at the width of the screen less a small margin. Search stays a link
 on phones: its panel is a form, which the search page already is.
 
+**The footer carries no LITE link, and its lists pair up on a phone.** The link to the LITE
+settings is taken out of the footer for now, at the owner's request. Members still reach the
+settings from the avatar menu; a guest has no link to `/lite` until one is placed elsewhere. Below
+`sm` the footer's link lists stand two to a row instead of one under another.
+
 ### Shop effects, wearing, renaming and ranks
 
 **A shop effect names a catalog entry.** `frame`, `nameColor` and `threadCover` carry the id of a
