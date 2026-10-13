@@ -56,6 +56,9 @@ export async function DefaultsForm() {
                 )}
               </p>
               <Help>{label(type.id, "body")}</Help>
+              {type.emailFollowsWatch && type.channels.includes("email") && (
+                <Help>{t("followsWatch")}</Help>
+              )}
             </div>
             {CHANNELS.map((channel) =>
               type.channels.includes(channel) ? (
@@ -67,7 +70,10 @@ export async function DefaultsForm() {
                   <Checkbox
                     name={`${type.id}:${channel}`}
                     defaultChecked={type.defaults[channel]}
-                    disabled={type.required}
+                    disabled={
+                      type.required ||
+                      (channel === "email" && type.emailFollowsWatch)
+                    }
                   />
                   <span className="sr-only">
                     {words("cell", {
@@ -90,7 +96,6 @@ export async function DefaultsForm() {
         ))}
         <div className="p-4">
           <Help>{t("help")}</Help>
-          <Help>{t("watchHelp")}</Help>
         </div>
       </div>
       <FieldRow

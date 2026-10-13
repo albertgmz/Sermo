@@ -34,7 +34,8 @@ test("the total is null when the viewer has nothing, with a mark when a queue wi
 test("the cap of the answer is not a display limit: only the count and the mark are kept", () => {
   const answer = { count: 7, more: true, cap: 7 };
   expect(pendingCount(answer)).toEqual({ count: 7, more: true });
-  expect(pendingTotal(answer, { count: 2, more: false, cap: 50 })).toEqual({
+  const other = { count: 2, more: false, cap: 50 };
+  expect(pendingTotal(answer, other)).toEqual({
     count: 9,
     more: true,
   });
