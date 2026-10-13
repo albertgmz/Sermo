@@ -208,7 +208,12 @@ async function Messages({
             >
               {!mine && (
                 <div className="w-8 shrink-0 self-start">
-                  {!grouped && <UserAvatar user={author} />}
+                  {!grouped && (
+                    <UserAvatar
+                      user={author}
+                      className="relative block after:absolute after:-inset-1"
+                    />
+                  )}
                 </div>
               )}
               <div
