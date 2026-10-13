@@ -157,11 +157,10 @@ test("OpenAPI covers REST and Better Auth routes with resolvable references", as
     );
   expect(document.paths["/api/auth/sign-up/email"]?.post).toBeDefined();
   expect(document.paths["/api/auth/api-key/create"]?.post).toBeDefined();
-  const purposes = (
-    document.paths["/api/v1/files"]?.post as unknown as {
-      parameters: { name: string; schema: { enum: string[] } }[];
-    }
-  ).parameters.find((parameter) => parameter.name === "purpose")!.schema.enum;
+  const upload = document.paths["/api/v1/files"]?.post as unknown as {
+    parameters: { name: string; schema: { enum: string[] } }[];
+  };
+  const purposes = upload.parameters.find((parameter) => parameter.name === "purpose")!.schema.enum;
   expect(purposes).toEqual([...schema.FILE_PURPOSES]);
   expect(purposes.length).toBeGreaterThan(5);
   for (const [path, method] of [
