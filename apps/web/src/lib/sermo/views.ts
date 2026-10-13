@@ -53,7 +53,6 @@ export type AuthorView = {
     id: number;
     name: string;
     icon: string;
-    image: PictureView | null;
     tier: "bronze" | "silver" | "gold" | "legendary";
   }[];
   signatureHtml: string | null;

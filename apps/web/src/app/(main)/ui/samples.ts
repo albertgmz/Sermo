@@ -182,7 +182,8 @@ export const REACTIONS: ReactionsSummary = {
   ],
 };
 
-export const AWARDS: (AwardArt & { id: number })[] = [
+// A picture is the backdrop of an award's card, never part of its round icon.
+export const AWARDS: (AwardArt & { id: number; image?: { url: string } })[] = [
   { id: 1, name: "First post", icon: "message-circle", tier: "bronze" },
   { id: 2, name: "Helping hand", icon: "life-buoy", tier: "silver" },
   { id: 3, name: "Veteran", icon: "shield", tier: "gold" },

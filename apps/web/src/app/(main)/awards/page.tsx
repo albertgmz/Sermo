@@ -10,6 +10,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { TIER_ORDER, TIERS } from "@/app/(main)/awards/tiers";
+import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Leaderboard } from "@/components/forum/leaderboard";
 import { levelWithBounds, XpBar } from "@/components/forum/level";
@@ -160,6 +161,16 @@ function AwardCard({
         locked && "bg-transparent",
       )}
     >
+      {award.image && (
+        <Art
+          category="awards"
+          src={award.image.url}
+          className={cn(
+            "absolute inset-y-0 right-0 -z-10 aspect-video [mask-image:linear-gradient(to_left,black,transparent_85%)]",
+            locked ? "opacity-20 grayscale" : "opacity-45",
+          )}
+        />
+      )}
       <AwardIcon
         award={award}
         size="lg"

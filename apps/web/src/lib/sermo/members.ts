@@ -66,9 +66,11 @@ function authorView(author: Author): AuthorView {
     xp: author.awardXp,
     currentLevelXp: author.currentLevelXp,
     nextLevelXp: author.nextLevelXp,
-    awards: author.awards.map(({ image, ...award }) => ({
-      ...award,
-      image: image && { url: image.url },
+    awards: author.awards.map(({ id, name, icon, tier }) => ({
+      id,
+      name,
+      icon,
+      tier,
     })),
     signatureHtml: author.signatureHtml,
   };

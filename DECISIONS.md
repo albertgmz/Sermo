@@ -1167,6 +1167,13 @@ behaviour to specify. **Owner review.**
 **A birthday publishes its day and month only.** The year is stored for the member and never
 returned to others.
 
+**An award's picture is a backdrop, its icon a glyph.** The round award icon (next to a name, on a
+profile, in the panel) always draws the glyph of the award's icon key in the colours of its tier.
+The picture is a wide banner drawn behind the award's card on `/awards` and behind the heading of
+its own page. For a while the icon showed the picture when the award had one, which cropped the
+middle of a 16:9 banner into a circle and pushed the emblem of every starter award to its right
+edge. One picture cannot serve both shapes; a square picture for the icon would be a second file.
+
 ### Shop effects, wearing, renaming and ranks
 
 **A shop effect names a catalog entry.** `frame`, `nameColor` and `threadCover` carry the id of a

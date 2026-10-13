@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import {
   Tooltip,
@@ -74,13 +73,12 @@ const SIZES = {
 
 export type AwardIconSize = keyof typeof SIZES;
 
-// What an award draws: its picture when it has one, else the glyph of its icon key in the colours
-// of its tier.
+// What an award draws in its round icon: the glyph of its icon key in the colours of its tier.
+// Its picture is a wide backdrop for the award's card, never cropped into the circle.
 export type AwardArt = {
   name: string;
   icon: string;
   tier: AwardTier;
-  image?: { url: string } | null;
 };
 
 export async function AwardIcon({
@@ -103,7 +101,7 @@ export async function AwardIcon({
             role="img"
             aria-label={award.name}
             className={cn(
-              "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border",
+              "inline-flex shrink-0 items-center justify-center rounded-full border",
               TIERS[award.tier],
               box,
               className,
@@ -111,13 +109,7 @@ export async function AwardIcon({
           />
         }
       >
-        {award.image ? (
-          <Art
-            category="awards"
-            src={award.image.url}
-            className="absolute inset-0 rounded-full"
-          />
-        ) : blocked ? (
+        {blocked ? (
           <LitePlaceholder compact className={cn("rounded-full", glyph)} />
         ) : (
           <Icon aria-hidden="true" className={glyph} />

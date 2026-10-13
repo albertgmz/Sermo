@@ -2,7 +2,7 @@ import type { awardsGet } from "@sermo/core/contracts";
 import { awardsCreate, awardsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { AwardIcon } from "@/components/forum/award-icon";
+import { Art } from "@/components/forum/art";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
@@ -195,14 +195,10 @@ export async function AwardForm({ award }: { award?: Award }) {
           removable
           current={
             award?.image ? (
-              <AwardIcon
-                award={{
-                  name: award.name,
-                  icon: award.icon,
-                  tier: award.tier,
-                  image: award.image,
-                }}
-                size="lg"
+              <Art
+                category="awards"
+                src={award.image.url}
+                className="aspect-video h-12 rounded-md border"
               />
             ) : undefined
           }
