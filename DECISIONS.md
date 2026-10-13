@@ -1516,8 +1516,8 @@ value breaks the deployment.
 (default 32MiB, Caddy `request_body max_size`), and the backend's fixed transport ceiling. The first
 two are raised together. Caddy does not buffer request bodies unless asked to.
 
-**Health checks and ordering.** Backend: its `/health`. Web: a static file, so its health does not
-depend on the backend. Ingress: a separate internal listener (`:8081/ready`) so it reports itself
+**Health checks and ordering.** Backend: its `/health`. Web: a check that the port answers, so its health
+does not depend on the backend. Ingress: a separate internal listener (`:8081/ready`) so it reports itself
 only. `web` waits for `sermo` to be healthy; the ingress waits for both. Restart `unless-stopped`;
 stop periods 40 s (backend, existing), 20 s, 10 s.
 
@@ -1535,4 +1535,10 @@ administrator exists). There is no CLI and the first registered member is not pr
 gap only if the variables are left empty.
 
 **TLS** is out of scope; the docs say it goes at the ingress, or in front of it with
-`trusted_proxies` set.
+`trusted_proxies` set. Both upstreams get `header_up X-Forwarded-For {client_ip}`: Caddy defines
+`client_ip` as the connection's address, or, when the connection comes from a configured trusted
+proxy, the real client parsed from the forwarded header. Setting it explicitly means the backend and
+the web app always receive exactly one address, never the list a proxy chain would append. Without
+`trusted_proxies` behind another proxy every visitor shares that proxy's address, which turns the
+per-address limits into site-wide ones; `docs/deployment.md` says so. The backend refuses to start
+when `BETTER_AUTH_SECRET` is shorter than 32 characters.

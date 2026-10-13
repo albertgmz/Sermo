@@ -139,6 +139,19 @@ test("startup settings reject invalid port and partial admin credentials before 
   expect(readConfiguration({ ...base, PORT: "3001" }).port).toBe(3001);
 });
 
+test("startup refuses a signing secret shorter than 32 characters", () => {
+  const base = { BETTER_AUTH_URL: "http://localhost:3000" };
+  expect(() => readConfiguration({ ...base, BETTER_AUTH_SECRET: "short-secret" })).toThrow(
+    "at least 32 characters",
+  );
+  expect(() => readConfiguration({ ...base, BETTER_AUTH_SECRET: "x".repeat(31) })).toThrow(
+    "at least 32 characters",
+  );
+  expect(readConfiguration({ ...base, BETTER_AUTH_SECRET: "x".repeat(32) }).secret).toHaveLength(
+    32,
+  );
+});
+
 test("the session cookie cache defaults to on and accepts only true or false", () => {
   const base = {
     BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",

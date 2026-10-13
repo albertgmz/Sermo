@@ -278,6 +278,10 @@ export function readConfiguration(source: Record<string, string | undefined> = p
       "SERMO_ADMIN_USERNAME, SERMO_ADMIN_EMAIL, and SERMO_ADMIN_PASSWORD must all be set together.",
     );
   const secret = required(source, "BETTER_AUTH_SECRET");
+  if (secret.length < 32)
+    throw new Error(
+      "BETTER_AUTH_SECRET must be at least 32 characters. Generate one with the command in .env.example.",
+    );
   const baseURL = required(source, "BETTER_AUTH_URL");
   new URL(baseURL);
   const siteURL = new URL(source.SERMO_SITE_URL || baseURL);

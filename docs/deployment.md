@@ -131,8 +131,35 @@ restart on failure (`unless-stopped`).
 
 ## TLS
 
-TLS is not set up here. The simplest place is the ingress: replace `:8080` in the `Caddyfile` by the
-domain name, remove `auto_https off`, publish ports 80 and 443, give Caddy a volume for `/data`, and
-set `BETTER_AUTH_URL=https://your.domain`. If another proxy terminates TLS in front of the ingress,
-add its address to `trusted_proxies` in the Caddyfile so the real client address survives, and make
-sure that proxy also overwrites `X-Forwarded-For`.
+TLS is not set up by default. Pick the case that matches your setup.
+
+**(a) TLS ends at this ingress (the simple case).** Replace `:8080` in the `Caddyfile` by the domain
+name, remove `auto_https off`, publish ports 80 and 443, give Caddy a volume for `/data`, and set
+`BETTER_AUTH_URL=https://your.domain`. Visitors connect to the ingress directly, so their address is
+the address of the connection and nothing else needs configuring. Whatever header a visitor sends
+is ignored.
+
+**(b) Another proxy or load balancer is in front of the ingress** (a cloud load balancer, a CDN, a
+proxy on the same machine that holds the certificate). Add the front proxy's addresses to the
+`Caddyfile` so the ingress believes the address it reports:
+
+```
+{
+	servers {
+		trusted_proxies static 203.0.113.10 198.51.100.0/24
+		# Only if the proxy appends to X-Forwarded-For (most load balancers do):
+		# trusted_proxies_strict
+	}
+}
+```
+
+(put it in the existing block at the top, next to `auto_https off`; `private_ranges` stands for the
+private address ranges), and make sure the front proxy sets `X-Forwarded-For`. The ingress hands
+both the backend and the web app exactly one address, `{client_ip}`.
+
+If you do not set `trusted_proxies`, the ingress sees only the front proxy's address and gives it
+to the backend for every visitor. Every visitor then shares one address: the request limits, the
+sign-in limits and the address stored with each session apply to the whole site at once, so a few
+busy visitors, or one abusive one, can lock everybody out, and the session list shows the same
+address for all. Nothing fails visibly, so check it once: sign in from two networks and compare the
+addresses in the administration panel's session list.
