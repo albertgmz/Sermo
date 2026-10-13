@@ -32,7 +32,7 @@ async function setup(env: Parameters<NonNullable<Scenario["setup"]>>[0]) {
   });
   const key = await getAuth(env.ctx).api.createApiKey({
     headers: sessionHeaders,
-    body: { name: "Benchmark" },
+    body: { name: "Benchmark", password: SEED_PASSWORD },
   });
   keyHeaders = new Headers({ authorization: `Bearer ${key.key}` });
 }
