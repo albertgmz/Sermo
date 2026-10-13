@@ -26,6 +26,7 @@ test("the one-line composers reach the editor's code only through the import mad
     "components/forum/lazy-editor.tsx",
     "components/forum/attachment-field.tsx",
     "app/(main)/members/wall-composer.tsx",
+    "app/(main)/members/post-composer.tsx",
     "app/(main)/conversations/[id]/reply-form.tsx",
   ]) {
     const imports = source(path).match(/^import (?!type )[^;]*;/gm) ?? [];
