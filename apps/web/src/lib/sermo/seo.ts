@@ -73,3 +73,7 @@ export function withoutPictures(value: unknown): unknown {
 export function serializeJsonLd(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
+
+// For a page that is nobody's to find through a search engine: the sign-in pages, a member's own
+// account, their messages and notifications, and the settings of the viewing mode.
+export const NOINDEX: Metadata["robots"] = { index: false, follow: false };

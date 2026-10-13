@@ -880,3 +880,45 @@ test("a record id that cannot be one is the gate's 404 on a numeric detail scree
     isNotFound(await ask(path, { cookie: SESSION }));
   }
 });
+
+test("the styleguide is a 404 for a guest and a member without a panel, and opens for staff", async () => {
+  for (const path of ["/ui", "/ui/", "/%75i", "/ui/%FF"]) {
+    reset();
+    isNotFound(await ask(path), path);
+    assert.equal(state.viewerAsked, 0, path);
+    reset({ viewer: MEMBER });
+    isNotFound(await ask(path, { cookie: SESSION }), path);
+    // A dead cookie or a banned account is a guest.
+    reset({ viewer: null });
+    isNotFound(await ask(path, { cookie: SESSION }), path);
+  }
+  for (const viewer of [
+    SINGLE_FORUM_MODERATOR,
+    PARTIAL_ADMINISTRATOR,
+    FULL_ADMINISTRATOR,
+  ]) {
+    reset({ viewer });
+    passes(await ask("/ui", { cookie: SESSION }));
+    assert.equal(state.viewerAsked, 1);
+  }
+  // A page like /uikit is not the styleguide.
+  reset();
+  passes(await ask("/uikit"));
+});
+
+test("the styleguide is gated for a prefetch and an action's POST too", async () => {
+  reset({ viewer: MEMBER });
+  isNotFound(
+    await ask("/ui", {
+      cookie: SESSION,
+      headers: { "sec-fetch-mode": "cors" },
+    }),
+  );
+  isNotFound(
+    await ask("/ui", {
+      cookie: SESSION,
+      method: "POST",
+      headers: { "next-action": "abc" },
+    }),
+  );
+});

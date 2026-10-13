@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -15,8 +16,11 @@ import { userNameProps } from "@/components/forum/user-name";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { authorsFor } from "@/lib/sermo/members";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = { robots: NOINDEX };
 
 export default function AccountLayout({
   children,

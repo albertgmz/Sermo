@@ -110,6 +110,7 @@ import {
 } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { cn } from "@/lib/utils";
 import {
   ACCENTS,
@@ -148,6 +149,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Styleguide",
+  robots: NOINDEX,
 };
 
 const TOKENS = [

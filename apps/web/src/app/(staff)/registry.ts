@@ -696,3 +696,12 @@ export function hrefFor(me: Standing, key: ScreenKey) {
   const screen = screenByKey(key);
   return screen.built && canOpen(me, screen) ? screen.path : undefined;
 }
+
+// The styleguide at /ui shows internals of the app, so it is gated like the panel: only a member
+// who can open some screen of the panel sees it, and everyone else gets the 404 of an address
+// that does not exist.
+export const isStyleguidePath = (pathname: string) =>
+  /^\/ui(\/|$)/.test(pathname);
+
+export const mayOpenStyleguide = (me: Pick<Standing, "staff">) =>
+  me.staff.panel;

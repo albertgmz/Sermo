@@ -8,7 +8,12 @@ import {
   seoThread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
-import { isStaffPath, mayOpenPath } from "@/app/(staff)/registry";
+import {
+  isStaffPath,
+  isStyleguidePath,
+  mayOpenPath,
+  mayOpenStyleguide,
+} from "@/app/(staff)/registry";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -265,8 +270,9 @@ async function handleRequest(request: NextRequest) {
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
-    // An address that cannot be decoded names no page of the panel either.
-    if (staffRequest) return notFound(request);
+    // An address that cannot be decoded names no page of the panel or the styleguide either.
+    if (staffRequest || isStyleguidePath(request.nextUrl.pathname))
+      return notFound(request);
     return toPage(request);
   }
   const [, section, id, action] = pathname.split("/");
@@ -277,6 +283,11 @@ async function handleRequest(request: NextRequest) {
   if (staffRequest || isStaffPath(pathname)) {
     const viewer = hasSession ? await viewerOf(request.headers) : null;
     if (!viewer || !mayOpenPath(viewer, pathname)) return notFound(request);
+  }
+  // The styleguide is for the panel's people: the same one read decides.
+  if (isStyleguidePath(pathname)) {
+    const viewer = hasSession ? await viewerOf(request.headers) : null;
+    if (!viewer || !mayOpenStyleguide(viewer)) return notFound(request);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
   if (membersOnly && !hasSession) {
