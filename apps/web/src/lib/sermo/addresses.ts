@@ -31,3 +31,25 @@ export function canonicalPathOf(canonical: string): string {
   const { pathname, search } = new URL(canonicalUrlOf(canonical));
   return pathname + search;
 }
+
+// Structured data from the backend names its pages by the backend's addresses; the pages of this
+// app are served under its own name for forums, so every address in it is rewritten to that.
+export function withOwnAddresses(value: unknown): unknown {
+  if (typeof value === "string") {
+    if (!/^https?:\/\/\S+$/.test(value)) return value;
+    try {
+      const own = canonicalUrlOf(value);
+      // Only an address that changes is rewritten; any other text stays as it was written.
+      return new URL(own).pathname === new URL(value).pathname ? value : own;
+    } catch {
+      return value;
+    }
+  }
+  if (Array.isArray(value)) return value.map(withOwnAddresses);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, withOwnAddresses(item)]),
+    );
+  }
+  return value;
+}

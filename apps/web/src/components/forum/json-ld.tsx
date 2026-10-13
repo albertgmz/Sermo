@@ -1,4 +1,5 @@
 import { getLiteState } from "@/lib/lite-mode";
+import { withOwnAddresses } from "@/lib/sermo/addresses";
 import { serializeJsonLd, withoutPictures } from "@/lib/sermo/seo";
 
 // The structured data the backend gives for a page, one script each. A visitor who blocks any
@@ -15,7 +16,9 @@ export async function JsonLd({ items }: { items: unknown[] }) {
       // The text is serialised with its "<" escaped.
       // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON for a script element
       dangerouslySetInnerHTML={{
-        __html: serializeJsonLd(strip ? withoutPictures(item) : item),
+        __html: serializeJsonLd(
+          withOwnAddresses(strip ? withoutPictures(item) : item),
+        ),
       }}
     />
   ));

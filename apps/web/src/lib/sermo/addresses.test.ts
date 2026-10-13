@@ -6,6 +6,7 @@ import {
   canonicalUrlOf,
   FORUM_PREFIX,
   toBackendPath,
+  withOwnAddresses,
 } from "./addresses";
 
 test("an address of this app is asked of the backend under its own name for forums", () => {
@@ -30,4 +31,36 @@ test("a canonical address from the backend is served by its path, under this app
     canonicalUrlOf(`http://api.example/${BACKEND_FORUM_PREFIX}/3-a`),
     `http://api.example/${FORUM_PREFIX}/3-a`,
   );
+});
+
+test("every address in structured data is one this app serves", () => {
+  const input = {
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        item: `http://site.example/${BACKEND_FORUM_PREFIX}/1-growing`,
+        name: "nodes",
+      },
+      { item: "http://site.example/threads/2-x", name: "http" },
+    ],
+    text: "not an address /nodes/1",
+  };
+  assert.deepEqual(withOwnAddresses(input), {
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { item: `http://site.example/${FORUM_PREFIX}/1-growing`, name: "nodes" },
+      { item: "http://site.example/threads/2-x", name: "http" },
+    ],
+    text: "not an address /nodes/1",
+  });
+});
+
+test("text that only looks like an address is left as written", () => {
+  for (const text of [
+    "https://example.com/a b",
+    "https://example.com",
+    `see http://site.example/${BACKEND_FORUM_PREFIX}/1 now`,
+  ]) {
+    assert.equal(withOwnAddresses(text), text);
+  }
 });
