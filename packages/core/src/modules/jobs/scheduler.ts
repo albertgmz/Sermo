@@ -4,6 +4,7 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentialsBatch } from "../auth";
+import { pruneSignInFailures } from "../auth/sign-in-limit";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
@@ -64,6 +65,7 @@ export async function runHourlyTasks(
     {},
     { uniqueKey: `notification-retention:${Math.floor(ctx.now() / 3_600_000)}` },
   );
+  pruneSignInFailures(ctx);
   queueSeoEvents(ctx);
   queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;

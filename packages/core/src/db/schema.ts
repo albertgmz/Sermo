@@ -315,6 +315,21 @@ export const adminPasswordFailures = sqliteTable(
   ],
 );
 
+/**
+ * Wrong passwords at sign-in, one row per answer. `key` is a digest of the account name or
+ * address that was tried and the client address, so the table holds neither; rows older than the
+ * window are deleted as new ones are written and by the hourly cleanup.
+ */
+export const signInFailures = sqliteTable(
+  "sign_in_failures",
+  {
+    id: integer("id").primaryKey(),
+    key: text("key").notNull(),
+    at: integer("at").notNull(),
+  },
+  (t) => [index("sign_in_failures_key").on(t.key, t.at), index("sign_in_failures_at").on(t.at)],
+);
+
 /** Secondary groups assigned by hand. */
 export const userGroups = sqliteTable(
   "user_groups",

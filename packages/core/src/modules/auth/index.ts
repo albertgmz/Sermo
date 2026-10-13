@@ -46,6 +46,7 @@ import {
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { queueCounts } from "../moderation";
 import { usernameChange } from "./rename-marker";
+import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
 
 /**
@@ -99,6 +100,9 @@ const DEAD_SESSION_COOKIE = "sermoDeadSessionCookie";
 
 /** The wrong-password guess a change-password request took, to give back when it succeeds. */
 const PASSWORD_GUESS = "sermoPasswordGuess";
+
+/** The wrong-password count a sign-in request took, to give back when it was not one. */
+const SIGN_IN_GUESS = "sermoSignInGuess";
 
 /** The member a reset-password link belongs to, to end their API keys once it is used. */
 const RESET_HOLDER = "sermoResetHolder";
@@ -457,6 +461,26 @@ function buildAuth(ctx: Ctx) {
               });
             }
           }
+          if (hook.path === "/sign-in/email" || hook.path === "/sign-in/username") {
+            // Better Auth's own limit is three requests per ten seconds per address. This one
+            // counts wrong passwords per account and address: ten in fifteen minutes, then the
+            // sign-in answers as rate limited for that account from that address only.
+            const tried: unknown =
+              hook.path === "/sign-in/email" ? hook.body?.email : hook.body?.username;
+            const ip = (hook.headers ?? hook.request?.headers)?.get(
+              ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip",
+            );
+            if (typeof tried === "string" && ip)
+              try {
+                Reflect.set(hook.context, SIGN_IN_GUESS, takeSignInGuess(ctx, tried, ip));
+              } catch (error) {
+                if (!(error instanceof RateLimitedError)) throw error;
+                throw new APIError("TOO_MANY_REQUESTS", {
+                  code: "TOO_MANY_ATTEMPTS",
+                  message: error.message,
+                });
+              }
+          }
           if (hook.path === "/api-key/create" && hook.context.session) {
             // A key acts without the password rule, so minting one from a session takes the
             // member's current password, under the same wrong-answer limits as everywhere else.
@@ -640,6 +664,13 @@ function buildAuth(ctx: Ctx) {
           returned instanceof APIError &&
           (returned.body as { code?: unknown } | undefined)?.code === "INVALID_PASSWORD";
         if (typeof guess === "number" && !wrongPassword) forgivePasswordGuess(ctx, guess);
+        const signIn = Reflect.get(hook.context, SIGN_IN_GUESS);
+        const wrongSignIn =
+          returned instanceof APIError &&
+          /^INVALID_(?:EMAIL|USERNAME)_OR_PASSWORD$/.test(
+            String((returned.body as { code?: unknown } | undefined)?.code),
+          );
+        if (typeof signIn === "number" && !wrongSignIn) forgiveSignInGuess(ctx, signIn);
         // A new password also ends the member's API keys: they are credentials too.
         if (!failed && (hook.path === "/change-password" || hook.path === "/reset-password")) {
           const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;

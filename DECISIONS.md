@@ -1418,6 +1418,20 @@ not. What a key can and cannot do:
 - A key stops working when the member is banned or erased, when its expiry passes, and in the
   cases of the previous paragraph.
 
+**Sign-in counts wrong passwords per account and address.** `/sign-in/email` and
+`/sign-in/username` had only Better Auth's three requests per ten seconds per address, which
+rotating addresses multiply. Now ten wrong passwords in fifteen minutes for one account name (or
+address) as typed, from one client address, end that account's sign-ins from that address with a 429
+(`TOO_MANY_ATTEMPTS`), right passwords included, until the oldest wrong one leaves the window.
+Other addresses are not affected, so a stranger cannot lock the owner out from elsewhere. The count
+is kept for names that do not exist too, so the answer never tells an unknown account from a known
+one. It does not reuse `admin_password_failures` (a row there belongs to a member by foreign key,
+which an unknown account has not): `sign_in_failures` (migration 0029) holds one row per wrong
+answer under a SHA-256 digest of the account and address, so it stores neither; it is pruned per key
+on every write and in bounded batches by the hourly cleanup. A request with no client address
+(an in-process call) is not counted. A guess is recorded before the password is checked and given
+back when the answer was anything but a wrong password.
+
 **Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
 my password?" without any limit beyond 100 requests per ten seconds per address) is no longer
 served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
