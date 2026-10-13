@@ -9,7 +9,6 @@ import type { Metadata } from "next";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/(main)/members/directory";
-import { LoadMore } from "@/app/(main)/members/load-more";
 import { MembersNav } from "@/app/(main)/members/members-nav";
 import { Overview } from "@/app/(main)/members/overview";
 import { StaffList } from "@/app/(main)/members/staff-list";
@@ -24,6 +23,7 @@ import {
   Leaderboard,
   type LeaderboardKind,
 } from "@/components/forum/leaderboard";
+import { LoadMore } from "@/components/forum/load-more";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   HeadingSkeleton,
@@ -76,8 +76,9 @@ async function MonthView({
   cursor?: string;
   start: number;
 }) {
-  const [t, format, winners, standing] = await Promise.all([
+  const [t, loadMore, format, winners, standing] = await Promise.all([
     getTranslations("members.members"),
+    getTranslations("members.loadMore"),
     getFormatter(),
     read(standingsWinners, {}),
     read(standingsMonth, { month: "previous", cursor }),
@@ -113,7 +114,9 @@ async function MonthView({
                   standing.nextCursor,
                   start + standing.items.length,
                 )}
-              />
+              >
+                {loadMore("label")}
+              </LoadMore>
             </div>
           )}
         </SectionCard>
@@ -154,13 +157,18 @@ async function RankingView({
   cursor?: string;
   start: number;
 }) {
-  const { items, nextCursor } = await read(usersList, { sort, cursor });
+  const [{ items, nextCursor }, loadMore] = await Promise.all([
+    read(usersList, { sort, cursor }),
+    getTranslations("members.loadMore"),
+  ]);
   return (
     <SectionCard title={title}>
       <Leaderboard members={items} by={by} viewerId={viewerId} start={start} />
       {nextCursor && (
         <div className="p-3">
-          <LoadMore href={nextHref(view, nextCursor, start + items.length)} />
+          <LoadMore href={nextHref(view, nextCursor, start + items.length)}>
+            {loadMore("label")}
+          </LoadMore>
         </div>
       )}
     </SectionCard>

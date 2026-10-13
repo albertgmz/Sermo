@@ -7,6 +7,7 @@
 import { useTranslations } from "next-intl";
 import { startTransition, useActionState, useState } from "react";
 import { ActionForm } from "@/components/forum/action-form";
+import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,9 +80,7 @@ export function MergeControl({
         onChange={(event) => setTyped(event.target.value)}
       />
       {state.error && state.submitted === typed && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
+        <FormError>{state.error}</FormError>
       )}
       <PendingButton variant="outline" className="h-10 px-3">
         {t("mergeReview")}

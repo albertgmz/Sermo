@@ -1,8 +1,8 @@
 import { creditsHistory } from "@sermo/core/contracts";
 import { ReceiptText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { LoadMore } from "@/app/(main)/credits/load-more";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LoadMore } from "@/components/forum/load-more";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { formatNumber } from "@/lib/format";
@@ -12,8 +12,9 @@ import { cn } from "@/lib/utils";
 // The member's ledger, newest first. A line is named by its type; the reason the backend recorded
 // (the credit rule, the staff note) is the detail under it.
 export async function History({ cursor }: { cursor?: string }) {
-  const [t, ledger] = await Promise.all([
+  const [t, loadMore, ledger] = await Promise.all([
     getTranslations("credits.history"),
+    getTranslations("credits.loadMore"),
     read(creditsHistory, { cursor }),
   ]);
   const href = ledger.nextCursor
@@ -72,7 +73,7 @@ export async function History({ cursor }: { cursor?: string }) {
       )}
       {href && (
         <div className="p-3">
-          <LoadMore href={href} />
+          <LoadMore href={href}>{loadMore("label")}</LoadMore>
         </div>
       )}
     </SectionCard>

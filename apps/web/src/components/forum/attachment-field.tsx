@@ -3,6 +3,7 @@
 import { LoaderCircle, Paperclip, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { FormError } from "@/components/forum/form-error";
 import { messageActionClass } from "@/components/forum/message-action";
 import { useUploadLimit } from "@/components/forum/upload-limit";
 import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
@@ -173,12 +174,9 @@ export function AttachmentField({
         </ul>
       )}
       {error && (
-        <p
-          role="alert"
-          className={cn("text-sm text-destructive", compact && "basis-full")}
-        >
+        <FormError className={compact ? "basis-full" : undefined}>
           {error}
-        </p>
+        </FormError>
       )}
     </>
   );

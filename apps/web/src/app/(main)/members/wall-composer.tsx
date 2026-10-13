@@ -3,6 +3,7 @@
 import { SendHorizontal } from "lucide-react";
 import { useActionState } from "react";
 import type { WallState } from "@/app/(main)/members/actions";
+import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { PendingButton } from "@/components/forum/pending-button";
 import { cn } from "@/lib/utils";
@@ -33,11 +34,7 @@ export function WallComposer({
           <SendHorizontal />
         </PendingButton>
       </div>
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
     </form>
   );
 }

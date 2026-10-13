@@ -5,19 +5,12 @@ import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 import { register } from "@/app/(auth)/actions";
 import { PasswordField } from "@/app/(auth)/password-field";
+import { PasswordStrength } from "@/app/(auth)/password-strength";
+import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-
-const STRENGTH = ["weak", "weak", "fair", "good", "strong"];
-
-function score(password: string) {
-  return [/.{8,}/, /[a-z].*[A-Z]|[A-Z].*[a-z]/, /\d/, /[^A-Za-z0-9]/].filter(
-    (rule) => rule.test(password),
-  ).length;
-}
 
 function Required({ children }: { children: React.ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
@@ -30,7 +23,6 @@ export function RegisterForm({ referrer }: { referrer?: string }) {
     username: "",
   });
   const [password, setPassword] = useState("");
-  const strength = password ? score(password) : 0;
 
   return (
     <form action={action} className="space-y-4">
@@ -75,21 +67,9 @@ export function RegisterForm({ referrer }: { referrer?: string }) {
           required
           onValueChange={setPassword}
         />
-        <Progress
-          value={strength * 25}
-          aria-label={t("aria.passwordStrength")}
-        />
-        <p className="text-xs text-muted-foreground">
-          {password
-            ? t("passwordStrength", { strength: STRENGTH[strength] })
-            : t("errors.passwordRequired")}
-        </p>
+        <PasswordStrength password={password} />
       </div>
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}
       </Button>

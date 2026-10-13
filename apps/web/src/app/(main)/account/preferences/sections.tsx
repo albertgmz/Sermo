@@ -7,6 +7,7 @@ import {
 } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import type { ReactNode } from "react";
 import { ActionForm } from "@/app/(main)/account/action-form";
 import {
   savePreferences,
@@ -89,6 +90,42 @@ export async function PreferencesSection({
   );
 }
 
+// One watched thread or forum: its title as a link, a line under it, and the button that stops
+// the watch.
+function WatchRow({
+  href,
+  title,
+  stop,
+  action,
+  children,
+}: {
+  href: string;
+  title: string;
+  stop: string;
+  action: () => Promise<void>;
+  children: ReactNode;
+}) {
+  return (
+    <li className="flex flex-wrap items-center gap-3 p-4">
+      <div className="min-w-0 flex-1 basis-40">
+        <Link
+          href={href}
+          className="block min-h-10 content-center text-sm font-medium underline-offset-4 [overflow-wrap:anywhere] hover:underline"
+        >
+          {title}
+        </Link>
+        {children}
+      </div>
+      <form action={action}>
+        <PendingButton variant="outline" className="min-h-10 px-4">
+          {stop}
+          <span className="sr-only"> {title}</span>
+        </PendingButton>
+      </form>
+    </li>
+  );
+}
+
 export async function ThreadWatches({
   searchParams,
 }: {
@@ -112,26 +149,15 @@ export async function ThreadWatches({
       ) : (
         <ul className="divide-y">
           {page.items.map((watch) => (
-            <li
+            <WatchRow
               key={watch.threadId}
-              className="flex flex-wrap items-center gap-3 p-4"
+              href={`/threads/${watch.threadId}`}
+              title={watch.title}
+              stop={t("stop")}
+              action={stopWatchingThread.bind(null, watch.threadId)}
             >
-              <div className="min-w-0 flex-1 basis-40">
-                <Link
-                  href={`/threads/${watch.threadId}`}
-                  className="block min-h-10 content-center text-sm font-medium underline-offset-4 [overflow-wrap:anywhere] hover:underline"
-                >
-                  {watch.title}
-                </Link>
-                {watch.email && <Badge variant="outline">{t("email")}</Badge>}
-              </div>
-              <form action={stopWatchingThread.bind(null, watch.threadId)}>
-                <PendingButton variant="outline" className="min-h-10 px-4">
-                  {t("stop")}
-                  <span className="sr-only"> {watch.title}</span>
-                </PendingButton>
-              </form>
-            </li>
+              {watch.email && <Badge variant="outline">{t("email")}</Badge>}
+            </WatchRow>
           ))}
         </ul>
       )}
@@ -169,29 +195,18 @@ export async function ForumWatches({
       ) : (
         <ul className="divide-y">
           {page.items.map((watch) => (
-            <li
+            <WatchRow
               key={watch.nodeId}
-              className="flex flex-wrap items-center gap-3 p-4"
+              href={`/forums/${watch.nodeId}`}
+              title={watch.title}
+              stop={t("stop")}
+              action={stopWatchingForum.bind(null, watch.nodeId)}
             >
-              <div className="min-w-0 flex-1 basis-40">
-                <Link
-                  href={`/forums/${watch.nodeId}`}
-                  className="block min-h-10 content-center text-sm font-medium underline-offset-4 [overflow-wrap:anywhere] hover:underline"
-                >
-                  {watch.title}
-                </Link>
-                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  {t(`mode.${watch.mode}`)}
-                  {watch.email && <Badge variant="outline">{t("email")}</Badge>}
-                </p>
-              </div>
-              <form action={stopWatchingForum.bind(null, watch.nodeId)}>
-                <PendingButton variant="outline" className="min-h-10 px-4">
-                  {t("stop")}
-                  <span className="sr-only"> {watch.title}</span>
-                </PendingButton>
-              </form>
-            </li>
+              <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                {t(`mode.${watch.mode}`)}
+                {watch.email && <Badge variant="outline">{t("email")}</Badge>}
+              </p>
+            </WatchRow>
           ))}
         </ul>
       )}

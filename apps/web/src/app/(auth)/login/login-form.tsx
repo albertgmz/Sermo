@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { login } from "@/app/(auth)/actions";
 import { PasswordField } from "@/app/(auth)/password-field";
+import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -30,11 +31,7 @@ export function LoginForm({ next }: { next: string }) {
           aria-invalid={state.error ? true : undefined}
           aria-describedby={state.error ? "login-error" : undefined}
         />
-        {state.error && (
-          <p id="login-error" role="alert" className="text-sm text-destructive">
-            {state.error}
-          </p>
-        )}
+        {state.error && <FormError id="login-error">{state.error}</FormError>}
       </div>
       <div className="space-y-2">
         <Label htmlFor="login-password">{t("passwordLabel")}</Label>

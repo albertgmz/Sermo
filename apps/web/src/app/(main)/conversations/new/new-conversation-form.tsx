@@ -6,6 +6,7 @@ import { startConversation } from "@/app/(main)/conversations/actions";
 import { RecipientPicker } from "@/app/(main)/conversations/new/recipient-picker";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
+import { FormError } from "@/components/forum/form-error";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,11 +39,7 @@ export function NewConversationForm({
         <Editor name="body" placeholder={t("messagePlaceholder")} />
       </div>
       <AttachmentField onBusy={setUploading} />
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
       <Button
         type="submit"
         disabled={pending || uploading}

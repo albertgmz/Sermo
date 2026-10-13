@@ -8,6 +8,7 @@ import { QUOTE_EVENT } from "@/app/(main)/threads/[id]/quote";
 import { replyAction } from "@/app/(main)/threads/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
+import { FormError } from "@/components/forum/form-error";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
 
@@ -34,11 +35,7 @@ export function ReplyComposer({
       {attachIn !== null && (
         <AttachmentField nodeId={attachIn} onBusy={setUploading} />
       )}
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
       <div className="flex items-center justify-end gap-2">
         <Button
           type="submit"

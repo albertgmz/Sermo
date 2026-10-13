@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { choosePassword, type FormState } from "@/app/(auth)/actions";
 import { PasswordField } from "@/app/(auth)/password-field";
 import { PasswordStrength } from "@/app/(auth)/password-strength";
+import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
@@ -38,11 +39,7 @@ export function ResetForm({ token }: { token: string }) {
           required
         />
       </div>
-      {state && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state && <FormError>{state.error}</FormError>}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {pending ? t("pending") : t("submit")}
       </Button>

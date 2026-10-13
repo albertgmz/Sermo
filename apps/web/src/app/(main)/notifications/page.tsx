@@ -1,17 +1,15 @@
 import { notificationsList } from "@sermo/core/contracts";
-import { Bell, CheckCheck, ChevronDown } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { notificationEntries } from "@/app/(main)/notifications/entries";
 import { MarkAllReadForm } from "@/app/(main)/notifications/mark-all-read";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LoadMore } from "@/components/forum/load-more";
 import { NotificationRow } from "@/components/forum/notification-row";
 import { PageLayout } from "@/components/layout/page-layout";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { NOINDEX } from "@/lib/sermo/seo";
-import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("notifications.notifications");
@@ -80,17 +78,12 @@ export default async function NotificationsPage({
         )}
       </section>
       {list.nextCursor && (
-        <Link
+        <LoadMore
           href={`/notifications?cursor=${encodeURIComponent(list.nextCursor)}`}
-          scroll={false}
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "mt-3 h-10 w-full",
-          )}
+          className="mt-3"
         >
-          <ChevronDown />
           {t("nextPage")}
-        </Link>
+        </LoadMore>
       )}
     </PageLayout>
   );

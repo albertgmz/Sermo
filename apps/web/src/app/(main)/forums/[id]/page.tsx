@@ -5,7 +5,6 @@ import {
   threadsList,
 } from "@sermo/core/contracts";
 import {
-  ChevronDown,
   Eye,
   Lock,
   MessageCircle,
@@ -24,6 +23,7 @@ import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { JsonLd } from "@/components/forum/json-ld";
+import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -436,17 +436,9 @@ async function ForumThreads({
         )}
       </div>
       {list.nextCursor && (
-        <Link
-          href={`/forums/${nodeId}?${next}`}
-          scroll={false}
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "mt-3 h-10 w-full",
-          )}
-        >
-          <ChevronDown />
+        <LoadMore href={`/forums/${nodeId}?${next}`} className="mt-3">
           {t("nextPage")}
-        </Link>
+        </LoadMore>
       )}
     </>
   );
