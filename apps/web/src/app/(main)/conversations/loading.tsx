@@ -1,18 +1,29 @@
 import { useTranslations } from "next-intl";
-import { LoadingRegion } from "@/components/forum/skeletons";
+import {
+  ConversationListSkeleton,
+  LoadingRegion,
+} from "@/components/forum/skeletons";
+import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   const t = useTranslations("conversations.loading");
   return (
-    <div className="hidden h-full items-center justify-center lg:flex">
-      <LoadingRegion label={t("label")}>
-        <div className="flex flex-col items-center gap-3 px-4">
-          <Skeleton className="size-10" />
-          <Skeleton className="h-5 w-44" />
-          <Skeleton className="h-4 w-64 max-w-full" />
+    <LoadingRegion label={t("label")}>
+      <PageLayout className="pt-2">
+        <div className="flex h-10 items-center md:h-8">
+          <Skeleton className="h-3 w-24" />
         </div>
-      </LoadingRegion>
-    </div>
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("heading")}
+          </h1>
+          <Skeleton className="h-10 w-36 md:h-8" />
+        </div>
+        <div className="mt-4 overflow-hidden rounded-lg border bg-card">
+          <ConversationListSkeleton />
+        </div>
+      </PageLayout>
+    </LoadingRegion>
   );
 }

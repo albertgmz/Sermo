@@ -4,18 +4,21 @@ import {
   FormRowSkeleton,
   LoadingRegion,
 } from "@/components/forum/skeletons";
+import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {
   const t = useTranslations("conversations.loading.newConversation");
   return (
     <LoadingRegion label={t("label")}>
-      <div className="lg:h-full lg:overflow-y-auto">
-        <header className="flex min-h-14 items-center gap-1 border-b px-2 py-2 lg:px-4">
-          <Skeleton className="size-10 lg:hidden" />
-          <h1 className="text-sm font-semibold">{t("heading")}</h1>
-        </header>
-        <div className="max-w-2xl space-y-5 p-4">
+      <PageLayout className="pt-2">
+        <div className="flex h-10 items-center md:h-8">
+          <Skeleton className="h-3 w-48" />
+        </div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+          {t("heading")}
+        </h1>
+        <div className="mt-4 space-y-5">
           <div>
             <Skeleton className="mb-2 h-5 w-20" />
             <Skeleton className="h-10 w-full md:h-8" />
@@ -27,7 +30,7 @@ export default function Loading() {
           </div>
           <Skeleton className="h-10 w-36" />
         </div>
-      </div>
+      </PageLayout>
     </LoadingRegion>
   );
 }

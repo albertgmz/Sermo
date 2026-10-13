@@ -1,24 +1,24 @@
 {
   "layout": {
-    "metaTitle": "Conversations",
+    "metaTitle": "Conversations"
+  },
+  "list": {
+    "home": "Home",
     "heading": "Conversations",
     "newConversation": "New conversation",
-    "loadingList": "Loading conversation list…",
     "loadingConversations": "Loading conversations…",
     "emptyTitle": "No conversations yet",
     "emptyDescription": "Start one to talk privately with other members.",
     "older": "Older conversations"
   },
-  "conversations": {
-    "title": "Select a conversation",
-    "description": "Choose a conversation from the list or start a new one."
-  },
   "conversation": {
     "aria": {
-      "back": "Back to conversations",
       "leave": "Leave conversation",
       "loadingMessages": "Loading messages…"
     },
+    "home": "Home",
+    "conversations": "Conversations",
+    "participants": "Participants",
     "participantSeparator": ", ",
     "placeholder": "Write a message…",
     "submit": "Send message",
@@ -31,9 +31,8 @@
     "newest": "Newest messages"
   },
   "newConversation": {
-    "aria": {
-      "back": "Back to conversations"
-    },
+    "home": "Home",
+    "conversations": "Conversations",
     "heading": "New conversation",
     "cannotStartTitle": "You cannot start conversations",
     "cannotStartDescription": "Your account is not allowed to start a private conversation."
@@ -47,6 +46,7 @@
   },
   "loading": {
     "label": "Loading conversations…",
+    "heading": "Conversations",
     "conversation": {
       "label": "Loading messages…"
     },
