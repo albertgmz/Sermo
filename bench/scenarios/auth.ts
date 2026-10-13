@@ -32,7 +32,8 @@ async function setup(env: Parameters<NonNullable<Scenario["setup"]>>[0]) {
   });
   const key = await getAuth(env.ctx).api.createApiKey({
     headers: sessionHeaders,
-    body: { name: "Benchmark", password: SEED_PASSWORD },
+    // A session must give its password to create a key; the plugin's input type does not know the field.
+    body: { name: "Benchmark", password: SEED_PASSWORD } as { name: string },
   });
   keyHeaders = new Headers({ authorization: `Bearer ${key.key}` });
 }
