@@ -2138,6 +2138,7 @@ export const operations = [
         target: principalMember(ctx, input.userId),
       });
       if (actorUserId(actor) === input.userId) throw new ForbiddenError();
+      requireNotErased(ctx, input.userId);
       const actorId = requireAuthenticated(actor).userId;
       const existing = read<{ id: number }>(
         ctx,

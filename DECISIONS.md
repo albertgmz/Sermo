@@ -1329,12 +1329,16 @@ password there.
 **An erased member takes no further administrative or moderation write.** The rule that already
 covered identity, profile and sessions now covers every write that targets a member:
 `permissions.set` (for a member), `users.setGroups`, `nodes.setModerator`, `warnings.create`,
-`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant` and
-`promotions.apply` answer a conflict with one message (`requireNotErased`: "This member's account
+`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant`,
+`promotions.apply`, `spamCleanup.start` and `shop.buy` with a `recipientId` (a gift) answer a conflict with one message (`requireNotErased`: "This member's account
 was erased."), checked inside the write transaction after the permission decision, so a caller who
 may not act is still told it is forbidden. Taking something away stays possible (lifting a ban is
 already refused for another reason; revoking an award, lifting a restriction or a warning's
-expiry do not add anything). Actions between members (following, ignoring, messaging, profile
+expiry do not add anything). A walk over every write whose input names a member found no other gap. Taking
+something away stays open: `threadBans.lift`, `bans.lift` (refused for its own reason),
+`restrictions.lift`, `users.unfollow`, `users.unignore`. A spam cleanup already running when the
+member is erased finishes: only the start is refused, the job continues the same function.
+Actions between members (following, ignoring, messaging, profile
 posts, naming a referrer) are not covered: they are the members' own, and an erased account is
 permanently banned, which the referrer rule already treats as absent.
 

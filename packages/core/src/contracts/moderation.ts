@@ -231,7 +231,8 @@ export const postRevisionsList = defineContract({
 });
 export const spamCleanupStart = defineContract({
   name: "spamCleanup.start",
-  summary: "Queue a ban and cleanup of all a user's content.",
+  summary:
+    "Queue a ban and cleanup of all a user's content. A conflict when the member's account was erased.",
   kind: "write",
   input: z.object({
     ...moderationNotice,

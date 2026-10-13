@@ -26,13 +26,22 @@ async function world() {
     criteria: [{ criterion: "post_count", value: 0 }],
     groupIds: [group.id],
   });
+  const category = await w.run("shopCategories.create", founder.actor, { name: "Gifts" });
+  const gift = await w.run("shopItems.create", founder.actor, {
+    categoryId: category.id,
+    name: "Bump",
+    price: 1,
+    effect: { type: "bump" },
+    isGiftable: true,
+  });
+  w.ctx.sqlite.prepare("UPDATE users SET credits = 100 WHERE id = ?1").run(founder.id);
   const erase = async (id: number) =>
     w.run("users.adminErase", founder.actor, {
       userId: id,
       actorPassword: PASSWORD,
       reason: "Cleanup",
     });
-  return { ...w, founder, moderator, node, thread, award, promotion, erase };
+  return { ...w, founder, moderator, node, thread, award, promotion, gift, erase };
 }
 type World = Awaited<ReturnType<typeof world>>;
 
@@ -59,6 +68,10 @@ const writes: Record<string, (w: World, userId: number) => Promise<unknown>> = {
     w.run("credits.adjust", w.founder.actor, { userId, amount: 5, reason: "Gift" }),
   "awards.grant": (w, userId) =>
     w.run("awards.grant", w.founder.actor, { userId, awardId: w.award.id }),
+  "spamCleanup.start": (w, userId) =>
+    w.run("spamCleanup.start", w.founder.actor, { userId, reason: "Spam" }),
+  "shop.buy (gift)": (w, userId) =>
+    w.run("shop.buy", w.founder.actor, { itemId: w.gift.id, recipientId: userId }),
   "promotions.apply": (w, userId) =>
     w.run("promotions.apply", w.founder.actor, {
       userId,
@@ -120,13 +133,16 @@ describe("writes on an erased member", () => {
     ).toBe(1);
   });
 
-  test("a caller without the permission is told it is forbidden, not that the member was erased", async () => {
+  test("a caller without the permission is told it is forbidden, one with it that the member was erased", async () => {
     const w = await world();
     const member = await w.register("Erased Three");
     await w.erase(member.id);
-    await expect(
-      w.run("warnings.create", w.moderator.actor, { userId: member.id, points: 1, reason: "Rude" }),
-    ).rejects.toThrow();
+    const refused = await w
+      .run("warnings.create", w.moderator.actor, { userId: member.id, points: 1, reason: "Rude" })
+      .catch((error: unknown) => error);
+    // A moderator may warn members, so for them the erased account is the reason.
+    expect(refused).toBeInstanceOf(ConflictError);
+    expect((refused as Error).message).toBe(MESSAGE);
     await expect(
       w.run("credits.adjust", (await w.register("Plain")).actor, {
         userId: member.id,
