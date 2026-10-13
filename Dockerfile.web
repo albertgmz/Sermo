@@ -31,13 +31,10 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
-# The standalone server keeps the monorepo layout; it must run from the app's folder because the
-# proxy reads `public/` and the pages read `data/` relative to the working directory.
+# The standalone server keeps the monorepo layout and runs from the app's folder.
 WORKDIR /app/apps/web
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone /app
 COPY --from=build --chown=node:node /app/apps/web/.next/static .next/static
-COPY --from=build --chown=node:node /app/apps/web/public public
-COPY --from=build --chown=node:node /app/apps/web/data data
 
 USER node
 EXPOSE 3000
