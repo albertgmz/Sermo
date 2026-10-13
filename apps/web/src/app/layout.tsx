@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { SiteIcon } from "@/components/layout/site-icon";
@@ -20,13 +19,10 @@ const geistMono = Geist_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const [t, site] = await Promise.all([
-    getTranslations("layout.layout"),
-    getSite(),
-  ]);
+  const site = await getSite();
   return {
     title: { default: site.name, template: `%s - ${site.name}` },
-    description: t("metaDescription"),
+    description: site.description || undefined,
   };
 }
 

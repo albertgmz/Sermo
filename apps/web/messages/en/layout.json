@@ -1,7 +1,4 @@
 {
-  "layout": {
-    "metaDescription": "A forum interface kit."
-  },
   "site": {
     "defaultName": "Sermo"
   },
@@ -86,8 +83,7 @@
     "pending": "({count} pending)"
   },
   "siteFooter": {
-    "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
-    "copyright": "© 2026 <brand>{site}</brand>. All rights reserved.",
+    "copyright": "© <brand>{site}</brand>. All rights reserved.",
     "loadingLinks": "Loading links…",
     "aria": {
       "more": "More links"
