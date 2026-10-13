@@ -1432,6 +1432,18 @@ on every write and in bounded batches by the hourly cleanup. A request with no c
 (an in-process call) is not counted. A guess is recorded before the password is checked and given
 back when the answer was anything but a wrong password.
 
+**Cards respect profile privacy.** `users.cards` and `users.authors` answered the full block for any
+id, so a member whose profile the viewer cannot open (`profileViewPrivacy`, or the viewer lacks
+`profile.view`) still showed title, cover, join date, counters and signature, and a guest could
+walk the member table by id. For such a member both now return the minimal card: id, username,
+avatar, frame, name colour and badges (what is drawn next to a post; there is no separate staff
+flag, the staff groups' badges carry it), title empty, level 1, and `restricted: true`; the author
+block also has a null cover, the epoch as join date, zero counters, `nextLevelXp` 1, no awards and a
+null signature. The rule is the one of `profiles.get` (the member themselves, or a holder of
+`profile.bypassPrivacy`, or the privacy mode against the viewer), decided for the whole batch from
+one privacy query and the viewer resolved once. Other loaders (administration, directory, standings)
+are unchanged and report `restricted: false`. Banned and erased members are treated as before.
+
 **Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
 my password?" without any limit beyond 100 requests per ten seconds per address) is no longer
 served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`

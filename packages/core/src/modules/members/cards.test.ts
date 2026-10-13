@@ -32,6 +32,7 @@ describe("users.cards", () => {
       title: "Member",
       badges: [],
       level: 1,
+      restricted: false,
     });
   });
 

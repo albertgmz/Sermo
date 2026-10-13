@@ -1,5 +1,5 @@
 import type * as z from "zod";
-import type { Actor } from "../../actor";
+import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { MemberAuthor, MemberCard } from "../../contracts/members";
 import {
@@ -7,12 +7,14 @@ import {
   memberActor,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
+  permissionsOf,
   permissionValue,
   requestVersions,
 } from "../../permissions";
 import { levelFor, levelTitle } from "../../shared/levels";
 import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
+import { profileAccessMany, profileModeAllows } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
 import { publicPicture, resolvedFileUrl } from "../storage/url";
 
@@ -210,9 +212,69 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
           style: group.badge,
         })),
       level,
+      restricted: false,
     });
   }
   return result;
+}
+
+/**
+ * What may be shown of a member whose profile the viewer may not open: what is drawn next to a
+ * post (picture, frame, name colour, badges), nothing else.
+ */
+function minimalCard(card: Card): Card {
+  return { ...card, title: "", level: 1, restricted: true };
+}
+
+function minimalAuthor(author: Author): Author {
+  return {
+    card: minimalCard(author.card),
+    cover: null,
+    createdAt: iso(0),
+    postCount: 0,
+    reactionScore: 0,
+    awardXp: 0,
+    currentLevelXp: 0,
+    nextLevelXp: 1,
+    awards: [],
+    signatureHtml: null,
+  };
+}
+
+/**
+ * Of a batch of members, those whose profile the viewer may not open: all of them (except
+ * themselves) without profile.view, else by each member's profile privacy, in one query for the
+ * whole batch.
+ */
+function restrictedFor(ctx: Ctx, viewer: Actor, ids: number[]): Set<number> {
+  const self = actorUserId(viewer);
+  // The viewer is resolved once, so the number of statements does not depend on the batch.
+  const permitted = permissionsOf(ctx, viewer);
+  if (!permitted.can("profile.view")) return new Set(ids.filter((id) => id !== self));
+  const bypass = permitted.can("profile.bypassPrivacy");
+  const access = profileAccessMany(ctx, viewer, ids);
+  return new Set(
+    ids.filter((id) => {
+      const row = access.get(id);
+      return !(id === self || bypass || (row !== undefined && profileModeAllows(row, self)));
+    }),
+  );
+}
+
+/** `loadMemberCards` for what the viewer may see: minimal cards for profiles they may not open. */
+export function loadViewerCards(ctx: Ctx, viewer: Actor, ids: Iterable<number>) {
+  const cards = loadMemberCards(ctx, viewer, ids);
+  const hidden = restrictedFor(ctx, viewer, [...cards.keys()]);
+  for (const id of hidden) cards.set(id, minimalCard(cards.get(id)!));
+  return cards;
+}
+
+/** `loadMemberAuthors` for what the viewer may see: minimal authors for profiles they may not open. */
+export function loadViewerAuthors(ctx: Ctx, viewer: Actor, ids: Iterable<number>) {
+  const authors = loadMemberAuthors(ctx, viewer, ids);
+  const hidden = restrictedFor(ctx, viewer, [...authors.keys()]);
+  for (const id of hidden) authors.set(id, minimalAuthor(authors.get(id)!));
+  return authors;
 }
 
 /** Cards for a page of ids; ids that do not exist are absent. */

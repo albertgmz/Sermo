@@ -56,7 +56,10 @@ export function mayViewProfile(
 ): boolean {
   const viewerId = actorUserId(actor);
   if (viewerId === userId || can(ctx, actor, "profile.bypassPrivacy")) return true;
-  const row = access ?? profileAccess(ctx, actor, userId);
+  return profileModeAllows(access ?? profileAccess(ctx, actor, userId), viewerId);
+}
+/** A member's profile privacy against a viewer who is neither them nor allowed to bypass it. */
+export function profileModeAllows(row: ProfileAccess, viewerId: number | null): boolean {
   const mode = row.profile_view_privacy;
   return (
     mode === "everyone" ||

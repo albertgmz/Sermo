@@ -33,7 +33,10 @@ function world() {
     const statuses: number[] = [];
     let last: Response | undefined;
     for (let i = 0; i < count; i++) {
-      if (i % 3 === 0) setSystemTime((real += 11_000));
+      if (i % 3 === 0) {
+        real += 11_000;
+        setSystemTime(real);
+      }
       last = await send(path, body, ip);
       statuses.push(last.status);
     }
