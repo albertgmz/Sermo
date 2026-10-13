@@ -16,12 +16,19 @@ import { cn } from "@/lib/utils";
 export function PostNote({
   icon: Icon,
   children,
+  className,
 }: {
   icon: typeof Hourglass;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <p className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+    <p
+      className={cn(
+        "mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground",
+        className,
+      )}
+    >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
       {children}
     </p>

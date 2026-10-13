@@ -4,6 +4,7 @@ import { UserCheck, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { setFollowing } from "@/app/(main)/members/actions";
+import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
 
 // Asks for the opposite of what the page shows; the backend has the last word.
@@ -37,9 +38,7 @@ export function FollowButton({
         {t(following ? "following" : "follow")}
       </PendingButton>
       {state.error && (
-        <p role="alert" className="mt-1 text-xs text-destructive">
-          {state.error}
-        </p>
+        <FormError className="mt-1 text-xs">{state.error}</FormError>
       )}
     </form>
   );

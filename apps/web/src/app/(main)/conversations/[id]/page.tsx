@@ -2,15 +2,7 @@ import {
   conversationsGet,
   conversationsListMessages,
 } from "@sermo/core/contracts";
-import {
-  ChevronDown,
-  ChevronUp,
-  Hourglass,
-  Lock,
-  LogOut,
-  Trash2,
-} from "lucide-react";
-import Link from "next/link";
+import { ChevronUp, Hourglass, Lock, LogOut, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -22,6 +14,7 @@ import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skele
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
+import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { Reactions } from "@/components/forum/reactions";
@@ -29,13 +22,11 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
-import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { authorsFor, membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
-import { cn } from "@/lib/utils";
 
 type Conversation = z.output<typeof conversationsGet.output>;
 type Members = Awaited<ReturnType<typeof membersFor>>;
@@ -209,18 +200,18 @@ async function Messages({
     }),
   );
   const picker = canReact ? pickerTypes(reactionTypes) : [];
-  const link = cn(buttonVariants({ variant: "outline" }), "h-10 w-full");
 
   return (
     <>
       {nextCursor && (
-        <Link
+        <LoadMore
           href={`/conversations/${conversation.id}?cursor=${encodeURIComponent(nextCursor)}`}
-          className={cn(link, "mb-3")}
+          className="mb-3"
+          icon={ChevronUp}
+          scroll
         >
-          <ChevronUp />
           {t("earlier")}
-        </Link>
+        </LoadMore>
       )}
       <ol className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
         {messages.map((message) => (
@@ -256,13 +247,13 @@ async function Messages({
         ))}
       </ol>
       {cursor ? (
-        <Link
+        <LoadMore
           href={`/conversations/${conversation.id}`}
-          className={cn(link, "mt-3")}
+          className="mt-3"
+          scroll
         >
-          <ChevronDown />
           {t("newest")}
-        </Link>
+        </LoadMore>
       ) : (
         <ConversationSync
           key={messages.at(-1)?.id}

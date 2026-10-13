@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { type FormState, forgotPassword } from "@/app/(auth)/actions";
+import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,15 +27,7 @@ export function ForgotForm() {
           aria-invalid={state ? true : undefined}
           aria-describedby={state ? "forgot-error" : undefined}
         />
-        {state && (
-          <p
-            id="forgot-error"
-            role="alert"
-            className="text-sm text-destructive"
-          >
-            {state.error}
-          </p>
-        )}
+        {state && <FormError id="forgot-error">{state.error}</FormError>}
       </div>
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {pending ? t("pending") : t("submit")}

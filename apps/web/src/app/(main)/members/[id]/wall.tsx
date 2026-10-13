@@ -6,13 +6,14 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { commentOnWallPost, postToWall } from "@/app/(main)/members/actions";
-import { LoadMore } from "@/app/(main)/members/load-more";
 import { PostComposer } from "@/app/(main)/members/post-composer";
 import { WallComposer } from "@/app/(main)/members/wall-composer";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
+import { LoadMore } from "@/components/forum/load-more";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
+import { PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -58,10 +59,9 @@ function StateNote({ state }: { state: ApiWallPost["state"] }) {
   if (state === "visible") return null;
   const Icon = state === "moderated" ? Hourglass : Trash2;
   return (
-    <p className="mb-1 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
+    <PostNote icon={Icon} className="mt-0 mb-1">
       {t(state === "moderated" ? "awaitingApproval" : "deleted")}
-    </p>
+    </PostNote>
   );
 }
 
@@ -241,12 +241,13 @@ export async function Wall({
   cursor?: string;
   open?: OpenComments;
 }) {
-  const [{ items: posts, nextCursor }, reactionTypes, viewer, t] =
+  const [{ items: posts, nextCursor }, reactionTypes, viewer, t, loadMore] =
     await Promise.all([
       read(profilePostsList, { userId: profile.id, cursor }),
       getReactionTypes(),
       getViewer(),
       getTranslations("members.wall"),
+      getTranslations("members.loadMore"),
     ]);
   const openPost = open && posts.find((post) => post.id === open.postId);
   const openPage = openPost
@@ -342,7 +343,9 @@ export async function Wall({
       )}
       {nextCursor && (
         <div className="border-t p-3">
-          <LoadMore href={wallHref(profile.id, { cursor: nextCursor })} />
+          <LoadMore href={wallHref(profile.id, { cursor: nextCursor })}>
+            {loadMore("label")}
+          </LoadMore>
         </div>
       )}
     </section>

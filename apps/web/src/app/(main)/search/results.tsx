@@ -1,16 +1,16 @@
 import { searchQuery, usersSearch } from "@sermo/core/contracts";
-import { ChevronDown, Search, SearchX, TriangleAlert } from "lucide-react";
+import { Search, SearchX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
+import { LoadMore } from "@/components/forum/load-more";
 import { MemberRow } from "@/components/forum/member-row";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { UserLink } from "@/components/forum/user-link";
-import { buttonVariants } from "@/components/ui/button";
 import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
@@ -213,14 +213,9 @@ export async function Results({
       )}
 
       {nextCursor && (
-        <Link
-          href={searchHref(filters, nextCursor)}
-          scroll={false}
-          className={cn(buttonVariants({ variant: "outline" }), "h-10 w-full")}
-        >
-          <ChevronDown />
+        <LoadMore href={searchHref(filters, nextCursor)}>
           {t("loadMore")}
-        </Link>
+        </LoadMore>
       )}
     </>
   );

@@ -2,10 +2,10 @@ import { usersList, usersSearch } from "@sermo/core/contracts";
 import { SearchX } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { LoadMore } from "@/app/(main)/members/load-more";
 import { MemberSearch } from "@/app/(main)/members/member-search";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
+import { LoadMore } from "@/components/forum/load-more";
 import { MemberCard } from "@/components/forum/member-card";
 import { MemberRow } from "@/components/forum/member-row";
 import { SectionCard } from "@/components/forum/section-card";
@@ -87,7 +87,10 @@ async function Everyone({
   sort: (typeof SORTS)[number]["value"];
   cursor?: string;
 }) {
-  const { items, nextCursor } = await read(usersList, { sort, cursor });
+  const [{ items, nextCursor }, loadMore] = await Promise.all([
+    read(usersList, { sort, cursor }),
+    getTranslations("members.loadMore"),
+  ]);
   const params = new URLSearchParams({ view: "all" });
   if (sort !== SORTS[0].value) params.set("sort", sort);
   if (nextCursor) params.set("cursor", nextCursor);
@@ -98,7 +101,9 @@ async function Everyone({
           <MemberCard key={item.card.id} user={item} />
         ))}
       </div>
-      {nextCursor && <LoadMore href={`/members?${params}`} />}
+      {nextCursor && (
+        <LoadMore href={`/members?${params}`}>{loadMore("label")}</LoadMore>
+      )}
     </>
   );
 }

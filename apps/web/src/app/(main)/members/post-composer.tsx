@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { findRecipients } from "@/app/(main)/conversations/actions";
 import type { WallState } from "@/app/(main)/members/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { messageActionClass } from "@/components/forum/message-action";
 import { useKeptForm } from "@/components/forum/use-kept-form";
@@ -148,9 +149,7 @@ export function PostComposer({
               className="rounded-none border-0 bg-transparent"
             />
             {state.error && (
-              <p role="alert" className="px-3 pb-3 text-sm text-destructive">
-                {state.error}
-              </p>
+              <FormError className="px-3 pb-3">{state.error}</FormError>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1">

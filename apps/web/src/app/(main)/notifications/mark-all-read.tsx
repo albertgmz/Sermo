@@ -7,6 +7,7 @@ import {
   markAllRead,
 } from "@/app/(main)/notifications/actions";
 import { markAllThenRefresh } from "@/app/(main)/notifications/mark-all";
+import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
 
 // Marks every notification read. The backend's reason is shown if it refuses.
@@ -40,9 +41,7 @@ export function MarkAllReadForm({
         {children}
       </PendingButton>
       {state.error && (
-        <p role="alert" className="mt-1 text-xs text-destructive">
-          {state.error}
-        </p>
+        <FormError className="mt-1 text-xs">{state.error}</FormError>
       )}
     </form>
   );

@@ -1,17 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { findRecipients } from "@/app/(main)/conversations/actions";
 import { createThreadAction } from "@/app/(main)/forums/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
+import { FormFooter } from "@/components/forum/form-footer";
 import { ThreadFields } from "@/components/forum/thread-fields";
 import { useKeptForm } from "@/components/forum/use-kept-form";
-import { Button, buttonVariants } from "@/components/ui/button";
 import type { PrefixView } from "@/lib/sermo/views";
-import { cn } from "@/lib/utils";
 
 export function NewThreadForm({
   id,
@@ -37,26 +35,13 @@ export function NewThreadForm({
       />
       <Editor name="body" minHeight={200} findMembers={findRecipients} />
       {canAttach && <AttachmentField nodeId={id} onBusy={setUploading} />}
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        <Link
-          href={`/forums/${id}`}
-          className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
-        >
-          {t("cancel")}
-        </Link>
-        <Button
-          type="submit"
-          disabled={pending || uploading}
-          className="h-10 px-4"
-        >
-          {t("submit")}
-        </Button>
-      </div>
+      <FormFooter
+        error={state.error}
+        cancelHref={`/forums/${id}`}
+        cancel={t("cancel")}
+        submit={t("submit")}
+        disabled={pending || uploading}
+      />
     </form>
   );
 }

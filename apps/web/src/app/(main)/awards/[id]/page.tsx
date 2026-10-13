@@ -1,7 +1,6 @@
 import { awardsGet, awardsHolders, awardsMember } from "@sermo/core/contracts";
-import { Check, ChevronDown, Lock, Users } from "lucide-react";
+import { Check, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
@@ -10,6 +9,7 @@ import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
+import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
@@ -22,7 +22,6 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
-import { buttonVariants } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
@@ -118,17 +117,11 @@ async function Holders({
       )}
       {holders.nextCursor && (
         <div className="p-3">
-          <Link
+          <LoadMore
             href={`/awards/${awardId}?cursor=${encodeURIComponent(holders.nextCursor)}`}
-            scroll={false}
-            className={cn(
-              buttonVariants({ variant: "outline" }),
-              "h-10 w-full",
-            )}
           >
-            <ChevronDown />
             {t("loadMore")}
-          </Link>
+          </LoadMore>
         </div>
       )}
     </SectionCard>

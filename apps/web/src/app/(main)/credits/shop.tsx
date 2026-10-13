@@ -6,10 +6,10 @@ import { BuyForm } from "@/app/(main)/credits/buy-form";
 import { ItemEffect, Lasts } from "@/app/(main)/credits/item-effect";
 import { ItemPreview, type Wearer } from "@/app/(main)/credits/item-preview";
 import { catalogsFor, type ShopItemData } from "@/app/(main)/credits/items";
-import { LoadMore } from "@/app/(main)/credits/load-more";
 import { getLadder } from "@/app/(main)/upgrade/ladder";
 import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LoadMore } from "@/components/forum/load-more";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
@@ -40,8 +40,9 @@ export async function Shop({
   cursor?: string;
   viewer: Viewer;
 }) {
-  const [t, categories] = await Promise.all([
+  const [t, loadMore, categories] = await Promise.all([
     getTranslations("credits.shop"),
+    getTranslations("credits.loadMore"),
     read(shopCategoriesList, {}),
   ]);
   const active = categories.items.filter(({ isActive }) => isActive);
@@ -121,7 +122,9 @@ export async function Shop({
         </ul>
       )}
       {listing.nextCursor && (
-        <LoadMore href={shopHref(current.id, listing.nextCursor)} />
+        <LoadMore href={shopHref(current.id, listing.nextCursor)}>
+          {loadMore("label")}
+        </LoadMore>
       )}
     </div>
   );

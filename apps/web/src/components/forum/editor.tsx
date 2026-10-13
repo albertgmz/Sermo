@@ -93,6 +93,7 @@ import {
   type MemberHit,
   MentionPlugin,
 } from "@/components/forum/editor-extras";
+import { FormError } from "@/components/forum/form-error";
 import { unescapeMentions } from "@/components/forum/mention-text";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
@@ -612,11 +613,7 @@ export function Editor({
           setInvalid={setInvalid}
         />
       </div>
-      {invalid && (
-        <p id={errorId} role="alert" className="text-sm text-destructive">
-          {t("errors.required")}
-        </p>
-      )}
+      {invalid && <FormError id={errorId}>{t("errors.required")}</FormError>}
       <HistoryPlugin />
       <ListPlugin />
       <LinkPlugin />

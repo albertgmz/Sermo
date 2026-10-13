@@ -4,6 +4,7 @@ import { Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { replyAction } from "@/app/(main)/conversations/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
+import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
@@ -50,11 +51,7 @@ export function ReplyForm({
     >
       <LazyEditor name="body" placeholder={placeholder} minHeight={96} />
       <AttachmentField onBusy={setUploading} />
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
       <div className="flex justify-end">
         <Button
           type="submit"

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { findRecipients } from "@/app/(main)/conversations/actions";
@@ -10,13 +9,12 @@ import {
   AttachmentField,
 } from "@/components/forum/attachment-field";
 import { Editor } from "@/components/forum/editor";
+import { FormFooter } from "@/components/forum/form-footer";
 import { ThreadFields } from "@/components/forum/thread-fields";
 import { useKeptForm } from "@/components/forum/use-kept-form";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { PrefixView } from "@/lib/sermo/views";
-import { cn } from "@/lib/utils";
 
 export function EditPostForm({
   threadId,
@@ -85,26 +83,13 @@ export function EditPostForm({
         </Label>
         <Input id="edit-reason" name="reason" autoComplete="off" />
       </div>
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        <Link
-          href={back}
-          className={cn(buttonVariants({ variant: "outline" }), "h-10 px-4")}
-        >
-          {t("cancel")}
-        </Link>
-        <Button
-          type="submit"
-          disabled={pending || uploading}
-          className="h-10 px-4"
-        >
-          {t("submit")}
-        </Button>
-      </div>
+      <FormFooter
+        error={state.error}
+        cancelHref={back}
+        cancel={t("cancel")}
+        submit={t("submit")}
+        disabled={pending || uploading}
+      />
     </form>
   );
 }

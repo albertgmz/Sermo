@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 import { type FormState, resendVerification } from "@/app/(auth)/actions";
+import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,13 +36,7 @@ export function ResendForm({
           aria-describedby={state ? `resend-error-${from}` : undefined}
         />
         {state && (
-          <p
-            id={`resend-error-${from}`}
-            role="alert"
-            className="text-sm text-destructive"
-          >
-            {state.error}
-          </p>
+          <FormError id={`resend-error-${from}`}>{state.error}</FormError>
         )}
       </div>
       <Button

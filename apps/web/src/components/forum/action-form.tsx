@@ -1,5 +1,6 @@
 "use client";
 
+import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { cn } from "@/lib/utils";
@@ -37,11 +38,7 @@ export function ActionForm({
   return (
     <form id={id} onSubmit={onSubmit} className={cn("space-y-2", className)}>
       {children}
-      {state.error && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.error}
-        </p>
-      )}
+      {state.error && <FormError>{state.error}</FormError>}
       {state.done && done && (
         <p role="status" className="text-sm text-muted-foreground">
           {done}

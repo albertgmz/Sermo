@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { leaveAction } from "@/app/(main)/conversations/actions";
+import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
 
 // Leaving can be refused; the backend's reason is shown under the header's row.
@@ -33,9 +34,7 @@ export function LeaveForm({
         </PendingButton>
       </form>
       {state.error && (
-        <p role="alert" className="basis-full px-2 text-xs text-destructive">
-          {state.error}
-        </p>
+        <FormError className="basis-full px-2 text-xs">{state.error}</FormError>
       )}
     </>
   );

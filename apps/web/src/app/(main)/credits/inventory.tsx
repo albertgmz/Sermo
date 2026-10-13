@@ -10,10 +10,10 @@ import type * as z from "zod";
 import { ItemEffect } from "@/app/(main)/credits/item-effect";
 import { ItemPreview, type Wearer } from "@/app/(main)/credits/item-preview";
 import { catalogsFor } from "@/app/(main)/credits/items";
-import { LoadMore } from "@/app/(main)/credits/load-more";
 import { UseForm } from "@/app/(main)/credits/use-form";
 import { WearForm } from "@/app/(main)/credits/wear-form";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LoadMore } from "@/components/forum/load-more";
 import { SectionCard } from "@/components/forum/section-card";
 import { buttonVariants } from "@/components/ui/button";
 import { formatDate, formatNumber } from "@/lib/format";
@@ -145,7 +145,10 @@ async function Rows({
   threads: ThreadOption[];
   returnTo: string;
 }) {
-  const t = await getTranslations("credits.inventory");
+  const [t, loadMore] = await Promise.all([
+    getTranslations("credits.inventory"),
+    getTranslations("credits.loadMore"),
+  ]);
   const catalogs = await catalogsFor(list.items.map(({ item }) => item));
   return (
     <SectionCard title={title} description={description}>
@@ -195,7 +198,7 @@ async function Rows({
       </ul>
       {more && (
         <div className="p-3">
-          <LoadMore href={more} />
+          <LoadMore href={more}>{loadMore("label")}</LoadMore>
         </div>
       )}
     </SectionCard>

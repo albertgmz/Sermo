@@ -1,5 +1,5 @@
 import { feedList } from "@sermo/core/contracts";
-import { ChevronDown, PenLine, Rss, Users } from "lucide-react";
+import { PenLine, Rss, Users } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -10,6 +10,7 @@ import { FeedSidebar } from "@/app/(main)/_feed/feed-sidebar";
 import { postToWall } from "@/app/(main)/members/actions";
 import { PostComposer } from "@/app/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
+import { LoadMore } from "@/components/forum/load-more";
 import {
   FeedSkeleton,
   LoadingRegion,
@@ -201,17 +202,9 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
             />
           ))}
           {feed.nextCursor && (
-            <Link
-              href={feedHref(tab, feed.nextCursor)}
-              scroll={false}
-              className={cn(
-                buttonVariants({ variant: "outline" }),
-                "h-10 w-full",
-              )}
-            >
-              <ChevronDown />
+            <LoadMore href={feedHref(tab, feed.nextCursor)}>
               {t("loadMore")}
-            </Link>
+            </LoadMore>
           )}
         </>
       )}
