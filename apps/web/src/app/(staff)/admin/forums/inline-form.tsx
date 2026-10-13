@@ -12,30 +12,9 @@
 //   children  The controls (and hidden fields).
 
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import type { StaffFormState } from "@/components/staff/form-rows";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/staff/submit-button";
 import { cn } from "@/lib/utils";
-
-function Submit({
-  label,
-  variant,
-}: {
-  label: string;
-  variant: "outline" | "destructive" | "default";
-}) {
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant={variant}
-      disabled={pending}
-      className="min-h-10 px-4"
-    >
-      {label}
-    </Button>
-  );
-}
 
 export function InlineForm({
   action,
@@ -68,7 +47,7 @@ export function InlineForm({
     >
       <div className={cn("flex flex-wrap items-end gap-2", className)}>
         {children}
-        <Submit label={submit} variant={variant} />
+        <SubmitButton label={submit} variant={variant} />
       </div>
       <output className="block space-y-0.5 text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
         {lines.map((line) => (

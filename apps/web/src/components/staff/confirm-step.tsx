@@ -24,35 +24,12 @@
 //   children      The action's own inputs, shown inside the confirmation above the button.
 
 import { useActionState, useId } from "react";
-import { useFormStatus } from "react-dom";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { Section } from "@/components/staff/rows";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/staff/submit-button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-
-function Submit({
-  label,
-  pendingLabel,
-  danger,
-}: {
-  label: string;
-  pendingLabel: string;
-  danger: boolean;
-}) {
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant={danger ? "destructive" : "default"}
-      disabled={pending}
-      className="min-h-10 px-4"
-    >
-      {pending ? pendingLabel : label}
-    </Button>
-  );
-}
 
 export function ConfirmStep({
   action,
@@ -145,10 +122,10 @@ export function ConfirmStep({
           {state?.error ?? state?.notice}
         </output>
         <div className={cn(edge && "px-4 pb-4")}>
-          <Submit
+          <SubmitButton
             label={label}
             pendingLabel={pendingLabel ?? label}
-            danger={danger}
+            variant={danger ? "destructive" : "default"}
           />
         </div>
       </form>

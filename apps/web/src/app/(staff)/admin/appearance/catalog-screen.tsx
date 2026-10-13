@@ -5,11 +5,12 @@ import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { DeleteBox, EntryList } from "@/components/staff/entity-list";
+import { InputRow, PositionActiveRows } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
 import { PictureField } from "@/components/staff/picture-field";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { call, read } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
@@ -90,14 +91,13 @@ async function EntryForm({ kind, entry }: { kind: ImageKind; entry?: Entry }) {
     >
       <input type="hidden" name="kind" value={kind} />
       {entry && <input type="hidden" name="id" value={entry.id} />}
-      <FieldRow name="name" label={t("name")} htmlFor={`${key}-name`}>
-        <Input
-          id={`${key}-name`}
-          name="name"
-          required
-          defaultValue={entry?.name}
-        />
-      </FieldRow>
+      <InputRow
+        name="name"
+        label={t("name")}
+        idPrefix={key}
+        required
+        defaultValue={entry?.name}
+      />
       <FieldRow
         name="fileId"
         label={entry ? t("replace") : t("picture")}
@@ -125,30 +125,13 @@ async function EntryForm({ kind, entry }: { kind: ImageKind; entry?: Entry }) {
           />
         </FieldRow>
       )}
-      <FieldRow
-        name="position"
-        label={t("position")}
-        htmlFor={`${key}-position`}
-      >
-        <Input
-          id={`${key}-position`}
-          name="position"
-          type="number"
-          inputMode="numeric"
-          defaultValue={entry?.position}
-        />
-      </FieldRow>
-      <FieldRow name="isActive" label={t("active")}>
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={entry ? entry.isActive : true}
-            className="size-5"
-          />
-          {t("activeHelp")}
-        </label>
-      </FieldRow>
+      <PositionActiveRows
+        idPrefix={key}
+        position={t("position")}
+        active={t("active")}
+        activeHelp={t("activeHelp")}
+        entry={entry}
+      />
     </FormRows>
   );
 }
@@ -183,79 +166,66 @@ export async function CatalogScreen({
         searchParams={searchParams}
         shown={["created", "saved", "reset", "deleted", "deactivated"]}
       />
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{t(`${key}.heading`)}</h2>
-          <p className="text-xs text-muted-foreground">
-            {t(`${key}.description`)}
-          </p>
-        </div>
-        {items.length > 0 ? (
-          <ul aria-label={t(`${key}.heading`)} className="divide-y">
-            {items.map((entry) => (
-              <li
-                key={entry.id}
-                id={`entry-${entry.id}`}
-                className="scroll-mt-4"
+      <EntryList
+        heading={t(`${key}.heading`)}
+        description={t(`${key}.description`)}
+        none={t("none")}
+        items={items.map((entry) => (
+          <li key={entry.id} id={`entry-${entry.id}`} className="scroll-mt-4">
+            <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+              <Picture kind={kind} entry={entry} />
+              <span className="min-w-0 flex-1 space-y-1">
+                <span className="block text-sm font-medium [overflow-wrap:anywhere]">
+                  {entry.name}
+                </span>
+                <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  {t("order", { position: entry.position })}
+                  {entry.isActive ? (
+                    <Badge variant="success">{t("active")}</Badge>
+                  ) : (
+                    <Badge variant="outline">{t("inactive")}</Badge>
+                  )}
+                  {entry.placement && (
+                    <span>
+                      {t("measured", {
+                        width: entry.placement.width,
+                        left: entry.placement.left,
+                        top: entry.placement.top,
+                        scale: entry.placement.scale,
+                      })}
+                    </span>
+                  )}
+                </span>
+              </span>
+              <Link
+                href={
+                  editing === entry.id
+                    ? path
+                    : `${path}?edit=${entry.id}#entry-${entry.id}`
+                }
+                scroll={false}
+                className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
-                <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                  <Picture kind={kind} entry={entry} />
-                  <span className="min-w-0 flex-1 space-y-1">
-                    <span className="block text-sm font-medium [overflow-wrap:anywhere]">
-                      {entry.name}
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {t("order", { position: entry.position })}
-                      {entry.isActive ? (
-                        <Badge variant="success">{t("active")}</Badge>
-                      ) : (
-                        <Badge variant="outline">{t("inactive")}</Badge>
-                      )}
-                      {entry.placement && (
-                        <span>
-                          {t("measured", {
-                            width: entry.placement.width,
-                            left: entry.placement.left,
-                            top: entry.placement.top,
-                            scale: entry.placement.scale,
-                          })}
-                        </span>
-                      )}
-                    </span>
-                  </span>
-                  <Link
-                    href={
-                      editing === entry.id
-                        ? path
-                        : `${path}?edit=${entry.id}#entry-${entry.id}`
-                    }
-                    scroll={false}
-                    className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
-                  >
-                    {editing === entry.id ? t("close") : t("edit")}
-                  </Link>
-                </div>
-                {editing === entry.id && (
-                  <div className="space-y-4 border-t p-4">
-                    <EntryForm kind={kind} entry={entry} />
-                    <div className="rounded-lg border border-destructive/30 px-4 py-1">
-                      <ConfirmStep
-                        action={deleteImage}
-                        fields={{ kind, id: entry.id }}
-                        summary={`${t("delete")}…`}
-                        warning={t("deleteWarning")}
-                        submit={t("delete")}
-                      />
-                    </div>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="p-4 text-sm text-muted-foreground">{t("none")}</p>
-        )}
-      </section>
+                {editing === entry.id ? t("close") : t("edit")}
+              </Link>
+            </div>
+            {editing === entry.id && (
+              <div className="space-y-4 border-t p-4">
+                <EntryForm kind={kind} entry={entry} />
+                <DeleteBox>
+                  <ConfirmStep
+                    action={deleteImage}
+                    fields={{ kind, id: entry.id }}
+                    summary={`${t("delete")}…`}
+                    warning={t("deleteWarning")}
+                    submit={t("delete")}
+                  />
+                </DeleteBox>
+              </div>
+            )}
+          </li>
+        ))}
+      />
       <EntryForm kind={kind} />
     </>
   );

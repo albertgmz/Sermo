@@ -10,20 +10,9 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import { Section } from "@/components/staff/rows";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/staff/submit-button";
 import type { AuditedState } from "./audited-state";
-
-function Submit() {
-  const t = useTranslations("moderation.auditedRead");
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="min-h-10 px-4">
-      {pending ? t("opening") : t("confirm")}
-    </Button>
-  );
-}
 
 export function AuditedRead({
   action,
@@ -45,7 +34,7 @@ export function AuditedRead({
         <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">
           {state?.error}
         </output>
-        <Submit />
+        <SubmitButton label={t("confirm")} pendingLabel={t("opening")} />
       </form>
     </Section>
   );

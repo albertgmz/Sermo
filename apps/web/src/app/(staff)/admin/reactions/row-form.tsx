@@ -2,26 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import type { StaffFormState } from "@/components/staff/form-rows";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/staff/submit-button";
 import { Input } from "@/components/ui/input";
 import { updateReactionType } from "./actions";
-
-function Save() {
-  const t = useTranslations("adminContent.reactions.row");
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant="outline"
-      disabled={pending}
-      className="min-h-10 px-4"
-    >
-      {pending ? t("saving") : t("save")}
-    </Button>
-  );
-}
 
 // The fields of one reaction type, saved on their own.
 export function ReactionRowForm({
@@ -89,7 +73,11 @@ export function ReactionRowForm({
           .filter(Boolean)
           .join(" ")}
       </output>
-      <Save />
+      <SubmitButton
+        label={t("save")}
+        pendingLabel={t("saving")}
+        variant="outline"
+      />
     </form>
   );
 }

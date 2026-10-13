@@ -2,6 +2,11 @@ import { paletteColorsList, threadPrefixesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import {
+  DeleteBox,
+  EditDisclosure,
+  EntryList,
+} from "@/components/staff/entity-list";
 import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
@@ -27,47 +32,41 @@ export async function PrefixList({
         searchParams={searchParams}
         shown={["created", "saved", "deleted", "deactivated"]}
       />
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="border-b p-4">
-          <h2 className="text-sm font-semibold">{t("heading")}</h2>
-        </div>
-        {items.length > 0 ? (
-          <ul aria-label={t("heading")} className="divide-y">
-            {items.map((prefix) => (
-              <li key={prefix.id}>
-                <details className="group">
-                  <summary className="flex min-h-12 cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
-                    <PrefixTag prefix={prefix} />
-                    <span className="text-xs text-muted-foreground">
-                      {t("order", { position: prefix.position })}
-                    </span>
-                    {!prefix.isActive && (
-                      <Badge variant="outline">{t("inactive")}</Badge>
-                    )}
-                    <span className="ms-auto text-sm font-medium text-primary">
-                      {t("edit")}
-                    </span>
-                  </summary>
-                  <div className="space-y-4 border-t p-4">
-                    <PrefixForm prefix={prefix} colours={colours} />
-                    <div className="rounded-lg border border-destructive/30 px-4 py-1">
-                      <ConfirmStep
-                        action={deletePrefix}
-                        fields={{ id: prefix.id }}
-                        summary={`${t("delete")}…`}
-                        warning={t("deleteWarning")}
-                        submit={t("delete")}
-                      />
-                    </div>
-                  </div>
-                </details>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="p-4 text-sm text-muted-foreground">{t("none")}</p>
-        )}
-      </section>
+      <EntryList
+        heading={t("heading")}
+        none={t("none")}
+        items={items.map((prefix) => (
+          <li key={prefix.id}>
+            <EditDisclosure
+              className="group"
+              summaryClass="min-h-12"
+              edit={t("edit")}
+              summary={
+                <>
+                  <PrefixTag prefix={prefix} />
+                  <span className="text-xs text-muted-foreground">
+                    {t("order", { position: prefix.position })}
+                  </span>
+                  {!prefix.isActive && (
+                    <Badge variant="outline">{t("inactive")}</Badge>
+                  )}
+                </>
+              }
+            >
+              <PrefixForm prefix={prefix} colours={colours} />
+              <DeleteBox>
+                <ConfirmStep
+                  action={deletePrefix}
+                  fields={{ id: prefix.id }}
+                  summary={`${t("delete")}…`}
+                  warning={t("deleteWarning")}
+                  submit={t("delete")}
+                />
+              </DeleteBox>
+            </EditDisclosure>
+          </li>
+        ))}
+      />
       <PrefixForm colours={colours} />
     </>
   );

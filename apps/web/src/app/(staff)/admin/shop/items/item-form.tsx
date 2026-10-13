@@ -2,10 +2,10 @@ import { ShopEffect, type shopItemsGet } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
+import { CheckRow, InputRow } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
-import { Input } from "@/components/ui/input";
 import { saveItem } from "./actions";
 import { type EffectType, type Initial, ItemEffect } from "./item-effect";
 import type { Lookups } from "./lookups";
@@ -108,41 +108,30 @@ export async function ItemForm({
           ))}
         </select>
       </FieldRow>
-      <FieldRow name="name" label={t("name")} htmlFor={`${key}-name`}>
-        <Input
-          id={`${key}-name`}
-          name="name"
-          required
-          defaultValue={item?.name}
-        />
-      </FieldRow>
-      <FieldRow
+      <InputRow
+        name="name"
+        label={t("name")}
+        idPrefix={key}
+        required
+        defaultValue={item?.name}
+      />
+      <InputRow
         name="description"
         label={t("description")}
-        htmlFor={`${key}-description`}
-      >
-        <Input
-          id={`${key}-description`}
-          name="description"
-          defaultValue={item?.description}
-        />
-      </FieldRow>
-      <FieldRow
+        idPrefix={key}
+        defaultValue={item?.description}
+      />
+      <InputRow
         name="price"
         label={t("price")}
-        htmlFor={`${key}-price`}
+        idPrefix={key}
         help={t("priceHelp")}
-      >
-        <Input
-          id={`${key}-price`}
-          name="price"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          required
-          defaultValue={item?.price}
-        />
-      </FieldRow>
+        type="number"
+        inputMode="numeric"
+        min={0}
+        required
+        defaultValue={item?.price}
+      />
       <FieldRow
         name="fileId"
         label={t("picture")}
@@ -208,58 +197,38 @@ export async function ItemForm({
         consumable={item?.isConsumable ?? false}
         duration={durationOf(item?.durationSeconds ?? null)}
       />
-      <FieldRow
+      <InputRow
         name="stock"
         label={t("stock")}
-        htmlFor={`${key}-stock`}
+        idPrefix={key}
         help={t("stockHelp")}
-      >
-        <Input
-          id={`${key}-stock`}
-          name="stock"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          defaultValue={item?.stock ?? undefined}
-        />
-      </FieldRow>
-      <FieldRow name="isGiftable" label={t("giftable")}>
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="isGiftable"
-            defaultChecked={item?.isGiftable ?? false}
-            className="size-5"
-          />
-          {t("giftableHelp")}
-        </label>
-      </FieldRow>
-      <FieldRow
+        type="number"
+        inputMode="numeric"
+        min={0}
+        defaultValue={item?.stock ?? undefined}
+      />
+      <CheckRow
+        name="isGiftable"
+        label={t("giftable")}
+        text={t("giftableHelp")}
+        defaultChecked={item?.isGiftable ?? false}
+      />
+      <InputRow
         name="position"
         label={t("position")}
-        htmlFor={`${key}-position`}
+        idPrefix={key}
         help={t("positionHelp")}
-      >
-        <Input
-          id={`${key}-position`}
-          name="position"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          defaultValue={item?.position ?? 0}
-        />
-      </FieldRow>
-      <FieldRow name="isActive" label={t("active")}>
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={item ? item.isActive : true}
-            className="size-5"
-          />
-          {t("activeHelp")}
-        </label>
-      </FieldRow>
+        type="number"
+        inputMode="numeric"
+        min={0}
+        defaultValue={item?.position ?? 0}
+      />
+      <CheckRow
+        name="isActive"
+        label={t("active")}
+        text={t("activeHelp")}
+        defaultChecked={item ? item.isActive : true}
+      />
     </FormRows>
   );
 }

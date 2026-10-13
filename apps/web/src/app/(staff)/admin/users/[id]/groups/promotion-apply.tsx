@@ -6,21 +6,10 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState, useId } from "react";
-import { useFormStatus } from "react-dom";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
-import { Button } from "@/components/ui/button";
-
-function Submit() {
-  const t = useTranslations("adminUsers.promotions");
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="min-h-10 px-4">
-      {t("apply")}
-    </Button>
-  );
-}
+import { SubmitButton } from "@/components/staff/submit-button";
 
 export function PromotionApply({
   action,
@@ -55,7 +44,7 @@ export function PromotionApply({
             </option>
           ))}
         </select>
-        <Submit />
+        <SubmitButton label={t("apply")} />
       </div>
       <ConfirmPassword
         id={`apply-password-${promotionId}`}
