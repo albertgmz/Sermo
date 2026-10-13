@@ -1366,9 +1366,12 @@ counting on every page view is against the rules, so `auth.counters` (the site h
 gains `openReports` and `pendingApprovals`, each `{ count, more }`. They look at the newest 100
 entries of each queue (the queue reads' own statements, no cursor, limit 100, never a COUNT),
 count those the viewer may act on with the queue reads' own rule (`filterModeratable`, so a
-moderator of some forums sees only theirs), cap the number at 99, and set `more` when the window
-was full, so the interface can write "99+". A scoped moderator in a busy site may see a small
-number with `more` set: the 100 entries were not all theirs. Everyone who holds none of the
+moderator of some forums sees only theirs), cap the number at 99 and say so (`cap`, so no client hardcodes 99), and set `more`
+when the window was full. `more` means the scan stopped at its bound, so `count` may be
+incomplete; it does not mean the viewer has more than `count` (the window holds the newest 100
+entries of the queue, whoever they belong to). A client shows `count` when `more` is false and
+"`count` or more" when it is true. A scoped moderator on a busy site may get `count: 0` with
+`more` set: the 100 entries were not theirs. Everyone who holds none of the
 permissions that open a queue (a guest, a plain member, a moderator without report or approval
 rights) pays no statement for it: the check is the permission state already in memory, and a test
 holds a plain member to one statement and a guest to none, as before. Unlike the activity counts

@@ -13,16 +13,16 @@ import { countersSql } from "./index";
 
 /** What a viewer who handles no queue gets for the two queue counters. */
 const QUIET = {
-  openReports: { count: 0, more: false },
-  pendingApprovals: { count: 0, more: false },
+  openReports: { count: 0, more: false, cap: 99 },
+  pendingApprovals: { count: 0, more: false, cap: 99 },
 };
 type TestContext = ReturnType<typeof createTestContext>;
 const counters = (ctx: TestContext, actor: Parameters<typeof execute>[2]) =>
   execute(ctx, getOperation("auth.counters"), actor, {}) as Promise<{
     notifications: number;
     conversations: number;
-    openReports: { count: number; more: boolean };
-    pendingApprovals: { count: number; more: boolean };
+    openReports: { count: number; more: boolean; cap: number };
+    pendingApprovals: { count: number; more: boolean; cap: number };
   }>;
 
 function conversation(

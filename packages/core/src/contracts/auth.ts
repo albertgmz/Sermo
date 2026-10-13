@@ -30,9 +30,19 @@ export const SelfUser = z
   })
   .meta({ id: "SelfUser" });
 
-/** A queue's size, capped: `more` says the newest 100 entries it looked at were all there were room for. */
+/**
+ * What this viewer can act on in a queue, found within a bounded scan. `count` never exceeds
+ * `cap`. `more` is true when the scan stopped at its bound (the newest 100 entries of the
+ * queue, whoever they belong to) so `count` may be incomplete: it is not "this viewer has more
+ * than `count`". Show "`count` or more" when `more` is true; `count` itself when it is false.
+ */
 export const QueueCount = z
-  .object({ count: z.number().int().min(0).max(99), more: z.boolean() })
+  .object({
+    count: z.number().int().min(0).max(99),
+    more: z.boolean(),
+    /** The largest `count` this read can report. */
+    cap: z.number().int().positive(),
+  })
   .meta({ id: "QueueCount" });
 
 export const authCounters = defineContract({
@@ -41,8 +51,11 @@ export const authCounters = defineContract({
     "What the signed-in member has not seen yet: unread notifications, and unread " +
     "conversations among their 100 most recently active ones (so at most 100). Zeros for guests. " +
     "For staff who may open the queues, `openReports` and `pendingApprovals` count what they " +
-    "may act on among the newest 100 entries of each queue (at most 99) and `more` says that " +
-    "window was full; everyone else gets zero and false, at no cost.",
+    "may act on among the newest 100 entries of each queue (at most `cap`, 99), and `more` says " +
+    "the scan stopped at that bound, so `count` may be incomplete (a moderator of one forum on " +
+    "a busy site can get a small `count` with `more` true: the 100 entries were not all " +
+    "theirs). A client shows `count` when `more` is false and `count` or more when it is " +
+    "true; everyone else gets zero, false and the `cap`, at no cost.",
   kind: "read",
   input: Empty,
   output: z.object({

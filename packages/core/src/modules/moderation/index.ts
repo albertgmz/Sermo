@@ -492,13 +492,14 @@ export const QUEUE_COUNT_CAP = 99;
 export interface QueueCount {
   count: number;
   more: boolean;
+  cap: number;
 }
-const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false });
+const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false, cap: QUEUE_COUNT_CAP });
 
 /**
  * What waits in the report and approval queues for this viewer, for a staff header: among the
  * newest 100 entries of each queue, how many the viewer may act on (at most 99), and whether the
- * window was full, so there may be more. The viewer is held to the queue reads' own rule
+ * window was full, so the count may be incomplete (the entries beyond it were not looked at). The viewer is held to the queue reads' own rule
  * (`filterModeratable`, per forum scope). A viewer who holds none of the permissions that open a
  * queue costs no statement at all; otherwise each queue is one bounded read per content kind they
  * may handle (the queue reads' own statements, no cursor, limit 100). Never a COUNT.
@@ -529,6 +530,7 @@ export function queueCounts(
     openReports = {
       count: Math.min(filterModeratable(ctx, actor, rows, "reports").length, QUEUE_COUNT_CAP),
       more: rows.length >= QUEUE_WINDOW,
+      cap: QUEUE_COUNT_CAP,
     };
   }
 
@@ -559,6 +561,7 @@ export function queueCounts(
             QUEUE_COUNT_CAP,
           ),
           more: waiting.length >= QUEUE_WINDOW,
+          cap: QUEUE_COUNT_CAP,
         }
       : NO_QUEUE,
   };

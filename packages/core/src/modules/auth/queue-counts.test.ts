@@ -20,8 +20,8 @@ import {
 } from "../moderation";
 import { traceStatements } from "../statement-trace.test";
 
-type Count = { count: number; more: boolean };
-const QUIET = { count: 0, more: false };
+type Count = { count: number; more: boolean; cap: number };
+const QUIET = { count: 0, more: false, cap: 99 };
 
 function world() {
   const ctx = createTestContext();
@@ -243,6 +243,23 @@ describe("auth.counters: reports and approvals", () => {
       openReports: { count: 99, more: true },
       pendingApprovals: { count: 99, more: true },
     });
+  });
+
+  test("a single-forum moderator on a busy site gets their own count, with more set", async () => {
+    const w = world();
+    await scopeTo(w, w.scoped.id, w.forumA);
+    const actor = resolvedActor(w.ctx, w.scoped.id);
+    const threadA = w.thread(w.forumA);
+    const threadB = w.thread(w.forumB);
+    // One older report in their forum, then a full window of reports elsewhere: none of theirs
+    // is inside the window, so the count is 0 and says it may be incomplete.
+    w.report(w.post(threadA), w.forumA);
+    for (let i = 0; i < QUEUE_WINDOW; i++) w.report(w.post(threadB), w.forumB);
+    expect((await w.counters(actor)).openReports).toEqual({ count: 0, more: true, cap: 99 });
+    // Three newer ones in their forum are inside the window: the count is theirs alone, and
+    // more is still true because the window was full.
+    for (let i = 0; i < 3; i++) w.report(w.post(threadA), w.forumA);
+    expect((await w.counters(actor)).openReports).toEqual({ count: 3, more: true, cap: 99 });
   });
 
   test("a moderator pays one bounded read per queue and kind, never a count", async () => {
