@@ -8,7 +8,6 @@ import {
   awardsUpdate,
   imagesSetAwardImage,
 } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -43,11 +42,6 @@ async function criteriaOf(formData: FormData) {
     criteria.push({ criterion: definition.id, value });
   }
   return criteria;
-}
-
-// The public pages show award pictures and counts; they are renewed with any change.
-function renew() {
-  revalidatePath("/awards");
 }
 
 // A new award (no id) or a change of one. A new picture is the file uploaded first; it is
@@ -113,7 +107,6 @@ export async function saveAward(
       else return formFailure(error, ["fileId"]);
     }
   }
-  renew();
   if (awardId === null) {
     redirect(
       pictureRefused
@@ -137,7 +130,6 @@ export async function deleteAward(
   } catch (error) {
     return formFailure(error, []);
   }
-  renew();
   redirect("/admin/awards?notice=deleted");
 }
 
