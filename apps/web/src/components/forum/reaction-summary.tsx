@@ -23,9 +23,12 @@ export type ReactionsSummary = {
 const TYPES_SHOWN = 3;
 
 const SIZES = {
-  default: { trigger: "text-xs", emoji: "size-5 text-xs" },
+  default: {
+    trigger: "min-w-10 text-xs md:h-8 md:min-w-8",
+    emoji: "size-5 text-xs",
+  },
   sm: {
-    trigger: "-my-1.5 min-w-10 text-(length:--text-caption) md:my-0",
+    trigger: "min-w-10 text-(length:--text-caption) md:h-7 md:min-w-7",
     emoji: "size-4 text-(length:--text-tiny)",
   },
 };
@@ -34,12 +37,15 @@ export function ReactionSummary({
   reactions,
   loadUsers,
   size = "default",
+  showTotal = true,
   className,
 }: {
   // `users` when the list is at hand, `loadUsers` when it is read once the popover opens.
   reactions: ReactionsSummary;
   loadUsers?: () => Promise<React.ReactNode>;
   size?: keyof typeof SIZES;
+  // False where the button beside it already shows the number.
+  showTotal?: boolean;
   className?: string;
 }) {
   const t = useTranslations("forum.reactionSummary");
@@ -50,7 +56,7 @@ export function ReactionSummary({
       <PopoverTrigger
         aria-label={t("aria.trigger", { total })}
         className={cn(
-          "inline-flex h-10 items-center gap-1.5 rounded-md px-1 font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground md:h-7",
+          "inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-1 font-medium tabular-nums text-muted-foreground transition-colors hover:text-foreground",
           SIZES[size].trigger,
           className,
         )}
@@ -68,7 +74,7 @@ export function ReactionSummary({
             </span>
           ))}
         </span>
-        {reactions.total}
+        {showTotal && reactions.total}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 gap-0 p-0">
         <PopoverTitle className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-2 text-xs text-muted-foreground">

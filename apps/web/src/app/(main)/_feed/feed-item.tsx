@@ -4,19 +4,14 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/(main)/_feed/clamped-body";
-import { react } from "@/app/(main)/actions";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LevelBadge } from "@/components/forum/level";
 import { messageActionClass } from "@/components/forum/message-row";
-import {
-  ReactionButton,
-  type ReactionType,
-} from "@/components/forum/reaction-button";
-import { ReactionSummary } from "@/components/forum/reaction-summary";
-import { loadReactionUsers } from "@/components/forum/reaction-users-action";
+import type { ReactionType } from "@/components/forum/reaction-button";
+import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
@@ -25,7 +20,6 @@ import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { formatCompact } from "@/lib/format";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
-import { reactionsView } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView, PictureView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -61,7 +55,6 @@ function Card({
   highlighted = false,
   cover,
   reaction,
-  summary,
   href,
   count,
   noun,
@@ -74,7 +67,6 @@ function Card({
   highlighted?: boolean;
   cover?: PictureView | null;
   reaction: React.ReactNode;
-  summary: React.ReactNode;
   href: string;
   count: number;
   noun: "comments" | "replies";
@@ -144,7 +136,6 @@ function Card({
           </span>
         )}
         <ShareButton href={href} className={messageActionClass} />
-        {summary}
       </footer>
     </article>
   );
@@ -189,24 +180,14 @@ export function FeedItem({
           })
         }
         reaction={
-          <ReactionButton
-            action={react.bind(null, "profilePost", profilePost.id)}
-            total={profilePost.reactions.total}
-            viewerTypeId={profilePost.reactions.mine}
-            types={profilePost.state === "visible" ? picker : []}
-            viewerId={viewerId}
+          <Reactions
+            target="profilePost"
+            id={profilePost.id}
+            reactions={profilePost.reactions}
             authorId={profilePost.author.id}
-          />
-        }
-        summary={
-          <ReactionSummary
-            reactions={reactionsView(profilePost.reactions, reactionTypes)}
-            loadUsers={loadReactionUsers.bind(
-              null,
-              "profile_post",
-              profilePost.id,
-            )}
-            className="ml-auto"
+            viewerId={viewerId}
+            picker={profilePost.state === "visible" ? picker : []}
+            reactionTypes={reactionTypes}
           />
         }
         href={href}
@@ -243,20 +224,14 @@ export function FeedItem({
       }
       cover={isThread ? card.coverPicture : null}
       reaction={
-        <ReactionButton
-          action={react.bind(null, "post", post.id)}
-          total={post.reactions.total}
-          viewerTypeId={post.reactions.mine}
-          types={picker}
-          viewerId={viewerId}
+        <Reactions
+          target="post"
+          id={post.id}
+          reactions={post.reactions}
           authorId={post.author.id}
-        />
-      }
-      summary={
-        <ReactionSummary
-          reactions={reactionsView(post.reactions, reactionTypes)}
-          loadUsers={loadReactionUsers.bind(null, "post", post.id)}
-          className="ml-auto"
+          viewerId={viewerId}
+          picker={picker}
+          reactionTypes={reactionTypes}
         />
       }
       href={href}

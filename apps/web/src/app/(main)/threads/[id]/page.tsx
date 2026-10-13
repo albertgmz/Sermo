@@ -15,7 +15,6 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
-import { react } from "@/app/(main)/actions";
 import { MarkRead } from "@/app/(main)/threads/[id]/mark-read";
 import { SPLIT_FORM, SplitPanel } from "@/app/(main)/threads/[id]/moderation";
 import { pageCount, threadHref } from "@/app/(main)/threads/[id]/pages";
@@ -47,12 +46,8 @@ import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { QuoteButton } from "@/components/forum/quote-button";
-import {
-  ReactionButton,
-  type ReactionType,
-} from "@/components/forum/reaction-button";
-import { ReactionSummary } from "@/components/forum/reaction-summary";
-import { loadReactionUsers } from "@/components/forum/reaction-users-action";
+import type { ReactionType } from "@/components/forum/reaction-button";
+import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
 import { SignatureHtml } from "@/components/forum/signature-html";
@@ -71,11 +66,7 @@ import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
-import {
-  getReactionTypes,
-  pickerTypes,
-  reactionsView,
-} from "@/lib/sermo/reactions";
+import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { type ApiPost, prefixView } from "@/lib/sermo/threads";
@@ -315,13 +306,15 @@ function PostItem({
         )}
 
         <div className="mt-2 -mx-2 flex flex-wrap items-center justify-end gap-1">
-          <ReactionButton
-            action={react.bind(null, "post", post.id)}
-            total={post.reactions.total}
-            viewerTypeId={post.reactions.mine}
-            types={picker}
-            viewerId={viewerId}
+          <Reactions
+            target="post"
+            id={post.id}
+            reactions={post.reactions}
             authorId={post.author.id}
+            viewerId={viewerId}
+            picker={picker}
+            reactionTypes={reactionTypes}
+            className="mr-auto"
           />
           {canQuote && post.state === "visible" && (
             <QuoteButton
@@ -388,12 +381,6 @@ function PostItem({
               </div>
             </details>
           )}
-
-        <ReactionSummary
-          reactions={reactionsView(post.reactions, reactionTypes)}
-          loadUsers={loadReactionUsers.bind(null, "post", post.id)}
-          className="-ml-1"
-        />
 
         {signed && author.signatureHtml && (
           <SignatureHtml className="mt-2 border-t pt-2">

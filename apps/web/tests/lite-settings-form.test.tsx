@@ -30,7 +30,11 @@ mock.module("next-intl", () => ({
     return typeof value === "string" ? value : key;
   },
 }));
-mock.module("@/app/(main)/actions", () => ({ setLiteMode: async () => {} }));
+const realActions = { ...(await import("@/app/(main)/actions")) };
+mock.module("@/app/(main)/actions", () => ({
+  ...realActions,
+  setLiteMode: async () => {},
+}));
 
 const { LiteSettingsForm } = await import(
   "../src/app/(main)/lite/settings-form"

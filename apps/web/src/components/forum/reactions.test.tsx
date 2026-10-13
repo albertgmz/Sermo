@@ -1,0 +1,106 @@
+import { afterAll, expect, mock, test } from "bun:test";
+import { renderToStaticMarkup } from "react-dom/server";
+import { withIntl } from "@/lib/test-intl";
+
+mock.module("server-only", () => ({}));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  usePathname: () => "/threads/3",
+  useSearchParams: () => new URLSearchParams(),
+}));
+// Another suite replaces the translator with one that fills no placeholders: use the real one.
+const intl = { ...(await import("next-intl")) };
+const { useTranslations } = await import("use-intl");
+mock.module("next-intl", () => ({ ...intl, useTranslations }));
+afterAll(() => {
+  mock.module("next/navigation", () => navigation);
+  mock.module("next-intl", () => intl);
+});
+const { Reactions } = await import("./reactions");
+
+const LIKE = { id: 1, title: "Like", emoji: "👍", isActive: true };
+const LOVE = { id: 2, title: "Love", emoji: "❤️", isActive: true };
+const reactionTypes = [LIKE, LOVE] as Parameters<
+  typeof Reactions
+>[0]["reactionTypes"];
+const picker = [
+  { id: 1, key: "1", label: "Like", emoji: "👍" },
+  { id: 2, key: "2", label: "Love", emoji: "❤️" },
+];
+const none = { counts: {}, total: 0, mine: null };
+const some = { counts: { "1": 3, "2": 1 }, total: 4, mine: null };
+
+function render(
+  viewerId: number | null,
+  reactions: {
+    counts: Record<string, number>;
+    total: number;
+    mine: number | null;
+  },
+  authorId = 7,
+  types = picker,
+) {
+  return renderToStaticMarkup(
+    withIntl(
+      <Reactions
+        target="post"
+        id={5}
+        reactions={reactions}
+        authorId={authorId}
+        viewerId={viewerId}
+        picker={types}
+        reactionTypes={reactionTypes}
+      />,
+    ),
+  );
+}
+
+// The number as text between tags, which is how a count is drawn.
+const shown = (html: string, n: number) =>
+  html.split(new RegExp(`>${n}<`)).length - 1;
+
+test("a guest gets the sign-in link with the count, and the summary without a number", () => {
+  const html = render(null, some);
+  expect(html).toContain('href="/login?next=%2Fthreads%2F3"');
+  expect(html).toContain("Log in to react, 4 reactions");
+  expect(html).toContain("4 reactions, show who reacted");
+  expect(shown(html, 4)).toBe(1);
+});
+
+test("a guest sees the link even where nobody reacted", () => {
+  const html = render(null, none);
+  expect(html).toContain("Log in to react");
+  expect(html).not.toContain("show who reacted");
+});
+
+test("on your own item there is nothing to press and the summary shows the number", () => {
+  const html = render(7, some);
+  expect(html).not.toContain("aria-pressed");
+  expect(html).not.toContain("Choose a reaction");
+  expect(html).toContain("4 reactions, show who reacted");
+  expect(shown(html, 4)).toBe(1);
+});
+
+test("your own item without reactions draws nothing at all", () => {
+  expect(render(7, none)).toBe("");
+});
+
+test("an item that takes no reactions and has none draws nothing", () => {
+  expect(render(9, none, 7, [])).toBe("");
+});
+
+test("another member's item with reactions shows the number once, on the button", () => {
+  const html = render(9, some);
+  expect(html).toContain("Like, 4 reactions");
+  expect(html).toContain("Choose a reaction");
+  expect(html).toContain("4 reactions, show who reacted");
+  expect(shown(html, 4)).toBe(1);
+});
+
+test("another member's item without reactions has the button only", () => {
+  const html = render(9, none);
+  expect(html).toContain('aria-pressed="false"');
+  expect(html).not.toContain("show who reacted");
+  expect(shown(html, 0)).toBe(0);
+});

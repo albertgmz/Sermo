@@ -768,21 +768,47 @@ export default async function StyleguidePage() {
 
         <Section title="Reactions">
           <div className="-ml-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <ReactionDemo types={REACTION_TYPES} />
             <ReactionDemo
               types={REACTION_TYPES}
+              others={REACTIONS.total}
+              summary={
+                <ReactionSummary reactions={REACTIONS} showTotal={false} />
+              }
+            />
+            <ReactionDemo
+              types={REACTION_TYPES}
+              others={REACTIONS.total}
+              summary={
+                <ReactionSummary reactions={REACTIONS} showTotal={false} />
+              }
               initial={REACTION_TYPES[1].id}
             />
-            <ReactionDemo types={REACTION_TYPES} size="sm" />
+            <ReactionDemo
+              types={REACTION_TYPES}
+              others={REACTIONS.total}
+              summary={
+                <ReactionSummary
+                  reactions={REACTIONS}
+                  size="sm"
+                  showTotal={false}
+                />
+              }
+              size="sm"
+            />
+            <ReactionDemo
+              types={REACTION_TYPES}
+              others={REACTIONS.total}
+              summary={<ReactionSummary reactions={REACTIONS} />}
+              own
+            />
+            <ReactionDemo types={REACTION_TYPES} others={0} summary={null} />
           </div>
           <p className="max-w-prose text-sm text-muted-foreground">
             Tap to like, tap again to remove. Hover, long-press or use the
-            keyboard button after it to choose another reaction.
+            keyboard button after it to choose another reaction. The number is
+            shown once; the emojis beside it open who reacted. On your own item
+            there is nothing to press and the summary shows the number.
           </p>
-          <div className="-ml-1 flex flex-wrap items-center gap-x-6 gap-y-1">
-            <ReactionSummary reactions={REACTIONS} />
-            <ReactionSummary reactions={REACTIONS} size="sm" />
-          </div>
         </Section>
 
         <Section title="Awards and levels">

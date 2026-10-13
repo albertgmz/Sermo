@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { react } from "@/app/(main)/actions";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { commentOnWallPost, postToWall } from "@/app/(main)/members/actions";
 import { LoadMore } from "@/app/(main)/members/load-more";
@@ -14,12 +13,8 @@ import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
-import {
-  ReactionButton,
-  type ReactionType,
-} from "@/components/forum/reaction-button";
-import { ReactionSummary } from "@/components/forum/reaction-summary";
-import { loadReactionUsers } from "@/components/forum/reaction-users-action";
+import type { ReactionType } from "@/components/forum/reaction-button";
+import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -27,11 +22,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
-import {
-  getReactionTypes,
-  pickerTypes,
-  reactionsView,
-} from "@/lib/sermo/reactions";
+import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -94,27 +85,16 @@ function Comment({
       author={member(comment.author.id)}
       time={<RelativeTime date={comment.createdAt} />}
       actions={
-        <>
-          <ReactionButton
-            action={react.bind(null, "profileComment", comment.id)}
-            total={comment.reactions.total}
-            viewerTypeId={comment.reactions.mine}
-            types={comment.state === "visible" ? picker : []}
-            viewerId={viewerId}
-            authorId={comment.author.id}
-            size="sm"
-            className="-my-1.5 md:my-0"
-          />
-          <ReactionSummary
-            reactions={reactionsView(comment.reactions, reactionTypes)}
-            loadUsers={loadReactionUsers.bind(
-              null,
-              "profile_post_comment",
-              comment.id,
-            )}
-            size="sm"
-          />
-        </>
+        <Reactions
+          target="profileComment"
+          id={comment.id}
+          reactions={comment.reactions}
+          authorId={comment.author.id}
+          viewerId={viewerId}
+          picker={comment.state === "visible" ? picker : []}
+          reactionTypes={reactionTypes}
+          size="sm"
+        />
       }
     >
       <StateNote state={comment.state} />
@@ -167,13 +147,14 @@ function WallPost({
       time={<RelativeTime date={post.createdAt} />}
       actions={
         <>
-          <ReactionButton
-            action={react.bind(null, "profilePost", post.id)}
-            total={post.reactions.total}
-            viewerTypeId={post.reactions.mine}
-            types={post.state === "visible" ? picker : []}
-            viewerId={viewerId}
+          <Reactions
+            target="profilePost"
+            id={post.id}
+            reactions={post.reactions}
             authorId={post.author.id}
+            viewerId={viewerId}
+            picker={post.state === "visible" ? picker : []}
+            reactionTypes={reactionTypes}
           />
           {commentsHref ? (
             <Link
@@ -192,11 +173,6 @@ function WallPost({
               {count}
             </span>
           )}
-          <ReactionSummary
-            reactions={reactionsView(post.reactions, reactionTypes)}
-            loadUsers={loadReactionUsers.bind(null, "profile_post", post.id)}
-            className="ml-auto"
-          />
         </>
       }
       footer={
