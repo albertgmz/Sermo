@@ -5,8 +5,8 @@ import type {
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { InputRow, PositionActiveRows } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
-import { Input } from "@/components/ui/input";
 import { savePrefix } from "../actions";
 
 export type Prefix = z.output<
@@ -84,14 +84,13 @@ export async function PrefixForm({
       submit={prefix ? undefined : t("create")}
     >
       {prefix && <input type="hidden" name="id" value={prefix.id} />}
-      <FieldRow name="label" label={t("label")} htmlFor={`${key}-label`}>
-        <Input
-          id={`${key}-label`}
-          name="label"
-          required
-          defaultValue={prefix?.label}
-        />
-      </FieldRow>
+      <InputRow
+        name="label"
+        label={t("label")}
+        idPrefix={key}
+        required
+        defaultValue={prefix?.label}
+      />
       <FieldRow name="colorId" label={t("colour")} help={t("colourHelp")}>
         <Swatches
           prefix={prefix}
@@ -100,43 +99,21 @@ export async function PrefixForm({
           idPrefix={key}
         />
       </FieldRow>
-      <FieldRow
+      <InputRow
         name="icon"
         label={t("icon")}
-        htmlFor={`${key}-icon`}
+        idPrefix={key}
         help={t("iconHelp")}
-      >
-        <Input
-          id={`${key}-icon`}
-          name="icon"
-          autoCapitalize="none"
-          defaultValue={prefix?.icon}
-        />
-      </FieldRow>
-      <FieldRow
-        name="position"
-        label={t("position")}
-        htmlFor={`${key}-position`}
-      >
-        <Input
-          id={`${key}-position`}
-          name="position"
-          type="number"
-          inputMode="numeric"
-          defaultValue={prefix?.position}
-        />
-      </FieldRow>
-      <FieldRow name="isActive" label={t("active")}>
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={prefix ? prefix.isActive : true}
-            className="size-5"
-          />
-          {t("activeHelp")}
-        </label>
-      </FieldRow>
+        autoCapitalize="none"
+        defaultValue={prefix?.icon}
+      />
+      <PositionActiveRows
+        idPrefix={key}
+        position={t("position")}
+        active={t("active")}
+        activeHelp={t("activeHelp")}
+        entry={prefix}
+      />
     </FormRows>
   );
 }

@@ -2,27 +2,11 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/staff/submit-button";
 import { Input } from "@/components/ui/input";
 import { saveWordFilter } from "./actions";
-
-function Save() {
-  const t = useTranslations("adminContent.wordFilters.row");
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant="outline"
-      disabled={pending}
-      className="min-h-10 px-4"
-    >
-      {pending ? t("saving") : t("save")}
-    </Button>
-  );
-}
 
 // The fields of one word filter, saved on their own. The term identifies the filter.
 export function WordFilterRowForm({
@@ -90,7 +74,11 @@ export function WordFilterRowForm({
           .filter(Boolean)
           .join(" ")}
       </output>
-      <Save />
+      <SubmitButton
+        label={t("save")}
+        pendingLabel={t("saving")}
+        variant="outline"
+      />
     </form>
   );
 }

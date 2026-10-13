@@ -11,12 +11,17 @@ export type FieldKey = Exclude<
   "socialLinks"
 >;
 
-export async function NumberRow({
+type FieldText = Awaited<
+  ReturnType<typeof getTranslations<"adminSetup.fields">>
+>;
+
+// The row around a setting's control: label and help from the messages, and the control's id.
+async function SettingRow({
   name,
-  value,
+  children,
 }: {
   name: FieldKey;
-  value: number;
+  children: (id: string, t: FieldText) => React.ReactNode;
 }) {
   const t = await getTranslations("adminSetup.fields");
   const id = `field-${name}`;
@@ -27,60 +32,59 @@ export async function NumberRow({
       htmlFor={id}
       help={t(`${name}.help`)}
     >
-      <div className="flex items-center gap-2">
-        <Shown name={name} />
-        <Input
-          id={id}
-          name={name}
-          type="number"
-          inputMode="numeric"
-          required
-          defaultValue={value}
-          aria-describedby={`${id}-help`}
-        />
-        {t.has(`${name}.unit` as `${typeof name}.label`) && (
-          <span className="shrink-0 text-sm text-muted-foreground">
-            {t(`${name}.unit` as `${typeof name}.label`)}
-          </span>
-        )}
-      </div>
+      {children(id, t)}
     </FieldRow>
   );
 }
 
-export async function SwitchRow({
-  name,
-  value,
-}: {
-  name: FieldKey;
-  value: boolean;
-}) {
-  const t = await getTranslations("adminSetup.fields");
-  const id = `field-${name}`;
+export function NumberRow({ name, value }: { name: FieldKey; value: number }) {
   return (
-    <FieldRow
-      name={name}
-      label={t(`${name}.label`)}
-      htmlFor={id}
-      help={t(`${name}.help`)}
-    >
-      <label className="flex min-h-10 items-center gap-3 text-sm">
-        <Shown name={name} />
-        <input
-          id={id}
-          type="checkbox"
-          name={name}
-          defaultChecked={value}
-          aria-describedby={`${id}-help`}
-          className="size-5"
-        />
-        {t(`${name}.switch` as `${typeof name}.label`)}
-      </label>
-    </FieldRow>
+    <SettingRow name={name}>
+      {(id, t) => (
+        <div className="flex items-center gap-2">
+          <Shown name={name} />
+          <Input
+            id={id}
+            name={name}
+            type="number"
+            inputMode="numeric"
+            required
+            defaultValue={value}
+            aria-describedby={`${id}-help`}
+          />
+          {t.has(`${name}.unit` as `${typeof name}.label`) && (
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {t(`${name}.unit` as `${typeof name}.label`)}
+            </span>
+          )}
+        </div>
+      )}
+    </SettingRow>
   );
 }
 
-export async function TextRow({
+export function SwitchRow({ name, value }: { name: FieldKey; value: boolean }) {
+  return (
+    <SettingRow name={name}>
+      {(id, t) => (
+        <label className="flex min-h-10 items-center gap-3 text-sm">
+          <Shown name={name} />
+          <input
+            id={id}
+            type="checkbox"
+            name={name}
+            defaultChecked={value}
+            aria-describedby={`${id}-help`}
+            className="size-5"
+          />
+          {t(`${name}.switch` as `${typeof name}.label`)}
+        </label>
+      )}
+    </SettingRow>
+  );
+}
+
+export function TextRow({
   name,
   value,
   autoCapitalize,
@@ -89,23 +93,20 @@ export async function TextRow({
   value: string | null;
   autoCapitalize?: "none";
 }) {
-  const t = await getTranslations("adminSetup.fields");
-  const id = `field-${name}`;
   return (
-    <FieldRow
-      name={name}
-      label={t(`${name}.label`)}
-      htmlFor={id}
-      help={t(`${name}.help`)}
-    >
-      <Shown name={name} />
-      <Input
-        id={id}
-        name={name}
-        defaultValue={value ?? ""}
-        autoCapitalize={autoCapitalize}
-        aria-describedby={`${id}-help`}
-      />
-    </FieldRow>
+    <SettingRow name={name}>
+      {(id) => (
+        <>
+          <Shown name={name} />
+          <Input
+            id={id}
+            name={name}
+            defaultValue={value ?? ""}
+            autoCapitalize={autoCapitalize}
+            aria-describedby={`${id}-help`}
+          />
+        </>
+      )}
+    </SettingRow>
   );
 }

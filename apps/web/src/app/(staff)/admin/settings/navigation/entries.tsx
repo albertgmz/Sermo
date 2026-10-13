@@ -11,12 +11,11 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState, useId, useState } from "react";
-import { useFormStatus } from "react-dom";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
+import { SubmitButton } from "@/components/staff/submit-button";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteEntry, saveEntry, saveOrder } from "./actions";
 
@@ -40,31 +39,6 @@ export type Place = {
 };
 
 const AUDIENCES = ["everyone", "guests", "members", "permission"] as const;
-
-function OrderButton() {
-  const t = useTranslations("adminSetup.navigation.order");
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="min-h-10 px-4">
-      {pending ? t("saving") : t("submit")}
-    </Button>
-  );
-}
-
-function SaveButton() {
-  const t = useTranslations("adminSetup.navigation.row");
-  const { pending } = useFormStatus();
-  return (
-    <Button
-      type="submit"
-      variant="outline"
-      disabled={pending}
-      className="min-h-10 px-4"
-    >
-      {pending ? t("saving") : t("save")}
-    </Button>
-  );
-}
 
 function Row({
   item,
@@ -206,7 +180,11 @@ function Row({
           {t("row.enabled")}
         </label>
         <div className="self-end">
-          <SaveButton />
+          <SubmitButton
+            label={t("row.save")}
+            pendingLabel={t("row.saving")}
+            variant="outline"
+          />
         </div>
         <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden sm:col-span-2 lg:col-span-full">
           {[state?.error, ...Object.values(state?.fields ?? {})]
@@ -271,7 +249,10 @@ export function Entries({
             />
           </div>
           <form id="order" action={orderAction}>
-            <OrderButton />
+            <SubmitButton
+              label={t("order.submit")}
+              pendingLabel={t("order.saving")}
+            />
           </form>
         </div>
         <output className="block text-xs font-medium text-destructive [overflow-wrap:anywhere] empty:hidden">

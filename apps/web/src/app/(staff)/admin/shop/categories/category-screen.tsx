@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { getLadder } from "@/app/(main)/upgrade/ladder";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { CheckRow, InputRow } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -28,51 +29,35 @@ async function CategoryForm({ category }: { category?: Category }) {
       submit={category ? undefined : t("create")}
     >
       {category && <input type="hidden" name="id" value={category.id} />}
-      <FieldRow name="name" label={t("name")} htmlFor={`${key}-name`}>
-        <Input
-          id={`${key}-name`}
-          name="name"
-          required
-          defaultValue={category?.name}
-        />
-      </FieldRow>
-      <FieldRow
+      <InputRow
+        name="name"
+        label={t("name")}
+        idPrefix={key}
+        required
+        defaultValue={category?.name}
+      />
+      <InputRow
         name="description"
         label={t("description")}
-        htmlFor={`${key}-description`}
-      >
-        <Input
-          id={`${key}-description`}
-          name="description"
-          defaultValue={category?.description}
-        />
-      </FieldRow>
+        idPrefix={key}
+        defaultValue={category?.description}
+      />
       {!category && (
-        <FieldRow
+        <InputRow
           name="position"
           label={t("position")}
-          htmlFor={`${key}-position`}
+          idPrefix={key}
           help={t("positionHelp")}
-        >
-          <Input
-            id={`${key}-position`}
-            name="position"
-            type="number"
-            inputMode="numeric"
-          />
-        </FieldRow>
+          type="number"
+          inputMode="numeric"
+        />
       )}
-      <FieldRow name="isActive" label={t("active")}>
-        <label className="flex min-h-10 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="isActive"
-            defaultChecked={category ? category.isActive : true}
-            className="size-5"
-          />
-          {t("activeHelp")}
-        </label>
-      </FieldRow>
+      <CheckRow
+        name="isActive"
+        label={t("active")}
+        text={t("activeHelp")}
+        defaultChecked={category ? category.isActive : true}
+      />
     </FormRows>
   );
 }
