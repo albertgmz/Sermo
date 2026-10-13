@@ -121,6 +121,15 @@ describe("job maintenance", () => {
       .run(ctx.now() - 8 * 24 * 60 * 60_000, oldDone);
     expectNoTableScan(ctx, purgeSql.reads, [0]);
     expectNoTableScan(ctx, purgeSql.done, [ctx.now() - 7 * 24 * 60 * 60_000]);
+    expectNoTableScan(ctx, purgeSql.failed, [ctx.now() - 30 * 24 * 60 * 60_000]);
+    const failedOld = enqueueJob(ctx, "x", {})!;
+    const failedMonth = enqueueJob(ctx, "x", {})!;
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'failed', run_at = ?1 WHERE id = ?2")
+      .run(ctx.now() - 31 * 24 * 60 * 60_000, failedOld);
+    ctx.sqlite
+      .prepare("UPDATE jobs SET status = 'failed', run_at = ?1 WHERE id = ?2")
+      .run(ctx.now() - 29 * 24 * 60 * 60_000, failedMonth);
     await runHourlyTasks(ctx);
     expect(sizes).toEqual([1000, 2]);
     expect(
@@ -144,6 +153,9 @@ describe("job maintenance", () => {
     expect(remaining).toContain(recentDone);
     expect(remaining).toContain(failed);
     expect(remaining).not.toContain(oldDone);
+    // A failed job is kept for 30 days, then purged.
+    expect(remaining).toContain(failedMonth);
+    expect(remaining).not.toContain(failedOld);
     ctx.views.set(recent.thread.id, 4);
     expect(runViewsTask(ctx)).toBe(1);
     expect(
