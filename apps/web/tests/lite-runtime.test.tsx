@@ -292,6 +292,8 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
   expect(matches("/account/picture")).toBe(false);
   expect(matches("/threads/12/uploads")).toBe(false);
   expect(matches("/threads/12/uploads/x")).toBe(true);
+  expect(matches("/attachments")).toBe(false);
+  expect(matches("/attachments/x")).toBe(true);
   expect(matches("/admin/uploads")).toBe(false);
   expect(matches("/admin/uploads/x")).toBe(true);
   expect(matches("/admin/forums")).toBe(true);

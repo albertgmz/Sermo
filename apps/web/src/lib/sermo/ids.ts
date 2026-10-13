@@ -19,6 +19,13 @@ export function requireIds(...ids: unknown[]): void {
   }
 }
 
+// The ids a form carries under one name, each checked like any id that reaches a path.
+export function formIds(formData: FormData, name: string): number[] {
+  const ids = formData.getAll(name).map((value) => parseId(String(value)));
+  requireIds(...ids);
+  return ids as number[];
+}
+
 // The public pages (a forum, a thread, a member) are addressed `<id>-<slug>`: the id is the leading
 // plain decimal number, the rest is decoration that the backend keeps current. A bare id is the
 // same address. Everything else stays strict, so this is the one place that takes a suffix.

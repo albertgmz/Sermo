@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseId, parsePageId } from "./ids";
+import { formIds, parseId, parsePageId } from "./ids";
+
+test("the ids of a form are read as numbers, and one that is not an id refuses the form", () => {
+  const form = new FormData();
+  assert.deepEqual(formIds(form, "attachmentIds"), []);
+  form.append("attachmentIds", "4");
+  form.append("attachmentIds", "5");
+  assert.deepEqual(formIds(form, "attachmentIds"), [4, 5]);
+  form.append("attachmentIds", "../6");
+  assert.throws(() => formIds(form, "attachmentIds"));
+});
 
 test("a page address is a plain id with an optional decoration after a dash", () => {
   assert.equal(parsePageId("12"), 12);
