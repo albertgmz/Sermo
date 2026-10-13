@@ -34,15 +34,17 @@ export function AttachmentField({
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string>();
   const listed = useRef<HTMLInputElement>(null);
+  const first = useRef(initial);
 
   useEffect(() => onBusy?.(busy > 0), [busy, onBusy]);
 
-  // A form that is reset (React does it once a form's action has answered) starts over.
+  // A form that is reset (React does it once a form's action has answered) starts over, with the
+  // files it began with.
   useEffect(() => {
     const form = listed.current?.form;
     if (!form) return;
     const clear = () => {
-      setFiles([]);
+      setFiles(first.current);
       setError(undefined);
     };
     form.addEventListener("reset", clear);
@@ -133,7 +135,11 @@ export function AttachmentField({
       {files.length > 0 && (
         <ul
           aria-label={t("aria.files")}
-          className={cn("flex flex-wrap gap-2", compact && "basis-full")}
+          className={cn(
+            "flex flex-wrap gap-2",
+            // A composer's bar stays a bar: many files scroll inside it.
+            compact && "max-h-28 basis-full overflow-y-auto",
+          )}
         >
           {files.map((file) => (
             <li
