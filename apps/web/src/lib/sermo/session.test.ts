@@ -19,7 +19,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 
-const { call, sessionUnconfirmed } = await import("./client");
+const { call, sessionUnconfirmed, unconfirmedKind } = await import("./client");
 const { getMember, getViewer } = await import("./session");
 
 const guest = {
@@ -168,4 +168,34 @@ test("a guest answer that is refused again is rethrown", async () => {
     getViewer(),
     (error) => error instanceof SermoError && error.code === "unauthenticated",
   );
+});
+
+// A visitor with no session cookie is a guest the backend never has to check; when the backend
+// cannot be reached the shell still needs a viewer.
+test("a guest with no cookie, backend down: the viewer is a guest and the outage is known", async () => {
+  incoming.set("cookie", "theme=dark");
+  const quiet = spyOn(console, "error").mockImplementation(() => {});
+  try {
+    for (const [, answer] of FAILURES) {
+      globalThis.fetch = (async () => answer()) as unknown as typeof fetch;
+      const viewer = await getViewer();
+      assert.equal(viewer.user, null);
+      assert.equal(viewer.staff.panel, false);
+      assert.equal(await unconfirmedKind(), "site");
+      assert.equal(await sessionUnconfirmed(), true);
+    }
+  } finally {
+    quiet.mockRestore();
+    incoming.set("cookie", "theme=dark; sermo.session_token=dead");
+  }
+});
+
+test("a guest with no cookie and a backend that answers is not marked", async () => {
+  incoming.set("cookie", "theme=dark");
+  try {
+    backend(Response.json(guest));
+    assert.equal(await unconfirmedKind(), null);
+  } finally {
+    incoming.set("cookie", "theme=dark; sermo.session_token=dead");
+  }
 });

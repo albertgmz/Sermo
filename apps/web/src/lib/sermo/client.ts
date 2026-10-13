@@ -85,17 +85,41 @@ export async function forwardFromRequest(): Promise<Forward> {
   return forwardFromHeaders(await headers());
 }
 
-// The visitor as the backend sees them: the auth.me answer, a guest for a refused session.
+// What the backend says about the visitor, settled once per request. A visitor with no session
+// cookie is asked here (lazily: a page read never waits for it); when that read fails too the
+// backend is out of reach and the shell is drawn for a guest, as for a session that could not be
+// confirmed. `kind` says which of the two it was.
+const settled = cache(
+  async (): Promise<{ viewer: Viewer; kind: "session" | "site" | null }> => {
+    const { forward, viewer, unconfirmed } = await visitor();
+    if (unconfirmed) return { viewer: UNKNOWN, kind: "session" };
+    if (viewer) return { viewer, kind: null };
+    try {
+      return { viewer: await callWith(forward, authMe, {}), kind: null };
+    } catch (error) {
+      if (!(error instanceof SermoError) || isSignedOut(error)) throw error;
+      console.error("The backend could not be reached for a guest", error);
+      return { viewer: UNKNOWN, kind: "site" };
+    }
+  },
+);
+
+// The visitor as the backend sees them: the auth.me answer, a guest for a refused session or when
+// the backend cannot be reached.
 export async function viewerOfRequest(): Promise<Viewer> {
-  const { forward, viewer, unconfirmed } = await visitor();
-  if (unconfirmed) return UNKNOWN;
-  return viewer ?? callWith(forward, authMe, {});
+  return (await settled()).viewer;
 }
 
 // Whether the backend could not say who is asking, so the page is drawn for a guest without the
-// visitor being one. A page that is only for members uses `getMember`.
+// visitor being one. A page that is only for members uses `getMember`. `session`: the visitor has
+// a session cookie that could not be checked; `site`: the visitor has none and the backend could
+// not be reached at all.
+export async function unconfirmedKind(): Promise<"session" | "site" | null> {
+  return (await settled()).kind;
+}
+
 export async function sessionUnconfirmed(): Promise<boolean> {
-  return (await visitor()).unconfirmed;
+  return (await unconfirmedKind()) !== null;
 }
 
 export async function call<I extends z.ZodType, O extends z.ZodType>(

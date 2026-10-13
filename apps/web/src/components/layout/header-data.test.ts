@@ -6,13 +6,16 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+const incoming = new Headers({ cookie: "sermo.session_token=live" });
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
-  headers: async () => new Headers({ cookie: "sermo.session_token=live" }),
+  headers: async () => incoming,
   cookies: async () => ({ set: () => {} }),
 }));
 
 const { getCounters, getViewerCard } = await import("./header-data");
+const { getNavigation } = await import("@/lib/sermo/navigation");
+const { getViewer } = await import("@/lib/sermo/session");
 
 const member = {
   user: {
@@ -116,6 +119,28 @@ for (const [what, answer] of MEFAILS) {
       assert.deepEqual([...new Set(asked)], ["/api/v1/me"]);
     } finally {
       quiet.mockRestore();
+    }
+  });
+}
+
+for (const [what, answer] of MEFAILS) {
+  test(`the shell's helpers draw a guest with no session cookie when the backend fails with ${what}`, async () => {
+    const quiet = spyOn(console, "error").mockImplementation(() => {});
+    incoming.set("cookie", "theme=dark");
+    globalThis.fetch = (async () => answer()) as unknown as typeof fetch;
+    try {
+      assert.equal((await getViewer()).user, null);
+      assert.equal(await getViewerCard(), null);
+      assert.equal((await getCounters()).notifications, 0);
+      assert.deepEqual(await getNavigation(), {
+        header: [],
+        mobile: [],
+        account: [],
+        footer: [],
+      });
+    } finally {
+      quiet.mockRestore();
+      incoming.set("cookie", "sermo.session_token=live");
     }
   });
 }
