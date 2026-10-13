@@ -53,23 +53,30 @@ test("the staff bar links the panel when it holds something and moderation when 
   ).toEqual({ admin: true, moderation: true });
 });
 
-test("the moderation badge adds the two queues and stops at 99+", () => {
+test("the moderation badge adds the two queues and marks a cut-off queue with more", () => {
   const queue = (count: number, more = false) => ({ count, more });
   expect(
     pendingBadge({ openReports: queue(0), pendingApprovals: queue(0) }),
   ).toBeNull();
   expect(
     pendingBadge({ openReports: queue(2), pendingApprovals: queue(3) }),
-  ).toBe("5");
+  ).toEqual({ count: 5, more: false });
   expect(
-    pendingBadge({ openReports: queue(60), pendingApprovals: queue(50) }),
-  ).toBe("99+");
+    pendingBadge({ openReports: queue(99, true), pendingApprovals: queue(4) }),
+  ).toEqual({ count: 103, more: true });
+  // A scan that stopped at its bound says nothing about a viewer who has nothing of their own.
   expect(
-    pendingBadge({ openReports: queue(99, true), pendingApprovals: queue(0) }),
-  ).toBe("99+");
+    pendingBadge({ openReports: queue(0, true), pendingApprovals: queue(0) }),
+  ).toBeNull();
+  expect(
+    pendingBadge({ openReports: queue(0, true), pendingApprovals: queue(3) }),
+  ).toEqual({ count: 3, more: false });
+  expect(
+    pendingBadge({ openReports: queue(3, true), pendingApprovals: queue(0) }),
+  ).toEqual({ count: 3, more: true });
 });
 
-test("the shell reads the viewer from the backend, never from the JSON data", () => {
+test("the shell never imports the removed demo data or session modules", () => {
   const sources = [
     join(import.meta.dir, "../../app/(main)/layout.tsx"),
     ...readdirSync(import.meta.dir)

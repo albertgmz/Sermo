@@ -644,7 +644,7 @@ export default async function StyleguidePage() {
           </div>
           <HeaderNav links={NAV_SAMPLES} className="flex flex-wrap" />
           <SearchForm />
-          <StaffBar admin moderation pending="3" />
+          <StaffBar admin moderation pending={{ count: 3, more: false }} />
           <StaffBar admin={false} moderation />
           <p className="max-w-prose text-sm text-muted-foreground">
             The site header, footer, page backdrop and fixed mobile navigation

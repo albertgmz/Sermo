@@ -82,6 +82,7 @@
   "staffBar": {
     "admin": "Admin",
     "moderation": "Moderation",
+    "capped": "{count}+",
     "pending": "({count} pending)"
   },
   "siteFooter": {

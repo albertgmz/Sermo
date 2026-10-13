@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
+import { type PendingCount, pendingTotal } from "@/app/(staff)/pending-count";
 import { canOpen, type Standing, screenByKey } from "@/app/(staff)/registry";
 import { Container } from "@/components/layout/container";
 import type { Counters } from "@/components/layout/header-data";
@@ -17,16 +18,11 @@ export function staffLinks(viewer: Standing) {
 }
 
 // The moderation link's badge: the open reports and the approvals waiting together, or null when
-// there are none. Each count stops at 99, so a queue that has more makes the sum "99+".
+// there are none. A "+" follows the count when a queue was cut off at the backend's bound.
 export function pendingBadge(
   counters: Pick<Counters, "openReports" | "pendingApprovals">,
-): string | null {
-  const { openReports, pendingApprovals } = counters;
-  const sum = openReports.count + pendingApprovals.count;
-  if (sum === 0) return null;
-  return sum > 99 || openReports.more || pendingApprovals.more
-    ? "99+"
-    : String(sum);
+): PendingCount | null {
+  return pendingTotal(counters.openReports, counters.pendingApprovals);
 }
 
 export function StaffBar({
@@ -36,9 +32,15 @@ export function StaffBar({
 }: {
   admin: boolean;
   moderation: boolean;
-  pending?: string | null;
+  pending?: PendingCount | null;
 }) {
   const t = useTranslations("layout.staffBar");
+  const format = useFormatter();
+  const badge =
+    pending &&
+    (pending.more
+      ? t("capped", { count: format.number(pending.count) })
+      : format.number(pending.count));
   return (
     <div className="border-b bg-background text-xs text-muted-foreground">
       <Container className="flex items-center">
@@ -51,16 +53,16 @@ export function StaffBar({
           {moderation && (
             <Link href="/moderation" className={ITEM}>
               {t("moderation")}
-              {pending && (
+              {badge && (
                 <>
                   <span
                     aria-hidden="true"
                     className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] leading-none font-semibold text-primary-foreground"
                   >
-                    {pending}
+                    {badge}
                   </span>
                   <span className="sr-only">
-                    {t("pending", { count: pending })}
+                    {t("pending", { count: badge })}
                   </span>
                 </>
               )}
