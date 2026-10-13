@@ -1,9 +1,10 @@
 "use client";
 
 import { SendHorizontal } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { replyAction } from "@/app/(main)/conversations/actions";
-import { Editor } from "@/components/forum/editor";
+import { AttachmentField } from "@/components/forum/attachment-field";
+import { LazyEditor } from "@/components/forum/lazy-editor";
 import { PendingButton } from "@/components/forum/pending-button";
 
 export function ReplyForm({
@@ -21,6 +22,7 @@ export function ReplyForm({
     replyAction.bind(null, conversationId),
     {},
   );
+  const [uploading, setUploading] = useState(false);
   return (
     <form action={action} className={className}>
       {state.error && (
@@ -28,14 +30,15 @@ export function ReplyForm({
           {state.error}
         </p>
       )}
-      <div className="flex items-end gap-2">
-        <Editor
-          compact
-          name="body"
-          placeholder={placeholder}
-          className="flex-1"
-        />
-        <PendingButton size="icon" aria-label={submitLabel} className="size-10">
+      <div className="flex flex-wrap items-end gap-2">
+        <AttachmentField compact onBusy={setUploading} />
+        <LazyEditor name="body" placeholder={placeholder} className="flex-1" />
+        <PendingButton
+          size="icon"
+          aria-label={submitLabel}
+          disabled={uploading}
+          className="size-10"
+        >
           <SendHorizontal />
         </PendingButton>
       </div>

@@ -20,7 +20,6 @@
       "loadingMessages": "Loading messages…"
     },
     "participantSeparator": ", ",
-    "authorSeparator": "·",
     "placeholder": "Write a message…",
     "submit": "Send message",
     "left": "(left)",
