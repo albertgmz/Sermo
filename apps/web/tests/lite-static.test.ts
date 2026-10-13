@@ -166,7 +166,7 @@ test("public holds no picture: the backend serves them, each under the category 
   expect(errors, errors.join("\n")).toEqual([]);
 });
 
-test("registry labels and descriptions remain valid, and no category owns a file of public", () => {
+test("registry labels and descriptions remain valid", () => {
   expect(new Set(LITE_CATEGORIES.map(({ key }) => key)).size).toBe(
     LITE_CATEGORIES.length,
   );
@@ -180,13 +180,6 @@ test("registry labels and descriptions remain valid, and no category owns a file
       text?.description.trim().length ?? 0,
       `${category.key}: add a description to messages/en/lite.json`,
     ).toBeGreaterThan(0);
-    expect(
-      category.folders,
-      `${category.key}: owns no folder of public`,
-    ).toEqual([]);
-    expect(category.files, `${category.key}: owns no file of public`).toEqual(
-      [],
-    );
   }
   for (const path of [
     ...Object.keys(EMISSION_GATES),

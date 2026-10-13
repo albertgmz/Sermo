@@ -25,7 +25,6 @@ export function threadCard(
     title: thread.title,
     prefix: prefixView(thread.prefix),
     excerpt: thread.excerpt,
-    plainExcerpt: true,
     createdAt: thread.createdAt,
     views: thread.viewCount,
     replyCount: thread.replyCount,

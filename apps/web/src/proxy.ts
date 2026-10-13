@@ -1,5 +1,3 @@
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
 import {
   awardsGet,
   conversationsGet,
@@ -17,7 +15,6 @@ import {
   isImageRequest,
   isUnknownUnsafePath,
   normalizeImagePath,
-  pictureInPageFolder,
 } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -188,25 +185,9 @@ function notFound(request: NextRequest) {
   });
 }
 
-// The proxy runs on Node, so the public folder can be read directly. Names are
-// compared lower-cased because the request path is.
-function publicFileExists([folder, name]: [string, string]) {
-  try {
-    return readdirSync(join(process.cwd(), "public", folder)).some(
-      (file) => file.toLowerCase() === name,
-    );
-  } catch {
-    return false;
-  }
-}
-
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
-  // Folders that are also page namespaces hold pictures only under the names
-  // of real files; anything else there is an unknown page.
-  const shared = pictureInPageFolder(request.nextUrl.pathname);
-  if (shared && !publicFileExists(shared)) return notFound(request);
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(

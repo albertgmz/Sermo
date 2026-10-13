@@ -5,7 +5,6 @@ import {
   isImageRequest,
   isUnknownUnsafePath,
   normalizeImagePath,
-  pictureInPageFolder,
 } from "./lite-images";
 import { LITE_CATEGORIES, parseLiteCookie } from "./lite-preferences";
 
@@ -32,6 +31,11 @@ test("image-looking page paths still run their access and id rules", () => {
     "/pages/rules/photo.jpg",
     "/elsewhere/123/new/missing.svg",
     "/elsewhere%2F123%2Fnew%2Fmissing.svg",
+    // A page namespace holds no pictures: such a path is a missing page, not a placeholder.
+    "/forums/abc.gif",
+    "/AWARDS/1.SVG",
+    "/forums/1.gif.",
+    "/forums/1.gif::$DATA",
   ];
   for (const path of paths) {
     assert.equal(isImageRequest(path), false, path);
@@ -178,20 +182,4 @@ test("unsafe paths that are not pictures are unknown", () => {
     assert.equal(isUnknownUnsafePath(path), false, path);
   }
   assert.equal(isUnknownUnsafePath("/pictures/tobi.jpg"), false);
-});
-
-test("no page namespace is a picture folder, so a picture-looking path in one is no public file", () => {
-  for (const path of [
-    "/forums/abc.gif",
-    "/AWARDS/1.SVG",
-    "/forums/1.gif.",
-    "/forums/1.gif::$DATA",
-    "/forums/1",
-    "/forums/1/missing.svg",
-    "/pictures/tobi.jpg",
-    "/members/1.jpg",
-    "/mark.svg",
-  ]) {
-    assert.equal(pictureInPageFolder(path), null, path);
-  }
 });

@@ -22,8 +22,6 @@ export type ThreadCardData = {
   prefix: PrefixView | null;
   /** Plain text the backend wrote; it names no picture. */
   excerpt: string;
-  /** Set by `threadCard`; the excerpt is always plain text. */
-  plainExcerpt?: boolean;
   createdAt: string;
   views: number;
   replyCount: number;
