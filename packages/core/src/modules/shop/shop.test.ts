@@ -680,14 +680,19 @@ describe("shop purchases and inventory", () => {
   });
 
   test("items that are worn, spent elsewhere or applied while held cannot be used", async () => {
-    const { ctx, call, create, fund, expire, frameId } = fixture();
+    const { ctx, call, create, fund, expire, frameId, member } = fixture();
     fund();
     const color = insertPaletteColor(ctx, { kind: "name" });
     const rename = await create({ isConsumable: true, effect: { type: "usernameChange" } });
     const bought = await call("shop.buy", { itemId: rename.id });
-    await expect(call("shop.use", { inventoryId: bought.inventory.id })).rejects.toThrow(
-      /users\.changeUsername/,
+    const refusedRename = await call("shop.use", { inventoryId: bought.inventory.id }).catch(
+      (error: unknown) => error,
     );
+    expect(refusedRename).toBeInstanceOf(ConflictError);
+    expect((refusedRename as Error).message).toMatch(/users\.changeUsername/);
+    expect(ctx.sqlite.prepare("SELECT username FROM users WHERE id = ?1").get(member.id)).toEqual({
+      username: member.username,
+    });
     await expect(
       call("shop.use", { inventoryId: bought.inventory.id, threadId: 1 }),
     ).rejects.toBeInstanceOf(ConflictError);
@@ -702,9 +707,11 @@ describe("shop purchases and inventory", () => {
     ]) {
       const item = await create({ effect, durationSeconds: 60 });
       const owned = await call("shop.buy", { itemId: item.id });
-      await expect(call("shop.use", { inventoryId: owned.inventory.id })).rejects.toThrow(
-        /appearance\.set/,
+      const refusedWear = await call("shop.use", { inventoryId: owned.inventory.id }).catch(
+        (error: unknown) => error,
       );
+      expect(refusedWear).toBeInstanceOf(ConflictError);
+      expect((refusedWear as Error).message).toMatch(/appearance\.set/);
       await expect(
         call("shop.use", { inventoryId: owned.inventory.id, threadId: 1 }),
       ).rejects.toBeInstanceOf(ConflictError);

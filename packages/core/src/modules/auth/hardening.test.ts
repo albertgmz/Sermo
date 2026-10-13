@@ -284,7 +284,12 @@ test("a banned member cannot sign in or change their identity through Better Aut
   ctx.sqlite.prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2").run(ctx.now() - 1, userId);
   const allowed = await signIn();
   expect(allowed.status).toBe(200);
-  // The session works again; a username changes only through users.changeUsername.
+  // The session works again. A username changes only through users.changeUsername, so Better
+  // Auth's own update is refused whole and changes nothing.
+  const renamed = await http.post("/update-user", { username: "Returned" }, cookieOf(allowed));
+  expect(renamed.status).toBe(403);
+  expect(await renamed.json()).toMatchObject({ code: "USERNAME_CHANGE_NOT_ALLOWED" });
+  expect(usernameOf()).toBe("Banned");
   expect((await http.post("/update-user", { name: "Returned" }, cookieOf(allowed))).status).toBe(
     200,
   );
