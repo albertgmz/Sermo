@@ -18,7 +18,8 @@ browser --> ingress (Caddy, the only published port, 8080)
 - `ingress`: Caddy, configured by `Caddyfile`. It is the only service with a published port.
 
 Browsers send `/api/*` to the backend straight through the ingress. Uploads from the pages
-(`/account/picture`, `/threads/<forum>/uploads`, `/admin/uploads`) are Next route handlers on `web`,
+(`/account/picture`, `/threads/<forum>/uploads`, `/attachments`, `/admin/uploads`) are Next route
+handlers on `web`,
 which hand the file to the backend as the visitor.
 
 ## What must never be exposed
