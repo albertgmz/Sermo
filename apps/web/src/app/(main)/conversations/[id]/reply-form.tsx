@@ -1,6 +1,6 @@
 "use client";
 
-import { SendHorizontal } from "lucide-react";
+import { Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { replyAction } from "@/app/(main)/conversations/actions";
 import { AttachmentField } from "@/components/forum/attachment-field";
@@ -16,12 +16,10 @@ export function ReplyForm({
   conversationId,
   placeholder,
   submitLabel,
-  className,
 }: {
   conversationId: number;
   placeholder: string;
   submitLabel: string;
-  className?: string;
 }) {
   // A refused message stays in the form, files included: the form is not reset by its action.
   const { state, pending, onSubmit } = useKeptForm(
@@ -36,21 +34,6 @@ export function ReplyForm({
     form.current?.querySelector("textarea")?.focus();
   }, []);
 
-  // The form grows over the messages when the editor takes the place of the line, or a file is
-  // added: the page follows, so the newest message stays in view.
-  useEffect(() => {
-    const element = form.current;
-    if (!element) return;
-    let height = element.offsetHeight;
-    const observer = new ResizeObserver(() => {
-      const grown = element.offsetHeight - height;
-      height = element.offsetHeight;
-      if (grown > 0) window.scrollBy(0, grown);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
   // The refusal was answered to this same form: nothing is drawn anew.
   useEffect(() => {
     if (state.error) sending = false;
@@ -63,28 +46,23 @@ export function ReplyForm({
         sending = true;
         onSubmit(event);
       }}
-      className={className}
+      className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
     >
+      <LazyEditor name="body" placeholder={placeholder} minHeight={96} />
+      <AttachmentField onBusy={setUploading} />
       {state.error && (
-        <p role="alert" className="mb-2 text-sm text-destructive">
+        <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       )}
-      <div className="flex flex-wrap items-end gap-2">
-        <AttachmentField compact onBusy={setUploading} />
-        <LazyEditor
-          name="body"
-          placeholder={placeholder}
-          className="flex-1 rounded-4xl"
-        />
+      <div className="flex justify-end">
         <Button
           type="submit"
-          size="icon"
-          aria-label={submitLabel}
           disabled={pending || uploading}
-          className="size-10"
+          className="h-10 px-4"
         >
-          <SendHorizontal />
+          <Send />
+          {submitLabel}
         </Button>
       </div>
     </form>

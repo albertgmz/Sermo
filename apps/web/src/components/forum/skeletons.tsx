@@ -611,7 +611,7 @@ export function CatalogueSkeleton() {
 
 export function ConversationListSkeleton() {
   return (
-    <div aria-hidden="true" className="divide-y lg:flex-1 lg:overflow-y-auto">
+    <div aria-hidden="true" className="divide-y">
       {[1, 2, 3, 4, 5].map((item) => (
         <div key={item} className="flex min-h-16 items-center gap-3 px-4 py-3">
           <Skeleton className="size-10 shrink-0 rounded-full" />

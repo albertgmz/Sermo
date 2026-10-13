@@ -1,8 +1,7 @@
 "use server";
 
 import { conversationsList } from "@sermo/core/contracts";
-import { ConversationLink } from "@/app/(main)/conversations/conversation-nav";
-import { ConversationPreview } from "@/components/forum/conversation-preview";
+import { ConversationRow } from "@/app/(main)/conversations/conversation-row";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { membersFor } from "@/lib/sermo/members";
@@ -21,15 +20,11 @@ export async function moreConversations(cursor: string) {
   return {
     nextCursor,
     rows: items.map((conversation) => (
-      <li key={conversation.id}>
-        <ConversationLink id={conversation.id}>
-          <ConversationPreview
-            linked
-            conversation={conversation}
-            member={member(conversation.lastMessage.user.id)}
-          />
-        </ConversationLink>
-      </li>
+      <ConversationRow
+        key={conversation.id}
+        conversation={conversation}
+        member={member(conversation.lastMessage.user.id)}
+      />
     )),
   };
 }
