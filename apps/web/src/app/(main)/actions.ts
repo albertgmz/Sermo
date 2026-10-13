@@ -40,16 +40,9 @@ export async function setLiteMode(formData: FormData) {
       store.delete(LITE_COOKIE);
     }
   }
-  const returnTo = String(formData.get("returnTo") ?? "/");
+  const returnTo = safeReturnPath(formData.get("returnTo"));
   const path = normalizeImagePath(returnTo.split(/[?#]/)[0]);
-  redirect(
-    returnTo.startsWith("/") &&
-      !/^\/[\\/]|[\s\\]/.test(returnTo) &&
-      path !== "/_next" &&
-      !path.startsWith("/_next/")
-      ? returnTo
-      : "/",
-  );
+  redirect(path === "/_next" || path.startsWith("/_next/") ? "/" : returnTo);
 }
 
 export async function logout() {
