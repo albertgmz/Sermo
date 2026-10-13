@@ -33,6 +33,7 @@ import {
 } from "@/lib/sermo/addresses";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
+import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import {
   callWith,
   type Forward,
@@ -127,7 +128,12 @@ const CONTENT: Record<string, Finder> = {
   ),
   threads: seoPage(
     (threadId, requestedPath, page, forward) =>
-      callWith(forward, seoThread, { threadId, requestedPath, page }),
+      callWith(forward, seoThread, {
+        threadId,
+        requestedPath,
+        page,
+        pageSize: POSTS_PER_PAGE,
+      }),
     true,
   ),
   awards: backend((awardId, forward) =>

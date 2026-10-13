@@ -70,6 +70,7 @@ import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
+import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import {
   getReactionTypes,
   pickerTypes,
@@ -101,7 +102,9 @@ const getSeo = cache(
   async (threadId: number, page: number, byCursor: boolean) => {
     const { seo } = await getThread(threadId);
     if (byCursor) return copyOf(seo);
-    return page === 1 ? seo : read(seoThread, { threadId, page });
+    return page === 1
+      ? seo
+      : read(seoThread, { threadId, page, pageSize: POSTS_PER_PAGE });
   },
 );
 
@@ -367,7 +370,6 @@ function PostItem({
                     <Input
                       name="reason"
                       required
-                      maxLength={5000}
                       aria-label={t("reportReason")}
                       placeholder={t("reportReason")}
                       autoComplete="off"

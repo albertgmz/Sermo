@@ -83,12 +83,7 @@ export function EditPostForm({
         <Label htmlFor="edit-reason" className="text-muted-foreground">
           {t("reasonLabel")}
         </Label>
-        <Input
-          id="edit-reason"
-          name="reason"
-          maxLength={1000}
-          autoComplete="off"
-        />
+        <Input id="edit-reason" name="reason" autoComplete="off" />
       </div>
       {state.error && (
         <p role="alert" className="text-sm text-destructive">

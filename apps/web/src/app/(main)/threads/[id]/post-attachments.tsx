@@ -1,9 +1,10 @@
 import type { postsList } from "@sermo/core/contracts";
 import { Paperclip } from "lucide-react";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { formatBytes } from "@/lib/format";
 import { liteBlocks } from "@/lib/lite-mode";
 
 type Attachment = z.output<
@@ -20,23 +21,6 @@ export function fileName(url: string, fileId: number) {
   }
 }
 
-function formatBytes(
-  format: Awaited<ReturnType<typeof getFormatter>>,
-  bytes: number,
-) {
-  const [unit, size] =
-    bytes < 1024
-      ? (["byte", bytes] as const)
-      : bytes < 1024 * 1024
-        ? (["kilobyte", bytes / 1024] as const)
-        : (["megabyte", bytes / (1024 * 1024)] as const);
-  return format.number(size, {
-    style: "unit",
-    unit,
-    maximumFractionDigits: 1,
-  });
-}
-
 // What a post has attached, as the backend returns it: pictures drawn (through the LITE gate for
 // post pictures, so a blocked one never puts its address in the page) and every other file as a
 // row to download.
@@ -45,9 +29,8 @@ export async function PostAttachments({
 }: {
   attachments: Attachment[];
 }) {
-  const [t, format, liteImages] = await Promise.all([
+  const [t, liteImages] = await Promise.all([
     getTranslations("threads.page"),
-    getFormatter(),
     liteBlocks("postImages"),
   ]);
   const pictures = attachments.filter(
@@ -112,7 +95,7 @@ export async function PostAttachments({
                   {fileName(file.url, file.fileId)}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatBytes(format, file.byteSize)}
+                  {formatBytes(file.byteSize)}
                 </span>
               </>
             );
