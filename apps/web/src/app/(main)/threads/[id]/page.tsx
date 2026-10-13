@@ -1,4 +1,4 @@
-import { postsList, threadsGet } from "@sermo/core/contracts";
+import { postsList, seoThread, threadsGet } from "@sermo/core/contracts";
 import {
   Hourglass,
   Lock,
@@ -41,6 +41,7 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { DeleteControl } from "@/components/forum/delete-control";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
+import { JsonLd } from "@/components/forum/json-ld";
 import { levelWithBounds } from "@/components/forum/level";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
@@ -65,14 +66,17 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
+import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
-import { parseId } from "@/lib/sermo/ids";
+import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
+import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import {
   getReactionTypes,
   pickerTypes,
   reactionsView,
 } from "@/lib/sermo/reactions";
+import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { type ApiPost, prefixView } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
@@ -86,12 +90,30 @@ const LABEL = "sr-only sm:not-sr-only";
 // follows a merge; the proxy sends a page load there already, but a soft navigation reaches this.
 const getThread = cache(async (threadId: number) => {
   const found = await read(threadsGet, { threadId });
-  if (found.seo.redirect) permanentRedirect(`/threads/${found.thread.id}`);
+  if (found.seo.redirect)
+    permanentRedirect(canonicalPathOf(found.seo.canonical));
   return found;
 });
 
+// What the backend says about the page being shown. The thread's own read carries the first
+// page; a later page asks for its own (one more read), and a view by cursor is a copy of the
+// first page.
+const getSeo = cache(
+  async (threadId: number, page: number, byCursor: boolean) => {
+    const { seo } = await getThread(threadId);
+    if (byCursor) return copyOf(seo);
+    return page === 1
+      ? seo
+      : read(seoThread, { threadId, page, pageSize: POSTS_PER_PAGE });
+  },
+);
+
+function pageNumber(raw: string | string[] | undefined) {
+  return Math.max(1, Math.floor(Number(raw)) || 1);
+}
+
 function threadIdOf(raw: string) {
-  const id = parseId(raw);
+  const id = parsePageId(raw);
   if (id === null) notFound();
   return id;
 }
@@ -348,7 +370,6 @@ function PostItem({
                     <Input
                       name="reason"
                       required
-                      maxLength={5000}
                       aria-label={t("reportReason")}
                       placeholder={t("reportReason")}
                       autoComplete="off"
@@ -386,16 +407,12 @@ function PostItem({
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps<"/threads/[id]">): Promise<Metadata> {
-  const { thread } = await getThread(threadIdOf((await params).id));
-  const t = await getTranslations("threads.page");
-  return {
-    title: t("metaTitle", {
-      hasPrefix: String(Boolean(thread.prefix)),
-      prefix: thread.prefix?.label ?? "",
-      title: thread.title,
-    }),
-  };
+  const [{ id }, { page, cursor }] = await Promise.all([params, searchParams]);
+  return seoMetadata(
+    await getSeo(threadIdOf(id), pageNumber(page), cursor !== undefined),
+  );
 }
 
 export default async function ThreadPage({
@@ -416,7 +433,8 @@ export default async function ThreadPage({
     getViewer(),
     getTranslations("threads.page"),
   ]);
-  const page = Math.max(1, Math.floor(Number(pageParam)) || 1);
+  const page = pageNumber(pageParam);
+  const seo = await getSeo(id, page, cursor !== undefined);
   const may = threadMay(resolvedPermissions);
   const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
   const selecting = select === "1" && may.split;
@@ -427,6 +445,7 @@ export default async function ThreadPage({
 
   return (
     <PageLayout className="pt-2">
+      <JsonLd items={seo.jsonLd} />
       <header
         className={cn(
           thread.cover && "relative isolate overflow-hidden rounded-lg border",

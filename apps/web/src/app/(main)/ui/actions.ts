@@ -1,12 +1,16 @@
 "use server";
 
 import { createElement, type ReactNode } from "react";
+import { requireStyleguide } from "@/app/(main)/ui/guard";
 import { Markdown } from "@/components/forum/markdown";
 import type { StaffFormState } from "@/components/staff/form-rows";
 
-export async function discard(_formData: FormData) {}
+export async function discard(_formData: FormData) {
+  await requireStyleguide();
+}
 
 export async function echoMarkdown(_previous: ReactNode, formData: FormData) {
+  await requireStyleguide();
   const body = String(formData.get("body") ?? "");
   return body ? createElement(Markdown, null, body) : null;
 }
@@ -17,7 +21,7 @@ export async function saveSample(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  await requireStyleguide();
   if (!String(formData.get("title") ?? "").trim()) {
     return {
       error: "The sample was not saved.",
@@ -33,7 +37,7 @@ export async function confirmSample(
   _previous: StaffFormState,
   formData: FormData,
 ): Promise<StaffFormState> {
-  await new Promise((resolve) => setTimeout(resolve, 600));
+  await requireStyleguide();
   if (formData.get("actorPassword") === "wrong") {
     return { fields: { actorPassword: "That is not your password." } };
   }

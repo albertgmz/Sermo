@@ -44,9 +44,9 @@ export function SiteFooter() {
         <div className="grid gap-8 border-t pt-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,3fr)]">
           <div>
             <Logo className="-ml-1 px-1" />
-            <p className="mt-1 max-w-xs text-pretty text-muted-foreground">
-              {t("tagline")}
-            </p>
+            <Suspense>
+              <FooterDescription />
+            </Suspense>
             <Suspense>
               <FooterSocials />
             </Suspense>
@@ -99,6 +99,17 @@ export function SiteFooter() {
         </Suspense>
       </Container>
     </footer>
+  );
+}
+
+// What the site says about itself, when it says anything.
+export async function FooterDescription() {
+  const { description } = await getSite();
+  if (!description) return null;
+  return (
+    <p className="mt-1 max-w-xs text-pretty text-muted-foreground">
+      {description}
+    </p>
   );
 }
 

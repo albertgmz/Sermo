@@ -21,12 +21,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("conversations.layout");
   return {
     title: t("metaTitle"),
+    robots: NOINDEX,
   };
 }
 

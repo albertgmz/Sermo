@@ -8,6 +8,9 @@ import { callWith } from "./transport";
 
 export type SiteIdentity = {
   name: string;
+  // What the site says about itself, for the default page description and the footer; empty when
+  // the owner wrote nothing.
+  description: string;
   logo: { fileId: number; url: string } | null;
   icon: { fileId: number; url: string } | null;
   backdrop: { fileId: number; url: string } | null;
@@ -22,6 +25,16 @@ export type SiteIdentity = {
   accents: { id: number; color: string; foreground: string | null }[];
 };
 
+// The one place that reads the site's description. `site.get` may not carry the field (an older
+// backend), so the answer is read through a type that makes it optional: this compiles whether the
+// contract has `description: string` or has nothing, and gives "" for anything that is not text.
+// Once the field is in the contract, this is `site.description`. (Until then the contract's parse
+// drops the field, so the answer is always empty.)
+export function siteDescription(site: object): string {
+  const { description } = site as { description?: unknown };
+  return typeof description === "string" ? description.trim() : "";
+}
+
 // The same for every visitor: asked without the visitor's cookies or address, so the answer can be
 // shared. An error thrown out of a cached function fails the prerender, so a failure is answered
 // here with the fallback, which is asked for again after five seconds instead of a minute.
@@ -29,13 +42,15 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
   "use cache";
   cacheTag("site");
   try {
+    const site = await callWith({}, siteGet, {});
     const { name, logo, icon, backdrop, socialLinks, maxUploadBytes, palette } =
-      await callWith({}, siteGet, {});
+      site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
     cacheLife({ stale: 60, revalidate: 60, expire: 3600 });
     return {
       name,
+      description: siteDescription(site),
       logo,
       icon,
       backdrop,
@@ -56,6 +71,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       console.error("The site could not be read from the API", error);
     return {
       name: defaultName,
+      description: "",
       logo: null,
       icon: null,
       backdrop: null,

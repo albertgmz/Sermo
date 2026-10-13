@@ -64,3 +64,18 @@ export function formatCompact(value: number): string {
 export function formatNumber(value: number): string {
   return full.format(value);
 }
+
+// A file's size in the unit that reads best, up to one decimal.
+export function formatBytes(bytes: number): string {
+  const [unit, size] =
+    bytes < 1024
+      ? (["byte", bytes] as const)
+      : bytes < 1024 * 1024
+        ? (["kilobyte", bytes / 1024] as const)
+        : (["megabyte", bytes / (1024 * 1024)] as const);
+  return new Intl.NumberFormat(LOCALE, {
+    style: "unit",
+    unit,
+    maximumFractionDigits: 1,
+  }).format(size);
+}

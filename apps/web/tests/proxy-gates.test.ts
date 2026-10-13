@@ -1,6 +1,7 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import { SermoError } from "../src/lib/sermo/errors";
 
 // The part of the `auth.me` answer the panel's gate reads.
 type Viewer = {
@@ -46,10 +47,13 @@ const FULL_ADMINISTRATOR = viewerWith(
 const state = {
   viewer: null as Viewer | null,
   viewerAsked: 0,
+  // When set, the viewer read fails with this instead of answering.
+  fail: null as (() => Promise<never>) | null,
 };
 mock.module("server-only", () => ({}));
 mock.module("@/lib/sermo/viewer", () => ({
   viewerOf: async () => {
+    if (state.fail) return state.fail();
     state.viewerAsked += 1;
     return state.viewer;
   },
@@ -64,7 +68,7 @@ afterEach(() => {
 
 type Asked = { method: string; url: URL; headers: Headers };
 
-// Answers by path; a missing entry is the backend refusing with not_found.
+// Answers by path (with the query when the entry names it); a missing entry is the backend refusing with not_found.
 function backend(answers: Record<string, Response | "down">): Asked[] {
   const asked: Asked[] = [];
   globalThis.fetch = (async (input: string, init: RequestInit) => {
@@ -74,7 +78,7 @@ function backend(answers: Record<string, Response | "down">): Asked[] {
       url,
       headers: new Headers(init.headers),
     });
-    const answer = answers[url.pathname + url.search];
+    const answer = answers[url.pathname + url.search] ?? answers[url.pathname];
     if (answer === "down") throw new Error("connection refused");
     return answer ?? refusal(404, "not_found");
   }) as unknown as typeof fetch;
@@ -119,46 +123,12 @@ const NODE = {
   breadcrumbs: [],
   resolvedPermissions: {},
 };
-const NO_POSTS = { items: [], nextCursor: null };
-const PROFILE = {
-  id: 5,
-  username: "wren",
-  groupTitle: "Members",
-  displayGroup: null,
-  createdAt: "2026-01-01T00:00:00.000Z",
-  about: "",
-  avatar: null,
-  cover: null,
-  postCount: 0,
-  reactionScore: 0,
-  canPostOnWall: false,
-  card: {
-    id: 5,
-    username: "wren",
-    avatar: null,
-    frame: null,
-    nameColor: null,
-    title: "Newcomer",
-    badges: [],
-    level: 1,
-  },
-  customTitle: null,
-  signatureHtml: null,
-  location: "",
-  website: "",
-  birthday: null,
-  socials: { discord: "", telegram: "", x: "" },
-  followerCount: 0,
-  followingCount: 0,
-  credits: 0,
-  awardXp: 0,
-  level: { level: 1, currentLevelXp: 0, nextLevelXp: 100 },
-  awardSlots: 5,
-  referralCount: 0,
-  lastActivityAt: null,
-  viewer: { isFollowing: false, isIgnoring: false },
-  seo: NODE.seo,
-};
+// What the SEO reads answer: the address the backend holds for the page, and whether the
+// address that was asked for is another.
+function seoOf(canonical: string, redirect: boolean) {
+  return Response.json({ ...NODE.seo, canonical, redirect });
+}
+const FORUM_3 = seoOf("http://localhost/nodes/3-general", false);
 const CONVERSATION = {
   id: 5,
   title: "Seed swap",
@@ -197,6 +167,7 @@ function reset(overrides: Partial<typeof state> = {}) {
   Object.assign(state, {
     viewer: null,
     viewerAsked: 0,
+    fail: null,
     ...overrides,
   });
 }
@@ -470,42 +441,42 @@ test("the legacy LITE cookie is replaced on a page that carries the header", asy
 
 test("a forum is a 404 when the backend says it is not found, and only then", async () => {
   backend({
-    "/api/v1/nodes/3": Response.json(NODE),
-    "/api/v1/nodes/42": Response.json(NODE),
+    "/api/v1/seo/nodes/3": FORUM_3,
+    "/api/v1/seo/nodes/42": seoOf("http://localhost/nodes/42-x", false),
   });
-  passes(await ask("/forums/3"));
-  passes(await ask("/forums/42"));
-  isNotFound(await ask("/forums/4"));
+  passes(await ask("/forums/3-general"));
+  passes(await ask("/forums/42-x"));
+  isNotFound(await ask("/forums/4-y"));
 
   // An outage or a refusal other than not_found lets the page show its own error.
-  backend({ "/api/v1/nodes/3": refusal(500, "internal") });
-  passes(await ask("/forums/3"));
-  backend({ "/api/v1/nodes/3": refusal(403, "forbidden") });
-  passes(await ask("/forums/3"));
-  backend({ "/api/v1/nodes/3": "down" });
-  passes(await ask("/forums/3"));
+  backend({ "/api/v1/seo/nodes/3": refusal(500, "internal") });
+  passes(await ask("/forums/3-general"));
+  backend({ "/api/v1/seo/nodes/3": refusal(403, "forbidden") });
+  passes(await ask("/forums/3-general"));
+  backend({ "/api/v1/seo/nodes/3": "down" });
+  passes(await ask("/forums/3-general"));
 });
 
 test("a member is a 404 when the backend says the profile is not found, and only then", async () => {
   backend({
-    "/api/v1/users/5": Response.json(PROFILE),
-    "/api/v1/users/42": Response.json(PROFILE),
+    "/api/v1/seo/users/5": seoOf("http://localhost/members/5-wren", false),
+    "/api/v1/seo/users/42": seoOf("http://localhost/members/42-x", false),
   });
-  passes(await ask("/members/5"));
-  passes(await ask("/members/42"));
-  isNotFound(await ask("/members/6"));
+  passes(await ask("/members/5-wren"));
+  passes(await ask("/members/42-x"));
+  isNotFound(await ask("/members/6-z"));
 
   // A private profile is not found for the visitor; the rest of the members stay reachable.
-  backend({ "/api/v1/users/5": refusal(404, "not_found") });
-  isNotFound(await ask("/members/5"));
+  backend({ "/api/v1/seo/users/5": refusal(404, "not_found") });
+  isNotFound(await ask("/members/5-wren"));
 
   // An outage or a refusal other than not_found lets the page show its own error.
-  backend({ "/api/v1/users/5": refusal(500, "internal") });
-  passes(await ask("/members/5"));
-  backend({ "/api/v1/users/5": refusal(403, "forbidden") });
-  passes(await ask("/members/5"));
-  backend({ "/api/v1/users/5": "down" });
-  passes(await ask("/members/5"));
+  backend({ "/api/v1/seo/users/5": refusal(500, "internal") });
+  passes(await ask("/members/5-wren"));
+  backend({ "/api/v1/seo/users/5": refusal(403, "forbidden") });
+  passes(await ask("/members/5-wren"));
+  backend({ "/api/v1/seo/users/5": "down" });
+  passes(await ask("/members/5-wren"));
 });
 
 const AWARD = {
@@ -564,7 +535,17 @@ test("the member list itself is not looked up", async () => {
 
 test("a forum id that is not a plain number is a 404 and the backend is not asked", async () => {
   const asked = backend({});
-  for (const id of ["0", "03", "abc", "1.5", "1e3", "99999999999999999999"]) {
+  for (const id of [
+    "0",
+    "03",
+    "abc",
+    "1.5",
+    "1e3",
+    "12abc",
+    "0x10-x",
+    "99999999999999999999",
+    "99999999999999999999-x",
+  ]) {
     isNotFound(await ask(`/forums/${id}`));
     isNotFound(await ask(`/threads/${id}`));
     isNotFound(await ask(`/members/${id}`));
@@ -572,32 +553,26 @@ test("a forum id that is not a plain number is a 404 and the backend is not aske
   assert.equal(asked.length, 0);
 });
 
-test("a thread is proven by one post, never by reading the thread (which counts a view)", async () => {
+test("a thread is proven by one SEO read, never by reading the thread (which counts a view)", async () => {
   const asked = backend({
-    "/api/v1/threads/7/posts?limit=1": Response.json(NO_POSTS),
-    "/api/v1/threads/345/posts?limit=1": Response.json(NO_POSTS),
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", false),
+    "/api/v1/seo/threads/345": seoOf("http://localhost/threads/345-x", false),
   });
-  passes(await ask("/threads/7"));
-  passes(await ask("/threads/345"));
-  isNotFound(await ask("/threads/8"));
+  passes(await ask("/threads/7-news"));
+  passes(await ask("/threads/345-x"));
+  isNotFound(await ask("/threads/8-gone"));
   assert.deepEqual(
-    asked.map((entry) => entry.url.pathname + entry.url.search),
+    asked.map((entry) => entry.url.pathname),
     [
-      "/api/v1/threads/7/posts?limit=1",
-      "/api/v1/threads/345/posts?limit=1",
-      "/api/v1/threads/8/posts?limit=1",
-      // A thread without posts might have been merged into another: the SEO read tells.
+      "/api/v1/seo/threads/7",
+      "/api/v1/seo/threads/345",
       "/api/v1/seo/threads/8",
     ],
   );
 
-  backend({ "/api/v1/threads/7/posts?limit=1": refusal(500, "internal") });
-  passes(await ask("/threads/7"));
+  backend({ "/api/v1/seo/threads/7": refusal(500, "internal") });
+  passes(await ask("/threads/7-news"));
 });
-
-function seoOf(canonical: string, redirect: boolean) {
-  return Response.json({ ...NODE.seo, canonical, redirect });
-}
 
 test("a merged thread's address is a permanent redirect to the thread that took its place", async () => {
   const asked = backend({
@@ -605,23 +580,163 @@ test("a merged thread's address is a permanent redirect to the thread that took 
     "/api/v1/seo/threads/10": seoOf("http://api.example/threads/10-x", false),
     "/api/v1/seo/threads/11": refusal(500, "internal"),
   });
-  const moved = await ask("/threads/9?page=2", { cookie: SESSION });
+  const moved = await ask("/threads/9-old?page=2", { cookie: SESSION });
   assert.ok(moved);
   assert.equal(moved.status, 308);
-  assert.equal(moved.headers.get("location"), "http://localhost/threads/7");
-  assert.equal(asked[0].url.pathname, "/api/v1/threads/9/posts");
-  assert.equal(asked[1].url.pathname, "/api/v1/seo/threads/9");
-  assert.equal(asked[1].headers.get("cookie"), SESSION);
-  // Not merged and still missing, or hidden from the visitor: a 404. An outage: the page decides.
-  isNotFound(await ask("/threads/10"));
+  assert.equal(
+    moved.headers.get("location"),
+    "http://localhost/threads/7-news?page=2",
+  );
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].url.pathname, "/api/v1/seo/threads/9");
+  assert.equal(asked[0].headers.get("cookie"), SESSION);
+  // Hidden from the visitor or missing: a 404. An outage: the page decides.
+  passes(await ask("/threads/10-x"));
   isNotFound(await ask("/threads/12"));
   passes(await ask("/threads/11"));
-  // A thread with posts never asks the SEO read.
-  const found = backend({
-    "/api/v1/threads/7/posts?limit=1": Response.json(NO_POSTS),
+});
+
+// The page reads the backend is asked for a page load, by the address that was asked for.
+function seoQuery(asked: { url: URL }[]) {
+  return asked.map((entry) => ({
+    path: entry.url.pathname,
+    requestedPath: entry.url.searchParams.get("requestedPath"),
+    page: entry.url.searchParams.get("page"),
+  }));
+}
+
+test("an address that is not the canonical one is a 308 to it, with the one read a page load always made", async () => {
+  const cases: [string, string, string, string][] = [
+    // [asked, backend's canonical, read made, redirect to]
+    [
+      "/threads/7",
+      "http://localhost/threads/7-news",
+      "/api/v1/seo/threads/7",
+      "/threads/7-news",
+    ],
+    [
+      "/threads/7-wrong",
+      "http://localhost/threads/7-news",
+      "/api/v1/seo/threads/7",
+      "/threads/7-news",
+    ],
+    [
+      "/members/5",
+      "http://localhost/members/5-wren",
+      "/api/v1/seo/users/5",
+      "/members/5-wren",
+    ],
+    [
+      "/forums/3",
+      "http://localhost/nodes/3-general",
+      "/api/v1/seo/nodes/3",
+      "/forums/3-general",
+    ],
+    [
+      "/forums/3-stale",
+      "http://localhost/nodes/3-general",
+      "/api/v1/seo/nodes/3",
+      "/forums/3-general",
+    ],
+  ];
+  for (const [path, canonical, read, to] of cases) {
+    const asked = backend({ [read]: seoOf(canonical, true) });
+    const response = await ask(path);
+    assert.ok(response, path);
+    assert.equal(response.status, 308, path);
+    assert.equal(
+      response.headers.get("location"),
+      `http://localhost${to}`,
+      path,
+    );
+    assert.equal(asked.length, 1, path);
+    assert.equal(asked[0].url.pathname, read);
+  }
+});
+
+test("the backend is asked for the address as it will be served, forums under the backend's name", async () => {
+  const asked = backend({
+    "/api/v1/seo/nodes/3": FORUM_3,
+    "/api/v1/seo/threads/7": seoOf(
+      "http://localhost/threads/7-news?page=3",
+      false,
+    ),
+    "/api/v1/seo/users/5": seoOf("http://localhost/members/5-wren", false),
   });
-  passes(await ask("/threads/7"));
-  assert.equal(found.length, 1);
+  passes(await ask("/forums/3-general"));
+  passes(await ask("/threads/7-news"));
+  passes(await ask("/threads/7-news?page=3&cursor=abc"));
+  passes(await ask("/threads/7-news?page=0"));
+  passes(await ask("/members/5-wren"));
+  assert.deepEqual(seoQuery(asked), [
+    {
+      path: "/api/v1/seo/nodes/3",
+      requestedPath: "/nodes/3-general",
+      page: null,
+    },
+    {
+      path: "/api/v1/seo/threads/7",
+      requestedPath: "/threads/7-news",
+      page: "1",
+    },
+    {
+      path: "/api/v1/seo/threads/7",
+      requestedPath: "/threads/7-news?page=3",
+      page: "3",
+    },
+    {
+      path: "/api/v1/seo/threads/7",
+      requestedPath: "/threads/7-news",
+      page: "1",
+    },
+    {
+      path: "/api/v1/seo/users/5",
+      requestedPath: "/members/5-wren",
+      page: null,
+    },
+  ]);
+});
+
+test("a sub-route is held to no slug, and only a merge moves it", async () => {
+  const asked = backend({
+    "/api/v1/seo/threads/7": seoOf("http://localhost/threads/7-news", false),
+    "/api/v1/seo/threads/9": seoOf("http://localhost/threads/7-news", true),
+    "/api/v1/seo/nodes/3": FORUM_3,
+  });
+  passes(await ask("/threads/7/edit/12", { cookie: SESSION }));
+  passes(await ask("/threads/7-wrong/edit/12", { cookie: SESSION }));
+  passes(await ask("/forums/3/new", { cookie: SESSION }));
+  const moved = await ask("/threads/9/edit/12", { cookie: SESSION });
+  assert.equal(moved?.status, 308);
+  assert.equal(
+    moved?.headers.get("location"),
+    "http://localhost/threads/7-news",
+  );
+  assert.deepEqual(
+    seoQuery(asked).map((entry) => entry.requestedPath),
+    ["", "", "", ""],
+  );
+});
+
+test("an address under the old name for forums is a 308 to the current one, whatever follows", async () => {
+  const asked = backend({});
+  for (const [from, to] of [
+    ["/nodes/3-general", "/forums/3-general"],
+    ["/nodes/3", "/forums/3"],
+    ["/nodes/3/new?x=1", "/forums/3/new?x=1"],
+    ["/nodes", "/forums"],
+  ]) {
+    const response = await ask(from);
+    assert.equal(response?.status, 308, from);
+    assert.equal(
+      response?.headers.get("location"),
+      `http://localhost${to}`,
+      from,
+    );
+  }
+  assert.equal(asked.length, 0);
+  // A name that only starts like it is nothing special.
+  passes(await ask("/nodesx"));
 });
 
 test("a prefetch, a soft navigation or an action's POST is not looked up in the backend", async () => {
@@ -647,7 +762,7 @@ test("a prefetch, a soft navigation or an action's POST is not looked up in the 
     await ask("/threads/8", { headers: { "sec-fetch-mode": "navigate" } }),
   );
   isNotFound(await ask("/forums/9"));
-  assert.equal(asked.length, 3);
+  assert.equal(asked.length, 2);
 });
 
 test("a prefetch of a members-only page is still sent to sign in", async () => {
@@ -660,7 +775,7 @@ test("a prefetch of a members-only page is still sent to sign in", async () => {
 });
 
 test("the backend is asked as the visitor", async () => {
-  const asked = backend({ "/api/v1/nodes/3": Response.json(NODE) });
+  const asked = backend({ "/api/v1/seo/nodes/3": FORUM_3 });
   await ask("/forums/3", {
     cookie: `${SESSION}; theme=dark`,
     headers: {
@@ -716,7 +831,7 @@ test("a document navigation is looked up whatever its sec-purpose says", async (
       },
     }),
   );
-  assert.equal(asked.length, 2);
+  assert.equal(asked.length, 1);
 });
 
 test("an id that is not plain decimal is a 404 for every kind of request, unasked", async () => {
@@ -769,4 +884,59 @@ test("a record id that cannot be one is the gate's 404 on a numeric detail scree
     reset({ viewer: FULL_ADMINISTRATOR });
     isNotFound(await ask(path, { cookie: SESSION }));
   }
+});
+
+test("the styleguide is a 404 for a guest and a member without a panel, and opens for staff", async () => {
+  for (const path of ["/ui", "/ui/", "/%75i", "/ui/%FF"]) {
+    reset();
+    isNotFound(await ask(path), path);
+    assert.equal(state.viewerAsked, 0, path);
+    reset({ viewer: MEMBER });
+    isNotFound(await ask(path, { cookie: SESSION }), path);
+    // A dead cookie or a banned account is a guest.
+    reset({ viewer: null });
+    isNotFound(await ask(path, { cookie: SESSION }), path);
+  }
+  for (const viewer of [
+    SINGLE_FORUM_MODERATOR,
+    PARTIAL_ADMINISTRATOR,
+    FULL_ADMINISTRATOR,
+  ]) {
+    reset({ viewer });
+    passes(await ask("/ui", { cookie: SESSION }));
+    assert.equal(state.viewerAsked, 1);
+  }
+  // A page like /uikit is not the styleguide.
+  reset();
+  passes(await ask("/uikit"));
+});
+
+test("the styleguide is gated for a prefetch and an action's POST too", async () => {
+  reset({ viewer: MEMBER });
+  isNotFound(
+    await ask("/ui", {
+      cookie: SESSION,
+      headers: { "sec-fetch-mode": "cors" },
+    }),
+  );
+  isNotFound(
+    await ask("/ui", {
+      cookie: SESSION,
+      method: "POST",
+      headers: { "next-action": "abc" },
+    }),
+  );
+});
+
+test("a panel address is let through to its page when the viewer read fails, the styleguide is not", async () => {
+  reset({
+    fail: async () => {
+      throw new SermoError("internal", 500, "down");
+    },
+  });
+  passes(await ask("/admin", { cookie: SESSION }));
+  passes(await ask("/moderation/reports", { cookie: SESSION }));
+  isNotFound(await ask("/ui", { cookie: SESSION }));
+  // Without a session there is nothing to ask: a guest still gets the 404.
+  isNotFound(await ask("/admin"));
 });

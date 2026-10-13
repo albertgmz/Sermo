@@ -1,5 +1,4 @@
-// The backend serves a thread in pages of this many positions (its default limit).
-export const POSTS_PER_PAGE = 20;
+import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 
 // The page that holds the post at `position`; positions never change.
 export function pageOf(position: number) {

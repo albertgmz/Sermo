@@ -31,14 +31,6 @@ export default async function RegisterPage({
       <div className="grid w-full max-w-5xl overflow-hidden rounded-lg border bg-background md:min-h-[36rem] md:grid-cols-2">
         <div className="hidden flex-col justify-between bg-muted p-8 md:flex">
           <Logo />
-          <figure className="space-y-4">
-            <blockquote className="text-lg leading-snug text-pretty">
-              {t("quote")}
-            </blockquote>
-            <figcaption className="text-sm font-medium">
-              {t("quoteAuthor")}
-            </figcaption>
-          </figure>
         </div>
         <div className="flex flex-col p-4 sm:p-8">
           <div className="flex items-center justify-between md:justify-end">

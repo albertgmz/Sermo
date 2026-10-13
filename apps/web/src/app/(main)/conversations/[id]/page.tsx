@@ -39,11 +39,8 @@ import {
   pickerTypes,
   reactionsView,
 } from "@/lib/sermo/reactions";
-import { getViewer } from "@/lib/sermo/session";
+import { getMember } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
-
-// A page of messages; the backend's default is smaller than a conversation usually needs.
-const MESSAGES_PER_PAGE = 50;
 
 type Conversation = z.output<typeof conversationsGet.output>;
 
@@ -116,7 +113,7 @@ export default async function ConversationPage({
   const conversationId = conversationIdOf(raw);
   const [conversation, { permissions }, t] = await Promise.all([
     read(conversationsGet, { conversationId }),
-    getViewer(),
+    getMember(),
     getTranslations("conversations.conversation"),
   ]);
   const member = await membersFor(
@@ -171,9 +168,8 @@ async function Messages({
         conversationId: conversation.id,
         order: "newest",
         cursor,
-        limit: MESSAGES_PER_PAGE,
       }),
-      getViewer(),
+      getMember(),
       getReactionTypes(),
       getTranslations("conversations.conversation"),
     ]);

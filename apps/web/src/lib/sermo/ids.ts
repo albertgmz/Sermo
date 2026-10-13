@@ -18,3 +18,11 @@ export function requireIds(...ids: unknown[]): void {
     throw new SermoError("validation", 422, "Not a record id.");
   }
 }
+
+// The public pages (a forum, a thread, a member) are addressed `<id>-<slug>`: the id is the leading
+// plain decimal number, the rest is decoration that the backend keeps current. A bare id is the
+// same address. Everything else stays strict, so this is the one place that takes a suffix.
+export function parsePageId(raw: string): number | null {
+  const match = /^([1-9]\d*)(?:-[^/]*)?$/.exec(raw);
+  return match ? parseId(match[1]) : null;
+}

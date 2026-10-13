@@ -10,12 +10,14 @@ import { NotificationRow } from "@/components/forum/notification-row";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("notifications.notifications");
   return {
     title: t("metaTitle"),
+    robots: NOINDEX,
   };
 }
 

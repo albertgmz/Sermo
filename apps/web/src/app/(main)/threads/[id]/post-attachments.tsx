@@ -1,9 +1,10 @@
 import type { postsList } from "@sermo/core/contracts";
 import { Paperclip } from "lucide-react";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { formatBytes } from "@/lib/format";
 import { liteBlocks } from "@/lib/lite-mode";
 
 type Attachment = z.output<
@@ -20,23 +21,6 @@ export function fileName(url: string, fileId: number) {
   }
 }
 
-function formatBytes(
-  format: Awaited<ReturnType<typeof getFormatter>>,
-  bytes: number,
-) {
-  const [unit, size] =
-    bytes < 1024
-      ? (["byte", bytes] as const)
-      : bytes < 1024 * 1024
-        ? (["kilobyte", bytes / 1024] as const)
-        : (["megabyte", bytes / (1024 * 1024)] as const);
-  return format.number(size, {
-    style: "unit",
-    unit,
-    maximumFractionDigits: 1,
-  });
-}
-
 // What a post has attached, as the backend returns it: pictures drawn (through the LITE gate for
 // post pictures, so a blocked one never puts its address in the page) and every other file as a
 // row to download.
@@ -45,9 +29,8 @@ export async function PostAttachments({
 }: {
   attachments: Attachment[];
 }) {
-  const [t, format, liteImages] = await Promise.all([
+  const [t, liteImages] = await Promise.all([
     getTranslations("threads.page"),
-    getFormatter(),
     liteBlocks("postImages"),
   ]);
   const pictures = attachments.filter(
@@ -62,7 +45,7 @@ export async function PostAttachments({
           aria-label={t("aria.pictures")}
           className="mt-3 flex flex-wrap gap-2"
         >
-          {pictures.map((file) => {
+          {pictures.map((file, index) => {
             const box = {
               aspectRatio: `${file.width} / ${file.height}`,
               width: Math.min(file.width ?? 0, 320),
@@ -77,7 +60,10 @@ export async function PostAttachments({
                 ) : (
                   <a
                     href={file.url}
-                    aria-label={t("openPicture")}
+                    aria-label={t("openPicture", {
+                      position: index + 1,
+                      total: pictures.length,
+                    })}
                     className="block overflow-hidden rounded-md border"
                     style={box}
                   >
@@ -98,12 +84,9 @@ export async function PostAttachments({
           aria-label={t("aria.attachments")}
           className="mt-3 flex flex-wrap gap-2"
         >
-          {files.map((file) => (
-            <li key={file.fileId} className="min-w-0 max-w-full">
-              <a
-                href={file.url}
-                className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm hover:bg-muted md:min-h-8"
-              >
+          {files.map((file) => {
+            const row = (
+              <>
                 <Paperclip
                   aria-hidden="true"
                   className="size-3.5 shrink-0 text-muted-foreground"
@@ -112,11 +95,30 @@ export async function PostAttachments({
                   {fileName(file.url, file.fileId)}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatBytes(format, file.byteSize)}
+                  {formatBytes(file.byteSize)}
                 </span>
-              </a>
-            </li>
-          ))}
+              </>
+            );
+            // A picture without a size is listed like any file, but with post pictures blocked its
+            // address is not handed out: the row is there and the link is not.
+            const blocked = liteImages && file.contentType.startsWith("image/");
+            return (
+              <li key={file.fileId} className="min-w-0 max-w-full">
+                {blocked ? (
+                  <span className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground md:min-h-8">
+                    {row}
+                  </span>
+                ) : (
+                  <a
+                    href={file.url}
+                    className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/40 px-3 text-sm hover:bg-muted md:min-h-8"
+                  >
+                    {row}
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

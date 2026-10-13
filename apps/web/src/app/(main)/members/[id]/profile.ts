@@ -2,11 +2,11 @@ import { awardsMember, profilesGet } from "@sermo/core/contracts";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { read } from "@/lib/sermo/client";
-import { parseId } from "@/lib/sermo/ids";
+import { parsePageId } from "@/lib/sermo/ids";
 
 // A member is addressed by the backend's id; anything else is a page that does not exist.
 export function memberIdOf(raw: string) {
-  const id = parseId(raw);
+  const id = parsePageId(raw);
   if (id === null) notFound();
   return id;
 }

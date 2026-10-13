@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
 import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
-import { getViewer } from "@/lib/sermo/session";
+import { getMember } from "@/lib/sermo/session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("lite.page");
@@ -17,7 +17,7 @@ export default async function LitePage({
   searchParams: Promise<{ saved?: string | string[] }>;
 }) {
   const [{ user }, state, { saved }] = await Promise.all([
-    getViewer(),
+    getMember(),
     getLiteState(),
     searchParams,
   ]);

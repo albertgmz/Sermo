@@ -223,7 +223,7 @@ export async function SplitPanel({ thread }: { thread: Thread }) {
         <Label htmlFor="split-title" className="text-muted-foreground">
           {t("splitTitle")}
         </Label>
-        <Input id="split-title" name="title" required maxLength={150} />
+        <Input id="split-title" name="title" required />
         <Label id="split-forum" className="text-muted-foreground">
           {t("splitForum")}
         </Label>

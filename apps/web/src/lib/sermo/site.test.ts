@@ -22,7 +22,7 @@ mock.module("next-intl/server", () => ({
     (layout.site as Record<string, string>)[key],
 }));
 
-const { getSite } = await import("./site");
+const { getSite, siteDescription } = await import("./site");
 
 const noSocialLinks = { discord: null, telegram: null, x: null };
 const socialLinks = { ...noSocialLinks, discord: "https://discord.gg/example" };
@@ -38,6 +38,7 @@ test("the site is read without the visitor and keeps only its identity", async (
   const site = await getSite();
   assert.deepEqual(site, {
     name: "Garden Club",
+    description: "",
     logo: { fileId: 3, url: "/api/v1/files/3" },
     icon: null,
     backdrop: null,
@@ -80,6 +81,17 @@ test("the palette's accents are kept in display order with their colours", async
   ]);
 });
 
+test("the description is the site's own text, and empty when the answer does not carry one", () => {
+  assert.equal(siteDescription({}), "");
+  assert.equal(siteDescription({ description: "" }), "");
+  assert.equal(
+    siteDescription({ description: "  Tea and gardens. " }),
+    "Tea and gardens.",
+  );
+  assert.equal(siteDescription({ description: null }), "");
+  assert.equal(siteDescription({ description: 7 }), "");
+});
+
 test("the read is cached for a minute under the site tag", () => {
   const source = readFileSync(`${import.meta.dir}/site.ts`, "utf8");
   for (const part of [
@@ -101,6 +113,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
     const fresh = getSite;
     assert.deepEqual(await fresh(), {
       name: layout.site.defaultName,
+      description: "",
       logo: null,
       icon: null,
       backdrop: null,

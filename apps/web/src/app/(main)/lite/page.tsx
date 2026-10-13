@@ -5,11 +5,12 @@ import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
 import { PageLayout } from "@/components/layout/page-layout";
 import { getLiteState } from "@/lib/lite-mode";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
+import { NOINDEX } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("lite.page");
-  return { title: t("metaTitle") };
+  return { title: t("metaTitle"), robots: NOINDEX };
 }
 
 export default async function LitePage({

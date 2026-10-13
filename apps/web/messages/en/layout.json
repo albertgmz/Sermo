@@ -1,7 +1,4 @@
 {
-  "layout": {
-    "metaDescription": "A forum interface kit."
-  },
   "site": {
     "defaultName": "Sermo"
   },
@@ -86,8 +83,7 @@
     "pending": "({count} pending)"
   },
   "siteFooter": {
-    "tagline": "A forum interface kit: reusable components, page templates and careful CSS.",
-    "copyright": "© 2026 <brand>{site}</brand>. All rights reserved.",
+    "copyright": "© <brand>{site}</brand>. All rights reserved.",
     "loadingLinks": "Loading links…",
     "aria": {
       "more": "More links"
@@ -97,6 +93,20 @@
     "aria": {
       "home": "{site} home"
     }
+  },
+  "sessionNotice": {
+    "text": "The site could not confirm your session; some things may be missing. Reload to try again."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist or has moved.",
+    "home": "Back to the home page",
+    "panel": "Back to the panel"
+  },
+  "globalError": {
+    "title": "Something went wrong",
+    "description": "The site could not be loaded. Try again in a moment.",
+    "retry": "Try again"
   },
   "routeError": {
     "title": "Something went wrong",

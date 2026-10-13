@@ -24,7 +24,9 @@ mock.module("next/cache", () => ({
 }));
 
 const source = "./actions.ts?reactions";
-const { react } = (await import(source)) as typeof import("./actions");
+const { react, setLiteMode } = (await import(
+  source
+)) as typeof import("./actions");
 
 const SUMMARY = { counts: {}, total: 0, mine: null };
 
@@ -138,4 +140,37 @@ test("an id that cannot be a record is refused before the backend is asked", asy
   }
   await expect(react("post", 9, 0)).rejects.toThrow();
   expect(asked).toHaveLength(0);
+});
+
+// Where setLiteMode sends the visitor, from the digest of the redirect it throws.
+async function liteGoesTo(returnTo: string) {
+  const data = new FormData();
+  data.set("mode", "off");
+  data.set("returnTo", returnTo);
+  try {
+    await setLiteMode(data);
+  } catch (error) {
+    const digest = (error as { digest?: string }).digest ?? "";
+    return digest.split(";")[2];
+  }
+  throw new Error("expected a redirect");
+}
+
+test("the viewing mode goes back to a path of this site and to nowhere else", async () => {
+  expect(await liteGoesTo("/lite?saved=1")).toBe("/lite?saved=1");
+  expect(await liteGoesTo("/forums/3-general#top")).toBe(
+    "/forums/3-general#top",
+  );
+  for (const bad of [
+    "//evil.example",
+    "/.//evil.example",
+    "/a/../..//evil.example",
+    "/a\b",
+    "https://evil.example",
+    "evil",
+    "/login",
+    "/_next/image?url=x",
+  ]) {
+    expect(await liteGoesTo(bad), bad).toBe("/");
+  }
 });

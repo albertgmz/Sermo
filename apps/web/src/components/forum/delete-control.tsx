@@ -81,7 +81,6 @@ export function DeleteControl({
       {reasonLabel && (
         <Input
           name="reason"
-          maxLength={1000}
           aria-label={reasonLabel}
           placeholder={reasonLabel}
           autoComplete="off"

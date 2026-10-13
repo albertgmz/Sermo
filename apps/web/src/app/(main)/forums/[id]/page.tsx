@@ -23,6 +23,7 @@ import { ForumWatch } from "@/app/(main)/forums/[id]/forum-watch";
 import { Art } from "@/components/forum/art";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
+import { JsonLd } from "@/components/forum/json-ld";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
@@ -39,8 +40,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { childrenByParent, forumCard, nodeMembers } from "@/lib/sermo/forums";
-import { parseId } from "@/lib/sermo/ids";
+import { parsePageId } from "@/lib/sermo/ids";
 import { membersFor } from "@/lib/sermo/members";
+import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import {
   type ApiThread,
@@ -58,7 +60,7 @@ const filterClass =
 const getNode = cache((nodeId: number) => read(nodesGet, { nodeId }));
 
 function nodeIdOf(raw: string) {
-  const id = parseId(raw);
+  const id = parsePageId(raw);
   if (id === null) notFound();
   return id;
 }
@@ -221,12 +223,24 @@ function ThreadRow({
   );
 }
 
+// The backend has one address for a forum; a list continued by cursor or narrowed by prefix is a
+// copy of it.
+async function seoOf(
+  id: string,
+  searchParams: PageProps<"/forums/[id]">["searchParams"],
+) {
+  const [{ seo }, { prefix, cursor }] = await Promise.all([
+    getNode(nodeIdOf(id)),
+    searchParams,
+  ]);
+  return prefix !== undefined || cursor !== undefined ? copyOf(seo) : seo;
+}
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps<"/forums/[id]">): Promise<Metadata> {
-  const { node } = await getNode(nodeIdOf((await params).id));
-  const t = await getTranslations("forums.forum");
-  return { title: t("metaTitle", { title: node.title }) };
+  return seoMetadata(await seoOf((await params).id, searchParams));
 }
 
 export default async function ForumPage({
@@ -238,6 +252,7 @@ export default async function ForumPage({
     searchParams,
   ]);
   const { node, breadcrumbs, watching } = await getNode(nodeIdOf(raw));
+  const seo = await seoOf(raw, searchParams);
   const [{ user }, t] = await Promise.all([
     getViewer(),
     getTranslations("forums.forum"),
@@ -258,6 +273,7 @@ export default async function ForumPage({
 
   return (
     <PageLayout className="pt-2">
+      <JsonLd items={seo.jsonLd} />
       <PageBreadcrumb
         items={[
           { label: t("home"), href: "/" },

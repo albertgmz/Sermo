@@ -7,6 +7,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { getAccent } from "@/components/layout/header-data";
 import { Logo } from "@/components/layout/logo";
+import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StaffMenu } from "./mobile-menu";
@@ -32,6 +33,9 @@ export default function StaffLayout({ children }: LayoutProps<"/">) {
     <div className="flex min-h-dvh flex-1 flex-col">
       <Suspense>
         <StaffAccent />
+      </Suspense>
+      <Suspense>
+        <SessionNotice />
       </Suspense>
       <header className="sticky top-0 z-30 border-b bg-background">
         <Container className="flex h-14 items-center gap-1 sm:gap-3">

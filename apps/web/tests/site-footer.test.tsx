@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { siteBody } from "../src/lib/test-bodies";
 
@@ -23,7 +24,7 @@ mock.module("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 
-const { FooterColumns, FooterSocials } = await import(
+const { FooterColumns, FooterDescription, FooterSocials } = await import(
   "../src/components/layout/site-footer"
 );
 
@@ -98,4 +99,22 @@ test("the social row has one icon for each address set and none otherwise", asyn
 test("with no social address there is no row", async () => {
   backend({ ...none, footer: [] });
   expect(renderToStaticMarkup(await FooterSocials())).toBe("");
+});
+
+test("the footer says nothing about the site when it has no description", async () => {
+  backend({ ...none, footer: [] });
+  expect(renderToStaticMarkup(await FooterDescription())).toBe("");
+});
+
+test("the copyright names the site and carries no year", () => {
+  const source = readFileSync(
+    new URL("../messages/en/layout.json", import.meta.url),
+    "utf8",
+  );
+  const { siteFooter } = JSON.parse(source) as {
+    siteFooter: Record<string, string>;
+  };
+  expect(siteFooter.copyright).toContain("{site}");
+  expect(siteFooter.copyright).not.toMatch(/\d{4}/);
+  expect(siteFooter.tagline).toBeUndefined();
 });
