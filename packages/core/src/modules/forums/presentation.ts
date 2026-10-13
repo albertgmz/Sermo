@@ -39,19 +39,28 @@ export interface ThreadPresenter {
 
 export function threadPresenter(ctx: Ctx): ThreadPresenter {
   const tree = getNodeTree(ctx);
-  const lists = catalogs(ctx);
-  const prefixes = new Map(prefixRows(ctx).map((row) => [row.id, row]));
+  // Read on first use: a page whose threads have no prefix and no cover needs neither lookup.
+  let loaded: ReturnType<typeof catalogs> | undefined;
+  const lists = () => {
+    loaded ??= catalogs(ctx);
+    return loaded;
+  };
+  let known: Map<number, PrefixRow> | undefined;
+  const prefixes = () => {
+    known ??= new Map(prefixRows(ctx).map((row) => [row.id, row]));
+    return known;
+  };
   return {
     node(id) {
       const entry = tree.get(id);
       return { id, title: entry?.title ?? "" };
     },
     prefix(id) {
-      const row = id === null ? undefined : prefixes.get(id);
-      return row ? prefixTag(row, lists.colorById.get(row.color_id)?.color ?? "") : null;
+      const row = id === null ? undefined : prefixes().get(id);
+      return row ? prefixTag(row, lists().colorById.get(row.color_id)?.color ?? "") : null;
     },
     cover(id) {
-      return id === null ? null : (lists.imageById.get(id)?.image ?? null);
+      return id === null ? null : (lists().imageById.get(id)?.image ?? null);
     },
   };
 }
