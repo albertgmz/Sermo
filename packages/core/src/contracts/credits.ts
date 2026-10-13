@@ -163,12 +163,27 @@ const RuleInput = {
   nodeIds: z.array(Id).max(100),
 };
 
+/** The triggers about forum content, the only ones that accept a restriction to forums. */
+export const FORUM_CREDIT_TRIGGERS: readonly (typeof CREDIT_TRIGGERS)[number][] = [
+  "thread_created",
+  "reply_posted",
+  "reply_received",
+  "reaction_given",
+  "reaction_received",
+];
+
 export const creditRulesList = defineContract({
   name: "creditRules.list",
-  summary: "All credit rules. Requires admin.creditRules.",
+  summary:
+    "All credit rules, and every trigger with whether a rule on it accepts a restriction to " +
+    "forums (`triggers`, `acceptsForums`: `nodeIds` on any other trigger is refused). Requires " +
+    "admin.creditRules.",
   kind: "read",
   input: Empty,
-  output: z.object({ items: z.array(CreditRule) }),
+  output: z.object({
+    items: z.array(CreditRule),
+    triggers: z.array(z.object({ id: CreditRule.shape.trigger, acceptsForums: z.boolean() })),
+  }),
 });
 
 export const creditRulesCreate = defineContract({

@@ -1,5 +1,6 @@
 import type { Ctx } from "../../context";
 import * as contracts from "../../contracts/credits";
+import { CREDIT_TRIGGERS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { NotFoundError, ValidationError } from "../../errors";
 import { registerEventSubscriber } from "../../events";
@@ -29,15 +30,7 @@ function value(row: RuleRow) {
 function validateNodes(ctx: Ctx, trigger: Trigger, nodeIds: number[]): number[] {
   const ids = [...new Set(nodeIds)];
   if (!ids.length) return ids;
-  if (
-    ![
-      "thread_created",
-      "reply_posted",
-      "reply_received",
-      "reaction_given",
-      "reaction_received",
-    ].includes(trigger)
-  )
+  if (!contracts.FORUM_CREDIT_TRIGGERS.includes(trigger))
     throw new ValidationError("Only forum triggers accept nodeIds.");
   const nodes = query<{ id: number; type: string }>(ctx, "forums").all(JSON.stringify(ids));
   if (nodes.length !== ids.length || nodes.some((node) => node.type !== "forum"))
@@ -53,7 +46,13 @@ function rule(ctx: Ctx, id: number): RuleRow {
 
 export const creditRulesListOp = implement(contracts.creditRulesList, (ctx, actor) => {
   requirePermission(ctx, actor, "admin.creditRules");
-  return { items: query<RuleRow>(ctx, "list").all().map(value) };
+  return {
+    items: query<RuleRow>(ctx, "list").all().map(value),
+    triggers: CREDIT_TRIGGERS.map((id) => ({
+      id,
+      acceptsForums: contracts.FORUM_CREDIT_TRIGGERS.includes(id),
+    })),
+  };
 });
 export const creditRulesCreateOp = implement(contracts.creditRulesCreate, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.creditRules");

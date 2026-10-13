@@ -43,9 +43,31 @@ describe("credit rule administration", () => {
     });
   }
 
+  test("the list names every trigger and whether it accepts forums, as creation enforces", async () => {
+    const f = fixture();
+    const { triggers } = await f.call("list");
+    expect(triggers.length).toBeGreaterThan(5);
+    expect(
+      triggers
+        .filter((t: { acceptsForums: boolean }) => t.acceptsForums)
+        .map((t: { id: string }) => t.id),
+    ).toEqual([
+      "thread_created",
+      "reply_posted",
+      "reply_received",
+      "reaction_given",
+      "reaction_received",
+    ]);
+    for (const { id, acceptsForums } of triggers) {
+      const attempt = f.call("create", { ...rule, trigger: id, nodeIds: [f.forum.id] });
+      if (acceptsForums) await expect(attempt).resolves.toBeDefined();
+      else await expect(attempt).rejects.toBeInstanceOf(ValidationError);
+    }
+  });
+
   test("creates, lists, updates and deletes, preserving defaults and nullable limits", async () => {
     const f = fixture();
-    expect(await f.call("list")).toEqual({ items: [] });
+    expect((await f.call("list")).items).toEqual([]);
     const created = await f.call("create", rule);
     expect(created).toMatchObject({ ...rule, isActive: true, limit: null, nodeIds: [] });
     const updated = await f.call("update", {
@@ -61,12 +83,12 @@ describe("credit rule administration", () => {
       isActive: false,
       trigger: "registered",
     });
-    expect(await f.call("list")).toEqual({ items: [updated] });
+    expect((await f.call("list")).items).toEqual([updated]);
     expect(await f.call("update", { ruleId: created.id, limit: null })).toMatchObject({
       limit: null,
     });
     expect(await f.call("delete", { ruleId: created.id })).toEqual({ ok: true });
-    expect(await f.call("list")).toEqual({ items: [] });
+    expect((await f.call("list")).items).toEqual([]);
     for (const name of ["update", "delete"])
       await expect(f.call(name, { ruleId: created.id })).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -108,7 +130,7 @@ describe("credit rule administration", () => {
       .run(f.member.id);
     const member = tokenActor(f.member);
     const created = await f.call("create", rule, member);
-    expect(await f.call("list", {}, member)).toEqual({ items: [created] });
+    expect((await f.call("list", {}, member)).items).toEqual([created]);
     await expect(
       f.call("update", { ruleId: created.id, amount: 20 }, member),
     ).resolves.toMatchObject({ amount: 20 });
