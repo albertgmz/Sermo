@@ -22,10 +22,9 @@ import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skele
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
-import { MessageRow } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { Reactions } from "@/components/forum/reactions";
-import { RelativeTime } from "@/components/forum/relative-time";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -33,7 +32,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { membersFor } from "@/lib/sermo/members";
+import { authorsFor, membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -214,7 +213,16 @@ async function Messages({
     ]);
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
-  const member = await membersFor(messages.map((message) => message.author));
+  const author = await authorsFor(messages.map((message) => message.author));
+  // One signature per member on the page: under their first message.
+  const seen = new Set<number>();
+  const firstOfAuthor = new Set(
+    messages.flatMap((message) => {
+      if (seen.has(message.author.id)) return [];
+      seen.add(message.author.id);
+      return [message.id];
+    }),
+  );
   const picker = canReact ? pickerTypes(reactionTypes) : [];
   const link = cn(buttonVariants({ variant: "outline" }), "h-10 w-full");
 
@@ -232,10 +240,11 @@ async function Messages({
       <ol className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
         {messages.map((message) => (
           <li key={message.id}>
-            <MessageRow
+            <PostFrame
               id={`message-${message.id}`}
-              author={member(message.author.id)}
-              time={<RelativeTime date={message.createdAt} />}
+              author={author(message.author.id)}
+              createdAt={message.createdAt}
+              signed={firstOfAuthor.has(message.id)}
               actions={
                 <Reactions
                   target="message"
@@ -245,22 +254,19 @@ async function Messages({
                   viewerId={user?.id ?? null}
                   picker={message.state === "visible" ? picker : []}
                   reactionTypes={reactionTypes}
+                  className="mr-auto"
                 />
               }
             >
-              <div className="max-w-3xl">
-                {message.state === "moderated" && (
-                  <MessageNote icon={Hourglass}>
-                    {t("awaitingApproval")}
-                  </MessageNote>
-                )}
-                {message.state === "deleted" && (
-                  <MessageNote icon={Trash2}>{t("deleted")}</MessageNote>
-                )}
-                <HtmlContent>{message.bodyHtml}</HtmlContent>
-                <PostAttachments attachments={message.attachments} />
-              </div>
-            </MessageRow>
+              {message.state === "moderated" && (
+                <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
+              )}
+              {message.state === "deleted" && (
+                <PostNote icon={Trash2}>{t("deleted")}</PostNote>
+              )}
+              <HtmlContent className="md:mt-1">{message.bodyHtml}</HtmlContent>
+              <PostAttachments attachments={message.attachments} />
+            </PostFrame>
           </li>
         ))}
       </ol>

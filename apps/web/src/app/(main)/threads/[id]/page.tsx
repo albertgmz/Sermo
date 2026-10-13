@@ -35,32 +35,24 @@ import {
 } from "@/app/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
 import { Art } from "@/components/forum/art";
-import { AwardRow } from "@/components/forum/award-icon";
-import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { DeleteControl } from "@/components/forum/delete-control";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { JsonLd } from "@/components/forum/json-ld";
-import { levelWithBounds } from "@/components/forum/level";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { QuoteButton } from "@/components/forum/quote-button";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
-import { SignatureHtml } from "@/components/forum/signature-html";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
-import { UserLink } from "@/components/forum/user-link";
-import { UserStats } from "@/components/forum/user-stats";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateTime } from "@/lib/format";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
@@ -109,21 +101,6 @@ function threadIdOf(raw: string) {
   return id;
 }
 
-function PostNote({
-  icon: Icon,
-  children,
-}: {
-  icon: typeof Hourglass;
-  children: React.ReactNode;
-}) {
-  return (
-    <p className="mt-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      {children}
-    </p>
-  );
-}
-
 function PostItem({
   post,
   author,
@@ -158,154 +135,52 @@ function PostItem({
   canQuote: boolean;
 }) {
   const t = useTranslations("threads.page");
-  const { member } = author;
   const number = post.position + 1;
   const href = threadHref(post.threadId, post.position, post.id);
 
   return (
-    <article
+    <PostFrame
       id={`post-${post.id}`}
-      className="relative isolate grid scroll-mt-4 grid-cols-[auto_minmax(0,1fr)] gap-x-3 p-3 md:gap-x-4 md:p-4"
-    >
-      <CoverBackdrop
-        cover={author.cover}
-        variant={highlighted ? "full" : "header"}
-      />
-      <UserAvatar user={member} size="lg" className="self-start md:hidden" />
-      <UserAvatar
-        user={member}
-        size="xl"
-        className="hidden self-start md:row-span-2 md:block"
-      />
-      <div className="flex min-w-0 flex-col justify-center gap-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <UserLink user={member} className="[overflow-wrap:anywhere]" />
-          <UserBadges user={member} />
-          <AwardRow awards={author.awards} />
-        </div>
-        <div className="flex items-center gap-x-3">
-          {member.title && (
-            <p
-              title={member.title}
-              className="min-w-0 truncate text-xs text-muted-foreground"
-            >
-              {member.title}
-            </p>
+      author={author}
+      createdAt={post.createdAt}
+      highlighted={highlighted}
+      edited={
+        post.editedAt && (
+          <span className="shrink-0">
+            {t.rich("edited", {
+              time: () => <RelativeTime date={post.editedAt ?? ""} />,
+            })}
+          </span>
+        )
+      }
+      trailing={
+        <>
+          {highlighted && (
+            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary">
+              <Sparkles aria-hidden="true" className="size-3" />
+              <span className={LABEL}>{t("highlightedLabel")}</span>
+            </span>
           )}
-          <UserStats
-            user={{
-              level: levelWithBounds(
-                author.member.level,
-                author.xp,
-                author.currentLevelXp,
-                author.nextLevelXp,
-              ),
-              postCount: author.postCount,
-              reactionCount: author.reactionScore,
-            }}
-            className={cn(
-              "shrink-0",
-              // On a phone the XP bar gives its room to the title.
-              member.title && "max-sm:[&_[data-slot=progress]]:hidden",
-            )}
-          />
-        </div>
-      </div>
-
-      <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
-        <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <RelativeTime
-              date={post.createdAt}
-              className="truncate md:hidden"
-            />
-            <time
-              dateTime={post.createdAt}
-              className="hidden truncate md:inline"
-            >
-              {formatDateTime(post.createdAt)}
-            </time>
-            {post.editedAt && (
-              <span className="shrink-0">
-                {t.rich("edited", {
-                  time: () => <RelativeTime date={post.editedAt ?? ""} />,
-                })}
-              </span>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center">
-            {highlighted && (
-              <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary">
-                <Sparkles aria-hidden="true" className="size-3" />
-                <span className={LABEL}>{t("highlightedLabel")}</span>
-              </span>
-            )}
-            {byThreadAuthor && (
-              <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
-                <PenLine
-                  aria-hidden="true"
-                  className="hidden size-3 sm:block"
-                />
-                {t.rich("authorLabel", {
-                  hidden: (chunks) => <span className="sr-only">{chunks}</span>,
-                })}
-              </span>
-            )}
-            <ShareButton href={href} className={QUIET_ICON} />
-            <Link
-              href={`#post-${post.id}`}
-              className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
-            >
-              {t("postNumber", { number })}
-            </Link>
-          </div>
-        </div>
-
-        {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
-            whose refusal is shown under the split form if the hint is ever wrong. */}
-        {selecting && !isFirst && (
-          <label className="mt-1 flex min-h-10 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="postIds"
-              value={post.id}
-              form={SPLIT_FORM}
-              className="size-5 accent-primary"
-            />
-            {t("selectPost", { number })}
-          </label>
-        )}
-
-        {noteState && post.state === "moderated" && (
-          <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
-        )}
-        {noteState && post.state === "deleted" && (
-          <PostNote icon={Trash2}>{t("deleted")}</PostNote>
-        )}
-        {noteState && mayRestore(may, post.state) && (
-          <ActionForm
-            action={restorePostAction.bind(null, post.threadId, post.id)}
-            submit={post.state === "moderated" ? t("approve") : t("restore")}
-            className="mt-2"
-          />
-        )}
-
-        {post.state === "deleted" ? (
-          <details className="mt-2">
-            <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
-              {t("showDeleted")}
-            </summary>
-            <HtmlContent>{post.bodyHtml}</HtmlContent>
-            <PostAttachments attachments={post.attachments} />
-          </details>
-        ) : (
-          <>
-            <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
-            <PostAttachments attachments={post.attachments} />
-          </>
-        )}
-
-        <div className="mt-2 -mx-2 flex flex-wrap items-center justify-end gap-1">
+          {byThreadAuthor && (
+            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium">
+              <PenLine aria-hidden="true" className="hidden size-3 sm:block" />
+              {t.rich("authorLabel", {
+                hidden: (chunks) => <span className="sr-only">{chunks}</span>,
+              })}
+            </span>
+          )}
+          <ShareButton href={href} className={QUIET_ICON} />
+          <Link
+            href={`#post-${post.id}`}
+            className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
+          >
+            {t("postNumber", { number })}
+          </Link>
+        </>
+      }
+      signed={signed}
+      actions={
+        <>
           <Reactions
             target="post"
             id={post.id}
@@ -337,58 +212,97 @@ function PostItem({
               {t("edit")}
             </Link>
           )}
-        </div>
-
-        {viewerId !== null &&
-          post.state !== "deleted" &&
-          (post.canReport || post.canDelete) && (
-            <details className="group mt-1">
-              <summary
-                aria-label={t("aria.more")}
-                className={cn(
-                  messageActionClass,
-                  "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
-                )}
-              >
-                <MoreHorizontal />
-                {t("more")}
-              </summary>
-              <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
-                {post.canReport && (
-                  <ActionForm
-                    action={reportPostAction.bind(null, post.id)}
-                    submit={t("report")}
-                    done={t("reported")}
-                  >
-                    <Input
-                      name="reason"
-                      required
-                      aria-label={t("reportReason")}
-                      placeholder={t("reportReason")}
-                      autoComplete="off"
-                    />
-                  </ActionForm>
-                )}
-                {post.canDelete && (
-                  <DeleteControl
-                    action={deletePostAction.bind(null, post.threadId, post.id)}
-                    label={t("delete")}
-                    confirm={t("confirmDelete")}
-                    cancel={t("cancel")}
-                    reasonLabel={t("deleteReason")}
+        </>
+      }
+      after={
+        viewerId !== null &&
+        post.state !== "deleted" &&
+        (post.canReport || post.canDelete) && (
+          <details className="group mt-1">
+            <summary
+              aria-label={t("aria.more")}
+              className={cn(
+                messageActionClass,
+                "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+              )}
+            >
+              <MoreHorizontal />
+              {t("more")}
+            </summary>
+            <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
+              {post.canReport && (
+                <ActionForm
+                  action={reportPostAction.bind(null, post.id)}
+                  submit={t("report")}
+                  done={t("reported")}
+                >
+                  <Input
+                    name="reason"
+                    required
+                    aria-label={t("reportReason")}
+                    placeholder={t("reportReason")}
+                    autoComplete="off"
                   />
-                )}
-              </div>
-            </details>
-          )}
+                </ActionForm>
+              )}
+              {post.canDelete && (
+                <DeleteControl
+                  action={deletePostAction.bind(null, post.threadId, post.id)}
+                  label={t("delete")}
+                  confirm={t("confirmDelete")}
+                  cancel={t("cancel")}
+                  reasonLabel={t("deleteReason")}
+                />
+              )}
+            </div>
+          </details>
+        )
+      }
+    >
+      {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
+            whose refusal is shown under the split form if the hint is ever wrong. */}
+      {selecting && !isFirst && (
+        <label className="mt-1 flex min-h-10 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="postIds"
+            value={post.id}
+            form={SPLIT_FORM}
+            className="size-5 accent-primary"
+          />
+          {t("selectPost", { number })}
+        </label>
+      )}
 
-        {signed && author.signatureHtml && (
-          <SignatureHtml className="mt-2 border-t pt-2">
-            {author.signatureHtml}
-          </SignatureHtml>
-        )}
-      </div>
-    </article>
+      {noteState && post.state === "moderated" && (
+        <PostNote icon={Hourglass}>{t("awaitingApproval")}</PostNote>
+      )}
+      {noteState && post.state === "deleted" && (
+        <PostNote icon={Trash2}>{t("deleted")}</PostNote>
+      )}
+      {noteState && mayRestore(may, post.state) && (
+        <ActionForm
+          action={restorePostAction.bind(null, post.threadId, post.id)}
+          submit={post.state === "moderated" ? t("approve") : t("restore")}
+          className="mt-2"
+        />
+      )}
+
+      {post.state === "deleted" ? (
+        <details className="mt-2">
+          <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
+            {t("showDeleted")}
+          </summary>
+          <HtmlContent>{post.bodyHtml}</HtmlContent>
+          <PostAttachments attachments={post.attachments} />
+        </details>
+      ) : (
+        <>
+          <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+          <PostAttachments attachments={post.attachments} />
+        </>
+      )}
+    </PostFrame>
   );
 }
 
