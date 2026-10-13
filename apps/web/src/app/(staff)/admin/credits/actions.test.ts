@@ -51,7 +51,9 @@ test("an adjustment sends the member, the signed amount and the reason", async (
   const digest = await redirectedTo(() =>
     adjustCredits(null, form({ userId: "4", amount: "-30", reason: "Refund" })),
   );
-  expect(digest).toMatch(/;\/admin\/credits\?userId=4&notice=adjusted;/);
+  expect(digest).toMatch(
+    /;\/admin\/credits\?userId=4&notice=adjusted&balance=5;/,
+  );
   expect(backend.asked[0].body).toEqual({
     amount: -30,
     reason: "Refund",

@@ -18,14 +18,18 @@ export async function adjustCredits(
   if (userId === null) return { error: t("member") };
   const amount = whole(text(formData, "amount"));
   if (amount === null) return { fields: { amount: t("amount") } };
+  let balance: number;
   try {
-    await call(creditsAdjust, {
+    const row = await call(creditsAdjust, {
       userId,
       amount,
       reason: text(formData, "reason"),
     });
+    balance = row.balanceAfter;
   } catch (error) {
     return formFailure(error, ["amount", "reason"]);
   }
-  redirect(`/admin/credits?userId=${userId}&notice=adjusted`);
+  redirect(
+    `/admin/credits?userId=${userId}&notice=adjusted&balance=${balance}`,
+  );
 }

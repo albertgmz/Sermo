@@ -15,6 +15,7 @@ import { memberNames } from "../logs/links";
 import { ifAllowed } from "../users/data";
 import { adjustCredits } from "./actions";
 import { MemberChoice } from "./member-choice";
+import { adjustmentRefusal } from "./review";
 import { EconomyNotice, one } from "./shared";
 
 type Params = Awaited<PageProps<"/admin/credits">["searchParams"]>;
@@ -35,7 +36,15 @@ export async function AdjustScreen({
     getViewer(),
   ]);
   const userId = parseId(one(params.userId));
-  const notices = { adjusted: t("notices.adjusted") };
+  const newBalance = /^-?\d{1,15}$/.test(one(params.balance))
+    ? Number(one(params.balance))
+    : null;
+  const notices = {
+    adjusted:
+      newBalance === null
+        ? t("notices.adjusted")
+        : t("notices.adjustedBalance", { balance: format.number(newBalance) }),
+  };
   const picker = (
     <MemberChoice
       path="/admin/credits"
@@ -72,12 +81,16 @@ export async function AdjustScreen({
   const reviewing = typedAmount !== "" || reason !== "";
   const full = hrefFor(viewer, "toolsCreditLedger");
   const base = `/admin/credits?userId=${userId}`;
+  const refused =
+    reviewing && amount !== null && reason !== ""
+      ? adjustmentRefusal(userId, amount, reason)
+      : null;
   const problem =
-    reviewing && (amount === null || amount === 0)
+    reviewing && amount === null
       ? t("amountProblem")
       : reviewing && reason === ""
         ? t("reasonProblem")
-        : null;
+        : refused;
   const confirming = reviewing && !problem && amount !== null;
 
   return (
