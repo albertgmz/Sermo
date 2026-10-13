@@ -32,6 +32,7 @@ import {
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
+import { confirmActorPassword } from "../admin/shared";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { assertAdministrator } from "../permissions";
 
@@ -409,8 +410,9 @@ export const operations = [
       return value(promotion(ctx, input.promotionId));
     }),
   ),
-  implement(contracts.promotionsCreate, (ctx, actor, input) => {
+  implement(contracts.promotionsCreate, async (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
+    await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
       validate(ctx, current, input.criteria, input.groupIds);
@@ -430,8 +432,9 @@ export const operations = [
       return value(promotion(ctx, id));
     });
   }),
-  implement(contracts.promotionsUpdate, (ctx, actor, input) => {
+  implement(contracts.promotionsUpdate, async (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
+    await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
       const p = promotion(ctx, input.promotionId);
@@ -452,8 +455,9 @@ export const operations = [
       return value(promotion(ctx, p.id));
     });
   }),
-  implement(contracts.promotionsDelete, (ctx, actor, input) => {
+  implement(contracts.promotionsDelete, async (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
+    await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
       const p = promotion(ctx, input.promotionId);
@@ -481,8 +485,9 @@ export const operations = [
       return { items: rows(ctx).map((p) => status(ctx, m, p)) };
     }),
   ),
-  implement(contracts.promotionsApply, (ctx, actor, input) => {
+  implement(contracts.promotionsApply, async (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.promotions");
+    await confirmActorPassword(ctx, actor, input.actorPassword);
     const user = requireAuthenticated(actor);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);

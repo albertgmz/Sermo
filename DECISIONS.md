@@ -1304,14 +1304,27 @@ matched by address alone); the cursor carries the position. **Owner review.** Th
 group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
 of kinds, and counts reports only for someone who handles them site-wide.
 
-**Group and permission writes can confirm with the password in the same call.** `permissions.set`,
-`users.setGroups`, `groups.create`, `groups.update`, `groups.delete` and `nodes.setModerator` take
-an optional `actorPassword`. When it is present it is checked first with `verifyActorPassword`, so
-it counts against the same five-in-fifteen-minutes limit as `users.adminUpdateIdentity`, only a
-session actor may send it (an API key that does is refused) and a wrong answer stops the request
-before anything is read or changed. Without it nothing is asked, so API clients and scripts keep
-working. This replaces the web app's two calls (`auth.verifyPassword`, then the write), which left
-a gap between the check and the change.
+**Group, permission and promotion writes are confirmed with the password in the same call.**
+`permissions.set`, `users.setGroups`, `groups.create`, `groups.update`, `groups.delete`,
+`nodes.setModerator`, `promotions.create`, `promotions.update`, `promotions.delete` and
+`promotions.apply` take `actorPassword`: the acting administrator's own password, checked with
+`verifyActorPassword` (the same wrong-answer limit as `users.adminUpdateIdentity`) right after
+the early permission check, so someone who may not act is told it is forbidden whatever they send,
+and a wrong answer stops the request before anything is changed. The owner's rule is that changing
+groups and permissions needs the administrator's password, and a rule kept only by the web app
+is not kept: a browser can call the REST API directly with the same session cookie. So the
+requirement is made by the backend, and it keys on one explicit marker: the actor field
+`interactive`, which only the HTTP layer sets (the request middleware of `/api/v1` and `/mcp`),
+on a `user` actor it resolved from a session cookie. An interactive actor that sends no
+`actorPassword` gets a validation error naming the field. An API key or token is not asked and is
+refused if it sends one (it cannot confirm). Actors built by hand (the starter loader, the dev
+fixture, jobs, tests) never carry the marker and are not asked; a new caller that resolves
+sessions from cookies and should be held to the rule must set it. The promotion writes are
+included because a promotion grants groups to members. Group names stay readable without it.
+**Owner review:** API keys are exempt, so a stolen key can change groups and permissions without
+the password; the alternative is to forbid these writes to keys altogether. `DELETE` routes read
+their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
+password there.
 
 **An erased member takes no further administrative or moderation write.** The rule that already
 covered identity, profile and sessions now covers every write that targets a member:

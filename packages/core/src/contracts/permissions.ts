@@ -4,9 +4,10 @@ import { defineContract } from "../operation";
 import { ActorPassword, Empty, Id, Ok } from "./common";
 
 const CONFIRM =
-  " With `actorPassword` (session actors only) the acting administrator's own password is " +
-  "verified first, in the same step and under the same wrong-answer limit as " +
-  "users.adminUpdateIdentity; a wrong one changes nothing. Without it nothing is asked.";
+  " `actorPassword` is the acting administrator's own password: it is verified in the " +
+  "same step and under the same wrong-answer limit as users.adminUpdateIdentity, and a wrong " +
+  "one changes nothing. A browser session (session cookie) must send it (missing: a validation " +
+  "error naming actorPassword); an API key or token is not asked and is refused if it sends one.";
 
 // Groups -------------------------------------------------------------------------------------
 

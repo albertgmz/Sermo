@@ -215,8 +215,8 @@ export const groupsGetOp = implement(groupsGet, (ctx, actor, input) =>
   }),
 );
 export const groupsCreateOp = implement(groupsCreate, async (ctx, actor, input) => {
-  await confirmActorPassword(ctx, actor, input.actorPassword);
   admin(ctx, actor, "admin.groups");
+  await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = adminNow(ctx, actor, "admin.groups");
     assertRank(input.rank, memberStanding(ctx, current).maxRank);
@@ -241,8 +241,8 @@ export const groupsCreateOp = implement(groupsCreate, async (ctx, actor, input) 
   });
 });
 export const groupsUpdateOp = implement(groupsUpdate, async (ctx, actor, input) => {
-  await confirmActorPassword(ctx, actor, input.actorPassword);
   admin(ctx, actor, "admin.groups");
+  await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = adminNow(ctx, actor, "admin.groups");
     const old = getGroup(ctx, input.groupId);
@@ -272,8 +272,8 @@ export const groupsUpdateOp = implement(groupsUpdate, async (ctx, actor, input) 
   });
 });
 export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) => {
-  await confirmActorPassword(ctx, actor, input.actorPassword);
   admin(ctx, actor, "admin.groups");
+  await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = adminNow(ctx, actor, "admin.groups");
     const group = getGroup(ctx, input.groupId);
@@ -332,8 +332,8 @@ export const usersGetGroupsOp = implement(usersGetGroups, (ctx, actor, input) =>
   }),
 );
 export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, input) => {
-  await confirmActorPassword(ctx, actor, input.actorPassword);
   requirePermission(ctx, actor, "admin.members", { target: GUEST });
+  await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     const target = getMember(ctx, input.userId);
@@ -471,8 +471,8 @@ export const permissionsListOp = implement(permissionsList, (ctx, actor, input) 
   }),
 );
 export const permissionsSetOp = implement(permissionsSet, async (ctx, actor, input) => {
-  await confirmActorPassword(ctx, actor, input.actorPassword);
   admin(ctx, actor, "admin.permissions");
+  await confirmActorPassword(ctx, actor, input.actorPassword);
   return writeTx(ctx, () => {
     adminNow(ctx, actor, "admin.permissions");
     const { groupId, userId, nodeId } = validateTarget(ctx, input);
