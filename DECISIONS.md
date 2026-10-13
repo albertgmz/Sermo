@@ -1650,3 +1650,10 @@ loading skeleton read it from the cached site, so a guest's page costs no extra 
 skeleton has the shape of what settles. When the site cannot be read the panel is left out.
 `threads.ranked` is not gated: the home feed's sidebar uses it too, and it shows nothing a visitor
 cannot already list.
+
+## One version for the whole repository
+
+**`VERSION` at the root is the version of Sermo.** One line, `major.minor.patch`. Every commit on
+`main` raises it, by a patch step unless the change calls for more; a task branch raises it once,
+in the commit that is merged. The `version` fields of the packages are not maintained and nothing
+reads the file yet: it is the number a person or a release note names.
