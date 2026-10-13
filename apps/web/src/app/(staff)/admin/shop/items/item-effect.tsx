@@ -214,7 +214,7 @@ export function ItemEffect({
               id={`${idPrefix}-group`}
               name="groupId"
               required
-              defaultValue={initial?.groupId}
+              defaultValue={initial?.groupId ?? ""}
               className={selectClass}
             >
               <option value="" disabled>
