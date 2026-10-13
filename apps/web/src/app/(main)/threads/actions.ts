@@ -28,7 +28,7 @@ import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { parseThreadRef } from "@/app/(main)/threads/[id]/thread-ref";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
-import { parseId, requireIds } from "@/lib/sermo/ids";
+import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 
 export type ReplyState = {
@@ -37,13 +37,6 @@ export type ReplyState = {
 
 // What a form shows after an action: the backend's refusal, or that the work is done.
 export type FormState = { error?: string; done?: boolean };
-
-// The ids a form carries under one name, each checked like any id that reaches a path.
-function idsOf(formData: FormData, name: string): number[] {
-  const ids = formData.getAll(name).map((value) => parseId(String(value)));
-  requireIds(...ids);
-  return ids as number[];
-}
 
 // Shows the thread again after something changed in it. The page the member is on may carry a hash
 // (a reply or a post action leaves one), and an address that differs from it by nothing else is no
@@ -70,7 +63,7 @@ export async function replyAction(
 ): Promise<ReplyState> {
   requireIds(threadId);
   const body = textOf(formData, "body");
-  const attachmentIds = idsOf(formData, "attachmentIds");
+  const attachmentIds = formIds(formData, "attachmentIds");
   const created = await attempt(`/threads/${threadId}`, () =>
     call(postsCreate, { threadId, body, attachmentIds }),
   );
@@ -111,7 +104,7 @@ export async function editPostAction(
       reason: textOf(formData, "reason"),
       // A form without the file list leaves the files as they are.
       attachmentIds: formData.has("attachments")
-        ? idsOf(formData, "attachmentIds")
+        ? formIds(formData, "attachmentIds")
         : undefined,
     }),
   );
@@ -287,7 +280,7 @@ export async function splitThreadAction(
   formData: FormData,
 ): Promise<FormState> {
   requireIds(threadId);
-  const postIds = idsOf(formData, "postIds");
+  const postIds = formIds(formData, "postIds");
   const forum = textOf(formData, "nodeId");
   const errors = await getTranslations("threads.errors");
   if (postIds.length === 0) return { error: errors("noPosts") };
