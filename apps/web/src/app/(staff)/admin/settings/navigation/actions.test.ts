@@ -295,4 +295,6 @@ test("an order refused part-way says that the earlier entries were saved", async
   expect(
     backend.asked.filter((asked) => asked.operation === "navigation.update"),
   ).toHaveLength(2);
+  // The entry saved before the refusal is in the shared cache, which is expired.
+  expect(expired).toEqual(["site"]);
 });

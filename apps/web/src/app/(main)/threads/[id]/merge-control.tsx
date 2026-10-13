@@ -26,8 +26,10 @@ export function MergeControl({
   const t = useTranslations("threads.moderation");
   const [state, dispatch] = useActionState(preview, {});
   const [typed, setTyped] = useState("");
-  const [back, setBack] = useState(false);
-  const target = !back && state.submitted === typed ? state.target : undefined;
+  // The answer the moderator went back from: it is not shown again, only a newer one is.
+  const [dismissed, setDismissed] = useState<MergePreview | null>(null);
+  const target =
+    state !== dismissed && state.submitted === typed ? state.target : undefined;
   if (target) {
     return (
       <ActionForm
@@ -39,7 +41,7 @@ export function MergeControl({
             type="button"
             variant="ghost"
             className="h-10 px-3"
-            onClick={() => setBack(true)}
+            onClick={() => setDismissed(state)}
           >
             {t("mergeBack")}
           </Button>
@@ -60,7 +62,6 @@ export function MergeControl({
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        setBack(false);
         startTransition(() => dispatch(data));
       }}
       className="space-y-2"

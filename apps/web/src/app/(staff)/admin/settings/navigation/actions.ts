@@ -147,8 +147,12 @@ export async function saveOrder(
       });
     }
   }
-  const { state } = await saveInOrder(changes);
-  if (state) return state;
+  const { saved, state } = await saveInOrder(changes);
+  // What was saved before a refusal is in the shared cache too.
+  if (state) {
+    if (saved > 0) updateTag("site");
+    return state;
+  }
   done("saved");
 }
 
