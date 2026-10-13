@@ -59,7 +59,7 @@ test("the staff bar links the panel when it holds something and moderation when 
 });
 
 test("the moderation badge adds the two queues and marks a cut-off queue with more", () => {
-  const queue = (count: number, more = false) => ({ count, more });
+  const queue = (count: number, more = false) => ({ count, more, cap: 99 });
   expect(
     pendingBadge({ openReports: queue(0), pendingApprovals: queue(0) }),
   ).toBeNull();

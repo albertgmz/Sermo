@@ -18,6 +18,36 @@ export function groupBody(over: Record<string, unknown> = {}) {
   };
 }
 
+// What site.get answers: the identity a test is about goes in `over`.
+export function siteBody(over: Record<string, unknown> = {}) {
+  return {
+    name: "Garden Club",
+    logo: null,
+    icon: null,
+    backdrop: null,
+    socialLinks: { discord: null, telegram: null, x: null },
+    maxUploadBytes: 5 * 1024 * 1024,
+    palette: { accents: [], nameColors: [], prefixColors: [] },
+    ...over,
+  };
+}
+
+export function notificationTypeBody(
+  id: string,
+  over: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    label: id,
+    description: id,
+    defaults: { inApp: true, email: false, push: false },
+    required: false,
+    emailFollowsWatch: false,
+    channels: ["inApp", "email"],
+    ...over,
+  };
+}
+
 export function permissionDefinitionBody(
   id: string,
   type: "flag" | "integer",

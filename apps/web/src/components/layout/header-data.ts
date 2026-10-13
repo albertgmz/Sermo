@@ -21,8 +21,8 @@ export type Counters = z.output<typeof authCounters.output>;
 const NONE: Counters = {
   conversations: 0,
   notifications: 0,
-  openReports: { count: 0, more: false },
-  pendingApprovals: { count: 0, more: false },
+  openReports: { count: 0, more: false, cap: 99 },
+  pendingApprovals: { count: 0, more: false, cap: 99 },
 };
 
 // How many rows the header panels list: a short first page of the pages' own operations.
