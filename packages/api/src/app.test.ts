@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "@sermo/core";
-import { closeContext, ensureAdmin, localDriver, operations } from "@sermo/core";
+import { closeContext, ensureAdmin, localDriver, operations, schema } from "@sermo/core";
 import { createTestContext, insertNode } from "@sermo/core/testing";
 import { coerceQueryValues, createApp } from "./app";
 import { buildOpenApiDocument } from "./openapi";
@@ -157,6 +157,13 @@ test("OpenAPI covers REST and Better Auth routes with resolvable references", as
     );
   expect(document.paths["/api/auth/sign-up/email"]?.post).toBeDefined();
   expect(document.paths["/api/auth/api-key/create"]?.post).toBeDefined();
+  const purposes = (
+    document.paths["/api/v1/files"]?.post as unknown as {
+      parameters: { name: string; schema: { enum: string[] } }[];
+    }
+  ).parameters.find((parameter) => parameter.name === "purpose")!.schema.enum;
+  expect(purposes).toEqual([...schema.FILE_PURPOSES]);
+  expect(purposes.length).toBeGreaterThan(5);
   for (const [path, method] of [
     ["/api/auth/send-verification-email", "post"],
     ["/api/auth/verify-email", "get"],

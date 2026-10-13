@@ -1,4 +1,4 @@
-import { type Ctx, getAuth } from "@sermo/core";
+import { type Ctx, getAuth, schema } from "@sermo/core";
 import * as z from "zod";
 import { routeOperations } from "./routes";
 
@@ -173,7 +173,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
           in: "query",
           schema: {
             type: "string",
-            enum: ["attachment", "avatar", "cover", "node_icon", "node_cover"],
+            enum: [...schema.FILE_PURPOSES],
           },
         },
       ],
