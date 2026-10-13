@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
+import { CopyHandle } from "@/app/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
@@ -31,7 +32,8 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const SOCIALS = [
-  { network: "discord", label: "discordLabel", url: () => "#" },
+  // A Discord name is not an address: there is nothing to open, so it is copied instead.
+  { network: "discord", label: "discordLabel", url: () => null },
   {
     network: "telegram",
     label: "telegramLabel",
@@ -45,7 +47,7 @@ const SOCIALS = [
 ] as const satisfies readonly {
   network: Network;
   label: string;
-  url: (handle: string) => string;
+  url: (handle: string) => string | null;
 }[];
 
 const iconButtonClass =
@@ -120,16 +122,32 @@ export function ProfileHeader({
                 {socials.map(({ network, label, url }) => {
                   const handle = profile.socials[network];
                   const href = url(handle);
+                  const networkName = t(label);
+                  if (href === null) {
+                    return (
+                      <CopyHandle
+                        key={network}
+                        handle={handle}
+                        label={t("copyHandle", {
+                          network: networkName,
+                          handle,
+                        })}
+                        copiedLabel={t("handleCopied")}
+                        className={iconButtonClass}
+                      >
+                        <SocialIcon network={network} className="size-5" />
+                      </CopyHandle>
+                    );
+                  }
                   return (
                     <Link
                       key={network}
                       href={href}
-                      title={t("social", { network: t(label), handle })}
-                      aria-label={t("social", { network: t(label), handle })}
+                      title={t("social", { network: networkName, handle })}
+                      aria-label={t("social", { network: networkName, handle })}
                       className={iconButtonClass}
-                      {...(href === "#"
-                        ? {}
-                        : { target: "_blank", rel: "noreferrer nofollow" })}
+                      target="_blank"
+                      rel="noreferrer nofollow"
                     >
                       <SocialIcon network={network} className="size-5" />
                     </Link>

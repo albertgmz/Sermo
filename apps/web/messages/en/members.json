@@ -122,6 +122,8 @@
     "telegramLabel": "Telegram",
     "xLabel": "X",
     "social": "{network}: {handle}",
+    "copyHandle": "Copy the {network} name {handle}",
+    "handleCopied": "Copied",
     "postsLabel": "Posts",
     "creditsLabel": "Credits",
     "reputationLabel": "Reputation",
