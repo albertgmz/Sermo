@@ -6,12 +6,16 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
-// The refusal of a wrong `actorPassword`: the backend answers forbidden with its own message
-// (there is no code of its own for it), or rate_limited once too many wrong ones were given.
-// Whatever else makes a write forbidden is told apart by the message.
+// The refusal of a wrong `actorPassword`: the backend answers forbidden ("That is not your
+// password.") or, once too many wrong ones were given, rate_limited ("Too many wrong passwords.").
+// The error body carries a code and a message and nothing that names the field, and neither
+// refusal has a code of its own: forbidden also means "not allowed" and rate_limited also comes
+// from the API's general request limiter ("Too many requests."), which belongs at the top of the
+// form. So the message tells them apart, after the code. This is a gap of the backend: a code or
+// a field of its own for these two refusals would let this go.
 function refusesPassword(error: SermoError) {
   return (
-    error.code === "rate_limited" ||
+    (error.code === "rate_limited" && /wrong passwords/i.test(error.message)) ||
     (error.code === "forbidden" && /not your password/i.test(error.message))
   );
 }

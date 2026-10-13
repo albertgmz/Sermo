@@ -150,6 +150,15 @@ test("a deleted group goes back to the list with a notice", async () => {
   expect(backend.asked[0].operation).toBe("groups.delete");
 });
 
+test("the API's general request limit shows at the top of the form, not on the password field", async () => {
+  backend = fakeBackend({
+    "groups.update": () => refusal(429, "rate_limited", "Too many requests."),
+  });
+  expect(
+    await saveGroup(null, form({ id: "7", title: "A", rank: "1" })),
+  ).toEqual({ error: "Too many requests." });
+});
+
 test("a wrong password shows on the password field and the limit shows its message", async () => {
   backend = fakeBackend({
     "groups.update": () =>
