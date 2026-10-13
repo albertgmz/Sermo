@@ -65,6 +65,12 @@ export const NotificationType = z
     defaults: ChannelPreference,
     /** Members cannot turn it off (security messages). */
     required: z.boolean(),
+    /**
+     * A watch type (thread.watched, node.thread, node.post): its email default is always on
+     * whatever the site default says, because each watch's own email flag decides; a member can
+     * still turn the type's email off. Show the email default as fixed.
+     */
+    emailFollowsWatch: z.boolean(),
     /** Channels this type can use. */
     channels: z.array(z.enum(["inApp", "email", "push"])),
   })

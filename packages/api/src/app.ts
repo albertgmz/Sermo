@@ -168,7 +168,13 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         : `user:${actor.userId}`;
   };
   const resolve = async (c: ApiContext, next: () => Promise<void>) => {
-    const result = await resolveActor(ctx, c.req.raw.headers);
+    const resolved = await resolveActor(ctx, c.req.raw.headers);
+    // A session cookie is a browser session: the group and permission writes ask it for the
+    // administrator's password (see confirmActorPassword).
+    const result =
+      resolved.actor.kind === "user"
+        ? { ...resolved, actor: { ...resolved.actor, interactive: true as const } }
+        : resolved;
     c.set("actor", result.actor);
     c.set("setCookies", result.setCookies);
     if (c.req.path === "/mcp")

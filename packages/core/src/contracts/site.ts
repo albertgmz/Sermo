@@ -20,6 +20,12 @@ export const Site = z
       telegram: z.string().nullable(),
       x: z.string().nullable(),
     }),
+    /**
+     * The size limit, in bytes, of a file a member uploads (the site setting the API enforces
+     * for everyone), so an oversized file can be refused before it is sent. Pictures of the
+     * site's catalogs keep a fixed 25 MiB whatever this says.
+     */
+    maxUploadBytes: z.number().int().positive(),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),
@@ -32,7 +38,7 @@ export const siteGet = defineContract({
   name: "site.get",
   summary:
     "The site as every visitor sees it: its name, its logo, icon and backdrop, and the active " +
-    "colours of each catalog in display order. Open to everyone.",
+    "colours of each catalog in display order, and the upload size limit. Open to everyone.",
   kind: "read",
   input: Empty,
   output: Site,

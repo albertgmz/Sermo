@@ -34,6 +34,7 @@ import { mayViewProfile } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
 import { type Notice, noticeForOther } from "./notify";
+import { describeQueueItems, NO_CONTEXT, queueContextKey } from "./queue-context";
 import { restrictionsCreateOp, restrictionsLiftOp, restrictionsListOp } from "./restrictions";
 
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
@@ -492,13 +493,14 @@ export const QUEUE_COUNT_CAP = 99;
 export interface QueueCount {
   count: number;
   more: boolean;
+  cap: number;
 }
-const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false });
+const NO_QUEUE: QueueCount = Object.freeze({ count: 0, more: false, cap: QUEUE_COUNT_CAP });
 
 /**
  * What waits in the report and approval queues for this viewer, for a staff header: among the
  * newest 100 entries of each queue, how many the viewer may act on (at most 99), and whether the
- * window was full, so there may be more. The viewer is held to the queue reads' own rule
+ * window was full, so the count may be incomplete (the entries beyond it were not looked at). The viewer is held to the queue reads' own rule
  * (`filterModeratable`, per forum scope). A viewer who holds none of the permissions that open a
  * queue costs no statement at all; otherwise each queue is one bounded read per content kind they
  * may handle (the queue reads' own statements, no cursor, limit 100). Never a COUNT.
@@ -529,6 +531,7 @@ export function queueCounts(
     openReports = {
       count: Math.min(filterModeratable(ctx, actor, rows, "reports").length, QUEUE_COUNT_CAP),
       more: rows.length >= QUEUE_WINDOW,
+      cap: QUEUE_COUNT_CAP,
     };
   }
 
@@ -559,6 +562,7 @@ export function queueCounts(
             QUEUE_COUNT_CAP,
           ),
           more: waiting.length >= QUEUE_WINDOW,
+          cap: QUEUE_COUNT_CAP,
         }
       : NO_QUEUE,
   };
@@ -2032,9 +2036,21 @@ export const operations = [
   implement(contracts.reportsCreate, (ctx, actor, input) =>
     createReport(ctx, actor, input.target, input.reason),
   ),
-  implement(contracts.reportsList, (ctx, actor, input) =>
-    contracts.reportsList.output.parse(page(listReports(ctx, actor, input))),
-  ),
+  implement(contracts.reportsList, (ctx, actor, input) => {
+    const result = listReports(ctx, actor, input);
+    const context = describeQueueItems(
+      ctx,
+      actor,
+      result.items.map((row) => ({ type: row.target_type, id: row.target_id })),
+    );
+    return contracts.reportsList.output.parse({
+      nextCursor: result.nextCursor,
+      items: result.items.map((row) => ({
+        ...publicRow(row),
+        ...(context.get(queueContextKey(row.target_type, row.target_id)) ?? NO_CONTEXT),
+      })),
+    });
+  }),
   implement(contracts.reportsGet, (ctx, actor, input) => {
     const group = getReportGroup(ctx, actor, input.groupId);
     return contracts.reportsGet.output.parse({
@@ -2054,12 +2070,18 @@ export const operations = [
   ),
   implement(contracts.approvalsList, (ctx, actor, input) => {
     const result = listApprovals(ctx, actor, input);
+    const context = describeQueueItems(
+      ctx,
+      actor,
+      result.items.map((row) => ({ type: row.type, id: row.id })),
+    );
     return contracts.approvalsList.output.parse({
       items: result.items.map((row) => ({
         type: row.type,
         id: row.id,
         authorId: row.user_id,
         createdAt: iso(row.created_at!),
+        ...(context.get(queueContextKey(row.type, row.id)) ?? NO_CONTEXT),
       })),
       nextCursor: result.nextCursor,
     });
@@ -2138,6 +2160,7 @@ export const operations = [
         target: principalMember(ctx, input.userId),
       });
       if (actorUserId(actor) === input.userId) throw new ForbiddenError();
+      requireNotErased(ctx, input.userId);
       const actorId = requireAuthenticated(actor).userId;
       const existing = read<{ id: number }>(
         ctx,

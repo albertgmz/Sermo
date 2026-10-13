@@ -429,13 +429,18 @@ function buildAuth(ctx: Ctx) {
             return hook.json({ available: false });
           if (hook.path === "/change-password" && hook.context.session) {
             // The current password is asked here, so guessing it is held to the limit of the
-            // administration checks: five wrong answers in fifteen minutes per member, whatever
-            // the client address. A request that succeeds gives its guess back (after hook).
+            // administration checks: five wrong answers per session and twenty per member in
+            // fifteen minutes, whatever the client address. Any answer that was not a wrong
+            // current password gives its guess back (after hook).
             try {
               Reflect.set(
                 hook.context,
                 PASSWORD_GUESS,
-                takePasswordGuess(ctx, Number(hook.context.session.user.id)),
+                takePasswordGuess(
+                  ctx,
+                  Number(hook.context.session.user.id),
+                  Number(hook.context.session.session.id),
+                ),
               );
             } catch (error) {
               if (!(error instanceof RateLimitedError)) throw error;
@@ -588,7 +593,13 @@ function buildAuth(ctx: Ctx) {
           hook.context.returned instanceof APIError ||
           (hook.context.returned instanceof Response && !hook.context.returned.ok);
         const guess = Reflect.get(hook.context, PASSWORD_GUESS);
-        if (typeof guess === "number" && !failed) forgivePasswordGuess(ctx, guess);
+        // Only Better Auth's refusal of the CURRENT password is a wrong guess: a rejected new
+        // password (too short or long) or a missing credential account says nothing about it.
+        const returned: unknown = hook.context.returned;
+        const wrongPassword =
+          returned instanceof APIError &&
+          (returned.body as { code?: unknown } | undefined)?.code === "INVALID_PASSWORD";
+        if (typeof guess === "number" && !wrongPassword) forgivePasswordGuess(ctx, guess);
         if (!mailEnabled) return;
         if (failed) return;
         if (hook.path === "/change-password") {

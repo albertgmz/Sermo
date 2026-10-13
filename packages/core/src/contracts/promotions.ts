@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { USER_PROMOTION_STATES } from "../db/schema";
 import { defineContract } from "../operation";
-import { Empty, Id, Ok, Page, pageInput, Timestamp } from "./common";
+import { ActorPassword, Empty, Id, Ok, Page, pageInput, Timestamp } from "./common";
 
 /** One condition on a member; `criterion` is an id from promotions.criteria or awards.criteria. */
 export const PromotionCriterion = z
@@ -11,6 +11,12 @@ export const PromotionCriterion = z
     value: z.number().int().min(0).max(1_000_000_000),
   })
   .meta({ id: "PromotionCriterion" });
+
+const CONFIRM =
+  " `actorPassword` is the acting administrator's own password: it is verified under " +
+  "the same wrong-answer limit as users.adminUpdateIdentity, and a wrong one changes nothing. A " +
+  "browser session (session cookie) must send it (missing: a validation error naming " +
+  "actorPassword); an API key or token is not asked and is refused if it sends one.";
 
 export const Promotion = z
   .object({
@@ -78,9 +84,14 @@ export const promotionsCreate = defineContract({
   summary:
     "Create a promotion: criteria (all must hold) and the secondary groups to add. Members are " +
     "evaluated by the next sweep, or right after their next relevant activity. Requires " +
-    "admin.promotions; the guest group cannot be granted, nor groups ranked at or above the actor.",
+    "admin.promotions; the guest group cannot be granted, nor groups ranked at or above the actor." +
+    CONFIRM,
   kind: "write",
-  input: z.object({ ...PromotionInput, isActive: PromotionInput.isActive.default(true) }),
+  input: z.object({
+    ...PromotionInput,
+    isActive: PromotionInput.isActive.default(true),
+    actorPassword: ActorPassword.optional(),
+  }),
   output: Promotion,
 });
 
@@ -88,7 +99,8 @@ export const promotionsUpdate = defineContract({
   name: "promotions.update",
   summary:
     "Change a promotion. Changing its groups moves members it already applies to on their next " +
-    "evaluation. Requires admin.promotions.",
+    "evaluation. Requires admin.promotions." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     promotionId: Id,
@@ -96,6 +108,7 @@ export const promotionsUpdate = defineContract({
     isActive: PromotionInput.isActive.optional(),
     criteria: PromotionInput.criteria.optional(),
     groupIds: PromotionInput.groupIds.optional(),
+    actorPassword: ActorPassword.optional(),
   }),
   output: Promotion,
 });
@@ -104,9 +117,10 @@ export const promotionsDelete = defineContract({
   name: "promotions.delete",
   summary:
     "Delete a promotion and remove the groups it granted (hand-assigned groups are kept). " +
-    "Requires admin.promotions.",
+    "Requires admin.promotions." +
+    CONFIRM,
   kind: "write",
-  input: z.object({ promotionId: Id }),
+  input: z.object({ promotionId: Id, actorPassword: ActorPassword.optional() }),
   output: Ok,
 });
 
@@ -139,12 +153,14 @@ export const promotionsApply = defineContract({
     "the criteria say; `demote` removes them and keeps the member out of it (as `exempt` does); " +
     "`exempt` excludes the member from the rule; `reset` returns the member to automatic " +
     "evaluation, which runs immediately. Requires admin.promotions, and admin.members over the " +
-    "member (hierarchy).",
+    "member (hierarchy)." +
+    CONFIRM,
   kind: "write",
   input: z.object({
     userId: Id,
     promotionId: Id,
     action: z.enum(["promote", "demote", "exempt", "reset"]),
+    actorPassword: ActorPassword.optional(),
   }),
   output: MemberPromotion,
 });

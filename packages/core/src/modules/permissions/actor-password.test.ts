@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { insertNode, tokenActor } from "@sermo/core/testing";
-import { ForbiddenError, RateLimitedError } from "../../errors";
+import type { Actor } from "../../actor";
+import { ForbiddenError, RateLimitedError, ValidationError } from "../../errors";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
 
 afterEach(closeAll);
@@ -13,6 +14,11 @@ async function world() {
   const target = await w.register("Target");
   const node = insertNode(w.ctx, { type: "forum" }).id;
   const group = await w.run("groups.create", founder.actor, { title: "Helpers" });
+  const promotion = await w.run("promotions.create", founder.actor, {
+    title: "Rule",
+    criteria: [{ criterion: "post_count", value: 1000 }],
+    groupIds: [group.id],
+  });
   const rows = (sql: string) => w.ctx.sqlite.prepare<{ n: number }, []>(sql).get()!.n;
   return {
     ...w,
@@ -20,6 +26,7 @@ async function world() {
     target,
     node,
     group,
+    promotion,
     groupCount: () => rows("SELECT count(*) AS n FROM groups"),
     entryCount: () => rows("SELECT count(*) AS n FROM permission_entries"),
     logCount: () => rows("SELECT count(*) AS n FROM moderator_log"),
@@ -27,16 +34,22 @@ async function world() {
 }
 type World = Awaited<ReturnType<typeof world>>;
 
-/** Each guarded write, as a function of the password sent (undefined for none). */
-const writes: [string, (w: World, actorPassword?: string) => Promise<unknown>][] = [
+/** The founder as a browser session: what the HTTP layer resolves from a session cookie. */
+const interactive = (w: World): Actor => ({ ...w.founder.actor, interactive: true }) as Actor;
+
+/**
+ * Each guarded write, as a function of the actor, and the password sent (undefined for none).
+ */
+const writes: [string, (w: World, actorPassword?: string, as?: Actor) => Promise<unknown>][] = [
   [
     "groups.create",
-    (w, actorPassword) => w.run("groups.create", w.founder.actor, { title: "New", actorPassword }),
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("groups.create", as, { title: "New", actorPassword }),
   ],
   [
     "groups.update",
-    (w, actorPassword) =>
-      w.run("groups.update", w.founder.actor, {
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("groups.update", as, {
         groupId: w.group.id,
         title: "Renamed",
         actorPassword,
@@ -44,13 +57,13 @@ const writes: [string, (w: World, actorPassword?: string) => Promise<unknown>][]
   ],
   [
     "groups.delete",
-    (w, actorPassword) =>
-      w.run("groups.delete", w.founder.actor, { groupId: w.group.id, actorPassword }),
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("groups.delete", as, { groupId: w.group.id, actorPassword }),
   ],
   [
     "users.setGroups",
-    (w, actorPassword) =>
-      w.run("users.setGroups", w.founder.actor, {
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("users.setGroups", as, {
         userId: w.target.id,
         secondaryGroupIds: [w.group.id],
         actorPassword,
@@ -58,8 +71,8 @@ const writes: [string, (w: World, actorPassword?: string) => Promise<unknown>][]
   ],
   [
     "permissions.set",
-    (w, actorPassword) =>
-      w.run("permissions.set", w.founder.actor, {
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("permissions.set", as, {
         groupId: w.group.id,
         entries: [{ permission: "forum.reply", value: "allow" }],
         actorPassword,
@@ -67,10 +80,44 @@ const writes: [string, (w: World, actorPassword?: string) => Promise<unknown>][]
   ],
   [
     "nodes.setModerator",
-    (w, actorPassword) =>
-      w.run("nodes.setModerator", w.founder.actor, {
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("nodes.setModerator", as, {
         nodeId: w.node,
         userId: w.target.id,
+        actorPassword,
+      }),
+  ],
+  [
+    "promotions.create",
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("promotions.create", as, {
+        title: "Another",
+        criteria: [{ criterion: "post_count", value: 5 }],
+        groupIds: [w.group.id],
+        actorPassword,
+      }),
+  ],
+  [
+    "promotions.update",
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("promotions.update", as, {
+        promotionId: w.promotion.id,
+        title: "Renamed rule",
+        actorPassword,
+      }),
+  ],
+  [
+    "promotions.delete",
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("promotions.delete", as, { promotionId: w.promotion.id, actorPassword }),
+  ],
+  [
+    "promotions.apply",
+    (w, actorPassword, as = w.founder.actor) =>
+      w.run("promotions.apply", as, {
+        userId: w.target.id,
+        promotionId: w.promotion.id,
+        action: "promote",
         actorPassword,
       }),
   ],
@@ -84,9 +131,11 @@ const snapshot = (w: World) =>
     w.logCount(),
     w.ctx.sqlite.prepare("SELECT title FROM groups ORDER BY id").all(),
     w.ctx.sqlite.prepare("SELECT user_id, group_id FROM user_groups").all(),
+    w.ctx.sqlite.prepare("SELECT id, title, group_ids FROM promotions ORDER BY id").all(),
+    w.ctx.sqlite.prepare("SELECT user_id, state FROM user_promotions").all(),
   ]);
 
-describe("the optional actorPassword on group and permission writes", () => {
+describe("the actorPassword on group, permission and promotion writes", () => {
   for (const [name, write] of writes) {
     describe(name, () => {
       test("a wrong password changes nothing", async () => {
@@ -103,11 +152,38 @@ describe("the optional actorPassword on group and permission writes", () => {
         expect(snapshot(w)).not.toBe(before);
       });
 
-      test("without a password the write works as before", async () => {
+      test("an in-process actor (built by hand) is not asked for a password", async () => {
         const w = await world();
         const before = snapshot(w);
         await write(w);
         expect(snapshot(w)).not.toBe(before);
+      });
+
+      test("an API key is not asked for a password", async () => {
+        const w = await world();
+        const before = snapshot(w);
+        await write(w, undefined, tokenActor(w.founder));
+        expect(snapshot(w)).not.toBe(before);
+      });
+
+      test("an interactive session must send one, and changes nothing without", async () => {
+        const w = await world();
+        const before = snapshot(w);
+        const refused = await write(w, undefined, interactive(w)).catch((error) => error);
+        expect(refused).toBeInstanceOf(ValidationError);
+        expect((refused as ValidationError).issues).toEqual([
+          { path: ["actorPassword"], message: "Required" },
+        ]);
+        expect(snapshot(w)).toBe(before);
+        await write(w, PASSWORD, interactive(w));
+        expect(snapshot(w)).not.toBe(before);
+      });
+
+      test("an interactive session with a wrong password changes nothing", async () => {
+        const w = await world();
+        const before = snapshot(w);
+        await expect(write(w, WRONG, interactive(w))).rejects.toThrow(/not your password/);
+        expect(snapshot(w)).toBe(before);
       });
     });
   }
