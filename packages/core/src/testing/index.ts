@@ -170,3 +170,26 @@ export function expectNoTableScan(
     `Query plan scans a table or sorts in a temp B-tree:\n${rows.map((r) => r.detail).join("\n")}\n${sql}`,
   ).toEqual([]);
 }
+
+/**
+ * Creates an API key the way a browser session must: with the session cookie and the member's
+ * current password. `auth` is the Better Auth instance (`getAuth(ctx)`).
+ */
+export function createKeyFromSession(
+  auth: {
+    api: {
+      createApiKey(input: {
+        headers: Headers;
+        body: { name: string };
+      }): Promise<{ id: string; key: string }>;
+    };
+  },
+  cookie: string,
+  name: string,
+  password = "password123",
+): Promise<{ id: string; key: string }> {
+  return auth.api.createApiKey({
+    headers: new Headers({ cookie }),
+    body: { name, password } as { name: string },
+  });
+}

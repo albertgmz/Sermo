@@ -98,7 +98,11 @@ export async function setup(mode: "cookie" | "key" = "cookie") {
     const cookieAuth = { cookie, origin };
     let auth: Auth = cookieAuth;
     if (mode === "key") {
-      const created = await authPost("/api-key/create", { name: "economy" }, cookie);
+      const created = await authPost(
+        "/api-key/create",
+        { name: "economy", password: "Password123!" },
+        cookie,
+      );
       expect(created.status, await created.clone().text()).toBe(200);
       const { key } = (await created.json()) as { key: string };
       auth = { authorization: `Bearer ${key}` };

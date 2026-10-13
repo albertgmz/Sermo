@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { defaultKeyHasher } from "@better-auth/api-key";
 import {
+  createKeyFromSession,
   createTestContext,
   expectNoTableScan,
   insertUser,
@@ -347,10 +348,7 @@ test("expired sessions and invalid presented credentials reject", async () => {
 test("API keys resolve read-only, and revoked, disabled and expired keys reject", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  const created = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "test" },
-  });
+  const created = await createKeyFromSession(getAuth(ctx), cookie, "test");
   const before = ctx.sqlite
     .query<{ count: number }, []>("SELECT total_changes() AS count")
     .get()!.count;
@@ -403,10 +401,7 @@ test("API keys resolve read-only, and revoked, disabled and expired keys reject"
 test("API key storage format remains compatible with read-only verification", async () => {
   const ctx = createTestContext();
   const { cookie } = await signUp(ctx);
-  const created = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "format" },
-  });
+  const created = await createKeyFromSession(getAuth(ctx), cookie, "format");
   const stored = ctx.sqlite
     .prepare<{ key: string }, [number]>("SELECT key FROM auth_apikey WHERE id = ?1")
     .get(Number(created.id));
@@ -418,10 +413,7 @@ test("API key storage format remains compatible with read-only verification", as
 test("a ban is enforced on the next cookie and API-key request", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "ban-check" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), cookie, "ban-check");
   const userId = Number(user.user.id);
   expect((await resolveActor(ctx, new Headers({ cookie }))).actor.kind).toBe("user");
   expect((await resolveActor(ctx, new Headers({ "x-api-key": key.key }))).actor.kind).toBe("token");
@@ -441,10 +433,7 @@ test("a ban is enforced on the next cookie and API-key request", async () => {
 test("credential revocation uses Better Auth adapters for sessions and API keys", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "revoke" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), cookie, "revoke");
   const userId = Number(user.user.id);
   await revokeUserCredentials(ctx, userId);
   expect(
@@ -467,10 +456,7 @@ test("credential revocation uses Better Auth adapters for sessions and API keys"
 test("API key reference ids require decimal safe positive integers", async () => {
   const ctx = createTestContext();
   const { cookie } = await signUp(ctx);
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "key" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), cookie, "key");
   for (const referenceId of ["1e0", "-1", "0", "9007199254740992"]) {
     ctx.sqlite
       .prepare("UPDATE auth_apikey SET reference_id = ?1 WHERE id = ?2")
@@ -490,10 +476,7 @@ test("another user cannot delete an API key", async () => {
     password: "password123",
     username: "Bob_1",
   });
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie: a.cookie }),
-    body: { name: "mine" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), a.cookie, "mine");
   await expect(
     getAuth(ctx).api.deleteApiKey({
       headers: new Headers({ cookie: b.cookie }),
@@ -518,10 +501,7 @@ test("missing forum profile is repaired when resolving a session", async () => {
 test("missing forum profile is repaired when resolving an API key", async () => {
   const ctx = createTestContext();
   const { cookie, user } = await signUp(ctx);
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "repair" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), cookie, "repair");
   ctx.sqlite.prepare("DELETE FROM users WHERE id = ?1").run(Number(user.user.id));
   expect((await resolveActor(ctx, new Headers({ "x-api-key": key.key }))).actor).toMatchObject({
     kind: "token",
@@ -745,10 +725,7 @@ test("ensureAdmin ignores a member whose custom group denies admin.permissions",
 test("purgeExpiredCredentialsBatch keeps live rows", async () => {
   const ctx = createTestContext();
   const { cookie } = await signUp(ctx);
-  const key = await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie }),
-    body: { name: "key" },
-  });
+  const key = await createKeyFromSession(getAuth(ctx), cookie, "key");
   const second = await getAuth(ctx).api.signInEmail({
     body: { email: identity.email, password: identity.password },
     asResponse: true,
@@ -757,10 +734,7 @@ test("purgeExpiredCredentialsBatch keeps live rows", async () => {
     .getSetCookie()
     .map((value) => value.split(";")[0])
     .join("; ");
-  await getAuth(ctx).api.createApiKey({
-    headers: new Headers({ cookie: secondCookie }),
-    body: { name: "live" },
-  });
+  await createKeyFromSession(getAuth(ctx), secondCookie, "live");
   ctx.sqlite.run(
     "INSERT INTO auth_verification (identifier, value, expires_at, created_at, updated_at) VALUES ('old', 'x', 1, 1, 1), ('live', 'x', 9999999999999, 1, 1)",
   );

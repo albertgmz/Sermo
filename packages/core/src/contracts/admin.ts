@@ -194,7 +194,7 @@ export const usersAdminUpdateIdentity = defineContract({
     "actor's own password is required and checked first. `username` obeys the registration " +
     'rules and must be free (a name that begins with "deleted member" is never free). ' +
     "`email` is stored in lower case and marked verified or not by " +
-    "`emailVerified` (default: unchanged). `password` sets a new one and signs the member out " +
+    "`emailVerified` (default: unchanged). `password` sets a new one, revokes their API keys and signs the member out " +
     "everywhere; `sendPasswordReset` instead emails them a reset link (a conflict when mail is " +
     "not configured). A new password or address also cancels the reset and change-email links " +
     "the member requested before. Five wrong answers of the actor's own password in fifteen " +
@@ -268,7 +268,7 @@ export const usersAdminRevokeSessions = defineContract({
     "Sign a member out: one session by id, or all of them when `sessionId` is omitted. Signing " +
     "out all of them takes effect on the member's next request, even with the session cookie " +
     "cache on; one session by id also leaves the member's cached cookie valid until the cache " +
-    "expires (at most five minutes). Their API keys are not touched. Requires admin.members " +
+    "expires (at most five minutes). Signing out all of them also revokes the member's API keys. Requires admin.members " +
     "over the member, and also admin.permissions when the member holds any administration " +
     "permission; a conflict for an erased member.",
   kind: "write",

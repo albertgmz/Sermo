@@ -1330,7 +1330,9 @@ fixture, jobs, tests) never carry the marker and are not asked; a new caller tha
 sessions from cookies and should be held to the rule must set it. The promotion writes are
 included because a promotion grants groups to members. Group names stay readable without it.
 **Owner review:** API keys are exempt, so a stolen key can change groups and permissions without
-the password; the alternative is to forbid these writes to keys altogether. `DELETE` routes read
+the password; the alternative is to forbid these writes to keys altogether. The exemption is only
+as good as the difficulty of getting a key, so a key can no longer be had with a cookie alone: see
+"API keys are credentials" below. `DELETE` routes read
 their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
 password there.
 
@@ -1393,6 +1395,28 @@ permissions that open a queue (a guest, a plain member, a moderator without repo
 rights) pays no statement for it: the check is the permission state already in memory, and a test
 holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
 of the panel's home page the numbers are not cached: they are a few indexed rows for staff only.
+
+**API keys are credentials.** A key acts without the password rule, so walking around the rule
+by minting one from a stolen browser session had to be closed. `POST /api/auth/api-key/create`
+from a session now needs the member's current password in the body (`{ "name": "...", "password":
+"..." }`): a missing one is a 400 (`PASSWORD_REQUIRED`), a wrong one a 403 (`INVALID_PASSWORD`),
+and the answers are counted with the same limits as `actorPassword` (five wrong per session,
+twenty per member in fifteen minutes; a further answer, right ones included, is a 429). A call made
+in-process with a `userId` and no session (loaders, tests) is not asked. A member's own change of
+password, a reset by link, an administrator setting the password and an administrator signing the
+member out of every session each revoke all the member's API keys; revoking one session by id does
+not. What a key can and cannot do:
+
+- A key acts with the permissions of its member, on every operation that does not ask for a session.
+  That includes the group, permission and promotion writes that otherwise take `actorPassword`
+  (the key is not asked, and refused if it sends one: the Owner review item above).
+- A key cannot create, list or delete keys, change the member's password, address or username through
+  Better Auth, or open a session (those endpoints need a session cookie, and a request with a key is
+  unauthenticated there).
+- A key cannot call `auth.verifyPassword`, `users.adminUpdateIdentity` or `users.adminErase`, which
+  need the acting member's own password and a session.
+- A key stops working when the member is banned or erased, when its expiry passes, and in the
+  cases of the previous paragraph.
 
 **Better Auth's own password endpoints.** `/api/auth/verify-password` (a session could ask "is this
 my password?" without any limit beyond 100 requests per ten seconds per address) is no longer

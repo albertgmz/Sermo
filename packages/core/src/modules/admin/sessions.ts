@@ -9,7 +9,7 @@ import { decodeCursor, encodeCursor } from "../../pagination";
 import { currentActor, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
-import { getAuth, markSessionsRevoked } from "../auth";
+import { getAuth, markSessionsRevoked, revokeApiKeys } from "../auth";
 import { appendModeratorLog } from "../moderation";
 import { requireHeld, requireNotErased, requireTakeoverRights, targetMember } from "./shared";
 
@@ -94,6 +94,8 @@ export const usersAdminRevokeSessionsOp = implement(
       await authContext.internalAdapter.deleteUserSessions(String(input.userId));
       // A session that began between the transaction and the delete is cut too.
       writeTx(ctx, () => markSessionsRevoked(ctx, input.userId));
+      // Signing the member out everywhere ends their API keys too.
+      await revokeApiKeys(ctx, input.userId);
     }
     return { revoked: plan.revoked };
   },

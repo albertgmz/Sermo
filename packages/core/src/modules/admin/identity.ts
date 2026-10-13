@@ -7,7 +7,13 @@ import { ConflictError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
-import { deletePendingTokens, getAuth, markSessionsRevoked, promoteVerifiedMember } from "../auth";
+import {
+  deletePendingTokens,
+  getAuth,
+  markSessionsRevoked,
+  promoteVerifiedMember,
+  revokeApiKeys,
+} from "../auth";
 import { checkUsername, renameThroughAuth } from "../auth/username";
 import { accountEmailEnabled } from "../email/account";
 import { appendModeratorLog } from "../moderation";
@@ -175,6 +181,8 @@ export const usersAdminUpdateIdentityOp = implement(
         // may set another one.
         await authContext.internalAdapter.deleteUserSessions(userId);
         writeTx(ctx, () => markSessionsRevoked(ctx, input.userId));
+        // API keys are credentials: a key made with the old password stops working too.
+        await revokeApiKeys(ctx, input.userId);
         await deletePendingTokens(ctx, input.userId);
       }
       if (plan.reset) {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createKeyFromSession,
   createTestContext,
   expectNoTableScan,
   insertNode,
@@ -114,10 +115,7 @@ describe("moderation core", () => {
       .join("; ");
     const user = (await response.json()) as { user: { id: string } };
     const userId = Number(user.user.id);
-    const key = await getAuth(ctx).api.createApiKey({
-      headers: new Headers({ cookie }),
-      body: { name: "ban-test" },
-    });
+    const key = await createKeyFromSession(getAuth(ctx), cookie, "ban-test");
     expect((await resolveActor(ctx, new Headers({ cookie }))).actor.kind).toBe("user");
     banUser(ctx, adminActor, userId, "spam", null);
     await expect(resolveActor(ctx, new Headers({ cookie }))).rejects.toBeInstanceOf(ForbiddenError);

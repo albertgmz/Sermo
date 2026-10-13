@@ -280,7 +280,7 @@ test("Better Auth sessions, username sign-in, sign-out, and API keys", async () 
       origin: "http://localhost:3000",
       cookie: currentCookie,
     },
-    body: JSON.stringify({ name: "test" }),
+    body: JSON.stringify({ name: "test", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = (await created.json()) as { id: string; key: string };
@@ -333,7 +333,7 @@ test("cookie writes enforce CSRF and JSON while API keys can write", async () =>
   const created = await request("/api/auth/api-key/create", {
     method: "POST",
     headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
-    body: JSON.stringify({ name: "csrf" }),
+    body: JSON.stringify({ name: "csrf", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;
@@ -638,7 +638,7 @@ test("API-key write bypasses cookie CSRF and a second user has an independent li
       origin: "http://localhost:3000",
       "content-type": "application/json",
     },
-    body: JSON.stringify({ name: "write" }),
+    body: JSON.stringify({ name: "write", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;
@@ -685,7 +685,7 @@ test("real MCP route lists and calls tools with an API key and refreshes session
   const created = await request("/api/auth/api-key/create", {
     method: "POST",
     headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
-    body: JSON.stringify({ name: "mcp" }),
+    body: JSON.stringify({ name: "mcp", password: "Password123!" }),
   });
   expect(created.status).toBe(200);
   const key = ((await created.json()) as { key: string }).key;

@@ -14,7 +14,7 @@ import {
 import { getAuth } from "../auth";
 import { ADMIN_PERMISSIONS } from "../auth/staff";
 import { requireNotErased } from "./erased";
-import { forgivePasswordGuess, takePasswordGuess } from "./password-guesses";
+import { checkOwnPassword } from "./password-guesses";
 
 type Row = PrincipalRow & { id: number; group_id: number };
 const TARGET_SQL = `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`;
@@ -86,20 +86,14 @@ export const verifyActorPassword = markPublic(
     const user = requireAuthenticated(actor);
     if (actor.kind !== "user")
       throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
-    const guess = takePasswordGuess(ctx, user.userId, actor.sessionId, field);
-    const wrong = () =>
-      new ForbiddenError("That is not your password.", [
-        { path: [field], message: "Wrong password" },
-      ]);
-    const authContext = await getAuth(ctx).$context;
-    const account = await authContext.internalAdapter.findCredentialAccount(String(user.userId));
-    if (!account?.password) {
-      // Spend the same time as a wrong password would, so the answer does not tell the two apart.
-      await authContext.password.hash(password);
-      throw wrong();
-    }
-    if (!(await authContext.password.verify({ hash: account.password, password }))) throw wrong();
-    forgivePasswordGuess(ctx, guess);
+    await checkOwnPassword(
+      ctx,
+      await getAuth(ctx).$context,
+      user.userId,
+      actor.sessionId,
+      password,
+      field,
+    );
     return { userId: user.userId };
   },
 );
