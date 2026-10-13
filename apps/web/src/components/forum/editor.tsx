@@ -20,6 +20,7 @@ import {
   $convertToMarkdownString,
   TRANSFORMERS,
 } from "@lexical/markdown";
+import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { ClearEditorPlugin } from "@lexical/react/LexicalClearEditorPlugin";
 import {
   type InitialConfigType,
@@ -502,6 +503,10 @@ export type EditorProps = {
   defaultValue?: string;
   minHeight?: number;
   compact?: boolean;
+  // The formatting bar. A compact editor has none unless it is asked for.
+  toolbar?: boolean;
+  // Takes the focus once it is on the page, with the caret after what it holds.
+  autoFocus?: boolean;
   onChange?: (markdown: string) => void;
   resetKey?: string | number;
   className?: string;
@@ -522,6 +527,8 @@ export function Editor({
   defaultValue,
   minHeight,
   compact = false,
+  toolbar = !compact,
+  autoFocus,
   onChange,
   resetKey,
   className,
@@ -550,7 +557,7 @@ export function Editor({
           className,
         )}
       >
-        {!compact && <Toolbar />}
+        {toolbar && <Toolbar />}
         <div className="relative">
           <RichTextPlugin
             contentEditable={
@@ -603,6 +610,7 @@ export function Editor({
       <LinkPlugin />
       <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       <ClearEditorPlugin />
+      {autoFocus && <AutoFocusPlugin />}
       {insertEvent && <InsertPlugin event={insertEvent} />}
     </LexicalComposer>
   );

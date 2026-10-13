@@ -32,6 +32,7 @@ import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { LazyEditor } from "@/components/forum/lazy-editor";
 import {
   Leaderboard,
   LeaderboardScore,
@@ -1054,6 +1055,18 @@ export default async function StyleguidePage() {
             user={MEMBER}
             placeholder="What's on your mind?"
             submitLabel="Post"
+            className="max-w-xl"
+          />
+        </Section>
+
+        <Section title="Lazy editor">
+          <p className="text-sm text-muted-foreground">
+            A one-line box that loads the editor, with its formatting bar, when
+            it is entered. Used by the wall, comment and conversation composers.
+          </p>
+          <LazyEditor
+            name="body"
+            placeholder="Write a message…"
             className="max-w-xl"
           />
         </Section>
