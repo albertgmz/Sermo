@@ -200,13 +200,17 @@ function using(kind: "bump" | "highlight" | "permission"): Scenario {
       // exercises grant revocation.
       for (let n = 0; n < (kind === "permission" ? count() : 1); n++) {
         const ownItem = await item(env, categoryId, { isConsumable: true, effect });
-        const result = response<{ inventory: { id: number } }>(
-          await env.call("shop.buy", env.actors.user(userId), {
-            itemId: ownItem.id,
-            quantity: kind === "permission" ? 1 : count(),
-          }),
-        );
-        inventoryIds.push(result.inventory.id);
+        // One purchase takes at most 100 units; further units of the item join the same row.
+        let inventoryId = 0;
+        for (let left = kind === "permission" ? 1 : count(); left > 0; left -= 100) {
+          inventoryId = response<{ inventory: { id: number } }>(
+            await env.call("shop.buy", env.actors.user(userId), {
+              itemId: ownItem.id,
+              quantity: Math.min(100, left),
+            }),
+          ).inventory.id;
+        }
+        inventoryIds.push(inventoryId);
       }
     },
     run(env) {
