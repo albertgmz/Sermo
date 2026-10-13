@@ -4,7 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { messages } from "../src/i18n/messages";
 import { LITE_CATEGORIES, LITE_COOKIE } from "../src/lib/lite-preferences";
-import { IMAGE_EXTENSIONS, owners, publicImages, read } from "./lite-scan";
+import { IMAGE_EXTENSIONS, read } from "./lite-scan";
 
 // Mock only the missing server environment and data boundary. The real cookie
 // parser, server LITE helpers, proxy, gates and React renderer run unchanged.
@@ -22,10 +22,6 @@ mock.module("next/headers", () => ({
   }),
   headers: async () => new Headers(),
 }));
-const posts = { body: "" };
-function noDatabaseWrites(): never {
-  throw new Error("LITE tests must not write the demo database");
-}
 // Components read their text from the message files; outside a request there
 // is no provider, so resolve keys straight from the same files.
 function translator(namespace: string) {
@@ -109,26 +105,6 @@ mock.module("@/app/(main)/account/data", () => ({
   getRenameUnits: async () => 0,
   shopHref: "/credits",
 }));
-mock.module("@/lib/db", () => ({
-  getUser: async (username: string) => {
-    const id = Number(username.replace("member", ""));
-    return id === 101 || id === 102 ? { id } : null;
-  },
-  getUserById: async (id: number) =>
-    id === 101
-      ? { id, role: "member" }
-      : id === 102
-        ? { id, role: "admin" }
-        : null,
-  getPosts: async () => [{ body: posts.body }],
-  changeUsername: noDatabaseWrites,
-  setAppearance: noDatabaseWrites,
-  setSignature: noDatabaseWrites,
-  setTitle: noDatabaseWrites,
-  endSession: noDatabaseWrites,
-  recordSignIn: noDatabaseWrites,
-}));
-
 // Dynamic imports ensure mocks are installed before the server modules load.
 const { proxy, config } = await import("../src/proxy");
 const { Art } = await import("../src/components/forum/art");
@@ -141,9 +117,6 @@ const { SiteIcon } = await import("../src/components/layout/site-icon");
 const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
 const { Signature } = await import("../src/components/forum/signature");
-const { ThreadExcerpt } = await import(
-  "../src/components/forum/thread-excerpt"
-);
 const { TitleSection } = await import(
   "../src/app/(main)/account/profile-forms"
 );
@@ -187,12 +160,17 @@ function passThrough(response: NextResponse | undefined, context: string) {
   expect(response.headers.get("content-type"), context).toBe(null);
 }
 
-const pictures = publicImages();
+// The backend serves every picture, so nothing in `public` is one and no category owns a path. These
+// stand for any picture file that is put in front of the proxy all the same.
+const PICTURES = [
+  "/pictures/photo.jpg",
+  "/media/ring.png",
+  "/mark.svg",
+  "/a/b/c.webp",
+];
 
-test("proxy replaces every public image for master/legacy cookies and passes every image without a cookie", async () => {
-  expect(pictures.length).toBeGreaterThan(0);
-  for (const picture of pictures) {
-    const path = picture.slice("public".length);
+test("proxy replaces every picture path for master/legacy cookies and passes every one without a cookie", async () => {
+  for (const path of PICTURES) {
     for (const master of ["all", "1"])
       await placeholder(
         await proxy(request(path, master)),
@@ -203,20 +181,14 @@ test("proxy replaces every public image for master/legacy cookies and passes eve
 });
 
 for (const { key } of LITE_CATEGORIES) {
-  test(`proxy blocks only ${key} when that category alone is selected`, async () => {
-    for (const picture of pictures) {
-      const path = picture.slice("public".length);
-      const response = await proxy(request(path, key));
-      if (owners(picture).some((category) => category.key === key))
-        await placeholder(response, `${key}: ${path}`);
-      else passThrough(response, `${key}: ${path}`);
-    }
+  test(`proxy replaces a picture path that no category owns when only ${key} is selected`, async () => {
+    for (const path of PICTURES)
+      await placeholder(await proxy(request(path, key)), `${key}: ${path}`);
   });
 }
 
-test("proxy blocks encoded, Windows, case, slash and dot aliases of every public picture", async () => {
-  for (const picture of pictures) {
-    const path = picture.slice("public".length);
+test("proxy blocks encoded, Windows, case, slash and dot aliases of every picture path", async () => {
+  for (const path of PICTURES) {
     const aliases = [
       path.replace(
         /[a-z]/gi,
@@ -260,40 +232,24 @@ test("unsafe paths outside every picture folder are real 404s for every visitor"
   for (const path of ["/foo:bar", "/foo~1/bar", "/x/y~2", "/a:b/c.html"])
     for (const mode of [undefined, "all", "avatars"])
       notFound(await proxy(request(path, mode)), `${mode}: ${path}`);
-  // Inside a registered folder an alias is still a picture.
-  for (const mode of [undefined, "all", "threadCovers"])
+  // A short name that ends in a picture suffix is a picture request like any other.
+  for (const mode of ["all", "threadCovers"])
     await placeholder(
       await proxy(request("/THREAD~1/vinyl.jpg", mode)),
       `${mode}: short name`,
     );
 });
 
-test("shared page and picture folders answer unknown names with a 404, real files as before", async () => {
+test("picture-looking paths inside page namespaces answer with a 404, not a placeholder", async () => {
   for (const path of [
-    "/forums/abc.png",
-    "/awards/1.svg",
-    "/awards/1.svg.",
-    "/forums/missing.jpg%20",
-    "/FORUMS/abc.PNG",
-    "/forums/1.webp::$DATA",
+    "/forums/abc.gif",
+    "/awards/1.avif",
+    "/awards/1.avif.",
+    "/forums/missing.gif%20",
+    "/forums/1.gif::$DATA",
   ])
     for (const mode of [undefined, "all", "forumArt", "awards"])
       notFound(await proxy(request(path, mode)), `${mode}: ${path}`);
-  const file = pictures.find((picture) => picture.startsWith("public/forums/"));
-  expect(file).toBeDefined();
-  const path = (file as string).slice("public".length);
-  passThrough(await proxy(request(path)), path);
-  passThrough(await proxy(request(path, "awards")), path);
-  await placeholder(await proxy(request(path, "forumArt")), path);
-  await placeholder(await proxy(request(path.toUpperCase(), "all")), path);
-  const award = pictures.find((picture) =>
-    picture.startsWith("public/awards/"),
-  );
-  expect(award).toBeDefined();
-  passThrough(
-    await proxy(request((award as string).slice("public".length))),
-    "award",
-  );
 });
 
 test("malformed encoding never throws and recognized image suffixes stay blocked", async () => {
@@ -319,7 +275,7 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
   for (const path of [
     "/",
     "/_next/image",
-    "/avatars/test.jpg",
+    "/pictures/test.jpg",
     "/account",
     "/account/pictures",
     "/account/picture/extra",
@@ -334,13 +290,13 @@ test("optimizer requests are disabled in config and also blocked by LITE; matche
   expect(matches("/admin/forums")).toBe(true);
   expect(matches("/threads/12")).toBe(true);
   for (const path of [
-    "/_next/image?url=%2Favatars%2Ftest.jpg&w=640&q=75",
+    "/_next/image?url=%2Fpictures%2Ftest.jpg&w=640&q=75",
     "/_next/image?url=https%3A%2F%2Fpictures.test%2Fx.png&w=640&q=75",
   ])
     for (const mode of ["all", ...LITE_CATEGORIES.map(({ key }) => key)])
       await placeholder(await proxy(request(path, mode)), `${mode}: ${path}`);
   passThrough(
-    await proxy(request("/_next/image?url=%2Favatars%2Fx.jpg")),
+    await proxy(request("/_next/image?url=%2Fpictures%2Fx.jpg")),
     "optimizer without cookie",
   );
   for (const path of ["/_next/static/app.js", "/styles.css", "/robots.txt"])
@@ -396,7 +352,7 @@ test("LITE retains guest redirects, admin protection and unknown-id 404s", async
 });
 
 test("legacy GET migration preserves image blocking and access redirects", async () => {
-  for (const path of ["/", "/account", "/avatars/test.jpg"]) {
+  for (const path of ["/", "/account", "/pictures/test.jpg"]) {
     const response = await proxy(request(path, "1"));
     expect(response?.cookies.get(LITE_COOKIE)?.value).toBe("all");
     const header = response?.headers.get("set-cookie") ?? "";
@@ -405,7 +361,7 @@ test("legacy GET migration preserves image blocking and access redirects", async
     expect(header).toContain("SameSite=lax");
   }
   const post = await proxy(
-    request("/avatars/test.jpg", "1", undefined, "POST"),
+    request("/pictures/test.jpg", "1", undefined, "POST"),
   );
   expect(post?.headers.get("set-cookie")).toBe(null);
   await placeholder(post, "legacy POST image");
@@ -426,7 +382,7 @@ async function markup(node: ReactNode) {
 
 function noArtwork(html: string) {
   expect(html).not.toMatch(
-    /pictures\.test|\/avatars\/|\/frames\/|\/icon\.svg|<img\b|<image\b|<path\b|\sd=|url\(|data:image/,
+    /pictures\.test|<img\b|<image\b|<path\b|\sd=|url\(|data:image/,
   );
 }
 
@@ -463,7 +419,7 @@ test("Art blocks every category before emitting its URL and preserves caller siz
 
 test("avatar and frame gates are independent and preserve the outer box at every size", async () => {
   const frame = {
-    url: "/frames/619.png",
+    url: "https://pictures.test/frame.png",
     placement: { width: 170.5, left: -33.2, top: -30.1, scale: 92 },
   };
   const user = {
@@ -507,7 +463,7 @@ test("avatar and frame gates are independent and preserve the outer box at every
     await UserAvatar({ user, link: false }),
   );
   expect(avatarOnly).toContain(user.avatar.smallUrl);
-  expect(avatarOnly).not.toContain("/frames/");
+  expect(avatarOnly).not.toContain(frame.url);
   // Whatever is hidden, what remains keeps the inner scale the frame gave it.
   const scale = `scale:${frame.placement.scale / 100}`;
   expect(frameOnly).toContain(scale);
@@ -566,7 +522,7 @@ test("site icon URL is absent when brand is blocked", async () => {
     cookie = mode;
     const html = renderToStaticMarkup(await SiteIcon());
     if (mode === "brand" || mode === "all") noArtwork(html);
-    else expect(html).toContain("/icon.svg");
+    else expect(html).toContain('rel="icon" href="data:image/svg+xml,');
   }
 });
 
@@ -599,7 +555,7 @@ test("backend identity pictures are absent from the page when brand is blocked",
       }
       const icon = renderToStaticMarkup(await SiteIcon());
       expect(icon.includes("/api/v1/files/6")).toBe(!blocked);
-      expect(icon).not.toContain("/icon.svg");
+      expect(icon).not.toContain("data:image");
     }
   } finally {
     site = { name: "Sermo", logo: null, icon: null, backdrop: null };
@@ -651,15 +607,15 @@ test("backend HTML drops its pictures when post images are blocked and gains not
   expect(await render()).toContain("pictures.test/photo.jpg");
 });
 
-test("a blocked local asset category empties Markdown and editor props", async () => {
+test("a blocked category empties local pictures in Markdown and editor props", async () => {
   const source =
-    "Before ![x](/frames/619.png) and ![y](https://pictures.test/y.jpg) [docs][d]\n\n[d]: https://example.test/guide\n";
+    "Before ![x](/pictures/ring.png) and ![y](https://pictures.test/y.jpg) [docs][d]\n\n[d]: https://example.test/guide\n";
   cookie = "frames";
   const html = await markup(<Markdown>{source}</Markdown>);
-  expect(html).not.toContain("/frames/");
+  expect(html).not.toContain("/pictures/ring.png");
   expect(html).toContain("pictures.test/y.jpg");
   const { value } = await editorValue(source);
-  expect(value).not.toContain("/frames/");
+  expect(value).not.toContain("/pictures/ring.png");
   expect(value).toContain("pictures.test/y.jpg");
   expect(value).toContain("[d]: https://example.test/guide");
 });
@@ -718,13 +674,13 @@ test("a signature never shows its pictures or the LITE label, whatever the visit
     "![full][ref] after the reference",
     "Use the <video> tag, Array<object> and <svg> files here",
     "",
-    "[ref]: /frames/619.png",
+    "[ref]: /pictures/ring.png",
   ].join("\n");
   for (const mode of [undefined, "avatars", "postImages", "all"]) {
     cookie = mode;
     const html = await markup(<Signature>{source}</Signature>);
     expect(html, String(mode)).not.toMatch(
-      /LITE MODE|pictures\.test|\/frames\/|<img/,
+      /LITE MODE|pictures\.test|\/pictures\/|<img/,
     );
     for (const text of [
       "Hello",
@@ -734,30 +690,6 @@ test("a signature never shows its pictures or the LITE label, whatever the visit
       "files here",
     ])
       expect(html, `${mode}: ${text}`).toContain(text);
-  }
-});
-
-test("a thread excerpt never prints the URL of a blocked picture", async () => {
-  const bodies = [
-    "Look ![f][r] here\n\n[r]: /frames/619.png",
-    'Look <img src="/frames/619.png"> here',
-  ];
-  let id = 900;
-  for (const body of bodies) {
-    posts.body = body;
-    cookie = "frames";
-    const blocked = await ThreadExcerpt({
-      thread: { id: id++, excerpt: "stored /frames/619.png" },
-    });
-    expect(blocked, body).not.toContain("/frames/");
-    expect(blocked, body).toContain("Look");
-    expect(blocked, body).toContain("here");
-    cookie = undefined;
-    expect(
-      await ThreadExcerpt({
-        thread: { id: id++, excerpt: "stored /frames/619.png" },
-      }),
-    ).toBe("stored /frames/619.png");
   }
 });
 

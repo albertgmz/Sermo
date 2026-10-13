@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Browser, ClientInfo, Os } from "@/lib/types";
+import type { Browser, ClientInfo, Os } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import messages from "../../../messages/en/forum.json";
 

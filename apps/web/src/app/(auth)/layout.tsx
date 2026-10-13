@@ -1,9 +1,11 @@
 import { Suspense } from "react";
-import { SiteAccent } from "@/components/layout/site-accent";
-import { getCurrentUser } from "@/lib/session";
+import { ViewerAccent } from "@/components/layout/site-accent";
+import { getSite } from "@/lib/sermo/site";
 
+// The sign-in pages are for visitors without a session, so they draw the site's own accent.
 async function Accent() {
-  return <SiteAccent user={await getCurrentUser()} />;
+  const { accents } = await getSite();
+  return <ViewerAccent accent={accents[0] ?? null} />;
 }
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {

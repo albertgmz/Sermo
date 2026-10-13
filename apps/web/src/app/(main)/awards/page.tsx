@@ -12,7 +12,7 @@ import { Suspense } from "react";
 import { TIER_ORDER, TIERS } from "@/app/(main)/awards/tiers";
 import { AwardIcon } from "@/components/forum/award-icon";
 import { Leaderboard } from "@/components/forum/leaderboard";
-import { XpBar } from "@/components/forum/level";
+import { levelWithBounds, XpBar } from "@/components/forum/level";
 import { SectionCard } from "@/components/forum/section-card";
 import {
   CatalogueSkeleton,
@@ -26,7 +26,6 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
-import { leaderboardMember } from "@/lib/member-items";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
@@ -74,20 +73,12 @@ async function Progress({
     membersFor([{ id: userId, username }]),
   ]);
   const { level } = profile;
-  const span = level.nextLevelXp - level.currentLevelXp;
-  const bar = {
-    level: level.level,
-    xp: profile.awardXp,
-    currentLevelXp: level.currentLevelXp,
-    nextLevelXp: level.nextLevelXp,
-    progress:
-      span > 0
-        ? Math.min(
-            1,
-            Math.max(0, (profile.awardXp - level.currentLevelXp) / span),
-          )
-        : 0,
-  };
+  const bar = levelWithBounds(
+    level.level,
+    profile.awardXp,
+    level.currentLevelXp,
+    level.nextLevelXp,
+  );
   return (
     <Container>
       <section
@@ -302,11 +293,7 @@ async function Leaders({ viewerId }: { viewerId?: number }) {
       title={t("leadersHeading")}
       description={t("leadersDescription")}
     >
-      <Leaderboard
-        members={leaders.items.map(leaderboardMember)}
-        by="xp"
-        viewerId={viewerId}
-      />
+      <Leaderboard members={leaders.items} by="xp" viewerId={viewerId} />
     </SectionCard>
   );
 }

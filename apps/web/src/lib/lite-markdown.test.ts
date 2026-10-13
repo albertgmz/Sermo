@@ -48,9 +48,9 @@ test("preserves unused ordinary reference definitions", () => {
 
 test("removes only definitions used exclusively by blocked images", () => {
   const input =
-    "![blocked][frame] ![allowed][photo]\n\n[frame]: /frames/619.png\n[photo]: https://pictures.test/photo.png\n[docs]: https://example.test/guide";
+    "![blocked][frame] ![allowed][photo]\n\n[frame]: /pictures/ring.png\n[photo]: https://pictures.test/photo.png\n[docs]: https://example.test/guide";
   const result = stripMarkdownImages(input, parseLiteCookie("frames"));
-  assert.ok(!result.includes("/frames/619.png"));
+  assert.ok(!result.includes("/pictures/ring.png"));
   assert.ok(!result.includes("[frame]:"));
   assert.ok(result.includes("![allowed][photo]"));
   assert.ok(result.includes("[photo]: https://pictures.test/photo.png"));
@@ -58,24 +58,25 @@ test("removes only definitions used exclusively by blocked images", () => {
 });
 
 test("preserves local image definitions shared with ordinary links", () => {
-  const input = "![frame][shared] [visit][shared]\n\n[shared]: /frames/619.png";
+  const input =
+    "![frame][shared] [visit][shared]\n\n[shared]: /pictures/ring.png";
   const result = stripMarkdownImages(input, parseLiteCookie("frames"));
   assert.ok(!result.includes("![frame]"));
   assert.ok(result.includes("[visit][shared]"));
-  assert.ok(result.includes("[shared]: /frames/619.png"));
+  assert.ok(result.includes("[shared]: /pictures/ring.png"));
 });
 
 for (const url of [
-  "/frames/619.png",
-  "/%66rames/619.png",
-  "/frames%2F619.png",
-  "/frames\\619.png",
-  "/avatars/../frames/619.png",
-  "/avatars/%2E%2E/frames/619.png",
-  "https://forum.test/frames/619.png",
-  "https://forum.test/%66rames/619.png?size=40#preview",
+  "/pictures/ring.png",
+  "/%70ictures/ring.png",
+  "/pictures%2Fring.png",
+  "/pictures\\ring.png",
+  "/media/../pictures/ring.png",
+  "/media/%2E%2E/pictures/ring.png",
+  "https://forum.test/pictures/ring.png",
+  "https://forum.test/%70ictures/ring.png?size=40#preview",
 ]) {
-  test(`blocks a registered local Markdown image at ${url}`, () => {
+  test(`blocks a local Markdown image at ${url}`, () => {
     assert.equal(
       stripMarkdownImages(
         `Before ![frame](<${url}>) after.`,
@@ -87,18 +88,22 @@ for (const url of [
   });
 }
 
-test("allows unrelated local and remote Markdown images with a category selection", () => {
+test("a category selection blocks local pictures, which belong to none, and leaves remote ones", () => {
   const input =
-    "![avatar](/avatars/tobi.jpg) ![remote](https://pictures.test/frames/619.png)";
+    "![avatar](/pictures/tobi.jpg) ![remote](https://pictures.test/pictures/ring.png)";
   assert.equal(
     stripMarkdownImages(input, parseLiteCookie("frames"), "https://forum.test"),
+    "LITE MODE ![remote](https://pictures.test/pictures/ring.png)",
+  );
+  assert.equal(
+    stripMarkdownImages(input, parseLiteCookie(), "https://forum.test"),
     input,
   );
 });
 
 test("postImages blocks remote and local Markdown images", () => {
   const result = stripMarkdownImages(
-    "![remote](https://pictures.test/photo.png) ![frame](/frames/619.png)",
+    "![remote](https://pictures.test/photo.png) ![frame](/pictures/ring.png)",
     parseLiteCookie("postImages"),
   );
   assert.equal(result, "LITE MODE LITE MODE");
@@ -106,7 +111,7 @@ test("postImages blocks remote and local Markdown images", () => {
 
 test("off preserves Markdown images and reference definitions", () => {
   const input =
-    "![remote](https://pictures.test/photo.png) ![frame][pic]\n\n[pic]: /frames/619.png";
+    "![remote](https://pictures.test/photo.png) ![frame][pic]\n\n[pic]: /pictures/ring.png";
   assert.equal(stripMarkdownImages(input, parseLiteCookie()), input);
 });
 
@@ -192,27 +197,27 @@ test("HTML in inline, fenced, and indented code is exempt", () => {
     "",
     "```html",
     '<svg><path d="M123 456"/></svg>',
-    '<img src="/frames/619.png">',
+    '<img src="/pictures/ring.png">',
     "```",
     "",
     '    <img src="https://pictures.test/indented.png">',
-    '    <div style="background: url(/frames/619.png)">example</div>',
+    '    <div style="background: url(/pictures/ring.png)">example</div>',
   ].join("\n");
   assert.equal(stripMarkdownImages(input), input);
 });
 
 test("the server HTML pass preserves Markdown images for their image renderer", () => {
   const input =
-    '![image](/frames/619.png) <svg><path d="secret"/></svg> `<img src="example">`';
+    '![image](/pictures/ring.png) <svg><path d="secret"/></svg> `<img src="example">`';
   assert.equal(
     stripMarkdownHtml(input, parseLiteCookie("all")),
-    '![image](/frames/619.png) LITE MODE `<img src="example">`',
+    '![image](/pictures/ring.png) LITE MODE `<img src="example">`',
   );
 });
 
 test("media CSS URLs can span lines and use HTML entities", () => {
   const input =
-    '<div style="background: url(\n&#47;frames/619.png\n)">fallback</div>';
+    '<div style="background: url(\n&#47;pictures/ring.png\n)">fallback</div>';
   assert.equal(
     stripMarkdownImages(input, parseLiteCookie("frames")),
     "LITE MODE",
@@ -264,7 +269,7 @@ test("a closed element still disappears whole, URL included", () => {
 test("the label of a removed picture can be left out", () => {
   assert.equal(
     stripMarkdownImages(
-      "Hi ![a](https://pictures.test/a.png) <video> x\n\n![b][r]\n\n[r]: /frames/1.png",
+      "Hi ![a](https://pictures.test/a.png) <video> x\n\n![b][r]\n\n[r]: /pictures/1.png",
       undefined,
       undefined,
       "",

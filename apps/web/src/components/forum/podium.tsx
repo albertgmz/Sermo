@@ -39,7 +39,7 @@ export function Podium({
       >
         {members.slice(0, 3).map((member, index) => (
           <li
-            key={member.id}
+            key={member.card.id}
             className={cn(
               "row-start-1 min-w-0",
               index === 0 && "col-start-2",
@@ -50,15 +50,12 @@ export function Podium({
             <div
               className={cn(
                 "group flex min-w-0 flex-col items-center rounded-t-md px-1 pt-2 transition-colors hover:bg-muted/60",
-                member.id === viewerId && "bg-primary/5",
+                member.card.id === viewerId && "bg-primary/5",
               )}
             >
-              <UserAvatar
-                user={member.member}
-                size={index === 0 ? "xl" : "lg"}
-              />
+              <UserAvatar user={member.card} size={index === 0 ? "xl" : "lg"} />
               <UserLink
-                user={member.member}
+                user={member.card}
                 className="mt-1 block w-full truncate text-center text-sm"
               />
               <div className="flex min-h-5 w-full justify-center">

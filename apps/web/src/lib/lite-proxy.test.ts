@@ -47,7 +47,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
     }
   }
   for (const cookie of ["", "all", "frames"]) {
-    for (const path of ["/foo:bar", "/forums/abc.png", "/awards/1.svg"]) {
+    for (const path of ["/foo:bar", "/forums/abc.gif", "/awards/1.avif"]) {
       const response = await request(path, cookie);
       assert.equal(response.status, 404, path);
       assert.equal(
@@ -56,18 +56,19 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       );
     }
   }
-  for (const cookie of ["", "frames"]) {
-    const response = await request("/avatars/tobi.jpg", cookie);
+  {
+    const response = await request("/pictures/tobi.jpg");
     assert.equal(response.headers.get("x-middleware-next"), "1");
     assert.equal(response.headers.get("vary"), "Cookie");
     assert.equal(response.headers.get("cache-control"), null);
   }
   for (const [path, cookie] of [
-    ["/frames/619.png", "all.frames"],
+    ["/pictures/ring.png", "all.frames"],
+    ["/pictures/tobi.jpg", "frames"],
     ["/unknown.png", "frames"],
     ["/THREAD~1/vinyl.jpg", "all"],
-    ["/avatars/tobi.jpg.", "avatars"],
-    ["/avatars/tobi.jpg%3A%3A%24DATA", "avatars"],
+    ["/pictures/tobi.jpg.", "avatars"],
+    ["/pictures/tobi.jpg%3A%3A%24DATA", "avatars"],
   ]) {
     const response = await request(path, cookie);
     assert.equal(response.headers.get("cache-control"), "no-store");

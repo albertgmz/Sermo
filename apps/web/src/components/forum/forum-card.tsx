@@ -10,8 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import type { MemberView, PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-// What the card needs of a forum. The JSON `ForumView` has these fields as they are; a node from
-// the backend is mapped to them on the forum list.
+// What the card needs of a forum: a node from the backend is mapped to it on the forum list.
 export type ForumCardData = {
   id: number;
   title: string;

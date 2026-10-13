@@ -10,7 +10,10 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LevelBadge } from "@/components/forum/level";
 import { messageActionClass } from "@/components/forum/message-row";
-import { ReactionButton } from "@/components/forum/reaction-button";
+import {
+  ReactionButton,
+  type ReactionType,
+} from "@/components/forum/reaction-button";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -24,7 +27,6 @@ import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { reactionsView } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
 import type { AuthorView, PictureView } from "@/lib/sermo/views";
-import type { ReactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type ApiFeedItem = z.output<typeof feedList.output>["items"][number];

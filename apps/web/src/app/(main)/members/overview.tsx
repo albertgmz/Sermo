@@ -33,7 +33,6 @@ import {
 } from "@/components/forum/standing";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
-import { leaderboardMember, standingEntry } from "@/lib/member-items";
 import { read } from "@/lib/sermo/client";
 import type { MemberView } from "@/lib/sermo/views";
 
@@ -105,7 +104,7 @@ async function MemberOfTheMonth() {
   const [latest] = winners.items;
   return latest && isMonthOf(latest, last) ? (
     <MonthHero
-      winner={standingEntry(latest)}
+      winner={latest}
       action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
     />
   ) : (
@@ -130,9 +129,7 @@ async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
   const [latest, ...earlier] = winners.items;
   const pastWinners = (
     latest && isMonthOf(latest, last) ? earlier : winners.items
-  )
-    .slice(0, PAST_WINNERS)
-    .map(standingEntry);
+  ).slice(0, PAST_WINNERS);
 
   return (
     <div className="grid gap-3 md:grid-cols-2 md:items-start">
@@ -144,10 +141,7 @@ async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
         )}
       >
         {race.items.length > 0 ? (
-          <StandingList
-            entries={race.items.map(standingEntry)}
-            viewerId={viewerId}
-          />
+          <StandingList entries={race.items} viewerId={viewerId} />
         ) : (
           <EmptyState
             icon={Flag}
@@ -177,13 +171,7 @@ async function NotablePodium({
   viewerId?: number;
 }) {
   const { items } = await read(usersList, { sort: view.sort, limit: TOP });
-  return (
-    <Podium
-      members={items.map(leaderboardMember)}
-      by={view.ranking}
-      viewerId={viewerId}
-    />
-  );
+  return <Podium members={items} by={view.ranking} viewerId={viewerId} />;
 }
 
 async function StaffRows() {

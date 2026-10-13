@@ -29,9 +29,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { liteBlocks } from "@/lib/lite-mode";
-import { AWARD_SLOTS } from "@/lib/permissions";
-import type { AwardTier } from "@/lib/types";
+import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
+
+export type AwardTier = AuthorView["awards"][number]["tier"];
+
+// Awards shown next to a name: on phones, and from `md` up. A profile says how many slots it has.
+export const MOBILE_AWARD_SLOTS = 3;
+export const DESKTOP_AWARD_SLOTS = 5;
 
 const ICONS: Record<string, LucideIcon> = {
   "book-open": BookOpen,
@@ -125,8 +130,8 @@ export async function AwardIcon({
 
 export function AwardRow({
   awards,
-  max = AWARD_SLOTS.desktop,
-  maxMobile = AWARD_SLOTS.mobile,
+  max = DESKTOP_AWARD_SLOTS,
+  maxMobile = MOBILE_AWARD_SLOTS,
   size = "sm",
   className,
 }: {

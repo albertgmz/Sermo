@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ReactionButton } from "@/components/forum/reaction-button";
-import type { ReactionType } from "@/lib/types";
+import {
+  ReactionButton,
+  type ReactionType,
+} from "@/components/forum/reaction-button";
 
 const OTHERS = 3;
 

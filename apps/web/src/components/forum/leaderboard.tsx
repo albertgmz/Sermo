@@ -11,7 +11,6 @@ import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { formatCompact, formatNumber } from "@/lib/format";
-import type { Level } from "@/lib/levels";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -23,18 +22,15 @@ export type LeaderboardKind =
   | "referrals"
   | "xp";
 
-// A member in a ranking and the numbers any ranking may show.
+// A member in a ranking and the numbers any ranking may show: an item of the members list.
 export type LeaderboardMember = {
-  id: number;
-  member: MemberView;
-  level: Pick<Level, "level">;
-  xp: number;
+  card: MemberView;
+  awardXp: number;
   credits: number;
   postCount: number;
-  reactionCount: number;
+  reactionScore: number;
   referralCount: number;
-  // Only how many are held is drawn.
-  awards: { length: number };
+  awardCount: number;
 };
 
 const MEDAL_CLASSES = [
@@ -85,11 +81,11 @@ const COUNTS: Record<
   },
   reactions: {
     icon: Heart,
-    value: (member) => member.reactionCount,
+    value: (member) => member.reactionScore,
   },
   awards: {
     icon: Trophy,
-    value: (member) => member.awards.length,
+    value: (member) => member.awardCount,
   },
   referrals: {
     icon: UserPlus,
@@ -110,12 +106,14 @@ export function LeaderboardScore({
   if (by === "xp") {
     return (
       <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
-        <LevelBadge level={member.level} />
+        <LevelBadge level={member.card} />
         <span
-          title={t("xpTitle", { xp: formatNumber(member.xp) })}
+          title={t("xpTitle", { xp: formatNumber(member.awardXp) })}
           className="whitespace-nowrap text-sm font-semibold tabular-nums"
         >
-          {compact ? formatCompact(member.xp) : formatNumber(member.xp)}
+          {compact
+            ? formatCompact(member.awardXp)
+            : formatNumber(member.awardXp)}
           <span className="text-xs font-medium text-muted-foreground">
             {" "}
             {t("xp")}
@@ -163,20 +161,20 @@ export function Leaderboard({
     <ol start={start} className="divide-y divide-border">
       {members.map((member, index) => (
         <li
-          key={member.id}
+          key={member.card.id}
           className={cn(
             "flex min-h-12 items-center gap-3 px-4 py-2",
             compact && "min-h-10 gap-2 px-3 py-0",
-            member.id === viewerId && "bg-primary/5",
+            member.card.id === viewerId && "bg-primary/5",
           )}
         >
           <RankNumber rank={start + index} />
           <UserAvatar
-            user={member.member}
+            user={member.card}
             className="relative after:absolute after:-inset-1"
           />
           <UserLink
-            user={member.member}
+            user={member.card}
             className={cn(
               "min-w-0 flex-1 truncate text-sm",
               compact && "min-h-10 content-center",
@@ -184,9 +182,9 @@ export function Leaderboard({
           />
           {by === "xp" && !compact ? (
             <>
-              <LevelBadge level={member.level} />
+              <LevelBadge level={member.card} />
               <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {formatNumber(member.xp)}
+                {formatNumber(member.awardXp)}
                 <span className="text-xs font-medium text-muted-foreground">
                   {" "}
                   {t("xp")}
