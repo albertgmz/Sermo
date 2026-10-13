@@ -15,6 +15,20 @@ async function category(env: BenchEnv): Promise<number> {
     await env.call("shopCategories.create", env.actors.admin, { name: "Benchmark catalog" }),
   ).id;
 }
+/**
+ * A rich member who can still post: the moderation scenarios restrict and ban some seeded
+ * members, and the scenario that starts a thread must not pick one of them.
+ */
+function poster(env: BenchEnv): number {
+  const free = env.ctx.sqlite.prepare<{ id: number }, [number, number]>(
+    `SELECT u.id FROM users u WHERE u.id = ?1 AND u.banned_permanently = 0 AND u.banned_until IS NULL
+       AND NOT EXISTS (SELECT 1 FROM user_restrictions r WHERE r.user_id = u.id AND r.lifted_at IS NULL
+         AND (r.expires_at IS NULL OR r.expires_at > ?2))`,
+  );
+  const now = Date.now();
+  for (const id of env.meta.economy.richUserIds) if (free.get(id, now)) return id;
+  throw new Error("No rich member is free to post");
+}
 const frameEntries = new WeakMap<Ctx, number>();
 /** One catalog frame, with a picture, for every frame item these scenarios sell. */
 function frameEntry(env: BenchEnv): number {
@@ -161,7 +175,7 @@ function using(kind: "bump" | "highlight" | "permission"): Scenario {
     kind: "write",
     async setup(env) {
       inventoryIds = [];
-      userId = env.meta.economy.richUserIds[0]!;
+      userId = poster(env);
       fund(env, userId);
       await env.authHeader(env.actors.user(userId));
       const categoryId = await category(env);
