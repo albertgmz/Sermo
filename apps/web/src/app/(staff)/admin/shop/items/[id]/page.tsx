@@ -6,9 +6,9 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import { Notice } from "@/components/staff/notice";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { EconomyNotice } from "../../../credits/shared";
 import { FormSkeleton, PageHead } from "../../../groups/skeletons";
 import { deleteItem } from "../actions";
 import { ItemForm } from "../item-form";
@@ -36,9 +36,9 @@ async function EditItem({
   return (
     <>
       <PageHead heading={item.name} subtitle={t("editPage.subtitle")} />
-      <EconomyNotice
+      <Notice
         searchParams={searchParams}
-        shown={{
+        notices={{
           saved: t("notices.saved"),
           createdNoPicture: t("notices.createdNoPicture"),
         }}

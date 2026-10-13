@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { EconomyFrame } from "../credits/shared";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListFormSkeleton } from "../groups/skeletons";
 import { RuleList } from "./rule-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,12 +15,13 @@ export default function CreditRulesPage({
 }: PageProps<"/admin/credit-rules">) {
   const t = useTranslations("adminEconomy.rules");
   return (
-    <EconomyFrame
+    <ScreenFrame
       heading={t("pageHeading")}
       subtitle={t("subtitle")}
-      loading={t("loading")}
+      label={t("loading")}
+      fallback={<ListFormSkeleton />}
     >
       <RuleList searchParams={searchParams} />
-    </EconomyFrame>
+    </ScreenFrame>
   );
 }

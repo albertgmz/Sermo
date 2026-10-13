@@ -3,13 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getFormatter, getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { Notice } from "@/components/staff/notice";
+import { StreamedPanel } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { EconomyNotice } from "../../credits/shared";
 import { FormSkeleton, PageHead } from "../../groups/skeletons";
 import { deleteAward } from "../actions";
 import { AwardForm } from "../award-form";
@@ -87,9 +86,9 @@ async function EditAward({
         heading={award.name}
         subtitle={t("editPage.subtitle", { count: award.grantCount })}
       />
-      <EconomyNotice
+      <Notice
         searchParams={searchParams}
-        shown={{
+        notices={{
           saved: t("notices.saved"),
           createdNoPicture: t("notices.createdNoPicture"),
         }}
@@ -122,17 +121,9 @@ export default async function AwardPage({
   const t = await getTranslations("adminEconomy.awards");
   return (
     <div className="space-y-6">
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={8} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <EditAward params={params} searchParams={searchParams} />
-        </div>
-      </Suspense>
+      <StreamedPanel label={t("loading")} fallback={<FormSkeleton rows={8} />}>
+        <EditAward params={params} searchParams={searchParams} />
+      </StreamedPanel>
     </div>
   );
 }

@@ -4,12 +4,13 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { Art } from "@/components/forum/art";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
+import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { EconomyNotice, one } from "../../credits/shared";
+import { one } from "../../credits/shared";
 import { effectWords } from "./effect-words";
 import { ItemForm } from "./item-form";
 import { getLookups } from "./lookups";
@@ -39,7 +40,7 @@ export async function ItemScreen({
   if (!category) {
     return (
       <>
-        <EconomyNotice searchParams={searchParams} shown={notices} />
+        <Notice searchParams={searchParams} notices={notices} />
         <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
           {t("noCategories")}{" "}
           <Link
@@ -59,7 +60,7 @@ export async function ItemScreen({
   });
   return (
     <>
-      <EconomyNotice searchParams={searchParams} shown={notices} />
+      <Notice searchParams={searchParams} notices={notices} />
       <CursorList
         items={page.items}
         nextCursor={page.nextCursor}

@@ -1,18 +1,14 @@
 import { permissionsList, usersCards } from "@sermo/core/contracts";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { Notice } from "@/components/staff/notice";
-import { buttonVariants } from "@/components/ui/button";
+import { ScreenFrame } from "@/components/staff/screen-frame";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { cn } from "@/lib/utils";
-import { FormSkeleton, PageHead } from "../../../groups/skeletons";
+import { FormSkeleton } from "../../../groups/skeletons";
 import { entriesOf, getDefinitions, matrixPermissions } from "../../data";
+import { MatrixHead } from "../../matrix-head";
 import { PermissionForm } from "../../permission-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,25 +35,14 @@ async function Matrix({
   if (!member) notFound();
   return (
     <>
-      <Notice
-        namespace="adminGroups.notices"
+      <MatrixHead
         searchParams={searchParams}
-        shown={["saved"]}
+        title={member.username}
+        link={{
+          href: `/admin/permissions/explain?user=${userId}`,
+          label: t("analyse"),
+        }}
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">
-          {member.username}
-        </h2>
-        <Link
-          href={`/admin/permissions/explain?user=${userId}`}
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "min-h-10 px-4",
-          )}
-        >
-          {t("analyse")}
-        </Link>
-      </div>
       <PermissionForm
         target={{ user: userId }}
         heading={t("heading")}
@@ -74,19 +59,13 @@ export default function PermissionMemberPage({
 }: PageProps<"/admin/permissions/members/[id]">) {
   const t = useTranslations("adminGroups.permissionMember");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("pageHeading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={8} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <Matrix params={params} searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("pageHeading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={8} />}
+    >
+      <Matrix params={params} searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

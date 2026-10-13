@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { FormSkeleton, ListSkeleton, PageHead } from "../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { ListFormSkeleton } from "../groups/skeletons";
 import { ReactionList } from "./reaction-list";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,22 +15,13 @@ export default function ReactionsPage({
 }: PageProps<"/admin/reactions">) {
   const t = useTranslations("adminContent.reactions");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <div className="space-y-4">
-              <ListSkeleton />
-              <FormSkeleton />
-            </div>
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <ReactionList searchParams={searchParams} />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<ListFormSkeleton />}
+    >
+      <ReactionList searchParams={searchParams} />
+    </ScreenFrame>
   );
 }

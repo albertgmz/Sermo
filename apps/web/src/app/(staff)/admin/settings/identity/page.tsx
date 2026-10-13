@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { LoadingRegion } from "@/components/forum/skeletons";
-import { FormSkeleton, PageHead } from "../../groups/skeletons";
+import { ScreenFrame } from "@/components/staff/screen-frame";
+import { FormSkeleton } from "../../groups/skeletons";
 import { SettingsNotice } from "../settings-screen";
 import { IdentityForm } from "./identity-form";
 
@@ -17,20 +16,14 @@ export default function IdentityPage({
 }: PageProps<"/admin/settings/identity">) {
   const t = useTranslations("adminSetup.identity");
   return (
-    <div className="space-y-6">
-      <PageHead heading={t("heading")} subtitle={t("subtitle")} />
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("loading")}>
-            <FormSkeleton rows={3} />
-          </LoadingRegion>
-        }
-      >
-        <div className="space-y-4">
-          <SettingsNotice searchParams={searchParams} />
-          <IdentityForm />
-        </div>
-      </Suspense>
-    </div>
+    <ScreenFrame
+      heading={t("heading")}
+      subtitle={t("subtitle")}
+      label={t("loading")}
+      fallback={<FormSkeleton rows={3} />}
+    >
+      <SettingsNotice searchParams={searchParams} />
+      <IdentityForm />
+    </ScreenFrame>
   );
 }

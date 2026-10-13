@@ -4,13 +4,14 @@ import { AwardIcon } from "@/components/forum/award-icon";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList, cursorFrom } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { Notice } from "@/components/staff/notice";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { MemberChoice } from "../credits/member-choice";
-import { EconomyNotice, one } from "../credits/shared";
+import { one } from "../credits/shared";
 import { memberNames } from "../logs/links";
 import { grantAward, revokeGrant } from "./actions";
 
@@ -42,7 +43,7 @@ export async function GrantsScreen({
   if (userId === null) {
     return (
       <>
-        <EconomyNotice searchParams={searchParams} shown={notices} />
+        <Notice searchParams={searchParams} notices={notices} />
         {picker}
       </>
     );
@@ -63,7 +64,7 @@ export async function GrantsScreen({
   const offered = awards.items.filter((award) => award.isActive);
   return (
     <>
-      <EconomyNotice searchParams={searchParams} shown={notices} />
+      <Notice searchParams={searchParams} notices={notices} />
       {picker}
       <FormRows
         action={grantAward}
