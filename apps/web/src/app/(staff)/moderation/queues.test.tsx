@@ -2,6 +2,7 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
+import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
 const intl = await import("next-intl/server");
@@ -69,10 +70,15 @@ const TARGETS = [
 // A backend that answers the two queues and counts every request it gets. Anything that names one
 // piece of content is answered "not found" (it still counts), so a page that reads content row
 // by row shows it in the count.
-function backend() {
+function backend(staff: Record<string, unknown> = {}, nodes: unknown[] = []) {
   const asked: string[] = [];
   globalThis.fetch = (async (input: string) => {
     const { pathname } = new URL(input);
+    // The visitor is read once per render by the page's layout too, so it is not counted here.
+    if (pathname === "/api/v1/me") {
+      const viewer = viewerBody(true);
+      return Response.json({ ...viewer, staff: { ...viewer.staff, ...staff } });
+    }
     asked.push(pathname);
     const group = /^\/api\/v1\/reports\/(\d+)$/.exec(pathname);
     if (pathname === "/api/v1/reports") {
@@ -120,7 +126,7 @@ function backend() {
         nextCursor: null,
       });
     }
-    if (pathname === "/api/v1/nodes") return Response.json({ items: [] });
+    if (pathname === "/api/v1/nodes") return Response.json({ items: nodes });
     if (
       pathname === "/api/v1/member-cards" ||
       pathname === "/api/v1/member-authors"
@@ -177,4 +183,50 @@ test("a page of 20 approvals shows each excerpt and place from the list and read
   expect(page.split(messages.moderation.common.where.hidden)).toHaveLength(6);
   // The list, the forums and the names: nothing per row.
   expect(asked.length).toBeLessThanOrEqual(3);
+});
+
+const forum = (id: number, title: string) => ({
+  id,
+  parentId: null,
+  type: "forum",
+  title,
+  description: "",
+  position: id,
+  depth: 0,
+  tabId: null,
+  icon: null,
+  cover: null,
+  threadCount: 0,
+  postCount: 0,
+  lastPost: null,
+  permissions: { canPost: false, canModerate: true },
+  settings: {
+    requireThreadApproval: false,
+    requireReplyApproval: false,
+    isReadOnly: false,
+    minAccountAgeDays: 0,
+    minPostCount: 0,
+  },
+});
+
+test("a moderator of one forum is offered that forum in the report filter, not the others", async () => {
+  backend({ moderatedNodeIds: [2] }, [
+    forum(1, "Growing"),
+    forum(2, "Cooking"),
+  ]);
+  const page = await html(ReportList({ searchParams: Promise.resolve({}) }));
+  expect(page).toContain("Cooking");
+  expect(page).not.toContain("Growing");
+});
+
+test("a moderator of every forum, or one whose list was cut short, is offered all of them", async () => {
+  for (const staff of [
+    { moderatesEverywhere: true },
+    { moderatedNodesTruncated: true },
+  ]) {
+    backend(staff, [forum(1, "Growing"), forum(2, "Cooking")]);
+    const page = await html(ReportList({ searchParams: Promise.resolve({}) }));
+    expect(page).toContain("Cooking");
+    expect(page).toContain("Growing");
+  }
 });

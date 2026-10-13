@@ -22,7 +22,7 @@ export async function ApprovalList({ searchParams }: { searchParams: Params }) {
   const [t, type, forums, page] = await Promise.all([
     getTranslations("moderation.approvals"),
     getTranslations("moderation.common.type"),
-    forumOptions(),
+    forumOptions({ moderated: true }),
     read(approvalsList, { nodeId, cursor: cursorFrom(params), limit: 20 }),
   ]);
   const name = await memberNames(page.items.map((item) => item.authorId));

@@ -42,7 +42,7 @@ export async function ReportList({ searchParams }: { searchParams: Params }) {
     getTranslations("moderation.reports"),
     getTranslations("moderation.common.type"),
     getTranslations("moderation.common.state"),
-    forumOptions(),
+    forumOptions({ moderated: true }),
     read(reportsList, {
       state,
       nodeId,
