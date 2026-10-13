@@ -41,5 +41,19 @@ export function fakeBackend(answers: Record<string, () => Response>) {
   };
 }
 
-export const refusal = (status: number, code: string, message = code) =>
-  Response.json({ error: { code, message } }, { status });
+export const refusal = (
+  status: number,
+  code: string,
+  message = code,
+  issues?: { path: string[]; message: string }[],
+) => Response.json({ error: { code, message, issues } }, { status });
+
+// The two refusals of an administrator's password, as the backend gives them: each names the field.
+export const wrongPassword = () =>
+  refusal(403, "forbidden", "That is not your password.", [
+    { path: ["actorPassword"], message: "Wrong password" },
+  ]);
+export const tooManyWrongPasswords = () =>
+  refusal(429, "rate_limited", "Too many wrong passwords. Try again later.", [
+    { path: ["actorPassword"], message: "Too many wrong passwords" },
+  ]);

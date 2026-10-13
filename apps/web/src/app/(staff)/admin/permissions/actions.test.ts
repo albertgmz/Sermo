@@ -2,7 +2,12 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { permissionDefinitionBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
-import { fakeBackend, refusal } from "../groups/test-backend";
+import {
+  fakeBackend,
+  refusal,
+  tooManyWrongPasswords,
+  wrongPassword,
+} from "../groups/test-backend";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -69,8 +74,7 @@ const answers = () => ({
 test("a wrong password changes nothing and shows on the password field", async () => {
   backend = fakeBackend({
     ...answers(),
-    "permissions.set": () =>
-      refusal(403, "forbidden", "That is not your password."),
+    "permissions.set": () => wrongPassword(),
   });
   expect(
     await savePermissions(
@@ -87,12 +91,7 @@ test("a wrong password changes nothing and shows on the password field", async (
 test("the limit on wrong passwords shows its own message on the password field", async () => {
   backend = fakeBackend({
     ...answers(),
-    "permissions.set": () =>
-      refusal(
-        429,
-        "rate_limited",
-        "Too many wrong passwords. Try again later.",
-      ),
+    "permissions.set": () => tooManyWrongPasswords(),
   });
   expect(
     await savePermissions(

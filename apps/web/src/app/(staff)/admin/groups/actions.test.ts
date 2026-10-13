@@ -2,7 +2,12 @@ import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { groupBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
-import { fakeBackend, refusal } from "./test-backend";
+import {
+  fakeBackend,
+  refusal,
+  tooManyWrongPasswords,
+  wrongPassword,
+} from "./test-backend";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -161,14 +166,8 @@ test("the API's general request limit shows at the top of the form, not on the p
 
 test("a wrong password shows on the password field and the limit shows its message", async () => {
   backend = fakeBackend({
-    "groups.update": () =>
-      refusal(403, "forbidden", "That is not your password."),
-    "groups.delete": () =>
-      refusal(
-        429,
-        "rate_limited",
-        "Too many wrong passwords. Try again later.",
-      ),
+    "groups.update": () => wrongPassword(),
+    "groups.delete": () => tooManyWrongPasswords(),
   });
   expect(
     await saveGroup(null, form({ id: "7", title: "A", rank: "1" })),
@@ -186,4 +185,23 @@ test("a missing password is asked for before the backend is", async () => {
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
   expect(backend.asked).toEqual([]);
+});
+
+test("a refusal is tied to the password field by the field the backend names, not by its words", async () => {
+  backend = fakeBackend({
+    "groups.update": () =>
+      refusal(403, "forbidden", "That is not your password."),
+    "groups.delete": () =>
+      refusal(
+        429,
+        "rate_limited",
+        "Too many wrong passwords. Try again later.",
+      ),
+  });
+  expect(
+    await saveGroup(null, form({ id: "7", title: "A", rank: "1" })),
+  ).toEqual({ error: "That is not your password." });
+  expect(await deleteGroup(null, form({ id: "7" }))).toEqual({
+    error: "Too many wrong passwords. Try again later.",
+  });
 });
