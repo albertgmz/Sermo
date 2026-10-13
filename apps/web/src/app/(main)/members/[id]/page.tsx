@@ -16,6 +16,7 @@ import { ProfileHeader } from "@/app/(main)/members/[id]/profile-header";
 import { Wall } from "@/app/(main)/members/[id]/wall";
 import { threadHref } from "@/app/(main)/threads/[id]/pages";
 import { AwardIcon } from "@/components/forum/award-icon";
+import { JsonLd } from "@/components/forum/json-ld";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -44,7 +45,9 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
+import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
+import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";
 import { cn } from "@/lib/utils";
@@ -59,15 +62,22 @@ function first(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value) || undefined;
 }
 
+// The backend has one address for a profile; another tab or a continued list is a copy of it.
+function seoOf(profile: Profile, query: Record<string, unknown>) {
+  const copy =
+    query.tab !== undefined ||
+    query.cursor !== undefined ||
+    query.comments !== undefined ||
+    query.commentsCursor !== undefined;
+  return copy ? copyOf(profile.seo) : profile.seo;
+}
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps<"/members/[id]">): Promise<Metadata> {
-  const { id } = await params;
-  const [t, profile] = await Promise.all([
-    getTranslations("members.profile"),
-    getProfile(memberIdOf(id)),
-  ]);
-  return { title: t("metaTitle", { username: profile.username }) };
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  return seoMetadata(seoOf(await getProfile(memberIdOf(id)), query));
 }
 
 async function LevelStrip({ profile }: { profile: Profile }) {
@@ -354,6 +364,7 @@ export default async function ProfilePage({
 
   return (
     <>
+      <JsonLd items={seoOf(profile, query).jsonLd} />
       <Suspense
         fallback={
           <LoadingRegion label={t("loadingHeader")}>
@@ -412,7 +423,7 @@ export default async function ProfilePage({
 
 async function ProfileTabs({ profile, tab }: { profile: Profile; tab: Tab }) {
   const t = await getTranslations("members.profile");
-  const base = `/members/${profile.id}`;
+  const base = canonicalPathOf(profile.seo.canonical);
   const tabs = [
     { value: "wall", label: t("wallTab"), href: base },
     {

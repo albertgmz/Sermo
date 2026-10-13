@@ -14,7 +14,7 @@ import {
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { read } from "@/lib/sermo/client";
-import { parseId } from "@/lib/sermo/ids";
+import { parsePageId } from "@/lib/sermo/ids";
 import { prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function NewThreadPage({
   params,
 }: PageProps<"/forums/[id]/new">) {
-  const nodeId = parseId((await params).id);
+  const nodeId = parsePageId((await params).id);
   if (nodeId === null) notFound();
   const { node, breadcrumbs, resolvedPermissions } = await read(nodesGet, {
     nodeId,

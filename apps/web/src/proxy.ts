@@ -1,11 +1,10 @@
 import {
   awardsGet,
   conversationsGet,
-  nodesGet,
   PageSlug,
   pagesGet,
-  postsList,
-  profilesGet,
+  seoNode,
+  seoProfile,
   seoThread,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
@@ -21,8 +20,14 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
+import {
+  canonicalPathOf,
+  FORUM_PREFIX,
+  LEGACY_FORUM_PREFIX,
+  toBackendPath,
+} from "@/lib/sermo/addresses";
 import { SermoError } from "@/lib/sermo/errors";
-import { parseId } from "@/lib/sermo/ids";
+import { parseId, parsePageId } from "@/lib/sermo/ids";
 import {
   callWith,
   type Forward,
@@ -33,7 +38,7 @@ import { viewerOf } from "@/lib/sermo/viewer";
 // Falsy: there is no such record. A response: answer with it. Anything else: let the page render.
 type Finder = (
   id: string,
-  viewerId: number,
+  action: string | undefined,
   request: NextRequest,
 ) => Promise<unknown>;
 
@@ -55,57 +60,79 @@ async function exists(
 
 const backend =
   (ask: (id: number, forward: Forward) => Promise<unknown>): Finder =>
-  async (id, _viewerId, request) =>
+  async (id, _action, request) =>
     isId(id) && exists(request, (forward) => ask(Number(id), forward));
 
+// The page of a thread the address asks for; anything but a whole number from 2 up is page 1.
+function pageOf(request: NextRequest) {
+  const page = request.nextUrl.searchParams.get("page") ?? "";
+  return /^[1-9]\d{0,8}$/.test(page) ? Number(page) : 1;
+}
+
+type Seo = { canonical: string; redirect: boolean };
+
+// The three public page kinds have one address each, `/<kind>/<id>-<slug>`, and the backend says
+// which: its SEO read takes the address that was asked for and answers with the canonical one
+// and whether to go there. The same read proves the record exists and the visitor may open it,
+// so a page load costs the one backend read it cost before. A merged thread is a redirect to the
+// thread that took its place, whatever slug the address carries.
+function seoPage(
+  ask: (
+    id: number,
+    requestedPath: string,
+    page: number,
+    forward: Forward,
+  ) => Promise<Seo>,
+  paged = false,
+): Finder {
+  return async (raw, action, request) => {
+    const id = parsePageId(raw);
+    if (id === null) return false;
+    // A sub-route (`/forums/3/new`) is served under whatever slug it carries: only the page
+    // itself is held to the canonical address.
+    const page = paged && action === undefined ? pageOf(request) : 1;
+    const requestedPath =
+      action === undefined
+        ? toBackendPath(request.nextUrl.pathname) +
+          (page > 1 ? `?page=${page}` : "")
+        : "";
+    try {
+      const seo = await ask(
+        id,
+        requestedPath,
+        page,
+        forwardFromHeaders(request.headers),
+      );
+      if (!seo.redirect) return true;
+      const target = new URL(canonicalPathOf(seo.canonical), request.url);
+      if (action === undefined) target.search = request.nextUrl.search;
+      return NextResponse.redirect(target, 308);
+    } catch (error) {
+      return !(error instanceof SermoError && error.code === "not_found");
+    }
+  };
+}
+
 const CONTENT: Record<string, Finder> = {
-  members: backend((userId, forward) =>
-    callWith(forward, profilesGet, { userId }),
+  members: seoPage((userId, requestedPath, _page, forward) =>
+    callWith(forward, seoProfile, { userId, requestedPath }),
   ),
-  forums: backend((nodeId, forward) => callWith(forward, nodesGet, { nodeId })),
+  forums: seoPage((nodeId, requestedPath, _page, forward) =>
+    callWith(forward, seoNode, { nodeId, requestedPath }),
+  ),
+  threads: seoPage(
+    (threadId, requestedPath, page, forward) =>
+      callWith(forward, seoThread, { threadId, requestedPath, page }),
+    true,
+  ),
   awards: backend((awardId, forward) =>
     callWith(forward, awardsGet, { awardId }),
   ),
-  // `threads.get` would count a view; one post of the thread proves the viewer can open it.
-  threads: async (id, _viewerId, request) => {
-    if (!isId(id)) return false;
-    const threadId = Number(id);
-    const forward = forwardFromHeaders(request.headers);
-    try {
-      await callWith(forward, postsList, { threadId, limit: 1 });
-      return true;
-    } catch (error) {
-      if (!(error instanceof SermoError && error.code === "not_found"))
-        return true;
-    }
-    return mergedInto(request, forward, threadId);
-  },
   // A conversation the visitor is not part of is "not found" for them.
   conversations: backend((conversationId, forward) =>
     callWith(forward, conversationsGet, { conversationId }),
   ),
 };
-
-// A thread that was merged into another has no posts of its own, so `posts.list` calls it
-// missing. The SEO read follows the merge without counting a view and names the thread that took
-// its place in the canonical address.
-async function mergedInto(
-  request: NextRequest,
-  forward: Forward,
-  threadId: number,
-): Promise<unknown> {
-  try {
-    const seo = await callWith(forward, seoThread, { threadId });
-    const target = seo.redirect
-      ? /^\/threads\/(\d+)(?:-|$)/.exec(new URL(seo.canonical).pathname)?.[1]
-      : undefined;
-    return target
-      ? NextResponse.redirect(new URL(`/threads/${target}`, request.url), 308)
-      : false;
-  } catch (error) {
-    return !(error instanceof SermoError && error.code === "not_found");
-  }
-}
 
 const STATIC_PAGES = ["terms", "privacy", "legal", "contact"];
 
@@ -117,6 +144,9 @@ function staticSlug(section: string, id: string | undefined, action?: string) {
 }
 
 const SESSION_COOKIES = ["sermo.session_token", "__Secure-sermo.session_token"];
+
+// The pages that carry a slug after the id.
+const PUBLIC_PAGES = ["threads", "forums", "members"];
 
 const MEMBERS_ONLY = ["account", "notifications", "conversations"];
 
@@ -185,6 +215,19 @@ function notFound(request: NextRequest) {
   });
 }
 
+// Forums used to live under another name; those addresses go to the same place under the
+// current one.
+function legacyForumRedirect(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return undefined;
+  const { pathname } = request.nextUrl;
+  const prefix = `/${LEGACY_FORUM_PREFIX}`;
+  if (pathname !== prefix && !pathname.startsWith(`${prefix}/`))
+    return undefined;
+  const target = request.nextUrl.clone();
+  target.pathname = `/${FORUM_PREFIX}${pathname.slice(prefix.length)}`;
+  return NextResponse.redirect(target, 308);
+}
+
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
@@ -215,6 +258,8 @@ async function handleRequest(request: NextRequest) {
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
+  const legacy = legacyForumRedirect(request);
+  if (legacy) return legacy;
   if (isUnknownUnsafePath(request.nextUrl.pathname)) return notFound(request);
   let pathname: string;
   try {
@@ -242,12 +287,13 @@ async function handleRequest(request: NextRequest) {
     );
     return NextResponse.redirect(login);
   }
-  // An id that is not plain decimal is no record, whatever kind of request asks for it.
+  // An id that is not a plain decimal number (for a public page, one followed by `-slug`) is no
+  // record, whatever kind of request asks for it.
   if (
     id &&
     CONTENT[section] &&
     !(section === "conversations" && id === "new") &&
-    !isId(id)
+    !(PUBLIC_PAGES.includes(section) ? parsePageId(id) !== null : isId(id))
   ) {
     return notFound(request);
   }
@@ -269,7 +315,7 @@ async function handleRequest(request: NextRequest) {
       ? CONTENT[section]
       : undefined;
   if (find) {
-    const found = await find(id, Number.NaN, request);
+    const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
     if (!found) return notFound(request);
   }
