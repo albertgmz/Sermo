@@ -214,7 +214,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     ["/sitemap.xml", "seo.sitemapIndex", "application/xml"],
     ["/sitemaps/{name}", "seo.sitemapShard", "application/xml"],
     ["/feed.atom", "seo.siteFeed", "application/atom+xml"],
-    ["/nodes/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
+    ["/forums/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
     ["/{key}.txt", "seo.indexNowKey", "text/plain"],
   ] as const) {
     paths[path] = {

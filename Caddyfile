@@ -21,7 +21,7 @@
 	# included), the MCP endpoint, health, the sitemaps, the feeds, robots.txt and the IndexNow key
 	# file (<key>.txt).
 	@backend {
-		path /api/* /mcp /health /robots.txt /sitemap.xml /sitemaps/* /feed.atom /nodes/*/feed.atom /*.txt
+		path /api/* /mcp /health /robots.txt /sitemap.xml /sitemaps/* /feed.atom /forums/*/feed.atom /nodes/*/feed.atom /*.txt
 	}
 	handle @backend {
 		reverse_proxy sermo:3000

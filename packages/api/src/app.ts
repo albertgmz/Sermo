@@ -292,7 +292,11 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
       "content-type": "application/atom+xml; charset=utf-8",
     }),
   );
-  app.get("/nodes/:nodeId/feed.atom", (c) => {
+  // The address this feed had before forums moved to /forums: kept answering with a redirect.
+  app.get("/nodes/:nodeId/feed.atom", (c) =>
+    c.redirect(`/forums/${encodeURIComponent(c.req.param("nodeId"))}/feed.atom`, 301),
+  );
+  app.get("/forums/:nodeId/feed.atom", (c) => {
     const match = /^(\d+)(?:-[^/]+)?$/.exec(c.req.param("nodeId"));
     const id = Number(match?.[1]);
     if (!Number.isSafeInteger(id) || id < 1)

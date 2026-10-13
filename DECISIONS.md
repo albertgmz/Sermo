@@ -1447,9 +1447,17 @@ path, session cookies and the `Origin` check see one origin (`BETTER_AUTH_URL` e
 the browser bar), and file downloads never pass through Next. Paths routed to the backend, taken
 from the route table in `packages/api/src/app.ts`: `/api/*` (Better Auth, REST, files, OpenAPI),
 `/mcp`, `/health`, `/robots.txt`, `/sitemap.xml`, `/sitemaps/*`, `/feed.atom`,
-`/nodes/*/feed.atom`, and `/*.txt` (the IndexNow key file; the web app serves no `.txt`). The web
+`/forums/*/feed.atom` (and `/nodes/*/feed.atom`, which answers 301 to it), and `/*.txt` (the IndexNow key file; the web app serves no `.txt`). The web
 app has no routes of its own under any of these. Uploads from the pages are Next route handlers and
 travel ingress, `web`, backend.
+
+**One public address scheme.** Everything the backend publishes as a page address (sitemaps,
+feeds, canonical links, structured data, push links) is `/forums/<id>-<slug>`, `/threads/<id>-<slug>`
+and `/members/<id>-<slug>`, the addresses the web app serves; the slug is cosmetic and the number
+decides. The per-forum feed is `/forums/<id>/feed.atom` (the slugged form is accepted too); the
+earlier `/nodes/<id>/feed.atom` answers 301 to it. The REST API's own `/api/v1/nodes/...` routes
+are unchanged. Static pages are served by the web app at `/pages/<slug>`; the sitemaps do not list
+them.
 
 **The build-time `/api` rewrite is acceptable and `next.config.ts` is unchanged.** The rewrite is
 fixed when the image is built, but with the ingress it only answers when the web app is reached

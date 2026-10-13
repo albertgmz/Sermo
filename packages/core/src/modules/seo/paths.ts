@@ -2,12 +2,14 @@ import slugify from "@sindresorhus/slugify";
 
 export type SeoKind = "node" | "thread" | "profile";
 
+/** The web app serves a node under /forums; the REST API's own routes keep /nodes. */
+const PREFIX: Record<SeoKind, string> = { node: "forums", thread: "threads", profile: "members" };
+
 const segment = (name: string) => slugify(name, { decamelize: false }) || "item";
 
 export function canonicalPath(kind: SeoKind, id: number, name: string): string {
   if (!Number.isSafeInteger(id) || id < 1) throw new RangeError("Invalid SEO id");
-  const prefix = kind === "profile" ? "members" : `${kind}s`;
-  return `/${prefix}/${id}-${segment(name)}`;
+  return `/${PREFIX[kind]}/${id}-${segment(name)}`;
 }
 
 export function canonicalUrl(baseURL: string, kind: SeoKind, id: number, name: string): string {

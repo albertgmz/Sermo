@@ -156,7 +156,23 @@ test("accented slugs are cosmetic and detail responses include complete structur
   const profile = await execute(ctx, profilesGetOp, GUEST, {
     userId: made.thread.author.id,
   });
-  expect(canonicalPath("node", node.id, nodeDetail.node.title)).toContain("discusion-espanola");
+  expect(canonicalPath("node", node.id, nodeDetail.node.title)).toBe(
+    `/forums/${node.id}-discusion-espanola`,
+  );
+  expect(canonicalPath("thread", 7, "Qué tal")).toBe("/threads/7-que-tal");
+  expect(canonicalPath("profile", 7, "Ana")).toBe("/members/7-ana");
+  expect(new URL(nodeDetail.seo.canonical).pathname).toBe(`/forums/${node.id}-discusion-espanola`);
+  // A request for the old or the plain-number address is told to move to the current one.
+  const moved = await execute(ctx, getOperation("seo.node"), GUEST, {
+    nodeId: node.id,
+    requestedPath: `/nodes/${node.id}-discusion-espanola`,
+  });
+  expect(moved.redirect).toBe(true);
+  const here = await execute(ctx, getOperation("seo.node"), GUEST, {
+    nodeId: node.id,
+    requestedPath: `/forums/${node.id}-discusion-espanola`,
+  });
+  expect(here.redirect).toBe(false);
   expect(thread.seo.canonical).toContain("que-tal-manana");
   expect(thread.seo.redirect).toBe(false);
   expect(thread.seo.robots).toBe("index,follow");
@@ -279,6 +295,7 @@ test("sitemaps expose only guest-visible content and IndexNow stays disabled wit
   const nodes = [...sitemapEntries(ctx, "https://forum.example.test", "node")];
   const threads = [...sitemapEntries(ctx, "https://forum.example.test", "thread")];
   expect(nodes.map((row) => row.id)).toContain(publicNode.id);
+  expect(nodes.every((row) => new URL(row.url).pathname.startsWith("/forums/"))).toBe(true);
   expect(nodes.map((row) => row.id)).not.toContain(privateNode.id);
   expect(threads.map((row) => row.id)).toContain(publicThread.thread.id);
   expect(threads.map((row) => row.id)).not.toContain(privateThread.thread.id);
