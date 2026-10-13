@@ -1270,9 +1270,17 @@ cached cookie lasts until the cache expires (five minutes at most). **Owner revi
 alternative is to cut all of the member's sessions when one is revoked.
 
 **Wrong passwords are limited.** The administrator's own password, asked again before a sensitive
-change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`), allows five wrong
-answers in fifteen minutes per member (`admin_password_failures`). Further answers, right ones
-included, are refused until the oldest wrong one leaves the window. A guess is recorded before the
+change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`, and the writes that
+confirm with `actorPassword`), allows five wrong answers in fifteen minutes **per session** and
+twenty per member across all their sessions (`admin_password_failures`, one row per answer with
+its session). Further answers, right ones included, are refused for the session that used its five,
+or for every session once the member's twenty are used, until the oldest wrong one leaves the
+window. The count used to be per member only, which let one stolen session send five wrong
+answers every fifteen minutes and keep the owner's correct password at 429 for good (with mail
+off there is no reset path). Now a session can only use up its own five: the member limit is
+larger so guessing through one session cannot exhaust it, and it stays finite because opening a
+session takes the password. An API key or token actor takes no part (it cannot confirm). An
+in-process caller counts as session 0. A guess is recorded before the
 check, so answers sent together are counted, and a right answer gives its own guess back without
 clearing the earlier wrong ones. The refusal is a `RateLimitedError` (code
 `rate_limited`), which the API answers with 429 and the same body as its own request limiter
@@ -1371,8 +1379,11 @@ my password?" without any limit beyond 100 requests per ten seconds per address)
 served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
 asks for the current password and Better Auth limits it to three requests per ten seconds per
 address, which a stolen session can multiply with addresses; it now takes a guess from the same
-five-in-fifteen-minutes count per member as the administration checks (a success gives its guess
-back) and answers 429 once they are used up.
+counts as the administration checks (five per session, twenty per member in fifteen minutes) and
+answers 429 once they are used up. Only an answer Better Auth refused with its error code
+`INVALID_PASSWORD` (the CURRENT password was wrong) stays counted; a success, a rejected new
+password (too short or long, checked before the current one) and any other failure give their
+guess back.
 ## Deployment: two services
 
 **Three containers, one published port.** `sermo` (backend) and `web` (Next.js) publish nothing;

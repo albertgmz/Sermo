@@ -572,7 +572,7 @@ test("REST maps forbidden and conflict errors and path fields override JSON", as
       origin: "http://localhost:3000",
       "content-type": "application/json",
     },
-    body: '{"groupId":3,"title":"Renamed members","__proto__":{"polluted":true},"constructor":{"x":1},"prototype":{"x":1}}',
+    body: '{"groupId":3,"title":"Renamed members","actorPassword":"Password123!","__proto__":{"polluted":true},"constructor":{"x":1},"prototype":{"x":1}}',
   });
   expect(changed.status).toBe(200);
   expect((await changed.json()) as { id: number; title: string }).toMatchObject({
@@ -581,7 +581,7 @@ test("REST maps forbidden and conflict errors and path fields override JSON", as
   });
   expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
   // Built-in groups cannot be deleted: the replaced groups API's conflict case.
-  const conflict = await request("/api/v1/groups/2", {
+  const conflict = await request("/api/v1/groups/2?actorPassword=Password123!", {
     method: "DELETE",
     headers: {
       cookie: adminCookie,

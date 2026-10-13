@@ -306,8 +306,13 @@ export const adminPasswordFailures = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     at: integer("at").notNull(),
+    /** The session that gave the answer (0 for an in-process caller); null for rows made before. */
+    sessionId: integer("session_id"),
   },
-  (t) => [index("admin_password_failures_user").on(t.userId, t.at)],
+  (t) => [
+    index("admin_password_failures_user").on(t.userId, t.at),
+    index("admin_password_failures_session").on(t.userId, t.sessionId, t.at),
+  ],
 );
 
 /** Secondary groups assigned by hand. */

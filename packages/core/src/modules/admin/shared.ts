@@ -71,7 +71,7 @@ export function requireTakeoverRights(ctx: Ctx, actor: Actor, target: Actor): vo
 
 /**
  * The acting administrator's own password, verified the way Better Auth verifies a sign-in. At
- * most five wrong answers in fifteen minutes: after that every
+ * most five wrong answers per session and twenty per member in fifteen minutes: after that every
  * answer is refused until the window moves on. A right answer gives its guess back but does not
  * clear the earlier wrong ones, so guessing cannot be interleaved with right answers.
  */
@@ -81,7 +81,7 @@ export const verifyActorPassword = markPublic(
     const user = requireAuthenticated(actor);
     if (actor.kind !== "user")
       throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
-    const guess = takePasswordGuess(ctx, user.userId);
+    const guess = takePasswordGuess(ctx, user.userId, actor.sessionId);
     const authContext = await getAuth(ctx).$context;
     const account = await authContext.internalAdapter.findCredentialAccount(String(user.userId));
     if (!account?.password) {
