@@ -1174,6 +1174,13 @@ its own page. For a while the icon showed the picture when the award had one, wh
 middle of a 16:9 banner into a circle and pushed the emblem of every starter award to its right
 edge. One picture cannot serve both shapes; a square picture for the icon would be a second file.
 
+**Messages and alerts open as panels on phones too.** The inbox and bell icons of the header open
+the same drop-down panel at every width (the latest items, a link to the full page, and the
+panel's action), as forum software commonly does. Below `md` they used to be plain links to
+`/conversations` and `/notifications`; the bottom bar still links to those pages, so both ways
+remain. The panel is capped at the width of the screen less a small margin. Search stays a link
+on phones: its panel is a form, which the search page already is.
+
 ### Shop effects, wearing, renaming and ranks
 
 **A shop effect names a catalog entry.** `frame`, `nameColor` and `threadCover` carry the id of a

@@ -1,4 +1,4 @@
-import { Bell, Inbox, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { io } from "next/cache";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -28,25 +28,19 @@ const PANEL = "hidden md:inline-flex";
 function IconLink({
   href,
   label,
-  unread = 0,
   children,
 }: {
   href: string;
   label: string;
-  unread?: number;
   children: React.ReactNode;
 }) {
-  const t = useTranslations("layout.siteHeader");
   return (
     <Link
       href={href}
-      aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
+      aria-label={label}
       className={cn(headerIconClass, "md:hidden")}
     >
       {children}
-      {unread > 0 && (
-        <span className="absolute top-2 right-2 size-2 rounded-full bg-primary ring-2 ring-background" />
-      )}
     </Link>
   );
 }
@@ -170,38 +164,16 @@ async function AccountTools() {
   );
 }
 
+// Messages and alerts open as panels at every width; the bottom bar of a phone links to their
+// full pages.
 async function MessageTools() {
   await io();
-  const t = await getTranslations("layout.siteHeader");
   const unread = await getCounters();
-  return (
-    <>
-      <IconLink
-        href="/conversations"
-        label={t("conversations")}
-        unread={unread.conversations}
-      >
-        <Inbox />
-      </IconLink>
-      <MessagesPanel unread={unread.conversations} className={PANEL} />
-    </>
-  );
+  return <MessagesPanel unread={unread.conversations} />;
 }
 
 async function AlertTools() {
   await io();
-  const t = await getTranslations("layout.siteHeader");
   const unread = await getCounters();
-  return (
-    <>
-      <IconLink
-        href="/notifications"
-        label={t("notifications")}
-        unread={unread.notifications}
-      >
-        <Bell />
-      </IconLink>
-      <AlertsPanel unread={unread.notifications} className={PANEL} />
-    </>
-  );
+  return <AlertsPanel unread={unread.notifications} />;
 }

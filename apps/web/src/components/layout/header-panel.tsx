@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-// A header icon that opens a panel under it. Following a link inside the
+// A header icon that opens a panel under it, at every width: on a phone the panel is never wider
+// than the screen. Following a link inside the
 // panel closes it. `onOpenChange` runs each time the panel opens or closes, however it closes.
 export function HeaderPanel({
   label,
@@ -52,7 +53,7 @@ export function HeaderPanel({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-88 gap-0 p-0"
+        className="w-88 max-w-[calc(100vw-1rem)] gap-0 p-0"
         onClick={(event) => {
           if (event.defaultPrevented) return;
           if ((event.target as Element).closest("a")) change(false);

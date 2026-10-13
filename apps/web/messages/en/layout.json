@@ -30,13 +30,8 @@
     "loadingMessages": "Loading messages…",
     "loadingAlerts": "Loading alerts…",
     "search": "Search",
-    "conversations": "Conversations",
-    "notifications": "Notifications",
     "login": "Log in",
-    "register": "Create Account",
-    "aria": {
-      "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
-    }
+    "register": "Create Account"
   },
   "headerPanels": {
     "messages": {
