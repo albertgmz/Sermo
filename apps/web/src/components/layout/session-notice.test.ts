@@ -1,5 +1,6 @@
 import { afterEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
+import { viewerBody } from "@/lib/test-viewer";
 import layout from "../../../messages/en/layout.json";
 
 const realFetch = globalThis.fetch;
@@ -57,7 +58,29 @@ test("there is no notice when the backend answered about the session", async () 
           { error: { code: "unauthenticated", message: "No" } },
           { status: 401 },
         )
-      : Response.json({});
+      : Response.json(viewerBody(false));
   }) as unknown as typeof fetch;
   assert.equal(await SessionNotice(), null);
+});
+
+test("a visitor with no session, when the backend cannot be reached, gets the line about the site", async () => {
+  const quiet = spyOn(console, "error").mockImplementation(() => {});
+  mock.module("next/headers", () => ({
+    headers: async () => new Headers({ cookie: "theme=dark" }),
+    cookies: async () => ({ set: () => {} }),
+  }));
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed");
+  }) as unknown as typeof fetch;
+  try {
+    const notice = (await SessionNotice()) as {
+      props: { children: string };
+    } | null;
+    assert.equal(
+      notice?.props.children,
+      "The site could not be reached right now; some things may be missing. Reload to try again.",
+    );
+  } finally {
+    quiet.mockRestore();
+  }
 });

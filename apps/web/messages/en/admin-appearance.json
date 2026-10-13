@@ -5,7 +5,8 @@
     "file": "That is not an uploaded file.",
     "fileRequired": "Choose a picture to upload.",
     "whole": "Enter a whole number.",
-    "placementNumbers": "Every placement field must be a number."
+    "placementNumbers": "Every placement field must be a number.",
+    "placementNeeded": "The frame's opening could not be measured from this picture. Fill in the four placement fields below, then save again. The picture you chose is kept."
   },
   "notices": {
     "created": "Added to the catalog.",

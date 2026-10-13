@@ -95,7 +95,8 @@
     }
   },
   "sessionNotice": {
-    "text": "The site could not confirm your session; some things may be missing. Reload to try again."
+    "text": "The site could not confirm your session; some things may be missing. Reload to try again.",
+    "unreachable": "The site could not be reached right now; some things may be missing. Reload to try again."
   },
   "notFound": {
     "title": "Page not found",

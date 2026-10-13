@@ -13,6 +13,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text, whole } from "../groups/form-errors";
 import { IMAGE_KINDS, imageKind, PALETTE_KINDS, paletteKind } from "./kinds";
@@ -29,6 +30,13 @@ function renew() {
 }
 
 type Fields = Record<string, string>;
+
+// The backend's refusal of a frame picture with no opening it can measure. It carries no code of
+// its own, so the message is what tells it apart from any other refusal of the form.
+const unmeasured = (error: unknown) =>
+  error instanceof SermoError &&
+  error.code === "validation" &&
+  /could not be measured/.test(error.message);
 
 // A number typed with a decimal point allowed (a placement is in percent of the avatar box).
 const decimal = (raw: string) =>
@@ -109,6 +117,10 @@ export async function saveImage(
       });
     }
   } catch (error) {
+    // The placement fields are shown with a line of their own; the picture stays chosen.
+    if (kind === "frame" && unmeasured(error)) {
+      return { fields: { placementNeeded: t("placementNeeded") } };
+    }
     return formFailure(error, IMAGE_FIELDS);
   }
   renew();

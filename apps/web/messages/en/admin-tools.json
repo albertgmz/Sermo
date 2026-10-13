@@ -72,6 +72,7 @@
     "actor": "Done by",
     "forum": "Forum",
     "action": "Action starts with",
+    "actionHint": "Type the start of an action id, shown under each action: permission. or node.moderator",
     "emptyTitle": "Nothing in the log",
     "emptyDescription": "No entry matches these filters.",
     "partialTitle": "Nothing on this stretch of the log",

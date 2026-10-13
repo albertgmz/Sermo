@@ -5,6 +5,8 @@ import type { ListParams } from "@/components/staff/cursor-list";
 import { selectClass } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { call } from "@/lib/sermo/client";
+import { getViewer } from "@/lib/sermo/session";
+import { moderatedForums } from "./forum-scope";
 
 const field = "grid min-w-0 gap-1.5 text-xs font-medium";
 
@@ -12,9 +14,14 @@ export const first = (value: string | string[] | undefined) =>
   (Array.isArray(value) ? value[0] : value) ?? "";
 
 // The forums the viewer may see, for a forum filter: categories hold no content, so only forums.
-export async function forumOptions() {
-  const { items } = await call(nodesList, {});
-  return items
+// With `moderated`, for a queue of what a moderator may act on: only the forums the viewer
+// moderates, since the backend refuses a filter on any other.
+export async function forumOptions({ moderated = false } = {}) {
+  const [{ items }, viewer] = await Promise.all([
+    call(nodesList, {}),
+    moderated ? getViewer() : null,
+  ]);
+  return (viewer ? moderatedForums(items, viewer.staff) : items)
     .filter((node) => node.type === "forum")
     .map((node) => ({
       value: String(node.id),

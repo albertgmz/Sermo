@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
 import { Help, Section } from "@/components/staff/rows";
+import { shortAddress } from "@/lib/ip-address";
 import { read } from "@/lib/sermo/client";
 import { getMember, isReadOnly, memberIdOf } from "../../data";
 import { TabPage } from "../../tab-page";
@@ -65,7 +66,9 @@ async function Sessions({
                   </dd>
                   <dt className="text-muted-foreground">{t("address")}</dt>
                   <dd className="[overflow-wrap:anywhere]">
-                    {session.ipAddress ?? t("unknown")}
+                    {session.ipAddress
+                      ? shortAddress(session.ipAddress)
+                      : t("unknown")}
                   </dd>
                   <dt className="text-muted-foreground">{t("userAgent")}</dt>
                   <dd className="[overflow-wrap:anywhere]">

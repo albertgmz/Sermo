@@ -10,6 +10,7 @@ import { PendingButton } from "@/components/forum/pending-button";
 import { Badge } from "@/components/ui/badge";
 import { parseUserAgent } from "@/lib/client";
 import { formatDateTime } from "@/lib/format";
+import { shortAddress } from "@/lib/ip-address";
 import { getCurrentAccount, listSessions } from "@/lib/sermo/auth";
 
 export async function Sessions({
@@ -91,7 +92,7 @@ export async function Sessions({
                   </p>
                   {session.ipAddress && (
                     <p className="text-xs break-all text-muted-foreground">
-                      {t("sessionIp", { ip: session.ipAddress })}
+                      {t("sessionIp", { ip: shortAddress(session.ipAddress) })}
                     </p>
                   )}
                 </div>

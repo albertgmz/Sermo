@@ -40,3 +40,10 @@ test("the member name in a row has a 40px touch target that does not change the 
   expect(link?.props.className).toContain("py-2.5");
   expect(link?.props.className).toContain("-my-2.5");
 });
+
+test("the badges wrap under the name instead of squeezing it", () => {
+  const line = find(MemberRow({ user }), "p");
+  expect(line?.props.className).toContain("flex-wrap");
+  const link = find(MemberRow({ user }), UserLink);
+  expect(link?.props.className).toContain("max-w-full");
+});

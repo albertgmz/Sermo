@@ -19,7 +19,8 @@
 // to `scale` percent.
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFieldError } from "@/components/staff/form-rows";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,17 @@ export function PlacementEditor({
   canReset: boolean;
 }) {
   const t = useTranslations("adminAppearance.placement");
+  // Set when the backend could not measure the picture: the numbers are then needed, and the
+  // line says so above them.
+  const needed = useFieldError("placementNeeded");
+  const alert = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (!needed) return;
+    alert.current?.scrollIntoView({ block: "center" });
+    document
+      .getElementById(`${idPrefix}-width`)
+      ?.focus({ preventScroll: true });
+  }, [needed, idPrefix]);
   const [values, setValues] = useState<Record<Name, string>>(
     () =>
       Object.fromEntries(
@@ -66,6 +78,15 @@ export function PlacementEditor({
   const shown = live ?? initial;
   return (
     <div className="space-y-4">
+      {needed && (
+        <p
+          ref={alert}
+          role="alert"
+          className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+        >
+          {needed}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {NAMES.map((name) => (
           <div key={name} className="min-w-0 space-y-1">

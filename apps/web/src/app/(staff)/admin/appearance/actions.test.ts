@@ -201,6 +201,24 @@ test("the refusal of a frame that could not be measured is shown", async () => {
   ).toEqual({ error: "This frame needs a placement." });
 });
 
+test("a frame picture whose opening could not be measured asks for the placement with a line of its own", async () => {
+  backend = fakeBackend({
+    "catalogImages.create": () =>
+      refusal(
+        422,
+        "validation",
+        "The frame's opening could not be measured; give a placement.",
+      ),
+  });
+  expect(
+    await saveImage(null, form({ kind: "frame", name: "G", fileId: "8" })),
+  ).toEqual({
+    fields: {
+      placementNeeded: messages.adminAppearance.errors.placementNeeded,
+    },
+  });
+});
+
 test("deleting a picture in use says it was deactivated instead", async () => {
   backend = fakeBackend({
     "catalogImages.delete": () =>

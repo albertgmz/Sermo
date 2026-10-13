@@ -20,9 +20,12 @@ export function MemberRow({
     <div className={cn("flex items-center gap-3 px-4 py-2.5", className)}>
       <UserAvatar user={user} size="lg" />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2">
+        <p className="flex flex-wrap items-center gap-x-2">
           {/* Padding gives the name a 40px touch target; the negative margin keeps the row as tall as before. */}
-          <UserLink user={user} className="-my-2.5 truncate py-2.5 text-sm" />
+          <UserLink
+            user={user}
+            className="-my-2.5 max-w-full truncate py-2.5 text-sm"
+          />
           <UserBadges user={user} limit={badgeLimit} />
         </p>
         <p className="truncate text-xs text-muted-foreground">{user.title}</p>
