@@ -218,11 +218,15 @@ test("a promotion is not written when the password is missing or wrong", async (
 test("a promotion is deleted only after the password is confirmed", async () => {
   backend = fakeBackend({
     "auth.verifyPassword": () =>
-      refusal(429, "rate_limited", "Too many tries."),
+      refusal(
+        429,
+        "rate_limited",
+        "Too many wrong passwords. Try again later.",
+      ),
     "promotions.delete": () => Response.json({ ok: true }),
   });
   expect(await deletePromotion(null, form([["id", "5"]]))).toEqual({
-    fields: { actorPassword: "Too many tries." },
+    fields: { actorPassword: "Too many wrong passwords. Try again later." },
   });
   expect(backend.asked.map((call) => call.operation)).toEqual([
     "auth.verifyPassword",

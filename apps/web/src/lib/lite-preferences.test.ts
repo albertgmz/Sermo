@@ -130,14 +130,12 @@ test("Windows file aliases normalize before image classification", () => {
   }
 });
 
-test("no category owns a folder or file of public; every picture suffix is blocked", () => {
+test("every picture suffix is blocked under any selection", () => {
   const extensions =
     "avif apng bmp gif heic heif ico jfif jpeg jpg png svg tif tiff webp".split(
       " ",
     );
   for (const category of LITE_CATEGORIES) {
-    assert.deepEqual(category.folders, [], category.key);
-    assert.deepEqual(category.files, [], category.key);
     const state = parseLiteCookie(category.key);
     for (const ext of extensions) {
       assert.equal(

@@ -32,7 +32,12 @@ const PATH = "/admin/shop/items";
 
 type Effect = z.input<typeof ShopEffect>;
 
-const SECONDS = { minutes: 60, hours: 3_600, days: 86_400 } as const;
+const SECONDS = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3_600,
+  days: 86_400,
+} as const;
 
 // The effect the form showed, from the fields of its type; null names the field that is wrong.
 // The contract's list of types decides what is accepted, and the backend what is valid.
@@ -108,6 +113,10 @@ export async function saveItem(
   const isConsumable = formData.get("isConsumable") !== null;
   let durationSeconds: number | null = null;
   const amount = text(formData, "durationAmount").trim();
+  const unchangedDuration =
+    !isConsumable &&
+    `${amount}:${text(formData, "durationUnit")}` ===
+      text(formData, "durationWas");
   if (!isConsumable && amount !== "") {
     const unit = text(formData, "durationUnit");
     const count = whole(amount);
@@ -126,7 +135,9 @@ export async function saveItem(
     stock,
     isConsumable,
     isGiftable: formData.get("isGiftable") !== null,
-    durationSeconds,
+    // An item whose duration the administrator did not touch keeps the one it has: the form can
+    // only show it in whole units, and saving what it shows could change it.
+    ...(itemId !== null && unchangedDuration ? {} : { durationSeconds }),
     effect,
     position,
   };

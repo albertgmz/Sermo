@@ -76,6 +76,20 @@ const canReadModeratorLog = (me: Standing) =>
 const canModerate = (me: Standing) =>
   canHandleReports(me) || canApprove(me) || canReadModeratorLog(me);
 
+// The panel's home opens for anyone the backend says has a panel, and for anyone who may open at
+// least one other listed screen: a permission outside the moderation and administration categories
+// (`award.grant`) opens a screen without making `staff.panel` true, and the member would
+// otherwise have to type that screen's address. Nothing else is let in: the same screens are what
+// `visibleSections` lists.
+const opensAScreen = (me: Standing): boolean =>
+  SCREENS.some(
+    (screen) =>
+      screen.section !== "home" &&
+      screen.listed !== false &&
+      screen.built &&
+      canOpen(me, screen),
+  );
+
 export const SECTIONS = [
   {
     id: "home",
@@ -83,7 +97,7 @@ export const SECTIONS = [
       {
         key: "home",
         path: "/admin",
-        access: (me) => me.staff.panel,
+        access: (me) => me.staff.panel || opensAScreen(me),
         built: true,
       },
     ],

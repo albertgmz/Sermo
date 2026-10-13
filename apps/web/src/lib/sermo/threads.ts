@@ -15,6 +15,18 @@ export function prefixView(prefix: ApiThread["prefix"]): PrefixView | null {
   return prefix && { ...prefix };
 }
 
+// The prefixes a form offers for a thread that already has one: the active ones, and the thread's
+// own when it is no longer active, marked as such, so that saving the form keeps it.
+export function prefixChoices(
+  active: PrefixView[],
+  stored: ApiThread["prefix"],
+  inactive: (label: string) => string,
+): PrefixView[] {
+  const own = prefixView(stored);
+  if (!own || active.some(({ id }) => id === own.id)) return active;
+  return [...active, { ...own, label: inactive(own.label) }];
+}
+
 // A backend thread in the shape the shared thread components take.
 export function threadCard(
   thread: ApiThread,
@@ -25,7 +37,6 @@ export function threadCard(
     title: thread.title,
     prefix: prefixView(thread.prefix),
     excerpt: thread.excerpt,
-    plainExcerpt: true,
     createdAt: thread.createdAt,
     views: thread.viewCount,
     replyCount: thread.replyCount,

@@ -8,6 +8,7 @@ import {
   postsUpdate,
   reportsCreate,
   threadsDelete,
+  threadsGet,
   threadsMarkRead,
   threadsMerge,
   threadsMove,
@@ -225,6 +226,41 @@ export async function moveThreadAction(
   );
   if (!done.ok) return { error: done.error };
   backToThread(threadId);
+}
+
+// What the first step of a merge answers: the thread the moderator named, as the backend shows it,
+// or the refusal. `submitted` is the text it answers, so a form can tell a stale answer.
+export type MergePreview = {
+  submitted?: string;
+  error?: string;
+  target?: { id: number; title: string; forum: string };
+};
+
+// Reads the thread a merge would go into so that the moderator sees what they named before the
+// merge itself; it changes nothing and does not count as a view.
+export async function previewMergeAction(
+  threadId: number,
+  _previous: MergePreview,
+  formData: FormData,
+): Promise<MergePreview> {
+  requireIds(threadId);
+  const submitted = textOf(formData, "target");
+  const id = parseThreadRef(submitted);
+  if (id === null) {
+    return {
+      submitted,
+      error: (await getTranslations("threads.errors"))("notThread"),
+    };
+  }
+  const found = await attempt(`/threads/${threadId}`, () =>
+    call(threadsGet, { threadId: id, countView: false }),
+  );
+  if (!found.ok) return { submitted, error: found.error };
+  const { thread, node } = found.value;
+  return {
+    submitted,
+    target: { id: thread.id, title: thread.title, forum: node.title },
+  };
 }
 
 // Merges this thread into the one the moderator names; the old address keeps resolving to it.

@@ -205,3 +205,31 @@ test("a refused order is shown at the top", async () => {
   const state = await saveReactionOrder(null, form([["position.1", "2"]]));
   expect(state).toEqual({ error: "Not allowed." });
 });
+
+test("an order refused part-way says that the earlier rows were saved", async () => {
+  let answered = 0;
+  backend = fakeBackend({
+    "reactionTypes.list": () =>
+      Response.json({
+        items: [
+          { ...TYPE, id: 1, position: 1 },
+          { ...TYPE, id: 2, position: 2 },
+          { ...TYPE, id: 3, position: 3 },
+        ],
+      }),
+    "reactionTypes.update": () =>
+      ++answered === 2 ? refusal(403, "forbidden", "No.") : Response.json(TYPE),
+  });
+  const state = await saveReactionOrder(
+    null,
+    form([
+      ["position.1", "4"],
+      ["position.2", "5"],
+      ["position.3", "6"],
+    ]),
+  );
+  expect(state).toEqual({ error: messages.admin.ordering.partial });
+  expect(
+    backend.asked.filter((entry) => entry.operation === "reactionTypes.update"),
+  ).toHaveLength(2);
+});

@@ -103,3 +103,29 @@ test("the refusal to delete a category with items is shown", async () => {
     error: messages.adminEconomy.categories.errors.id,
   });
 });
+
+test("an order refused part-way says that the earlier categories were saved", async () => {
+  let answered = 0;
+  backend = fakeBackend({
+    "shopCategories.update": () =>
+      ++answered === 2
+        ? refusal(403, "forbidden", "No.")
+        : Response.json(CATEGORY),
+  });
+  const state = await saveCategoryOrder(
+    null,
+    form({
+      "position:1": "4",
+      "before:1": "0",
+      "title:1": "Frames",
+      "position:2": "5",
+      "before:2": "1",
+      "title:2": "Colours",
+      "position:3": "6",
+      "before:3": "2",
+      "title:3": "Boosts",
+    }),
+  );
+  expect(state).toEqual({ error: messages.admin.ordering.partial });
+  expect(backend.asked).toHaveLength(2);
+});

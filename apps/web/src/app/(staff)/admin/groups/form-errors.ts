@@ -6,12 +6,16 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call, errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
-// The refusal of a wrong `actorPassword`: the backend answers forbidden with its own message
-// (there is no code of its own for it), or rate_limited once too many wrong ones were given.
-// Whatever else makes a write forbidden is told apart by the message.
+// The refusal of a wrong `actorPassword`: the backend answers forbidden ("That is not your
+// password.") or, once too many wrong ones were given, rate_limited ("Too many wrong passwords.").
+// The error body carries a code and a message and nothing that names the field, and neither
+// refusal has a code of its own: forbidden also means "not allowed" and rate_limited also comes
+// from the API's general request limiter ("Too many requests."), which belongs at the top of the
+// form. So the message tells them apart, after the code. This is a gap of the backend: a code or
+// a field of its own for these two refusals would let this go.
 function refusesPassword(error: SermoError) {
   return (
-    error.code === "rate_limited" ||
+    (error.code === "rate_limited" && /wrong passwords/i.test(error.message)) ||
     (error.code === "forbidden" && /not your password/i.test(error.message))
   );
 }
@@ -43,6 +47,48 @@ export async function unconfirmedPassword(
   } catch (error) {
     return formFailure(error, ["actorPassword"]);
   }
+}
+
+// A change of an order form: what it is called in a message and the call that saves it.
+export type OrderChange = { title: string; save: () => Promise<unknown> };
+
+// What the message of a refused order change says: which message and the numbers and names in it.
+export function orderRefusal(
+  saved: number,
+  total: number,
+  title: string,
+  message: string,
+) {
+  return {
+    key: saved === 0 ? ("none" as const) : ("partial" as const),
+    values: { saved, total, title, message },
+  };
+}
+
+// For the order forms, which save each changed row with a call of its own: the changes go one by
+// one and stop at the first refusal. The state says how many were saved and which row was refused,
+// with the backend's message; it is null when every change went through. `saved` counts the
+// changes that were stored, for the caller to renew what they affect.
+export async function saveInOrder(
+  changes: readonly OrderChange[],
+): Promise<{ saved: number; state: StaffFormState }> {
+  let saved = 0;
+  for (const change of changes) {
+    try {
+      await change.save();
+      saved++;
+    } catch (error) {
+      const t = await getTranslations("admin.ordering");
+      const { key, values } = orderRefusal(
+        saved,
+        changes.length,
+        change.title,
+        await errorMessage(error),
+      );
+      return { saved, state: { error: t(key, values) } };
+    }
+  }
+  return { saved, state: null };
 }
 
 // For actions: a refused call as the state of a form. A validation refusal that names a field of

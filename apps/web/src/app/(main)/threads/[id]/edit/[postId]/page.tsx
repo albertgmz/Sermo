@@ -16,7 +16,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
-import { prefixView } from "@/lib/sermo/threads";
+import { prefixChoices, prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("threads.edit");
@@ -83,7 +83,9 @@ export default async function EditPostPage({
                 ? {
                     title: thread.title,
                     prefixId: thread.prefix ? String(thread.prefix.id) : "",
-                    prefixes,
+                    prefixes: prefixChoices(prefixes, thread.prefix, (label) =>
+                      t("inactivePrefix", { label }),
+                    ),
                   }
                 : null
             }

@@ -40,14 +40,17 @@ function initialOf(effect: Item["effect"]): Initial {
   }
 }
 
-// A duration in the largest unit it divides into evenly.
-function durationOf(seconds: number | null) {
+// A duration in the largest unit it divides into evenly; one that is not a whole number of
+// minutes is shown exactly, in seconds.
+export function durationOf(seconds: number | null) {
   if (seconds === null) return null;
   if (seconds % 86_400 === 0)
     return { amount: seconds / 86_400, unit: "days" } as const;
   if (seconds % 3_600 === 0)
     return { amount: seconds / 3_600, unit: "hours" } as const;
-  return { amount: Math.round(seconds / 60), unit: "minutes" } as const;
+  if (seconds % 60 === 0)
+    return { amount: seconds / 60, unit: "minutes" } as const;
+  return { amount: seconds, unit: "seconds" } as const;
 }
 
 // The form of an item, for a new one (no `item`) or a change. The catalog pictures are drawn

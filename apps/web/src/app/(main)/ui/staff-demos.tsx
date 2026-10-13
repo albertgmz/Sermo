@@ -1,11 +1,13 @@
-import { saveSample } from "@/app/(main)/ui/actions";
+import { confirmSample, saveSample } from "@/app/(main)/ui/actions";
 import { StaffNavigation } from "@/app/(staff)/navigation";
 import type { NavSection } from "@/app/(staff)/navigation-data";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
+import { ConfirmStep } from "@/components/staff/confirm-step";
 import { CursorList } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { LogTable } from "@/components/staff/log-table";
+import { Notice } from "@/components/staff/notice";
 import {
   type MatrixPermission,
   PermissionMatrix,
@@ -134,8 +136,7 @@ const LOG = [
   },
 ];
 
-// The three shared pieces of the administration panel with sample data, and the panel's
-// navigation. Their props are documented at the top of each file in components/staff.
+// The shared pieces of the administration panel with sample data, and the panel's navigation. Their props are documented at the top of each file in components/staff.
 export function StaffDemos() {
   return (
     <div className="space-y-8">
@@ -274,7 +275,10 @@ export function StaffDemos() {
         <p className="max-w-prose text-sm text-muted-foreground">
           The permissions of one target as a form body, grouped by category,
           with a filter box; allowNo adds the forum-only &quot;No&quot; state.
-          Inside FormRows it is read back with matrixChanges.
+          Inside FormRows it is read back with matrixChanges. Every row also
+          posts a hidden <code>was:&lt;permission&gt;</code> field with the
+          value it showed, so only the rows that differ from it count as
+          changed.
         </p>
         <div className="overflow-hidden rounded-lg border bg-card">
           <PermissionMatrix
@@ -283,6 +287,50 @@ export function StaffDemos() {
             allowNo
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Confirm step</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The confirmation of a destructive or irreversible action, in the page
+          as a closed block: opening it shows what will happen, its inputs and
+          the button that does it, and the backend&apos;s answer comes back
+          under the button. With <code>password</code> it asks for the
+          administrator&apos;s own password and shows a refusal on that field;
+          with <code>heading</code> it becomes the panel of a record&apos;s
+          page. Type <code>wrong</code> as the password to see the refusal.
+        </p>
+        <div className="space-y-4">
+          <ConfirmStep
+            action={confirmSample}
+            summary="Remove the cover"
+            warning="The cover is taken off for good."
+            submit="Remove it"
+            reason="Reason (optional)"
+          />
+          <div className="max-w-md">
+            <ConfirmStep
+              action={confirmSample}
+              heading="Delete this group"
+              submit="Delete the group"
+              warning="Its members move to the default group."
+              password
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Notice</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The confirmation a save redirects with (<code>?notice=saved</code>),
+          shown above the first panel of the page. A name the page does not list
+          shows nothing.
+        </p>
+        <Notice
+          searchParams={Promise.resolve({ notice: "saved" })}
+          notices={{ saved: "Saved. The change is live." }}
+        />
       </div>
 
       <div className="space-y-2">

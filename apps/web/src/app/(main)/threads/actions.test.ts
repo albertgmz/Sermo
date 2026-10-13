@@ -109,6 +109,21 @@ test("a refusal of the backend is what the form shows", async () => {
   );
 });
 
+test("a refusal of a restore or a split, which the page only hints at, is shown", async () => {
+  answer = refusal;
+  const shown = { error: "You may not do that." };
+  assert.deepEqual(await actions.restoreThreadAction(7, {}), shown);
+  assert.deepEqual(await actions.restorePostAction(7, 31, {}), shown);
+  assert.deepEqual(
+    await actions.splitThreadAction(
+      7,
+      {},
+      form({ postIds: ["1"], nodeId: "3", title: "Split" }),
+    ),
+    shown,
+  );
+});
+
 test("editing a post sends the source and goes back to the post", async () => {
   answer = { status: 200, body: post };
   const digest = await redirectedTo(() =>
@@ -288,6 +303,57 @@ test("merging takes a thread number or address and goes to the target", async ()
   assert.deepEqual(
     (asked[0].body as { sourceThreadIds: number[] }).sourceThreadIds,
     [7],
+  );
+});
+
+test("the first step of a merge reads the target without counting a view and changes nothing", async () => {
+  answer = {
+    status: 200,
+    body: {
+      thread: { ...thread, id: 12, title: "Target thread" },
+      node: { id: 4, title: "Other forum" },
+      seo: {
+        title: "t",
+        description: "d",
+        canonical: "https://example.test/threads/12",
+        robots: "index,follow",
+        redirect: false,
+        jsonLd: [],
+      },
+      watching: null,
+      permissions: {
+        canReply: true,
+        canEditTitle: false,
+        canModerate: false,
+        canReport: true,
+        canRemoveCover: false,
+        canWatch: true,
+      },
+      resolvedPermissions: {},
+    },
+  };
+  assert.deepEqual(
+    await actions.previewMergeAction(7, {}, form({ target: "/threads/12-x" })),
+    {
+      submitted: "/threads/12-x",
+      target: { id: 12, title: "Target thread", forum: "Other forum" },
+    },
+  );
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].method, "GET");
+  assert.match(asked[0].url, /\/threads\/12\?countView=false$/);
+});
+
+test("the first step of a merge shows a target that is not a thread or is refused", async () => {
+  assert.deepEqual(
+    await actions.previewMergeAction(7, {}, form({ target: "nonsense" })),
+    { submitted: "nonsense", error: "notThread" },
+  );
+  assert.equal(asked.length, 0);
+  answer = refusal;
+  assert.deepEqual(
+    await actions.previewMergeAction(7, {}, form({ target: "12" })),
+    { submitted: "12", error: "You may not do that." },
   );
 });
 

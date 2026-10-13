@@ -4,7 +4,6 @@ import { cursorFrom } from "@/components/staff/cursor-list";
 import { LogTable } from "@/components/staff/log-table";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
-import { phraseTitle } from "../../groups/phrases";
 import { MemberLink, memberNames, panelHref } from "../links";
 import { MemberFilter, memberFilterId } from "../member-filter";
 
@@ -15,8 +14,9 @@ type Params = PageProps<"/admin/logs/credits">["searchParams"];
 export async function CreditLedger({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
   const userId = memberFilterId(params, "userId") ?? undefined;
-  const [t, format, viewer, page] = await Promise.all([
+  const [t, kinds, format, viewer, page] = await Promise.all([
     getTranslations("adminTools.creditLedger"),
+    getTranslations("credits.history.types"),
     getFormatter(),
     getViewer(),
     read(creditsLedger, { userId, cursor: cursorFrom(params), limit: 25 }),
@@ -57,7 +57,7 @@ export async function CreditLedger({ searchParams }: { searchParams: Params }) {
           id: row.id,
           at: row.createdAt,
           actor: row.actor ? member(row.actor.id) : null,
-          action: `${phraseTitle(row.type, "")} ${format.number(row.amount, { signDisplay: "always" })}`,
+          action: `${kinds(row.type)} ${format.number(row.amount, { signDisplay: "always" })}`,
           target: member(row.userId),
           details: {
             [t("balanceAfter")]: row.balanceAfter,

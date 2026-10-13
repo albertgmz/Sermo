@@ -10,7 +10,13 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../../groups/form-errors";
+import {
+  formFailure,
+  type OrderChange,
+  saveInOrder,
+  text,
+  whole,
+} from "../../groups/form-errors";
 
 const FIELDS = ["name", "description", "position", "isActive"];
 const PATH = "/admin/shop/categories";
@@ -56,7 +62,7 @@ export async function saveCategoryOrder(
   formData: FormData,
 ): Promise<StaffFormState> {
   const t = await getTranslations("adminEconomy.categories.errors");
-  const changes: { categoryId: number; position: number }[] = [];
+  const changes: OrderChange[] = [];
   const fields: Record<string, string> = {};
   for (const [name, value] of formData.entries()) {
     if (!name.startsWith("position:") || typeof value !== "string") continue;
@@ -66,14 +72,16 @@ export async function saveCategoryOrder(
       continue;
     const position = whole(value);
     if (position === null) fields[name] = t("whole");
-    else changes.push({ categoryId, position });
+    else {
+      changes.push({
+        title: text(formData, `title:${categoryId}`) || `#${categoryId}`,
+        save: () => call(shopCategoriesUpdate, { categoryId, position }),
+      });
+    }
   }
   if (Object.keys(fields).length > 0) return { fields };
-  try {
-    for (const change of changes) await call(shopCategoriesUpdate, change);
-  } catch (error) {
-    return formFailure(error, []);
-  }
+  const { state } = await saveInOrder(changes);
+  if (state) return state;
   redirect(`${PATH}?notice=ordered`);
 }
 

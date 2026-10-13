@@ -30,6 +30,8 @@ const member = standing();
 const singleForumModerator = standing([], { moderatedNodeIds: [3] });
 const announcer = standing(["admin.announcements"]);
 const settingsAdmin = standing(["admin.settings"]);
+// `award.grant` is outside the categories that make the backend report a panel.
+const grantor = standing(["award.grant"], { panel: false });
 const moderator = standing(["moderation.access"], {
   moderatesEverywhere: true,
 });
@@ -152,6 +154,32 @@ test("a moderator of one forum opens the moderation screens and nothing of admin
   expect(may(singleForumModerator, "/admin/settings")).toBe(false);
   expect(may(singleForumModerator, "/admin/forums")).toBe(false);
   expect(may(singleForumModerator, "/admin/users")).toBe(false);
+});
+
+test("a member whose only staff permission is outside the panel's categories still opens the panel home", () => {
+  expect(grantor.staff.panel).toBe(false);
+  expect(may(grantor, "/admin")).toBe(true);
+  expect(may(grantor, "/admin/award-grants")).toBe(true);
+  expect(may(grantor, "/admin/awards")).toBe(false);
+  expect(may(grantor, "/admin/settings")).toBe(false);
+  expect(may(grantor, "/moderation")).toBe(false);
+  expect(
+    visibleSections(grantor).map((s) => [
+      s.id,
+      s.screens.map((screen) => screen.key),
+    ]),
+  ).toEqual([
+    ["home", ["home"]],
+    ["economy", ["economyAwardGrants"]],
+  ]);
+});
+
+test("the home stays closed to a member with no panel and no screen to open", () => {
+  const nothing = standing(["forum.reply", "award.grantable"], {
+    panel: false,
+  });
+  expect(may(nothing, "/admin")).toBe(false);
+  expect(visibleSections(nothing)).toEqual([]);
 });
 
 test("a partial administrator opens only the sections their permissions name", () => {

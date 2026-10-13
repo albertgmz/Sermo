@@ -88,7 +88,7 @@
     "confirm": "Confirm adjustment",
     "summary": "Adjustment",
     "summaryLine": "{name}: {amount} credits. Reason: {reason}",
-    "beforeAfter": "Balance {before}, then {after}.",
+    "beforeAfter": "When this page was loaded the balance was {before}; with this adjustment it would be {after}.",
     "change": "Change",
     "ledgerHeading": "Recent ledger",
     "fullLedger": "Full ledger",
@@ -96,7 +96,8 @@
     "after": "balance {balance}",
     "noLedger": "No ledger rows for this member yet.",
     "notices": {
-      "adjusted": "Credits adjusted."
+      "adjusted": "Credits adjusted.",
+      "adjustedBalance": "Credits adjusted. The balance is now {balance}."
     },
     "errors": {
       "member": "Choose a member first.",
@@ -384,6 +385,7 @@
       "durationConsumable": "A consumable has no duration.",
       "durationUnit": "Unit of the duration",
       "units": {
+        "seconds": "seconds",
         "minutes": "minutes",
         "hours": "hours",
         "days": "days"

@@ -4,10 +4,8 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { StatTile } from "@/components/forum/stat";
 import { getCounters } from "@/components/layout/header-data";
 import { getViewer } from "@/lib/sermo/session";
+import { pendingCount } from "./pending-count";
 import { canOpen, hrefFor, screenByKey } from "./registry";
-
-// What a queue counts stops at 99; `more` says the window was full.
-const CAP = 99;
 
 const LINK =
   "mt-3 inline-flex min-h-10 items-center text-xs text-primary underline-offset-4 hover:underline";
@@ -51,9 +49,10 @@ export async function PendingWork({ heading }: { heading?: boolean }) {
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         {tiles.map(({ key, label, icon, queue, href }) => {
-          const value = queue?.more
-            ? t("capped", { count: format.number(CAP) })
-            : format.number(queue?.count ?? 0);
+          const shown = pendingCount(queue ?? { count: 0, more: false });
+          const value = shown.more
+            ? t("capped", { count: format.number(shown.count) })
+            : format.number(shown.count);
           return (
             <div key={key}>
               <StatTile label={label} value={value} icon={icon} />

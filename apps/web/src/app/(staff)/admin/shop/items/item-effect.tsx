@@ -54,7 +54,7 @@ export type EffectChoices = {
     | null;
 };
 
-const UNITS = ["minutes", "hours", "days"] as const;
+const UNITS = ["seconds", "minutes", "hours", "days"] as const;
 
 function PictureChoices({
   name,
@@ -214,7 +214,7 @@ export function ItemEffect({
               id={`${idPrefix}-group`}
               name="groupId"
               required
-              defaultValue={initial?.groupId}
+              defaultValue={initial?.groupId ?? ""}
               className={selectClass}
             >
               <option value="" disabled>
@@ -355,6 +355,11 @@ export function ItemEffect({
         help={isConsumable ? t("durationConsumable") : t("durationHelp")}
       >
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="hidden"
+            name="durationWas"
+            value={duration ? `${duration.amount}:${duration.unit}` : ":days"}
+          />
           <Input
             id={`${idPrefix}-duration`}
             name="durationAmount"
@@ -372,7 +377,9 @@ export function ItemEffect({
             defaultValue={duration?.unit ?? "days"}
             className={`${selectClass} w-32`}
           >
-            {UNITS.map((unit) => (
+            {UNITS.filter(
+              (unit) => unit !== "seconds" || duration?.unit === "seconds",
+            ).map((unit) => (
               <option key={unit} value={unit}>
                 {t(`units.${unit}`)}
               </option>

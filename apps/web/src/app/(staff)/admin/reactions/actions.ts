@@ -10,7 +10,13 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../groups/form-errors";
+import {
+  formFailure,
+  type OrderChange,
+  saveInOrder,
+  text,
+  whole,
+} from "../groups/form-errors";
 
 const FIELDS = ["emoji", "title", "score", "position"];
 
@@ -108,15 +114,22 @@ export async function saveReactionOrder(
     else wanted.set(id, position);
   }
   if (Object.keys(fields).length > 0) return { fields };
+  const changes: OrderChange[] = [];
   try {
     const { items } = await call(reactionTypesList, {});
     for (const item of items) {
       const position = wanted.get(item.id);
       if (position === undefined || position === item.position) continue;
-      await call(reactionTypesUpdate, { reactionTypeId: item.id, position });
+      changes.push({
+        title: item.title,
+        save: () =>
+          call(reactionTypesUpdate, { reactionTypeId: item.id, position }),
+      });
     }
   } catch (error) {
     return formFailure(error, []);
   }
+  const { state } = await saveInOrder(changes);
+  if (state) return state;
   redirect("/admin/reactions?notice=ordered");
 }
