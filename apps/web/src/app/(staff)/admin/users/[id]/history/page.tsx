@@ -57,6 +57,7 @@ async function History({
             />
           ),
           action: entry.action,
+          actionId: entry.action,
           target: t("target"),
           details: entry.details,
           reason: entry.reason,

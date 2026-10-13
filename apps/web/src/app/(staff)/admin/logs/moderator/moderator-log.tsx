@@ -123,6 +123,7 @@ export async function ModeratorLog({ searchParams }: { searchParams: Params }) {
             />
           ),
           action: entry.action,
+          actionId: entry.action,
           target: (
             <Target
               type={entry.targetType}
@@ -138,7 +139,7 @@ export async function ModeratorLog({ searchParams }: { searchParams: Params }) {
           reason: entry.reason || undefined,
         }))}
         filters={{
-          search: { name: "action", label: t("action") },
+          search: { name: "action", label: t("action"), hint: t("actionHint") },
           selects: [{ name: "nodeId", label: t("forum"), options: forums }],
           carry:
             actorId === undefined ? undefined : { actorId: String(actorId) },

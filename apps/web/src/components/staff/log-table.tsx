@@ -9,7 +9,8 @@
 //   path        The page's own path.
 //   params      The page's current URL parameters (`searchParams` resolved): they prefill the
 //               filters and are carried on the paging links.
-//   filters     Which filters to show. Only what is passed is rendered: `search` (free text),
+//   filters     Which filters to show. Only what is passed is rendered: `search` (free text, with
+//               an optional `hint` line under it),
 //               `selects` (one select each), `dates` (a from / to range, as date fields), `carry`
 //               (parameters of the page that are chosen elsewhere, kept through Apply as hidden
 //               fields). Pass only the filters the backend read supports. Omit it for a log
@@ -22,6 +23,8 @@
 //   at        ISO timestamp.
 //   actor     What to show for who did it (a `UserLink`, a name); null shows "System".
 //   action    What was done (text or a node).
+//   actionId  The backend's action id, when `action` is that id: shown as its label from the
+//             messages, with the id under it, or as the id alone when there is no label.
 //   target    What it was done to (text or a link).
 //   details   Optional { key: value } record, shown in an expandable block. A value that is not a
 //             string, number or boolean is shown as JSON.
@@ -31,6 +34,7 @@ import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { actionLabel } from "./action-label";
 import { CursorList, type ListParams } from "./cursor-list";
 import { selectClass } from "./rows";
 
@@ -39,13 +43,14 @@ export type LogEntry = {
   at: string;
   actor: React.ReactNode | null;
   action: React.ReactNode;
+  actionId?: string;
   target: React.ReactNode;
   details?: Record<string, unknown> | null;
   reason?: string;
 };
 
 export type LogFilters = {
-  search?: { name: string; label: string };
+  search?: { name: string; label: string; hint?: string };
   selects?: {
     name: string;
     label: string;
@@ -86,7 +91,18 @@ async function FilterForm({
               type="search"
               name={search.name}
               defaultValue={first(params[search.name])}
+              aria-describedby={
+                search.hint ? `filter-${search.name}-hint` : undefined
+              }
             />
+            {search.hint && (
+              <span
+                id={`filter-${search.name}-hint`}
+                className="font-normal text-muted-foreground"
+              >
+                {search.hint}
+              </span>
+            )}
           </label>
         )}
         {selects.map((select) => (
@@ -153,12 +169,14 @@ function detailText(value: unknown) {
 }
 
 async function Row({ entry }: { entry: LogEntry }) {
-  const [t, format] = await Promise.all([
+  const [t, names, format] = await Promise.all([
     getTranslations("admin.logTable"),
+    getTranslations("admin.logTable.actions"),
     getFormatter(),
   ]);
   const when = new Date(entry.at);
   const details = Object.entries(entry.details ?? {});
+  const named = entry.actionId ? actionLabel(names, entry.actionId) : null;
   const expandable = details.length > 0 || Boolean(entry.reason);
   return (
     <div className={`grid gap-x-4 gap-y-1 p-4 md:items-start ${COLUMNS}`}>
@@ -174,7 +192,16 @@ async function Row({ entry }: { entry: LogEntry }) {
         )}
       </div>
       <div className="min-w-0 text-sm font-medium [overflow-wrap:anywhere]">
-        {entry.action}
+        {named ? (
+          <>
+            {named}
+            <span className="block text-xs font-normal text-muted-foreground">
+              {entry.actionId}
+            </span>
+          </>
+        ) : (
+          entry.action
+        )}
       </div>
       <div className="min-w-0 space-y-1 text-sm [overflow-wrap:anywhere]">
         <div>{entry.target}</div>
