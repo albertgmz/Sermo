@@ -30,6 +30,8 @@ mock.module("next-intl", () => ({
     return typeof value === "string" ? value : key;
   },
 }));
+// The real actions reach the backend client, which only a server may import.
+mock.module("server-only", () => ({}));
 const realActions = { ...(await import("@/app/(main)/actions")) };
 mock.module("@/app/(main)/actions", () => ({
   ...realActions,

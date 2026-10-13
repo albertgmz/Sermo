@@ -46,21 +46,6 @@ function conversationIdOf(raw: string) {
   return id;
 }
 
-function MessageNote({
-  icon: Icon,
-  children,
-}: {
-  icon: typeof Hourglass;
-  children: React.ReactNode;
-}) {
-  return (
-    <p className="mb-2 flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
-      {children}
-    </p>
-  );
-}
-
 function Header({
   conversation,
   member,
@@ -184,7 +169,7 @@ export default async function ConversationPage({
             submitLabel={t("submit")}
           />
         ) : (
-          <MessageNote icon={Lock}>{t("cannotReply")}</MessageNote>
+          <PostNote icon={Lock}>{t("cannotReply")}</PostNote>
         )}
       </section>
     </PageLayout>
