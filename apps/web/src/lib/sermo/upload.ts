@@ -3,12 +3,14 @@ import "server-only";
 import { FileMetadata, SiteSettings } from "@sermo/core/contracts";
 import { apiUrl, publicUrl } from "./config";
 import { SermoError } from "./errors";
+import { getSite } from "./site";
 import {
   type Forward,
   forwardFromHeaders,
   forwardHeaders,
   hasSessionCookie,
 } from "./transport";
+import { uploadLimit } from "./upload-limit";
 
 // The pictures a member uploads for their own profile: each is then attached by its own operation
 // (images.setAvatar, images.setCover).
@@ -47,12 +49,13 @@ export const isUploadPurpose = (value: unknown): value is UploadPurpose =>
 export const BACKEND_PURPOSES: readonly string[] =
   FileMetadata.shape.purpose.options;
 
-// The most a request may declare before anything is read from it. A member cannot read the
-// site's own limit (`settings.get` is for administrators), so this is a backstop, not the rule:
-// the contract's highest value for that limit, plus room for the multipart framing. The backend
-// holds the real limit and refuses a larger file itself while it reads.
+// Room, above the size of a file, for the multipart framing around it.
+const FRAMING_ALLOWANCE = 1024 * 1024;
+
+// The most a request may declare when the site's limit is not known (the site could not be read):
+// the contract's highest value for that limit, plus the framing. A backstop, not the rule.
 export const DECLARED_LENGTH_CEILING =
-  (SiteSettings.shape.maxUploadBytes.maxValue ?? 1024 ** 3) + 1024 * 1024;
+  (SiteSettings.shape.maxUploadBytes.maxValue ?? 1024 ** 3) + FRAMING_ALLOWANCE;
 
 // The part of an incoming request that is passed on: its body is never read here, only handed on
 // as a stream, so the size of a file is not a size this app holds in memory.
@@ -137,7 +140,7 @@ export async function uploadWith(
 //   origin       The request does not come from this site's own pages.
 //   type         The body is not a multipart form.
 //   length       The request does not declare its length.
-//   size         The declared length is above the ceiling.
+//   size         The declared length is above what the site allows for this purpose (`limit`).
 //   refused      The backend refused; `message` is its own and `status` its status.
 //   failed       The API could not be reached or answered something unreadable.
 export type UploadRefusal =
@@ -151,19 +154,33 @@ export type UploadRefusal =
 
 export type Received =
   | { ok: true; fileId: number }
-  | { ok: false; reason: UploadRefusal; status: number; message?: string };
+  | {
+      ok: false;
+      reason: UploadRefusal;
+      status: number;
+      message?: string;
+      // For `size`: the most a file may have, in bytes.
+      limit?: number;
+    };
 
 const refuse = (
   reason: UploadRefusal,
   status: number,
   message?: string,
-): Received => ({ ok: false, reason, status, message });
+  limit?: number,
+): Received => ({
+  ok: false,
+  reason,
+  status,
+  message,
+  ...(limit !== undefined && { limit }),
+});
 
 const MULTIPART = /^multipart\/form-data\s*(?:;|$)/i;
 
 // What an upload route does with a request, in one place so the three routes cannot differ: the
 // checks that cost nothing and need no body (a session cookie, this site's origin, a multipart
-// content type, a declared length within the ceiling), then the body is streamed to the backend as
+// content type, a declared length within the site's limit for the purpose), then the body is streamed to the backend as
 // the visitor and the stored file's id is answered. Nothing is read before the checks pass, and
 // the body is never buffered. The caller has already checked that the purpose is one it allows.
 //
@@ -191,7 +208,14 @@ export async function receiveUpload(
   ) {
     return refuse("length", 411);
   }
-  if (Number(declared) > DECLARED_LENGTH_CEILING) return refuse("size", 413);
+  // The site's limit comes from the cached site read, not from the backend, so an upload costs no
+  // request for it. A limit that cannot be read leaves the backstop.
+  const limit = uploadLimit(purpose, (await getSite()).maxUploadBytes);
+  const ceiling =
+    limit === null ? DECLARED_LENGTH_CEILING : limit + FRAMING_ALLOWANCE;
+  if (Number(declared) > ceiling) {
+    return refuse("size", 413, undefined, limit ?? undefined);
+  }
   try {
     const fileId = await uploadWith(
       forwardFromHeaders(request.headers),

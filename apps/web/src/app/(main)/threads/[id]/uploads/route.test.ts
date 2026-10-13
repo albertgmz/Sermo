@@ -1,10 +1,19 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { messages } from "@/i18n/messages";
+import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
+const nextCache = await import("next/cache");
+// The upload limit is read through the cached site read.
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
-  getTranslations: async (namespace: string) => translator(namespace),
+  getTranslations: async (namespace: string) => translator(namespace, true),
 }));
 
 const { POST } = await import("./route");
@@ -25,6 +34,8 @@ beforeEach(() => {
 
 function backend(response: () => Response) {
   globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const site = siteAnswer(url);
+    if (site) return site;
     asked.push({ url, headers: new Headers(init.headers), body: init.body });
     return response();
   }) as unknown as typeof fetch;
@@ -112,4 +123,18 @@ test("the backend's refusal is passed on with its words and status", async () =>
   expect(await response.json()).toEqual({
     error: "File exceeds upload limit.",
   });
+});
+
+test("a file above the site's limit is refused with the limit in the message and nothing is sent", async () => {
+  backend(() => Response.json({ id: 1 }));
+  const { request, state } = posted({
+    "content-length": String(7 * 1024 * 1024),
+  });
+  const response = await POST(request, forum());
+  expect(response.status).toBe(413);
+  expect((await response.json()).error).toBe(
+    messages.threads.uploads.overLimit.replace("{size}", "5"),
+  );
+  expect(state.pulled).toBe(false);
+  expect(asked).toEqual([]);
 });

@@ -4,9 +4,11 @@
     "purpose": "That is not a kind of picture the panel uploads.",
     "noFile": "Choose a file to upload.",
     "tooLarge": "This file is too large to upload here.",
+    "overLimit": "This file is larger than the {size} MB the site allows.",
     "failed": "The file could not be uploaded."
   },
   "pictureField": {
+    "limit": "Up to {size} MB.",
     "failed": "The file could not be uploaded.",
     "willRemove": "The picture will be removed when you save.",
     "progress": "Upload of {file}",

@@ -1,11 +1,20 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { messages } from "@/i18n/messages";
+import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 mock.module("server-only", () => ({}));
+const nextCache = await import("next/cache");
+// The upload limit is read through the cached site read.
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
-  getTranslations: async (namespace: string) => translator(namespace),
+  getTranslations: async (namespace: string) => translator(namespace, true),
 }));
 
 // Who is asking: the viewer module is replaced (other suites replace it too, and a replacement
@@ -36,6 +45,8 @@ beforeEach(() => {
 // The file endpoint of the backend answers what the test says.
 function backendAnswers(response: () => Response) {
   globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const site = siteAnswer(url);
+    if (site) return site;
     forwarded.push({
       url,
       headers: new Headers(init.headers),
@@ -166,4 +177,18 @@ test("a body that is not a multipart form, or declares no length, or too much, i
     (await POST(upload("frame", { "content-length": "99999999999" }))).status,
   ).toBe(413);
   expect(forwarded).toEqual([]);
+});
+
+test("a node picture above the site's limit is refused with the limit in the message; a catalog picture keeps 25 MB", async () => {
+  backendAnswers(() => Response.json({ id: 1 }));
+  const large = { "content-length": String(7 * 1024 * 1024) };
+  const refused = await POST(upload("node_icon", large));
+  expect(refused.status).toBe(413);
+  expect((await refused.json()).error).toBe(
+    messages.adminForums.uploads.overLimit.replace("{size}", "5"),
+  );
+  expect(forwarded).toEqual([]);
+  const catalog = await POST(upload("frame", large));
+  expect(catalog.status).toBe(200);
+  expect(forwarded).toHaveLength(1);
 });

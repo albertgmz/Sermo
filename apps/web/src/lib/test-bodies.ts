@@ -55,6 +55,14 @@ export function creditRulesBody(
   };
 }
 
+// The answer to a request for the site, or null for any other request: the upload routes read the
+// site's upload limit, which the tests of those routes do not ask about.
+export function siteAnswer(url: string, over: Record<string, unknown> = {}) {
+  return new URL(url).pathname === "/api/v1/site"
+    ? Response.json(siteBody(over))
+    : null;
+}
+
 export function notificationTypeBody(
   id: string,
   over: Record<string, unknown> = {},

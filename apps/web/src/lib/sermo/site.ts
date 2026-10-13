@@ -16,6 +16,8 @@ export type SiteIdentity = {
     telegram: string | null;
     x: string | null;
   };
+  // The most a member's file may have, in bytes; null when the site could not be read.
+  maxUploadBytes: number | null;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
 };
@@ -27,11 +29,8 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
   "use cache";
   cacheTag("site");
   try {
-    const { name, logo, icon, backdrop, socialLinks, palette } = await callWith(
-      {},
-      siteGet,
-      {},
-    );
+    const { name, logo, icon, backdrop, socialLinks, maxUploadBytes, palette } =
+      await callWith({}, siteGet, {});
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
     // expiry is above five minutes, which keeps the entry part of prerendered output.
     cacheLife({ stale: 60, revalidate: 60, expire: 3600 });
@@ -41,6 +40,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       icon,
       backdrop,
       socialLinks,
+      maxUploadBytes,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -60,6 +60,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       icon: null,
       backdrop: null,
       socialLinks: { discord: null, telegram: null, x: null },
+      maxUploadBytes: null,
       accents: [],
     };
   }

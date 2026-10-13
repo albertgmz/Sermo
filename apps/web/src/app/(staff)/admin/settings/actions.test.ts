@@ -237,6 +237,15 @@ test("one group's limit is sent with every other group's stored limit", async ()
   });
 });
 
+test("saving the upload limits expires the cached site, which the upload routes read the limit from", async () => {
+  expired.length = 0;
+  backend = fakeBackend({ "settings.get": read, "settings.update": read });
+  await redirectedTo(() =>
+    saveUploads(null, form([["maxUploadBytes", "2000"]])),
+  );
+  expect(expired).toEqual(["site"]);
+});
+
 test("an empty group field leaves the group out, which is unlimited", async () => {
   backend = fakeBackend({ "settings.get": read, "settings.update": read });
   await redirectedTo(() =>

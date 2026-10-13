@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { parseId } from "@/lib/sermo/ids";
 import { receiveUpload, type UploadRefusal } from "@/lib/sermo/upload";
+import { megabytes } from "@/lib/sermo/upload-limit";
 
 const failure = (error: string, status: number) =>
   Response.json(
@@ -37,7 +38,10 @@ export async function POST(
     origin: t("notAllowed"),
     type: t("noFile"),
     length: t("noFile"),
-    size: t("tooLarge"),
+    size:
+      received.limit === undefined
+        ? t("tooLarge")
+        : t("overLimit", { size: megabytes(received.limit) }),
     refused: received.message ?? t("failed"),
     failed: t("failed"),
   };

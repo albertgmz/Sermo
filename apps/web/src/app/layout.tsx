@@ -3,6 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { locale } from "@/i18n/request";
 import { getSite } from "@/lib/sermo/site";
@@ -34,7 +35,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const { maxUploadBytes } = await getSite();
   return (
     <html
       lang={locale}
@@ -44,7 +46,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Suspense>
           <SiteIcon />
         </Suspense>
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <NextIntlClientProvider>
+          <UploadLimitProvider bytes={maxUploadBytes}>
+            {children}
+          </UploadLimitProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );
