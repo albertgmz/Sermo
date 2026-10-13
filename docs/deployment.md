@@ -98,6 +98,14 @@ docker compose up --build -d
 Migrations run when the backend starts, before it listens, so the health check stays red until they
 are done. Take a backup first. Compose recreates only the services whose image changed.
 
+**Custom staff groups.** The migration that added the "listed as staff" flag set it only on the
+built-in Moderator and Administrator groups. If you created other groups for your staff before
+upgrading, open each in the administration panel and tick "listed as staff" once; until then they do
+not appear in the staff list.
+
+**Going back.** After the upgrade the database cannot be used by the previous release; see "Rolling
+back" in `DECISIONS.md`. Keep the backup you took before upgrading.
+
 ## Backup and restore
 
 SQLite runs in WAL mode and the image has no `sqlite3`. A consistent live copy of the database:

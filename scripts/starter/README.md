@@ -52,8 +52,13 @@ Matching is by name or value, so an entry an administrator renamed or recoloured
 and a picture or permission an administrator removed from a loaded entry is put back (the loader
 cannot tell that from an interrupted run).
 
-Nothing already in the database is changed or overwritten, so it is safe on a site that is
-already in use.
+A forum or category is matched by its title and its parent: if an administrator moved one under
+another parent or renamed it, a rerun does not find it and creates it again (an empty duplicate).
+Rerunning is therefore safe on a site nobody has reorganised; on a live site, check the forum
+tree afterwards, or do not rerun the loader.
+
+Nothing already in the database is changed or overwritten, so a rerun does not damage a site that
+is already in use, apart from the re-creations described above.
 
 ## What it loads, and from where
 

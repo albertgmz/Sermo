@@ -1565,3 +1565,21 @@ applied migration by its journal timestamp, not by the file's content (it applie
 when the timestamp is newer than the last recorded one), so a developer database that already ran
 the old `0026` does nothing: it is neither rerun nor flagged. A test runs the statements over 20,000
 holders and fails above five seconds.
+
+**Rolling back.** After migration `0024` the shop effects are stored in a shape that `main`'s code
+rejects (they refer to catalog entries by id). Going back to `main`'s code therefore needs a
+database restored from a backup taken before the upgrade; running the old code on the upgraded
+database fails when it reads a shop item. Nothing else needs undoing. Newer migrations only add
+columns, tables and indexes, which the old code ignores.
+
+**Custom staff groups.** Migration `0023` marks only the built-in Moderator and Administrator
+groups as staff (`groups.is_staff`). Groups an owner made for staff before the upgrade need "listed
+as staff" ticked once; `docs/deployment.md` says so under Upgrade.
+
+**Catalog pictures are immutable by file id.** A picture is served from `/api/v1/files/<id>` with a
+year-long cache, and replacing one requires a new upload (a new file id; the old id is refused as
+a replacement because it is no longer an unattached upload). The entry then points at the new id and
+the old file is queued for permanent deletion by the storage job. A client that cached the old
+address keeps showing the old picture from its cache until it reads the entry again (it then gets
+the new address, so the old one is simply no longer referenced); once the job has run, the old
+address answers not found.
