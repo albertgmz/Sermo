@@ -192,3 +192,39 @@ test("deleting a bought item shows the backend refusal", async () => {
     error: "It was bought.",
   });
 });
+
+test("an item saved with the duration it already had does not send one", async () => {
+  backend = fakeBackend({ "shopItems.update": () => Response.json(ITEM) });
+  // 90 seconds are shown as "90 seconds"; the form reports what it showed as the old value.
+  await redirectedTo(() =>
+    saveItem(
+      null,
+      form({
+        ...base,
+        id: "5",
+        effectType: "bump",
+        durationAmount: "90",
+        durationUnit: "seconds",
+        durationWas: "90:seconds",
+      }),
+    ),
+  );
+  await redirectedTo(() =>
+    saveItem(
+      null,
+      form({
+        ...base,
+        id: "5",
+        effectType: "bump",
+        durationAmount: "3",
+        durationUnit: "minutes",
+        durationWas: "90:seconds",
+      }),
+    ),
+  );
+  const [same, changed] = backend.asked.map(
+    (call) => call.body as Record<string, unknown>,
+  );
+  expect("durationSeconds" in same).toBe(false);
+  expect(changed.durationSeconds).toBe(180);
+});

@@ -385,6 +385,7 @@
       "durationConsumable": "A consumable has no duration.",
       "durationUnit": "Unit of the duration",
       "units": {
+        "seconds": "seconds",
         "minutes": "minutes",
         "hours": "hours",
         "days": "days"
