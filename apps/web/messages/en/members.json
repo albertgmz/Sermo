@@ -81,7 +81,6 @@
     "follow": "Follow"
   },
   "profile": {
-    "metaTitle": "{username}",
     "aria": { "level": "Level", "sections": "Profile sections" },
     "xp": "<value>{current}</value> / {next} XP",
     "awards": "{count, plural, one {<value>#</value> award} other {<value>#</value> awards}}",

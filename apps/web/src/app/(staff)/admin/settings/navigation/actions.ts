@@ -8,7 +8,6 @@ import {
   navigationList,
   navigationUpdate,
 } from "@sermo/core/contracts";
-import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -24,10 +23,9 @@ import {
 
 const BACK = "/admin/settings/navigation";
 
-// The public header, the phone bar, the account menu and the footer read the site's shared
-// cache, so a change is expired before the redirect.
+// The header, the phone bar, the account menu and the footer ask for the navigation on every
+// request, as the visitor, so nothing is cached and a change shows at once.
 function done(notice: "saved" | "added" | "deleted"): never {
-  updateTag("site");
   redirect(`${BACK}?${new URLSearchParams({ notice })}`);
 }
 
@@ -147,12 +145,8 @@ export async function saveOrder(
       });
     }
   }
-  const { saved, state } = await saveInOrder(changes);
-  // What was saved before a refusal is in the shared cache too.
-  if (state) {
-    if (saved > 0) updateTag("site");
-    return state;
-  }
+  const { state } = await saveInOrder(changes);
+  if (state) return state;
   done("saved");
 }
 

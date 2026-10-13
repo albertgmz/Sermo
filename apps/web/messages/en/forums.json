@@ -50,8 +50,6 @@
     }
   },
   "forum": {
-    "metaTitle": "{title}",
-    "metaTitleFallback": "Forum",
     "allThreads": "All threads",
     "created": "<author></author> · {time}",
     "lastPost": "{time} · <author></author>",

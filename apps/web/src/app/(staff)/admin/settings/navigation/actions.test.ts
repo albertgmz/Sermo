@@ -99,7 +99,7 @@ test("a new entry sends what the form showed and expires the site cache", async 
     },
   ]);
   expect(backend.asked[0]?.body).not.toHaveProperty("position");
-  expect(expired).toEqual(["site"]);
+  expect(expired).toEqual([]);
 });
 
 test("an audience of permission carries the permission, an empty target is a heading", async () => {
@@ -212,7 +212,7 @@ test("an entry's own form sends its title, switch and audience, never the order"
     },
   ]);
   expect(backend.asked[0]?.body).not.toHaveProperty("position");
-  expect(expired).toEqual(["site"]);
+  expect(expired).toEqual([]);
 });
 
 test("the order form sends only the entries whose number changed", async () => {
@@ -295,6 +295,6 @@ test("an order refused part-way says that the earlier entries were saved", async
   expect(
     backend.asked.filter((asked) => asked.operation === "navigation.update"),
   ).toHaveLength(2);
-  // The entry saved before the refusal is in the shared cache, which is expired.
-  expect(expired).toEqual(["site"]);
+  // The navigation is read on every request, so there is nothing to expire.
+  expect(expired).toEqual([]);
 });
