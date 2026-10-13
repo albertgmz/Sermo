@@ -4,26 +4,38 @@
 // forum list is shown only for the triggers that accept one. A rule that exists keeps its
 // trigger, so the control then only shows it.
 
+import type { creditRulesList } from "@sermo/core/contracts";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import type * as z from "zod";
 import { FieldRow } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
-import { TRIGGERS, type Trigger, takesForums } from "./triggers";
+
+// The triggers a rule can have, as the backend lists them, and whether a rule on each may be
+// restricted to forums.
+export type TriggerChoice = z.output<
+  typeof creditRulesList.output
+>["triggers"][number];
 
 export function RuleFields({
   idPrefix,
   fixedTrigger,
+  triggerChoices,
   nodes,
   chosen,
 }: {
   idPrefix: string;
-  fixedTrigger?: Trigger;
+  fixedTrigger?: TriggerChoice["id"];
+  triggerChoices: TriggerChoice[];
   nodes: { id: number; title: string; depth: number }[];
   chosen: number[];
 }) {
   const t = useTranslations("adminEconomy.rules.form");
   const triggers = useTranslations("adminEconomy.rules.triggers");
-  const [trigger, setTrigger] = useState<Trigger>(fixedTrigger ?? TRIGGERS[0]);
+  const [trigger, setTrigger] = useState(fixedTrigger ?? triggerChoices[0]?.id);
+  const takesForums = triggerChoices.some(
+    (choice) => choice.id === trigger && choice.acceptsForums,
+  );
   const selected = new Set(chosen);
   return (
     <>
@@ -48,18 +60,20 @@ export function RuleFields({
             id={`${idPrefix}-trigger`}
             name="trigger"
             value={trigger}
-            onChange={(event) => setTrigger(event.target.value as Trigger)}
+            onChange={(event) =>
+              setTrigger(event.target.value as TriggerChoice["id"])
+            }
             className={selectClass}
           >
-            {TRIGGERS.map((value) => (
-              <option key={value} value={value}>
-                {triggers(value)}
+            {triggerChoices.map(({ id }) => (
+              <option key={id} value={id}>
+                {triggers(id)}
               </option>
             ))}
           </select>
         )}
       </FieldRow>
-      {takesForums(trigger) && (
+      {takesForums && (
         <FieldRow name="nodeIds" label={t("forums")} help={t("forumsHelp")}>
           <fieldset className="grid max-h-64 gap-1 overflow-y-auto sm:grid-cols-2">
             <legend className="sr-only">{t("forums")}</legend>

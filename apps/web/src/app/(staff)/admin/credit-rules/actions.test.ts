@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { creditRulesBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { fakeBackend, refusal } from "../groups/test-backend";
 
@@ -57,7 +58,10 @@ const RULE = {
 };
 
 test("a new rule sends the trigger, the limit and the forums ticked", async () => {
-  backend = fakeBackend({ "creditRules.create": () => Response.json(RULE) });
+  backend = fakeBackend({
+    "creditRules.list": () => Response.json(creditRulesBody()),
+    "creditRules.create": () => Response.json(RULE),
+  });
   const data = form({
     title: "Posting pays 5",
     trigger: "reply_posted",
@@ -70,7 +74,7 @@ test("a new rule sends the trigger, the limit and the forums ticked", async () =
   data.append("nodeIds", "4");
   const digest = await redirectedTo(() => saveRule(null, data));
   expect(digest).toMatch(/;\/admin\/credit-rules\?notice=created;/);
-  expect(backend.asked[0].body).toEqual({
+  expect(backend.asked[1].body).toEqual({
     title: "Posting pays 5",
     trigger: "reply_posted",
     amount: 5,
@@ -82,6 +86,7 @@ test("a new rule sends the trigger, the limit and the forums ticked", async () =
 
 test("a trigger that takes no forums sends none, and an edit sends no trigger", async () => {
   backend = fakeBackend({
+    "creditRules.list": () => Response.json(creditRulesBody()),
     "creditRules.create": () => Response.json(RULE),
     "creditRules.update": () => Response.json(RULE),
   });
@@ -94,7 +99,11 @@ test("a trigger that takes no forums sends none, and an edit sends no trigger", 
       form({ id: "1", title: "T", trigger: "registered", amount: "-2" }),
     ),
   );
-  expect(backend.asked.map((call) => call.body)).toEqual([
+  expect(
+    backend.asked
+      .filter((call) => call.operation !== "creditRules.list")
+      .map((call) => call.body),
+  ).toEqual([
     {
       title: "T",
       trigger: "registered",
@@ -135,6 +144,7 @@ test("a bad trigger, amount, half a limit or an id is refused before the backend
 
 test("the backend refusal is shown, and a delete ends in a notice", async () => {
   backend = fakeBackend({
+    "creditRules.list": () => Response.json(creditRulesBody()),
     "creditRules.create": () =>
       refusal(422, "validation", "The amount cannot be 0."),
     "creditRules.delete": () => Response.json({ ok: true }),
@@ -148,4 +158,37 @@ test("the backend refusal is shown, and a delete ends in a notice", async () => 
   expect(await redirectedTo(() => deleteRule(null, form({ id: "1" })))).toMatch(
     /notice=deleted/,
   );
+});
+
+test("which triggers take forums is what the backend lists, not a list of ours", async () => {
+  backend = fakeBackend({
+    "creditRules.list": () => Response.json(creditRulesBody([], ["followed"])),
+    "creditRules.create": () => Response.json(RULE),
+  });
+  const data = (trigger: string) => {
+    const fields = form({ title: "T", trigger, amount: "1" });
+    fields.append("nodeIds", "3");
+    return fields;
+  };
+  await redirectedTo(() => saveRule(null, data("followed")));
+  await redirectedTo(() => saveRule(null, data("reply_posted")));
+  const sent = backend.asked.filter(
+    (call) => call.operation === "creditRules.create",
+  );
+  expect(sent[0].body).toMatchObject({ nodeIds: [3] });
+  expect(sent[1].body).not.toHaveProperty("nodeIds");
+});
+
+test("unticking every forum clears the restriction of a trigger that takes forums", async () => {
+  backend = fakeBackend({
+    "creditRules.list": () => Response.json(creditRulesBody()),
+    "creditRules.update": () => Response.json(RULE),
+  });
+  await redirectedTo(() =>
+    saveRule(
+      null,
+      form({ id: "1", title: "T", trigger: "reply_posted", amount: "1" }),
+    ),
+  );
+  expect(backend.asked.at(-1)?.body).toMatchObject({ nodeIds: [] });
 });

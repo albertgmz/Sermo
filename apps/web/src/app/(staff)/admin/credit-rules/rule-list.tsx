@@ -14,7 +14,7 @@ type Search = PageProps<"/admin/credit-rules">["searchParams"];
 // Every rule with its editor behind "Edit" (the address carries which), then the form for a new
 // one. The backend does not page rules.
 export async function RuleList({ searchParams }: { searchParams: Search }) {
-  const [t, format, { items }, tree, params] = await Promise.all([
+  const [t, format, { items, triggers }, tree, params] = await Promise.all([
     getTranslations("adminEconomy.rules"),
     getFormatter(),
     read(creditRulesList, {}),
@@ -97,7 +97,7 @@ export async function RuleList({ searchParams }: { searchParams: Search }) {
                 </div>
                 {editing === rule.id && (
                   <div className="space-y-4 border-t p-4">
-                    <RuleForm rule={rule} nodes={nodes} />
+                    <RuleForm rule={rule} triggers={triggers} nodes={nodes} />
                     <ConfirmStep
                       action={deleteRule}
                       fields={{ id: rule.id }}
@@ -114,7 +114,7 @@ export async function RuleList({ searchParams }: { searchParams: Search }) {
           <p className="p-4 text-sm text-muted-foreground">{t("none")}</p>
         )}
       </section>
-      <RuleForm nodes={nodes} />
+      <RuleForm triggers={triggers} nodes={nodes} />
     </>
   );
 }

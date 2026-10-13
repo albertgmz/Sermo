@@ -1,3 +1,5 @@
+import { creditRulesCreate } from "@sermo/core/contracts";
+
 // What the backend answers for the records the panel and the forum pages fake in their tests, with
 // every field its contract lists. A test overrides only what it is about; when the backend adds a
 // field, it is added here and nowhere else.
@@ -29,6 +31,27 @@ export function siteBody(over: Record<string, unknown> = {}) {
     maxUploadBytes: 5 * 1024 * 1024,
     palette: { accents: [], nameColors: [], prefixColors: [] },
     ...over,
+  };
+}
+
+// What creditRules.list answers: the rules and every trigger, `forums` being those that accept a
+// restriction to forums.
+export function creditRulesBody(
+  items: unknown[] = [],
+  forums: string[] = [
+    "thread_created",
+    "reply_posted",
+    "reply_received",
+    "reaction_given",
+    "reaction_received",
+  ],
+) {
+  return {
+    items,
+    triggers: creditRulesCreate.input.shape.trigger.options.map((id) => ({
+      id,
+      acceptsForums: forums.includes(id),
+    })),
   };
 }
 
