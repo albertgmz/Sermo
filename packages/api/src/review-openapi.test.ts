@@ -43,3 +43,32 @@ test("operations that need an account do not list anonymous access", async () =>
     expect(entry!.length).toBeGreaterThan(0);
   }
 });
+
+test("a DELETE describes its path parameters as parameters and its other fields as a JSON body", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const document = (await buildOpenApiDocument(ctx)) as {
+    paths: Record<
+      string,
+      Record<
+        string,
+        {
+          parameters: { name: string; in: string }[];
+          requestBody?: {
+            required: boolean;
+            content: { "application/json": { schema: { properties: Record<string, unknown> } } };
+          };
+        }
+      >
+    >;
+  };
+  const group = document.paths["/api/v1/groups/{groupId}"]!.delete!;
+  expect(group.parameters).toEqual([expect.objectContaining({ name: "groupId", in: "path" })]);
+  expect(group.requestBody?.required).toBe(false);
+  expect(Object.keys(group.requestBody!.content["application/json"].schema.properties)).toContain(
+    "actorPassword",
+  );
+  // Nothing besides the path to send: no body is described.
+  expect(document.paths["/api/v1/award-grants/{memberAwardId}"]!.delete!.requestBody).toBeDefined();
+  expect(document.paths["/api/v1/nodes/{nodeId}/watch"]!.delete!.requestBody).toBeUndefined();
+});

@@ -22,7 +22,7 @@ export async function GroupList({
   const [t, viewer, { items }, { items: colours }] = await Promise.all([
     getTranslations("adminGroups.list"),
     getViewer(),
-    read(groupsList, {}),
+    read(groupsList, { counts: true }),
     read(paletteColorsList, { kind: "name" }),
   ]);
   const colourOf = new Map(colours.map((colour) => [colour.id, colour]));
@@ -77,12 +77,14 @@ export async function GroupList({
                         {group.rank}
                       </dd>
                     </div>
-                    <div className="flex gap-1">
-                      <dt>{t("members")}</dt>
-                      <dd className="font-medium text-foreground">
-                        {group.memberCount}
-                      </dd>
-                    </div>
+                    {group.memberCount !== null && (
+                      <div className="flex gap-1">
+                        <dt>{t("members")}</dt>
+                        <dd className="font-medium text-foreground">
+                          {group.memberCount}
+                        </dd>
+                      </div>
+                    )}
                     <div className="flex gap-1">
                       <dt>{t("nameColour")}</dt>
                       <dd className="flex items-center gap-1 font-medium text-foreground">

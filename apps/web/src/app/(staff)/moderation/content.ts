@@ -86,21 +86,17 @@ const nothing: Described = {
   createdAt: null,
 };
 
-// `deep` adds the reads that name the place (the thread's title, a wall's owner); a list leaves
-// them out.
+// The detail pages' read of a target. The queues' rows carry their own excerpt and place.
 export async function describe(
   type: TargetType,
   id: number,
-  deep: boolean,
 ): Promise<Described> {
   if (type === "post") {
     const post = await orGone(() => call(postsGet, { postId: id }));
     if (!post) return nothing;
-    const thread = deep
-      ? await orGone(() =>
-          call(threadsGet, { threadId: post.threadId, countView: false }),
-        )
-      : null;
+    const thread = await orGone(() =>
+      call(threadsGet, { threadId: post.threadId, countView: false }),
+    );
     return {
       author: post.author,
       bodyHtml: post.bodyHtml,
@@ -121,9 +117,9 @@ export async function describe(
     );
     if (!found) return nothing;
     const { thread } = found;
-    const first = deep
-      ? await orGone(() => call(postsGet, { postId: thread.firstPostId }))
-      : null;
+    const first = await orGone(() =>
+      call(postsGet, { postId: thread.firstPostId }),
+    );
     return {
       author: thread.author,
       bodyHtml: first?.bodyHtml ?? null,

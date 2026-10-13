@@ -24,7 +24,9 @@
 
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
+import { useUploadLimit } from "@/components/forum/upload-limit";
 import { Button } from "@/components/ui/button";
+import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
 import { cn } from "@/lib/utils";
 
 type State =
@@ -49,6 +51,7 @@ export function PictureField({
   const t = useTranslations("adminForums.pictureField");
   const fallbackId = useId();
   const inputId = id ?? fallbackId;
+  const limit = uploadLimit(purpose, useUploadLimit());
   const input = useRef<HTMLInputElement>(null);
   const request = useRef<XMLHttpRequest | null>(null);
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -142,6 +145,11 @@ export function PictureField({
           "block w-full min-w-0 text-sm text-muted-foreground file:me-3 file:min-h-10 file:cursor-pointer file:rounded-lg file:border file:border-input file:bg-card file:px-3 file:text-sm file:font-medium file:text-foreground",
         )}
       />
+      {limit !== null && (
+        <p className="text-xs text-muted-foreground">
+          {t("limit", { size: megabytes(limit) })}
+        </p>
+      )}
       <div aria-live="polite" className="text-xs [overflow-wrap:anywhere]">
         {state.phase === "uploading" && (
           <>

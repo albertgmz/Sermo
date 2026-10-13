@@ -4,6 +4,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { messages } from "../src/i18n/messages";
 import { LITE_CATEGORIES, LITE_COOKIE } from "../src/lib/lite-preferences";
+import { siteBody } from "../src/lib/test-bodies";
 import { IMAGE_EXTENSIONS, read } from "./lite-scan";
 
 // Mock only the missing server environment and data boundary. The real cookie
@@ -34,7 +35,13 @@ function translator(namespace: string) {
   };
   return Object.assign(t, { rich: t });
 }
-mock.module("next-intl", () => ({ useTranslations: translator }));
+// A stand-in for one hook keeps the other exports of the library, so a module that imports
+// another of them still links after this suite has run.
+const realIntl = { ...(await import("next-intl")) };
+mock.module("next-intl", () => ({
+  ...realIntl,
+  useTranslations: translator,
+}));
 mock.module("next-intl/server", () => ({
   getTranslations: async (namespace: string) => translator(namespace),
 }));
@@ -85,8 +92,8 @@ globalThis.fetch = (async (input: string) => {
   }
   return Response.json({
     ...site,
-    socialLinks: { discord: null, telegram: null, x: null },
-    palette: { accents: [], nameColors: [], prefixColors: [] },
+    ...siteBody(),
+    ...site,
   });
 }) as unknown as typeof fetch;
 // The member as they edit their own profile.

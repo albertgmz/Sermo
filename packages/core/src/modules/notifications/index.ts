@@ -252,6 +252,7 @@ export const notificationsTypesOp = implement(contracts.notificationsTypes, (ctx
       description: type.body,
       defaults: effectiveDefaults(adminDefaults, type.id),
       required: type.required,
+      emailFollowsWatch: notificationChannels.watchTypes.has(type.id),
       channels: type.required
         ? ["email" as const]
         : ["inApp" as const, "email" as const, "push" as const],

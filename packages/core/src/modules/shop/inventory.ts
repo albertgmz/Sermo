@@ -23,6 +23,7 @@ import {
   revokePurchased,
 } from "../../permissions";
 import { moveCredits } from "../../shared/credits";
+import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
 import {
   category,
@@ -115,6 +116,7 @@ function purchase(
   if (gift) {
     if (!value.isGiftable) throw new ForbiddenError("This gift cannot be sent.");
     if (!statement(ctx, shopSql.recipient).get(recipientId)) throw new NotFoundError();
+    requireNotErased(ctx, recipientId);
     if (
       can(ctx, current, "member.ignorable") &&
       statement(ctx, shopSql.ignored).get(recipientId, buyer.userId)

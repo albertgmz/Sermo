@@ -129,6 +129,7 @@
   },
   "attachmentField": {
     "attach": "Attach files",
+    "limit": "Up to {size} MB each.",
     "uploading": "Uploading…",
     "failed": "{name} could not be uploaded.",
     "aria": {

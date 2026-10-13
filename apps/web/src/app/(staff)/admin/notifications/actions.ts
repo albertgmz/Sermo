@@ -14,7 +14,9 @@ import { CHANNELS, SHOWN_TYPES } from "./grid";
 // field each) and whose cells the administrator changed are written into it, every other entry is
 // sent back as it was: a type the backend added after the page was built keeps its stored value.
 // A type is read as "off" in a channel only when the form showed it; a request without the marker
-// is refused. A type the backend marks as required has no cell in the form and is left alone.
+// is refused. A type the backend marks as required has no cell in the form and is left alone, and
+// so is the email of a type that follows each watch (its cell is fixed): that channel keeps the
+// stored value.
 export async function saveNotificationDefaults(
   _previous: StaffFormState,
   formData: FormData,
@@ -38,11 +40,17 @@ export async function saveNotificationDefaults(
   for (const type of types.items) {
     if (type.required || !shown.has(type.id)) continue;
     const next = { ...type.defaults };
+    const changed = [];
     for (const channel of CHANNELS) {
       if (!type.channels.includes(channel)) continue;
+      if (channel === "email" && type.emailFollowsWatch) {
+        next.email = current.notificationDefaults[type.id]?.email ?? next.email;
+        continue;
+      }
       next[channel] = formData.get(`${type.id}:${channel}`) === "on";
+      if (next[channel] !== type.defaults[channel]) changed.push(channel);
     }
-    if (CHANNELS.some((channel) => next[channel] !== type.defaults[channel])) {
+    if (changed.length > 0) {
       defaults[type.id] = next;
     }
   }

@@ -296,3 +296,33 @@ describe("returning a member to automatic evaluation", () => {
     expect(administrators(ctx)).toEqual([member.id]);
   });
 });
+
+describe("the promotion log", () => {
+  test("can be read for one member, so a member's history can show their promotions", async () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const group = await createGroup(ctx, admin, "Earned", 5);
+    const promotion = await createPromotion(ctx, admin, [group.id]);
+    const first = insertUser(ctx);
+    const second = insertUser(ctx);
+    await execute(ctx, op("promotions.apply"), admin, {
+      userId: first.id,
+      promotionId: promotion.id,
+      action: "promote",
+    });
+    await execute(ctx, op("promotions.apply"), admin, {
+      userId: second.id,
+      promotionId: promotion.id,
+      action: "promote",
+    });
+    const all = (await execute(ctx, op("promotions.log"), admin, {})) as {
+      items: { userId: number }[];
+    };
+    expect(new Set(all.items.map((item) => item.userId))).toEqual(new Set([first.id, second.id]));
+    const own = (await execute(ctx, op("promotions.log"), admin, { userId: first.id })) as {
+      items: { userId: number }[];
+    };
+    expect(own.items.length).toBeGreaterThan(0);
+    expect(own.items.every((item) => item.userId === first.id)).toBe(true);
+  });
+});

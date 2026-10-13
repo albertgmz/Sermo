@@ -9,6 +9,7 @@ import {
 import { cache } from "react";
 import type * as z from "zod";
 import { notificationEntries } from "@/app/(main)/notifications/entries";
+import type { PendingCount } from "@/app/(staff)/pending-count";
 import type { AccentColors } from "@/components/layout/site-accent";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -16,7 +17,12 @@ import { membersFor, plainMember } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { getSite } from "@/lib/sermo/site";
 
-export type Counters = z.output<typeof authCounters.output>;
+// The answer's `cap` is not read: a queue is shown by its count and `more`, so the stand-in for an
+// unreadable backend does not invent one.
+export type Counters = Omit<
+  z.output<typeof authCounters.output>,
+  "openReports" | "pendingApprovals"
+> & { openReports: PendingCount; pendingApprovals: PendingCount };
 
 const NONE: Counters = {
   conversations: 0,

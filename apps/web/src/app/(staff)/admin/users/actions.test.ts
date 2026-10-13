@@ -1,7 +1,12 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
-import { fakeBackend, refusal } from "../groups/test-backend";
+import {
+  fakeBackend,
+  refusal,
+  tooManyWrongPasswords,
+  wrongPassword,
+} from "../groups/test-backend";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -93,8 +98,7 @@ const identityForm = (fields: Record<string, string> = {}) =>
 
 test("a wrong administrator password shows on the password field and changes nothing", async () => {
   backend = fakeBackend({
-    "users.adminUpdateIdentity": () =>
-      refusal(403, "forbidden", "That is not your password."),
+    "users.adminUpdateIdentity": () => wrongPassword(),
   });
   expect(
     await identity.saveIdentity(null, identityForm({ username: "robin" })),
@@ -104,12 +108,7 @@ test("a wrong administrator password shows on the password field and changes not
 
 test("the backend's limit message after too many wrong passwords is shown as it is", async () => {
   backend = fakeBackend({
-    "users.adminUpdateIdentity": () =>
-      refusal(
-        429,
-        "rate_limited",
-        "Too many wrong passwords. Try again later.",
-      ),
+    "users.adminUpdateIdentity": () => tooManyWrongPasswords(),
   });
   expect(
     await identity.saveIdentity(null, identityForm({ username: "robin" })),
@@ -304,8 +303,7 @@ test("groups are saved with the password in the same write, with the full second
 
 test("a wrong password for a group change shows on the password field", async () => {
   backend = fakeBackend({
-    "users.setGroups": () =>
-      refusal(403, "forbidden", "That is not your password."),
+    "users.setGroups": () => wrongPassword(),
   });
   expect(
     await groups.saveGroups(
@@ -361,7 +359,7 @@ const applied = {
   grantedGroupIds: [],
 };
 
-test("a promotion is applied to a member only after the administrator's password is confirmed", async () => {
+test("a promotion is applied to a member with the administrator's password in the write", async () => {
   const fields = { id: "7", promotionId: "2", action: "promote" };
   backend = fakeBackend({
     "promotions.apply": () => Response.json(applied),
@@ -372,28 +370,26 @@ test("a promotion is applied to a member only after the administrator's password
   expect(backend.asked).toEqual([]);
   backend.restore();
   backend = fakeBackend({
-    "auth.verifyPassword": () =>
-      refusal(403, "forbidden", "That is not your password."),
-    "promotions.apply": () => Response.json(applied),
+    "promotions.apply": () => wrongPassword(),
   });
   expect(
     await groups.applyPromotion(null, form({ ...fields, actorPassword: "no" })),
   ).toEqual({ fields: { actorPassword: "That is not your password." } });
   expect(backend.asked.map((call) => call.operation)).toEqual([
-    "auth.verifyPassword",
+    "promotions.apply",
   ]);
   backend.restore();
   backend = fakeBackend({
-    "auth.verifyPassword": ok,
     "promotions.apply": () => Response.json(applied),
   });
   await redirectedTo(() =>
     groups.applyPromotion(null, form({ ...fields, actorPassword: "secret" })),
   );
+  // The password goes with the write: no call of its own before it.
   expect(backend.asked.map((call) => call.operation)).toEqual([
-    "auth.verifyPassword",
     "promotions.apply",
   ]);
+  expect(backend.asked[0].body).toMatchObject({ actorPassword: "secret" });
 });
 
 // Profile and appearance ----------------------------------------------------------------------

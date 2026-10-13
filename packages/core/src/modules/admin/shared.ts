@@ -1,6 +1,6 @@
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { ForbiddenError, NotFoundError } from "../../errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { markPublic } from "../../operation";
 import {
   currentVersions,
@@ -71,41 +71,55 @@ export function requireTakeoverRights(ctx: Ctx, actor: Actor, target: Actor): vo
 
 /**
  * The acting administrator's own password, verified the way Better Auth verifies a sign-in. At
- * most five wrong answers in fifteen minutes: after that every answer is refused until the window
- * moves on. A right answer gives its guess back but does not clear the earlier wrong ones, so
- * guessing cannot be interleaved with right answers.
+ * most five wrong answers per session and twenty per member in fifteen minutes: after that every
+ * answer is refused until the window moves on. A right answer gives its guess back but does not
+ * clear the earlier wrong ones, so guessing cannot be interleaved with right answers.
  */
 export const verifyActorPassword = markPublic(
   "Checks the actor's own password; it grants nothing.",
-  async (ctx: Ctx, actor: Actor, password: string): Promise<{ userId: number }> => {
+  async (
+    ctx: Ctx,
+    actor: Actor,
+    password: string,
+    field = "actorPassword",
+  ): Promise<{ userId: number }> => {
     const user = requireAuthenticated(actor);
     if (actor.kind !== "user")
       throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
-    const guess = takePasswordGuess(ctx, user.userId);
+    const guess = takePasswordGuess(ctx, user.userId, actor.sessionId, field);
+    const wrong = () =>
+      new ForbiddenError("That is not your password.", [
+        { path: [field], message: "Wrong password" },
+      ]);
     const authContext = await getAuth(ctx).$context;
     const account = await authContext.internalAdapter.findCredentialAccount(String(user.userId));
     if (!account?.password) {
       // Spend the same time as a wrong password would, so the answer does not tell the two apart.
       await authContext.password.hash(password);
-      throw new ForbiddenError("That is not your password.");
+      throw wrong();
     }
-    if (!(await authContext.password.verify({ hash: account.password, password })))
-      throw new ForbiddenError("That is not your password.");
+    if (!(await authContext.password.verify({ hash: account.password, password }))) throw wrong();
     forgivePasswordGuess(ctx, guess);
     return { userId: user.userId };
   },
 );
 
 /**
- * The optional confirmation of a write that changes groups or permissions: when the request
- * carries the acting administrator's password it is verified first (same helper, same limit),
- * and a wrong one stops the request before anything is read or changed. Without it, nothing is
- * asked, which is how API clients call these operations.
+ * The confirmation of a write that changes groups, permissions or promotion rules. A password
+ * that is sent is verified (same helper, same limit) and a wrong one stops the request
+ * before anything is changed. An interactive session (a browser session cookie, marked
+ * by the HTTP layer) must send one. API keys and in-process callers (loaders, jobs, tests build
+ * their actors by hand and never carry the mark) are not asked. Called after the early
+ * permission check, so someone who may not act is told so whatever they send.
  */
 export const confirmActorPassword = markPublic(
-  "Checks the actor's own password when one is sent; it grants nothing.",
+  "Checks the actor's own password when one is sent or required; it grants nothing.",
   async (ctx: Ctx, actor: Actor, password: string | undefined): Promise<void> => {
-    if (password !== undefined) await verifyActorPassword(ctx, actor, password);
+    if (password !== undefined) return void (await verifyActorPassword(ctx, actor, password));
+    if (actor.kind === "user" && actor.interactive)
+      throw new ValidationError("The acting administrator's password is required.", [
+        { path: ["actorPassword"], message: "Required" },
+      ]);
   },
 );
 

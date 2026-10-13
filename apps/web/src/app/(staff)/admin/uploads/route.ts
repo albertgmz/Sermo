@@ -6,6 +6,7 @@ import {
   type UploadPurpose,
   type UploadRefusal,
 } from "@/lib/sermo/upload";
+import { megabytes } from "@/lib/sermo/upload-limit";
 import { viewerOf } from "@/lib/sermo/viewer";
 
 const answer = (body: { id: number } | { error: string }, status = 200) =>
@@ -40,7 +41,10 @@ export async function POST(request: Request) {
     origin: t("notAllowed"),
     type: t("noFile"),
     length: t("noFile"),
-    size: t("tooLarge"),
+    size:
+      received.limit === undefined
+        ? t("tooLarge")
+        : t("overLimit", { size: megabytes(received.limit) }),
     refused: received.message ?? t("failed"),
     failed: t("failed"),
   };

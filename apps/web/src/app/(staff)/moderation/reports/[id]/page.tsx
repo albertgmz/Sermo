@@ -75,7 +75,7 @@ async function Case({
       getViewer(),
       read(reportsGet, { groupId }),
     ]);
-  const detail = await describe(group.targetType, group.targetId, true);
+  const detail = await describe(group.targetType, group.targetId);
   const name = await memberNames([
     ...group.reports.map((report) => report.reporterId),
     ...(group.assignedToId ? [group.assignedToId] : []),

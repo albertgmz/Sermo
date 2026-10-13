@@ -265,6 +265,13 @@ describe("notification channels", () => {
       expect(preferences.find((item) => item.type === type)!.email).toBe(true);
     }
     expect(preferences.find((item) => item.type === "member.followed")!.email).toBe(false);
+    // Exactly the watch types say their email default follows the watch.
+    expect(
+      types
+        .filter((item) => item.emailFollowsWatch)
+        .map((item) => item.id)
+        .sort(),
+    ).toEqual(["node.post", "node.thread", "thread.watched"]);
   });
 
   test("email is not queued for a context without email jobs", async () => {

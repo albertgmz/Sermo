@@ -49,7 +49,18 @@ and nothing in the web app can create one (`bun run dev:fixture` is for developm
 `NODE_ENV=production`). To add one later, set the three variables again while the site has no administrator: the backend
 creates the account, or promotes an existing one whose email and password match.
 
-A new site is empty: create a category and a forum in the panel before members can post.
+A new site is empty: create a category and a forum in the panel, or load the starter content, before
+members can post. The starter content is the configuration the first frontend shipped (pictures,
+colours, forums, awards, the shop, site identity, credit rules and static pages), with no members or
+posts. With the site running and the administrator created, load it inside the backend container,
+naming that administrator:
+
+```sh
+docker compose exec sermo bun run starter:load --admin <username>
+```
+
+It prints one line per item and a total, and exits non-zero if anything failed. Running it again
+creates nothing that is already there (see `scripts/starter/README.md`).
 
 ## Configuration
 

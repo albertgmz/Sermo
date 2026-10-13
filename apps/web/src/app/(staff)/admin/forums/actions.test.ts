@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
-import { fakeBackend, refusal } from "../groups/test-backend";
+import { fakeBackend, refusal, wrongPassword } from "../groups/test-backend";
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -287,8 +287,7 @@ test("a moderator is added and removed through the node", async () => {
 
 test("a wrong password for a moderator change shows on the password field", async () => {
   backend = fakeBackend({
-    "nodes.setModerator": () =>
-      refusal(403, "forbidden", "That is not your password."),
+    "nodes.setModerator": () => wrongPassword(),
   });
   expect(
     await setModerator(

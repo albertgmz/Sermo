@@ -168,7 +168,13 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         : `user:${actor.userId}`;
   };
   const resolve = async (c: ApiContext, next: () => Promise<void>) => {
-    const result = await resolveActor(ctx, c.req.raw.headers);
+    const resolved = await resolveActor(ctx, c.req.raw.headers);
+    // A session cookie is a browser session: the group and permission writes ask it for the
+    // administrator's password (see confirmActorPassword).
+    const result =
+      resolved.actor.kind === "user"
+        ? { ...resolved, actor: { ...resolved.actor, interactive: true as const } }
+        : resolved;
     c.set("actor", result.actor);
     c.set("setCookies", result.setCookies);
     if (c.req.path === "/mcp")
@@ -342,7 +348,10 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         const params = new URL(c.req.url).searchParams;
         for (const name of new Set(params.keys()))
           raw[name] = coerceQueryValues(params.getAll(name), properties[name]);
-      } else {
+      }
+      // A DELETE may carry a JSON body too, so a secret need not travel in the URL; its fields
+      // win over the same field in the query.
+      if (route.method !== "GET") {
         const body = await c.req.raw.text();
         if (body) {
           let parsed: unknown;

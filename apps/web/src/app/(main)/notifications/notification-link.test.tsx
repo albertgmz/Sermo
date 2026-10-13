@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import type { ReactElement } from "react";
 
-const link = await import("next/link");
+const link = { ...(await import("next/link")) };
 const navigation = await import("next/navigation");
 let refreshed = 0;
 mock.module("next/navigation", () => ({

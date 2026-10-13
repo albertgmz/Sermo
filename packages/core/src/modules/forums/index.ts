@@ -743,8 +743,8 @@ export const nodesSetModeratorOp = implement(
   contracts.nodesSetModerator,
   async (ctx, actor, input) => {
     requireAuthenticated(actor);
-    await confirmActorPassword(ctx, actor, input.actorPassword);
     requirePermission(ctx, actor, "admin.permissions");
+    await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       if (!getNodeTree(ctx).get(input.nodeId)) throw new NotFoundError();
       if (

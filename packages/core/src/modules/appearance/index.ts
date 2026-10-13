@@ -315,6 +315,7 @@ export const operations = [
         icon: publicPicture(ctx, settings.iconFileId),
         backdrop: publicPicture(ctx, settings.backdropFileId),
         socialLinks: settings.socialLinks,
+        maxUploadBytes: settings.maxUploadBytes,
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,

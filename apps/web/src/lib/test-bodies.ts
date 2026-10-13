@@ -1,3 +1,5 @@
+import { creditRulesCreate } from "@sermo/core/contracts";
+
 // What the backend answers for the records the panel and the forum pages fake in their tests, with
 // every field its contract lists. A test overrides only what it is about; when the backend adds a
 // field, it is added here and nowhere else.
@@ -14,6 +16,65 @@ export function groupBody(over: Record<string, unknown> = {}) {
     nameColorId: 3,
     isStaff: false,
     memberCount: 4,
+    ...over,
+  };
+}
+
+// What site.get answers: the identity a test is about goes in `over`.
+export function siteBody(over: Record<string, unknown> = {}) {
+  return {
+    name: "Garden Club",
+    logo: null,
+    icon: null,
+    backdrop: null,
+    socialLinks: { discord: null, telegram: null, x: null },
+    maxUploadBytes: 5 * 1024 * 1024,
+    palette: { accents: [], nameColors: [], prefixColors: [] },
+    ...over,
+  };
+}
+
+// What creditRules.list answers: the rules and every trigger, `forums` being those that accept a
+// restriction to forums.
+export function creditRulesBody(
+  items: unknown[] = [],
+  forums: string[] = [
+    "thread_created",
+    "reply_posted",
+    "reply_received",
+    "reaction_given",
+    "reaction_received",
+  ],
+) {
+  return {
+    items,
+    triggers: creditRulesCreate.input.shape.trigger.options.map((id) => ({
+      id,
+      acceptsForums: forums.includes(id),
+    })),
+  };
+}
+
+// The answer to a request for the site, or null for any other request: the upload routes read the
+// site's upload limit, which the tests of those routes do not ask about.
+export function siteAnswer(url: string, over: Record<string, unknown> = {}) {
+  return new URL(url).pathname === "/api/v1/site"
+    ? Response.json(siteBody(over))
+    : null;
+}
+
+export function notificationTypeBody(
+  id: string,
+  over: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    label: id,
+    description: id,
+    defaults: { inApp: true, email: false, push: false },
+    required: false,
+    emailFollowsWatch: false,
+    channels: ["inApp", "email"],
     ...over,
   };
 }

@@ -140,6 +140,8 @@ export async function saveUploads(
   return saveSettings(parsed, {
     back: "/admin/settings/uploads",
     known: knownIn(UPLOADS, "allowedUploadTypes", "groupUploadLimitBytes"),
+    // The upload routes read the size limit through the cached site.
+    site: true,
   });
 }
 

@@ -65,6 +65,8 @@
     "avatarHelp": "A square picture works best. Choose a new one to replace it.",
     "coverLabel": "Cover",
     "coverHelp": "Shown behind your profile, your posts and your member card.",
+    "limit": "Up to {size} MB.",
+    "overLimit": "This picture is larger than the {size} MB the site allows.",
     "coverGalleryWorn": "A cover from the gallery is worn, so it shows instead of the one you upload. Take it off in Appearance to show yours.",
     "upload": "Upload",
     "remove": "Remove"

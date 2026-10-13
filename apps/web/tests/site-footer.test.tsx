@@ -1,5 +1,6 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { siteBody } from "../src/lib/test-bodies";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -26,8 +27,6 @@ const { FooterColumns, FooterSocials } = await import(
   "../src/components/layout/site-footer"
 );
 
-const palette = { accents: [], nameColors: [], prefixColors: [] };
-
 function backend(
   navigation: unknown,
   socialLinks = { discord: null, telegram: null, x: null } as Record<
@@ -37,16 +36,7 @@ function backend(
 ) {
   globalThis.fetch = (async (url: string) =>
     Response.json(
-      url.includes("/navigation")
-        ? navigation
-        : {
-            name: "Garden Club",
-            logo: null,
-            icon: null,
-            backdrop: null,
-            socialLinks,
-            palette,
-          },
+      url.includes("/navigation") ? navigation : siteBody({ socialLinks }),
     )) as unknown as typeof fetch;
 }
 

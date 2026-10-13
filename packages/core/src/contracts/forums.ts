@@ -564,10 +564,11 @@ export const nodesSetModerator = defineContract({
   name: "nodes.setModerator",
   summary:
     "Make a member moderator of a node and everything under it (member-specific entries for the " +
-    "standard moderator set), or remove that. Requires admin.permissions. With " +
-    "`actorPassword` (session actors only) the acting administrator's own password is verified " +
-    "first, under the same wrong-answer limit as users.adminUpdateIdentity; a wrong one changes " +
-    "nothing. Without it nothing is asked.",
+    "standard moderator set), or remove that. Requires admin.permissions. `actorPassword` is " +
+    "the acting administrator's own password: it is verified under the same wrong-answer " +
+    "limit as users.adminUpdateIdentity, and a wrong one changes nothing. A browser session " +
+    "(session cookie) must send it (missing: a validation error naming actorPassword); an API " +
+    "key or token is not asked and is refused if it sends one.",
   kind: "write",
   input: z.object({
     nodeId: Id,

@@ -1,5 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
+import { messages } from "@/i18n/messages";
+import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 
 const realFetch = globalThis.fetch;
@@ -7,10 +9,15 @@ const realFetch = globalThis.fetch;
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
-  getTranslations: async (namespace: string) => translator(namespace),
+  getTranslations: async (namespace: string) => translator(namespace, true),
 }));
 const nextCache = await import("next/cache");
-mock.module("next/cache", () => ({ ...nextCache, revalidatePath: () => {} }));
+mock.module("next/cache", () => ({
+  ...nextCache,
+  revalidatePath: () => {},
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
@@ -65,6 +72,8 @@ function posted(
 function backend(...answers: Response[]) {
   const asked: { url: string; method: string; body: unknown }[] = [];
   globalThis.fetch = (async (url: string, init: RequestInit) => {
+    const site = siteAnswer(url);
+    if (site) return site;
     let body: unknown = init.body ?? null;
     if (body instanceof ReadableStream) {
       let length = 0;
@@ -185,4 +194,22 @@ test("a session the backend no longer accepts is sent to sign in", async () => {
   );
   const response = await POST(posted(member).request);
   expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
+});
+
+test("a picture above the site's limit comes back with the limit in the message and is not sent", async () => {
+  const asked = backend(Response.json({}));
+  const { request, state } = posted({
+    ...member,
+    "content-length": String(7 * 1024 * 1024),
+  });
+  const response = await POST(request);
+  expect(response.status).toBe(303);
+  expect(
+    new URL(
+      response.headers.get("location") ?? "",
+      "http://x",
+    ).searchParams.get("message"),
+  ).toBe(messages.account.pictures.overLimit.replace("{size}", "5"));
+  expect(state.pulled).toBe(false);
+  expect(asked).toEqual([]);
 });

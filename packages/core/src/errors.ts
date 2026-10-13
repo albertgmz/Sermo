@@ -42,8 +42,8 @@ export class UnauthenticatedError extends SermoError {
 }
 
 export class ForbiddenError extends SermoError {
-  constructor(message = "You do not have permission to do that.") {
-    super("forbidden", message);
+  constructor(message = "You do not have permission to do that.", issues?: ErrorIssue[]) {
+    super("forbidden", message, issues);
   }
 }
 
@@ -60,7 +60,7 @@ export class ConflictError extends SermoError {
 }
 
 export class RateLimitedError extends SermoError {
-  constructor(message = "Too many attempts. Try again later.") {
-    super("rate_limited", message);
+  constructor(message = "Too many attempts. Try again later.", issues?: ErrorIssue[]) {
+    super("rate_limited", message, issues);
   }
 }

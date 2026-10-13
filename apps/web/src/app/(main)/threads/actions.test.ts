@@ -239,8 +239,8 @@ test("deleting asks for the reason and restoring needs none", async () => {
   );
   assert.match(digest ?? "", /#post-31;/);
   assert.equal(asked[0].method, "DELETE");
-  assert.match(asked[0].url, /\/posts\/31\?/);
-  assert.match(asked[0].url, /reason=off\+topic/);
+  assert.equal(asked[0].url, `${ROOT}/posts/31`);
+  assert.deepEqual(asked[0].body, { reason: "off topic" });
   await redirectedTo(() => actions.restorePostAction(7, 31, {}));
   assert.equal(asked[1].url, `${ROOT}/posts/31/restore`);
 });

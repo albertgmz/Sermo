@@ -7,6 +7,7 @@ import { errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { callWith, forwardFromHeaders } from "@/lib/sermo/transport";
 import { isPicturePurpose, receiveUpload } from "@/lib/sermo/upload";
+import { megabytes } from "@/lib/sermo/upload-limit";
 
 const ACCOUNT = "/account";
 
@@ -32,7 +33,12 @@ export async function POST(request: NextRequest) {
     if (received.reason === "origin")
       return new Response(null, { status: 403 });
     const message =
-      received.message ?? (await getTranslations("lib.errors"))("generic");
+      received.message ??
+      (received.reason === "size" && received.limit !== undefined
+        ? (await getTranslations("account.pictures"))("overLimit", {
+            size: megabytes(received.limit),
+          })
+        : (await getTranslations("lib.errors"))("generic"));
     return see(failedPath(ACCOUNT, kind, message));
   }
   try {

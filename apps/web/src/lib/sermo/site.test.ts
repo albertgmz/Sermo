@@ -1,6 +1,7 @@
 import { afterEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { siteBody } from "@/lib/test-bodies";
 import layout from "../../../messages/en/layout.json";
 
 const realFetch = globalThis.fetch;
@@ -23,7 +24,6 @@ mock.module("next-intl/server", () => ({
 
 const { getSite } = await import("./site");
 
-const palette = { accents: [], nameColors: [], prefixColors: [] };
 const noSocialLinks = { discord: null, telegram: null, x: null };
 const socialLinks = { ...noSocialLinks, discord: "https://discord.gg/example" };
 
@@ -31,14 +31,9 @@ test("the site is read without the visitor and keeps only its identity", async (
   const seen: Headers[] = [];
   globalThis.fetch = (async (_url: string, init: RequestInit) => {
     seen.push(new Headers(init.headers));
-    return Response.json({
-      name: "Garden Club",
-      logo: { fileId: 3, url: "/api/v1/files/3" },
-      icon: null,
-      backdrop: null,
-      socialLinks,
-      palette,
-    });
+    return Response.json(
+      siteBody({ logo: { fileId: 3, url: "/api/v1/files/3" }, socialLinks }),
+    );
   }) as unknown as typeof fetch;
   const site = await getSite();
   assert.deepEqual(site, {
@@ -47,6 +42,7 @@ test("the site is read without the visitor and keeps only its identity", async (
     icon: null,
     backdrop: null,
     socialLinks,
+    maxUploadBytes: siteBody().maxUploadBytes,
     accents: [],
   });
   assert.equal(seen[0].get("cookie"), null);
@@ -66,17 +62,18 @@ test("the palette's accents are kept in display order with their colours", async
     updatedAt: "2026-01-01T00:00:00.000Z",
   });
   globalThis.fetch = (async () =>
-    Response.json({
-      name: "Garden Club",
-      logo: null,
-      icon: null,
-      backdrop: null,
-      socialLinks: noSocialLinks,
-      palette: {
-        ...palette,
-        accents: [accent(4, "#0ea5e9", "#03131f"), accent(2, "#dc2626", null)],
-      },
-    })) as unknown as typeof fetch;
+    Response.json(
+      siteBody({
+        palette: {
+          accents: [
+            accent(4, "#0ea5e9", "#03131f"),
+            accent(2, "#dc2626", null),
+          ],
+          nameColors: [],
+          prefixColors: [],
+        },
+      }),
+    )) as unknown as typeof fetch;
   assert.deepEqual((await getSite()).accents, [
     { id: 4, color: "#0ea5e9", foreground: "#03131f" },
     { id: 2, color: "#dc2626", foreground: null },
@@ -108,6 +105,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       icon: null,
       backdrop: null,
       socialLinks: noSocialLinks,
+      maxUploadBytes: null,
       accents: [],
     });
     assert.equal(logged.mock.calls.length, 1);

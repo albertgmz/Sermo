@@ -11,6 +11,8 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { Help, Row, Section } from "@/components/staff/rows";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getSite } from "@/lib/sermo/site";
+import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
 
 // The types and the size a picture may have are a setting of the site: the backend checks and
 // re-encodes the picture and says why if it refuses it.
@@ -65,10 +67,11 @@ export async function PicturesSection({
 }: {
   searchParams: SearchParams;
 }) {
-  const [t, self, worn, notice] = await Promise.all([
+  const [t, self, worn, site, notice] = await Promise.all([
     getTranslations("account.pictures"),
     getSelf(),
     getWorn(),
+    getSite(),
     noticeOf(
       searchParams,
       ["avatar", "avatarRemoved", "cover", "coverRemoved"],
@@ -76,6 +79,9 @@ export async function PicturesSection({
     ),
   ]);
   const { profile } = self;
+  const limit = uploadLimit("avatar", site.maxUploadBytes);
+  const limitHelp =
+    limit === null ? "" : ` ${t("limit", { size: megabytes(limit) })}`;
   return (
     <Section
       id="pictures"
@@ -100,7 +106,10 @@ export async function PicturesSection({
               required
               aria-describedby="picture-avatar-help"
             />
-            <Help id="picture-avatar-help">{t("avatarHelp")}</Help>
+            <Help id="picture-avatar-help">
+              {t("avatarHelp")}
+              {limitHelp}
+            </Help>
           </Row>
         </PictureForm>
       </div>
@@ -133,6 +142,7 @@ export async function PicturesSection({
               {worn.coverPresetId === null
                 ? t("coverHelp")
                 : t("coverGalleryWorn")}
+              {limitHelp}
             </Help>
           </Row>
         </PictureForm>

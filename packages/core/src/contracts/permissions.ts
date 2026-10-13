@@ -4,9 +4,10 @@ import { defineContract } from "../operation";
 import { ActorPassword, Empty, Id, Ok } from "./common";
 
 const CONFIRM =
-  " With `actorPassword` (session actors only) the acting administrator's own password is " +
-  "verified first, in the same step and under the same wrong-answer limit as " +
-  "users.adminUpdateIdentity; a wrong one changes nothing. Without it nothing is asked.";
+  " `actorPassword` is the acting administrator's own password: it is verified in the " +
+  "same step and under the same wrong-answer limit as users.adminUpdateIdentity, and a wrong " +
+  "one changes nothing. A browser session (session cookie) must send it (missing: a validation " +
+  "error naming actorPassword); an API key or token is not asked and is refused if it sends one.";
 
 // Groups -------------------------------------------------------------------------------------
 
@@ -27,8 +28,11 @@ export const Group = z
     nameColorId: Id.nullable(),
     /** Its members are listed as staff (users.staff). */
     isStaff: z.boolean(),
-    /** Members who have it as their primary group or by hand (not promotion or shop grants). */
-    memberCount: z.number().int().nonnegative(),
+    /**
+     * Members who have it as their primary group or by hand (not promotion or shop grants).
+     * Null when counts were not asked for (`groups.list` without `counts`).
+     */
+    memberCount: z.number().int().nonnegative().nullable(),
   })
   .meta({ id: "Group" });
 
@@ -50,11 +54,12 @@ const GroupFields = {
 export const groupsList = defineContract({
   name: "groups.list",
   summary:
-    "List all groups, highest rank first, with their member counts. Requires any of " +
+    "List all groups, highest rank first. `memberCount` is null unless `counts` is true (counting " +
+    "members is the costly part, and most screens only need names). Requires any of " +
     "admin.groups, admin.permissions, admin.promotions or admin.members (the screens those open " +
     "need group names); the writes need admin.groups.",
   kind: "read",
-  input: Empty,
+  input: z.object({ counts: z.boolean().default(false) }),
   output: z.object({ items: z.array(Group) }),
 });
 

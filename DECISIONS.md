@@ -1270,9 +1270,17 @@ cached cookie lasts until the cache expires (five minutes at most). **Owner revi
 alternative is to cut all of the member's sessions when one is revoked.
 
 **Wrong passwords are limited.** The administrator's own password, asked again before a sensitive
-change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`), allows five wrong
-answers in fifteen minutes per member (`admin_password_failures`). Further answers, right ones
-included, are refused until the oldest wrong one leaves the window. A guess is recorded before the
+change (`auth.verifyPassword`, `users.adminUpdateIdentity`, `users.adminErase`, and the writes that
+confirm with `actorPassword`), allows five wrong answers in fifteen minutes **per session** and
+twenty per member across all their sessions (`admin_password_failures`, one row per answer with
+its session). Further answers, right ones included, are refused for the session that used its five,
+or for every session once the member's twenty are used, until the oldest wrong one leaves the
+window. The count used to be per member only, which let one stolen session send five wrong
+answers every fifteen minutes and keep the owner's correct password at 429 for good (with mail
+off there is no reset path). Now a session can only use up its own five: the member limit is
+larger so guessing through one session cannot exhaust it, and it stays finite because opening a
+session takes the password. An API key or token actor takes no part (it cannot confirm). An
+in-process caller counts as session 0. A guess is recorded before the
 check, so answers sent together are counted, and a right answer gives its own guess back without
 clearing the earlier wrong ones. The refusal is a `RateLimitedError` (code
 `rate_limited`), which the API answers with 429 and the same body as its own request limiter
@@ -1304,24 +1312,55 @@ matched by address alone); the cursor carries the position. **Owner review.** Th
 group on its own bound and return `truncated`. `admin.activity` keeps its result 60 seconds per set
 of kinds, and counts reports only for someone who handles them site-wide.
 
-**Group and permission writes can confirm with the password in the same call.** `permissions.set`,
-`users.setGroups`, `groups.create`, `groups.update`, `groups.delete` and `nodes.setModerator` take
-an optional `actorPassword`. When it is present it is checked first with `verifyActorPassword`, so
-it counts against the same five-in-fifteen-minutes limit as `users.adminUpdateIdentity`, only a
-session actor may send it (an API key that does is refused) and a wrong answer stops the request
-before anything is read or changed. Without it nothing is asked, so API clients and scripts keep
-working. This replaces the web app's two calls (`auth.verifyPassword`, then the write), which left
-a gap between the check and the change.
+**Group, permission and promotion writes are confirmed with the password in the same call.**
+`permissions.set`, `users.setGroups`, `groups.create`, `groups.update`, `groups.delete`,
+`nodes.setModerator`, `promotions.create`, `promotions.update`, `promotions.delete` and
+`promotions.apply` take `actorPassword`: the acting administrator's own password, checked with
+`verifyActorPassword` (the same wrong-answer limit as `users.adminUpdateIdentity`) right after
+the early permission check, so someone who may not act is told it is forbidden whatever they send,
+and a wrong answer stops the request before anything is changed. The owner's rule is that changing
+groups and permissions needs the administrator's password, and a rule kept only by the web app
+is not kept: a browser can call the REST API directly with the same session cookie. So the
+requirement is made by the backend, and it keys on one explicit marker: the actor field
+`interactive`, which only the HTTP layer sets (the request middleware of `/api/v1` and `/mcp`),
+on a `user` actor it resolved from a session cookie. An interactive actor that sends no
+`actorPassword` gets a validation error naming the field. An API key or token is not asked and is
+refused if it sends one (it cannot confirm). Actors built by hand (the starter loader, the dev
+fixture, jobs, tests) never carry the marker and are not asked; a new caller that resolves
+sessions from cookies and should be held to the rule must set it. The promotion writes are
+included because a promotion grants groups to members. Group names stay readable without it.
+**Owner review:** API keys are exempt, so a stolen key can change groups and permissions without
+the password; the alternative is to forbid these writes to keys altogether. `DELETE` routes read
+their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
+password there.
+
+**Panel reads carry what a screen needs to draw a row.** `reports.list` and `approvals.list`
+rows gain `excerpt` (plain text from the stored source, markup and tags removed, at most 200
+characters) and `where` (`{ kind: "thread" | "profile", id, title }`), from one batched lookup per
+kind of content on the page (no lookup per row; a test holds the statement count constant as the
+page grows). Messages of a conversation are never described (empty excerpt, `where` null):
+nothing but `reports.viewConversationMessage`, which is logged, lets a non-participant read a
+conversation. A profile the viewer may not see (privacy, no `profile.bypassPrivacy`) is not
+described either. `reports.list` already carried `reportCount`. `site.get` carries
+`maxUploadBytes` (the member upload limit the API enforces; catalog pictures keep 25 MiB).
+`notifications.types` marks the watch types with `emailFollowsWatch` (their email default is
+forced on). `creditRules.list` returns `triggers` with `acceptsForums`. The edit-member history
+can already filter `credits.ledger` and `promotions.log` by `userId`; `awards.memberGrants` lists
+the grants a member holds now (revoked ones are not in it).
 
 **An erased member takes no further administrative or moderation write.** The rule that already
 covered identity, profile and sessions now covers every write that targets a member:
 `permissions.set` (for a member), `users.setGroups`, `nodes.setModerator`, `warnings.create`,
-`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant` and
-`promotions.apply` answer a conflict with one message (`requireNotErased`: "This member's account
+`restrictions.create`, `bans.create`, `threadBans.create`, `credits.adjust`, `awards.grant`,
+`promotions.apply`, `spamCleanup.start` and `shop.buy` with a `recipientId` (a gift) answer a conflict with one message (`requireNotErased`: "This member's account
 was erased."), checked inside the write transaction after the permission decision, so a caller who
 may not act is still told it is forbidden. Taking something away stays possible (lifting a ban is
 already refused for another reason; revoking an award, lifting a restriction or a warning's
-expiry do not add anything). Actions between members (following, ignoring, messaging, profile
+expiry do not add anything). A walk over every write whose input names a member found no other gap. Taking
+something away stays open: `threadBans.lift`, `bans.lift` (refused for its own reason),
+`restrictions.lift`, `users.unfollow`, `users.unignore`. A spam cleanup already running when the
+member is erased finishes: only the start is refused, the job continues the same function.
+Actions between members (following, ignoring, messaging, profile
 posts, naming a referrer) are not covered: they are the members' own, and an erased account is
 permanently banned, which the referrer rule already treats as absent.
 
@@ -1329,8 +1368,11 @@ permanently banned, which the referrer rule already treats as absent.
 need any one of `admin.groups`, `admin.permissions`, `admin.promotions` or `admin.members`: the
 screens those open (entries for a group, a promotion's groups, a member's groups) show group
 names, and a holder of one of them could not read any. The writes still need `admin.groups`.
-Every group now carries `memberCount`: members with it as primary group plus those holding it by
-hand without it being their primary (promotion and shop grants are not counted). It is one
+Every group carries `memberCount`: members with it as primary group plus those holding it by
+hand without it being their primary (promotion and shop grants are not counted). `groups.get`
+always counts; `groups.list` counts only with `counts: true` (otherwise `memberCount` is null and
+no counting statement runs), because most screens only need the names; `groups.update` counts
+after its write transaction has committed, never inside it. The count is one
 statement for the whole list, two correlated counts per group over covering indexes
 (`users_group`, `user_groups_group`) and a point lookup on `users` for the overlap, so the cost is
 bounded by the number of groups and the size of each group's own index range; this is an
@@ -1341,9 +1383,12 @@ counting on every page view is against the rules, so `auth.counters` (the site h
 gains `openReports` and `pendingApprovals`, each `{ count, more }`. They look at the newest 100
 entries of each queue (the queue reads' own statements, no cursor, limit 100, never a COUNT),
 count those the viewer may act on with the queue reads' own rule (`filterModeratable`, so a
-moderator of some forums sees only theirs), cap the number at 99, and set `more` when the window
-was full, so the interface can write "99+". A scoped moderator in a busy site may see a small
-number with `more` set: the 100 entries were not all theirs. Everyone who holds none of the
+moderator of some forums sees only theirs), cap the number at 99 and say so (`cap`, so no client hardcodes 99), and set `more`
+when the window was full. `more` means the scan stopped at its bound, so `count` may be
+incomplete; it does not mean the viewer has more than `count` (the window holds the newest 100
+entries of the queue, whoever they belong to). A client shows `count` when `more` is false and
+"`count` or more" when it is true. A scoped moderator on a busy site may get `count: 0` with
+`more` set: the 100 entries were not theirs. Everyone who holds none of the
 permissions that open a queue (a guest, a plain member, a moderator without report or approval
 rights) pays no statement for it: the check is the permission state already in memory, and a test
 holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
@@ -1354,8 +1399,11 @@ my password?" without any limit beyond 100 requests per ten seconds per address)
 served; the forum's `auth.verifyPassword` is the one place that asks. `/api/auth/change-password`
 asks for the current password and Better Auth limits it to three requests per ten seconds per
 address, which a stolen session can multiply with addresses; it now takes a guess from the same
-five-in-fifteen-minutes count per member as the administration checks (a success gives its guess
-back) and answers 429 once they are used up.
+counts as the administration checks (five per session, twenty per member in fifteen minutes) and
+answers 429 once they are used up. Only an answer Better Auth refused with its error code
+`INVALID_PASSWORD` (the CURRENT password was wrong) stays counted; a success, a rejected new
+password (too short or long, checked before the current one) and any other failure give their
+guess back.
 ## Deployment: two services
 
 **Three containers, one published port.** `sermo` (backend) and `web` (Next.js) publish nothing;

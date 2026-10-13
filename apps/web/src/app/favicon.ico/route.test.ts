@@ -1,4 +1,5 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
+import { siteBody } from "@/lib/test-bodies";
 import layout from "../../../messages/en/layout.json";
 
 const realFetch = globalThis.fetch;
@@ -33,14 +34,7 @@ afterAll(() => {
 
 function siteWith(icon: { fileId: number; url: string } | null) {
   globalThis.fetch = (async () =>
-    Response.json({
-      name: "Garden Club",
-      logo: null,
-      icon,
-      backdrop: null,
-      socialLinks: { discord: null, telegram: null, x: null },
-      palette: { accents: [], nameColors: [], prefixColors: [] },
-    })) as unknown as typeof fetch;
+    Response.json(siteBody({ icon }))) as unknown as typeof fetch;
 }
 
 test("a site with no uploaded icon answers with the default mark", async () => {

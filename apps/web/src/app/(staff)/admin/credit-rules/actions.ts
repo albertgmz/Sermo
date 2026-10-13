@@ -3,6 +3,7 @@
 import {
   creditRulesCreate,
   creditRulesDelete,
+  creditRulesList,
   creditRulesUpdate,
 } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
@@ -11,7 +12,6 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text, whole } from "../groups/form-errors";
-import { isTrigger, takesForums } from "./triggers";
 
 const FIELDS = ["title", "trigger", "amount", "isActive", "limit", "nodeIds"];
 const PATH = "/admin/credit-rules";
@@ -26,8 +26,8 @@ function limitOf(formData: FormData) {
   return { limit: { count: typed[0], windowHours: typed[1] } };
 }
 
-// A new rule (no id) or a change of one. The forums are read only for a trigger that takes them:
-// the form shows no forum list for the others.
+// A new rule (no id) or a change of one. The forums are read only for a trigger that takes them
+// (the backend says which): the form shows no forum list for the others.
 export async function saveRule(
   _previous: StaffFormState,
   formData: FormData,
@@ -36,14 +36,26 @@ export async function saveRule(
   const raw = text(formData, "id");
   const ruleId = raw === "" ? null : parseId(raw);
   if (raw !== "" && ruleId === null) return { error: t("id") };
-  const trigger = text(formData, "trigger");
-  if (!isTrigger(trigger)) return { fields: { trigger: t("trigger") } };
+  const named = creditRulesCreate.input.shape.trigger.safeParse(
+    text(formData, "trigger"),
+  );
+  if (!named.success) return { fields: { trigger: t("trigger") } };
+  const trigger = named.data;
   const amount = whole(text(formData, "amount"));
   if (amount === null) return { fields: { amount: t("amount") } };
   const limit = limitOf(formData);
   if ("bad" in limit) return { fields: { limit: t("limit") } };
+  let takesForums: boolean;
+  try {
+    const { triggers } = await call(creditRulesList, {});
+    takesForums = triggers.some(
+      (entry) => entry.id === trigger && entry.acceptsForums,
+    );
+  } catch (error) {
+    return formFailure(error, []);
+  }
   let nodeIds: number[] | undefined;
-  if (takesForums(trigger)) {
+  if (takesForums) {
     const ids = formData
       .getAll("nodeIds")
       .map((value) => (typeof value === "string" ? parseId(value) : null));

@@ -1,5 +1,8 @@
 import { afterEach, mock, test } from "bun:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { siteBody } from "@/lib/test-bodies";
+import layout from "../../../messages/en/layout.json";
 import { SermoError } from "./errors";
 
 const realFetch = globalThis.fetch;
@@ -8,6 +11,17 @@ afterEach(() => {
 });
 
 mock.module("server-only", () => ({}));
+// The same module mocks as the site's tests: the limit is read through the cached site read.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
+mock.module("next-intl/server", () => ({
+  getTranslations: async () => (key: string) =>
+    (layout.site as Record<string, string>)[key],
+}));
 
 const {
   BACKEND_PURPOSES,
@@ -20,9 +34,24 @@ const {
   uploadWith,
 } = await import("./upload");
 
+// What the fake backend says the site allows: the highest the contract takes, unless a test sets
+// it. `siteReads` counts the asks for the site, which are not among the requests `backend` returns.
+const CONTRACT_MAX = DECLARED_LENGTH_CEILING - 1024 * 1024;
+let siteLimit: number | null = CONTRACT_MAX;
+let siteReads = 0;
+afterEach(() => {
+  siteLimit = CONTRACT_MAX;
+  siteReads = 0;
+});
+
 function backend(...answers: Response[]) {
   const seen: { url: string; init: RequestInit }[] = [];
   globalThis.fetch = (async (url: string, init: RequestInit) => {
+    if (new URL(url).pathname === "/api/v1/site") {
+      siteReads++;
+      if (siteLimit === null) throw new TypeError("fetch failed");
+      return Response.json(siteBody({ maxUploadBytes: siteLimit }));
+    }
     seen.push({ url, init });
     return answers[Math.min(seen.length - 1, answers.length - 1)];
   }) as unknown as typeof fetch;
@@ -280,4 +309,118 @@ test("the backend's refusal keeps its status and words, a dead session is a sess
   } finally {
     console.error = originalError;
   }
+});
+
+const MIB = 1024 * 1024;
+// The room above a file's size that the declared length of its request may have.
+const FRAMING = MIB;
+
+test("a file over the site's limit is refused before a byte goes to the backend", async () => {
+  siteLimit = MIB;
+  const seen = backend(Response.json({ id: 9 }, { status: 201 }));
+  const { request, state } = incoming({
+    "content-length": String(MIB + FRAMING + 1),
+  });
+  assert.deepEqual(await receiveUpload(request, "attachment"), {
+    ok: false,
+    reason: "size",
+    status: 413,
+    message: undefined,
+    limit: MIB,
+  });
+  assert.equal(state.pulled, false);
+  assert.equal(seen.length, 0);
+});
+
+test("a file within the site's limit, framing included, goes through", async () => {
+  siteLimit = MIB;
+  const seen = backend(Response.json({ id: 9 }, { status: 201 }));
+  const { request } = incoming({ "content-length": String(MIB + FRAMING) });
+  assert.deepEqual(await receiveUpload(request, "avatar"), {
+    ok: true,
+    fileId: 9,
+  });
+  assert.equal(seen.length, 1);
+});
+
+test("the pictures of the site's catalogs keep 25 MB whatever the site allows members", async () => {
+  siteLimit = MIB;
+  const seen = backend(Response.json({ id: 4 }, { status: 201 }));
+  const within = incoming({ "content-length": String(20 * MIB) });
+  assert.deepEqual(await receiveUpload(within.request, "frame"), {
+    ok: true,
+    fileId: 4,
+  });
+  const over = incoming({ "content-length": String(26 * MIB + 1) });
+  const refused = await receiveUpload(over.request, "site_logo");
+  assert.deepEqual(refused.ok ? null : [refused.reason, refused.limit], [
+    "size",
+    25 * MIB,
+  ]);
+  assert.equal(seen.length, 1);
+});
+
+test("the node pictures follow the site's limit, not the catalogs'", async () => {
+  siteLimit = MIB;
+  backend(Response.json({ id: 4 }, { status: 201 }));
+  const { request } = incoming({ "content-length": String(2 * MIB + FRAMING) });
+  const refused = await receiveUpload(request, "node_icon");
+  assert.equal(refused.ok ? null : refused.reason, "size");
+});
+
+test("each upload asks the cached site read once, and the checks that cost nothing come first", async () => {
+  backend(Response.json({ id: 1 }, { status: 201 }));
+  await receiveUpload(incoming({ cookie: null }).request, "attachment");
+  await receiveUpload(incoming({ origin: null }).request, "attachment");
+  assert.equal(siteReads, 0);
+  await receiveUpload(incoming().request, "attachment");
+  assert.equal(siteReads, 1);
+  const source = readFileSync(`${import.meta.dir}/site.ts`, "utf8");
+  assert.ok(source.includes('"use cache"'));
+});
+
+test("a site that cannot be read leaves the backstop", async () => {
+  siteLimit = null;
+  const seen = backend(Response.json({ id: 2 }, { status: 201 }));
+  const logged = console.error;
+  console.error = () => {};
+  try {
+    const within = incoming({
+      "content-length": String(DECLARED_LENGTH_CEILING),
+    });
+    assert.deepEqual(await receiveUpload(within.request, "attachment"), {
+      ok: true,
+      fileId: 2,
+    });
+    const over = incoming({
+      "content-length": String(DECLARED_LENGTH_CEILING + 1),
+    });
+    const refused = await receiveUpload(over.request, "attachment");
+    assert.deepEqual(refused.ok ? null : [refused.reason, refused.limit], [
+      "size",
+      undefined,
+    ]);
+  } finally {
+    console.error = logged;
+  }
+  assert.equal(seen.length, 1);
+});
+
+test("the catalog purposes are those the backend keeps at the fixed size", async () => {
+  const { CATALOG_PURPOSES, CATALOG_UPLOAD_BYTES } = await import(
+    "./upload-limit"
+  );
+  const schema = readFileSync(
+    `${import.meta.dir}/../../../../../packages/core/src/db/schema.ts`,
+    "utf8",
+  );
+  const listed = /CATALOG_FILE_PURPOSES = \[([^\]]*)\]/.exec(schema)?.[1] ?? "";
+  const backendList = [...listed.matchAll(/"(\w+)"/g)].map((m) => m[1]);
+  assert.deepEqual([...CATALOG_PURPOSES].sort(), backendList.sort());
+  assert.equal(CATALOG_UPLOAD_BYTES, 25 * MIB);
+  for (const purpose of CATALOG_PURPOSES)
+    assert.ok(
+      PANEL_PURPOSES.some((p) => p === purpose),
+      purpose,
+    );
 });

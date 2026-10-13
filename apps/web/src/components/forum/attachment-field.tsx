@@ -4,6 +4,8 @@ import { LoaderCircle, Paperclip, X } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
+import { useUploadLimit } from "@/components/forum/upload-limit";
+import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
 import { cn } from "@/lib/utils";
 
 export type AttachedFile = { id: number; name: string; size: number | null };
@@ -22,6 +24,7 @@ export function AttachmentField({
 }) {
   const t = useTranslations("forum.attachmentField");
   const format = useFormatter();
+  const limit = uploadLimit("attachment", useUploadLimit());
   const [files, setFiles] = useState<AttachedFile[]>(initial);
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string>();
@@ -83,6 +86,11 @@ export function AttachmentField({
             }}
           />
         </label>
+        {limit !== null && (
+          <span className="text-xs text-muted-foreground">
+            {t("limit", { size: megabytes(limit) })}
+          </span>
+        )}
         {busy > 0 && (
           <span
             role="status"

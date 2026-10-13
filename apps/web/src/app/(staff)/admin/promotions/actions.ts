@@ -14,12 +14,12 @@ import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import {
   formFailure,
+  missingPassword,
   text,
-  unconfirmedPassword,
   whole,
 } from "../groups/form-errors";
 
-const FIELDS = ["title", "isActive", "criteria", "groupIds"];
+const FIELDS = ["title", "isActive", "criteria", "groupIds", "actorPassword"];
 
 // The criteria the form offered, as the backend takes them. Only the criteria the backend lists
 // are read, so a field invented by a client is ignored. Every value is a whole number (a yes/no
@@ -72,15 +72,21 @@ export async function savePromotion(
     criteria: parsed.criteria,
     groupIds,
   };
-  // Who is in which group follows from the rules, so a change to them asks for the password.
-  const unconfirmed = await unconfirmedPassword(formData);
-  if (unconfirmed) return unconfirmed;
+  // Who is in which group follows from the rules, so a change to them asks for the password,
+  // which goes with the write and is checked first.
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  const actorPassword = text(formData, "actorPassword");
   let saved: number;
   try {
     saved = (
       promotionId === null
-        ? await call(promotionsCreate, fields)
-        : await call(promotionsUpdate, { promotionId, ...fields })
+        ? await call(promotionsCreate, { ...fields, actorPassword })
+        : await call(promotionsUpdate, {
+            promotionId,
+            ...fields,
+            actorPassword,
+          })
     ).id;
   } catch (error) {
     return formFailure(error, FIELDS);
@@ -97,12 +103,15 @@ export async function deletePromotion(
   const t = await getTranslations("adminGroups.errors");
   const promotionId = parseId(text(formData, "id"));
   if (promotionId === null) return { error: t("id") };
-  const unconfirmed = await unconfirmedPassword(formData);
-  if (unconfirmed) return unconfirmed;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
-    await call(promotionsDelete, { promotionId });
+    await call(promotionsDelete, {
+      promotionId,
+      actorPassword: text(formData, "actorPassword"),
+    });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   redirect("/admin/promotions?notice=deleted");
 }

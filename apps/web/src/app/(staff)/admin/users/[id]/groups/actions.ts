@@ -10,7 +10,6 @@ import {
   formFailure,
   missingPassword,
   text,
-  unconfirmedPassword,
 } from "../../../groups/form-errors";
 import { memberOf } from "../../action-helpers";
 
@@ -66,17 +65,17 @@ export async function applyPromotion(
   ) {
     return { error: t("promotion") };
   }
-  // The operation takes no password and changes the member's groups, so it is checked first.
-  const unconfirmed = await unconfirmedPassword(formData);
-  if (unconfirmed) return unconfirmed;
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
   try {
     await call(promotionsApply, {
       userId,
       promotionId,
       action: action as (typeof PROMOTION_ACTIONS)[number],
+      actorPassword: text(formData, "actorPassword"),
     });
   } catch (error) {
-    return formFailure(error, []);
+    return formFailure(error, ["actorPassword"]);
   }
   redirect(`/admin/users/${userId}/groups?notice=promotionApplied`);
 }

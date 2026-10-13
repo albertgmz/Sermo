@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { notificationTypeBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import { form, invalid, redirectedTo } from "../content-kit/harness";
 import { fakeBackend } from "../groups/test-backend";
@@ -71,30 +72,15 @@ const settings = () => Response.json(SETTINGS);
 
 const TYPES = {
   items: [
-    {
-      id: "reply",
-      label: "reply",
-      description: "reply",
+    notificationTypeBody("reply", {
       defaults: { inApp: true, email: true, push: false },
-      required: false,
       channels: ["inApp", "email", "push"],
-    },
-    {
-      id: "quote",
-      label: "quote",
-      description: "quote",
-      defaults: OTHER,
-      required: false,
-      channels: ["inApp", "email"],
-    },
-    {
-      id: "security",
-      label: "security",
-      description: "security",
+    }),
+    notificationTypeBody("quote", { defaults: OTHER }),
+    notificationTypeBody("security", {
       defaults: { inApp: true, email: true, push: false },
       required: true,
-      channels: ["inApp", "email"],
-    },
+    }),
   ],
 };
 const types = () => Response.json(TYPES);
@@ -229,14 +215,10 @@ test("a partial request changes only the types it names", async () => {
 });
 
 test("a type the backend added after the page was built keeps its stored value", async () => {
-  const added = {
-    id: "mention",
-    label: "mention",
-    description: "mention",
+  const added = notificationTypeBody("mention", {
     defaults: { inApp: true, email: true, push: true },
-    required: false,
     channels: ["inApp", "email", "push"],
-  };
+  });
   backend = fakeBackend({
     "settings.get": () =>
       Response.json({
@@ -262,5 +244,78 @@ test("a type the backend added after the page was built keeps its stored value",
   expect(sent()?.[0]?.body).toEqual({
     notificationRetentionDays: 90,
     notificationDefaults: { quote: OTHER, mention: added.defaults },
+  });
+});
+
+const WATCH = notificationTypeBody("thread.watched", {
+  defaults: { inApp: true, email: true, push: false },
+  emailFollowsWatch: true,
+  channels: ["inApp", "email", "push"],
+});
+
+test("the email of a type that follows each watch is not written, whatever the form says", async () => {
+  backend = fakeBackend({
+    "settings.get": () =>
+      Response.json({
+        ...SETTINGS,
+        notificationDefaults: {
+          quote: OTHER,
+          "thread.watched": { inApp: true, email: false, push: false },
+        },
+      }),
+    "notifications.types": () =>
+      Response.json({ items: [...TYPES.items, WATCH] }),
+    "settings.update": settings,
+  });
+  await redirectedTo(() =>
+    saveNotificationDefaults(
+      null,
+      form([
+        ...SHOWN,
+        ["types", "thread.watched"],
+        ["notificationRetentionDays", "90"],
+        ["reply:inApp", "on"],
+        ["reply:email", "on"],
+        ["quote:inApp", "on"],
+        // The cell is disabled, so a browser sends nothing for it; a forged request might.
+        ["thread.watched:inApp", "on"],
+        ["thread.watched:email", "on"],
+        ["thread.watched:push", "on"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    notificationRetentionDays: 90,
+    notificationDefaults: {
+      quote: OTHER,
+      "thread.watched": { inApp: true, email: false, push: true },
+    },
+  });
+});
+
+test("a watch type with no change in its other channels is left as stored", async () => {
+  backend = fakeBackend({
+    "settings.get": settings,
+    "notifications.types": () =>
+      Response.json({ items: [...TYPES.items, WATCH] }),
+    "settings.update": settings,
+  });
+  await redirectedTo(() =>
+    saveNotificationDefaults(
+      null,
+      form([
+        ...SHOWN,
+        ["types", "thread.watched"],
+        ["notificationRetentionDays", "90"],
+        ["reply:inApp", "on"],
+        ["reply:email", "on"],
+        ["quote:inApp", "on"],
+        ["thread.watched:inApp", "on"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    notificationRetentionDays: 90,
+    notificationDefaults: { quote: OTHER },
   });
 });

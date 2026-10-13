@@ -4,7 +4,7 @@ import type * as z from "zod";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Input } from "@/components/ui/input";
 import { saveRule } from "./actions";
-import { RuleFields } from "./rule-fields";
+import { RuleFields, type TriggerChoice } from "./rule-fields";
 
 export type Rule = z.output<typeof creditRulesList.output>["items"][number];
 export type NodeChoice = { id: number; title: string; depth: number };
@@ -12,9 +12,11 @@ export type NodeChoice = { id: number; title: string; depth: number };
 // The form of a rule, for a new one (no `rule`) or a change. The trigger of a rule is fixed.
 export async function RuleForm({
   rule,
+  triggers,
   nodes,
 }: {
   rule?: Rule;
+  triggers: TriggerChoice[];
   nodes: NodeChoice[];
 }) {
   const t = await getTranslations("adminEconomy.rules.form");
@@ -39,6 +41,7 @@ export async function RuleForm({
       <RuleFields
         idPrefix={key}
         fixedTrigger={rule?.trigger}
+        triggerChoices={triggers}
         nodes={nodes}
         chosen={rule?.nodeIds ?? []}
       />

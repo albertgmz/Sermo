@@ -22,6 +22,17 @@ const ReportGroup = z.object({
   updatedAt: Timestamp,
   resolvedAt: Timestamp.nullable(),
 });
+/** What a queue row says about its content, so the queue reads need no further lookup. */
+const QueueContext = {
+  /** Plain text taken from the content, at most 200 characters; empty when none can be shown. */
+  excerpt: z.string().max(200),
+  /**
+   * Where it happened: a thread (`kind: "thread"`) or a member's profile (`kind: "profile"`,
+   * `id` the member, `title` their name). Null for messages of a conversation, which are
+   * never shown here, and for a profile the actor may not view.
+   */
+  where: z.object({ kind: z.enum(["thread", "profile"]), id: Id, title: z.string() }).nullable(),
+};
 const Report = z.object({ id: Id, reporterId: Id, reason: z.string(), createdAt: Timestamp });
 const Page = <T extends z.ZodType>(item: T) =>
   z.object({ items: z.array(item), nextCursor: z.string().nullable() });
@@ -39,10 +50,12 @@ export const reportsList = defineContract({
   summary:
     "Moderation report queue: each item is shown only with the permission to handle it " +
     "(forum.manageReports on its node, report.manageProfiles, conversation.moderate). " +
-    "nodeId limits it to reports on content in that node.",
+    "nodeId limits it to reports on content in that node. Each row carries `reportCount`, an " +
+    "`excerpt` of the reported content and `where` it happened, from one batched lookup per " +
+    "page (nothing for messages of a conversation, see reports.viewConversationMessage).",
   kind: "read",
   input: z.object({ state: ReportState.optional(), nodeId: Id.optional(), ...pageInput }),
-  output: Page(ReportGroup),
+  output: Page(ReportGroup.extend(QueueContext)),
 });
 export const reportsGet = defineContract({
   name: "reports.get",
@@ -67,11 +80,19 @@ export const reportsSetState = defineContract({
 export const approvalsList = defineContract({
   name: "approvals.list",
   summary:
-    "Content awaiting approval that the actor may approve; nodeId limits it to content in that node.",
+    "Content awaiting approval that the actor may approve; nodeId limits it to content in that " +
+    "node. Each row carries an `excerpt` and `where` it happened, from one batched lookup per " +
+    "page (nothing for messages of a conversation).",
   kind: "read",
   input: z.object({ nodeId: Id.optional(), ...pageInput }),
   output: Page(
-    z.object({ type: ModerationTarget.shape.type, id: Id, authorId: Id, createdAt: Timestamp }),
+    z.object({
+      type: ModerationTarget.shape.type,
+      id: Id,
+      authorId: Id,
+      createdAt: Timestamp,
+      ...QueueContext,
+    }),
   ),
 });
 export const moderationSetState = defineContract({
@@ -231,7 +252,8 @@ export const postRevisionsList = defineContract({
 });
 export const spamCleanupStart = defineContract({
   name: "spamCleanup.start",
-  summary: "Queue a ban and cleanup of all a user's content.",
+  summary:
+    "Queue a ban and cleanup of all a user's content. A conflict when the member's account was erased.",
   kind: "write",
   input: z.object({
     ...moderationNotice,

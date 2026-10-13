@@ -44,6 +44,12 @@ export type Actor =
       /** Trusted client IP supplied by the HTTP actor resolver when available. */
       readonly clientIp?: string;
       readonly principal?: Principal;
+      /**
+       * Set only by the HTTP layer on an actor it resolved from a browser session cookie. An
+       * interactive session must confirm group and permission writes with its password
+       * (`confirmActorPassword`); actors built by hand (loaders, jobs, tests) never carry it.
+       */
+      readonly interactive?: true;
     }
   | {
       readonly kind: "token";

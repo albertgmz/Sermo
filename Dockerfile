@@ -19,6 +19,9 @@ COPY --from=dependencies --chown=bun:bun /app/node_modules ./node_modules
 COPY --from=dependencies --chown=bun:bun /app/packages/core/node_modules packages/core/node_modules
 COPY --from=dependencies --chown=bun:bun /app/packages/api/node_modules packages/api/node_modules
 COPY --from=dependencies --chown=bun:bun /app/packages/mcp/node_modules packages/mcp/node_modules
+# The starter loader (scripts/) imports core by its package name, which only a link at the root
+# resolves from there.
+RUN mkdir -p node_modules/@sermo && ln -s ../../packages/core node_modules/@sermo/core
 COPY --chown=bun:bun package.json bun.lock ./
 COPY --chown=bun:bun packages/core/package.json packages/core/package.json
 COPY --chown=bun:bun packages/api/package.json packages/api/package.json
