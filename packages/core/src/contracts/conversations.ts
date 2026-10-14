@@ -36,6 +36,10 @@ export const Conversation = ConversationSummary.extend({
   canInvite: z.boolean(),
   /** True when the viewer may rename the conversation: its starter, holding `conversation.reply`. */
   canRename: z.boolean(),
+  /** Locked: nobody replies except holders of `conversation.moderate`. */
+  isLocked: z.boolean(),
+  /** The viewer may lock or unlock it: its starter, or a holder of `conversation.moderate`. */
+  canLock: z.boolean(),
 }).meta({ id: "Conversation" });
 
 export const Message = z
@@ -45,10 +49,15 @@ export const Message = z
     author: UserSummary,
     state: ContentState,
     createdAt: Timestamp,
+    editedAt: Timestamp.nullable(),
     bodyHtml: z.string(),
     attachmentCount: z.number().int().nonnegative(),
     attachments: z.array(Attachment),
     reactions: ReactionSummary,
+    /** Its author holding `conversation.editOwn`, or a holder of `conversation.moderate`; not while locked unless the viewer moderates. */
+    canEdit: z.boolean(),
+    /** As canEdit with `conversation.deleteOwn`; never the conversation's first message. */
+    canDelete: z.boolean(),
   })
   .meta({ id: "Message" });
 

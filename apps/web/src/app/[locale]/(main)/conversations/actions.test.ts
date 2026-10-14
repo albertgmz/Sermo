@@ -24,6 +24,7 @@ const {
   markReadAction,
   renameAction,
   replyAction,
+  setLockedAction,
   startConversation,
 } = await import("./actions");
 const { markOneRead } = await import("../notifications/actions");
@@ -87,6 +88,8 @@ test("starting a conversation refreshes the list in the layout before going to t
         canReply: true,
         canInvite: true,
         canRename: true,
+        isLocked: false,
+        canLock: true,
       },
       message: {
         id: 3,
@@ -95,9 +98,12 @@ test("starting a conversation refreshes the list in the layout before going to t
         state: "visible",
         createdAt: stamp,
         bodyHtml: "<p>hi</p>",
+        editedAt: null,
         attachmentCount: 0,
         attachments: [],
         reactions: { counts: {}, total: 0, mine: null },
+        canEdit: true,
+        canDelete: false,
       },
     })) as unknown as typeof fetch;
   const form = new FormData();
@@ -119,9 +125,12 @@ test("a reply and a new conversation name the files attached to them", async () 
     state: "visible",
     createdAt: stamp,
     bodyHtml: "<p>hi</p>",
+    editedAt: null,
     attachmentCount: 2,
     attachments: [],
     reactions: { counts: {}, total: 0, mine: null },
+    canEdit: true,
+    canDelete: true,
   };
   const sent: unknown[] = [];
   // A reply is answered with the message; the conversation is refused, which is enough to see
@@ -178,6 +187,8 @@ const conversationAnswer = {
   canReply: true,
   canInvite: true,
   canRename: true,
+  isLocked: false,
+  canLock: true,
 };
 const refusal = Response.json(
   { error: { code: "forbidden", message: "Only the starter may do that." } },
@@ -277,4 +288,40 @@ test("the page's own mark says whether it worked, and the card's mark says why n
     error: "Only the starter may do that.",
   });
   await assert.rejects(() => markReadAction(0));
+});
+
+test("locking and unlocking ask the backend for that state and return to the conversation", async () => {
+  const sent: { method: string; url: string; body: unknown }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    sent.push({
+      method: init.method ?? "GET",
+      url,
+      body: JSON.parse(String(init.body)),
+    });
+    return Response.json(conversationAnswer);
+  }) as unknown as typeof fetch;
+  for (const locked of [true, false]) {
+    const digest = await redirectedTo(() => setLockedAction(3, locked, {}));
+    assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  }
+  assert.deepEqual(
+    sent.map((call) => [call.method, call.url, call.body]),
+    [
+      [
+        "PUT",
+        "http://127.0.0.1:8787/api/v1/conversations/3/lock",
+        { locked: true },
+      ],
+      [
+        "PUT",
+        "http://127.0.0.1:8787/api/v1/conversations/3/lock",
+        { locked: false },
+      ],
+    ],
+  );
+  globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
+  assert.deepEqual(await setLockedAction(3, true, {}), {
+    error: "Only the starter may do that.",
+  });
+  await assert.rejects(() => setLockedAction(-1, true, {}));
 });

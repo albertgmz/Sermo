@@ -2,6 +2,7 @@ import type { conversationsGet } from "@sermo/core/contracts";
 import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { AddPeople } from "@/app/[locale]/(main)/conversations/[id]/add-people";
+import { LockForm } from "@/app/[locale]/(main)/conversations/[id]/lock-form";
 import { MarkReadCard } from "@/app/[locale]/(main)/conversations/[id]/mark-read-button";
 import { RenameForm } from "@/app/[locale]/(main)/conversations/[id]/rename-form";
 import { MemberRow } from "@/components/forum/member-row";
@@ -12,7 +13,7 @@ import type { membersFor } from "@/lib/sermo/members";
 type Conversation = z.output<typeof conversationsGet.output>;
 type Members = Awaited<ReturnType<typeof membersFor>>;
 
-// The widgets beside the messages: information, participants, rename, mark as read. The page draws
+// The widgets beside the messages: information, participants, rename, lock, mark as read. The page draws
 // them in its aside and, below the desktop layout, inside the header's drawer.
 export function ConversationWidgets({
   conversation,
@@ -73,6 +74,16 @@ export function ConversationWidgets({
           <RenameForm
             conversationId={conversation.id}
             title={conversation.title}
+          />
+        </SectionCard>
+      )}
+      {conversation.canLock && (
+        <SectionCard
+          title={t(conversation.isLocked ? "unlock.title" : "lock.title")}
+        >
+          <LockForm
+            conversationId={conversation.id}
+            locked={conversation.isLocked}
           />
         </SectionCard>
       )}

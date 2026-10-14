@@ -5,6 +5,7 @@ import { type Ctx, prepared } from "../../context";
 import {
   conversationsAddParticipants,
   conversationsCreate,
+  conversationsDeleteMessage,
   conversationsGet,
   conversationsLeave,
   conversationsList,
@@ -12,19 +13,26 @@ import {
   conversationsMarkRead,
   conversationsRename,
   conversationsReply,
+  conversationsSetLocked,
+  conversationsUpdateMessage,
 } from "../../contracts/conversations";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, permissionsOf, requirePermission } from "../../permissions";
+import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
 import { renderContent, storeContentReferences } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
-import { iso } from "../../time";
+import { iso, isoOrNull } from "../../time";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
-import { prepareModeratedContent, withSpamCheck } from "../moderation";
+import {
+  appendModeratorLog,
+  moderateEditedContent,
+  prepareModeratedContent,
+  withSpamCheck,
+} from "../moderation";
 
 interface ConversationRow {
   id: number;
@@ -36,6 +44,7 @@ interface ConversationRow {
   last_message_user_id: number;
   message_count: number;
   participant_count: number;
+  is_locked: number;
   last_read_message_id: number;
 }
 interface ParticipantRow {
@@ -48,6 +57,7 @@ interface MessageRow {
   user_id: number;
   state: "visible" | "moderated" | "deleted";
   created_at: number;
+  edited_at: number | null;
   body_html: string;
   reaction_counts: string;
   attachment_count: number;
@@ -58,11 +68,11 @@ export const inboxSql =
 export const participantsSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 ORDER BY user_id";
 export const messagesSql =
-  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
+  "SELECT id, conversation_id, user_id, state, created_at, edited_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 ORDER BY id LIMIT ?3";
 export const visibleMessagesSql =
-  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id LIMIT ?3";
+  "SELECT id, conversation_id, user_id, state, created_at, edited_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id LIMIT ?3";
 export const visibleMessagesNewestSql =
-  "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id DESC LIMIT ?3";
+  "SELECT id, conversation_id, user_id, state, created_at, edited_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id DESC LIMIT ?3";
 export const participantStatesSql =
   "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))";
 export const reactivateParticipantSql =
@@ -81,6 +91,11 @@ export const clearConversationNoticesSql =
   "UPDATE notifications INDEXED BY notifications_content SET read_at = ?1 WHERE content_type = 'conversation' AND content_id = ?2 AND user_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
 export const clearMessageNoticesSql =
   "UPDATE notifications INDEXED BY notifications_user_unread_recent SET read_at = ?1 WHERE user_id = ?3 AND content_type = 'conversation_message' AND CAST(json_extract(data, '$.conversationId') AS INTEGER) = ?2 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
+
+export const messageSql =
+  "SELECT id, conversation_id, user_id, state, created_at, edited_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE id = ?1";
+export const firstMessageSql =
+  "SELECT min(id) AS id FROM conversation_messages WHERE conversation_id = ?1";
 
 function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
   const user = requireAuthenticated(actor);
@@ -114,10 +129,14 @@ function viewerAbilities(
   userId: number | null,
 ) {
   const starter = userId !== null && row.user_id === userId;
+  const locked = row.is_locked === 1;
+  const moderates = permissions.can("conversation.moderate");
   const canReply = permissions.can("conversation.reply");
   const maxRecipients = permissions.value("conversation.maxRecipients");
   return {
-    canReply,
+    canReply: canReply && (!locked || moderates),
+    isLocked: locked,
+    canLock: starter || moderates,
     // Room left under the limit for another active participant besides the starter.
     canInvite:
       starter &&
@@ -125,6 +144,55 @@ function viewerAbilities(
       (maxRecipients === -1 || row.participant_count - 1 < maxRecipients),
     canRename: starter && canReply,
   };
+}
+
+/** Whether the viewer sees a message in a conversation they take part in. */
+function seesMessage(
+  permissions: ReturnType<typeof permissionsOf>,
+  message: { state: string; user_id: number },
+  userId: number,
+): boolean {
+  return (
+    message.state === "visible" ||
+    (message.state === "moderated" && message.user_id === userId) ||
+    permissions.can("conversation.viewHidden")
+  );
+}
+
+function mayEdit(
+  permissions: ReturnType<typeof permissionsOf>,
+  row: ConversationRow,
+  message: { user_id: number; state: string },
+): boolean {
+  return (
+    message.state !== "deleted" &&
+    (permissions.can("conversation.moderate") ||
+      (row.is_locked === 0 &&
+        permissions.can("conversation.editOwn", { ownerId: message.user_id })))
+  );
+}
+
+function mayDelete(
+  permissions: ReturnType<typeof permissionsOf>,
+  row: ConversationRow,
+  message: { id: number; user_id: number; state: string },
+  firstId: number | null,
+): boolean {
+  return (
+    message.id !== firstId &&
+    message.state !== "deleted" &&
+    (permissions.can("conversation.moderate") ||
+      (row.is_locked === 0 &&
+        permissions.can("conversation.deleteOwn", { ownerId: message.user_id })))
+  );
+}
+
+function firstMessageId(ctx: Ctx, conversationId: number): number | null {
+  return (
+    prepared(ctx, "conversations.firstMessage", () =>
+      ctx.sqlite.prepare<{ id: number | null }, [number]>(firstMessageSql),
+    ).get(conversationId)?.id ?? null
+  );
 }
 
 function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
@@ -144,7 +212,9 @@ function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
   };
 }
 
-function messages(ctx: Ctx, actor: Actor, rows: MessageRow[]) {
+function messages(ctx: Ctx, actor: Actor, conversation: ConversationRow, rows: MessageRow[]) {
+  const permissions = permissionsOf(ctx, actor);
+  const first = rows.length ? firstMessageId(ctx, conversation.id) : null;
   const user = loadUserSummaries(
     ctx,
     rows.map((r) => r.user_id),
@@ -166,10 +236,13 @@ function messages(ctx: Ctx, actor: Actor, rows: MessageRow[]) {
     author: user(r.user_id),
     state: r.state,
     createdAt: iso(r.created_at),
+    editedAt: isoOrNull(r.edited_at),
     bodyHtml: r.body_html,
     attachmentCount: r.attachment_count,
     attachments: attachments.get(r.id) ?? [],
     reactions: reactionSummary(r.reaction_counts, viewer.get(r.id)),
+    canEdit: mayEdit(permissions, conversation, r),
+    canDelete: mayDelete(permissions, conversation, r, first),
   }));
 }
 
@@ -182,6 +255,7 @@ function newMessage(
   html: string,
   state: "visible" | "moderated",
   attachments: ReturnType<typeof loadAttachments>,
+  abilities: { canEdit: boolean; canDelete: boolean },
 ) {
   return {
     id,
@@ -189,10 +263,12 @@ function newMessage(
     author: author(authorId),
     state,
     createdAt: iso(now),
+    editedAt: null,
     bodyHtml: html,
     attachmentCount: attachments.get(id)?.length ?? 0,
     attachments: attachments.get(id) ?? [],
     reactions: { counts: {}, total: 0, mine: null },
+    ...abilities,
   };
 }
 
@@ -346,6 +422,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       last_message_user_id: starter.userId,
       message_count: content.moderated || spam ? 0 : 1,
       participant_count: participantIds.length,
+      is_locked: 0,
       last_read_message_id: messageId,
     };
     return {
@@ -363,6 +440,11 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
         html,
         content.moderated || spam ? "moderated" : "visible",
         loadAttachments(ctx, "conversation_message", [messageId]),
+        // The first message: its author may edit it, and it can never be deleted on its own.
+        {
+          canEdit: permissions.can("conversation.editOwn", { ownerId: starter.userId }),
+          canDelete: false,
+        },
       ),
     };
   });
@@ -370,15 +452,19 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
 
 export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
-  activeConversation(ctx, actor, input.conversationId);
+  const before = activeConversation(ctx, actor, input.conversationId);
+  const permissions = permissionsOf(ctx, actor);
   requirePermission(ctx, actor, "conversation.reply");
+  if (before.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderContent(ctx, actor, content.source);
     const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
-      activeConversation(ctx, actor, input.conversationId);
+      const row = activeConversation(ctx, actor, input.conversationId);
+      if (row.is_locked === 1)
+        requirePermission(ctx, currentActor(ctx, actor), "conversation.moderate");
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
@@ -434,6 +520,11 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       html,
       content.moderated || spam ? "moderated" : "visible",
       loadAttachments(ctx, "conversation_message", [messageId]),
+      // A reply is never the first message; the conversation was open to this author.
+      {
+        canEdit: permissions.can("conversation.editOwn", { ownerId: user.userId }),
+        canDelete: permissions.can("conversation.deleteOwn", { ownerId: user.userId }),
+      },
     );
   });
 });
@@ -441,7 +532,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
 export const conversationsListMessagesOp = implement(
   conversationsListMessages,
   (ctx, actor, input) => {
-    activeConversation(ctx, actor, input.conversationId);
+    const conversation = activeConversation(ctx, actor, input.conversationId);
     const newest = input.order === "newest";
     const id = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
@@ -465,7 +556,7 @@ export const conversationsListMessagesOp = implement(
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);
     return {
-      items: messages(ctx, actor, page),
+      items: messages(ctx, actor, conversation, page),
       nextCursor: rows.length > input.limit && last ? encodeCursor([last.id]) : null,
     };
   },
@@ -624,7 +715,171 @@ export const conversationsRenameOp = implement(conversationsRename, (ctx, actor,
   return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
 });
 
+export const conversationsSetLockedOp = implement(conversationsSetLocked, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
+  const before = activeConversation(ctx, actor, input.conversationId);
+  if (before.user_id !== user.userId) requirePermission(ctx, actor, "conversation.moderate");
+  writeTx(ctx, () => {
+    const row = activeConversation(ctx, actor, input.conversationId);
+    if (row.user_id !== user.userId)
+      requirePermission(ctx, currentActor(ctx, actor), "conversation.moderate");
+    prepared(ctx, "conversations.setLocked", () =>
+      ctx.sqlite.prepare("UPDATE conversations SET is_locked = ?1 WHERE id = ?2"),
+    ).run(Number(input.locked), row.id);
+  });
+  return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
+});
+
+interface TargetMessage {
+  id: number;
+  conversation_id: number;
+  user_id: number;
+  state: "visible" | "moderated" | "deleted";
+}
+const targetMessageSql =
+  "SELECT id, conversation_id, user_id, state FROM conversation_messages WHERE id = ?1";
+
+/** A message of a conversation the viewer takes part in, as far as the viewer may see it. */
+function visibleTarget(ctx: Ctx, actor: Actor, messageId: number) {
+  const user = requireAuthenticated(actor);
+  const message = prepared(ctx, "conversations.targetMessage", () =>
+    ctx.sqlite.prepare<TargetMessage, [number]>(targetMessageSql),
+  ).get(messageId);
+  if (!message) throw new NotFoundError();
+  const conversation = activeConversation(ctx, actor, message.conversation_id);
+  if (!seesMessage(permissionsOf(ctx, actor), message, user.userId)) throw new NotFoundError();
+  return { message, conversation };
+}
+
+export const conversationsUpdateMessageOp = implement(
+  conversationsUpdateMessage,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    const { message, conversation } = visibleTarget(ctx, actor, input.messageId);
+    if (message.state === "deleted") throw new ConflictError("The message is deleted.");
+    if (!mayEdit(permissionsOf(ctx, actor), conversation, message)) throw new ForbiddenError();
+    const content = prepareModeratedContent(ctx, actor, input.body, false);
+    const refs = renderContent(ctx, actor, content.source, {
+      edit: {
+        contentType: "conversation_message",
+        contentId: message.id,
+        authorId: message.user_id,
+      },
+    });
+    const html = refs.html;
+    writeTx(ctx, () => {
+      const current = prepared(ctx, "conversations.targetMessage", () =>
+        ctx.sqlite.prepare<TargetMessage, [number]>(targetMessageSql),
+      ).get(message.id);
+      const row = activeConversation(ctx, actor, message.conversation_id);
+      if (!current) throw new NotFoundError();
+      if (current.state === "deleted") throw new ConflictError("The message is deleted.");
+      const fresh = currentActor(ctx, actor);
+      if (!mayEdit(permissionsOf(ctx, fresh), row, current)) throw new ForbiddenError();
+      const decision = prepareModeratedContent(ctx, actor, input.body, false);
+      if (decision.source !== content.source)
+        throw new ConflictError("Moderation rules changed; retry.");
+      setAttachments(ctx, user.userId, "conversation_message", message.id, input.attachmentIds);
+      validateEmbeddedAttachments(ctx, "conversation_message", message.id, html);
+      prepared(ctx, "conversations.updateMessage", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversation_messages SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
+        ),
+      ).run(refs.source, html, ctx.now(), message.id);
+      const { newlyMentioned } = storeContentReferences(
+        ctx,
+        "conversation_message",
+        message.id,
+        refs,
+      );
+      if (decision.moderated)
+        moderateEditedContent(ctx, actor, { type: "conversation_message", id: message.id });
+      publishEvent(ctx, {
+        type: "content.edited",
+        targetType: "conversation_message",
+        targetId: message.id,
+        payload: { newlyMentioned },
+      });
+      if (message.user_id !== user.userId && can(ctx, fresh, "conversation.moderate"))
+        appendModeratorLog(
+          ctx,
+          actor,
+          "conversation_message.edit",
+          "conversation_message",
+          message.id,
+        );
+    });
+    const row = prepared(ctx, "conversations.message", () =>
+      ctx.sqlite.prepare<MessageRow, [number]>(messageSql),
+    ).get(message.id)!;
+    return messages(ctx, actor, activeConversation(ctx, actor, message.conversation_id), [row])[0]!;
+  },
+);
+
+export const conversationsDeleteMessageOp = implement(
+  conversationsDeleteMessage,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    const { message, conversation } = visibleTarget(ctx, actor, input.messageId);
+    if (message.state === "deleted") throw new ConflictError("The message is deleted.");
+    const first = firstMessageId(ctx, message.conversation_id);
+    if (message.id === first) throw new ValidationError("Delete the conversation instead.");
+    if (!mayDelete(permissionsOf(ctx, actor), conversation, message, first))
+      throw new ForbiddenError();
+    writeTx(ctx, () => {
+      const current = prepared(ctx, "conversations.targetMessage", () =>
+        ctx.sqlite.prepare<TargetMessage, [number]>(targetMessageSql),
+      ).get(message.id);
+      const row = activeConversation(ctx, actor, message.conversation_id);
+      if (!current) throw new NotFoundError();
+      if (current.state === "deleted") throw new ConflictError("The message is deleted.");
+      const fresh = currentActor(ctx, actor);
+      if (!mayDelete(permissionsOf(ctx, fresh), row, current, first)) throw new ForbiddenError();
+      deleteMessageState(ctx, current);
+      publishEvent(ctx, {
+        type: "content.deleted",
+        targetType: "conversation_message",
+        targetId: current.id,
+        payload: { previousState: current.state, state: "deleted" },
+      });
+      if (current.user_id !== user.userId && can(ctx, fresh, "conversation.moderate"))
+        appendModeratorLog(ctx, actor, "content.deleted", "conversation_message", current.id);
+    });
+    return { ok: true as const };
+  },
+);
+
+/** The conversation counters of a message leaving `visible`, as the moderation path keeps them. */
+function deleteMessageState(ctx: Ctx, message: TargetMessage) {
+  prepared(ctx, "conversations.deleteMessage", () =>
+    ctx.sqlite.prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1"),
+  ).run(message.id);
+  if (message.state !== "visible") return;
+  prepared(ctx, "conversations.decrementMessages", () =>
+    ctx.sqlite.prepare("UPDATE conversations SET message_count = message_count - 1 WHERE id = ?1"),
+  ).run(message.conversation_id);
+  const last = prepared(ctx, "conversations.lastVisibleMessage", () =>
+    ctx.sqlite.prepare<{ id: number; user_id: number; created_at: number }, [number]>(
+      "SELECT id, user_id, created_at FROM conversation_messages WHERE conversation_id = ?1 AND state = 'visible' ORDER BY id DESC LIMIT 1",
+    ),
+  ).get(message.conversation_id);
+  if (!last) return;
+  prepared(ctx, "conversations.setLastMessage", () =>
+    ctx.sqlite.prepare(
+      "UPDATE conversations SET last_message_id = ?1, last_message_user_id = ?2, last_message_at = ?3 WHERE id = ?4",
+    ),
+  ).run(last.id, last.user_id, last.created_at, message.conversation_id);
+  prepared(ctx, "conversations.setParticipantsLast", () =>
+    ctx.sqlite.prepare(
+      "UPDATE conversation_participants SET last_message_at = ?1 WHERE conversation_id = ?2",
+    ),
+  ).run(last.created_at, message.conversation_id);
+}
+
 export const operations = [
+  conversationsSetLockedOp,
+  conversationsUpdateMessageOp,
+  conversationsDeleteMessageOp,
   conversationsListOp,
   conversationsGetOp,
   conversationsCreateOp,

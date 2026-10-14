@@ -27,6 +27,8 @@
     "awaitingApproval": "Este mensaje está pendiente de aprobación.",
     "deleted": "Este mensaje fue eliminado.",
     "cannotReply": "No puedes responder a esta conversación.",
+    "locked": "Bloqueada",
+    "lockedNote": "Esta conversación está bloqueada: no se admiten respuestas nuevas.",
     "earlier": "Mensajes anteriores",
     "newest": "Mensajes más recientes",
     "markRead": "Marcar como leído",
@@ -46,6 +48,14 @@
       "open": "Añadir personas",
       "submit": "Añadir",
       "cancel": "Cancelar"
+    },
+    "lock": {
+      "title": "Bloquear",
+      "submit": "Bloquear conversación"
+    },
+    "unlock": {
+      "title": "Desbloquear",
+      "submit": "Desbloquear conversación"
     },
     "rename": {
       "title": "Renombrar",

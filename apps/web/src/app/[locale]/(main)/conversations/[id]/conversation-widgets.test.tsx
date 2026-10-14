@@ -17,6 +17,7 @@ mock.module("next/navigation", () => ({
 mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
   addParticipantsAction: async () => ({}),
   renameAction: async () => ({}),
+  setLockedAction: async () => ({}),
   markRead: async () => true,
   markReadAction: async () => ({}),
   findRecipients: async () => [],
@@ -56,6 +57,8 @@ const conversation = {
   canReply: true,
   canInvite: true,
   canRename: true,
+  isLocked: false,
+  canLock: true,
 };
 
 // The avatars are async components: wait for the whole page before reading it.
@@ -105,6 +108,16 @@ test("the rename form is drawn only when the viewer may rename, with the current
   const without = await draw({ canRename: false });
   expect(without).not.toContain('value="Plans for the weekend"');
   expect(without).not.toContain("Conversation name");
+});
+
+test("the lock control is drawn only when the viewer may lock, and offers the opposite of the current state", async () => {
+  const open = await draw();
+  expect(open).toContain("Lock conversation");
+  expect(open).not.toContain("Unlock conversation");
+  const locked = await draw({ isLocked: true });
+  expect(locked).toContain("Unlock conversation");
+  const without = await draw({ canLock: false });
+  expect(without).not.toContain("Lock conversation");
 });
 
 test("mark as read is not drawn while the page's own mark is running or when nothing is unread", async () => {

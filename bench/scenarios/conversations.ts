@@ -134,3 +134,52 @@ export const scenarios: Scenario[] = [
     },
   },
 ];
+
+// Own conversations, so locking never touches the ones the other scenarios reply to.
+const owned: { conversationId: number; messageId: number; userId: number }[] = [];
+async function ownConversations(env: Parameters<NonNullable<Scenario["setup"]>>[0]) {
+  if (owned.length) return;
+  for (let i = 0; i < 20; i++) {
+    const userId = env.meta.memberIds[i % env.meta.memberIds.length]!;
+    const recipient = env.meta.memberIds[(i + 1) % env.meta.memberIds.length]!;
+    const made = JSON.parse(
+      (await env.call("conversations.create", env.actors.user(userId), {
+        title: "Benchmark lock and edit",
+        recipientIds: [recipient],
+        body: "First message",
+      })) as string,
+    );
+    owned.push({ conversationId: made.conversation.id, messageId: made.message.id, userId });
+  }
+}
+scenarios.push(
+  {
+    name: "conversations.updateMessage",
+    kind: "write",
+    setup: ownConversations,
+    run(env, i) {
+      const row = owned[i % owned.length]!;
+      return env.call("conversations.updateMessage", env.actors.user(row.userId), {
+        messageId: row.messageId,
+        body: `Edited ${i}`,
+      });
+    },
+  },
+  {
+    name: "conversations.setLocked",
+    kind: "write",
+    setup: ownConversations,
+    run(env, i) {
+      const row = owned[i % owned.length]!;
+      const locked = env.ctx.sqlite
+        .prepare<{ is_locked: number }, [number]>(
+          "SELECT is_locked FROM conversations WHERE id = ?1",
+        )
+        .get(row.conversationId)!.is_locked;
+      return env.call("conversations.setLocked", env.actors.user(row.userId), {
+        conversationId: row.conversationId,
+        locked: locked === 0,
+      });
+    },
+  },
+);

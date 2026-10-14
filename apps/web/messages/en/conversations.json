@@ -27,6 +27,8 @@
     "awaitingApproval": "This message is awaiting approval.",
     "deleted": "This message was deleted.",
     "cannotReply": "You cannot reply to this conversation.",
+    "locked": "Locked",
+    "lockedNote": "This conversation is locked: no new replies.",
     "earlier": "Earlier messages",
     "newest": "Newest messages",
     "markRead": "Mark as read",
@@ -46,6 +48,14 @@
       "open": "Add people",
       "submit": "Add",
       "cancel": "Cancel"
+    },
+    "lock": {
+      "title": "Lock",
+      "submit": "Lock conversation"
+    },
+    "unlock": {
+      "title": "Unlock",
+      "submit": "Unlock conversation"
     },
     "rename": {
       "title": "Rename",

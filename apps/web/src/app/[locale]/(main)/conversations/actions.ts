@@ -7,6 +7,7 @@ import {
   conversationsMarkRead,
   conversationsRename,
   conversationsReply,
+  conversationsSetLocked,
   usersSearch,
 } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
@@ -109,6 +110,20 @@ export async function renameAction(
     call(conversationsRename, { conversationId, title }),
   );
   if (!renamed.ok) return { error: renamed.error };
+  return backToConversation(conversationId);
+}
+
+// Locks or unlocks the conversation; the page that follows shows the new state.
+export async function setLockedAction(
+  conversationId: number,
+  locked: boolean,
+  _previous: PanelState,
+): Promise<PanelState> {
+  requireIds(conversationId);
+  const changed = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsSetLocked, { conversationId, locked }),
+  );
+  if (!changed.ok) return { error: changed.error };
   return backToConversation(conversationId);
 }
 

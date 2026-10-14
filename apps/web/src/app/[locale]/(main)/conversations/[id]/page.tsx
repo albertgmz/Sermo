@@ -64,6 +64,12 @@ function Header({
           {conversation.title}
         </h1>
         {/* Beside the messages on a wide screen; behind this button below it. */}
+        {conversation.isLocked && (
+          <span className="inline-flex h-10 items-center gap-1 text-sm text-muted-foreground">
+            <Lock className="size-4" aria-hidden />
+            {t("locked")}
+          </span>
+        )}
         <WidgetsSheet
           label={t("details.open")}
           title={t("details.title")}
@@ -140,13 +146,22 @@ export default async function ConversationPage({
 
         <section className="mt-4">
           {conversation.canReply ? (
-            <ReplyForm
-              conversationId={conversation.id}
-              placeholder={t("placeholder")}
-              submitLabel={t("submit")}
-            />
+            <>
+              {conversation.isLocked && (
+                <PostNote icon={Lock} className="mb-2">
+                  {t("lockedNote")}
+                </PostNote>
+              )}
+              <ReplyForm
+                conversationId={conversation.id}
+                placeholder={t("placeholder")}
+                submitLabel={t("submit")}
+              />
+            </>
           ) : (
-            <PostNote icon={Lock}>{t("cannotReply")}</PostNote>
+            <PostNote icon={Lock}>
+              {conversation.isLocked ? t("lockedNote") : t("cannotReply")}
+            </PostNote>
           )}
         </section>
       </PageLayout>

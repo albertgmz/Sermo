@@ -64,6 +64,8 @@ const conversation = {
   canReply: true,
   canInvite: true,
   canRename: true,
+  isLocked: false,
+  canLock: true,
 };
 
 function backend(list: Response) {
