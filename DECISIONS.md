@@ -1980,3 +1980,8 @@ types. A parity test holds every Spanish message to the English keys, arguments,
 plural/select selectors (as sets, so word order is free). Dates and numbers are formatted in the
 active language. Not translated: the backend's own refusal messages shown in forms (English
 literals in the backend), the error page drawn outside the layouts, and the styleguide.
+
+Wording (owner's choice): threads and forums are followed, not watched ("Follow thread", "Seguir
+tema"); members, threads and forums share the verb and buttons name what they follow. Thread stays
+"tema" in Spanish. Group promotions are "promoción" in Spanish; the paid account upgrade keeps
+"Mejora".
