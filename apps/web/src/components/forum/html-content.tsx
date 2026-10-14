@@ -1,3 +1,4 @@
+import { MentionCards } from "@/components/forum/mention-cards";
 import { prose } from "@/components/forum/prose";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
 import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
@@ -23,19 +24,21 @@ const elements = cn(
 );
 
 // Renders HTML the backend produced and sanitised; the text is not parsed or changed here. LITE
-// mode removes its pictures on the server first.
+// mode removes its pictures on the server first. A mention in it shows the member's card on hover.
 export async function HtmlContent(props: {
   children: string;
   className?: string;
 }) {
   const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
   return (
-    <div
-      className={cn(prose.root, elements, props.className)}
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: the backend sanitises this HTML when the page is saved.
-      dangerouslySetInnerHTML={{
-        __html: stripHtmlMedia(props.children, state, origin),
-      }}
-    />
+    <MentionCards>
+      <div
+        className={cn(prose.root, elements, props.className)}
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: the backend sanitises this HTML when the page is saved.
+        dangerouslySetInnerHTML={{
+          __html: stripHtmlMedia(props.children, state, origin),
+        }}
+      />
+    </MentionCards>
   );
 }

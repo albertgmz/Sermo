@@ -4,6 +4,7 @@ import { UserCheck, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { FormError } from "@/components/forum/form-error";
+import { useMemberCardReload } from "@/components/forum/member-card-scope";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export function MemberFollowButton({
   errorClassName?: string;
 }) {
   const t = useTranslations("members.wallButtons");
+  const reloadCard = useMemberCardReload();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | undefined>();
   return (
@@ -41,7 +43,10 @@ export function MemberFollowButton({
         className={className}
         onClick={() =>
           start(async () => {
-            setError((await action()).error);
+            const { error: refused } = await action();
+            setError(refused);
+            // Inside a member card the page's refresh does not reach the card: read it again.
+            if (!refused) reloadCard();
           })
         }
       >

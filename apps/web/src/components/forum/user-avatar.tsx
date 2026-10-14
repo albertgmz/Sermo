@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { liteAvatarLayout } from "@/lib/lite-avatar";
 import { getLiteState } from "@/lib/lite-mode";
@@ -89,14 +89,17 @@ export async function UserAvatar({
       )}
     </Avatar>
   );
-  if (!linked) return avatar;
+  if (!linked || user.id === undefined) return avatar;
   return (
-    <Link
+    <MemberCardTrigger
+      avatar
+      id={user.id}
       href={`/members/${user.id}`}
+      name={user.username}
       aria-label={user.username}
       className={cn("shrink-0 rounded-full", className, unringed)}
     >
       {avatar}
-    </Link>
+    </MemberCardTrigger>
   );
 }

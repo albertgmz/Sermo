@@ -191,3 +191,11 @@ test("the actions slot sits after the facts, not pinned to the foot", async () =
   expect(out.indexOf("</dl>")).toBeLessThan(out.indexOf("postbit-actions"));
   expect(out).not.toContain("mt-auto");
 });
+
+test("the avatar and the name are plain links to the profile, never card triggers", async () => {
+  for (const layout of ["column", "compact", "responsive"] as const) {
+    const out = await html(<Postbit author={author} layout={layout} />);
+    expect(out).toContain('href="/members/3"');
+    expect(out).not.toContain('role="link"');
+  }
+});

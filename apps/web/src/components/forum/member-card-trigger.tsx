@@ -1,28 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { startTransition, useRef, useState, useSyncExternalStore } from "react";
-import { loadMemberCard } from "@/components/forum/member-card-action";
+import { useRef, useState, useSyncExternalStore } from "react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
+  CARD_CLOSE_DELAY,
+  CARD_DELAY,
+  MemberCardPopup,
+  useMemberCard,
+} from "@/components/forum/member-card-popup";
+import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
 
-export function MemberCardTrigger(
-  props: React.ComponentProps<typeof MemberCardWithPreference>,
-) {
+type Props = {
+  id: number;
+  href: string;
+  name: string;
+  className?: string;
+  style?: React.CSSProperties;
+  "aria-label"?: string;
+  // The link around an avatar: no hit area drawn around it, the picture's box stays as it is.
+  avatar?: boolean;
+  children: React.ReactNode;
+};
+
+// A line of text gets a hit area taller than the line; an avatar does not.
+const classes = (avatar: boolean | undefined, className?: string) =>
+  avatar
+    ? className
+    : cn(
+        "relative rounded-sm after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        className,
+      );
+
+// A link to a member's profile that shows the member's card on hover (mouse) and on keyboard
+// focus. A tap on touch and pen is a plain click: it goes to the profile. Inside a postbit
+// (`MemberCardScope`) it is just the link.
+export function MemberCardTrigger(props: Props) {
   const preference = useSyncExternalStore(
     subscribeLiteValue,
     getCommittedLiteValue,
     () => "",
   );
+  const enabled = useMemberCardsEnabled();
+  if (!enabled) {
+    return (
+      <Link
+        href={props.href}
+        aria-label={props["aria-label"]}
+        className={classes(props.avatar, props.className)}
+        style={props.style}
+      >
+        {props.children}
+      </Link>
+    );
+  }
   return <MemberCardWithPreference key={preference} {...props} />;
 }
+
+const isTouchLike = (pointerType: string) =>
+  pointerType === "touch" || pointerType === "pen";
 
 function MemberCardWithPreference({
   id,
@@ -30,20 +68,12 @@ function MemberCardWithPreference({
   name,
   className,
   style,
+  avatar,
   children,
-}: {
-  id: number;
-  href: string;
-  name: string;
-  className?: string;
-  style?: React.CSSProperties;
-  children: React.ReactNode;
-}) {
-  const t = useTranslations("forum.memberCardTrigger");
+  ...rest
+}: Props) {
   const [open, setOpen] = useState(false);
-  // undefined until the first open has loaded it, null for an unknown member
-  const [card, setCard] = useState<React.ReactNode>();
-  const requested = useRef(false);
+  const { card, load, reload } = useMemberCard(id, name);
   const trigger = useRef<HTMLElement>(null);
   const pointerType = useRef("");
   const restoringFocus = useRef(false);
@@ -51,15 +81,7 @@ function MemberCardWithPreference({
 
   function show() {
     setOpen(true);
-    if (requested.current) return;
-    requested.current = true;
-    startTransition(async () => {
-      try {
-        setCard(await loadMemberCard(id, name));
-      } catch {
-        requested.current = false;
-      }
-    });
+    load();
   }
 
   return (
@@ -67,8 +89,8 @@ function MemberCardWithPreference({
       open={open}
       onOpenChange={(next, details) => {
         returnFocus.current = details.reason === "escape-key";
-        if (next) show();
-        else setOpen(false);
+        if (!next) setOpen(false);
+        else if (!isTouchLike(pointerType.current)) show();
       }}
     >
       <PopoverTrigger
@@ -78,14 +100,15 @@ function MemberCardWithPreference({
         nativeButton={false}
         role="link"
         openOnHover
-        delay={300}
-        closeDelay={150}
+        delay={CARD_DELAY}
+        closeDelay={CARD_CLOSE_DELAY}
         render={<Link href={href} />}
-        className={cn(
-          "relative rounded-sm after:absolute after:-inset-x-1 after:-inset-y-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-          className,
-        )}
+        aria-label={rest["aria-label"]}
+        className={classes(avatar, className)}
         style={style}
+        onPointerOver={(event) => {
+          pointerType.current = event.pointerType;
+        }}
         onPointerDown={(event) => {
           pointerType.current = event.pointerType;
         }}
@@ -95,28 +118,26 @@ function MemberCardWithPreference({
         onFocus={(event) => {
           if (restoringFocus.current) {
             restoringFocus.current = false;
-          } else if (event.currentTarget.matches(":focus-visible")) {
+          } else if (
+            !isTouchLike(pointerType.current) &&
+            event.currentTarget.matches(":focus-visible")
+          ) {
             show();
           }
         }}
         onClick={(event) => {
-          if (
-            pointerType.current === "touch" ||
-            pointerType.current === "pen"
-          ) {
-            event.preventDefault();
-          } else {
-            event.preventBaseUIHandler();
-          }
+          // A click is always the link's own: it never toggles the card.
+          event.preventBaseUIHandler();
         }}
       >
         {children}
       </PopoverTrigger>
-      <PopoverContent
-        aria-label={t("aria.label", { name })}
+      <MemberCardPopup
+        name={name}
+        card={card}
+        reload={reload}
         align="start"
-        className="max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] overflow-y-auto p-0"
-        initialFocus={(type) => type === "touch" || type === "pen"}
+        initialFocus={false}
         finalFocus={() => {
           if (
             returnFocus.current &&
@@ -127,13 +148,7 @@ function MemberCardWithPreference({
           }
           return false;
         }}
-      >
-        {card === undefined ? (
-          <Skeleton className="h-56 w-full rounded-none" />
-        ) : (
-          card
-        )}
-      </PopoverContent>
+      />
     </Popover>
   );
 }

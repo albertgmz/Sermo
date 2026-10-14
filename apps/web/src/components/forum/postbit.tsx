@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { AwardRow } from "@/components/forum/award-icon";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
+import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
@@ -26,7 +27,8 @@ export const POSTBIT_FRAME = {
 export type PostbitLayout = "column" | "compact" | "responsive";
 
 // The author of a post: who they are and a few facts about them. It knows nothing of posts, so a
-// frame, a floating card or a list can place it. `actions` is drawn at the foot of the column, at
+// frame, a floating card or a list can place it. The name and avatar in it are plain links: the
+// card shows what a member card would, and a card never opens from inside one. `actions` is drawn at the foot of the column, at
 // the end of the compact header.
 export function Postbit({
   author,
@@ -60,138 +62,140 @@ export function Postbit({
   );
 
   return (
-    <div
-      data-slot="postbit"
-      data-layout={layout}
-      className={cn(
-        pick(
-          "flex items-start gap-3",
-          "flex flex-col items-center gap-3 text-center",
-          "flex items-start gap-3 md:flex-col md:items-center md:text-center",
-        ),
-        className,
-      )}
-    >
-      {compact && (
-        <UserAvatar
-          user={member}
-          size="lg"
-          className={cn("self-start", responsive && "md:hidden")}
-        />
-      )}
-      {column && (
-        <UserAvatar
-          user={member}
-          size="xl"
-          className={responsive ? "hidden md:block" : undefined}
-        />
-      )}
+    <MemberCardScope disabled>
       <div
-        className={pick(
-          "flex min-w-0 flex-1 flex-col gap-1",
-          "flex w-full min-w-0 flex-col items-center gap-2",
-          "flex min-w-0 flex-1 flex-col gap-1 md:w-full md:flex-none md:items-center md:gap-2",
+        data-slot="postbit"
+        data-layout={layout}
+        className={cn(
+          pick(
+            "flex items-start gap-3",
+            "flex flex-col items-center gap-3 text-center",
+            "flex items-start gap-3 md:flex-col md:items-center md:text-center",
+          ),
+          className,
         )}
       >
+        {compact && (
+          <UserAvatar
+            user={member}
+            size="lg"
+            className={cn("self-start", responsive && "md:hidden")}
+          />
+        )}
+        {column && (
+          <UserAvatar
+            user={member}
+            size="xl"
+            className={responsive ? "hidden md:block" : undefined}
+          />
+        )}
         <div
           className={pick(
-            "flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm",
-            "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm",
-            "flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm md:justify-center",
+            "flex min-w-0 flex-1 flex-col gap-1",
+            "flex w-full min-w-0 flex-col items-center gap-2",
+            "flex min-w-0 flex-1 flex-col gap-1 md:w-full md:flex-none md:items-center md:gap-2",
           )}
         >
-          <UserLink user={member} className="[overflow-wrap:anywhere]" />
-          <span className="contents [&>*]:max-w-full [&>*]:overflow-hidden">
-            <UserBadges user={member} />
-          </span>
-          <AwardRow awards={author.awards} />
-        </div>
-        {titleRow && (
           <div
-            className={cn(
-              pick(
-                "flex min-w-0 items-center gap-x-3",
-                "flex w-full min-w-0 flex-col items-center gap-2",
-                "flex min-w-0 items-center gap-x-3 md:w-full md:flex-col md:gap-2",
-              ),
-              // Without a title the row holds only the phone counts.
-              responsive && !hasTitle && "md:hidden",
+            className={pick(
+              "flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm",
+              "flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm",
+              "flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-sm md:justify-center",
             )}
           >
-            {hasTitle && (
-              <p
-                title={member.title}
-                className={cn(
-                  "min-w-0 text-xs text-muted-foreground",
-                  pick(
-                    "truncate",
-                    "line-clamp-2 [overflow-wrap:anywhere]",
-                    "truncate md:line-clamp-2 md:whitespace-normal md:[overflow-wrap:anywhere]",
-                  ),
-                )}
-              >
-                {member.title}
-              </p>
-            )}
-            {compact && facts && (
-              <UserStats
-                user={{
-                  level,
-                  postCount: author.postCount,
-                  reactionCount: author.reactionScore,
-                }}
-                className={cn(
-                  "shrink-0",
-                  // On a phone the XP bar gives its room to the title.
-                  hasTitle && "max-sm:[&_[data-slot=progress]]:hidden",
-                  responsive && "md:hidden",
-                )}
-              />
-            )}
+            <UserLink user={member} className="[overflow-wrap:anywhere]" />
+            <span className="contents [&>*]:max-w-full [&>*]:overflow-hidden">
+              <UserBadges user={member} />
+            </span>
+            <AwardRow awards={author.awards} />
           </div>
-        )}
-        {column && facts && (
+          {titleRow && (
+            <div
+              className={cn(
+                pick(
+                  "flex min-w-0 items-center gap-x-3",
+                  "flex w-full min-w-0 flex-col items-center gap-2",
+                  "flex min-w-0 items-center gap-x-3 md:w-full md:flex-col md:gap-2",
+                ),
+                // Without a title the row holds only the phone counts.
+                responsive && !hasTitle && "md:hidden",
+              )}
+            >
+              {hasTitle && (
+                <p
+                  title={member.title}
+                  className={cn(
+                    "min-w-0 text-xs text-muted-foreground",
+                    pick(
+                      "truncate",
+                      "line-clamp-2 [overflow-wrap:anywhere]",
+                      "truncate md:line-clamp-2 md:whitespace-normal md:[overflow-wrap:anywhere]",
+                    ),
+                  )}
+                >
+                  {member.title}
+                </p>
+              )}
+              {compact && facts && (
+                <UserStats
+                  user={{
+                    level,
+                    postCount: author.postCount,
+                    reactionCount: author.reactionScore,
+                  }}
+                  className={cn(
+                    "shrink-0",
+                    // On a phone the XP bar gives its room to the title.
+                    hasTitle && "max-sm:[&_[data-slot=progress]]:hidden",
+                    responsive && "md:hidden",
+                  )}
+                />
+              )}
+            </div>
+          )}
+          {column && facts && (
+            <div
+              className={cn(
+                "w-full min-w-0 flex-col items-center gap-2",
+                responsive ? "hidden md:flex" : "flex",
+              )}
+            >
+              <div className="inline-flex items-center gap-1.5">
+                <LevelBadge level={level} />
+                <XpBar level={level} className="w-16" />
+              </div>
+              <dl className="grid w-full gap-1 border-t pt-2 text-left text-xs">
+                {joined && (
+                  <Fact label={t("joinedLabel")}>
+                    <time dateTime={author.joinedAt}>
+                      {formatDate(author.joinedAt)}
+                    </time>
+                  </Fact>
+                )}
+                <Fact label={t("postsLabel")}>
+                  {formatCompact(author.postCount)}
+                </Fact>
+                <Fact label={t("reactionsLabel")}>
+                  {formatCompact(author.reactionScore)}
+                </Fact>
+              </dl>
+            </div>
+          )}
+        </div>
+        {actions && (
           <div
-            className={cn(
-              "w-full min-w-0 flex-col items-center gap-2",
-              responsive ? "hidden md:flex" : "flex",
+            data-slot="postbit-actions"
+            className={pick(
+              "ml-auto flex shrink-0 items-center",
+              "flex w-full flex-col gap-2",
+              "ml-auto flex shrink-0 items-center md:ml-0 md:w-full md:flex-col md:items-stretch md:gap-2",
             )}
           >
-            <div className="inline-flex items-center gap-1.5">
-              <LevelBadge level={level} />
-              <XpBar level={level} className="w-16" />
-            </div>
-            <dl className="grid w-full gap-1 border-t pt-2 text-left text-xs">
-              {joined && (
-                <Fact label={t("joinedLabel")}>
-                  <time dateTime={author.joinedAt}>
-                    {formatDate(author.joinedAt)}
-                  </time>
-                </Fact>
-              )}
-              <Fact label={t("postsLabel")}>
-                {formatCompact(author.postCount)}
-              </Fact>
-              <Fact label={t("reactionsLabel")}>
-                {formatCompact(author.reactionScore)}
-              </Fact>
-            </dl>
+            {actions}
           </div>
         )}
       </div>
-      {actions && (
-        <div
-          data-slot="postbit-actions"
-          className={pick(
-            "ml-auto flex shrink-0 items-center",
-            "flex w-full flex-col gap-2",
-            "ml-auto flex shrink-0 items-center md:ml-0 md:w-full md:flex-col md:items-stretch md:gap-2",
-          )}
-        >
-          {actions}
-        </div>
-      )}
-    </div>
+    </MemberCardScope>
   );
 }
 

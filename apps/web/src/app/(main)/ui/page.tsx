@@ -34,6 +34,7 @@ import { Credits } from "@/components/forum/credits";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ForumCard } from "@/components/forum/forum-card";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { HtmlContent } from "@/components/forum/html-content";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import {
   Leaderboard,
@@ -286,6 +287,9 @@ function Section({
     </section>
   );
 }
+
+// Sample HTML as the backend writes a mention.
+const MENTION_HTML = `<p>Thanks <a href="/members/${ADMIN.id}" class="mention" data-user-id="${ADMIN.id}">@${ADMIN.username}</a> for the help.</p>`;
 
 export default async function StyleguidePage() {
   const [lite, liteText] = await Promise.all([
@@ -1068,9 +1072,12 @@ export default async function StyleguidePage() {
         <Section title="Hover cards">
           <p className="max-w-prose text-sm text-muted-foreground">
             Thread links preview on hover and keyboard focus, and navigate on
-            touch. A member name opens the same member card on hover, keyboard
-            focus or tap; its View profile button opens the profile. Thread
-            prefixes appear beside the title in both the link and its preview.
+            touch. A member avatar, a member name and an @mention open the
+            member card (the postbit with its actions) on hover or keyboard
+            focus; on touch and pen a tap goes to the profile. The name and
+            avatar inside the card, or inside a post's own postbit, are plain
+            links. Thread prefixes appear beside the title in both the link and
+            its preview.
           </p>
           <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
             {THREADS.map((thread) => (
@@ -1080,16 +1087,18 @@ export default async function StyleguidePage() {
                 className="font-medium underline-offset-4 hover:underline"
               />
             ))}
+            <UserAvatar user={ADMIN} size="lg" />
             <UserLink user={ADMIN} />
             <UserLink user={MODERATOR} />
+            <HtmlContent className="text-sm">{MENTION_HTML}</HtmlContent>
           </div>
         </Section>
 
         <Section title="Members">
           <p className="max-w-prose text-sm text-muted-foreground">
-            One member card is shared by the directory and member-name previews.
-            A member&apos;s cover fades behind the header; LITE mode replaces it
-            with a placeholder.
+            One member card is shared by the members directory. A member&apos;s
+            cover fades behind the header; LITE mode replaces it with a
+            placeholder.
           </p>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
             <MemberCard user={COVERED_CARD} />
