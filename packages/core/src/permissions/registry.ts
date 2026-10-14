@@ -377,6 +377,24 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: MEMBERS_UNLIMITED,
   },
+  /** Edit your own messages in conversations you take part in. */
+  "conversation.editOwn": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+    own: true,
+  },
+  /** Delete your own messages (not the first one) in conversations you take part in. */
+  "conversation.deleteOwn": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+    own: true,
+  },
   /** See deleted and unapproved messages in conversations you take part in. */
   "conversation.viewHidden": globalAdmin("conversation"),
   /** Moderate messages and handle reports on them. */

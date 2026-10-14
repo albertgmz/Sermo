@@ -246,6 +246,13 @@
       "when": 1791943501325,
       "tag": "0034_name_icons",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1792006701141,
+      "tag": "0035_xenforo_pass",
+      "breakpoints": true
     }
   ]
 }

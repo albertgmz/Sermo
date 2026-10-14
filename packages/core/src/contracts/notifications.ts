@@ -8,6 +8,28 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import { Body, Id, Ok, Page, pageInput, Timestamp, Title, UserSummary } from "./common";
 
+/** A site path (`/threads/1`) or an http(s) address; no spaces, no protocol-relative `//`. */
+export const AlertUrl = z
+  .string()
+  .trim()
+  .max(500)
+  .regex(
+    /^(\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/i,
+    "Use a path starting with / or an http(s) address.",
+  );
+
+export const AnnouncementAudience = z
+  .discriminatedUnion("kind", [
+    z.object({ kind: z.literal("all") }),
+    z.object({ kind: z.literal("group"), groupId: Id }),
+    z.object({
+      kind: z.literal("users"),
+      /** Usernames, any case; an unknown one is refused. */
+      usernames: z.array(z.string().trim().min(1).max(50)).min(1).max(100),
+    }),
+  ])
+  .meta({ id: "AnnouncementAudience" });
+
 export const Notification = z
   .object({
     id: Id,
@@ -119,10 +141,17 @@ export const notificationsSetPreferences = defineContract({
 export const announcementsCreate = defineContract({
   name: "announcements.create",
   summary:
-    "Send an announcement to every member as a notification (delivered in the background). " +
-    "Requires admin.announcements.",
+    "Send an announcement as an alert (delivered in the background) to every member, the " +
+    "members of one group (primary or secondary), or named members. `url` is what the alert " +
+    "opens: a site path or an http(s) address; without one it opens the alert list. The sender " +
+    "receives it too when they are in the audience. Requires admin.announcements.",
   kind: "write",
-  input: z.object({ title: Title, body: Body }),
+  input: z.object({
+    title: Title,
+    body: Body,
+    url: AlertUrl.nullable().default(null),
+    audience: AnnouncementAudience.default({ kind: "all" }),
+  }),
   output: z.object({ id: Id }),
 });
 

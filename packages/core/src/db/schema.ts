@@ -75,6 +75,21 @@ export const REPORT_TARGET_TYPES = [
   "user",
 ] as const;
 export const REPORT_STATES = ["open", "assigned", "resolved", "rejected"] as const;
+/** What a member can bookmark. */
+export const BOOKMARK_CONTENT_TYPES = ["thread", "post", "conversation"] as const;
+export type BookmarkContentType = (typeof BOOKMARK_CONTENT_TYPES)[number];
+/** Content whose spoilers are stored apart from its HTML and revealed on request. */
+export const SPOILER_CONTENT_TYPES = [
+  "post",
+  "profile_post",
+  "profile_post_comment",
+  "conversation_message",
+] as const;
+export type SpoilerContentType = (typeof SPOILER_CONTENT_TYPES)[number];
+/** Who a global notice is shown to; `group` names one group in `audience_group_id`. */
+export const NOTICE_AUDIENCES = ["everyone", "guests", "members", "group"] as const;
+/** Who an administrator's alert goes to; `group` and `users` name them in the row. */
+export const ANNOUNCEMENT_AUDIENCES = ["all", "group", "users"] as const;
 export const PERMISSION_SCOPES = ["global", "node"] as const;
 export const PERMISSION_VALUE_TYPES = ["flag", "integer"] as const;
 export const USER_PROMOTION_STATES = ["auto", "manual", "exempt"] as const;
@@ -267,6 +282,11 @@ export const users = sqliteTable(
     referralCount: counter("referral_count"),
     /** Awards currently held, counting each grant (the sum of member_award_totals.count). */
     awardCount: counter("award_count"),
+    /**
+     * A super admin may act on any member, administrators included, and is the only one who can
+     * grant or remove this flag. There is always at least one.
+     */
+    isSuperAdmin: bool("is_super_admin").notNull().default(false),
   },
   (t) => [
     uniqueIndex("users_username_key").on(t.usernameKey),
@@ -293,6 +313,8 @@ export const users = sqliteTable(
     index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
     // users.adminList with state `erased`: the erased members, newest first.
     index("users_erased").on(t.id).where(sql`erased_at IS NOT NULL`),
+    // "Is this the last super admin?" before the flag is removed.
+    index("users_super_admin").on(t.id).where(sql`is_super_admin = 1`),
   ],
 );
 
@@ -815,6 +837,8 @@ export const conversations = sqliteTable("conversations", {
   messageCount: counter("message_count"),
   /** Active participants. */
   participantCount: counter("participant_count"),
+  /** Set by the starter or an administrator; only administrators reply while it is locked. */
+  isLocked: bool("is_locked").notNull().default(false),
 });
 
 export const conversationParticipants = sqliteTable(
@@ -860,6 +884,7 @@ export const conversationMessages = sqliteTable(
       .references(() => users.id),
     state: state(),
     createdAt: integer("created_at").notNull(),
+    editedAt: integer("edited_at"),
     bodySource: text("body_source").notNull(),
     bodyHtml: text("body_html").notNull(),
     reactionCounts: reactionCounts(),
@@ -1425,7 +1450,90 @@ export const announcements = sqliteTable("announcements", {
   bodySource: text("body_source").notNull(),
   bodyHtml: text("body_html").notNull(),
   createdAt: integer("created_at").notNull(),
+  /** Site-relative path or http(s) address the alert opens; null opens the alert list. */
+  url: text("url"),
+  audience: text("audience", { enum: ANNOUNCEMENT_AUDIENCES }).notNull().default("all"),
+  /** The group of audience `group` (primary or secondary members). */
+  audienceGroupId: integer("audience_group_id"),
+  /** JSON array of member ids for audience `users`. */
+  audienceUserIds: text("audience_user_ids").notNull().default("[]"),
 });
+
+/**
+ * Site-wide banners. Shown between `starts_at` and `ends_at` (either may be null: no bound) to
+ * their audience, newest first; a dismissible one stays hidden for a member who dismissed it.
+ */
+export const notices = sqliteTable("notices", {
+  id: integer("id").primaryKey(),
+  title: text("title").notNull(),
+  bodySource: text("body_source").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  audience: text("audience", { enum: NOTICE_AUDIENCES }).notNull().default("everyone"),
+  audienceGroupId: integer("audience_group_id"),
+  dismissible: bool("dismissible").notNull().default(true),
+  active: bool("active").notNull().default(true),
+  startsAt: integer("starts_at"),
+  endsAt: integer("ends_at"),
+  createdBy: integer("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const noticeDismissals = sqliteTable(
+  "notice_dismissals",
+  {
+    id: integer("id").primaryKey(),
+    noticeId: integer("notice_id")
+      .notNull()
+      .references(() => notices.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    dismissedAt: integer("dismissed_at").notNull(),
+  },
+  (t) => [uniqueIndex("notice_dismissals_user_notice").on(t.userId, t.noticeId)],
+);
+
+/**
+ * A member's bookmarks of threads, posts and conversations. No foreign key on `content_id`:
+ * listing checks that the viewer can still see each item and skips the rest.
+ */
+export const bookmarks = sqliteTable(
+  "bookmarks",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    contentType: text("content_type", { enum: BOOKMARK_CONTENT_TYPES }).notNull(),
+    contentId: integer("content_id").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("bookmarks_user_content").on(t.userId, t.contentType, t.contentId),
+    // bookmarks.list: WHERE user_id = ? ORDER BY id DESC
+    index("bookmarks_user").on(t.userId, t.id),
+  ],
+);
+
+/**
+ * The content of each `[SPOILER]`/`[ISPOILER]` in a body, rendered at write time and kept out of
+ * `body_html`, which holds only a placeholder naming `position` (0-based, in source order).
+ * Rewritten with the body on every edit.
+ */
+export const contentSpoilers = sqliteTable(
+  "content_spoilers",
+  {
+    id: integer("id").primaryKey(),
+    contentType: text("content_type", { enum: SPOILER_CONTENT_TYPES }).notNull(),
+    contentId: integer("content_id").notNull(),
+    position: integer("position").notNull(),
+    html: text("html").notNull(),
+  },
+  (t) => [uniqueIndex("content_spoilers_content").on(t.contentType, t.contentId, t.position)],
+);
 
 export const emailFailures = sqliteTable(
   "email_failures",

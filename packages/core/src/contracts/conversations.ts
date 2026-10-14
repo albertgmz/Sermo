@@ -143,3 +143,36 @@ export const conversationsRename = defineContract({
   input: z.object({ conversationId: Id, title: Title }),
   output: Conversation,
 });
+
+export const conversationsSetLocked = defineContract({
+  name: "conversations.setLocked",
+  summary:
+    "Lock or unlock a conversation. Its starter while an active participant, or a holder of " +
+    "`conversation.moderate` taking part in it. While locked only holders of " +
+    "`conversation.moderate` can reply.",
+  kind: "write",
+  input: z.object({ conversationId: Id, locked: z.boolean() }),
+  output: Conversation,
+});
+
+export const conversationsUpdateMessage = defineContract({
+  name: "conversations.updateMessage",
+  summary:
+    "Edit a message's body (and, when `attachmentIds` is sent, its attachments). Its author " +
+    "holding `conversation.editOwn` while an active participant, or a holder of " +
+    "`conversation.moderate` taking part in the conversation. Sets `editedAt`.",
+  kind: "write",
+  input: z.object({ messageId: Id, body: Body, attachmentIds: AttachmentIds }),
+  output: Message,
+});
+
+export const conversationsDeleteMessage = defineContract({
+  name: "conversations.deleteMessage",
+  summary:
+    "Soft-delete a message (state `deleted`). Its author holding `conversation.deleteOwn` while " +
+    "an active participant, or a holder of `conversation.moderate` taking part in the " +
+    "conversation. The first message cannot be deleted on its own.",
+  kind: "write",
+  input: z.object({ messageId: Id }),
+  output: Ok,
+});

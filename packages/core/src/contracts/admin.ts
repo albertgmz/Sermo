@@ -290,6 +290,18 @@ export const usersAdminRevokeSessions = defineContract({
   output: z.object({ revoked: z.number().int().nonnegative() }),
 });
 
+export const usersSetSuperAdmin = defineContract({
+  name: "users.setSuperAdmin",
+  summary:
+    "Grant or remove the super admin flag. Only a super admin can, with their own password. A " +
+    "super admin may act on any member, administrators and themselves included, while other " +
+    "administrators cannot act on an administrator. The last super admin cannot be removed; " +
+    "an erased member cannot be granted it.",
+  kind: "write",
+  input: z.object({ userId: Id, superAdmin: z.boolean(), actorPassword: ActorPassword }),
+  output: Ok,
+});
+
 export const usersAdminLog = defineContract({
   name: "users.adminLog",
   summary:

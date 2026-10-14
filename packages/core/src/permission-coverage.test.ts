@@ -30,7 +30,7 @@ const PENDING_MODULES = new Set<string>();
  * Registered permissions whose feature is still being built. A feature's worker removes its
  * permissions from this list when the checks land; the list must end empty.
  */
-const PENDING_PERMISSIONS = new Set<string>([]);
+const PENDING_PERMISSIONS = new Set<string>(["conversation.editOwn", "conversation.deleteOwn"]);
 
 const SRC = import.meta.dir;
 /** Functions of src/permissions that decide (calling one counts as checking). */

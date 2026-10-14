@@ -22,6 +22,29 @@ const SocialUrl = z
     message: "Use an http(s) URL without control characters.",
   })
   .nullable();
+export const Analytics = z
+  .discriminatedUnion("provider", [
+    z.object({ provider: z.literal("none") }),
+    z.object({
+      provider: z.literal("matomo"),
+      /** The Matomo installation, e.g. `https://stats.example.com/`. */
+      url: z
+        .string()
+        .trim()
+        .max(300)
+        .regex(/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._~/-]*)?$/, "Use an https URL."),
+      siteId: z.number().int().min(1).max(1_000_000),
+    }),
+    z.object({
+      provider: z.literal("google"),
+      measurementId: z
+        .string()
+        .trim()
+        .regex(/^G-[A-Z0-9]{4,20}$/, "Use a G- measurement id."),
+    }),
+  ])
+  .meta({ id: "Analytics" });
+
 export const SiteSettings = z
   .object({
     maxUploadBytes: z.number().int().min(1).max(1_073_741_824),
@@ -94,6 +117,15 @@ export const SiteSettings = z
     standingPostPoints: z.number().int().min(0).max(1000).default(1),
     standingReactionsPerPoint: z.number().int().min(1).max(1000).default(10),
     standingReferralPoints: z.number().int().min(0).max(1000).default(20),
+    /** Members holding `moderation.access` or any admin permission are left out of the standings. */
+    standingExcludeStaff: z.boolean().default(false),
+    /** Members left out of the standings by hand (ids; the panel names them by username). */
+    standingExcludedUserIds: z.array(Id).max(200).default([]),
+    /**
+     * Visitor analytics on every public page; `none` adds nothing. Matomo needs its http(s)
+     * address and site id, Google Analytics its measurement id.
+     */
+    analytics: Analytics.default({ provider: "none" }),
     /**
      * The site's own pictures: an unattached file the actor uploaded with the purpose
      * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the

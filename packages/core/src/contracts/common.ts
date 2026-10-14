@@ -14,13 +14,16 @@ export const Timestamp = z.iso.datetime().describe("ISO 8601 UTC timestamp");
 export const ContentState = z.enum(CONTENT_STATES);
 export const ReactionContentType = z.enum(REACTION_CONTENT_TYPES);
 
-/** Markdown source for posts, messages, profile posts and comments. */
+/** Source of posts, messages, profile posts and comments: Markdown and BB code. */
 export const Body = z
   .string()
   .trim()
   .min(1)
   .max(MAX_BODY_LENGTH)
-  .describe("Markdown (CommonMark + GitHub extensions). Raw HTML is shown literally.");
+  .describe(
+    "Markdown (CommonMark + GitHub extensions) and BB code, mixed freely. Raw HTML is shown " +
+      "literally; unknown BB code tags stay as text.",
+  );
 
 export const Title = z.string().trim().min(1).max(150);
 
