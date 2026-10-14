@@ -1,26 +1,23 @@
-// When a member card may open. Plain functions, so the rules can be tested without a browser.
+// When a click on a member's avatar, name or mention opens the card. Plain functions, so the rule
+// can be tested without a browser.
 
-// A tap (touch or pen) is a plain click on the link: the card never opens from it.
-export const isTouchLike = (pointerType: string) =>
-  pointerType === "touch" || pointerType === "pen";
-
-// What a trigger does with a request from its popover to change state.
-export function openChange(
-  next: boolean,
-  pointerType: string,
-): "open" | "close" | "ignore" {
-  if (!next) return "close";
-  return isTouchLike(pointerType) ? "ignore" : "open";
-}
-
-// Whether keyboard focus on a trigger opens the card: only for a name, shown after keyboard
-// navigation. An avatar sits beside the name, which opens it, so tabbing is not doubled.
-export function opensOnFocus(options: {
-  pointerType: string;
-  avatar: boolean | undefined;
-  focusVisible: boolean;
+// The primary button with no modifier: the click that opens the card. A modified click (new tab,
+// new window, download) and a middle or right click keep the browser's own behaviour.
+export function opensCard(event: {
+  button: number;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
 }) {
   return (
-    !options.avatar && options.focusVisible && !isTouchLike(options.pointerType)
+    event.button === 0 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    !event.altKey
   );
 }
+
+// Space on a link does not click it; it opens the card as it would a button.
+export const opensCardKey = (key: string) => key === " ";

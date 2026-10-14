@@ -8,22 +8,17 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
 import {
-  openChange,
-  opensOnFocus,
-} from "@/components/forum/member-card-intent";
-import {
-  CARD_CLOSE_DELAY,
-  CARD_DELAY,
-  MemberCardPopup,
+  MemberCardSurface,
   useMemberCard,
 } from "@/components/forum/member-card-popup";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
-import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverTrigger } from "@/components/ui/popover";
 import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
 
-// The trigger is a link that a click never turns into a popup: it announces no popup state.
+// The trigger is a link, not a toggle button: it announces no popup state.
 const NOT_A_POPUP_BUTTON = {
   "aria-haspopup": undefined,
   "aria-expanded": undefined,
@@ -50,9 +45,9 @@ const classes = (avatar: boolean | undefined, className?: string) =>
         className,
       );
 
-// A link to a member's profile that shows the member's card on hover (mouse) and on keyboard
-// focus. A tap on touch and pen is a plain click: it goes to the profile. Inside a postbit
-// (`MemberCardScope`) it is just the link.
+// A link to a member's profile that opens the member's card when clicked (mouse, touch, pen, or
+// Enter and Space on the keyboard). A modified click goes to the profile as a link does. Inside
+// a card (`MemberCardScope`) it is just the link.
 export function MemberCardTrigger(props: Props) {
   const preference = useSyncExternalStore(
     subscribeLiteValue,
@@ -88,9 +83,6 @@ function MemberCardWithPreference({
   const [open, setOpen] = useState(false);
   const { card, load } = useMemberCard(id, name);
   const trigger = useRef<HTMLElement>(null);
-  const pointerType = useRef("");
-  const restoringFocus = useRef(false);
-  const returnFocus = useRef(false);
   // One function for the life of the trigger: a new one on every render would make the trigger
   // let go of its element and take it again each time the card changes.
   const setTrigger = useCallback((element: HTMLElement | null) => {
@@ -105,83 +97,46 @@ function MemberCardWithPreference({
     [],
   );
 
-  function show() {
-    setOpen(true);
-    load();
+  function toggle() {
+    if (!open) load();
+    setOpen(!open);
   }
 
   return (
-    <Popover
+    <MemberCardSurface
       open={open}
-      onOpenChange={(next, details) => {
-        returnFocus.current = details.reason === "escape-key";
-        const change = openChange(next, pointerType.current);
-        if (change === "close") setOpen(false);
-        else if (change === "open") show();
+      onOpenChange={(next) => {
+        if (!next) setOpen(false);
       }}
-    >
-      <PopoverTrigger
-        ref={setTrigger}
-        nativeButton={false}
-        role="link"
-        openOnHover
-        delay={CARD_DELAY}
-        closeDelay={CARD_CLOSE_DELAY}
-        render={<Link href={href} />}
-        aria-label={rest["aria-label"]}
-        {...NOT_A_POPUP_BUTTON}
-        className={classes(avatar, className)}
-        style={style}
-        onPointerOver={(event) => {
-          pointerType.current = event.pointerType;
-        }}
-        onPointerDown={(event) => {
-          pointerType.current = event.pointerType;
-        }}
-        onKeyDown={() => {
-          pointerType.current = "";
-        }}
-        onFocus={(event) => {
-          const focusVisible = event.currentTarget.matches(":focus-visible");
-          // Focus that shows a focus ring came from the keyboard, whatever was tapped before.
-          if (focusVisible) pointerType.current = "";
-          if (restoringFocus.current) {
-            restoringFocus.current = false;
-          } else if (
-            opensOnFocus({
-              pointerType: pointerType.current,
-              avatar,
-              focusVisible,
-            })
-          ) {
-            show();
-          }
-        }}
-        onClick={(event) => {
-          // A click is always the link's own: it never toggles the card, and it closes it.
-          event.preventBaseUIHandler();
-          setOpen(false);
-        }}
-      >
-        {children}
-      </PopoverTrigger>
-      <MemberCardPopup
-        name={name}
-        card={card}
-        reload={load}
-        align="start"
-        initialFocus={false}
-        finalFocus={() => {
-          if (
-            returnFocus.current &&
-            document.activeElement !== trigger.current
-          ) {
-            restoringFocus.current = true;
-            return trigger.current;
-          }
-          return false;
-        }}
-      />
-    </Popover>
+      name={name}
+      card={card}
+      reload={load}
+      trigger={
+        <PopoverTrigger
+          ref={setTrigger}
+          nativeButton={false}
+          role="link"
+          render={<Link href={href} />}
+          aria-label={rest["aria-label"]}
+          {...NOT_A_POPUP_BUTTON}
+          className={classes(avatar, className)}
+          style={style}
+          onKeyDown={(event) => {
+            if (!opensCardKey(event.key)) return;
+            event.preventDefault();
+            toggle();
+          }}
+          onClick={(event) => {
+            // The card's own handler is replaced by this one; a modified click is the link's.
+            event.preventBaseUIHandler();
+            if (!opensCard(event)) return;
+            event.preventDefault();
+            toggle();
+          }}
+        >
+          {children}
+        </PopoverTrigger>
+      }
+    />
   );
 }

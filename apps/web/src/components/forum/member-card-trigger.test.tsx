@@ -64,6 +64,17 @@ test("outside a scope a name is a card trigger with the hit area around its line
   expect(out).toContain(HIT_AREA);
 });
 
+test("the trigger is a link that opens its card on click, not on hover", async () => {
+  const out = await html(
+    <MemberCardTrigger id={3} href="/members/3" name="ember">
+      ember
+    </MemberCardTrigger>,
+  );
+  expect(out).toContain("<a ");
+  expect(out).not.toContain("aria-haspopup");
+  expect(out).not.toContain("aria-expanded");
+});
+
 test("an avatar trigger keeps the href and the label and draws no hit area", async () => {
   const out = await html(
     <MemberCardTrigger

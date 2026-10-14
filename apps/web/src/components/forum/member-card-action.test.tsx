@@ -18,6 +18,8 @@ const { loadMemberCard } = (await import(
   source
 )) as typeof import("./member-card-action");
 const { Postbit } = await import("./postbit");
+const { MemberCardScope } = await import("./member-card-scope");
+const { MemberCardProfileLink } = await import("./member-card-profile-link");
 const { MemberActions } = await import("./member-actions");
 const { MemberCardMinimal } = await import("./member-card");
 
@@ -91,22 +93,40 @@ function backend(options: {
 const reads = (paths: string[]) =>
   paths.filter((path) => /authors|relations/.test(path)).sort();
 
+type Props = {
+  author?: unknown;
+  layout?: string;
+  actions?: ReactNode;
+  name?: string;
+  children?: ReactNode;
+  disabled?: boolean;
+};
+
 function element(node: unknown) {
-  return node as ReactElement<{
-    author?: unknown;
-    layout?: string;
-    actions?: ReactNode;
-    name?: string;
-  }>;
+  return node as ReactElement<Props>;
+}
+
+// The card of a member: the postbit inside a scope that keeps names and avatars plain links, and
+// its actions (the member's actions, then the link to the profile).
+function cardOf(node: unknown) {
+  const scope = element(node);
+  expect(scope.type).toBe(MemberCardScope);
+  expect(scope.props.disabled).toBe(true);
+  const postbit = element(scope.props.children);
+  const parts = element(postbit.props.actions).props.children as ReactElement[];
+  return { postbit, actions: element(parts[0]), profile: element(parts[1]) };
 }
 
 test("a member: the postbit as a column with labelled actions, from two reads", async () => {
   const paths = backend({ signedIn: true });
-  const out = element(await loadMemberCard(7, "ember"));
-  expect(out.type).toBe(Postbit);
-  expect(out.props.layout).toBe("column");
-  const actions = element(out.props.actions);
+  const { postbit, actions, profile } = cardOf(
+    await loadMemberCard(7, "ember"),
+  );
+  expect(postbit.type).toBe(Postbit);
+  expect(postbit.props.layout).toBe("column");
   expect(actions.type).toBe(MemberActions);
+  expect(profile.type).toBe(MemberCardProfileLink);
+  expect((profile.props as unknown as { id: number }).id).toBe(7);
   expect(
     (actions.props as unknown as { form: string; relation: unknown }).form,
   ).toBe("labelled");
@@ -120,9 +140,7 @@ test("a member: the postbit as a column with labelled actions, from two reads", 
 
 test("a guest: one read, no relation to act on", async () => {
   const paths = backend({ signedIn: false });
-  const out = element(await loadMemberCard(7, "ember"));
-  expect(out.type).toBe(Postbit);
-  const actions = element(out.props.actions);
+  const { actions } = cardOf(await loadMemberCard(7, "ember"));
   expect(
     (actions.props as unknown as { relation: unknown }).relation,
   ).toBeNull();
@@ -136,8 +154,8 @@ test("yourself: the backend offers nothing, so no action is drawn", async () => 
     relation: { following: false, canFollow: false, canMessage: false },
   });
   const { hasMemberActions } = await import("./member-actions-view");
-  const out = element(await loadMemberCard(7, "ember"));
-  const props = element(out.props.actions).props as unknown as {
+  const { actions } = cardOf(await loadMemberCard(7, "ember"));
+  const props = actions.props as unknown as {
     member: { restricted: boolean };
     relation: { following: boolean; canFollow: boolean; canMessage: boolean };
   };

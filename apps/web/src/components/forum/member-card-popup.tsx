@@ -7,15 +7,28 @@ import {
   useCallback,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { loadMemberCard } from "@/components/forum/member-card-action";
 import { MemberCardReload } from "@/components/forum/member-card-scope";
-import { PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverContent } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // What a trigger and the mention delegate share: reading the card and the frame it is drawn in.
-export const CARD_DELAY = 300;
-export const CARD_CLOSE_DELAY = 150;
+// From `md` up the card is a popover beside what was clicked, below it a sheet from the bottom.
+const DESKTOP = "(min-width: 48rem)";
+const subscribeDesktop = (notify: () => void) => {
+  const query = matchMedia(DESKTOP);
+  query.addEventListener("change", notify);
+  return () => query.removeEventListener("change", notify);
+};
+const useDesktop = () =>
+  useSyncExternalStore(
+    subscribeDesktop,
+    () => matchMedia(DESKTOP).matches,
+    () => true,
+  );
 
 export function useMemberCard(id: number, name: string) {
   // undefined until the first open has loaded it, null for an unknown member
@@ -61,6 +74,58 @@ export function MemberCardPopup({
     >
       <CardBody card={card} reload={reload} />
     </PopoverContent>
+  );
+}
+
+// The card in its frame: a popover anchored to the `trigger` (or to `anchor`) on a wide screen, a
+// bottom sheet on a phone, with the same content. Focus moves into it on open and returns to
+// where it was on close.
+export function MemberCardSurface({
+  open,
+  onOpenChange,
+  name,
+  card,
+  reload,
+  trigger,
+  anchor,
+  finalFocus,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  name: string;
+  card: React.ReactNode;
+  reload: () => void;
+  trigger?: React.ReactNode;
+  anchor?: Element;
+  finalFocus?: React.ComponentProps<typeof PopoverContent>["finalFocus"];
+}) {
+  const t = useTranslations("forum.memberCardTrigger");
+  const desktop = useDesktop();
+  return (
+    <>
+      <Popover open={open && desktop} onOpenChange={onOpenChange}>
+        {trigger}
+        <MemberCardPopup
+          name={name}
+          card={card}
+          reload={reload}
+          anchor={anchor}
+          align="start"
+          finalFocus={finalFocus}
+        />
+      </Popover>
+      <Sheet open={open && !desktop} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[85dvh] overflow-y-auto p-4 pt-10"
+        >
+          <SheetTitle className="sr-only">
+            {t("aria.label", { name })}
+          </SheetTitle>
+          <CardBody card={card} reload={reload} />
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 

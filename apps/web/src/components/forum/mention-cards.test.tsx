@@ -8,7 +8,8 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {}, toString: () => "" }),
 }));
 const { MemberCardScope } = await import("./member-card-scope");
-const { MentionCards, mentionAt, mentionId } = await import("./mention-cards");
+const { MentionCards, clickedMention, keyedMention, mentionAt, mentionId } =
+  await import("./mention-cards");
 
 test("a mention carries a plain positive decimal id", () => {
   expect(mentionId("12")).toBe(12);
@@ -70,4 +71,46 @@ test("the wrapper adds no box, and in a disabled scope no element at all", () =>
       ),
     ),
   ).toBe("<p>hello</p>");
+});
+
+const click = {
+  button: 0,
+  ctrlKey: false,
+  metaKey: false,
+  shiftKey: false,
+  altKey: false,
+};
+
+test("a plain click on a mention asks for its card", () => {
+  const target = link({ "data-user-id": "5" }, "@ember");
+  expect(clickedMention({ ...click, target }, inside)).toMatchObject({
+    id: 5,
+    name: "ember",
+  });
+});
+
+test("a modified or middle click on a mention is left to the browser", () => {
+  const target = link({ "data-user-id": "5" }, "@ember");
+  for (const change of [
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+    { button: 1 },
+  ]) {
+    expect(clickedMention({ ...click, ...change, target }, inside)).toBeNull();
+  }
+});
+
+test("a click on something that is no mention asks for nothing", () => {
+  expect(
+    clickedMention({ ...click, target: link({}, "x") }, inside),
+  ).toBeNull();
+  const target = link({ "data-user-id": "5" }, "@ember");
+  expect(clickedMention({ ...click, target }, outside)).toBeNull();
+});
+
+test("Space on a mention asks for its card, other keys do not", () => {
+  const target = link({ "data-user-id": "5" }, "@ember");
+  expect(keyedMention({ key: " ", target }, inside)).toMatchObject({ id: 5 });
+  expect(keyedMention({ key: "Tab", target }, inside)).toBeNull();
 });

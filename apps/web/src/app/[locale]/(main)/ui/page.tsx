@@ -1153,99 +1153,105 @@ export default async function StyleguidePage() {
             compact header on a phone. Threads and conversations draw their
             posts through one frame.
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:items-start">
-            <SectionCard title="Column">
-              <Postbit
-                author={SAMPLE_AUTHOR}
-                layout="column"
-                className="p-3"
-                actions={
-                  <MemberActionsDemo
-                    member={SAMPLE_AUTHOR.member}
-                    relation={RELATION.notFollowing}
-                    form="labelled"
-                  />
-                }
-              />
-            </SectionCard>
-            <SectionCard title="Column, plain member">
-              <Postbit author={PLAIN_AUTHOR} layout="column" className="p-3" />
-            </SectionCard>
-            <SectionCard title="Column, restricted member">
-              <Postbit
-                author={RESTRICTED_AUTHOR}
-                layout="column"
-                className="p-3"
-              />
-            </SectionCard>
-            <SectionCard title="Responsive, with actions">
-              <Postbit
-                author={SAMPLE_AUTHOR}
-                className="p-3"
-                actions={
-                  <MemberActionsDemo
-                    member={SAMPLE_AUTHOR.member}
-                    relation={RELATION.following}
-                  />
-                }
-              />
-            </SectionCard>
-            <SectionCard
-              title="Member actions"
-              description="Follow or unfollow in place, and start a private conversation. Each only when allowed; nothing for a guest, yourself or a restricted member."
-            >
-              <div className="grid gap-3 p-3">
-                {(
-                  [
-                    ["Not following", RELATION.notFollowing],
-                    ["Following", RELATION.following],
-                    ["Message only", RELATION.messageOnly],
-                    ["None", RELATION.none],
-                  ] as const
-                ).map(([label, relation]) => (
-                  <div key={label} className="grid gap-1.5">
-                    <p className="text-xs text-muted-foreground">{label}</p>
+          <MemberCardScope disabled>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:items-start">
+              <SectionCard title="Column">
+                <Postbit
+                  author={SAMPLE_AUTHOR}
+                  layout="column"
+                  className="p-3"
+                  actions={
                     <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
-                      relation={relation}
+                      relation={RELATION.notFollowing}
                       form="labelled"
                     />
+                  }
+                />
+              </SectionCard>
+              <SectionCard title="Column, plain member">
+                <Postbit
+                  author={PLAIN_AUTHOR}
+                  layout="column"
+                  className="p-3"
+                />
+              </SectionCard>
+              <SectionCard title="Column, restricted member">
+                <Postbit
+                  author={RESTRICTED_AUTHOR}
+                  layout="column"
+                  className="p-3"
+                />
+              </SectionCard>
+              <SectionCard title="Responsive, with actions">
+                <Postbit
+                  author={SAMPLE_AUTHOR}
+                  className="p-3"
+                  actions={
                     <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
-                      relation={relation}
-                      form="compact"
+                      relation={RELATION.following}
                     />
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-            <SectionCard title="Compact header">
-              <Postbit
+                  }
+                />
+              </SectionCard>
+              <SectionCard
+                title="Member actions"
+                description="Follow or unfollow in place, and start a private conversation. Each only when allowed; nothing for a guest, yourself or a restricted member."
+              >
+                <div className="grid gap-3 p-3">
+                  {(
+                    [
+                      ["Not following", RELATION.notFollowing],
+                      ["Following", RELATION.following],
+                      ["Message only", RELATION.messageOnly],
+                      ["None", RELATION.none],
+                    ] as const
+                  ).map(([label, relation]) => (
+                    <div key={label} className="grid gap-1.5">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <MemberActionsDemo
+                        member={SAMPLE_AUTHOR.member}
+                        relation={relation}
+                        form="labelled"
+                      />
+                      <MemberActionsDemo
+                        member={SAMPLE_AUTHOR.member}
+                        relation={relation}
+                        form="compact"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+              <SectionCard title="Compact header">
+                <Postbit
+                  author={SAMPLE_AUTHOR}
+                  layout="compact"
+                  className="p-3"
+                />
+                <Postbit
+                  author={PLAIN_AUTHOR}
+                  layout="compact"
+                  className="border-t p-3"
+                />
+              </SectionCard>
+            </div>
+            <SectionCard title="Post frame">
+              <PostFrame
+                id="sample-post"
                 author={SAMPLE_AUTHOR}
-                layout="compact"
-                className="p-3"
-              />
-              <Postbit
-                author={PLAIN_AUTHOR}
-                layout="compact"
-                className="border-t p-3"
-              />
+                createdAt={SAMPLE_DATE}
+                signed
+                actions={<Button variant="ghost">Reply</Button>}
+              >
+                <p className="mt-2 text-sm">
+                  A post as a thread draws it. Resize the window to see the
+                  column become a header above the text.
+                </p>
+              </PostFrame>
             </SectionCard>
-          </div>
-          <SectionCard title="Post frame">
-            <PostFrame
-              id="sample-post"
-              author={SAMPLE_AUTHOR}
-              createdAt={SAMPLE_DATE}
-              signed
-              actions={<Button variant="ghost">Reply</Button>}
-            >
-              <p className="mt-2 text-sm">
-                A post as a thread draws it. Resize the window to see the column
-                become a header above the text.
-              </p>
-            </PostFrame>
-          </SectionCard>
+          </MemberCardScope>
         </Section>
 
         <Section title="Podium and leaderboard variants">

@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
 import {
-  CARD_CLOSE_DELAY,
-  CARD_DELAY,
-  MemberCardPopup,
+  MemberCardSurface,
   useMemberCard,
 } from "@/components/forum/member-card-popup";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
-import { Popover } from "@/components/ui/popover";
 
 const MENTION = "a.mention[data-user-id]";
 
@@ -36,19 +34,31 @@ export function mentionAt(
   return { link, id, name, seq: ++seq };
 }
 
+// The mention a click or a key press asks to open: a plain click, or Space, on a mention.
+export function clickedMention(
+  event: Parameters<typeof opensCard>[0] & { target: EventTarget | null },
+  root: Parameters<typeof mentionAt>[1],
+) {
+  return opensCard(event) ? mentionAt(event.target, root) : null;
+}
+export function keyedMention(
+  event: { key: string; target: EventTarget | null },
+  root: Parameters<typeof mentionAt>[1],
+) {
+  return opensCardKey(event.key) ? mentionAt(event.target, root) : null;
+}
+
 // Wraps rendered post content (the HTML stays the server's children) and shows the card of a
-// member when the mouse rests on a mention of them. One popover is
-// shared by all the mentions inside, anchored to the link. A click is never intercepted, and
-// touch and pen get the plain link. Inside a postbit's scope it does nothing.
+// member when a mention of them is clicked (or Enter or Space is pressed on it). One card is
+// shared by all the mentions inside, anchored to the link. A modified click keeps the link's own
+// behaviour. Inside a postbit's scope it does nothing.
 export function MentionCards({ children }: { children: React.ReactNode }) {
   const enabled = useMemberCardsEnabled();
   const [target, setTarget] = useState<Mention | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
   useLayoutEffect(
     () => () => {
-      clearTimeout(timer.current);
       setTarget(null);
     },
     [],
@@ -56,34 +66,21 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
 
   if (!enabled) return children;
 
-  function later(run: () => void, delay: number) {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(run, delay);
-  }
-  const keep = () => clearTimeout(timer.current);
-  const close = () => later(() => setTarget(null), CARD_CLOSE_DELAY);
-
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: one delegate for the mention links inside, which are the focusable, keyboard-reachable elements
     <div
       className="contents"
-      onPointerOver={(event) => {
-        if (event.pointerType !== "mouse") return;
-        const mention = mentionAt(event.target, event.currentTarget);
+      onClick={(event) => {
+        const mention = clickedMention(event, event.currentTarget);
         if (!mention) return;
-        if (target?.link === mention.link) keep();
-        else
-          later(() => {
-            // The HTML can be replaced by a refresh while the mouse rests.
-            if (mention.link.isConnected) setTarget(mention);
-          }, CARD_DELAY);
+        event.preventDefault();
+        setTarget(mention);
       }}
-      onPointerOut={(event) => {
-        if (event.pointerType !== "mouse") return;
-        const mention = mentionAt(event.target, event.currentTarget);
+      onKeyDown={(event) => {
+        const mention = keyedMention(event, event.currentTarget);
         if (!mention) return;
-        const next = event.relatedTarget;
-        if (next instanceof Node && mention.link.contains(next)) return;
-        close();
+        event.preventDefault();
+        setTarget(mention);
       }}
     >
       {children}
@@ -91,12 +88,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         <MentionPopup
           key={target.seq}
           mention={target}
-          onKeep={keep}
-          onClose={close}
-          onDismiss={() => {
-            clearTimeout(timer.current);
-            setTarget(null);
-          }}
+          onDismiss={() => setTarget(null)}
         />
       )}
     </div>
@@ -105,42 +97,24 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
 
 function MentionPopup({
   mention,
-  onKeep,
-  onClose,
   onDismiss,
 }: {
   mention: Mention;
-  onKeep: () => void;
-  onClose: () => void;
   onDismiss: () => void;
 }) {
   const { card, load } = useMemberCard(mention.id, mention.name);
-  const popup = useRef<HTMLDivElement>(null);
   useEffect(load, [load]);
   return (
-    <Popover
+    <MemberCardSurface
       open
       onOpenChange={(next) => {
         if (!next) onDismiss();
       }}
-    >
-      <MemberCardPopup
-        name={mention.name}
-        card={card}
-        reload={load}
-        ref={popup}
-        anchor={mention.link}
-        align="start"
-        initialFocus={false}
-        // Focus is never moved by this card; it goes back to the link only from inside the card.
-        finalFocus={() =>
-          popup.current?.contains(document.activeElement)
-            ? (mention.link as HTMLElement)
-            : false
-        }
-        onPointerEnter={onKeep}
-        onPointerLeave={onClose}
-      />
-    </Popover>
+      name={mention.name}
+      card={card}
+      reload={load}
+      anchor={mention.link}
+      finalFocus={() => mention.link as HTMLElement}
+    />
   );
 }

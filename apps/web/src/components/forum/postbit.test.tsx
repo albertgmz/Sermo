@@ -28,6 +28,7 @@ afterAll(() => {
   mock.module("next-intl", () => intl);
 });
 const { Postbit } = await import("./postbit");
+const { MemberCardScope } = await import("./member-card-scope");
 const { plainAuthor } = await import("@/lib/sermo/members");
 
 const author = {
@@ -196,11 +197,18 @@ test("the actions slot sits after the facts, not pinned to the foot", async () =
   expect(out).not.toContain("mt-auto");
 });
 
-test("the avatar and the name are plain links to the profile, never card triggers", async () => {
+test("the avatar and the name open the member's card, and are plain links inside a card", async () => {
   for (const layout of ["column", "compact", "responsive"] as const) {
     const out = await html(<Postbit author={author} layout={layout} />);
     expect(out).toContain('href="/members/3"');
-    expect(out).not.toContain('role="link"');
+    expect(out).toContain('role="link"');
+    const inCard = await html(
+      <MemberCardScope disabled>
+        <Postbit author={author} layout={layout} />
+      </MemberCardScope>,
+    );
+    expect(inCard).toContain('href="/members/3"');
+    expect(inCard).not.toContain('role="link"');
   }
 });
 
