@@ -159,6 +159,8 @@ const CONVERSATION = {
   canReply: true,
   canInvite: true,
   canRename: true,
+  isLocked: false,
+  canLock: true,
 };
 const PAGE = {
   slug: "terms",

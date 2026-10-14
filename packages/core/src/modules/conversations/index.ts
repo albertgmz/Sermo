@@ -33,6 +33,7 @@ import {
   prepareModeratedContent,
   withSpamCheck,
 } from "../moderation";
+import { noticeForOther } from "../moderation/notify";
 
 interface ConversationRow {
   id: number;
@@ -425,6 +426,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       is_locked: 0,
       last_read_message_id: messageId,
     };
+    const messageState = content.moderated || spam ? "moderated" : "visible";
     return {
       conversation: {
         ...summary(row, user),
@@ -438,12 +440,16 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
         starter.userId,
         now,
         html,
-        content.moderated || spam ? "moderated" : "visible",
+        messageState,
         loadAttachments(ctx, "conversation_message", [messageId]),
-        // The first message: its author may edit it, and it can never be deleted on its own.
         {
-          canEdit: permissions.can("conversation.editOwn", { ownerId: starter.userId }),
-          canDelete: false,
+          canEdit: mayEdit(permissions, row, { user_id: starter.userId, state: messageState }),
+          canDelete: mayDelete(
+            permissions,
+            row,
+            { id: messageId, user_id: starter.userId, state: messageState },
+            messageId,
+          ),
         },
       ),
     };
@@ -511,6 +517,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       return id;
     });
     const author = loadUserSummaries(ctx, [user.userId]);
+    const messageState = content.moderated || spam ? "moderated" : "visible";
     return newMessage(
       messageId,
       input.conversationId,
@@ -518,12 +525,17 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       user.userId,
       now,
       html,
-      content.moderated || spam ? "moderated" : "visible",
+      messageState,
       loadAttachments(ctx, "conversation_message", [messageId]),
-      // A reply is never the first message; the conversation was open to this author.
+      // A reply is never the first message.
       {
-        canEdit: permissions.can("conversation.editOwn", { ownerId: user.userId }),
-        canDelete: permissions.can("conversation.deleteOwn", { ownerId: user.userId }),
+        canEdit: mayEdit(permissions, before, { user_id: user.userId, state: messageState }),
+        canDelete: mayDelete(
+          permissions,
+          before,
+          { id: messageId, user_id: user.userId, state: messageState },
+          null,
+        ),
       },
     );
   });
@@ -723,9 +735,18 @@ export const conversationsSetLockedOp = implement(conversationsSetLocked, (ctx, 
     const row = activeConversation(ctx, actor, input.conversationId);
     if (row.user_id !== user.userId)
       requirePermission(ctx, currentActor(ctx, actor), "conversation.moderate");
+    if ((row.is_locked === 1) === input.locked) return;
     prepared(ctx, "conversations.setLocked", () =>
       ctx.sqlite.prepare("UPDATE conversations SET is_locked = ?1 WHERE id = ?2"),
     ).run(Number(input.locked), row.id);
+    if (row.user_id !== user.userId)
+      appendModeratorLog(
+        ctx,
+        actor,
+        input.locked ? "conversation.lock" : "conversation.unlock",
+        "conversation",
+        row.id,
+      );
   });
   return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
 });
@@ -840,7 +861,11 @@ export const conversationsDeleteMessageOp = implement(
         type: "content.deleted",
         targetType: "conversation_message",
         targetId: current.id,
-        payload: { previousState: current.state, state: "deleted" },
+        payload: {
+          previousState: current.state,
+          state: "deleted",
+          ...noticeForOther(actor, current.user_id, { notify: true, reason: "" }),
+        },
       });
       if (current.user_id !== user.userId && can(ctx, fresh, "conversation.moderate"))
         appendModeratorLog(ctx, actor, "content.deleted", "conversation_message", current.id);

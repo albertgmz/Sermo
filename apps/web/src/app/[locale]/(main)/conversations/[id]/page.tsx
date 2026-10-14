@@ -2,7 +2,7 @@ import {
   conversationsGet,
   conversationsListMessages,
 } from "@sermo/core/contracts";
-import { ChevronUp, Hourglass, Lock, LogOut, Trash2 } from "lucide-react";
+import { ChevronUp, Hourglass, LogOut, Trash2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -11,9 +11,12 @@ import type * as z from "zod";
 import { ConversationSync } from "@/app/[locale]/(main)/conversations/[id]/conversation-sync";
 import { ConversationWidgets } from "@/app/[locale]/(main)/conversations/[id]/conversation-widgets";
 import { LeaveForm } from "@/app/[locale]/(main)/conversations/[id]/leave-form";
+import {
+  LockedBadge,
+  ReplyArea,
+} from "@/app/[locale]/(main)/conversations/[id]/locked-state";
 import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-read-state";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
-import { ReplyForm } from "@/app/[locale]/(main)/conversations/[id]/reply-form";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
@@ -64,12 +67,7 @@ function Header({
           {conversation.title}
         </h1>
         {/* Beside the messages on a wide screen; behind this button below it. */}
-        {conversation.isLocked && (
-          <span className="inline-flex h-10 items-center gap-1 text-sm text-muted-foreground">
-            <Lock className="size-4" aria-hidden />
-            {t("locked")}
-          </span>
-        )}
+        {conversation.isLocked && <LockedBadge />}
         <WidgetsSheet
           label={t("details.open")}
           title={t("details.title")}
@@ -145,24 +143,7 @@ export default async function ConversationPage({
         </div>
 
         <section className="mt-4">
-          {conversation.canReply ? (
-            <>
-              {conversation.isLocked && (
-                <PostNote icon={Lock} className="mb-2">
-                  {t("lockedNote")}
-                </PostNote>
-              )}
-              <ReplyForm
-                conversationId={conversation.id}
-                placeholder={t("placeholder")}
-                submitLabel={t("submit")}
-              />
-            </>
-          ) : (
-            <PostNote icon={Lock}>
-              {conversation.isLocked ? t("lockedNote") : t("cannotReply")}
-            </PostNote>
-          )}
+          <ReplyArea conversation={conversation} />
         </section>
       </PageLayout>
     </MarkReadProvider>

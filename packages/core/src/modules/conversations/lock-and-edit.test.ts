@@ -181,6 +181,7 @@ describe("locking a conversation", () => {
       conversationId: s.id,
       userIds: [staff.id],
     });
+    const others = await s.reply(s.b, "b says");
     await s.lock(s.a, true);
     const database = sharedDatabase(s.ctx);
     try {
@@ -206,8 +207,8 @@ describe("locking a conversation", () => {
         execute(here, conversationsUpdateMessageOp, actor, { messageId: s.first, body: "late" }),
       ).rejects.toThrow(ForbiddenError);
       await expect(
-        execute(here, conversationsDeleteMessageOp, actor, { messageId: s.first + 0 }),
-      ).rejects.toThrow();
+        execute(here, conversationsDeleteMessageOp, actor, { messageId: others.id }),
+      ).rejects.toThrow(ForbiddenError);
       expect(
         JSON.stringify(
           elsewhere.sqlite
@@ -225,6 +226,41 @@ describe("locking a conversation", () => {
     } finally {
       database.close();
     }
+  });
+});
+
+describe("lock bookkeeping", () => {
+  const logged = (s: Awaited<ReturnType<typeof setup>>) =>
+    s.ctx.sqlite
+      .prepare<{ action: string }, []>(
+        "SELECT action FROM moderator_log WHERE target_type = 'conversation' ORDER BY id",
+      )
+      .all()
+      .map((r) => r.action);
+
+  test("a moderator locking someone else's conversation is logged; an unchanged state writes nothing", async () => {
+    const s = await setup();
+    await s.lock(s.a, true);
+    expect(logged(s)).toEqual([]);
+    await s.lock(s.admin, false);
+    await s.lock(s.admin, false);
+    await s.lock(s.admin, true);
+    expect(logged(s)).toEqual(["conversation.unlock", "conversation.lock"]);
+  });
+
+  test("create and reply answer with the abilities the list gives", async () => {
+    const s = await setup();
+    const sent = await s.reply(s.admin, "from staff");
+    expect([sent.canEdit, sent.canDelete]).toEqual([true, true]);
+    const listed = (await s.list(s.admin)).items.find((m) => m.id === sent.id)!;
+    expect([listed.canEdit, listed.canDelete]).toEqual([sent.canEdit, sent.canDelete]);
+    expect([s.made.message.canEdit, s.made.message.canDelete]).toEqual([true, false]);
+    const adminMade = await execute(s.ctx, conversationsCreateOp, s.admin, {
+      title: "Staff",
+      recipientIds: [s.aUser.id],
+      body: "hi",
+    });
+    expect([adminMade.message.canEdit, adminMade.message.canDelete]).toEqual([true, false]);
   });
 });
 
