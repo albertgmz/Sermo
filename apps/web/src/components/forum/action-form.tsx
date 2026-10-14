@@ -50,7 +50,7 @@ export function ActionForm({
       <div className="flex flex-wrap items-center gap-2">
         <PendingButton
           variant={variant}
-          className="h-10 px-3"
+          className="h-10 px-3 aria-disabled:opacity-50"
           disabled={submitDisabled}
           focusableWhenDisabled
         >
