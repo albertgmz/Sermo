@@ -15,6 +15,10 @@
     "joinedLabel": "Joined",
     "profile": "View profile"
   },
+  "memberActions": {
+    "message": "Message",
+    "aria": { "message": "Start a private conversation with {username}" }
+  },
   "memberCardTrigger": {
     "aria": {
       "label": "{name}'s member card"

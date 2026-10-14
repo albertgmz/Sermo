@@ -18,6 +18,7 @@ import { WidgetsSheet } from "@/app/(main)/conversations/[id]/widgets-sheet";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
+import { memberActionsOf } from "@/components/forum/member-actions";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { Reactions } from "@/components/forum/reactions";
@@ -28,7 +29,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { pageHolding } from "@/lib/sermo/locate";
-import { authorsFor, membersFor } from "@/lib/sermo/members";
+import { authorsFor, membersFor, relationsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
 
@@ -191,7 +192,13 @@ async function Messages({
   ]);
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
-  const author = await authorsFor(messages.map((message) => message.author));
+  const [author, relation] = await Promise.all([
+    authorsFor(messages.map((message) => message.author)),
+    relationsFor(
+      user?.id ?? null,
+      messages.map((message) => message.author.id),
+    ),
+  ]);
   // One signature per member on the page: under their first message.
   const seen = new Set<number>();
   const firstOfAuthor = new Set(
@@ -221,6 +228,10 @@ async function Messages({
             <PostFrame
               id={`message-${message.id}`}
               author={author(message.author.id)}
+              postbitActions={memberActionsOf(
+                author(message.author.id).member,
+                relation(message.author.id),
+              )}
               createdAt={message.createdAt}
               signed={firstOfAuthor.has(message.id)}
               actions={

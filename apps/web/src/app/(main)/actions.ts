@@ -4,6 +4,8 @@ import {
   postsCreate,
   reactionsRemove,
   reactionsSet,
+  usersFollow,
+  usersUnfollow,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { cookies, headers } from "next/headers";
@@ -66,6 +68,7 @@ const CONTENT = {
 export type ReactionTarget = keyof typeof CONTENT;
 
 export type ReactionState = { error?: string };
+export type FollowState = { error?: string };
 
 // The page the reaction was made on, as the browser names it. Without one, or with one that is
 // not on this site, the visitor lands on the home page after signing in.
@@ -102,6 +105,24 @@ export async function react(
   // The page the member is on is drawn again with the reaction in it: the button keeps its own
   // choice only until the action ends. Which page that is does not matter, and nothing is cached
   // per visitor, so no path is named.
+  refresh();
+  return {};
+}
+
+// Follows or unfollows a member from where their name is drawn (a post, a card) and stays on the
+// page: it is drawn again, so the scroll position and the address of a post survive. The caller
+// says which state it wants, so a second click on a stale page cannot flip it back.
+export async function followFromPage(
+  userId: number,
+  follow: boolean,
+): Promise<FollowState> {
+  requireIds(userId);
+  const page = await pageOfRequest();
+  const done = await attempt(page, async () => {
+    if (follow === true) await call(usersFollow, { userId });
+    else await call(usersUnfollow, { userId });
+  });
+  if (!done.ok) return { error: done.error };
   refresh();
   return {};
 }

@@ -39,6 +39,7 @@ import { DeleteControl } from "@/components/forum/delete-control";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { JsonLd } from "@/components/forum/json-ld";
+import { memberActionsOf } from "@/components/forum/member-actions";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
@@ -56,7 +57,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
-import { authorsFor } from "@/lib/sermo/members";
+import { authorsFor, relationsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -104,6 +105,7 @@ function threadIdOf(raw: string) {
 function PostItem({
   post,
   author,
+  postbitActions,
   byThreadAuthor,
   noteState,
   highlighted,
@@ -118,6 +120,8 @@ function PostItem({
 }: {
   post: ApiPost;
   author: AuthorView;
+  // What the viewer can do about the author; none for a guest or for themselves.
+  postbitActions: React.ReactNode;
   byThreadAuthor: boolean;
   // Whether the post says it is waiting or deleted; the thread says so already for its own state.
   noteState: boolean;
@@ -142,6 +146,7 @@ function PostItem({
     <PostFrame
       id={`post-${post.id}`}
       author={author}
+      postbitActions={postbitActions}
       createdAt={post.createdAt}
       highlighted={highlighted}
       edited={
@@ -526,7 +531,13 @@ async function ThreadPosts({
   ]);
   // An empty page past the first is a page that does not exist.
   if (posts.length === 0 && page > 1) notFound();
-  const author = await authorsFor(posts.map((post) => post.author));
+  const [author, relation] = await Promise.all([
+    authorsFor(posts.map((post) => post.author)),
+    relationsFor(
+      viewerId,
+      posts.map((post) => post.author.id),
+    ),
+  ]);
   const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
   // One signature per member on the page: under their first post.
   const seen = new Set<number>();
@@ -551,6 +562,10 @@ async function ThreadPosts({
             key={post.id}
             post={post}
             author={author(post.author.id)}
+            postbitActions={memberActionsOf(
+              author(post.author.id).member,
+              relation(post.author.id),
+            )}
             byThreadAuthor={post.author.id === thread.author.id}
             noteState={
               post.state !== "visible" &&

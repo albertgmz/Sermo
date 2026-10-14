@@ -43,6 +43,7 @@ import { LevelBadge, XpBar } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Markdown } from "@/components/forum/markdown";
+import { MemberActions } from "@/components/forum/member-actions";
 import { MemberCard } from "@/components/forum/member-card";
 import { MemberRow } from "@/components/forum/member-row";
 import {
@@ -152,6 +153,7 @@ import {
   REACTION_PICTURE_TYPES,
   REACTION_TYPES,
   REACTIONS,
+  RELATION,
   RESTRICTED_AUTHOR,
   SAMPLE_AUTHOR,
   SAMPLE_COUNTS,
@@ -1128,7 +1130,13 @@ export default async function StyleguidePage() {
                 author={SAMPLE_AUTHOR}
                 layout="column"
                 className="p-3"
-                actions={<Button variant="outline">Action</Button>}
+                actions={
+                  <MemberActions
+                    member={SAMPLE_AUTHOR.member}
+                    relation={RELATION.notFollowing}
+                    form="labelled"
+                  />
+                }
               />
             </SectionCard>
             <SectionCard title="Column, plain member">
@@ -1145,8 +1153,42 @@ export default async function StyleguidePage() {
               <Postbit
                 author={SAMPLE_AUTHOR}
                 className="p-3"
-                actions={<Button variant="outline">Follow</Button>}
+                actions={
+                  <MemberActions
+                    member={SAMPLE_AUTHOR.member}
+                    relation={RELATION.following}
+                  />
+                }
               />
+            </SectionCard>
+            <SectionCard
+              title="Member actions"
+              description="Follow or unfollow in place, and start a private conversation. Each only when allowed; nothing for a guest, yourself or a restricted member."
+            >
+              <div className="grid gap-3 p-3">
+                {(
+                  [
+                    ["Not following", RELATION.notFollowing],
+                    ["Following", RELATION.following],
+                    ["Message only", RELATION.messageOnly],
+                    ["None", RELATION.none],
+                  ] as const
+                ).map(([label, relation]) => (
+                  <div key={label} className="grid gap-1.5">
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <MemberActions
+                      member={SAMPLE_AUTHOR.member}
+                      relation={relation}
+                      form="labelled"
+                    />
+                    <MemberActions
+                      member={SAMPLE_AUTHOR.member}
+                      relation={relation}
+                      form="compact"
+                    />
+                  </div>
+                ))}
+              </div>
             </SectionCard>
             <SectionCard title="Compact header">
               <Postbit

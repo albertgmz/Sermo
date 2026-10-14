@@ -43,6 +43,7 @@ export function PostFrame({
   highlighted = false,
   edited,
   trailing,
+  postbitActions,
   actions,
   after,
   signed = false,
@@ -57,6 +58,8 @@ export function PostFrame({
   edited?: React.ReactNode;
   // At the right of the time row.
   trailing?: React.ReactNode;
+  // What the viewer can do about the author, drawn in the postbit.
+  postbitActions?: React.ReactNode;
   // The row of actions under the content.
   actions: React.ReactNode;
   // Under the actions row.
@@ -83,7 +86,11 @@ export function PostFrame({
         className={cn(POSTBIT_FRAME.cover, highlighted && "max-md:hidden")}
       />
       {highlighted && <CoverBackdrop cover={author.cover} variant="full" />}
-      <Postbit author={author} className="max-md:mb-2 md:border-r md:pr-4" />
+      <Postbit
+        author={author}
+        actions={postbitActions}
+        className="max-md:mb-2 md:border-r md:pr-4"
+      />
 
       <div className="min-w-0">
         <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">

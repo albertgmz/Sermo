@@ -30,7 +30,7 @@ mock.module("next/cache", () => ({
 }));
 
 const source = "./actions.ts?reactions";
-const { react, replyFromFeed, setLiteMode } = (await import(
+const { followFromPage, react, replyFromFeed, setLiteMode } = (await import(
   source
 )) as typeof import("./actions");
 
@@ -260,5 +260,50 @@ test("a thread id that is not a record id never reaches the backend", async () =
   await expect(
     replyFromFeed(Number.NaN, "/", {}, replyForm("hello")),
   ).rejects.toThrow();
+  expect(asked).toHaveLength(0);
+});
+
+test("following from a page is one write that refreshes the page and does not redirect", async () => {
+  onPage("http://localhost:3105/threads/5?page=2");
+  const asked = backend(Response.json({ following: true, followerCount: 3 }));
+  expect(await followFromPage(8, true)).toEqual({});
+  expect(refreshed).toBe(1);
+  expect(revalidated).toEqual([]);
+  expect(asked).toHaveLength(1);
+  expect(asked[0].method).toBe("PUT");
+  expect(asked[0].path).toBe("/api/v1/users/8/follow");
+});
+
+test("unfollowing from a page asks to stop and refreshes once", async () => {
+  onPage("http://localhost:3105/conversations/3");
+  const asked = backend(Response.json({ ok: true }));
+  expect(await followFromPage(8, false)).toEqual({});
+  expect(refreshed).toBe(1);
+  expect(asked[0].method).toBe("DELETE");
+  expect(asked[0].path).toBe("/api/v1/users/8/follow");
+});
+
+test("the backend's refusal of a follow goes back to the button and refreshes nothing", async () => {
+  onPage("http://localhost:3105/threads/5");
+  backend(refusal(403, "forbidden", "You may not follow members."));
+  expect(await followFromPage(8, true)).toEqual({
+    error: "You may not follow members.",
+  });
+  expect(refreshed).toBe(0);
+});
+
+test("a guest who follows is sent to sign in and back to the page", async () => {
+  onPage("http://localhost:3105/threads/5?page=2");
+  backend(refusal(401, "unauthenticated"));
+  expect((await redirectOf(followFromPage(8, true)))?.[2]).toBe(
+    "/login?next=%2Fthreads%2F5%3Fpage%3D2",
+  );
+  expect(refreshed).toBe(0);
+});
+
+test("a member id that cannot be a record is refused before the backend is asked", async () => {
+  onPage("http://localhost:3105/threads/5");
+  const asked = backend(Response.json({ ok: true }));
+  await expect(followFromPage(0, true)).rejects.toThrow();
   expect(asked).toHaveLength(0);
 });

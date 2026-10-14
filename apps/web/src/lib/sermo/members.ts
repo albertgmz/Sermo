@@ -1,8 +1,13 @@
 import "server-only";
 
-import { usersAuthors, usersCards } from "@sermo/core/contracts";
+import {
+  usersAuthors,
+  usersCards,
+  usersRelations,
+} from "@sermo/core/contracts";
 import type * as z from "zod";
 import { call } from "./client";
+import { SermoError } from "./errors";
 import type { AuthorView, MemberView } from "./views";
 
 // The only file that decides how a member is drawn next to content. Every backend item carries
@@ -117,4 +122,35 @@ export async function authorsFor(
   for (const { items } of pages)
     for (const author of items) views.set(author.card.id, authorView(author));
   return lookup(views, "author");
+}
+
+// What the viewer can do about a member: follow or unfollow them, start a conversation with them.
+export type MemberRelation = {
+  following: boolean;
+  canFollow: boolean;
+  canMessage: boolean;
+};
+
+// The relations of the members a screen shows, as the viewer, in one read per 50 members. A guest
+// has none and asks nothing; neither has a member the backend did not answer for.
+export async function relationsFor(
+  viewerId: number | null,
+  ids: Iterable<number>,
+): Promise<(id: number) => MemberRelation | null> {
+  const wanted = [...new Set(ids)];
+  const relations = new Map<number, MemberRelation>();
+  if (viewerId !== null) {
+    try {
+      const pages = await Promise.all(
+        chunks(wanted, 50).map((userIds) => call(usersRelations, { userIds })),
+      );
+      for (const { items } of pages)
+        for (const { userId, ...relation } of items)
+          relations.set(userId, relation);
+    } catch (error) {
+      // The buttons are an extra: a refusal or an outage leaves the page without them.
+      if (!(error instanceof SermoError)) throw error;
+    }
+  }
+  return (id) => relations.get(id) ?? null;
 }

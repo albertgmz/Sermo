@@ -19,7 +19,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
-import { membersFor } from "@/lib/sermo/members";
+import { membersFor, relationsFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
 
@@ -188,8 +188,7 @@ async function LatestThreads() {
 }
 
 // The most reacted-to members, without the viewer. The members they follow already are not left
-// out: a list of follows is paged and the cards carry no follow state, so only part of them could
-// be told apart. Following one again changes nothing.
+// out: the button says "Following" for them.
 async function SuggestedMembers() {
   const { user } = await getViewer();
   const { items } = await read(usersList, {
@@ -201,6 +200,10 @@ async function SuggestedMembers() {
     .slice(0, SUGGESTIONS);
   const t = await getTranslations("home.feedSidebar");
   if (suggestions.length === 0) return null;
+  const relation = await relationsFor(
+    user?.id ?? null,
+    suggestions.map(({ card }) => card.id),
+  );
   return (
     <SectionCard title={t("membersTitle")}>
       {suggestions.map(({ card }) => (
@@ -208,7 +211,7 @@ async function SuggestedMembers() {
           {user && (
             <FollowButton
               user={{ id: card.id, username: card.username }}
-              following={false}
+              following={relation(card.id)?.following ?? false}
               returnTo="/"
               className="h-10 md:h-8"
             />

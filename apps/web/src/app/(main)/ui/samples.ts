@@ -527,3 +527,11 @@ export const SAMPLE_COUNTS = {
   credits: 5200,
   referralCount: 9,
 };
+
+// What the viewer can do about a member, as the postbit actions draw it.
+export const RELATION = {
+  notFollowing: { following: false, canFollow: true, canMessage: true },
+  following: { following: true, canFollow: true, canMessage: true },
+  messageOnly: { following: false, canFollow: false, canMessage: true },
+  none: { following: false, canFollow: false, canMessage: false },
+};

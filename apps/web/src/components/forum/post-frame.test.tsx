@@ -171,3 +171,18 @@ test("a highlighted post adds the whole-frame cover and keeps the one behind the
   expect(variants(false)).toEqual(["header"]);
   expect(variants(true)).toEqual(["header", "full"]);
 });
+
+test("the postbit's actions reach the postbit, and it has none without them", () => {
+  const mark = <i data-mark="member-actions" />;
+  const given = find(
+    PostFrame({ ...base, postbitActions: mark }),
+    Postbit,
+  ) as ReactElement<{
+    actions?: ReactNode;
+  }>;
+  expect(given.props.actions).toBe(mark);
+  const bare = find(PostFrame(base), Postbit) as ReactElement<{
+    actions?: ReactNode;
+  }>;
+  expect(bare.props.actions).toBeUndefined();
+});
