@@ -91,3 +91,24 @@ test("text in brackets that is not a tag keeps the editor's escapes", () => {
     String.raw`[URL=https://a/b_c]x\_y[/URL]`,
   );
 });
+
+test("code keeps the escapes the editor wrote, around BB tags that are restored", () => {
+  const b = String.raw`\[B\]`;
+  const u = String.raw`a\_b`;
+  const fence = "```";
+  const written = [
+    `Type \`${b}\` then ${b}bold[/B]`,
+    fence,
+    `${b} ${u}`,
+    fence,
+    `${b}x[/B]`,
+  ].join("\n");
+  const expected = [
+    `Type \`${b}\` then [B]bold[/B]`,
+    fence,
+    `${b} ${u}`,
+    fence,
+    "[B]x[/B]",
+  ].join("\n");
+  assert.equal(unescapeBbCode(written), expected);
+});

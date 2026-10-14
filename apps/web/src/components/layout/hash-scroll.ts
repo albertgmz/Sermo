@@ -1,32 +1,56 @@
+import {
+  DISMISSING,
+  pollFor,
+  restoresScroll,
+} from "@/components/layout/spotlight";
+
 // Brings the element an address names into view once it is on the page. A section that streams in
 // after the page loads is not there when the browser looks for it, so the browser stays at the top.
-
-// How long to wait for the element, and how often to look.
-const WAIT_MS = 3000;
-const POLL_MS = 100;
 
 export type ScrollEnv = {
   hash(): string;
   find(
     id: string,
   ): { scrollIntoView(options: { block: "start" }): void } | null;
+  // The type of the document load (`reload`, `back_forward`, ...), and whether the arrival is a
+  // visit by history inside the app. Both leave the scroll to the browser or the router.
+  navigationType(): string | undefined;
+  traversal(): boolean;
+  // Listens for an event anywhere on the page; returns what stops listening.
+  on(type: string, listener: () => void): () => void;
   // Runs `run` later; returns what cancels it.
   later(run: () => void, ms: number): () => void;
 };
 
-// Returns what cancels the wait.
+// The element id an address names: decoded when it can be, as written when it cannot.
+function idOf(hash: string) {
+  const raw = hash.slice(1);
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+// Returns what cancels the wait. The wait also ends when the reader scrolls, touches or types.
 export function scrollToHash(env: ScrollEnv) {
-  const id = decodeURIComponent(env.hash().slice(1));
-  if (!id) return () => {};
-  let waited = 0;
-  let cancel = () => {};
-  const look = () => {
-    const element = env.find(id);
-    if (element) return element.scrollIntoView({ block: "start" });
-    if (waited >= WAIT_MS) return;
-    waited += POLL_MS;
-    cancel = env.later(look, POLL_MS);
+  const id = idOf(env.hash());
+  if (!id || restoresScroll(env.navigationType()) || env.traversal())
+    return () => {};
+  const stops: (() => void)[] = [];
+  const stop = () => {
+    for (const undo of stops.splice(0)) undo();
   };
-  look();
-  return () => cancel();
+  for (const type of DISMISSING) stops.push(env.on(type, stop));
+  stops.push(
+    pollFor(
+      () => env.find(id),
+      env.later,
+      (element) => {
+        element.scrollIntoView({ block: "start" });
+        stop();
+      },
+    ),
+  );
+  return stop;
 }

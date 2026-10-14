@@ -57,9 +57,29 @@ export type SpotlightEnv = {
   hide(): void;
 };
 
+// Looks for an element that streams in after the page loads, every POLL_MS for up to WAIT_MS, and
+// hands it to `found` once it is there. Returns what stops the looking.
+export function pollFor<T>(
+  find: () => T | null,
+  later: (run: () => void, ms: number) => () => void,
+  found: (element: T) => void,
+) {
+  let waited = 0;
+  let cancel = () => {};
+  const look = () => {
+    const element = find();
+    if (element) return found(element);
+    if (waited >= WAIT_MS) return;
+    waited += POLL_MS;
+    cancel = later(look, POLL_MS);
+  };
+  look();
+  return () => cancel();
+}
+
 // What a person does to take the dimming away. A scroll does too, but only once the scroll that
 // showed the element has ended.
-const DISMISSING = ["pointerdown", "keydown", "wheel", "touchstart"];
+export const DISMISSING = ["pointerdown", "keydown", "wheel", "touchstart"];
 
 export function createSpotlight(env: SpotlightEnv) {
   const stops: (() => void)[] = [];
@@ -112,15 +132,7 @@ export function createSpotlight(env: SpotlightEnv) {
     const hash = env.hash();
     if (!TARGET.test(hash)) return;
     const id = hash.slice(1);
-    let waited = 0;
-    const look = () => {
-      const element = env.find(id);
-      if (element) return reveal(element);
-      if (waited >= WAIT_MS) return;
-      waited += POLL_MS;
-      stops.push(env.later(look, POLL_MS));
-    };
-    look();
+    stops.push(pollFor(() => env.find(id), env.later, reveal));
   }
 
   // A link to another place on this page was followed: starts once the address has changed.

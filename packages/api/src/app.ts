@@ -14,6 +14,7 @@ import {
   type StorageConfig,
   sitemapIndex,
   sitemapShard,
+  UnauthenticatedError,
 } from "@sermo/core";
 import { createMcpHandler } from "@sermo/mcp";
 import { type Context, Hono } from "hono";
@@ -175,9 +176,16 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     try {
       resolved = await resolveActor(ctx, c.req.raw.headers);
     } catch (error) {
-      // A dead cookie must not break a picture anyone may see: a file is served as to a guest
-      // when the session cannot be resolved (the file route decides what a guest may read).
-      if (!(error instanceof SermoError) || !(c.req.method === "GET" && fileRoute.test(c.req.path)))
+      // A dead session cookie must not break a picture anyone may see: a file is served as to a
+      // guest when only the cookie cannot be resolved (the file route decides what a guest may
+      // read). A bad API key or bearer token, and a banned member, are still refused.
+      const headers = c.req.raw.headers;
+      if (
+        !(error instanceof UnauthenticatedError) ||
+        headers.has("authorization") ||
+        headers.has("x-api-key") ||
+        !(c.req.method === "GET" && fileRoute.test(c.req.path))
+      )
         throw error;
       resolved = { actor: GUEST, setCookies: [] };
     }

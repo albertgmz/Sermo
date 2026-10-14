@@ -42,11 +42,13 @@ const RAW =
 const ESCAPE = /\\([!-/:-@[-`{-~])/g;
 const dropEscapes = (text: string) => text.replace(ESCAPE, "$1");
 
-// The editor writes Markdown, which escapes "*", "_" and brackets. BB code is sent as typed, so the
-// escapes inside a tag, and inside the content of the tags that take it as is, are taken out.
-export function unescapeBbCode(markdown: string) {
-  if (!markdown.includes("\\")) return markdown;
-  return markdown
+// Fenced code blocks and inline code spans, which the editor writes as the text is and which read
+// back as it is: a backslash in them is part of the code.
+const CODE =
+  /^(\x60{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\1[ \t]*$|(?![\s\S]))|(\x60+)(?!\x60)[^\n]*?[^\x60\n]\2(?!\x60)/gm;
+
+function restore(text: string) {
+  return text
     .replace(
       TAG,
       (_, close: string | undefined, name: string, option: string) =>
@@ -60,4 +62,18 @@ export function unescapeBbCode(markdown: string) {
           ? whole
           : whole.replace(text, () => dropEscapes(text)),
     );
+}
+
+// The editor writes Markdown, which escapes "*", "_" and brackets. BB code is sent as typed, so the
+// escapes inside a tag, and inside the content of the tags that take it as is, are taken out. Code
+// is left as the editor wrote it.
+export function unescapeBbCode(markdown: string) {
+  if (!markdown.includes("\\")) return markdown;
+  let out = "";
+  let from = 0;
+  for (const code of markdown.matchAll(CODE)) {
+    out += restore(markdown.slice(from, code.index)) + code[0];
+    from = code.index + code[0].length;
+  }
+  return out + restore(markdown.slice(from));
 }

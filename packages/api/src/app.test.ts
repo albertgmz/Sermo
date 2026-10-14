@@ -447,11 +447,11 @@ test("multipart upload streams through the API and serves with nosniff", async (
 test("a picture anyone may see is served when the session cookie is dead", async () => {
   const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
   uploadDirs.push(dir);
-  const { request } = setup({
+  const { request, ctx } = setup({
     trustedProxyHeader: null,
     storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
   });
-  const { cookie } = await register(request, "stalecookie");
+  const { cookie, data } = await register(request, "stalecookie");
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
     "base64",
@@ -485,6 +485,18 @@ test("a picture anyone may see is served when the session cookie is dead", async
   // What a guest may not read stays hidden, and every other route still refuses a dead cookie.
   expect((await request(`/api/v1/files/${note}`, { headers: { cookie: dead } })).status).toBe(404);
   expect((await request("/api/v1/me", { headers: { cookie: dead } })).status).toBe(401);
+  // Only the cookie falls back: a bad API key or bearer token and a malformed header are refused.
+  for (const headers of <Record<string, string>[]>[
+    { authorization: "Bearer sermo_nope" },
+    { "x-api-key": "sermo_nope" },
+    { authorization: "Basic abc" },
+  ])
+    expect((await request(`/api/v1/files/${avatar}`, { headers })).status).toBe(401);
+  // A banned member is refused too, not treated as a guest.
+  ctx.sqlite
+    .prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1")
+    .run(Number(data.user.id));
+  expect((await request(`/api/v1/files/${avatar}`, { headers: { cookie } })).status).toBe(403);
 });
 
 test("rate limits preserve headers and separate guest IPs", async () => {
