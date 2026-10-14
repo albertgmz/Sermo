@@ -104,3 +104,25 @@ test("each picture says which one it is among the post's pictures", async () => 
   expect(out).toContain('aria-label="Attached picture 2 of 3"');
   expect(out).toContain('aria-label="Attached picture 3 of 3"');
 });
+
+test("the attachments the text placed inline are not listed again", async () => {
+  cookie = undefined;
+  const files = [
+    file(1, { width: 10, height: 10 }),
+    file(2, { width: 10, height: 10 }),
+    file(3, { contentType: "application/pdf" }),
+  ];
+  const stream = await renderToReadableStream(
+    await PostAttachments({
+      // biome-ignore lint/suspicious/noExplicitAny: the attachments are shaped by the test
+      attachments: files as any,
+      inline: [1, 3],
+    }),
+  );
+  await stream.allReady;
+  const out = await new Response(stream).text();
+  expect(out).not.toContain("/api/v1/files/1");
+  expect(out).not.toContain("/api/v1/files/3");
+  expect(out).toContain("/api/v1/files/2");
+  expect(out).toContain('aria-label="Attached picture 1 of 1"');
+});

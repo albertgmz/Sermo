@@ -37,6 +37,7 @@ import { HashLink } from "@/components/layout/hash-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
@@ -194,20 +195,30 @@ function PostItem({
           <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
             {t("showDeleted")}
           </summary>
-          <HtmlContent content={{ type: "post", id: post.id }}>
+          <HtmlContent
+            content={{ type: "post", id: post.id }}
+            attachments={post.attachments}
+          >
             {post.bodyHtml}
           </HtmlContent>
-          <PostAttachments attachments={post.attachments} />
+          <PostAttachments
+            attachments={post.attachments}
+            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
+          />
         </details>
       ) : (
         <>
           <HtmlContent
             className="md:mt-1"
             content={{ type: "post", id: post.id }}
+            attachments={post.attachments}
           >
             {post.bodyHtml}
           </HtmlContent>
-          <PostAttachments attachments={post.attachments} />
+          <PostAttachments
+            attachments={post.attachments}
+            inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
+          />
         </>
       )}
     </PostFrame>

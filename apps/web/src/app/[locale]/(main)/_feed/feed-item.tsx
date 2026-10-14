@@ -2,6 +2,7 @@ import type { feedList } from "@sermo/core/contracts";
 import { Eye, MessageCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
+import type { ComponentProps } from "react";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
@@ -27,6 +28,7 @@ import {
   hasWallComments,
   WallComments,
 } from "@/components/forum/wall-comments";
+import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatCompact } from "@/lib/format";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
@@ -52,15 +54,19 @@ function looksLong(html: string) {
 function Body({
   href,
   content,
+  attachments,
   children,
 }: {
   href: string;
   content: SpoilerContent;
+  attachments?: ComponentProps<typeof HtmlContent>["attachments"];
   children: string;
 }) {
   return (
     <ClampedBody href={href} expectLong={looksLong(children)}>
-      <HtmlContent content={content}>{children}</HtmlContent>
+      <HtmlContent content={content} attachments={attachments}>
+        {children}
+      </HtmlContent>
     </ClampedBody>
   );
 }
@@ -261,10 +267,17 @@ export function FeedItem({
         <Body
           href={href}
           content={{ type: "profile_post", id: profilePost.id }}
+          attachments={profilePost.attachments}
         >
           {profilePost.bodyHtml}
         </Body>
-        <PostAttachments attachments={profilePost.attachments} />
+        <PostAttachments
+          attachments={profilePost.attachments}
+          inline={inlineAttachmentIds(
+            profilePost.bodyHtml,
+            profilePost.attachments,
+          )}
+        />
       </Card>
     );
   }

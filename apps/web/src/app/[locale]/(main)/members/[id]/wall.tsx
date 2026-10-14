@@ -28,6 +28,7 @@ import {
 } from "@/components/forum/wall-comments";
 import { WallItemActions } from "@/components/forum/wall-item-actions";
 import { buttonVariants } from "@/components/ui/button";
+import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { pageHolding } from "@/lib/sermo/locate";
@@ -157,10 +158,16 @@ function WallPost({
       }
     >
       <WallStateNote state={post.state} />
-      <HtmlContent content={{ type: "profile_post", id: post.id }}>
+      <HtmlContent
+        content={{ type: "profile_post", id: post.id }}
+        attachments={post.attachments}
+      >
         {post.bodyHtml}
       </HtmlContent>
-      <PostAttachments attachments={post.attachments} />
+      <PostAttachments
+        attachments={post.attachments}
+        inline={inlineAttachmentIds(post.bodyHtml, post.attachments)}
+      />
     </MessageRow>
   );
 }

@@ -77,6 +77,7 @@ export default async function EditPostPage({
               id: file.fileId,
               name: fileName(file.url, file.fileId),
               size: file.byteSize,
+              type: file.contentType,
             }))}
             thread={
               opening

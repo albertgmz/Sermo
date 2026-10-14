@@ -54,3 +54,18 @@ for (const source of SAME) {
     assert.equal(roundTrip(source), source);
   });
 }
+
+// The BB code the toolbar and the attachment list put in is sent as typed. Code goes in a fence,
+// which the editor writes back untouched; inside [CODE] it would escape `_` and `*`.
+const BB = [
+  "A [ATTACH]12[/ATTACH] thumbnail and [ATTACH=full]13[/ATTACH] full.",
+  "[SPOILER]hidden[/SPOILER]",
+  "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
+  "```\nlet a_b = [1] * 2;\n```",
+];
+
+for (const source of BB) {
+  test(`the editor keeps ${JSON.stringify(source.slice(0, 32))} as typed`, () => {
+    assert.equal(roundTrip(source), source);
+  });
+}

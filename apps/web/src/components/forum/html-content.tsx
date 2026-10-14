@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import "@/components/forum/member-card-parts";
 import { MentionCards } from "@/components/forum/mention-cards";
 import { prose } from "@/components/forum/prose";
@@ -6,8 +6,9 @@ import {
   type SpoilerContent,
   SpoilerReveal,
 } from "@/components/forum/spoiler-reveal";
+import { placeAttachments, type TaggedAttachment } from "@/lib/attachment-tags";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
-import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { getLiteOrigin, getLiteState, liteBlocks } from "@/lib/lite-mode";
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
@@ -35,21 +36,36 @@ const elements = cn(
 // mode removes its pictures on the server first. A mention in it shows the member's card on hover.
 // The words BB code shows (a code block's header, "said:", "Spoiler") are not in the HTML: they are
 // CSS variables set here in the visitor's language. A body with spoilers needs the `content` it
-// belongs to, to ask for them; without it their buttons are disabled.
+// belongs to, to ask for them; without it their buttons are disabled. The `attachments` of the item
+// take the place of its `[ATTACH]` tags, drawn through the same LITE gate as the list under the body.
 export async function HtmlContent(props: {
   children: string;
   className?: string;
   content?: SpoilerContent;
+  attachments?: TaggedAttachment[];
 }) {
   const [state, origin, t] = await Promise.all([
     getLiteState(),
     getLiteOrigin(),
     getTranslations("forum.bbCode"),
   ]);
-  const html = withSpoilerButtons(
+  let html = withSpoilerButtons(
     stripHtmlMedia(props.children, state, origin),
     props.content !== undefined,
   );
+  if (props.attachments?.length) {
+    const [locale, lite, liteImages] = await Promise.all([
+      getLocale(),
+      getTranslations("lite.litePlaceholder"),
+      liteBlocks("postImages"),
+    ]);
+    html = placeAttachments(html, props.attachments, {
+      locale,
+      liteImages,
+      liteLabel: lite("label"),
+      liteAria: lite("aria.label"),
+    });
+  }
   const body = (
     <div
       className={cn("bb-content", prose.root, elements, props.className)}

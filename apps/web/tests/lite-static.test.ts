@@ -21,6 +21,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks avatars and frames independently before passing src to AvatarImage.",
   "src/components/forum/markdown.tsx":
     "Checks postImages on the server before emitting Markdown images.",
+  "src/lib/attachment-tags.ts":
+    "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written.",
   "src/components/layout/site-icon.tsx":
     "Checks brand before emitting the favicon link.",
   "src/components/layout/logo.tsx":

@@ -169,8 +169,14 @@
     "failed": "{name} could not be uploaded.",
     "aria": {
       "files": "Attached files",
-      "remove": "Remove {name}"
-    }
+      "remove": "Remove {name}",
+      "insertThumbnail": "Insert the thumbnail of {name}",
+      "insertFull": "Insert {name} full size",
+      "insert": "Insert {name} in the text"
+    },
+    "insertThumbnail": "Insert thumbnail",
+    "insertFull": "Insert full image",
+    "insert": "Insert in text"
   },
   "attachments": {
     "signIn": "Sign in to attach files.",

@@ -18,6 +18,11 @@
     },
     "errors": {
       "required": "Este campo es obligatorio."
-    }
+    },
+    "spoilerLabel": "Spoiler",
+    "codeBlockLabel": "Bloque de código",
+    "mediaLabel": "Multimedia",
+    "mediaPrompt": "Dirección del vídeo, la canción o la publicación",
+    "mediaUnsupported": "Esa dirección no es de un sitio que se pueda insertar."
   }
 }

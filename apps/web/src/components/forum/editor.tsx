@@ -1,6 +1,11 @@
 "use client";
 
-import { CodeHighlightNode, CodeNode } from "@lexical/code";
+import {
+  $createCodeNode,
+  $isCodeNode,
+  CodeHighlightNode,
+  CodeNode,
+} from "@lexical/code";
 import {
   $isLinkNode,
   AutoLinkNode,
@@ -72,7 +77,9 @@ import {
 } from "lexical";
 import {
   Bold,
+  Clapperboard,
   Code,
+  EyeOff,
   Heading,
   Italic,
   Link2,
@@ -80,6 +87,7 @@ import {
   ListOrdered,
   type LucideIcon,
   Redo2,
+  SquareCode,
   Strikethrough,
   TextQuote,
   Undo2,
@@ -87,13 +95,19 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { $applyLink } from "@/components/forum/editor-commands";
+import { onComposerInsert } from "@/components/forum/composer-insert";
+import {
+  $applyLink,
+  $insertText,
+  $wrapSelection,
+} from "@/components/forum/editor-commands";
 import {
   InsertPlugin,
   type MemberHit,
   MentionPlugin,
 } from "@/components/forum/editor-extras";
 import { FormError } from "@/components/forum/form-error";
+import { mediaTagOf } from "@/components/forum/media-url";
 import { unescapeMentions } from "@/components/forum/mention-text";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
@@ -201,7 +215,7 @@ function initialEditorState(markdown: string): string | undefined {
   return state.isEmpty() ? undefined : JSON.stringify(state);
 }
 
-type Block = "paragraph" | "heading" | "quote" | "bullet" | "number";
+type Block = "paragraph" | "heading" | "quote" | "code" | "bullet" | "number";
 
 type ToolbarState = {
   formats: TextFormatType[];
@@ -228,6 +242,7 @@ function $readToolbarState(): ToolbarState | null {
   let block: Block = "paragraph";
   if ($isHeadingNode(top)) block = "heading";
   else if ($isQuoteNode(top)) block = "quote";
+  else if ($isCodeNode(top)) block = "code";
   else if ($isListNode(top)) {
     block = top.getListType() === "number" ? "number" : "bullet";
   }
@@ -307,13 +322,15 @@ function Toolbar({ className }: { className?: string }) {
     [editor],
   );
 
-  function setBlock(block: "heading" | "quote") {
+  function setBlock(block: "heading" | "quote" | "code") {
     editor.update(() => {
       const selection = $getSelection();
       if (state.block === block) {
         $setBlocksType(selection, () => $createParagraphNode());
       } else if (block === "heading") {
         $setBlocksType(selection, () => $createHeadingNode("h2"));
+      } else if (block === "code") {
+        $setBlocksType(selection, () => $createCodeNode());
       } else {
         $setBlocksType(selection, () => $createQuoteNode());
       }
@@ -339,12 +356,20 @@ function Toolbar({ className }: { className?: string }) {
     if (url) editor.update(() => $applyLink(url));
   }
 
+  function addMedia() {
+    const address = window.prompt(t("mediaPrompt"), "https://");
+    if (!address) return;
+    const media = mediaTagOf(address);
+    if (media) editor.update(() => $insertText(media));
+    else window.alert(t("mediaUnsupported"));
+  }
+
   return (
     <div
       role="toolbar"
       aria-label={t("aria.formatting")}
       className={cn(
-        "flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]",
+        "relative flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]",
         className,
       )}
     >
@@ -387,6 +412,24 @@ function Toolbar({ className }: { className?: string }) {
         icon={Link2}
         active={state.link}
         onClick={toggleLink}
+      />
+      <ToolbarButton
+        label={t("spoilerLabel")}
+        icon={EyeOff}
+        onClick={() =>
+          editor.update(() => $wrapSelection("[SPOILER]", "[/SPOILER]"))
+        }
+      />
+      <ToolbarButton
+        label={t("codeBlockLabel")}
+        icon={SquareCode}
+        active={state.block === "code"}
+        onClick={() => setBlock("code")}
+      />
+      <ToolbarButton
+        label={t("mediaLabel")}
+        icon={Clapperboard}
+        onClick={addMedia}
       />
       <span className="ml-auto flex items-center gap-0.5 pl-2">
         <ToolbarButton
@@ -449,6 +492,16 @@ function FormField({
       sync(editorState),
     );
   }, [editor, onChange, setInvalid]);
+
+  // Text asked for from elsewhere in the composer (an attachment's tag) goes in at the caret.
+  useEffect(
+    () =>
+      onComposerInsert(inputRef.current?.form, (text) => {
+        editor.update(() => $insertText(text));
+        editor.focus();
+      }),
+    [editor],
+  );
 
   useEffect(() => {
     const form = inputRef.current?.form;

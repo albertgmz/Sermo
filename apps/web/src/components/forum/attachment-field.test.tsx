@@ -34,3 +34,20 @@ test("the compact field is the paperclip alone, with the files on a line before 
   expect(html).toContain('name="attachmentIds" value="4"');
   expect(html.indexOf("plan.pdf")).toBeLessThan(html.indexOf('type="file"'));
 });
+
+test("a picture offers its thumbnail and its full size, any other file one insert button", () => {
+  const html = render(
+    <AttachmentField
+      nodeId={3}
+      initial={[
+        { id: 4, name: "plan.pdf", size: 2048, type: "application/pdf" },
+        { id: 5, name: "cat.png", size: 1024, type: "image/png" },
+      ]}
+    />,
+  );
+  // By title: the labels with a file's name in them are filled in by the translator a suite uses.
+  const titled = (title: string) => html.split(`title="${title}"`).length - 1;
+  expect(titled(text.insert)).toBe(1);
+  expect(titled(text.insertThumbnail)).toBe(1);
+  expect(titled(text.insertFull)).toBe(1);
+});

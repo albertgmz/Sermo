@@ -60,6 +60,7 @@ export default async function EditMessagePage({
             id: file.fileId,
             name: fileName(file.url, file.fileId),
             size: file.byteSize,
+            type: file.contentType,
           }))}
         />
       </div>

@@ -1,6 +1,8 @@
 import { $createLinkNode, $toggleLink } from "@lexical/link";
 import {
+  $createRangeSelection,
   $createTextNode,
+  $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
@@ -35,4 +37,45 @@ export function $applyLink(url: string) {
   link.append($createTextNode(url));
   selection.insertNodes([link]);
   link.selectNext(0, 0);
+}
+
+// Puts `text` in at the caret, over the selection if there is one. An editor that never had the
+// focus has no selection yet: the text goes at its end.
+export function $insertText(text: string) {
+  let selection = $getSelection();
+  if (!$isRangeSelection(selection)) {
+    $getRoot().selectEnd();
+    selection = $getSelection();
+  }
+  if ($isRangeSelection(selection)) selection.insertText(text);
+}
+
+// Puts `open` before the selection and `close` after it, leaving what is between as it is (its
+// formatting stays). With nothing selected the pair goes in at the caret, which stays between.
+export function $wrapSelection(open: string, close: string) {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection)) return;
+  if (selection.isCollapsed()) {
+    selection.insertText(open + close);
+    const { key, offset, type } = selection.anchor;
+    const inside = offset - close.length;
+    selection.anchor.set(key, inside, type);
+    selection.focus.set(key, inside, type);
+    return;
+  }
+  const [first, last] = selection.isBackward()
+    ? [selection.focus, selection.anchor]
+    : [selection.anchor, selection.focus];
+  // Read before anything changes: the points of the live selection move with each insertion.
+  const start = { key: first.key, offset: first.offset, type: first.type };
+  const end = { key: last.key, offset: last.offset, type: last.type };
+  const at = (point: typeof start) => {
+    const caret = $createRangeSelection();
+    caret.anchor.set(point.key, point.offset, point.type);
+    caret.focus.set(point.key, point.offset, point.type);
+    return caret;
+  };
+  // The end first, so the start's offset is still right when the opening goes in.
+  at(end).insertText(close);
+  at(start).insertText(open);
 }

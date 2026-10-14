@@ -18,6 +18,11 @@
     },
     "errors": {
       "required": "This field is required."
-    }
+    },
+    "spoilerLabel": "Spoiler",
+    "codeBlockLabel": "Code block",
+    "mediaLabel": "Media",
+    "mediaPrompt": "Address of the video, song or post",
+    "mediaUnsupported": "That address is not from a site that can be embedded."
   }
 }

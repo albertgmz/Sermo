@@ -30,6 +30,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
+import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -259,10 +260,17 @@ async function Messages({
               <HtmlContent
                 className="md:mt-1"
                 content={{ type: "conversation_message", id: message.id }}
+                attachments={message.attachments}
               >
                 {message.bodyHtml}
               </HtmlContent>
-              <PostAttachments attachments={message.attachments} />
+              <PostAttachments
+                attachments={message.attachments}
+                inline={inlineAttachmentIds(
+                  message.bodyHtml,
+                  message.attachments,
+                )}
+              />
             </PostFrame>
           </li>
         ))}

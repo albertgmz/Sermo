@@ -169,8 +169,14 @@
     "failed": "No se pudo subir {name}.",
     "aria": {
       "files": "Archivos adjuntos",
-      "remove": "Quitar {name}"
-    }
+      "remove": "Quitar {name}",
+      "insertThumbnail": "Insertar la miniatura de {name}",
+      "insertFull": "Insertar {name} a tamaño completo",
+      "insert": "Insertar {name} en el texto"
+    },
+    "insertThumbnail": "Insertar miniatura",
+    "insertFull": "Insertar imagen completa",
+    "insert": "Insertar en el texto"
   },
   "attachments": {
     "signIn": "Inicia sesión para adjuntar archivos.",

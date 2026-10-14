@@ -1,15 +1,35 @@
 "use client";
 
-import { LoaderCircle, Paperclip, X } from "lucide-react";
+import {
+  ImageIcon,
+  ImagePlus,
+  LoaderCircle,
+  Maximize2,
+  Paperclip,
+  X,
+} from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import {
+  attachTag,
+  insertIntoComposer,
+} from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
 import { messageActionClass } from "@/components/forum/message-action";
 import { useUploadLimit } from "@/components/forum/upload-limit";
 import { megabytes, uploadLimit } from "@/lib/sermo/upload-limit";
 import { cn } from "@/lib/utils";
 
-export type AttachedFile = { id: number; name: string; size: number | null };
+// `type` is the content type, which says whether the file can be placed in the text as a picture.
+export type AttachedFile = {
+  id: number;
+  name: string;
+  size: number | null;
+  type?: string;
+};
+
+const INSERT_BUTTON =
+  "inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground";
 
 // Files for a post. Each one is sent to an attachment route as soon as it is chosen and the post
 // names the stored files by id (`attachmentIds`), so no file travels with the form.
@@ -68,7 +88,7 @@ export function AttachmentField({
         const id = payload.id;
         setFiles((current) => [
           ...current,
-          { id, name: file.name, size: file.size },
+          { id, name: file.name, size: file.size, type: file.type },
         ]);
       } else {
         setError(payload?.error ?? t("failed", { name: file.name }));
@@ -78,6 +98,11 @@ export function AttachmentField({
     } finally {
       setBusy((count) => count - 1);
     }
+  }
+
+  // Puts the file's tag at the caret of the composer's text.
+  function place(file: AttachedFile, size: "thumb" | "full") {
+    insertIntoComposer(listed.current, attachTag(file.id, size));
   }
 
   async function choose(chosen: File[]) {
@@ -157,10 +182,42 @@ export function AttachmentField({
                   })}
                 </span>
               )}
+              {file.type?.startsWith("image/") ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={t("aria.insertThumbnail", { name: file.name })}
+                    title={t("insertThumbnail")}
+                    className={INSERT_BUTTON}
+                    onClick={() => place(file, "thumb")}
+                  >
+                    <ImageIcon className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("aria.insertFull", { name: file.name })}
+                    title={t("insertFull")}
+                    className={INSERT_BUTTON}
+                    onClick={() => place(file, "full")}
+                  >
+                    <Maximize2 className="size-4" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={t("aria.insert", { name: file.name })}
+                  title={t("insert")}
+                  className={INSERT_BUTTON}
+                  onClick={() => place(file, "thumb")}
+                >
+                  <ImagePlus className="size-4" />
+                </button>
+              )}
               <button
                 type="button"
                 aria-label={t("aria.remove", { name: file.name })}
-                className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                className={INSERT_BUTTON}
                 onClick={() =>
                   setFiles((current) =>
                     current.filter((other) => other.id !== file.id),

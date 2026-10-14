@@ -1,6 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  insertAtCaret,
+  onComposerInsert,
+} from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -37,6 +41,18 @@ export function LazyEditor({
   const [waiting, setWaiting] = useState(false);
   const [loaded, setLoaded] = useState<Loaded>();
   const ownBar = toolbarContainer === undefined;
+
+  // Until the editor is there, text asked for from elsewhere in the composer goes in at the caret
+  // of the plain field; focusing it brings the editor, which keeps the text.
+  useEffect(
+    () =>
+      loaded
+        ? undefined
+        : onComposerInsert(field.current?.form, (text) => {
+            if (field.current) insertAtCaret(field.current, text);
+          }),
+    [loaded],
+  );
 
   function load() {
     if (asked.current) return;

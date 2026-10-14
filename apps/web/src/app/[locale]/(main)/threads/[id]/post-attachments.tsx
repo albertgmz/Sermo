@@ -4,31 +4,27 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
+import { fileName } from "@/lib/attachment-tags";
 import { formatBytes } from "@/lib/format";
 import { liteBlocks } from "@/lib/lite-mode";
+
+export { fileName };
 
 type Attachment = z.output<
   typeof postsList.output
 >["items"][number]["attachments"][number];
 
-// The attachments carry no name of their own: the last part of the address is the best there is.
-export function fileName(url: string, fileId: number) {
-  const last = url.split("?")[0].split("/").at(-1);
-  try {
-    return last ? decodeURIComponent(last) : `#${fileId}`;
-  } catch {
-    return last || `#${fileId}`;
-  }
-}
-
 // What a post has attached, as the backend returns it: pictures drawn (through the LITE gate for
 // post pictures, so a blocked one never puts its address in the page) and every other file as a
-// row to download.
+// row to download. The ones the text placed inline (`inline`, their ids) are not listed again.
 export async function PostAttachments({
-  attachments,
+  attachments: all,
+  inline = [],
 }: {
   attachments: Attachment[];
+  inline?: number[];
 }) {
+  const attachments = all.filter((file) => !inline.includes(file.fileId));
   const locale = await getLocale();
   const [t, liteImages] = await Promise.all([
     getTranslations("threads.page"),
