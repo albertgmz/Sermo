@@ -151,7 +151,7 @@ async function FilterForm({
         </Button>
         <Link
           href={path}
-          className="inline-flex min-h-10 items-center px-2 text-sm text-primary underline-offset-4 hover:underline"
+          className="inline-flex min-h-10 items-center px-2 text-sm text-primary-ink underline-offset-4 hover:underline"
         >
           {t("reset")}
         </Link>
@@ -207,7 +207,7 @@ async function Row({ entry }: { entry: LogEntry }) {
         <div>{entry.target}</div>
         {expandable && (
           <details className="group">
-            <summary className="inline-flex min-h-10 cursor-pointer items-center text-xs text-primary underline-offset-4 hover:underline">
+            <summary className="inline-flex min-h-10 cursor-pointer items-center text-xs text-primary-ink underline-offset-4 hover:underline">
               {t("showDetails")}
             </summary>
             <div className="space-y-2 rounded-md border bg-background p-3 text-xs">

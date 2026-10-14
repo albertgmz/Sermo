@@ -135,7 +135,7 @@ export function LeaderboardScore({
         aria-hidden="true"
         className={cn(
           "size-3.5",
-          accent ? "text-primary" : "text-muted-foreground",
+          accent ? "text-primary-ink" : "text-muted-foreground",
         )}
       />
       {compact ? formatCompact(count, locale) : formatNumber(count, locale)}

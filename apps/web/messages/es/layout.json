@@ -75,7 +75,6 @@
     "dark": "Oscuro"
   },
   "userMenu": {
-    "theme": "Tema",
     "logout": "Cerrar sesión",
     "aria": {
       "account": "Menú de la cuenta"

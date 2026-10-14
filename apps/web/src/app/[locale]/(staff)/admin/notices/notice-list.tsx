@@ -65,7 +65,7 @@ export async function NoticeList({
                 </p>
                 <Link
                   href={`/admin/notices/${item.id}`}
-                  className="inline-flex min-h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  className="inline-flex min-h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
                 >
                   {t("list.edit")}
                 </Link>

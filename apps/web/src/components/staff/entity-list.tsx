@@ -29,7 +29,9 @@ export function EditDisclosure({
         className={`flex ${summaryClass} cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2`}
       >
         {summary}
-        <span className="ms-auto text-sm font-medium text-primary">{edit}</span>
+        <span className="ms-auto text-sm font-medium text-primary-ink">
+          {edit}
+        </span>
       </summary>
       <div className="space-y-4 border-t p-4">{children}</div>
     </details>

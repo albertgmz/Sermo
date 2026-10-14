@@ -79,7 +79,10 @@ export function WallComments({
   return (
     <div className={cn("mt-2 space-y-3 border-l pl-3", className)}>
       {links.more && (
-        <Link href={links.more} className={cn(textLinkClass, "text-primary")}>
+        <Link
+          href={links.more}
+          className={cn(textLinkClass, "text-primary-ink")}
+        >
           {t("showMore")}
         </Link>
       )}
@@ -113,7 +116,10 @@ export function WallComments({
         </MessageRow>
       ))}
       {links.older && (
-        <Link href={links.older} className={cn(textLinkClass, "text-primary")}>
+        <Link
+          href={links.older}
+          className={cn(textLinkClass, "text-primary-ink")}
+        >
           {t("older")}
         </Link>
       )}

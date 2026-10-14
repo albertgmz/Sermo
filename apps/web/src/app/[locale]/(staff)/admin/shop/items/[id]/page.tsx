@@ -54,7 +54,7 @@ async function EditItem({
       <p>
         <Link
           href={`/admin/shop/items?category=${item.categoryId}`}
-          className="inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline"
+          className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
         >
           {t("back")}
         </Link>

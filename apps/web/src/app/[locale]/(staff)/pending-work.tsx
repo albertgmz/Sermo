@@ -8,7 +8,7 @@ import { pendingCount } from "./pending-count";
 import { canOpen, hrefFor, screenByKey } from "./registry";
 
 const LINK =
-  "mt-3 inline-flex min-h-10 items-center text-xs text-primary underline-offset-4 hover:underline";
+  "mt-3 inline-flex min-h-10 items-center text-xs text-primary-ink underline-offset-4 hover:underline";
 
 // Open reports and the approval queue, each shown only to a member who may open its screen and
 // linked to it once that screen is built.

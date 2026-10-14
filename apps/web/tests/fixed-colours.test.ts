@@ -10,7 +10,7 @@ const ALLOWED = [
 ];
 
 const FIXED =
-  /\b(?:bg|text|border|ring|fill|stroke|from|via|to|outline|shadow|divide|decoration)-(?:black|white)\b|#[0-9a-f]{3,8}\b/gi;
+  /\b(?:bg|text|border|ring|fill|stroke|from|via|to|outline|shadow|divide|decoration)-(?:black|white)\b|#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab)\(/gi;
 
 const root = new URL("../src", import.meta.url).pathname.replace(
   /^\/(?=[a-z]:)/i,

@@ -73,7 +73,7 @@ export async function AnnouncementList({
               {item.url && ` · ${t("link", { url: item.url })}`}
             </p>
             <details>
-              <summary className="flex min-h-10 cursor-pointer items-center text-sm font-medium text-primary">
+              <summary className="flex min-h-10 cursor-pointer items-center text-sm font-medium text-primary-ink">
                 {t("showText")}
               </summary>
               <HtmlContent className="pb-2 text-sm">

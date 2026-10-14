@@ -59,7 +59,7 @@ async function Balance() {
           <p className="mt-3 flex items-center gap-3 text-5xl leading-none font-bold tracking-tighter tabular-nums">
             <Coins
               aria-hidden="true"
-              className="size-9 shrink-0 text-primary"
+              className="size-9 shrink-0 text-primary-ink"
             />
             {formatNumber(ledger.balance, locale)}
           </p>

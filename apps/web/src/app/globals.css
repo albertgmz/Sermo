@@ -16,6 +16,7 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-overlay: var(--overlay);
+  --color-skeleton: var(--skeleton);
 
   /* Text. */
   --color-foreground: var(--foreground);
@@ -33,6 +34,7 @@
   /* Accent and status. */
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-ink: var(--primary-ink);
   --color-destructive: var(--destructive);
   --color-success: var(--success);
 
@@ -123,6 +125,7 @@
   --accent: #18181b;
   /* What dims the page behind a dialog or a sheet. */
   --overlay: rgb(0 0 0 / 0.1);
+  --skeleton: var(--muted);
   /* What dims the page around the element an address names. */
   --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
@@ -169,6 +172,17 @@
   --code-addition: #86efac;
   --code-deletion: #fca5a5;
 
+  /*
+   * Colours that draw text and were not chosen for this theme (a name, prefix or badge colour an
+   * administrator typed: .ink; the accent as a link: --primary-ink) have their lightness held
+   * between these bounds, hue and chroma kept, so they stay readable on the surfaces. The accent
+   * also needs a floor on dark surfaces (--accent-min); the typed colours keep their own look
+   * there.
+   */
+  --ink-min: 0;
+  --ink-max: 1;
+  --accent-min: 0.72;
+
   /* Radii. */
   --radius: 0.375rem;
 
@@ -194,6 +208,7 @@
   --muted: #f0f0f2;
   --accent: #ececef;
   --overlay: rgb(0 0 0 / 0.3);
+  --skeleton: #dcdce0;
 
   --foreground: #09090b;
   --card-foreground: #09090b;
@@ -228,6 +243,9 @@
   --code-meta: #52525b;
   --code-addition: #166534;
   --code-deletion: #b91c1c;
+
+  --ink-max: 0.5;
+  --accent-min: 0;
 }
 
 /*
@@ -245,7 +263,11 @@
  * the root (ViewerAccent); the values above are what shows until the site's data is read.
  */
 :root {
-  --ring: var(--primary);
+  /* The accent as text, a link or a ring; --primary stays for fills. */
+  --primary-ink: oklch(
+    from var(--primary) clamp(var(--accent-min), l, var(--ink-max)) c h
+  );
+  --ring: var(--primary-ink);
   --chart-2: var(--primary);
 }
 
@@ -254,6 +276,11 @@
  * utility classes that style the same elements there. The words ("Code:", "said:", "Spoiler")
  * come from variables the component sets in the visitor's language.
  */
+/* A colour somebody chose, drawn as text: set --ink on the element. */
+.ink {
+  color: oklch(from var(--ink) clamp(var(--ink-min), l, var(--ink-max)) c h);
+}
+
 .bb-content .bb-left {
   text-align: left;
 }

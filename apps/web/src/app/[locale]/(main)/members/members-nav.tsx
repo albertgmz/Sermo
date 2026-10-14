@@ -46,7 +46,7 @@ export function MembersNav({
         >
           <Icon
             aria-hidden="true"
-            className="size-4 shrink-0 group-aria-[current=page]:text-primary"
+            className="size-4 shrink-0 group-aria-[current=page]:text-primary-ink"
           />
           {views(label)}
         </Link>

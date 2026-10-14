@@ -11,8 +11,9 @@ mock.module("next-intl", () => ({
 }));
 
 const { ThemeChoices, ThemeControl } = await import("./theme-control");
-const { currentTheme, restoreTheme, setTheme, subscribeTheme, themeScript } =
-  await import("./theme");
+const { currentTheme, setTheme, subscribeTheme, themeScript } = await import(
+  "./theme"
+);
 
 type Listener = (event: { key?: string | null }) => void;
 
@@ -22,6 +23,7 @@ const classes = new Set<string>();
 const windowListeners = new Map<string, Set<Listener>>();
 const mediaListeners = new Set<() => void>();
 let deviceDark = true;
+let legacyMedia = false;
 const globals = globalThis as Record<string, unknown>;
 
 function emit(type: string, event: { key?: string | null } = {}) {
@@ -59,7 +61,6 @@ beforeAll(() => {
       getAttribute: (name: string) => attributes.get(name) ?? null,
       setAttribute: (name: string, value: string) =>
         attributes.set(name, value),
-      hasAttribute: (name: string) => attributes.has(name),
       classList: {
         toggle: (name: string, on: boolean) =>
           on ? classes.add(name) : classes.delete(name),
@@ -67,11 +68,13 @@ beforeAll(() => {
     },
   };
   globals.matchMedia = () => ({
+    addListener: (listener: () => void) => mediaListeners.add(listener),
     get matches() {
       return deviceDark;
     },
-    addEventListener: (_type: string, listener: () => void) =>
-      mediaListeners.add(listener),
+    addEventListener: legacyMedia
+      ? undefined
+      : (_type: string, listener: () => void) => mediaListeners.add(listener),
   });
   globals.addEventListener = addListener;
   globals.window = {
@@ -108,6 +111,7 @@ beforeEach(() => {
   windowListeners.clear();
   mediaListeners.clear();
   deviceDark = true;
+  legacyMedia = false;
   useWorkingStorage();
 });
 
@@ -125,6 +129,26 @@ test("System follows the device before first paint and when it changes", () => {
   for (const listener of mediaListeners) listener();
   expect(theme()).toBe("light");
   expect(classes.has("dark")).toBe(false);
+});
+
+test("a browser with only the old media listener call is followed too", () => {
+  legacyMedia = true;
+  run();
+  deviceDark = false;
+  for (const listener of mediaListeners) listener();
+  expect(theme()).toBe("light");
+});
+
+test("the page listeners are in place before the device query is read", () => {
+  let registered = 0;
+  const original = globals.matchMedia;
+  globals.matchMedia = () => {
+    registered = windowListeners.get("sermo-theme")?.size ?? 0;
+    return { matches: true, addEventListener: () => {} };
+  };
+  run();
+  globals.matchMedia = original;
+  expect(registered).toBe(1);
 });
 
 test("a stored choice beats the device", () => {
@@ -165,15 +189,6 @@ test("another tab's choice is applied and announced here", () => {
   emit("storage", { key: "sermo-theme" });
   expect(theme()).toBe("light");
   expect(heard).toBe(1);
-});
-
-test("the stored choice is put back after a remount reset the root", () => {
-  run();
-  store.set("sermo-theme", "light");
-  attributes.delete("data-theme-choice");
-  restoreTheme();
-  expect(currentTheme()).toBe("light");
-  expect(theme()).toBe("light");
 });
 
 test("the group has three buttons and marks the chosen one", () => {

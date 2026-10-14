@@ -61,7 +61,7 @@ async function Editor({
               {page.isPublished ? (
                 <Link
                   href={address}
-                  className="inline-flex min-h-10 items-center text-primary underline-offset-4 hover:underline"
+                  className="inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline"
                 >
                   {address}
                 </Link>

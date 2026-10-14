@@ -168,7 +168,7 @@ function PostItem({
       trailing={
         <>
           {highlighted && (
-            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary">
+            <span className="mr-1.5 inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
               <Sparkles aria-hidden="true" className="size-3" />
               <span className={LABEL}>{t("highlightedLabel")}</span>
             </span>

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { isHexColor } from "@/lib/css-color";
 import type { MemberView } from "@/lib/sermo/views";
 
-// The colour reaches the name as a custom property read by one utility class;
+// The colour reaches the name as a custom property read by the .ink class (globals.css), which keeps it readable in the theme;
 // a member with no colour, or one that is not #rrggbb, gets neither, so the name keeps the text
 // colour.
 export function userNameProps(user: Pick<MemberView, "nameColor">): {
@@ -11,8 +11,8 @@ export function userNameProps(user: Pick<MemberView, "nameColor">): {
 } {
   if (!isHexColor(user.nameColor)) return {};
   return {
-    className: "text-(--name-color)",
-    style: { "--name-color": user.nameColor } as CSSProperties,
+    className: "ink",
+    style: { "--ink": user.nameColor } as CSSProperties,
   };
 }
 

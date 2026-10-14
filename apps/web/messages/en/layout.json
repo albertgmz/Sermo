@@ -75,7 +75,6 @@
     "dark": "Dark"
   },
   "userMenu": {
-    "theme": "Theme",
     "logout": "Log out",
     "aria": {
       "account": "Account menu"

@@ -72,7 +72,7 @@ export function IconGrid({
             aria-label={entry.label}
             aria-pressed={entry.key === value}
             onClick={() => onChoose(entry.key)}
-            className="flex size-10 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-primary"
+            className="flex size-10 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-muted aria-pressed:text-primary-ink"
           >
             {Icon && <Icon className="size-5" aria-hidden="true" />}
           </button>
@@ -221,7 +221,7 @@ export function IconPicker({
             variant="ghost"
             aria-pressed={value === null}
             onClick={() => choose(null)}
-            className="h-10 justify-start px-2.5 aria-pressed:bg-muted aria-pressed:text-primary md:h-8"
+            className="h-10 justify-start px-2.5 aria-pressed:bg-muted aria-pressed:text-primary-ink md:h-8"
           >
             {t("none")}
           </Button>

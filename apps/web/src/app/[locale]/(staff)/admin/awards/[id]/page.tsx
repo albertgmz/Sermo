@@ -48,7 +48,7 @@ async function Holders({
         <div className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
           <Link
             href={`/members/${grant.user.id}`}
-            className="inline-flex min-h-10 items-center font-medium text-primary underline-offset-4 hover:underline"
+            className="inline-flex min-h-10 items-center font-medium text-primary-ink underline-offset-4 hover:underline"
           >
             {grant.user.username}
           </Link>
@@ -105,7 +105,7 @@ async function EditAward({
       <p>
         <Link
           href="/admin/awards"
-          className="inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline"
+          className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
         >
           {t("back")}
         </Link>

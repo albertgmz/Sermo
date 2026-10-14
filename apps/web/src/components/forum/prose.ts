@@ -8,7 +8,7 @@ export const prose = {
   li: "pl-0.5",
   nestedLi: "list-none",
   blockquote: "border-l-2 border-primary pl-3 text-muted-foreground",
-  a: "font-medium text-primary underline underline-offset-4 hover:no-underline",
+  a: "font-medium text-primary-ink underline underline-offset-4 hover:no-underline",
   strong: "font-semibold",
   em: "italic",
   del: "text-muted-foreground line-through",

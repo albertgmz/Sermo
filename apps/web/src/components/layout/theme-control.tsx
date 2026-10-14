@@ -2,21 +2,32 @@
 
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useLayoutEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import {
   currentTheme,
-  restoreTheme,
   setTheme,
   subscribeTheme,
   THEMES,
   type Theme,
 } from "@/components/layout/theme";
+import {
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
 
-// Three choices in one group. Compact shows icons only (the account menu, the footer); labelled
-// writes the words too (the appearance page).
+function useTheme() {
+  return useSyncExternalStore(
+    subscribeTheme,
+    currentTheme,
+    () => "system" as const,
+  );
+}
+
+// Three choices in one group. Compact shows icons only (the footer); labelled writes the words
+// too (the appearance page). The selected one has a border as well as a fill.
 export function ThemeChoices({
   value,
   onChange,
@@ -46,9 +57,9 @@ export function ThemeChoices({
             title={t(theme)}
             onClick={() => onChange(theme)}
             className={cn(
-              "inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:min-h-8 md:min-w-8 [&_svg]:size-4",
+              "inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:min-h-8 md:min-w-8 [&_svg]:size-4",
               labelled && "px-3",
-              selected && "bg-muted text-foreground",
+              selected && "border-ring bg-muted text-foreground",
             )}
           >
             <Icon aria-hidden="true" />
@@ -67,18 +78,39 @@ export function ThemeControl({
   labelled?: boolean;
   className?: string;
 }) {
-  const theme = useSyncExternalStore(
-    subscribeTheme,
-    currentTheme,
-    () => "system" as const,
-  );
-  useLayoutEffect(restoreTheme, []);
   return (
     <ThemeChoices
-      value={theme}
+      value={useTheme()}
       onChange={setTheme}
       labelled={labelled}
       className={className}
     />
+  );
+}
+
+// The same choice inside the account menu: radio items, so the menu keeps its keyboard use.
+export function ThemeMenuItems() {
+  const t = useTranslations("layout.themeControl");
+  return (
+    <DropdownMenuRadioGroup
+      value={useTheme()}
+      onValueChange={(value) => setTheme(value as Theme)}
+      aria-label={t("label")}
+    >
+      {THEMES.map((theme) => {
+        const Icon = ICONS[theme];
+        return (
+          <DropdownMenuRadioItem
+            key={theme}
+            value={theme}
+            closeOnClick={false}
+            className="min-h-10 md:min-h-8"
+          >
+            <Icon aria-hidden="true" />
+            {t(theme)}
+          </DropdownMenuRadioItem>
+        );
+      })}
+    </DropdownMenuRadioGroup>
   );
 }

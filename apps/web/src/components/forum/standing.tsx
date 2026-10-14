@@ -112,7 +112,7 @@ export function MonthHero({
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <h2
             id="member-of-the-month"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary uppercase"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary-ink uppercase"
           >
             <Crown aria-hidden="true" className="size-4" />
             {leading ? t("leadingHeading") : t("heading")}
@@ -161,7 +161,7 @@ export function MonthHero({
             <dt className="truncate text-xs text-muted-foreground">
               {t("totalPoints")}
             </dt>
-            <dd className="mt-1 text-xl leading-tight font-bold tabular-nums text-primary">
+            <dd className="mt-1 text-xl leading-tight font-bold tabular-nums text-primary-ink">
               {formatNumber(winner.points, locale)}
             </dd>
           </div>
@@ -233,7 +233,7 @@ function StandingRow({
       </div>
       <Points
         value={entry.points}
-        className={leader ? "text-xl text-primary" : "text-sm"}
+        className={leader ? "text-xl text-primary-ink" : "text-sm"}
       />
     </li>
   );

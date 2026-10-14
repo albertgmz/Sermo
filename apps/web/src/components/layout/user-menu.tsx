@@ -7,7 +7,7 @@ import { logout } from "@/app/[locale]/(main)/actions";
 import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
-import { ThemeControl } from "@/components/layout/theme-control";
+import { ThemeMenuItems } from "@/components/layout/theme-control";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,10 +60,8 @@ export function UserMenu({
           </DropdownMenuItem>
         ))}
         <LiteModeToggle state={lite} />
-        <div className="flex items-center justify-between gap-2 px-1.5 py-1">
-          <span className="text-sm">{t("theme")}</span>
-          <ThemeControl />
-        </div>
+        <DropdownMenuSeparator />
+        <ThemeMenuItems />
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="min-h-10 md:min-h-8"

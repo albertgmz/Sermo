@@ -232,7 +232,7 @@ export function ProfileHeader({
                       href={profile.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="truncate font-medium text-primary underline underline-offset-4 hover:no-underline"
+                      className="truncate font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
                     >
                       {profile.website.replace(/^https?:\/\//, "")}
                     </a>

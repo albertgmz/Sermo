@@ -17,7 +17,7 @@ import { orNothing } from "../or-nothing";
 import { canOpen, hrefFor, type ScreenKey, visibleSections } from "../registry";
 
 const LINK =
-  "inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline";
+  "inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline";
 
 // The sections the viewer may open, each with the screens it holds. The home section is the
 // page itself.

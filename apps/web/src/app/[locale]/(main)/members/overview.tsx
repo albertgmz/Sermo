@@ -222,7 +222,7 @@ async function Birthdays() {
   return birthdays.length > 0 ? (
     birthdays.map((card) => (
       <MemberRow key={card.id} user={card} badgeLimit={1} className="py-2">
-        <Cake aria-hidden="true" className="size-4 shrink-0 text-primary" />
+        <Cake aria-hidden="true" className="size-4 shrink-0 text-primary-ink" />
       </MemberRow>
     ))
   ) : (

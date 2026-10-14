@@ -127,7 +127,7 @@ export async function FooterSocials() {
 }
 
 const FOOTER_LINK =
-  "inline-flex h-10 items-center gap-1.5 rounded-md font-medium transition-colors hover:text-primary md:h-8";
+  "inline-flex h-10 items-center gap-1.5 rounded-md font-medium transition-colors hover:text-primary-ink md:h-8";
 
 function FooterLink({ link }: { link: LinkItem }) {
   return (

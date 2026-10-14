@@ -91,7 +91,7 @@ export async function RuleList({ searchParams }: { searchParams: Search }) {
                         : `/admin/credit-rules?edit=${rule.id}#rule-${rule.id}`
                     }
                     scroll={false}
-                    className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
                   >
                     {editing === rule.id ? t("close") : t("edit")}
                   </Link>

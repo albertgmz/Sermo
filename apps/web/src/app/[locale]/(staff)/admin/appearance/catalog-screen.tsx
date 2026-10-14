@@ -204,7 +204,7 @@ export async function CatalogScreen({
                     : `${path}?edit=${entry.id}#entry-${entry.id}`
                 }
                 scroll={false}
-                className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
               >
                 {editing === entry.id ? t("close") : t("edit")}
               </Link>

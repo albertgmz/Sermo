@@ -162,7 +162,7 @@ function ThreadRow({
           {thread.isSticky && (
             <Pin
               aria-label={t("aria.pinned")}
-              className="mt-0.5 size-3.5 shrink-0 text-primary"
+              className="mt-0.5 size-3.5 shrink-0 text-primary-ink"
             />
           )}
           {thread.isLocked && (

@@ -19,7 +19,10 @@ export function Credits({
         className,
       )}
     >
-      <Coins aria-hidden="true" className="size-[1em] shrink-0 text-primary" />
+      <Coins
+        aria-hidden="true"
+        className="size-[1em] shrink-0 text-primary-ink"
+      />
       {formatNumber(value, locale)}
       <span className="sr-only"> {t("aria.unit")}</span>
     </span>

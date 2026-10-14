@@ -45,7 +45,7 @@ export async function ItemScreen({
           {t("noCategories")}{" "}
           <Link
             href="/admin/shop/categories"
-            className="text-primary underline-offset-4 hover:underline"
+            className="text-primary-ink underline-offset-4 hover:underline"
           >
             {t("toCategories")}
           </Link>
@@ -128,7 +128,7 @@ export async function ItemScreen({
             </span>
             <Link
               href={`/admin/shop/items/${item.id}`}
-              className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
             >
               {t("edit")}
               <span className="sr-only"> {item.name}</span>

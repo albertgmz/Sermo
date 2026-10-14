@@ -47,7 +47,7 @@ export function ClampedBody({
       {cut && (
         <Link
           href={href}
-          className="mt-1 inline-flex h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline md:h-8"
+          className="mt-1 inline-flex h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline md:h-8"
         >
           {t("readMore")}
         </Link>

@@ -41,7 +41,7 @@ async function Row({ member }: { member: AdminMember }) {
           />
           <Link
             href={`/admin/users/${card.id}`}
-            className="flex min-h-10 items-center text-xs text-primary underline-offset-4 hover:underline md:min-h-0"
+            className="flex min-h-10 items-center text-xs text-primary-ink underline-offset-4 hover:underline md:min-h-0"
           >
             {t("open")}
           </Link>
@@ -186,7 +186,7 @@ export async function UserList({
             </Button>
             <Link
               href="/admin/users"
-              className="inline-flex min-h-10 items-center px-2 text-sm text-primary underline-offset-4 hover:underline"
+              className="inline-flex min-h-10 items-center px-2 text-sm text-primary-ink underline-offset-4 hover:underline"
             >
               {t("reset")}
             </Link>

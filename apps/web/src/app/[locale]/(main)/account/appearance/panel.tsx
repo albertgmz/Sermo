@@ -18,7 +18,7 @@ const choiceClass =
   "relative flex min-h-10 w-full items-center justify-center overflow-hidden rounded-md border text-sm font-medium transition-colors hover:border-input aria-pressed:border-primary aria-pressed:bg-primary/10";
 
 const linkClass =
-  "inline-flex min-h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline";
+  "inline-flex min-h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline";
 
 function Selected() {
   return (

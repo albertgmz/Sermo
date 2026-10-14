@@ -381,7 +381,7 @@ export default async function StyleguidePage() {
                 }
                 className="space-y-3 rounded-lg border bg-card p-3"
               >
-                <p className="text-sm font-semibold text-primary">
+                <p className="text-sm font-semibold text-primary-ink">
                   {accent.label}
                 </p>
                 <Button className="w-full">Action</Button>
@@ -649,13 +649,13 @@ export default async function StyleguidePage() {
                 value: "market",
                 label: "Market",
                 href: "#",
-                icon: <Store className="size-4 text-primary" />,
+                icon: <Store className="size-4 text-primary-ink" />,
               },
               {
                 value: "money",
                 label: "Money",
                 href: "#",
-                icon: <CircleDollarSign className="size-4 text-primary" />,
+                icon: <CircleDollarSign className="size-4 text-primary-ink" />,
               },
             ]}
             active="general"
@@ -697,7 +697,7 @@ export default async function StyleguidePage() {
             form and are not a reusable component. See them in{" "}
             <Link
               href="/account/details"
-              className="inline-flex min-h-10 items-center text-primary underline-offset-4 hover:underline"
+              className="inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline"
             >
               Account details
             </Link>
@@ -972,7 +972,7 @@ export default async function StyleguidePage() {
           </p>
           <a
             href="#post-0"
-            className="inline-flex h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="inline-flex h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
           >
             Go to the sample post
           </a>

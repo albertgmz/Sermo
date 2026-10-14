@@ -37,9 +37,14 @@ export function PrefixTag({
   return (
     <Badge
       variant="outline"
-      style={{ "--prefix-color": prefix.color } as React.CSSProperties}
+      style={
+        {
+          "--prefix-color": prefix.color,
+          "--ink": prefix.color,
+        } as React.CSSProperties
+      }
       className={cn(
-        "h-(--spacing-inline-icon) gap-1 border-(--prefix-color)/30 bg-(--prefix-color)/10 px-1.5 text-(length:--text-caption) font-semibold text-(--prefix-color)",
+        "h-(--spacing-inline-icon) gap-1 border-(--prefix-color)/30 bg-(--prefix-color)/10 px-1.5 text-(length:--text-caption) font-semibold ink",
         className,
       )}
     >

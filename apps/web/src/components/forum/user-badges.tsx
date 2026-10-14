@@ -17,7 +17,7 @@ const tinyClass = "h-4 px-1.5 text-(length:--text-tiny)";
 
 function colorVar(color: string | null) {
   return color
-    ? ({ "--badge-color": color } as React.CSSProperties)
+    ? ({ "--badge-color": color, "--ink": color } as React.CSSProperties)
     : undefined;
 }
 
@@ -57,7 +57,7 @@ function TintBadge({ badge, className }: BadgeProps) {
       style={colorVar(badge.color)}
       className={cn(
         tinyClass,
-        badge.color && "bg-(--badge-color)/10 text-(--badge-color)",
+        badge.color && "bg-(--badge-color)/10 ink",
         className,
       )}
     >
@@ -74,7 +74,7 @@ function OutlineBadge({ badge, className }: BadgeProps) {
       style={colorVar(badge.color)}
       className={cn(
         "inline-flex h-4 shrink-0 items-center rounded-sm border px-1 text-(length:--text-tiny) leading-none font-semibold tracking-wide whitespace-nowrap uppercase",
-        badge.color ? "text-(--badge-color)" : "text-muted-foreground",
+        badge.color ? "ink" : "text-muted-foreground",
         className,
       )}
     >
@@ -95,7 +95,7 @@ function HeartBadge({ badge, className }: BadgeProps) {
             style={colorVar(badge.color)}
             className={cn(
               "inline-flex size-4 shrink-0 items-center justify-center",
-              badge.color ? "text-(--badge-color)" : "text-muted-foreground",
+              badge.color ? "ink" : "text-muted-foreground",
               className,
             )}
           />

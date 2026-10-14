@@ -70,7 +70,7 @@ export async function AwardList({
                 </span>
                 <Link
                   href={`/admin/awards/${award.id}`}
-                  className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  className="inline-flex min-h-10 min-w-10 items-center justify-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
                 >
                   {t("edit")}
                   <span className="sr-only"> {award.name}</span>

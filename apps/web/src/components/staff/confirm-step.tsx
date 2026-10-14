@@ -75,7 +75,7 @@ export function ConfirmStep({
         className={cn(
           "inline-flex min-h-10 cursor-pointer items-center text-sm font-medium",
           panel && "flex px-4",
-          danger ? "text-destructive" : "text-primary",
+          danger ? "text-destructive" : "text-primary-ink",
         )}
       >
         {shown}

@@ -208,7 +208,7 @@ export function PermissionMatrix({
                           {permission.title}
                         </span>
                         {value !== undefined && (
-                          <span className="rounded-sm border border-primary/40 px-1.5 text-xs font-normal text-primary">
+                          <span className="rounded-sm border border-primary/40 px-1.5 text-xs font-normal text-primary-ink">
                             {t("setHere")}
                           </span>
                         )}

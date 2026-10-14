@@ -8,7 +8,7 @@ export const rowClass =
   "grid gap-3 p-4 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-6";
 
 export const linkClass =
-  "inline-flex min-h-10 items-center text-primary underline-offset-4 hover:underline";
+  "inline-flex min-h-10 items-center text-primary-ink underline-offset-4 hover:underline";
 
 export const selectClass =
   "h-10 w-full min-w-0 rounded-lg border border-input bg-card px-2.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8 md:text-sm";

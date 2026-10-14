@@ -324,7 +324,7 @@ function About({
               <span className="flex items-center gap-1">
                 <Link
                   href={referral}
-                  className="min-w-0 font-medium text-primary underline underline-offset-4 hover:no-underline"
+                  className="min-w-0 font-medium text-primary-ink underline underline-offset-4 hover:no-underline"
                 >
                   {referral}
                 </Link>

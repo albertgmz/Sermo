@@ -176,7 +176,7 @@ export async function AdjustScreen({
             )}
             <Link
               href={base}
-              className="inline-flex min-h-10 items-center text-sm text-primary underline-offset-4 hover:underline"
+              className="inline-flex min-h-10 items-center text-sm text-primary-ink underline-offset-4 hover:underline"
             >
               {t("change")}
             </Link>

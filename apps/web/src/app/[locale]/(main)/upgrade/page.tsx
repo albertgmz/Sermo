@@ -173,7 +173,7 @@ async function Hero() {
         <p className="mt-5 flex max-w-md items-start gap-2.5 rounded-lg border bg-card px-3 py-2.5 text-sm text-pretty">
           <Coins
             aria-hidden="true"
-            className="mt-0.5 size-4 shrink-0 text-primary"
+            className="mt-0.5 size-4 shrink-0 text-primary-ink"
           />
           <span className="text-muted-foreground">
             {ledger
