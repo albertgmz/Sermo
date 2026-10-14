@@ -214,8 +214,6 @@ function inLocale(request: NextRequest, locale: Locale, pathname?: string) {
   return target;
 }
 
-const VARY = "Cookie, Accept-Language";
-
 // Lets the request go on to a page, in the visitor's language. Only a read of the page (GET,
 // HEAD) carries the path; an action's POST does not. Whatever the client sent under that name
 // never survives.
@@ -229,7 +227,6 @@ function toPage(request: NextRequest, locale: Locale) {
   const response = NextResponse.rewrite(inLocale(request, locale), {
     request: { headers },
   });
-  response.headers.set("Vary", VARY);
   return response;
 }
 
@@ -278,7 +275,6 @@ function notFound(request: NextRequest, locale: Locale) {
     new URL(`/${locale}/not-found`, request.url),
     { status: 404 },
   );
-  response.headers.set("Vary", VARY);
   return response;
 }
 
@@ -345,7 +341,6 @@ async function handleRequest(request: NextRequest) {
       return response;
     }
     const response = NextResponse.rewrite(inLocale(request, locale));
-    response.headers.set("Vary", VARY);
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;

@@ -1964,7 +1964,7 @@ the address. The routes live under `app/[locale]` instead, prerendered for `en` 
 proxy rewrites each page request to the visitor's language; the address the visitor sees never
 changes. A request that names `/en/…` or `/es/…` is sent (307) to the same address without it, so
 the segment is never a second address. Upload routes and `favicon.ico` stay outside it at their
-public paths. Responses vary on `Cookie` and `Accept-Language`.
+public paths. Pages are sent `private, no-store`, so no shared cache mixes languages (the proxy cannot add a `Vary` header: Next's render replaces it).
 
 **Which language.** The cookie `forum_locale`, then the browser's `Accept-Language` (first
 supported language by weight), then the site's default language (`site.get` now carries

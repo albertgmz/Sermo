@@ -442,7 +442,6 @@ test("the API, pictures and the 404 rewrites carry no x-sermo-path", async () =>
 
   const picture = await ask("/pictures/tobi.jpg", { headers: forged });
   assert.ok(picture);
-  assert.equal(picture.headers.get("vary"), "Cookie, Accept-Language");
   assert.equal(picture.headers.get("x-middleware-override-headers"), null);
   assert.equal(picture.headers.get("x-middleware-request-x-sermo-path"), null);
 
@@ -1026,7 +1025,7 @@ test("the browser's language is negotiated by preference, then English", async (
   }
 });
 
-test("the rewrite keeps the query, the root is the language's root, and the answer varies", async () => {
+test("the rewrite keeps the query, and the root is the language's root", async () => {
   reset();
   const response = await ask("/forums?page=2&sort=new", {
     headers: { "accept-language": "es" },
@@ -1035,7 +1034,6 @@ test("the rewrite keeps the query, the root is the language's root, and the answ
     rewriteOf(response),
     "http://localhost/es/forums?page=2&sort=new",
   );
-  assert.equal(response?.headers.get("vary"), "Cookie, Accept-Language");
   assert.equal(rewriteOf(await ask("/")), "http://localhost/en");
   assert.equal(forwarded(response, "x-sermo-path"), "/forums?page=2&sort=new");
 });
@@ -1121,13 +1119,12 @@ test("Next's own picture addresses are not rewritten into a language", async () 
   }
 });
 
-test("a picture-looking address that is no page gets the 404 of the language, varying like a page", async () => {
+test("a picture-looking address that is no page gets the 404 of the language", async () => {
   reset();
   const response = await ask("/pictures/tobi.jpg", {
     headers: { "accept-language": "es" },
   });
   assert.equal(rewriteOf(response), "http://localhost/es/pictures/tobi.jpg");
-  assert.equal(response?.headers.get("vary"), "Cookie, Accept-Language");
 });
 
 test("the site's default language comes after the cookie and the browser, and is asked for only then", async () => {
