@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { $createCodeNode, CodeNode } from "@lexical/code";
 import { $isLinkNode, LinkNode } from "@lexical/link";
 import { $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
 import {
@@ -26,7 +27,7 @@ function editorWith(
   select: (node: ReturnType<typeof $createTextNode>) => void,
 ) {
   const editor = createEditor({
-    nodes: [LinkNode],
+    nodes: [LinkNode, CodeNode],
     onError: (error) => {
       throw error;
     },
@@ -179,4 +180,33 @@ test("removing an attachment takes its tags out of the editor, whichever the siz
   );
   run(editor, () => $removeAttachTags(4));
   expect(markdownOf(editor)).toBe("a  b  c [ATTACH]5[/ATTACH]");
+});
+
+test("removing an attachment leaves its tags in code as written", () => {
+  const editor = createEditor({
+    nodes: [CodeNode],
+    onError: (error) => {
+      throw error;
+    },
+  });
+  run(editor, () => {
+    const code = $createCodeNode();
+    code.append($createTextNode("[ATTACH]4[/ATTACH]"));
+    const inline = $createTextNode("[ATTACH]4[/ATTACH]").toggleFormat("code");
+    $getRoot()
+      .clear()
+      .append(
+        code,
+        $createParagraphNode().append(
+          inline,
+          $createTextNode(" [ATTACH]4[/ATTACH]"),
+        ),
+      );
+    $removeAttachTags(4);
+  });
+  let kept = "";
+  editor.read(() => {
+    kept = $getRoot().getTextContent();
+  });
+  expect(kept).toBe("[ATTACH]4[/ATTACH]\n\n[ATTACH]4[/ATTACH] ");
 });

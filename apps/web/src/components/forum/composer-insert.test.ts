@@ -79,3 +79,17 @@ test("a field that never had the focus takes the text at its end", () => {
     ["x", 5, 5, "end"],
   ]);
 });
+
+test("removing an attachment also takes the thumb form and the spaced and quoted ones", () => {
+  const text = [
+    "[ATTACH=thumb]6[/ATTACH]",
+    "[attach] 6 [/attach]",
+    "[ATTACH= full ]6[/ATTACH]",
+    '[ATTACH="thumb"]6[/ATTACH]',
+    "[ATTACH=small]6[/ATTACH]",
+    "[ATTACH]66[/ATTACH]",
+  ].join("|");
+  expect(withoutAttachTag(text, 6)).toBe(
+    "||||[ATTACH=small]6[/ATTACH]|[ATTACH]66[/ATTACH]",
+  );
+});

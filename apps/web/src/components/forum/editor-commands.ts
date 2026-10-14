@@ -1,3 +1,4 @@
+import { $isCodeNode } from "@lexical/code";
 import { $createLinkNode, $toggleLink } from "@lexical/link";
 import {
   $createRangeSelection,
@@ -84,6 +85,9 @@ export function $wrapSelection(open: string, close: string) {
 // Takes the tags that place attachment `id` out of the text.
 export function $removeAttachTags(id: number) {
   for (const node of $getRoot().getAllTextNodes()) {
+    // Code shows a tag as text and is not a place for an attachment: it stays as written.
+    if ($isCodeNode(node.getTopLevelElement()) || node.hasFormat("code"))
+      continue;
     const text = node.getTextContent();
     const kept = withoutAttachTag(text, id);
     if (kept !== text) node.setTextContent(kept);

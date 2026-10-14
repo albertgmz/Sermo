@@ -360,7 +360,10 @@ function Toolbar({ className }: { className?: string }) {
 
   function addMedia() {
     const address = window.prompt(t("mediaPrompt"), "https://");
-    if (!address) return;
+    if (!address) {
+      setMediaRefused(false);
+      return;
+    }
     const media = mediaTagOf(address);
     setMediaRefused(!media);
     if (media) editor.update(() => $insertText(media));

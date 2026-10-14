@@ -9,10 +9,14 @@ export type ComposerRequest = { insert: string } | { remove: number };
 export const attachTag = (id: number, size: "thumb" | "full") =>
   size === "full" ? `[ATTACH=full]${id}[/ATTACH]` : `[ATTACH]${id}[/ATTACH]`;
 
-// The text without the tags that place attachment `id`.
+// The text without the tags that place attachment `id`, in every form the renderer reads: either
+// size (`full`, `thumb`, quoted or not), any case, and space around the option and the id.
 export const withoutAttachTag = (text: string, id: number) =>
   text.replace(
-    new RegExp(String.raw`\[ATTACH(?:=full)?\]${id}\[/ATTACH\]`, "gi"),
+    new RegExp(
+      String.raw`\[ATTACH(?:=(?:"\s*(?:full|thumb)\s*"|\s*(?:full|thumb)\s*))?\]\s*${id}\s*\[/ATTACH\]`,
+      "gi",
+    ),
     "",
   );
 
