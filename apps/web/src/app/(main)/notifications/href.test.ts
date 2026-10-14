@@ -277,7 +277,7 @@ test("content the viewer can no longer open falls back to the backend's own path
   ).toBe("/notifications");
 });
 
-test("a follower alert with no actor listed falls back to the list's own path", async () => {
+test("a follower alert with no actor listed falls back to the member's profile", async () => {
   expect(
     await hrefOf(
       notice({
@@ -288,5 +288,5 @@ test("a follower alert with no actor listed falls back to the list's own path", 
         url: "/users/1",
       }),
     ),
-  ).toBe("/users/1");
+  ).toBe("/members/1");
 });

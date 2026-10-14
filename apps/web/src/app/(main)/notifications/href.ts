@@ -98,6 +98,8 @@ export async function hrefOf(item: ApiNotification): Promise<string> {
     // Content the viewer can no longer open: the backend's own path is the best that is left.
     if (!(error instanceof SermoError)) throw error;
   }
+  const user = /^\/users\/(\d+)$/.exec(item.url);
+  if (user) return `/members/${user[1]}`;
   // Announcements and reports have no page for a member; the backend's wall and comment paths
   // are not routes here.
   return /^\/(announcements|reports|profile-posts|profile-comments)\//.test(

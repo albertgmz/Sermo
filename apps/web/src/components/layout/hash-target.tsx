@@ -1,10 +1,12 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   type Box,
   createSpotlight,
+  createTraversalGuard,
+  restoresScroll,
   type SpotlightEnv,
   TARGET,
 } from "@/components/layout/spotlight";
@@ -19,6 +21,15 @@ function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
       const options = { capture: true, passive: true };
       window.addEventListener(type, listener, options);
       return () => window.removeEventListener(type, listener, options);
+    },
+    frames: (run) => {
+      let id = 0;
+      const tick = () => {
+        run();
+        id = window.requestAnimationFrame(tick);
+      };
+      id = window.requestAnimationFrame(tick);
+      return () => window.cancelAnimationFrame(id);
     },
     later: (run, ms) => {
       const timer = window.setTimeout(run, ms);
@@ -38,17 +49,28 @@ export function HashTarget() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const [box, setBox] = useState<Box | null>(null);
+  const spotlight = useRef<ReturnType<typeof createSpotlight> | null>(null);
+  const guard = useRef<ReturnType<typeof createTraversalGuard> | null>(null);
+  const arrived = useRef(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a navigation to another page or query is what starts it again
+  // Once: the listeners, and the first arrival, unless the browser restores the scroll itself
+  // (a reload, or a visit by history).
   useEffect(() => {
-    const spotlight = createSpotlight(
-      browserEnv(
-        (next) => setBox({ ...next }),
-        () => setBox(null),
-      ),
+    const env = browserEnv(
+      (next) => setBox({ ...next }),
+      () => setBox(null),
     );
-    const onHashChange = () => spotlight.start();
+    const current = createSpotlight(env);
+    const traversals = createTraversalGuard(env.later);
+    spotlight.current = current;
+    guard.current = traversals;
+    const onPopState = () => traversals.traversal();
+    const onHashChange = () => {
+      if (traversals.consume()) current.stop();
+      else current.start();
+    };
     const onClick = (event: MouseEvent) => {
+      traversals.reset();
       const link =
         event.target instanceof Element
           ? event.target.closest("a[href]")
@@ -62,17 +84,34 @@ export function HashTarget() {
         to.search === here.search &&
         TARGET.test(to.hash)
       ) {
-        spotlight.startWhenHashIs(to.hash);
+        current.startWhenHashIs(to.hash);
       }
     };
+    window.addEventListener("popstate", onPopState);
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
-    spotlight.start();
+    const [entry] = performance.getEntriesByType("navigation");
+    if (!restoresScroll((entry as PerformanceNavigationTiming)?.type)) {
+      current.start();
+    }
     return () => {
+      window.removeEventListener("popstate", onPopState);
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);
-      spotlight.stop();
+      traversals.reset();
+      current.stop();
     };
+  }, []);
+
+  // A navigation to another page or query: a new arrival, unless it is a visit by history.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the path and the query are what starts it again
+  useEffect(() => {
+    if (!arrived.current) {
+      arrived.current = true;
+      return;
+    }
+    if (guard.current?.consume()) spotlight.current?.stop();
+    else spotlight.current?.start();
   }, [pathname, search]);
 
   if (!box) return null;

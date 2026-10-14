@@ -16,6 +16,12 @@ const NAVIGATE_MS = 1000;
 
 export type Box = { top: number; left: number; width: number; height: number };
 
+const sameBox = (a: Box, b: Box) =>
+  a.top === b.top &&
+  a.left === b.left &&
+  a.width === b.width &&
+  a.height === b.height;
+
 export type SpotlightTarget = {
   getBoundingClientRect(): Box;
   scrollIntoView(options: {
@@ -30,6 +36,8 @@ export type SpotlightEnv = {
   reducedMotion(): boolean;
   // Listens for an event anywhere on the page; returns what stops listening.
   on(type: string, listener: () => void): () => void;
+  // Runs `run` on every animation frame until cancelled.
+  frames(run: () => void): () => void;
   // Runs `run` later; returns what cancels it.
   later(run: () => void, ms: number): () => void;
   show(box: Box): void;
@@ -60,7 +68,18 @@ export function createSpotlight(env: SpotlightEnv) {
       cancelSettle();
       cancelSettle = env.later(() => {
         settled = true;
-        env.show(element.getBoundingClientRect());
+        // Kept on the element while it is shown: content that shifts afterwards (late pictures,
+        // a section that streams in) moves it.
+        let shown = element.getBoundingClientRect();
+        env.show(shown);
+        stops.push(
+          env.frames(() => {
+            const now = element.getBoundingClientRect();
+            if (sameBox(now, shown)) return;
+            shown = now;
+            env.show(now);
+          }),
+        );
         stops.push(env.later(stop, SHOW_MS));
       }, SETTLE_MS);
     };
@@ -69,11 +88,6 @@ export function createSpotlight(env: SpotlightEnv) {
       env.on("scroll", () => {
         if (settled) stop();
         else waitForSettle();
-      }),
-    );
-    stops.push(
-      env.on("resize", () => {
-        if (settled) env.show(element.getBoundingClientRect());
       }),
     );
     waitForSettle();
@@ -110,4 +124,37 @@ export function createSpotlight(env: SpotlightEnv) {
   }
 
   return { start, startWhenHashIs, stop };
+}
+
+// The kinds of page load the browser restores the scroll position for itself.
+export const restoresScroll = (type: string | undefined) =>
+  type === "reload" || type === "back_forward";
+
+// Tells a visit by history (Back, Forward) from a new navigation. A traversal is announced by
+// `traversal()` before the address, the path or the query change in the page; the first change
+// that follows takes it with `consume()`, and so does a link followed (`reset()`). One that
+// no change follows is forgotten after a moment.
+export function createTraversalGuard(
+  later: (run: () => void, ms: number) => () => void,
+) {
+  let traversed = false;
+  let cancel = () => {};
+  const reset = () => {
+    traversed = false;
+    cancel();
+  };
+  return {
+    traversal() {
+      reset();
+      traversed = true;
+      cancel = later(reset, 1000);
+    },
+    // Whether the change being handled is the traversal's; each traversal is taken once.
+    consume() {
+      const was = traversed;
+      reset();
+      return was;
+    },
+    reset,
+  };
 }

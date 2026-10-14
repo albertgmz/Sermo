@@ -56,12 +56,12 @@ function comment(id: number) {
   });
 }
 
-function backend() {
+function backend(signedIn = true) {
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     asked.push(`${pathname}?${searchParams}`);
-    if (pathname === "/api/v1/me") return Response.json(viewerBody(false));
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(signedIn));
     if (pathname === "/api/v1/reaction-types")
       return Response.json({ items: [] });
     if (pathname === "/api/v1/member-cards")
@@ -130,10 +130,8 @@ test("a post that is not on the first page opens the wall at the page that holds
     false,
     false,
   ]);
-  // It continues from there: the link for more points at the page after, and the page itself
-  // is the one the wall now returns to.
+  // It continues from there: the link for more points at the page after.
   expect(html.includes('href="/members/9?cursor=p6"')).toBe(true);
-  expect(html.includes("next=%2Fmembers%2F9%3Fcursor%3Dp3")).toBe(true);
 });
 
 test("a post on the first page is found with one read", async () => {
@@ -145,11 +143,25 @@ test("a post on the first page is found with one read", async () => {
   ).toHaveLength(1);
 });
 
-test("a post the wall does not hold leaves the wall at its first page", async () => {
+test("a post the wall does not hold leaves the wall at its first page, without reading it twice", async () => {
   backend();
   const html = await wall({ focus: { postId: 77 } });
   expect(shows(html, 9)).toBe(true);
   expect(shows(html, 5)).toBe(false);
+  // The three pages of the wall, once each.
+  expect(
+    asked.filter((line) => line.includes("/users/9/profile-posts")),
+  ).toHaveLength(3);
+});
+
+test("a guest gets the first page and nothing is walked", async () => {
+  backend(false);
+  const html = await wall({ focus: { postId: 5, commentId: 102 } });
+  expect(shows(html, 9)).toBe(true);
+  expect(shows(html, 5)).toBe(false);
+  expect(
+    asked.filter((line) => line.includes("/users/9/profile-posts")),
+  ).toHaveLength(1);
 });
 
 test("a cursor in the address wins over the post it names", async () => {

@@ -166,28 +166,29 @@ export async function Wall({
   focus?: WallFocus;
 }) {
   // A named post that the first page does not hold is looked for further down the wall, and the
-  // wall continues from the page that has it.
-  const found =
-    focus && requested === undefined
+  // wall continues from the page that has it. Alerts exist only for members: a guest gets the
+  // first page.
+  const viewer = await getViewer();
+  const walk =
+    focus && requested === undefined && viewer.user
       ? await pageHolding(
           (at) => read(profilePostsList, { userId: profile.id, cursor: at }),
           (post) => post.id === focus.postId,
         )
       : null;
-  const cursor = found ? found.cursor : requested;
-  const [{ items: posts, nextCursor }, reactionTypes, viewer, t, loadMore] =
+  const cursor = walk?.hit ? walk.hit.cursor : requested;
+  const [{ items: posts, nextCursor }, reactionTypes, t, loadMore] =
     await Promise.all([
-      found
-        ? Promise.resolve(found.page)
+      walk
+        ? Promise.resolve(walk.hit?.page ?? walk.first)
         : read(profilePostsList, { userId: profile.id, cursor }),
       getReactionTypes(),
-      getViewer(),
       getTranslations("members.wall"),
       getTranslations("members.loadMore"),
     ]);
   // A named comment that is not among the newest few opens the page of comments that holds it.
   const focused =
-    focus?.commentId !== undefined && !requestedOpen
+    focus?.commentId !== undefined && viewer.user && !requestedOpen
       ? posts.find((post) => post.id === focus.postId)
       : undefined;
   const commentHit =
@@ -201,12 +202,12 @@ export async function Wall({
           (comment) => comment.id === focus?.commentId,
         )
       : null;
-  const open: OpenComments | undefined = commentHit
-    ? { postId: focused?.id ?? 0, cursor: commentHit.cursor }
+  const open: OpenComments | undefined = commentHit?.hit
+    ? { postId: focused?.id ?? 0, cursor: commentHit.hit.cursor }
     : requestedOpen;
   const openPost = open && posts.find((post) => post.id === open.postId);
   const openPage = openPost
-    ? (commentHit?.page ??
+    ? (commentHit?.hit?.page ??
       (await read(profileCommentsList, {
         profilePostId: openPost.id,
         cursor: open?.cursor,

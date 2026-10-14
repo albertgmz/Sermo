@@ -18,27 +18,32 @@ function list(n: number, size: number) {
 
 test("an item on the first page is found without reading further", async () => {
   const { read, reads } = list(100, 10);
-  const found = await pageHolding(read, (id) => id === 95);
-  expect(found?.cursor).toBeUndefined();
-  expect(found?.page.items).toContain(95);
+  const { hit } = await pageHolding(read, (id) => id === 95);
+  expect(hit?.cursor).toBeUndefined();
+  expect(hit?.page.items).toContain(95);
   expect(reads).toEqual([undefined]);
 });
 
 test("an item further down is found with the cursor that opens its page", async () => {
   const { read, reads } = list(100, 10);
-  const found = await pageHolding(read, (id) => id === 42);
-  expect(found?.cursor).toBe("50");
-  expect(found?.page.items).toEqual([50, 49, 48, 47, 46, 45, 44, 43, 42, 41]);
+  const { hit } = await pageHolding(read, (id) => id === 42);
+  expect(hit?.cursor).toBe("50");
+  expect(hit?.page.items).toEqual([50, 49, 48, 47, 46, 45, 44, 43, 42, 41]);
   expect(reads).toHaveLength(6);
 });
 
-test("an item that is not in the list is not found", async () => {
-  const { read } = list(30, 10);
-  expect(await pageHolding(read, (id) => id === 500)).toBeNull();
+test("an item that is not in the list is a miss, and the first page is handed back", async () => {
+  const { read, reads } = list(30, 10);
+  const { hit, first } = await pageHolding(read, (id) => id === 500);
+  expect(hit).toBeNull();
+  expect(first.items[0]).toBe(30);
+  expect(reads).toHaveLength(3);
 });
 
-test("an item too far down is given up on", async () => {
+test("an item too far down is given up on after ten pages", async () => {
   const { read, reads } = list(10_000, 10);
-  expect(await pageHolding(read, (id) => id === 1)).toBeNull();
-  expect(reads).toHaveLength(20);
+  const { hit, first } = await pageHolding(read, (id) => id === 1);
+  expect(hit).toBeNull();
+  expect(first.items[0]).toBe(10_000);
+  expect(reads).toHaveLength(10);
 });

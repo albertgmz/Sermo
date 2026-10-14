@@ -50,6 +50,9 @@ test("migration 0031 marks unread conversation message alerts read and keeps the
   member(ctx, 102, 1, 1);
   notice(ctx, 102, "conversation.message", 0, null);
   notice(ctx, 102, "conversation.message", 1, null);
+  // Member 104's counter has drifted below its unread rows: it stops at zero.
+  member(ctx, 104, 0, 0);
+  notice(ctx, 104, "conversation.message", 0, null);
   // Member 103 has nothing of that kind.
   member(ctx, 103, 0, 1);
   notice(ctx, 103, "content.mentioned", 0, null);
@@ -61,7 +64,7 @@ test("migration 0031 marks unread conversation message alerts read and keeps the
       "SELECT id, unread_notification_count FROM users ORDER BY id",
     )
     .all();
-  expect(counts.map((row) => row.unread_notification_count)).toEqual([1, 0, 1]);
+  expect(counts.map((row) => row.unread_notification_count)).toEqual([1, 0, 1, 0]);
   // Every member's counter equals the unread rows of the current epoch.
   for (const row of counts) {
     const unread = ctx.sqlite
@@ -85,7 +88,7 @@ test("migration 0031 marks unread conversation message alerts read and keeps the
         "SELECT count(*) AS n FROM notifications WHERE type = 'conversation.message'",
       )
       .get()!.n,
-  ).toBe(5);
+  ).toBe(6);
   // The row that was read before keeps its time.
   expect(
     ctx.sqlite

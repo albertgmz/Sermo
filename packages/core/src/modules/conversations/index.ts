@@ -66,11 +66,11 @@ export const activeSql =
 export const reactableSql =
   "SELECT m.user_id, m.state FROM conversation_messages m JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id WHERE m.id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 // Alerts about a conversation: the ones whose content is the conversation (being added), and any
-// whose content is one of its messages (a mention), found through the member's own unread rows.
+// whose content is one of its messages (a mention), found through the member's own unread rows of the current epoch.
 export const clearConversationNoticesSql =
   "UPDATE notifications INDEXED BY notifications_content SET read_at = ?1 WHERE content_type = 'conversation' AND content_id = ?2 AND user_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
 export const clearMessageNoticesSql =
-  "UPDATE notifications INDEXED BY notifications_user_unread SET read_at = ?1 WHERE user_id = ?3 AND content_type = 'conversation_message' AND json_extract(data, '$.conversationId') = ?2 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
+  "UPDATE notifications INDEXED BY notifications_user_unread_recent SET read_at = ?1 WHERE user_id = ?3 AND content_type = 'conversation_message' AND CAST(json_extract(data, '$.conversationId') AS INTEGER) = ?2 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
 
 function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
   const user = requireAuthenticated(actor);
@@ -464,7 +464,7 @@ export const conversationsMarkReadOp = implement(
       if (cleared)
         prepared(ctx, "conversations.countDownNotices", () =>
           ctx.sqlite.prepare(
-            "UPDATE users SET unread_notification_count = unread_notification_count - ?1 WHERE id = ?2",
+            "UPDATE users SET unread_notification_count = max(0, unread_notification_count - ?1) WHERE id = ?2",
           ),
         ).run(cleared, user.userId);
     });

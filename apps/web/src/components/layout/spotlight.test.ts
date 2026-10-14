@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import {
   type Box,
   createSpotlight,
+  createTraversalGuard,
+  restoresScroll,
   type SpotlightTarget,
   TARGET,
 } from "./spotlight";
@@ -16,14 +18,20 @@ function fakePage(options: { hash: string; reduced?: boolean }) {
   const scrolls: { block: string; behavior: string }[] = [];
   const shown: (Box | null)[] = [];
   const present = new Map<string, SpotlightTarget>();
+  const frameRuns = new Set<() => void>();
   const page = {
     hash: options.hash,
+    box: BOX,
     element(id: string) {
       present.set(id, {
-        getBoundingClientRect: () => BOX,
+        getBoundingClientRect: () => page.box,
         scrollIntoView: (to) => scrolls.push(to),
       });
     },
+    frame() {
+      for (const run of [...frameRuns]) run();
+    },
+    framing: () => frameRuns.size,
     fire(type: string) {
       for (const listener of [...(listeners.get(type) ?? [])]) listener();
     },
@@ -56,6 +64,10 @@ function fakePage(options: { hash: string; reduced?: boolean }) {
       listeners.set(type, set);
       set.add(listener);
       return () => set.delete(listener);
+    },
+    frames: (run) => {
+      frameRuns.add(run);
+      return () => frameRuns.delete(run);
     },
     later: (run, ms) => {
       const timer = { at: now + ms, run, live: true };
@@ -240,4 +252,61 @@ test("stopping removes everything it listened to", () => {
   ]) {
     expect(page.listening(type)).toBe(0);
   }
+});
+
+test("a reload and a visit by history are left to the browser's own scroll", () => {
+  expect(restoresScroll("reload")).toBe(true);
+  expect(restoresScroll("back_forward")).toBe(true);
+  for (const type of ["navigate", "prerender", undefined]) {
+    expect(restoresScroll(type)).toBe(false);
+  }
+});
+
+test("a traversal is taken by the first change that follows it, once", () => {
+  const { page } = fakePage({ hash: "" });
+  const later = (run: () => void, ms: number) => {
+    const timer = { live: true };
+    // Same clock as the fake page: the page's own timers are not exposed, so use its wait.
+    pending.push({ run, ms, timer });
+    return () => {
+      timer.live = false;
+    };
+  };
+  const pending: { run: () => void; ms: number; timer: { live: boolean } }[] =
+    [];
+  const guard = createTraversalGuard(later);
+  expect(guard.consume()).toBe(false);
+  guard.traversal();
+  expect(guard.consume()).toBe(true);
+  expect(guard.consume()).toBe(false);
+  // A link followed after the traversal is a new navigation.
+  guard.traversal();
+  guard.reset();
+  expect(guard.consume()).toBe(false);
+  // A traversal that no change follows is forgotten.
+  guard.traversal();
+  for (const item of pending) if (item.timer.live) item.run();
+  expect(guard.consume()).toBe(false);
+  expect(page.shown).toEqual([]);
+});
+
+test("the dimming stays on the element when content shifts while it is shown", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.element("post-12");
+  spotlight.start();
+  page.frame();
+  expect(page.shown).toEqual([]);
+  page.wait(200);
+  expect(page.visible).toEqual(BOX);
+  page.frame();
+  expect(page.shown).toEqual([BOX]);
+  const moved = { ...BOX, top: 240, height: 120 };
+  page.box = moved;
+  page.frame();
+  expect(page.visible).toEqual(moved);
+  page.frame();
+  expect(page.shown).toEqual([BOX, moved]);
+  // Once dismissed it measures nothing more.
+  page.fire("pointerdown");
+  expect(page.framing()).toBe(0);
 });

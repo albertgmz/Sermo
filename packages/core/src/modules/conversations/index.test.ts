@@ -703,6 +703,18 @@ describe("conversations", () => {
       expect(unreadRows(ctx, b)).toEqual([]);
     });
 
+    test("a counter that has drifted below the alerts cleared stops at zero", async () => {
+      const { ctx, a, b } = fixture();
+      const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      notice(ctx, b, "conversation", made.conversation.id);
+      ctx.sqlite
+        .prepare("UPDATE users SET unread_notification_count = 0 WHERE id = ?1")
+        .run(idOf(b));
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: made.conversation.id });
+      expect(unreadCount(ctx, b)).toBe(0);
+      expect(unreadRows(ctx, b)).toEqual([]);
+    });
+
     test("a non-participant, a guest and a left member clear nothing", async () => {
       const { ctx, a, b, c } = fixture();
       const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
@@ -722,6 +734,28 @@ describe("conversations", () => {
       expect(unreadCount(ctx, c)).toBe(1);
       expect(unreadCount(ctx, b)).toBe(1);
       expect(unreadRows(ctx, b)).toHaveLength(1);
+    });
+
+    test("a conversation id stored as text still matches", async () => {
+      const { ctx, a, b } = fixture();
+      const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      notice(ctx, b, "conversation_message", made.message.id, {
+        conversationId: String(made.conversation.id),
+      });
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: made.conversation.id });
+      expect(unreadRows(ctx, b)).toEqual([]);
+    });
+
+    test("the message statement skips the rows of older epochs through the index", () => {
+      const { ctx } = fixture();
+      const plan = ctx.sqlite
+        .prepare<{ detail: string }, [number, number, number]>(
+          `EXPLAIN QUERY PLAN ${clearMessageNoticesSql}`,
+        )
+        .all(0, 1, 1)
+        .map((row) => row.detail)
+        .join(" ");
+      expect(plan).toContain("notifications_user_unread_recent (user_id=? AND epoch=?)");
     });
 
     test("the clearing statements use an index", () => {

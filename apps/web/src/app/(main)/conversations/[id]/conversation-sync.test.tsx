@@ -35,13 +35,15 @@ afterAll(() => {
 });
 
 // The scroll effect reads the address of the page, which a server render has not got.
-function render() {
+function render(mark = true, scroll = true) {
   const globals = globalThis as unknown as { window?: unknown };
   globals.window = { location: { hash: "" } };
   effects.length = 0;
   marked.length = 0;
   refreshed = 0;
-  renderToStaticMarkup(createElement(ConversationSync, { id: 5 }));
+  renderToStaticMarkup(
+    createElement(ConversationSync, { id: 5, mark, scroll }),
+  );
   try {
     return effects.map((effect) => effect());
   } finally {
@@ -58,6 +60,14 @@ test("opening a conversation marks it read and refreshes the route once that is 
   expect(refreshed).toBe(1);
 });
 
+test("a read conversation and no unread alerts cause no write and no refresh", async () => {
+  render(false);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(marked).toEqual([]);
+  expect(refreshed).toBe(0);
+});
+
 test("leaving the page before the answer comes back refreshes nothing", async () => {
   const cleanups = render();
   for (const cleanup of cleanups) cleanup?.();
@@ -70,4 +80,12 @@ test("an address that names a message keeps the page at that message", () => {
   expect(keepsPlace("#message-4")).toBe(true);
   for (const hash of ["", "#post-4", "#main"])
     expect(keepsPlace(hash)).toBe(false);
+});
+
+test("an older page of messages is marked read too, without needing the scroll", async () => {
+  render(true, false);
+  expect(marked).toEqual([5]);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(refreshed).toBe(1);
 });

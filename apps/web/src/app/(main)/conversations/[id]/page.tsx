@@ -21,6 +21,7 @@ import { Reactions } from "@/components/forum/reactions";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
@@ -190,18 +191,24 @@ async function Messages({
       order: "newest",
       cursor: at,
     });
-  const found =
+  const walk =
     focus !== null && requested === undefined
       ? await pageHolding(readPage, (message) => message.id === focus)
       : null;
-  const cursor = found ? found.cursor : requested;
-  const [{ items: newestFirst, nextCursor }, { user }, reactionTypes, t] =
-    await Promise.all([
-      found ? Promise.resolve(found.page) : readPage(cursor),
-      getMember(),
-      getReactionTypes(),
-      getTranslations("conversations.conversation"),
-    ]);
+  const cursor = walk?.hit ? walk.hit.cursor : requested;
+  const [
+    { items: newestFirst, nextCursor },
+    { user },
+    reactionTypes,
+    t,
+    { notifications },
+  ] = await Promise.all([
+    walk ? Promise.resolve(walk.hit?.page ?? walk.first) : readPage(cursor),
+    getMember(),
+    getReactionTypes(),
+    getTranslations("conversations.conversation"),
+    getCounters(),
+  ]);
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
   const author = await authorsFor(messages.map((message) => message.author));
@@ -261,7 +268,7 @@ async function Messages({
           </li>
         ))}
       </ol>
-      {cursor ? (
+      {cursor && (
         <LoadMore
           href={`/conversations/${conversation.id}`}
           className="mt-3"
@@ -269,9 +276,14 @@ async function Messages({
         >
           {t("newest")}
         </LoadMore>
-      ) : (
-        <ConversationSync key={messages.at(-1)?.id} id={conversation.id} />
       )}
+      {/* Opening the conversation at any page records it as read; only the newest page scrolls. */}
+      <ConversationSync
+        key={messages.at(-1)?.id}
+        id={conversation.id}
+        mark={conversation.isUnread || notifications > 0}
+        scroll={!cursor}
+      />
     </>
   );
 }

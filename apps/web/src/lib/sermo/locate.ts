@@ -1,21 +1,28 @@
 // How many pages of a list are read to find one item.
-const MAX_PAGES = 20;
+const MAX_PAGES = 10;
 
 export type Paged<T> = { items: T[]; nextCursor: string | null };
 
 // Finds, in a list that is read by cursor, the page that holds an item, using the list's own
-// reads: the cursor that opens the page (none for the first) and the page itself. Null when the
-// item is not within the first MAX_PAGES pages, or not in the list.
+// reads. `hit` is the cursor that opens that page (none for the first) and the page itself, or
+// null when the item is not within the first MAX_PAGES pages or not in the list; `first` is the
+// first page, already read, for a caller that falls back to it.
 export async function pageHolding<T>(
   readPage: (cursor: string | undefined) => Promise<Paged<T>>,
   holds: (item: T) => boolean,
-): Promise<{ cursor: string | undefined; page: Paged<T> } | null> {
+): Promise<{
+  hit: { cursor: string | undefined; page: Paged<T> } | null;
+  first: Paged<T>;
+}> {
+  const first = await readPage(undefined);
   let cursor: string | undefined;
-  for (let pages = 0; pages < MAX_PAGES; pages += 1) {
-    const page = await readPage(cursor);
-    if (page.items.some(holds)) return { cursor, page };
-    if (page.nextCursor === null) return null;
+  let page = first;
+  for (let pages = 1; ; pages += 1) {
+    if (page.items.some(holds)) return { hit: { cursor, page }, first };
+    if (page.nextCursor === null || pages >= MAX_PAGES) {
+      return { hit: null, first };
+    }
     cursor = page.nextCursor;
+    page = await readPage(cursor);
   }
-  return null;
 }
