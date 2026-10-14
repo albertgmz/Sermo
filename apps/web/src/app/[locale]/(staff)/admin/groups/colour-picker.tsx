@@ -1,6 +1,7 @@
 import { paletteColorsList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { isHexColor } from "@/lib/css-color";
+import { paletteName } from "@/lib/palette-name";
 import { read } from "@/lib/sermo/client";
 
 // The name colours of the palette as swatches to pick one from, plus "none". `current` is the id
@@ -13,8 +14,9 @@ export async function ColourPicker({
   name?: string;
   current: number | null;
 }) {
-  const [t, { items }] = await Promise.all([
+  const [t, names, { items }] = await Promise.all([
     getTranslations("adminGroups.colourPicker"),
+    getTranslations("lib.appearance"),
     read(paletteColorsList, { kind: "name" }),
   ]);
   const hidden = current !== null && !items.some((c) => c.id === current);
@@ -65,7 +67,7 @@ export async function ColourPicker({
               }
             />
             <span className={colour.isActive ? undefined : "opacity-60"}>
-              {colour.name}
+              {paletteName(names, "nameColors", colour.name)}
             </span>
           </span>
         </label>

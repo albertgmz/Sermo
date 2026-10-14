@@ -9,6 +9,7 @@ import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
 import { isHexColor } from "@/lib/css-color";
+import { paletteName } from "@/lib/palette-name";
 import { authorsFor } from "@/lib/sermo/members";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +32,9 @@ export async function AppearancePanel({
 }: {
   searchParams: Promise<{ saved?: string | string[] }>;
 }) {
-  const [t, { profile }, worn, { saved }] = await Promise.all([
+  const [t, names, { profile }, worn, { saved }] = await Promise.all([
     getTranslations("account.appearance"),
+    getTranslations("lib.appearance"),
     getSelf(),
     getWorn(),
     searchParams,
@@ -107,7 +109,9 @@ export async function AppearancePanel({
                       }
                     />
                     <span className="max-w-full truncate px-1">
-                      {accent?.name ?? t("accentDefault")}
+                      {accent
+                        ? paletteName(names, "accents", accent.name)
+                        : t("accentDefault")}
                     </span>
                     {(accent?.id ?? null) === worn.accentId && <Selected />}
                   </button>
@@ -191,7 +195,9 @@ export async function AppearancePanel({
                       value={color?.id ?? ""}
                       aria-pressed={(color?.id ?? null) === worn.nameColorId}
                       aria-label={t("aria.nameColor", {
-                        name: color?.name ?? t("none"),
+                        name: color
+                          ? paletteName(names, "nameColors", color.name)
+                          : t("none"),
                       })}
                       className={cn(choiceClass, "gap-2 px-3 pr-7")}
                     >
@@ -205,7 +211,9 @@ export async function AppearancePanel({
                         {member.username}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {color?.name ?? t("none")}
+                        {color
+                          ? paletteName(names, "nameColors", color.name)
+                          : t("none")}
                       </span>
                       {(color?.id ?? null) === worn.nameColorId && <Selected />}
                     </button>

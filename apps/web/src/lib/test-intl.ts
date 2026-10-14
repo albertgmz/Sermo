@@ -16,7 +16,14 @@ export function translator(namespace: string, interpolate = false) {
       values && name in values ? String(values[name]) : whole,
     );
   };
-  return Object.assign(t, { rich: t });
+  const has = (key: string) => {
+    let value: unknown = messages;
+    for (const part of `${namespace}.${key}`.split(".")) {
+      value = (value as Record<string, unknown> | undefined)?.[part];
+    }
+    return typeof value === "string";
+  };
+  return Object.assign(t, { rich: t, has });
 }
 
 // Client components read their text from a provider; this one serves the same message files.

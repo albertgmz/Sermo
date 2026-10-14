@@ -5,6 +5,7 @@ import { Notice } from "@/components/staff/notice";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { isHexColor } from "@/lib/css-color";
+import { paletteName } from "@/lib/palette-name";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -19,8 +20,9 @@ export async function GroupList({
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
-  const [t, viewer, { items }, { items: colours }] = await Promise.all([
+  const [t, names, viewer, { items }, { items: colours }] = await Promise.all([
     getTranslations("adminGroups.list"),
+    getTranslations("lib.appearance"),
     getViewer(),
     read(groupsList, { counts: true }),
     read(paletteColorsList, { kind: "name" }),
@@ -99,7 +101,7 @@ export async function GroupList({
                                   : undefined
                               }
                             />
-                            {colour.name}
+                            {paletteName(names, "nameColors", colour.name)}
                           </>
                         ) : group.nameColorId ? (
                           t("colourHidden")
