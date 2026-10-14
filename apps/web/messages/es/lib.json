@@ -1,93 +1,93 @@
 {
   "appearance": {
     "accents": {
-      "red": "Red",
-      "orange": "Orange",
-      "amber": "Amber",
-      "emerald": "Emerald",
-      "sky": "Sky",
-      "violet": "Violet"
+      "red": "Rojo",
+      "orange": "Naranja",
+      "amber": "Ámbar",
+      "emerald": "Esmeralda",
+      "sky": "Cielo",
+      "violet": "Violeta"
     },
     "nameColors": {
-      "rose": "Rose",
+      "rose": "Rosa",
       "coral": "Coral",
-      "lime": "Lime",
-      "emerald": "Emerald",
-      "cyan": "Cyan",
-      "sky": "Sky",
-      "indigo": "Indigo",
-      "pink": "Pink",
-      "silver": "Silver",
-      "gold": "Gold",
-      "legendary": "Legendary"
+      "lime": "Lima",
+      "emerald": "Esmeralda",
+      "cyan": "Cian",
+      "sky": "Cielo",
+      "indigo": "Índigo",
+      "pink": "Rosado",
+      "silver": "Plata",
+      "gold": "Oro",
+      "legendary": "Legendario"
     },
     "covers": {
-      "island": "Island",
-      "portrait": "Portrait",
-      "horses": "Horses",
-      "oranges": "Orange tree",
-      "winter": "Winter road",
-      "ocean": "Ocean",
-      "street": "City street",
-      "leaves": "Autumn leaves",
-      "pineapple": "Pineapple",
-      "valley": "Valley"
+      "island": "Isla",
+      "portrait": "Retrato",
+      "horses": "Caballos",
+      "oranges": "Naranjo",
+      "winter": "Camino de invierno",
+      "ocean": "Océano",
+      "street": "Calle de la ciudad",
+      "leaves": "Hojas de otoño",
+      "pineapple": "Piña",
+      "valley": "Valle"
     }
   },
   "permissions": {
     "signature": {
-      "label": "Signature",
-      "description": "Add a short signature that is shown under your posts."
+      "label": "Firma",
+      "description": "Añade una firma corta que se muestra bajo tus mensajes."
     },
     "profileCover": {
-      "label": "Profile cover",
-      "description": "Pick a photo from the gallery as the cover of your profile, your posts and your member card."
+      "label": "Portada del perfil",
+      "description": "Elige una foto de la galería como portada de tu perfil, tus mensajes y tu tarjeta de miembro."
     },
     "customTitle": {
-      "label": "Custom title",
-      "description": "Replace the title under your name with your own text."
+      "label": "Título personalizado",
+      "description": "Reemplaza el título bajo tu nombre por un texto propio."
     },
     "awardSlot": {
-      "label": "Award showcase slot",
-      "description": "Show one more award next to your name."
+      "label": "Espacio extra de trofeo",
+      "description": "Muestra un trofeo más junto a tu nombre."
     },
     "usernameChange": {
-      "label": "Username change",
-      "description": "Change your username. Each purchase allows one change."
+      "label": "Cambio de nombre de usuario",
+      "description": "Cambia tu nombre de usuario. Cada compra permite un cambio."
     }
   },
   "levels": {
-    "seniorMember": "Senior member",
-    "member": "Member",
-    "newMember": "New member"
+    "seniorMember": "Miembro veterano",
+    "member": "Miembro",
+    "newMember": "Miembro nuevo"
   },
   "errors": {
-    "generic": "Something went wrong. Try again."
+    "generic": "Algo salió mal. Inténtalo de nuevo."
   },
   "format": {
-    "recent": "just now"
+    "recent": "ahora mismo"
   },
   "db": {
     "errors": {
-      "unknownUser": "Unknown user",
-      "unknownThread": "Unknown thread"
+      "unknownUser": "Usuario desconocido",
+      "unknownThread": "Tema desconocido"
     },
     "roles": {
-      "admin": "Administrator",
-      "moderator": "Moderator"
+      "admin": "Administrador",
+      "moderator": "Moderador"
     },
     "notifications": {
-      "reply": "replied to your thread “{title}”",
-      "profilePost": "wrote on your profile",
-      "profileComment": "commented on your profile post",
-      "reaction": "{target, select, post {reacted {emoji} to your post in “{title}”} message {reacted {emoji} to your message in “{title}”} profilePost {reacted {emoji} to your profile post} other {reacted {emoji} to your comment}}",
-      "follow": "started following you",
-      "conversation": "started the conversation “{title}”",
-      "message": "sent a message in “{title}”"
+      "reply": "respondió a tu tema “{title}”",
+      "profilePost": "escribió en tu perfil",
+      "profileComment": "comentó tu publicación del perfil",
+      "reaction": "{target, select, post {reaccionó con {emoji} a tu mensaje en “{title}”} message {reaccionó con {emoji} a tu mensaje en “{title}”} profilePost {reaccionó con {emoji} a tu publicación del perfil} other {reaccionó con {emoji} a tu comentario}}",
+      "follow": "empezó a seguirte",
+      "conversation": "inició la conversación “{title}”",
+      "message": "envió un mensaje en “{title}”"
     },
     "transactions": {
-      "purchase": "Purchased {name}",
-      "upgrade": "Upgraded to {name}"
+      "purchase": "Compra de {name}",
+      "upgrade": "Mejora a {name}"
     }
   }
 }

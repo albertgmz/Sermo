@@ -1,90 +1,90 @@
 {
   "status": {
-    "off": "Off",
-    "on": "On",
-    "partial": "{count} of {total}"
+    "off": "Desactivado",
+    "on": "Activado",
+    "partial": "{count} de {total}"
   },
   "page": {
-    "metaTitle": "LITE mode",
+    "metaTitle": "Modo LITE",
     "demo": {
-      "title": "LITE mode",
-      "description": "Block all pictures or choose individual categories. These controls save your browser’s preference and update the examples on this page.",
-      "artworkLabel": "Artwork placeholder",
-      "avatarLabel": "Avatar and compact placeholders"
+      "title": "Modo LITE",
+      "description": "Bloquea todas las imágenes o elige categorías concretas. Estos controles guardan la preferencia de tu navegador y actualizan los ejemplos de esta página.",
+      "artworkLabel": "Marcador de ilustración",
+      "avatarLabel": "Marcadores de avatar y compactos"
     }
   },
   "settingsForm": {
-    "title": "LITE mode",
-    "description": "Choose which pictures to stop loading on this browser. Text and interface icons stay visible.",
-    "masterLabel": "Block all pictures",
-    "masterDescription": "Turn on every category with one control.",
-    "categoriesLabel": "Picture categories",
-    "categoriesDescription": "Turn on a category to stop its pictures from loading.",
-    "masterNotice": "All pictures are blocked. Turn off the master switch to choose individual categories.",
-    "saveButton": "Save changes",
-    "savedMessage": "Your LITE settings have been saved.",
-    "loadingLabel": "Loading LITE settings…"
+    "title": "Modo LITE",
+    "description": "Elige qué imágenes dejan de cargarse en este navegador. El texto y los iconos de la interfaz siguen visibles.",
+    "masterLabel": "Bloquear todas las imágenes",
+    "masterDescription": "Activa todas las categorías con un solo control.",
+    "categoriesLabel": "Categorías de imágenes",
+    "categoriesDescription": "Activa una categoría para que sus imágenes dejen de cargarse.",
+    "masterNotice": "Todas las imágenes están bloqueadas. Desactiva el interruptor general para elegir categorías concretas.",
+    "saveButton": "Guardar cambios",
+    "savedMessage": "Tus ajustes de LITE se han guardado.",
+    "loadingLabel": "Cargando ajustes de LITE…"
   },
   "liteModeToggle": {
-    "label": "LITE mode",
-    "settingsLink": "LITE settings",
+    "label": "Modo LITE",
+    "settingsLink": "Ajustes de LITE",
     "aria": {
-      "enable": "Turn on LITE mode",
-      "disable": "Turn off LITE mode"
+      "enable": "Activar el modo LITE",
+      "disable": "Desactivar el modo LITE"
     }
   },
   "navigation": {
-    "label": "LITE mode"
+    "label": "Modo LITE"
   },
   "litePlaceholder": {
-    "label": "LITE MODE",
+    "label": "MODO LITE",
     "aria": {
-      "label": "Picture blocked by LITE mode"
+      "label": "Imagen bloqueada por el modo LITE"
     }
   },
   "liteMenuDemo": {
-    "menuButton": "Profile options"
+    "menuButton": "Opciones del perfil"
   },
   "categories": {
     "avatars": {
-      "label": "Avatars",
-      "description": "Member profile pictures."
+      "label": "Avatares",
+      "description": "Imágenes de perfil de los miembros."
     },
     "frames": {
-      "label": "Avatar frames",
-      "description": "Decorative frames around member pictures."
+      "label": "Marcos de avatar",
+      "description": "Marcos decorativos alrededor de las imágenes de los miembros."
     },
     "profileCovers": {
-      "label": "Profile covers",
-      "description": "Cover pictures on profiles and member cards."
+      "label": "Portadas de perfil",
+      "description": "Imágenes de portada en perfiles y tarjetas de miembro."
     },
     "threadCovers": {
-      "label": "Thread covers",
-      "description": "Cover pictures on threads and their previews."
+      "label": "Portadas de tema",
+      "description": "Imágenes de portada en los temas y sus vistas previas."
     },
     "forumArt": {
-      "label": "Forum pictures",
-      "description": "Artwork on forum cards."
+      "label": "Imágenes de foros",
+      "description": "Ilustraciones en las tarjetas de los foros."
     },
     "awards": {
-      "label": "Awards",
-      "description": "Award artwork and award glyphs."
+      "label": "Trofeos",
+      "description": "Ilustraciones y glifos de los trofeos."
     },
     "shop": {
-      "label": "Shop artwork",
-      "description": "Shop item artwork and shop glyphs."
+      "label": "Ilustraciones de la tienda",
+      "description": "Ilustraciones y glifos de los artículos de la tienda."
     },
     "reactions": {
-      "label": "Reaction pictures",
-      "description": "Custom reaction pictures; the reaction's emoji is shown instead."
+      "label": "Imágenes de reacciones",
+      "description": "Imágenes de reacciones personalizadas; en su lugar se muestra el emoji de la reacción."
     },
     "postImages": {
-      "label": "Content pictures",
-      "description": "Pictures in posts, signatures, messages and editor previews."
+      "label": "Imágenes de contenido",
+      "description": "Imágenes en mensajes, firmas y vistas previas del editor."
     },
     "brand": {
-      "label": "Brand artwork",
-      "description": "The logo, site icon and decorative page artwork."
+      "label": "Ilustraciones de marca",
+      "description": "El logotipo, el icono del sitio y las ilustraciones decorativas de las páginas."
     }
   }
 }

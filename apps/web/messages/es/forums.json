@@ -1,83 +1,83 @@
 {
   "new": {
-    "metaTitle": "New thread",
-    "home": "Home",
-    "heading": "New thread",
+    "metaTitle": "Nuevo tema",
+    "home": "Inicio",
+    "heading": "Nuevo tema",
     "aria": {
-      "loading": "Loading thread form…"
+      "loading": "Cargando el formulario del tema…"
     },
-    "cannotPostTitle": "You cannot start a thread here",
-    "cannotPostDescription": "This forum is closed to new threads for your account."
+    "cannotPostTitle": "No puedes iniciar un tema aquí",
+    "cannotPostDescription": "Este foro está cerrado a temas nuevos para tu cuenta."
   },
   "newThreadForm": {
-    "placeholder": "What is this thread about?",
-    "cancel": "Cancel",
-    "submit": "Post thread"
+    "placeholder": "¿De qué trata este tema?",
+    "cancel": "Cancelar",
+    "submit": "Publicar tema"
   },
   "loading": {
-    "heading": "New thread",
+    "heading": "Nuevo tema",
     "aria": {
-      "forums": "Loading forums…",
-      "threads": "Loading threads…",
-      "form": "Loading the thread form…"
+      "forums": "Cargando foros…",
+      "threads": "Cargando temas…",
+      "form": "Cargando el formulario del tema…"
     }
   },
   "forums": {
-    "metaTitle": "Forums",
-    "heading": "Ask questions. Share what you know.",
-    "description": "Join a community of makers who trade ideas, feedback and good advice every day.",
-    "login": "Log in",
-    "register": "Create Account",
+    "metaTitle": "Foros",
+    "heading": "Haz preguntas. Comparte lo que sabes.",
+    "description": "Únete a una comunidad de creadores que intercambian ideas, opiniones y buenos consejos cada día.",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta",
     "aria": {
-      "loadingStatistics": "Loading forum statistics…",
-      "sections": "Forum sections",
-      "loadingCategories": "Loading forum categories…"
+      "loadingStatistics": "Cargando estadísticas del foro…",
+      "sections": "Secciones del foro",
+      "loadingCategories": "Cargando categorías del foro…"
     }
   },
   "forumStats": {
     "activity": "<forum>{forumTitle}</forum> · <time></time> · <author></author>",
-    "postsTab": "Latest posts",
-    "threadsTab": "New threads",
-    "repliedTab": "Most replied",
-    "reactedTab": "Most reacted",
-    "viewedTab": "Most viewed",
-    "heading": "Forum statistics",
+    "postsTab": "Últimos mensajes",
+    "threadsTab": "Temas nuevos",
+    "repliedTab": "Más respondidos",
+    "reactedTab": "Más reacciones",
+    "viewedTab": "Más vistos",
+    "heading": "Estadísticas del foro",
     "aria": {
-      "replies": "Replies",
-      "views": "Views",
-      "statistics": "Forum statistics",
-      "loadingActivity": "Loading forum activity…"
+      "replies": "Respuestas",
+      "views": "Vistas",
+      "statistics": "Estadísticas del foro",
+      "loadingActivity": "Cargando actividad del foro…"
     }
   },
   "forum": {
-    "allThreads": "All threads",
+    "allThreads": "Todos los temas",
     "created": "<author></author> · {time}",
     "lastPost": "{time} · <author></author>",
-    "newThread": "New thread",
-    "home": "Home",
-    "empty": "No threads yet",
-    "emptyMemberDescription": "Be the first to start a discussion in this forum.",
-    "emptyGuestDescription": "Log in to start the first discussion in this forum.",
+    "newThread": "Nuevo tema",
+    "home": "Inicio",
+    "empty": "Aún no hay temas",
+    "emptyMemberDescription": "Sé el primero en iniciar una conversación en este foro.",
+    "emptyGuestDescription": "Inicia sesión para empezar la primera conversación en este foro.",
     "aria": {
-      "prefixFilter": "Filter by prefix",
-      "pinned": "Pinned",
-      "highlighted": " (highlighted)",
-      "replies": "Replies",
-      "views": "Views",
-      "loadingThreads": "Loading threads…",
-      "locked": "Locked"
+      "prefixFilter": "Filtrar por prefijo",
+      "pinned": "Fijado",
+      "highlighted": " (destacado)",
+      "replies": "Respuestas",
+      "views": "Vistas",
+      "loadingThreads": "Cargando temas…",
+      "locked": "Cerrado"
     },
-    "nextPage": "Next page",
-    "emptyCategory": "No forums here yet",
-    "emptyCategoryDescription": "Forums added to this category will be listed here."
+    "nextPage": "Página siguiente",
+    "emptyCategory": "Aún no hay foros aquí",
+    "emptyCategoryDescription": "Los foros que se añadan a esta categoría aparecerán aquí."
   },
   "watch": {
-    "watch": "Watch",
-    "unwatch": "Stop watching",
-    "mode": "What to watch",
-    "optionThreads": "New threads",
-    "optionPosts": "Every new post",
-    "email": "Email me",
-    "status": "{mode, select, posts {Watching every new post} other {Watching new threads}}{email, select, true {, by email} other {}}"
+    "watch": "Vigilar",
+    "unwatch": "Dejar de vigilar",
+    "mode": "Qué vigilar",
+    "optionThreads": "Temas nuevos",
+    "optionPosts": "Cada mensaje nuevo",
+    "email": "Avisarme por correo",
+    "status": "{mode, select, posts {Vigilando cada mensaje nuevo} other {Vigilando temas nuevos}}{email, select, true {, por correo} other {}}"
   }
 }

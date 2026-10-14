@@ -1,71 +1,71 @@
 {
   "page": {
-    "metaTitle": "Home",
-    "heading": "Home",
-    "loadingSidebar": "Loading feed sidebar…",
-    "loadingFeed": "Loading your feed…",
+    "metaTitle": "Inicio",
+    "heading": "Inicio",
+    "loadingSidebar": "Cargando la barra lateral de actividad…",
+    "loadingFeed": "Cargando tu actividad…",
     "aria": {
-      "newPost": "New post",
-      "feed": "Feed"
+      "newPost": "Nueva publicación",
+      "feed": "Actividad"
     },
-    "placeholder": "What's on your mind?",
-    "description": "Posts go to your profile wall.",
-    "startThread": "Start a thread",
+    "placeholder": "¿Qué tienes en mente?",
+    "description": "Las publicaciones van al muro de tu perfil.",
+    "startThread": "Iniciar un tema",
     "tabs": {
-      "latest": "Latest",
-      "following": "Following",
-      "top": "Top"
+      "latest": "Recientes",
+      "following": "Siguiendo",
+      "top": "Populares"
     },
     "empty": {
-      "latest": "New threads, replies and profile posts will show up here.",
-      "following": "Posts from the members you follow will show up here.",
-      "top": "Nothing has been reacted to in the last {count, plural, one {# day} other {# days}}."
+      "latest": "Aquí aparecerán los temas nuevos, las respuestas y las publicaciones de perfil.",
+      "following": "Aquí aparecerán las publicaciones de los miembros a quienes sigues.",
+      "top": "Nada ha recibido reacciones en los últimos {count, plural, one {# día} other {# días}}."
     },
-    "days": "Most reacted in the last {count, plural, one {# day} other {# days}}.",
-    "loginTitle": "Follow members to build your feed",
-    "loginDescription": "Log in to see posts from the members you follow.",
-    "login": "Log in",
-    "emptyTitle": "Nothing here yet",
-    "loadMore": "Load more"
+    "days": "Lo que más reacciones recibió en los últimos {count, plural, one {# día} other {# días}}.",
+    "loginTitle": "Sigue a miembros para crear tu actividad",
+    "loginDescription": "Inicia sesión para ver las publicaciones de los miembros a quienes sigues.",
+    "login": "Iniciar sesión",
+    "emptyTitle": "Aún no hay nada aquí",
+    "loadMore": "Cargar más"
   },
   "layout": {
-    "loadingNavigation": "Loading navigation…"
+    "loadingNavigation": "Cargando navegación…"
   },
   "loading": {
-    "feed": "Loading your feed…",
-    "page": "Loading page…"
+    "feed": "Cargando tu actividad…",
+    "page": "Cargando página…"
   },
   "notFound": {
-    "title": "Page not found",
-    "description": "The page you are looking for does not exist or has been removed.",
-    "back": "Back to home"
+    "title": "Página no encontrada",
+    "description": "La página que buscas no existe o se ha eliminado.",
+    "back": "Volver al inicio"
   },
   "clampedBody": {
-    "readMore": "Read more"
+    "readMore": "Leer más"
   },
   "feedItem": {
-    "highlighted": "Highlighted",
-    "comments": "{count, plural, one {{value} comment} other {{value} comments}}",
-    "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
-    "views": "{value}<label>{count, plural, other { views}}</label>",
-    "profileContext": "posted on <profile>a profile</profile>",
-    "threadContext": "started a thread in <forum>{title}</forum>",
-    "replyContext": "replied to a thread in <forum>{title}</forum>",
-    "replyPlaceholder": "Write a reply…",
-    "replySubmit": "Post reply"
+    "highlighted": "Destacado",
+    "comments": "{count, plural, one {{value} comentario} other {{value} comentarios}}",
+    "replies": "{count, plural, one {{value} respuesta} other {{value} respuestas}}",
+    "views": "{value}<label>{count, plural, other { vistas}}</label>",
+    "profileContext": "publicó en <profile>un perfil</profile>",
+    "threadContext": "inició un tema en <forum>{title}</forum>",
+    "replyContext": "respondió a un tema en <forum>{title}</forum>",
+    "replyPlaceholder": "Escribe una respuesta…",
+    "replySubmit": "Publicar respuesta"
   },
   "feedSidebar": {
-    "loadingTrending": "Loading trending…",
-    "loadingLatest": "Loading latest threads…",
-    "loadingMembers": "Loading suggested members…",
-    "loadingForums": "Loading forums…",
-    "trendingTitle": "Trending",
-    "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
-    "latestTitle": "Latest threads",
-    "membersTitle": "Members to follow",
-    "forumsTitle": "Forums",
-    "viewAll": "View all",
-    "threads": "{value}<label>{count, plural, other { threads}}</label>",
-    "views": "{count, plural, one {{value} view} other {{value} views}}"
+    "loadingTrending": "Cargando tendencias…",
+    "loadingLatest": "Cargando últimos temas…",
+    "loadingMembers": "Cargando miembros sugeridos…",
+    "loadingForums": "Cargando foros…",
+    "trendingTitle": "Tendencias",
+    "replies": "{count, plural, one {{value} respuesta} other {{value} respuestas}}",
+    "latestTitle": "Últimos temas",
+    "membersTitle": "Miembros a quienes seguir",
+    "forumsTitle": "Foros",
+    "viewAll": "Ver todos",
+    "threads": "{value}<label>{count, plural, other { temas}}</label>",
+    "views": "{count, plural, one {{value} vista} other {{value} vistas}}"
   }
 }

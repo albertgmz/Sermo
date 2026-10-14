@@ -1,97 +1,97 @@
 {
   "layout": {
-    "metaTitle": "Conversations"
+    "metaTitle": "Conversaciones"
   },
   "list": {
-    "home": "Home",
-    "heading": "Conversations",
-    "newConversation": "New conversation",
-    "loadingConversations": "Loading conversations…",
-    "emptyTitle": "No conversations yet",
-    "emptyDescription": "Start one to talk privately with other members.",
-    "older": "Older conversations"
+    "home": "Inicio",
+    "heading": "Conversaciones",
+    "newConversation": "Nueva conversación",
+    "loadingConversations": "Cargando conversaciones…",
+    "emptyTitle": "Aún no hay conversaciones",
+    "emptyDescription": "Empieza una para hablar en privado con otros miembros.",
+    "older": "Conversaciones anteriores"
   },
   "conversation": {
     "aria": {
-      "leave": "Leave conversation",
-      "loadingMessages": "Loading messages…"
+      "leave": "Salir de la conversación",
+      "loadingMessages": "Cargando mensajes…"
     },
-    "home": "Home",
-    "conversations": "Conversations",
-    "participants": "Participants",
+    "home": "Inicio",
+    "conversations": "Conversaciones",
+    "participants": "Participantes",
     "participantSeparator": ", ",
-    "placeholder": "Write a message…",
-    "submit": "Send message",
-    "left": "(left)",
-    "leave": "Leave",
-    "awaitingApproval": "This message is awaiting approval.",
-    "deleted": "This message was deleted.",
-    "cannotReply": "You cannot reply to this conversation.",
-    "earlier": "Earlier messages",
-    "newest": "Newest messages",
-    "markRead": "Mark as read",
+    "placeholder": "Escribe un mensaje…",
+    "submit": "Enviar mensaje",
+    "left": "(salió)",
+    "leave": "Salir",
+    "awaitingApproval": "Este mensaje está pendiente de aprobación.",
+    "deleted": "Este mensaje fue eliminado.",
+    "cannotReply": "No puedes responder a esta conversación.",
+    "earlier": "Mensajes anteriores",
+    "newest": "Mensajes más recientes",
+    "markRead": "Marcar como leído",
     "details": {
-      "open": "Details",
-      "title": "Conversation details",
-      "description": "Information about the conversation, who takes part and what you can change."
+      "open": "Detalles",
+      "title": "Detalles de la conversación",
+      "description": "Información sobre la conversación, quién participa y qué puedes cambiar."
     },
     "info": {
-      "title": "Conversation",
-      "startedBy": "Started by",
-      "startedOn": "Started on",
-      "messages": "Messages",
-      "participants": "Participants"
+      "title": "Conversación",
+      "startedBy": "Iniciada por",
+      "startedOn": "Iniciada el",
+      "messages": "Mensajes",
+      "participants": "Participantes"
     },
     "addPeople": {
-      "open": "Add people",
-      "submit": "Add",
-      "cancel": "Cancel"
+      "open": "Añadir personas",
+      "submit": "Añadir",
+      "cancel": "Cancelar"
     },
     "rename": {
-      "title": "Rename",
-      "label": "Conversation name",
-      "submit": "Rename"
+      "title": "Renombrar",
+      "label": "Nombre de la conversación",
+      "submit": "Renombrar"
     },
     "unread": {
-      "title": "Unread"
+      "title": "Sin leer"
     }
   },
   "newConversation": {
-    "home": "Home",
-    "conversations": "Conversations",
-    "heading": "New conversation",
-    "cannotStartTitle": "You cannot start conversations",
-    "cannotStartDescription": "Your account is not allowed to start a private conversation."
+    "home": "Inicio",
+    "conversations": "Conversaciones",
+    "heading": "Nueva conversación",
+    "cannotStartTitle": "No puedes iniciar conversaciones",
+    "cannotStartDescription": "Tu cuenta no tiene permiso para iniciar una conversación privada."
   },
   "newConversationForm": {
-    "titleLabel": "Title",
-    "titlePlaceholder": "What is it about?",
-    "messageLabel": "Message",
-    "messagePlaceholder": "Write your message...",
-    "submit": "Start conversation"
+    "titleLabel": "Título",
+    "titlePlaceholder": "¿De qué trata?",
+    "messageLabel": "Mensaje",
+    "messagePlaceholder": "Escribe tu mensaje...",
+    "submit": "Iniciar conversación"
   },
   "loading": {
-    "label": "Loading conversations…",
-    "heading": "Conversations",
+    "label": "Cargando conversaciones…",
+    "heading": "Conversaciones",
     "conversation": {
-      "label": "Loading messages…"
+      "label": "Cargando mensajes…"
     },
     "newConversation": {
-      "label": "Loading the conversation form…",
-      "heading": "New conversation"
+      "label": "Cargando el formulario de conversación…",
+      "heading": "Nueva conversación"
     }
   },
   "conversationPreview": {
-    "summary": "Last from <author></author> · {participants, plural, one {# participant} other {# participants}}"
+    "summary": "Último de <author></author> · {participants, plural, one {# participante} other {# participantes}}"
   },
   "recipientPicker": {
-    "label": "Recipients",
-    "placeholder": "Search members by username",
-    "noMatch": "No member found.",
+    "label": "Destinatarios",
+    "placeholder": "Buscar miembros por nombre de usuario",
+    "noMatch": "No se encontró ningún miembro.",
     "aria": {
-      "search": "Search members by username",
-      "chosen": "Chosen recipients",
-      "remove": "Remove {name}"
+      "search": "Buscar miembros por nombre de usuario",
+      "chosen": "Destinatarios elegidos",
+      "remove": "Quitar a {name}"
     }
   }
 }

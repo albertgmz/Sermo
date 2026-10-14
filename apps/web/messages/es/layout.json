@@ -3,116 +3,116 @@
     "defaultName": "Sermo"
   },
   "siteNav": {
-    "placeholder": "Search...",
-    "description": "Site navigation",
+    "placeholder": "Buscar...",
+    "description": "Navegación del sitio",
     "aria": {
-      "search": "Search",
-      "submit": "Submit search",
-      "main": "Main",
-      "open": "Open menu"
+      "search": "Buscar",
+      "submit": "Enviar búsqueda",
+      "main": "Principal",
+      "open": "Abrir menú"
     }
   },
   "mobileNav": {
-    "unread": "{label}<unread>, {count, plural, one {# unread} other {# unread}}</unread>",
+    "unread": "{label}<unread>, {count, plural, one {# sin leer} other {# sin leer}}</unread>",
     "aria": {
-      "primary": "Primary"
+      "primary": "Principal"
     }
   },
   "headerPanel": {
     "aria": {
-      "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
+      "unread": "{label}, {count, plural, one {# sin leer} other {# sin leer}}"
     }
   },
   "narrowToggle": {
-    "label": "Use a narrower page"
+    "label": "Usar una página más estrecha"
   },
   "siteHeader": {
-    "loadingMenu": "Loading menu…",
-    "loadingNavigation": "Loading navigation…",
-    "loadingAccount": "Loading your menu…",
-    "loadingMessages": "Loading messages…",
-    "loadingAlerts": "Loading alerts…",
-    "search": "Search",
-    "login": "Log in",
-    "register": "Create Account"
+    "loadingMenu": "Cargando menú…",
+    "loadingNavigation": "Cargando navegación…",
+    "loadingAccount": "Cargando tu menú…",
+    "loadingMessages": "Cargando mensajes…",
+    "loadingAlerts": "Cargando notificaciones…",
+    "search": "Buscar",
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta"
   },
   "headerPanels": {
     "messages": {
-      "label": "Conversations",
-      "title": "Messages",
-      "empty": "No conversations yet",
-      "viewAll": "View all",
-      "new": "New conversation",
-      "loading": "Loading conversations…"
+      "label": "Conversaciones",
+      "title": "Mensajes",
+      "empty": "Aún no hay conversaciones",
+      "viewAll": "Ver todas",
+      "new": "Nueva conversación",
+      "loading": "Cargando conversaciones…"
     },
     "alerts": {
-      "label": "Notifications",
-      "title": "Alerts",
-      "empty": "No new alerts",
-      "viewAll": "View all",
-      "markAllRead": "Mark all as read",
-      "loading": "Loading alerts…"
+      "label": "Notificaciones",
+      "title": "Notificaciones",
+      "empty": "No hay notificaciones nuevas",
+      "viewAll": "Ver todas",
+      "markAllRead": "Marcar todo como leído",
+      "loading": "Cargando notificaciones…"
     },
     "search": {
-      "label": "Search",
-      "title": "Search",
-      "placeholder": "Search...",
-      "titlesOnly": "Search titles only",
-      "byAuthor": "By member",
-      "exactUsername": "Exact username",
-      "advanced": "Advanced search",
-      "submit": "Search",
+      "label": "Buscar",
+      "title": "Buscar",
+      "placeholder": "Buscar...",
+      "titlesOnly": "Buscar solo en títulos",
+      "byAuthor": "Por miembro",
+      "exactUsername": "Nombre de usuario exacto",
+      "advanced": "Búsqueda avanzada",
+      "submit": "Buscar",
       "aria": {
-        "search": "Search"
+        "search": "Buscar"
       }
     },
-    "failed": "This could not be loaded. Close the panel and open it again."
+    "failed": "No se pudo cargar. Cierra el panel y ábrelo de nuevo."
   },
   "userMenu": {
-    "logout": "Log out",
+    "logout": "Cerrar sesión",
     "aria": {
-      "account": "Account menu"
+      "account": "Menú de la cuenta"
     }
   },
   "staffBar": {
-    "admin": "Admin",
-    "moderation": "Moderation",
+    "admin": "Administración",
+    "moderation": "Moderación",
     "capped": "{count}+",
-    "pending": "({count} pending)"
+    "pending": "({count} pendientes)"
   },
   "siteFooter": {
-    "copyright": "© <brand>{site}</brand>. All rights reserved.",
-    "loadingLinks": "Loading links…",
+    "copyright": "© <brand>{site}</brand>. Todos los derechos reservados.",
+    "loadingLinks": "Cargando enlaces…",
     "aria": {
-      "more": "More links"
+      "more": "Más enlaces"
     }
   },
   "logo": {
     "aria": {
-      "home": "{site} home"
+      "home": "Inicio de {site}"
     }
   },
   "sessionNotice": {
-    "text": "The site could not confirm your session; some things may be missing. Reload to try again.",
-    "unreachable": "The site could not be reached right now; some things may be missing. Reload to try again."
+    "text": "El sitio no pudo confirmar tu sesión; puede que falten algunas cosas. Recarga para intentarlo de nuevo.",
+    "unreachable": "No se pudo acceder al sitio en este momento; puede que falten algunas cosas. Recarga para intentarlo de nuevo."
   },
   "notFound": {
-    "title": "Page not found",
-    "description": "The page you are looking for does not exist or has moved.",
-    "home": "Back to the home page",
-    "panel": "Back to the panel"
+    "title": "Página no encontrada",
+    "description": "La página que buscas no existe o se ha movido.",
+    "home": "Volver al inicio",
+    "panel": "Volver al panel"
   },
   "globalError": {
-    "title": "Something went wrong",
-    "description": "The site could not be loaded. Try again in a moment.",
-    "retry": "Try again"
+    "title": "Algo salió mal",
+    "description": "No se pudo cargar el sitio. Inténtalo de nuevo en un momento.",
+    "retry": "Reintentar"
   },
   "routeError": {
-    "title": "Something went wrong",
-    "description": "The page could not be loaded. Try again in a moment.",
-    "throttledTitle": "Too many requests",
-    "throttledDescription": "You have asked for a lot of pages in a short time. Wait a moment and try again.",
-    "retry": "Try again",
-    "home": "Back to the home page"
+    "title": "Algo salió mal",
+    "description": "No se pudo cargar la página. Inténtalo de nuevo en un momento.",
+    "throttledTitle": "Demasiadas solicitudes",
+    "throttledDescription": "Has pedido muchas páginas en poco tiempo. Espera un momento e inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "home": "Volver al inicio"
   }
 }

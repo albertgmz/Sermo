@@ -1,83 +1,83 @@
 {
   "errors": {
-    "confirm": "Tick the confirmation to send the announcement.",
-    "number": "Enter a whole number."
+    "confirm": "Marca la confirmación para enviar el anuncio.",
+    "number": "Escribe un número entero."
   },
   "announcements": {
-    "metaTitle": "Announcements",
-    "pageHeading": "Announcements",
-    "subtitle": "Messages sent to every member as a notification.",
-    "loading": "Loading the announcements…",
-    "heading": "Announcements sent",
-    "new": "New announcement",
-    "emptyTitle": "No announcements yet",
-    "emptyDescription": "Nothing has been sent to the members.",
-    "byline": "Sent by {author} on {date}",
-    "showText": "Show the text",
+    "metaTitle": "Anuncios",
+    "pageHeading": "Anuncios",
+    "subtitle": "Mensajes enviados a todos los miembros como notificación.",
+    "loading": "Cargando los anuncios…",
+    "heading": "Anuncios enviados",
+    "new": "Nuevo anuncio",
+    "emptyTitle": "Aún no hay anuncios",
+    "emptyDescription": "No se ha enviado nada a los miembros.",
+    "byline": "Enviado por {author} el {date}",
+    "showText": "Mostrar el texto",
     "notices": {
-      "sent": "Announcement sent. It is delivered to the members in the background."
+      "sent": "Anuncio enviado. Se entrega a los miembros en segundo plano."
     },
-    "newMetaTitle": "New announcement",
-    "newHeading": "New announcement",
-    "newSubtitle": "Write a message for every member.",
+    "newMetaTitle": "Nuevo anuncio",
+    "newHeading": "Nuevo anuncio",
+    "newSubtitle": "Escribe un mensaje para todos los miembros.",
     "form": {
-      "heading": "Announcement",
-      "description": "Members see the title in their notifications and the text when they open it.",
-      "title": "Title",
-      "body": "Text",
+      "heading": "Anuncio",
+      "description": "Los miembros ven el título en sus notificaciones y el texto cuando lo abren.",
+      "title": "Título",
+      "body": "Texto",
       "bodyHelp": "Markdown.",
-      "confirm": "Confirm",
-      "confirmWarning": "This notifies every member of the forum. It is delivered in the background and cannot be recalled or edited.",
-      "confirmBox": "I understand it goes to every member",
-      "send": "Send to every member"
+      "confirm": "Confirmar",
+      "confirmWarning": "Esto notifica a todos los miembros del foro. Se entrega en segundo plano y no se puede retirar ni editar.",
+      "confirmBox": "Entiendo que llega a todos los miembros",
+      "send": "Enviar a todos los miembros"
     }
   },
   "notifications": {
-    "metaTitle": "Notification defaults",
-    "pageHeading": "Notification defaults",
-    "subtitle": "What members get for each kind of notification until they choose otherwise.",
-    "loading": "Loading the notification defaults…",
-    "saved": "Defaults saved.",
-    "heading": "Defaults by type",
-    "description": "New members start with these. Members who already chose keep their own choice.",
-    "fixed": "Fixed",
-    "help": "A fixed type is always delivered and cannot be changed. A dash means the type does not use that channel.",
-    "followsWatch": "Email follows each member's watch setting.",
+    "metaTitle": "Notificaciones predeterminadas",
+    "pageHeading": "Notificaciones predeterminadas",
+    "subtitle": "Lo que reciben los miembros de cada tipo de notificación hasta que elijan otra cosa.",
+    "loading": "Cargando las notificaciones predeterminadas…",
+    "saved": "Valores predeterminados guardados.",
+    "heading": "Valores predeterminados por tipo",
+    "description": "Los miembros nuevos empiezan con estos. Los que ya eligieron conservan su elección.",
+    "fixed": "Fijo",
+    "help": "Un tipo fijo se entrega siempre y no se puede cambiar. Un guion significa que el tipo no usa ese canal.",
+    "followsWatch": "El correo sigue el ajuste de vigilancia de cada miembro.",
     "retention": {
-      "label": "Keep read notifications",
-      "help": "Read notifications older than this are deleted.",
-      "unit": "days"
+      "label": "Conservar notificaciones leídas",
+      "help": "Las notificaciones leídas más antiguas que esto se eliminan.",
+      "unit": "días"
     }
   },
   "email": {
-    "metaTitle": "Email",
-    "pageHeading": "Email",
-    "subtitle": "How much mail the forum sends and what it contains.",
-    "loading": "Loading the email settings…",
-    "saved": "Email settings saved.",
-    "heading": "Email",
-    "description": "Applies to notification and digest emails. Security emails are never capped.",
+    "metaTitle": "Correo",
+    "pageHeading": "Correo",
+    "subtitle": "Cuánto correo envía el foro y qué contiene.",
+    "loading": "Cargando los ajustes de correo…",
+    "saved": "Ajustes de correo guardados.",
+    "heading": "Correo",
+    "description": "Se aplica a los correos de notificaciones y de resumen. Los correos de seguridad nunca tienen límite.",
     "mail": {
-      "label": "Mail",
-      "on": "Configured",
-      "off": "Not configured",
-      "onHelp": "The forum can send email.",
-      "offHelp": "The forum cannot send email, so none of these settings has an effect yet."
+      "label": "Correo",
+      "on": "Configurado",
+      "off": "Sin configurar",
+      "onHelp": "El foro puede enviar correo.",
+      "offHelp": "El foro no puede enviar correo, así que ninguno de estos ajustes tiene efecto todavía."
     },
     "emailHourlyCap": {
-      "label": "Notification emails per hour",
-      "help": "The most notification emails one member gets in an hour.",
-      "unit": "per member"
+      "label": "Correos de notificación por hora",
+      "help": "El máximo de correos de notificación que recibe un miembro en una hora.",
+      "unit": "por miembro"
     },
     "conversationEmailIncludesBody": {
-      "label": "Conversation emails",
-      "help": "When off, an email about a conversation message only says there is one.",
-      "switch": "Include the text of the message"
+      "label": "Correos de conversaciones",
+      "help": "Si está desactivado, el correo sobre un mensaje de una conversación solo avisa de que hay uno.",
+      "switch": "Incluir el texto del mensaje"
     },
     "digestInactiveDays": {
-      "label": "Weekly digest",
-      "help": "The digest goes to members who have not visited for at least this long.",
-      "unit": "days"
+      "label": "Resumen semanal",
+      "help": "El resumen se envía a los miembros que no han visitado el foro desde hace al menos este tiempo.",
+      "unit": "días"
     }
   }
 }
