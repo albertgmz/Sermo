@@ -6,6 +6,7 @@ import {
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
+import { EmptyState } from "@/components/forum/empty-state";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
 import { call, read } from "@/lib/sermo/client";
@@ -22,6 +23,7 @@ import { TabPage } from "../../tab-page";
 import { applyPromotion } from "./actions";
 import { GroupsForm } from "./groups-form";
 import { PromotionApply } from "./promotion-apply";
+import { SuperAdminForm } from "./super-admin-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminUsers.groups");
@@ -41,13 +43,14 @@ async function Groups({
     getTranslations("adminUsers.promotions"),
     getViewer(),
     getMember(userId),
-    read(usersGetGroups, { userId }),
+    ifAllowed(() => read(usersGetGroups, { userId })),
     getGroups(),
   ]);
   const readOnly = isReadOnly(member);
-  const status = holds(viewer, "admin.promotions")
-    ? await ifAllowed(() => call(promotionsMemberStatus, { userId }))
-    : null;
+  const status =
+    held && holds(viewer, "admin.promotions")
+      ? await ifAllowed(() => call(promotionsMemberStatus, { userId }))
+      : null;
   const title = (id: number) =>
     groupLabel(groups, id, (n) => t("groupId", { id: n }));
   return (
@@ -55,14 +58,26 @@ async function Groups({
       <Notice
         namespace="adminUsers.notices"
         searchParams={searchParams}
-        shown={["saved", "promotionApplied"]}
+        shown={["saved", "promotionApplied", "superAdminSaved"]}
       />
-      <GroupsForm
-        userId={userId}
-        groups={groups}
-        held={held}
-        readOnly={readOnly}
-      />
+      {held ? (
+        <GroupsForm
+          userId={userId}
+          groups={groups}
+          held={held}
+          readOnly={readOnly}
+        />
+      ) : (
+        <Section heading={t("heading")}>
+          <EmptyState
+            title={t("refusedTitle")}
+            description={t("refusedDescription")}
+          />
+        </Section>
+      )}
+      {member.canSetSuperAdmin && (
+        <SuperAdminForm userId={userId} superAdmin={member.isSuperAdmin} />
+      )}
       {status && (
         <Section heading={p("heading")} description={p("description")}>
           {status.items.length === 0 ? (

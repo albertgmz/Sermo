@@ -154,6 +154,29 @@ test("forum username uniqueness errors become bad requests", async () => {
   ).rejects.toMatchObject({ statusCode: 400, body: { code: "USERNAME_IS_ALREADY_TAKEN" } });
 });
 
+test("ensureAdmin makes the administrator it creates the super admin, once", async () => {
+  const ctx = createTestContext();
+  const flagged = () =>
+    ctx.sqlite
+      .query<{ username: string }, []>("SELECT username FROM users WHERE is_super_admin = 1")
+      .all()
+      .map((row) => row.username);
+  const created = await ensureAdmin(ctx, {
+    username: "Admin_1",
+    email: "admin@example.test",
+    password: "password123",
+  });
+  expect(created.created).toBe(true);
+  expect(flagged()).toEqual(["Admin_1"]);
+  // Idempotent: a second call with another account changes nothing.
+  await ensureAdmin(ctx, {
+    username: "Admin_2",
+    email: "admin2@example.test",
+    password: "password123",
+  });
+  expect(flagged()).toEqual(["Admin_1"]);
+});
+
 test("ensureAdmin refuses a conflicting existing account", async () => {
   const input = { username: "Admin_1", email: "admin@example.test", password: "password123" };
   for (const mismatch of ["email", "password"] as const) {

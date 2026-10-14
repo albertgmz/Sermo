@@ -123,6 +123,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/groups/{groupId}", "groups.delete"],
   ["GET", "/users/{userId}/groups", "users.getGroups"],
   ["PUT", "/users/{userId}/groups", "users.setGroups"],
+  ["PUT", "/users/{userId}/super-admin", "users.setSuperAdmin"],
   ["GET", "/permissions/definitions", "permissions.definitions"],
   ["GET", "/permissions/entries", "permissions.list"],
   ["PUT", "/permissions/entries", "permissions.set"],

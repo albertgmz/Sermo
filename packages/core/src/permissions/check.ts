@@ -49,7 +49,7 @@ export interface PermissionContext {
 /** Columns of `users` (aliased `u`) that make up a principal; select them with the member row. */
 export const PRINCIPAL_COLUMNS =
   "u.permission_combination_id, u.banned_until, u.banned_permanently, u.restricted_posting_until, " +
-  "u.restricted_conversations_until, u.restricted_profile_posts_until, u.created_at, u.post_count";
+  "u.restricted_conversations_until, u.restricted_profile_posts_until, u.created_at, u.post_count, u.is_super_admin";
 
 export interface PrincipalRow {
   permission_combination_id: number;
@@ -60,6 +60,7 @@ export interface PrincipalRow {
   restricted_profile_posts_until: number | null;
   created_at: number;
   post_count: number;
+  is_super_admin: number;
 }
 
 export function principalFromRow(row: PrincipalRow, versions: PermissionVersions): Principal {
@@ -72,6 +73,7 @@ export function principalFromRow(row: PrincipalRow, versions: PermissionVersions
     restrictedProfilePostsUntil: row.restricted_profile_posts_until,
     createdAt: row.created_at,
     postCount: row.post_count,
+    isSuperAdmin: !!row.is_super_admin,
     versions,
   };
 }
@@ -258,9 +260,24 @@ function evaluate(
   }
   if (def.hierarchy) {
     const target = resolve(ctx, context.target!);
-    if (resolved.combination.maxRank <= target.combination.maxRank) return deny("hierarchy");
+    // A super admin acts on anyone; nobody else acts on a super admin, whatever the ranks.
+    if (!resolved.principal?.isSuperAdmin) {
+      if (target.principal?.isSuperAdmin) return deny("hierarchy");
+      if (resolved.combination.maxRank <= target.combination.maxRank) return deny("hierarchy");
+    }
   }
   return { granted: true, resolved, nodeIndex };
+}
+
+/** Whether `actor` is a super admin. */
+export function isSuperAdmin(ctx: Ctx, actor: Actor): boolean {
+  return !!resolve(ctx, actor).principal?.isSuperAdmin;
+}
+
+/** Throws unless `actor` is a super admin (a guest gets UnauthenticatedError, others Forbidden). */
+export function requireSuperAdmin(ctx: Ctx, actor: Actor): void {
+  if (actor.kind === "guest") throw new UnauthenticatedError();
+  if (!isSuperAdmin(ctx, actor)) throw new ForbiddenError();
 }
 
 /** Whether `actor` has the yes/no permission `id` in `context`. */

@@ -26,6 +26,7 @@ import {
   currentVersions,
   explainPermission,
   getNodeTree,
+  isSuperAdmin,
   memberActor,
   memberStanding,
   PERMISSION_IDS,
@@ -359,7 +360,10 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
     );
     if (ids.includes(GROUP_IDS.guest))
       throw new ValidationError("The Guest group cannot be assigned.");
-    const ceiling = memberStanding(ctx, current).maxRank;
+    // A super admin has no rank ceiling.
+    const ceiling = isSuperAdmin(ctx, current)
+      ? Number.POSITIVE_INFINITY
+      : memberStanding(ctx, current).maxRank;
     for (const id of ids) {
       const group = getGroup(ctx, id);
       if (!group) throw new NotFoundError();

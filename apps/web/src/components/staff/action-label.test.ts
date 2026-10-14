@@ -94,6 +94,7 @@ const IDS = [
   "thread_ban.create",
   "thread_ban.lift",
   "user.groups",
+  "user.superAdmin",
   "warning.add",
   "word_filter.upsert",
   "word_filter.remove",

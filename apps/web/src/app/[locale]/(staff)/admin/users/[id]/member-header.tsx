@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { linkClass } from "@/components/staff/rows";
+import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
 import { hrefFor, type ScreenKey } from "../../../registry";
@@ -74,6 +75,7 @@ export async function MemberHeader({
             </h1>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <MemberState state={member.state} />
+              {member.isSuperAdmin && <Badge>{t("superAdmin")}</Badge>}
               {roles.administrator &&
                 roleLink(administrators, t("administrator"))}
               {roles.moderator && roleLink(moderators, t("moderator"))}

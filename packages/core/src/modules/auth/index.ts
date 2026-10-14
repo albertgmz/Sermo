@@ -1225,6 +1225,12 @@ export async function ensureAdmin(
       .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
       .run(GROUP_IDS.admin, targetId).changes;
     if (!changed) throw new ConflictError("Admin bootstrap account is missing its forum profile.");
+    // A site always has a super admin: the first administrator is one when there is none.
+    ctx.sqlite
+      .prepare(
+        "UPDATE users SET is_super_admin = 1 WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM users WHERE is_super_admin = 1 AND erased_at IS NULL)",
+      )
+      .run(targetId);
     return targetId;
   });
   return { userId, created };

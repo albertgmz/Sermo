@@ -17,7 +17,8 @@
     "adjusted": "Se ajustaron los créditos.",
     "granted": "Se concedió el trofeo.",
     "revoked": "Hecho.",
-    "allRevoked": "Se cerraron todas las sesiones del miembro."
+    "allRevoked": "Se cerraron todas las sesiones del miembro.",
+    "superAdminSaved": "Se guardó el estado de superadministrador."
   },
   "states": {
     "valid": "Activa",
@@ -45,6 +46,7 @@
   "header": {
     "loading": "Cargando el miembro…",
     "administrator": "Administrador",
+    "superAdmin": "Superadministrador",
     "moderator": "Moderador",
     "id": "Miembro n.º {id}",
     "erased": "Esta cuenta se borró. Sus pestañas son de solo lectura; lo que escribió el miembro permanece bajo el nombre que se muestra.",
@@ -150,7 +152,13 @@
       "secondary": "A mano"
     },
     "groupId": "Grupo n.º {id}",
-    "none": "Ninguno"
+    "none": "Ninguno",
+    "refusedTitle": "No puedes ver los grupos de este miembro",
+    "refusedDescription": "Este miembro tiene un rango igual o superior al tuyo, o es superadministrador, así que sus grupos no se muestran y no se pueden cambiar.",
+    "superAdminHeading": "Superadministrador",
+    "superAdminDescription": "Un superadministrador puede actuar sobre cualquier miembro, administradores y él mismo incluidos, y ningún otro administrador puede actuar sobre él. Guardar requiere tu propia contraseña. No se puede quitar al último superadministrador.",
+    "superAdminLabel": "Superadministrador",
+    "superAdminHelp": "Concede o retira el estado de superadministrador de este miembro."
   },
   "promotions": {
     "heading": "Promociones",
@@ -323,7 +331,9 @@
     "revokeOneHelp": "Revocar una sesión puede tardar hasta cinco minutos en hacer efecto en ese dispositivo. Revocar todas las sesiones es inmediato.",
     "revokeAll": "Revocar todas las sesiones",
     "revokeAllWarning": "Cierra la sesión del miembro en todas partes, al instante. Sus claves de API no se tocan.",
-    "reason": "Motivo (opcional)"
+    "reason": "Motivo (opcional)",
+    "refusedTitle": "No puedes ver las sesiones de este miembro",
+    "refusedDescription": "Este miembro tiene un rango igual o superior al tuyo, o es superadministrador, así que sus sesiones no se muestran y no se pueden cerrar."
   },
   "history": {
     "metaTitle": "Historial del miembro",

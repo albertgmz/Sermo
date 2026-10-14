@@ -8,6 +8,7 @@ import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
+  isSuperAdmin,
   memberActor,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
@@ -82,6 +83,7 @@ export function buildAdminMembers(ctx: Ctx, actor: Actor, rows: AdminRow[]): Map
   const grants = permissionsOf(ctx, actor);
   const versions = requestVersions(ctx, actor);
   const now = ctx.now();
+  const viewerIsSuperAdmin = isSuperAdmin(ctx, actor);
   const result = new Map<number, Admin>();
   for (const row of rows) {
     const card = cards.get(row.id);
@@ -103,6 +105,8 @@ export function buildAdminMembers(ctx: Ctx, actor: Actor, rows: AdminRow[]): Map
       postCount: row.post_count,
       credits: row.credits,
       canEdit: editable,
+      isSuperAdmin: !!row.is_super_admin,
+      canSetSuperAdmin: viewerIsSuperAdmin && row.erased_at === null,
     });
   }
   return result;

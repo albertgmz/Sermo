@@ -7,6 +7,7 @@ import { usersAdminUpdateProfileOp } from "./profile";
 import { staffAdministratorsOp, staffModeratorsOp } from "./rosters";
 import { announcementsListOp, approvalsViewConversationMessageOp, bansListOp } from "./sanctions";
 import { usersAdminLogOp, usersAdminRevokeSessionsOp, usersAdminSessionsOp } from "./sessions";
+import { usersSetSuperAdminOp } from "./super-admin";
 
 export const operations: AnyOperation[] = [
   adminActivityOp,
@@ -23,6 +24,7 @@ export const operations: AnyOperation[] = [
   usersAdminRevokeSessionsOp,
   usersAdminLogOp,
   usersAdminEraseOp,
+  usersSetSuperAdminOp,
   bansListOp,
   announcementsListOp,
   approvalsViewConversationMessageOp,

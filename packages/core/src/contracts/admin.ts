@@ -144,6 +144,10 @@ export const AdminMember = z
     credits: z.number().int(),
     /** Whether the actor outranks this member and may therefore edit them. */
     canEdit: z.boolean(),
+    /** Whether the member is a super admin. */
+    isSuperAdmin: z.boolean(),
+    /** Whether the viewer is a super admin and the member's account is not erased. */
+    canSetSuperAdmin: z.boolean(),
   })
   .meta({ id: "AdminMember" });
 

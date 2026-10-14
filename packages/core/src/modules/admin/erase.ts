@@ -12,6 +12,7 @@ import { clearMemberPicture } from "../images";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { endMemberFollows } from "../social";
 import { requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
+import { assertOtherSuperAdmin, isSuperAdminRow } from "./super-admin";
 
 interface MemberRow {
   username: string;
@@ -99,6 +100,9 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
     requireTakeoverRights(ctx, current, fresh);
     const own = readMember(ctx, input.userId);
     if (own?.erased_at === null) {
+      // The flag goes with the account; the last super admin cannot be erased.
+      if (isSuperAdminRow(ctx, input.userId)) assertOtherSuperAdmin(ctx, input.userId);
+      ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(input.userId);
       ctx.sqlite.prepare(eraseSql.mark).run(input.userId, ctx.now());
       appendModeratorLog(ctx, actor, "member.erase", "user", input.userId, input.reason, {});
     }

@@ -4,6 +4,7 @@ export {
   currentActor,
   explainPermission,
   isRestricted,
+  isSuperAdmin,
   type LayerExplanation,
   memberActor,
   memberDisplay,
@@ -18,6 +19,7 @@ export {
   readWithCurrentActor,
   requestVersions,
   requirePermission,
+  requireSuperAdmin,
   resolvedPermissions,
   viewableNodeIds,
 } from "./check";

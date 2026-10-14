@@ -279,6 +279,7 @@
       "thread_ban_create": "Thread ban added",
       "thread_ban_lift": "Thread ban lifted",
       "user_groups": "Member groups changed",
+      "user_superAdmin": "Super admin status changed",
       "warning_add": "Warning given",
       "word_filter_remove": "Word filter removed",
       "word_filter_upsert": "Word filter saved"

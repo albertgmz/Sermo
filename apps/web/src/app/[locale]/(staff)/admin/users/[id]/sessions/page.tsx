@@ -8,7 +8,7 @@ import { Notice } from "@/components/staff/notice";
 import { Help, Section } from "@/components/staff/rows";
 import { shortAddress } from "@/lib/ip-address";
 import { read } from "@/lib/sermo/client";
-import { getMember, isReadOnly, memberIdOf } from "../../data";
+import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../../data";
 import { TabPage } from "../../tab-page";
 import { revokeSessions } from "./actions";
 
@@ -25,12 +25,23 @@ async function Sessions({
   searchParams: PageProps<"/[locale]/admin/users/[id]/sessions">["searchParams"];
 }) {
   const userId = await memberIdOf(params);
-  const [t, format, member, { items }] = await Promise.all([
+  const [t, format, member, sessions] = await Promise.all([
     getTranslations("adminUsers.sessions"),
     getFormatter(),
     getMember(userId),
-    read(usersAdminSessions, { userId }),
+    ifAllowed(() => read(usersAdminSessions, { userId })),
   ]);
+  if (!sessions) {
+    return (
+      <Section heading={t("heading")}>
+        <EmptyState
+          title={t("refusedTitle")}
+          description={t("refusedDescription")}
+        />
+      </Section>
+    );
+  }
+  const { items } = sessions;
   const readOnly = isReadOnly(member);
   const when = (at: string) =>
     format.dateTime(new Date(at), { dateStyle: "medium", timeStyle: "short" });

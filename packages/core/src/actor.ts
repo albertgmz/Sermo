@@ -15,6 +15,8 @@ export interface Principal {
   readonly restrictedProfilePostsUntil: number | null;
   readonly createdAt: number;
   readonly postCount: number;
+  /** The member is a super admin: hierarchy checks do not bind them, and bind others against them. */
+  readonly isSuperAdmin: boolean;
   /**
    * Cache versions read with the principal. The in-memory permission state is refreshed only
    * when it is older than these, so a request sees changes committed before it started.

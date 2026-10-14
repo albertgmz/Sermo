@@ -1,6 +1,10 @@
 "use server";
 
-import { promotionsApply, usersSetGroups } from "@sermo/core/contracts";
+import {
+  promotionsApply,
+  usersSetGroups,
+  usersSetSuperAdmin,
+} from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
@@ -11,7 +15,7 @@ import {
   missingPassword,
   text,
 } from "../../../groups/form-errors";
-import { memberOf } from "../../action-helpers";
+import { memberOf, ticked } from "../../action-helpers";
 
 const PROMOTION_ACTIONS = promotionsApply.input.shape.action.options;
 
@@ -78,4 +82,26 @@ export async function applyPromotion(
     return formFailure(error, ["actorPassword"]);
   }
   redirect(`/admin/users/${userId}/groups?notice=promotionApplied`);
+}
+
+// Grants or removes the super admin status, with the administrator's password.
+export async function saveSuperAdmin(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminUsers.errors");
+  const userId = memberOf(formData);
+  if (userId === null) return { error: t("id") };
+  const absent = await missingPassword(formData);
+  if (absent) return absent;
+  try {
+    await call(usersSetSuperAdmin, {
+      userId,
+      superAdmin: ticked(formData, "superAdmin"),
+      actorPassword: text(formData, "actorPassword"),
+    });
+  } catch (error) {
+    return formFailure(error, ["actorPassword"]);
+  }
+  redirect(`/admin/users/${userId}/groups?notice=superAdminSaved`);
 }

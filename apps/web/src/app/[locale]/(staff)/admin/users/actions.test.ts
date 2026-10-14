@@ -57,6 +57,8 @@ const member = {
   postCount: 0,
   credits: 0,
   canEdit: true,
+  isSuperAdmin: false,
+  canSetSuperAdmin: false,
 };
 
 const ok = () => Response.json({ ok: true });
@@ -336,6 +338,40 @@ test("a refusal that is not about the password stays at the top", async () => {
       form({ id: "7", primaryGroupId: "3", actorPassword: "secret" }),
     ),
   ).toEqual({ error: "You do not have permission to do that." });
+});
+
+test("the super admin status is sent with the password", async () => {
+  backend = fakeBackend({
+    "users.setSuperAdmin": () => Response.json({ ok: true }),
+  });
+  const digest = await redirectedTo(() =>
+    groups.saveSuperAdmin(
+      null,
+      form({ id: "7", superAdmin: "on", actorPassword: "secret" }),
+    ),
+  );
+  expect(digest).toMatch(/\/admin\/users\/7\/groups\?notice=superAdminSaved/);
+  expect(lastBody()).toEqual({
+    superAdmin: true,
+    actorPassword: "secret",
+  });
+  await redirectedTo(() =>
+    groups.saveSuperAdmin(null, form({ id: "7", actorPassword: "secret" })),
+  );
+  expect(lastBody()).toMatchObject({ superAdmin: false });
+});
+
+test("a wrong password for the super admin status shows on the password field", async () => {
+  backend = fakeBackend({ "users.setSuperAdmin": () => wrongPassword() });
+  expect(
+    await groups.saveSuperAdmin(
+      null,
+      form({ id: "7", superAdmin: "on", actorPassword: "nope" }),
+    ),
+  ).toEqual({ fields: { actorPassword: "That is not your password." } });
+  expect(
+    await groups.saveSuperAdmin(null, form({ id: "x", actorPassword: "nope" })),
+  ).toEqual({ error: messages.adminUsers.errors.id });
 });
 
 test("group ids that are not record ids are refused before any call", async () => {

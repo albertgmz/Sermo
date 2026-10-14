@@ -279,6 +279,7 @@
       "thread_ban_create": "Expulsión de tema añadida",
       "thread_ban_lift": "Expulsión de tema levantada",
       "user_groups": "Grupos del miembro cambiados",
+      "user_superAdmin": "Estado de superadministrador cambiado",
       "warning_add": "Advertencia dada",
       "word_filter_remove": "Filtro de palabras eliminado",
       "word_filter_upsert": "Filtro de palabras guardado"
