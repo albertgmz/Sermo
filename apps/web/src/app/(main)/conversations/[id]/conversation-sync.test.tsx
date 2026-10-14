@@ -27,23 +27,30 @@ mock.module("@/app/(main)/conversations/actions", () => ({
   },
 }));
 
-const { ConversationSync } = await import("./conversation-sync");
+const { ConversationSync, keepsPlace } = await import("./conversation-sync");
 
 afterAll(() => {
   mock.module("react", () => react);
   mock.module("next/navigation", () => navigation);
 });
 
-function render(unread: boolean) {
+// The scroll effect reads the address of the page, which a server render has not got.
+function render() {
+  const globals = globalThis as unknown as { window?: unknown };
+  globals.window = { location: { hash: "" } };
   effects.length = 0;
   marked.length = 0;
   refreshed = 0;
-  renderToStaticMarkup(createElement(ConversationSync, { id: 5, unread }));
-  return effects.map((effect) => effect());
+  renderToStaticMarkup(createElement(ConversationSync, { id: 5 }));
+  try {
+    return effects.map((effect) => effect());
+  } finally {
+    delete globals.window;
+  }
 }
 
-test("an unread conversation is marked read and the route is refreshed once that is done", async () => {
-  render(true);
+test("opening a conversation marks it read and refreshes the route once that is done", async () => {
+  render();
   expect(marked).toEqual([5]);
   expect(refreshed).toBe(0);
   await Promise.resolve();
@@ -51,17 +58,16 @@ test("an unread conversation is marked read and the route is refreshed once that
   expect(refreshed).toBe(1);
 });
 
-test("a conversation that is already read is neither marked nor refreshed", async () => {
-  render(false);
-  await Promise.resolve();
-  expect(marked).toEqual([]);
-  expect(refreshed).toBe(0);
-});
-
 test("leaving the page before the answer comes back refreshes nothing", async () => {
-  const cleanups = render(true);
+  const cleanups = render();
   for (const cleanup of cleanups) cleanup?.();
   await Promise.resolve();
   await Promise.resolve();
   expect(refreshed).toBe(0);
+});
+
+test("an address that names a message keeps the page at that message", () => {
+  expect(keepsPlace("#message-4")).toBe(true);
+  for (const hash of ["", "#post-4", "#main"])
+    expect(keepsPlace(hash)).toBe(false);
 });

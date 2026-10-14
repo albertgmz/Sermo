@@ -47,6 +47,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatNumber } from "@/lib/format";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
+import { parseId } from "@/lib/sermo/ids";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";
@@ -68,7 +69,9 @@ function seoOf(profile: Profile, query: Record<string, unknown>) {
     query.tab !== undefined ||
     query.cursor !== undefined ||
     query.comments !== undefined ||
-    query.commentsCursor !== undefined;
+    query.commentsCursor !== undefined ||
+    query.post !== undefined ||
+    query.comment !== undefined;
   return copy ? copyOf(profile.seo) : profile.seo;
 }
 
@@ -413,6 +416,8 @@ export default async function ProfilePage({
               cursor={first(query.cursor)}
               comments={first(query.comments)}
               commentsCursor={first(query.commentsCursor)}
+              post={first(query.post)}
+              comment={first(query.comment)}
             />
           </Suspense>
         </PageLayout>
@@ -450,14 +455,20 @@ function ProfileActivity({
   cursor,
   comments,
   commentsCursor,
+  post,
+  comment,
 }: {
   profile: Profile;
   tab: Tab;
   cursor?: string;
   comments?: string;
   commentsCursor?: string;
+  post?: string;
+  comment?: string;
 }) {
   const postId = Number(comments);
+  const focusId = parseId(post ?? "");
+  const commentId = parseId(comment ?? "");
   if (tab === "posts") return <PostsTab profile={profile} cursor={cursor} />;
   if (tab === "threads") {
     return <ThreadsTab profile={profile} cursor={cursor} />;
@@ -470,6 +481,11 @@ function ProfileActivity({
         Number.isSafeInteger(postId) && postId > 0
           ? { postId, cursor: commentsCursor }
           : undefined
+      }
+      focus={
+        focusId === null
+          ? undefined
+          : { postId: focusId, commentId: commentId ?? undefined }
       }
     />
   );

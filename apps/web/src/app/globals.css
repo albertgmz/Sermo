@@ -119,6 +119,8 @@
   --secondary: #18181b;
   --muted: #18181b;
   --accent: #18181b;
+  /* What dims the page around the element an address names. */
+  --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
   /* Text. */
   --foreground: #fafafa;

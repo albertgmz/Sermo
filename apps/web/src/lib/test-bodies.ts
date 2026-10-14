@@ -143,3 +143,44 @@ export function postBody(over: Record<string, unknown> = {}) {
     ...over,
   };
 }
+
+// A comment on a wall post, as profileComments.list and profileComments.get answer.
+export function profileCommentBody(over: Record<string, unknown> = {}) {
+  return {
+    id: 44,
+    profilePostId: 12,
+    author: { id: 3, username: "ember" },
+    state: "visible",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    editedAt: null,
+    bodyHtml: "",
+    reactions: { counts: {}, total: 0, mine: null },
+    canEdit: false,
+    canDelete: false,
+    bodySource: "",
+    ...over,
+  };
+}
+
+// A wall post, as profilePosts.list and profilePosts.get answer.
+export function profilePostBody(over: Record<string, unknown> = {}) {
+  return {
+    id: 12,
+    profileUserId: 9,
+    author: { id: 3, username: "ember" },
+    state: "visible",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    editedAt: null,
+    bodyHtml: "",
+    attachmentCount: 0,
+    attachments: [],
+    reactions: { counts: {}, total: 0, mine: null },
+    commentCount: 0,
+    latestComments: [],
+    canEdit: false,
+    canDelete: false,
+    canComment: false,
+    bodySource: "",
+    ...over,
+  };
+}

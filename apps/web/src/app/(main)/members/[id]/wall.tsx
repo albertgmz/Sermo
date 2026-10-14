@@ -26,6 +26,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
+import { pageHolding } from "@/lib/sermo/locate";
 import { membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -150,29 +151,66 @@ function WallPost({
   );
 }
 
+// A post (and a comment on it) an address names, which the wall brings to the page that shows it.
+export type WallFocus = { postId: number; commentId?: number };
+
 export async function Wall({
   profile,
-  cursor,
-  open,
+  cursor: requested,
+  open: requestedOpen,
+  focus,
 }: {
   profile: Profile;
   cursor?: string;
   open?: OpenComments;
+  focus?: WallFocus;
 }) {
+  // A named post that the first page does not hold is looked for further down the wall, and the
+  // wall continues from the page that has it.
+  const found =
+    focus && requested === undefined
+      ? await pageHolding(
+          (at) => read(profilePostsList, { userId: profile.id, cursor: at }),
+          (post) => post.id === focus.postId,
+        )
+      : null;
+  const cursor = found ? found.cursor : requested;
   const [{ items: posts, nextCursor }, reactionTypes, viewer, t, loadMore] =
     await Promise.all([
-      read(profilePostsList, { userId: profile.id, cursor }),
+      found
+        ? Promise.resolve(found.page)
+        : read(profilePostsList, { userId: profile.id, cursor }),
       getReactionTypes(),
       getViewer(),
       getTranslations("members.wall"),
       getTranslations("members.loadMore"),
     ]);
+  // A named comment that is not among the newest few opens the page of comments that holds it.
+  const focused =
+    focus?.commentId !== undefined && !requestedOpen
+      ? posts.find((post) => post.id === focus.postId)
+      : undefined;
+  const commentHit =
+    focused && !focused.latestComments.some((c) => c.id === focus?.commentId)
+      ? await pageHolding(
+          (at) =>
+            read(profileCommentsList, {
+              profilePostId: focused.id,
+              cursor: at,
+            }),
+          (comment) => comment.id === focus?.commentId,
+        )
+      : null;
+  const open: OpenComments | undefined = commentHit
+    ? { postId: focused?.id ?? 0, cursor: commentHit.cursor }
+    : requestedOpen;
   const openPost = open && posts.find((post) => post.id === open.postId);
   const openPage = openPost
-    ? await read(profileCommentsList, {
+    ? (commentHit?.page ??
+      (await read(profileCommentsList, {
         profilePostId: openPost.id,
         cursor: open?.cursor,
-      })
+      })))
     : null;
   const member = await membersFor([
     ...posts.flatMap((post) => [

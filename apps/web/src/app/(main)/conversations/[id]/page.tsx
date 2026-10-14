@@ -24,6 +24,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
+import { pageHolding } from "@/lib/sermo/locate";
 import { authorsFor, membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
@@ -118,7 +119,10 @@ export default async function ConversationPage({
   params,
   searchParams,
 }: PageProps<"/conversations/[id]">) {
-  const [{ id: raw }, { cursor }] = await Promise.all([params, searchParams]);
+  const [{ id: raw }, { cursor, message }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const conversationId = conversationIdOf(raw);
   const [conversation, { permissions }, t] = await Promise.all([
     read(conversationsGet, { conversationId }),
@@ -147,6 +151,7 @@ export default async function ConversationPage({
           <Messages
             conversation={conversation}
             cursor={typeof cursor === "string" ? cursor : undefined}
+            focus={typeof message === "string" ? parseId(message) : null}
             canReact={permissions.canReact}
           />
         </Suspense>
@@ -169,20 +174,30 @@ export default async function ConversationPage({
 
 async function Messages({
   conversation,
-  cursor,
+  cursor: requested,
+  focus,
   canReact,
 }: {
   conversation: Conversation;
   cursor: string | undefined;
+  // A message an address names, which the page of messages that holds it is opened at.
+  focus: number | null;
   canReact: boolean;
 }) {
+  const readPage = (at: string | undefined) =>
+    read(conversationsListMessages, {
+      conversationId: conversation.id,
+      order: "newest",
+      cursor: at,
+    });
+  const found =
+    focus !== null && requested === undefined
+      ? await pageHolding(readPage, (message) => message.id === focus)
+      : null;
+  const cursor = found ? found.cursor : requested;
   const [{ items: newestFirst, nextCursor }, { user }, reactionTypes, t] =
     await Promise.all([
-      read(conversationsListMessages, {
-        conversationId: conversation.id,
-        order: "newest",
-        cursor,
-      }),
+      found ? Promise.resolve(found.page) : readPage(cursor),
       getMember(),
       getReactionTypes(),
       getTranslations("conversations.conversation"),
@@ -255,11 +270,7 @@ async function Messages({
           {t("newest")}
         </LoadMore>
       ) : (
-        <ConversationSync
-          key={messages.at(-1)?.id}
-          id={conversation.id}
-          unread={conversation.isUnread}
-        />
+        <ConversationSync key={messages.at(-1)?.id} id={conversation.id} />
       )}
     </>
   );

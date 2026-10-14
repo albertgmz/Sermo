@@ -945,6 +945,29 @@ export default async function StyleguidePage() {
           </ul>
         </Section>
 
+        <Section title="Address target">
+          <p className="text-sm text-muted-foreground">
+            When the address names an element (<code>#post-12</code>,{" "}
+            <code>#profile-post-3</code>, <code>#profile-comment-9</code>,{" "}
+            <code>#message-4</code>), it is brought into view and the rest of
+            the page is dimmed for a few seconds. A scroll, a click or a key
+            press takes the dimming away at once. The component is mounted once
+            in the site frame; this link follows an address on this page.
+          </p>
+          <a
+            href="#post-0"
+            className="inline-flex h-10 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Go to the sample post
+          </a>
+          <div
+            id="post-0"
+            className="scroll-mt-4 rounded-lg border bg-card p-4 text-sm"
+          >
+            Sample post. The dimming follows its edges.
+          </div>
+        </Section>
+
         <Section title="Shop icons">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             {SHOP_EFFECT_TYPES.map((type) => (

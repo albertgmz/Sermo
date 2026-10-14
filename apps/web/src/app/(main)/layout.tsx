@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems } from "@/components/layout/nav";
@@ -62,6 +63,9 @@ export default function MainLayout({ children }: LayoutProps<"/">) {
       </Suspense>
       <Suspense>
         <Chrome />
+      </Suspense>
+      <Suspense>
+        <HashTarget />
       </Suspense>
       <SiteHeader />
       <Suspense
