@@ -6,8 +6,8 @@ import {
   type Box,
   createSpotlight,
   createTraversalGuard,
-  restoresScroll,
   type SpotlightEnv,
+  startsOnMount,
   TARGET,
 } from "@/components/layout/spotlight";
 
@@ -40,6 +40,17 @@ function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
   };
 }
 
+// History traversals are watched from the module, not from the component: the component can be
+// hidden and shown again by a client-side Back (the router keeps pages it left), and then its own
+// listeners and state are gone while the traversal is still the cause of what happens next.
+const traversals = createTraversalGuard((run, ms) => {
+  const timer = window.setTimeout(run, ms);
+  return () => window.clearTimeout(timer);
+});
+if (typeof window !== "undefined") {
+  window.addEventListener("popstate", () => traversals.traversal());
+}
+
 // When the address names an element of the page (a post, a wall post or comment, a message), it
 // is brought into view and the rest of the page is dimmed for a few seconds. A scroll, a click or
 // a key press takes the dimming away at once, and it never takes the click or the focus: the first
@@ -50,21 +61,17 @@ export function HashTarget() {
   const search = useSearchParams().toString();
   const [box, setBox] = useState<Box | null>(null);
   const spotlight = useRef<ReturnType<typeof createSpotlight> | null>(null);
-  const guard = useRef<ReturnType<typeof createTraversalGuard> | null>(null);
   const arrived = useRef(false);
 
   // Once: the listeners, and the first arrival, unless the browser restores the scroll itself
-  // (a reload, or a visit by history).
+  // (a reload, or a visit by history of the document) or the component comes back by a traversal.
   useEffect(() => {
     const env = browserEnv(
-      (next) => setBox({ ...next }),
+      (next) => setBox(next),
       () => setBox(null),
     );
     const current = createSpotlight(env);
-    const traversals = createTraversalGuard(env.later);
     spotlight.current = current;
-    guard.current = traversals;
-    const onPopState = () => traversals.traversal();
     const onHashChange = () => {
       if (traversals.consume()) current.stop();
       else current.start();
@@ -87,18 +94,17 @@ export function HashTarget() {
         current.startWhenHashIs(to.hash);
       }
     };
-    window.addEventListener("popstate", onPopState);
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
     const [entry] = performance.getEntriesByType("navigation");
-    if (!restoresScroll((entry as PerformanceNavigationTiming)?.type)) {
+    if (
+      startsOnMount((entry as PerformanceNavigationTiming)?.type, traversals)
+    ) {
       current.start();
     }
     return () => {
-      window.removeEventListener("popstate", onPopState);
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);
-      traversals.reset();
       current.stop();
     };
   }, []);
@@ -110,7 +116,7 @@ export function HashTarget() {
       arrived.current = true;
       return;
     }
-    if (guard.current?.consume()) spotlight.current?.stop();
+    if (traversals.consume()) spotlight.current?.stop();
     else spotlight.current?.start();
   }, [pathname, search]);
 

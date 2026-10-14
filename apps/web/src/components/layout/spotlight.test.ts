@@ -5,10 +5,31 @@ import {
   createTraversalGuard,
   restoresScroll,
   type SpotlightTarget,
+  startsOnMount,
   TARGET,
 } from "./spotlight";
 
 const BOX: Box = { top: 100, left: 10, width: 300, height: 80 };
+
+// Like a real DOMRect: the fields are getters on the prototype, so spreading it gives {}.
+class RectLike implements Box {
+  #box: Box;
+  constructor(box: Box) {
+    this.#box = box;
+  }
+  get top() {
+    return this.#box.top;
+  }
+  get left() {
+    return this.#box.left;
+  }
+  get width() {
+    return this.#box.width;
+  }
+  get height() {
+    return this.#box.height;
+  }
+}
 
 // A page that can be scrolled, clicked and waited on by hand.
 function fakePage(options: { hash: string; reduced?: boolean }) {
@@ -24,7 +45,7 @@ function fakePage(options: { hash: string; reduced?: boolean }) {
     box: BOX,
     element(id: string) {
       present.set(id, {
-        getBoundingClientRect: () => page.box,
+        getBoundingClientRect: () => new RectLike(page.box),
         scrollIntoView: (to) => scrolls.push(to),
       });
     },
@@ -277,7 +298,11 @@ test("a traversal is taken by the first change that follows it, once", () => {
   const guard = createTraversalGuard(later);
   expect(guard.consume()).toBe(false);
   guard.traversal();
+  // Every effect of the commit that follows gets the same answer...
   expect(guard.consume()).toBe(true);
+  expect(guard.consume()).toBe(true);
+  // ...and the mark is gone by the next task.
+  for (const item of pending) if (item.timer.live && item.ms === 0) item.run();
   expect(guard.consume()).toBe(false);
   // A link followed after the traversal is a new navigation.
   guard.traversal();
@@ -309,4 +334,48 @@ test("the dimming stays on the element when content shifts while it is shown", (
   // Once dismissed it measures nothing more.
   page.fire("pointerdown");
   expect(page.framing()).toBe(0);
+});
+
+test("the dimming is given plain numbers, not the rectangle the browser returned", () => {
+  const { page, spotlight } = fakePage({ hash: "#post-12" });
+  page.element("post-12");
+  spotlight.start();
+  page.wait(200);
+  const shown = page.visible;
+  expect(shown).toEqual(BOX);
+  expect(Object.keys(shown ?? {}).sort()).toEqual([
+    "height",
+    "left",
+    "top",
+    "width",
+  ]);
+  expect(shown).not.toBeInstanceOf(RectLike);
+  // Content shifting moves it the same way.
+  page.box = { ...BOX, top: 40 };
+  page.frame();
+  expect(page.visible).toEqual({ ...BOX, top: 40 });
+});
+
+test("a component mounted again by a client-side Back does not start", () => {
+  const pending: { run: () => void; ms: number; live: boolean }[] = [];
+  const guard = createTraversalGuard((run, ms) => {
+    const item = { run, ms, live: true };
+    pending.push(item);
+    return () => {
+      item.live = false;
+    };
+  });
+  // A plain arrival by a link: the document's entry says navigate.
+  expect(startsOnMount("navigate", guard)).toBe(true);
+  // popstate, then the component is mounted again (or shown again) while the document's entry
+  // still says navigate: its mount effect and its path effect both see the traversal.
+  guard.traversal();
+  expect(startsOnMount("navigate", guard)).toBe(false);
+  expect(guard.consume()).toBe(true);
+  for (const item of pending) if (item.live && item.ms === 0) item.run();
+  // The next arrival is new again.
+  expect(startsOnMount("navigate", guard)).toBe(true);
+  // A reload or a document-level history visit never starts, with or without a mark.
+  expect(startsOnMount("reload", guard)).toBe(false);
+  expect(startsOnMount("back_forward", guard)).toBe(false);
 });

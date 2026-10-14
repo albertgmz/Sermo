@@ -16,6 +16,19 @@ const NAVIGATE_MS = 1000;
 
 export type Box = { top: number; left: number; width: number; height: number };
 
+// Reads the rectangle's fields one by one. A real `DOMRect` keeps them as getters on its
+// prototype, so spreading or copying it by keys yields an empty object; only plain numbers leave
+// this function.
+const measure = (element: SpotlightTarget): Box => {
+  const rect = element.getBoundingClientRect();
+  return {
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+  };
+};
+
 const sameBox = (a: Box, b: Box) =>
   a.top === b.top &&
   a.left === b.left &&
@@ -70,11 +83,11 @@ export function createSpotlight(env: SpotlightEnv) {
         settled = true;
         // Kept on the element while it is shown: content that shifts afterwards (late pictures,
         // a section that streams in) moves it.
-        let shown = element.getBoundingClientRect();
+        let shown = measure(element);
         env.show(shown);
         stops.push(
           env.frames(() => {
-            const now = element.getBoundingClientRect();
+            const now = measure(element);
             if (sameBox(now, shown)) return;
             shown = now;
             env.show(now);
@@ -130,10 +143,22 @@ export function createSpotlight(env: SpotlightEnv) {
 export const restoresScroll = (type: string | undefined) =>
   type === "reload" || type === "back_forward";
 
+// Whether the first arrival, when the component mounts, starts the dimming. Not after a reload or
+// a visit by history of the whole document, and not when the component is mounted again (or shown
+// again) because of a client-side Back or Forward, which `guard` knows about.
+export const startsOnMount = (
+  navigationType: string | undefined,
+  guard: { consume(): boolean },
+) => {
+  const traversal = guard.consume();
+  return !restoresScroll(navigationType) && !traversal;
+};
+
 // Tells a visit by history (Back, Forward) from a new navigation. A traversal is announced by
-// `traversal()` before the address, the path or the query change in the page; the first change
-// that follows takes it with `consume()`, and so does a link followed (`reset()`). One that
-// no change follows is forgotten after a moment.
+// `traversal()` before the address, the path or the query change in the page, or the component
+// mounts again. `consume()` asks whether the change being handled is that traversal: every
+// effect of the same commit gets the same answer, and the mark is gone by the next task. A link
+// followed clears it (`reset()`), and one that no change follows is forgotten after a moment.
 export function createTraversalGuard(
   later: (run: () => void, ms: number) => () => void,
 ) {
@@ -149,10 +174,12 @@ export function createTraversalGuard(
       traversed = true;
       cancel = later(reset, 1000);
     },
-    // Whether the change being handled is the traversal's; each traversal is taken once.
     consume() {
       const was = traversed;
-      reset();
+      if (was) {
+        cancel();
+        cancel = later(reset, 0);
+      }
       return was;
     },
     reset,
