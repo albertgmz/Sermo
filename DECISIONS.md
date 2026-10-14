@@ -1830,3 +1830,11 @@ header. Leaving stays a header control.
 The two requests met here: with the automatic mark, a card shown while the latest message is
 unread would flash on every open. So the card is drawn only when the conversation is unread and
 the automatic mark was refused, and a refused press says why.
+
+**After the first browser pass (wave 1).** The dim layer's hole is measured into plain numbers: a
+`DOMRect`'s fields are prototype getters, so a copy by spread is empty and the layer covered the
+whole page. The history guard that keeps Back and Forward from starting the scroll and the
+dimming lives outside the component: this Next version hides a page it leaves instead of
+unmounting it, which reset a guard kept in the component. The reaction picker wraps onto further
+rows and never exceeds the viewport, since staff can now add reaction types beyond what one row
+holds on a phone.
