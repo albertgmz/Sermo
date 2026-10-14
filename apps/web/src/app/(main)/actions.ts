@@ -8,6 +8,7 @@ import {
 import { refresh } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { LineComposerState } from "@/components/forum/line-composer";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -105,17 +106,15 @@ export async function react(
   return {};
 }
 
-export type FeedReplyState = { error?: string };
-
 // Replies to a thread from its card in the feed and goes back to the feed address the form was
 // on. That address can differ from the one in the browser by its hash alone (the comment count
 // leads to the composer), which is no navigation to the server, so the page is refreshed first.
 export async function replyFromFeed(
   threadId: number,
   returnTo: string,
-  _previous: FeedReplyState,
+  _previous: LineComposerState,
   formData: FormData,
-): Promise<FeedReplyState> {
+): Promise<LineComposerState> {
   requireIds(threadId);
   const body = String(formData.get("body") ?? "");
   const created = await attempt(returnTo, () =>

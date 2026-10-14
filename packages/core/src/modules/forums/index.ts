@@ -5,7 +5,14 @@ import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, invalidate, prepared } from "../../context";
 import * as contracts from "../../contracts/forums";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  type SermoError,
+  UnauthenticatedError,
+  ValidationError,
+} from "../../errors";
 import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -180,12 +187,16 @@ function threadRow(ctx: Ctx, id: number, viewerId = 0): ThreadRow | undefined {
     ) ?? undefined
   );
 }
-function checkNodePostingRules(ctx: Ctx, actor: Actor, nodeId: number): NodeRow {
-  const settings = nodeRows(ctx, nodeId).get(nodeId);
-  if (!settings) throw new NotFoundError();
-  if (can(ctx, actor, "forum.bypassNodeRules", { nodeId })) return settings;
-  if (settings.is_read_only) throw new ForbiddenError("This forum is read-only.");
-  const member = requireAuthenticated(actor);
+/**
+ * Why the forum's own posting rules (read-only, minimum account age, minimum post count) stop
+ * the actor, or null when they do not: the one decision behind the check a write makes and the
+ * `canReply` a read answers.
+ */
+function postingRuleRefusal(ctx: Ctx, actor: Actor, settings: NodeRow): SermoError | null {
+  if (can(ctx, actor, "forum.bypassNodeRules", { nodeId: settings.id })) return null;
+  if (settings.is_read_only) return new ForbiddenError("This forum is read-only.");
+  if (actor.kind === "guest") return new UnauthenticatedError();
+  const member = actor;
   const principal =
     member.principal ??
     (() => {
@@ -200,9 +211,16 @@ function checkNodePostingRules(ctx: Ctx, actor: Actor, nodeId: number): NodeRow 
     settings.min_account_age_days &&
     (!principal || ctx.now() - principal.createdAt < settings.min_account_age_days * 86_400_000)
   )
-    throw new ForbiddenError("Your account is too new to post in this forum.");
+    return new ForbiddenError("Your account is too new to post in this forum.");
   if (settings.min_post_count && (!principal || principal.postCount < settings.min_post_count))
-    throw new ForbiddenError("You need more posts before posting in this forum.");
+    return new ForbiddenError("You need more posts before posting in this forum.");
+  return null;
+}
+function checkNodePostingRules(ctx: Ctx, actor: Actor, nodeId: number): NodeRow {
+  const settings = nodeRows(ctx, nodeId).get(nodeId);
+  if (!settings) throw new NotFoundError();
+  const refusal = postingRuleRefusal(ctx, actor, settings);
+  if (refusal) throw refusal;
   return settings;
 }
 const REORGANIZING = "This thread is being reorganized; try again shortly";
@@ -358,20 +376,28 @@ function mayDelete(
     (!locked && permissions.can("forum.deleteOwn", { nodeId, ownerId }))
   );
 }
-/** Whether a reply is accepted in the thread: `threads.get` and the feed answer with it. */
+/**
+ * Whether `posts.create` takes a reply to the thread from the viewer, before it looks at the
+ * reply itself: `threads.get` and the feed answer with it. `settings` is the thread's forum.
+ */
 function mayReply(
+  ctx: Ctx,
+  actor: Actor,
   permissions: ReturnType<typeof permissionsOf>,
   row: Pick<ThreadRow, "node_id" | "is_locked">,
   threadBanned: boolean,
+  settings: NodeRow | undefined,
 ): boolean {
   return (
     permissions.can("forum.reply", { nodeId: row.node_id, threadBanned }) &&
-    (!row.is_locked || permissions.can("forum.replyLocked", { nodeId: row.node_id }))
+    (!row.is_locked || permissions.can("forum.replyLocked", { nodeId: row.node_id })) &&
+    settings !== undefined &&
+    postingRuleRefusal(ctx, actor, settings) === null
   );
 }
 /**
- * The threads, among `rows`, the viewer may reply in: the viewer's thread bans are read once
- * for the whole page. Callers pass threads the viewer may open.
+ * The threads, among `rows`, the viewer may reply in: the viewer's thread bans and the forums'
+ * posting rules are each read once for the whole page. Callers pass threads the viewer may open.
  */
 export function repliableThreads(ctx: Ctx, actor: Actor, rows: ThreadRow[]): Set<number> {
   const userId = actorUserId(actor);
@@ -387,8 +413,17 @@ export function repliableThreads(ctx: Ctx, actor: Actor, rows: ThreadRow[]): Set
           .map((ban) => ban.thread_id),
   );
   const permissions = permissionsOf(ctx, actor);
+  const nodeIds = new Set(rows.map((row) => row.node_id));
+  const settings =
+    nodeIds.size === 0
+      ? new Map<number, NodeRow>()
+      : nodeRows(ctx, nodeIds.size === 1 ? rows[0]!.node_id : undefined);
   return new Set(
-    rows.filter((row) => mayReply(permissions, row, banned.has(row.id))).map((row) => row.id),
+    rows
+      .filter((row) =>
+        mayReply(ctx, actor, permissions, row, banned.has(row.id), settings.get(row.node_id)),
+      )
+      .map((row) => row.id),
   );
 }
 /** Removing a thread's cover: the author of a visible thread, or whoever may edit others' threads. */
@@ -908,7 +943,14 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
             return watch ? { email: !!watch.email } : null;
           })(),
     permissions: {
-      canReply: mayReply(permissionsOf(ctx, actor), row, !!row.thread_banned),
+      canReply: mayReply(
+        ctx,
+        actor,
+        permissionsOf(ctx, actor),
+        row,
+        !!row.thread_banned,
+        nodeRows(ctx, node.id).get(node.id),
+      ),
       canEditTitle: mayEditTitle(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
       // Reporting targets the first post, and watching needs a visible thread: both are open to

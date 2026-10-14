@@ -15,7 +15,7 @@ import {
   profilePostValues,
 } from "../profiles";
 import { loadThreads, postsInThreads } from "./authors";
-import { FEED_TOP_SIZE, firstSurvivors, storedRanking } from "./rankings";
+import { FEED_TOP_SIZE, firstSurvivors, rankingSql, storedRanking } from "./rankings";
 import { SCAN_CAP } from "./scan";
 import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./viewer";
 
@@ -39,8 +39,6 @@ type WallCandidate = {
 };
 
 export const feedSql = {
-  posts:
-    "SELECT id, thread_id, user_id, state, created_at FROM posts WHERE state = 'visible' AND id < ?1 ORDER BY id DESC LIMIT ?2",
   wall: "SELECT id, profile_user_id, user_id, state, created_at FROM profile_posts WHERE state = 'visible' AND id < ?1 ORDER BY id DESC LIMIT ?2",
   /**
    * The newest posts of any of the given authors: each author's newest rows by the (user, id)
@@ -56,52 +54,74 @@ export const feedSql = {
 };
 
 type FeedItemValue = z.infer<typeof FeedItem>;
-const cursorSchema = z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()]);
+const cursorPart = z.number().int().nonnegative();
+/** Where each side continues: the forum side, then the wall side. */
+const cursorSchema = {
+  /** `latest` walks threads by activity: (last post time, thread id). */
+  latest: z.tuple([cursorPart, cursorPart, cursorPart]),
+  following: z.tuple([cursorPart, cursorPart]),
+};
+type ThreadKey = [lastPostAt: number, threadId: number];
 
-/** One side of the merged stream: posts, or wall posts. */
-interface Source<Row extends { id: number; created_at: number }> {
+/**
+ * One side of the merged stream. A row's `created_at` is the time it is merged by; `Key` is
+ * where the walk continues (a row id, or a thread's place by activity).
+ */
+interface Source<Row extends { created_at: number }, Key> {
   readonly rank: number;
-  /** Rows with id below `before`, newest id first, at most `count`; fewer only at the end. */
-  fetch(before: number, count: number): Row[];
+  /** Rows below `before`, newest first, at most `count`; fewer only at the end. */
+  fetch(before: Key, count: number): Row[];
   /** The rows the viewer may see. */
   accept(rows: Row[]): Set<Row>;
+  /** The place of a row in the walk. */
+  keyOf(row: Row): Key;
+  /** The bound that takes the row at `key` again and nothing above it. */
+  from(key: Key): Key;
+  /** The bound that says the walk has nothing more. */
+  readonly end: Key;
   /** Exclusive upper bound of the next fetch. */
-  before: number;
+  before: Key;
   buffer: Row[];
   examined: number;
   exhausted: boolean;
-  /** Creation time of the oldest row examined: nothing unexamined is newer. */
+  /** Merge time of the oldest row examined: nothing unexamined is newer. */
   low: number;
 }
 
-function source<Row extends { id: number; created_at: number }>(
-  rank: number,
-  before: number,
-  fetch: Source<Row>["fetch"],
-  accept: Source<Row>["accept"],
-  disabled = false,
-): Source<Row> {
+function source<Row extends { created_at: number }, Key>(
+  options: Pick<Source<Row, Key>, "rank" | "fetch" | "accept" | "keyOf" | "from" | "end"> & {
+    before: Key;
+    disabled?: boolean;
+  },
+): Source<Row, Key> {
+  const { before, disabled = false, ...walk } = options;
+  const done = disabled || JSON.stringify(before) === JSON.stringify(walk.end);
   return {
-    rank,
-    fetch,
-    accept,
+    ...walk,
     before,
     buffer: [],
     examined: 0,
-    exhausted: disabled || before === 0,
-    low: disabled || before === 0 ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
+    exhausted: done,
+    low: done ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY,
   };
 }
 
-function refill<Row extends { id: number; created_at: number }>(
-  src: Source<Row>,
+/** A walk by row id, newest id first: a cursor of 0 says there is nothing more. */
+const byId = {
+  keyOf: (row: { id: number }) => row.id,
+  from: (key: number) => key + 1,
+  end: 0,
+};
+
+function refill<Row extends { created_at: number }, Key>(
+  src: Source<Row, Key>,
   count: number,
 ): void {
   const rows = src.fetch(src.before, count);
   src.examined += rows.length;
   if (rows.length > 0) {
     const last = rows.at(-1)!;
-    src.before = last.id;
+    src.before = src.keyOf(last);
     src.low = last.created_at;
     const passing = src.accept(rows);
     for (const row of rows) if (passing.has(row)) src.buffer.push(row);
@@ -112,34 +132,32 @@ function refill<Row extends { id: number; created_at: number }>(
   }
 }
 
-const canRefill = (src: Source<{ id: number; created_at: number }>) =>
+const canRefill = (src: { exhausted: boolean; examined: number }) =>
   !src.exhausted && src.examined < FEED_EXAMINE_CAP;
 
-/** The cursor part for a source: where its next fetch starts, or 0 when it has nothing more. */
-function resume(src: Source<{ id: number; created_at: number }>): number {
-  if (src.buffer.length > 0) return src.buffer[0]!.id + 1;
-  return src.exhausted ? 0 : src.before;
+/** The cursor part for a source: where its next fetch starts, or its end when nothing is left. */
+function resume<Row extends { created_at: number }, Key>(src: Source<Row, Key>): Key {
+  if (src.buffer.length > 0) return src.from(src.keyOf(src.buffer[0]!));
+  return src.exhausted ? src.end : src.before;
 }
+const finished = (src: { exhausted: boolean; buffer: unknown[] }) =>
+  src.exhausted && src.buffer.length === 0;
 
-/**
- * Newest first by creation time; at the same instant a post precedes a wall post, then the
- * higher id first.
- */
+/** Newest first by merge time; at the same instant the forum side precedes a wall post. */
 function earlier(
-  a: { rank: number; row: { id: number; created_at: number } },
-  b: { rank: number; row: { id: number; created_at: number } },
+  a: { rank: number; row: { created_at: number } },
+  b: { rank: number; row: { created_at: number } },
 ): boolean {
   if (a.row.created_at !== b.row.created_at) return a.row.created_at > b.row.created_at;
-  if (a.rank !== b.rank) return a.rank < b.rank;
-  return a.row.id > b.row.id;
+  return a.rank < b.rank;
 }
 
 type Picked = { kind: "post"; row: PostCandidate } | { kind: "wall"; row: WallCandidate };
 
 /** Merges the two sources into at most `limit` items, doing bounded reads. */
-function merge(
-  posts: Source<PostCandidate>,
-  walls: Source<WallCandidate>,
+function merge<PostKey, WallKey>(
+  posts: Source<PostCandidate, PostKey>,
+  walls: Source<WallCandidate, WallKey>,
   limit: number,
   batch: number,
 ): Picked[] {
@@ -175,9 +193,9 @@ function merge(
 
 /**
  * What the viewer may see of a batch of posts, with the threads loaded on the way. `once` makes
- * the feed a list of conversations: `newest` keeps a post only when it is the newest visible
- * post of its thread, so a thread is listed once, at its latest activity, across pages too;
- * `perAnswer` keeps the first post of a thread this request accepts and drops the older ones.
+ * the feed a list of conversations: `newest` takes only a thread's newest visible post (what the
+ * walk of threads by activity hands in, one candidate per thread); `perAnswer` keeps the first
+ * post of a thread this request accepts and drops the older ones.
  */
 function acceptPosts(
   ctx: Ctx,
@@ -278,13 +296,13 @@ function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, Th
         : [];
     }
     const entry = postItems.get(item.row.id);
-    if (!entry) return [];
+    if (entry?.post.state !== "visible") return [];
     const type =
       entry.thread.firstPostId === entry.post.id ? ("thread" as const) : ("post" as const);
     return [
       {
         type,
-        createdAt,
+        createdAt: entry.post.createdAt,
         following,
         canReply: repliable.has(entry.thread.id),
         thread: entry.thread,
@@ -322,19 +340,59 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   }
 
   const batch = Math.max(input.limit, MIN_BATCH);
-  const [postBefore, wallBefore] = input.cursor
-    ? decodeCursor(input.cursor, cursorSchema)
-    : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const authors = scope === "following" ? followedAuthors(ctx, actor) : null;
-  const authorsJson = JSON.stringify(authors ?? []);
   const mayOpenProfiles = can(ctx, actor, "profile.view");
 
-  const latestPosts = prepared(ctx, "feed.posts", () =>
-    ctx.sqlite.prepare<PostCandidate, [number, number]>(feedSql.posts),
-  );
-  const latestWall = prepared(ctx, "feed.wall", () =>
-    ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
-  );
+  if (scope === "latest") {
+    const [lastPostBefore, threadBefore, wallBefore] = input.cursor
+      ? decodeCursor(input.cursor, cursorSchema.latest)
+      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+    const latestThreads = prepared(ctx, "feed.latestPosts", () =>
+      ctx.sqlite.prepare<ThreadRow, [number, number, number]>(rankingSql.latestPosts),
+    );
+    const latestWall = prepared(ctx, "feed.wall", () =>
+      ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
+    );
+    // Each visible thread, newest activity first, is one candidate: its newest visible post.
+    const posts = source<PostCandidate, ThreadKey>({
+      rank: 0,
+      before: [lastPostBefore, threadBefore],
+      fetch: ([lastPostAt, threadId], count) =>
+        latestThreads.all(lastPostAt, threadId, count).map((thread) => {
+          threads.set(thread.id, thread);
+          return {
+            id: thread.last_post_id ?? 0,
+            thread_id: thread.id,
+            user_id: thread.last_poster_id,
+            state: "visible",
+            created_at: thread.last_post_at,
+          };
+        }),
+      accept: acceptPosts(ctx, actor, nodes, threads, "newest"),
+      keyOf: (row) => [row.created_at, row.thread_id],
+      from: ([lastPostAt, threadId]) => [lastPostAt, threadId + 1],
+      end: [0, 0],
+    });
+    const walls = source<WallCandidate, number>({
+      rank: 1,
+      before: wallBefore,
+      fetch: (before, count) => latestWall.all(before, count),
+      accept: acceptWall(ctx, actor),
+      ...byId,
+      disabled: !mayOpenProfiles,
+    });
+    const items = build(ctx, actor, merge(posts, walls, input.limit, batch), threads);
+    return {
+      items,
+      nextCursor:
+        finished(posts) && finished(walls) ? null : encodeCursor([...resume(posts), resume(walls)]),
+    };
+  }
+
+  const [postBefore, wallBefore] = input.cursor
+    ? decodeCursor(input.cursor, cursorSchema.following)
+    : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
+  const authors = followedAuthors(ctx, actor);
+  const authorsJson = JSON.stringify(authors);
   const followedPosts = prepared(ctx, "feed.followedPosts", () =>
     ctx.sqlite.prepare<PostCandidate, [string, number, number]>(feedSql.followedPosts),
   );
@@ -346,30 +404,27 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const newest = <Row extends { id: number }>(rows: Row[], count: number) =>
     rows.sort((x, y) => y.id - x.id).slice(0, count);
 
-  const posts = source<PostCandidate>(
-    0,
-    postBefore,
-    authors
-      ? (before, count) =>
-          authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count)
-      : (before, count) => latestPosts.all(before, count),
-    acceptPosts(ctx, actor, nodes, threads, authors ? "perAnswer" : "newest"),
-  );
-  const walls = source<WallCandidate>(
-    1,
-    wallBefore,
-    authors
-      ? (before, count) =>
-          authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count)
-      : (before, count) => latestWall.all(before, count),
-    acceptWall(ctx, actor),
-    !mayOpenProfiles,
-  );
-  const picked = merge(posts, walls, input.limit, batch);
-  const items = build(ctx, actor, picked, threads);
-  const done = resume(posts) === 0 && resume(walls) === 0;
+  const posts = source<PostCandidate, number>({
+    rank: 0,
+    before: postBefore,
+    fetch: (before, count) =>
+      authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count),
+    accept: acceptPosts(ctx, actor, nodes, threads, "perAnswer"),
+    ...byId,
+  });
+  const walls = source<WallCandidate, number>({
+    rank: 1,
+    before: wallBefore,
+    fetch: (before, count) =>
+      authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count),
+    accept: acceptWall(ctx, actor),
+    ...byId,
+    disabled: !mayOpenProfiles,
+  });
+  const items = build(ctx, actor, merge(posts, walls, input.limit, batch), threads);
   return {
     items,
-    nextCursor: done ? null : encodeCursor([resume(posts), resume(walls)]),
+    nextCursor:
+      finished(posts) && finished(walls) ? null : encodeCursor([resume(posts), resume(walls)]),
   };
 });

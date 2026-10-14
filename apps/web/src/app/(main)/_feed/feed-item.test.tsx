@@ -165,8 +165,6 @@ async function render(item: Item, viewerId: number | null) {
 const countHref = (html: string, label: string) =>
   html.match(new RegExp(`<a[^>]*aria-label="${label}"[^>]*>`))?.[0];
 
-const LOGIN = `href="/login?next=${encodeURIComponent(FEED)}"`;
-
 test("a wall post is drawn with its latest comments and a composer for the next one", async () => {
   const html = await render(wallItem(), MEMBER);
   expect(html).toContain("the wall post");
@@ -191,7 +189,7 @@ test("a wall post with more comments than the card holds links to all of them on
   );
 });
 
-test("a wall post the viewer may not comment on has no composer; the count leads to the wall or to sign in", async () => {
+test("a wall post the viewer may not comment on has no composer; the count leads to the wall, for a guest too", async () => {
   const member = await render(wallItem({ canComment: false }), MEMBER);
   expect(member).toContain("first comment");
   expect(member).not.toContain("Write a comment…");
@@ -201,7 +199,9 @@ test("a wall post the viewer may not comment on has no composer; the count leads
   );
   const guest = await render(wallItem({ canComment: false }), null);
   expect(guest).not.toContain("Write a comment…");
-  expect(countHref(guest, "2 comments")).toContain(LOGIN);
+  expect(countHref(guest, "2 comments")).toContain(
+    'href="/members/5#profile-post-9"',
+  );
 });
 
 test("a wall post with no comments and no right to comment draws nothing under its actions", async () => {
@@ -226,14 +226,14 @@ test("a thread card has a reply box when the viewer may reply, for a new thread 
   }
 });
 
-test("a thread card without the right to reply has no reply box; the count leads to the thread or to sign in", async () => {
+test("a thread card without the right to reply has no reply box; the count leads to the thread, for a guest too", async () => {
   const member = await render(threadItem("post", false), MEMBER);
   expect(member).not.toContain("Write a reply…");
   expect(member).not.toContain('-comment"');
   expect(countHref(member, "4 replies")).toContain('href="/threads/7#post-31"');
   const guest = await render(threadItem("thread", false), null);
   expect(guest).not.toContain("Write a reply…");
-  expect(countHref(guest, "4 replies")).toContain(LOGIN);
+  expect(countHref(guest, "4 replies")).toContain('href="/threads/7"');
 });
 
 test("a reply entry reads as its thread: the title, how it started, then the newest reply", async () => {

@@ -1121,15 +1121,21 @@ author's newest content through an index and merges; an unbounded followed set w
 bounded work.
 
 **The feed is a list of conversations, not a log of posts.** `feed.list` answers one entry per
-thread, at its newest post, and says whether the viewer may reply (`canReply`, the rule of
-`threads.get`, with the viewer's thread bans read once per page), so a card can be answered where
-it is read. An entry per reply filled the home page with one busy thread. `latest` keeps a post
-only when it is its thread's newest visible post (`threads.last_post_id`): that is exact across
-pages, needs no new index and leaves the cursor and the merge with wall posts as they were; a
-page examines more posts for the same number of entries, within the same cap. `following` only
-drops the repeats within one answer: the exact rule there is "the newest post a followed member
-wrote in the thread", which needs a lookup per thread and followed author, so a later page may
-list a thread again with older activity. `top` ranks posts and is unchanged.
+thread, at its newest post, and says whether the viewer may reply (`canReply`: the decision
+`posts.create` makes before it looks at the reply, the forum's posting rules included, with the
+viewer's thread bans and the forums' rules read once per page), so a card can be answered where
+it is read. An entry per reply filled the home page with one busy thread. `latest` walks the
+visible threads by last activity through the existing index `threads_public_feed`, as the
+`latestPosts` ranking does, and merges them with the wall posts by time: every thread examined is
+a candidate, so the examination cap is spent only on what the viewer may not see, and a page is
+full whatever the number of replies in the threads above it. A first version walked posts and
+kept each thread's newest; a thread with more replies than the cap then emptied the pages below
+it. The cursor of `latest` is the thread's place (last post time, thread id) and the wall post
+id; a cursor of the earlier shape, or of another scope, is refused. `following` still walks the
+followed members' posts and only drops the repeats within one answer: the exact rule there is
+"the newest post a followed member wrote in the thread", which needs a lookup per thread and
+followed author, so a later page may list a thread again with older activity. `top` ranks posts
+and is unchanged.
 
 **Navigation and static pages are data.** `navigation_entries` holds the header, the phone bar,
 the account menu and the footer in two levels; the entries the site ships with are seeded, carry

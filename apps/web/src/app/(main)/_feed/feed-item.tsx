@@ -56,20 +56,6 @@ function Body({ href, children }: { href: string; children: string }) {
   );
 }
 
-// Where the count of answers leads: to the card's own composer when the viewer may answer
-// there, to the login page and back to the feed for a guest, otherwise to the item itself.
-function answerHref(
-  canAnswer: boolean,
-  anchor: string,
-  viewerId: number | null,
-  returnTo: string,
-  href: string,
-) {
-  if (canAnswer) return `#${anchor}-comment`;
-  if (viewerId === null) return `/login?next=${encodeURIComponent(returnTo)}`;
-  return href;
-}
-
 function Card({
   id,
   author,
@@ -94,6 +80,8 @@ function Card({
   cover?: PictureView | null;
   reaction: React.ReactNode;
   href: string;
+  // Where the count of answers leads: the card's own composer when the viewer may answer there,
+  // otherwise the item itself.
   answerHref: string;
   count: number;
   noun: "comments" | "replies";
@@ -236,13 +224,7 @@ export function FeedItem({
           />
         }
         href={href}
-        answerHref={answerHref(
-          profilePost.canComment,
-          anchor,
-          viewerId,
-          returnTo,
-          href,
-        )}
+        answerHref={profilePost.canComment ? `#${anchor}-comment` : href}
         count={profilePost.commentCount}
         noun="comments"
         answers={
@@ -308,7 +290,7 @@ export function FeedItem({
         />
       }
       href={href}
-      answerHref={answerHref(item.canReply, anchor, viewerId, returnTo, href)}
+      answerHref={item.canReply ? `#${anchor}-comment` : href}
       count={thread.replyCount}
       noun="replies"
       views={isThread ? thread.viewCount : undefined}
