@@ -71,6 +71,8 @@ function beforeCombinationUpdateTriggers() {
   const ctx = createContext({ path: ":memory:", config: { validateOutput: true } });
   upgradeContexts.push(ctx);
   applyMigrations(ctx, 0, 16);
+  // This database stops at an early migration; the principal load reads a later column.
+  ctx.sqlite.run("ALTER TABLE users ADD COLUMN is_super_admin integer DEFAULT false NOT NULL");
   syncPermissionRegistry(ctx);
   return setup(ctx);
 }
