@@ -4,6 +4,7 @@ import type { AuthorView } from "@/lib/sermo/views";
 
 mock.module("server-only", () => ({}));
 const { PostFrame } = await import("./post-frame");
+const { Postbit } = await import("./postbit");
 
 const author = {
   member: {
@@ -104,18 +105,34 @@ const base = {
   children: null,
 };
 
-test("the frame draws the author and the time", () => {
+test("the frame draws the time and hands the author to the postbit", () => {
   const drawn = JSON.stringify(PostFrame(base));
-  expect(drawn).toContain('"username":"ember"');
   expect(drawn).toContain("2026-01-02T03:04:05.000Z");
+  expect(drawn).toContain('"username":"ember"');
 });
 
 test("the signature closes the frame only when asked for and the author has one", () => {
+  // The postbit element carries the author as a prop: only what the frame draws itself counts.
   const drawn = (props: Parameters<typeof PostFrame>[0]) =>
-    JSON.stringify(PostFrame(props));
+    JSON.stringify(PostFrame(props), (key, value) =>
+      key === "author" ? undefined : value,
+    );
   expect(drawn(base)).not.toContain("<p>sig</p>");
   expect(drawn({ ...base, signed: true })).toContain("<p>sig</p>");
   expect(
     drawn({ ...base, signed: true, author: { ...author, signatureHtml: "" } }),
   ).not.toContain("<p>sig</p>");
+});
+
+test("the author is drawn by the postbit, placed in the frame's grid", () => {
+  const tree = PostFrame(base) as ReactElement<{
+    className: string;
+    children: ReactNode[];
+  }>;
+  expect(tree.props.className).toContain("md:grid-cols-[10rem_minmax(0,1fr)]");
+  const [, bit] = tree.props.children as ReactElement<{
+    author: AuthorView;
+  }>[];
+  expect(bit.type).toBe(Postbit);
+  expect(bit.props.author).toBe(author);
 });

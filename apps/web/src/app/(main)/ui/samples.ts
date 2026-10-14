@@ -14,7 +14,12 @@ import type { MonthWinner, StandingEntry } from "@/components/forum/standing";
 import type { ThreadCardData } from "@/components/forum/thread-hover-card";
 import type { MemberBadgeView } from "@/components/forum/user-badges";
 import type { ApiWallComment } from "@/components/forum/wall-comments";
-import type { MemberView, PictureView, PrefixView } from "@/lib/sermo/views";
+import type {
+  AuthorView,
+  MemberView,
+  PictureView,
+  PrefixView,
+} from "@/lib/sermo/views";
 
 function picture(width: number, height: number, body: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice">${body}</svg>`;
@@ -265,6 +270,36 @@ export const COVERED_CARD: MemberCardUser = {
   level: { currentLevelXp: 600, nextLevelXp: 1000 },
   awardSlots: 5,
   awards: AWARDS.slice(0, 4),
+};
+
+// The author of a post, as threads and conversations give it to the postbit.
+export const SAMPLE_AUTHOR: AuthorView = {
+  member: {
+    ...MEMBER,
+    title: "Senior member and keeper of the long, long thread titles",
+  },
+  cover: COVERS[0].picture,
+  joinedAt: "2025-03-14T10:00:00.000Z",
+  postCount: 1280,
+  reactionScore: 940,
+  xp: 800,
+  currentLevelXp: 600,
+  nextLevelXp: 1000,
+  awards: AWARDS.slice(0, 4),
+  signatureHtml: "<p>Read the pinned post first.</p>",
+};
+
+export const PLAIN_AUTHOR: AuthorView = {
+  member: NEWCOMER,
+  cover: null,
+  joinedAt: "2026-06-02T08:30:00.000Z",
+  postCount: 12,
+  reactionScore: 3,
+  xp: 20,
+  currentLevelXp: 0,
+  nextLevelXp: 100,
+  awards: [],
+  signatureHtml: null,
 };
 
 export const PLAIN_CARD: MemberCardUser = {

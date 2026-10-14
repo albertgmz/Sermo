@@ -1,13 +1,8 @@
 import type { Hourglass } from "lucide-react";
-import { AwardRow } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
-import { levelWithBounds } from "@/components/forum/level";
+import { POSTBIT_FRAME, Postbit } from "@/components/forum/postbit";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SignatureHtml } from "@/components/forum/signature-html";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
-import { UserLink } from "@/components/forum/user-link";
-import { UserStats } from "@/components/forum/user-stats";
 import { formatDateTime } from "@/lib/format";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -67,59 +62,22 @@ export function PostFrame({
   // Under the time row: notes, the body and its attachments.
   children: React.ReactNode;
 }) {
-  const { member } = author;
-
   return (
     <article
       id={id}
-      className="relative isolate grid scroll-mt-4 grid-cols-[auto_minmax(0,1fr)] gap-x-3 p-3 md:gap-x-4 md:p-4"
+      className={cn(
+        "relative isolate grid scroll-mt-4 grid-cols-1 p-3 md:gap-x-4 md:p-4",
+        POSTBIT_FRAME.grid,
+      )}
     >
       <CoverBackdrop
         cover={author.cover}
         variant={highlighted ? "full" : "header"}
+        className={highlighted ? undefined : POSTBIT_FRAME.cover}
       />
-      <UserAvatar user={member} size="lg" className="self-start md:hidden" />
-      <UserAvatar
-        user={member}
-        size="xl"
-        className="hidden self-start md:row-span-2 md:block"
-      />
-      <div className="flex min-w-0 flex-col justify-center gap-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <UserLink user={member} className="[overflow-wrap:anywhere]" />
-          <UserBadges user={member} />
-          <AwardRow awards={author.awards} />
-        </div>
-        <div className="flex items-center gap-x-3">
-          {member.title && (
-            <p
-              title={member.title}
-              className="min-w-0 truncate text-xs text-muted-foreground"
-            >
-              {member.title}
-            </p>
-          )}
-          <UserStats
-            user={{
-              level: levelWithBounds(
-                author.member.level,
-                author.xp,
-                author.currentLevelXp,
-                author.nextLevelXp,
-              ),
-              postCount: author.postCount,
-              reactionCount: author.reactionScore,
-            }}
-            className={cn(
-              "shrink-0",
-              // On a phone the XP bar gives its room to the title.
-              member.title && "max-sm:[&_[data-slot=progress]]:hidden",
-            )}
-          />
-        </div>
-      </div>
+      <Postbit author={author} className="max-md:mb-2 md:border-r md:pr-4" />
 
-      <div className="col-span-2 min-w-0 md:col-span-1 md:col-start-2">
+      <div className="min-w-0">
         <div className="-mr-2.5 flex items-center justify-between gap-2 text-xs text-muted-foreground md:mr-0">
           <div className="flex min-w-0 items-center gap-2">
             <RelativeTime date={createdAt} className="truncate md:hidden" />

@@ -55,6 +55,8 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PendingButton } from "@/components/forum/pending-button";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Podium } from "@/components/forum/podium";
+import { PostFrame } from "@/components/forum/post-frame";
+import { Postbit } from "@/components/forum/postbit";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
@@ -143,11 +145,13 @@ import {
   NEWCOMER,
   NOTIFICATIONS,
   PERMISSION_ICONS,
+  PLAIN_AUTHOR,
   PLAIN_CARD,
   PREFIXES,
   REACTION_PICTURE_TYPES,
   REACTION_TYPES,
   REACTIONS,
+  SAMPLE_AUTHOR,
   SAMPLE_COUNTS,
   SAMPLE_DATE,
   SAMPLE_WALL_COMMENTS,
@@ -1082,6 +1086,53 @@ export default async function StyleguidePage() {
               <Leaderboard members={LEADERS.slice(0, 2)} by="referrals" />
             </SectionCard>
           </div>
+        </Section>
+
+        <Section title="Postbit and post frame">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The author of a post: a column from the medium breakpoint up, a
+            compact header on a phone. Threads and conversations draw their
+            posts through one frame.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3 sm:items-start">
+            <SectionCard title="Column">
+              <Postbit
+                author={SAMPLE_AUTHOR}
+                layout="column"
+                className="p-3"
+                actions={<Button variant="outline">Action</Button>}
+              />
+            </SectionCard>
+            <SectionCard title="Column, plain member">
+              <Postbit author={PLAIN_AUTHOR} layout="column" className="p-3" />
+            </SectionCard>
+            <SectionCard title="Compact header">
+              <Postbit
+                author={SAMPLE_AUTHOR}
+                layout="compact"
+                className="p-3"
+              />
+              <Postbit
+                author={PLAIN_AUTHOR}
+                layout="compact"
+                className="border-t p-3"
+              />
+            </SectionCard>
+          </div>
+          <SectionCard title="Post frame">
+            <PostFrame
+              id="sample-post"
+              author={SAMPLE_AUTHOR}
+              createdAt={SAMPLE_DATE}
+              signed
+              actions={<Button variant="ghost">Reply</Button>}
+            >
+              <p className="mt-2 text-sm">
+                A post as a thread draws it. Resize the window to see the column
+                become a header above the text.
+              </p>
+            </PostFrame>
+          </SectionCard>
         </Section>
 
         <Section title="Podium and leaderboard variants">
