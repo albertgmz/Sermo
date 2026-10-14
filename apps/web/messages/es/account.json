@@ -310,7 +310,7 @@
     "emptyTitle": "Aún no tienes marcadores",
     "emptyDescription": "Marca un tema, un mensaje o una conversación para encontrarlo aquí más tarde.",
     "loadMore": "Mostrar más",
-    "details": "{type} de {author}, {time}",
+    "details": "{type} de <author></author>, <time></time>",
     "types": {
       "thread": "Tema",
       "post": "Mensaje",
