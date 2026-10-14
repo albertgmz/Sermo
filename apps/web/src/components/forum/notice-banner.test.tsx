@@ -36,7 +36,7 @@ mock.module("@/components/forum/notice-dismiss-button", () => ({
   ),
 }));
 
-const { NoticeBanner } = await import("./notice-banner");
+const { NoticeBanner, NoticeStrip } = await import("./notice-banner");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -62,7 +62,10 @@ function backend(answer: () => Response) {
 }
 
 async function draw() {
-  return renderToStaticMarkup(await NoticeBanner());
+  const banner = (await NoticeBanner()) as {
+    props: Parameters<typeof NoticeStrip>[0];
+  } | null;
+  return banner ? renderToStaticMarkup(await NoticeStrip(banner.props)) : "";
 }
 
 test("each notice shows its title and text, with a dismiss button only when it can be dismissed", async () => {
@@ -82,8 +85,9 @@ test("a notice a guest dismissed is never drawn", async () => {
   const markup = await draw();
   expect(markup).not.toContain("Maintenance");
   expect(markup).toContain("Rules");
+  // A notice that cannot be dismissed stays, whatever the cookie says.
   cookie = "1.2";
-  expect(await NoticeBanner()).toBeNull();
+  expect(await draw()).toContain("Rules");
 });
 
 test("no notices draws nothing", async () => {

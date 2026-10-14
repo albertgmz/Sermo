@@ -84,3 +84,16 @@ test("an address outside the site opens in a new tab without the opener, and sti
   }) as ReactElement<{ target?: string }>;
   expect(inside.props.target).toBeUndefined();
 });
+
+test("an address a browser reads as another host is treated as outside the site", () => {
+  for (const href of ["/\\evil.com", "//evil.com", "https://example.org/x"]) {
+    const link = NotificationLink({
+      id: 4,
+      href,
+      read: false,
+      children: null,
+    }) as ReactElement<{ target?: string }>;
+    expect(link.type, href).toBe("a");
+    expect(link.props.target, href).toBe("_blank");
+  }
+});

@@ -263,6 +263,17 @@ const cases: [string, Record<string, unknown>, string][] = [
     "https://example.org/news",
   ],
   [
+    "an announcement link kept as given, even when it looks like a backend path",
+    {
+      type: "announcement",
+      contentType: "announcement",
+      contentId: 2,
+      threadId: null,
+      url: "/reports/8",
+    },
+    "/reports/8",
+  ],
+  [
     "a kind this site does not know",
     {
       type: "something.new",

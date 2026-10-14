@@ -91,6 +91,10 @@ async function targetOf(item: ApiNotification): Promise<string | null> {
 
 // The path the backend names for a notification, in the shape of this site's routes.
 export async function hrefOf(item: ApiNotification): Promise<string> {
+  // An announcement's address is the one the administrator gave, or the list when it has none.
+  if (item.contentType === "announcement") {
+    return /^\/announcements\/\d+$/.test(item.url) ? FALLBACK : item.url;
+  }
   try {
     const target = await targetOf(item);
     if (target !== null) return target;
@@ -100,11 +104,8 @@ export async function hrefOf(item: ApiNotification): Promise<string> {
   }
   const user = /^\/users\/(\d+)$/.exec(item.url);
   if (user) return `/members/${user[1]}`;
-  // Announcements and reports have no page for a member; the backend's wall and comment paths
-  // are not routes here.
-  return /^\/(announcements|reports|profile-posts|profile-comments)\//.test(
-    item.url,
-  )
+  // Reports have no page for a member; the backend's wall and comment paths are not routes here.
+  return /^\/(reports|profile-posts|profile-comments)\//.test(item.url)
     ? FALLBACK
     : item.url;
 }

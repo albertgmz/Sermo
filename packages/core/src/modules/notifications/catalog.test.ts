@@ -1852,6 +1852,11 @@ describe("notification delivery rules", () => {
     const { ctx } = f;
     deny(ctx, "notification.view", { userId: f.recipient.id });
     await send(ctx, "member.followed", "user", f.recipient.id, { followerId: f.author.id });
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO announcements (id, user_id, title, body_source, body_html, created_at) VALUES (1, ?1, 'T', 'B', '<p>B</p>', ?2)",
+      )
+      .run(f.author.id, ctx.now());
     await send(ctx, "announcement.published", "announcement", 1, { userId: f.author.id });
     expect(
       ctx.sqlite

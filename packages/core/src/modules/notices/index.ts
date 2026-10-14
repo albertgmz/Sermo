@@ -33,6 +33,11 @@ interface NoticeRow {
   updated_at: number;
 }
 
+type ShownRow = Pick<
+  NoticeRow,
+  "id" | "title" | "body_html" | "audience" | "audience_group_id" | "dismissible"
+>;
+
 type Stored = readonly [
   string,
   string,
@@ -47,7 +52,7 @@ type Stored = readonly [
 
 export const noticesSql = {
   current:
-    "SELECT * FROM notices WHERE active = 1 AND (starts_at IS NULL OR starts_at <= ?1) AND (ends_at IS NULL OR ends_at > ?1) ORDER BY id DESC",
+    "SELECT id, title, body_html, audience, audience_group_id, dismissible FROM notices WHERE active = 1 AND (starts_at IS NULL OR starts_at <= ?1) AND (ends_at IS NULL OR ends_at > ?1) ORDER BY id DESC",
   dismissed: "SELECT notice_id FROM notice_dismissals WHERE user_id = ?1",
   memberGroups:
     "SELECT group_id FROM users WHERE id = ?1 UNION SELECT group_id FROM user_groups WHERE user_id = ?1",
@@ -64,8 +69,8 @@ function query<Row, Params extends (string | number | null)[]>(
 }
 
 /** The notices the actor is shown now, newest first, less those a member dismissed (unless asked to keep them). */
-function shownTo(ctx: Ctx, actor: Actor, withDismissed = false): NoticeRow[] {
-  const rows = query<NoticeRow, [number]>(ctx, "current").all(ctx.now());
+function shownTo(ctx: Ctx, actor: Actor, withDismissed = false): ShownRow[] {
+  const rows = query<ShownRow, [number]>(ctx, "current").all(ctx.now());
   if (!rows.length) return rows;
   if (actor.kind === "guest")
     return rows.filter((row) => row.audience === "everyone" || row.audience === "guests");

@@ -8,13 +8,13 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import { Body, Id, Ok, Page, pageInput, Timestamp, Title, UserSummary } from "./common";
 
-/** A site path (`/threads/1`) or an http(s) address; no spaces, no protocol-relative `//`. */
+/** A site path (`/threads/1`) or an http(s) address; no spaces, control characters or backslashes, no protocol-relative `//`. */
 export const AlertUrl = z
   .string()
   .trim()
   .max(500)
   .regex(
-    /^(\/(?!\/)[^\s]*|https?:\/\/[^\s]+)$/i,
+    /^(\/(?![/\\])[^\s\\\p{Cc}]*|https?:\/\/[^\s\p{Cc}]+)$/iu,
     "Use a path starting with / or an http(s) address.",
   );
 

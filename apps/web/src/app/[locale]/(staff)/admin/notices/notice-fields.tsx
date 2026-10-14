@@ -70,6 +70,9 @@ export async function NoticeFields({
           )}
         </select>
       </FieldRow>
+      {!groups && notice?.groupId != null && (
+        <input type="hidden" name="groupId" value={notice.groupId} />
+      )}
       {groups && (
         <FieldRow
           name="groupId"

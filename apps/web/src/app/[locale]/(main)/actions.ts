@@ -72,8 +72,9 @@ export async function setLocaleCookie(language: string) {
 export async function dismissNotice(noticeId: number) {
   requireIds(noticeId);
   if ((await getViewer()).user) {
-    const done = await attempt("/", () => call(noticesDismiss, { noticeId }));
-    if (!done.ok) return;
+    // A refusal (the notice is gone, or no longer shown) is no use to the visitor: the page is
+    // drawn again either way, which brings it up to date.
+    await attempt("/", () => call(noticesDismiss, { noticeId }));
   } else {
     const store = await cookies();
     store.set(

@@ -57,7 +57,7 @@ test("a member's dismissal is written to the backend and the page is drawn again
   expect(refreshed).toBe(1);
 });
 
-test("a refused dismissal changes nothing", async () => {
+test("a refused dismissal still draws the page again, which brings it up to date", async () => {
   backend(
     true,
     Response.json(
@@ -66,7 +66,7 @@ test("a refused dismissal changes nothing", async () => {
     ),
   );
   await dismissNotice(4);
-  expect(refreshed).toBe(0);
+  expect(refreshed).toBe(1);
 });
 
 test("a guest's dismissal goes to the cookie, keeping the earlier ones, and no write is made", async () => {

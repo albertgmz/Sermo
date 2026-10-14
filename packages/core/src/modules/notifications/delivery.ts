@@ -403,6 +403,9 @@ function moderationAction(event: DomainEvent): string {
   return "edited";
 }
 
+export const groupAudienceSql =
+  "SELECT id AS user_id FROM users WHERE group_id = ?1 AND id > ?2 UNION SELECT user_id FROM user_groups WHERE group_id = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3";
+
 /**
  * The recipient stages of an event, in precedence order: a member gets at most one notice per
  * event, from the first stage that delivers to them, so a member whose preference turns off a
@@ -668,20 +671,15 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
       >("SELECT audience, audience_group_id, audience_user_ids FROM announcements WHERE id = ?1"),
     ).get(event.targetId);
     if (row?.audience === "users")
-      result.push(listed("announcement", "announcement", JSON.parse(row.audience_user_ids)));
+      result.push(listed("announcement-users", "announcement", JSON.parse(row.audience_user_ids)));
     else if (row?.audience === "group")
       result.push(
-        source(
-          "announcement",
-          "announcement",
-          "SELECT id AS user_id FROM users WHERE group_id = ?1 AND id > ?2 UNION SELECT user_id FROM user_groups WHERE group_id = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3",
-          row.audience_group_id ?? 0,
-        ),
+        source("announcement-group", "announcement", groupAudienceSql, row.audience_group_id ?? 0),
       );
-    else
+    else if (row)
       result.push(
         source(
-          "announcement",
+          "announcement-all",
           "announcement",
           "SELECT id AS user_id FROM users WHERE id > ?2 ORDER BY id LIMIT ?3",
           0,

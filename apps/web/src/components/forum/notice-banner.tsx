@@ -26,14 +26,29 @@ export async function NoticeBanner() {
     if (!(error instanceof SermoError)) throw error;
     return null;
   }
-  const shown = items.filter((item) => !dismissed.includes(item.id));
+  const shown = items.filter(
+    (item) => !(item.dismissible && dismissed.includes(item.id)),
+  );
   if (shown.length === 0) return null;
+  return <NoticeStrip items={shown} />;
+}
+
+export type NoticeItem = {
+  id: number;
+  title: string;
+  bodyHtml: string;
+  dismissible: boolean;
+};
+
+// The notices as drawn: a band under the header, each with its text and, when it can be
+// dismissed, a button for it.
+export async function NoticeStrip({ items }: { items: NoticeItem[] }) {
   const t = await getTranslations("layout.noticeBanner");
   return (
     <section aria-label={t("label")} className="border-b bg-muted">
       <Container>
         <ul className="divide-y divide-border">
-          {shown.map((item) => (
+          {items.map((item) => (
             <li key={item.id} className="flex items-start gap-2 py-3">
               <div className="min-w-0 flex-1 space-y-1 [overflow-wrap:anywhere]">
                 <p className="text-sm font-semibold">{item.title}</p>

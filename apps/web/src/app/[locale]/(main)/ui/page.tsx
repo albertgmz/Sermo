@@ -53,6 +53,7 @@ import {
   MessageRow,
   messageActionClass,
 } from "@/components/forum/message-row";
+import { NoticeStrip } from "@/components/forum/notice-banner";
 import { NotificationRow } from "@/components/forum/notification-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PendingButton } from "@/components/forum/pending-button";
@@ -1517,6 +1518,30 @@ export default async function StyleguidePage() {
             <UnreadDot />
             Unread dot
           </p>
+        </Section>
+
+        <Section title="Site notices">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The band under the header of every page. Each notice has a title and
+            its text, and a dismiss button when it can be dismissed. The forum
+            layout draws the notices the backend gives the visitor.
+          </p>
+          <NoticeStrip
+            items={[
+              {
+                id: 1,
+                title: "Scheduled maintenance",
+                bodyHtml: "<p>The forum is read-only tonight from ten.</p>",
+                dismissible: true,
+              },
+              {
+                id: 2,
+                title: "House rules",
+                bodyHtml: "<p>Read the <a href='/pages/rules'>rules</a>.</p>",
+                dismissible: false,
+              },
+            ]}
+          />
         </Section>
 
         <Section title="Header panel">
