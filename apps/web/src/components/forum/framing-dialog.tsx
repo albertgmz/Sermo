@@ -83,6 +83,20 @@ function draw(
   );
 }
 
+// JPEG has no transparency, so a picture with see-through areas is put on white first; left alone
+// those areas would come out black. White (not PNG) keeps a WebP request that falls back small.
+function flattened(source: HTMLCanvasElement): HTMLCanvasElement {
+  const flat = document.createElement("canvas");
+  flat.width = source.width;
+  flat.height = source.height;
+  const context = flat.getContext("2d");
+  if (!context) return source;
+  context.fillStyle = "white";
+  context.fillRect(0, 0, flat.width, flat.height);
+  context.drawImage(source, 0, 0);
+  return flat;
+}
+
 function Framer({
   file,
   shape,
@@ -119,6 +133,10 @@ function Framer({
       const full = await createImageBitmap(file, {
         imageOrientation: "from-image",
       });
+      if (!live) {
+        full.close();
+        return;
+      }
       made.push(full);
       const wanted = PREVIEW[shape].width * 2;
       const reduced =
@@ -128,8 +146,11 @@ function Framer({
               resizeQuality: "high",
             })
           : full;
+      if (!live) {
+        if (reduced !== full) reduced.close();
+        return;
+      }
       if (reduced !== full) made.push(reduced);
-      if (!live) return;
       setFraming(centred(full));
       setSmall(reduced);
       setImage(full);
@@ -238,7 +259,11 @@ function Framer({
       ? await encodeFramed(
           (type, quality) =>
             new Promise<Blob | null>((done) =>
-              target.toBlob(done, type, quality),
+              (type === "image/jpeg" ? flattened(target) : target).toBlob(
+                done,
+                type,
+                quality,
+              ),
             ),
           outputType(file.type),
         )
