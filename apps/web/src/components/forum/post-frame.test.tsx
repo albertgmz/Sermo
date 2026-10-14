@@ -105,10 +105,27 @@ const base = {
   children: null,
 };
 
+// The first element of the tree whose type is `type`, wherever it sits.
+function find(node: ReactNode, type: unknown): ReactElement | null {
+  if (!node || typeof node !== "object") return null;
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = find(child, type);
+      if (found) return found;
+    }
+    return null;
+  }
+  const element = node as ReactElement<{ children?: ReactNode }>;
+  if (element.type === type) return element;
+  return find(element.props?.children, type);
+}
+
 test("the frame draws the time and hands the author to the postbit", () => {
-  const drawn = JSON.stringify(PostFrame(base));
-  expect(drawn).toContain("2026-01-02T03:04:05.000Z");
-  expect(drawn).toContain('"username":"ember"');
+  const tree = PostFrame(base);
+  expect(JSON.stringify(tree)).toContain("2026-01-02T03:04:05.000Z");
+  const bit = find(tree, Postbit) as ReactElement<{ author: AuthorView }>;
+  expect(bit).not.toBeNull();
+  expect(bit.props.author).toBe(author);
 });
 
 test("the signature closes the frame only when asked for and the author has one", () => {
@@ -124,15 +141,32 @@ test("the signature closes the frame only when asked for and the author has one"
   ).not.toContain("<p>sig</p>");
 });
 
-test("the author is drawn by the postbit, placed in the frame's grid", () => {
+test("the postbit sits in the frame's grid with the column width set once", () => {
   const tree = PostFrame(base) as ReactElement<{
     className: string;
-    children: ReactNode[];
+    style: Record<string, string>;
   }>;
-  expect(tree.props.className).toContain("md:grid-cols-[10rem_minmax(0,1fr)]");
-  const [, bit] = tree.props.children as ReactElement<{
-    author: AuthorView;
-  }>[];
-  expect(bit.type).toBe(Postbit);
-  expect(bit.props.author).toBe(author);
+  expect(tree.props.className).toContain("md:grid-cols-[var(--postbit-width)_");
+  expect(tree.props.style["--postbit-width"]).toBe("10rem");
+});
+
+test("a highlighted post adds the whole-frame cover and keeps the one behind the column", () => {
+  const covered = { ...author, cover: { url: "x" } } as AuthorView;
+  const variants = (highlighted: boolean) => {
+    const found: string[] = [];
+    const walk = (node: ReactNode) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) return node.forEach(walk);
+      const el = node as ReactElement<{
+        variant?: string;
+        children?: ReactNode;
+      }>;
+      if (el.props?.variant) found.push(el.props.variant);
+      walk(el.props?.children);
+    };
+    walk(PostFrame({ ...base, author: covered, highlighted }));
+    return found;
+  };
+  expect(variants(false)).toEqual(["header"]);
+  expect(variants(true)).toEqual(["header", "full"]);
 });

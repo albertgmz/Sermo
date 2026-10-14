@@ -36,6 +36,7 @@ const member = (id: number): MemberView => ({
   title: "",
   badges: [],
   level: 1,
+  restricted: false,
 });
 
 const comment = (id: number, state = "visible") =>

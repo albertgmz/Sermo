@@ -36,10 +36,11 @@ export function plainMember({ id, username }: MemberRef): MemberView {
     title: "",
     badges: [],
     level: 1,
+    restricted: true,
   };
 }
 
-function plainAuthor(ref: MemberRef): AuthorView {
+export function plainAuthor(ref: MemberRef): AuthorView {
   return {
     member: plainMember(ref),
     cover: null,

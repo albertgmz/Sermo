@@ -1,6 +1,10 @@
 import type { Hourglass } from "lucide-react";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
-import { POSTBIT_FRAME, Postbit } from "@/components/forum/postbit";
+import {
+  POSTBIT_FRAME,
+  POSTBIT_WIDTH,
+  Postbit,
+} from "@/components/forum/postbit";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SignatureHtml } from "@/components/forum/signature-html";
 import { formatDateTime } from "@/lib/format";
@@ -69,12 +73,16 @@ export function PostFrame({
         "relative isolate grid scroll-mt-4 grid-cols-1 p-3 md:gap-x-4 md:p-4",
         POSTBIT_FRAME.grid,
       )}
+      style={{ "--postbit-width": POSTBIT_WIDTH } as React.CSSProperties}
     >
+      {/* The picture behind the column (the header strip on a phone). A highlighted post adds the
+          whole-frame picture on top; on a phone that one alone is drawn. */}
       <CoverBackdrop
         cover={author.cover}
-        variant={highlighted ? "full" : "header"}
-        className={highlighted ? undefined : POSTBIT_FRAME.cover}
+        variant="header"
+        className={cn(POSTBIT_FRAME.cover, highlighted && "max-md:hidden")}
       />
+      {highlighted && <CoverBackdrop cover={author.cover} variant="full" />}
       <Postbit author={author} className="max-md:mb-2 md:border-r md:pr-4" />
 
       <div className="min-w-0">

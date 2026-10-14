@@ -23,6 +23,8 @@ export type MemberView = {
    */
   badges: { label: string; color: string | null; style: string }[];
   level: number;
+  /** The viewer may not open this member's profile: no facts about them are shown. */
+  restricted: boolean;
 };
 
 /** The label in front of a thread title. */

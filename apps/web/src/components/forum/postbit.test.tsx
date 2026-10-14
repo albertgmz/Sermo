@@ -24,6 +24,7 @@ afterAll(() => {
   mock.module("next-intl", () => intl);
 });
 const { Postbit } = await import("./postbit");
+const { plainAuthor } = await import("@/lib/sermo/members");
 
 const author = {
   member: {
@@ -35,6 +36,7 @@ const author = {
     title: "Senior member",
     badges: [],
     level: 2,
+    restricted: false,
   },
   cover: null,
   joinedAt: "2025-03-14T10:00:00.000Z",
@@ -73,10 +75,31 @@ test("the compact header has no list of facts and keeps the counts on one line",
   expect(out).toContain('data-layout="compact"');
 });
 
-test("the responsive layout draws both arrangements and hides each at its breakpoint", async () => {
+const LAYOUTS = ["column", "compact", "responsive"] as const;
+const restricted = {
+  ...author,
+  member: { ...author.member, restricted: true },
+  joinedAt: "1970-01-01T00:00:00.000Z",
+  postCount: 0,
+  reactionScore: 0,
+} as AuthorView;
+// The member the backend did not return: what the web falls back to.
+const unknown = plainAuthor({ id: 9, username: "ghost" });
+
+test("the explicit layouts draw only their own arrangement", async () => {
+  const column = await html(<Postbit author={author} layout="column" />);
+  expect(column).toContain("<dl");
+  expect(column).not.toContain(">Messages<");
+  const compact = await html(<Postbit author={author} layout="compact" />);
+  expect(compact).not.toContain("<dl");
+  expect(compact).toContain("Messages");
+});
+
+test("the responsive layout draws both arrangements and hides each by class below or above md", async () => {
   const out = await html(<Postbit author={author} />);
   expect(out).toContain('data-layout="responsive"');
   expect(out).toContain("<dl");
+  expect(out).toContain("Messages");
   expect(out).toContain("md:hidden");
   expect(out).toContain("hidden md:flex");
 });
@@ -87,13 +110,84 @@ test("the profile is linked from the avatar and the name, with no button", async
   expect(out).not.toContain("<button");
 });
 
-test("the actions slot is drawn only when given", async () => {
-  expect(await html(<Postbit author={author} layout="column" />)).not.toContain(
-    "postbit-actions",
-  );
+for (const layout of LAYOUTS) {
+  test(`${layout}: a member the backend did not return renders with name only and no facts`, async () => {
+    const out = await html(<Postbit author={unknown} layout={layout} />);
+    expect(out).toContain("ghost");
+    expect(out).not.toContain("<dl");
+    expect(out).not.toContain("Joined");
+    expect(out).not.toContain("Messages");
+    expect(out).not.toContain("1970");
+  });
+
+  test(`${layout}: a restricted member shows no facts but keeps name, title and badges`, async () => {
+    const out = await html(
+      <Postbit
+        layout={layout}
+        author={
+          {
+            ...restricted,
+            member: {
+              ...restricted.member,
+              badges: [{ label: "Gold", color: null, style: "outline" }],
+            },
+          } as AuthorView
+        }
+      />,
+    );
+    expect(out).toContain("ember");
+    expect(out).toContain("Senior member");
+    expect(out).toContain("Gold");
+    for (const text of ["<dl", "Joined", "Posts", "Reactions", "Messages"]) {
+      expect(out).not.toContain(text);
+    }
+    expect(out).not.toContain("1970");
+    expect(out).not.toContain("LVL");
+  });
+
+  test(`${layout}: the actions slot is drawn only when given`, async () => {
+    expect(
+      await html(<Postbit author={author} layout={layout} />),
+    ).not.toContain("postbit-actions");
+    const out = await html(
+      <Postbit
+        author={author}
+        layout={layout}
+        actions={<i data-mark="follow" />}
+      />,
+    );
+    expect(out).toContain("postbit-actions");
+    expect(out).toContain('data-mark="follow"');
+  });
+}
+
+test("a joined date that is not usable draws no joined row", async () => {
   const out = await html(
-    <Postbit author={author} actions={<i data-mark="follow" />} />,
+    <Postbit author={{ ...author, joinedAt: "" }} layout="column" />,
   );
-  expect(out).toContain("postbit-actions");
-  expect(out).toContain('data-mark="follow"');
+  expect(out).not.toContain("Joined");
+  expect(out).toContain("Posts");
+});
+
+test("a member without a title leaves no empty row in the column", async () => {
+  const rows = (out: string) =>
+    out.match(/<div class="flex w-full min-w-0 flex-col items-center gap-2">/g)
+      ?.length ?? 0;
+  const titled = await html(<Postbit author={author} layout="column" />);
+  const bare = await html(
+    <Postbit
+      author={{ ...author, member: { ...author.member, title: "" } }}
+      layout="column"
+    />,
+  );
+  expect(bare).not.toContain("<p ");
+  expect(rows(bare)).toBe(rows(titled) - 1);
+});
+
+test("the actions slot sits after the facts, not pinned to the foot", async () => {
+  const out = await html(
+    <Postbit author={author} layout="column" actions={<i />} />,
+  );
+  expect(out.indexOf("</dl>")).toBeLessThan(out.indexOf("postbit-actions"));
+  expect(out).not.toContain("mt-auto");
 });

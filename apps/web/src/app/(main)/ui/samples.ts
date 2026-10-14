@@ -75,6 +75,7 @@ function member(
     title: "Member",
     badges: [],
     level: 1,
+    restricted: false,
     ...extra,
   };
 }
@@ -300,6 +301,13 @@ export const PLAIN_AUTHOR: AuthorView = {
   nextLevelXp: 100,
   awards: [],
   signatureHtml: null,
+};
+
+// A member whose profile the viewer may not open: no facts are drawn.
+export const RESTRICTED_AUTHOR: AuthorView = {
+  ...PLAIN_AUTHOR,
+  member: { ...NEWCOMER, username: "reserved", restricted: true },
+  joinedAt: "1970-01-01T00:00:00.000Z",
 };
 
 export const PLAIN_CARD: MemberCardUser = {

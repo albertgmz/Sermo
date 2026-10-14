@@ -151,6 +151,7 @@ import {
   REACTION_PICTURE_TYPES,
   REACTION_TYPES,
   REACTIONS,
+  RESTRICTED_AUTHOR,
   SAMPLE_AUTHOR,
   SAMPLE_COUNTS,
   SAMPLE_DATE,
@@ -1094,7 +1095,7 @@ export default async function StyleguidePage() {
             compact header on a phone. Threads and conversations draw their
             posts through one frame.
           </p>
-          <div className="grid gap-4 sm:grid-cols-3 sm:items-start">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:items-start">
             <SectionCard title="Column">
               <Postbit
                 author={SAMPLE_AUTHOR}
@@ -1105,6 +1106,20 @@ export default async function StyleguidePage() {
             </SectionCard>
             <SectionCard title="Column, plain member">
               <Postbit author={PLAIN_AUTHOR} layout="column" className="p-3" />
+            </SectionCard>
+            <SectionCard title="Column, restricted member">
+              <Postbit
+                author={RESTRICTED_AUTHOR}
+                layout="column"
+                className="p-3"
+              />
+            </SectionCard>
+            <SectionCard title="Responsive, with actions">
+              <Postbit
+                author={SAMPLE_AUTHOR}
+                className="p-3"
+                actions={<Button variant="outline">Follow</Button>}
+              />
             </SectionCard>
             <SectionCard title="Compact header">
               <Postbit
