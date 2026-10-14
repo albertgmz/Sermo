@@ -1890,3 +1890,29 @@ header and labelled in the column, and nothing for a guest, yourself, or a restr
 member. There is no profile button: the avatar and the name are the links. A refusal is shown
 under the buttons without widening the row. The styleguide draws the same view with an action
 that stores nothing.
+
+## The member card on hover: the postbit, floating
+
+**The card is the postbit.** Hovering a member's name, avatar or `@mention` shows the postbit
+column with its actions (follow or unfollow, start a conversation). It is rendered on the server
+when the card opens, so its pictures obey the LITE cookie; nothing is read before that. A member
+who is unknown, restricted or closed to the viewer gives the name alone. The card is read again on
+every open and after a follow made inside it, because content fetched for a card does not follow
+the page's refresh.
+
+**Cards never nest.** A scope set inside `Postbit`, the thread preview, the reaction users list and
+the members directory's own card turns every trigger below it into a plain link. So a post's own
+postbit opens no card: the information is already there.
+
+**Touch and pen: a tap goes to the profile.** Before, a tap opened the card and blocked the link.
+A click never opens a card and always closes one, and a card does not survive leaving the page
+and coming back.
+
+**Keyboard.** A name opens its card on keyboard focus, as before. An avatar opens on hover only, so
+tabbing through a post does not stop twice per author. A mention opens on mouse hover only: its
+card's buttons could not be reached by keyboard, and the mention itself is the link to the
+profile. The mention card never moves focus.
+
+**Mentions share one popover.** Post HTML is drawn on the server and is not parsed in the browser;
+one delegate around it opens a single card anchored to the hovered mention, with the same loading
+and popup pieces as the name trigger.
