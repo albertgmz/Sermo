@@ -40,6 +40,11 @@ const LONG_PRESS_MS = 450;
 // How long the backend's refusal stays under the button.
 const REFUSAL_MS = 6000;
 
+// The picker is one row while it fits and wraps onto more rows beyond the viewport (staff can add
+// any number of reaction types); each button is size-10, the 40px touch target.
+export const PICKER_CLASS =
+  "w-auto max-w-[calc(100vw-2rem)] flex-row flex-wrap gap-0 rounded-3xl p-1";
+
 const SIZES = {
   default: "",
   sm: "text-(length:--text-caption) md:h-7 md:min-w-7 [&_svg]:size-3.5",
@@ -235,7 +240,7 @@ export function ReactionButton({
         aria-label={t("aria.choose")}
         initialFocus={() => viaTrigger.current}
         finalFocus={() => (viaTrigger.current ? button.current : false)}
-        className="w-auto flex-row gap-0 rounded-full p-1"
+        className={PICKER_CLASS}
         {...hover}
       >
         {types.map((type) => (
