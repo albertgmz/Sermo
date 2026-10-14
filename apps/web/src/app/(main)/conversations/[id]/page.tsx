@@ -11,6 +11,7 @@ import type * as z from "zod";
 import { ConversationSync } from "@/app/(main)/conversations/[id]/conversation-sync";
 import { ConversationWidgets } from "@/app/(main)/conversations/[id]/conversation-widgets";
 import { LeaveForm } from "@/app/(main)/conversations/[id]/leave-form";
+import { MarkReadProvider } from "@/app/(main)/conversations/[id]/mark-read-state";
 import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skeleton";
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
 import { WidgetsSheet } from "@/app/(main)/conversations/[id]/widgets-sheet";
@@ -21,6 +22,7 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { Reactions } from "@/components/forum/reactions";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
@@ -56,7 +58,8 @@ function Header({
         ]}
       />
       <div className="mt-1 flex flex-wrap items-start gap-x-3">
-        <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
+        {/* A long title keeps room to wrap: the buttons drop below it rather than squeeze it. */}
+        <h1 className="min-w-0 flex-[1_1_14rem] text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
           {conversation.title}
         </h1>
         {/* Beside the messages on a wide screen; behind this button below it. */}
@@ -75,6 +78,16 @@ function Header({
           <LogOut />
         </LeaveForm>
       </div>
+      {/* The full list is in the widgets; below the desktop layout they are behind the button. */}
+      <p className="line-clamp-2 text-sm text-muted-foreground [overflow-wrap:anywhere] lg:hidden">
+        {conversation.participants.map((participant, index) => (
+          <span key={participant.user.id}>
+            {index > 0 && t("participantSeparator")}
+            <UserLink user={member(participant.user.id)} />
+            {participant.state === "left" && <> {t("left")}</>}
+          </span>
+        ))}
+      </p>
     </header>
   );
 }
@@ -98,43 +111,45 @@ export default async function ConversationPage({
   );
 
   return (
-    <PageLayout
-      className="pt-2"
-      asideOnMobile="hidden"
-      aside={
-        <ConversationWidgets conversation={conversation} member={member} />
-      }
-    >
-      <Header conversation={conversation} member={member} />
-      <div className="mt-4">
-        <Suspense
-          fallback={
-            <LoadingRegion label={t("aria.loadingMessages")}>
-              <MessagesSkeleton />
-            </LoadingRegion>
-          }
-        >
-          <Messages
-            conversation={conversation}
-            cursor={typeof cursor === "string" ? cursor : undefined}
-            focus={typeof message === "string" ? parseId(message) : null}
-            canReact={permissions.canReact}
-          />
-        </Suspense>
-      </div>
+    <MarkReadProvider>
+      <PageLayout
+        className="pt-2"
+        asideOnMobile="hidden"
+        aside={
+          <ConversationWidgets conversation={conversation} member={member} />
+        }
+      >
+        <Header conversation={conversation} member={member} />
+        <div className="mt-4">
+          <Suspense
+            fallback={
+              <LoadingRegion label={t("aria.loadingMessages")}>
+                <MessagesSkeleton />
+              </LoadingRegion>
+            }
+          >
+            <Messages
+              conversation={conversation}
+              cursor={typeof cursor === "string" ? cursor : undefined}
+              focus={typeof message === "string" ? parseId(message) : null}
+              canReact={permissions.canReact}
+            />
+          </Suspense>
+        </div>
 
-      <section className="mt-4">
-        {conversation.canReply ? (
-          <ReplyForm
-            conversationId={conversation.id}
-            placeholder={t("placeholder")}
-            submitLabel={t("submit")}
-          />
-        ) : (
-          <PostNote icon={Lock}>{t("cannotReply")}</PostNote>
-        )}
-      </section>
-    </PageLayout>
+        <section className="mt-4">
+          {conversation.canReply ? (
+            <ReplyForm
+              conversationId={conversation.id}
+              placeholder={t("placeholder")}
+              submitLabel={t("submit")}
+            />
+          ) : (
+            <PostNote icon={Lock}>{t("cannotReply")}</PostNote>
+          )}
+        </section>
+      </PageLayout>
+    </MarkReadProvider>
   );
 }
 

@@ -35,15 +35,29 @@ export async function replyAction(
 }
 
 // Called by the page itself once the newest message is shown, so a refusal (a dead session, a
-// conversation the member left) is nothing the visitor needs to hear about. The page stays as it
-// is; the unread counts are right on the next page the member opens.
-export async function markRead(conversationId: number) {
+// conversation the member left) is nothing the visitor needs to hear about: it comes back as false,
+// the page stays as it is and the unread counts are right on the next page the member opens.
+export async function markRead(conversationId: number): Promise<boolean> {
   requireIds(conversationId);
   try {
     await call(conversationsMarkRead, { conversationId });
+    return true;
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
+    return false;
   }
+}
+
+// The "Mark as read" card, which the member presses after the page's own attempt failed: a refusal
+// is theirs to hear about.
+export async function markReadAction(
+  conversationId: number,
+): Promise<PanelState> {
+  requireIds(conversationId);
+  const marked = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsMarkRead, { conversationId }),
+  );
+  return marked.ok ? {} : { error: marked.error };
 }
 
 export type LeaveState = { error?: string };
@@ -62,8 +76,9 @@ export async function leaveAction(
 
 export type PanelState = { error?: string };
 
-// The list beside the page is drawn by the layout, which a redirect between its pages keeps as it
-// was: without this it would show the old title and head count.
+// The conversations list shows each conversation's title and head count, and the router keeps a
+// copy of that page for a while: without this, going back to it after a change would show the old
+// ones.
 async function backToConversation(conversationId: number): Promise<never> {
   revalidatePath("/conversations", "layout");
   redirect(`/conversations/${conversationId}`);

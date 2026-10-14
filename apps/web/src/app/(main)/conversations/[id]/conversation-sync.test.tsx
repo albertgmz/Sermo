@@ -13,6 +13,7 @@ mock.module("react", () => ({
   },
 }));
 let refreshed = 0;
+const reported: boolean[] = [];
 mock.module("next/navigation", () => ({
   useRouter: () => ({
     refresh: () => {
@@ -21,13 +22,16 @@ mock.module("next/navigation", () => ({
   }),
 }));
 const marked: number[] = [];
+let accepted = true;
 mock.module("@/app/(main)/conversations/actions", () => ({
   markRead: async (id: number) => {
     marked.push(id);
+    return accepted;
   },
 }));
 
 const { ConversationSync, keepsPlace } = await import("./conversation-sync");
+const { MarkReadContext } = await import("./mark-read-state");
 
 afterAll(() => {
   mock.module("react", () => react);
@@ -40,9 +44,15 @@ function render(mark = true, scroll = true) {
   globals.window = { location: { hash: "" } };
   effects.length = 0;
   marked.length = 0;
+  reported.length = 0;
+  accepted = true;
   refreshed = 0;
   renderToStaticMarkup(
-    createElement(ConversationSync, { id: 5, mark, scroll }),
+    createElement(
+      MarkReadContext,
+      { value: { failed: false, setFailed: (to) => reported.push(to) } },
+      createElement(ConversationSync, { id: 5, mark, scroll }),
+    ),
   );
   try {
     return effects.map((effect) => effect());
@@ -88,4 +98,27 @@ test("an older page of messages is marked read too, without needing the scroll",
   await Promise.resolve();
   await Promise.resolve();
   expect(refreshed).toBe(1);
+});
+
+test("a refused mark tells the page instead of refreshing it, and a new attempt clears that", async () => {
+  accepted = false;
+  effects.length = 0;
+  marked.length = 0;
+  reported.length = 0;
+  refreshed = 0;
+  const globals = globalThis as unknown as { window?: unknown };
+  globals.window = { location: { hash: "" } };
+  renderToStaticMarkup(
+    createElement(
+      MarkReadContext,
+      { value: { failed: false, setFailed: (to) => reported.push(to) } },
+      createElement(ConversationSync, { id: 5, mark: true, scroll: false }),
+    ),
+  );
+  for (const effect of effects) effect();
+  delete globals.window;
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(reported).toEqual([false, true]);
+  expect(refreshed).toBe(0);
 });

@@ -21,6 +21,7 @@ const {
   addParticipantsAction,
   leaveAction,
   markRead,
+  markReadAction,
   renameAction,
   replyAction,
   startConversation,
@@ -258,4 +259,22 @@ test("a refused rename shows the backend's reason", async () => {
     error: "Only the starter may do that.",
   });
   await assert.rejects(() => renameAction(-1, {}, form));
+});
+
+test("the page's own mark says whether it worked, and the card's mark says why not", async () => {
+  assert.equal(await markRead(3), true);
+  assert.deepEqual(await markReadAction(3), {});
+  assert.deepEqual(
+    asked.map((call) => call.url),
+    [
+      "http://127.0.0.1:8787/api/v1/conversations/3/read",
+      "http://127.0.0.1:8787/api/v1/conversations/3/read",
+    ],
+  );
+  globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
+  assert.equal(await markRead(3), false);
+  assert.deepEqual(await markReadAction(3), {
+    error: "Only the starter may do that.",
+  });
+  await assert.rejects(() => markReadAction(0));
 });

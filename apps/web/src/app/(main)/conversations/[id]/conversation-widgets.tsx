@@ -2,7 +2,7 @@ import type { conversationsGet } from "@sermo/core/contracts";
 import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { AddPeople } from "@/app/(main)/conversations/[id]/add-people";
-import { MarkReadButton } from "@/app/(main)/conversations/[id]/mark-read-button";
+import { MarkReadCard } from "@/app/(main)/conversations/[id]/mark-read-button";
 import { RenameForm } from "@/app/(main)/conversations/[id]/rename-form";
 import { MemberRow } from "@/components/forum/member-row";
 import { SectionCard } from "@/components/forum/section-card";
@@ -77,9 +77,7 @@ export function ConversationWidgets({
         </SectionCard>
       )}
       {conversation.isUnread && (
-        <SectionCard title={t("unread.title")}>
-          <MarkReadButton conversationId={conversation.id} />
-        </SectionCard>
+        <MarkReadCard conversationId={conversation.id} />
       )}
     </>
   );

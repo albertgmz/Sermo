@@ -17,11 +17,13 @@ mock.module("next/navigation", () => ({
 mock.module("@/app/(main)/conversations/actions", () => ({
   addParticipantsAction: async () => ({}),
   renameAction: async () => ({}),
-  markRead: async () => {},
+  markRead: async () => true,
+  markReadAction: async () => ({}),
   findRecipients: async () => [],
 }));
 
 const { ConversationWidgets } = await import("./conversation-widgets");
+const { MarkReadContext } = await import("./mark-read-state");
 
 const person = (id: number, username: string) => ({ id, username });
 const member = (id: number) => ({
@@ -55,13 +57,20 @@ const conversation = {
 };
 
 // The avatars are async components: wait for the whole page before reading it.
-async function draw(overrides: Partial<typeof conversation> = {}) {
+async function draw(
+  overrides: Partial<typeof conversation> = {},
+  autoMarkFailed = false,
+) {
   const stream = await renderToReadableStream(
     withIntl(
-      createElement(ConversationWidgets, {
-        conversation: { ...conversation, ...overrides },
-        member,
-      }),
+      createElement(
+        MarkReadContext,
+        { value: { failed: autoMarkFailed, setFailed: () => {} } },
+        createElement(ConversationWidgets, {
+          conversation: { ...conversation, ...overrides },
+          member,
+        }),
+      ),
     ),
   );
   await stream.allReady;
@@ -96,7 +105,12 @@ test("the rename form is drawn only when the viewer may rename, with the current
   expect(without).not.toContain("Conversation name");
 });
 
-test("mark as read is drawn only while the latest message is unread", async () => {
+test("mark as read is not drawn while the page's own mark is running or when nothing is unread", async () => {
   expect(await draw()).not.toContain("Mark as read");
-  expect(await draw({ isUnread: true })).toContain("Mark as read");
+  expect(await draw({ isUnread: true })).not.toContain("Mark as read");
+  expect(await draw({ isUnread: false }, true)).not.toContain("Mark as read");
+});
+
+test("mark as read is drawn for an unread conversation once the page's own mark has failed", async () => {
+  expect(await draw({ isUnread: true }, true)).toContain("Mark as read");
 });

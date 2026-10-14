@@ -50,6 +50,7 @@ export default function Loading() {
             <Skeleton className="h-10 w-20" />
           </div>
         </div>
+        <Skeleton className="mt-2 h-4 w-1/2 lg:hidden" />
         <div className="mt-4">
           <MessagesSkeleton />
         </div>
