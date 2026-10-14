@@ -1,6 +1,8 @@
 "use client";
 
 import { PanelRight } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { takeDetailsFocus } from "@/app/(main)/conversations/[id]/details-focus";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -26,9 +28,16 @@ export function WidgetsSheet({
   description: string;
   children: React.ReactNode;
 }) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  // Drawn anew after a write made inside the drawer (adding people ends in a redirect): the form
+  // that had the focus is gone, so the button that opened the drawer takes it.
+  useEffect(() => {
+    if (takeDetailsFocus()) trigger.current?.focus();
+  }, []);
   return (
     <Sheet>
       <SheetTrigger
+        ref={trigger}
         render={
           <Button variant="ghost" className="h-10 px-2 text-xs lg:hidden" />
         }

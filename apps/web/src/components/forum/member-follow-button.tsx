@@ -36,11 +36,13 @@ export function MemberFollowButton({
       <Button
         type="button"
         variant={following ? "outline" : "default"}
+        // Kept focusable while the write runs: a disabled button hands its focus to the page.
         disabled={pending}
+        focusableWhenDisabled
         aria-label={t(following ? "aria.unfollow" : "aria.follow", {
           username,
         })}
-        className={className}
+        className={cn("aria-disabled:opacity-50", className)}
         onClick={() =>
           start(async () => {
             const { error: refused } = await action();
