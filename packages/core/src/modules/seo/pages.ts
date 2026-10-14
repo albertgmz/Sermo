@@ -5,6 +5,7 @@ import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, permissionsOf } from "../../permissions";
 import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
+import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical } from "./paths";
 
 export interface SeoTemplates {
@@ -176,7 +177,7 @@ export function threadSeo(
     thread.state === "visible" && can(ctx, GUEST, "node.view", { nodeId: thread.node_id });
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
-  const description = thread.excerpt || first?.body_source.slice(0, 200) || "";
+  const description = thread.excerpt || (first && excerptFromMarkdown(first.body_source)) || "";
   const values = { siteName: templates.siteName, title: thread.title, description, username: "" };
   const breadcrumb: WithContext<BreadcrumbList> = {
     "@context": "https://schema.org",
@@ -197,7 +198,7 @@ export function threadSeo(
           url: baseCanonical,
           mainEntityOfPage: baseCanonical,
           headline: thread.title,
-          text: first.body_source,
+          text: maskMarkupForExcerpt(first.body_source),
           author: person(baseURL, first.user_id, first.username),
           datePublished: iso(first.created_at),
           dateModified: iso(thread.content_updated_at ?? first.edited_at ?? first.created_at),
@@ -212,7 +213,7 @@ export function threadSeo(
             .map((row) => ({
               "@type": "Comment" as const,
               "@id": `${baseCanonical}#post-${row.id}`,
-              text: row.body_source,
+              text: maskMarkupForExcerpt(row.body_source),
               author: person(baseURL, row.user_id, row.username),
               datePublished: iso(row.created_at),
               ...(row.edited_at ? { dateModified: iso(row.edited_at) } : {}),

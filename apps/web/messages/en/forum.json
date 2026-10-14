@@ -169,5 +169,11 @@
     "showMore": "Show more comments",
     "older": "Older comments",
     "fewer": "Show fewer comments"
+  },
+  "bbCode": {
+    "codeLabel": "Code:",
+    "richCodeLabel": "Rich (BB code):",
+    "said": "said:",
+    "spoiler": "Spoiler"
   }
 }

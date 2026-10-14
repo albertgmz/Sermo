@@ -19,10 +19,10 @@ import {
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
-import { implement } from "../../operation";
+import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
-import { renderContent, storeContentReferences } from "../../render";
+import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -98,14 +98,17 @@ export const messageSql =
 export const firstMessageSql =
   "SELECT min(id) AS id FROM conversation_messages WHERE conversation_id = ?1";
 
-function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
-  const user = requireAuthenticated(actor);
-  const row = prepared(ctx, "conversations.active", () =>
-    ctx.sqlite.prepare<ConversationRow, [number, number]>(activeSql),
-  ).get(id, user.userId);
-  if (!row) throw new NotFoundError();
-  return row;
-}
+export const activeConversation = markPublic(
+  "Being an active participant is the check; anyone else gets NotFoundError.",
+  function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
+    const user = requireAuthenticated(actor);
+    const row = prepared(ctx, "conversations.active", () =>
+      ctx.sqlite.prepare<ConversationRow, [number, number]>(activeSql),
+    ).get(id, user.userId);
+    if (!row) throw new NotFoundError();
+    return row;
+  },
+);
 
 function summary(row: ConversationRow, user: ReturnType<typeof loadUserSummaries>) {
   return {
@@ -378,6 +381,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
         ).lastInsertRowid,
       );
       storeContentReferences(ctx, "conversation_message", messageId, refs);
+      storeSpoilers(ctx, "conversation_message", messageId, refs.spoilers);
       setAttachments(
         ctx,
         starter.userId,
@@ -489,6 +493,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
         ).lastInsertRowid,
       );
       storeContentReferences(ctx, "conversation_message", id, refs);
+      storeSpoilers(ctx, "conversation_message", id, refs.spoilers);
       setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
       if (!decision.moderated && !spam) {
@@ -813,6 +818,7 @@ export const conversationsUpdateMessageOp = implement(
         message.id,
         refs,
       );
+      storeSpoilers(ctx, "conversation_message", message.id, refs.spoilers);
       if (decision.moderated)
         moderateEditedContent(ctx, actor, { type: "conversation_message", id: message.id });
       publishEvent(ctx, {

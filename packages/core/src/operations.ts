@@ -26,6 +26,7 @@ import { operations as seo } from "./modules/seo";
 import { operations as settings } from "./modules/settings";
 import { operations as shop } from "./modules/shop";
 import { operations as social } from "./modules/social";
+import { operations as spoilers } from "./modules/spoilers";
 import { operations as storage } from "./modules/storage";
 import type { AnyOperation } from "./operation";
 
@@ -59,6 +60,7 @@ export const operations: readonly AnyOperation[] = [
   ...appearance,
   ...navigation,
   ...pages,
+  ...spoilers,
   ...admin,
 ];
 

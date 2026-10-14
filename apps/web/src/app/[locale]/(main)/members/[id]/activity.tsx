@@ -135,7 +135,10 @@ export async function PostsTab({
               })}
             </p>
             <ClampedBody href={href} expectLong={looksLong(post.bodyHtml)}>
-              <HtmlContent className="text-muted-foreground">
+              <HtmlContent
+                className="text-muted-foreground"
+                content={{ type: "post", id: post.id }}
+              >
                 {post.bodyHtml}
               </HtmlContent>
             </ClampedBody>

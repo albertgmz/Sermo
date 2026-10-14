@@ -15,7 +15,7 @@ import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, permissionsOf, requirePermission } from "../../permissions";
-import { renderContent, storeContentReferences } from "../../render";
+import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import {
   appendModeratorLog,
@@ -101,6 +101,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
         html,
       )!;
       storeContentReferences(ctx, "profile_post_comment", row.id, refs);
+      storeSpoilers(ctx, "profile_post_comment", row.id, refs.spoilers);
       if (!decision.moderated && !spam)
         prepared(ctx, "profiles.incrementCommentCount", () =>
           ctx.sqlite.prepare<unknown, [number, number]>(
@@ -149,6 +150,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
       comment.id,
       refs,
     );
+    storeSpoilers(ctx, "profile_post_comment", comment.id, refs.spoilers);
     if (decision.moderated)
       moderateEditedContent(ctx, actor, { type: "profile_post_comment", id: comment.id });
     if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);

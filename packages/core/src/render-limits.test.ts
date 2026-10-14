@@ -154,7 +154,9 @@ describe("canonical source length", () => {
     );
     expect(result.source.startsWith(saved)).toBe(true);
     expect(result.source.match(/author="Alice"/g)).toHaveLength(3);
-    expect(result.html.match(/Alice<\/a> wrote:/g)).toHaveLength(3);
+    // The quote inside the spoiler is in the spoiler's own HTML, not in the body's.
+    const shown = [result.html, ...result.spoilers].join("");
+    expect(shown.match(/Alice<\/a> wrote:/g)).toHaveLength(3);
     expect(result.source).toContain(`:::quote{post=${newer.id} author="Mary Jane"}`);
     expect(result.html).toContain("Mary Jane</a> wrote:");
   });

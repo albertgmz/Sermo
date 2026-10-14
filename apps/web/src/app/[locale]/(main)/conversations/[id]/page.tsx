@@ -249,7 +249,12 @@ async function Messages({
               {message.state === "deleted" && (
                 <PostNote icon={Trash2}>{t("deleted")}</PostNote>
               )}
-              <HtmlContent className="md:mt-1">{message.bodyHtml}</HtmlContent>
+              <HtmlContent
+                className="md:mt-1"
+                content={{ type: "conversation_message", id: message.id }}
+              >
+                {message.bodyHtml}
+              </HtmlContent>
               <PostAttachments attachments={message.attachments} />
             </PostFrame>
           </li>

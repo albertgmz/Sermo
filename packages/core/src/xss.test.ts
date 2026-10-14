@@ -48,6 +48,45 @@ const payloads = [
   ["spoiler title JavaScript URL", ':::spoiler{title="javascript:alert(1)"}\nsecret\n:::'],
   ["inline spoiler HTML", ">!<svg onload=alert(1)>!<"],
   ["mention inside link", "[@Nobody](javascript:alert(1))"],
+  ["BB URL JavaScript", "[URL=javascript:alert(1)]x[/URL]"],
+  ["BB URL entity-encoded scheme", "[URL=&#106;avascript:alert(1)]x[/URL]"],
+  ["BB URL without option", "[URL]javascript:alert(1)[/URL]"],
+  ["BB URL attribute breakout", '[URL=https://a.b" onmouseover="alert(1)]x[/URL]'],
+  ["BB IMG JavaScript", "[IMG]javascript:alert(1)[/IMG]"],
+  ["BB IMG data URL", "[IMG]data:image/svg+xml,<svg onload=alert(1)>[/IMG]"],
+  ["BB IMG attribute breakout", '[IMG]https://a.b/x.png" onerror="alert(1)[/IMG]'],
+  ["BB EMAIL JavaScript", "[EMAIL=javascript:alert(1)//a@b.co]x[/EMAIL]"],
+  ["BB EMAIL attribute breakout", '[EMAIL=a@b.co" onclick="alert(1)]x[/EMAIL]'],
+  ["BB COLOR style injection", "[COLOR=red;background:url(javascript:alert(1))]x[/COLOR]"],
+  ["BB COLOR expression", "[COLOR=expression(alert(1))]x[/COLOR]"],
+  ["BB COLOR attribute breakout", '[COLOR=red" onmouseover="alert(1)]x[/COLOR]'],
+  ["BB FONT style injection", "[FONT=Arial;position:fixed;inset:0]x[/FONT]"],
+  ["BB FONT attribute breakout", '[FONT=Arial" onmouseover="alert(1)]x[/FONT]'],
+  ["BB SIZE injection", '[SIZE=7" onmouseover="alert(1)]x[/SIZE]'],
+  ["BB MEDIA attribute breakout", '[MEDIA=youtube]kQ0Eo1UccE" onload="alert(1)[/MEDIA]'],
+  ["BB MEDIA foreign host", "[MEDIA=youtube]https://evil.example/embed/x[/MEDIA]"],
+  ["BB MEDIA path traversal", "[MEDIA=soundcloud]a/../../../evil[/MEDIA]"],
+  ["BB MEDIA unknown site", "[MEDIA=evil]kQ0Eo1UccEE[/MEDIA]"],
+  ["BB QUOTE name HTML", '[QUOTE="><img src=x onerror=alert(1)>]x[/QUOTE]'],
+  ["BB SPOILER title HTML", '[SPOILER="><img src=x onerror=alert(1)>]x[/SPOILER]'],
+  ["BB SPOILER title attribute breakout", '[SPOILER=a" onclick="alert(1)]x[/SPOILER]'],
+  ["BB CODE language HTML", '[CODE="><img src=x onerror=alert(1)>]x[/CODE]'],
+  ["BB CODE content HTML", "[CODE=php]<script>alert(1)</script>[/CODE]"],
+  ["BB rich code JavaScript link", "[CODE=rich][URL=javascript:alert(1)]x[/URL][/CODE]"],
+  ["BB ICODE rich HTML", "[ICODE=rich]<img src=x onerror=alert(1)>[/ICODE]"],
+  ["BB USER attribute breakout", '[USER=1" onclick="alert(1)]x[/USER]'],
+  ["BB ATTACH attribute breakout", '[ATTACH]1" onclick="alert(1)[/ATTACH]'],
+  ["BB PLAIN HTML", "[PLAIN]<script>alert(1)</script>[/PLAIN]"],
+  [
+    "BB HTML in tag content",
+    "[B]<img src=x onerror=alert(1)>[/B] [LEFT]<svg onload=alert(1)>[/LEFT]",
+  ],
+  ["BB table HTML", "[TABLE][TR][TD]<img src=x onerror=alert(1)>[/TD][/TR][/TABLE]"],
+  ["BB list HTML", "[LIST][*]<script>alert(1)</script>[/LIST]"],
+  [
+    "BB spoiler holding payloads",
+    "[SPOILER][URL=javascript:alert(1)]x[/URL] <img src=x onerror=alert(1)>[/SPOILER]",
+  ],
 ] as const;
 
 const forbiddenTags = new Set([
@@ -235,6 +274,48 @@ describe("stored content HTML rejects XSS", () => {
       expect(html).toContain('<a href="https://example.com" rel="nofollow ugc noopener">link</a>');
       expect(html).toContain("<li>one</li>");
       expect(html).toContain("<li>two</li>");
+    }
+  });
+
+  test("valid BB code output carries only the whitelisted style values and embed hosts", async () => {
+    const ctx = createTestContext();
+    const author = userActor(insertUser(ctx));
+    const wall = insertUser(ctx);
+    const post = await execute(ctx, profilePostsCreateOp, author, {
+      userId: wall.id,
+      body:
+        "[COLOR=red]a[/COLOR] [COLOR=#0000CC]b[/COLOR] [MEDIA=youtube]kQ0Eo1UccEE[/MEDIA] " +
+        "[MEDIA=soundcloud]forss/flickermood[/MEDIA] [MEDIA=reddit]r/test/comments/abc123[/MEDIA]",
+    });
+    const html = storedHtml(ctx, "profile_posts", "id", post.id);
+    const styles = [...html.matchAll(/ style="([^"]*)"/g)].map((match) => match[1]);
+    expect(styles).toEqual(["color:red", "color:#0000cc"]);
+    const sources = [...html.matchAll(/<iframe[^>]* src="([^"]*)"/g)].map((match) => match[1]);
+    expect(sources.map((source) => new URL(source!).hostname)).toEqual([
+      "www.youtube-nocookie.com",
+      "w.soundcloud.com",
+    ]);
+    expect(html.match(/<iframe/g)).toHaveLength(2);
+    expect(html).toContain('href="https://www.reddit.com/r/test/comments/abc123"');
+  });
+
+  test("the HTML held back in spoilers is as safe as the body", async () => {
+    const ctx = createTestContext();
+    const author = userActor(insertUser(ctx));
+    const wall = insertUser(ctx);
+    for (const [label, payload] of payloads) {
+      const post = await execute(ctx, profilePostsCreateOp, author, {
+        userId: wall.id,
+        body: `[SPOILER]${payload}[/SPOILER] >!${payload}!<`,
+      });
+      expectSafeHtml(storedHtml(ctx, "profile_posts", "id", post.id));
+      const spoilers = ctx.sqlite
+        .prepare<{ html: string }, [number]>(
+          "SELECT html FROM content_spoilers WHERE content_type = 'profile_post' AND content_id = ?1",
+        )
+        .all(post.id);
+      expect(spoilers.length, label).toBeGreaterThan(0);
+      for (const spoiler of spoilers) expectSafeHtml(spoiler.html);
     }
   });
 

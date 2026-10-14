@@ -68,3 +68,24 @@ test("HTML filtering replaces pictures and the elements around them, and leaves 
     stripHtmlMedia(remote, { master: false, blocked: ["postImages"] }),
   ).toBe("<p>LITE MODE</p>");
 });
+
+test("an embedded player becomes a link to its page when pictures are blocked", () => {
+  const player =
+    '<iframe class="bb-media bb-media-video bb-media-youtube" src="https://www.youtube-nocookie.com/embed/kQ0Eo1UccEE" loading="lazy" allowfullscreen data-media-url="https://www.youtube.com/watch?v=kQ0Eo1UccEE"></iframe>';
+  const html = `<p>watch ${player} now</p>`;
+  expect(stripHtmlMedia(html, { master: false, blocked: ["postImages"] })).toBe(
+    '<p>watch <a href="https://www.youtube.com/watch?v=kQ0Eo1UccEE" rel="nofollow ugc noopener">https://www.youtube.com/watch?v=kQ0Eo1UccEE</a> now</p>',
+  );
+  expect(stripHtmlMedia(html, { master: true, blocked: [] })).toContain(
+    '<a href="https://www.youtube.com/watch?v=kQ0Eo1UccEE"',
+  );
+  expect(stripHtmlMedia(html, { master: false, blocked: [] })).toBe(html);
+  // Without a page address (or with an unsafe one) it is the usual label.
+  const bare = '<iframe src="https://player.vimeo.com/video/1"></iframe>';
+  expect(stripHtmlMedia(bare, { master: true, blocked: [] })).toBe("LITE MODE");
+  const unsafe =
+    '<iframe src="https://player.vimeo.com/video/1" data-media-url="javascript:alert(1)"></iframe>';
+  expect(stripHtmlMedia(unsafe, { master: true, blocked: [] })).toBe(
+    "LITE MODE",
+  );
+});

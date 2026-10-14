@@ -1,12 +1,19 @@
+import { getTranslations } from "next-intl/server";
 import "@/components/forum/member-card-parts";
 import { MentionCards } from "@/components/forum/mention-cards";
 import { prose } from "@/components/forum/prose";
+import {
+  type SpoilerContent,
+  SpoilerReveal,
+} from "@/components/forum/spoiler-reveal";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
 import { getLiteOrigin, getLiteState } from "@/lib/lite-mode";
+import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
 // The same look as the Markdown component, for elements that arrive as HTML. Each rule repeats a
-// class of `prose` on the elements below the root.
+// class of `prose` on the elements below the root. What BB code adds (alignment, code blocks,
+// spoilers, tables, highlighting) is styled in `globals.css` under `.bb-content`.
 const elements = cn(
   "[&_h1]:text-xl [&_h1]:leading-snug [&_h1]:font-semibold [&_h1]:tracking-tight",
   "[&_h2]:text-lg [&_h2]:leading-snug [&_h2]:font-semibold [&_h2]:tracking-tight",
@@ -26,20 +33,45 @@ const elements = cn(
 
 // Renders HTML the backend produced and sanitised; the text is not parsed or changed here. LITE
 // mode removes its pictures on the server first. A mention in it shows the member's card on hover.
+// The words BB code shows (a code block's header, "said:", "Spoiler") are not in the HTML: they are
+// CSS variables set here in the visitor's language. A body with spoilers needs the `content` it
+// belongs to, to ask for them; without it their buttons are disabled.
 export async function HtmlContent(props: {
   children: string;
   className?: string;
+  content?: SpoilerContent;
 }) {
-  const [state, origin] = await Promise.all([getLiteState(), getLiteOrigin()]);
+  const [state, origin, t] = await Promise.all([
+    getLiteState(),
+    getLiteOrigin(),
+    getTranslations("forum.bbCode"),
+  ]);
+  const html = withSpoilerButtons(
+    stripHtmlMedia(props.children, state, origin),
+    props.content !== undefined,
+  );
+  const body = (
+    <div
+      className={cn("bb-content", prose.root, elements, props.className)}
+      style={
+        {
+          "--bb-code-label": JSON.stringify(t("codeLabel")),
+          "--bb-code-rich-label": JSON.stringify(t("richCodeLabel")),
+          "--bb-said": JSON.stringify(t("said")),
+          "--bb-spoiler": JSON.stringify(t("spoiler")),
+        } as React.CSSProperties
+      }
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: the backend sanitises this HTML when the page is saved.
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
   return (
     <MentionCards>
-      <div
-        className={cn(prose.root, elements, props.className)}
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: the backend sanitises this HTML when the page is saved.
-        dangerouslySetInnerHTML={{
-          __html: stripHtmlMedia(props.children, state, origin),
-        }}
-      />
+      {props.content ? (
+        <SpoilerReveal content={props.content}>{body}</SpoilerReveal>
+      ) : (
+        body
+      )}
     </MentionCards>
   );
 }

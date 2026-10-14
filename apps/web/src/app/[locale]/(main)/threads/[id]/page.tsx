@@ -305,12 +305,19 @@ function PostItem({
           <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
             {t("showDeleted")}
           </summary>
-          <HtmlContent>{post.bodyHtml}</HtmlContent>
+          <HtmlContent content={{ type: "post", id: post.id }}>
+            {post.bodyHtml}
+          </HtmlContent>
           <PostAttachments attachments={post.attachments} />
         </details>
       ) : (
         <>
-          <HtmlContent className="md:mt-1">{post.bodyHtml}</HtmlContent>
+          <HtmlContent
+            className="md:mt-1"
+            content={{ type: "post", id: post.id }}
+          >
+            {post.bodyHtml}
+          </HtmlContent>
           <PostAttachments attachments={post.attachments} />
         </>
       )}

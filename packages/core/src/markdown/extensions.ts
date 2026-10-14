@@ -1,9 +1,43 @@
 import { convert } from "html-to-text";
-import type { TokenizerAndRendererExtension } from "marked";
+import type { Parser, TokenizerAndRendererExtension } from "marked";
 import { ValidationError } from "../errors";
 
 export const MAX_QUOTE_DEPTH = 10;
 export const MAX_SPOILER_DEPTH = 10;
+
+export const MAX_SPOILERS = 1000;
+
+/**
+ * Where the spoilers of content with an actor go. Their HTML leaves the body: each spoiler becomes a
+ * placeholder carrying its position, and `html[position]` keeps its sanitized inner HTML. Without a
+ * sink (texts with no per-reader visibility) spoilers stay inline in a closed block.
+ */
+export interface SpoilerSink {
+  html: string[];
+  sanitize(html: string): string;
+}
+
+/** The placeholder for one spoiler, or null when the render has no sink. */
+export function renderSpoilerPlaceholder(
+  parser: Parser,
+  inline: boolean,
+  title: string | null,
+  body: () => string,
+): string | null {
+  const sink = (parser.options as { sermoSpoilers?: SpoilerSink }).sermoSpoilers;
+  if (!sink) return null;
+  const position = sink.html.length;
+  if (position >= MAX_SPOILERS)
+    throw new ValidationError("Too many spoilers.", [
+      { path: ["body"], message: `A text may hold at most ${MAX_SPOILERS} spoilers.` },
+    ]);
+  sink.html.push("");
+  sink.html[position] = sink.sanitize(body());
+  if (inline)
+    return `<span class="bb-spoiler bb-spoiler-inline" data-spoiler="${position}"></span>`;
+  const label = title ? ` data-spoiler-title="${escapeHtml(title)}"` : "";
+  return `<div class="bb-spoiler" data-spoiler="${position}"${label}></div>`;
+}
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
@@ -98,6 +132,15 @@ export const containerExtension: TokenizerAndRendererExtension = {
     }
   },
   renderer(token) {
+    if (token.kind === "spoiler") {
+      const placeholder = renderSpoilerPlaceholder(
+        this.parser,
+        false,
+        token.title === "Spoiler" ? null : token.title,
+        () => this.parser.parse(token.tokens ?? []),
+      );
+      if (placeholder) return placeholder;
+    }
     const body = this.parser.parse(token.tokens ?? []);
     if (token.kind === "spoiler") {
       const title = token.title === "Spoiler" ? "Spoiler" : `Spoiler: ${escapeHtml(token.title)}`;
@@ -133,6 +176,10 @@ export const inlineSpoilerExtension: TokenizerAndRendererExtension = {
     };
   },
   renderer(token) {
+    const placeholder = renderSpoilerPlaceholder(this.parser, true, null, () =>
+      this.parser.parseInline(token.tokens ?? []),
+    );
+    if (placeholder) return placeholder;
     return `<span class="spoiler">${this.parser.parseInline(token.tokens ?? [])}</span>`;
   },
 };
@@ -178,6 +225,6 @@ export const mentionExtension: TokenizerAndRendererExtension = {
     if (token.userId && !token.blocked) {
       return `<a href="/members/${token.userId}" class="mention" data-user-id="${token.userId}">@${escapeHtml(token.displayName)}</a>`;
     }
-    return escapeHtml(token.raw);
+    return escapeHtml(token.fallback ?? token.raw);
   },
 };

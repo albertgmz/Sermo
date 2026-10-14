@@ -29,7 +29,7 @@ import {
   requestVersions,
   requirePermission,
 } from "../../permissions";
-import { renderContent, storeContentReferences } from "../../render";
+import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
 import { iso } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { loadMemberDetails } from "../members/cards";
@@ -328,6 +328,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
         html,
       )!;
       storeContentReferences(ctx, "profile_post", post.id, refs);
+      storeSpoilers(ctx, "profile_post", post.id, refs.spoilers);
       setAttachments(ctx, user.userId, "profile_post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
       post.attachment_count = input.attachmentIds?.length ?? 0;
@@ -363,6 +364,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
       ),
     ).run(refs.source, html, ctx.now(), row.id);
     const { newlyMentioned } = storeContentReferences(ctx, "profile_post", row.id, refs);
+    storeSpoilers(ctx, "profile_post", row.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "profile_post", id: row.id });
     if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, {

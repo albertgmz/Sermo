@@ -29,7 +29,7 @@ import {
   resolvedPermissions,
   viewableNodeIds,
 } from "../../permissions";
-import { renderContent, storeContentReferences } from "../../render";
+import { renderContent, storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
@@ -329,7 +329,7 @@ function requireThread(ctx: Ctx, actor: Actor, id: number) {
     throw new NotFoundError();
   return { row, node };
 }
-function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
+export function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false) {
   const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
   const thread = requireThread(ctx, actor, post.thread_id);
@@ -1151,6 +1151,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
         .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
         .run(post.id, refs.source, html);
       storeContentReferences(ctx, "post", post.id, refs);
+      storeSpoilers(ctx, "post", post.id, refs.spoilers);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "post", post.id, html);
       forumDb(ctx)
@@ -1226,6 +1227,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
         .prepare("INSERT INTO post_bodies (post_id, body_source, body_html) VALUES (?1, ?2, ?3)")
         .run(post.id, refs.source, html);
       storeContentReferences(ctx, "post", post.id, refs);
+      storeSpoilers(ctx, "post", post.id, refs.spoilers);
       setAttachments(ctx, user.userId, "post", post.id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "post", post.id, html);
       if (state === "visible") {
@@ -1356,6 +1358,7 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       .prepare("UPDATE post_bodies SET body_source = ?1, body_html = ?2 WHERE post_id = ?3")
       .run(refs.source, html, post.id);
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
+    storeSpoilers(ctx, "post", post.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, actor, { type: "post", id: post.id });
     forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)

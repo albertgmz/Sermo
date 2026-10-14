@@ -149,7 +149,9 @@ function WallPost({
       }
     >
       <WallStateNote state={post.state} />
-      <HtmlContent>{post.bodyHtml}</HtmlContent>
+      <HtmlContent content={{ type: "profile_post", id: post.id }}>
+        {post.bodyHtml}
+      </HtmlContent>
       <PostAttachments attachments={post.attachments} />
     </MessageRow>
   );

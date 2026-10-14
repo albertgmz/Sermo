@@ -18,6 +18,7 @@ import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
+import type { SpoilerContent } from "@/components/forum/spoiler-reveal";
 import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
@@ -48,10 +49,18 @@ function looksLong(html: string) {
   return text.length > CLAMP_LENGTH || blocks.length > CLAMP_LINES;
 }
 
-function Body({ href, children }: { href: string; children: string }) {
+function Body({
+  href,
+  content,
+  children,
+}: {
+  href: string;
+  content: SpoilerContent;
+  children: string;
+}) {
   return (
     <ClampedBody href={href} expectLong={looksLong(children)}>
-      <HtmlContent>{children}</HtmlContent>
+      <HtmlContent content={content}>{children}</HtmlContent>
     </ClampedBody>
   );
 }
@@ -248,7 +257,12 @@ export function FeedItem({
           )
         }
       >
-        <Body href={href}>{profilePost.bodyHtml}</Body>
+        <Body
+          href={href}
+          content={{ type: "profile_post", id: profilePost.id }}
+        >
+          {profilePost.bodyHtml}
+        </Body>
         <PostAttachments attachments={profilePost.attachments} />
       </Card>
     );
@@ -324,7 +338,9 @@ export function FeedItem({
           {thread.excerpt}
         </p>
       )}
-      <Body href={href}>{post.bodyHtml}</Body>
+      <Body href={href} content={{ type: "post", id: post.id }}>
+        {post.bodyHtml}
+      </Body>
     </Card>
   );
 }

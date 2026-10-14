@@ -169,5 +169,11 @@
     "showMore": "Mostrar más comentarios",
     "older": "Comentarios anteriores",
     "fewer": "Mostrar menos comentarios"
+  },
+  "bbCode": {
+    "codeLabel": "Código:",
+    "richCodeLabel": "Enriquecido (BB code):",
+    "said": "dijo:",
+    "spoiler": "Spoiler"
   }
 }

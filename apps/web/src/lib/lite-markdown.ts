@@ -53,6 +53,8 @@ function htmlEdits(
     start: number;
     blocked: boolean;
     nodeEnd: number;
+    // What stands in for it when blocked: the label, or a link for an embedded player.
+    text: string;
   }[] = [];
   // An element closed by its end tag is replaced whole, even across blocks.
   // One that is never closed, or that an end tag of an outer element abandons,
@@ -66,7 +68,7 @@ function htmlEdits(
       edits.push({
         start: element.start,
         end: Math.min(end ?? Infinity, element.nodeEnd),
-        text: label,
+        text: element.text,
       });
   }
   for (const node of nodes) {
@@ -83,11 +85,12 @@ function htmlEdits(
           while (stack.length > index + 1) finish(start);
           const element = stack.pop();
           if (element?.blocked)
-            edits.push({ start: element.start, end, text: label });
+            edits.push({ start: element.start, end, text: element.text });
         }
         continue;
       }
       let blocked = MEDIA.has(tag) && blocks(state, "postImages");
+      let text = label;
       const attributes =
         /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
       for (const attribute of match[0].matchAll(attributes)) {
@@ -99,6 +102,10 @@ function htmlEdits(
           for (const url of value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)) {
             if (blocksContentImage(state, url[2], origin)) blocked = true;
           }
+        } else if (tag === "iframe" && name === "data-media-url") {
+          // An embedded player (BB code MEDIA) carries its page's address: LITE mode keeps a link.
+          if (/^https?:\/\/[^\s"'<>&]+$/.test(value))
+            text = `<a href="${value}" rel="nofollow ugc noopener">${value}</a>`;
         } else if (
           MEDIA.has(tag) &&
           ["src", "href", "xlink:href", "poster", "data", "srcset"].includes(
@@ -119,7 +126,13 @@ function htmlEdits(
         for (const parent of stack)
           if (MEDIA.has(parent.tag)) parent.blocked = true;
       }
-      stack.push({ tag, start, blocked, nodeEnd: offset + node.value.length });
+      stack.push({
+        tag,
+        start,
+        blocked,
+        nodeEnd: offset + node.value.length,
+        text,
+      });
       if (VOID.has(tag) || /\/\s*>$/.test(match[0])) finish(end);
     }
   }

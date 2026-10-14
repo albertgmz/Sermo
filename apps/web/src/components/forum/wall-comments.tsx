@@ -104,7 +104,10 @@ export function WallComments({
           }
         >
           <WallStateNote state={comment.state} />
-          <HtmlContent className="text-(length:--text-compact)">
+          <HtmlContent
+            className="text-(length:--text-compact)"
+            content={{ type: "profile_post_comment", id: comment.id }}
+          >
             {comment.bodyHtml}
           </HtmlContent>
         </MessageRow>

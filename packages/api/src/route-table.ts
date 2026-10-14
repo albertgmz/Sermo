@@ -98,6 +98,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/nodes/{nodeId}/cover", "images.setNodeCover"],
   ["PUT", "/awards/{awardId}/image", "images.setAwardImage"],
   ["PUT", "/shop/items/{itemId}/image", "images.setShopItemImage"],
+  ["GET", "/spoilers", "spoilers.get"],
   ["GET", "/site", "site.get"],
   ["GET", "/appearance", "appearance.get"],
   ["PUT", "/appearance", "appearance.set"],

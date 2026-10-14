@@ -1,5 +1,8 @@
+import { BB_SPOILER_MARK, maskBbCode } from "../../markdown/bbcode";
+
 /** Plain text stored when the first post is written. */
 export function maskMarkupForExcerpt(source: string): string {
+  source = maskBbCode(source);
   const output: string[] = [];
   const containers: ("quote" | "spoiler")[] = [];
   let fence: string | null = null;
@@ -24,7 +27,7 @@ export function maskMarkupForExcerpt(source: string): string {
     }
     if (!containers.includes("spoiler")) output.push(line.replace(/>![^\n]*?!</g, "[spoiler]"));
   }
-  return output.join("\n");
+  return output.join("\n").replaceAll(BB_SPOILER_MARK, "[spoiler]");
 }
 
 export function excerptFromMarkdown(source: string, limit = 200): string {

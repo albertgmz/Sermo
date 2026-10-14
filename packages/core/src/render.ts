@@ -1,5 +1,5 @@
 import { convert } from "html-to-text";
-import type { Tokens } from "marked";
+import type { MarkedOptions, Tokens } from "marked";
 import { Marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 import type { Actor } from "./actor";
@@ -8,13 +8,24 @@ import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
 import {
+  bbBlockExtension,
+  bbContainerKind,
+  bbInlineExtension,
+  bbTextExtension,
+  COLOR_STYLE,
+  mayHoldBbCode,
+  resetBbCode,
+} from "./markdown/bbcode";
+import {
   containerExtension,
   inlineSpoilerExtension,
   inlineSpoilerLineExtension,
   MAX_QUOTE_DEPTH,
   MAX_SPOILER_DEPTH,
   mentionExtension,
+  type SpoilerSink,
 } from "./markdown/extensions";
+import { MEDIA_ALLOW, MEDIA_IFRAME_HOSTS, MEDIA_SANDBOX } from "./markdown/media";
 import {
   can,
   memberActor,
@@ -36,8 +47,9 @@ const ESCAPE_ALL: sanitizeHtml.IOptions = {
   disallowedTagsMode: "recursiveEscape",
 };
 
-function markedFor(source: string): Marked {
-  return new Marked({
+function markedFor(source: string, sink?: SpoilerSink): Marked {
+  const bbCode = mayHoldBbCode(source);
+  const marked = new Marked({
     gfm: true,
     breaks: true,
     async: false,
@@ -49,9 +61,13 @@ function markedFor(source: string): Marked {
     extensions: [
       ...(source.includes(":::quote") || source.includes(":::spoiler") ? [containerExtension] : []),
       ...(source.includes("!<") ? [inlineSpoilerLineExtension, inlineSpoilerExtension] : []),
-      ...(source.includes("@") ? [mentionExtension] : []),
+      ...(bbCode ? [bbBlockExtension, bbInlineExtension, bbTextExtension] : []),
+      ...(source.includes("@") || bbCode ? [mentionExtension] : []),
     ],
   });
+  // Read by the spoiler renderers through `parser.options`.
+  marked.setOptions({ sermoSpoilers: sink } as MarkedOptions);
+  return marked;
 }
 
 const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
@@ -87,12 +103,30 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     "th",
     "td",
     "input",
+    "div",
+    "u",
+    "iframe",
   ],
   allowedAttributes: {
     a: ["href", "title", "rel", "class", "data-user-id"],
     blockquote: ["class", "data-post-id"],
     details: ["class"],
-    span: ["class"],
+    summary: ["class"],
+    cite: ["class"],
+    div: ["class", "data-spoiler", "data-spoiler-title"],
+    pre: ["class"],
+    table: ["class"],
+    span: ["class", "style", "data-spoiler", "data-attach-id", "data-attach-size"],
+    iframe: [
+      "src",
+      "class",
+      { name: "loading", values: ["lazy"] },
+      { name: "sandbox", values: [MEDIA_SANDBOX] },
+      { name: "allow", values: MEDIA_ALLOW },
+      { name: "referrerpolicy", values: ["strict-origin-when-cross-origin"] },
+      { name: "allowfullscreen", values: [""] },
+      "data-media-url",
+    ],
     img: ["src", "alt", "title"],
     ol: ["start"],
     th: ["align"],
@@ -105,11 +139,19 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
   allowedClasses: {
     code: ["language-*"],
-    a: ["mention"],
-    blockquote: ["quote"],
+    a: ["mention", "bb-*"],
+    blockquote: ["quote", "bb-quote"],
     details: ["spoiler"],
-    span: ["spoiler"],
+    summary: ["bb-*"],
+    cite: ["bb-quote-author"],
+    div: ["bb-*"],
+    pre: ["hljs", "language-*"],
+    table: ["bb-table"],
+    iframe: ["bb-*"],
+    span: ["spoiler", "hljs-*", "bb-*"],
   },
+  allowedStyles: { span: { color: [COLOR_STYLE] } },
+  allowedIframeHostnames: [...MEDIA_IFRAME_HOSTS],
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: { img: ["http", "https"] },
   allowProtocolRelative: false,
@@ -135,6 +177,8 @@ export interface ContentReferences {
   mentionedUserIds: number[];
   quotes: { postId: number; userId: number }[];
 }
+/** What a render returns; `spoilers` is the sanitized HTML of each spoiler by position. */
+type Rendered = ContentReferences & { html: string; source: string; spoilers: string[] };
 
 function canonicalSource(source: string, tokens: Tokens.Generic[]): string {
   let position = 0;
@@ -259,13 +303,17 @@ function previousContent(ctx: Ctx, edit?: ContentEdit) {
 
 function checkContainerDepth(tokens: Tokens.Generic[], quoteDepth = 0, spoilerDepth = 0): void {
   for (const token of tokens) {
+    const bbKind = bbContainerKind(token);
     const nextQuotes =
       quoteDepth +
       Number(
-        token.type === "blockquote" || (token.type === "sermoContainer" && token.kind === "quote"),
+        token.type === "blockquote" ||
+          (token.type === "sermoContainer" && token.kind === "quote") ||
+          bbKind === "quote",
       );
     const nextSpoilers =
-      spoilerDepth + Number(token.type === "sermoContainer" && token.kind === "spoiler");
+      spoilerDepth +
+      Number((token.type === "sermoContainer" && token.kind === "spoiler") || bbKind === "spoiler");
     if (nextQuotes > MAX_QUOTE_DEPTH || nextSpoilers > MAX_SPOILER_DEPTH)
       throw new ValidationError("Containers are nested too deeply.", [
         {
@@ -286,8 +334,9 @@ function render(
   actor?: Actor,
   edit?: ContentEdit,
   maxLength = MAX_BODY_LENGTH,
-): ContentReferences & { html: string; source: string } {
+): Rendered {
   source = source.replace(/\r\n?/g, "\n");
+  resetBbCode();
   if (TOO_DEEP_QUOTES.test(source)) {
     throw new ValidationError("Containers are nested too deeply.", [
       {
@@ -297,11 +346,17 @@ function render(
     ]);
   }
   let html: string;
+  let spoilers: string[] = [];
   let storedSource = source;
   const mentionedUserIds: number[] = [];
   const quotes: { postId: number; userId: number }[] = [];
   try {
-    const marked = markedFor(source);
+    const sink: SpoilerSink | undefined =
+      ctx && actor
+        ? { html: [], sanitize: (inner) => sanitizeHtml(inner, SANITIZE_OPTIONS).trim() }
+        : undefined;
+    spoilers = sink?.html ?? [];
+    const marked = markedFor(source, sink);
     const tokens = marked.lexer(source);
     checkContainerDepth(tokens as Tokens.Generic[]);
     const mentions: Tokens.Generic[] = [];
@@ -310,7 +365,11 @@ function render(
       if (token.type === "sermoMention") mentions.push(token as Tokens.Generic);
       if (token.type === "sermoContainer" && token.kind === "quote")
         quoteTokens.push(token as Tokens.Generic);
-      if (token.type === "link" || token.type === "image") {
+      if (
+        token.type === "link" ||
+        token.type === "image" ||
+        (token.type === "sermoBbInline" && (token.tag === "URL" || token.tag === "EMAIL"))
+      ) {
         marked.walkTokens(token.tokens ?? [], (child) => {
           if (child.type === "sermoMention") child.blocked = true;
         });
@@ -321,10 +380,25 @@ function render(
       const names = [
         ...new Set(
           mentions
-            .filter((t) => !t.blocked && !previous.mentions.has(String(t.name).toLowerCase()))
+            .filter(
+              (t) =>
+                !t.blocked && !t.userIdHint && !previous.mentions.has(String(t.name).toLowerCase()),
+            )
             .map((t) => String(t.name).toLowerCase()),
         ),
       ];
+      // [USER=id] names the member by id; the text between the tags is only a fallback.
+      const hintedIds = [
+        ...new Set(mentions.filter((t) => !t.blocked && t.userIdHint).map((t) => t.userIdHint)),
+      ];
+      const hinted = hintedIds.length
+        ? prepared(ctx, "markdown.mentionUsersById", () =>
+            ctx.sqlite.prepare<{ id: number; username: string }, [string]>(
+              "SELECT id, username FROM users WHERE id IN (SELECT value FROM json_each(?1))",
+            ),
+          ).all(JSON.stringify(hintedIds))
+        : [];
+      const byId = new Map(hinted.map((user) => [user.id, user]));
       const users = names.length
         ? prepared(ctx, "markdown.mentionUsers", () =>
             ctx.sqlite.prepare<{ id: number; username: string; username_key: string }, [string]>(
@@ -370,8 +444,12 @@ function render(
       for (const kept of [true, false]) {
         for (const token of mentions) {
           if (token.blocked) continue;
-          const old = previous.mentions.get(String(token.name).toLowerCase());
-          const user = byName.get(String(token.name).toLowerCase());
+          const old = token.userIdHint
+            ? undefined
+            : previous.mentions.get(String(token.name).toLowerCase());
+          const user = token.userIdHint
+            ? byId.get(token.userIdHint)
+            : byName.get(String(token.name).toLowerCase());
           const resolved = old ?? (user && { id: user.id, label: user.username });
           if (!resolved || previous.mentionedUserIds.has(resolved.id) !== kept) continue;
           if (!kept && limit >= 0 && accepted.size >= limit && !accepted.has(resolved.id)) continue;
@@ -448,6 +526,7 @@ function render(
     source: storedSource,
     mentionedUserIds,
     quotes,
+    spoilers,
   };
 }
 
@@ -456,8 +535,27 @@ export function renderContent(
   actor: Actor,
   source: string,
   options?: { edit?: ContentEdit },
-): ContentReferences & { html: string; source: string } {
+): Rendered {
   return render(source, ctx, actor, options?.edit);
+}
+
+/** Replaces the stored spoilers of a body; runs in the same write transaction as the content change. */
+export function storeSpoilers(
+  ctx: Ctx,
+  contentType: ContentType,
+  contentId: number,
+  spoilers: string[],
+): void {
+  prepared(ctx, "markdown.clearSpoilers", () =>
+    ctx.sqlite.prepare("DELETE FROM content_spoilers WHERE content_type = ?1 AND content_id = ?2"),
+  ).run(contentType, contentId);
+  spoilers.forEach((html, position) => {
+    prepared(ctx, "markdown.insertSpoiler", () =>
+      ctx.sqlite.prepare(
+        "INSERT INTO content_spoilers (content_type, content_id, position, html) VALUES (?1, ?2, ?3, ?4)",
+      ),
+    ).run(contentType, contentId, position, html);
+  });
 }
 
 /** Must run in the same write transaction as the content change. */
@@ -514,6 +612,7 @@ export function renderPlainText(html: string, maxLength?: number): string {
         options: { uppercase: false },
       })),
       { selector: "details.spoiler", format: "spoiler" },
+      { selector: ".bb-spoiler", format: "spoiler" },
       { selector: "span.spoiler", format: "spoiler" },
     ],
     formatters: {
