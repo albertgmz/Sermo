@@ -1,16 +1,56 @@
-import { afterAll, expect, mock, test } from "bun:test";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { createTranslator } from "use-intl";
-import { messages } from "@/i18n/messages";
+import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { renderToReadableStream } from "react-dom/server";
+import { translator, withIntl } from "@/lib/test-intl";
+import { viewerBody } from "@/lib/test-viewer";
+
+const realFetch = globalThis.fetch;
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
-const client = await import("@/lib/sermo/client");
-const members = await import("@/lib/sermo/members");
-const userLink = await import("@/components/forum/user-link");
-const relativeTime = await import("@/components/forum/relative-time");
-const bookmarkButton = await import("@/components/forum/bookmark-button");
+const { createTranslator } = await import("use-intl");
+const { messages } = await import("@/i18n/messages");
+// The `details` line takes tags (t.rich): the shared translator leaves them unfilled, so the
+// server translations here come from the real translator over the message files.
+mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
+  getTranslations: async (namespace: string) =>
+    namespace === "account.bookmarks"
+      ? createTranslator({ locale: "en", messages, namespace } as never)
+      : translator(namespace),
+}));
+mock.module("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ get: () => undefined, toString: () => "" }),
+}));
+const navigation = await import("next/navigation");
+mock.module("next/navigation", () => ({
+  ...navigation,
+  usePathname: () => "/account/bookmarks",
+  useSearchParams: () => new URLSearchParams(),
+}));
+// Another suite replaces the translator with one that fills no placeholders: use the real one.
+const nextIntl = { ...(await import("next-intl")) };
+const { useTranslations } = await import("use-intl");
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations,
+}));
+
+const { viewerOfRequest } = await import("@/lib/sermo/client");
+const { BookmarkList, bookmarkHref } = await import("./bookmark-list");
+
+afterAll(() => {
+  mock.module("next/navigation", () => navigation);
+  mock.module("next-intl", () => nextIntl);
+  mock.module("next-intl/server", () => intl);
+});
+beforeEach(() => {
+  mock.module("@/lib/sermo/session", () => ({ getViewer: viewerOfRequest }));
+});
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 
 const item = (fields: Record<string, unknown>) =>
   ({
@@ -44,37 +84,20 @@ const rows = [
   }),
 ];
 
-mock.module("next-intl/server", () => ({
-  getTranslations: async (namespace: string) =>
-    createTranslator({ locale: "en", messages, namespace } as never),
-}));
-mock.module("@/lib/sermo/client", () => ({
-  read: async () => ({ items: rows, nextCursor: null }),
-}));
-mock.module("@/lib/sermo/members", () => ({
-  membersFor: async () => (id: number) => ({ id, username: "ana" }),
-}));
-mock.module("@/components/forum/user-link", () => ({
-  UserLink: ({ user }: { user: { username: string } }) =>
-    createElement("b", null, user.username),
-}));
-mock.module("@/components/forum/relative-time", () => ({
-  RelativeTime: () => createElement("time", null, "2 days ago"),
-}));
-mock.module("@/components/forum/bookmark-button", () => ({
-  BookmarkButton: () => null,
-}));
-
-const { BookmarkList, bookmarkHref } = await import("./bookmark-list");
-
-afterAll(() => {
-  mock.module("next-intl/server", () => intl);
-  mock.module("@/lib/sermo/client", () => client);
-  mock.module("@/lib/sermo/members", () => members);
-  mock.module("@/components/forum/user-link", () => userLink);
-  mock.module("@/components/forum/relative-time", () => relativeTime);
-  mock.module("@/components/forum/bookmark-button", () => bookmarkButton);
-});
+function backend() {
+  globalThis.fetch = (async (url: string) => {
+    const { pathname } = new URL(url);
+    if (pathname === "/api/v1/me") return Response.json(viewerBody(true));
+    if (pathname === "/api/v1/bookmarks")
+      return Response.json({ items: rows, nextCursor: null });
+    if (pathname === "/api/v1/member-cards")
+      return Response.json({ items: [] });
+    return Response.json(
+      { error: { code: "not_found", message: "?" } },
+      { status: 404 },
+    );
+  }) as unknown as typeof fetch;
+}
 
 test("a bookmark leads to its thread, its post by position or its conversation", () => {
   expect(bookmarkHref(item({}))).toBe("/threads/9");
@@ -105,13 +128,18 @@ test("a bookmark leads to its thread, its post by position or its conversation",
   ).toBe("/conversations/3");
 });
 
-// The `details` line takes its author and time as elements: a function in their place is
-// dropped by the renderer and rejected when a client component receives it.
+// The `details` line takes its author and time as tags: a function in their place is dropped by
+// the renderer and rejected when a client component receives it.
 test("every bookmark line shows its type, author and time", async () => {
-  const html = renderToStaticMarkup(
-    await BookmarkList({ searchParams: Promise.resolve({}) }),
-  );
-  expect(html.match(/<b>ana<\/b>/g)).toHaveLength(3);
-  expect(html.match(/<time>2 days ago<\/time>/g)).toHaveLength(3);
-  expect(html).toContain("by <b>ana</b>, <time>");
+  backend();
+  const element = await BookmarkList({ searchParams: Promise.resolve({}) });
+  const stream = await renderToReadableStream(withIntl(element));
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  for (const title of ["A thread", "A post", "A conversation"])
+    expect(html).toContain(title);
+  expect(html.match(/href="\/members\//g)).toHaveLength(3);
+  expect(html.match(/<time /g)).toHaveLength(3);
+  for (const type of ["Thread", "Post", "Conversation"])
+    expect(html).toContain(`${type} by `);
 });
