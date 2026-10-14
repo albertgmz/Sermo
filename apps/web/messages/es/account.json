@@ -36,8 +36,8 @@
     "notifications": "Se guardaron tus ajustes de notificaciones.",
     "preferences": "Se guardaron tus preferencias.",
     "failed": "No funcionó. Inténtalo de nuevo.",
-    "threadUnwatched": "Ya no sigues ese tema.",
-    "forumUnwatched": "Ya no sigues ese foro."
+    "threadUnwatched": "Ya no vigilas ese tema.",
+    "forumUnwatched": "Ya no vigilas ese foro."
   },
   "errors": {
     "birthdayIncomplete": "Indica el día y el mes como números, con el año si quieres, o deja los tres vacíos.",
@@ -76,7 +76,7 @@
     "description": "El nombre que se muestra en tu perfil y tus mensajes.",
     "label": "Nombre de usuario",
     "free": "Puedes cambiar tu nombre de usuario libremente.",
-    "units": "Te {count, plural, one {queda # cambio} other {quedan # cambios}}. Cada cambio usa uno.",
+    "units": "Te {count, plural, one {queda un cambio} other {quedan # cambios}}. Cada cambio usa uno.",
     "none": "No te queda ningún cambio de nombre de usuario. <shop>Consigue uno en la tienda</shop>",
     "confirmation": "Quiero cambiar mi nombre de usuario a {username}.",
     "submit": "Cambiar nombre de usuario"
@@ -121,7 +121,7 @@
     "heading": "Invitar miembros",
     "description": "Los miembros que se registren con tu enlace cuentan como tus referidos.",
     "linkLabel": "Tu enlace",
-    "count": "{count, plural, one {# miembro se ha unido} other {# miembros se han unido}} con él."
+    "count": "{count, plural, one {Se ha unido un miembro} other {Se han unido # miembros}} con tu enlace."
   },
   "appearance": {
     "metaTitle": "Apariencia",
@@ -226,16 +226,16 @@
     "submit": "Guardar notificaciones",
     "types": {
       "thread_watched": {
-        "title": "Mensajes nuevos en un tema que sigues",
-        "body": "Alguien responde en un tema que sigues."
+        "title": "Mensajes nuevos en un tema que vigilas",
+        "body": "Alguien responde en un tema que vigilas."
       },
       "node_thread": {
-        "title": "Temas nuevos en un foro que sigues",
-        "body": "Se crea un tema nuevo en un foro que sigues."
+        "title": "Temas nuevos en un foro que vigilas",
+        "body": "Se crea un tema nuevo en un foro que vigilas."
       },
       "node_post": {
-        "title": "Mensajes nuevos en un foro que sigues",
-        "body": "Aparece un mensaje nuevo en un foro que sigues para cada mensaje."
+        "title": "Mensajes nuevos en un foro que vigilas",
+        "body": "Aparece un mensaje nuevo en un foro en el que vigilas cada mensaje."
       },
       "content_quoted": {
         "title": "Citas",
@@ -315,32 +315,32 @@
     "metaTitle": "Preferencias",
     "heading": "Preferencias",
     "loading": "Cargando tus preferencias…",
-    "sectionHeading": "Seguimiento e idioma",
+    "sectionHeading": "Vigilancia e idioma",
     "sectionDescription": "Qué ocurre cuando publicas y el idioma del foro para ti.",
     "createLabel": "Temas que creas",
-    "createHelp": "Si sigues los temas que creas.",
+    "createHelp": "Si vigilas los temas que creas.",
     "replyLabel": "Temas en los que respondes",
-    "replyHelp": "Si sigues los temas en los que respondes.",
+    "replyHelp": "Si vigilas los temas en los que respondes.",
     "watch": {
-      "none": "No seguir",
-      "watch": "Seguir",
-      "watch_email": "Seguir y avisarme por correo"
+      "none": "No vigilar",
+      "watch": "Vigilar",
+      "watch_email": "Vigilar y avisarme por correo"
     },
     "languageLabel": "Idioma",
     "languageDefault": "Predeterminado del sitio",
     "submit": "Guardar preferencias",
-    "threadsHeading": "Temas que sigues",
+    "threadsHeading": "Temas que vigilas",
     "threadsDescription": "Se te avisa cuando alguien responde en estos.",
-    "threadsEmpty": "No sigues ningún tema.",
-    "forumsHeading": "Foros que sigues",
+    "threadsEmpty": "No vigilas ningún tema.",
+    "forumsHeading": "Foros que vigilas",
     "forumsDescription": "Se te avisa de los temas o mensajes nuevos en estos.",
-    "forumsEmpty": "No sigues ningún foro.",
+    "forumsEmpty": "No vigilas ningún foro.",
     "mode": {
       "threads": "Temas nuevos",
       "posts": "Cada mensaje nuevo"
     },
     "email": "Correo",
-    "stop": "Dejar de seguir"
+    "stop": "Dejar de vigilar"
   },
   "perks": {
     "metaTitle": "Ventajas",
@@ -354,7 +354,7 @@
     "slots": "Muestras hasta {count, plural, one {# trofeo} other {# trofeos}}.",
     "slotsAll": "Muestras todos tus trofeos.",
     "renameFree": "Puedes cambiarlo libremente.",
-    "renameUnits": "Te {count, plural, one {queda # cambio} other {quedan # cambios}}.",
+    "renameUnits": "Te {count, plural, one {queda un cambio} other {quedan # cambios}}.",
     "items": {
       "signature": {
         "label": "Firma",

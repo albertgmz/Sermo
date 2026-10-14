@@ -21,15 +21,15 @@
     "running": "Ejecutando…",
     "credits": {
       "heading": "Recalcular créditos",
-      "description": "Recalcula el saldo de cada miembro a partir del libro de créditos y corrige los que difieren. También se ejecuta a diario.",
+      "description": "Recalcula el saldo de cada miembro a partir del registro de créditos y corrige los que difieren. También se ejecuta a diario.",
       "inputs": "Sin datos: abarca a todos los miembros.",
       "warning": "Esto pone en cola un recuento de todos los saldos.",
       "confirm": "Poner el recuento en cola"
     },
     "promotions": {
-      "heading": "Ejecutar promociones",
-      "description": "Evalúa ahora a cada miembro frente a cada promoción activa. También se ejecuta a diario.",
-      "inputs": "Sin datos: abarca a todos los miembros y todas las promociones activas.",
+      "heading": "Ejecutar ascensos",
+      "description": "Evalúa ahora a cada miembro frente a cada ascenso activo. También se ejecuta a diario.",
+      "inputs": "Sin datos: abarca a todos los miembros y todos los ascensos activos.",
       "warning": "Esto pone en cola un barrido que puede mover miembros entre grupos.",
       "confirm": "Poner el barrido en cola"
     },
@@ -81,13 +81,13 @@
     "rejected": "No se aceptó el filtro de acción: {message}"
   },
   "promotionLog": {
-    "metaTitle": "Registro de promociones",
-    "heading": "Registro de promociones",
-    "subtitle": "Cambios de promoción automáticos y manuales, lo más reciente primero.",
+    "metaTitle": "Registro de ascensos",
+    "heading": "Registro de ascensos",
+    "subtitle": "Cambios de ascenso automáticos y manuales, lo más reciente primero.",
     "loading": "Cargando el registro…",
     "member": "Miembro",
     "emptyTitle": "No hay nada en el registro",
-    "emptyDescription": "Ningún cambio de promoción coincide.",
+    "emptyDescription": "Ningún cambio de ascenso coincide.",
     "automatic": "Automático",
     "action": {
       "promote": "Ascendido",
@@ -95,19 +95,19 @@
       "exempt": "Exento",
       "reset": "Restablecido a automático"
     },
-    "promotion": "Promoción",
+    "promotion": "Ascenso",
     "groups": "Grupos",
-    "promotionNumber": "Promoción {id}",
+    "promotionNumber": "Ascenso {id}",
     "groupNumber": "Grupo {id}"
   },
   "creditLedger": {
-    "metaTitle": "Libro de créditos",
-    "heading": "Libro de créditos",
+    "metaTitle": "Registro de créditos",
+    "heading": "Registro de créditos",
     "subtitle": "Todos los movimientos de créditos, lo más reciente primero, o los de un miembro.",
-    "loading": "Cargando el libro…",
+    "loading": "Cargando el registro…",
     "member": "Miembro",
     "balance": "Saldo: {balance}",
-    "emptyTitle": "No hay nada en el libro",
+    "emptyTitle": "No hay nada en el registro",
     "emptyDescription": "Ningún movimiento de créditos coincide.",
     "balanceAfter": "Saldo posterior",
     "source": "Origen",

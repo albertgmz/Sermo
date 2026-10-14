@@ -37,7 +37,7 @@
     "levelLabel": "Mayor nivel",
     "reactionsLabel": "Más reacciones",
     "aria": { "sort": "Ordenar miembros" },
-    "members": "{count, plural, one {# miembro coincide} other {# miembros coinciden}} con “{query}”. <link>Mostrar a todos</link>",
+    "members": "{count, plural, one {Un miembro coincide} other {# miembros coinciden}} con “{query}”. <link>Mostrar a todos</link>",
     "emptyTitle": "Ningún miembro coincide con “{query}”",
     "emptyDescription": "La búsqueda encuentra nombres de usuario que empiezan por lo que escribes.",
     "showEveryone": "Mostrar a todos",

@@ -66,8 +66,8 @@
       "usersHistory": "Historial del miembro",
       "groupsList": "Grupos de usuarios",
       "groupsEdit": "Grupo de usuarios",
-      "groupsPromotions": "Mejoras de grupo",
-      "groupsPromotionEdit": "Mejora de grupo",
+      "groupsPromotions": "Ascensos de grupo",
+      "groupsPromotionEdit": "Ascenso de grupo",
       "permissionsGroups": "Permisos de grupos",
       "permissionsGroupEdit": "Permisos de un grupo",
       "permissionsMembers": "Permisos de miembros",
@@ -98,8 +98,8 @@
       "moderationApprovalReview": "Revisión del elemento",
       "toolsMaintenance": "Mantenimiento",
       "toolsModeratorLog": "Registro de moderación",
-      "toolsPromotionLog": "Historial de mejoras",
-      "toolsCreditLedger": "Libro de créditos",
+      "toolsPromotionLog": "Registro de ascensos",
+      "toolsCreditLedger": "Registro de créditos",
       "toolsShopPurchases": "Compras de la tienda",
       "toolsTasks": "Tareas en segundo plano"
     }
@@ -116,7 +116,7 @@
       "loadingSections": "Cargando las secciones…",
       "loadingActivity": "Cargando la actividad registrada…",
       "loadingStaff": "Cargando el equipo conectado…",
-      "loadingJobs": "Cargando el trabajo en segundo plano…"
+      "loadingJobs": "Cargando las tareas en segundo plano…"
     }
   },
   "homePending": {
@@ -138,7 +138,7 @@
       "reports": "Denuncias presentadas",
       "creditAdjustments": "Ajustes de créditos",
       "shopPurchases": "Compras de la tienda",
-      "promotions": "Mejoras aplicadas",
+      "promotions": "Ascensos aplicados",
       "registrations": "Registros"
     }
   },
@@ -148,7 +148,7 @@
     "empty": "No se ha visto a ningún miembro del equipo últimamente."
   },
   "homeJobs": {
-    "heading": "Trabajo en segundo plano",
+    "heading": "Tareas en segundo plano",
     "description": "Tareas que el servidor ejecuta por su cuenta.",
     "pending": "Pendientes",
     "running": "En ejecución",

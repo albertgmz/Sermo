@@ -2,7 +2,7 @@
   "credits": {
     "metaTitle": "Créditos",
     "title": "Créditos",
-    "subtitle": "Gasta tus créditos en la tienda en aspecto, mejoras y rangos.",
+    "subtitle": "Gasta tus créditos en la tienda en aspecto, ventajas y rangos.",
     "balanceHeading": "Tu saldo",
     "balanceDescription": "créditos para gastar en la tienda",
     "loginDescription": "Inicia sesión para ver tu saldo, comprar artículos y llevar la cuenta de lo que tienes.",
@@ -71,14 +71,14 @@
     "nameIcon": "Icono del nombre, {position, select, before {antes de} other {después de}} tu nombre",
     "threadCover": "Portada para uno de tus temas: {name}",
     "threadCoverUnnamed": "Una portada para uno de tus temas",
-    "highlight": "Destaca uno de tus temas durante {days, plural, one {# día} other {# días}}",
+    "highlight": "Destaca uno de tus temas durante {days, plural, one {un día} other {# días}}",
     "bump": "Devuelve uno de tus temas a lo más alto de su foro",
     "usernameChange": "Un cambio de tu nombre de usuario",
     "permission": "Desbloquea: {name}",
     "permissionValue": "{name}: {unlimited, select, true {sin límite} other {{value}}}",
-    "lastsDays": "{count, plural, one {Dura # día} other {Dura # días}}",
-    "lastsHours": "{count, plural, one {Dura # hora} other {Dura # horas}}",
-    "lastsMinutes": "{count, plural, one {Dura # minuto} other {Dura # minutos}}"
+    "lastsDays": "{count, plural, one {Dura un día} other {Dura # días}}",
+    "lastsHours": "{count, plural, one {Dura una hora} other {Dura # horas}}",
+    "lastsMinutes": "{count, plural, one {Dura un minuto} other {Dura # minutos}}"
   },
   "permissions": {
     "signature": "Una firma bajo tus mensajes",
@@ -154,7 +154,7 @@
   },
   "loading": {
     "title": "Créditos",
-    "subtitle": "Gasta tus créditos en la tienda en aspecto, mejoras y rangos.",
+    "subtitle": "Gasta tus créditos en la tienda en aspecto, ventajas y rangos.",
     "aria": {
       "loading": "Cargando créditos…"
     }

@@ -6,7 +6,7 @@
     "avatarRemoved": "Se eliminó el avatar.",
     "coverRemoved": "Se eliminó la portada.",
     "erased": "Se borró la cuenta.",
-    "promotionApplied": "Se cambió la promoción.",
+    "promotionApplied": "Se cambió el ascenso.",
     "warned": "Se emitió la advertencia.",
     "restricted": "Se añadió la restricción.",
     "restrictionLifted": "Se levantó la restricción.",
@@ -33,7 +33,7 @@
     "reason": "Escribe un motivo.",
     "confirmUsername": "Escribe el nombre de usuario del miembro exactamente como se muestra.",
     "groups": "Elige un grupo principal y grupos secundarios válidos.",
-    "promotion": "Esa no es una acción de promoción.",
+    "promotion": "Esa no es una acción de ascenso.",
     "choice": "Esa opción no es válida.",
     "points": "Escribe los puntos como un número entero.",
     "days": "Escribe un número entero de días.",
@@ -141,10 +141,10 @@
     "description": "El grupo principal y los grupos asignados a mano. Guardar requiere tu propia contraseña.",
     "primary": "Grupo principal",
     "secondary": "Grupos secundarios",
-    "secondaryHelp": "Las pertenencias que vienen de una promoción o de una compra se muestran con su origen y se gestionan allí.",
+    "secondaryHelp": "Las pertenencias que vienen de un ascenso o de una compra se muestran con su origen y se gestionan allí.",
     "origin": {
       "manual": "A mano",
-      "promotion": "Promoción",
+      "promotion": "Ascenso",
       "purchased": "Comprado",
       "primary": "Principal",
       "secondary": "A mano"
@@ -153,17 +153,17 @@
     "none": "Ninguno"
   },
   "promotions": {
-    "heading": "Promociones",
-    "description": "Cada promoción con el estado del miembro en ella. Cambiarla a mano requiere el permiso de promociones.",
-    "empty": "No hay promociones.",
-    "state": "{state, select, auto {Automática} manual {Promovido a mano} exempt {Exento} other {Nunca aplicada}}",
+    "heading": "Ascensos",
+    "description": "Cada ascenso con el estado del miembro en él. Cambiarlo a mano requiere el permiso de ascensos.",
+    "empty": "No hay ascensos.",
+    "state": "{state, select, auto {Automática} manual {Ascendido a mano} exempt {Exento} other {Nunca aplicada}}",
     "eligible": "Los criterios se cumplen ahora",
     "notEligible": "Los criterios no se cumplen ahora",
     "grants": "Concede {groups}",
     "apply": "Aplicar ahora",
     "action": "Qué hacer",
     "actions": {
-      "promote": "Promover",
+      "promote": "Ascender",
       "demote": "Degradar",
       "exempt": "Eximir",
       "reset": "Volver a automático"
@@ -333,10 +333,10 @@
     "emptyTitle": "No hay nada registrado",
     "emptyDescription": "No se registra ninguna acción administrativa sobre este miembro.",
     "elsewhere": "Registrado en otros sitios",
-    "elsewhereHelp": "Este registro contiene ediciones administrativas, cambios de grupo, advertencias, expulsiones, restricciones y revocaciones de sesión. No contiene el registro de créditos, las concesiones de trofeos ni el historial de promociones; esos se guardan en estos lugares.",
+    "elsewhereHelp": "Este registro contiene ediciones administrativas, cambios de grupo, advertencias, expulsiones, restricciones y revocaciones de sesión. No contiene el registro de créditos, las concesiones de trofeos ni el registro de ascensos; esos se guardan en estos lugares.",
     "ledger": "Registro de créditos (pestaña Economía)",
     "awardGrants": "Concesiones de trofeos",
-    "promotions": "Historial de promociones",
+    "promotions": "Registro de ascensos",
     "creditLog": "Registro de créditos de todos"
   },
   "bans": {

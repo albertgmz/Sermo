@@ -328,7 +328,7 @@
         "nameColor": "Desbloquea el color del nombre «{name}»",
         "nameIcon": "Desbloquea un icono del nombre, que se muestra {position, select, before {antes} other {después}} del nombre",
         "threadCover": "Da a un tema la portada «{name}»",
-        "highlight": "Destaca un tema durante {days, plural, one {# día} other {# días}}",
+        "highlight": "Destaca un tema durante {days, plural, one {un día} other {# días}}",
         "bump": "Sube un tema al primer lugar",
         "usernameChange": "Paga un cambio de nombre de usuario"
       }
