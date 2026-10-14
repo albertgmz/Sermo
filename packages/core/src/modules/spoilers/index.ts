@@ -29,12 +29,18 @@ function moderatorMayRead(
     ),
   );
   if (reported.get(id)) return true;
-  if (message.state !== "visible") return false;
+  // The approval and report views also show the 3 messages before and after: the visible ones, and
+  // the hidden ones too for a holder of conversation.viewHidden.
+  const viewHidden = Number(can(ctx, actor, "conversation.viewHidden"));
+  if (message.state !== "visible" && !viewHidden) return false;
   return !!prepared(ctx, "spoilers.beside", () =>
-    ctx.sqlite.prepare<{ found: number }, [number]>(
-      "SELECT 1 AS found FROM conversation_messages m WHERE m.conversation_id = ?1 AND (m.state = 'moderated' OR EXISTS (SELECT 1 FROM report_groups g WHERE g.target_type = 'conversation_message' AND g.target_id = m.id)) LIMIT 1",
+    ctx.sqlite.prepare<{ found: number }, [number, number, number]>(
+      "SELECT 1 AS found FROM conversation_messages t WHERE t.conversation_id = ?1 AND t.id <> ?2 " +
+        "AND (t.state = 'moderated' OR EXISTS (SELECT 1 FROM report_groups g WHERE g.target_type = 'conversation_message' AND g.target_id = t.id)) " +
+        "AND ((t.id > ?2 AND (SELECT count(*) FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id >= ?2 AND m.id < t.id AND (m.state = 'visible' OR ?3 = 1)) <= 3) " +
+        "OR (t.id < ?2 AND (SELECT count(*) FROM conversation_messages m WHERE m.conversation_id = ?1 AND m.id <= ?2 AND m.id > t.id AND (m.state = 'visible' OR ?3 = 1)) <= 3)) LIMIT 1",
     ),
-  ).get(message.conversation_id);
+  ).get(message.conversation_id, id, viewHidden);
 }
 
 /** Throws NotFoundError unless the actor's own read of the item would return it. */

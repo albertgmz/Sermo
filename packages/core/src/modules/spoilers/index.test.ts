@@ -279,6 +279,55 @@ describe("spoilers.get: conversation messages", () => {
     );
   });
 
+  test("a moderator reads only the 3 messages either side of a reported one", async () => {
+    const w = await chat();
+    const ids = [w.made.message.id, w.reply.id];
+    for (let i = 0; i < 8; i++) {
+      const next = await execute(w.ctx, conversationsReplyOp, i % 2 ? w.author : w.other, {
+        conversationId: w.made.conversation.id,
+        body: `>!secret ${i}!<`,
+      });
+      ids.push(next.id);
+    }
+    // Ten messages; the report is on the fifth (index 4).
+    await execute(w.ctx, getOperation("reports.create"), w.other, {
+      target: { type: "conversation_message", id: ids[4]! },
+      reason: "Bad",
+    });
+    const readable = async (index: number, actor = w.admin) => {
+      try {
+        await w.get(actor, "conversation_message", ids[index]!);
+        return true;
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundError);
+        return false;
+      }
+    };
+    const window = [];
+    for (let i = 0; i < ids.length; i++) window.push(await readable(i));
+    // Index 1 (3 before), the report, and index 7 (3 after) are read; 0 and 8 are 4 away.
+    expect(window).toEqual([false, true, true, true, true, true, true, true, false, false]);
+    // A hidden message inside the window is counted and readable only with conversation.viewHidden.
+    w.ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1")
+      .run(ids[3]);
+    const setViewHidden = (value: number) => {
+      w.ctx.sqlite
+        .prepare(
+          "INSERT OR REPLACE INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'conversation.viewHidden'), 0, 4, 0, ?1)",
+        )
+        .run(value);
+      invalidate(w.ctx, "permissions");
+    };
+    setViewHidden(-1);
+    expect(await readable(3)).toBe(false);
+    expect(await readable(0)).toBe(true);
+    expect(await readable(8)).toBe(false);
+    setViewHidden(1);
+    expect(await readable(3)).toBe(true);
+    expect(await readable(0)).toBe(false);
+  });
+
   test("a participant who left no longer reads them", async () => {
     const w = await chat();
     await execute(w.ctx, conversationsLeaveOp, w.other, { conversationId: w.made.conversation.id });

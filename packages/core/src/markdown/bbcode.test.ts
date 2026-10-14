@@ -627,7 +627,7 @@ describe("BB code review limits", () => {
     expect(short).toContain('<span class="bb-code-lang">Java</span>');
   });
 
-  test("no link inside a link, no spoiler inside a link", () => {
+  test("no link inside a link, and a spoiler inside one stays a spoiler", () => {
     const ctx = createTestContext();
     const actor = userActor(insertUser(ctx));
     const nested = md(
@@ -641,14 +641,22 @@ describe("BB code review limits", () => {
     expect(
       md("[EMAIL=a@b.example]mail [URL=https://c.example]c[/URL][/EMAIL]").match(/<a /g),
     ).toHaveLength(1);
-    const spoiler = renderContent(
-      ctx,
-      actor,
-      "[URL=https://a.example]go [ISPOILER]secret[/ISPOILER][/URL]",
+    // A spoiler in a link stays a spoiler: its text is never in the body.
+    for (const source of [
+      "[URL=https://a.example]go [ISPOILER]SECRET[/ISPOILER][/URL]",
+      "[EMAIL=a@b.example]go [ISPOILER]SECRET[/ISPOILER][/EMAIL]",
+      "[go >!SECRET!<](https://a.example)",
+      "[go [ISPOILER]SECRET[/ISPOILER]](https://a.example)",
+    ]) {
+      const spoiler = renderContent(ctx, actor, source);
+      expect(spoiler.html).not.toContain("SECRET");
+      expect(spoiler.html).toContain('data-spoiler="0"');
+      expect(spoiler.spoilers).toEqual(["SECRET"]);
+    }
+    // Without an actor the spoiler is a closed inline one, still a spoiler.
+    expect(md("[URL=https://a.example]go [ISPOILER]x[/ISPOILER][/URL]")).toContain(
+      'class="spoiler"',
     );
-    expect(spoiler.spoilers).toEqual([]);
-    expect(spoiler.html).toContain("go secret</a>");
-    expect(md("[URL=https://a.example]go [ISPOILER]x[/ISPOILER][/URL]")).not.toContain("spoiler");
     // Outside a link both still work.
     expect(renderContent(ctx, actor, "[ISPOILER]s[/ISPOILER]").spoilers).toEqual(["s"]);
   });
