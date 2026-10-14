@@ -303,7 +303,7 @@ export const use = implement(contracts.shopUse, (ctx, actor, input) =>
     const effect = value.effect;
     if (effect.type === "group" || (effect.type === "permission" && !value.isConsumable))
       throw new ConflictError("This item applies while held and cannot be used.");
-    if (effect.type === "frame" || effect.type === "nameColor")
+    if (effect.type === "frame" || effect.type === "nameColor" || effect.type === "nameIcon")
       throw new ConflictError("Wear this item with appearance.set.");
     if (effect.type === "usernameChange")
       throw new ConflictError("Spend this item with users.changeUsername.");

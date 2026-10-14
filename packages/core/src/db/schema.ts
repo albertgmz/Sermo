@@ -235,6 +235,8 @@ export const users = sqliteTable(
     accentColorId: integer("accent_color_id"),
     nameColorId: integer("name_color_id"),
     frameId: integer("frame_id"),
+    /** The shop item (effect `nameIcon`) whose icon the member wears beside their name. */
+    nameIconItemId: integer("name_icon_item_id"),
     /** A cover from the gallery; shown instead of an uploaded cover while set. */
     coverPresetId: integer("cover_preset_id"),
     /** When the username last changed; null if never. */

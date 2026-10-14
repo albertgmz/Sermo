@@ -239,6 +239,13 @@
       "when": 1791942808830,
       "tag": "0033_conversation_message_alerts_read",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1791943501325,
+      "tag": "0034_name_icons",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { CATALOG_IMAGE_KINDS, PALETTE_KINDS } from "../db/schema";
 import { defineContract } from "../operation";
-import { Id, Timestamp } from "./common";
+import { IconKey, Id, Timestamp } from "./common";
 import { ImageReference } from "./images";
 
 /*
@@ -198,6 +198,8 @@ export const MemberAppearance = z
     nameColorId: Id.nullable(),
     frameId: Id.nullable(),
     coverPresetId: Id.nullable(),
+    /** The shop item (effect `nameIcon`) whose icon the member wears beside their name. */
+    nameIconItemId: Id.nullable(),
     /** What the member may choose from right now. */
     available: z.object({
       /** Every active accent: accents are free. */
@@ -206,6 +208,15 @@ export const MemberAppearance = z
       nameColors: z.array(PaletteColor),
       /** The frames the member holds through an active or unused shop item. */
       frames: z.array(CatalogImage),
+      /** The name icons the member holds through an active or unused shop item. */
+      nameIcons: z.array(
+        z.object({
+          itemId: Id,
+          name: z.string(),
+          icon: IconKey,
+          position: z.enum(["before", "after"]),
+        }),
+      ),
       /** Every active profile cover when the member holds profile.coverPreset, else none. */
       covers: z.array(CatalogImage),
     }),
@@ -226,7 +237,7 @@ export const appearanceSet = defineContract({
   name: "appearance.set",
   summary:
     "Choose what to wear; only the keys sent change and null takes a thing off. An accent is any " +
-    "active accent. A name colour or a frame must be one the member holds through a shop item " +
+    "active accent. A name colour, a frame or a name icon (`nameIconItemId`, the shop item) must be one the member holds through a shop item " +
     "that is active or has units left. A cover from the gallery needs profile.coverPreset and " +
     "replaces an uploaded cover while set. Something the member stops holding (an item that " +
     "expires or is used up) comes off by itself.",
@@ -236,6 +247,7 @@ export const appearanceSet = defineContract({
     nameColorId: Id.nullable().optional(),
     frameId: Id.nullable().optional(),
     coverPresetId: Id.nullable().optional(),
+    nameIconItemId: Id.nullable().optional(),
   }),
   output: MemberAppearance,
 });

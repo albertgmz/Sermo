@@ -704,6 +704,7 @@ describe("shop purchases and inventory", () => {
     for (const effect of [
       { type: "frame", frameId },
       { type: "nameColor", colorId: color },
+      { type: "nameIcon", icon: "star", position: "before" },
     ]) {
       const item = await create({ effect, durationSeconds: 60 });
       const owned = await call("shop.buy", { itemId: item.id });

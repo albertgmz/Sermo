@@ -3,7 +3,13 @@ import { GUEST } from "../../actor";
 import { ValidationError } from "../../errors";
 import { expectNoTableScan } from "../../testing";
 import { countStatements } from "../feed/fixtures.test";
-import { AVATAR_VARIANTS_SQL, HELD_AWARDS_SQL, MEMBER_GROUPS_SQL, MEMBER_ROWS_SQL } from "./cards";
+import {
+  AVATAR_VARIANTS_SQL,
+  HELD_AWARDS_SQL,
+  MEMBER_GROUPS_SQL,
+  MEMBER_ROWS_SQL,
+  NAME_ICON_ITEMS_SQL,
+} from "./cards";
 import { bulk, world } from "./fixtures.test";
 
 type Card = {
@@ -12,6 +18,7 @@ type Card = {
   avatar: { url: string; smallUrl: string } | null;
   frame: { url: string; placement: object } | null;
   nameColor: string | null;
+  nameIcon: { icon: string; position: string } | null;
   title: string;
   badges: { label: string; color: string | null; style: string }[];
   level: number;
@@ -30,6 +37,7 @@ describe("users.cards", () => {
       avatar: null,
       frame: null,
       nameColor: null,
+      nameIcon: null,
       title: "Member",
       badges: [],
       level: 1,
@@ -46,10 +54,12 @@ describe("users.cards", () => {
     const frameFile = w.file(target.id, "frame");
     const frame = w.image("frame", frameFile);
     const color = w.color("name", "#aa0000");
+    const iconItem = w.iconItem("heart", "after");
     w.set(target.id, {
       avatar_file_id: avatar,
       frame_id: frame,
       name_color_id: color,
+      name_icon_item_id: iconItem,
       custom_title: "Keeper of the keys",
       award_xp: 300,
     });
@@ -63,6 +73,7 @@ describe("users.cards", () => {
       placement: { width: 120, left: -10, top: -10, scale: 80 },
     });
     expect(card.nameColor).toBe("#aa0000");
+    expect(card.nameIcon).toEqual({ icon: "heart", position: "after" });
     expect(card.title).toBe("Keeper of the keys");
     expect(card.badges).toEqual([{ label: "Moderator", color: null, style: "moderator" }]);
     expect(card.level).toBe(3);
@@ -250,11 +261,17 @@ describe("users.cards", () => {
     const color = w.color("name", "#123456");
     const group = w.group({ title: "G", rank: 15, badge: "g", nameColorId: color });
     const frame = w.image("frame", w.file(w.member.id, "frame"));
+    const iconItem = w.iconItem("star", "before");
     const ids = bulk(w.ctx, 50, group);
     for (const id of ids) {
       const avatar = w.file(id, "avatar");
       w.file(id, "avatar", { parent: avatar, variant: "square_128" });
-      w.set(id, { avatar_file_id: avatar, frame_id: frame, custom_title: "x" });
+      w.set(id, {
+        avatar_file_id: avatar,
+        frame_id: frame,
+        name_icon_item_id: iconItem,
+        custom_title: "x",
+      });
     }
     await cards(w, ids);
     const single = await countStatements(w.ctx, () => cards(w, ids.slice(0, 1)));
@@ -262,6 +279,7 @@ describe("users.cards", () => {
     const page = await cards(w, ids);
     expect(page).toHaveLength(50);
     expect(page.every((card) => card.avatar?.smallUrl !== card.avatar?.url)).toBe(true);
+    expect(page.every((card) => card.nameIcon?.icon === "star")).toBe(true);
     expect(many - single).toBe(0);
     expect(many).toBeLessThanOrEqual(10);
   });
@@ -272,5 +290,6 @@ describe("users.cards", () => {
     expectNoTableScan(w.ctx, MEMBER_GROUPS_SQL, ["[1,2]"]);
     expectNoTableScan(w.ctx, AVATAR_VARIANTS_SQL, ["[1,2]"]);
     expectNoTableScan(w.ctx, HELD_AWARDS_SQL, ["[1,2]"]);
+    expectNoTableScan(w.ctx, NAME_ICON_ITEMS_SQL, ["[1,2]"]);
   });
 });

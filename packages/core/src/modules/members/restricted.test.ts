@@ -98,6 +98,17 @@ describe("users.cards and users.authors respect profile privacy", () => {
     expect(card.badges).toEqual([{ label: "Crew", color: null, style: "crew" }]);
   });
 
+  test("a minimal card carries no name icon, the full card does", async () => {
+    const s = scene("self");
+    s.w.set(s.target.id, { name_icon_item_id: s.w.iconItem("star", "before") });
+    const minimal = (await s.w.call("users.cards", GUEST, { userIds: [s.target.id] })).items[0];
+    expect(minimal.restricted).toBe(true);
+    expect(minimal.nameIcon).toBeNull();
+    const full = (await s.w.call("users.cards", s.viewers.self, { userIds: [s.target.id] }))
+      .items[0];
+    expect(full.nameIcon).toEqual({ icon: "star", position: "before" });
+  });
+
   test("a guest without profile.view gets minimal cards for every member, not the walk", async () => {
     const w = world();
     await w.call("permissions.set", w.adminActor, {

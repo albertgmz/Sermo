@@ -346,6 +346,117 @@ describe("things come off when they are no longer held", () => {
   });
 });
 
+describe("name icons", () => {
+  const icon = (key = "star", position = "before") => ({
+    type: "nameIcon",
+    icon: key,
+    position,
+  });
+  const worn = (w: World, id = w.memberRow.id) =>
+    w.ctx.sqlite
+      .prepare<{ name_icon_item_id: number | null }, [number]>(
+        "SELECT name_icon_item_id FROM users WHERE id = ?1",
+      )
+      .get(id)!.name_icon_item_id;
+  const cardOf = async (w: World, id = w.memberRow.id) =>
+    (await run(w.ctx, "users.cards", GUEST, { userIds: [id] })).items[0];
+  const expire = (w: World) => {
+    while (expireShopBatch(w.ctx) > 0);
+  };
+
+  test("a new member wears none and holds none", async () => {
+    const w = await world();
+    expect(await w.get()).toMatchObject({ nameIconItemId: null, available: { nameIcons: [] } });
+    expect((await cardOf(w)).nameIcon).toBeNull();
+  });
+
+  test("a held icon is offered, worn, drawn on the card and taken off with null", async () => {
+    const w = await world();
+    const item = await w.sell(icon("heart", "after"), { name: "Heart" });
+    await w.buy(item.id);
+    expect((await w.get()).available.nameIcons).toEqual([
+      { itemId: item.id, name: "Heart", icon: "heart", position: "after" },
+    ]);
+    expect(await w.set({ nameIconItemId: item.id })).toMatchObject({ nameIconItemId: item.id });
+    expect(worn(w)).toBe(item.id);
+    expect((await cardOf(w)).nameIcon).toEqual({ icon: "heart", position: "after" });
+    expect(await w.set({ nameIconItemId: null })).toMatchObject({ nameIconItemId: null });
+    expect((await cardOf(w)).nameIcon).toBeNull();
+  });
+
+  test("only one icon is worn: choosing another replaces it, and the other keys stay", async () => {
+    const w = await world();
+    const a = await w.sell(icon("star"));
+    const b = await w.sell(icon("heart"));
+    await w.buy(a.id);
+    await w.buy(b.id);
+    await w.set({ nameIconItemId: a.id, accentId: w.accent });
+    await w.set({ nameIconItemId: b.id });
+    expect(worn(w)).toBe(b.id);
+    expect(await w.get()).toMatchObject({ accentId: w.accent });
+    expect((await cardOf(w)).nameIcon).toEqual({ icon: "heart", position: "before" });
+  });
+
+  test("the item must be held, be a name icon and belong to the member's own inventory", async () => {
+    const w = await world();
+    const item = await w.sell(icon());
+    const frameItem = await w.sell({ type: "frame", frameId: w.frame });
+    await w.buy(frameItem.id);
+    // Not held, an unknown item, and an item of another kind that is held.
+    await expect(w.set({ nameIconItemId: item.id })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(w.set({ nameIconItemId: 999999 })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(w.set({ nameIconItemId: frameItem.id })).rejects.toBeInstanceOf(ForbiddenError);
+    // Held by someone else only.
+    const other = insertUser(w.ctx);
+    writeTx(w.ctx, () =>
+      moveCredits(w.ctx, [{ userId: other.id, amount: 100, type: "adjustment" }]),
+    );
+    await w.buy(item.id, userActor(other));
+    await expect(w.set({ nameIconItemId: item.id })).rejects.toBeInstanceOf(ForbiddenError);
+    expect(worn(w)).toBeNull();
+  });
+
+  test("an expired item cannot be worn", async () => {
+    const w = await world();
+    const item = await w.sell(icon(), { durationSeconds: 60 });
+    await w.buy(item.id);
+    w.ctx.clock.advance(61_000);
+    await expect(w.set({ nameIconItemId: item.id })).rejects.toBeInstanceOf(ForbiddenError);
+    expect((await w.get()).available.nameIcons).toEqual([]);
+  });
+
+  test("the expiry job takes the icon off, in the same transaction, and nothing else", async () => {
+    const w = await world();
+    const item = await w.sell(icon(), { durationSeconds: 60 });
+    const color = await w.sell({ type: "nameColor", colorId: w.color });
+    await w.buy(item.id);
+    await w.buy(color.id);
+    await w.set({ nameIconItemId: item.id, nameColorId: w.color });
+    w.ctx.clock.advance(61_000);
+    expire(w);
+    expect(worn(w)).toBeNull();
+    expect(w.worn()).toMatchObject({ name_color_id: w.color });
+    expect((await cardOf(w)).nameIcon).toBeNull();
+  });
+
+  test("another icon that expires leaves the worn one on", async () => {
+    const w = await world();
+    const short = await w.sell(icon("star"), { durationSeconds: 60 });
+    const lasting = await w.sell(icon("heart"));
+    await w.buy(short.id);
+    await w.buy(lasting.id);
+    await w.set({ nameIconItemId: lasting.id });
+    w.ctx.clock.advance(61_000);
+    expire(w);
+    expect(worn(w)).toBe(lasting.id);
+  });
+
+  test("the held lookup does not scan", async () => {
+    const w = await world();
+    expectNoTableScan(w.ctx, heldSql.nameIcon, [1, 0]);
+  });
+});
+
 describe("holding queries use the inventory index", () => {
   test("the held frame and colour lookups do not scan", async () => {
     const w = await world();
@@ -391,6 +502,11 @@ describe("appearance.set against a stale actor", () => {
     const w = await world();
     const frame = await w.sell({ type: "frame", frameId: w.frame }, { durationSeconds: 60 });
     await w.buy(frame.id);
+    const icon = await w.sell(
+      { type: "nameIcon", icon: "star", position: "before" },
+      { durationSeconds: 60 },
+    );
+    await w.buy(icon.id);
     // The gallery comes with a group, which another process can take the member out of.
     const gallery = await run(w.ctx, "groups.create", w.admin, { title: "Gallery", rank: 5 });
     await run(w.ctx, "permissions.set", w.admin, {
@@ -405,7 +521,15 @@ describe("appearance.set against a stale actor", () => {
     const here = database.open();
     const elsewhere = database.open();
     const { clock } = w.ctx;
-    return { w, database, here, elsewhere, clock, actor: resolvedActor(here, w.memberRow.id) };
+    return {
+      w,
+      icon,
+      database,
+      here,
+      elsewhere,
+      clock,
+      actor: resolvedActor(here, w.memberRow.id),
+    };
   }
   const snapshot = (ctx: Ctx) =>
     JSON.stringify(
@@ -450,6 +574,28 @@ describe("appearance.set against a stale actor", () => {
       expect(await run(s.here, "appearance.set", s.actor, { accentId: s.w.accent })).toMatchObject({
         accentId: s.w.accent,
       });
+    } finally {
+      s.database.close();
+    }
+  });
+
+  test("a name icon that expired elsewhere can no longer be put on", async () => {
+    const s = await scenario();
+    try {
+      const item = s.icon;
+      expect(
+        await run(s.here, "appearance.set", s.actor, { nameIconItemId: item.id }),
+      ).toMatchObject({ nameIconItemId: item.id });
+      s.clock.advance(61_000);
+      while (expireShopBatch(s.elsewhere) > 0);
+      expect(
+        s.elsewhere.sqlite
+          .prepare("SELECT name_icon_item_id FROM users WHERE id = ?1")
+          .get(s.w.memberRow.id),
+      ).toEqual({ name_icon_item_id: null });
+      await expect(
+        run(s.here, "appearance.set", s.actor, { nameIconItemId: item.id }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
     } finally {
       s.database.close();
     }

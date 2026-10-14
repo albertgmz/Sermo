@@ -761,6 +761,60 @@ describe("shop items: a username change is sold in units", () => {
   });
 });
 
+describe("shop items: a name icon", () => {
+  test("it takes a key of the icon shape and a side, and is never consumable", async () => {
+    const f = fixture();
+    expect(await f.sell({ type: "nameIcon", icon: "star", position: "after" })).toMatchObject({
+      effect: { type: "nameIcon", icon: "star", position: "after" },
+      isConsumable: false,
+    });
+    for (const effect of [
+      { type: "nameIcon", icon: "Star", position: "before" },
+      { type: "nameIcon", icon: "", position: "before" },
+      { type: "nameIcon", icon: "a--b", position: "before" },
+      { type: "nameIcon", icon: "star", position: "middle" },
+      { type: "nameIcon", icon: "star" },
+    ])
+      await expect(f.sell(effect)).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      f.sell({ type: "nameIcon", icon: "star", position: "before" }, { isConsumable: true }),
+    ).rejects.toThrow(/isConsumable/);
+    const plain = await f.sell({ type: "bump" });
+    await expect(
+      f.call(
+        "shopItems.update",
+        {
+          itemId: plain.id,
+          effect: { type: "nameIcon", icon: "star", position: "before" },
+          isConsumable: true,
+        },
+        f.admin,
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("buying grants nothing and the effect is frozen once bought", async () => {
+    const f = fixture();
+    f.fund();
+    const item = await f.sell({ type: "nameIcon", icon: "star", position: "before" });
+    const grants = () =>
+      f.ctx.sqlite
+        .prepare<{ n: number }, []>(
+          "SELECT (SELECT COUNT(*) FROM shop_permission_grants) + (SELECT COUNT(*) FROM shop_group_grants) AS n",
+        )
+        .get()!.n;
+    await f.call("shop.buy", { itemId: item.id });
+    expect(grants()).toBe(0);
+    await expect(
+      f.call(
+        "shopItems.update",
+        { itemId: item.id, effect: { type: "nameIcon", icon: "heart", position: "before" } },
+        f.admin,
+      ),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+});
+
 describe("a stored effect that cannot be read", () => {
   test("is reported by item instead of a parser error", async () => {
     const f = fixture();

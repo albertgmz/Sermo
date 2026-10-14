@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { SHOP_INVENTORY_STATES } from "../db/schema";
 import { defineContract } from "../operation";
-import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { Empty, IconKey, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 import { ImageReference } from "./images";
 
 /**
@@ -13,10 +13,12 @@ import { ImageReference } from "./images";
  *   anywhere still denies it. A node permission is granted on every node.
  * - `group`: adds a secondary group (this is how paid ranks are sold). Never consumable.
  *
- * Two unlock a look for as long as the item is held; the member then wears it or not with
+ * Three unlock a look for as long as the item is held; the member then wears it or not with
  * `appearance.set`:
  * - `frame`: an avatar frame of the picture catalog (kind `frame`).
  * - `nameColor`: a colour of the `name` palette.
+ * - `nameIcon`: an icon drawn before or after the member's name. The key is validated by shape
+ *   only (the web app owns the icon set). Never consumable; a member wears one at a time.
  *
  * Three act on a visible thread the member started, when used with `shop.use` (which takes the
  * thread), in the same transaction that takes the unit:
@@ -38,6 +40,11 @@ export const ShopEffect = z
     z.object({ type: z.literal("group"), groupId: Id }),
     z.object({ type: z.literal("frame"), frameId: Id }),
     z.object({ type: z.literal("nameColor"), colorId: Id }),
+    z.object({
+      type: z.literal("nameIcon"),
+      icon: IconKey,
+      position: z.enum(["before", "after"]),
+    }),
     z.object({ type: z.literal("threadCover"), coverId: Id }),
     z.object({ type: z.literal("highlight"), days: z.number().int().min(1).max(365) }),
     z.object({ type: z.literal("bump") }),
@@ -216,7 +223,8 @@ export const shopItemsCreate = defineContract({
   summary:
     "Create a shop item. A `frame`, `nameColor` or `threadCover` effect must name an entry of " +
     "its catalog that has a picture or a colour. A `usernameChange` effect needs a consumable item " +
-    "(a validation error naming `isConsumable` otherwise). A consumable has no duration and cannot have a `group` effect. A " +
+    "(a validation error naming `isConsumable` otherwise), a `nameIcon` effect an item that is not " +
+    "(a validation error naming `isConsumable`). A consumable has no duration and cannot have a `group` effect. A " +
     "`permission` effect must name a registered permission with a value of its kind; a `group` " +
     "effect an existing group other than the guest group, ranked below the actor. Permissions " +
     "of the admin category and groups that hold admin.permissions cannot be sold. Selling a " +
@@ -323,7 +331,7 @@ export const shopUse = defineContract({
     "`threadId`, a visible thread the member started, apply their effect to it and, for a " +
     "consumable, take one unit, all in one transaction (the last unit moves the row to `used`); " +
     "it also publishes `shop.item_used`. A consumable `permission` item is used without a " +
-    "thread. Every other item cannot be used: `frame` and `nameColor` are worn with " +
+    "thread. Every other item cannot be used: `frame`, `nameColor` and `nameIcon` are worn with " +
     "appearance.set, `usernameChange` is spent by users.changeUsername, and `group` items and " +
     "non-consumable `permission` items apply while held. An item past its end cannot be used, " +
     "even before the expiry job has marked it. Requires shop.buy.",

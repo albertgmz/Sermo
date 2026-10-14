@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `name_icon_item_id` integer;

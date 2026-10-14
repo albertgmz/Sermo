@@ -105,6 +105,16 @@ export function world() {
         Number(fields.stackable ?? false),
         Number(fields.active ?? true),
       )!.id,
+    iconItem: (icon: string, position: "before" | "after") => {
+      const category = run(
+        "INSERT INTO shop_categories (name, created_at, updated_at) VALUES ('Icons', 0, 0) RETURNING id",
+      )!.id;
+      return run(
+        "INSERT INTO shop_items (category_id, name, price, effect, created_at, updated_at) VALUES (?1, 'Icon', 1, ?2, 0, 0) RETURNING id",
+        category,
+        JSON.stringify({ type: "nameIcon", icon, position }),
+      )!.id;
+    },
     hold: (userId: number, awardId: number, count = 1) =>
       ctx.sqlite
         .prepare("INSERT INTO member_award_totals (user_id, award_id, count) VALUES (?1, ?2, ?3)")

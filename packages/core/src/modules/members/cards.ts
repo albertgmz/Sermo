@@ -2,6 +2,7 @@ import type * as z from "zod";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { MemberAuthor, MemberCard } from "../../contracts/members";
+import { ShopEffect } from "../../contracts/shop";
 import {
   can,
   memberActor,
@@ -23,7 +24,7 @@ type Author = z.infer<typeof MemberAuthor>;
 type Catalogs = ReturnType<typeof catalogs>;
 
 export const MEMBER_ROWS_SQL =
-  "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.custom_title, u.award_xp, " +
+  "SELECT u.id, u.username, u.group_id, u.avatar_file_id, u.frame_id, u.name_color_id, u.name_icon_item_id, u.custom_title, u.award_xp, " +
   `u.cover_file_id, u.cover_preset_id, u.reaction_score, u.signature_html, c.group_ids, ${PRINCIPAL_COLUMNS} ` +
   "FROM users u LEFT JOIN permission_combinations c ON c.id = u.permission_combination_id " +
   "WHERE u.id IN (SELECT value FROM json_each(?1))";
@@ -31,6 +32,8 @@ export const MEMBER_GROUPS_SQL =
   "SELECT id, title, rank, user_title, badge, name_color_id FROM groups WHERE id IN (SELECT value FROM json_each(?1))";
 export const AVATAR_VARIANTS_SQL =
   "SELECT parent_file_id, id FROM files WHERE variant = 'square_128' AND deleted_at IS NULL AND parent_file_id IN (SELECT value FROM json_each(?1))";
+export const NAME_ICON_ITEMS_SQL =
+  "SELECT id, effect FROM shop_items WHERE id IN (SELECT value FROM json_each(?1))";
 export const HELD_AWARDS_SQL =
   "SELECT t.user_id, a.id, a.name, a.icon, a.tier, a.xp, a.image_file_id FROM member_award_totals t JOIN awards a ON a.id = t.award_id " +
   "WHERE t.user_id IN (SELECT value FROM json_each(?1)) AND t.count > 0";
@@ -42,6 +45,7 @@ export interface MemberRow extends PrincipalRow {
   avatar_file_id: number | null;
   frame_id: number | null;
   name_color_id: number | null;
+  name_icon_item_id: number | null;
   custom_title: string | null;
   award_xp: number;
   cover_file_id: number | null;
@@ -147,6 +151,19 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
       .all(JSON.stringify([...groupIds]))
       .map((group) => [group.id, group] as const),
   );
+  // The worn name icons: the shop items' effects, by primary key, in one query.
+  const iconItemIds = new Set<number>();
+  for (const row of rows.values())
+    if (row.name_icon_item_id !== null) iconItemIds.add(row.name_icon_item_id);
+  const nameIcons = new Map<number, Card["nameIcon"]>();
+  if (iconItemIds.size > 0)
+    for (const item of prepared(ctx, "members.nameIcons", () =>
+      ctx.sqlite.prepare<{ id: number; effect: string }, [string]>(NAME_ICON_ITEMS_SQL),
+    ).all(JSON.stringify([...iconItemIds]))) {
+      const effect = ShopEffect.safeParse(JSON.parse(item.effect));
+      if (effect.success && effect.data.type === "nameIcon")
+        nameIcons.set(item.id, { icon: effect.data.icon, position: effect.data.position });
+    }
   const smallAvatar = new Map<number, number>();
   if (avatarIds.size > 0)
     for (const variant of prepared(ctx, "members.avatarVariants", () =>
@@ -203,6 +220,8 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
         colorHex(row.name_color_id) ??
         held.map((group) => colorHex(group.name_color_id)).find((hex) => hex !== null) ??
         null,
+      nameIcon:
+        row.name_icon_item_id === null ? null : (nameIcons.get(row.name_icon_item_id) ?? null),
       title,
       badges: held
         .filter((group) => group.badge !== "")
@@ -220,10 +239,10 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
 
 /**
  * What may be shown of a member whose profile the viewer may not open: what is drawn next to a
- * post (picture, frame, name colour, badges), nothing else.
+ * post (picture, frame, name colour, badges), nothing else; the name icon is left out.
  */
 function minimalCard(card: Card): Card {
-  return { ...card, title: "", level: 1, restricted: true };
+  return { ...card, nameIcon: null, title: "", level: 1, restricted: true };
 }
 
 function minimalAuthor(author: Author): Author {

@@ -29,25 +29,43 @@ test("the shop's effects work end to end over HTTP", async () => {
   const colorItem = await f.item(category.id, {
     effect: { type: "nameColor", colorId },
   });
+  const iconItem = await f.item(category.id, {
+    effect: { type: "nameIcon", icon: "star", position: "after" },
+  });
 
   // Nothing is held, so nothing can be worn.
   const empty = await success(f.send("GET", "/appearance", f.member.auth), c.appearanceGet.output);
   expect(empty).toMatchObject({ frameId: null, available: { frames: [], nameColors: [] } });
   await error(f.send("PUT", "/appearance", f.member.auth, { frameId }), 403, "forbidden");
+  await error(
+    f.send("PUT", "/appearance", f.member.auth, { nameIconItemId: iconItem.id }),
+    403,
+    "forbidden",
+  );
   await error(f.send("GET", "/appearance"), 401, "unauthenticated");
 
-  for (const item of [frameItem, colorItem])
+  for (const item of [frameItem, colorItem, iconItem])
     await f.api(c.shopBuy, "POST", `/shop/items/${item.id}/buy`, f.member.auth, {}, 201);
   const worn = await success(
-    f.send("PUT", "/appearance", f.member.auth, { frameId, nameColorId: colorId }),
+    f.send("PUT", "/appearance", f.member.auth, {
+      frameId,
+      nameColorId: colorId,
+      nameIconItemId: iconItem.id,
+    }),
     c.appearanceSet.output,
   );
-  expect(worn).toMatchObject({ frameId, nameColorId: colorId });
+  expect(worn).toMatchObject({ frameId, nameColorId: colorId, nameIconItemId: iconItem.id });
+  expect(worn.available.nameIcons).toEqual([
+    { itemId: iconItem.id, name: iconItem.name, icon: "star", position: "after" },
+  ]);
   const cards = await success(
     f.send("GET", `/member-cards?userIds=${f.member.id}`, {}),
     c.usersCards.output,
   );
-  expect(cards.items[0]).toMatchObject({ nameColor: "#336699" });
+  expect(cards.items[0]).toMatchObject({
+    nameColor: "#336699",
+    nameIcon: { icon: "star", position: "after" },
+  });
   expect(cards.items[0]!.frame).not.toBeNull();
 
   // A frame is worn, not used.

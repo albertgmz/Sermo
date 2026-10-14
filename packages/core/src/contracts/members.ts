@@ -2,7 +2,7 @@ import * as z from "zod";
 import { AWARD_TIERS } from "../db/schema";
 import { defineContract } from "../operation";
 import { FramePlacement } from "./appearance";
-import { Empty, Id, Ok, Page, pageInput, Timestamp } from "./common";
+import { Empty, IconKey, Id, Ok, Page, pageInput, Timestamp } from "./common";
 import { ImageReference } from "./images";
 
 /*
@@ -22,6 +22,8 @@ export const MemberCard = z
     frame: z.object({ url: z.string(), placement: FramePlacement }).nullable(),
     /** #rrggbb: the colour the member chose, else the colour of their highest group that has one. */
     nameColor: z.string().nullable(),
+    /** The icon the member wears beside their name, and on which side; null on a minimal card. */
+    nameIcon: z.object({ icon: IconKey, position: z.enum(["before", "after"]) }).nullable(),
     /**
      * The title under the name: the member's custom title while they may show one, else the
      * user title of their display group, else the title of their level.
@@ -38,7 +40,7 @@ export const MemberCard = z
     level: z.number().int().positive(),
     /**
      * True when the viewer may not open this member's profile: `users.cards` and `users.authors`
-     * then answer a minimal card (id, username, avatar, frame, name colour and badges; the title
+     * then answer a minimal card (id, username, avatar, frame, name colour and badges, no name icon; the title
      * is empty and the level 1). False everywhere else.
      */
     restricted: z.boolean(),
@@ -52,7 +54,7 @@ export const usersCards = defineContract({
     "out. Open to everyone: a card holds only what is shown next to a name wherever that " +
     "member's content is visible. For a member whose profile the viewer may not open " +
     "(their profile privacy, or the viewer lacks profile.view) the card is minimal and " +
-    "`restricted` is true: title empty, level 1.",
+    "`restricted` is true: title empty, level 1, no name icon.",
   kind: "read",
   input: z.object({ userIds: z.array(Id).min(1).max(100) }),
   output: z.object({ items: z.array(MemberCard) }),

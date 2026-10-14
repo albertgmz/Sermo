@@ -37,7 +37,7 @@ async function world() {
   });
   w.ctx.sqlite
     .prepare(
-      "UPDATE users SET birthday_md = '01-02', social_x = 'handle', accent_color_id = NULL WHERE id = ?1",
+      "UPDATE users SET birthday_md = '01-02', social_x = 'handle', accent_color_id = NULL, name_icon_item_id = 7 WHERE id = ?1",
     )
     .run(target.id);
   await w.signIn("target@example.test");
@@ -108,6 +108,7 @@ describe("users.adminErase", () => {
       location: "",
       website: "",
       custom_title: null,
+      name_icon_item_id: null,
       signature_source: null,
       signature_html: null,
       birthday_md: null,

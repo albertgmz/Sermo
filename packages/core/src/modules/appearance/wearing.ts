@@ -8,18 +8,19 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { can, currentActor, requirePermission } from "../../permissions";
-import { heldFrameIds, heldNameColorIds } from "../shop/held";
+import { heldFrameIds, heldNameColorIds, heldNameIconItemIds, heldNameIcons } from "../shop/held";
 import { catalogs } from "./store";
 
 type Appearance = z.infer<typeof MemberAppearance>;
 
 const WORN_SQL =
-  "SELECT accent_color_id, name_color_id, frame_id, cover_preset_id FROM users WHERE id = ?1";
+  "SELECT accent_color_id, name_color_id, frame_id, cover_preset_id, name_icon_item_id FROM users WHERE id = ?1";
 interface WornRow {
   accent_color_id: number | null;
   name_color_id: number | null;
   frame_id: number | null;
   cover_preset_id: number | null;
+  name_icon_item_id: number | null;
 }
 
 /** What the member wears and may choose from, for `actor`'s permissions. */
@@ -38,12 +39,19 @@ function appearanceOf(ctx: Ctx, actor: Actor, userId: number): Appearance {
     frameId: worn.frame_id,
     // A cover from the gallery shows only while its member may use the gallery.
     coverPresetId: covers ? worn.cover_preset_id : null,
+    nameIconItemId: worn.name_icon_item_id,
     available: {
       accents: lists.activeColors.accent,
       nameColors: lists.colors.name.filter((color) => colors.has(color.id)),
       frames: lists.images.frame.filter(
         (frame) => frames.has(frame.id) && frame.image && frame.placement,
       ),
+      nameIcons: heldNameIcons(ctx, userId).map((held) => ({
+        itemId: held.id,
+        name: held.name,
+        icon: held.icon,
+        position: held.position,
+      })),
       covers: covers ? lists.visibleImages.profile_cover : [],
     },
   };
@@ -86,6 +94,14 @@ export const appearanceSetOp = implement(appearanceSet, (ctx, actor, input) => {
           throw new ConflictError("This frame has no picture yet.");
       }
       changes.frame_id = input.frameId;
+    }
+    if (input.nameIconItemId !== undefined) {
+      if (
+        input.nameIconItemId !== null &&
+        !heldNameIconItemIds(ctx, user.userId).has(input.nameIconItemId)
+      )
+        throw new ForbiddenError();
+      changes.name_icon_item_id = input.nameIconItemId;
     }
     if (input.coverPresetId !== undefined) {
       if (input.coverPresetId !== null) {
