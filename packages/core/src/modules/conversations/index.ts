@@ -63,6 +63,14 @@ export const visibleMessagesSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id > ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id LIMIT ?3";
 export const visibleMessagesNewestSql =
   "SELECT id, conversation_id, user_id, state, created_at, body_html, reaction_counts, attachment_count FROM conversation_messages WHERE conversation_id = ?1 AND id < ?2 AND (state = 'visible' OR (state = 'moderated' AND user_id = ?4) OR ?5 = 1) ORDER BY id DESC LIMIT ?3";
+export const participantStatesSql =
+  "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))";
+export const reactivateParticipantSql =
+  "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND user_id = ?3 AND state = 'left'";
+export const addParticipantSql =
+  "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?4, ?5)";
+export const incrementParticipantsSql =
+  "UPDATE conversations SET participant_count = participant_count + ?1 WHERE id = ?2";
 export const activeSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 export const reactableSql =
@@ -106,13 +114,16 @@ function viewerAbilities(
   userId: number | null,
 ) {
   const starter = userId !== null && row.user_id === userId;
+  const canReply = permissions.can("conversation.reply");
+  const maxRecipients = permissions.value("conversation.maxRecipients");
   return {
-    canReply: permissions.can("conversation.reply"),
+    canReply,
+    // Room left under the limit for another active participant besides the starter.
     canInvite:
       starter &&
       permissions.can("conversation.start") &&
-      permissions.value("conversation.maxRecipients") !== 0,
-    canRename: starter,
+      (maxRecipients === -1 || row.participant_count - 1 < maxRecipients),
+    canRename: starter && canReply,
   };
 }
 
@@ -558,9 +569,7 @@ export const conversationsAddParticipantsOp = implement(
       if (row.user_id !== user.userId) throw new ForbiddenError();
       const states = new Map(
         prepared(ctx, "conversations.participantStates", () =>
-          ctx.sqlite.prepare<ParticipantRow, [number, string]>(
-            "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
-          ),
+          ctx.sqlite.prepare<ParticipantRow, [number, string]>(participantStatesSql),
         )
           .all(row.id, JSON.stringify(ids))
           .map((p) => [p.user_id, p.state] as const),
@@ -574,23 +583,20 @@ export const conversationsAddParticipantsOp = implement(
         throw new ValidationError(message, [{ path: ["userIds"], message }]);
       }
       const reactivate = prepared(ctx, "conversations.reactivateParticipant", () =>
-        ctx.sqlite.prepare(
-          "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND user_id = ?3 AND state = 'left'",
-        ),
+        ctx.sqlite.prepare(reactivateParticipantSql),
       );
       const insert = prepared(ctx, "conversations.addParticipant", () =>
-        ctx.sqlite.prepare(
-          "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?4, 0)",
-        ),
+        ctx.sqlite.prepare(addParticipantSql),
       );
+      // A person added is unread exactly when there is a message for them to see; while the
+      // conversation's only message is held for approval, creation gives recipients the same.
+      const unreadFor = row.message_count > 0 ? 0 : row.last_message_id;
       for (const id of added) {
         if (states.has(id)) reactivate.run(row.last_message_at, row.id, id);
-        else insert.run(row.id, id, ctx.now(), row.last_message_at);
+        else insert.run(row.id, id, ctx.now(), row.last_message_at, unreadFor);
       }
       prepared(ctx, "conversations.incrementParticipants", () =>
-        ctx.sqlite.prepare(
-          "UPDATE conversations SET participant_count = participant_count + ?1 WHERE id = ?2",
-        ),
+        ctx.sqlite.prepare(incrementParticipantsSql),
       ).run(added.length, row.id);
       publishEvent(ctx, {
         type: "conversation.participants_added",
@@ -603,23 +609,20 @@ export const conversationsAddParticipantsOp = implement(
   },
 );
 
-export const conversationsRenameOp = implement(
-  conversationsRename,
-  (ctx, actor, input) => {
-    const user = requireAuthenticated(actor);
-    const before = activeConversation(ctx, actor, input.conversationId);
-    if (before.user_id !== user.userId) throw new ForbiddenError();
-    writeTx(ctx, () => {
-      const row = activeConversation(ctx, actor, input.conversationId);
-      if (row.user_id !== user.userId) throw new ForbiddenError();
-      prepared(ctx, "conversations.rename", () =>
-        ctx.sqlite.prepare("UPDATE conversations SET title = ?1 WHERE id = ?2"),
-      ).run(input.title, row.id);
-    });
-    return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
-  },
-  { public: "Only the starter, an active participant, can rename their own conversation." },
-);
+export const conversationsRenameOp = implement(conversationsRename, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
+  const before = activeConversation(ctx, actor, input.conversationId);
+  if (before.user_id !== user.userId) throw new ForbiddenError();
+  requirePermission(ctx, actor, "conversation.reply");
+  writeTx(ctx, () => {
+    const row = activeConversation(ctx, actor, input.conversationId);
+    if (row.user_id !== user.userId) throw new ForbiddenError();
+    prepared(ctx, "conversations.rename", () =>
+      ctx.sqlite.prepare("UPDATE conversations SET title = ?1 WHERE id = ?2"),
+    ).run(input.title, row.id);
+  });
+  return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
+});
 
 export const operations = [
   conversationsListOp,

@@ -15,6 +15,7 @@ import { runDueJobs } from "../jobs";
 import { registerNotificationJobs } from "../notifications";
 import {
   activeSql,
+  addParticipantSql,
   clearConversationNoticesSql,
   clearMessageNoticesSql,
   conversationsAddParticipantsOp,
@@ -27,10 +28,13 @@ import {
   conversationsRenameOp,
   conversationsReplyOp,
   inboxSql,
+  incrementParticipantsSql,
   messagesSql,
+  participantStatesSql,
   participantsSql,
   reactableConversationMessage,
   reactableSql,
+  reactivateParticipantSql,
   visibleMessagesNewestSql,
 } from "./index";
 
@@ -970,20 +974,26 @@ describe("adding people and renaming", () => {
       execute(ctx, conversationsAddParticipantsOp, s, { conversationId: id, userIds: [y.id] }),
     ).rejects.toThrow(ValidationError);
     expect(countOf(ctx, id)).toBe(3);
-    expect((await execute(ctx, conversationsGetOp, s, { conversationId: id })).canInvite).toBe(
-      true,
-    );
-    ctx.sqlite
-      .prepare(
-        "UPDATE permission_entries SET value = 0 WHERE group_id = ?1 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'conversation.maxRecipients')",
-      )
-      .run(groupId);
-    ctx.sqlite
-      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
-      .run();
-    expect((await execute(ctx, conversationsGetOp, s, { conversationId: id })).canInvite).toBe(
-      false,
-    );
+    const canInvite = async () =>
+      (await execute(ctx, conversationsGetOp, s, { conversationId: id })).canInvite;
+    const setLimit = (value: number) => {
+      ctx.sqlite
+        .prepare(
+          "UPDATE permission_entries SET value = ?2 WHERE group_id = ?1 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'conversation.maxRecipients')",
+        )
+        .run(groupId, value);
+      ctx.sqlite
+        .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+        .run();
+    };
+    // Two other participants under a limit of two: no room, so no action is offered.
+    expect(await canInvite()).toBe(false);
+    setLimit(3);
+    expect(await canInvite()).toBe(true);
+    setLimit(-1);
+    expect(await canInvite()).toBe(true);
+    setLimit(0);
+    expect(await canInvite()).toBe(false);
   });
 
   test("a person who ignores the starter cannot be added", async () => {
@@ -1031,5 +1041,64 @@ describe("adding people and renaming", () => {
         .prepare<{ title: string }, [number]>("SELECT title FROM conversations WHERE id = ?1")
         .get(id)!.title,
     ).toBe("New name");
+  });
+  test("renaming needs conversation.reply, and canRename follows it", async () => {
+    const { ctx, b } = setup();
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Start only', 10) RETURNING id",
+      )
+      .get()!.id;
+    const starter = insertUser(ctx, { groupId });
+    setGroupPermission(ctx, groupId, "conversation.start", 1);
+    setGroupPermission(ctx, groupId, "conversation.maxRecipients", -1);
+    const s = userActor(starter);
+    const made = await execute(ctx, conversationsCreateOp, s, start([idOf(b)]));
+    const id = made.conversation.id;
+    const seen = await execute(ctx, conversationsGetOp, s, { conversationId: id });
+    expect(seen.canReply).toBe(false);
+    expect(seen.canRename).toBe(false);
+    expect(made.conversation.canRename).toBe(false);
+    await expect(
+      execute(ctx, conversationsRenameOp, s, { conversationId: id, title: "Renamed" }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(
+      ctx.sqlite
+        .prepare<{ title: string }, [number]>("SELECT title FROM conversations WHERE id = ?1")
+        .get(id)!.title,
+    ).toBe("Private thread");
+  });
+
+  test("a person added is unread only when there is a message to see", async () => {
+    const { ctx, a, b, c, id } = await started();
+    await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [idOf(c)],
+    });
+    expect((await execute(ctx, conversationsGetOp, c, { conversationId: id })).isUnread).toBe(true);
+    // A conversation whose only message is held for approval has nothing to read yet.
+    const held = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+    ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'moderated' WHERE conversation_id = ?1")
+      .run(held.conversation.id);
+    ctx.sqlite
+      .prepare("UPDATE conversations SET message_count = 0 WHERE id = ?1")
+      .run(held.conversation.id);
+    await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: held.conversation.id,
+      userIds: [idOf(c)],
+    });
+    expect(
+      (await execute(ctx, conversationsGetOp, c, { conversationId: held.conversation.id }))
+        .isUnread,
+    ).toBe(false);
+  });
+
+  test("the statements of adding people use indexes", async () => {
+    const { ctx, id } = await started();
+    expectNoTableScan(ctx, participantStatesSql, [id, "[1,2]"]);
+    expectNoTableScan(ctx, reactivateParticipantSql, [1, id, 2]);
+    expectNoTableScan(ctx, addParticipantSql, [id, 2, 1, 1, 0]);
+    expectNoTableScan(ctx, incrementParticipantsSql, [1, id]);
   });
 });

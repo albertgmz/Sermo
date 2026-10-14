@@ -34,7 +34,7 @@ export const Conversation = ConversationSummary.extend({
   canReply: z.boolean(),
   /** True when the viewer may add people: the starter, holding `conversation.start`, with room under `conversation.maxRecipients`. */
   canInvite: z.boolean(),
-  /** True when the viewer may rename the conversation: its starter. */
+  /** True when the viewer may rename the conversation: its starter, holding `conversation.reply`. */
   canRename: z.boolean(),
 }).meta({ id: "Conversation" });
 
