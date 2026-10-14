@@ -24,7 +24,7 @@ test("only #rrggbb is a colour", () => {
 
 test("a name colour that is not a colour is not put in the style", () => {
   expect(userNameProps({ nameColor: "#0ea5e9" }).style).toEqual({
-    "--name-color": "#0ea5e9",
+    "--ink": "#0ea5e9",
   });
   for (const nameColor of ["red", "#0ea5e9;}x{", "var(--x)", ""]) {
     expect(userNameProps({ nameColor }), nameColor).toEqual({});
