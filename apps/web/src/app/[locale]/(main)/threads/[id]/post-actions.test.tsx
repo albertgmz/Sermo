@@ -54,6 +54,7 @@ function draw(over: Record<string, unknown>, props: Partial<Props> = {}) {
         may={may}
         noteState={false}
         canQuote
+        bookmarked={null}
         {...props}
       />,
     ),
@@ -83,6 +84,20 @@ test("an administrator who may edit, delete and report gets all three", () => {
   for (const label of ["Edit", "Delete", "Report", "Share", "Quote", "Reply"]) {
     expect(has(html, label)).toBe(true);
   }
+});
+
+test("a signed-in viewer gets the bookmark toggle beside share, with the state in its label", () => {
+  const off = draw({}, { bookmarked: false });
+  expect(has(off, "Bookmark")).toBe(true);
+  expect(off.indexOf("Bookmark")).toBeLessThan(off.indexOf("Share"));
+  expect(off).not.toContain('aria-pressed="');
+  const on = draw({}, { bookmarked: true });
+  expect(has(on, "Remove bookmark")).toBe(true);
+  expect(has(on, "Bookmark")).toBe(false);
+});
+
+test("no bookmark toggle for a guest or when the state is unknown", () => {
+  expect(has(draw({}, { bookmarked: null }), "Bookmark")).toBe(false);
 });
 
 test("a guest gets share and reply, and no quote, edit, delete or report", () => {

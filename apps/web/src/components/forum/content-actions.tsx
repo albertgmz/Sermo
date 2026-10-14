@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { createContext, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
+import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { DeleteControl } from "@/components/forum/delete-control";
 import {
   actionLabelClass,
@@ -66,6 +67,7 @@ function PanelButton({
 //   quote       A post to quote into the reply editor: the post id, the event and the loader.
 //   reply       Where the reply editor is.
 //   share       The permalink of the item.
+//   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
 //   edit        Either a page to edit on, or a `panel` that opens under the bar.
 //   remove      Deleting: the action, and whether to ask for a reason.
 //   report      Reporting: the action that files it.
@@ -78,6 +80,7 @@ export function ContentActions({
   quote,
   reply,
   share,
+  bookmark,
   edit,
   remove,
   report,
@@ -97,6 +100,7 @@ export function ContentActions({
   };
   reply?: { href: string };
   share?: string;
+  bookmark?: { contentType: "post"; contentId: number; bookmarked: boolean };
   edit?: { href: string } | { panel: React.ReactNode };
   remove?: { action: FormAction; withReason?: boolean };
   report?: { action: FormAction };
@@ -144,6 +148,13 @@ export function ContentActions({
           {start}
         </div>
         <div className="ml-auto flex flex-wrap items-center">
+          {bookmark && (
+            <BookmarkButton
+              {...bookmark}
+              className={messageActionClass}
+              labelClassName={actionLabelClass}
+            />
+          )}
           {share && (
             <ShareButton
               href={share}

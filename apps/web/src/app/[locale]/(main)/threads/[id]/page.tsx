@@ -98,6 +98,7 @@ function PostItem({
   isFirst,
   selecting,
   canQuote,
+  bookmarked,
 }: {
   post: ApiPost;
   author: AuthorView;
@@ -116,6 +117,7 @@ function PostItem({
   // The posts carry a tick for the split form.
   selecting: boolean;
   canQuote: boolean;
+  bookmarked: boolean | null;
 }) {
   const t = useTranslations("threads.page");
   const number = post.position + 1;
@@ -162,6 +164,7 @@ function PostItem({
           may={may}
           noteState={noteState}
           canQuote={canQuote}
+          bookmarked={bookmarked}
         />
       }
     >
@@ -420,16 +423,29 @@ async function ThreadPosts({
   canQuote: boolean;
 }) {
   const [
-    { items: posts, nextCursor },
+    {
+      list: { items: posts, nextCursor },
+      bookmarks,
+    },
     reactionTypes,
     { permissions },
     t,
     format,
   ] = await Promise.all([
+    // The page's post ids are known once it is read; their bookmark state follows in the same step.
     read(
       postsList,
       cursor ? { threadId: thread.id, cursor } : { threadId: thread.id, page },
-    ),
+    ).then(async (list) => ({
+      list,
+      bookmarks:
+        viewerId === null
+          ? null
+          : await bookmarkedAmong(
+              "post",
+              list.items.map((post) => post.id),
+            ),
+    })),
     getReactionTypes(),
     getViewer(),
     getTranslations("threads.page"),
@@ -476,6 +492,7 @@ async function ThreadPosts({
             isFirst={post.id === thread.firstPostId}
             selecting={selecting}
             canQuote={canQuote}
+            bookmarked={bookmarks ? bookmarks.has(post.id) : null}
           />
         ))}
       </div>

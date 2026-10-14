@@ -28,6 +28,7 @@ export function PostActions({
   may,
   noteState,
   canQuote,
+  bookmarked,
 }: {
   post: ApiPost;
   viewerId: number | null;
@@ -38,6 +39,8 @@ export function PostActions({
   // Whether the post says it is waiting or deleted (the moderator can approve or restore it).
   noteState: boolean;
   canQuote: boolean;
+  // Null for a guest or when the state could not be read: no toggle is drawn.
+  bookmarked: boolean | null;
 }) {
   const t = useTranslations("threads.page");
   const reactions = {
@@ -64,6 +67,11 @@ export function PostActions({
         post.state === "deleted"
           ? undefined
           : threadHref(post.threadId, post.position, post.id)
+      }
+      bookmark={
+        bookmarked === null
+          ? undefined
+          : { contentType: "post", contentId: post.id, bookmarked }
       }
       edit={
         post.canEdit
