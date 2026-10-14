@@ -1,198 +1,198 @@
 {
   "errors": {
-    "id": "That is not a valid record.",
-    "number": "Enter a whole number.",
-    "file": "That picture was not recognized; choose it again.",
-    "choice": "Choose one of the offered values."
+    "id": "Ese registro no es válido.",
+    "number": "Introduce un número entero.",
+    "file": "No se reconoció esa imagen; elígela de nuevo.",
+    "choice": "Elige uno de los valores ofrecidos."
   },
   "reactions": {
-    "metaTitle": "Reactions",
-    "heading": "Reactions",
-    "subtitle": "The reactions members can leave under a post, in the order they are offered.",
-    "loading": "Loading the reactions…",
+    "metaTitle": "Reacciones",
+    "heading": "Reacciones",
+    "subtitle": "Las reacciones que los miembros pueden dejar bajo un mensaje, en el orden en que se ofrecen.",
+    "loading": "Cargando las reacciones…",
     "notices": {
-      "created": "Reaction added.",
-      "saved": "Reaction saved.",
-      "ordered": "Order saved.",
-      "activated": "Reaction is offered again.",
-      "deactivated": "Reaction is no longer offered."
+      "created": "Reacción añadida.",
+      "saved": "Reacción guardada.",
+      "ordered": "Orden guardado.",
+      "activated": "La reacción se vuelve a ofrecer.",
+      "deactivated": "La reacción ya no se ofrece."
     },
     "list": {
-      "heading": "Reaction types",
-      "description": "A new score applies to new reactions only; reactions already given keep theirs.",
-      "active": "Offered",
-      "inactive": "Not offered",
-      "deactivate": "Stop offering",
-      "activate": "Offer again",
-      "deactivateWarning": "Members will no longer be offered this reaction. Reactions already given stay on the posts.",
-      "activateWarning": "Members will be offered this reaction again."
+      "heading": "Tipos de reacción",
+      "description": "Una puntuación nueva se aplica solo a las reacciones nuevas; las ya dadas conservan la suya.",
+      "active": "Ofrecida",
+      "inactive": "No ofrecida",
+      "deactivate": "Dejar de ofrecer",
+      "activate": "Ofrecer de nuevo",
+      "deactivateWarning": "Ya no se ofrecerá esta reacción a los miembros. Las reacciones ya dadas se quedan en los mensajes.",
+      "activateWarning": "Se volverá a ofrecer esta reacción a los miembros."
     },
     "row": {
       "emoji": "Emoji",
-      "title": "Label",
-      "score": "Score",
-      "picture": "Picture",
-      "pictureHelp": "Shown instead of the emoji. The emoji stays for places that cannot show a picture.",
-      "frameWidth": "Frame width",
-      "frameHeight": "Frame height",
-      "frameCount": "Frames",
-      "framesHelp": "For a sprite sheet: the size of one frame and how many frames to use, read left to right, then top to bottom. Leave the sizes empty to show the whole picture.",
-      "save": "Save",
-      "saving": "Saving…"
+      "title": "Etiqueta",
+      "score": "Puntuación",
+      "picture": "Imagen",
+      "pictureHelp": "Se muestra en lugar del emoji. El emoji se mantiene en los lugares que no pueden mostrar una imagen.",
+      "frameWidth": "Ancho del fotograma",
+      "frameHeight": "Alto del fotograma",
+      "frameCount": "Fotogramas",
+      "framesHelp": "Para una hoja de sprites: el tamaño de un fotograma y cuántos fotogramas usar, leídos de izquierda a derecha y de arriba abajo. Deja los tamaños vacíos para mostrar la imagen completa.",
+      "save": "Guardar",
+      "saving": "Guardando…"
     },
     "order": {
-      "heading": "Order",
-      "description": "Types are offered by position, lowest first.",
-      "submit": "Save order"
+      "heading": "Orden",
+      "description": "Los tipos se ofrecen por posición, de menor a mayor.",
+      "submit": "Guardar orden"
     },
     "create": {
-      "heading": "New reaction type",
-      "description": "A reaction type cannot be deleted, only stopped from being offered.",
-      "submit": "Add reaction",
+      "heading": "Nuevo tipo de reacción",
+      "description": "Un tipo de reacción no se puede eliminar, solo dejar de ofrecerlo.",
+      "submit": "Añadir reacción",
       "emoji": "Emoji",
-      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
-      "picture": "Picture",
-      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. It is not animated; for an animation, upload a sprite sheet and give the frame size below.",
-      "frameWidth": "Frame width",
-      "framesHelp": "Sprite sheets only: the width and height of one frame, in pixels. Leave empty to show the whole picture.",
-      "frameHeight": "Frame height",
-      "frameCount": "Frames",
-      "frameCountHelp": "How many frames to use, read left to right, then top to bottom.",
-      "title": "Label",
-      "score": "Score",
-      "scoreHelp": "Leave empty to use the forum's default score.",
-      "position": "Position",
-      "positionHelp": "Where it is offered; lowest first.",
-      "active": "Offered",
-      "activeSwitch": "Offer this reaction to members"
+      "emojiHelp": "El carácter que se muestra en el botón y en cualquier lugar donde no se pueda mostrar una imagen.",
+      "picture": "Imagen",
+      "pictureHelp": "Opcional. Una imagen PNG o WebP que se muestra en lugar del emoji. No está animada; para una animación, sube una hoja de sprites e indica abajo el tamaño del fotograma.",
+      "frameWidth": "Ancho del fotograma",
+      "framesHelp": "Solo para hojas de sprites: el ancho y el alto de un fotograma, en píxeles. Déjalo vacío para mostrar la imagen completa.",
+      "frameHeight": "Alto del fotograma",
+      "frameCount": "Fotogramas",
+      "frameCountHelp": "Cuántos fotogramas usar, leídos de izquierda a derecha y de arriba abajo.",
+      "title": "Etiqueta",
+      "score": "Puntuación",
+      "scoreHelp": "Déjalo vacío para usar la puntuación predeterminada del foro.",
+      "position": "Posición",
+      "positionHelp": "Dónde se ofrece; de menor a mayor.",
+      "active": "Ofrecida",
+      "activeSwitch": "Ofrecer esta reacción a los miembros"
     }
   },
   "wordFilters": {
-    "metaTitle": "Word filters",
-    "heading": "Word filters",
-    "subtitle": "Words that are replaced or sent for moderation when a member posts them.",
-    "loading": "Loading the word filters…",
+    "metaTitle": "Filtros de palabras",
+    "heading": "Filtros de palabras",
+    "subtitle": "Palabras que se reemplazan o se envían a moderación cuando un miembro las publica.",
+    "loading": "Cargando los filtros de palabras…",
     "notices": {
-      "created": "Filter added.",
-      "saved": "Filter saved.",
-      "removed": "Filter removed."
+      "created": "Filtro añadido.",
+      "saved": "Filtro guardado.",
+      "removed": "Filtro eliminado."
     },
     "list": {
-      "heading": "Filters",
-      "description": "What happens to a post is decided by the backend when it is posted.",
-      "emptyTitle": "No word filters",
-      "emptyDescription": "Nothing is replaced or held back by word.",
-      "active": "Active",
-      "inactive": "Off",
-      "remove": "Remove filter",
-      "removeWarning": "The word will no longer be replaced or held back. Posts already made are not changed."
+      "heading": "Filtros",
+      "description": "Lo que le ocurre a un mensaje lo decide el servidor al publicarlo.",
+      "emptyTitle": "No hay filtros de palabras",
+      "emptyDescription": "No se reemplaza ni se retiene nada por palabra.",
+      "active": "Activo",
+      "inactive": "Desactivado",
+      "remove": "Eliminar filtro",
+      "removeWarning": "La palabra dejará de reemplazarse o retenerse. Los mensajes ya publicados no cambian."
     },
     "row": {
-      "action": "Action",
-      "replace": "Replace the word",
-      "moderate": "Hold the post for moderation",
-      "replacement": "Replacement",
-      "active": "Active",
-      "save": "Save",
-      "saving": "Saving…"
+      "action": "Acción",
+      "replace": "Reemplazar la palabra",
+      "moderate": "Retener el mensaje para moderación",
+      "replacement": "Reemplazo",
+      "active": "Activo",
+      "save": "Guardar",
+      "saving": "Guardando…"
     },
     "create": {
-      "heading": "New filter",
-      "description": "Adding a term that already has a filter changes that filter.",
-      "submit": "Add filter",
-      "term": "Word",
-      "termHelp": "The word or phrase to look for. It cannot be renamed later.",
-      "action": "Action",
-      "actionHelp": "Replace swaps the word for the replacement; hold sends the post to the moderation queue.",
-      "replacement": "Replacement",
-      "replacementHelp": "Used when the action is to replace the word.",
-      "active": "Active",
-      "activeSwitch": "Apply this filter"
+      "heading": "Nuevo filtro",
+      "description": "Añadir un término que ya tiene un filtro cambia ese filtro.",
+      "submit": "Añadir filtro",
+      "term": "Palabra",
+      "termHelp": "La palabra o frase que se busca. No se puede renombrar después.",
+      "action": "Acción",
+      "actionHelp": "Reemplazar cambia la palabra por el reemplazo; retener envía el mensaje a la cola de moderación.",
+      "replacement": "Reemplazo",
+      "replacementHelp": "Se usa cuando la acción es reemplazar la palabra.",
+      "active": "Activo",
+      "activeSwitch": "Aplicar este filtro"
     }
   },
   "pages": {
-    "metaTitle": "Pages",
-    "heading": "Pages",
-    "subtitle": "The text pages the site publishes about itself: terms, privacy, contact.",
-    "loading": "Loading the pages…",
+    "metaTitle": "Páginas",
+    "heading": "Páginas",
+    "subtitle": "Las páginas de texto que el sitio publica sobre sí mismo: condiciones, privacidad, contacto.",
+    "loading": "Cargando las páginas…",
     "notices": {
-      "deleted": "Page deleted."
+      "deleted": "Página eliminada."
     },
     "list": {
-      "heading": "Pages",
-      "description": "Every page, published or not.",
-      "emptyTitle": "No pages yet",
-      "emptyDescription": "Create the first page below.",
-      "published": "Published",
-      "draft": "Not published",
+      "heading": "Páginas",
+      "description": "Todas las páginas, publicadas o no.",
+      "emptyTitle": "Todavía no hay páginas",
+      "emptyDescription": "Crea la primera página más abajo.",
+      "published": "Publicada",
+      "draft": "No publicada",
       "slug": "Slug",
-      "address": "Address",
-      "updated": "Saved",
-      "edit": "Edit"
+      "address": "Dirección",
+      "updated": "Guardada",
+      "edit": "Editar"
     },
     "wellKnown": {
-      "terms": "The registration form links to this page as its terms.",
-      "privacy": "Has its own address on the site.",
-      "legal": "Has its own address on the site.",
-      "contact": "Has its own address on the site.",
-      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+      "terms": "El formulario de registro enlaza a esta página como sus condiciones.",
+      "privacy": "Tiene su propia dirección en el sitio.",
+      "legal": "Tiene su propia dirección en el sitio.",
+      "contact": "Tiene su propia dirección en el sitio.",
+      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas."
     },
     "suggestions": {
-      "heading": "Pages the site expects",
-      "description": "The site links to or reads these pages. They do not exist yet.",
-      "create": "Create"
+      "heading": "Páginas que el sitio espera",
+      "description": "El sitio enlaza a estas páginas o las lee. Todavía no existen.",
+      "create": "Crear"
     },
     "create": {
-      "heading": "New page",
-      "description": "The slug is part of the page's address and cannot be changed afterwards.",
-      "submit": "Create page",
+      "heading": "Nueva página",
+      "description": "El slug forma parte de la dirección de la página y no se puede cambiar después.",
+      "submit": "Crear página",
       "slug": "Slug",
-      "slugHelp": "Lower-case letters, digits and hyphens. The page is served at /pages/ followed by the slug."
+      "slugHelp": "Letras minúsculas, dígitos y guiones. La página se sirve en /pages/ seguido del slug."
     },
     "fields": {
-      "title": "Title",
-      "body": "Text",
-      "bodyHelp": "Markdown. It is rendered by the site when you save, and the text is kept exactly as written here.",
-      "published": "Published",
-      "publishedHelp": "A page that is not published is visible to administrators only.",
-      "publishedSwitch": "Show this page to everyone"
+      "title": "Título",
+      "body": "Texto",
+      "bodyHelp": "Markdown. El sitio lo procesa al guardar, y el texto se conserva exactamente como lo escribes aquí.",
+      "published": "Publicada",
+      "publishedHelp": "Una página no publicada solo la ven los administradores.",
+      "publishedSwitch": "Mostrar esta página a todos"
     }
   },
   "pageEdit": {
-    "metaTitle": "Edit page",
-    "heading": "Edit page",
-    "subtitle": "The Markdown source of a page. Save, then open the public page to see it rendered.",
-    "loading": "Loading the page…",
+    "metaTitle": "Editar página",
+    "heading": "Editar página",
+    "subtitle": "El código Markdown de una página. Guarda y abre la página pública para verla procesada.",
+    "loading": "Cargando la página…",
     "notices": {
-      "created": "Page created.",
-      "saved": "Page saved."
+      "created": "Página creada.",
+      "saved": "Página guardada."
     },
-    "published": "Published",
-    "draft": "Not published",
+    "published": "Publicada",
+    "draft": "No publicada",
     "wellKnown": {
-      "terms": "The registration form links to this page as its terms.",
-      "privacy": "Has its own address on the site.",
-      "legal": "Has its own address on the site.",
-      "contact": "Has its own address on the site.",
-      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+      "terms": "El formulario de registro enlaza a esta página como sus condiciones.",
+      "privacy": "Tiene su propia dirección en el sitio.",
+      "legal": "Tiene su propia dirección en el sitio.",
+      "contact": "Tiene su propia dirección en el sitio.",
+      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas."
     },
     "public": {
-      "heading": "On the site",
-      "address": "Public address",
-      "alias": "Also served at",
-      "preview": "Open the address to see the page as members read it, after saving.",
-      "hidden": "This page is not published, so the address is not available to members.",
-      "updated": "Last saved {date}."
+      "heading": "En el sitio",
+      "address": "Dirección pública",
+      "alias": "También se sirve en",
+      "preview": "Abre la dirección para ver la página como la leen los miembros, después de guardar.",
+      "hidden": "Esta página no está publicada, así que la dirección no está disponible para los miembros.",
+      "updated": "Guardada por última vez {date}."
     },
     "form": {
-      "heading": "Page",
-      "description": "Changes appear on the site when you save."
+      "heading": "Página",
+      "description": "Los cambios aparecen en el sitio al guardar."
     },
     "delete": {
-      "heading": "Delete page",
-      "summary": "Delete this page",
-      "warning": "The page is deleted and its address stops working. Navigation entries that point at it are left alone.",
-      "submit": "Delete page"
+      "heading": "Eliminar página",
+      "summary": "Eliminar esta página",
+      "warning": "La página se elimina y su dirección deja de funcionar. Las entradas de navegación que apuntan a ella no se tocan.",
+      "submit": "Eliminar página"
     }
   }
 }

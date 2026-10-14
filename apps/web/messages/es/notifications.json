@@ -1,43 +1,43 @@
 {
   "notifications": {
-    "metaTitle": "Notifications",
-    "heading": "Notifications",
-    "notifications": "{count, plural, =0 {You are all caught up.} one {# unread} other {# unread}}",
-    "markAllRead": "Mark all as read",
-    "nextPage": "Older notifications",
-    "emptyTitle": "No notifications yet",
-    "emptyDescription": "Replies, reactions, follows and profile posts will show up here."
+    "metaTitle": "Notificaciones",
+    "heading": "Notificaciones",
+    "notifications": "{count, plural, =0 {Estás al día.} one {# sin leer} other {# sin leer}}",
+    "markAllRead": "Marcar todo como leído",
+    "nextPage": "Notificaciones anteriores",
+    "emptyTitle": "Todavía no hay notificaciones",
+    "emptyDescription": "Aquí aparecerán las respuestas, reacciones, seguidores y publicaciones de perfil."
   },
   "notificationRow": {
-    "someone": "Someone",
-    "actors": "{shown, plural, one {{others, plural, =0 {<first></first>} one {<first></first> and # other} other {<first></first> and # others}}} other {{others, plural, =0 {<first></first> and <second></second>} one {<first></first>, <second></second> and # other} other {<first></first>, <second></second> and # others}}}}",
+    "someone": "Alguien",
+    "actors": "{shown, plural, one {{others, plural, =0 {<first></first>} one {<first></first> y # más} other {<first></first> y # más}}} other {{others, plural, =0 {<first></first> y <second></second>} one {<first></first>, <second></second> y # más} other {<first></first>, <second></second> y # más}}}}",
     "texts": {
-      "threadWatched": "<actors></actors> replied in {titled, select, yes {“{title}”} other {a thread you watch}}",
-      "nodeThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {in a forum you watch}}",
-      "nodePost": "<actors></actors> posted in {titled, select, yes {“{title}”} other {a forum you watch}}",
-      "contentQuoted": "<actors></actors> quoted you{titled, select, yes { in “{title}”} other {}}",
-      "contentMentioned": "<actors></actors> mentioned you{titled, select, yes { in “{title}”} other {}}",
-      "contentReaction": "<actors></actors> reacted {emoji} to your {kind, select, post {post} profile_post {wall post} profile_post_comment {comment} conversation_message {message} other {content}}{titled, select, yes { in “{title}”} other {}}",
-      "profilePost": "<actors></actors> wrote on your profile",
-      "profileComment": "<actors></actors> commented on your wall post",
-      "profileCommented": "<actors></actors> also commented on a wall post you commented on",
-      "memberThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {}}",
-      "memberFollowed": "<actors></actors> started following you",
-      "conversationAdded": "<actors></actors> added you to the conversation {titled, select, yes {“{title}”} other {}}",
-      "conversationMessage": "<actors></actors> wrote in the conversation {titled, select, yes {“{title}”} other {}}",
-      "moderationContent": "{action, select, deleted {Your content was deleted} rejected {Your content was rejected} approved {Your content was approved} undeleted {Your content was restored} moved {Your thread was moved} locked {Your thread was locked} unlocked {Your thread was unlocked} edited {A moderator edited your content} merged {Your thread was merged} split {Your thread was split} other {A moderator acted on your content}}{titled, select, yes { in “{title}”} other {}}",
-      "moderationMember": "{action, select, warned {You received a warning} thread_banned {You were banned from starting threads} thread_ban_lifted {Your thread ban was lifted} restricted {Your account was restricted} restriction_lifted {The restriction on your account was lifted} other {A moderator acted on your account}}",
-      "reportResolved": "{state, select, resolved {Your report was resolved} rejected {Your report was rejected} other {Your report was updated}}",
-      "moderatorReport": "A new report is waiting for review",
-      "moderatorApproval": "Content from <actors></actors> is waiting for approval",
-      "memberGroups": "Your member groups changed",
-      "announcement": "Announcement: {titled, select, yes {“{title}”} other {read it}}",
-      "accountSecurity": "There is a security notice about your account",
-      "unknown": "You have a new notification"
+      "threadWatched": "Respuesta de <actors></actors> en {titled, select, yes {“{title}”} other {un tema que sigues}}",
+      "nodeThread": "Nuevo tema de <actors></actors>{titled, select, yes {: “{title}”} other { en un foro que sigues}}",
+      "nodePost": "Nuevo mensaje de <actors></actors> en {titled, select, yes {“{title}”} other {un foro que sigues}}",
+      "contentQuoted": "Cita de <actors></actors>{titled, select, yes { en “{title}”} other {}}",
+      "contentMentioned": "Mención de <actors></actors>{titled, select, yes { en “{title}”} other {}}",
+      "contentReaction": "<actors></actors>: reacción {emoji} a tu {kind, select, post {mensaje} profile_post {publicación del muro} profile_post_comment {comentario} conversation_message {mensaje} other {contenido}}{titled, select, yes { en “{title}”} other {}}",
+      "profilePost": "Publicación de <actors></actors> en tu perfil",
+      "profileComment": "Comentario de <actors></actors> en tu publicación del muro",
+      "profileCommented": "Otro comentario de <actors></actors> en una publicación del muro que también comentaste",
+      "memberThread": "Nuevo tema de <actors></actors>{titled, select, yes {: “{title}”} other {}}",
+      "memberFollowed": "Nuevo seguidor: <actors></actors>",
+      "conversationAdded": "<actors></actors>: te añadieron a la conversación{titled, select, yes { “{title}”} other {}}",
+      "conversationMessage": "Mensaje de <actors></actors> en la conversación{titled, select, yes { “{title}”} other {}}",
+      "moderationContent": "{action, select, deleted {Se eliminó tu contenido} rejected {Se rechazó tu contenido} approved {Se aprobó tu contenido} undeleted {Se restauró tu contenido} moved {Se movió tu tema} locked {Se cerró tu tema} unlocked {Se abrió tu tema} edited {Un moderador editó tu contenido} merged {Se fusionó tu tema} split {Se dividió tu tema} other {Un moderador actuó sobre tu contenido}}{titled, select, yes { en “{title}”} other {}}",
+      "moderationMember": "{action, select, warned {Recibiste una advertencia} thread_banned {Te expulsaron de iniciar temas} thread_ban_lifted {Se levantó tu expulsión de temas} restricted {Se restringió tu cuenta} restriction_lifted {Se levantó la restricción de tu cuenta} other {Un moderador actuó sobre tu cuenta}}",
+      "reportResolved": "{state, select, resolved {Tu denuncia se resolvió} rejected {Tu denuncia se rechazó} other {Tu denuncia se actualizó}}",
+      "moderatorReport": "Hay una nueva denuncia pendiente de revisión",
+      "moderatorApproval": "Contenido de <actors></actors> pendiente de aprobación",
+      "memberGroups": "Tus grupos de miembro han cambiado",
+      "announcement": "Anuncio: {titled, select, yes {“{title}”} other {léelo}}",
+      "accountSecurity": "Hay un aviso de seguridad sobre tu cuenta",
+      "unknown": "Tienes una nueva notificación"
     }
   },
   "loading": {
-    "label": "Loading notifications…",
-    "heading": "Notifications"
+    "label": "Cargando notificaciones…",
+    "heading": "Notificaciones"
   }
 }

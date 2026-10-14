@@ -1,34 +1,34 @@
 {
   "relativeTime": {
-    "title": "{date} at {time}"
+    "title": "{date} a las {time}"
   },
   "forumCard": {
-    "newBadge": "New",
-    "threads": "{count, plural, one {# thread} other {# threads}}",
-    "empty": "No posts yet"
+    "newBadge": "Nuevo",
+    "threads": "{count, plural, one {# tema} other {# temas}}",
+    "empty": "Todavía no hay mensajes"
   },
   "memberCard": {
-    "emptyAwards": "No awards yet",
-    "awardCount": "{count, plural, one {# award} other {# awards}}",
-    "postsLabel": "Posts",
-    "reactionsLabel": "Reactions",
-    "joinedLabel": "Joined",
-    "profile": "View profile"
+    "emptyAwards": "Todavía no hay trofeos",
+    "awardCount": "{count, plural, one {# trofeo} other {# trofeos}}",
+    "postsLabel": "Mensajes",
+    "reactionsLabel": "Reacciones",
+    "joinedLabel": "Se unió",
+    "profile": "Ver perfil"
   },
   "memberActions": {
-    "message": "Message",
-    "aria": { "message": "Start a private conversation with {username}" }
+    "message": "Mensaje",
+    "aria": { "message": "Iniciar una conversación privada con {username}" }
   },
   "memberCardTrigger": {
     "aria": {
-      "label": "{name}'s member card"
+      "label": "Tarjeta de miembro de {name}"
     }
   },
   "threadHoverCard": {
-    "lastReply": "Last reply",
+    "lastReply": "Última respuesta",
     "aria": {
-      "replies": "Replies",
-      "views": "Views"
+      "replies": "Respuestas",
+      "views": "Visitas"
     }
   },
   "roleBadge": {
@@ -37,136 +37,136 @@
   },
   "shareButton": {
     "aria": {
-      "copied": "Link copied",
-      "copy": "Copy link"
+      "copied": "Enlace copiado",
+      "copy": "Copiar enlace"
     }
   },
   "unreadDot": {
     "aria": {
-      "label": "Unread"
+      "label": "Sin leer"
     }
   },
   "userStats": {
-    "messagesLabel": "Messages",
-    "reactionsLabel": "Reactions received",
+    "messagesLabel": "Mensajes",
+    "reactionsLabel": "Reacciones recibidas",
     "summary": "<sr>{label}: </sr>{value}"
   },
   "awardIcon": {
     "aria": {
-      "count": "{count, plural, one {# award} other {# awards}}"
+      "count": "{count, plural, one {# trofeo} other {# trofeos}}"
     }
   },
   "clientIcons": {
-    "label": "{browser} on {system}",
-    "unknownBrowser": "Unknown browser",
-    "unknownSystem": "unknown system"
+    "label": "{browser} en {system}",
+    "unknownBrowser": "Navegador desconocido",
+    "unknownSystem": "sistema desconocido"
   },
   "credits": {
     "aria": {
-      "unit": "credits"
+      "unit": "créditos"
     }
   },
   "leaderboard": {
     "xp": "XP",
     "xpTitle": "{xp} XP",
     "titles": {
-      "credits": "{count, plural, one {# credit} other {# credits}}",
-      "posts": "{count, plural, one {# post} other {# posts}}",
-      "reactions": "{count, plural, one {# reaction} other {# reactions}}",
-      "awards": "{count, plural, one {# award} other {# awards}}",
-      "referrals": "{count, plural, one {# referral} other {# referrals}}"
+      "credits": "{count, plural, one {# crédito} other {# créditos}}",
+      "posts": "{count, plural, one {# mensaje} other {# mensajes}}",
+      "reactions": "{count, plural, one {# reacción} other {# reacciones}}",
+      "awards": "{count, plural, one {# trofeo} other {# trofeos}}",
+      "referrals": "{count, plural, one {# referido} other {# referidos}}"
     },
     "aria": {
       "units": {
-        "credits": "{count, plural, one {credit} other {credits}}",
-        "posts": "{count, plural, one {post} other {posts}}",
-        "reactions": "{count, plural, one {reaction} other {reactions}}",
-        "awards": "{count, plural, one {award} other {awards}}",
-        "referrals": "{count, plural, one {referral} other {referrals}}"
+        "credits": "{count, plural, one {crédito} other {créditos}}",
+        "posts": "{count, plural, one {mensaje} other {mensajes}}",
+        "reactions": "{count, plural, one {reacción} other {reacciones}}",
+        "awards": "{count, plural, one {trofeo} other {trofeos}}",
+        "referrals": "{count, plural, one {referido} other {referidos}}"
       }
     }
   },
   "level": {
-    "badge": "LVL",
+    "badge": "NIV",
     "xp": "{xp} XP",
     "aria": {
-      "progress": "Level {level}, {xp} XP of {next} for the next level"
+      "progress": "Nivel {level}, {xp} XP de {next} para el siguiente nivel"
     }
   },
   "podium": {
-    "empty": "No members yet.",
+    "empty": "Todavía no hay miembros.",
     "aria": {
-      "top": "Top three",
-      "rank": "Rank"
+      "top": "Los tres primeros",
+      "rank": "Posición"
     }
   },
   "reactionButton": {
     "aria": {
-      "login": "Log in to react, {count, plural, one {{count} reaction} other {{count} reactions}}",
-      "state": "{label}, {count, plural, one {{count} reaction} other {{count} reactions}}",
-      "choose": "Choose a reaction"
+      "login": "Inicia sesión para reaccionar, {count, plural, one {{count} reacción} other {{count} reacciones}}",
+      "state": "{label}, {count, plural, one {{count} reacción} other {{count} reacciones}}",
+      "choose": "Elegir una reacción"
     }
   },
   "reactionSummary": {
-    "failed": "The list could not be loaded.",
-    "total": "{count, plural, one {{count} reaction} other {{count} reactions}}",
+    "failed": "No se pudo cargar la lista.",
+    "total": "{count, plural, one {{count} reacción} other {{count} reacciones}}",
     "aria": {
-      "trigger": "{total}, show who reacted"
+      "trigger": "{total}, mostrar quién reaccionó"
     }
   },
   "userBadges": {
     "group": {
-      "title": "{name} group",
-      "suffix": "group"
+      "title": "Grupo {name}",
+      "suffix": "grupo"
     },
-    "donor": "Donor"
+    "donor": "Donante"
   },
   "standing": {
-    "heading": "Member of the month",
-    "totalPoints": "Total points",
+    "heading": "Miembro del mes",
+    "totalPoints": "Puntos totales",
     "pts": "pts",
     "parts": {
-      "posts": "Posts",
-      "reactions": "Reactions received",
-      "referrals": "Referrals"
+      "posts": "Mensajes",
+      "reactions": "Reacciones recibidas",
+      "referrals": "Referidos"
     }
   },
   "attachmentField": {
-    "attach": "Attach files",
-    "limit": "Up to {size} MB each.",
-    "uploading": "Uploading…",
-    "failed": "{name} could not be uploaded.",
+    "attach": "Adjuntar archivos",
+    "limit": "Hasta {size} MB cada uno.",
+    "uploading": "Subiendo…",
+    "failed": "No se pudo subir {name}.",
     "aria": {
-      "files": "Attached files",
-      "remove": "Remove {name}"
+      "files": "Archivos adjuntos",
+      "remove": "Quitar {name}"
     }
   },
   "attachments": {
-    "signIn": "Sign in to attach files.",
-    "noFile": "Choose a file to attach.",
-    "notAllowed": "You cannot attach files here.",
-    "failed": "The file could not be uploaded.",
-    "tooLarge": "This file is too large to upload here.",
-    "overLimit": "This file is larger than the {size} MB the site allows."
+    "signIn": "Inicia sesión para adjuntar archivos.",
+    "noFile": "Elige un archivo para adjuntar.",
+    "notAllowed": "No puedes adjuntar archivos aquí.",
+    "failed": "No se pudo subir el archivo.",
+    "tooLarge": "Este archivo es demasiado grande para subirlo aquí.",
+    "overLimit": "Este archivo supera los {size} MB que permite el sitio."
   },
   "mentionMenu": {
-    "found": "{count, plural, one {# member found} other {# members found}}",
+    "found": "{count, plural, one {# miembro encontrado} other {# miembros encontrados}}",
     "aria": {
-      "members": "Members"
+      "members": "Miembros"
     }
   },
   "threadFields": {
-    "noPrefix": "No prefix",
-    "prefixLabel": "Prefix",
-    "titleLabel": "Title"
+    "noPrefix": "Sin prefijo",
+    "prefixLabel": "Prefijo",
+    "titleLabel": "Título"
   },
   "wallComments": {
-    "placeholder": "Write a comment…",
-    "submit": "Post comment",
-    "awaitingApproval": "This is waiting for approval.",
-    "deleted": "This was deleted.",
-    "showMore": "Show more comments",
-    "older": "Older comments",
-    "fewer": "Show fewer comments"
+    "placeholder": "Escribe un comentario…",
+    "submit": "Publicar comentario",
+    "awaitingApproval": "Esto está pendiente de aprobación.",
+    "deleted": "Esto se eliminó.",
+    "showMore": "Mostrar más comentarios",
+    "older": "Comentarios anteriores",
+    "fewer": "Mostrar menos comentarios"
   }
 }

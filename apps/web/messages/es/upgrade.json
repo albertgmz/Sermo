@@ -1,37 +1,37 @@
 {
   "upgrade": {
-    "metaTitle": "Upgrade",
-    "heading": "Ranks",
-    "description": "Spend your credits on a rank to unlock what it includes. Moving up a rank costs only the difference.",
-    "credits": "{count, plural, other {You have <amount>#</amount> credits to spend.}}",
-    "guestCredits": "Log in to see your credits.",
-    "login": "Log in to upgrade",
-    "currentRank": "Your current rank",
-    "currentRankNote": "This is the rank you hold now.",
-    "below": "Below your current rank",
-    "belowNote": "You hold {rank}, which costs more.",
-    "samePrice": "Same price as your rank",
-    "samePriceNote": "{rank} costs the same, so this is not an upgrade.",
-    "upgradePrice": "{price} from {rank}",
-    "upgraded": "Done. Your rank has changed.",
-    "emptyTitle": "No ranks are offered",
-    "emptyDescription": "There is nothing to upgrade to right now. Check back later.",
+    "metaTitle": "Mejorar cuenta",
+    "heading": "Rangos",
+    "description": "Gasta tus créditos en un rango para desbloquear lo que incluye. Subir de rango cuesta solo la diferencia.",
+    "credits": "{count, plural, other {Tienes <amount>#</amount> créditos para gastar.}}",
+    "guestCredits": "Inicia sesión para ver tus créditos.",
+    "login": "Inicia sesión para mejorar",
+    "currentRank": "Tu rango actual",
+    "currentRankNote": "Este es el rango que tienes ahora.",
+    "below": "Por debajo de tu rango actual",
+    "belowNote": "Tienes {rank}, que cuesta más.",
+    "samePrice": "Mismo precio que tu rango",
+    "samePriceNote": "{rank} cuesta lo mismo, así que no es una mejora.",
+    "upgradePrice": "{price} desde {rank}",
+    "upgraded": "Hecho. Tu rango ha cambiado.",
+    "emptyTitle": "No se ofrece ningún rango",
+    "emptyDescription": "Ahora mismo no hay nada a lo que mejorar. Vuelve más tarde.",
     "aria": {
-      "ranks": "Ranks",
-      "loadingDetails": "Loading upgrade details…",
-      "loadingRanks": "Loading ranks…"
+      "ranks": "Rangos",
+      "loadingDetails": "Cargando los detalles de la mejora…",
+      "loadingRanks": "Cargando rangos…"
     }
   },
   "rankForm": {
-    "buy": "Get for {cost}",
-    "upgrade": "Upgrade for {cost}",
+    "buy": "Obtener por {cost}",
+    "upgrade": "Mejorar por {cost}",
     "aria": {
-      "submit": "Get the {rank} rank"
+      "submit": "Obtener el rango {rank}"
     }
   },
   "loading": {
     "aria": {
-      "loading": "Loading ranks…"
+      "loading": "Cargando rangos…"
     }
   }
 }

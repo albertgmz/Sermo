@@ -1,162 +1,162 @@
 {
   "credits": {
-    "metaTitle": "Credits",
-    "title": "Credits",
-    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
-    "balanceHeading": "Your balance",
-    "balanceDescription": "credits to spend in the shop",
-    "loginDescription": "Log in to see your balance, buy items and keep track of what you own.",
-    "login": "Log in",
-    "shopTab": "Shop",
-    "inventoryTab": "Inventory",
-    "historyTab": "History",
-    "leadersHeading": "Richest members",
-    "leadersDescription": "Ranked by credits",
+    "metaTitle": "Créditos",
+    "title": "Créditos",
+    "subtitle": "Gasta tus créditos en la tienda en aspecto, mejoras y rangos.",
+    "balanceHeading": "Tu saldo",
+    "balanceDescription": "créditos para gastar en la tienda",
+    "loginDescription": "Inicia sesión para ver tu saldo, comprar artículos y llevar la cuenta de lo que tienes.",
+    "login": "Iniciar sesión",
+    "shopTab": "Tienda",
+    "inventoryTab": "Inventario",
+    "historyTab": "Historial",
+    "leadersHeading": "Miembros más ricos",
+    "leadersDescription": "Ordenados por créditos",
     "notices": {
-      "bought": "Purchase complete. You will find it in your inventory.",
-      "worn": "Done. You are wearing it now.",
-      "removed": "Done. You took it off.",
-      "used": "Done. The item has been used."
+      "bought": "Compra completada. Lo encontrarás en tu inventario.",
+      "worn": "Hecho. Ya lo llevas puesto.",
+      "removed": "Hecho. Te lo quitaste.",
+      "used": "Hecho. El artículo se ha usado."
     },
     "aria": {
-      "sections": "Credits sections",
-      "loadingShop": "Loading the shop…",
-      "loadingBalance": "Loading your balance…",
-      "loadingLeaders": "Loading richest members…",
-      "loadingWays": "Loading the ways to earn…"
+      "sections": "Secciones de créditos",
+      "loadingShop": "Cargando la tienda…",
+      "loadingBalance": "Cargando tu saldo…",
+      "loadingLeaders": "Cargando los miembros más ricos…",
+      "loadingWays": "Cargando las formas de ganar…"
     }
   },
   "ways": {
-    "heading": "Ways to earn",
-    "description": "What earns or costs credits on this site.",
-    "emptyTitle": "No ways to earn yet",
-    "emptyDescription": "Nothing earns or costs credits right now.",
-    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# credit} other {# credits}}",
-    "limit": "Up to {count} per {hours, plural, one {hour} other {# hours}}",
-    "forums": "Only in:",
+    "heading": "Formas de ganar",
+    "description": "Lo que da o cuesta créditos en este sitio.",
+    "emptyTitle": "Todavía no hay formas de ganar",
+    "emptyDescription": "Ahora mismo nada da ni cuesta créditos.",
+    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# crédito} other {# créditos}}",
+    "limit": "Hasta {count} por {hours, plural, one {hora} other {# horas}}",
+    "forums": "Solo en:",
     "triggers": {
-      "thread_created": "When you start a thread",
-      "reply_posted": "When you post a reply",
-      "reply_received": "When someone replies to your thread",
-      "reaction_given": "When you react to a post",
-      "reaction_received": "When someone reacts to your post",
-      "profile_post_created": "When you post on a member's profile",
-      "profile_post_received": "When someone posts on your profile",
-      "followed": "When a member follows you",
-      "registered": "When you register",
-      "daily_activity": "Your first activity of each day",
-      "warning_received": "When you receive a warning",
-      "award_received": "When you receive an award"
+      "thread_created": "Cuando inicias un tema",
+      "reply_posted": "Cuando publicas una respuesta",
+      "reply_received": "Cuando alguien responde a tu tema",
+      "reaction_given": "Cuando reaccionas a un mensaje",
+      "reaction_received": "Cuando alguien reacciona a tu mensaje",
+      "profile_post_created": "Cuando publicas en el perfil de un miembro",
+      "profile_post_received": "Cuando alguien publica en tu perfil",
+      "followed": "Cuando un miembro te sigue",
+      "registered": "Cuando te registras",
+      "daily_activity": "Tu primera actividad de cada día",
+      "warning_received": "Cuando recibes una advertencia",
+      "award_received": "Cuando recibes un trofeo"
     }
   },
   "shop": {
-    "sampleUsername": "your_name",
-    "emptyTitle": "The shop is empty",
-    "emptyDescription": "Nothing is for sale right now. Check back later.",
-    "emptyCategoryTitle": "Nothing in this category",
-    "emptyCategoryDescription": "Try another category.",
-    "stock": "{count, plural, one {# left} other {# left}}",
-    "loginToBuy": "Log in to buy",
-    "ranks": "See the ranks",
+    "sampleUsername": "tu_nombre",
+    "emptyTitle": "La tienda está vacía",
+    "emptyDescription": "Ahora mismo no hay nada a la venta. Vuelve más tarde.",
+    "emptyCategoryTitle": "No hay nada en esta categoría",
+    "emptyCategoryDescription": "Prueba con otra categoría.",
+    "stock": "{count, plural, one {Queda #} other {Quedan #}}",
+    "loginToBuy": "Inicia sesión para comprar",
+    "ranks": "Ver los rangos",
     "aria": {
-      "categories": "Shop categories",
-      "ranks": "See the ranks, including {itemName}"
+      "categories": "Categorías de la tienda",
+      "ranks": "Ver los rangos, incluido {itemName}"
     }
   },
   "effect": {
-    "frame": "Avatar frame: {name}",
-    "frameUnnamed": "An avatar frame",
-    "nameColor": "Name colour: {name}",
-    "nameColorUnnamed": "A name colour",
-    "nameIcon": "Name icon, {position, select, before {before} other {after}} your name",
-    "threadCover": "Cover for one of your threads: {name}",
-    "threadCoverUnnamed": "A cover for one of your threads",
-    "highlight": "Highlights one of your threads for {days, plural, one {# day} other {# days}}",
-    "bump": "Brings one of your threads back to the top of its forum",
-    "usernameChange": "One change of your username",
-    "permission": "Unlocks: {name}",
-    "permissionValue": "{name}: {unlimited, select, true {unlimited} other {{value}}}",
-    "lastsDays": "{count, plural, one {Lasts # day} other {Lasts # days}}",
-    "lastsHours": "{count, plural, one {Lasts # hour} other {Lasts # hours}}",
-    "lastsMinutes": "{count, plural, one {Lasts # minute} other {Lasts # minutes}}"
+    "frame": "Marco de avatar: {name}",
+    "frameUnnamed": "Un marco de avatar",
+    "nameColor": "Color del nombre: {name}",
+    "nameColorUnnamed": "Un color del nombre",
+    "nameIcon": "Icono del nombre, {position, select, before {antes de} other {después de}} tu nombre",
+    "threadCover": "Portada para uno de tus temas: {name}",
+    "threadCoverUnnamed": "Una portada para uno de tus temas",
+    "highlight": "Destaca uno de tus temas durante {days, plural, one {# día} other {# días}}",
+    "bump": "Devuelve uno de tus temas a lo más alto de su foro",
+    "usernameChange": "Un cambio de tu nombre de usuario",
+    "permission": "Desbloquea: {name}",
+    "permissionValue": "{name}: {unlimited, select, true {sin límite} other {{value}}}",
+    "lastsDays": "{count, plural, one {Dura # día} other {Dura # días}}",
+    "lastsHours": "{count, plural, one {Dura # hora} other {Dura # horas}}",
+    "lastsMinutes": "{count, plural, one {Dura # minuto} other {Dura # minutos}}"
   },
   "permissions": {
-    "signature": "A signature under your posts",
-    "customTitle": "A custom title under your name",
-    "coverPreset": "A profile cover from the gallery",
-    "renameFree": "Username changes without cost",
-    "awardSlots": "Awards shown next to your name",
-    "mentionLimit": "Mentions per post",
-    "recipientLimit": "Recipients per conversation"
+    "signature": "Una firma bajo tus mensajes",
+    "customTitle": "Un título personalizado bajo tu nombre",
+    "coverPreset": "Una portada de perfil de la galería",
+    "renameFree": "Cambios de nombre de usuario sin coste",
+    "awardSlots": "Trofeos mostrados junto a tu nombre",
+    "mentionLimit": "Menciones por mensaje",
+    "recipientLimit": "Destinatarios por conversación"
   },
   "loadMore": {
-    "label": "Show more"
+    "label": "Mostrar más"
   },
   "buyForm": {
-    "submit": "Buy",
+    "submit": "Comprar",
     "aria": {
-      "submit": "Buy {itemName}",
-      "quantity": "Quantity of {itemName}"
+      "submit": "Comprar {itemName}",
+      "quantity": "Cantidad de {itemName}"
     }
   },
   "wearForm": {
-    "wear": "Wear",
-    "takeOff": "Take off",
+    "wear": "Ponerse",
+    "takeOff": "Quitarse",
     "aria": {
-      "wear": "Wear {itemName}",
-      "takeOff": "Take off {itemName}"
+      "wear": "Ponerse {itemName}",
+      "takeOff": "Quitarse {itemName}"
     }
   },
   "useForm": {
-    "placeholder": "Choose a thread",
-    "submit": "Use",
+    "placeholder": "Elige un tema",
+    "submit": "Usar",
     "aria": {
-      "thread": "Thread to use {itemName} on",
-      "submit": "Use {itemName}"
+      "thread": "Tema en el que usar {itemName}",
+      "submit": "Usar {itemName}"
     }
   },
   "inventory": {
-    "heading": "Your inventory",
-    "emptyTitle": "Nothing here yet",
-    "emptyDescription": "Items you buy in the shop show up here.",
-    "browseShop": "Browse the shop",
-    "activeHeading": "In effect",
-    "activeDescription": "Items you hold and that are working for you.",
-    "unusedHeading": "To use",
-    "unusedDescription": "Items you spend one at a time.",
+    "heading": "Tu inventario",
+    "emptyTitle": "Todavía no hay nada aquí",
+    "emptyDescription": "Los artículos que compres en la tienda aparecerán aquí.",
+    "browseShop": "Ver la tienda",
+    "activeHeading": "En efecto",
+    "activeDescription": "Artículos que tienes y que están funcionando para ti.",
+    "unusedHeading": "Para usar",
+    "unusedDescription": "Artículos que gastas de uno en uno.",
     "unitsLeft": "×{count}",
-    "acquired": "Acquired {date}",
-    "expires": "Expires {date}",
-    "inEffect": "In effect",
-    "changeUsername": "Change username",
-    "noThreads": "Start a thread first: this works on your own threads.",
-    "coveredThread": "{title} (has a cover)",
-    "olderThreads": "Show older threads",
-    "newestThreads": "Back to your newest threads",
+    "acquired": "Adquirido el {date}",
+    "expires": "Caduca el {date}",
+    "inEffect": "En efecto",
+    "changeUsername": "Cambiar nombre de usuario",
+    "noThreads": "Primero inicia un tema: esto funciona sobre tus propios temas.",
+    "coveredThread": "{title} (tiene portada)",
+    "olderThreads": "Mostrar temas anteriores",
+    "newestThreads": "Volver a tus temas más recientes",
     "aria": {
-      "changeUsername": "Change your username with {itemName}"
+      "changeUsername": "Cambiar tu nombre de usuario con {itemName}"
     }
   },
   "history": {
-    "heading": "History",
-    "emptyTitle": "No transactions yet",
-    "emptyDescription": "Credits you earn and spend are listed here.",
-    "balanceAfter": "Balance {balance}",
+    "heading": "Historial",
+    "emptyTitle": "Todavía no hay transacciones",
+    "emptyDescription": "Los créditos que ganas y gastas aparecen aquí.",
+    "balanceAfter": "Saldo {balance}",
     "types": {
-      "adjustment": "Adjusted by staff",
-      "adjustmentBy": "Adjusted by {name}",
-      "event": "Earned by taking part",
-      "event_reversal": "Earnings taken back",
-      "award": "Award received",
-      "award_revoked": "Award taken back",
-      "purchase": "Shop purchase"
+      "adjustment": "Ajustado por el equipo",
+      "adjustmentBy": "Ajustado por {name}",
+      "event": "Ganado por participar",
+      "event_reversal": "Ganancias retiradas",
+      "award": "Trofeo recibido",
+      "award_revoked": "Trofeo retirado",
+      "purchase": "Compra en la tienda"
     }
   },
   "loading": {
-    "title": "Credits",
-    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
+    "title": "Créditos",
+    "subtitle": "Gasta tus créditos en la tienda en aspecto, mejoras y rangos.",
     "aria": {
-      "loading": "Loading credits…"
+      "loading": "Cargando créditos…"
     }
   }
 }
