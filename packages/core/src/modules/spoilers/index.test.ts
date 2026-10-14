@@ -4,10 +4,12 @@ import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
+import { getOperation } from "../../operations";
 import {
   conversationsCreateOp,
   conversationsLeaveOp,
   conversationsReplyOp,
+  conversationsUpdateMessageOp,
 } from "../conversations";
 import { nodesCreateOp, postsCreateOp, postsUpdateOp, threadsCreateOp } from "../forums";
 import {
@@ -194,6 +196,85 @@ describe("spoilers.get: conversation messages", () => {
       NotFoundError,
     );
     await expect(w.get(w.author, "conversation_message", 999_999, 0)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
+
+  test("an edit replaces the stored spoilers: removed ones are gone, new ones are returned", async () => {
+    const w = await chat();
+    const edit = (body: string) =>
+      execute(w.ctx, conversationsUpdateMessageOp, w.author, {
+        messageId: w.made.message.id,
+        body,
+        attachmentIds: [],
+      });
+    await edit("kept [ISPOILER]only one now[/ISPOILER]");
+    expect(w.rows("conversation_message", w.made.message.id).map((row) => row.html)).toEqual([
+      "only one now",
+    ]);
+    expect((await w.get(w.other, "conversation_message", w.made.message.id, 0)).html).toBe(
+      "only one now",
+    );
+    await expect(
+      w.get(w.other, "conversation_message", w.made.message.id, 1),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await edit("[SPOILER=New]added **later**[/SPOILER] and >!more!<");
+    expect((await w.get(w.other, "conversation_message", w.made.message.id, 0)).html).toBe(
+      "added <strong>later</strong>",
+    );
+    expect((await w.get(w.other, "conversation_message", w.made.message.id, 1)).html).toBe("more");
+    await edit("no spoilers at all");
+    await expect(
+      w.get(w.other, "conversation_message", w.made.message.id, 0),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("a moderator outside the conversation reads only where the moderation views show it", async () => {
+    const w = await chat();
+    const reporter = w.other;
+    // Administrators hold conversation.moderate; moderators do not by default.
+    const mod = w.admin;
+    const outsider = userActor(insertUser(w.ctx));
+    const plainModerator = userActor(insertUser(w.ctx, { groupId: 3 }));
+    // Nothing queued or reported: not found, as for any outsider.
+    await expect(w.get(mod, "conversation_message", w.made.message.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    // Awaiting approval.
+    w.ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'moderated' WHERE id = ?1")
+      .run(w.reply.id);
+    expect((await w.get(mod, "conversation_message", w.reply.id)).html).toBe("reply secret");
+    // A visible message beside it in the same conversation.
+    expect((await w.get(mod, "conversation_message", w.made.message.id, 1)).html).toBe(
+      "secret inline",
+    );
+    // Someone who does not hold conversation.moderate gets nothing either way.
+    await expect(w.get(plainModerator, "conversation_message", w.reply.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(w.get(outsider, "conversation_message", w.reply.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(w.get(outsider, "conversation_message", w.made.message.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    w.ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'visible' WHERE id = ?1")
+      .run(w.reply.id);
+    await expect(w.get(mod, "conversation_message", w.reply.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    // A report, in any state of the message.
+    await execute(w.ctx, getOperation("reports.create"), reporter, {
+      target: { type: "conversation_message", id: w.reply.id },
+      reason: "Bad",
+    });
+    w.ctx.sqlite
+      .prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1")
+      .run(w.reply.id);
+    expect((await w.get(mod, "conversation_message", w.reply.id)).html).toBe("reply secret");
+    await expect(w.get(outsider, "conversation_message", w.reply.id)).rejects.toBeInstanceOf(
       NotFoundError,
     );
   });

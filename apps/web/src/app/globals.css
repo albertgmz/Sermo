@@ -208,20 +208,21 @@
 .bb-content .bb-right {
   text-align: right;
 }
+/* A share of the width too, so many nested levels still leave room on a phone. */
 .bb-content .bb-indent-1 {
-  padding-inline-start: 2rem;
+  padding-inline-start: min(2rem, 4%);
 }
 .bb-content .bb-indent-2 {
-  padding-inline-start: 4rem;
+  padding-inline-start: min(4rem, 8%);
 }
 .bb-content .bb-indent-3 {
-  padding-inline-start: 6rem;
+  padding-inline-start: min(6rem, 12%);
 }
 .bb-content .bb-indent-4 {
-  padding-inline-start: 8rem;
+  padding-inline-start: min(8rem, 16%);
 }
 .bb-content .bb-indent-5 {
-  padding-inline-start: 10rem;
+  padding-inline-start: min(10rem, 20%);
 }
 .bb-content .bb-size-1 {
   font-size: 0.625rem;

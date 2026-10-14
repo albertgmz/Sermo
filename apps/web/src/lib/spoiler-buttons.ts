@@ -21,3 +21,19 @@ export function withSpoilerButtons(html: string, enabled: boolean): string {
       `${title ? `<span class="bb-spoiler-title">${title}</span>` : ""}</button></${tag}>`,
   );
 }
+
+const SPOILER_TYPES = [
+  "post",
+  "profile_post",
+  "profile_post_comment",
+  "conversation_message",
+] as const;
+
+// The content a queue or report item stands for, when it is one that has spoilers to ask for.
+export function spoilerContentFor(
+  type: string,
+  id: number,
+): { type: (typeof SPOILER_TYPES)[number]; id: number } | undefined {
+  const found = SPOILER_TYPES.find((option) => option === type);
+  return found ? { type: found, id } : undefined;
+}

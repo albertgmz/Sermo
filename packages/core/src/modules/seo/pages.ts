@@ -8,6 +8,9 @@ import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/s
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical } from "./paths";
 
+/** What of a post the structured data and the description carry. */
+const SEO_TEXT_LIMIT = 3000;
+
 export interface SeoTemplates {
   siteName: string;
   nodeTitle?: string;
@@ -177,7 +180,8 @@ export function threadSeo(
     thread.state === "visible" && can(ctx, GUEST, "node.view", { nodeId: thread.node_id });
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
-  const description = thread.excerpt || (first && excerptFromMarkdown(first.body_source)) || "";
+  const description =
+    thread.excerpt || (first && excerptFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) || "";
   const values = { siteName: templates.siteName, title: thread.title, description, username: "" };
   const breadcrumb: WithContext<BreadcrumbList> = {
     "@context": "https://schema.org",
@@ -198,7 +202,7 @@ export function threadSeo(
           url: baseCanonical,
           mainEntityOfPage: baseCanonical,
           headline: thread.title,
-          text: maskMarkupForExcerpt(first.body_source),
+          text: maskMarkupForExcerpt(first.body_source, SEO_TEXT_LIMIT),
           author: person(baseURL, first.user_id, first.username),
           datePublished: iso(first.created_at),
           dateModified: iso(thread.content_updated_at ?? first.edited_at ?? first.created_at),
@@ -213,7 +217,7 @@ export function threadSeo(
             .map((row) => ({
               "@type": "Comment" as const,
               "@id": `${baseCanonical}#post-${row.id}`,
-              text: maskMarkupForExcerpt(row.body_source),
+              text: maskMarkupForExcerpt(row.body_source, SEO_TEXT_LIMIT),
               author: person(baseURL, row.user_id, row.username),
               datePublished: iso(row.created_at),
               ...(row.edited_at ? { dateModified: iso(row.edited_at) } : {}),

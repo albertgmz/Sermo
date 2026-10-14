@@ -370,8 +370,20 @@ function render(
         token.type === "image" ||
         (token.type === "sermoBbInline" && (token.tag === "URL" || token.tag === "EMAIL"))
       ) {
+        const inLink = token.type !== "image";
         marked.walkTokens(token.tokens ?? [], (child) => {
           if (child.type === "sermoMention") child.blocked = true;
+          // No link inside a link, and no spoiler inside one: the inner one is only its text.
+          const nested = child as Tokens.Generic;
+          if (
+            inLink &&
+            (child.type === "link" ||
+              (child.type === "sermoBbInline" &&
+                (nested.tag === "URL" || nested.tag === "EMAIL" || nested.tag === "ISPOILER")))
+          ) {
+            nested.type = "sermoBbInline";
+            nested.tag = "TEXT";
+          }
         });
       }
     });

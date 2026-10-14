@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
+import { spoilerContentFor } from "@/lib/spoiler-buttons";
 import { PageHead } from "../../../admin/groups/skeletons";
 import { MemberLink, memberNames, panelHref } from "../../../admin/logs/links";
 import { hrefFor } from "../../../registry";
@@ -147,7 +148,11 @@ async function Case({
             <Badge variant="secondary">{contentState(detail.state)}</Badge>
           )}
           {detail.bodyHtml !== null ? (
-            <HtmlContent>{detail.bodyHtml}</HtmlContent>
+            <HtmlContent
+              content={spoilerContentFor(group.targetType, group.targetId)}
+            >
+              {detail.bodyHtml}
+            </HtmlContent>
           ) : group.targetType === "conversation_message" ? (
             <Help>{t("messageHelp")}</Help>
           ) : group.targetType === "user" ? (

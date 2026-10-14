@@ -10,6 +10,33 @@ import { activeConversation } from "../conversations";
 import { requirePost } from "../forums";
 import { requireComment, requirePost as requireProfilePost } from "../profiles/shared";
 
+/**
+ * A holder of `conversation.moderate` who is not in the conversation reads a message where the
+ * moderation views already show it: awaiting approval, reported (in any state), or a visible
+ * message beside one of those in the same conversation.
+ */
+function moderatorMayRead(
+  ctx: Ctx,
+  actor: Actor,
+  id: number,
+  message: { conversation_id: number; state: string },
+): boolean {
+  if (!can(ctx, actor, "conversation.moderate")) return false;
+  if (message.state === "moderated") return true;
+  const reported = prepared(ctx, "spoilers.reported", () =>
+    ctx.sqlite.prepare<{ found: number }, [number]>(
+      "SELECT 1 AS found FROM report_groups WHERE target_type = 'conversation_message' AND target_id = ?1 LIMIT 1",
+    ),
+  );
+  if (reported.get(id)) return true;
+  if (message.state !== "visible") return false;
+  return !!prepared(ctx, "spoilers.beside", () =>
+    ctx.sqlite.prepare<{ found: number }, [number]>(
+      "SELECT 1 AS found FROM conversation_messages m WHERE m.conversation_id = ?1 AND (m.state = 'moderated' OR EXISTS (SELECT 1 FROM report_groups g WHERE g.target_type = 'conversation_message' AND g.target_id = m.id)) LIMIT 1",
+    ),
+  ).get(message.conversation_id);
+}
+
 /** Throws NotFoundError unless the actor's own read of the item would return it. */
 function requireVisible(ctx: Ctx, actor: Actor, type: SpoilerContentType, id: number): void {
   switch (type) {
@@ -30,7 +57,17 @@ function requireVisible(ctx: Ctx, actor: Actor, type: SpoilerContentType, id: nu
         ),
       ).get(id);
       if (!message) throw new NotFoundError();
-      activeConversation(ctx, actor, message.conversation_id);
+      let participant = true;
+      try {
+        activeConversation(ctx, actor, message.conversation_id);
+      } catch (error) {
+        if (!(error instanceof NotFoundError)) throw error;
+        participant = false;
+      }
+      if (!participant) {
+        if (!moderatorMayRead(ctx, actor, id, message)) throw new NotFoundError();
+        return;
+      }
       const own = message.user_id === actorUserId(actor);
       if (
         message.state !== "visible" &&

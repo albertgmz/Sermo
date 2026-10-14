@@ -10,6 +10,7 @@ import { linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
 import { getViewer } from "@/lib/sermo/session";
+import { spoilerContentFor } from "@/lib/spoiler-buttons";
 import { PageHead } from "../../../../admin/groups/skeletons";
 import {
   MemberLink,
@@ -118,7 +119,9 @@ async function Review({ params }: { params: Props["params"] }) {
               )}
             </p>
             {detail.bodyHtml !== null && (
-              <HtmlContent>{detail.bodyHtml}</HtmlContent>
+              <HtmlContent content={spoilerContentFor(type, id)}>
+                {detail.bodyHtml}
+              </HtmlContent>
             )}
             <p className="flex flex-wrap gap-x-6 text-xs">
               <Where where={detail.where} name={name} />

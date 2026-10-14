@@ -142,7 +142,7 @@ const fontClass = new Map(
   FONTS.map((font) => [font.toLowerCase(), font.toLowerCase().replace(/ /g, "-")]),
 );
 const URL_PATTERN = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
-const EMAIL_PATTERN = /^[^\s@<>"'`\\[\]]{1,64}@[^\s@<>"'`\\[\]]{1,200}\.[A-Za-z]{2,24}$/;
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
 
 function colorValue(option: string | undefined): string | null {
   if (!option) return null;
@@ -391,6 +391,9 @@ export const bbInlineExtension: TokenizerAndRendererExtension = {
         return escapeHtml(token.text).replace(/\n/g, "<br>");
       case "ATTACH":
         return `<span class="bb-attach" data-attach-id="${token.id}" data-attach-size="${token.size}">${token.id}</span>`;
+      case "TEXT":
+        // A link, e-mail or spoiler inside a link: only its text remains.
+        return children();
       case "ISPOILER":
         return (
           renderSpoilerPlaceholder(this.parser, true, null, children) ??
@@ -509,6 +512,9 @@ function sequence(inner: string, parent: RegExp, name: (match: RegExpExecArray) 
   return parts;
 }
 
+/** Longer code is shown as a plain block: highlighting cost grows with its length. */
+const HIGHLIGHT_LIMIT = 2_000;
+
 type CodePart =
   | { kind: "rich"; tokens: Token[] }
   | { kind: "plain"; text: string }
@@ -519,7 +525,7 @@ function codeBlock(head: Head): CodePart {
   const option = head.option?.toLowerCase();
   if (option === "rich") return { kind: "rich", tokens: richTokens(content) };
   if (option === undefined) return { kind: "plain", text: content };
-  const highlighted = content.length <= 20_000 ? highlightCode(content, option) : null;
+  const highlighted = content.length <= HIGHLIGHT_LIMIT ? highlightCode(content, option) : null;
   return highlighted
     ? { kind: "language", name: highlighted.name, id: highlighted.id, html: highlighted.html }
     : { kind: "language", name: head.option ?? option, text: content };
@@ -699,7 +705,7 @@ const SPOILER_MARK = "\u0001";
  * code spoilers and drop the other tags. Spoilers are found with the same matching the renderer
  * uses, so the text it hides is the text hidden here.
  */
-export function maskBbCode(source: string): string {
+export function maskBbCode(source: string, truncated = false): string {
   if (!source.includes("[")) return source;
   resetBbCode();
   let masked = "";
@@ -709,7 +715,13 @@ export function maskBbCode(source: string): string {
   try {
     for (open = SPOILER_OPEN.exec(source); open; open = SPOILER_OPEN.exec(source)) {
       const close = findClose(source, SPOILER_OPEN.lastIndex, open[1]!.toUpperCase());
-      if (!close) continue;
+      if (!close) {
+        if (!truncated) continue;
+        // The text was cut: a spoiler left open may have ended past the cut, so it hides the rest.
+        masked += source.slice(from, open.index) + SPOILER_MARK;
+        from = source.length;
+        break;
+      }
       masked += source.slice(from, open.index) + SPOILER_MARK;
       from = SPOILER_OPEN.lastIndex = close.end;
     }

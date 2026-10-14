@@ -49,7 +49,11 @@ export function ConversationContext({
                 </time>
                 {message.target && <Badge>{t("target")}</Badge>}
               </p>
-              <HtmlContent>{message.bodyHtml}</HtmlContent>
+              <HtmlContent
+                content={{ type: "conversation_message", id: message.id }}
+              >
+                {message.bodyHtml}
+              </HtmlContent>
             </li>
           ))}
         </ol>

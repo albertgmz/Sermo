@@ -441,3 +441,22 @@ test("page titles, structured data and the feed name the site by its site name s
   updateSiteSettings(ctx, admin, { siteName: "Other" });
   expect((await call("seo.thread", { threadId: made.thread.id })).title).toBe("Hello | Other");
 });
+
+test("masking for the guest thread page works on a bounded part of each post", async () => {
+  const { boundSource, maskMarkupForExcerpt } = await import("./excerpt");
+  const long = `${"word ".repeat(2_000)}[SPOILER]secret tail[/SPOILER]`;
+  expect(boundSource(long, 3000).text).toHaveLength(3000);
+  expect(boundSource("short", 3000)).toEqual({ text: "short", truncated: false });
+  expect(maskMarkupForExcerpt(long, 3000).length).toBeLessThanOrEqual(3000);
+  // A spoiler the cut leaves open hides the rest, in BB code and in the inline marker.
+  const cut = `${"x".repeat(2_990)}[SPOILER]secret that goes on and on [/SPOILER]`;
+  const masked = maskMarkupForExcerpt(cut, 3000);
+  expect(masked).not.toContain("secret");
+  expect(masked).toContain("[spoiler]");
+  expect(
+    maskMarkupForExcerpt(`${"x".repeat(2_990)} >!secret goes on and on!<`, 3000),
+  ).not.toContain("secret");
+  expect(maskMarkupForExcerpt(`${"x".repeat(2_000)}:::spoiler\nsecret\n:::`, 2_010)).not.toContain(
+    "secret",
+  );
+});

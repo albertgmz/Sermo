@@ -612,3 +612,60 @@ describe("BB code limits", () => {
     }
   }, 30_000);
 });
+
+describe("BB code review limits", () => {
+  test("code over 2,000 characters is a plain block, shorter code is highlighted", () => {
+    const line = "public static void main(String[] args) { int a = 1; }\n";
+    const long = line.repeat(Math.floor(9_900 / line.length));
+    expect(long.length).toBeGreaterThan(9_800);
+    const plain = md(`[CODE=java]${long}[/CODE]`);
+    expect(plain).not.toContain("hljs");
+    expect(plain).toContain('<span class="bb-code-lang">java</span>');
+    expect(plain).toContain("public static void main");
+    const short = md(`[CODE=java]${line.repeat(30)}[/CODE]`);
+    expect(short).toContain("hljs-keyword");
+    expect(short).toContain('<span class="bb-code-lang">Java</span>');
+  });
+
+  test("no link inside a link, no spoiler inside a link", () => {
+    const ctx = createTestContext();
+    const actor = userActor(insertUser(ctx));
+    const nested = md(
+      "[URL=https://a.example]see [URL=https://b.example]inner[/URL] and [EMAIL]x@y.example[/EMAIL][/URL]",
+    );
+    expect(nested.match(/<a /g)).toHaveLength(1);
+    expect(nested).toContain("see inner and x@y.example</a>");
+    const markdown = md("[URL=https://a.example]see [inner](https://b.example) here[/URL]");
+    expect(markdown.match(/<a /g)).toHaveLength(1);
+    expect(markdown).toContain("see inner here</a>");
+    expect(
+      md("[EMAIL=a@b.example]mail [URL=https://c.example]c[/URL][/EMAIL]").match(/<a /g),
+    ).toHaveLength(1);
+    const spoiler = renderContent(
+      ctx,
+      actor,
+      "[URL=https://a.example]go [ISPOILER]secret[/ISPOILER][/URL]",
+    );
+    expect(spoiler.spoilers).toEqual([]);
+    expect(spoiler.html).toContain("go secret</a>");
+    expect(md("[URL=https://a.example]go [ISPOILER]x[/ISPOILER][/URL]")).not.toContain("spoiler");
+    // Outside a link both still work.
+    expect(renderContent(ctx, actor, "[ISPOILER]s[/ISPOILER]").spoilers).toEqual(["s"]);
+  });
+
+  test("EMAIL takes plain addresses only", () => {
+    expect(md("[EMAIL]first.last+tag@mail.example.com[/EMAIL]")).toContain(
+      'href="mailto:first.last+tag@mail.example.com"',
+    );
+    // The tag stays text (Markdown may still link a bare address in it, never with a query).
+    for (const bad of [
+      "a@b.example?subject=x",
+      "a@b.example&cc=c@d.example",
+      "a b@c.example",
+      "a@b",
+      "a@b.example#x",
+    ])
+      expect(md(`[EMAIL]${bad}[/EMAIL]`)).toContain("[EMAIL]");
+    expect(md("[EMAIL=a@b.example?bcc=x@y.example]m[/EMAIL]")).toContain("[EMAIL=");
+  });
+});

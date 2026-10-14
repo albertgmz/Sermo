@@ -2,12 +2,18 @@ import { afterAll, expect, mock, test } from "bun:test";
 import type { ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { MemberView } from "@/lib/sermo/views";
-import { withIntl } from "@/lib/test-intl";
+import { translator, withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
+}));
+// HtmlContent reads the BB code labels on the server.
+const serverIntl = await import("next-intl/server");
+mock.module("next-intl/server", () => ({
+  ...serverIntl,
+  getTranslations: async (namespace: string) => translator(namespace),
 }));
 const navigation = await import("next/navigation");
 mock.module("next/navigation", () => ({
@@ -25,6 +31,7 @@ mock.module("next-intl", () => ({
 }));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
+  mock.module("next-intl/server", () => serverIntl);
   mock.module("next-intl", () => intl);
 });
 const { WallComments, hasWallComments } = await import("./wall-comments");
