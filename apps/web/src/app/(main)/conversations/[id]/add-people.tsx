@@ -25,6 +25,7 @@ export function AddPeople({
 }) {
   const t = useTranslations("conversations.conversation.addPeople");
   const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState(0);
   if (!open) {
     return (
       <div className="px-4 py-2">
@@ -71,9 +72,10 @@ export function AddPeople({
           {t("cancel")}
         </Button>
       }
+      submitDisabled={picked === 0}
       className="p-4"
     >
-      <RecipientPicker exclude={exclude} />
+      <RecipientPicker exclude={exclude} onCount={setPicked} />
     </ActionForm>
   );
 }

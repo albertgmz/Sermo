@@ -11,8 +11,6 @@ import {
 import {
   openChange,
   opensOnFocus,
-  pointerOver,
-  staysOpen,
 } from "@/components/forum/member-card-intent";
 import {
   CARD_CLOSE_DELAY,
@@ -90,7 +88,6 @@ function MemberCardWithPreference({
   const [open, setOpen] = useState(false);
   const { card, load } = useMemberCard(id, name);
   const trigger = useRef<HTMLElement>(null);
-  const popup = useRef<HTMLDivElement>(null);
   const pointerType = useRef("");
   const restoringFocus = useRef(false);
   const returnFocus = useRef(false);
@@ -117,13 +114,6 @@ function MemberCardWithPreference({
     <Popover
       open={open}
       onOpenChange={(next, details) => {
-        // A close the hover logic asks for while the pointer still rests on the name or the
-        // card (the card was rewritten under it) is not the visitor leaving.
-        if (
-          !next &&
-          staysOpen(details.reason, pointerOver(trigger.current, popup.current))
-        )
-          return;
         returnFocus.current = details.reason === "escape-key";
         const change = openChange(next, pointerType.current);
         if (change === "close") setOpen(false);
@@ -179,7 +169,6 @@ function MemberCardWithPreference({
         name={name}
         card={card}
         reload={load}
-        ref={popup}
         align="start"
         initialFocus={false}
         finalFocus={() => {

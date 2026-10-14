@@ -28,9 +28,12 @@ export function offered(
 export function RecipientPicker({
   initial,
   exclude = [],
+  onCount,
 }: {
   initial?: Recipient;
   exclude?: number[];
+  // Told how many are chosen, as it changes.
+  onCount?: (count: number) => void;
 }) {
   const t = useTranslations("conversations.recipientPicker");
   const [chosen, setChosen] = useState<Recipient[]>(initial ? [initial] : []);
@@ -53,6 +56,9 @@ export function RecipientPicker({
       clearTimeout(timer);
     };
   }, [query]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a change of the count is told
+  useEffect(() => onCount?.(chosen.length), [chosen.length]);
 
   const options = offered(found ?? [], chosen, exclude);
 

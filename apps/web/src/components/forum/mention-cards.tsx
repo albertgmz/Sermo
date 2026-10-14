@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { pointerOver } from "@/components/forum/member-card-intent";
 import {
   CARD_CLOSE_DELAY,
   CARD_DELAY,
@@ -45,7 +44,6 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
   const enabled = useMemberCardsEnabled();
   const [target, setTarget] = useState<Mention | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const popup = useRef<HTMLDivElement>(null);
 
   // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
   useLayoutEffect(
@@ -63,12 +61,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
     timer.current = setTimeout(run, delay);
   }
   const keep = () => clearTimeout(timer.current);
-  // A pointer still on the mention or the card has not left (the card can be rewritten under it
-  // and the browser then reports a leave).
-  const close = (link: Element) =>
-    later(() => {
-      if (!pointerOver(link, popup.current)) setTarget(null);
-    }, CARD_CLOSE_DELAY);
+  const close = () => later(() => setTarget(null), CARD_CLOSE_DELAY);
 
   return (
     <div
@@ -90,7 +83,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         if (!mention) return;
         const next = event.relatedTarget;
         if (next instanceof Node && mention.link.contains(next)) return;
-        close(mention.link);
+        close();
       }}
     >
       {children}
@@ -98,9 +91,8 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         <MentionPopup
           key={target.seq}
           mention={target}
-          popup={popup}
           onKeep={keep}
-          onClose={() => close(target.link)}
+          onClose={close}
           onDismiss={() => {
             clearTimeout(timer.current);
             setTarget(null);
@@ -113,18 +105,17 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
 
 function MentionPopup({
   mention,
-  popup,
   onKeep,
   onClose,
   onDismiss,
 }: {
   mention: Mention;
-  popup: React.RefObject<HTMLDivElement | null>;
   onKeep: () => void;
   onClose: () => void;
   onDismiss: () => void;
 }) {
   const { card, load } = useMemberCard(mention.id, mention.name);
+  const popup = useRef<HTMLDivElement>(null);
   useEffect(load, [load]);
   return (
     <Popover

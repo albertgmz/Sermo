@@ -16,6 +16,7 @@ export function ActionForm({
   done,
   id,
   aside,
+  submitDisabled,
   variant = "outline",
   className,
   children,
@@ -30,6 +31,8 @@ export function ActionForm({
   id?: string;
   // Drawn after the button.
   aside?: React.ReactNode;
+  // The button waits for something to submit; it keeps the focus if it has it.
+  submitDisabled?: boolean;
   variant?: React.ComponentProps<typeof PendingButton>["variant"];
   className?: string;
   children?: React.ReactNode;
@@ -45,7 +48,12 @@ export function ActionForm({
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <PendingButton variant={variant} className="h-10 px-3">
+        <PendingButton
+          variant={variant}
+          className="h-10 px-3"
+          disabled={submitDisabled}
+          focusableWhenDisabled
+        >
           {submit}
         </PendingButton>
         {aside}
