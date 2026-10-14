@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a33682fa-de36-48fc-be21-e6694611def8",
-  "prevId": "9142a821-fd29-4b68-b809-98d61bec155d",
+  "id": "e5b97865-bf26-48e9-81a1-e05cb9ca63b0",
+  "prevId": "3fd17cba-ed26-418e-aaff-7e60399647a7",
   "tables": {
     "admin_password_failures": {
       "name": "admin_password_failures",
@@ -4711,6 +4711,35 @@
           "notNull": true,
           "autoincrement": false,
           "default": true
+        },
+        "image_file_id": {
+          "name": "image_file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "frame_width": {
+          "name": "frame_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "frame_height": {
+          "name": "frame_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "frame_count": {
+          "name": "frame_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
         }
       },
       "indexes": {},

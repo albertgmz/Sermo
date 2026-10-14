@@ -1728,3 +1728,26 @@ reaches the browser, and its output is a sealed type: only that output can be ha
 it is an async server component and the reaction button is a client component. Every picture is
 drawn in the square box the emoji had, whatever the frame's shape.
 The migration changes the benchmark seed's hash.
+
+## Icons chosen from a set (forums, navigation entries)
+
+**An icon is stored as a key; the web app owns the set.** Migration `0032` adds `nodes.icon_key`
+and `navigation_entries.icon` with `icon_position` (`before` or `after`). The backend checks only
+the key's shape (`IconKey` in `contracts/common.ts`: lowercase words joined by hyphens, at most 64
+characters), so the set can grow or shrink without a migration; a key the web app does not know
+draws the fallback or nothing. A forum's key is separate from its uploaded pictures: the key is
+the glyph before the title, the picture stays the card's backdrop.
+
+**One picker, one set** (`apps/web/src/components/icons`). The set is a curated part of lucide,
+152 icons, holding every key the forum icons and the navigation already used. `IconPicker` is a
+client component that writes a hidden input, so it works inside the server-action forms and knows
+nothing about what it is choosing for; it follows its form's reset. Labels are interface text and
+live in the messages; the search words stay with the set. The prefix and award forms keep their
+free-text keys for now.
+
+**The set never reaches a public page's client bundle.** An entry's chosen icon is drawn on the
+server and handed to the client navigation as a rendered element; the client keeps only the few
+default icons of the built-in entries. An entry's own icon wins over that default. In the phone
+bar the icon stays above the label whatever the position says. A form that does not carry the
+icon fields never clears them.
+The migration changes the benchmark seed's hash.
