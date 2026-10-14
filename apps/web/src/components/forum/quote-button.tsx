@@ -1,7 +1,10 @@
 "use client";
 
 import { Quote } from "lucide-react";
-import { messageActionClass } from "@/components/forum/message-action";
+import {
+  actionLabelClass,
+  messageActionClass,
+} from "@/components/forum/message-action";
 import { quoteOf } from "@/components/forum/quote-text";
 
 // Puts a post, quoted, at the end of the reply editor (which listens for `event`) and takes the
@@ -20,6 +23,7 @@ export function QuoteButton({
   return (
     <button
       type="button"
+      aria-label={label}
       className={messageActionClass}
       onClick={async () => {
         const post = await load(postId);
@@ -33,7 +37,7 @@ export function QuoteButton({
       }}
     >
       <Quote />
-      {label}
+      <span className={actionLabelClass}>{label}</span>
     </button>
   );
 }

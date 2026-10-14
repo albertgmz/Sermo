@@ -15,7 +15,12 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/[locale]/(main)/account/navigation";
 import { LiteSettingsForm } from "@/app/[locale]/(main)/lite/settings-form";
-import { discard, discardLine } from "@/app/[locale]/(main)/ui/actions";
+import {
+  discard,
+  discardForm,
+  discardLine,
+  discardQuote,
+} from "@/app/[locale]/(main)/ui/actions";
 import { EditorDemo } from "@/app/[locale]/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/[locale]/(main)/ui/lite-menu-demo";
 import { MemberActionsDemo } from "@/app/[locale]/(main)/ui/member-actions-demo";
@@ -28,6 +33,7 @@ import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
 import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { CompactComposer } from "@/components/forum/compact-composer";
+import { ContentActions } from "@/components/forum/content-actions";
 import { ConversationPreview } from "@/components/forum/conversation-preview";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { Credits } from "@/components/forum/credits";
@@ -910,6 +916,91 @@ export default async function StyleguidePage() {
           </p>
         </Section>
 
+        <Section title="Content actions">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The footer of a post, message, wall post or comment: a soft rule
+            parts it from the body, who reacted sits above the bar, react, quote
+            and reply on the left, share, edit, delete and report on the right.
+            Labels show from the small breakpoint up; below it the buttons are
+            icons with an accessible name. Edit, delete and report come from the
+            backend's answer for the viewer, so each bar draws only what it is
+            given. Delete asks first and report opens its reason form.
+          </p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <SectionCard title="Thread post, someone else's">
+              <div className="p-3">
+                <p className="text-sm">The text of the post.</p>
+                <ContentActions
+                  summary={
+                    <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                  }
+                  react={
+                    <ReactionDemo
+                      types={REACTION_TYPES}
+                      others={REACTIONS.total}
+                      summary={null}
+                    />
+                  }
+                  quote={{
+                    postId: 1,
+                    event: "styleguide-quote",
+                    load: discardQuote,
+                  }}
+                  reply={{ href: "#" }}
+                  share="/ui"
+                  report={{ action: discardForm }}
+                />
+              </div>
+            </SectionCard>
+            <SectionCard title="Your own post, or an administrator's view">
+              <div className="p-3">
+                <p className="text-sm">The text of the post.</p>
+                <ContentActions
+                  summary={
+                    <ReactionSummary reactions={REACTIONS} showTotal={false} />
+                  }
+                  quote={{
+                    postId: 1,
+                    event: "styleguide-quote",
+                    load: discardQuote,
+                  }}
+                  reply={{ href: "#" }}
+                  share="/ui"
+                  edit={{ href: "/ui" }}
+                  remove={{ action: discardForm, withReason: true }}
+                  report={{ action: discardForm }}
+                />
+              </div>
+            </SectionCard>
+            <SectionCard title="Message, edited in place">
+              <div className="p-3">
+                <p className="text-sm">A message or a wall post.</p>
+                <ContentActions
+                  share="/ui"
+                  edit={{
+                    panel: (
+                      <p className="rounded-md border bg-muted/30 p-3 text-sm">
+                        The edit form opens here.
+                      </p>
+                    ),
+                  }}
+                  remove={{ action: discardForm }}
+                />
+              </div>
+            </SectionCard>
+            <SectionCard title="Comment">
+              <div className="p-3">
+                <p className="text-sm">A comment on a wall post.</p>
+                <ContentActions
+                  compact
+                  share="/ui"
+                  report={{ action: discardForm }}
+                />
+              </div>
+            </SectionCard>
+          </div>
+        </Section>
+
         <Section title="Awards and levels">
           <ul className="flex flex-wrap gap-2">
             {AWARDS.map((award) => (
@@ -1397,6 +1488,7 @@ export default async function StyleguidePage() {
           <div className="max-w-xl rounded-lg border bg-card p-4">
             <WallComments
               anchor="sample-wall-post"
+              profileUserId={1}
               comments={SAMPLE_WALL_COMMENTS}
               links={{ more: "/ui" }}
               action={discardLine}
@@ -1436,19 +1528,14 @@ export default async function StyleguidePage() {
               }
               time={<RelativeTime date={SAMPLE_DATE} />}
               actions={
-                <>
-                  <button
-                    type="button"
-                    aria-pressed
-                    className={messageActionClass}
-                  >
-                    <Heart className="fill-current" />2
-                  </button>
-                  <button type="button" className={messageActionClass}>
-                    <MessageCircle />1
-                  </button>
-                  <ShareButton href="/ui" className={messageActionClass} />
-                </>
+                <ContentActions
+                  share="/ui"
+                  start={
+                    <button type="button" className={messageActionClass}>
+                      <MessageCircle />1
+                    </button>
+                  }
+                />
               }
               footer={
                 <div className="mt-2 space-y-3 border-l pl-3">

@@ -1,14 +1,5 @@
 import { postsList, seoThread, threadsGet } from "@sermo/core/contracts";
-import {
-  Hourglass,
-  Lock,
-  MoreHorizontal,
-  Pencil,
-  PenLine,
-  Reply,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
+import { Hourglass, Lock, PenLine, Sparkles, Trash2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
@@ -25,46 +16,31 @@ import {
   threadHref,
 } from "@/app/[locale]/(main)/threads/[id]/pages";
 import {
-  mayRestore,
   type ThreadMay,
   threadMay,
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
+import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
-import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
-import {
-  deletePostAction,
-  quoteSource,
-  reportPostAction,
-  restorePostAction,
-} from "@/app/[locale]/(main)/threads/actions";
-import { ActionForm } from "@/components/forum/action-form";
 import { Art } from "@/components/forum/art";
-import { DeleteControl } from "@/components/forum/delete-control";
+import { EditedMark } from "@/components/forum/edited-mark";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { JsonLd } from "@/components/forum/json-ld";
-import { memberActionsOf } from "@/components/forum/member-actions";
-import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { PrefixTag } from "@/components/forum/prefix-tag";
-import { QuoteButton } from "@/components/forum/quote-button";
 import type { ReactionType } from "@/components/forum/reaction-button";
-import { Reactions } from "@/components/forum/reactions";
-import { RelativeTime } from "@/components/forum/relative-time";
-import { ShareButton } from "@/components/forum/share-button";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
 import { HashLink } from "@/components/layout/hash-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
-import { authorsFor, relationsFor } from "@/lib/sermo/members";
+import { authorsFor } from "@/lib/sermo/members";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
@@ -73,8 +49,6 @@ import { type ApiPost, prefixView } from "@/lib/sermo/threads";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-const QUIET_ICON =
-  "inline-flex size-10 items-center justify-center rounded-md transition-colors hover:text-foreground md:size-7 [&_svg]:size-3.5";
 const LABEL = "sr-only sm:not-sr-only";
 
 // The thread is asked once for the metadata and the page: asking counts a view. The backend
@@ -112,7 +86,6 @@ function threadIdOf(raw: string) {
 function PostItem({
   post,
   author,
-  postbitActions,
   byThreadAuthor,
   noteState,
   highlighted,
@@ -127,8 +100,6 @@ function PostItem({
 }: {
   post: ApiPost;
   author: AuthorView;
-  // What the viewer can do about the author; none for a guest or for themselves.
-  postbitActions: React.ReactNode;
   byThreadAuthor: boolean;
   // Whether the post says it is waiting or deleted; the thread says so already for its own state.
   noteState: boolean;
@@ -153,18 +124,9 @@ function PostItem({
     <PostFrame
       id={`post-${post.id}`}
       author={author}
-      postbitActions={postbitActions}
       createdAt={post.createdAt}
       highlighted={highlighted}
-      edited={
-        post.editedAt && (
-          <span className="shrink-0">
-            {t.rich("edited", {
-              time: () => <RelativeTime date={post.editedAt ?? ""} />,
-            })}
-          </span>
-        )
-      }
+      edited={post.editedAt && <EditedMark date={post.editedAt} />}
       trailing={
         <>
           {highlighted && (
@@ -181,7 +143,6 @@ function PostItem({
               })}
             </span>
           )}
-          <ShareButton href={href} className={QUIET_ICON} />
           <HashLink
             href={href}
             className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
@@ -192,83 +153,15 @@ function PostItem({
       }
       signed={signed}
       actions={
-        <>
-          <Reactions
-            target="post"
-            id={post.id}
-            reactions={post.reactions}
-            authorId={post.author.id}
-            viewerId={viewerId}
-            picker={picker}
-            reactionTypes={reactionTypes}
-            className="mr-auto"
-          />
-          {canQuote && post.state === "visible" && (
-            <QuoteButton
-              postId={post.id}
-              event={QUOTE_EVENT}
-              load={quoteSource}
-              label={t("quote")}
-            />
-          )}
-          <HashLink href="#reply" className={messageActionClass}>
-            <Reply />
-            {t("reply")}
-          </HashLink>
-          {post.canEdit && (
-            <Link
-              href={`/threads/${post.threadId}/edit/${post.id}`}
-              className={messageActionClass}
-            >
-              <Pencil />
-              {t("edit")}
-            </Link>
-          )}
-        </>
-      }
-      after={
-        viewerId !== null &&
-        post.state !== "deleted" &&
-        (post.canReport || post.canDelete) && (
-          <details className="group mt-1">
-            <summary
-              aria-label={t("aria.more")}
-              className={cn(
-                messageActionClass,
-                "ml-auto w-fit cursor-pointer list-none [&::-webkit-details-marker]:hidden",
-              )}
-            >
-              <MoreHorizontal />
-              {t("more")}
-            </summary>
-            <div className="mt-2 space-y-4 rounded-md border bg-muted/30 p-3">
-              {post.canReport && (
-                <ActionForm
-                  action={reportPostAction.bind(null, post.id)}
-                  submit={t("report")}
-                  done={t("reported")}
-                >
-                  <Input
-                    name="reason"
-                    required
-                    aria-label={t("reportReason")}
-                    placeholder={t("reportReason")}
-                    autoComplete="off"
-                  />
-                </ActionForm>
-              )}
-              {post.canDelete && (
-                <DeleteControl
-                  action={deletePostAction.bind(null, post.threadId, post.id)}
-                  label={t("delete")}
-                  confirm={t("confirmDelete")}
-                  cancel={t("cancel")}
-                  reasonLabel={t("deleteReason")}
-                />
-              )}
-            </div>
-          </details>
-        )
+        <PostActions
+          post={post}
+          viewerId={viewerId}
+          picker={picker}
+          reactionTypes={reactionTypes}
+          may={may}
+          noteState={noteState}
+          canQuote={canQuote}
+        />
       }
     >
       {/* The first post cannot be split off: a hint that copies the backend's threads.split rule,
@@ -292,14 +185,6 @@ function PostItem({
       {noteState && post.state === "deleted" && (
         <PostNote icon={Trash2}>{t("deleted")}</PostNote>
       )}
-      {noteState && mayRestore(may, post.state) && (
-        <ActionForm
-          action={restorePostAction.bind(null, post.threadId, post.id)}
-          submit={post.state === "moderated" ? t("approve") : t("restore")}
-          className="mt-2"
-        />
-      )}
-
       {post.state === "deleted" ? (
         <details className="mt-2">
           <summary className="flex min-h-10 cursor-pointer items-center text-sm text-muted-foreground">
@@ -545,13 +430,7 @@ async function ThreadPosts({
   ]);
   // An empty page past the first is a page that does not exist.
   if (posts.length === 0 && page > 1) notFound();
-  const [author, relation] = await Promise.all([
-    authorsFor(posts.map((post) => post.author)),
-    relationsFor(
-      viewerId,
-      posts.map((post) => post.author.id),
-    ),
-  ]);
+  const author = await authorsFor(posts.map((post) => post.author));
   const picker = permissions.canReact ? pickerTypes(reactionTypes) : [];
   // One signature per member on the page: under their first post.
   const seen = new Set<number>();
@@ -576,10 +455,6 @@ async function ThreadPosts({
             key={post.id}
             post={post}
             author={author(post.author.id)}
-            postbitActions={memberActionsOf(
-              author(post.author.id).member,
-              relation(post.author.id),
-            )}
             byThreadAuthor={post.author.id === thread.author.id}
             noteState={
               post.state !== "visible" &&

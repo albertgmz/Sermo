@@ -46,7 +46,6 @@ export function PostFrame({
   trailing,
   postbitActions,
   actions,
-  after,
   signed = false,
   children,
 }: {
@@ -61,10 +60,8 @@ export function PostFrame({
   trailing?: React.ReactNode;
   // What the viewer can do about the author, drawn in the postbit.
   postbitActions?: React.ReactNode;
-  // The row of actions under the content.
+  // The footer under the content: a `ContentActions`, which parts itself from the body.
   actions: React.ReactNode;
-  // Under the actions row.
-  after?: React.ReactNode;
   // Whether the author's signature closes the frame.
   signed?: boolean;
   // Under the time row: notes, the body and its attachments.
@@ -110,11 +107,7 @@ export function PostFrame({
 
         {children}
 
-        <div className="mt-2 -mx-2 flex flex-wrap items-center justify-end gap-1">
-          {actions}
-        </div>
-
-        {after}
+        {actions}
 
         {signed && author.signatureHtml && (
           <SignatureHtml className="mt-2 border-t pt-2">

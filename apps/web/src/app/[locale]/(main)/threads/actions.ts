@@ -6,7 +6,6 @@ import {
   postsGet,
   postsRestore,
   postsUpdate,
-  reportsCreate,
   threadsDelete,
   threadsGet,
   threadsMarkRead,
@@ -323,21 +322,6 @@ export async function unwatchThreadAction(
   );
   if (!done.ok) return { error: done.error };
   backToThread(threadId);
-}
-
-export async function reportPostAction(
-  postId: number,
-  _previous: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  requireIds(postId);
-  const done = await attempt("/", () =>
-    call(reportsCreate, {
-      target: { type: "post", id: postId },
-      reason: textOf(formData, "reason"),
-    }),
-  );
-  return done.ok ? { done: true } : { error: done.error };
 }
 
 // The Markdown source of a post, for the quote button: the list only carries rendered HTML.

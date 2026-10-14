@@ -61,10 +61,12 @@ function render(
   },
   authorId = 7,
   types = picker,
+  part?: "both" | "button" | "summary",
 ) {
   return renderToStaticMarkup(
     withIntl(
       <Reactions
+        part={part}
         target="post"
         id={5}
         reactions={reactions}
@@ -166,4 +168,20 @@ test("the button and the summary draw a type's picture instead of its emoji", ()
   expect(html.split('data-slot="reaction-picture"').length - 1).toBe(2);
   expect(html).toContain("background-image:url(&quot;/api/v1/files/9&quot;)");
   expect(html).not.toContain("✨");
+});
+
+test("a bar draws the button and the summary apart, each once", () => {
+  const button = render(9, some, 7, picker, "button");
+  expect(button).toContain("Choose a reaction");
+  expect(button).not.toContain("show who reacted");
+  const summary = render(9, some, 7, picker, "summary");
+  expect(summary).toContain("4 reactions, show who reacted");
+  expect(summary).not.toContain("Choose a reaction");
+  expect(summary).not.toContain("aria-pressed");
+});
+
+test("the summary alone shows the number where there is no button, and nothing without reactions", () => {
+  expect(shown(render(7, some, 7, picker, "summary"), 4)).toBe(1);
+  expect(render(9, none, 7, picker, "summary")).toBe("");
+  expect(render(7, some, 7, picker, "button")).toBe("");
 });

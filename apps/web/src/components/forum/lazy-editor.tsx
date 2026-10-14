@@ -14,6 +14,7 @@ type Loaded = { Editor: typeof Editor; text: string; focused: boolean };
 export function LazyEditor({
   name,
   placeholder,
+  defaultValue,
   minHeight = 40,
   toolbarContainer,
   findMembers,
@@ -21,6 +22,8 @@ export function LazyEditor({
 }: {
   name: string;
   placeholder: string;
+  // The text it opens with, to edit something written before.
+  defaultValue?: string;
   // One line unless the composer gives the text more room.
   minHeight?: number;
   // The element of the composer's own bar that takes the formatting bar; without one it sits
@@ -86,6 +89,7 @@ export function LazyEditor({
       <textarea
         ref={field}
         name={name}
+        defaultValue={defaultValue}
         rows={1}
         placeholder={placeholder}
         aria-label={placeholder}

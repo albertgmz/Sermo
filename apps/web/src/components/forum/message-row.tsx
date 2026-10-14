@@ -64,9 +64,7 @@ export function MessageRow({
           </span>
         </p>
         <div className={compact ? undefined : "mt-1"}>{children}</div>
-        {actions && (
-          <div className="mt-1 -ml-2 flex items-center gap-1">{actions}</div>
-        )}
+        {actions}
         {footer}
       </div>
     </article>

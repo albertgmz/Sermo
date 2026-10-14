@@ -79,6 +79,28 @@ mock.module("next/cache", () => ({
   cacheLife: () => {},
   cacheTag: () => {},
 }));
+const member = { id: 1, username: "ember" };
+// The one conversation the backend knows, as conversations.get answers.
+const conversation = {
+  id: 101,
+  title: "Seed swap",
+  starter: member,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  lastMessage: {
+    messageId: 1,
+    sentAt: "2026-01-01T00:00:00.000Z",
+    user: member,
+  },
+  messageCount: 1,
+  participantCount: 1,
+  isUnread: false,
+  participants: [{ user: member, state: "active" }],
+  canReply: true,
+  canInvite: false,
+  canRename: false,
+  isLocked: false,
+  canLock: false,
+};
 // Forums, threads, members, conversations and awards are asked of the backend, which knows only
 // record 101.
 globalThis.fetch = (async (input: string) => {
@@ -91,6 +113,9 @@ globalThis.fetch = (async (input: string) => {
       { error: { code: "not_found", message: "Not found." } },
       { status: 404 },
     );
+  }
+  if (String(input).endsWith("/conversations/101")) {
+    return Response.json(conversation);
   }
   return Response.json({
     ...site,

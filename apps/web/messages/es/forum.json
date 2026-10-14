@@ -17,7 +17,9 @@
   },
   "memberActions": {
     "message": "Mensaje privado",
-    "aria": { "message": "Enviar un mensaje privado a {username}" }
+    "aria": {
+      "message": "Enviar un mensaje privado a {username}"
+    }
   },
   "memberCardTrigger": {
     "aria": {
@@ -37,9 +39,10 @@
   },
   "shareButton": {
     "aria": {
-      "copied": "Enlace copiado",
-      "copy": "Copiar enlace"
-    }
+      "share": "Compartir"
+    },
+    "copy": "Copiar enlace",
+    "copied": "Enlace copiado"
   },
   "unreadDot": {
     "aria": {
@@ -176,5 +179,25 @@
     "said": "dijo:",
     "spoiler": "Spoiler",
     "spoilerFailed": "No se pudo cargar ese spoiler."
+  },
+  "contentActions": {
+    "quote": "Citar",
+    "reply": "Responder",
+    "share": "Compartir",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "report": "Denunciar",
+    "confirmDelete": "Eliminar",
+    "cancel": "Cancelar",
+    "deleteReason": "Motivo (opcional)",
+    "reportReason": "¿Por qué lo denuncias?",
+    "reportSubmit": "Enviar denuncia",
+    "reported": "Gracias. Los moderadores lo revisarán.",
+    "save": "Guardar cambios",
+    "editPlaceholder": "Edita tu texto…",
+    "sourceFailed": "No se pudo cargar el texto para editarlo."
+  },
+  "editedMark": {
+    "label": "Editado <time></time>"
   }
 }

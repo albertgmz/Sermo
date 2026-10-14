@@ -25,6 +25,7 @@ export function Reactions({
   picker,
   reactionTypes,
   size,
+  part,
   className,
 }: {
   target: ReactionTarget;
@@ -40,6 +41,8 @@ export function Reactions({
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
   size?: "default" | "sm";
+  // `button` and `summary` draw one half each, for a bar that keeps them apart.
+  part?: "both" | "button" | "summary";
   className?: string;
 }) {
   const view = reactionsView(reactions, reactionTypes);
@@ -62,6 +65,7 @@ export function Reactions({
         )
       }
       size={size}
+      part={part}
       className={className}
     />
   );

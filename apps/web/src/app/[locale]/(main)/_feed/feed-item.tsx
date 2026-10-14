@@ -241,6 +241,7 @@ export function FeedItem({
           hasWallComments(profilePost, comments, links) && (
             <WallComments
               anchor={anchor}
+              profileUserId={profilePost.profileUserId}
               comments={comments}
               links={links}
               action={

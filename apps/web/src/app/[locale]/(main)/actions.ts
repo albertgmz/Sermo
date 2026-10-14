@@ -5,6 +5,7 @@ import {
   postsCreate,
   reactionsRemove,
   reactionsSet,
+  reportsCreate,
   usersFollow,
   usersUnfollow,
 } from "@sermo/core/contracts";
@@ -146,6 +147,35 @@ export async function react(
   // per visitor, so no path is named.
   refresh();
   return {};
+}
+
+// What a report can be about, as the backend names it.
+const REPORTABLE = [
+  "post",
+  "profile_post",
+  "profile_post_comment",
+  "conversation_message",
+] as const;
+
+export type ReportableType = (typeof REPORTABLE)[number];
+
+// Files a report from the form under a post, message, wall post or comment: the one action of every
+// surface that reports. The page stays as it is; the form says that the report was taken.
+export async function reportContent(
+  type: ReportableType,
+  id: number,
+  _previous: { error?: string; done?: boolean },
+  formData: FormData,
+): Promise<{ error?: string; done?: boolean }> {
+  if (!REPORTABLE.includes(type)) return {};
+  requireIds(id);
+  const done = await attempt("/", () =>
+    call(reportsCreate, {
+      target: { type, id },
+      reason: String(formData.get("reason") ?? ""),
+    }),
+  );
+  return done.ok ? { done: true } : { error: done.error };
 }
 
 // Follows or unfollows a member from where their name is drawn (a post, a card) and stays on the

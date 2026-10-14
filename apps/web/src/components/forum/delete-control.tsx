@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 //   variant      "destructive" (default) or "outline" for an action that is not a deletion.
 //   id           Id of the form once open, for controls elsewhere that submit with it.
 //   children     The action's own inputs, shown in the step above the reason.
+//   open         Set where a bar owns the opening button: the step is then shown or hidden by
+//                this flag, and `onOpenChange` hears of the cancel button.
 export function DeleteControl({
   action,
   label,
@@ -31,6 +33,8 @@ export function DeleteControl({
   warning,
   variant = "destructive",
   id,
+  open: controlledOpen,
+  onOpenChange,
   children,
 }: {
   action: (
@@ -44,10 +48,19 @@ export function DeleteControl({
   warning?: string;
   variant?: "destructive" | "outline";
   id?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [own, setOwn] = useState(false);
+  const controlled = controlledOpen !== undefined;
+  const open = controlled ? controlledOpen : own;
+  const setOpen = (next: boolean) => {
+    if (!controlled) setOwn(next);
+    onOpenChange?.(next);
+  };
   if (!open) {
+    if (controlled) return null;
     return (
       <Button
         type="button"

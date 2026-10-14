@@ -27,6 +27,7 @@ export function ReactionControl({
   authorId,
   summary,
   size,
+  part = "both",
   className,
 }: {
   action: (typeId: number | null) => Promise<{ error?: string } | undefined>;
@@ -38,9 +39,13 @@ export function ReactionControl({
   // A `ReactionSummary` with `showTotal` off exactly when `canReact`; none when nobody reacted.
   summary: React.ReactNode;
   size?: "default" | "sm";
+  // Where a bar keeps the button and the summary apart, each is drawn on its own.
+  part?: "both" | "button" | "summary";
   className?: string;
 }) {
   const pressable = canReact(viewerId, authorId, picker);
+  if (part === "summary") return summary || null;
+  if (part === "button" && !pressable) return null;
   // Nothing to press and nothing to show: no box at all, so a row's gap does not widen.
   if (!pressable && !summary) return null;
   return (
@@ -62,7 +67,7 @@ export function ReactionControl({
           size={size}
         />
       )}
-      {summary}
+      {part === "both" && summary}
     </div>
   );
 }

@@ -1,8 +1,14 @@
-import { expect, mock, test } from "bun:test";
+import { afterAll, expect, mock, test } from "bun:test";
 import type { ReactElement, ReactNode } from "react";
 import type { AuthorView } from "@/lib/sermo/views";
 
 mock.module("server-only", () => ({}));
+// The frame is called as a plain function: it reads the locale without a provider.
+const intl = { ...(await import("next-intl")) };
+mock.module("next-intl", () => ({ ...intl, useLocale: () => "en" }));
+afterAll(() => {
+  mock.module("next-intl", () => intl);
+});
 const { PostFrame } = await import("./post-frame");
 const { Postbit } = await import("./postbit");
 
@@ -87,15 +93,12 @@ test("the optional slots draw only when given", () => {
   const without = frame();
   expect(without.marks).not.toContain("edited");
   expect(without.marks).not.toContain("trailing");
-  expect(without.marks).not.toContain("after");
   const withAll = frame({
     edited: <i data-mark="edited" />,
     trailing: <i data-mark="trailing" />,
-    after: <i data-mark="after" />,
   });
   expect(withAll.marks).toContain("edited");
   expect(withAll.marks).toContain("trailing");
-  expect(withAll.marks).toContain("after");
 });
 
 const base = {

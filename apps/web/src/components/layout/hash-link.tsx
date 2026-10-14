@@ -14,16 +14,19 @@ import { HASH_LINK_EVENT, TARGET } from "@/components/layout/spotlight";
 export function HashLink({
   href,
   className,
+  "aria-label": ariaLabel,
   children,
 }: {
   href: string;
   className?: string;
+  "aria-label"?: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
   return (
     <Link
       href={href}
+      aria-label={ariaLabel}
       className={className}
       onClick={(event) => {
         if (

@@ -3,6 +3,7 @@
 import {
   conversationsAddParticipants,
   conversationsCreate,
+  conversationsDeleteMessage,
   conversationsLeave,
   conversationsMarkRead,
   conversationsRename,
@@ -10,7 +11,7 @@ import {
   conversationsSetLocked,
   usersSearch,
 } from "@sermo/core/contracts";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -59,6 +60,21 @@ export async function markReadAction(
     call(conversationsMarkRead, { conversationId }),
   );
   return marked.ok ? {} : { error: marked.error };
+}
+
+// Deletes a message (its author or a moderator, as the backend allows) and draws the page again.
+export async function deleteMessageAction(
+  conversationId: number,
+  messageId: number,
+  _previous: ReplyState,
+): Promise<ReplyState> {
+  requireIds(conversationId, messageId);
+  const deleted = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsDeleteMessage, { messageId }),
+  );
+  if (!deleted.ok) return { error: deleted.error };
+  refresh();
+  return {};
 }
 
 export type LeaveState = { error?: string };

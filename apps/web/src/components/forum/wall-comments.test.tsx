@@ -77,6 +77,7 @@ async function render(over: Partial<Parameters<typeof WallComments>[0]> = {}) {
     withIntl(
       <WallComments
         anchor="profile-post-9"
+        profileUserId={9}
         comments={[comment(1), comment(2)]}
         member={member}
         viewerId={3}

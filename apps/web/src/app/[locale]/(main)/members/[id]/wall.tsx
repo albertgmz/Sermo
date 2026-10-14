@@ -11,12 +11,12 @@ import {
 } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { EditedMark } from "@/components/forum/edited-mark";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
 import type { ReactionType } from "@/components/forum/reaction-button";
-import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -26,6 +26,7 @@ import {
   WallComments,
   WallStateNote,
 } from "@/components/forum/wall-comments";
+import { WallItemActions } from "@/components/forum/wall-item-actions";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
@@ -98,41 +99,48 @@ function WallPost({
     <MessageRow
       id={anchor}
       author={member(post.author.id)}
-      time={<RelativeTime date={post.createdAt} />}
-      actions={
+      time={
         <>
-          <Reactions
-            target="profilePost"
-            id={post.id}
-            reactions={post.reactions}
-            authorId={post.author.id}
-            viewerId={viewerId}
-            picker={post.state === "visible" ? picker : []}
-            reactionTypes={reactionTypes}
-          />
-          {commentsHref ? (
-            <Link
-              href={commentsHref}
-              aria-label={label}
-              className={messageActionClass}
-            >
-              {count}
-            </Link>
-          ) : (
-            <span
-              role="img"
-              aria-label={label}
-              className={cn(messageActionClass, "pointer-events-none")}
-            >
-              {count}
-            </span>
+          <RelativeTime date={post.createdAt} />
+          {post.editedAt && (
+            <EditedMark date={post.editedAt} className="ml-1.5" />
           )}
         </>
+      }
+      actions={
+        <WallItemActions
+          kind="post"
+          item={post}
+          address={{ profileUserId: post.profileUserId, postId: post.id }}
+          viewerId={viewerId}
+          picker={picker}
+          reactionTypes={reactionTypes}
+          start={
+            commentsHref ? (
+              <Link
+                href={commentsHref}
+                aria-label={label}
+                className={messageActionClass}
+              >
+                {count}
+              </Link>
+            ) : (
+              <span
+                role="img"
+                aria-label={label}
+                className={cn(messageActionClass, "pointer-events-none")}
+              >
+                {count}
+              </span>
+            )
+          }
+        />
       }
       footer={
         hasWallComments(post, comments, links) && (
           <WallComments
             anchor={anchor}
+            profileUserId={post.profileUserId}
             comments={comments}
             links={links}
             action={

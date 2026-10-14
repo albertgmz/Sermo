@@ -3,6 +3,7 @@ import { Hourglass, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
+import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import {
   LineComposer,
@@ -11,8 +12,8 @@ import {
 import { MessageRow } from "@/components/forum/message-row";
 import { PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
-import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
+import { WallItemActions } from "@/components/forum/wall-item-actions";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ export function hasWallComments(
 // is drawn: the profile wall and the feed. The composer sits at `#<anchor>-comment`.
 export function WallComments({
   anchor,
+  profileUserId,
   comments,
   links = {},
   action,
@@ -59,6 +61,8 @@ export function WallComments({
 }: {
   // The id of the post's element on the page.
   anchor: string;
+  // The wall the post is on, for the comments' permalinks.
+  profileUserId: number;
   // The newest few, or one page of them where the post is open.
   comments: ApiWallComment[];
   // Where the comments can be followed: more of them, older ones, or back to the newest few.
@@ -92,17 +96,22 @@ export function WallComments({
           id={`profile-comment-${comment.id}`}
           compact
           author={member(comment.author.id)}
-          time={<RelativeTime date={comment.createdAt} />}
+          time={
+            <>
+              <RelativeTime date={comment.createdAt} />
+              {comment.editedAt && (
+                <EditedMark date={comment.editedAt} className="ml-1.5" />
+              )}
+            </>
+          }
           actions={
-            <Reactions
-              target="profileComment"
-              id={comment.id}
-              reactions={comment.reactions}
-              authorId={comment.author.id}
+            <WallItemActions
+              kind="comment"
+              item={comment}
+              address={{ profileUserId, postId: comment.profilePostId }}
               viewerId={viewerId}
-              picker={comment.state === "visible" ? picker : []}
+              picker={picker}
               reactionTypes={reactionTypes}
-              size="sm"
             />
           }
         >

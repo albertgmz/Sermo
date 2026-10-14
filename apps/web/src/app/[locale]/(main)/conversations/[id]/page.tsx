@@ -16,15 +16,15 @@ import {
   ReplyArea,
 } from "@/app/[locale]/(main)/conversations/[id]/locked-state";
 import { MarkReadProvider } from "@/app/[locale]/(main)/conversations/[id]/mark-read-state";
+import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message-actions";
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
-import { memberActionsOf } from "@/components/forum/member-actions";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
-import { Reactions } from "@/components/forum/reactions";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
@@ -32,7 +32,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { pageHolding } from "@/lib/sermo/locate";
-import { authorsFor, membersFor, relationsFor } from "@/lib/sermo/members";
+import { authorsFor, membersFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getMember } from "@/lib/sermo/session";
 
@@ -188,13 +188,7 @@ async function Messages({
   ]);
   // The backend lists from the newest end; the page reads from the oldest of its messages down.
   const messages = newestFirst.toReversed();
-  const [author, relation] = await Promise.all([
-    authorsFor(messages.map((message) => message.author)),
-    relationsFor(
-      user?.id ?? null,
-      messages.map((message) => message.author.id),
-    ),
-  ]);
+  const author = await authorsFor(messages.map((message) => message.author));
   // One signature per member on the page: under their first message.
   const seen = new Set<number>();
   const firstOfAuthor = new Set(
@@ -205,7 +199,6 @@ async function Messages({
     }),
   );
   const picker = canReact ? pickerTypes(reactionTypes) : [];
-
   return (
     <>
       {nextCursor && (
@@ -224,22 +217,17 @@ async function Messages({
             <PostFrame
               id={`message-${message.id}`}
               author={author(message.author.id)}
-              postbitActions={memberActionsOf(
-                author(message.author.id).member,
-                relation(message.author.id),
-              )}
               createdAt={message.createdAt}
+              edited={
+                message.editedAt && <EditedMark date={message.editedAt} />
+              }
               signed={firstOfAuthor.has(message.id)}
               actions={
-                <Reactions
-                  target="message"
-                  id={message.id}
-                  reactions={message.reactions}
-                  authorId={message.author.id}
+                <MessageActions
+                  message={message}
                   viewerId={user?.id ?? null}
-                  picker={message.state === "visible" ? picker : []}
+                  picker={picker}
                   reactionTypes={reactionTypes}
-                  className="mr-auto"
                 />
               }
             >

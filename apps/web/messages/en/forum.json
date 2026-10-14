@@ -17,7 +17,9 @@
   },
   "memberActions": {
     "message": "Message",
-    "aria": { "message": "Start a private conversation with {username}" }
+    "aria": {
+      "message": "Start a private conversation with {username}"
+    }
   },
   "memberCardTrigger": {
     "aria": {
@@ -37,9 +39,10 @@
   },
   "shareButton": {
     "aria": {
-      "copied": "Link copied",
-      "copy": "Copy link"
-    }
+      "share": "Share"
+    },
+    "copy": "Copy link",
+    "copied": "Link copied"
   },
   "unreadDot": {
     "aria": {
@@ -176,5 +179,25 @@
     "said": "said:",
     "spoiler": "Spoiler",
     "spoilerFailed": "That spoiler could not be loaded."
+  },
+  "contentActions": {
+    "quote": "Quote",
+    "reply": "Reply",
+    "share": "Share",
+    "edit": "Edit",
+    "delete": "Delete",
+    "report": "Report",
+    "confirmDelete": "Delete",
+    "cancel": "Cancel",
+    "deleteReason": "Reason (optional)",
+    "reportReason": "Why are you reporting this?",
+    "reportSubmit": "Send report",
+    "reported": "Thank you. The moderators will look at this.",
+    "save": "Save changes",
+    "editPlaceholder": "Edit your text…",
+    "sourceFailed": "The text could not be loaded for editing."
+  },
+  "editedMark": {
+    "label": "Edited <time></time>"
   }
 }

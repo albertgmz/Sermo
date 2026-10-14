@@ -104,10 +104,6 @@ test("a refusal of the backend is what the form shows", async () => {
     await actions.editPostAction(7, 31, {}, form({ body: "text" })),
     shown,
   );
-  assert.deepEqual(
-    await actions.reportPostAction(31, {}, form({ reason: "spam" })),
-    shown,
-  );
 });
 
 test("a refusal of a restore or a split, which the page only hints at, is shown", async () => {
@@ -383,18 +379,6 @@ test("splitting needs posts and a forum, and goes to the new thread", async () =
   assert.deepEqual((asked[0].body as { postIds: number[] }).postIds, [31, 32]);
 });
 
-test("reporting a post confirms once the backend has taken it", async () => {
-  answer = { status: 200, body: { id: 1, groupId: 1 } };
-  assert.deepEqual(
-    await actions.reportPostAction(31, {}, form({ reason: "spam" })),
-    { done: true },
-  );
-  assert.deepEqual(asked[0].body, {
-    target: { type: "post", id: 31 },
-    reason: "spam",
-  });
-});
-
 test("an id that is not a record id never becomes a path", async () => {
   for (const id of [".." as unknown as number, 0, -3, Number.NaN]) {
     await assert.rejects(() => actions.editPostAction(id, 1, {}, form({})));
@@ -405,7 +389,6 @@ test("an id that is not a record id never becomes a path", async () => {
     await assert.rejects(() => actions.removeCoverAction(id, {}));
     await assert.rejects(() => actions.watchThreadAction(id, {}, form({})));
     await assert.rejects(() => actions.unwatchThreadAction(id, {}));
-    await assert.rejects(() => actions.reportPostAction(id, {}, form({})));
     await assert.rejects(() => actions.quoteSource(id));
     await assert.rejects(() => actions.markRead(id, 0));
     await assert.rejects(() =>

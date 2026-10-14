@@ -52,6 +52,8 @@ afterEach(() => {
 // the newest three.
 const posts = Array.from({ length: 9 }, (_, i) => 9 - i);
 const asked: string[] = [];
+// The posts the fake backend says were edited.
+let edited: number[] = [];
 
 function comment(id: number) {
   return profileCommentBody({
@@ -63,6 +65,7 @@ function comment(id: number) {
 
 function backend(signedIn = true) {
   asked.length = 0;
+  edited = [];
   globalThis.fetch = (async (url: string) => {
     const { pathname, searchParams } = new URL(url);
     asked.push(`${pathname}?${searchParams}`);
@@ -77,6 +80,7 @@ function backend(signedIn = true) {
         profilePostBody({
           id,
           bodyHtml: `<p>wall post ${id}</p>`,
+          editedAt: edited.includes(id) ? "2026-01-02T00:00:00.000Z" : null,
           commentCount: id === 5 ? 5 : 0,
           latestComments: id === 5 ? [105, 104, 103].map(comment) : [],
         }),
@@ -191,4 +195,21 @@ test("an older comment opens the page of comments that holds it", async () => {
   expect(html.includes('id="profile-comment-102"')).toBe(true);
   expect(html.includes('id="profile-comment-103"')).toBe(true);
   expect(html.includes('id="profile-comment-105"')).toBe(false);
+});
+
+test("an edited wall post says so beside its time, and only that one", async () => {
+  backend();
+  edited = [8];
+  const html = await wall({});
+  expect(html.split("Edited ").length - 1).toBe(1);
+});
+
+test("the author's controls come from the backend's flags on each post", async () => {
+  backend();
+  const html = await wall({});
+  // The fake backend allows nobody to edit or delete: a signed-in member sees share and report.
+  expect(html).not.toContain('aria-label="Edit"');
+  expect(html).not.toContain('aria-label="Delete"');
+  expect(html).toContain('aria-label="Report"');
+  expect(html).toContain('aria-label="Share"');
 });

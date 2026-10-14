@@ -38,6 +38,8 @@ test("every demo action refuses a caller who may not open the styleguide", async
   for (const kind of ["guest", "member"] as const) {
     visitor(kind);
     await expect(actions.discard(form())).rejects.toThrow();
+    await expect(actions.discardForm()).rejects.toThrow();
+    await expect(actions.discardQuote()).rejects.toThrow();
     await expect(
       actions.echoMarkdown(null, form({ body: "x" })),
     ).rejects.toThrow();
