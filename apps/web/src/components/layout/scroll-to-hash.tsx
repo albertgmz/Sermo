@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { scrollToHash } from "@/components/layout/hash-scroll";
+import { drawnById, scrollToHash } from "@/components/layout/hash-scroll";
 import { createTraversalGuard } from "@/components/layout/spotlight";
 
 const after = (run: () => void, ms: number) => {
@@ -25,7 +25,7 @@ export function ScrollToHash() {
   useEffect(() => {
     return scrollToHash({
       hash: () => window.location.hash,
-      find: (id) => document.getElementById(id),
+      find: (id) => drawnById(document, id),
       traversal: () => traversals.consume(),
       on: (type, listener) => {
         const options = { capture: true, passive: true };

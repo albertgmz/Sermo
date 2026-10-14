@@ -48,3 +48,14 @@ export function scrollToHash(env: ScrollEnv) {
   );
   return stop;
 }
+
+// The element with this id, once it is drawn. A section that streams in is first sent inside a
+// hidden container and moved into place after: until then the id exists but the element has no
+// box, and scrolling to it does nothing.
+export function drawnById<T extends { getClientRects(): { length: number } }>(
+  document: { getElementById(id: string): T | null },
+  id: string,
+) {
+  const element = document.getElementById(id);
+  return element && element.getClientRects().length > 0 ? element : null;
+}

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type ScrollEnv, scrollToHash } from "./hash-scroll";
+import { drawnById, type ScrollEnv, scrollToHash } from "./hash-scroll";
 
 // A page whose element appears after `appearsAt` ms; time moves when the test runs the timers.
 function page(
@@ -106,4 +106,14 @@ test("the wait ends when the reader scrolls, touches or types", () => {
     advance(2000);
     expect(scrolled).toEqual([]);
   }
+});
+
+test("an element still inside the hidden container of a streaming section is not drawn", () => {
+  const rects = { length: 0 };
+  const element = { getClientRects: () => rects };
+  const document = { getElementById: () => element };
+  expect(drawnById(document, "appearance")).toBeNull();
+  rects.length = 1;
+  expect(drawnById(document, "appearance")).toBe(element);
+  expect(drawnById({ getElementById: () => null }, "appearance")).toBeNull();
 });
