@@ -8,6 +8,7 @@ import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
+import { ThemeControl } from "@/components/layout/theme-control";
 import { isHexColor } from "@/lib/css-color";
 import { paletteName } from "@/lib/palette-name";
 import { authorsFor } from "@/lib/sermo/members";
@@ -76,6 +77,16 @@ export async function AppearancePanel({
         </div>
 
         <div className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1">
+          <div id="theme" className="scroll-mt-4 space-y-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">{t("themeHeading")}</h2>
+              <p className="text-xs text-pretty text-muted-foreground">
+                {t("themeDescription")}
+              </p>
+            </div>
+            <ThemeControl labelled />
+          </div>
+
           <AppearanceForm
             field="accent"
             title={t("accentHeading")}

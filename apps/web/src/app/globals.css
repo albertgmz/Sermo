@@ -15,6 +15,7 @@
   --color-secondary: var(--secondary);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-overlay: var(--overlay);
 
   /* Text. */
   --color-foreground: var(--foreground);
@@ -79,7 +80,6 @@
   }
   html {
     @apply font-sans;
-    color-scheme: dark;
     scrollbar-gutter: stable;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -112,6 +112,8 @@
 
 /* Tokens stay unlayered to preserve accent precedence. */
 :root {
+  color-scheme: dark;
+
   /* Surfaces. */
   --background: #09090b;
   --card: #0b0b0d;
@@ -119,6 +121,8 @@
   --secondary: #18181b;
   --muted: #18181b;
   --accent: #18181b;
+  /* What dims the page behind a dialog or a sheet. */
+  --overlay: rgb(0 0 0 / 0.1);
   /* What dims the page around the element an address names. */
   --spotlight-dim: color-mix(in srgb, var(--background) 60%, transparent);
 
@@ -153,8 +157,8 @@
   --tier-gold: #eab308;
   --tier-legendary: #a78bfa;
 
-  /* Code highlighting (BB code blocks). Dark values; a light theme overrides them. */
-  --code-comment: #71717a;
+  /* Code highlighting (BB code blocks). */
+  --code-comment: #8e8e99;
   --code-keyword: #f87171;
   --code-string: #86efac;
   --code-number: #fcd34d;
@@ -173,6 +177,57 @@
   --page-gap: 1rem;
   --container-width: 1420px;
   --prefix-offset: 0.0625rem;
+}
+
+/*
+ * The light theme (layout/theme.ts sets data-theme on the root before first paint; System follows
+ * the device there). Only what differs from the dark values above. --primary stays out: the
+ * accent a member or the site chooses sets it on the root, and a rule here would override that.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --background: #fafafa;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --secondary: #f0f0f2;
+  --muted: #f0f0f2;
+  --accent: #ececef;
+  --overlay: rgb(0 0 0 / 0.3);
+
+  --foreground: #09090b;
+  --card-foreground: #09090b;
+  --popover-foreground: #09090b;
+  --secondary-foreground: #09090b;
+  --muted-foreground: #52525b;
+  --accent-foreground: #09090b;
+
+  --border: #e4e4e7;
+  --input: #d4d4d8;
+
+  --destructive: #b91c1c;
+  --success: #0f766e;
+
+  --chart-1: #18181b;
+  --chart-3: #71717a;
+  --chart-4: #a1a1aa;
+  --chart-5: #d4d4d8;
+
+  --tier-bronze: #92541f;
+  --tier-silver: #62626b;
+  --tier-gold: #8a5a00;
+  --tier-legendary: #6d28d9;
+
+  --code-comment: #62626b;
+  --code-keyword: #b91c1c;
+  --code-string: #166534;
+  --code-number: #8a5a00;
+  --code-title: #0369a1;
+  --code-builtin: #6d28d9;
+  --code-attribute: #a14a09;
+  --code-meta: #52525b;
+  --code-addition: #166534;
+  --code-deletion: #b91c1c;
 }
 
 /*

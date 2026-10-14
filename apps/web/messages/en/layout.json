@@ -68,7 +68,14 @@
     },
     "failed": "This could not be loaded. Close the panel and open it again."
   },
+  "themeControl": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "userMenu": {
+    "theme": "Theme",
     "logout": "Log out",
     "aria": {
       "account": "Account menu"

@@ -128,6 +128,8 @@
     "heading": "Apariencia",
     "loading": "Cargando los ajustes de apariencia…",
     "description": "Cómo ves el foro y cómo te ven los demás.",
+    "themeHeading": "Tema",
+    "themeDescription": "Claro, oscuro o el de tu dispositivo. Solo se guarda en este navegador.",
     "previewHeading": "Vista previa",
     "previewDescription": "Tu avatar, nombre y portada con las opciones guardadas ahora mismo.",
     "accentHeading": "Color de acento",

@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { widthScript } from "@/components/layout/narrow-width";
 import { SiteIcon } from "@/components/layout/site-icon";
+import { themeScript } from "@/components/layout/theme";
 import { isLocale, LOCALES } from "@/i18n/locales";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
@@ -29,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  colorScheme: "dark",
+  colorScheme: "light dark",
   viewportFit: "cover",
 };
 
@@ -49,12 +50,14 @@ export default async function RootLayout({
   return (
     <html
       lang={locale}
-      className={`dark ${inter.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input */}
         <script dangerouslySetInnerHTML={{ __html: widthScript }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script, no visitor input */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
         <Suspense>

@@ -9,6 +9,7 @@ import { Logo } from "@/components/layout/logo";
 import { hasHref, type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
 import { toNavItems } from "@/components/layout/nav-server";
+import { ThemeControl } from "@/components/layout/theme-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getSite } from "@/lib/sermo/site";
@@ -184,11 +185,14 @@ async function FooterCopyright() {
     getSite(),
   ]);
   return (
-    <p className="mt-8 border-t pt-4 text-xs text-muted-foreground">
-      {t.rich("copyright", {
-        site: site.name,
-        brand: (chunks) => <span className="text-foreground">{chunks}</span>,
-      })}
-    </p>
+    <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+      <p className="text-xs text-muted-foreground">
+        {t.rich("copyright", {
+          site: site.name,
+          brand: (chunks) => <span className="text-foreground">{chunks}</span>,
+        })}
+      </p>
+      <ThemeControl />
+    </div>
   );
 }

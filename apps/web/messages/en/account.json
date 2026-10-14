@@ -128,6 +128,8 @@
     "heading": "Appearance",
     "loading": "Loading appearance settings…",
     "description": "How the forum looks for you, and how you look to everyone else.",
+    "themeHeading": "Theme",
+    "themeDescription": "Light, dark, or follow your device. Kept in this browser only.",
     "previewHeading": "Preview",
     "previewDescription": "Your avatar, name and cover with the choices saved right now.",
     "accentHeading": "Accent colour",

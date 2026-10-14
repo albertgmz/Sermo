@@ -68,7 +68,14 @@
     },
     "failed": "No se pudo cargar. Cierra el panel y ábrelo de nuevo."
   },
+  "themeControl": {
+    "label": "Tema",
+    "system": "Sistema",
+    "light": "Claro",
+    "dark": "Oscuro"
+  },
   "userMenu": {
+    "theme": "Tema",
     "logout": "Cerrar sesión",
     "aria": {
       "account": "Menú de la cuenta"
