@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import messages from "../messages/en/lite.json";
 import { LITE_CATEGORIES } from "../src/lib/lite-preferences";
 import {
   artCategoryErrors,
@@ -12,6 +11,7 @@ import {
   read,
   sourceFiles,
 } from "./lite-scan";
+import { LOCALE_DIRS, MESSAGES } from "./locales";
 
 // Full emission permission is limited to reviewed gates and their primitive.
 const EMISSION_GATES: Record<string, string> = {
@@ -174,16 +174,23 @@ test("registry labels and descriptions remain valid", () => {
   expect(new Set(LITE_CATEGORIES.map(({ key }) => key)).size).toBe(
     LITE_CATEGORIES.length,
   );
-  for (const category of LITE_CATEGORIES) {
-    const text = messages.categories[category.key];
-    expect(
-      text?.label.trim().length ?? 0,
-      `${category.key}: add a label to messages/en/lite.json`,
-    ).toBeGreaterThan(0);
-    expect(
-      text?.description.trim().length ?? 0,
-      `${category.key}: add a description to messages/en/lite.json`,
-    ).toBeGreaterThan(0);
+  for (const locale of LOCALE_DIRS) {
+    const { categories } = JSON.parse(
+      readFileSync(join(MESSAGES, locale, "lite.json"), "utf8"),
+    ) as {
+      categories: Record<string, { label: string; description: string }>;
+    };
+    for (const category of LITE_CATEGORIES) {
+      const text = categories[category.key];
+      expect(
+        text?.label.trim().length ?? 0,
+        `${category.key}: add a label to messages/${locale}/lite.json`,
+      ).toBeGreaterThan(0);
+      expect(
+        text?.description.trim().length ?? 0,
+        `${category.key}: add a description to messages/${locale}/lite.json`,
+      ).toBeGreaterThan(0);
+    }
   }
   for (const path of [
     ...Object.keys(EMISSION_GATES),

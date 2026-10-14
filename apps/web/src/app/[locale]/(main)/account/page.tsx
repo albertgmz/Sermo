@@ -1,7 +1,7 @@
 import { Heart, MessageCircle, Star, Users } from "lucide-react";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { getSelf } from "@/app/[locale]/(main)/account/data";
 import type { SearchParams } from "@/app/[locale]/(main)/account/notice";
@@ -23,6 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 async function Stats() {
+  const locale = await getLocale();
   const [t, { profile }] = await Promise.all([
     getTranslations("account.profile"),
     getSelf(),
@@ -32,22 +33,22 @@ async function Stats() {
       <StatTile
         label={t("postsLabel")}
         icon={MessageCircle}
-        value={formatNumber(profile.postCount)}
+        value={formatNumber(profile.postCount, locale)}
       />
       <StatTile
         label={t("reputationLabel")}
         icon={Star}
-        value={formatNumber(profile.reactionScore)}
+        value={formatNumber(profile.reactionScore, locale)}
       />
       <StatTile
         label={t("followersLabel")}
         icon={Users}
-        value={formatNumber(profile.followerCount)}
+        value={formatNumber(profile.followerCount, locale)}
       />
       <StatTile
         label={t("followingLabel")}
         icon={Heart}
-        value={formatNumber(profile.followingCount)}
+        value={formatNumber(profile.followingCount, locale)}
       />
     </div>
   );

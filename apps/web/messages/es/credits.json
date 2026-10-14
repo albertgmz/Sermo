@@ -1,0 +1,162 @@
+{
+  "credits": {
+    "metaTitle": "Credits",
+    "title": "Credits",
+    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
+    "balanceHeading": "Your balance",
+    "balanceDescription": "credits to spend in the shop",
+    "loginDescription": "Log in to see your balance, buy items and keep track of what you own.",
+    "login": "Log in",
+    "shopTab": "Shop",
+    "inventoryTab": "Inventory",
+    "historyTab": "History",
+    "leadersHeading": "Richest members",
+    "leadersDescription": "Ranked by credits",
+    "notices": {
+      "bought": "Purchase complete. You will find it in your inventory.",
+      "worn": "Done. You are wearing it now.",
+      "removed": "Done. You took it off.",
+      "used": "Done. The item has been used."
+    },
+    "aria": {
+      "sections": "Credits sections",
+      "loadingShop": "Loading the shop…",
+      "loadingBalance": "Loading your balance…",
+      "loadingLeaders": "Loading richest members…",
+      "loadingWays": "Loading the ways to earn…"
+    }
+  },
+  "ways": {
+    "heading": "Ways to earn",
+    "description": "What earns or costs credits on this site.",
+    "emptyTitle": "No ways to earn yet",
+    "emptyDescription": "Nothing earns or costs credits right now.",
+    "amount": "{sign, select, minus {−} other {+}}{value, plural, one {# credit} other {# credits}}",
+    "limit": "Up to {count} per {hours, plural, one {hour} other {# hours}}",
+    "forums": "Only in:",
+    "triggers": {
+      "thread_created": "When you start a thread",
+      "reply_posted": "When you post a reply",
+      "reply_received": "When someone replies to your thread",
+      "reaction_given": "When you react to a post",
+      "reaction_received": "When someone reacts to your post",
+      "profile_post_created": "When you post on a member's profile",
+      "profile_post_received": "When someone posts on your profile",
+      "followed": "When a member follows you",
+      "registered": "When you register",
+      "daily_activity": "Your first activity of each day",
+      "warning_received": "When you receive a warning",
+      "award_received": "When you receive an award"
+    }
+  },
+  "shop": {
+    "sampleUsername": "your_name",
+    "emptyTitle": "The shop is empty",
+    "emptyDescription": "Nothing is for sale right now. Check back later.",
+    "emptyCategoryTitle": "Nothing in this category",
+    "emptyCategoryDescription": "Try another category.",
+    "stock": "{count, plural, one {# left} other {# left}}",
+    "loginToBuy": "Log in to buy",
+    "ranks": "See the ranks",
+    "aria": {
+      "categories": "Shop categories",
+      "ranks": "See the ranks, including {itemName}"
+    }
+  },
+  "effect": {
+    "frame": "Avatar frame: {name}",
+    "frameUnnamed": "An avatar frame",
+    "nameColor": "Name colour: {name}",
+    "nameColorUnnamed": "A name colour",
+    "nameIcon": "Name icon, {position, select, before {before} other {after}} your name",
+    "threadCover": "Cover for one of your threads: {name}",
+    "threadCoverUnnamed": "A cover for one of your threads",
+    "highlight": "Highlights one of your threads for {days, plural, one {# day} other {# days}}",
+    "bump": "Brings one of your threads back to the top of its forum",
+    "usernameChange": "One change of your username",
+    "permission": "Unlocks: {name}",
+    "permissionValue": "{name}: {unlimited, select, true {unlimited} other {{value}}}",
+    "lastsDays": "{count, plural, one {Lasts # day} other {Lasts # days}}",
+    "lastsHours": "{count, plural, one {Lasts # hour} other {Lasts # hours}}",
+    "lastsMinutes": "{count, plural, one {Lasts # minute} other {Lasts # minutes}}"
+  },
+  "permissions": {
+    "signature": "A signature under your posts",
+    "customTitle": "A custom title under your name",
+    "coverPreset": "A profile cover from the gallery",
+    "renameFree": "Username changes without cost",
+    "awardSlots": "Awards shown next to your name",
+    "mentionLimit": "Mentions per post",
+    "recipientLimit": "Recipients per conversation"
+  },
+  "loadMore": {
+    "label": "Show more"
+  },
+  "buyForm": {
+    "submit": "Buy",
+    "aria": {
+      "submit": "Buy {itemName}",
+      "quantity": "Quantity of {itemName}"
+    }
+  },
+  "wearForm": {
+    "wear": "Wear",
+    "takeOff": "Take off",
+    "aria": {
+      "wear": "Wear {itemName}",
+      "takeOff": "Take off {itemName}"
+    }
+  },
+  "useForm": {
+    "placeholder": "Choose a thread",
+    "submit": "Use",
+    "aria": {
+      "thread": "Thread to use {itemName} on",
+      "submit": "Use {itemName}"
+    }
+  },
+  "inventory": {
+    "heading": "Your inventory",
+    "emptyTitle": "Nothing here yet",
+    "emptyDescription": "Items you buy in the shop show up here.",
+    "browseShop": "Browse the shop",
+    "activeHeading": "In effect",
+    "activeDescription": "Items you hold and that are working for you.",
+    "unusedHeading": "To use",
+    "unusedDescription": "Items you spend one at a time.",
+    "unitsLeft": "×{count}",
+    "acquired": "Acquired {date}",
+    "expires": "Expires {date}",
+    "inEffect": "In effect",
+    "changeUsername": "Change username",
+    "noThreads": "Start a thread first: this works on your own threads.",
+    "coveredThread": "{title} (has a cover)",
+    "olderThreads": "Show older threads",
+    "newestThreads": "Back to your newest threads",
+    "aria": {
+      "changeUsername": "Change your username with {itemName}"
+    }
+  },
+  "history": {
+    "heading": "History",
+    "emptyTitle": "No transactions yet",
+    "emptyDescription": "Credits you earn and spend are listed here.",
+    "balanceAfter": "Balance {balance}",
+    "types": {
+      "adjustment": "Adjusted by staff",
+      "adjustmentBy": "Adjusted by {name}",
+      "event": "Earned by taking part",
+      "event_reversal": "Earnings taken back",
+      "award": "Award received",
+      "award_revoked": "Award taken back",
+      "purchase": "Shop purchase"
+    }
+  },
+  "loading": {
+    "title": "Credits",
+    "subtitle": "Spend your credits in the shop on looks, boosts and ranks.",
+    "aria": {
+      "loading": "Loading credits…"
+    }
+  }
+}

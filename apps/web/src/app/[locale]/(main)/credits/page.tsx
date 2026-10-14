@@ -2,7 +2,7 @@ import { creditsHistory, usersList } from "@sermo/core/contracts";
 import { Check, Coins } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { History } from "@/app/[locale]/(main)/credits/history";
 import { Inventory } from "@/app/[locale]/(main)/credits/inventory";
@@ -40,6 +40,7 @@ function first(value: string | string[] | undefined) {
 }
 
 async function Balance() {
+  const locale = await getLocale();
   const [t, { user }] = await Promise.all([
     getTranslations("credits.credits"),
     getViewer(),
@@ -60,7 +61,7 @@ async function Balance() {
               aria-hidden="true"
               className="size-9 shrink-0 text-primary"
             />
-            {formatNumber(ledger.balance)}
+            {formatNumber(ledger.balance, locale)}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             {t("balanceDescription")}

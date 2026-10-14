@@ -1,0 +1,9 @@
+{
+  "staticPage": {
+    "updated": "Last updated {date}",
+    "aria": {
+      "navigation": "Information pages",
+      "loading": "Loading page…"
+    }
+  }
+}

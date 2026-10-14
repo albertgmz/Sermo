@@ -1,6 +1,6 @@
 import { creditsHistory } from "@sermo/core/contracts";
 import { ReceiptText } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LoadMore } from "@/components/forum/load-more";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 // The member's ledger, newest first. A line is named by its type; the reason the backend recorded
 // (the credit rule, the staff note) is the detail under it.
 export async function History({ cursor }: { cursor?: string }) {
+  const locale = await getLocale();
   const [t, loadMore, ledger] = await Promise.all([
     getTranslations("credits.history"),
     getTranslations("credits.loadMore"),
@@ -59,11 +60,11 @@ export async function History({ cursor }: { cursor?: string }) {
                   )}
                 >
                   {line.amount < 0 ? "−" : "+"}
-                  {formatNumber(Math.abs(line.amount))}
+                  {formatNumber(Math.abs(line.amount), locale)}
                 </p>
                 <p className="text-xs text-muted-foreground tabular-nums">
                   {t("balanceAfter", {
-                    balance: formatNumber(line.balanceAfter),
+                    balance: formatNumber(line.balanceAfter, locale),
                   })}
                 </p>
               </div>

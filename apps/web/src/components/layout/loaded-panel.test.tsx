@@ -18,6 +18,7 @@ mock.module("react", () => ({
 const realIntl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
   ...realIntl,
+  useLocale: () => "en",
   useTranslations: () => (key: string) => key,
 }));
 let change: ((open: boolean) => void) | undefined;

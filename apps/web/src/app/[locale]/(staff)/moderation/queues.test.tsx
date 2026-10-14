@@ -12,6 +12,7 @@ const nextIntl = await import("next-intl");
 const useIntl = await import("use-intl");
 mock.module("next-intl", () => ({
   ...nextIntl,
+  useLocale: () => "en",
   useTranslations: useIntl.useTranslations,
 }));
 mock.module("server-only", () => ({}));
@@ -20,6 +21,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => {
     const t = (key: string, values?: Record<string, string | number>) => {
       let value: unknown = messages;

@@ -30,7 +30,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       assert.equal(response.status, 404, path);
       assert.equal(
         response.headers.get("x-middleware-rewrite"),
-        "http://localhost/not-found",
+        "http://localhost/en/not-found",
       );
     }
     for (const path of [
@@ -52,13 +52,16 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       assert.equal(response.status, 404, path);
       assert.equal(
         response.headers.get("x-middleware-rewrite"),
-        "http://localhost/not-found",
+        "http://localhost/en/not-found",
       );
     }
   }
   {
     const response = await request("/pictures/tobi.jpg");
-    assert.equal(response.headers.get("x-middleware-next"), "1");
+    assert.equal(
+      response.headers.get("x-middleware-rewrite"),
+      "http://localhost/en/pictures/tobi.jpg",
+    );
     assert.equal(response.headers.get("vary"), "Cookie");
     assert.equal(response.headers.get("cache-control"), null);
   }

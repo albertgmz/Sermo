@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ActionForm } from "@/app/[locale]/(main)/account/action-form";
 import {
   clearBirthday,
@@ -81,14 +81,15 @@ export async function AboutSection({
 }: {
   searchParams: SearchParams;
 }) {
-  const [t, self, notice] = await Promise.all([
+  const [t, locale, self, notice] = await Promise.all([
     getTranslations("account.about"),
+    getLocale(),
     getSelf(),
     noticeOf(searchParams, ["about", "birthdayRemoved"], ["about"]),
   ]);
   const { profile, birthYear } = self;
   const { birthday } = profile;
-  const monthNames = new Intl.DateTimeFormat("en", {
+  const monthNames = new Intl.DateTimeFormat(locale, {
     month: "long",
     timeZone: "UTC",
   });

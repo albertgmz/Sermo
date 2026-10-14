@@ -7,6 +7,7 @@ mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 const cache = await import("next/cache");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 mock.module("next/cache", () => ({

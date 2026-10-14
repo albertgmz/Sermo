@@ -1,0 +1,83 @@
+{
+  "errors": {
+    "confirm": "Tick the confirmation to send the announcement.",
+    "number": "Enter a whole number."
+  },
+  "announcements": {
+    "metaTitle": "Announcements",
+    "pageHeading": "Announcements",
+    "subtitle": "Messages sent to every member as a notification.",
+    "loading": "Loading the announcements…",
+    "heading": "Announcements sent",
+    "new": "New announcement",
+    "emptyTitle": "No announcements yet",
+    "emptyDescription": "Nothing has been sent to the members.",
+    "byline": "Sent by {author} on {date}",
+    "showText": "Show the text",
+    "notices": {
+      "sent": "Announcement sent. It is delivered to the members in the background."
+    },
+    "newMetaTitle": "New announcement",
+    "newHeading": "New announcement",
+    "newSubtitle": "Write a message for every member.",
+    "form": {
+      "heading": "Announcement",
+      "description": "Members see the title in their notifications and the text when they open it.",
+      "title": "Title",
+      "body": "Text",
+      "bodyHelp": "Markdown.",
+      "confirm": "Confirm",
+      "confirmWarning": "This notifies every member of the forum. It is delivered in the background and cannot be recalled or edited.",
+      "confirmBox": "I understand it goes to every member",
+      "send": "Send to every member"
+    }
+  },
+  "notifications": {
+    "metaTitle": "Notification defaults",
+    "pageHeading": "Notification defaults",
+    "subtitle": "What members get for each kind of notification until they choose otherwise.",
+    "loading": "Loading the notification defaults…",
+    "saved": "Defaults saved.",
+    "heading": "Defaults by type",
+    "description": "New members start with these. Members who already chose keep their own choice.",
+    "fixed": "Fixed",
+    "help": "A fixed type is always delivered and cannot be changed. A dash means the type does not use that channel.",
+    "followsWatch": "Email follows each member's watch setting.",
+    "retention": {
+      "label": "Keep read notifications",
+      "help": "Read notifications older than this are deleted.",
+      "unit": "days"
+    }
+  },
+  "email": {
+    "metaTitle": "Email",
+    "pageHeading": "Email",
+    "subtitle": "How much mail the forum sends and what it contains.",
+    "loading": "Loading the email settings…",
+    "saved": "Email settings saved.",
+    "heading": "Email",
+    "description": "Applies to notification and digest emails. Security emails are never capped.",
+    "mail": {
+      "label": "Mail",
+      "on": "Configured",
+      "off": "Not configured",
+      "onHelp": "The forum can send email.",
+      "offHelp": "The forum cannot send email, so none of these settings has an effect yet."
+    },
+    "emailHourlyCap": {
+      "label": "Notification emails per hour",
+      "help": "The most notification emails one member gets in an hour.",
+      "unit": "per member"
+    },
+    "conversationEmailIncludesBody": {
+      "label": "Conversation emails",
+      "help": "When off, an email about a conversation message only says there is one.",
+      "switch": "Include the text of the message"
+    },
+    "digestInactiveDays": {
+      "label": "Weekly digest",
+      "help": "The digest goes to members who have not visited for at least this long.",
+      "unit": "days"
+    }
+  }
+}

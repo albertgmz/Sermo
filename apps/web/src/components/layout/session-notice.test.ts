@@ -14,6 +14,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) =>
     (layout.sessionNotice as Record<string, string>)[key],
 }));

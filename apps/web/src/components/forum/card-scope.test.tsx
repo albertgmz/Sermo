@@ -17,7 +17,11 @@ mock.module("next/navigation", () => ({
 const intl = { ...(await import("next-intl")) };
 // Text does not matter here, and the preview is called as a plain function.
 const useTranslations = () => (key: string) => key;
-mock.module("next-intl", () => ({ ...intl, useTranslations }));
+mock.module("next-intl", () => ({
+  ...intl,
+  useLocale: () => "en",
+  useTranslations,
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);

@@ -1,6 +1,6 @@
 import { Eye, MessageCircle } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Art } from "@/components/forum/art";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { PrefixTag } from "@/components/forum/prefix-tag";
@@ -45,6 +45,7 @@ export function ThreadHoverCard({
   className?: string;
   children?: React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.threadHoverCard");
   const last = thread.lastPost;
   return (
@@ -97,7 +98,7 @@ export function ThreadHoverCard({
               <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                 <UserLink user={thread.author.member} /> ·{" "}
                 <time dateTime={thread.createdAt}>
-                  {formatDate(thread.createdAt)}
+                  {formatDate(thread.createdAt, locale)}
                 </time>
               </p>
             </div>
@@ -108,14 +109,14 @@ export function ThreadHoverCard({
                 <MessageCircle aria-hidden="true" className="size-3.5" />
                 <span className="sr-only">{t("aria.replies")}</span>
               </dt>
-              <dd>{formatCompact(thread.replyCount)}</dd>
+              <dd>{formatCompact(thread.replyCount, locale)}</dd>
             </div>
             <div className="flex items-center gap-1">
               <dt>
                 <Eye aria-hidden="true" className="size-3.5" />
                 <span className="sr-only">{t("aria.views")}</span>
               </dt>
-              <dd>{formatCompact(thread.views)}</dd>
+              <dd>{formatCompact(thread.views, locale)}</dd>
             </div>
             {thread.replyCount > 0 && (
               <div className="ml-auto flex min-w-0 gap-1">

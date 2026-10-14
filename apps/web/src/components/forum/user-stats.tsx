@@ -1,5 +1,5 @@
 import { Heart, type LucideIcon, MessageCircle } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type Level, LevelBadge, XpBar } from "@/components/forum/level";
 import { formatCompact } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ function Count({
   label: string;
   value: number;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.userStats");
   return (
     <span title={label} className="inline-flex items-center gap-1">
@@ -20,7 +21,7 @@ function Count({
       {t.rich("summary", {
         sr: (chunks) => <span className="sr-only">{chunks}</span>,
         label,
-        value: formatCompact(value),
+        value: formatCompact(value, locale),
       })}
     </span>
   );

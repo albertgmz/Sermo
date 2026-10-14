@@ -1,7 +1,7 @@
 import { profileCommentsList, profilePostsList } from "@sermo/core/contracts";
 import { MessageCircle, PenLine } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
@@ -79,6 +79,7 @@ function WallPost({
   reactionTypes: ReactionTypes;
   returnTo: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("members.wall");
   const anchor = `profile-post-${post.id}`;
   const commentsHref = post.canComment
@@ -89,7 +90,7 @@ function WallPost({
   const count = (
     <>
       <MessageCircle />
-      {formatNumber(post.commentCount)}
+      {formatNumber(post.commentCount, locale)}
     </>
   );
   const label = t("aria.comments", { count: post.commentCount });

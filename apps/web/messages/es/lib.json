@@ -1,0 +1,93 @@
+{
+  "appearance": {
+    "accents": {
+      "red": "Red",
+      "orange": "Orange",
+      "amber": "Amber",
+      "emerald": "Emerald",
+      "sky": "Sky",
+      "violet": "Violet"
+    },
+    "nameColors": {
+      "rose": "Rose",
+      "coral": "Coral",
+      "lime": "Lime",
+      "emerald": "Emerald",
+      "cyan": "Cyan",
+      "sky": "Sky",
+      "indigo": "Indigo",
+      "pink": "Pink",
+      "silver": "Silver",
+      "gold": "Gold",
+      "legendary": "Legendary"
+    },
+    "covers": {
+      "island": "Island",
+      "portrait": "Portrait",
+      "horses": "Horses",
+      "oranges": "Orange tree",
+      "winter": "Winter road",
+      "ocean": "Ocean",
+      "street": "City street",
+      "leaves": "Autumn leaves",
+      "pineapple": "Pineapple",
+      "valley": "Valley"
+    }
+  },
+  "permissions": {
+    "signature": {
+      "label": "Signature",
+      "description": "Add a short signature that is shown under your posts."
+    },
+    "profileCover": {
+      "label": "Profile cover",
+      "description": "Pick a photo from the gallery as the cover of your profile, your posts and your member card."
+    },
+    "customTitle": {
+      "label": "Custom title",
+      "description": "Replace the title under your name with your own text."
+    },
+    "awardSlot": {
+      "label": "Award showcase slot",
+      "description": "Show one more award next to your name."
+    },
+    "usernameChange": {
+      "label": "Username change",
+      "description": "Change your username. Each purchase allows one change."
+    }
+  },
+  "levels": {
+    "seniorMember": "Senior member",
+    "member": "Member",
+    "newMember": "New member"
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again."
+  },
+  "format": {
+    "recent": "just now"
+  },
+  "db": {
+    "errors": {
+      "unknownUser": "Unknown user",
+      "unknownThread": "Unknown thread"
+    },
+    "roles": {
+      "admin": "Administrator",
+      "moderator": "Moderator"
+    },
+    "notifications": {
+      "reply": "replied to your thread “{title}”",
+      "profilePost": "wrote on your profile",
+      "profileComment": "commented on your profile post",
+      "reaction": "{target, select, post {reacted {emoji} to your post in “{title}”} message {reacted {emoji} to your message in “{title}”} profilePost {reacted {emoji} to your profile post} other {reacted {emoji} to your comment}}",
+      "follow": "started following you",
+      "conversation": "started the conversation “{title}”",
+      "message": "sent a message in “{title}”"
+    },
+    "transactions": {
+      "purchase": "Purchased {name}",
+      "upgrade": "Upgraded to {name}"
+    }
+  }
+}

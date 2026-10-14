@@ -49,6 +49,7 @@ const member = {
     groupId: 2,
     createdAt: "2026-01-01T00:00:00.000Z",
     displayGroup: null,
+    language: null,
   },
 };
 

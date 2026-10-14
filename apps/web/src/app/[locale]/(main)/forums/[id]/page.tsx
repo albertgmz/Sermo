@@ -15,7 +15,7 @@ import {
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { useFormatter, useNow, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useNow, useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { ForumWatch } from "@/app/[locale]/(main)/forums/[id]/forum-watch";
@@ -119,6 +119,7 @@ function ThreadRow({
   member: Awaited<ReturnType<typeof membersFor>>;
   highlighted: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forums.forum");
   const format = useFormatter();
   const now = useNow();
@@ -198,14 +199,14 @@ function ThreadRow({
             <MessageCircle aria-hidden="true" className="size-3.5" />
             <span className="sr-only">{t("aria.replies")}</span>
           </dt>
-          <dd>{formatCompact(card.replyCount)}</dd>
+          <dd>{formatCompact(card.replyCount, locale)}</dd>
         </div>
         <div className="flex items-center gap-1 sm:w-16 sm:justify-end">
           <dt>
             <Eye aria-hidden="true" className="size-3.5" />
             <span className="sr-only">{t("aria.views")}</span>
           </dt>
-          <dd>{formatCompact(card.views)}</dd>
+          <dd>{formatCompact(card.views, locale)}</dd>
         </div>
       </dl>
       <p className="hidden w-52 shrink-0 truncate text-right text-xs text-muted-foreground md:block">

@@ -14,6 +14,8 @@ import {
   mayOpenPath,
   mayOpenStyleguide,
 } from "@/app/[locale]/(staff)/registry";
+import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
+import { LOCALES, type Locale, negotiateLocale } from "@/i18n/locales";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -182,16 +184,55 @@ function isDocumentRequest(request: NextRequest) {
 // Component does not know its own URL (`read()` in lib/sermo/client.ts reads it).
 const PATH_HEADER = "x-sermo-path";
 
-// Lets the request go on to a page. Only a read of the page (GET, HEAD) carries the path; an
-// action's POST does not. Whatever the client sent under that name never survives.
-function toPage(request: NextRequest) {
+// The language of this visitor: their cookie, else their browser's, else English. Every page
+// request is answered in it, and the answer depends on both.
+function localeOf(request: NextRequest): Locale {
+  return negotiateLocale(
+    request.cookies.get(LOCALE_COOKIE)?.value,
+    request.headers.get("accept-language"),
+  );
+}
+
+// The page of a language is served from `app/[locale]`; the visitor's address never carries the
+// segment, so the request is rewritten to it inside the server.
+function inLocale(request: NextRequest, locale: Locale, pathname?: string) {
+  const target = request.nextUrl.clone();
+  const path = pathname ?? request.nextUrl.pathname;
+  target.pathname = path === "/" ? `/${locale}` : `/${locale}${path}`;
+  return target;
+}
+
+const VARY = "Cookie, Accept-Language";
+
+// Lets the request go on to a page, in the visitor's language. Only a read of the page (GET,
+// HEAD) carries the path; an action's POST does not. Whatever the client sent under that name
+// never survives.
+function toPage(request: NextRequest, locale: Locale) {
   const headers = new Headers(request.headers);
   if (request.method === "GET" || request.method === "HEAD") {
     headers.set(PATH_HEADER, request.nextUrl.pathname + request.nextUrl.search);
   } else {
     headers.delete(PATH_HEADER);
   }
-  return NextResponse.next({ request: { headers } });
+  const response = NextResponse.rewrite(inLocale(request, locale), {
+    request: { headers },
+  });
+  response.headers.set("Vary", VARY);
+  return response;
+}
+
+// An address that names the hidden segment (`/es/threads/1`) is no address of the site: it goes
+// to the one without it, so a page has a single address whatever its language.
+function localePrefixRedirect(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  for (const locale of LOCALES) {
+    if (pathname !== `/${locale}` && !pathname.startsWith(`/${locale}/`))
+      continue;
+    const target = request.nextUrl.clone();
+    target.pathname = pathname.slice(locale.length + 1) || "/";
+    return NextResponse.redirect(target, 307);
+  }
+  return undefined;
 }
 
 export async function proxy(request: NextRequest) {
@@ -220,10 +261,13 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-function notFound(request: NextRequest) {
-  return NextResponse.rewrite(new URL("/not-found", request.url), {
-    status: 404,
-  });
+function notFound(request: NextRequest, locale: Locale) {
+  const response = NextResponse.rewrite(
+    new URL(`/${locale}/not-found`, request.url),
+    { status: 404 },
+  );
+  response.headers.set("Vary", VARY);
+  return response;
 }
 
 // Forums used to live under another name; those addresses go to the same place under the
@@ -253,6 +297,9 @@ async function visitorOf(request: NextRequest, hasSession: boolean) {
 async function handleRequest(request: NextRequest) {
   // The API is served by the rewrite in next.config.ts; nothing here applies to it.
   if (request.nextUrl.pathname.startsWith("/api/")) return;
+  const prefixed = localePrefixRedirect(request);
+  if (prefixed) return prefixed;
+  const locale = localeOf(request);
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(
@@ -275,22 +322,28 @@ async function handleRequest(request: NextRequest) {
   // A picture's address is let through as it is, except in the panel: there a file name is no
   // picture, and the gate below decides.
   if (isImageRequest(request.nextUrl.pathname) && !staffRequest) {
-    const response = NextResponse.next();
+    // The site's icon is a route of its own, outside the language segment; any other address
+    // that looks like a picture is no page and gets the 404 of the visitor's language.
+    const response =
+      request.nextUrl.pathname === "/favicon.ico"
+        ? NextResponse.next()
+        : NextResponse.rewrite(inLocale(request, locale));
     response.headers.set("Vary", "Cookie");
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;
   const legacy = legacyForumRedirect(request);
   if (legacy) return legacy;
-  if (isUnknownUnsafePath(request.nextUrl.pathname)) return notFound(request);
+  if (isUnknownUnsafePath(request.nextUrl.pathname))
+    return notFound(request, locale);
   let pathname: string;
   try {
     pathname = decodeURIComponent(request.nextUrl.pathname);
   } catch {
     // An address that cannot be decoded names no page of the panel or the styleguide either.
     if (staffRequest || isStyleguidePath(request.nextUrl.pathname))
-      return notFound(request);
-    return toPage(request);
+      return notFound(request, locale);
+    return toPage(request, locale);
   }
   const [, section, id, action] = pathname.split("/");
   const hasSession = SESSION_COOKIES.some((name) => request.cookies.has(name));
@@ -301,13 +354,13 @@ async function handleRequest(request: NextRequest) {
   if (staffRequest || isStaffPath(pathname)) {
     const viewer = await visitorOf(request, hasSession);
     if (viewer !== undefined && (!viewer || !mayOpenPath(viewer, pathname)))
-      return notFound(request);
+      return notFound(request, locale);
   }
   // The styleguide is for the panel's people: the same one read decides, and without it the
   // answer is no.
   if (isStyleguidePath(pathname)) {
     const viewer = await visitorOf(request, hasSession);
-    if (!viewer || !mayOpenStyleguide(viewer)) return notFound(request);
+    if (!viewer || !mayOpenStyleguide(viewer)) return notFound(request, locale);
   }
   const membersOnly = MEMBERS_ONLY.includes(section) || action === "new";
   if (membersOnly && !hasSession) {
@@ -326,7 +379,7 @@ async function handleRequest(request: NextRequest) {
     !(section === "conversations" && id === "new") &&
     !(PUBLIC_PAGES.includes(section) ? parsePageId(id) !== null : isId(id))
   ) {
-    return notFound(request);
+    return notFound(request, locale);
   }
   const isPage = isDocumentRequest(request);
   const slug = isPage ? staticSlug(section, id, action) : undefined;
@@ -338,7 +391,7 @@ async function handleRequest(request: NextRequest) {
         callWith(forward, pagesGet, { slug: parsed.data }),
       ))
     ) {
-      return notFound(request);
+      return notFound(request, locale);
     }
   }
   const find =
@@ -348,9 +401,9 @@ async function handleRequest(request: NextRequest) {
   if (find) {
     const found = await find(id, action, request);
     if (found instanceof NextResponse) return found;
-    if (!found) return notFound(request);
+    if (!found) return notFound(request, locale);
   }
-  return toPage(request);
+  return toPage(request, locale);
 }
 
 // Match before decoding, including image optimizer requests and file aliases.

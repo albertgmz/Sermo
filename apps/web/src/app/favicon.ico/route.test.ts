@@ -8,6 +8,7 @@ let cookie = "";
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) =>
     (layout.site as Record<string, string>)[key],
 }));

@@ -5,17 +5,19 @@ const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
   revalidated.length = 0;
+  cookieSets.length = 0;
   refreshed = 0;
 });
 
 let incoming = new Headers();
+const cookieSets: unknown[][] = [];
 const revalidated: unknown[][] = [];
 let refreshed = 0;
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   headers: async () => incoming,
   cookies: async () => ({
-    set: () => {},
+    set: (...args: unknown[]) => cookieSets.push(args),
     delete: () => {},
     toString: () => "",
   }),
@@ -30,9 +32,8 @@ mock.module("next/cache", () => ({
 }));
 
 const source = "./actions.ts?reactions";
-const { followFromPage, react, replyFromFeed, setLiteMode } = (await import(
-  source
-)) as typeof import("./actions");
+const { followFromPage, react, replyFromFeed, setLiteMode, setLocaleCookie } =
+  (await import(source)) as typeof import("./actions");
 
 const SUMMARY = { counts: {}, total: 0, mine: null };
 
@@ -306,4 +307,13 @@ test("a member id that cannot be a record is refused before the backend is asked
   const asked = backend(Response.json({ ok: true }));
   await expect(followFromPage(0, true)).rejects.toThrow();
   expect(asked).toHaveLength(0);
+});
+
+test("the language cookie is written for a supported language only", async () => {
+  await setLocaleCookie("es");
+  await setLocaleCookie("fr");
+  await setLocaleCookie("");
+  expect(cookieSets).toHaveLength(1);
+  expect(cookieSets[0]?.slice(0, 2)).toEqual(["forum_locale", "es"]);
+  expect(cookieSets[0]?.[2]).toMatchObject({ path: "/", httpOnly: false });
 });

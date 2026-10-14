@@ -2,6 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { siteBody } from "../src/lib/test-bodies";
+import { LOCALE_DIRS } from "./locales";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -21,6 +22,7 @@ mock.module("next/cache", () => ({
   cacheTag: () => {},
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
 }));
 
@@ -146,14 +148,16 @@ test("the footer says nothing about the site when it has no description", async 
 });
 
 test("the copyright names the site and carries no year", () => {
-  const source = readFileSync(
-    new URL("../messages/en/layout.json", import.meta.url),
-    "utf8",
-  );
-  const { siteFooter } = JSON.parse(source) as {
-    siteFooter: Record<string, string>;
-  };
-  expect(siteFooter.copyright).toContain("{site}");
-  expect(siteFooter.copyright).not.toMatch(/\d{4}/);
-  expect(siteFooter.tagline).toBeUndefined();
+  for (const locale of LOCALE_DIRS) {
+    const source = readFileSync(
+      new URL(`../messages/${locale}/layout.json`, import.meta.url),
+      "utf8",
+    );
+    const { siteFooter } = JSON.parse(source) as {
+      siteFooter: Record<string, string>;
+    };
+    expect(siteFooter.copyright, locale).toContain("{site}");
+    expect(siteFooter.copyright, locale).not.toMatch(/\d{4}/);
+    expect(siteFooter.tagline, locale).toBeUndefined();
+  }
 });

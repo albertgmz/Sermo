@@ -2,8 +2,8 @@ import { postsByAuthor } from "@sermo/core/contracts";
 import { CalendarDays, Link2, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { useLocale, useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import {
   PostsTab,
@@ -87,6 +87,7 @@ export async function generateMetadata({
 }
 
 async function LevelStrip({ profile }: { profile: Profile }) {
+  const locale = await getLocale();
   const [t, held] = await Promise.all([
     getTranslations("members.profile"),
     getHeldAwards(profile.id),
@@ -108,8 +109,8 @@ async function LevelStrip({ profile }: { profile: Profile }) {
       <XpBar level={bar} className="w-24 sm:w-64 lg:w-96" />
       <p className="text-xs tabular-nums text-muted-foreground">
         {t.rich("xp", {
-          current: formatNumber(bar.xp),
-          next: formatNumber(bar.nextLevelXp),
+          current: formatNumber(bar.xp, locale),
+          next: formatNumber(bar.nextLevelXp, locale),
           value: (chunks) => (
             <span className="font-semibold text-foreground">{chunks}</span>
           ),
@@ -285,6 +286,7 @@ function About({
   isOwn: boolean;
   cards: React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useTranslations("members.profile");
   const referral = `/register?ref=${profile.id}`;
   return (
@@ -315,7 +317,7 @@ function About({
         )}
         <dl className="divide-y divide-border">
           <Detail icon={CalendarDays} label={t("joinedLabel")}>
-            {formatDate(profile.createdAt)}
+            {formatDate(profile.createdAt, locale)}
           </Detail>
           {isOwn && (
             <Detail icon={Link2} label={t("referralLabel")}>

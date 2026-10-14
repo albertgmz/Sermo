@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/[locale]/(main)/account/navigation";
 import { LiteSettingsForm } from "@/app/[locale]/(main)/lite/settings-form";
 import { discard, discardLine } from "@/app/[locale]/(main)/ui/actions";
@@ -293,6 +293,7 @@ function Section({
 const MENTION_HTML = `<p>Thanks <a href="/members/${ADMIN.id}" class="mention" data-user-id="${ADMIN.id}">@${ADMIN.username}</a> for the help.</p>`;
 
 export default async function StyleguidePage() {
+  const locale = await getLocale();
   const [lite, liteText] = await Promise.all([
     getLiteState(),
     getTranslations("lite.page.demo"),
@@ -438,9 +439,10 @@ export default async function StyleguidePage() {
               Muted text for descriptions and metadata.
             </p>
             <p className="text-xs text-muted-foreground">
-              Caption: {formatDateTime(SAMPLE_DATE)} ·{" "}
-              {formatRelativeTime(SAMPLE_DATE)} · {formatDate(SAMPLE_DATE)} ·{" "}
-              {formatCompact(24512)} · {formatNumber(324472)}
+              Caption: {formatDateTime(SAMPLE_DATE, locale)} ·{" "}
+              {formatRelativeTime(SAMPLE_DATE, locale)} ·{" "}
+              {formatDate(SAMPLE_DATE, locale)} · {formatCompact(24512, locale)}{" "}
+              · {formatNumber(324472, locale)}
             </p>
             <p className="font-mono text-sm">const mono = "Geist Mono";</p>
           </div>
@@ -801,22 +803,22 @@ export default async function StyleguidePage() {
             <StatTile
               label="Total Posts"
               icon={MessagesSquare}
-              value={formatNumber(SAMPLE_COUNTS.postCount)}
+              value={formatNumber(SAMPLE_COUNTS.postCount, locale)}
             />
             <StatTile
               label="Total Reactions"
               icon={Heart}
-              value={formatNumber(SAMPLE_COUNTS.reactionCount)}
+              value={formatNumber(SAMPLE_COUNTS.reactionCount, locale)}
             />
             <StatTile
               label="Followers"
               icon={Users}
-              value={formatNumber(SAMPLE_COUNTS.followerCount)}
+              value={formatNumber(SAMPLE_COUNTS.followerCount, locale)}
             />
             <StatTile
               label="Total Reputation"
               icon={Star}
-              value={formatNumber(SAMPLE_COUNTS.reputation)}
+              value={formatNumber(SAMPLE_COUNTS.reputation, locale)}
             />
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-3">
@@ -825,11 +827,11 @@ export default async function StyleguidePage() {
             <StatInline label="Reactions" value={SAMPLE_COUNTS.reactionCount} />
             <StatInline
               label="Credits"
-              value={formatCompact(SAMPLE_COUNTS.credits)}
+              value={formatCompact(SAMPLE_COUNTS.credits, locale)}
             />
             <StatInline
               label="Reputation"
-              value={formatNumber(SAMPLE_COUNTS.reputation)}
+              value={formatNumber(SAMPLE_COUNTS.reputation, locale)}
             />
             <StatInline label="Referrals" value={SAMPLE_COUNTS.referralCount} />
           </div>

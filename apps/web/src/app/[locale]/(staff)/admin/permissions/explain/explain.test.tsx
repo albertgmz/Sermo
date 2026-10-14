@@ -7,6 +7,7 @@ import { fakeBackend } from "../../groups/test-backend";
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 mock.module("next/headers", () => ({

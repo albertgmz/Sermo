@@ -80,7 +80,7 @@ export type PanelState = { error?: string };
 // copy of that page for a while: without this, going back to it after a change would show the old
 // ones.
 async function backToConversation(conversationId: number): Promise<never> {
-  revalidatePath("/conversations", "layout");
+  revalidatePath("/[locale]/conversations", "layout");
   redirect(`/conversations/${conversationId}`);
 }
 
@@ -131,7 +131,7 @@ export async function startConversation(
   if (!created.ok) return { error: created.error, title };
   // The list beside the page is drawn by the layout, which a redirect between its pages keeps as
   // it was: without this it would not show the conversation just started.
-  revalidatePath("/conversations", "layout");
+  revalidatePath("/[locale]/conversations", "layout");
   redirect(`/conversations/${created.value.conversation.id}`);
 }
 

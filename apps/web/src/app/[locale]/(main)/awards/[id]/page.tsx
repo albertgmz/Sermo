@@ -2,7 +2,7 @@ import { awardsGet, awardsHolders, awardsMember } from "@sermo/core/contracts";
 import { Check, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { TIERS } from "@/app/[locale]/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
@@ -64,6 +64,7 @@ async function Holders({
   viewerId?: number;
   cursor?: string;
 }) {
+  const locale = await getLocale();
   const [t, holders] = await Promise.all([
     getTranslations("awards.award"),
     read(awardsHolders, { awardId, cursor }),
@@ -106,7 +107,7 @@ async function Holders({
                 </div>
                 <div className="shrink-0 text-right text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">
-                    {formatDate(grant.grantedAt)}
+                    {formatDate(grant.grantedAt, locale)}
                   </p>
                   <RelativeTime date={grant.grantedAt} />
                 </div>
@@ -129,6 +130,7 @@ async function Holders({
 }
 
 async function Standing({ awardId }: { awardId: number }) {
+  const locale = await getLocale();
   const { user } = await getViewer();
   if (!user) return null;
   const [t, held] = await Promise.all([
@@ -148,7 +150,7 @@ async function Standing({ awardId }: { awardId: number }) {
       {earnedAt ? (
         <>
           <Check aria-hidden="true" className="size-4" />
-          {t("earnedDate", { date: formatDate(earnedAt) })}
+          {t("earnedDate", { date: formatDate(earnedAt, locale) })}
         </>
       ) : (
         <>
@@ -164,6 +166,7 @@ export default async function AwardPage({
   params,
   searchParams,
 }: PageProps<"/[locale]/awards/[id]">) {
+  const locale = await getLocale();
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const awardId = awardIdOf(id);
   const cursor = first(query.cursor) || undefined;
@@ -215,11 +218,11 @@ export default async function AwardPage({
         <div className="mt-6 flex items-start justify-center gap-8 md:justify-start">
           <StatInline
             label={t("xpLabel")}
-            value={t("xpValue", { xp: formatNumber(award.xp) })}
+            value={t("xpValue", { xp: formatNumber(award.xp, locale) })}
           />
           <StatInline
             label={t("grantsLabel", { count: award.grantCount })}
-            value={formatNumber(award.grantCount)}
+            value={formatNumber(award.grantCount, locale)}
           />
         </div>
         {user && (

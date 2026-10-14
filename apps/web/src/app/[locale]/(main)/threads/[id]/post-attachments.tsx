@@ -1,6 +1,6 @@
 import type { postsList } from "@sermo/core/contracts";
 import { Paperclip } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
@@ -29,6 +29,7 @@ export async function PostAttachments({
 }: {
   attachments: Attachment[];
 }) {
+  const locale = await getLocale();
   const [t, liteImages] = await Promise.all([
     getTranslations("threads.page"),
     liteBlocks("postImages"),
@@ -95,7 +96,7 @@ export async function PostAttachments({
                   {fileName(file.url, file.fileId)}
                 </span>
                 <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatBytes(file.byteSize)}
+                  {formatBytes(file.byteSize, locale)}
                 </span>
               </>
             );

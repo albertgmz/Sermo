@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
   revokeDevice,
   revokeOtherDevices,
@@ -21,6 +21,7 @@ export async function Sessions({
 }: {
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
+  const locale = await getLocale();
   const [t, listing, account, notice] = await Promise.all([
     getTranslations("account.security"),
     listSessions(),
@@ -89,8 +90,8 @@ export async function Sessions({
                       separator: (chunks) => (
                         <span aria-hidden="true">{chunks}</span>
                       ),
-                      created: formatDateTime(session.createdAt),
-                      expires: formatDateTime(session.expiresAt),
+                      created: formatDateTime(session.createdAt, locale),
+                      expires: formatDateTime(session.expiresAt, locale),
                     })}
                   </p>
                   {session.ipAddress && (

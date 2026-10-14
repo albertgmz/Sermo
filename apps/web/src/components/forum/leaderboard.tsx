@@ -6,7 +6,7 @@ import {
   Trophy,
   UserPlus,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -102,18 +102,19 @@ export function LeaderboardScore({
   member: LeaderboardMember;
   compact?: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.leaderboard");
   if (by === "xp") {
     return (
       <span className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1">
         <LevelBadge level={member.card} />
         <span
-          title={t("xpTitle", { xp: formatNumber(member.awardXp) })}
+          title={t("xpTitle", { xp: formatNumber(member.awardXp, locale) })}
           className="whitespace-nowrap text-sm font-semibold tabular-nums"
         >
           {compact
-            ? formatCompact(member.awardXp)
-            : formatNumber(member.awardXp)}
+            ? formatCompact(member.awardXp, locale)
+            : formatNumber(member.awardXp, locale)}
           <span className="text-xs font-medium text-muted-foreground">
             {" "}
             {t("xp")}
@@ -137,7 +138,7 @@ export function LeaderboardScore({
           accent ? "text-primary" : "text-muted-foreground",
         )}
       />
-      {compact ? formatCompact(count) : formatNumber(count)}
+      {compact ? formatCompact(count, locale) : formatNumber(count, locale)}
       <span className="sr-only"> {t(`aria.units.${by}`, { count })}</span>
     </span>
   );
@@ -156,6 +157,7 @@ export function Leaderboard({
   start?: number;
   compact?: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.leaderboard");
   return (
     <ol start={start} className="divide-y divide-border">
@@ -184,7 +186,7 @@ export function Leaderboard({
             <>
               <LevelBadge level={member.card} />
               <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {formatNumber(member.awardXp)}
+                {formatNumber(member.awardXp, locale)}
                 <span className="text-xs font-medium text-muted-foreground">
                   {" "}
                   {t("xp")}

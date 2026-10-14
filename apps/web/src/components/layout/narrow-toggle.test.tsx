@@ -8,6 +8,7 @@ const nextIntl = await import("next-intl");
 const useIntl = await import("use-intl");
 mock.module("next-intl", () => ({
   ...nextIntl,
+  useLocale: () => "en",
   useTranslations: useIntl.useTranslations,
 }));
 

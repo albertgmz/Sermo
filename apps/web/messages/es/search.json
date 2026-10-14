@@ -1,0 +1,37 @@
+{
+  "search": {
+    "metaTitle": "Search",
+    "heading": "Search",
+    "keywordsLabel": "Keywords",
+    "keywordsPlaceholder": "Search threads and posts",
+    "hint": "Every word must appear as a whole word. The newest posts come first.",
+    "authorLabel": "By member",
+    "authorPlaceholder": "Exact username",
+    "forumLabel": "Forum",
+    "allForums": "All forums",
+    "prefixLabel": "Prefix",
+    "anyPrefix": "Any prefix",
+    "titlesOnlyLabel": "Search titles only",
+    "submit": "Search",
+    "loadingResults": "Loading search results…",
+    "emptyTitle": "Search the forum",
+    "emptyDescription": "Type one or more words to find the threads and posts that contain all of them, then narrow it down with the filters.",
+    "noResultsTitle": "No results for “{query}”",
+    "filteredDescription": "Try fewer words or remove some filters. Words match whole, so “tomato” does not find “tomatoes”.",
+    "noResultsDescription": "Check the spelling or try fewer words. Words match whole, so “tomato” does not find “tomatoes”.",
+    "noPostsTitle": "No posts for “{query}”",
+    "noAuthorTitle": "No member named “{author}”",
+    "noAuthorDescription": "Type the full username of the member, then search again.",
+    "refusedTitle": "This search could not be made",
+    "fromStart": "Back to the first results",
+    "membersHeading": "Members",
+    "membersDescription": "Usernames that start with “{query}”",
+    "postsHeading": "Posts",
+    "details": "<author></author> in <forum></forum> · Post #{number} · <time></time>",
+    "loadMore": "Load more"
+  },
+  "loading": {
+    "label": "Loading search…",
+    "heading": "Search"
+  }
+}

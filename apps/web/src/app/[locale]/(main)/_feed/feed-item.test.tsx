@@ -12,6 +12,7 @@ mock.module("next/headers", () => ({
 }));
 const intlServer = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const navigation = await import("next/navigation");
@@ -23,7 +24,12 @@ mock.module("next/navigation", () => ({
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const intl = { ...(await import("next-intl")) };
 const { useTranslations, useFormatter } = await import("use-intl");
-mock.module("next-intl", () => ({ ...intl, useTranslations, useFormatter }));
+mock.module("next-intl", () => ({
+  ...intl,
+  useLocale: () => "en",
+  useTranslations,
+  useFormatter,
+}));
 afterAll(() => {
   mock.module("next-intl/server", () => intlServer);
   mock.module("next/navigation", () => navigation);

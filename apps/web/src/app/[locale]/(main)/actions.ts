@@ -11,6 +11,8 @@ import { refresh } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LineComposerState } from "@/components/forum/line-composer";
+import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
+import { isLocale } from "@/i18n/locales";
 import { normalizeImagePath } from "@/lib/lite-images";
 import {
   LITE_COOKIE,
@@ -50,6 +52,13 @@ export async function setLiteMode(formData: FormData) {
   const returnTo = safeReturnPath(formData.get("returnTo"));
   const path = normalizeImagePath(returnTo.split(/[?#]/)[0]);
   redirect(path === "/_next" || path.startsWith("/_next/") ? "/" : returnTo);
+}
+
+// Writes the language cookie for `LocaleSync`. A Server Action on purpose: a cookie it sets drops
+// the pages the router kept, which are in the old language. The page is read again by the caller.
+export async function setLocaleCookie(language: string) {
+  if (!isLocale(language)) return;
+  (await cookies()).set(LOCALE_COOKIE, language, LOCALE_COOKIE_OPTIONS);
 }
 
 export async function logout() {

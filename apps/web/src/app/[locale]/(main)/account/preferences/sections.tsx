@@ -6,7 +6,7 @@ import {
   watchesListThreads,
 } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { ActionForm } from "@/app/[locale]/(main)/account/action-form";
 import {
@@ -38,13 +38,14 @@ export async function PreferencesSection({
 }: {
   searchParams: SearchParams;
 }) {
-  const [t, preferences, notice] = await Promise.all([
+  const [t, locale, preferences, notice] = await Promise.all([
     getTranslations("account.preferences"),
+    getLocale(),
     read(preferencesGet, {}),
     noticeOf(searchParams, ["preferences"]),
   ]);
   const watchModes = MemberPreferences.shape.watchOnCreate.options;
-  const languages = new Intl.DisplayNames(["en"], { type: "language" });
+  const languages = new Intl.DisplayNames([locale], { type: "language" });
   return (
     <Section
       id="preferences"

@@ -1,0 +1,118 @@
+{
+  "site": {
+    "defaultName": "Sermo"
+  },
+  "siteNav": {
+    "placeholder": "Search...",
+    "description": "Site navigation",
+    "aria": {
+      "search": "Search",
+      "submit": "Submit search",
+      "main": "Main",
+      "open": "Open menu"
+    }
+  },
+  "mobileNav": {
+    "unread": "{label}<unread>, {count, plural, one {# unread} other {# unread}}</unread>",
+    "aria": {
+      "primary": "Primary"
+    }
+  },
+  "headerPanel": {
+    "aria": {
+      "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
+    }
+  },
+  "narrowToggle": {
+    "label": "Use a narrower page"
+  },
+  "siteHeader": {
+    "loadingMenu": "Loading menu…",
+    "loadingNavigation": "Loading navigation…",
+    "loadingAccount": "Loading your menu…",
+    "loadingMessages": "Loading messages…",
+    "loadingAlerts": "Loading alerts…",
+    "search": "Search",
+    "login": "Log in",
+    "register": "Create Account"
+  },
+  "headerPanels": {
+    "messages": {
+      "label": "Conversations",
+      "title": "Messages",
+      "empty": "No conversations yet",
+      "viewAll": "View all",
+      "new": "New conversation",
+      "loading": "Loading conversations…"
+    },
+    "alerts": {
+      "label": "Notifications",
+      "title": "Alerts",
+      "empty": "No new alerts",
+      "viewAll": "View all",
+      "markAllRead": "Mark all as read",
+      "loading": "Loading alerts…"
+    },
+    "search": {
+      "label": "Search",
+      "title": "Search",
+      "placeholder": "Search...",
+      "titlesOnly": "Search titles only",
+      "byAuthor": "By member",
+      "exactUsername": "Exact username",
+      "advanced": "Advanced search",
+      "submit": "Search",
+      "aria": {
+        "search": "Search"
+      }
+    },
+    "failed": "This could not be loaded. Close the panel and open it again."
+  },
+  "userMenu": {
+    "logout": "Log out",
+    "aria": {
+      "account": "Account menu"
+    }
+  },
+  "staffBar": {
+    "admin": "Admin",
+    "moderation": "Moderation",
+    "capped": "{count}+",
+    "pending": "({count} pending)"
+  },
+  "siteFooter": {
+    "copyright": "© <brand>{site}</brand>. All rights reserved.",
+    "loadingLinks": "Loading links…",
+    "aria": {
+      "more": "More links"
+    }
+  },
+  "logo": {
+    "aria": {
+      "home": "{site} home"
+    }
+  },
+  "sessionNotice": {
+    "text": "The site could not confirm your session; some things may be missing. Reload to try again.",
+    "unreachable": "The site could not be reached right now; some things may be missing. Reload to try again."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you are looking for does not exist or has moved.",
+    "home": "Back to the home page",
+    "panel": "Back to the panel"
+  },
+  "globalError": {
+    "title": "Something went wrong",
+    "description": "The site could not be loaded. Try again in a moment.",
+    "retry": "Try again"
+  },
+  "routeError": {
+    "title": "Something went wrong",
+    "description": "The page could not be loaded. Try again in a moment.",
+    "throttledTitle": "Too many requests",
+    "throttledDescription": "You have asked for a lot of pages in a short time. Wait a moment and try again.",
+    "retry": "Try again",
+    "home": "Back to the home page"
+  }
+}

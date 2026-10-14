@@ -40,9 +40,11 @@ function translator(namespace: string) {
 const realIntl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
   ...realIntl,
+  useLocale: () => "en",
   useTranslations: translator,
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 // The signed-in account comes from the backend; the viewer value is the session token.
@@ -163,9 +165,11 @@ async function placeholder(
 
 function passThrough(response: NextResponse | undefined, context: string) {
   if (!response) return;
-  expect(response.headers.get("x-middleware-next"), context).toBe("1");
+  // The request goes on to its page: inside the server it is rewritten to the language segment.
+  const rewrite = response.headers.get("x-middleware-rewrite") ?? "";
+  expect(new URL(rewrite).pathname, context).toMatch(/^\/(en|es)(\/|$)/);
+  expect(rewrite, context).not.toContain("/not-found");
   expect(response.headers.get("location"), context).toBe(null);
-  expect(response.headers.get("x-middleware-rewrite"), context).toBe(null);
   expect(response.headers.get("content-type"), context).toBe(null);
 }
 
@@ -232,7 +236,7 @@ test("proxy blocks encoded, Windows, case, slash and dot aliases of every pictur
 function notFound(response: NextResponse | undefined, context: string) {
   expect(response?.status, context).toBe(404);
   expect(response?.headers.get("x-middleware-rewrite"), context).toBe(
-    "https://forum.test/not-found",
+    "https://forum.test/en/not-found",
   );
   expect(response?.headers.get("content-type"), context).toBe(null);
 }
@@ -325,7 +329,7 @@ test("LITE retains guest redirects, admin protection and unknown-id 404s", async
       const denied = await proxy(request("/admin", mode, viewer));
       expect(denied?.status).toBe(404);
       expect(denied?.headers.get("x-middleware-rewrite")).toBe(
-        "https://forum.test/not-found",
+        "https://forum.test/en/not-found",
       );
     }
     passThrough(await proxy(request("/admin", mode, "102")), "admin");
@@ -355,7 +359,7 @@ test("LITE retains guest redirects, admin protection and unknown-id 404s", async
         const response = await proxy(request(`/${section}/${id}`, mode, "101"));
         expect(response?.status, `${section}/${id}`).toBe(404);
         expect(response?.headers.get("x-middleware-rewrite")).toBe(
-          "https://forum.test/not-found",
+          "https://forum.test/en/not-found",
         );
       }
     }

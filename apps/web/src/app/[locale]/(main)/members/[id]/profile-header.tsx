@@ -8,7 +8,7 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { CopyHandle } from "@/app/[locale]/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/[locale]/(main)/members/[id]/profile";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
@@ -66,6 +66,7 @@ export function ProfileHeader({
   // The backend says whether the visitor may start a conversation.
   canMessage: boolean;
 }) {
+  const locale = useLocale();
   const t = useTranslations("members.profileHeader");
   const format = useFormatter();
   const isOwn = viewerId === profile.id;
@@ -74,12 +75,24 @@ export function ProfileHeader({
   const name = userNameProps(card);
   const socials = SOCIALS.filter(({ network }) => profile.socials[network]);
   const stats = [
-    { label: t("postsLabel"), value: formatNumber(profile.postCount) },
-    { label: t("reputationLabel"), value: formatNumber(profile.reactionScore) },
-    { label: t("followersLabel"), value: formatNumber(profile.followerCount) },
-    { label: t("followingLabel"), value: formatNumber(profile.followingCount) },
-    { label: t("creditsLabel"), value: formatNumber(profile.credits) },
-    { label: t("referralsLabel"), value: formatNumber(profile.referralCount) },
+    { label: t("postsLabel"), value: formatNumber(profile.postCount, locale) },
+    {
+      label: t("reputationLabel"),
+      value: formatNumber(profile.reactionScore, locale),
+    },
+    {
+      label: t("followersLabel"),
+      value: formatNumber(profile.followerCount, locale),
+    },
+    {
+      label: t("followingLabel"),
+      value: formatNumber(profile.followingCount, locale),
+    },
+    { label: t("creditsLabel"), value: formatNumber(profile.credits, locale) },
+    {
+      label: t("referralsLabel"),
+      value: formatNumber(profile.referralCount, locale),
+    },
   ];
 
   return (
@@ -188,7 +201,7 @@ export function ProfileHeader({
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t.rich("joined", {
-                date: formatDate(profile.createdAt),
+                date: formatDate(profile.createdAt, locale),
                 time: (chunks) => (
                   <time dateTime={profile.createdAt}>{chunks}</time>
                 ),

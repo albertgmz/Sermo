@@ -13,6 +13,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => {
     const t = (key: string) => {
       let value: unknown = messages;

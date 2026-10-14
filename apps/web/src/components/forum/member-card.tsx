@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type AwardArt,
   AwardRow,
@@ -62,6 +62,7 @@ export function MemberCard({
   user: MemberCardUser;
   className?: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.memberCard");
   const name = userNameProps(user.card);
   const awards = user.awards ?? [];
@@ -129,20 +130,20 @@ export function MemberCard({
           <div className="min-w-0">
             <dt className="text-muted-foreground">{t("postsLabel")}</dt>
             <dd className="font-semibold tabular-nums">
-              {formatCompact(user.postCount)}
+              {formatCompact(user.postCount, locale)}
             </dd>
           </div>
           <div className="min-w-0">
             <dt className="text-muted-foreground">{t("reactionsLabel")}</dt>
             <dd className="font-semibold tabular-nums">
-              {formatCompact(user.reactionScore)}
+              {formatCompact(user.reactionScore, locale)}
             </dd>
           </div>
           <div className="min-w-0">
             <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
             <dd className="truncate font-semibold">
               <time dateTime={user.createdAt}>
-                {formatDate(user.createdAt)}
+                {formatDate(user.createdAt, locale)}
               </time>
             </dd>
           </div>

@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { AwardRow } from "@/components/forum/award-icon";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
@@ -41,6 +41,7 @@ export function Postbit({
   actions?: React.ReactNode;
   className?: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.memberCard");
   const { member } = author;
   const compact = layout !== "column";
@@ -176,15 +177,15 @@ export function Postbit({
                 {joined && (
                   <Fact label={t("joinedLabel")}>
                     <time dateTime={author.joinedAt}>
-                      {formatDate(author.joinedAt)}
+                      {formatDate(author.joinedAt, locale)}
                     </time>
                   </Fact>
                 )}
                 <Fact label={t("postsLabel")}>
-                  {formatCompact(author.postCount)}
+                  {formatCompact(author.postCount, locale)}
                 </Fact>
                 <Fact label={t("reactionsLabel")}>
-                  {formatCompact(author.reactionScore)}
+                  {formatCompact(author.reactionScore, locale)}
                 </Fact>
               </dl>
             </div>

@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Progress } from "@/components/ui/progress";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -60,16 +60,17 @@ export function XpBar({
   label?: boolean;
   className?: string;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.level");
-  const xp = t("xp", { xp: formatNumber(level.xp) });
+  const xp = t("xp", { xp: formatNumber(level.xp, locale) });
   return (
     <div className="inline-flex items-center gap-2">
       <Progress
         value={level.progress * 100}
         aria-label={t("aria.progress", {
           level: level.level,
-          xp: formatNumber(level.xp),
-          next: formatNumber(level.nextLevelXp),
+          xp: formatNumber(level.xp, locale),
+          next: formatNumber(level.nextLevelXp, locale),
         })}
         className={cn("w-12", className)}
       />

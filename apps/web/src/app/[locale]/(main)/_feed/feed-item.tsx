@@ -1,7 +1,7 @@
 import type { feedList } from "@sermo/core/contracts";
 import { Eye, MessageCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/[locale]/(main)/_feed/clamped-body";
 import { replyFromFeed } from "@/app/[locale]/(main)/actions";
@@ -90,6 +90,7 @@ function Card({
   answers?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useTranslations("home.feedItem");
   const format = useFormatter();
   const formattedCount = format.number(count, { useGrouping: false });
@@ -148,7 +149,7 @@ function Card({
             <Eye aria-hidden="true" className="size-4" />
             {t.rich("views", {
               count: views,
-              value: formatCompact(views),
+              value: formatCompact(views, locale),
               label: (chunks) => <span className="sr-only">{chunks}</span>,
             })}
           </span>

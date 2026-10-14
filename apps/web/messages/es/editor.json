@@ -1,0 +1,23 @@
+{
+  "editor": {
+    "boldLabel": "Bold",
+    "italicLabel": "Italic",
+    "strikethroughLabel": "Strikethrough",
+    "inlineCodeLabel": "Inline code",
+    "headingLabel": "Heading",
+    "bulletListLabel": "Bullet list",
+    "numberedListLabel": "Numbered list",
+    "quoteLabel": "Quote",
+    "linkLabel": "Link",
+    "undoLabel": "Undo",
+    "redoLabel": "Redo",
+    "linkPrompt": "Link URL",
+    "placeholder": "Type your message here.",
+    "aria": {
+      "formatting": "Formatting"
+    },
+    "errors": {
+      "required": "This field is required."
+    }
+  }
+}

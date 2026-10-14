@@ -16,10 +16,12 @@ import {
   usersUnignore,
 } from "@sermo/core/contracts";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { FormState } from "@/app/[locale]/(main)/account/action-form";
 import { failedPath } from "@/app/[locale]/(main)/account/notice";
+import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
 import { call } from "@/lib/sermo/client";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
@@ -264,14 +266,20 @@ export async function savePreferences(
   formData: FormData,
 ): Promise<FormState> {
   const path = "/account/preferences";
+  const language = text(formData, "language") || null;
   const saved = await attempt(path, () =>
     call(preferencesUpdate, {
       watchOnCreate: text(formData, "watchOnCreate") as "none",
       watchOnReply: text(formData, "watchOnReply") as "none",
-      language: text(formData, "language") || null,
+      language,
     }),
   );
   if (!saved.ok) return { error: saved.error };
+  // The proxy picks the language of a page from this cookie, so the page the redirect opens is
+  // already in the new one. "Default" removes it: the browser's language decides again.
+  const store = await cookies();
+  if (language) store.set(LOCALE_COOKIE, language, LOCALE_COOKIE_OPTIONS);
+  else store.delete(LOCALE_COOKIE);
   return done("preferences", "preferences", path);
 }
 

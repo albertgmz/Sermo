@@ -1,0 +1,133 @@
+{
+  "loading": {
+    "aria": {
+      "loading": "Loading the thread…"
+    }
+  },
+  "page": {
+    "highlightedLabel": "Highlighted",
+    "authorLabel": "<hidden>Thread </hidden>Author",
+    "postNumber": "#{number}",
+    "reply": "Reply",
+    "home": "Home",
+    "replyTitle": "Log in to reply",
+    "replyDescription": "Join the conversation with your account.",
+    "login": "Log in",
+    "register": "Create Account",
+    "aria": {
+      "loadingPosts": "Loading posts…",
+      "reply": "Reply",
+      "attachments": "Attachments",
+      "pages": "Pages",
+      "pictures": "Pictures",
+      "more": "More actions for this post"
+    },
+    "edited": "Edited <time></time>",
+    "awaitingApproval": "This post is awaiting approval. Only you and the moderators can see it.",
+    "deleted": "This post was deleted. Only moderators can see it.",
+    "threadAwaitingApproval": "This thread is awaiting approval. Only you and the moderators can see it.",
+    "threadDeleted": "This thread was deleted. Only moderators can see it.",
+    "locked": "This thread is locked. It no longer accepts replies.",
+    "lockedModerators": "This thread is locked. Only moderators can reply.",
+    "cannotReply": "You cannot reply to this thread.",
+    "pagination": "Page {page} of {pages}",
+    "previous": "Previous",
+    "next": "Next",
+    "openPicture": "Attached picture {position} of {total}",
+    "quote": "Quote",
+    "edit": "Edit",
+    "more": "More",
+    "report": "Report",
+    "reportReason": "Why are you reporting this post?",
+    "reported": "Thank you. The moderators will look at this post.",
+    "delete": "Delete",
+    "confirmDelete": "Delete post",
+    "cancel": "Cancel",
+    "deleteReason": "Reason (optional)",
+    "restore": "Restore",
+    "approve": "Approve",
+    "showDeleted": "Show the deleted post",
+    "selectPost": "Select post {number}"
+  },
+  "replyComposer": {
+    "aria": {
+      "submit": "Post reply"
+    }
+  },
+  "errors": {
+    "notThread": "Enter the number or the address of a thread.",
+    "noPosts": "Select at least one post to split off.",
+    "noForum": "Choose a forum."
+  },
+  "tools": {
+    "watch": "Watch",
+    "unwatch": "Stop watching",
+    "email": "Email me"
+  },
+  "moderation": {
+    "menu": "Moderate",
+    "stick": "Stick",
+    "unstick": "Unstick",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "removeCover": "Remove cover",
+    "removeCoverWarning": "The cover is taken off the thread for good and nothing is refunded.",
+    "removeCoverConfirm": "Remove the cover",
+    "moveHeading": "Move to another forum",
+    "moveLabel": "Forum",
+    "movePlaceholder": "Choose a forum",
+    "move": "Move",
+    "moveConfirm": "Move the thread",
+    "mergeHeading": "Merge into another thread",
+    "mergeLabel": "The number or address of the thread to merge this one into",
+    "mergePlaceholder": "Thread number or address",
+    "mergeReview": "Review the merge",
+    "mergeQuestion": "Merge this thread into “{title}” in {forum}?",
+    "mergeWarning": "Its posts move into that thread and this address opens it from now on. This cannot be undone.",
+    "mergeConfirm": "Merge the threads",
+    "mergeBack": "Choose another thread",
+    "splitHeading": "Split into a new thread",
+    "splitHint": "Pick the posts that should move to a new thread.",
+    "select": "Select posts",
+    "selectDone": "Done selecting",
+    "splitTick": "Tick the posts to move, then name the new thread.",
+    "splitTitle": "Title of the new thread",
+    "splitForum": "Forum of the new thread",
+    "split": "Split off the selected posts",
+    "splitConfirm": "Split off the selected posts now",
+    "stateHeading": "Thread state",
+    "restore": "Restore thread",
+    "approve": "Approve thread",
+    "delete": "Delete thread",
+    "confirmDelete": "Delete thread",
+    "cancel": "Cancel",
+    "reason": "Reason (optional)"
+  },
+  "edit": {
+    "metaTitle": "Edit post",
+    "home": "Home",
+    "heading": "Edit post",
+    "inactivePrefix": "(inactive) {label}",
+    "cannotTitle": "You cannot edit this post",
+    "cannotDescription": "This post can no longer be edited by your account."
+  },
+  "editLoading": {
+    "aria": {
+      "loading": "Loading the post…"
+    }
+  },
+  "editForm": {
+    "reasonLabel": "Reason for the edit (optional)",
+    "cancel": "Cancel",
+    "submit": "Save changes"
+  },
+  "uploads": {
+    "notFound": "This forum does not exist.",
+    "signIn": "Sign in to attach files.",
+    "noFile": "Choose a file to attach.",
+    "notAllowed": "You cannot attach files here.",
+    "failed": "The file could not be uploaded.",
+    "tooLarge": "This file is too large to upload here.",
+    "overLimit": "This file is larger than the {size} MB the site allows."
+  }
+}

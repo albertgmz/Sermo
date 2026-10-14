@@ -6,6 +6,7 @@ import { fakeBackend, refusal } from "../../../../admin/groups/test-backend";
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 // The view is a server-rendered element; the action only builds it.

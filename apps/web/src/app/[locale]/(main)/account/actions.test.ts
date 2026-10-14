@@ -4,16 +4,22 @@ import { translator } from "@/lib/test-intl";
 
 const realFetch = globalThis.fetch;
 
+// What the actions wrote to the visitor's cookies: ["set", name, value, options] or ["delete", name].
+const cookieWrites: unknown[][] = [];
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const nextCache = await import("next/cache");
 mock.module("next/cache", () => ({ ...nextCache, revalidatePath: () => {} }));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ set: () => {} }),
+  cookies: async () => ({
+    set: (...args: unknown[]) => cookieWrites.push(["set", ...args]),
+    delete: (name: string) => cookieWrites.push(["delete", name]),
+  }),
 }));
 
 const {
@@ -21,6 +27,7 @@ const {
   removePicture,
   saveAbout,
   saveAppearance,
+  savePreferences,
   stopIgnoring,
   stopWatchingForum,
   stopWatchingThread,
@@ -31,6 +38,7 @@ afterAll(() => {
 });
 afterEach(() => {
   globalThis.fetch = realFetch;
+  cookieWrites.length = 0;
 });
 
 const generic = messages.lib.errors.generic;
@@ -303,4 +311,52 @@ test("an appearance choice is a known field and a plain record id, or empty to t
     saveAppearance("nameIcon", null, form({ value: "" })),
   );
   expect(asked[3].body).toEqual({ nameIconItemId: null });
+});
+
+const PREFERENCES = {
+  watchOnCreate: "none",
+  watchOnReply: "none",
+  language: null,
+  profileViewPrivacy: "everyone",
+  profilePostPrivacy: "members",
+};
+const preferenceForm = (language: string) =>
+  form({ watchOnCreate: "none", watchOnReply: "none", language });
+
+test("saving a language sets the language cookie, and the redirect lands in the new language", async () => {
+  const asked = backend(() =>
+    Response.json({ ...PREFERENCES, language: "es" }),
+  );
+  const to = await redirectedTo(() =>
+    savePreferences(null as never, preferenceForm("es")),
+  );
+  expect(asked[0].body).toMatchObject({ language: "es" });
+  expect(cookieWrites).toHaveLength(1);
+  const [verb, name, value, options] = cookieWrites[0] as [
+    string,
+    string,
+    string,
+    object,
+  ];
+  expect([verb, name, value]).toEqual(["set", "forum_locale", "es"]);
+  expect(options).toMatchObject({
+    path: "/",
+    httpOnly: false,
+    sameSite: "lax",
+  });
+  expect(to?.pathname).toBe("/account/preferences");
+});
+
+test("choosing the default language deletes the cookie", async () => {
+  const asked = backend(() => Response.json(PREFERENCES));
+  await redirectedTo(() => savePreferences(null as never, preferenceForm("")));
+  expect(asked[0].body).toMatchObject({ language: null });
+  expect(cookieWrites).toEqual([["delete", "forum_locale"]]);
+});
+
+test("a refused save leaves the language cookie alone", async () => {
+  backend(refusal("Unsupported language.", 400));
+  const state = await savePreferences(null as never, preferenceForm("xx"));
+  expect(state).toEqual({ error: "Unsupported language." });
+  expect(cookieWrites).toEqual([]);
 });

@@ -1,4 +1,5 @@
 import type { Hourglass } from "lucide-react";
+import { useLocale } from "next-intl";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import {
   POSTBIT_FRAME,
@@ -69,6 +70,7 @@ export function PostFrame({
   // Under the time row: notes, the body and its attachments.
   children: React.ReactNode;
 }) {
+  const locale = useLocale();
   return (
     <article
       id={id}
@@ -97,7 +99,7 @@ export function PostFrame({
           <div className="flex min-w-0 items-center gap-2">
             <RelativeTime date={createdAt} className="truncate md:hidden" />
             <time dateTime={createdAt} className="hidden truncate md:inline">
-              {formatDateTime(createdAt)}
+              {formatDateTime(createdAt, locale)}
             </time>
             {edited}
           </div>

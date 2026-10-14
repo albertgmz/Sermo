@@ -17,7 +17,11 @@ mock.module("next/navigation", () => ({
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const intl = { ...(await import("next-intl")) };
 const { useTranslations } = await import("use-intl");
-mock.module("next-intl", () => ({ ...intl, useTranslations }));
+mock.module("next-intl", () => ({
+  ...intl,
+  useLocale: () => "en",
+  useTranslations,
+}));
 afterAll(() => {
   mock.module("next/navigation", () => navigation);
   mock.module("next-intl", () => intl);

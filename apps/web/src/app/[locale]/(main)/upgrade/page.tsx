@@ -2,7 +2,7 @@ import { creditsHistory, pagesGet } from "@sermo/core/contracts";
 import { Check, Coins, Crown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import {
   currentRank,
@@ -64,6 +64,7 @@ async function RankAction({
   signedIn: boolean;
   current: Rank | null;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("upgrade.upgrade");
   if (!signedIn) {
     return (
@@ -99,7 +100,7 @@ async function RankAction({
     <RankForm
       itemId={rank.id}
       rankName={rank.name}
-      cost={formatNumber(rank.price - (current?.price ?? 0))}
+      cost={formatNumber(rank.price - (current?.price ?? 0), locale)}
       upgrade={Boolean(current)}
     />
   );
@@ -114,6 +115,7 @@ async function RankCard({
   signedIn: boolean;
   current: Rank | null;
 }) {
+  const locale = await getLocale();
   const t = await getTranslations("upgrade.upgrade");
   const upgrading = current && current.price < rank.price;
   return (
@@ -133,7 +135,7 @@ async function RankCard({
           {upgrading && (
             <p className="mt-1 text-xs text-muted-foreground tabular-nums">
               {t("upgradePrice", {
-                price: formatNumber(rank.price - current.price),
+                price: formatNumber(rank.price - current.price, locale),
                 rank: current.name,
               })}
             </p>

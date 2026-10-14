@@ -1,0 +1,146 @@
+{
+  "errors": {
+    "kind": "That is not a kind of catalog.",
+    "id": "That is not a record of this site.",
+    "file": "That is not an uploaded file.",
+    "fileRequired": "Choose a picture to upload.",
+    "whole": "Enter a whole number.",
+    "placementNumbers": "Every placement field must be a number.",
+    "placementNeeded": "The frame's opening could not be measured from this picture. Fill in the four placement fields below, then save again. The picture you chose is kept."
+  },
+  "notices": {
+    "created": "Added to the catalog.",
+    "saved": "Saved.",
+    "reset": "The placement is back to the measured one.",
+    "deleted": "Deleted.",
+    "deactivated": "It is still in use, so it is deactivated instead: whoever has it keeps it and nobody new can pick it."
+  },
+  "placement": {
+    "width": "Width (%)",
+    "left": "Left (%)",
+    "top": "Top (%)",
+    "scale": "Picture scale (%)",
+    "help": "Percent of the avatar box. The frame is as wide as Width with its top left corner at Left and Top, and the avatar shrinks to the scale so that it fills the frame opening. A replaced picture is measured again unless you change a number.",
+    "preview": "Frame around a sample avatar",
+    "previewHelp": "The preview follows the numbers as you type.",
+    "sample": "AB",
+    "reset": "Reset to measured"
+  },
+  "colourRows": {
+    "color": "Colour",
+    "colorHelp": "A #rrggbb value. The colour picker and the field follow each other.",
+    "picker": "Pick the colour",
+    "foreground": "Text colour",
+    "foregroundHelp": "The colour of text drawn on the accent.",
+    "pickerForeground": "Pick the text colour",
+    "preview": "Preview",
+    "previewLabel": "The colour on the two surfaces of the theme",
+    "sampleName": "Member name",
+    "samplePrefix": "Prefix",
+    "sampleButton": "Button"
+  },
+  "catalog": {
+    "loading": "Loading the catalog…",
+    "noPicture": "Waiting for a picture",
+    "sample": "AB",
+    "order": "Order {position}",
+    "active": "Active",
+    "inactive": "Inactive",
+    "measured": "Width {width}, left {left}, top {top}, scale {scale}",
+    "edit": "Edit",
+    "close": "Close",
+    "deleteWarning": "Deleting an entry that members, threads or shop items use deactivates it instead and keeps its picture.",
+    "delete": "Delete",
+    "none": "The catalog is empty.",
+    "frames": {
+      "metaTitle": "Avatar frames",
+      "pageHeading": "Avatar frames",
+      "subtitle": "Pictures drawn around a member avatar. Members hold them through shop items.",
+      "heading": "Frames",
+      "description": "Each is shown around a sample avatar the way members get it."
+    },
+    "covers": {
+      "metaTitle": "Profile covers",
+      "pageHeading": "Profile covers",
+      "subtitle": "The gallery members who may use it choose their profile cover from.",
+      "heading": "Covers",
+      "description": "Inactive covers leave the choices of members."
+    },
+    "threadCovers": {
+      "metaTitle": "Thread covers",
+      "pageHeading": "Thread covers",
+      "subtitle": "Pictures a thread can wear. Members get them through shop items.",
+      "heading": "Thread covers",
+      "description": "Inactive covers can no longer be picked."
+    }
+  },
+  "entryForm": {
+    "headingEdit": "Edit entry",
+    "headingNew": "New entry",
+    "descriptionNew": {
+      "frames": "Upload the picture of the frame and name it. Its placement is measured from the picture.",
+      "covers": "Upload the picture of the cover and name it.",
+      "threadCovers": "Upload the picture of the cover and name it."
+    },
+    "create": "Add to the catalog",
+    "name": "Name",
+    "picture": "Picture",
+    "pictureHelp": "Uploaded as soon as you choose it. An entry needs a picture to be active.",
+    "replace": "Replace the picture",
+    "replaceHelp": "Choose a file to replace the picture. The old file is deleted when you save.",
+    "placement": "Placement",
+    "placementHelp": "The numbers filled in are the placement of the frame now.",
+    "placementHelpNew": "Optional: fill all four fields to override the measured placement.",
+    "position": "Display order",
+    "active": "Active",
+    "activeHelp": "Members can pick this entry."
+  },
+  "palette": {
+    "loading": "Loading the colours…",
+    "samplePrefix": "Prefix",
+    "sampleName": "Member name",
+    "sampleButton": "Button",
+    "looks": "In use:",
+    "order": "Order {position}",
+    "inactive": "Inactive",
+    "edit": "Edit",
+    "deleteWarning": "Deleting a colour that members, shop items or thread prefixes use deactivates it instead.",
+    "delete": "Delete",
+    "none": "The palette is empty.",
+    "accents": {
+      "metaTitle": "Accent colours",
+      "pageHeading": "Accent colours",
+      "subtitle": "The colours members can give the site. The first active accent is the site's own.",
+      "heading": "Accents",
+      "description": "Each accent has the colour of the text drawn on it."
+    },
+    "nameColors": {
+      "metaTitle": "Name colours",
+      "pageHeading": "Name colours",
+      "subtitle": "The colours a member name can take. Members hold them through shop items.",
+      "heading": "Name colours",
+      "description": "Also used for the colour of a group."
+    },
+    "prefixColors": {
+      "metaTitle": "Prefix colours",
+      "pageHeading": "Prefix colours",
+      "subtitle": "The colours a thread prefix can take.",
+      "heading": "Prefix colours",
+      "description": "Changing one changes every prefix that uses it."
+    }
+  },
+  "colourForm": {
+    "headingEdit": "Edit colour",
+    "headingNew": "New colour",
+    "descriptionNew": {
+      "accent": "An accent needs a colour and the colour of the text drawn on it.",
+      "name": "A colour for member names.",
+      "prefix": "A colour for thread prefixes."
+    },
+    "create": "Add to the palette",
+    "name": "Name",
+    "position": "Display order",
+    "active": "Active",
+    "activeHelp": "Members and prefixes can pick this colour."
+  }
+}

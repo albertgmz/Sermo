@@ -3,6 +3,7 @@ import { translator } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 const { Control } = await import("./inventory");

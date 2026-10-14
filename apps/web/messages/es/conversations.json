@@ -1,0 +1,97 @@
+{
+  "layout": {
+    "metaTitle": "Conversations"
+  },
+  "list": {
+    "home": "Home",
+    "heading": "Conversations",
+    "newConversation": "New conversation",
+    "loadingConversations": "Loading conversations…",
+    "emptyTitle": "No conversations yet",
+    "emptyDescription": "Start one to talk privately with other members.",
+    "older": "Older conversations"
+  },
+  "conversation": {
+    "aria": {
+      "leave": "Leave conversation",
+      "loadingMessages": "Loading messages…"
+    },
+    "home": "Home",
+    "conversations": "Conversations",
+    "participants": "Participants",
+    "participantSeparator": ", ",
+    "placeholder": "Write a message…",
+    "submit": "Send message",
+    "left": "(left)",
+    "leave": "Leave",
+    "awaitingApproval": "This message is awaiting approval.",
+    "deleted": "This message was deleted.",
+    "cannotReply": "You cannot reply to this conversation.",
+    "earlier": "Earlier messages",
+    "newest": "Newest messages",
+    "markRead": "Mark as read",
+    "details": {
+      "open": "Details",
+      "title": "Conversation details",
+      "description": "Information about the conversation, who takes part and what you can change."
+    },
+    "info": {
+      "title": "Conversation",
+      "startedBy": "Started by",
+      "startedOn": "Started on",
+      "messages": "Messages",
+      "participants": "Participants"
+    },
+    "addPeople": {
+      "open": "Add people",
+      "submit": "Add",
+      "cancel": "Cancel"
+    },
+    "rename": {
+      "title": "Rename",
+      "label": "Conversation name",
+      "submit": "Rename"
+    },
+    "unread": {
+      "title": "Unread"
+    }
+  },
+  "newConversation": {
+    "home": "Home",
+    "conversations": "Conversations",
+    "heading": "New conversation",
+    "cannotStartTitle": "You cannot start conversations",
+    "cannotStartDescription": "Your account is not allowed to start a private conversation."
+  },
+  "newConversationForm": {
+    "titleLabel": "Title",
+    "titlePlaceholder": "What is it about?",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Write your message...",
+    "submit": "Start conversation"
+  },
+  "loading": {
+    "label": "Loading conversations…",
+    "heading": "Conversations",
+    "conversation": {
+      "label": "Loading messages…"
+    },
+    "newConversation": {
+      "label": "Loading the conversation form…",
+      "heading": "New conversation"
+    }
+  },
+  "conversationPreview": {
+    "summary": "Last from <author></author> · {participants, plural, one {# participant} other {# participants}}"
+  },
+  "recipientPicker": {
+    "label": "Recipients",
+    "placeholder": "Search members by username",
+    "noMatch": "No member found.",
+    "aria": {
+      "search": "Search members by username",
+      "chosen": "Chosen recipients",
+      "remove": "Remove {name}"
+    }
+  }
+}

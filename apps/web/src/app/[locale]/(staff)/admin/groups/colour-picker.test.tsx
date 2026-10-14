@@ -8,6 +8,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {} }),
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
 }));
 

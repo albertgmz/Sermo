@@ -1,0 +1,148 @@
+{
+  "shell": {
+    "loading": "Loading…"
+  },
+  "links": {
+    "panel": "Panel"
+  },
+  "memberFilter": {
+    "chosen": "{name}",
+    "clear": "Show everyone",
+    "choose": "Choose"
+  },
+  "maintenance": {
+    "metaTitle": "Maintenance tools",
+    "heading": "Maintenance tools",
+    "subtitle": "Operations that change many records at once. Each asks for a confirmation before it runs.",
+    "loading": "Loading the tools…",
+    "empty": "No maintenance tool is available to you.",
+    "background": "Follow background work",
+    "run": "Run",
+    "running": "Running…",
+    "credits": {
+      "heading": "Recalculate credits",
+      "description": "Recomputes every member's balance from the credit ledger and repairs any that differ. It also runs daily.",
+      "inputs": "No input: it covers every member.",
+      "warning": "This queues a recount of every balance.",
+      "confirm": "Queue the recount"
+    },
+    "promotions": {
+      "heading": "Run promotions",
+      "description": "Evaluates every member against every active promotion now. It also runs daily.",
+      "inputs": "No input: it covers every member and every active promotion.",
+      "warning": "This queues a sweep that may move members between groups.",
+      "confirm": "Queue the sweep"
+    },
+    "awards": {
+      "heading": "Run awards",
+      "description": "Evaluates every member against every active award that has criteria. It also runs daily.",
+      "inputs": "No input: it covers every member and every active award.",
+      "warning": "This queues a sweep that may grant awards and pay their credits.",
+      "confirm": "Queue the sweep"
+    },
+    "spam": {
+      "heading": "Spam cleanup",
+      "description": "Bans a member and queues the removal of all their content.",
+      "inputs": "Input: the member and, optionally, a reason.",
+      "search": "Find the member",
+      "chosen": "Member: {name}",
+      "choose": "Choose",
+      "change": "Choose another member",
+      "reason": "Reason",
+      "reasonHelp": "Optional. Kept in the moderator log.",
+      "warning": "This bans {name} and queues the cleanup of everything they posted. It cannot be undone from here.",
+      "confirm": "Ban and clean up",
+      "pick": "Choose a member to enable this tool."
+    },
+    "result": {
+      "queued": "Queued. It runs in the background.",
+      "notQueued": "The backend did not queue it.",
+      "spamQueued": "Queued as job {jobId}. The ban and the cleanup run in the background."
+    },
+    "errors": {
+      "operation": "That is not a maintenance operation.",
+      "member": "Choose a member first."
+    }
+  },
+  "moderatorLog": {
+    "metaTitle": "Moderator log",
+    "heading": "Moderator log",
+    "subtitle": "What moderators and administrators did, newest first. You see the entries the backend allows you to read.",
+    "loading": "Loading the log…",
+    "actor": "Done by",
+    "forum": "Forum",
+    "action": "Action starts with",
+    "actionHint": "Type the start of an action id, shown under each action: permission. or node.moderator",
+    "emptyTitle": "Nothing in the log",
+    "emptyDescription": "No entry matches these filters.",
+    "partialTitle": "Nothing on this stretch of the log",
+    "partialDescription": "The log is searched a stretch at a time and this one had no match. Continue to the next stretch.",
+    "target": "{type} {id}",
+    "rejected": "The action filter was not accepted: {message}"
+  },
+  "promotionLog": {
+    "metaTitle": "Promotion log",
+    "heading": "Promotion log",
+    "subtitle": "Automatic and manual promotion changes, newest first.",
+    "loading": "Loading the log…",
+    "member": "Member",
+    "emptyTitle": "Nothing in the log",
+    "emptyDescription": "No promotion change matches.",
+    "automatic": "Automatic",
+    "action": {
+      "promote": "Promoted",
+      "demote": "Demoted",
+      "exempt": "Exempted",
+      "reset": "Reset to automatic"
+    },
+    "promotion": "Promotion",
+    "groups": "Groups",
+    "promotionNumber": "Promotion {id}",
+    "groupNumber": "Group {id}"
+  },
+  "creditLedger": {
+    "metaTitle": "Credit ledger",
+    "heading": "Credit ledger",
+    "subtitle": "Every credit movement, newest first, or those of one member.",
+    "loading": "Loading the ledger…",
+    "member": "Member",
+    "balance": "Balance: {balance}",
+    "emptyTitle": "Nothing in the ledger",
+    "emptyDescription": "No credit movement matches.",
+    "balanceAfter": "Balance after",
+    "source": "Source",
+    "sourceValue": "{type} {id}",
+    "system": "System"
+  },
+  "purchases": {
+    "metaTitle": "Shop purchases",
+    "heading": "Shop purchases",
+    "subtitle": "What was bought, newest first, or by one buyer.",
+    "loading": "Loading the purchases…",
+    "buyer": "Buyer",
+    "emptyTitle": "No purchases",
+    "emptyDescription": "No purchase matches.",
+    "bought": "Bought {item}",
+    "boughtMany": "Bought {quantity} × {item}",
+    "gift": "Gift to",
+    "price": "Paid",
+    "item": "Item",
+    "quantity": "Quantity"
+  },
+  "tasks": {
+    "metaTitle": "Background tasks",
+    "heading": "Background tasks",
+    "subtitle": "The state of the queued work: sweeps, recounts and cleanups.",
+    "loading": "Loading the tasks…",
+    "pending": "Pending",
+    "running": "Running",
+    "failed": "Failed",
+    "oldest": "Oldest pending job",
+    "nonePending": "None waiting",
+    "failuresHeading": "Recent failures",
+    "failuresDescription": "The 20 most recent, newest first.",
+    "failuresEmpty": "No failures.",
+    "job": "Job {id}",
+    "failedAt": "Failed"
+  }
+}

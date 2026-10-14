@@ -1,7 +1,7 @@
 import { threadsRanked } from "@sermo/core/contracts";
 import { Eye, type LucideIcon, MessageCircle } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { RankNumber } from "@/components/forum/leaderboard";
@@ -87,6 +87,7 @@ function ThreadRow({
   rank: number;
   figure: Figure;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forums.forumStats");
   const card = threadCard(thread, member);
   return (
@@ -140,7 +141,7 @@ function ThreadRow({
                 <Icon aria-hidden="true" className="size-3.5" />
                 <span className="sr-only">{t(`aria.${label}`)}</span>
               </dt>
-              <dd>{formatCompact(value(thread))}</dd>
+              <dd>{formatCompact(value(thread), locale)}</dd>
             </div>
           );
         })}

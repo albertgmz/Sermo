@@ -9,6 +9,7 @@ const realFetch = globalThis.fetch;
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 mock.module("next/headers", () => ({
@@ -25,7 +26,11 @@ mock.module("next/navigation", () => ({
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const nextIntl = { ...(await import("next-intl")) };
 const { useTranslations } = await import("use-intl");
-mock.module("next-intl", () => ({ ...nextIntl, useTranslations }));
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useLocale: () => "en",
+  useTranslations,
+}));
 
 const { viewerOfRequest } = await import("@/lib/sermo/client");
 const { Wall } = await import("./wall");

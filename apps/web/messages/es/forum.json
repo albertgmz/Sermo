@@ -1,0 +1,172 @@
+{
+  "relativeTime": {
+    "title": "{date} at {time}"
+  },
+  "forumCard": {
+    "newBadge": "New",
+    "threads": "{count, plural, one {# thread} other {# threads}}",
+    "empty": "No posts yet"
+  },
+  "memberCard": {
+    "emptyAwards": "No awards yet",
+    "awardCount": "{count, plural, one {# award} other {# awards}}",
+    "postsLabel": "Posts",
+    "reactionsLabel": "Reactions",
+    "joinedLabel": "Joined",
+    "profile": "View profile"
+  },
+  "memberActions": {
+    "message": "Message",
+    "aria": { "message": "Start a private conversation with {username}" }
+  },
+  "memberCardTrigger": {
+    "aria": {
+      "label": "{name}'s member card"
+    }
+  },
+  "threadHoverCard": {
+    "lastReply": "Last reply",
+    "aria": {
+      "replies": "Replies",
+      "views": "Views"
+    }
+  },
+  "roleBadge": {
+    "admin": "Admin",
+    "moderator": "Mod"
+  },
+  "shareButton": {
+    "aria": {
+      "copied": "Link copied",
+      "copy": "Copy link"
+    }
+  },
+  "unreadDot": {
+    "aria": {
+      "label": "Unread"
+    }
+  },
+  "userStats": {
+    "messagesLabel": "Messages",
+    "reactionsLabel": "Reactions received",
+    "summary": "<sr>{label}: </sr>{value}"
+  },
+  "awardIcon": {
+    "aria": {
+      "count": "{count, plural, one {# award} other {# awards}}"
+    }
+  },
+  "clientIcons": {
+    "label": "{browser} on {system}",
+    "unknownBrowser": "Unknown browser",
+    "unknownSystem": "unknown system"
+  },
+  "credits": {
+    "aria": {
+      "unit": "credits"
+    }
+  },
+  "leaderboard": {
+    "xp": "XP",
+    "xpTitle": "{xp} XP",
+    "titles": {
+      "credits": "{count, plural, one {# credit} other {# credits}}",
+      "posts": "{count, plural, one {# post} other {# posts}}",
+      "reactions": "{count, plural, one {# reaction} other {# reactions}}",
+      "awards": "{count, plural, one {# award} other {# awards}}",
+      "referrals": "{count, plural, one {# referral} other {# referrals}}"
+    },
+    "aria": {
+      "units": {
+        "credits": "{count, plural, one {credit} other {credits}}",
+        "posts": "{count, plural, one {post} other {posts}}",
+        "reactions": "{count, plural, one {reaction} other {reactions}}",
+        "awards": "{count, plural, one {award} other {awards}}",
+        "referrals": "{count, plural, one {referral} other {referrals}}"
+      }
+    }
+  },
+  "level": {
+    "badge": "LVL",
+    "xp": "{xp} XP",
+    "aria": {
+      "progress": "Level {level}, {xp} XP of {next} for the next level"
+    }
+  },
+  "podium": {
+    "empty": "No members yet.",
+    "aria": {
+      "top": "Top three",
+      "rank": "Rank"
+    }
+  },
+  "reactionButton": {
+    "aria": {
+      "login": "Log in to react, {count, plural, one {{count} reaction} other {{count} reactions}}",
+      "state": "{label}, {count, plural, one {{count} reaction} other {{count} reactions}}",
+      "choose": "Choose a reaction"
+    }
+  },
+  "reactionSummary": {
+    "failed": "The list could not be loaded.",
+    "total": "{count, plural, one {{count} reaction} other {{count} reactions}}",
+    "aria": {
+      "trigger": "{total}, show who reacted"
+    }
+  },
+  "userBadges": {
+    "group": {
+      "title": "{name} group",
+      "suffix": "group"
+    },
+    "donor": "Donor"
+  },
+  "standing": {
+    "heading": "Member of the month",
+    "totalPoints": "Total points",
+    "pts": "pts",
+    "parts": {
+      "posts": "Posts",
+      "reactions": "Reactions received",
+      "referrals": "Referrals"
+    }
+  },
+  "attachmentField": {
+    "attach": "Attach files",
+    "limit": "Up to {size} MB each.",
+    "uploading": "Uploading…",
+    "failed": "{name} could not be uploaded.",
+    "aria": {
+      "files": "Attached files",
+      "remove": "Remove {name}"
+    }
+  },
+  "attachments": {
+    "signIn": "Sign in to attach files.",
+    "noFile": "Choose a file to attach.",
+    "notAllowed": "You cannot attach files here.",
+    "failed": "The file could not be uploaded.",
+    "tooLarge": "This file is too large to upload here.",
+    "overLimit": "This file is larger than the {size} MB the site allows."
+  },
+  "mentionMenu": {
+    "found": "{count, plural, one {# member found} other {# members found}}",
+    "aria": {
+      "members": "Members"
+    }
+  },
+  "threadFields": {
+    "noPrefix": "No prefix",
+    "prefixLabel": "Prefix",
+    "titleLabel": "Title"
+  },
+  "wallComments": {
+    "placeholder": "Write a comment…",
+    "submit": "Post comment",
+    "awaitingApproval": "This is waiting for approval.",
+    "deleted": "This was deleted.",
+    "showMore": "Show more comments",
+    "older": "Older comments",
+    "fewer": "Show fewer comments"
+  }
+}

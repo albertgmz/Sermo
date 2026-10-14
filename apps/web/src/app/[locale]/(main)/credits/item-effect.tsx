@@ -1,4 +1,4 @@
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type {
   Catalogs,
   ShopItemData,
@@ -31,6 +31,7 @@ export function ItemEffect({
   item: Pick<ShopItemData, "effect">;
   catalogs: Catalogs;
 }) {
+  const locale = useLocale();
   const t = useTranslations("credits.effect");
   const permissions = useTranslations("credits.permissions");
   const { effect } = item;
@@ -66,7 +67,7 @@ export function ItemEffect({
       return t("permissionValue", {
         name,
         unlimited: String(effect.value === -1),
-        value: formatNumber(effect.value),
+        value: formatNumber(effect.value, locale),
       });
     }
     case "group":

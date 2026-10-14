@@ -8,7 +8,8 @@ import layout from "../../messages/en/layout.json";
 import "./globals.css";
 
 // Shown when the root layout itself fails, so it stands without the layout's providers, fonts and
-// shell: it has its own document and reads its text straight from the messages.
+// shell: it has its own document and reads its text straight from the messages. It sits outside
+// the language segment, so it has no locale to follow: its text and its `lang` are English.
 const t = createTranslator({
   locale: "en",
   messages: { layout },

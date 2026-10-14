@@ -8,6 +8,7 @@ const intl = await import("next-intl/server");
 const cacheModule = await import("next/cache");
 const expired: string[] = [];
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 mock.module("next/cache", () => ({

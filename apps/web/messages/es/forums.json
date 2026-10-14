@@ -1,0 +1,83 @@
+{
+  "new": {
+    "metaTitle": "New thread",
+    "home": "Home",
+    "heading": "New thread",
+    "aria": {
+      "loading": "Loading thread form…"
+    },
+    "cannotPostTitle": "You cannot start a thread here",
+    "cannotPostDescription": "This forum is closed to new threads for your account."
+  },
+  "newThreadForm": {
+    "placeholder": "What is this thread about?",
+    "cancel": "Cancel",
+    "submit": "Post thread"
+  },
+  "loading": {
+    "heading": "New thread",
+    "aria": {
+      "forums": "Loading forums…",
+      "threads": "Loading threads…",
+      "form": "Loading the thread form…"
+    }
+  },
+  "forums": {
+    "metaTitle": "Forums",
+    "heading": "Ask questions. Share what you know.",
+    "description": "Join a community of makers who trade ideas, feedback and good advice every day.",
+    "login": "Log in",
+    "register": "Create Account",
+    "aria": {
+      "loadingStatistics": "Loading forum statistics…",
+      "sections": "Forum sections",
+      "loadingCategories": "Loading forum categories…"
+    }
+  },
+  "forumStats": {
+    "activity": "<forum>{forumTitle}</forum> · <time></time> · <author></author>",
+    "postsTab": "Latest posts",
+    "threadsTab": "New threads",
+    "repliedTab": "Most replied",
+    "reactedTab": "Most reacted",
+    "viewedTab": "Most viewed",
+    "heading": "Forum statistics",
+    "aria": {
+      "replies": "Replies",
+      "views": "Views",
+      "statistics": "Forum statistics",
+      "loadingActivity": "Loading forum activity…"
+    }
+  },
+  "forum": {
+    "allThreads": "All threads",
+    "created": "<author></author> · {time}",
+    "lastPost": "{time} · <author></author>",
+    "newThread": "New thread",
+    "home": "Home",
+    "empty": "No threads yet",
+    "emptyMemberDescription": "Be the first to start a discussion in this forum.",
+    "emptyGuestDescription": "Log in to start the first discussion in this forum.",
+    "aria": {
+      "prefixFilter": "Filter by prefix",
+      "pinned": "Pinned",
+      "highlighted": " (highlighted)",
+      "replies": "Replies",
+      "views": "Views",
+      "loadingThreads": "Loading threads…",
+      "locked": "Locked"
+    },
+    "nextPage": "Next page",
+    "emptyCategory": "No forums here yet",
+    "emptyCategoryDescription": "Forums added to this category will be listed here."
+  },
+  "watch": {
+    "watch": "Watch",
+    "unwatch": "Stop watching",
+    "mode": "What to watch",
+    "optionThreads": "New threads",
+    "optionPosts": "Every new post",
+    "email": "Email me",
+    "status": "{mode, select, posts {Watching every new post} other {Watching new threads}}{email, select, true {, by email} other {}}"
+  }
+}

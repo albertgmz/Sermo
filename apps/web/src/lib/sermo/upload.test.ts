@@ -19,6 +19,7 @@ mock.module("next/cache", () => ({
   cacheTag: () => {},
 }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) =>
     (layout.site as Record<string, string>)[key],
 }));

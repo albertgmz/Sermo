@@ -33,10 +33,12 @@ bun run lint       # from the repository root
 ## Layout
 
 - `src/lib/sermo/`: the only code that talks to the API (calls, session, errors, view shapes).
-- `src/app/(main)`: the site, `src/app/(auth)`: sign-in pages, `src/app/(staff)`: the
-  administration and moderation panel.
+- `src/app/[locale]/(main)`: the site, `src/app/[locale]/(auth)`: sign-in pages,
+  `src/app/[locale]/(staff)`: the administration and moderation panel. The `[locale]` segment is
+  hidden: the proxy picks the language of each visitor and rewrites to it. The four upload routes
+  and the icon sit outside it, at their public addresses.
 - `src/components`: `ui` (primitives), `forum` (reusable pieces), `layout` (shell), `staff` (panel).
 - `/ui` is the styleguide: every reusable component with fixed sample data.
-- `messages/en/`: all interface text, one file per zone.
+- `messages/<locale>/`: all interface text, one file per zone (`en` is the source of the types).
 - LITE mode (a visitor preference that stops pictures from loading) is guarded by the suites in
   `tests/` and `src/lib/lite-*.test.ts`.

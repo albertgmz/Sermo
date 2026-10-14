@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => (key: string) =>
     `${namespace}:${key}`,
 }));

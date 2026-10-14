@@ -1,7 +1,7 @@
 import { nodesList, threadsRanked, usersList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
 import { ForumIcon } from "@/components/forum/forum-icon";
@@ -124,6 +124,7 @@ export function FeedSidebar() {
 }
 
 async function Trending() {
+  const locale = await getLocale();
   const { items } = await read(threadsRanked, {
     by: "mostReacted",
     limit: LIST_SIZE,
@@ -145,12 +146,12 @@ async function Trending() {
               <p className="mt-0.5 truncate text-xs text-muted-foreground">
                 {t("replies", {
                   count: thread.replyCount,
-                  value: formatCompact(thread.replyCount),
+                  value: formatCompact(thread.replyCount, locale),
                 })}{" "}
                 ·{" "}
                 {t("views", {
                   count: thread.viewCount,
-                  value: formatCompact(thread.viewCount),
+                  value: formatCompact(thread.viewCount, locale),
                 })}
               </p>
             </div>
@@ -223,6 +224,7 @@ async function SuggestedMembers() {
 }
 
 async function FeedForums() {
+  const locale = await getLocale();
   const { items } = await read(nodesList, {});
   const forums = items.filter((node) => node.type === "forum");
   const t = await getTranslations("home.feedSidebar");
@@ -252,7 +254,7 @@ async function FeedForums() {
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             {t.rich("threads", {
               count: forum.threadCount,
-              value: formatCompact(forum.threadCount),
+              value: formatCompact(forum.threadCount, locale),
               label: (chunks) => <span className="sr-only">{chunks}</span>,
             })}
           </span>

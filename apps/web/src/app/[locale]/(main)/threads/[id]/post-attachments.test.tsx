@@ -34,8 +34,13 @@ function translator(namespace: string) {
   };
 }
 const realIntl = { ...(await import("next-intl")) };
-mock.module("next-intl", () => ({ ...realIntl, useTranslations: translator }));
+mock.module("next-intl", () => ({
+  ...realIntl,
+  useLocale: () => "en",
+  useTranslations: translator,
+}));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 

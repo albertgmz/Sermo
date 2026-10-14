@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
+import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
 import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { widthScript } from "@/components/layout/narrow-width";
 import { SiteIcon } from "@/components/layout/site-icon";
-import { locale } from "@/i18n/request";
+import { isLocale, LOCALES } from "@/i18n/locales";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
 
@@ -32,9 +33,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+// One prerendered shell per language. The segment is hidden: the proxy picks the language of each
+// visitor and rewrites to it, and an address that carries it is redirected to the one without.
+export function generateStaticParams() {
+  return LOCALES.map((locale) => ({ locale }));
+}
+
 export default async function RootLayout({
   children,
+  params,
 }: LayoutProps<"/[locale]">) {
+  const { locale } = await params;
+  if (!isLocale(locale)) notFound();
   const { maxUploadBytes } = await getSite();
   return (
     <html

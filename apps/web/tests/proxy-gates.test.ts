@@ -160,7 +160,9 @@ const PAGE = {
 
 // A private copy of the module: another suite may have loaded the proxy against its own mocks.
 const source = "../src/proxy.ts?gates";
-const { proxy } = (await import(source)) as typeof import("../src/proxy");
+const { proxy, config } = (await import(
+  source
+)) as typeof import("../src/proxy");
 
 const SESSION = "sermo.session_token=abc";
 const SECURE_SESSION = "__Secure-sermo.session_token=abc";
@@ -193,15 +195,19 @@ function isNotFound(response: Response | undefined, label?: string) {
   assert.equal(response.status, 404, label);
   assert.equal(
     response.headers.get("x-middleware-rewrite"),
-    "http://localhost/not-found",
+    "http://localhost/en/not-found",
   );
 }
 
-function passes(response: Response | undefined) {
+// The request goes on to its page, rewritten inside the server to the hidden language segment.
+function passes(response: Response | undefined, target?: string) {
   assert.ok(response);
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("x-middleware-next"), "1");
-  assert.equal(response.headers.get("x-middleware-rewrite"), null);
+  const rewrite = response.headers.get("x-middleware-rewrite");
+  assert.ok(rewrite);
+  assert.notEqual(rewrite, "http://localhost/en/not-found");
+  assert.ok(new URL(rewrite).pathname.match(/^\/(en|es)(\/|$)/));
+  if (target !== undefined) assert.equal(rewrite, target);
   assert.equal(response.headers.get("location"), null);
 }
 
@@ -424,7 +430,6 @@ test("the API, pictures and the 404 rewrites carry no x-sermo-path", async () =>
 
   const picture = await ask("/pictures/tobi.jpg", { headers: forged });
   assert.ok(picture);
-  assert.equal(picture.headers.get("x-middleware-next"), "1");
   assert.equal(picture.headers.get("vary"), "Cookie");
   assert.equal(picture.headers.get("x-middleware-override-headers"), null);
   assert.equal(picture.headers.get("x-middleware-request-x-sermo-path"), null);
@@ -941,4 +946,151 @@ test("a panel address is let through to its page when the viewer read fails, the
   isNotFound(await ask("/ui", { cookie: SESSION }));
   // Without a session there is nothing to ask: a guest still gets the 404.
   isNotFound(await ask("/admin"));
+});
+
+// The language of a request -------------------------------------------------------------------
+
+const rewriteOf = (response: Response | undefined) =>
+  response?.headers.get("x-middleware-rewrite");
+
+test("the language cookie wins over the browser's language", async () => {
+  reset();
+  assert.equal(
+    rewriteOf(
+      await ask("/forums", {
+        cookie: "forum_locale=en",
+        headers: { "accept-language": "es-ES,es;q=0.9" },
+      }),
+    ),
+    "http://localhost/en/forums",
+  );
+  assert.equal(
+    rewriteOf(
+      await ask("/forums", {
+        cookie: "forum_locale=es",
+        headers: { "accept-language": "en-US" },
+      }),
+    ),
+    "http://localhost/es/forums",
+  );
+});
+
+test("a cookie that names no supported language is ignored", async () => {
+  reset();
+  assert.equal(
+    rewriteOf(
+      await ask("/forums", {
+        cookie: "forum_locale=fr",
+        headers: { "accept-language": "es" },
+      }),
+    ),
+    "http://localhost/es/forums",
+  );
+});
+
+test("the browser's language is negotiated by preference, then English", async () => {
+  const cases: [string | undefined, string][] = [
+    ["es-ES,es;q=0.9,en;q=0.8", "es"],
+    ["fr-FR,fr;q=0.9", "en"],
+    ["en-US,es;q=0.5", "en"],
+    ["fr,es;q=0.4,en;q=0.2", "es"],
+    ["es;q=0,en", "en"],
+    ["ES", "es"],
+    ["*", "en"],
+    ["???;;;q==,,,", "en"],
+    ["", "en"],
+    [undefined, "en"],
+  ];
+  for (const [header, expected] of cases) {
+    reset();
+    const response = await ask("/forums", {
+      headers: header === undefined ? {} : { "accept-language": header },
+    });
+    assert.equal(
+      rewriteOf(response),
+      `http://localhost/${expected}/forums`,
+      String(header),
+    );
+  }
+});
+
+test("the rewrite keeps the query, the root is the language's root, and the answer varies", async () => {
+  reset();
+  const response = await ask("/forums?page=2&sort=new", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(
+    rewriteOf(response),
+    "http://localhost/es/forums?page=2&sort=new",
+  );
+  assert.equal(response?.headers.get("vary"), "Cookie, Accept-Language");
+  assert.equal(rewriteOf(await ask("/")), "http://localhost/en");
+  assert.equal(forwarded(response, "x-sermo-path"), "/forums?page=2&sort=new");
+});
+
+test("an address that carries the language segment is a 307 to the one without it", async () => {
+  reset();
+  for (const [path, target] of [
+    ["/es/threads/1", "http://localhost/threads/1"],
+    ["/en/threads/1?page=2", "http://localhost/threads/1?page=2"],
+    ["/es", "http://localhost/"],
+    ["/en", "http://localhost/"],
+    ["/en/admin", "http://localhost/admin"],
+  ]) {
+    const response = await ask(path);
+    assert.equal(response?.status, 307, path);
+    assert.equal(response?.headers.get("location"), target, path);
+  }
+  // A POST keeps its method through a 307.
+  const post = await ask("/es/forums", { method: "POST" });
+  assert.equal(post?.status, 307);
+  // Segments that only start like a language are pages.
+  passes(await ask("/english"), "http://localhost/en/english");
+  passes(await ask("/espana"), "http://localhost/en/espana");
+});
+
+test("the gates work on the public address, in either language", async () => {
+  reset();
+  const login = await ask("/account", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(
+    login?.headers.get("location"),
+    "http://localhost/login?next=%2Faccount",
+  );
+  reset({ viewer: MEMBER });
+  const hidden = await ask("/admin", {
+    cookie: `${SESSION}; forum_locale=es`,
+  });
+  assert.equal(hidden?.status, 404);
+  assert.equal(rewriteOf(hidden), "http://localhost/es/not-found");
+  reset({ viewer: FULL_ADMINISTRATOR });
+  passes(
+    await ask("/admin", { cookie: `${SESSION}; forum_locale=es` }),
+    "http://localhost/es/admin",
+  );
+});
+
+test("the API, the icon and the upload routes stay at their public addresses", async () => {
+  reset();
+  assert.equal(
+    await ask("/api/v1/me", { headers: { "accept-language": "es" } }),
+    undefined,
+  );
+  const icon = await ask("/favicon.ico", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(icon?.headers.get("x-middleware-next"), "1");
+  assert.equal(rewriteOf(icon), null);
+  // The upload routes are left out of the proxy by its matcher.
+  const matcher = new RegExp(`^${config.matcher[0]}$`);
+  for (const path of [
+    "/threads/12/uploads",
+    "/attachments",
+    "/account/picture",
+    "/admin/uploads",
+  ])
+    assert.equal(matcher.test(path), false, path);
+  for (const path of ["/threads/12", "/account", "/admin", "/es/attachments"])
+    assert.equal(matcher.test(path), true, path);
 });

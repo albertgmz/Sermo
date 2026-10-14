@@ -1,0 +1,37 @@
+{
+  "upgrade": {
+    "metaTitle": "Upgrade",
+    "heading": "Ranks",
+    "description": "Spend your credits on a rank to unlock what it includes. Moving up a rank costs only the difference.",
+    "credits": "{count, plural, other {You have <amount>#</amount> credits to spend.}}",
+    "guestCredits": "Log in to see your credits.",
+    "login": "Log in to upgrade",
+    "currentRank": "Your current rank",
+    "currentRankNote": "This is the rank you hold now.",
+    "below": "Below your current rank",
+    "belowNote": "You hold {rank}, which costs more.",
+    "samePrice": "Same price as your rank",
+    "samePriceNote": "{rank} costs the same, so this is not an upgrade.",
+    "upgradePrice": "{price} from {rank}",
+    "upgraded": "Done. Your rank has changed.",
+    "emptyTitle": "No ranks are offered",
+    "emptyDescription": "There is nothing to upgrade to right now. Check back later.",
+    "aria": {
+      "ranks": "Ranks",
+      "loadingDetails": "Loading upgrade details…",
+      "loadingRanks": "Loading ranks…"
+    }
+  },
+  "rankForm": {
+    "buy": "Get for {cost}",
+    "upgrade": "Upgrade for {cost}",
+    "aria": {
+      "submit": "Get the {rank} rank"
+    }
+  },
+  "loading": {
+    "aria": {
+      "loading": "Loading ranks…"
+    }
+  }
+}

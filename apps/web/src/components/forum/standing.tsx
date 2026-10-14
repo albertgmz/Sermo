@@ -5,7 +5,7 @@ import {
   MessageCircle,
   UserPlus,
 } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { RankNumber } from "@/components/forum/leaderboard";
 import { LevelBadge } from "@/components/forum/level";
 import { UserAvatar } from "@/components/forum/user-avatar";
@@ -54,10 +54,11 @@ const PARTS: { key: keyof Activity; icon: LucideIcon }[] = [
 ];
 
 function Points({ value, className }: { value: number; className?: string }) {
+  const locale = useLocale();
   const t = useTranslations("forum.standing");
   return (
     <span className={cn("shrink-0 font-bold tabular-nums", className)}>
-      {formatNumber(value)}
+      {formatNumber(value, locale)}
       <span className="text-xs font-medium text-muted-foreground">
         {" "}
         {t("pts")}
@@ -68,6 +69,7 @@ function Points({ value, className }: { value: number; className?: string }) {
 
 // The quiet line under a name: what the points are made of.
 function Breakdown({ entry }: { entry: Activity }) {
+  const locale = useLocale();
   const t = useTranslations("forum.standing.parts");
   return (
     <span className="flex flex-wrap items-center gap-x-3 text-xs tabular-nums text-muted-foreground">
@@ -79,7 +81,7 @@ function Breakdown({ entry }: { entry: Activity }) {
         >
           <Icon aria-hidden="true" className="size-3.5" />
           <span className="sr-only">{t(key)}: </span>
-          {formatNumber(entry[key])}
+          {formatNumber(entry[key], locale)}
         </span>
       ))}
     </span>
@@ -93,6 +95,7 @@ export function MonthHero({
   winner: MonthWinner;
   action?: React.ReactNode;
 }) {
+  const locale = useLocale();
   const t = useTranslations("forum.standing");
   const tParts = useTranslations("forum.standing.parts");
   const format = useFormatter();
@@ -146,7 +149,7 @@ export function MonthHero({
               </dt>
               <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
                 <span className="text-xl leading-tight font-bold tabular-nums">
-                  {formatNumber(winner[key])}
+                  {formatNumber(winner[key], locale)}
                 </span>
               </dd>
             </div>
@@ -156,7 +159,7 @@ export function MonthHero({
               {t("totalPoints")}
             </dt>
             <dd className="mt-1 text-xl leading-tight font-bold tabular-nums text-primary">
-              {formatNumber(winner.points)}
+              {formatNumber(winner.points, locale)}
             </dd>
           </div>
         </dl>

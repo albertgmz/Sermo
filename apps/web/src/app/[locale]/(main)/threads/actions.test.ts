@@ -16,6 +16,7 @@ mock.module("next/headers", () => ({
 }));
 mock.module("next/cache", () => ({ refresh: () => {} }));
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) => key,
 }));
 

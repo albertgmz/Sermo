@@ -22,6 +22,7 @@ mock.module("react-dom", () => ({
 const realIntl = { ...(await import("next-intl")) };
 mock.module("next-intl", () => ({
   ...realIntl,
+  useLocale: () => "en",
   useTranslations: (namespace: string) => (key: string) => {
     let value: unknown = messages;
     for (const part of `${namespace}.${key}`.split(".")) {

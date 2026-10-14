@@ -7,7 +7,7 @@ import {
 import { Check, Lock } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { TIER_ORDER, TIERS } from "@/app/[locale]/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
@@ -66,6 +66,7 @@ async function Progress({
   userId: number;
   username: string;
 }) {
+  const locale = await getLocale();
   const [t, profile, held, awards, member] = await Promise.all([
     getTranslations("awards.awards"),
     read(profilesGet, { userId }),
@@ -97,7 +98,7 @@ async function Progress({
                 {t("levelLabel")}
               </p>
               <p className="text-5xl leading-none font-bold tracking-tighter tabular-nums">
-                {formatNumber(bar.level)}
+                {formatNumber(bar.level, locale)}
               </p>
             </div>
           </div>
@@ -105,9 +106,9 @@ async function Progress({
             <XpBar level={bar} className="w-full" />
             <p className="text-sm text-muted-foreground tabular-nums">
               {t.rich("xpProgress", {
-                xp: formatNumber(bar.xp),
-                nextXp: formatNumber(bar.nextLevelXp),
-                level: formatNumber(bar.level + 1),
+                xp: formatNumber(bar.xp, locale),
+                nextXp: formatNumber(bar.nextLevelXp, locale),
+                level: formatNumber(bar.level + 1, locale),
                 current: (chunks) => (
                   <span className="font-semibold text-foreground">
                     {chunks}
@@ -119,8 +120,8 @@ async function Progress({
           <div className="border-t pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-10">
             <p className="text-2xl leading-none font-bold tracking-tight tabular-nums">
               {t.rich("awardsProgress", {
-                earned: formatNumber(held.items.length),
-                total: formatNumber(awards.items.length),
+                earned: formatNumber(held.items.length, locale),
+                total: formatNumber(awards.items.length, locale),
                 maximum: (chunks) => (
                   <span className="text-base font-medium text-muted-foreground">
                     {chunks}
@@ -224,6 +225,7 @@ function AwardCard({
 }
 
 async function Catalogue({ userId }: { userId: number | undefined }) {
+  const locale = await getLocale();
   const [t, tTiers, awards, held] = await Promise.all([
     getTranslations("awards.awards"),
     getTranslations("awards.tiers"),
@@ -259,8 +261,8 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
               <p className="text-xs text-muted-foreground tabular-nums">
                 {held
                   ? t("earnedCount", {
-                      earned: formatNumber(owned.length),
-                      total: formatNumber(group.length),
+                      earned: formatNumber(owned.length, locale),
+                      total: formatNumber(group.length, locale),
                     })
                   : t("awards", { count: group.length })}
               </p>
@@ -274,11 +276,13 @@ async function Catalogue({ userId }: { userId: number | undefined }) {
                     award={award}
                     earnedAt={earnedAt}
                     locked={Boolean(held) && !earnedAt}
-                    xp={t("xpReward", { xp: formatNumber(award.xp) })}
+                    xp={t("xpReward", { xp: formatNumber(award.xp, locale) })}
                     holders={t("holders", { count: award.grantCount })}
                     note={
                       earnedAt
-                        ? t("earnedDate", { date: formatDate(earnedAt) })
+                        ? t("earnedDate", {
+                            date: formatDate(earnedAt, locale),
+                          })
                         : t("lockedLabel")
                     }
                   />

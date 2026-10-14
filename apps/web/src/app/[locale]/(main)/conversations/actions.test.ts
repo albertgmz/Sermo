@@ -106,7 +106,7 @@ test("starting a conversation refreshes the list in the layout before going to t
   form.append("recipientIds", "4");
   const digest = await redirectedTo(() => startConversation({}, form));
   assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
-  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
+  assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
 });
 
 test("a reply and a new conversation name the files attached to them", async () => {
@@ -206,7 +206,7 @@ test("adding people sends the picked members, refreshes the list and returns to 
       body: { userIds: [4, 5] },
     },
   ]);
-  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
+  assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
 });
 
 test("a refused addition shows the backend's reason and does not leave the page", async () => {
@@ -248,7 +248,7 @@ test("renaming sends the new title and returns to the conversation", async () =>
       body: { title: "New name" },
     },
   ]);
-  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
+  assert.deepEqual(revalidated, [["/[locale]/conversations", "layout"]]);
 });
 
 test("a refused rename shows the backend's reason", async () => {

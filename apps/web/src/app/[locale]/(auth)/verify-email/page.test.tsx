@@ -5,6 +5,7 @@ import { messages } from "@/i18n/messages";
 
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async (namespace: string) => (key: string) => {
     let value: unknown = messages;
     for (const part of `${namespace}.${key}`.split(".")) {

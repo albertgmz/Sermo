@@ -5,7 +5,7 @@ import {
 } from "@sermo/core/contracts";
 import { Package } from "lucide-react";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { ItemEffect } from "@/app/[locale]/(main)/credits/item-effect";
 import {
@@ -158,6 +158,7 @@ async function Rows({
   threads: ThreadOption[];
   returnTo: string;
 }) {
+  const locale = await getLocale();
   const [t, loadMore] = await Promise.all([
     getTranslations("credits.inventory"),
     getTranslations("credits.loadMore"),
@@ -183,7 +184,9 @@ async function Rows({
                 {entry.item.isConsumable && (
                   <span className="font-medium text-muted-foreground tabular-nums">
                     {" "}
-                    {t("unitsLeft", { count: formatNumber(entry.quantity) })}
+                    {t("unitsLeft", {
+                      count: formatNumber(entry.quantity, locale),
+                    })}
                   </span>
                 )}
               </p>
@@ -191,11 +194,13 @@ async function Rows({
                 <ItemEffect item={entry.item} catalogs={catalogs} />
               </p>
               <p className="text-xs text-muted-foreground">
-                {t("acquired", { date: formatDate(entry.acquiredAt) })}
+                {t("acquired", { date: formatDate(entry.acquiredAt, locale) })}
                 {entry.expiresAt && (
                   <>
                     <span aria-hidden="true"> · </span>
-                    {t("expires", { date: formatDate(entry.expiresAt) })}
+                    {t("expires", {
+                      date: formatDate(entry.expiresAt, locale),
+                    })}
                   </>
                 )}
               </p>

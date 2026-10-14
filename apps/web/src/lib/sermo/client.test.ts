@@ -17,6 +17,7 @@ mock.module("next/headers", () => ({
 }));
 
 mock.module("next-intl/server", () => ({
+  getLocale: async () => "en",
   getTranslations: async () => (key: string) =>
     (lib.errors as Record<string, string>)[key],
 }));
