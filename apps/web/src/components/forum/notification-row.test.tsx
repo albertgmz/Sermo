@@ -7,6 +7,18 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
+// Other suites replace next-intl for the whole run: use the real hooks, served by a provider.
+const nextIntl = { ...(await import("next-intl")) };
+const { useFormatter, useLocale, useNow, useTranslations } = await import(
+  "use-intl"
+);
+mock.module("next-intl", () => ({
+  ...nextIntl,
+  useFormatter,
+  useLocale,
+  useNow,
+  useTranslations,
+}));
 const link = {
   ...(await import("@/app/[locale]/(main)/notifications/notification-link")),
 };
