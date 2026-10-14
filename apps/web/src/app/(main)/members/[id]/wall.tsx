@@ -1,5 +1,5 @@
 import { profileCommentsList, profilePostsList } from "@sermo/core/contracts";
-import { Hourglass, MessageCircle, PenLine, Trash2 } from "lucide-react";
+import { MessageCircle, PenLine } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -7,18 +7,22 @@ import type * as z from "zod";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { commentOnWallPost, postToWall } from "@/app/(main)/members/actions";
 import { PostComposer } from "@/app/(main)/members/post-composer";
-import { WallComposer } from "@/app/(main)/members/wall-composer";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { EmptyState } from "@/components/forum/empty-state";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
 import { MessageRow, messageActionClass } from "@/components/forum/message-row";
-import { PostNote } from "@/components/forum/post-frame";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
+import {
+  type ApiWallComment,
+  hasWallComments,
+  WallComments,
+  WallStateNote,
+} from "@/components/forum/wall-comments";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
@@ -29,7 +33,6 @@ import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
 type ApiWallPost = z.output<typeof profilePostsList.output>["items"][number];
-type ApiWallComment = ApiWallPost["latestComments"][number];
 type ReactionTypes = Awaited<ReturnType<typeof getReactionTypes>>;
 
 // One post whose comments are read in full, and where its page of them continues.
@@ -49,60 +52,6 @@ export function wallHref(
   }
   const text = query.toString();
   return `/members/${profileId}${text ? `?${text}` : ""}`;
-}
-
-const textLinkClass =
-  "inline-flex h-10 items-center text-sm font-medium underline-offset-4 hover:underline md:h-8";
-
-function StateNote({ state }: { state: ApiWallPost["state"] }) {
-  const t = useTranslations("members.wall");
-  if (state === "visible") return null;
-  const Icon = state === "moderated" ? Hourglass : Trash2;
-  return (
-    <PostNote icon={Icon} className="mt-0 mb-1">
-      {t(state === "moderated" ? "awaitingApproval" : "deleted")}
-    </PostNote>
-  );
-}
-
-function Comment({
-  comment,
-  member,
-  viewerId,
-  picker,
-  reactionTypes,
-}: {
-  comment: ApiWallComment;
-  member: (id: number) => MemberView;
-  viewerId: number | null;
-  picker: ReactionType[];
-  reactionTypes: ReactionTypes;
-}) {
-  return (
-    <MessageRow
-      id={`profile-comment-${comment.id}`}
-      compact
-      author={member(comment.author.id)}
-      time={<RelativeTime date={comment.createdAt} />}
-      actions={
-        <Reactions
-          target="profileComment"
-          id={comment.id}
-          reactions={comment.reactions}
-          authorId={comment.author.id}
-          viewerId={viewerId}
-          picker={comment.state === "visible" ? picker : []}
-          reactionTypes={reactionTypes}
-          size="sm"
-        />
-      }
-    >
-      <StateNote state={comment.state} />
-      <HtmlContent className="text-(length:--text-compact)">
-        {comment.bodyHtml}
-      </HtmlContent>
-    </MessageRow>
-  );
 }
 
 function WallPost({
@@ -176,56 +125,25 @@ function WallPost({
         </>
       }
       footer={
-        (comments.length > 0 || post.canComment || links.more) && (
-          <div className="mt-2 space-y-3 border-l pl-3">
-            {links.more && (
-              <Link
-                href={links.more}
-                className={cn(textLinkClass, "text-primary")}
-              >
-                {t("showMoreComments")}
-              </Link>
-            )}
-            {comments.map((comment) => (
-              <Comment
-                key={comment.id}
-                comment={comment}
-                member={member}
-                viewerId={viewerId}
-                picker={picker}
-                reactionTypes={reactionTypes}
-              />
-            ))}
-            {links.older && (
-              <Link
-                href={links.older}
-                className={cn(textLinkClass, "text-primary")}
-              >
-                {t("olderComments")}
-              </Link>
-            )}
-            {links.fewer && (
-              <Link
-                href={links.fewer}
-                className={cn(textLinkClass, "ml-4 text-muted-foreground")}
-              >
-                {t("fewerComments")}
-              </Link>
-            )}
-            {post.canComment && (
-              <div id={`${anchor}-comment`} className="scroll-mt-24">
-                <WallComposer
-                  action={commentOnWallPost.bind(null, post.id, returnTo)}
-                  placeholder={t("commentPlaceholder")}
-                  submitLabel={t("commentSubmit")}
-                />
-              </div>
-            )}
-          </div>
+        hasWallComments(post, comments, links) && (
+          <WallComments
+            anchor={anchor}
+            comments={comments}
+            links={links}
+            action={
+              post.canComment
+                ? commentOnWallPost.bind(null, post.id, returnTo)
+                : undefined
+            }
+            member={member}
+            viewerId={viewerId}
+            picker={picker}
+            reactionTypes={reactionTypes}
+          />
         )
       }
     >
-      <StateNote state={post.state} />
+      <WallStateNote state={post.state} />
       <HtmlContent>{post.bodyHtml}</HtmlContent>
       <PostAttachments attachments={post.attachments} />
     </MessageRow>

@@ -1,6 +1,10 @@
 "use server";
 
-import { reactionsRemove, reactionsSet } from "@sermo/core/contracts";
+import {
+  postsCreate,
+  reactionsRemove,
+  reactionsSet,
+} from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -99,4 +103,25 @@ export async function react(
   // per visitor, so no path is named.
   refresh();
   return {};
+}
+
+export type FeedReplyState = { error?: string };
+
+// Replies to a thread from its card in the feed and goes back to the feed address the form was
+// on. That address can differ from the one in the browser by its hash alone (the comment count
+// leads to the composer), which is no navigation to the server, so the page is refreshed first.
+export async function replyFromFeed(
+  threadId: number,
+  returnTo: string,
+  _previous: FeedReplyState,
+  formData: FormData,
+): Promise<FeedReplyState> {
+  requireIds(threadId);
+  const body = String(formData.get("body") ?? "");
+  const created = await attempt(returnTo, () =>
+    call(postsCreate, { threadId, body }),
+  );
+  if (!created.ok) return { error: created.error };
+  refresh();
+  redirect(safeReturnPath(returnTo));
 }

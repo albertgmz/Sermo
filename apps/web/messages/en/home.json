@@ -50,7 +50,9 @@
     "views": "{value}<label>{count, plural, other { views}}</label>",
     "profileContext": "posted on <profile>a profile</profile>",
     "threadContext": "started a thread in <forum>{title}</forum>",
-    "replyContext": "replied to a thread in <forum>{title}</forum>"
+    "replyContext": "replied to a thread in <forum>{title}</forum>",
+    "replyPlaceholder": "Write a reply…",
+    "replySubmit": "Post reply"
   },
   "feedSidebar": {
     "loadingTrending": "Loading trending…",

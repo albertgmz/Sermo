@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { postBody } from "@/lib/test-bodies";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -29,11 +30,24 @@ mock.module("next/cache", () => ({
 }));
 
 const source = "./actions.ts?reactions";
-const { react, setLiteMode } = (await import(
+const { react, replyFromFeed, setLiteMode } = (await import(
   source
 )) as typeof import("./actions");
 
 const SUMMARY = { counts: {}, total: 0, mine: null };
+
+const replyForm = (body: string) => {
+  const data = new FormData();
+  data.set("body", body);
+  return data;
+};
+
+// Where the action redirected to, or nothing when it answered the form instead.
+const redirectOf = (run: Promise<unknown>) =>
+  run.then(
+    () => undefined,
+    (error: { digest?: unknown }) => String(error.digest).split(";"),
+  );
 
 const refusal = (status: number, code: string, message = code) =>
   Response.json({ error: { code, message } }, { status });
@@ -193,4 +207,58 @@ test("the viewing mode goes back to a path of this site and to nowhere else", as
   ]) {
     expect(await liteGoesTo(bad), bad).toBe("/");
   }
+});
+
+test("a reply from a feed card is one write and returns to the feed address it was written on", async () => {
+  for (const page of ["/", "/?tab=following", "/?tab=top&cursor=abc"]) {
+    refreshed = 0;
+    const asked = backend(Response.json(postBody({ threadId: 7 })));
+    const parts = await redirectOf(
+      replyFromFeed(7, page, {}, replyForm("hello")),
+    );
+    expect(parts?.[0]).toBe("NEXT_REDIRECT");
+    expect(parts?.[2]).toBe(page);
+    expect(asked).toHaveLength(1);
+    expect(asked[0].method).toBe("POST");
+    expect(asked[0].path).toBe("/api/v1/threads/7/posts");
+    expect(asked[0].body).toEqual({ body: "hello" });
+    // The address can differ from the browser's by its hash alone, so the page is drawn again.
+    expect(refreshed).toBe(1);
+  }
+});
+
+test("a refused reply from a feed card answers its form with the backend's message and goes nowhere", async () => {
+  backend(refusal(403, "forbidden", "This thread is locked."));
+  expect(await replyFromFeed(7, "/?tab=top", {}, replyForm("hello"))).toEqual({
+    error: "This thread is locked.",
+  });
+  expect(refreshed).toBe(0);
+});
+
+test("a reply from a feed card does not follow a return path that leaves the site", async () => {
+  for (const page of ["https://elsewhere.example/", "//elsewhere.example"]) {
+    backend(Response.json(postBody({ threadId: 7 })));
+    const parts = await redirectOf(
+      replyFromFeed(7, page, {}, replyForm("hello")),
+    );
+    expect(parts?.[0]).toBe("NEXT_REDIRECT");
+    expect(parts?.[2]).toBe("/");
+  }
+});
+
+test("a guest who replies from a feed card is sent to sign in and back to the feed", async () => {
+  backend(refusal(401, "unauthenticated"));
+  const parts = await redirectOf(
+    replyFromFeed(7, "/?tab=top", {}, replyForm("hello")),
+  );
+  expect(parts?.[2]).toBe("/login?next=%2F%3Ftab%3Dtop");
+  expect(refreshed).toBe(0);
+});
+
+test("a thread id that is not a record id never reaches the backend", async () => {
+  const asked = backend(Response.json(postBody()));
+  await expect(
+    replyFromFeed(Number.NaN, "/", {}, replyForm("hello")),
+  ).rejects.toThrow();
+  expect(asked).toHaveLength(0);
 });

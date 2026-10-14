@@ -141,7 +141,10 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
   const author = await authorsFor(
     feed.items.flatMap((item) =>
       item.type === "profilePost"
-        ? [item.profilePost.author]
+        ? [
+            item.profilePost.author,
+            ...item.profilePost.latestComments.map((comment) => comment.author),
+          ]
         : [item.post.author, ...threadMembers(item.thread)],
     ),
   );
@@ -199,6 +202,7 @@ async function HomeFeed({ searchParams }: PageProps<"/">) {
               viewerId={viewer.user?.id ?? null}
               picker={picker}
               reactionTypes={reactionTypes}
+              returnTo={feedHref(tab, cursor)}
             />
           ))}
           {feed.nextCursor && (

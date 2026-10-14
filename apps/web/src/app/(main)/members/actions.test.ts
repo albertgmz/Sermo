@@ -9,11 +9,21 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ set: () => {} }),
 }));
+let refreshed = 0;
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  revalidatePath: () => {},
+  refresh: () => {
+    refreshed += 1;
+  },
+}));
 
 const { commentOnWallPost, postToWall } = await import("./actions");
 
 beforeEach(() => {
   asked.length = 0;
+  refreshed = 0;
   globalThis.fetch = (async (url: string, init: RequestInit) => {
     asked.push({ url, body: JSON.parse(String(init.body)) });
     // A refusal: the action answers with it instead of a redirect, which is enough to see what
@@ -114,4 +124,45 @@ test("a refused wall post answers the form it came from and goes nowhere", async
     form({ body: "", attachmentIds: ["4"] }),
   );
   assert.deepEqual(state, { error: "Write something first." });
+});
+
+// The comment count leads to the composer by a hash, and an address that differs from the
+// browser's by its hash alone is not asked of the server again: without the refresh the new
+// comment is saved and not shown.
+test("a comment that was taken refreshes the page and returns to the wall or the feed it was written on", async () => {
+  for (const page of ["/members/5", "/?tab=following&cursor=abc"]) {
+    refreshed = 0;
+    globalThis.fetch = (async () =>
+      Response.json({
+        id: 12,
+        profilePostId: 8,
+        author: { id: 3, username: "ember" },
+        state: "visible",
+        createdAt: "2026-10-13T03:57:31.497Z",
+        editedAt: null,
+        bodyHtml: "<p>hi</p>",
+        bodySource: "hi",
+        reactions: { counts: {}, total: 0, mine: null },
+        canEdit: true,
+        canDelete: true,
+      })) as unknown as typeof fetch;
+    const digest = await commentOnWallPost(
+      8,
+      page,
+      {},
+      form({ body: "hi" }),
+    ).then(
+      () => undefined,
+      (error: { digest?: unknown }) => String(error.digest),
+    );
+    assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
+    assert.equal(digest?.split(";")[2], page);
+    assert.equal(refreshed, 1);
+  }
+});
+
+test("a refused comment answers its form and refreshes nothing", async () => {
+  const state = await commentOnWallPost(8, "/", {}, form({ body: "" }));
+  assert.deepEqual(state, { error: "No." });
+  assert.equal(refreshed, 0);
 });

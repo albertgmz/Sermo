@@ -2,21 +2,25 @@
 
 import { SendHorizontal } from "lucide-react";
 import { useActionState } from "react";
-import type { WallState } from "@/app/(main)/members/actions";
 import { FormError } from "@/components/forum/form-error";
 import { LazyEditor } from "@/components/forum/lazy-editor";
 import { PendingButton } from "@/components/forum/pending-button";
 import { cn } from "@/lib/utils";
 
-// The one-line composer for the comments of a wall post. The backend's refusal is shown as it
-// comes.
-export function WallComposer({
+export type LineComposerState = { error?: string };
+
+// The one-line composer for answering where the item is read: the comments of a wall post, a
+// reply from a feed card. The backend's refusal is shown as it comes.
+export function LineComposer({
   action,
   placeholder,
   submitLabel,
   className,
 }: {
-  action: (previous: WallState, formData: FormData) => Promise<WallState>;
+  action: (
+    previous: LineComposerState,
+    formData: FormData,
+  ) => Promise<LineComposerState>;
   placeholder: string;
   submitLabel: string;
   className?: string;

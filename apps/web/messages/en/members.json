@@ -143,18 +143,11 @@
     "aria": {
       "comments": "Comment, {count, plural, one {# comment} other {# comments}}"
     },
-    "commentPlaceholder": "Write a comment…",
-    "commentSubmit": "Post comment",
     "heading": "Wall",
     "placeholder": "Write something on {username}'s profile…",
     "emptyTitle": "No messages yet",
     "emptyDescription": "Be the first to write something on <user>{username}</user>'s profile.",
-    "login": "Log in to post",
-    "awaitingApproval": "This is waiting for approval.",
-    "deleted": "This was deleted.",
-    "showMoreComments": "Show more comments",
-    "olderComments": "Older comments",
-    "fewerComments": "Show fewer comments"
+    "login": "Log in to post"
   },
   "postComposer": {
     "title": "New post",

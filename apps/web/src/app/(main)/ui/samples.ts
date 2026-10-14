@@ -12,6 +12,7 @@ import type { ReactionsSummary } from "@/components/forum/reaction-summary";
 import type { MonthWinner, StandingEntry } from "@/components/forum/standing";
 import type { ThreadCardData } from "@/components/forum/thread-hover-card";
 import type { MemberBadgeView } from "@/components/forum/user-badges";
+import type { ApiWallComment } from "@/components/forum/wall-comments";
 import type { MemberView, PictureView, PrefixView } from "@/lib/sermo/views";
 
 function picture(width: number, height: number, body: string): string {
@@ -347,6 +348,27 @@ export const THREADS: ThreadCardData[] = [
 ];
 
 export const SAMPLE_DATE = "2026-10-01T09:00:00.000Z";
+
+// Comments of a wall post, oldest first, as the backend gives them.
+export const SAMPLE_WALL_COMMENTS: ApiWallComment[] = [
+  { author: ADMIN, bodyHtml: "<p>Welcome aboard.</p>", state: "visible" },
+  {
+    author: MODERATOR,
+    bodyHtml: "<p>This one is waiting for a moderator.</p>",
+    state: "moderated",
+  },
+].map(({ author, bodyHtml, state }, index) => ({
+  id: index + 1,
+  profilePostId: 1,
+  author: { id: author.id, username: author.username },
+  state: state as ApiWallComment["state"],
+  createdAt: SAMPLE_DATE,
+  editedAt: null,
+  bodyHtml,
+  reactions: { counts: {}, total: 0, mine: null },
+  canEdit: false,
+  canDelete: false,
+}));
 
 export const NOTIFICATIONS = [
   {

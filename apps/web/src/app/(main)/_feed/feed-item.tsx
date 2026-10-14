@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type * as z from "zod";
 import { ClampedBody } from "@/app/(main)/_feed/clamped-body";
+import { replyFromFeed } from "@/app/(main)/actions";
+import { wallHref } from "@/app/(main)/members/[id]/wall";
+import { commentOnWallPost } from "@/app/(main)/members/actions";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LevelBadge } from "@/components/forum/level";
+import { LineComposer } from "@/components/forum/line-composer";
 import { messageActionClass } from "@/components/forum/message-row";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { Reactions } from "@/components/forum/reactions";
@@ -18,6 +22,10 @@ import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
+import {
+  hasWallComments,
+  WallComments,
+} from "@/components/forum/wall-comments";
 import { formatCompact } from "@/lib/format";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
 import { threadCard } from "@/lib/sermo/threads";
@@ -48,7 +56,22 @@ function Body({ href, children }: { href: string; children: string }) {
   );
 }
 
+// Where the count of answers leads: to the card's own composer when the viewer may answer
+// there, to the login page and back to the feed for a guest, otherwise to the item itself.
+function answerHref(
+  canAnswer: boolean,
+  anchor: string,
+  viewerId: number | null,
+  returnTo: string,
+  href: string,
+) {
+  if (canAnswer) return `#${anchor}-comment`;
+  if (viewerId === null) return `/login?next=${encodeURIComponent(returnTo)}`;
+  return href;
+}
+
 function Card({
+  id,
   author,
   createdAt,
   context,
@@ -56,11 +79,14 @@ function Card({
   cover,
   reaction,
   href,
+  answerHref,
   count,
   noun,
   views,
+  answers,
   children,
 }: {
+  id: string;
   author: AuthorView;
   createdAt: string;
   context: React.ReactNode;
@@ -68,9 +94,12 @@ function Card({
   cover?: PictureView | null;
   reaction: React.ReactNode;
   href: string;
+  answerHref: string;
   count: number;
   noun: "comments" | "replies";
   views?: number;
+  // What sits under the card's actions: the comments, the composer.
+  answers?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const t = useTranslations("home.feedItem");
@@ -79,8 +108,9 @@ function Card({
   const { member } = author;
   return (
     <article
+      id={id}
       className={cn(
-        "relative isolate overflow-hidden rounded-lg border bg-card",
+        "relative isolate scroll-mt-4 overflow-hidden rounded-lg border bg-card",
         highlighted &&
           "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}
@@ -118,7 +148,7 @@ function Card({
       <footer className="flex items-center gap-1 px-2 pt-1 pb-2">
         {reaction}
         <Link
-          href={href}
+          href={answerHref}
           aria-label={t(noun, { count, value: formattedCount })}
           className={messageActionClass}
         >
@@ -137,6 +167,7 @@ function Card({
         )}
         <ShareButton href={href} className={messageActionClass} />
       </footer>
+      {answers && <div className="px-4 pb-4">{answers}</div>}
     </article>
   );
 }
@@ -148,6 +179,7 @@ export function FeedItem({
   viewerId,
   picker,
   reactionTypes,
+  returnTo,
 }: {
   item: ApiFeedItem;
   author: (id: number) => AuthorView;
@@ -157,13 +189,26 @@ export function FeedItem({
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
+  // The feed address the card is on: where an answer written in it returns to.
+  returnTo: string;
 }) {
   const t = useTranslations("home.feedItem");
   if (item.type === "profilePost") {
     const { profilePost } = item;
     const href = `/members/${profilePost.profileUserId}#profile-post-${profilePost.id}`;
+    const anchor = `feed-profile-post-${profilePost.id}`;
+    const comments = profilePost.latestComments;
+    const links =
+      profilePost.commentCount > comments.length
+        ? {
+            more: `${wallHref(profilePost.profileUserId, {
+              comments: { postId: profilePost.id },
+            })}#profile-post-${profilePost.id}`,
+          }
+        : {};
     return (
       <Card
+        id={anchor}
         author={author(profilePost.author.id)}
         createdAt={item.createdAt}
         context={
@@ -191,8 +236,34 @@ export function FeedItem({
           />
         }
         href={href}
+        answerHref={answerHref(
+          profilePost.canComment,
+          anchor,
+          viewerId,
+          returnTo,
+          href,
+        )}
         count={profilePost.commentCount}
         noun="comments"
+        answers={
+          hasWallComments(profilePost, comments, links) && (
+            <WallComments
+              anchor={anchor}
+              comments={comments}
+              links={links}
+              action={
+                profilePost.canComment
+                  ? commentOnWallPost.bind(null, profilePost.id, returnTo)
+                  : undefined
+              }
+              member={(id) => author(id).member}
+              viewerId={viewerId}
+              picker={picker}
+              reactionTypes={reactionTypes}
+              className="mt-0"
+            />
+          )
+        }
       >
         <Body href={href}>{profilePost.bodyHtml}</Body>
         <PostAttachments attachments={profilePost.attachments} />
@@ -205,8 +276,10 @@ export function FeedItem({
   const threadHref = `/threads/${thread.id}`;
   const href = isThread ? threadHref : `${threadHref}#post-${post.id}`;
   const card = threadCard(thread, (id) => author(id).member);
+  const anchor = `feed-post-${post.id}`;
   return (
     <Card
+      id={anchor}
       author={author(post.author.id)}
       createdAt={item.createdAt}
       context={t.rich(isThread ? "threadContext" : "replyContext", {
@@ -235,9 +308,21 @@ export function FeedItem({
         />
       }
       href={href}
+      answerHref={answerHref(item.canReply, anchor, viewerId, returnTo, href)}
       count={thread.replyCount}
       noun="replies"
       views={isThread ? thread.viewCount : undefined}
+      answers={
+        item.canReply && (
+          <div id={`${anchor}-comment`} className="scroll-mt-24">
+            <LineComposer
+              action={replyFromFeed.bind(null, thread.id, returnTo)}
+              placeholder={t("replyPlaceholder")}
+              submitLabel={t("replySubmit")}
+            />
+          </div>
+        )
+      }
     >
       <h2
         className={cn(

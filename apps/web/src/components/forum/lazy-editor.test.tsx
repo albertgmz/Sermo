@@ -25,7 +25,7 @@ test("the one-line composers reach the editor's code only through the import mad
   for (const path of [
     "components/forum/lazy-editor.tsx",
     "components/forum/attachment-field.tsx",
-    "app/(main)/members/wall-composer.tsx",
+    "components/forum/line-composer.tsx",
     "app/(main)/members/post-composer.tsx",
     "app/(main)/conversations/[id]/reply-form.tsx",
   ]) {

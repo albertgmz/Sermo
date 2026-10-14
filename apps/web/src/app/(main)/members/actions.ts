@@ -6,6 +6,7 @@ import {
   usersFollow,
   usersUnfollow,
 } from "@sermo/core/contracts";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -31,6 +32,9 @@ export async function postToWall(
   redirect(safeReturnPath(returnTo));
 }
 
+// Comments on a wall post and goes back to the page the form was on: the wall, or the feed. That
+// address can differ from the one in the browser by its hash alone (the comment count leads to
+// the composer), which is no navigation to the server, so the page is refreshed first.
 export async function commentOnWallPost(
   profilePostId: number,
   returnTo: string,
@@ -43,6 +47,7 @@ export async function commentOnWallPost(
     call(profileCommentsCreate, { profilePostId, body }),
   );
   if (!created.ok) return { error: created.error };
+  refresh();
   redirect(safeReturnPath(returnTo));
 }
 

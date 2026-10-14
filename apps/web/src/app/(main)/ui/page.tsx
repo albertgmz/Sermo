@@ -15,7 +15,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
 import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
-import { discard } from "@/app/(main)/ui/actions";
+import { discard, discardLine } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/(main)/ui/lite-menu-demo";
 import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
@@ -40,6 +40,7 @@ import {
   RankNumber,
 } from "@/components/forum/leaderboard";
 import { LevelBadge, XpBar } from "@/components/forum/level";
+import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Markdown } from "@/components/forum/markdown";
 import { MemberCard } from "@/components/forum/member-card";
@@ -75,6 +76,7 @@ import { UserAvatar } from "@/components/forum/user-avatar";
 import { MemberBadge, UserBadges } from "@/components/forum/user-badges";
 import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
+import { WallComments } from "@/components/forum/wall-comments";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { headerIconClass } from "@/components/layout/header-panels";
 import { Logo, LogoMark } from "@/components/layout/logo";
@@ -144,6 +146,7 @@ import {
   REACTIONS,
   SAMPLE_COUNTS,
   SAMPLE_DATE,
+  SAMPLE_WALL_COMMENTS,
   STANDING,
   THREADS,
   WINNERS,
@@ -1095,6 +1098,41 @@ export default async function StyleguidePage() {
             placeholder="Write a message…"
             className="max-w-xl"
           />
+        </Section>
+
+        <Section title="Line composer">
+          <p className="text-sm text-muted-foreground">
+            The lazy editor with its send button, for answering where the item
+            is read: a comment on a wall post, a reply from a feed card. A
+            refusal is shown under the line.
+          </p>
+          <LineComposer
+            action={discardLine}
+            placeholder="Write a reply…"
+            submitLabel="Post reply"
+            className="max-w-xl"
+          />
+        </Section>
+
+        <Section title="Wall comments">
+          <p className="text-sm text-muted-foreground">
+            The comments under a wall post, the links to the rest of them and
+            the composer for the next one. Drawn by the profile wall and by the
+            feed's wall-post cards.
+          </p>
+          <div className="max-w-xl rounded-lg border bg-card p-4">
+            <WallComments
+              anchor="sample-wall-post"
+              comments={SAMPLE_WALL_COMMENTS}
+              links={{ more: "/ui" }}
+              action={discardLine}
+              member={memberOf}
+              viewerId={null}
+              picker={[]}
+              reactionTypes={[]}
+              className="mt-0"
+            />
+          </div>
         </Section>
 
         <Section title="Attachment field, compact">
