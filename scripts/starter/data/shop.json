@@ -1245,7 +1245,7 @@
     {
       "category": "Name icons",
       "name": "Star icon",
-      "description": "Show a star before your username across the forum.",
+      "description": "Put a star before your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,
@@ -1258,7 +1258,7 @@
     {
       "category": "Name icons",
       "name": "Heart icon",
-      "description": "Show a heart after your username across the forum.",
+      "description": "Put a heart after your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,
@@ -1271,7 +1271,7 @@
     {
       "category": "Name icons",
       "name": "Crown icon",
-      "description": "Show a crown before your username across the forum.",
+      "description": "Put a crown before your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,
@@ -1284,7 +1284,7 @@
     {
       "category": "Name icons",
       "name": "Flame icon",
-      "description": "Show a flame after your username across the forum.",
+      "description": "Put a flame after your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,
@@ -1297,7 +1297,7 @@
     {
       "category": "Name icons",
       "name": "Sparkles icon",
-      "description": "Show a sparkles after your username across the forum.",
+      "description": "Put sparkles after your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,
@@ -1310,7 +1310,7 @@
     {
       "category": "Name icons",
       "name": "Rocket icon",
-      "description": "Show a rocket before your username across the forum.",
+      "description": "Put a rocket before your username across the forum.",
       "price": 2000,
       "consumable": false,
       "image": null,

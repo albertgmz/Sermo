@@ -451,6 +451,35 @@ describe("name icons", () => {
     expect(worn(w)).toBe(lasting.id);
   });
 
+  const damage = (w: World, itemId: number, effect: string) =>
+    w.ctx.sqlite.prepare("UPDATE shop_items SET effect = ?2 WHERE id = ?1").run(itemId, effect);
+
+  test("an effect that is not JSON leaves the card readable, without an icon", async () => {
+    const w = await world();
+    const item = await w.sell(icon());
+    await w.buy(item.id);
+    await w.set({ nameIconItemId: item.id });
+    damage(w, item.id, "not json");
+    expect((await cardOf(w)).nameIcon).toBeNull();
+    damage(w, item.id, JSON.stringify({ type: "nameIcon", icon: "star", position: "middle" }));
+    expect((await cardOf(w)).nameIcon).toBeNull();
+  });
+
+  test("an item whose stored key is invalid is not offered, not wearable, and appearance.get still answers", async () => {
+    const w = await world();
+    const bad = await w.sell(icon("star"));
+    const good = await w.sell(icon("heart"));
+    await w.buy(bad.id);
+    await w.buy(good.id);
+    await w.set({ nameIconItemId: bad.id });
+    damage(w, bad.id, JSON.stringify({ type: "nameIcon", icon: "Bad Key", position: "before" }));
+    const mine = await w.get();
+    expect(mine.available.nameIcons.map((x: { itemId: number }) => x.itemId)).toEqual([good.id]);
+    expect((await cardOf(w)).nameIcon).toBeNull();
+    await expect(w.set({ nameIconItemId: bad.id })).rejects.toBeInstanceOf(ForbiddenError);
+    expect(await w.set({ nameIconItemId: good.id })).toMatchObject({ nameIconItemId: good.id });
+  });
+
   test("the held lookup does not scan", async () => {
     const w = await world();
     expectNoTableScan(w.ctx, heldSql.nameIcon, [1, 0]);

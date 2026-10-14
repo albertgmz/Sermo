@@ -2,7 +2,6 @@ import type * as z from "zod";
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { MemberAuthor, MemberCard } from "../../contracts/members";
-import { ShopEffect } from "../../contracts/shop";
 import {
   can,
   memberActor,
@@ -17,6 +16,7 @@ import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
 import { profileAccessMany, profileModeAllows } from "../profiles/shared";
 import { readSiteSettings } from "../settings";
+import { nameIconOf } from "../shop/held";
 import { publicPicture, resolvedFileUrl } from "../storage/url";
 
 type Card = z.infer<typeof MemberCard>;
@@ -160,9 +160,14 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
     for (const item of prepared(ctx, "members.nameIcons", () =>
       ctx.sqlite.prepare<{ id: number; effect: string }, [string]>(NAME_ICON_ITEMS_SQL),
     ).all(JSON.stringify([...iconItemIds]))) {
-      const effect = ShopEffect.safeParse(JSON.parse(item.effect));
-      if (effect.success && effect.data.type === "nameIcon")
-        nameIcons.set(item.id, { icon: effect.data.icon, position: effect.data.position });
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(item.effect);
+      } catch {
+        // A damaged effect draws no icon; the card is still served.
+      }
+      const icon = nameIconOf(parsed);
+      if (icon) nameIcons.set(item.id, icon);
     }
   const smallAvatar = new Map<number, number>();
   if (avatarIds.size > 0)
