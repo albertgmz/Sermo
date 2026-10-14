@@ -14,8 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Edits an item where it is read: it asks for the Markdown the item was written in when it opens
-// (the lists only carry the rendered text) and shows the editor on it. The form ends in a refresh
-// of the page, which draws the item anew and closes this.
+// (the lists only carry the rendered text) and shows the editor on it. A saved edit reports
+// `done`: the panel closes and the refreshed page shows the item anew.
 export function InlineEditForm({
   load,
   action,
@@ -30,6 +30,11 @@ export function InlineEditForm({
 }) {
   const t = useTranslations("forum.contentActions");
   const close = use(ClosePanel);
+  const saveAndClose: typeof action = async (previous, formData) => {
+    const state = await action(previous, formData);
+    if (state.done) close();
+    return state;
+  };
   const [source, setSource] = useState<string | null>();
   const asked = useRef(load);
   useEffect(() => {
@@ -44,7 +49,7 @@ export function InlineEditForm({
   if (source === null) return <FormError>{t("sourceFailed")}</FormError>;
   return (
     <ActionForm
-      action={action}
+      action={saveAndClose}
       submit={t("save")}
       variant="default"
       aside={

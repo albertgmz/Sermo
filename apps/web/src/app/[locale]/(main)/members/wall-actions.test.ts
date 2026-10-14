@@ -64,10 +64,9 @@ test("editing a wall post sends its text and leaves its files alone, then refres
   answer = Response.json(
     profilePostBody({ editedAt: "2026-01-02T00:00:00.000Z" }),
   );
-  assert.deepEqual(
-    await editWallItem("post", 12, {}, form({ body: "new" })),
-    {},
-  );
+  assert.deepEqual(await editWallItem("post", 12, {}, form({ body: "new" })), {
+    done: true,
+  });
   assert.deepEqual(asked, [
     { method: "PATCH", url: `${ROOT}/profile-posts/12`, body: { body: "new" } },
   ]);

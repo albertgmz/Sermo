@@ -20,7 +20,7 @@ import { formIds, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
-export type WallState = { error?: string };
+export type WallState = { error?: string; done?: boolean };
 
 // Posts on the wall of `profileUserId` and goes back to the page the form was on.
 export async function postToWall(
@@ -84,7 +84,7 @@ export async function wallItemSource(
   }
 }
 
-// Saves an edited wall post or comment and draws the page again. A post's files stay as they are.
+// Saves an edited wall post or comment and draws the page again; `done` closes the edit form. A post's files stay as they are.
 export async function editWallItem(
   kind: WallItemKind,
   id: number,
@@ -101,7 +101,7 @@ export async function editWallItem(
   });
   if (!saved.ok) return { error: saved.error };
   refresh();
-  return {};
+  return { done: true };
 }
 
 // Deletes a wall post or comment (the author, the wall's owner or a moderator, as the backend

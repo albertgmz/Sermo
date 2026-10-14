@@ -42,7 +42,8 @@
       "share": "Share"
     },
     "copy": "Copy link",
-    "copied": "Link copied"
+    "copied": "Link copied",
+    "manual": "Copy this link"
   },
   "unreadDot": {
     "aria": {

@@ -23,7 +23,9 @@ afterAll(() => {
   mock.module("next-intl", () => intl);
 });
 const { ContentActions } = await import("./content-actions");
-const { ShareButton, shareNatively } = await import("./share-button");
+const { ShareButton, ShareMenuBody, copyLink, shareNatively } = await import(
+  "./share-button"
+);
 
 const action = async () => ({});
 const load = async () => null;
@@ -104,20 +106,99 @@ test("without the share sheet the link is copied from a small menu", () => {
 
 test("the share sheet is used where the device has one, and the menu where it has none", async () => {
   const shared: { url: string }[] = [];
+  let fallbacks = 0;
+  const fallback = () => {
+    fallbacks += 1;
+  };
   expect(
-    shareNatively("https://forum.test/a", {
-      share: async (data) => {
-        shared.push(data);
+    shareNatively(
+      "https://forum.test/a",
+      {
+        share: async (data) => {
+          shared.push(data);
+        },
+      },
+      fallback,
+    ),
+  ).toBe(true);
+  expect(shared).toEqual([{ url: "https://forum.test/a" }]);
+  expect(shareNatively("https://forum.test/a", {}, fallback)).toBe(false);
+  expect(fallbacks).toBe(0);
+});
+
+test("closing the share sheet is quiet; any other failure opens the copy menu", async () => {
+  let fallbacks = 0;
+  const fallback = () => {
+    fallbacks += 1;
+  };
+  const failing = (error: unknown) => ({ share: () => Promise.reject(error) });
+  expect(
+    shareNatively(
+      "u",
+      failing(new DOMException("closed", "AbortError")),
+      fallback,
+    ),
+  ).toBe(true);
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(fallbacks).toBe(0);
+  shareNatively(
+    "u",
+    failing(new DOMException("no", "NotAllowedError")),
+    fallback,
+  );
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(fallbacks).toBe(1);
+  // A throw before any sheet opens: the caller opens the menu itself.
+  expect(
+    shareNatively(
+      "u",
+      {
+        share: () => {
+          throw new TypeError("bad");
+        },
+      },
+      fallback,
+    ),
+  ).toBe(false);
+});
+
+test("copying reports whether the clipboard took the link", async () => {
+  const written: string[] = [];
+  expect(
+    await copyLink("u", {
+      clipboard: {
+        writeText: async (text) => {
+          written.push(text);
+        },
       },
     }),
   ).toBe(true);
-  expect(shared).toEqual([{ url: "https://forum.test/a" }]);
-  expect(shareNatively("https://forum.test/a", {})).toBe(false);
-  // A closed sheet rejects: nothing is raised.
+  expect(written).toEqual(["u"]);
+  expect(await copyLink("u", {})).toBe(false);
   expect(
-    shareNatively("https://forum.test/a", {
-      share: () => Promise.reject(new DOMException("closed", "AbortError")),
+    await copyLink("u", {
+      clipboard: { writeText: () => Promise.reject(new Error("no")) },
     }),
-  ).toBe(true);
-  await Promise.resolve();
+  ).toBe(false);
+});
+
+test("where copying failed the menu shows the link in a read-only field to copy by hand", () => {
+  const draw = (status: "idle" | "copied" | "manual") =>
+    renderToStaticMarkup(
+      withIntl(
+        <ShareMenuBody
+          url="https://forum.test/a"
+          status={status}
+          onCopy={() => {}}
+        />,
+      ),
+    );
+  const manual = draw("manual");
+  expect(manual).toContain("readOnly");
+  expect(manual).toContain('value="https://forum.test/a"');
+  expect(manual).toContain("Copy this link");
+  expect(draw("idle")).not.toContain("<input");
+  expect(draw("copied")).toContain("Link copied");
 });

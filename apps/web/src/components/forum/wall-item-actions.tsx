@@ -66,8 +66,6 @@ export function WallItemActions({
   const live = item.state !== "deleted";
   return (
     <ContentActions
-      // An edit draws the item anew: the form that was open is gone.
-      key={`${item.editedAt}-${item.state}`}
       compact={compact}
       summary={<Reactions {...reactions} part="summary" />}
       react={<Reactions {...reactions} part="button" />}

@@ -12,8 +12,8 @@ type Message = z.output<
   typeof conversationsListMessages.output
 >["items"][number];
 
-// The footer of a message in a conversation. Delete is the backend's word for the viewer
-// and Edit (`canEdit`, which opens the edit page) are the backend's word for the viewer.
+// The footer of a message in a conversation. Edit (`canEdit`, which opens the edit page) and
+// delete (`canDelete`) are the backend's word for the viewer.
 export function MessageActions({
   message,
   viewerId,
