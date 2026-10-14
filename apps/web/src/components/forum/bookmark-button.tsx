@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 // Bookmarks or un-bookmarks an item from where it is drawn and stays on the page: the action asks
-// for the opposite of what is shown and ends in a refresh; a refusal is shown under the button.
+// for the opposite of what is shown and ends in a refresh; a refusal is shown under the button. The
+// label carries the state (no `aria-pressed`: a reader would say "Remove bookmark, pressed").
 export function BookmarkButton({
   contentType,
   contentId,
@@ -21,7 +22,8 @@ export function BookmarkButton({
   contentId: number;
   bookmarked: boolean;
   className?: string;
-  // How the visible text is hidden where only the icon fits.
+  // How the visible text is hidden where only the icon fits; `className` then gives the button the
+  // width of a touch target.
   labelClassName?: string;
 }) {
   const t = useTranslations("ui.bookmark");
@@ -30,11 +32,10 @@ export function BookmarkButton({
   const [error, setError] = useState<string | undefined>();
   const label = t(shown ? "remove" : "add");
   return (
-    <>
+    <div className="flex min-w-0 max-w-full flex-col">
       <Button
         type="button"
         variant="ghost"
-        aria-pressed={shown}
         // Kept focusable while the write runs: a disabled button hands its focus to the page.
         disabled={pending}
         focusableWhenDisabled
@@ -58,7 +59,7 @@ export function BookmarkButton({
         {shown ? <BookmarkCheck /> : <Bookmark />}
         <span className={cn(labelClassName)}>{label}</span>
       </Button>
-      {error && <FormError className="basis-full text-xs">{error}</FormError>}
-    </>
+      {error && <FormError className="text-xs">{error}</FormError>}
+    </div>
   );
 }

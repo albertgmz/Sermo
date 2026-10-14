@@ -285,3 +285,125 @@ describe("bookmarks.list", () => {
     expectNoTableScan(f.ctx, bookmarksSql.page, [1, Number.MAX_SAFE_INTEGER, 100]);
   });
 });
+
+describe("bookmarks edge cases", () => {
+  test("a merged thread is bookmarked and listed as the thread it became", async () => {
+    const f = fixture();
+    const old = await thread(f);
+    const target = await thread(f);
+    const other = await thread(f);
+    await set(f, f.reader, "thread", old.thread.id);
+    await set(f, f.reader, "thread", other.thread.id);
+    f.ctx.sqlite
+      .prepare("UPDATE threads SET state = 'deleted', merged_into_id = ?1 WHERE id = ?2")
+      .run(target.thread.id, old.thread.id);
+
+    const page = await list(f, f.reader);
+    expect(page.items.map((item) => [item.contentId, item.threadId])).toEqual([
+      [other.thread.id, other.thread.id],
+      [old.thread.id, target.thread.id],
+    ]);
+    // Row id and cursor stay the row's own.
+    const rowId = page.items[1]!.id;
+    const first = await list(f, f.reader, { limit: 1 });
+    const second = await list(f, f.reader, { limit: 1, cursor: first.nextCursor });
+    expect(second.items[0]).toMatchObject({ id: rowId, contentId: old.thread.id });
+
+    // Bookmarking the old id stores the target; removing by the old id clears both rows.
+    await set(f, f.other, "thread", old.thread.id);
+    expect(await status(f, f.other, "thread", [old.thread.id, target.thread.id])).toEqual([
+      target.thread.id,
+    ]);
+    await set(f, f.other, "thread", old.thread.id, false);
+    expect(await status(f, f.other, "thread", [target.thread.id])).toEqual([]);
+    // A chain is followed to its end.
+    const last = await thread(f);
+    f.ctx.sqlite
+      .prepare("UPDATE threads SET merged_into_id = ?1 WHERE id = ?2")
+      .run(last.thread.id, target.thread.id);
+    expect((await list(f, f.reader)).items[1]!.threadId).toBe(last.thread.id);
+    await set(f, f.other, "thread", old.thread.id);
+    expect(await status(f, f.other, "thread", [last.thread.id])).toEqual([last.thread.id]);
+  });
+
+  test("moderated content is the author's alone", async () => {
+    const f = fixture();
+    const made = await thread(f);
+    const reply = await execute(f.ctx, postsCreateOp, f.author, {
+      threadId: made.thread.id,
+      body: "Waiting",
+    });
+    f.ctx.sqlite.prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1").run(reply.id);
+    await expect(set(f, f.other, "post", reply.id)).rejects.toBeInstanceOf(NotFoundError);
+    await set(f, f.author, "post", reply.id);
+    expect((await list(f, f.author)).items.map((item) => item.contentId)).toEqual([reply.id]);
+    // Bookmarked by someone who could see it, it is skipped for another member.
+    await set(f, f.moderator, "post", reply.id);
+    expect((await list(f, f.moderator)).items).toHaveLength(1);
+
+    const pending = await thread(f);
+    f.ctx.sqlite
+      .prepare("UPDATE threads SET state = 'moderated' WHERE id = ?1")
+      .run(pending.thread.id);
+    await expect(set(f, f.other, "thread", pending.thread.id)).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await set(f, f.author, "thread", pending.thread.id);
+    expect((await list(f, f.author)).items.map((item) => item.contentId)).toEqual([
+      pending.thread.id,
+      reply.id,
+    ]);
+    await set(f, f.moderator, "thread", pending.thread.id);
+    f.ctx.sqlite
+      .prepare(
+        "INSERT OR IGNORE INTO bookmarks (user_id, content_type, content_id, created_at) VALUES (?1, 'thread', ?2, 1)",
+      )
+      .run((f.other as { userId: number }).userId, pending.thread.id);
+    expect((await list(f, f.other)).items).toEqual([]);
+  });
+
+  test("a banned viewer sees nothing and cannot bookmark", async () => {
+    const f = fixture();
+    const made = await thread(f);
+    await set(f, f.reader, "thread", made.thread.id);
+    const userId = (f.reader as { userId: number }).userId;
+    f.ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(userId);
+    const banned = userActor({ id: userId, groupId: 2 });
+    expect((await list(f, banned)).items).toEqual([]);
+    await expect(set(f, banned, "thread", made.thread.id)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("a deleted author is shown as the deleted user", async () => {
+    const f = fixture();
+    const made = await thread(f);
+    await set(f, f.reader, "thread", made.thread.id);
+    f.ctx.sqlite.exec("PRAGMA foreign_keys = OFF");
+    f.ctx.sqlite.prepare("UPDATE threads SET user_id = 999999 WHERE id = ?1").run(made.thread.id);
+    const [item] = (await list(f, f.reader)).items;
+    expect(item!.author).toMatchObject({ id: 999999, username: "User #999999" });
+  });
+
+  test("a mixed page of visible and skipped rows pages without duplicates", async () => {
+    const f = fixture();
+    const kept: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const made = await thread(f);
+      await set(f, f.reader, "thread", made.thread.id);
+      if (i % 2 === 0) {
+        await execute(f.ctx, threadsDeleteOp, f.moderator, { threadId: made.thread.id });
+      } else kept.push(made.thread.id);
+    }
+    const seen: number[] = [];
+    let cursor: string | null = null;
+    for (let guard = 0; guard < 10; guard++) {
+      const page: Awaited<ReturnType<typeof list>> = await list(f, f.reader, {
+        limit: 2,
+        ...(cursor ? { cursor } : {}),
+      });
+      seen.push(...page.items.map((item) => item.contentId));
+      cursor = page.nextCursor;
+      if (!cursor) break;
+    }
+    expect(seen).toEqual(kept.reverse());
+  });
+});

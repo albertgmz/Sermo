@@ -21,6 +21,8 @@ import { excerptFromMarkdown } from "../seo/excerpt";
 const SCAN_CAP = 300;
 /** Rows read per round trip; the items of a round are loaded per type. */
 const BATCH_SIZE = 100;
+/** Merges followed to the thread that holds a merged thread, as `threads.get` does. */
+const MERGE_HOPS = 16;
 /** Source characters masked for an excerpt. */
 const EXCERPT_SOURCE = 2000;
 
@@ -50,6 +52,7 @@ export const bookmarksSql = {
   page: "SELECT id, created_at, content_type, content_id FROM bookmarks WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
   add: "INSERT INTO bookmarks (user_id, content_type, content_id, created_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (user_id, content_type, content_id) DO NOTHING",
   remove: "DELETE FROM bookmarks WHERE user_id = ?1 AND content_type = ?2 AND content_id = ?3",
+  mergedTarget: "SELECT merged_into_id FROM threads WHERE id = ?1",
   postOne: "SELECT thread_id, user_id, state FROM posts WHERE id = ?1",
   posts:
     "SELECT p.id, p.thread_id, p.user_id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.state, b.body_source FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))",
@@ -61,6 +64,22 @@ export const bookmarksSql = {
 
 function statement<R, P extends (string | number)[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `bookmarks.${name}`, () => ctx.sqlite.prepare<R, P>(sql));
+}
+
+/** The thread a thread was merged into, following the chain; the id itself when never merged. */
+function mergeTarget(ctx: Ctx, id: number): number {
+  const next = statement<{ merged_into_id: number | null }, [number]>(
+    ctx,
+    "mergedTarget",
+    bookmarksSql.mergedTarget,
+  );
+  let target = id;
+  for (let hops = 0; hops < MERGE_HOPS; hops++) {
+    const merged = next.get(target)?.merged_into_id;
+    if (!merged) break;
+    target = merged;
+  }
+  return target;
 }
 
 /** Whether the viewer may see the item, by the rule of its own read. */
@@ -93,7 +112,10 @@ export const bookmarksSetOp = implement(
   bookmarksSet,
   (ctx, actor, input) => {
     const { userId } = requireAuthenticated(actor);
-    if (input.bookmarked && !canSee(ctx, actor, userId, input.contentType, input.contentId))
+    // A merged thread is bookmarked as the thread it became.
+    const contentId =
+      input.contentType === "thread" ? mergeTarget(ctx, input.contentId) : input.contentId;
+    if (input.bookmarked && !canSee(ctx, actor, userId, input.contentType, contentId))
       throw new NotFoundError();
     // Removing needs no view of the item: a bookmark on something since hidden stays removable.
     writeTx(ctx, () => {
@@ -101,15 +123,19 @@ export const bookmarksSetOp = implement(
         statement<never, [number, string, number, number]>(ctx, "add", bookmarksSql.add).run(
           userId,
           input.contentType,
-          input.contentId,
+          contentId,
           ctx.now(),
         );
-      else
-        statement<never, [number, string, number]>(ctx, "remove", bookmarksSql.remove).run(
-          userId,
-          input.contentType,
-          input.contentId,
+      else {
+        const remove = statement<never, [number, string, number]>(
+          ctx,
+          "remove",
+          bookmarksSql.remove,
         );
+        // Both ids: a row made before the merge is under the old one.
+        remove.run(userId, input.contentType, input.contentId);
+        if (contentId !== input.contentId) remove.run(userId, input.contentType, contentId);
+      }
     });
     return { ok: true as const };
   },
@@ -153,6 +179,20 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
       row,
     ]),
   );
+  // A merged thread is shown as the thread it became: load the targets, a hop at a time.
+  const final = (id: number): ThreadRow | undefined => {
+    let thread = threads.get(id);
+    for (let hops = 0; thread?.merged_into_id && hops < MERGE_HOPS; hops++)
+      thread = threads.get(thread.merged_into_id);
+    return thread;
+  };
+  for (let hops = 0; hops < MERGE_HOPS; hops++) {
+    const missing = [...threads.values()]
+      .map((row) => row.merged_into_id)
+      .filter((id): id is number => id !== null && !threads.has(id));
+    if (missing.length === 0) break;
+    for (const row of threadRowsByIds(ctx, missing)) threads.set(row.id, row);
+  }
   const conversations =
     conversationIds.length === 0
       ? []
@@ -164,7 +204,7 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
   const rule = contentRule(ctx, actor);
   const items = new Map<string, Item>();
   for (const id of threadIds) {
-    const thread = threads.get(id);
+    const thread = final(id);
     if (thread && threadReadable(rule, thread))
       items.set(`thread:${id}`, {
         title: thread.title,

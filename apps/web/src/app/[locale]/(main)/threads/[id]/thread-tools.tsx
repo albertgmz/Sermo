@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label";
 type Found = z.output<typeof threadsGet.output>;
 type Thread = Found["thread"];
 
-// The row of buttons under the title: watching and bookmarking, for any signed-in member, and the moderation menu
-// for those it applies to. Whether the member watches the thread comes with it (`threads.get`).
+// The row of buttons under the title: watching and bookmarking, for any signed-in member, and the
+// moderation menu for those it applies to. Whether the member watches the thread comes with it (`threads.get`).
 export async function ThreadTools({
   thread,
   watching,

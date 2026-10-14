@@ -63,8 +63,11 @@ export async function BookmarkList({
     <>
       <SectionCard title={t("sectionHeading")}>
         {items.map((item) => (
-          <article key={item.id} className="flex items-start gap-2 px-4 py-3">
-            <div className="min-w-0 flex-1">
+          <article
+            key={item.id}
+            className="flex flex-wrap items-start gap-2 px-4 py-3"
+          >
+            <div className="min-w-0 flex-[1_1_16rem]">
               <h3>
                 <Link
                   href={bookmarkHref(item)}
@@ -95,6 +98,7 @@ export async function BookmarkList({
               contentType={item.contentType}
               contentId={item.contentId}
               bookmarked
+              className="min-w-10"
               labelClassName="sr-only"
             />
           </article>
