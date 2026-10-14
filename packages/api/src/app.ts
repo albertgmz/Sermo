@@ -6,6 +6,7 @@ import {
   createStorage,
   execute,
   getAuth,
+  GUEST,
   readSiteSettings,
   resolveActor,
   robotsTxt,
@@ -107,6 +108,8 @@ function routePattern(path: string): RegExp {
   return new RegExp(`^${source}$`);
 }
 
+const fileRoute = /^\/api\/v1\/files\/[^/]+$/;
+
 export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Variables }> {
   const app = new Hono<{ Variables: Variables }>();
   let openApiDocument: Promise<object> | undefined;
@@ -168,7 +171,16 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
         : `user:${actor.userId}`;
   };
   const resolve = async (c: ApiContext, next: () => Promise<void>) => {
-    const resolved = await resolveActor(ctx, c.req.raw.headers);
+    let resolved: Awaited<ReturnType<typeof resolveActor>>;
+    try {
+      resolved = await resolveActor(ctx, c.req.raw.headers);
+    } catch (error) {
+      // A dead cookie must not break a picture anyone may see: a file is served as to a guest
+      // when the session cannot be resolved (the file route decides what a guest may read).
+      if (!(error instanceof SermoError) || !(c.req.method === "GET" && fileRoute.test(c.req.path)))
+        throw error;
+      resolved = { actor: GUEST, setCookies: [] };
+    }
     // A session cookie is a browser session: the group and permission writes ask it for the
     // administrator's password (see confirmActorPassword).
     const result =

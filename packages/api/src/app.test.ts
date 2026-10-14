@@ -444,6 +444,49 @@ test("multipart upload streams through the API and serves with nosniff", async (
   expect(((await profile.json()) as { avatar: { fileId: number } }).avatar.fileId).toBe(avatar.id);
 });
 
+test("a picture anyone may see is served when the session cookie is dead", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
+  uploadDirs.push(dir);
+  const { request } = setup({
+    trustedProxyHeader: null,
+    storage: { driver: localDriver(join(dir, "files")), tempDir: join(dir, "temp") },
+  });
+  const { cookie } = await register(request, "stalecookie");
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const upload = async (purpose: string, blob: Blob, name: string) => {
+    const form = new FormData();
+    form.append("file", blob, name);
+    const response = await request(`/api/v1/files?purpose=${purpose}`, {
+      method: "POST",
+      headers: { cookie, origin: "http://localhost:3000" },
+      body: form,
+    });
+    expect(response.status).toBe(201);
+    return ((await response.json()) as { id: number; url: string }).id;
+  };
+  const avatar = await upload("avatar", new Blob([png], { type: "image/png" }), "a.png");
+  const note = await upload("attachment", new Blob(["x"], { type: "text/plain" }), "n.txt");
+  expect(
+    (
+      await request("/api/v1/profile/avatar", {
+        method: "PUT",
+        headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
+        body: JSON.stringify({ fileId: avatar }),
+      })
+    ).status,
+  ).toBe(200);
+  const dead = "sermo.session_token=gone";
+  const served = await request(`/api/v1/files/${avatar}`, { headers: { cookie: dead } });
+  expect(served.status).toBe(200);
+  expect(served.headers.get("content-type")).toStartWith("image/");
+  // What a guest may not read stays hidden, and every other route still refuses a dead cookie.
+  expect((await request(`/api/v1/files/${note}`, { headers: { cookie: dead } })).status).toBe(404);
+  expect((await request("/api/v1/me", { headers: { cookie: dead } })).status).toBe(401);
+});
+
 test("rate limits preserve headers and separate guest IPs", async () => {
   const { request } = setup({
     trustedProxyHeader: "x-forwarded-for",
