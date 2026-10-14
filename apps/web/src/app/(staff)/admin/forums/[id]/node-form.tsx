@@ -121,13 +121,13 @@ export async function NodeForm({
       <FieldRow
         name="iconKey"
         label={t("icon")}
-        htmlFor="node-icon"
+        htmlFor="node-icon-key"
         help={t("iconHelp")}
       >
         <IconPicker
           name="iconKey"
-          id="node-icon"
-          labelId="node-icon-label"
+          id="node-icon-key"
+          labelId="node-icon-key-label"
           defaultValue={node.iconKey}
         />
       </FieldRow>
