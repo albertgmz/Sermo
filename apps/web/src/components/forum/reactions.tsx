@@ -1,4 +1,4 @@
-import { type ReactionTarget, react } from "@/app/(main)/actions";
+import { type ReactionTarget, react } from "@/app/[locale]/(main)/actions";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { canReact, ReactionControl } from "@/components/forum/reaction-control";
 import { ReactionSummary } from "@/components/forum/reaction-summary";

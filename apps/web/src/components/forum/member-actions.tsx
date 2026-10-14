@@ -1,4 +1,4 @@
-import { followFromPage } from "@/app/(main)/actions";
+import { followFromPage } from "@/app/[locale]/(main)/actions";
 import {
   hasMemberActions,
   MemberActionsView,

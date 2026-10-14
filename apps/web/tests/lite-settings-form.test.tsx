@@ -32,14 +32,14 @@ mock.module("next-intl", () => ({
 }));
 // The real actions reach the backend client, which only a server may import.
 mock.module("server-only", () => ({}));
-const realActions = { ...(await import("@/app/(main)/actions")) };
-mock.module("@/app/(main)/actions", () => ({
+const realActions = { ...(await import("@/app/[locale]/(main)/actions")) };
+mock.module("@/app/[locale]/(main)/actions", () => ({
   ...realActions,
   setLiteMode: async () => {},
 }));
 
 const { LiteSettingsForm } = await import(
-  "../src/app/(main)/lite/settings-form"
+  "../src/app/[locale]/(main)/lite/settings-form"
 );
 
 type Control = { name: string; value: string; disabled: boolean };

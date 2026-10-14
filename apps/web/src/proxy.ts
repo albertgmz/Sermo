@@ -13,7 +13,7 @@ import {
   isStyleguidePath,
   mayOpenPath,
   mayOpenStyleguide,
-} from "@/app/(staff)/registry";
+} from "@/app/[locale]/(staff)/registry";
 import {
   blocksImageRequest,
   isImageRequest,

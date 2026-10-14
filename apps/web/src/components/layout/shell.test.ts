@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Standing } from "@/app/(staff)/registry";
+import type { Standing } from "@/app/[locale]/(staff)/registry";
 import { accentCss } from "@/components/layout/site-accent";
 import { pendingBadge, staffLinks } from "@/components/layout/staff-bar";
 
@@ -83,7 +83,7 @@ test("the moderation badge adds the two queues and marks a cut-off queue with mo
 
 test("the shell never imports the removed demo data or session modules", () => {
   const sources = [
-    join(import.meta.dir, "../../app/(main)/layout.tsx"),
+    join(import.meta.dir, "../../app/[locale]/(main)/layout.tsx"),
     ...readdirSync(import.meta.dir)
       .filter((name) => /\.tsx?$/.test(name) && !name.endsWith(".test.ts"))
       .map((name) => join(import.meta.dir, name)),

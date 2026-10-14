@@ -97,7 +97,7 @@ globalThis.fetch = (async (input: string) => {
   });
 }) as unknown as typeof fetch;
 // The member as they edit their own profile.
-mock.module("@/app/(main)/account/data", () => ({
+mock.module("@/app/[locale]/(main)/account/data", () => ({
   getSelf: async () => ({
     may: { setCustomTitle: false, setSignature: true },
     limits: {
@@ -125,9 +125,11 @@ const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
 const { Signature } = await import("../src/components/forum/signature");
 const { TitleSection } = await import(
-  "../src/app/(main)/account/profile-forms"
+  "../src/app/[locale]/(main)/account/profile-forms"
 );
-const { EditorDemo } = await import("../src/app/(main)/ui/editor-demo");
+const { EditorDemo } = await import(
+  "../src/app/[locale]/(main)/ui/editor-demo"
+);
 
 afterEach(() => {
   cookie = undefined;

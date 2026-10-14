@@ -1,6 +1,6 @@
 import { Bell } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { NotificationLink } from "@/app/(main)/notifications/notification-link";
+import { NotificationLink } from "@/app/[locale]/(main)/notifications/notification-link";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { UnreadDot } from "@/components/forum/unread-dot";
 import { UserAvatar } from "@/components/forum/user-avatar";

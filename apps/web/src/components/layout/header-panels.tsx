@@ -1,7 +1,7 @@
 import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { MarkAllReadForm } from "@/app/(main)/notifications/mark-all-read";
+import { MarkAllReadForm } from "@/app/[locale]/(main)/notifications/mark-all-read";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { LoadedPanel } from "@/components/layout/loaded-panel";

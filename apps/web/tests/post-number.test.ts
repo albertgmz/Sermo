@@ -14,9 +14,9 @@ test("a post ordinal prints without a thousands separator", () => {
 
 test("the pages hand the ordinal over as a number, not a grouped string", () => {
   for (const page of [
-    "src/app/(main)/threads/[id]/page.tsx",
-    "src/app/(main)/members/[id]/page.tsx",
-    "src/app/(main)/search/page.tsx",
+    "src/app/[locale]/(main)/threads/[id]/page.tsx",
+    "src/app/[locale]/(main)/members/[id]/page.tsx",
+    "src/app/[locale]/(main)/search/page.tsx",
   ])
     expect(readFileSync(page, "utf8"), page).not.toMatch(
       /formatNumber\(\s*post\.number\s*\)/,

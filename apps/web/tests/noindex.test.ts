@@ -6,13 +6,13 @@ import { join } from "node:path";
 // takes the `NOINDEX` robots value, which covers the routes under it.
 const COVERED = [
   // Sign-in, registration, password reset and verification.
-  "src/app/(auth)/layout.tsx",
+  "src/app/[locale]/(auth)/layout.tsx",
   // Everything under /account, the viewing-mode settings of a member among it.
-  "src/app/(main)/account/layout.tsx",
-  "src/app/(main)/conversations/layout.tsx",
-  "src/app/(main)/notifications/page.tsx",
-  "src/app/(main)/lite/page.tsx",
-  "src/app/(main)/ui/page.tsx",
+  "src/app/[locale]/(main)/account/layout.tsx",
+  "src/app/[locale]/(main)/conversations/layout.tsx",
+  "src/app/[locale]/(main)/notifications/page.tsx",
+  "src/app/[locale]/(main)/lite/page.tsx",
+  "src/app/[locale]/(main)/ui/page.tsx",
 ];
 
 test("the routes that are no one's to find take the noindex robots value", () => {
@@ -24,7 +24,7 @@ test("the routes that are no one's to find take the noindex robots value", () =>
 
 test("every route that takes the sign-in layout is one of the sign-in pages", () => {
   const layout = readFileSync(
-    join(import.meta.dir, "..", "src/app/(auth)/layout.tsx"),
+    join(import.meta.dir, "..", "src/app/[locale]/(auth)/layout.tsx"),
     "utf8",
   );
   expect(layout).toContain("export const metadata");

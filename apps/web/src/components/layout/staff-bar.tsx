@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { type PendingCount, pendingTotal } from "@/app/(staff)/pending-count";
-import { canOpen, type Standing, screenByKey } from "@/app/(staff)/registry";
+import {
+  type PendingCount,
+  pendingTotal,
+} from "@/app/[locale]/(staff)/pending-count";
+import {
+  canOpen,
+  type Standing,
+  screenByKey,
+} from "@/app/[locale]/(staff)/registry";
 import { Container } from "@/components/layout/container";
 import type { Counters } from "@/components/layout/header-data";
 

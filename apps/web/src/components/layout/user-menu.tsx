@@ -3,7 +3,7 @@
 import { ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { logout } from "@/app/(main)/actions";
+import { logout } from "@/app/[locale]/(main)/actions";
 import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
 import { type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";

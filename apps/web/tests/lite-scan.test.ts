@@ -66,7 +66,7 @@ test("ordinary routes, gradients and similarly named icons do not look like pict
     "revalidatePath(`/forums/${forum.id}`)",
     '<Link href="/awards/12" />',
     'type Props = PageProps<"/forums/[id]/new">',
-    'import { Form } from "@/app/(main)/forums/form"',
+    'import { Form } from "@/app/[locale]/(main)/forums/form"',
     "<ImagePlus />",
     'className="[mask-image:linear-gradient(to_bottom,black,transparent)]"',
     ".art { background: linear-gradient(transparent, currentColor) }",

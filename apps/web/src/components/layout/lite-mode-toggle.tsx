@@ -6,8 +6,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { useFormStatus } from "react-dom";
-import { setLiteMode } from "@/app/(main)/actions";
-import { LiteStatus } from "@/app/(main)/lite/status";
+import { setLiteMode } from "@/app/[locale]/(main)/actions";
+import { LiteStatus } from "@/app/[locale]/(main)/lite/status";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { LiteState } from "@/lib/lite-preferences";
 

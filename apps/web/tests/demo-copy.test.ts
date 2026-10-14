@@ -15,7 +15,7 @@ test("no message carries demo copy", () => {
 
 test("the register page draws no testimonial", () => {
   const source = readFileSync(
-    join(import.meta.dir, "..", "src/app/(auth)/register/page.tsx"),
+    join(import.meta.dir, "..", "src/app/[locale]/(auth)/register/page.tsx"),
     "utf8",
   );
   expect(source).not.toContain("blockquote");

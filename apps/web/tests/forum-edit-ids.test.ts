@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
-const DIR = "src/app/(staff)/admin/forums/[id]";
+const DIR = "src/app/[locale]/(staff)/admin/forums/[id]";
 
 // The ids a source file writes out in full (not built from a template), with the label id every
 // `FieldRow` derives from its `htmlFor`.

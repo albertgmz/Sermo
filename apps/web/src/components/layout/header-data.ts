@@ -8,8 +8,8 @@ import {
 } from "@sermo/core/contracts";
 import { cache } from "react";
 import type * as z from "zod";
-import { notificationEntries } from "@/app/(main)/notifications/entries";
-import type { PendingCount } from "@/app/(staff)/pending-count";
+import { notificationEntries } from "@/app/[locale]/(main)/notifications/entries";
+import type { PendingCount } from "@/app/[locale]/(staff)/pending-count";
 import type { AccentColors } from "@/components/layout/site-accent";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";

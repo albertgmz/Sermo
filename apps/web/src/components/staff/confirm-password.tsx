@@ -11,7 +11,7 @@
 //          `FormRows` holds for `name` (a state's `fields`).
 
 import { useTranslations } from "next-intl";
-import { PasswordField } from "@/app/(auth)/password-field";
+import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { useFieldError } from "./form-rows";
 import { Help, Row } from "./rows";
 

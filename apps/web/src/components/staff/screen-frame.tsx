@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { PageHead } from "@/app/(staff)/admin/groups/skeletons";
+import { PageHead } from "@/app/[locale]/(staff)/admin/groups/skeletons";
 import { LoadingRegion } from "@/components/forum/skeletons";
 
 // StreamedPanel: the content of a screen streaming in behind a skeleton, its panels spaced as on

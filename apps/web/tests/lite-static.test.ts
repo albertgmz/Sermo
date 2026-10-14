@@ -70,7 +70,7 @@ const INLINE_ART: Record<string, { category: string; reason: string }> = {
 // Sample pictures of the styleguide are data, generated as SVG text: they are handed to the gates
 // (`Art`, `UserAvatar`, `CoverBackdrop`), which check the category before drawing anything.
 const SAMPLE_PICTURES: Record<string, string> = {
-  "src/app/(main)/ui/samples.ts":
+  "src/app/[locale]/(main)/ui/samples.ts":
     "Generates the data URLs of the styleguide's sample pictures; draws nothing.",
 };
 

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import type { NotificationEntry } from "@/app/(main)/notifications/entries";
+import type { NotificationEntry } from "@/app/[locale]/(main)/notifications/entries";
 import {
   type ConversationItem,
   ConversationPreview,
