@@ -310,7 +310,7 @@ describe("spoilers.get: conversation messages", () => {
     // A hidden message inside the window is counted and readable only with conversation.viewHidden.
     w.ctx.sqlite
       .prepare("UPDATE conversation_messages SET state = 'deleted' WHERE id = ?1")
-      .run(ids[3]);
+      .run(ids[3]!);
     const setViewHidden = (value: number) => {
       w.ctx.sqlite
         .prepare(
