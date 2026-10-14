@@ -195,6 +195,7 @@ const forum = (id: number, title: string) => ({
   depth: 0,
   tabId: null,
   icon: null,
+  iconKey: null,
   cover: null,
   threadCount: 0,
   postCount: 0,

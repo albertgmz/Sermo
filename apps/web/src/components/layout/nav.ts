@@ -10,6 +10,7 @@ import {
   Settings,
   UserRound,
 } from "lucide-react";
+import { iconComponent } from "@/components/icons/icon-set";
 import type { NavigationEntry, NavigationLink } from "@/lib/sermo/navigation";
 
 // The entries, their order and their titles are data. What stays here is how a built-in entry is
@@ -21,6 +22,8 @@ export type NavItem = {
   href: string | null;
   external: boolean;
   builtin: string | null;
+  icon: string | null;
+  iconPosition: "before" | "after";
   match: string[];
   children: NavItem[];
 };
@@ -54,6 +57,25 @@ export function iconFor(builtin: string | null): LucideIcon {
   return (builtin && ICONS[builtin]) || LinkIcon;
 }
 
+// The icon an entry is drawn with: its own, and with `withDefault` (the phone bar and the account
+// menu, where every entry has one) the built-in's default or a link.
+export function entryIcon(
+  entry: Pick<NavItem, "icon" | "builtin">,
+  withDefault: true,
+): LucideIcon;
+export function entryIcon(
+  entry: Pick<NavItem, "icon" | "builtin">,
+  withDefault?: boolean,
+): LucideIcon | null;
+export function entryIcon(
+  entry: Pick<NavItem, "icon" | "builtin">,
+  withDefault = false,
+): LucideIcon | null {
+  return (
+    iconComponent(entry.icon) ?? (withDefault ? iconFor(entry.builtin) : null)
+  );
+}
+
 export function isExternal(target: string) {
   return /^https?:\/\//i.test(target);
 }
@@ -71,6 +93,8 @@ function item(
     href,
     external: !!href && isExternal(href),
     builtin: entry.builtin,
+    icon: entry.icon,
+    iconPosition: entry.iconPosition,
     match: (entry.builtin && MATCH[entry.builtin]) || [],
     children,
   };

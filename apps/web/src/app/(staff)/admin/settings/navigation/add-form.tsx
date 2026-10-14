@@ -1,7 +1,12 @@
 import type { navigationList } from "@sermo/core/contracts";
-import { NavigationAudience, NavigationLocation } from "@sermo/core/contracts";
+import {
+  NavigationAudience,
+  NavigationIconPosition,
+  NavigationLocation,
+} from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -71,6 +76,31 @@ export async function AddForm({
             <option key={target} value={target} />
           ))}
         </datalist>
+      </FieldRow>
+      <FieldRow
+        name="icon"
+        label={t("add.icon")}
+        htmlFor="add-icon"
+        help={t("add.iconHelp")}
+      >
+        <IconPicker name="icon" id="add-icon" />
+      </FieldRow>
+      <FieldRow
+        name="iconPosition"
+        label={t("add.iconPosition")}
+        htmlFor="add-icon-position"
+      >
+        <select
+          id="add-icon-position"
+          name="iconPosition"
+          className={selectClass}
+        >
+          {NavigationIconPosition.options.map((position) => (
+            <option key={position} value={position}>
+              {t(`iconPositions.${position}`)}
+            </option>
+          ))}
+        </select>
       </FieldRow>
       <FieldRow
         name="parentId"

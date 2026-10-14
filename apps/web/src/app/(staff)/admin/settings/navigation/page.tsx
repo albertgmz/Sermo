@@ -35,6 +35,8 @@ async function Editor({
     isEnabled: entry.isEnabled,
     audience: entry.audience,
     permission: entry.permission,
+    icon: entry.icon,
+    iconPosition: entry.iconPosition,
     position: entry.position,
     children: children.length,
     enabledChildren: children.filter((child) => child.isEnabled).length,

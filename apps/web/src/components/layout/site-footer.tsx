@@ -12,6 +12,7 @@ import {
   linkProps,
   toNavItems,
 } from "@/components/layout/nav";
+import { NavLabel } from "@/components/layout/nav-label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getSite } from "@/lib/sermo/site";
@@ -129,12 +130,12 @@ export async function FooterSocials() {
 }
 
 const FOOTER_LINK =
-  "inline-flex h-10 items-center rounded-md font-medium transition-colors hover:text-primary md:h-8";
+  "inline-flex h-10 items-center gap-1.5 rounded-md font-medium transition-colors hover:text-primary md:h-8";
 
 function FooterLink({ link }: { link: LinkItem }) {
   return (
     <Link {...linkProps(link)} className={FOOTER_LINK}>
-      {link.title}
+      <NavLabel item={link} />
     </Link>
   );
 }

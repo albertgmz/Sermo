@@ -32,7 +32,7 @@ export function forumCard(
   return {
     id: node.id,
     title: node.title,
-    icon: "",
+    icon: node.iconKey ?? "",
     image: (node.cover ?? node.icon)?.url ?? null,
     subforums: children.map(({ id, title }) => ({ id, title })),
     threadCount: node.threadCount,

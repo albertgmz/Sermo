@@ -35,6 +35,7 @@ const NODE_FIELDS = [
   "description",
   "position",
   "tabId",
+  "iconKey",
   "minAccountAgeDays",
   "minPostCount",
 ];
@@ -112,6 +113,9 @@ export async function createNode(
         title: text(formData, "title"),
         description: text(formData, "description"),
         ...(position != null && { position }),
+        ...(formData.has("iconKey") && {
+          iconKey: text(formData, "iconKey") || null,
+        }),
         // A tab belongs to a root category: the field is only in the form for one.
         ...(tabId != null && { tabId }),
       })
@@ -147,6 +151,9 @@ export async function saveNode(
       title: text(formData, "title"),
       description: text(formData, "description"),
       ...(position != null && { position }),
+      ...(formData.has("iconKey") && {
+        iconKey: text(formData, "iconKey") || null,
+      }),
       ...(tabId !== undefined && { tabId }),
       settings,
     });

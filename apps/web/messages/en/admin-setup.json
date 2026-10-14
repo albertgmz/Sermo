@@ -227,6 +227,10 @@
       "members": "Members",
       "permission": "Holders of a permission"
     },
+    "iconPositions": {
+      "before": "Before the title",
+      "after": "After the title"
+    },
     "filter": {
       "label": "Filter entries",
       "placeholder": "Filter by title",
@@ -246,6 +250,9 @@
       "noParent": "Top level",
       "order": "Display order",
       "orderHelp": "Entries show from the lowest number up.",
+      "icon": "Icon",
+      "iconHelp": "Drawn next to the title. The bottom bar on a phone always draws it above the title.",
+      "iconPosition": "Icon position",
       "audience": "Who sees it",
       "permission": "Permission",
       "permissionHelp": "Used only with the audience holders of a permission.",
@@ -265,6 +272,8 @@
       "enabled": "On",
       "enabledLabel": "Show {title}",
       "order": "Order",
+      "icon": "Icon",
+      "iconPosition": "Icon position",
       "save": "Save entry",
       "builtin": "Built-in",
       "heading": "Heading",

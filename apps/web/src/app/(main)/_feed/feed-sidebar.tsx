@@ -240,7 +240,7 @@ async function FeedForums() {
           className="flex min-h-11 items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-muted/30"
         >
           <ForumIcon
-            name=""
+            name={forum.iconKey ?? ""}
             className="size-4 shrink-0 text-muted-foreground"
           />
           <span className="min-w-0 flex-1 truncate font-medium">

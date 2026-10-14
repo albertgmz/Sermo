@@ -2,6 +2,7 @@
 
 import {
   NavigationAudience,
+  NavigationIconPosition,
   NavigationLocation,
   navigationCreate,
   navigationDelete,
@@ -37,7 +38,20 @@ const NAMES = [
   "position",
   "audience",
   "permission",
+  "icon",
+  "iconPosition",
 ];
+
+// The icon chosen in the picker ("" is none) and which side of the title it sits on.
+function iconOf(formData: FormData) {
+  const position = NavigationIconPosition.safeParse(
+    text(formData, "iconPosition") || "before",
+  );
+  return {
+    icon: text(formData, "icon") || null,
+    iconPosition: position.success ? position.data : undefined,
+  };
+}
 
 // The audience and the permission it needs: the permission only goes with its audience.
 async function audienceOf(formData: FormData): Promise<
@@ -90,6 +104,7 @@ export async function addEntry(
       isEnabled: formData.get("isEnabled") !== null,
       audience: who.audience,
       permission: who.permission,
+      ...iconOf(formData),
     });
   } catch (error) {
     return formFailure(error, NAMES);
@@ -114,6 +129,7 @@ export async function saveEntry(
       isEnabled: formData.get("isEnabled") !== null,
       audience: who.audience,
       permission: who.permission,
+      ...iconOf(formData),
     });
   } catch (error) {
     return formFailure(error, NAMES);

@@ -45,6 +45,8 @@ const ENTRY = {
   isEnabled: true,
   audience: "members",
   permission: null,
+  icon: null,
+  iconPosition: "before",
   builtin: null,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
@@ -79,6 +81,8 @@ test("a new entry sends what the form showed and expires the site cache", async 
         ["position", ""],
         ["audience", "members"],
         ["permission", "admin.settings"],
+        ["icon", "star"],
+        ["iconPosition", "after"],
         ["isEnabled", "on"],
       ]),
     ),
@@ -95,6 +99,8 @@ test("a new entry sends what the form showed and expires the site cache", async 
         isEnabled: true,
         audience: "members",
         permission: null,
+        icon: "star",
+        iconPosition: "after",
       },
     },
   ]);
@@ -127,6 +133,8 @@ test("an audience of permission carries the permission, an empty target is a hea
     isEnabled: false,
     audience: "permission",
     permission: "admin.settings",
+    icon: null,
+    iconPosition: "before",
   });
 });
 
@@ -196,6 +204,8 @@ test("an entry's own form sends its title, switch and audience, never the order"
         ["title", "House rules"],
         ["audience", "guests"],
         ["permission", "admin.settings"],
+        ["icon", ""],
+        ["iconPosition", "after"],
       ]),
     ),
   );
@@ -208,6 +218,8 @@ test("an entry's own form sends its title, switch and audience, never the order"
         isEnabled: false,
         audience: "guests",
         permission: null,
+        icon: null,
+        iconPosition: "after",
       },
     },
   ]);

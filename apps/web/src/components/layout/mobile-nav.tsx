@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Counters } from "@/components/layout/header-data";
 import {
-  iconFor,
+  entryIcon,
   isCurrent,
   type LinkItem,
   linkProps,
@@ -32,7 +32,7 @@ export function MobileNav({
     >
       <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
         {items.map((item) => {
-          const Icon = iconFor(item.builtin);
+          const Icon = entryIcon(item, true);
           const count = item.builtin ? counts[item.builtin] : 0;
           return (
             <li key={item.id}>

@@ -11,6 +11,7 @@ import {
   linkProps,
   type NavItem,
 } from "@/components/layout/nav";
+import { NavLabel } from "@/components/layout/nav-label";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -56,7 +57,7 @@ export function SearchForm({ className }: { className?: string }) {
 }
 
 const headerLink =
-  "inline-flex h-10 items-center rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+  "inline-flex h-10 items-center gap-1.5 rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 
 function HeaderEntry({ entry }: { entry: NavItem }) {
   const pathname = usePathname();
@@ -75,7 +76,7 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
             "group gap-1 outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
-          {entry.title}
+          <NavLabel item={entry} />
           <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-52">
@@ -85,7 +86,7 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
               className="min-h-10 md:min-h-8"
               render={<Link {...linkProps(link)} />}
             >
-              {link.title}
+              <NavLabel item={link} className="" />
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -94,7 +95,9 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
   }
   if (!hasHref(entry))
     return (
-      <span className={cn(headerLink, "cursor-default")}>{entry.title}</span>
+      <span className={cn(headerLink, "cursor-default")}>
+        <NavLabel item={entry} />
+      </span>
     );
   return (
     <Link
@@ -102,7 +105,7 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
       aria-current={isCurrent(pathname, entry) ? "page" : undefined}
       className={headerLink}
     >
-      {entry.title}
+      <NavLabel item={entry} />
     </Link>
   );
 }
@@ -128,7 +131,7 @@ export function HeaderNav({
 }
 
 const menuLink =
-  "flex h-11 items-center rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+  "flex h-11 items-center gap-2 rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
 
 function MenuLink({
   entry,
@@ -140,7 +143,9 @@ function MenuLink({
   const pathname = usePathname();
   if (!hasHref(entry))
     return (
-      <span className={cn(menuLink, "cursor-default")}>{entry.title}</span>
+      <span className={cn(menuLink, "cursor-default")}>
+        <NavLabel item={entry} />
+      </span>
     );
   return (
     <Link
@@ -149,7 +154,7 @@ function MenuLink({
       aria-current={isCurrent(pathname, entry) ? "page" : undefined}
       className={menuLink}
     >
-      {entry.title}
+      <NavLabel item={entry} />
     </Link>
   );
 }

@@ -72,6 +72,8 @@
     "noParent": "None (top level)",
     "position": "Display order",
     "positionHelp": "Lower numbers come first. Leave empty for the default.",
+    "icon": "Icon",
+    "iconHelp": "Drawn before the title on the forum list.",
     "tab": "Forum list tab",
     "tabHelp": "Only for a category with no parent.",
     "noTab": "No tab"
@@ -108,6 +110,8 @@
     "noParent": "None (top level)",
     "position": "Display order",
     "positionHelp": "Lower numbers come first among nodes with the same parent.",
+    "icon": "Icon",
+    "iconHelp": "Drawn before the title on the forum list.",
     "tab": "Forum list tab",
     "tabHelp": "The tab of the forum list this top level category sits in.",
     "noTab": "No tab",

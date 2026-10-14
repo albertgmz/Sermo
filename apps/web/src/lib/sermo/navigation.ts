@@ -10,6 +10,8 @@ export type NavigationLink = {
   title: string;
   target: string | null;
   builtin: string | null;
+  icon: string | null;
+  iconPosition: "before" | "after";
 };
 export type NavigationEntry = NavigationLink & { children: NavigationLink[] };
 export type Navigation = {

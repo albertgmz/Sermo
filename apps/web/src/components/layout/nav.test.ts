@@ -14,6 +14,8 @@ type Entry = {
   title: string;
   target: string | null;
   builtin: string | null;
+  icon: string | null;
+  iconPosition: "before" | "after";
   children: Entry[];
 };
 
@@ -25,7 +27,15 @@ function entry(
   children: Entry[] = [],
 ): Entry {
   next += 1;
-  return { id: next, title, target, builtin, children };
+  return {
+    id: next,
+    title,
+    target,
+    builtin,
+    icon: null,
+    iconPosition: "before",
+    children,
+  };
 }
 
 const [forums, custom, external, heading] = toNavItems([

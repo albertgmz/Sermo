@@ -1,6 +1,7 @@
 import type { forumTabsList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,14 @@ export async function NodeCreateForm({
           type="number"
           inputMode="numeric"
         />
+      </FieldRow>
+      <FieldRow
+        name="iconKey"
+        label={t("icon")}
+        htmlFor={`${type}-icon`}
+        help={t("iconHelp")}
+      >
+        <IconPicker name="iconKey" id={`${type}-icon`} />
       </FieldRow>
       {type === "category" && tabs.length > 0 && (
         <FieldRow

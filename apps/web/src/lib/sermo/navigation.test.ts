@@ -19,7 +19,14 @@ mock.module("next/headers", () => ({
 
 const { getNavigation } = await import("./navigation");
 
-const home = { id: 1, title: "Start", target: "/", builtin: "header.home" };
+const plain = { icon: null, iconPosition: "before" as const };
+const home = {
+  id: 1,
+  title: "Start",
+  target: "/",
+  builtin: "header.home",
+  ...plain,
+};
 const answer = {
   header: [{ ...home, children: [] }],
   mobile: [],
@@ -30,12 +37,14 @@ const answer = {
       title: "Community",
       target: null,
       builtin: "footer.community",
+      ...plain,
       children: [
         {
           id: 3,
           title: "Boards",
           target: "/forums",
           builtin: "footer.community.forums",
+          ...plain,
         },
       ],
     },

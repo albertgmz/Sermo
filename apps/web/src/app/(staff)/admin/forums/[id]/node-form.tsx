@@ -1,6 +1,7 @@
 import type { forumTabsList, nodesGet } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,14 @@ export async function NodeForm({
           required
           defaultValue={node.position}
         />
+      </FieldRow>
+      <FieldRow
+        name="iconKey"
+        label={t("icon")}
+        htmlFor="node-icon"
+        help={t("iconHelp")}
+      >
+        <IconPicker name="iconKey" id="node-icon" defaultValue={node.iconKey} />
       </FieldRow>
       {node.parentId === null && (
         <FieldRow

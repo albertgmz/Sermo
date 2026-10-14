@@ -11,6 +11,16 @@
     },
     "close": "Close"
   },
+  "iconPicker": {
+    "aria": {
+      "choose": "Choose an icon",
+      "grid": "Icons",
+      "search": "Search icons"
+    },
+    "empty": "No icon matches that search.",
+    "none": "No icon",
+    "searchPlaceholder": "Search icons"
+  },
   "sheet": {
     "aria": {
       "close": "Close"

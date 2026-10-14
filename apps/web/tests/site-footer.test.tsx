@@ -41,11 +41,20 @@ function backend(
     )) as unknown as typeof fetch;
 }
 
-const link = (id: number, title: string, target: string | null) => ({
+const link = (
+  id: number,
+  title: string,
+  target: string | null,
+  icon: { icon: string | null; iconPosition: "before" | "after" } = {
+    icon: null,
+    iconPosition: "before",
+  },
+) => ({
   id,
   title,
   target,
   builtin: null,
+  ...icon,
 });
 const none = { header: [], mobile: [], account: [] };
 
@@ -75,6 +84,34 @@ test("the footer draws a column for each heading and one for the single links", 
   expect(html.match(/rel="noopener noreferrer"/g)).toHaveLength(1);
   expect(html).not.toContain("Empty heading");
   expect(html).not.toContain("styleguide");
+});
+
+test("a link draws its own icon on the side it asks for, and none without one", async () => {
+  backend({
+    ...none,
+    footer: [
+      {
+        ...link(1, "Around", null),
+        children: [
+          link(2, "Boards", "/forums", {
+            icon: "star",
+            iconPosition: "before",
+          }),
+          link(3, "Chat", "/chat", { icon: "heart", iconPosition: "after" }),
+          link(4, "Rules", "/rules"),
+          link(5, "Odd", "/odd", {
+            icon: "no-such-icon",
+            iconPosition: "before",
+          }),
+        ],
+      },
+    ],
+  });
+  const html = renderToStaticMarkup(await FooterColumns());
+  expect(html).toMatch(/<svg[^>]*lucide-star[^>]*>.*<[/]svg>Boards<[/]a>/);
+  expect(html).toMatch(/Chat<svg[^>]*lucide-heart/);
+  expect(html).toContain(">Rules</a>");
+  expect(html).toContain(">Odd</a>");
 });
 
 test("without entries the footer has no columns", async () => {

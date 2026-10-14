@@ -49,6 +49,7 @@ const NODE = {
   title: "News",
   description: "",
   icon: null,
+  iconKey: null,
   cover: null,
   position: 0,
   tabId: null,
@@ -109,6 +110,7 @@ test("a new forum is created with what the form showed and opens its editor", as
         parentId: "3",
         position: "2",
         tabId: "",
+        iconKey: "gamepad-2",
       }),
     ),
   );
@@ -119,6 +121,7 @@ test("a new forum is created with what the form showed and opens its editor", as
     title: "News",
     description: "",
     position: 2,
+    iconKey: "gamepad-2",
   });
   expect(renewed).toContain("/");
 });
@@ -147,6 +150,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
         position: "4",
         hasTab: "1",
         tabId: "2",
+        iconKey: "",
         isReadOnly: "on",
         minAccountAgeDays: "3",
         minPostCount: "10",
@@ -158,6 +162,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
     title: "News",
     description: "d",
     position: 4,
+    iconKey: null,
     tabId: 2,
     settings: {
       requireThreadApproval: false,
@@ -171,6 +176,7 @@ test("the editor sends every field it showed, the tab only for a root node", asy
     saveNode(null, form({ id: "9", title: "News", position: "4" })),
   );
   expect(backend.asked[1].body).not.toHaveProperty("tabId");
+  expect(backend.asked[1].body).not.toHaveProperty("iconKey");
 });
 
 test("a count that is not a whole number is shown under its field", async () => {

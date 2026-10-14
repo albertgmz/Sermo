@@ -11,6 +11,7 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState, useId, useState } from "react";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
@@ -27,6 +28,8 @@ export type Item = {
   isEnabled: boolean;
   audience: string;
   permission: string | null;
+  icon: string | null;
+  iconPosition: string;
   position: number;
   // For a top-level entry: how many children it has, and how many are on.
   children: number;
@@ -39,6 +42,7 @@ export type Place = {
 };
 
 const AUDIENCES = ["everyone", "guests", "members", "permission"] as const;
+const ICON_POSITIONS = ["before", "after"] as const;
 
 function Row({
   item,
@@ -168,6 +172,40 @@ function Row({
               defaultValue={item.permission ?? ""}
             />
           )}
+        </div>
+        <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-full">
+          <div className="space-y-1">
+            <label htmlFor={`${id}-icon`} className="text-xs font-medium">
+              {t("row.icon")}
+            </label>
+            <div>
+              <IconPicker
+                name="icon"
+                id={`${id}-icon`}
+                defaultValue={item.icon}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor={`${id}-icon-position`}
+              className="text-xs font-medium"
+            >
+              {t("row.iconPosition")}
+            </label>
+            <select
+              id={`${id}-icon-position`}
+              name="iconPosition"
+              defaultValue={item.iconPosition}
+              className={selectClass}
+            >
+              {ICON_POSITIONS.map((value) => (
+                <option key={value} value={value}>
+                  {t(`iconPositions.${value}`)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <label className="flex min-h-10 items-center gap-2 self-end text-sm">
           <input

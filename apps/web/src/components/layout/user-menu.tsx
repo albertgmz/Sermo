@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { logout } from "@/app/(main)/actions";
 import { LiteModeToggle } from "@/components/layout/lite-mode-toggle";
-import { iconFor, type LinkItem, linkProps } from "@/components/layout/nav";
+import { type LinkItem, linkProps } from "@/components/layout/nav";
+import { NavLabel } from "@/components/layout/nav-label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,19 +49,15 @@ export function UserMenu({
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        {links.map((link) => {
-          const Icon = iconFor(link.builtin);
-          return (
-            <DropdownMenuItem
-              key={link.id}
-              className="min-h-10 md:min-h-8"
-              render={<Link {...linkProps(link)} />}
-            >
-              <Icon />
-              {link.title}
-            </DropdownMenuItem>
-          );
-        })}
+        {links.map((link) => (
+          <DropdownMenuItem
+            key={link.id}
+            className="min-h-10 md:min-h-8"
+            render={<Link {...linkProps(link)} />}
+          >
+            <NavLabel item={link} withDefault className="" />
+          </DropdownMenuItem>
+        ))}
         <LiteModeToggle state={lite} />
         <DropdownMenuSeparator />
         <DropdownMenuItem

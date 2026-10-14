@@ -79,6 +79,7 @@ import { UserLink } from "@/components/forum/user-link";
 import { UserStats } from "@/components/forum/user-stats";
 import { WallComments } from "@/components/forum/wall-comments";
 import { headerIconClass } from "@/components/layout/header-icon-class";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { Logo, LogoMark } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
@@ -205,6 +206,8 @@ const NAV_SAMPLES = toNavItems(
     title,
     target,
     builtin,
+    icon: null,
+    iconPosition: "before" as const,
     children: [],
   })),
 );
@@ -539,6 +542,29 @@ export default async function StyleguidePage() {
               <Label htmlFor="sg-stay">Stay logged in</Label>
             </div>
           </div>
+        </Section>
+
+        <Section title="Icon picker">
+          <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="sg-icon-none">No icon chosen</Label>
+              <IconPicker name="icon-none" id="sg-icon-none" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sg-icon-set">An icon chosen</Label>
+              <IconPicker
+                name="icon-set"
+                id="sg-icon-set"
+                defaultValue="gamepad-2"
+              />
+            </div>
+          </div>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Choose one icon of the site's set, or none. The choice travels in a
+            hidden input named by the name prop; read it in a server action,
+            where an empty value means none. The set lives in
+            components/icons/icon-set.ts.
+          </p>
         </Section>
 
         <Section title="Tabs">
