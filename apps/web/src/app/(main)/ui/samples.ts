@@ -8,6 +8,7 @@ import { type Level, levelWithBounds } from "@/components/forum/level";
 import type { MemberCardUser } from "@/components/forum/member-card";
 import type { PermissionIconKey } from "@/components/forum/permission-icon";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import type { ReactionPictureData } from "@/components/forum/reaction-picture";
 import type { ReactionsSummary } from "@/components/forum/reaction-summary";
 import type { MonthWinner, StandingEntry } from "@/components/forum/standing";
 import type { ThreadCardData } from "@/components/forum/thread-hover-card";
@@ -169,7 +170,8 @@ export const REACTION_TYPES: ReactionType[] = [
   { id: 4, key: "4", label: "Wow", emoji: "😮", picture: null },
 ];
 
-// Reaction pictures as the backend would hand them: a plain image and a sprite sheet of four
+// Reaction pictures as the backend would hand them (sealed by hand: the styleguide has no backend,
+// and the page checks LITE itself before using them): a plain image and a sprite sheet of four
 // 32 x 32 frames (a dot that grows). The page checks LITE before using them, as the real pages do.
 const REACTION_STILL = picture(
   64,
@@ -192,7 +194,7 @@ export const REACTION_PICTURE_TYPES: ReactionType[] = [
     key: "5",
     label: "Star",
     emoji: "⭐",
-    picture: { url: REACTION_STILL, frames: null },
+    picture: { url: REACTION_STILL, frames: null } as ReactionPictureData,
   },
   {
     id: 6,
@@ -202,7 +204,7 @@ export const REACTION_PICTURE_TYPES: ReactionType[] = [
     picture: {
       url: REACTION_SPRITE,
       frames: { width: 32, height: 32, count: 4, columns: 4 },
-    },
+    } as ReactionPictureData,
   },
 ];
 

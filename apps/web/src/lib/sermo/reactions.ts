@@ -4,13 +4,19 @@ import { reactionTypesList } from "@sermo/core/contracts";
 import { cache } from "react";
 import type * as z from "zod";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import type { ReactionPictureData } from "@/components/forum/reaction-picture";
 import { liteBlocks } from "@/lib/lite-mode";
 import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
 import { read } from "./client";
 
-type ApiReactionType = z.output<
+type RawReactionType = z.output<
   typeof reactionTypesList.output
 >["items"][number];
+declare const sealed: unique symbol;
+// A reaction type that has been through LITE. Only `withoutBlockedPictures` makes one, and
+// `asType`, `pickerTypes` and `reactionsView` take nothing else, so a raw backend type cannot
+// reach a component that draws a picture.
+export type ApiReactionType = RawReactionType & { readonly [sealed]: true };
 type ApiSummary = {
   counts: Record<string, number>;
   total: number;
@@ -20,11 +26,15 @@ type ApiSummary = {
 // The one place a reaction picture meets LITE: when the visitor blocks the category the address
 // is dropped here, so no later step can send it to the browser and the emoji is drawn instead.
 export async function withoutBlockedPictures(
-  types: ApiReactionType[],
+  types: RawReactionType[],
 ): Promise<ApiReactionType[]> {
-  if (!(await liteBlocks(liteCategoryOfPurpose("reaction_image"))))
-    return types;
-  return types.map((type) => ({ ...type, image: null, frames: null }));
+  const blocked = await liteBlocks(liteCategoryOfPurpose("reaction_image"));
+  return types.map(
+    (type) =>
+      (blocked
+        ? { ...type, image: null, frames: null }
+        : type) as ApiReactionType,
+  );
 }
 
 // Every type, inactive ones included: old reactions keep showing with their emoji.
@@ -39,7 +49,9 @@ export function asType(type: ApiReactionType): ReactionType {
     key: String(type.id),
     label: type.title,
     emoji: type.emoji,
-    picture: type.image ? { url: type.image.url, frames: type.frames } : null,
+    picture: type.image
+      ? ({ url: type.image.url, frames: type.frames } as ReactionPictureData)
+      : null,
   };
 }
 

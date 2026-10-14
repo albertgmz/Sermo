@@ -19,6 +19,9 @@ afterAll(() => {
 });
 const { Reactions } = await import("./reactions");
 
+import type { ReactionType } from "./reaction-button";
+import type { ReactionPictureData } from "./reaction-picture";
+
 const LIKE = {
   id: 1,
   title: "Like",
@@ -119,7 +122,7 @@ test("another member's item without reactions has the button only", () => {
   expect(shown(html, 0)).toBe(0);
 });
 
-const SPARK = {
+const SPARK: ReactionType = {
   id: 3,
   key: "3",
   label: "Spark",
@@ -127,7 +130,7 @@ const SPARK = {
   picture: {
     url: "/api/v1/files/9",
     frames: { width: 16, height: 16, count: 3, columns: 3 },
-  },
+  } as ReactionPictureData,
 };
 
 test("the button and the summary draw a type's picture instead of its emoji", () => {
@@ -148,7 +151,7 @@ test("the button and the summary draw a type's picture instead of its emoji", ()
               emoji: "✨",
               isActive: true,
               image: { fileId: 9, url: "/api/v1/files/9" },
-              frames: SPARK.picture.frames,
+              frames: SPARK.picture?.frames,
             },
           ] as Parameters<typeof Reactions>[0]["reactionTypes"]
         }

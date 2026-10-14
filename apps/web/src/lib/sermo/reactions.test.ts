@@ -33,15 +33,25 @@ const PLAIN = {
   frames: null,
 };
 
-test("a type with a picture hands its address and cut to the components", () => {
-  expect(asType(WITH_PICTURE)).toEqual({
+test("a raw backend type cannot reach asType, the picker or the summary", () => {
+  // @ts-expect-error a type that did not go through withoutBlockedPictures is refused
+  void asType(WITH_PICTURE);
+  // @ts-expect-error nor can a list of them
+  void pickerTypes([WITH_PICTURE]);
+  // @ts-expect-error nor the summary
+  void reactionsView({ counts: {}, total: 0, mine: null }, [PLAIN]);
+});
+
+test("a type with a picture hands its address and cut to the components", async () => {
+  const [spark, like] = await withoutBlockedPictures([WITH_PICTURE, PLAIN]);
+  expect(asType(spark)).toEqual({
     id: 1,
     key: "1",
     label: "Spark",
     emoji: "✨",
     picture: { url: "/api/v1/files/9", frames: WITH_PICTURE.frames },
   });
-  expect(asType(PLAIN).picture).toBeNull();
+  expect(asType(like).picture).toBeNull();
 });
 
 test("with LITE off the pictures pass through", async () => {

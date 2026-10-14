@@ -84,6 +84,7 @@ export function ReactionRowForm({
           name="fileId"
           id={`${field}-file`}
           removable
+          accept="image/png,image/webp"
           current={current}
         />
         <p className="text-xs text-muted-foreground">{t("pictureHelp")}</p>

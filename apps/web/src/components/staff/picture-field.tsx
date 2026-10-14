@@ -8,13 +8,15 @@
 // Props
 //   purpose   The backend's file purpose: one of `frame`, `cover_preset`, `thread_cover`,
 //             `node_icon`, `node_cover`, `award_image`, `shop_image`, `site_logo`, `site_icon`,
-//             `site_backdrop`. The backend checks the permission, the type and the size.
+//             `site_backdrop`, `reaction_image`. The backend checks the permission, the type and the size.
 //   name      Name of the hidden field that carries the new file id. Default "fileId". It is empty
 //             until a file was uploaded; the action attaches the picture only when it is not.
 //   id        Id of the file input, for the row's label (`FieldRow htmlFor`).
 //   current   The picture now, drawn by the caller on the server (an `Art` with its LITE
 //             category, or any slot), so the picture goes through the same gate as on the public
 //             site. Omit it when there is none.
+//   accept    The file types the chooser offers (the input's `accept`). Default "image/*"; it only
+//             narrows the chooser, the backend still checks the type.
 //   removable true shows a "Remove" control. Choosing it sets a second hidden field named
 //             `<name>Remove` to "1" and the action then sends `fileId: null`; choosing a new
 //             file instead cancels the removal. Default false.
@@ -41,12 +43,14 @@ export function PictureField({
   id,
   current,
   removable = false,
+  accept = "image/*",
 }: {
   purpose: string;
   name?: string;
   id?: string;
   current?: React.ReactNode;
   removable?: boolean;
+  accept?: string;
 }) {
   const t = useTranslations("adminForums.pictureField");
   const fallbackId = useId();
@@ -134,7 +138,7 @@ export function PictureField({
         ref={input}
         id={inputId}
         type="file"
-        accept="image/*"
+        accept={accept}
         aria-busy={uploading}
         onChange={(event) => {
           const file = event.target.files?.[0];

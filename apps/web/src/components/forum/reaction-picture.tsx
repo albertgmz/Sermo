@@ -11,7 +11,10 @@ const HEIGHT_EM = 1.25;
 // `lib/sermo/reactions.ts`, and is null when the visitor blocks the `reactions` category: this
 // component draws what it is given and never decides, so the URL of a blocked picture does not
 // exist on the client.
+export declare const gated: unique symbol;
 export type ReactionPictureData = {
+  // Type-level seal: only data that went through `withoutBlockedPictures` carries it.
+  readonly [gated]: true;
   url: string;
   // How a sprite sheet is cut; null when the whole picture is the frame.
   frames: {
@@ -50,11 +53,9 @@ export function ReactionPicture({
       </span>
     );
   const { url, frames } = picture;
+  // Every picture sits in the same square box, scaled to fit and centred, whatever its aspect.
   const box = cn(
-    "inline-block shrink-0 bg-no-repeat align-middle",
-    frames &&
-      frames.count > 1 &&
-      "animate-(--rx-anim) motion-reduce:animate-none",
+    "inline-flex size-[1.25em] shrink-0 items-center justify-center align-middle",
     className,
   );
   if (!frames)
@@ -62,23 +63,25 @@ export function ReactionPicture({
       <span
         {...naming}
         data-slot="reaction-picture"
-        className={cn(box, "bg-contain bg-center")}
-        style={{
-          width: `${HEIGHT_EM}em`,
-          height: `${HEIGHT_EM}em`,
-          backgroundImage: `url("${url}")`,
-        }}
+        className={cn(box, "bg-contain bg-center bg-no-repeat")}
+        style={{ backgroundImage: cssUrl(url) }}
       />
     );
-  const width = HEIGHT_EM * (frames.width / frames.height);
+  // The frame is fitted into the box by its longer side. Its width is rounded down to whole
+  // pixels, and the sheet is scaled from that width, so every frame starts on a whole pixel
+  // column and no sliver of the next frame shows. A frame row is the width times the frame's
+  // ratio, whole for square frames; a non-square sheet with several rows can still land a row
+  // on a fraction of a pixel.
+  const ratio = frames.width / frames.height;
+  const fitted = ratio >= 1 ? HEIGHT_EM : HEIGHT_EM * ratio;
   const style = {
-    width: `${width}em`,
-    height: `${HEIGHT_EM}em`,
-    backgroundImage: `url("${url}")`,
-    backgroundSize: `${frames.columns * 100}% auto`,
+    width: "var(--rx-w)",
+    height: "var(--rx-h)",
+    backgroundImage: cssUrl(url),
+    backgroundSize: `calc(var(--rx-w) * ${frames.columns}) auto`,
     backgroundPosition: "0 0",
-    "--rx-w": `${width}em`,
-    "--rx-h": `${HEIGHT_EM}em`,
+    "--rx-w": `round(down, ${fitted.toFixed(4)}em, 1px)`,
+    "--rx-h": `calc(var(--rx-w) * ${(frames.height / frames.width).toFixed(6)})`,
     "--rx-anim": `${sheetName(frames)} ${frames.count * REACTION_FRAME_MS}ms step-end infinite`,
   } as React.CSSProperties;
   return (
@@ -93,10 +96,33 @@ export function ReactionPicture({
         data-slot="reaction-picture"
         data-frames={frames.count}
         className={box}
-        style={style}
-      />
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "shrink-0 bg-no-repeat",
+            frames.count > 1 &&
+              "animate-(--rx-anim) motion-reduce:animate-none",
+          )}
+          style={style}
+        />
+      </span>
     </>
   );
+}
+
+// A URL as a CSS function argument: a quoted string in which the quote, the backslash and every
+// control character is escaped, so nothing in the address can end the string.
+export function cssUrl(url: string): string {
+  let escaped = "";
+  for (const char of url) {
+    const code = char.codePointAt(0) ?? 0;
+    if (char === '"' || char === "\\") escaped += "\\" + char;
+    else if (code < 0x20 || code === 0x7f)
+      escaped += "\\" + code.toString(16) + " ";
+    else escaped += char;
+  }
+  return 'url("' + escaped + '")';
 }
 
 // The animation depends only on the number of columns and of frames, so sheets that share both

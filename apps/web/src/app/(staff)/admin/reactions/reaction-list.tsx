@@ -154,7 +154,12 @@ export async function ReactionList({
           htmlFor="new-file"
           help={t("create.pictureHelp")}
         >
-          <PictureField purpose="reaction_image" name="fileId" id="new-file" />
+          <PictureField
+            purpose="reaction_image"
+            name="fileId"
+            id="new-file"
+            accept="image/png,image/webp"
+          />
         </FieldRow>
         <FieldRow
           name="frameWidth"
