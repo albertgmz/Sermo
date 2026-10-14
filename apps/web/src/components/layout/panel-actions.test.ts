@@ -61,6 +61,8 @@ const conversation = {
   isUnread: true,
   participants: [],
   canReply: true,
+  canInvite: true,
+  canRename: true,
 };
 
 function backend(list: Response) {

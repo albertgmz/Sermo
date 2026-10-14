@@ -12,17 +12,32 @@ export default function Loading() {
         className="pt-2"
         asideOnMobile="hidden"
         aside={
-          <div className="rounded-lg border bg-card">
-            <div className="border-b px-4 py-3">
-              <Skeleton className="h-4 w-24" />
-            </div>
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="flex min-h-12 items-center gap-3 px-4">
-                <Skeleton className="size-8 rounded-full" />
-                <Skeleton className="h-4 w-28" />
+          <>
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-4 py-3">
+                <Skeleton className="h-4 w-24" />
               </div>
-            ))}
-          </div>
+              <div className="grid gap-3 px-4 py-3">
+                {[1, 2, 3, 4].map((item) => (
+                  <Skeleton key={item} className="h-4 w-full" />
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border bg-card">
+              <div className="border-b px-4 py-3">
+                <Skeleton className="h-4 w-24" />
+              </div>
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="flex min-h-12 items-center gap-3 px-4"
+                >
+                  <Skeleton className="size-8 rounded-full" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+              ))}
+            </div>
+          </>
         }
       >
         <div className="flex h-10 items-center md:h-8">
@@ -30,7 +45,10 @@ export default function Loading() {
         </div>
         <div className="mt-1 flex items-start gap-3">
           <Skeleton className="h-8 w-2/3" />
-          <Skeleton className="ml-auto h-10 w-20" />
+          <div className="ml-auto flex gap-3">
+            <Skeleton className="h-10 w-20 lg:hidden" />
+            <Skeleton className="h-10 w-20" />
+          </div>
         </div>
         <div className="mt-4">
           <MessagesSkeleton />

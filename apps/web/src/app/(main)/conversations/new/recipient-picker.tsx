@@ -10,9 +10,28 @@ type Recipient = { id: number; username: string };
 
 const TYPING_PAUSE_MS = 250;
 
+// What the search found that can still be picked: not chosen yet, not excluded.
+export function offered(
+  found: Recipient[],
+  chosen: Recipient[],
+  exclude: number[],
+): Recipient[] {
+  return found.filter(
+    (user) =>
+      !exclude.includes(user.id) &&
+      !chosen.some((entry) => entry.id === user.id),
+  );
+}
+
 // Recipients are found by the start of their username as the visitor types; the backend answers
-// with at most 25 and decides who is in the list.
-export function RecipientPicker({ initial }: { initial?: Recipient }) {
+// with at most 25 and decides who is in the list. Members in `exclude` are never offered.
+export function RecipientPicker({
+  initial,
+  exclude = [],
+}: {
+  initial?: Recipient;
+  exclude?: number[];
+}) {
   const t = useTranslations("conversations.recipientPicker");
   const [chosen, setChosen] = useState<Recipient[]>(initial ? [initial] : []);
   const [query, setQuery] = useState("");
@@ -35,9 +54,7 @@ export function RecipientPicker({ initial }: { initial?: Recipient }) {
     };
   }, [query]);
 
-  const options = (found ?? []).filter(
-    (user) => !chosen.some((entry) => entry.id === user.id),
-  );
+  const options = offered(found ?? [], chosen, exclude);
 
   function choose(user: Recipient) {
     setChosen((now) => [...now, user]);

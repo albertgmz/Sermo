@@ -19,7 +19,6 @@
     "home": "Home",
     "conversations": "Conversations",
     "participants": "Participants",
-    "participantSeparator": ", ",
     "placeholder": "Write a message…",
     "submit": "Send message",
     "left": "(left)",
@@ -28,7 +27,33 @@
     "deleted": "This message was deleted.",
     "cannotReply": "You cannot reply to this conversation.",
     "earlier": "Earlier messages",
-    "newest": "Newest messages"
+    "newest": "Newest messages",
+    "markRead": "Mark as read",
+    "details": {
+      "open": "Details",
+      "title": "Conversation details",
+      "description": "Information about the conversation, who takes part and what you can change."
+    },
+    "info": {
+      "title": "Conversation",
+      "startedBy": "Started by",
+      "startedOn": "Started on",
+      "messages": "Messages",
+      "participants": "Participants"
+    },
+    "addPeople": {
+      "open": "Add people",
+      "submit": "Add",
+      "cancel": "Cancel"
+    },
+    "rename": {
+      "title": "Rename",
+      "label": "Conversation name",
+      "submit": "Rename"
+    },
+    "unread": {
+      "title": "Unread"
+    }
   },
   "newConversation": {
     "home": "Home",

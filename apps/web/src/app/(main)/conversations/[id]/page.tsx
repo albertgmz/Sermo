@@ -9,9 +9,11 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import type * as z from "zod";
 import { ConversationSync } from "@/app/(main)/conversations/[id]/conversation-sync";
+import { ConversationWidgets } from "@/app/(main)/conversations/[id]/conversation-widgets";
 import { LeaveForm } from "@/app/(main)/conversations/[id]/leave-form";
 import { MessagesSkeleton } from "@/app/(main)/conversations/[id]/messages-skeleton";
 import { ReplyForm } from "@/app/(main)/conversations/[id]/reply-form";
+import { WidgetsSheet } from "@/app/(main)/conversations/[id]/widgets-sheet";
 import { PostAttachments } from "@/app/(main)/threads/[id]/post-attachments";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
@@ -19,8 +21,6 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { Reactions } from "@/components/forum/reactions";
 import { LoadingRegion } from "@/components/forum/skeletons";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
@@ -59,6 +59,14 @@ function Header({
         <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">
           {conversation.title}
         </h1>
+        {/* Beside the messages on a wide screen; behind this button below it. */}
+        <WidgetsSheet
+          label={t("details.open")}
+          title={t("details.title")}
+          description={t("details.description")}
+        >
+          <ConversationWidgets conversation={conversation} member={member} />
+        </WidgetsSheet>
         <LeaveForm
           conversationId={conversation.id}
           label={t("leave")}
@@ -67,52 +75,7 @@ function Header({
           <LogOut />
         </LeaveForm>
       </div>
-      {/* On a wide screen the participants have a card of their own beside the messages. */}
-      <p className="text-sm text-muted-foreground [overflow-wrap:anywhere] lg:hidden">
-        {conversation.participants.map((participant, index) => (
-          <span key={participant.user.id}>
-            {index > 0 && t("participantSeparator")}
-            <UserLink user={member(participant.user.id)} />
-            {participant.state === "left" && <> {t("left")}</>}
-          </span>
-        ))}
-      </p>
     </header>
-  );
-}
-
-function Participants({
-  conversation,
-  member,
-}: {
-  conversation: Conversation;
-  member: Members;
-}) {
-  const t = useTranslations("conversations.conversation");
-  return (
-    <section className="rounded-lg border bg-card">
-      <h2 className="border-b px-4 py-3 text-sm font-semibold">
-        {t("participants")}
-      </h2>
-      <ul className="divide-y">
-        {conversation.participants.map((participant) => (
-          <li
-            key={participant.user.id}
-            className="flex min-h-12 items-center gap-3 px-4 py-2 text-sm"
-          >
-            <UserAvatar user={member(participant.user.id)} size="md" />
-            <span className="min-w-0 flex-1 truncate">
-              <UserLink user={member(participant.user.id)} />
-            </span>
-            {participant.state === "left" && (
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {t("left")}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
@@ -138,7 +101,9 @@ export default async function ConversationPage({
     <PageLayout
       className="pt-2"
       asideOnMobile="hidden"
-      aside={<Participants conversation={conversation} member={member} />}
+      aside={
+        <ConversationWidgets conversation={conversation} member={member} />
+      }
     >
       <Header conversation={conversation} member={member} />
       <div className="mt-4">

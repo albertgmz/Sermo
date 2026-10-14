@@ -1,9 +1,11 @@
 "use server";
 
 import {
+  conversationsAddParticipants,
   conversationsCreate,
   conversationsLeave,
   conversationsMarkRead,
+  conversationsRename,
   conversationsReply,
   usersSearch,
 } from "@sermo/core/contracts";
@@ -56,6 +58,43 @@ export async function leaveAction(
   );
   if (!left.ok) return { error: left.error };
   redirect("/conversations");
+}
+
+export type PanelState = { error?: string };
+
+// The list beside the page is drawn by the layout, which a redirect between its pages keeps as it
+// was: without this it would show the old title and head count.
+async function backToConversation(conversationId: number): Promise<never> {
+  revalidatePath("/conversations", "layout");
+  redirect(`/conversations/${conversationId}`);
+}
+
+export async function addParticipantsAction(
+  conversationId: number,
+  _previous: PanelState,
+  formData: FormData,
+): Promise<PanelState> {
+  requireIds(conversationId);
+  const userIds = formIds(formData, "recipientIds");
+  const added = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsAddParticipants, { conversationId, userIds }),
+  );
+  if (!added.ok) return { error: added.error };
+  return backToConversation(conversationId);
+}
+
+export async function renameAction(
+  conversationId: number,
+  _previous: PanelState,
+  formData: FormData,
+): Promise<PanelState> {
+  requireIds(conversationId);
+  const title = String(formData.get("title") ?? "");
+  const renamed = await attempt(`/conversations/${conversationId}`, () =>
+    call(conversationsRename, { conversationId, title }),
+  );
+  if (!renamed.ok) return { error: renamed.error };
+  return backToConversation(conversationId);
 }
 
 export type StartState = {

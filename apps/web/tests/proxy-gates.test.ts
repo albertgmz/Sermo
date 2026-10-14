@@ -147,6 +147,8 @@ const CONVERSATION = {
     { user: { id: 2, username: "wren" }, state: "active" },
   ],
   canReply: true,
+  canInvite: true,
+  canRename: true,
 };
 const PAGE = {
   slug: "terms",

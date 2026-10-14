@@ -17,9 +17,14 @@ mock.module("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => revalidated.push(args),
 }));
 
-const { leaveAction, markRead, replyAction, startConversation } = await import(
-  "./actions"
-);
+const {
+  addParticipantsAction,
+  leaveAction,
+  markRead,
+  renameAction,
+  replyAction,
+  startConversation,
+} = await import("./actions");
 const { markOneRead } = await import("../notifications/actions");
 
 beforeEach(() => {
@@ -79,6 +84,8 @@ test("starting a conversation refreshes the list in the layout before going to t
         isUnread: false,
         participants: [{ user, state: "active" }],
         canReply: true,
+        canInvite: true,
+        canRename: true,
       },
       message: {
         id: 3,
@@ -153,4 +160,102 @@ test("a reply and a new conversation name the files attached to them", async () 
   reply.append("attachmentIds", "../7");
   await assert.rejects(() => replyAction(3, {}, reply));
   assert.equal(sent.length, 2);
+});
+
+const ember = { id: 3, username: "ember" };
+const stamp = "2026-10-13T03:57:31.497Z";
+const conversationAnswer = {
+  id: 3,
+  title: "T",
+  starter: ember,
+  createdAt: stamp,
+  lastMessage: { messageId: 3, sentAt: stamp, user: ember },
+  messageCount: 1,
+  participantCount: 2,
+  isUnread: false,
+  participants: [{ user: ember, state: "active" }],
+  canReply: true,
+  canInvite: true,
+  canRename: true,
+};
+const refusal = Response.json(
+  { error: { code: "forbidden", message: "Only the starter may do that." } },
+  { status: 403 },
+);
+
+test("adding people sends the picked members, refreshes the list and returns to the conversation", async () => {
+  const sent: { method: string; url: string; body: unknown }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    sent.push({
+      method: init.method ?? "GET",
+      url,
+      body: JSON.parse(String(init.body)),
+    });
+    return Response.json(conversationAnswer);
+  }) as unknown as typeof fetch;
+  const form = new FormData();
+  form.append("recipientIds", "4");
+  form.append("recipientIds", "5");
+  const digest = await redirectedTo(() => addParticipantsAction(3, {}, form));
+  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  assert.deepEqual(sent, [
+    {
+      method: "POST",
+      url: "http://127.0.0.1:8787/api/v1/conversations/3/participants",
+      body: { userIds: [4, 5] },
+    },
+  ]);
+  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
+});
+
+test("a refused addition shows the backend's reason and does not leave the page", async () => {
+  globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
+  const form = new FormData();
+  form.append("recipientIds", "4");
+  // A refusal comes back as the form's state; no redirect is thrown.
+  const state = await addParticipantsAction(3, {}, form);
+  assert.deepEqual(state, { error: "Only the starter may do that." });
+  assert.deepEqual(revalidated, []);
+});
+
+test("an id that is not a member id never reaches the backend when people are added", async () => {
+  const form = new FormData();
+  form.append("recipientIds", "../4");
+  await assert.rejects(() => addParticipantsAction(3, {}, form));
+  await assert.rejects(() => addParticipantsAction(0, {}, new FormData()));
+  assert.equal(asked.length, 0);
+});
+
+test("renaming sends the new title and returns to the conversation", async () => {
+  const sent: { method: string; url: string; body: unknown }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    sent.push({
+      method: init.method ?? "GET",
+      url,
+      body: JSON.parse(String(init.body)),
+    });
+    return Response.json({ ...conversationAnswer, title: "New name" });
+  }) as unknown as typeof fetch;
+  const form = new FormData();
+  form.set("title", "New name");
+  const digest = await redirectedTo(() => renameAction(3, {}, form));
+  assert.match(digest ?? "", /^NEXT_REDIRECT;[a-z]+;\/conversations\/3;/);
+  assert.deepEqual(sent, [
+    {
+      method: "PATCH",
+      url: "http://127.0.0.1:8787/api/v1/conversations/3",
+      body: { title: "New name" },
+    },
+  ]);
+  assert.deepEqual(revalidated, [["/conversations", "layout"]]);
+});
+
+test("a refused rename shows the backend's reason", async () => {
+  globalThis.fetch = (async () => refusal.clone()) as unknown as typeof fetch;
+  const form = new FormData();
+  form.set("title", "New name");
+  assert.deepEqual(await renameAction(3, {}, form), {
+    error: "Only the starter may do that.",
+  });
+  await assert.rejects(() => renameAction(-1, {}, form));
 });
