@@ -12,7 +12,8 @@ export function isLocale(value: unknown): value is Locale {
 }
 
 // The first supported primary subtag of an `Accept-Language` value, in order of preference
-// (q, then position); a tag with q=0 is a refusal. Undefined when none is supported.
+// (q, then position). A q that is empty or not a number counts as 0, which is a refusal, and one
+// above 1 counts as 1. `_` separates subtags like `-`. Undefined when none is supported.
 export function fromAcceptLanguage(header: string | null | undefined) {
   if (!header) return undefined;
   const ranked = header
@@ -20,12 +21,13 @@ export function fromAcceptLanguage(header: string | null | undefined) {
     .map((part, position) => {
       const [tag = "", ...params] = part.trim().split(";");
       const q = params
-        .map((param) => /^\s*q\s*=\s*([0-9.]+)\s*$/i.exec(param)?.[1])
+        .map((param) => /^\s*q\s*=(.*)$/i.exec(param)?.[1])
         .find((value) => value !== undefined);
-      const weight = q === undefined ? 1 : Number(q);
+      const parsed =
+        q === undefined ? 1 : Number(q.trim() === "" ? Number.NaN : q);
       return {
-        primary: tag.trim().split("-")[0]?.toLowerCase() ?? "",
-        weight: Number.isFinite(weight) ? weight : 0,
+        primary: tag.trim().split(/[-_]/)[0]?.toLowerCase() ?? "",
+        weight: Number.isNaN(parsed) ? 0 : Math.min(parsed, 1),
         position,
       };
     })
@@ -35,11 +37,15 @@ export function fromAcceptLanguage(header: string | null | undefined) {
 }
 
 // The locale of a visitor: their cookie when it names a supported language, else their browser's
-// language, else English.
+// language, else the site's default when it is a supported language, else English.
 export function negotiateLocale(
   cookie: string | null | undefined,
   acceptLanguage: string | null | undefined,
+  siteDefault?: string | null,
 ): Locale {
   if (isLocale(cookie)) return cookie;
-  return fromAcceptLanguage(acceptLanguage) ?? DEFAULT_LOCALE;
+  return (
+    fromAcceptLanguage(acceptLanguage) ??
+    (isLocale(siteDefault) ? siteDefault : DEFAULT_LOCALE)
+  );
 }

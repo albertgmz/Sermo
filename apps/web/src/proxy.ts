@@ -322,13 +322,18 @@ async function handleRequest(request: NextRequest) {
   // A picture's address is let through as it is, except in the panel: there a file name is no
   // picture, and the gate below decides.
   if (isImageRequest(request.nextUrl.pathname) && !staffRequest) {
-    // The site's icon is a route of its own, outside the language segment; any other address
-    // that looks like a picture is no page and gets the 404 of the visitor's language.
-    const response =
-      request.nextUrl.pathname === "/favicon.ico"
-        ? NextResponse.next()
-        : NextResponse.rewrite(inLocale(request, locale));
-    response.headers.set("Vary", "Cookie");
+    // The site's icon is a route of its own, outside the language segment, and Next's own
+    // picture addresses (`/_next/image`, `/_next/static/media`) are not pages: both go on as
+    // they are. Any other address that looks like a picture is no page and gets the 404 of the
+    // visitor's language.
+    const { pathname } = request.nextUrl;
+    if (pathname === "/favicon.ico" || pathname.startsWith("/_next/")) {
+      const response = NextResponse.next();
+      response.headers.set("Vary", "Cookie");
+      return response;
+    }
+    const response = NextResponse.rewrite(inLocale(request, locale));
+    response.headers.set("Vary", VARY);
     return response;
   }
   if (request.nextUrl.pathname.startsWith("/_next/")) return;

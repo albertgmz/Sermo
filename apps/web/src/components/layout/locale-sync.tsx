@@ -23,9 +23,13 @@ export function LocaleSync({ language }: { language: string | null }) {
     });
     if (!step) return;
     let cancelled = false;
-    setLocaleCookie(step.set).then(() => {
-      if (!cancelled) router.refresh();
-    });
+    setLocaleCookie(step.set).then(
+      () => {
+        if (!cancelled) router.refresh();
+      },
+      // The cookie could not be written: the page stays in the language it has.
+      () => {},
+    );
     return () => {
       cancelled = true;
     };

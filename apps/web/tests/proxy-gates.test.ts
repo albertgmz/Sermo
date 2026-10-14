@@ -1094,3 +1094,26 @@ test("the API, the icon and the upload routes stay at their public addresses", a
   for (const path of ["/threads/12", "/account", "/admin", "/es/attachments"])
     assert.equal(matcher.test(path), true, path);
 });
+
+test("Next's own picture addresses are not rewritten into a language", async () => {
+  reset();
+  for (const path of [
+    "/_next/image?url=%2Fx.png&w=64&q=75",
+    "/_next/static/media/logo.png",
+    "/_next/static/media/font.woff2",
+    "/_next/static/chunks/app.js",
+  ]) {
+    const response = await ask(path, { headers: { "accept-language": "es" } });
+    assert.equal(rewriteOf(response) ?? null, null, path);
+    assert.equal(response?.headers.get("location") ?? null, null, path);
+  }
+});
+
+test("a picture-looking address that is no page gets the 404 of the language, varying like a page", async () => {
+  reset();
+  const response = await ask("/pictures/tobi.jpg", {
+    headers: { "accept-language": "es" },
+  });
+  assert.equal(rewriteOf(response), "http://localhost/es/pictures/tobi.jpg");
+  assert.equal(response?.headers.get("vary"), "Cookie, Accept-Language");
+});

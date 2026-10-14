@@ -144,27 +144,29 @@ function parse(message: string): Node[] {
   return nodes("end");
 }
 
-// Spanish may add the plural category `many` (large round numbers); nothing else may differ.
-function signature(list: Node[]): string {
-  let out = "";
+// What a message needs from the code, as a set (word order differs between languages, and a
+// branch may drop a `#`): each argument with its type, each plural/select with its selectors, each
+// rich-text tag. Spanish may add the plural category `many`; nothing else may differ.
+function parts(list: Node[], out = new Set<string>()): Set<string> {
   for (const node of list) {
-    if (node.kind === "pound") out += "#";
-    else if (node.kind === "arg")
-      out += `{${node.name}${node.type ? `,${node.type}` : ""}}`;
-    else if (node.kind === "tag")
-      out += `<${node.name}>${signature(node.children)}</${node.name}>`;
-    else if (node.kind === "choice") {
-      const cases = node.cases
-        .filter(
-          ([selector]) => !(node.type === "plural" && selector === "many"),
-        )
-        .map(([selector, body]) => `${selector}:${signature(body)}`)
+    if (node.kind === "arg")
+      out.add(`{${node.name}${node.type ? `,${node.type}` : ""}}`);
+    else if (node.kind === "tag") {
+      out.add(`<${node.name}>`);
+      parts(node.children, out);
+    } else if (node.kind === "choice") {
+      const selectors = node.cases
+        .map(([selector]) => selector)
+        .filter((selector) => !(node.type === "plural" && selector === "many"))
         .sort();
-      out += `{${node.name},${node.type}|${cases.join("|")}}`;
+      out.add(`{${node.name},${node.type}|${selectors.join("|")}}`);
+      for (const [, body] of node.cases) parts(body, out);
     }
   }
   return out;
 }
+
+const signature = (list: Node[]) => [...parts(list)].sort().join(" ");
 
 function leaves(value: Json, path = ""): Map<string, string> {
   const out = new Map<string, string>();
@@ -195,10 +197,26 @@ test("the reader tells arguments, plurals, selects and tags apart", () => {
       ),
     ),
   ).toBe(
-    "{name}{count,plural|one:#<b></b>|other:#}{kind,select|a:|other:{n,number}}<shop></shop>",
+    "<b> <shop> {count,plural|one|other} {kind,select|a|other} {n,number} {name}",
   );
   expect(() => parse("<b>open")).toThrow();
   expect(signature(parse("a 'it''s' b"))).toBe("");
+});
+
+test("word order and a missing # do not matter, a changed argument or tag does", () => {
+  const same = (a: string, b: string) =>
+    signature(parse(a)) === signature(parse(b));
+  const en =
+    "{n, plural, one {# <b>x</b> of {who}} other {# <b>x</b> of {who}}}";
+  expect(
+    same(
+      en,
+      "{who} de <b>x</b>: {n, plural, one {uno} many {# millones} other {# <b>x</b> {who}}}",
+    ),
+  ).toBe(true);
+  expect(same(en, en.replace("{who}", "{whom}"))).toBe(false);
+  expect(same(en, en.replaceAll("<b>x</b>", "x"))).toBe(false);
+  expect(same(en, en.replace(" other {# <b>x</b> of {who}}", ""))).toBe(false);
 });
 
 test("every language has exactly the English message files", () => {

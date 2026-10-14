@@ -165,7 +165,8 @@ async function placeholder(
 
 function passThrough(response: NextResponse | undefined, context: string) {
   if (!response) return;
-  // The request goes on to its page: inside the server it is rewritten to the language segment.
+  // Next's own addresses go on as they are; a page is rewritten to the language segment.
+  if (response.headers.get("x-middleware-next") === "1") return;
   const rewrite = response.headers.get("x-middleware-rewrite") ?? "";
   expect(new URL(rewrite).pathname, context).toMatch(/^\/(en|es)(\/|$)/);
   expect(rewrite, context).not.toContain("/not-found");

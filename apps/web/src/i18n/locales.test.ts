@@ -33,6 +33,27 @@ test("the cookie wins over the browser, then the browser, then English", () => {
   expect(negotiateLocale(undefined, null)).toBe("en");
 });
 
+test("an unparsable or empty q counts as 0, one above 1 as 1, and _ is like -", () => {
+  expect(fromAcceptLanguage("es;q=abc,en;q=0.1")).toBe("en");
+  expect(fromAcceptLanguage("es;q=,en;q=0.1")).toBe("en");
+  expect(fromAcceptLanguage("es;q=abc")).toBeUndefined();
+  expect(fromAcceptLanguage("en;q=0.9,es;q=7")).toBe("es");
+  expect(fromAcceptLanguage("en;q=1,es;q=7")).toBe("en");
+  expect(fromAcceptLanguage("es_ES")).toBe("es");
+  expect(fromAcceptLanguage("fr_CA,en_US;q=0.5")).toBe("en");
+});
+
+test("the order is cookie, browser, site default, English", () => {
+  expect(negotiateLocale("en", "es", "es")).toBe("en");
+  expect(negotiateLocale(undefined, "en", "es")).toBe("en");
+  expect(negotiateLocale(undefined, "es", "en")).toBe("es");
+  expect(negotiateLocale(undefined, "fr", "es")).toBe("es");
+  expect(negotiateLocale(undefined, null, "es")).toBe("es");
+  expect(negotiateLocale("xx", undefined, "es")).toBe("es");
+  expect(negotiateLocale(undefined, "fr", "xx")).toBe("en");
+  expect(negotiateLocale(undefined, "fr", undefined)).toBe("en");
+});
+
 test("the cookie is found in a cookie string", () => {
   expect(localeCookieValue(`a=1; ${LOCALE_COOKIE}=es; b=2`)).toBe("es");
   expect(localeCookieValue("a=1")).toBeUndefined();

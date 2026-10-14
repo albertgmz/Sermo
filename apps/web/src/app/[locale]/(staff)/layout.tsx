@@ -6,6 +6,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { getAccent } from "@/components/layout/header-data";
+import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { Logo } from "@/components/layout/logo";
 import { SessionNotice } from "@/components/layout/session-notice";
 import { ViewerAccent } from "@/components/layout/site-accent";
@@ -36,6 +37,9 @@ export default function StaffLayout({ children }: LayoutProps<"/[locale]">) {
       </Suspense>
       <Suspense>
         <SessionNotice />
+      </Suspense>
+      <Suspense>
+        <LocaleSyncGate />
       </Suspense>
       <header className="sticky top-0 z-30 border-b bg-background">
         <Container className="flex h-14 items-center gap-1 sm:gap-3">

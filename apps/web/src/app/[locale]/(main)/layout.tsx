@@ -1,10 +1,9 @@
 import { useTranslations } from "next-intl";
-import { getLocale } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
-import { LocaleSync } from "@/components/layout/locale-sync";
+import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
@@ -23,19 +22,13 @@ import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
 
 async function Chrome() {
-  const [viewer, accent, locale] = await Promise.all([
-    getViewer(),
-    getAccent(),
-    getLocale(),
-  ]);
-  const language = viewer.user?.language ?? null;
+  const [viewer, accent] = await Promise.all([getViewer(), getAccent()]);
   const links = staffLinks(viewer);
   // The header reads the counters too, in the same render: one call.
   const pending = links.moderation ? pendingBadge(await getCounters()) : null;
   return (
     <>
       <ViewerAccent accent={accent} />
-      {language && language !== locale && <LocaleSync language={language} />}
       {viewer.user && (links.admin || links.moderation) && (
         <StaffBar
           admin={links.admin}
@@ -74,6 +67,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
       </Suspense>
       <Suspense>
         <HashTarget />
+      </Suspense>
+      <Suspense>
+        <LocaleSyncGate />
       </Suspense>
       <SiteHeader />
       <Suspense
