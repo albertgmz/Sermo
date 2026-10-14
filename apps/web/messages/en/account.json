@@ -220,7 +220,7 @@
       "push": "Push"
     },
     "required": "Required",
-    "cell": "{type} by {channel}",
+    "cell": "{type}: {channel}",
     "defaultsHelp": "Until you choose, each notification follows the forum's default.",
     "pushOff": "Push notifications are not set up on this forum.",
     "submit": "Save notifications",
