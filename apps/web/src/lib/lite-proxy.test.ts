@@ -62,7 +62,7 @@ test("proxy preserves page access rules and varies allowed pictures by cookie", 
       response.headers.get("x-middleware-rewrite"),
       "http://localhost/en/pictures/tobi.jpg",
     );
-    assert.equal(response.headers.get("vary"), "Cookie");
+    assert.equal(response.headers.get("vary"), "Cookie, Accept-Language");
     assert.equal(response.headers.get("cache-control"), null);
   }
   for (const [path, cookie] of [

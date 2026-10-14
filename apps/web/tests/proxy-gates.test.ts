@@ -430,7 +430,7 @@ test("the API, pictures and the 404 rewrites carry no x-sermo-path", async () =>
 
   const picture = await ask("/pictures/tobi.jpg", { headers: forged });
   assert.ok(picture);
-  assert.equal(picture.headers.get("vary"), "Cookie");
+  assert.equal(picture.headers.get("vary"), "Cookie, Accept-Language");
   assert.equal(picture.headers.get("x-middleware-override-headers"), null);
   assert.equal(picture.headers.get("x-middleware-request-x-sermo-path"), null);
 
