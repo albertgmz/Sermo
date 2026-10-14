@@ -1,460 +1,460 @@
 {
   "layout": {
-    "notifications": "Notifications",
-    "logout": "Log out",
-    "loading": "Loading your account…",
-    "heading": "Your account",
-    "profileLink": "View profile"
+    "notifications": "Notificaciones",
+    "logout": "Cerrar sesión",
+    "loading": "Cargando tu cuenta…",
+    "heading": "Tu cuenta",
+    "profileLink": "Ver perfil"
   },
   "navigation": {
-    "accountHeading": "Your account",
-    "settingsHeading": "Settings",
-    "profile": "Profile",
-    "appearance": "Appearance",
-    "privacy": "Privacy",
-    "notifications": "Notifications",
-    "preferences": "Preferences",
-    "perks": "Perks",
-    "security": "Security",
+    "accountHeading": "Tu cuenta",
+    "settingsHeading": "Ajustes",
+    "profile": "Perfil",
+    "appearance": "Apariencia",
+    "privacy": "Privacidad",
+    "notifications": "Notificaciones",
+    "preferences": "Preferencias",
+    "perks": "Ventajas",
+    "security": "Seguridad",
     "aria": {
-      "label": "Account sections"
+      "label": "Secciones de la cuenta"
     }
   },
   "notices": {
-    "avatar": "Your avatar was saved.",
-    "avatarRemoved": "Your avatar was removed.",
-    "cover": "Your cover was saved.",
-    "coverRemoved": "Your cover was removed.",
-    "username": "Your username was changed.",
-    "about": "Your profile was saved.",
-    "birthdayRemoved": "Your birthday was removed.",
-    "title": "Your title and signature were saved.",
-    "titleRemoved": "Your title was removed.",
-    "signatureRemoved": "Your signature was removed.",
-    "privacy": "Your privacy settings were saved.",
-    "unignored": "You no longer ignore that member.",
-    "notifications": "Your notification settings were saved.",
-    "preferences": "Your preferences were saved.",
-    "failed": "That did not work. Try again.",
-    "threadUnwatched": "You no longer watch that thread.",
-    "forumUnwatched": "You no longer watch that forum."
+    "avatar": "Se guardó tu avatar.",
+    "avatarRemoved": "Se eliminó tu avatar.",
+    "cover": "Se guardó tu portada.",
+    "coverRemoved": "Se eliminó tu portada.",
+    "username": "Se cambió tu nombre de usuario.",
+    "about": "Se guardó tu perfil.",
+    "birthdayRemoved": "Se eliminó tu cumpleaños.",
+    "title": "Se guardaron tu título y tu firma.",
+    "titleRemoved": "Se eliminó tu título.",
+    "signatureRemoved": "Se eliminó tu firma.",
+    "privacy": "Se guardaron tus ajustes de privacidad.",
+    "unignored": "Ya no ignoras a ese miembro.",
+    "notifications": "Se guardaron tus ajustes de notificaciones.",
+    "preferences": "Se guardaron tus preferencias.",
+    "failed": "No funcionó. Inténtalo de nuevo.",
+    "threadUnwatched": "Ya no sigues ese tema.",
+    "forumUnwatched": "Ya no sigues ese foro."
   },
   "errors": {
-    "birthdayIncomplete": "Give the day and the month as numbers, with the year if you like, or leave all three empty.",
-    "noFile": "Choose a picture first.",
-    "unconfirmed": "Confirm your username change."
+    "birthdayIncomplete": "Indica el día y el mes como números, con el año si quieres, o deja los tres vacíos.",
+    "noFile": "Elige primero una imagen.",
+    "unconfirmed": "Confirma el cambio de nombre de usuario."
   },
   "paging": {
-    "label": "Pages",
-    "first": "First page",
-    "next": "Next page"
+    "label": "Páginas",
+    "first": "Primera página",
+    "next": "Página siguiente"
   },
   "profile": {
-    "metaTitle": "Profile",
-    "heading": "Profile",
-    "loading": "Loading your profile…",
-    "postsLabel": "Total Posts",
-    "reputationLabel": "Total Reputation",
-    "followersLabel": "Followers",
-    "followingLabel": "Following"
+    "metaTitle": "Perfil",
+    "heading": "Perfil",
+    "loading": "Cargando tu perfil…",
+    "postsLabel": "Mensajes en total",
+    "reputationLabel": "Reputación total",
+    "followersLabel": "Seguidores",
+    "followingLabel": "Siguiendo"
   },
   "pictures": {
-    "heading": "Pictures",
-    "description": "Your avatar and the cover behind your profile.",
+    "heading": "Imágenes",
+    "description": "Tu avatar y la portada detrás de tu perfil.",
     "avatarLabel": "Avatar",
-    "avatarHelp": "A square picture works best. Choose a new one to replace it.",
-    "coverLabel": "Cover",
-    "coverHelp": "Shown behind your profile, your posts and your member card.",
-    "limit": "Up to {size} MB.",
-    "overLimit": "This picture is larger than the {size} MB the site allows.",
-    "coverGalleryWorn": "A cover from the gallery is worn, so it shows instead of the one you upload. Take it off in Appearance to show yours.",
-    "upload": "Upload",
-    "remove": "Remove"
+    "avatarHelp": "Una imagen cuadrada funciona mejor. Elige una nueva para reemplazarla.",
+    "coverLabel": "Portada",
+    "coverHelp": "Se muestra detrás de tu perfil, tus mensajes y tu tarjeta de miembro.",
+    "limit": "Hasta {size} MB.",
+    "overLimit": "Esta imagen supera los {size} MB que permite el sitio.",
+    "coverGalleryWorn": "Llevas una portada de la galería, así que se muestra en lugar de la que subes. Quítala en Apariencia para mostrar la tuya.",
+    "upload": "Subir",
+    "remove": "Quitar"
   },
   "username": {
-    "heading": "Username",
-    "description": "The name shown on your profile and posts.",
-    "label": "Username",
-    "free": "You can change your username freely.",
-    "units": "You have {count, plural, one {# change} other {# changes}} left. Each change uses one.",
-    "none": "You have no username change left. <shop>Get one in the shop</shop>",
-    "confirmation": "I want to change my username to {username}.",
-    "submit": "Change username"
+    "heading": "Nombre de usuario",
+    "description": "El nombre que se muestra en tu perfil y tus mensajes.",
+    "label": "Nombre de usuario",
+    "free": "Puedes cambiar tu nombre de usuario libremente.",
+    "units": "Te {count, plural, one {queda # cambio} other {quedan # cambios}}. Cada cambio usa uno.",
+    "none": "No te queda ningún cambio de nombre de usuario. <shop>Consigue uno en la tienda</shop>",
+    "confirmation": "Quiero cambiar mi nombre de usuario a {username}.",
+    "submit": "Cambiar nombre de usuario"
   },
   "about": {
-    "heading": "About and contact",
-    "description": "What other members can read on your profile.",
-    "aboutLabel": "About you",
-    "aboutHelp": "Plain text.",
-    "locationLabel": "Location",
-    "websiteLabel": "Website",
-    "websiteHelp": "The address of your site, starting with http:// or https://.",
-    "birthdayLabel": "Birthday",
-    "dayLabel": "Day",
-    "dayPlaceholder": "Day",
-    "monthLabel": "Month",
-    "monthPlaceholder": "Month",
-    "yearLabel": "Year",
-    "yearPlaceholder": "Year",
-    "birthdayHelp": "The year is optional. Only the day and the month show on your profile.",
-    "clearBirthday": "Clear birthday",
+    "heading": "Acerca de ti y contacto",
+    "description": "Lo que otros miembros pueden leer en tu perfil.",
+    "aboutLabel": "Acerca de ti",
+    "aboutHelp": "Texto sin formato.",
+    "locationLabel": "Ubicación",
+    "websiteLabel": "Sitio web",
+    "websiteHelp": "La dirección de tu sitio, empezando por http:// o https://.",
+    "birthdayLabel": "Cumpleaños",
+    "dayLabel": "Día",
+    "dayPlaceholder": "Día",
+    "monthLabel": "Mes",
+    "monthPlaceholder": "Mes",
+    "yearLabel": "Año",
+    "yearPlaceholder": "Año",
+    "birthdayHelp": "El año es opcional. En tu perfil solo se muestran el día y el mes.",
+    "clearBirthday": "Borrar cumpleaños",
     "discordLabel": "Discord",
     "telegramLabel": "Telegram",
     "xLabel": "X",
-    "handlesHelp": "Your handle on each network, without the @.",
-    "submit": "Save profile"
+    "handlesHelp": "Tu usuario en cada red, sin la @.",
+    "submit": "Guardar perfil"
   },
   "title": {
-    "heading": "Title and signature",
-    "description": "Shown under your name and at the foot of your posts.",
-    "titleLabel": "Custom title",
-    "titleHelp": "Up to {count, plural, one {# character} other {# characters}}. Leave it empty to use the title that comes with your group or level.",
-    "signatureLabel": "Signature",
-    "signatureHelp": "Written in Markdown. Up to {count, plural, one {# character} other {# characters}} and {lines, plural, one {# line} other {# lines}}. Leave it empty to remove it.",
-    "notShown": "You have this saved, but it is not shown at the moment.",
-    "remove": "Remove",
-    "titleLocked": "A custom title needs a perk. <shop>See what the shop offers</shop>",
-    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>",
-    "submit": "Save"
+    "heading": "Título y firma",
+    "description": "Se muestran bajo tu nombre y al pie de tus mensajes.",
+    "titleLabel": "Título personalizado",
+    "titleHelp": "Hasta {count, plural, one {# carácter} other {# caracteres}}. Déjalo vacío para usar el título que viene con tu grupo o nivel.",
+    "signatureLabel": "Firma",
+    "signatureHelp": "Escrita en Markdown. Hasta {count, plural, one {# carácter} other {# caracteres}} y {lines, plural, one {# línea} other {# líneas}}. Déjala vacía para quitarla.",
+    "notShown": "Lo tienes guardado, pero ahora no se muestra.",
+    "remove": "Quitar",
+    "titleLocked": "Un título personalizado requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
+    "signatureLocked": "Una firma requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
+    "submit": "Guardar"
   },
   "referral": {
-    "heading": "Invite members",
-    "description": "Members who register through your link count as your referrals.",
-    "linkLabel": "Your link",
-    "count": "{count, plural, one {# member has} other {# members have}} joined through it."
+    "heading": "Invitar miembros",
+    "description": "Los miembros que se registren con tu enlace cuentan como tus referidos.",
+    "linkLabel": "Tu enlace",
+    "count": "{count, plural, one {# miembro se ha unido} other {# miembros se han unido}} con él."
   },
   "appearance": {
-    "metaTitle": "Appearance",
-    "heading": "Appearance",
-    "loading": "Loading appearance settings…",
-    "description": "How the forum looks for you, and how you look to everyone else.",
-    "previewHeading": "Preview",
-    "previewDescription": "Your avatar, name and cover with the choices saved right now.",
-    "accentHeading": "Accent colour",
-    "accentDescription": "Recolours buttons, links and highlights across the whole forum, only for you.",
-    "accentDefault": "Default",
-    "frameHeading": "Avatar frame",
-    "frameDescription": "Shown around your picture everywhere it appears.",
-    "framesEmpty": "You have no frames yet. <shop>Get frames in the shop</shop>",
-    "nameColorHeading": "Name colour",
-    "nameColorDescription": "The colour of your username in threads, lists and your profile.",
-    "nameColorsEmpty": "You have no name colours yet. <shop>Get name colours in the shop</shop>",
-    "nameIconHeading": "Name icon",
-    "nameIconDescription": "A small icon next to your username in threads, lists and your profile.",
-    "nameIconsEmpty": "You have no name icons yet. <shop>Get name icons in the shop</shop>",
-    "coverHeading": "Profile cover",
-    "coverDescription": "A picture from the gallery behind your profile, your posts and your member card. It shows instead of the cover you uploaded.",
-    "coversEmpty": "The gallery needs a perk. <perks>See your perks</perks>",
-    "none": "None",
+    "metaTitle": "Apariencia",
+    "heading": "Apariencia",
+    "loading": "Cargando los ajustes de apariencia…",
+    "description": "Cómo ves el foro y cómo te ven los demás.",
+    "previewHeading": "Vista previa",
+    "previewDescription": "Tu avatar, nombre y portada con las opciones guardadas ahora mismo.",
+    "accentHeading": "Color de acento",
+    "accentDescription": "Cambia el color de botones, enlaces y resaltados en todo el foro, solo para ti.",
+    "accentDefault": "Predeterminado",
+    "frameHeading": "Marco del avatar",
+    "frameDescription": "Se muestra alrededor de tu imagen allí donde aparece.",
+    "framesEmpty": "Aún no tienes marcos. <shop>Consigue marcos en la tienda</shop>",
+    "nameColorHeading": "Color del nombre",
+    "nameColorDescription": "El color de tu nombre de usuario en temas, listas y tu perfil.",
+    "nameColorsEmpty": "Aún no tienes colores del nombre. <shop>Consigue colores del nombre en la tienda</shop>",
+    "nameIconHeading": "Icono del nombre",
+    "nameIconDescription": "Un icono pequeño junto a tu nombre de usuario en temas, listas y tu perfil.",
+    "nameIconsEmpty": "Aún no tienes iconos del nombre. <shop>Consigue iconos del nombre en la tienda</shop>",
+    "coverHeading": "Portada del perfil",
+    "coverDescription": "Una imagen de la galería detrás de tu perfil, tus mensajes y tu tarjeta de miembro. Se muestra en lugar de la portada que subiste.",
+    "coversEmpty": "La galería requiere una ventaja. <perks>Mira tus ventajas</perks>",
+    "none": "Ninguno",
     "aria": {
-      "frame": "{name} frame",
-      "noFrame": "No frame",
-      "nameColor": "{name} name colour",
-      "nameIcon": "{name} name icon",
-      "noNameIcon": "No name icon",
-      "noCover": "No cover",
-      "cover": "{name} cover"
+      "frame": "Marco {name}",
+      "noFrame": "Sin marco",
+      "nameColor": "Color del nombre {name}",
+      "nameIcon": "Icono del nombre {name}",
+      "noNameIcon": "Sin icono del nombre",
+      "noCover": "Sin portada",
+      "cover": "Portada {name}"
     }
   },
   "appearanceForm": {
-    "pending": "Saving…",
-    "saved": "Saved"
+    "pending": "Guardando…",
+    "saved": "Guardado"
   },
   "privacy": {
-    "metaTitle": "Privacy",
-    "heading": "Privacy",
-    "loading": "Loading privacy settings…",
-    "sectionHeading": "Who can see you",
-    "sectionDescription": "Decide who may open your profile and who may post on it.",
-    "viewLegend": "Who can view your profile",
-    "postLegend": "Who can post on your profile",
+    "metaTitle": "Privacidad",
+    "heading": "Privacidad",
+    "loading": "Cargando los ajustes de privacidad…",
+    "sectionHeading": "Quién puede verte",
+    "sectionDescription": "Decide quién puede abrir tu perfil y quién puede publicar en él.",
+    "viewLegend": "Quién puede ver tu perfil",
+    "postLegend": "Quién puede publicar en tu perfil",
     "view": {
       "everyone": {
-        "label": "Everyone",
-        "help": "Anyone, signed in or not."
+        "label": "Todos",
+        "help": "Cualquiera, haya iniciado sesión o no."
       },
       "members": {
-        "label": "Members",
-        "help": "Only signed-in members."
+        "label": "Miembros",
+        "help": "Solo miembros con sesión iniciada."
       },
       "followed": {
-        "label": "Members you follow",
-        "help": "Only members you follow."
+        "label": "Miembros que sigues",
+        "help": "Solo los miembros que sigues."
       },
       "self": {
-        "label": "Only me",
-        "help": "Nobody but you."
+        "label": "Solo yo",
+        "help": "Nadie más que tú."
       }
     },
     "post": {
       "members": {
-        "label": "Members",
-        "help": "Any signed-in member who may post."
+        "label": "Miembros",
+        "help": "Cualquier miembro con sesión iniciada que pueda publicar."
       },
       "followed": {
-        "label": "Members you follow",
-        "help": "Only members you follow."
+        "label": "Miembros que sigues",
+        "help": "Solo los miembros que sigues."
       },
       "self": {
-        "label": "Only me",
-        "help": "Nobody but you."
+        "label": "Solo yo",
+        "help": "Nadie más que tú."
       }
     },
-    "submit": "Save privacy",
-    "ignoredHeading": "Ignored members",
-    "ignoredDescription": "They cannot notify you, start a conversation with you or post on your profile.",
-    "ignoredEmpty": "You are not ignoring anyone.",
-    "since": "Since",
-    "stop": "Stop ignoring"
+    "submit": "Guardar privacidad",
+    "ignoredHeading": "Miembros ignorados",
+    "ignoredDescription": "No pueden enviarte notificaciones, iniciar una conversación contigo ni publicar en tu perfil.",
+    "ignoredEmpty": "No estás ignorando a nadie.",
+    "since": "Desde",
+    "stop": "Dejar de ignorar"
   },
   "notifications": {
-    "metaTitle": "Notifications",
-    "heading": "Notifications",
-    "loading": "Loading notification settings…",
-    "sectionHeading": "What you are told about",
-    "sectionDescription": "Choose where each kind of notification reaches you.",
-    "typeColumn": "Notification",
+    "metaTitle": "Notificaciones",
+    "heading": "Notificaciones",
+    "loading": "Cargando los ajustes de notificaciones…",
+    "sectionHeading": "Sobre qué se te avisa",
+    "sectionDescription": "Elige por dónde te llega cada tipo de notificación.",
+    "typeColumn": "Notificación",
     "channels": {
-      "inApp": "In app",
-      "email": "Email",
+      "inApp": "En la web",
+      "email": "Correo",
       "push": "Push"
     },
-    "required": "Required",
-    "cell": "{type} by {channel}",
-    "defaultsHelp": "Until you choose, each notification follows the forum's default.",
-    "pushOff": "Push notifications are not set up on this forum.",
-    "submit": "Save notifications",
+    "required": "Obligatoria",
+    "cell": "{type} por {channel}",
+    "defaultsHelp": "Hasta que elijas, cada notificación sigue el valor predeterminado del foro.",
+    "pushOff": "Las notificaciones push no están configuradas en este foro.",
+    "submit": "Guardar notificaciones",
     "types": {
       "thread_watched": {
-        "title": "New posts in a watched thread",
-        "body": "Someone replies in a thread you watch."
+        "title": "Mensajes nuevos en un tema que sigues",
+        "body": "Alguien responde en un tema que sigues."
       },
       "node_thread": {
-        "title": "New threads in a watched forum",
-        "body": "A new thread is started in a forum you watch."
+        "title": "Temas nuevos en un foro que sigues",
+        "body": "Se crea un tema nuevo en un foro que sigues."
       },
       "node_post": {
-        "title": "New posts in a watched forum",
-        "body": "A new post appears in a forum you watch for every post."
+        "title": "Mensajes nuevos en un foro que sigues",
+        "body": "Aparece un mensaje nuevo en un foro que sigues para cada mensaje."
       },
       "content_quoted": {
-        "title": "Quotes",
-        "body": "Someone quotes your post."
+        "title": "Citas",
+        "body": "Alguien cita tu mensaje."
       },
       "content_mentioned": {
-        "title": "Mentions",
-        "body": "Someone mentions you."
+        "title": "Menciones",
+        "body": "Alguien te menciona."
       },
       "content_reaction": {
-        "title": "Reactions",
-        "body": "Someone reacts to your post."
+        "title": "Reacciones",
+        "body": "Alguien reacciona a tu mensaje."
       },
       "profile_post": {
-        "title": "Posts on your wall",
-        "body": "Someone posts on your profile."
+        "title": "Publicaciones en tu muro",
+        "body": "Alguien publica en tu perfil."
       },
       "profile_comment": {
-        "title": "Comments on your wall",
-        "body": "Someone comments on a post on your profile."
+        "title": "Comentarios en tu muro",
+        "body": "Alguien comenta una publicación de tu perfil."
       },
       "profile_commented": {
-        "title": "Replies to your comments",
-        "body": "Someone comments after you on a profile post."
+        "title": "Respuestas a tus comentarios",
+        "body": "Alguien comenta después de ti en una publicación de un perfil."
       },
       "member_thread": {
-        "title": "Threads by members you follow",
-        "body": "A member you follow starts a thread."
+        "title": "Temas de miembros que sigues",
+        "body": "Un miembro que sigues crea un tema."
       },
       "member_followed": {
-        "title": "New followers",
-        "body": "Someone starts following you."
+        "title": "Seguidores nuevos",
+        "body": "Alguien empieza a seguirte."
       },
       "conversation_added": {
-        "title": "Added to a conversation",
-        "body": "Someone adds you to a conversation."
+        "title": "Añadido a una conversación",
+        "body": "Alguien te añade a una conversación."
       },
       "conversation_message": {
-        "title": "Conversation messages",
-        "body": "A new message arrives in one of your conversations."
+        "title": "Mensajes de conversaciones",
+        "body": "Llega un mensaje nuevo a una de tus conversaciones."
       },
       "moderation_content": {
-        "title": "Moderation of your posts",
-        "body": "A moderator edits, removes or restores something you wrote."
+        "title": "Moderación de tus mensajes",
+        "body": "Un moderador edita, elimina o restaura algo que escribiste."
       },
       "moderation_member": {
-        "title": "Moderation of your account",
-        "body": "A warning, restriction or ban is applied to your account."
+        "title": "Moderación de tu cuenta",
+        "body": "Se aplica una advertencia, restricción o expulsión a tu cuenta."
       },
       "report_resolved": {
-        "title": "Your reports",
-        "body": "A report you made has been handled."
+        "title": "Tus denuncias",
+        "body": "Se ha tramitado una denuncia que hiciste."
       },
       "moderator_report": {
-        "title": "New reports",
-        "body": "A report is waiting for a moderator."
+        "title": "Denuncias nuevas",
+        "body": "Una denuncia espera a un moderador."
       },
       "moderator_approval": {
-        "title": "Posts waiting for approval",
-        "body": "A post is waiting for a moderator to approve it."
+        "title": "Mensajes pendientes de aprobación",
+        "body": "Un mensaje espera a que un moderador lo apruebe."
       },
       "member_groups": {
-        "title": "Group changes",
-        "body": "Your groups change."
+        "title": "Cambios de grupo",
+        "body": "Cambian tus grupos."
       },
       "announcement": {
-        "title": "Announcements",
-        "body": "The administrators announce something to every member."
+        "title": "Anuncios",
+        "body": "Los administradores anuncian algo a todos los miembros."
       },
       "account_security": {
-        "title": "Account security",
-        "body": "Messages about the safety of your account."
+        "title": "Seguridad de la cuenta",
+        "body": "Mensajes sobre la seguridad de tu cuenta."
       }
     }
   },
   "preferences": {
-    "metaTitle": "Preferences",
-    "heading": "Preferences",
-    "loading": "Loading your preferences…",
-    "sectionHeading": "Watching and language",
-    "sectionDescription": "What happens when you post, and the language of the forum for you.",
-    "createLabel": "Threads you start",
-    "createHelp": "Whether you follow the threads you start.",
-    "replyLabel": "Threads you reply to",
-    "replyHelp": "Whether you follow the threads you reply to.",
+    "metaTitle": "Preferencias",
+    "heading": "Preferencias",
+    "loading": "Cargando tus preferencias…",
+    "sectionHeading": "Seguimiento e idioma",
+    "sectionDescription": "Qué ocurre cuando publicas y el idioma del foro para ti.",
+    "createLabel": "Temas que creas",
+    "createHelp": "Si sigues los temas que creas.",
+    "replyLabel": "Temas en los que respondes",
+    "replyHelp": "Si sigues los temas en los que respondes.",
     "watch": {
-      "none": "Do not watch",
-      "watch": "Watch",
-      "watch_email": "Watch and email me"
+      "none": "No seguir",
+      "watch": "Seguir",
+      "watch_email": "Seguir y avisarme por correo"
     },
-    "languageLabel": "Language",
-    "languageDefault": "Site default",
-    "submit": "Save preferences",
-    "threadsHeading": "Watched threads",
-    "threadsDescription": "You are told when someone replies in these.",
-    "threadsEmpty": "You are not watching any thread.",
-    "forumsHeading": "Watched forums",
-    "forumsDescription": "You are told about new threads or posts in these.",
-    "forumsEmpty": "You are not watching any forum.",
+    "languageLabel": "Idioma",
+    "languageDefault": "Predeterminado del sitio",
+    "submit": "Guardar preferencias",
+    "threadsHeading": "Temas que sigues",
+    "threadsDescription": "Se te avisa cuando alguien responde en estos.",
+    "threadsEmpty": "No sigues ningún tema.",
+    "forumsHeading": "Foros que sigues",
+    "forumsDescription": "Se te avisa de los temas o mensajes nuevos en estos.",
+    "forumsEmpty": "No sigues ningún foro.",
     "mode": {
-      "threads": "New threads",
-      "posts": "Every new post"
+      "threads": "Temas nuevos",
+      "posts": "Cada mensaje nuevo"
     },
-    "email": "Email",
-    "stop": "Stop watching"
+    "email": "Correo",
+    "stop": "Dejar de seguir"
   },
   "perks": {
-    "metaTitle": "Perks",
-    "heading": "Perks",
-    "loading": "Loading your perks…",
-    "description": "What your account can do beyond the basics.",
-    "granted": "Yours",
-    "locked": "Locked",
-    "use": "Use it",
-    "shop": "See the shop",
-    "slots": "You show up to {count, plural, one {# award} other {# awards}}.",
-    "slotsAll": "You show all your awards.",
-    "renameFree": "You can change it freely.",
-    "renameUnits": "You have {count, plural, one {# change} other {# changes}} left.",
+    "metaTitle": "Ventajas",
+    "heading": "Ventajas",
+    "loading": "Cargando tus ventajas…",
+    "description": "Lo que tu cuenta puede hacer además de lo básico.",
+    "granted": "Tuya",
+    "locked": "Bloqueada",
+    "use": "Usar",
+    "shop": "Ver la tienda",
+    "slots": "Muestras hasta {count, plural, one {# trofeo} other {# trofeos}}.",
+    "slotsAll": "Muestras todos tus trofeos.",
+    "renameFree": "Puedes cambiarlo libremente.",
+    "renameUnits": "Te {count, plural, one {queda # cambio} other {quedan # cambios}}.",
     "items": {
       "signature": {
-        "label": "Signature",
-        "description": "A short text under your posts."
+        "label": "Firma",
+        "description": "Un texto corto bajo tus mensajes."
       },
       "customTitle": {
-        "label": "Custom title",
-        "description": "Your own title under your name."
+        "label": "Título personalizado",
+        "description": "Tu propio título bajo tu nombre."
       },
       "coverPreset": {
-        "label": "Cover gallery",
-        "description": "Pick a profile cover from the gallery."
+        "label": "Galería de portadas",
+        "description": "Elige una portada de perfil de la galería."
       },
       "awardSlots": {
-        "label": "Award showcase",
-        "description": "Awards shown next to your name."
+        "label": "Vitrina de trofeos",
+        "description": "Trofeos que se muestran junto a tu nombre."
       },
       "username": {
-        "label": "Username changes",
-        "description": "Change the name you go by."
+        "label": "Cambios de nombre de usuario",
+        "description": "Cambia el nombre con el que te conocen."
       }
     }
   },
   "security": {
-    "metaTitle": "Security",
-    "heading": "Security",
-    "devicesHeading": "Devices",
-    "devicesDescription": "Browsers that are signed in to your account.",
-    "devicesLoading": "Loading devices…",
-    "logoutHeading": "Log out",
-    "logoutDescription": "End your session in this browser.",
-    "logout": "Log out",
-    "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Unknown browser}} on {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {unknown system}}",
-    "currentDevice": "This device",
-    "sessionDates": "Signed in <createdTime>{created}</createdTime><separator> · </separator>Expires <expiresTime>{expires}</expiresTime>",
-    "sessionIp": "IP address {ip}",
-    "revoke": "Revoke",
-    "revokeLabel": "Revoke {device}",
-    "revokeOthers": "Sign out everywhere else",
-    "revokeOthersDescription": "Ends every session except the one in this browser.",
-    "devicesNotFresh": "For safety, the device list is only available during the first day after you log in. Log out and log in again to see it.",
-    "devicesFailed": "The devices could not be loaded. Try again in a moment.",
-    "empty": "No devices are signed in.",
+    "metaTitle": "Seguridad",
+    "heading": "Seguridad",
+    "devicesHeading": "Dispositivos",
+    "devicesDescription": "Navegadores con sesión iniciada en tu cuenta.",
+    "devicesLoading": "Cargando dispositivos…",
+    "logoutHeading": "Cerrar sesión",
+    "logoutDescription": "Termina tu sesión en este navegador.",
+    "logout": "Cerrar sesión",
+    "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Navegador desconocido}} en {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {sistema desconocido}}",
+    "currentDevice": "Este dispositivo",
+    "sessionDates": "Sesión iniciada <createdTime>{created}</createdTime><separator> · </separator>Caduca <expiresTime>{expires}</expiresTime>",
+    "sessionIp": "Dirección IP {ip}",
+    "revoke": "Revocar",
+    "revokeLabel": "Revocar {device}",
+    "revokeOthers": "Cerrar sesión en todos los demás",
+    "revokeOthersDescription": "Termina todas las sesiones excepto la de este navegador.",
+    "devicesNotFresh": "Por seguridad, la lista de dispositivos solo está disponible durante el primer día después de iniciar sesión. Cierra sesión y vuelve a iniciarla para verla.",
+    "devicesFailed": "No se pudieron cargar los dispositivos. Inténtalo de nuevo en un momento.",
+    "empty": "No hay dispositivos con sesión iniciada.",
     "password": {
-      "heading": "Password",
-      "description": "Choose a new password for your account.",
-      "currentLabel": "Current password",
-      "newLabel": "New password",
-      "newHint": "Use 8 to 256 characters.",
-      "confirmLabel": "Confirm new password",
-      "signOutOthers": "Sign out of all my other devices",
-      "submit": "Change password"
+      "heading": "Contraseña",
+      "description": "Elige una contraseña nueva para tu cuenta.",
+      "currentLabel": "Contraseña actual",
+      "newLabel": "Contraseña nueva",
+      "newHint": "Usa de 8 a 256 caracteres.",
+      "confirmLabel": "Confirma la contraseña nueva",
+      "signOutOthers": "Cerrar sesión en todos mis otros dispositivos",
+      "submit": "Cambiar contraseña"
     },
     "email": {
-      "heading": "Email",
-      "description": "The address we use for account messages.",
-      "addressLabel": "Address",
-      "verified": "Confirmed",
-      "unverified": "Not confirmed",
-      "unverifiedHint": "Confirm your address with the link we send you. Some features stay locked until then.",
-      "resend": "Send the confirmation link again",
-      "changeLabel": "New address",
-      "changeHint": "We send a link to the new address. Your address changes when you open it.",
-      "change": "Change email",
-      "unavailable": "Email features are not available on this forum, so the address cannot be confirmed or changed here."
+      "heading": "Correo electrónico",
+      "description": "La dirección que usamos para los mensajes de la cuenta.",
+      "addressLabel": "Dirección",
+      "verified": "Confirmada",
+      "unverified": "Sin confirmar",
+      "unverifiedHint": "Confirma tu dirección con el enlace que te enviamos. Algunas funciones siguen bloqueadas hasta entonces.",
+      "resend": "Enviar de nuevo el enlace de confirmación",
+      "changeLabel": "Dirección nueva",
+      "changeHint": "Enviamos un enlace a la dirección nueva. Tu dirección cambia cuando lo abras.",
+      "change": "Cambiar correo",
+      "unavailable": "Las funciones de correo no están disponibles en este foro, así que la dirección no se puede confirmar ni cambiar aquí."
     },
     "errors": {
-      "generic": "Something went wrong. Try again.",
-      "rateLimited": "Too many attempts. Wait a while and try again.",
-      "required": "Fill in every field.",
-      "mismatch": "The two new passwords are not the same.",
-      "sameAsCurrent": "Choose a password that is different from the current one.",
-      "wrongCurrent": "The current password is not correct.",
-      "tooShort": "The new password is too short.",
-      "tooLong": "The new password is too long.",
-      "invalidEmail": "Enter a valid email address.",
-      "sameEmail": "That is already your address.",
-      "mailOff": "Email features are not available on this forum."
+      "generic": "Algo salió mal. Inténtalo de nuevo.",
+      "rateLimited": "Demasiados intentos. Espera un rato e inténtalo de nuevo.",
+      "required": "Rellena todos los campos.",
+      "mismatch": "Las dos contraseñas nuevas no coinciden.",
+      "sameAsCurrent": "Elige una contraseña distinta de la actual.",
+      "wrongCurrent": "La contraseña actual no es correcta.",
+      "tooShort": "La contraseña nueva es demasiado corta.",
+      "tooLong": "La contraseña nueva es demasiado larga.",
+      "invalidEmail": "Escribe una dirección de correo válida.",
+      "sameEmail": "Esa ya es tu dirección.",
+      "mailOff": "Las funciones de correo no están disponibles en este foro."
     },
     "notices": {
-      "revoked": "The device was signed out.",
-      "others": "Every other device was signed out.",
-      "revokeFailed": "The device could not be signed out. Try again.",
-      "password": "Your password was changed.",
-      "emailChange": "A confirmation link is on its way to the new address. Your address changes when you open it.",
-      "verification": "A confirmation link is on its way to your address.",
-      "resendFailed": "The link could not be sent. Try again later.",
-      "rateLimited": "Too many attempts. Wait a while and try again."
+      "revoked": "Se cerró la sesión del dispositivo.",
+      "others": "Se cerró la sesión de todos los demás dispositivos.",
+      "revokeFailed": "No se pudo cerrar la sesión del dispositivo. Inténtalo de nuevo.",
+      "password": "Se cambió tu contraseña.",
+      "emailChange": "Un enlace de confirmación va de camino a la dirección nueva. Tu dirección cambia cuando lo abras.",
+      "verification": "Un enlace de confirmación va de camino a tu dirección.",
+      "resendFailed": "No se pudo enviar el enlace. Inténtalo más tarde.",
+      "rateLimited": "Demasiados intentos. Espera un rato e inténtalo de nuevo."
     }
   },
   "loading": {
-    "securityLabel": "Loading security settings…",
-    "securityHeading": "Security",
-    "logoutHeading": "Log out",
-    "logoutDescription": "End your session in this browser.",
-    "sessionsHeading": "Devices",
-    "sessionsDescription": "Browsers that are signed in to your account.",
-    "passwordHeading": "Password",
-    "passwordDescription": "Choose a new password for your account.",
-    "emailHeading": "Email",
-    "emailDescription": "The address we use for account messages."
+    "securityLabel": "Cargando los ajustes de seguridad…",
+    "securityHeading": "Seguridad",
+    "logoutHeading": "Cerrar sesión",
+    "logoutDescription": "Termina tu sesión en este navegador.",
+    "sessionsHeading": "Dispositivos",
+    "sessionsDescription": "Navegadores con sesión iniciada en tu cuenta.",
+    "passwordHeading": "Contraseña",
+    "passwordDescription": "Elige una contraseña nueva para tu cuenta.",
+    "emailHeading": "Correo electrónico",
+    "emailDescription": "La dirección que usamos para los mensajes de la cuenta."
   }
 }

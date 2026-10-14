@@ -1,9 +1,9 @@
 {
   "staticPage": {
-    "updated": "Last updated {date}",
+    "updated": "Última actualización: {date}",
     "aria": {
-      "navigation": "Information pages",
-      "loading": "Loading page…"
+      "navigation": "Páginas de información",
+      "loading": "Cargando página…"
     }
   }
 }

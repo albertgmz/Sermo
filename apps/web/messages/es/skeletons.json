@@ -1,9 +1,9 @@
 {
   "skeletons": {
     "aria": {
-      "loading": "Loading content…"
+      "loading": "Cargando contenido…"
     },
-    "notableHeading": "Notable members",
-    "communityHeading": "Community"
+    "notableHeading": "Miembros destacados",
+    "communityHeading": "Comunidad"
   }
 }

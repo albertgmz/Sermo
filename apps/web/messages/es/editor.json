@@ -1,23 +1,23 @@
 {
   "editor": {
-    "boldLabel": "Bold",
-    "italicLabel": "Italic",
-    "strikethroughLabel": "Strikethrough",
-    "inlineCodeLabel": "Inline code",
-    "headingLabel": "Heading",
-    "bulletListLabel": "Bullet list",
-    "numberedListLabel": "Numbered list",
-    "quoteLabel": "Quote",
-    "linkLabel": "Link",
-    "undoLabel": "Undo",
-    "redoLabel": "Redo",
-    "linkPrompt": "Link URL",
-    "placeholder": "Type your message here.",
+    "boldLabel": "Negrita",
+    "italicLabel": "Cursiva",
+    "strikethroughLabel": "Tachado",
+    "inlineCodeLabel": "Código en línea",
+    "headingLabel": "Encabezado",
+    "bulletListLabel": "Lista con viñetas",
+    "numberedListLabel": "Lista numerada",
+    "quoteLabel": "Cita",
+    "linkLabel": "Enlace",
+    "undoLabel": "Deshacer",
+    "redoLabel": "Rehacer",
+    "linkPrompt": "URL del enlace",
+    "placeholder": "Escribe tu mensaje aquí.",
     "aria": {
-      "formatting": "Formatting"
+      "formatting": "Formato"
     },
     "errors": {
-      "required": "This field is required."
+      "required": "Este campo es obligatorio."
     }
   }
 }

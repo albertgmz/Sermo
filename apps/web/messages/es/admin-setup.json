@@ -1,314 +1,314 @@
 {
   "loading": {
-    "label": "Loading the settings…"
+    "label": "Cargando los ajustes…"
   },
   "notices": {
-    "saved": "Saved.",
-    "added": "Entry added.",
-    "deleted": "Entry deleted."
+    "saved": "Guardado.",
+    "added": "Entrada añadida.",
+    "deleted": "Entrada eliminada."
   },
   "errors": {
-    "number": "Enter a whole number.",
-    "language": "Choose one of the languages offered.",
-    "id": "That is not a valid record.",
-    "missing": "Choose a value.",
-    "permission": "Choose a permission for this audience."
+    "number": "Escribe un número entero.",
+    "language": "Elige uno de los idiomas ofrecidos.",
+    "id": "Ese registro no es válido.",
+    "missing": "Elige un valor.",
+    "permission": "Elige un permiso para este público."
   },
   "pages": {
     "general": {
-      "metaTitle": "General settings",
+      "metaTitle": "Ajustes generales",
       "heading": "General",
-      "subtitle": "The site's name, default language, profile posts, the forum statistics panel and the accounts it links to.",
-      "formHeading": "General settings",
-      "linksHeading": "Social links",
-      "linksDescription": "The site's own accounts elsewhere, shown in the footer."
+      "subtitle": "El nombre del sitio, el idioma predeterminado, las publicaciones del perfil, el panel de estadísticas del foro y las cuentas a las que enlaza.",
+      "formHeading": "Ajustes generales",
+      "linksHeading": "Enlaces sociales",
+      "linksDescription": "Las cuentas propias del sitio en otros lugares, que se muestran en el pie de página."
     },
     "members": {
-      "metaTitle": "New members",
-      "heading": "New members",
-      "subtitle": "How long a member counts as new and what is held back from them.",
-      "formHeading": "New-member rules"
+      "metaTitle": "Miembros nuevos",
+      "heading": "Miembros nuevos",
+      "subtitle": "Cuánto tiempo se considera nuevo a un miembro y qué se le restringe.",
+      "formHeading": "Reglas para miembros nuevos"
     },
     "warnings": {
-      "metaTitle": "Warnings and automatic bans",
-      "heading": "Warnings and automatic bans",
-      "subtitle": "When warning points turn into a ban without a moderator acting.",
-      "formHeading": "Automatic bans"
+      "metaTitle": "Advertencias y expulsiones automáticas",
+      "heading": "Advertencias y expulsiones automáticas",
+      "subtitle": "Cuándo los puntos de advertencia se convierten en una expulsión sin que actúe un moderador.",
+      "formHeading": "Expulsiones automáticas"
     },
     "uploads": {
-      "metaTitle": "Upload settings",
-      "heading": "Uploads",
-      "subtitle": "How big an upload may be, which file types each purpose takes and the storage each group gets.",
-      "sizeHeading": "Size",
-      "typesHeading": "Allowed file types",
-      "typesDescription": "One content type per line, such as image/png. Catalog and site pictures always take JPEG, PNG and WebP.",
-      "groupsHeading": "Storage per group",
-      "groupsDescription": "How much a member of the group may keep uploaded, in bytes. Leave a field empty for unlimited; 0 allows no storage. The save sends every group's value, so the groups you leave alone keep theirs.",
-      "formHeading": "Upload settings",
-      "unlimited": "Unlimited",
+      "metaTitle": "Ajustes de subidas",
+      "heading": "Subidas",
+      "subtitle": "Qué tamaño puede tener una subida, qué tipos de archivo admite cada uso y el almacenamiento que recibe cada grupo.",
+      "sizeHeading": "Tamaño",
+      "typesHeading": "Tipos de archivo permitidos",
+      "typesDescription": "Un tipo de contenido por línea, como image/png. Las imágenes del catálogo y del sitio siempre admiten JPEG, PNG y WebP.",
+      "groupsHeading": "Almacenamiento por grupo",
+      "groupsDescription": "Cuánto puede conservar subido un miembro del grupo, en bytes. Deja un campo vacío para ilimitado; 0 no permite almacenamiento. Al guardar se envía el valor de todos los grupos, así que los grupos que no toques conservan el suyo.",
+      "formHeading": "Ajustes de subidas",
+      "unlimited": "Ilimitado",
       "unit": "bytes",
-      "groupFallback": "Group {id}"
+      "groupFallback": "Grupo {id}"
     },
     "seo": {
-      "metaTitle": "Search engine settings",
-      "heading": "Search engines",
-      "subtitle": "How pages are titled in search results and how search engines are told about changes.",
-      "formHeading": "Search engine settings"
+      "metaTitle": "Ajustes de buscadores",
+      "heading": "Buscadores",
+      "subtitle": "Cómo se titulan las páginas en los resultados de búsqueda y cómo se avisa a los buscadores de los cambios.",
+      "formHeading": "Ajustes de buscadores"
     },
     "levels": {
-      "metaTitle": "Levels and limits",
-      "heading": "Levels",
-      "subtitle": "The level curve, the limits of profile text and the weights of the member of the month.",
-      "formHeading": "Levels and limits",
-      "curve": "The curve and the titles",
-      "titleRow": "Title {n}",
-      "levelLabel": "From level",
-      "titleLabel": "Title",
-      "limits": "Profile text limits",
-      "standing": "Member of the month",
-      "noPreview": "The site gives no table of levels to read, so no preview is shown here."
+      "metaTitle": "Niveles y límites",
+      "heading": "Niveles",
+      "subtitle": "La curva de niveles, los límites del texto del perfil y los pesos del miembro del mes.",
+      "formHeading": "Niveles y límites",
+      "curve": "La curva y los títulos",
+      "titleRow": "Título {n}",
+      "levelLabel": "Desde el nivel",
+      "titleLabel": "Título",
+      "limits": "Límites del texto del perfil",
+      "standing": "Miembro del mes",
+      "noPreview": "El sitio no ofrece una tabla de niveles que leer, así que aquí no se muestra vista previa."
     },
     "navigation": {
-      "metaTitle": "Public navigation",
-      "heading": "Public navigation",
-      "subtitle": "The links of the header, the bottom bar on a phone, the account menu and the footer. Built-in entries can be renamed, reordered and switched off; entries you add can also be deleted.",
-      "loading": "Loading the navigation…"
+      "metaTitle": "Navegación pública",
+      "heading": "Navegación pública",
+      "subtitle": "Los enlaces de la cabecera, la barra inferior del teléfono, el menú de la cuenta y el pie de página. Las entradas integradas se pueden renombrar, reordenar y desactivar; las que añadas también se pueden eliminar.",
+      "loading": "Cargando la navegación…"
     }
   },
   "fields": {
     "siteName": {
-      "label": "Site name",
-      "help": "Shown in emails and titles."
+      "label": "Nombre del sitio",
+      "help": "Se muestra en los correos y en los títulos."
     },
     "siteDescription": {
-      "label": "Site description",
-      "help": "One or two sentences about the site. Shown to search engines and in the footer; leave empty to show neither."
+      "label": "Descripción del sitio",
+      "help": "Una o dos frases sobre el sitio. Se muestra a los buscadores y en el pie de página; déjala vacía para no mostrarla en ninguno."
     },
     "defaultLanguage": {
-      "label": "Default language",
-      "help": "Language for guests and members who have not chosen one."
+      "label": "Idioma predeterminado",
+      "help": "Idioma para los invitados y los miembros que no han elegido uno."
     },
     "profilePostsEnabled": {
-      "label": "Profile posts",
-      "help": "Off: nobody can create profile posts or comments.",
-      "switch": "Allow profile posts and comments"
+      "label": "Publicaciones del perfil",
+      "help": "Desactivado: nadie puede crear publicaciones ni comentarios en el perfil.",
+      "switch": "Permitir publicaciones y comentarios en el perfil"
     },
     "forumStatsEnabled": {
-      "label": "Forum statistics",
-      "help": "On: the forum list shows a panel with the latest, most replied, most reacted and most viewed threads.",
-      "switch": "Show the forum statistics panel"
+      "label": "Estadísticas del foro",
+      "help": "Activado: la lista de foros muestra un panel con los temas más recientes, con más respuestas, con más reacciones y más vistos.",
+      "switch": "Mostrar el panel de estadísticas del foro"
     },
     "newMemberDays": {
-      "label": "New-member period",
-      "help": "How long after joining a member counts as new for the mention limit below.",
-      "unit": "days"
+      "label": "Periodo de miembro nuevo",
+      "help": "Cuánto tiempo después de unirse se considera nuevo a un miembro para el límite de menciones de abajo.",
+      "unit": "días"
     },
     "firstPostsToModerate": {
-      "label": "First posts held for review",
-      "help": "How many of a new member's first posts wait for a moderator. 0 holds none.",
-      "unit": "posts"
+      "label": "Primeros mensajes retenidos para revisión",
+      "help": "Cuántos de los primeros mensajes de un miembro nuevo esperan a un moderador. 0 no retiene ninguno.",
+      "unit": "mensajes"
     },
     "moderateLinksFromNewMembers": {
-      "label": "Links from new members",
-      "help": "On: posts by new members that contain links wait for a moderator.",
-      "switch": "Hold posts with links from new members"
+      "label": "Enlaces de miembros nuevos",
+      "help": "Activado: los mensajes de miembros nuevos que contienen enlaces esperan a un moderador.",
+      "switch": "Retener los mensajes con enlaces de miembros nuevos"
     },
     "newMemberMentionLimit": {
-      "label": "Mentions per item",
-      "help": "Mentions allowed per post or message for members younger than the new-member period. The general mention limit applies as well.",
-      "unit": "mentions"
+      "label": "Menciones por elemento",
+      "help": "Menciones permitidas por mensaje para los miembros con menos antigüedad que el periodo de miembro nuevo. También se aplica el límite general de menciones.",
+      "unit": "menciones"
     },
     "warningBanThreshold": {
-      "label": "Ban at this many points",
-      "help": "Active warning points at which a member is banned automatically. 0 turns automatic bans off.",
-      "unit": "points"
+      "label": "Expulsar con tantos puntos",
+      "help": "Puntos de advertencia activos con los que se expulsa automáticamente a un miembro. 0 desactiva las expulsiones automáticas.",
+      "unit": "puntos"
     },
     "warningBanDays": {
-      "label": "Length of an automatic ban",
-      "help": "How long a ban applied by the threshold lasts.",
-      "unit": "days"
+      "label": "Duración de una expulsión automática",
+      "help": "Cuánto dura una expulsión aplicada por el umbral.",
+      "unit": "días"
     },
     "maxUploadBytes": {
-      "label": "Largest file",
-      "help": "The biggest single file an upload may carry.",
+      "label": "Archivo más grande",
+      "help": "El archivo individual más grande que puede llevar una subida.",
       "unit": "bytes"
     },
     "threadTitleTemplate": {
-      "label": "Thread page title",
-      "help": "Title of a thread page. Use '{'title'}' for the thread's title and '{'site'}' for the site name."
+      "label": "Título de la página de un tema",
+      "help": "Título de la página de un tema. Usa '{'title'}' para el título del tema y '{'site'}' para el nombre del sitio."
     },
     "nodeTitleTemplate": {
-      "label": "Forum page title",
-      "help": "Title of a forum or category page. Use '{'title'}' for its name and '{'site'}' for the site name."
+      "label": "Título de la página de un foro",
+      "help": "Título de la página de un foro o una categoría. Usa '{'title'}' para su nombre y '{'site'}' para el nombre del sitio."
     },
     "profileTitleTemplate": {
-      "label": "Profile page title",
-      "help": "Title of a member's profile. Use '{'username'}' for the member's name and '{'site'}' for the site name."
+      "label": "Título de la página de un perfil",
+      "help": "Título del perfil de un miembro. Usa '{'username'}' para el nombre del miembro y '{'site'}' para el nombre del sitio."
     },
     "indexNowKey": {
-      "label": "IndexNow key",
-      "help": "The key search engines check to accept change notices from this site. Leave empty to send none."
+      "label": "Clave de IndexNow",
+      "help": "La clave que comprueban los buscadores para aceptar los avisos de cambios de este sitio. Déjala vacía para no enviar ninguno."
     },
     "levelStep": {
-      "label": "Level step",
-      "help": "Levels come from the XP of the awards a member holds. Each level costs this much more XP than the one before: level n starts at step × n × (n − 1) / 2.",
+      "label": "Paso de nivel",
+      "help": "Los niveles salen de la XP de los trofeos que tiene un miembro. Cada nivel cuesta esta cantidad más de XP que el anterior: el nivel n empieza en paso × n × (n − 1) / 2.",
       "unit": "XP"
     },
     "levelTitles": {
-      "label": "Level titles",
-      "help": "The title of a level is the entry with the highest level not above it. Clear both fields of a row to remove it; the empty rows at the end add titles."
+      "label": "Títulos de nivel",
+      "help": "El título de un nivel es la entrada con el nivel más alto que no lo supere. Vacía los dos campos de una fila para quitarla; las filas vacías del final añaden títulos."
     },
     "signatureMaxLength": {
-      "label": "Signature length",
-      "help": "Longest signature a member may have.",
-      "unit": "characters"
+      "label": "Longitud de la firma",
+      "help": "La firma más larga que puede tener un miembro.",
+      "unit": "caracteres"
     },
     "signatureMaxLines": {
-      "label": "Signature lines",
-      "help": "Most lines in a signature.",
-      "unit": "lines"
+      "label": "Líneas de la firma",
+      "help": "Máximo de líneas en una firma.",
+      "unit": "líneas"
     },
     "customTitleMaxLength": {
-      "label": "Custom title length",
-      "help": "Longest custom title a member may have.",
-      "unit": "characters"
+      "label": "Longitud del título personalizado",
+      "help": "El título personalizado más largo que puede tener un miembro.",
+      "unit": "caracteres"
     },
     "standingPostPoints": {
-      "label": "Points per post",
-      "help": "Member of the month: points = posts × this + reactions received ÷ reactions per point + referrals × points per referral.",
-      "unit": "points"
+      "label": "Puntos por mensaje",
+      "help": "Miembro del mes: puntos = mensajes × este valor + reacciones recibidas ÷ reacciones por punto + referidos × puntos por referido.",
+      "unit": "puntos"
     },
     "standingReactionsPerPoint": {
-      "label": "Reactions per point",
-      "help": "How many reactions received make one point.",
-      "unit": "reactions"
+      "label": "Reacciones por punto",
+      "help": "Cuántas reacciones recibidas suman un punto.",
+      "unit": "reacciones"
     },
     "standingReferralPoints": {
-      "label": "Points per referral",
-      "help": "Points for each member a member brought in.",
-      "unit": "points"
+      "label": "Puntos por referido",
+      "help": "Puntos por cada miembro que trajo un miembro.",
+      "unit": "puntos"
     },
     "socialLinks": {
       "discord": {
         "label": "Discord",
-        "help": "An http(s) address. Leave empty to leave it out."
+        "help": "Una dirección http(s). Déjala vacía para omitirlo."
       },
       "telegram": {
         "label": "Telegram",
-        "help": "An http(s) address. Leave empty to leave it out."
+        "help": "Una dirección http(s). Déjala vacía para omitirlo."
       },
       "x": {
         "label": "X",
-        "help": "An http(s) address. Leave empty to leave it out."
+        "help": "Una dirección http(s). Déjala vacía para omitirlo."
       }
     }
   },
   "purposes": {
-    "attachment": "Attachments",
-    "avatar": "Avatars",
-    "cover": "Profile covers",
-    "node_icon": "Forum icons",
-    "node_cover": "Forum covers"
+    "attachment": "Adjuntos",
+    "avatar": "Avatares",
+    "cover": "Portadas de perfil",
+    "node_icon": "Iconos de foros",
+    "node_cover": "Portadas de foros"
   },
   "languages": {
-    "en": "English",
-    "es": "Spanish"
+    "en": "Inglés",
+    "es": "Español"
   },
   "navigation": {
     "locations": {
-      "header": "Header",
-      "mobile": "Bottom bar on a phone",
-      "account": "Account menu",
-      "footer": "Footer"
+      "header": "Cabecera",
+      "mobile": "Barra inferior del teléfono",
+      "account": "Menú de la cuenta",
+      "footer": "Pie de página"
     },
     "audiences": {
-      "everyone": "Everyone",
-      "guests": "Guests",
-      "members": "Members",
-      "permission": "Holders of a permission"
+      "everyone": "Todos",
+      "guests": "Invitados",
+      "members": "Miembros",
+      "permission": "Quienes tengan un permiso"
     },
     "iconPositions": {
-      "before": "Before the title",
-      "after": "After the title"
+      "before": "Antes del título",
+      "after": "Después del título"
     },
     "filter": {
-      "label": "Filter entries",
-      "placeholder": "Filter by title",
-      "none": "No entry matches."
+      "label": "Filtrar entradas",
+      "placeholder": "Filtrar por título",
+      "none": "Ninguna entrada coincide."
     },
     "add": {
-      "heading": "Add navigation",
-      "description": "A link to a page of the site or to another site, or a heading that only groups links.",
-      "submit": "Add entry",
-      "location": "Place",
-      "locationHelp": "Where the entry shows.",
-      "title": "Title",
-      "target": "Target",
-      "targetHelp": "A path of this site such as /forums, or an http(s) address. Pick a built-in route from the list or type your own. Leave empty for a heading.",
-      "parent": "Under",
-      "parentHelp": "A top-level entry of the same place, or none for a top-level entry.",
-      "noParent": "Top level",
-      "order": "Display order",
-      "orderHelp": "Entries show from the lowest number up.",
-      "icon": "Icon",
-      "iconHelp": "Drawn next to the title. The bottom bar on a phone always draws it above the title.",
-      "iconPosition": "Icon position",
-      "audience": "Who sees it",
-      "permission": "Permission",
-      "permissionHelp": "Used only with the audience holders of a permission.",
-      "noPermission": "Choose a permission",
-      "enabled": "Show it now"
+      "heading": "Añadir navegación",
+      "description": "Un enlace a una página del sitio o a otro sitio, o un encabezado que solo agrupa enlaces.",
+      "submit": "Añadir entrada",
+      "location": "Lugar",
+      "locationHelp": "Dónde se muestra la entrada.",
+      "title": "Título",
+      "target": "Destino",
+      "targetHelp": "Una ruta de este sitio como /forums, o una dirección http(s). Elige una ruta integrada de la lista o escribe la tuya. Déjalo vacío para un encabezado.",
+      "parent": "Dentro de",
+      "parentHelp": "Una entrada de primer nivel del mismo lugar, o ninguna para una entrada de primer nivel.",
+      "noParent": "Primer nivel",
+      "order": "Orden de aparición",
+      "orderHelp": "Las entradas se muestran desde el número más bajo hacia arriba.",
+      "icon": "Icono",
+      "iconHelp": "Se dibuja junto al título. La barra inferior del teléfono siempre lo dibuja encima del título.",
+      "iconPosition": "Posición del icono",
+      "audience": "Quién la ve",
+      "permission": "Permiso",
+      "permissionHelp": "Solo se usa con el público de quienes tengan un permiso.",
+      "noPermission": "Elige un permiso",
+      "enabled": "Mostrar ahora"
     },
     "order": {
-      "heading": "Entries",
-      "description": "Change the numbers and save the order, or edit an entry on its own row.",
-      "submit": "Save order",
-      "saving": "Saving…"
+      "heading": "Entradas",
+      "description": "Cambia los números y guarda el orden, o edita una entrada en su propia fila.",
+      "submit": "Guardar orden",
+      "saving": "Guardando…"
     },
     "row": {
-      "title": "Title",
-      "audience": "Who sees it",
-      "permission": "Permission",
-      "enabled": "On",
-      "enabledLabel": "Show {title}",
-      "order": "Order",
-      "icon": "Icon",
-      "iconPosition": "Icon position",
-      "save": "Save entry",
-      "builtin": "Built-in",
-      "heading": "Heading",
-      "target": "Goes to {target}",
-      "noChildren": "No enabled entries under this heading.",
-      "disabled": "Off",
-      "delete": "Delete",
-      "deleteWarning": "Deletes {title} and every entry under it. This cannot be undone.",
-      "deleteConfirm": "Delete the entry",
-      "empty": "There is no navigation entry yet.",
-      "saving": "Saving…"
+      "title": "Título",
+      "audience": "Quién la ve",
+      "permission": "Permiso",
+      "enabled": "Sí",
+      "enabledLabel": "Mostrar {title}",
+      "order": "Orden",
+      "icon": "Icono",
+      "iconPosition": "Posición del icono",
+      "save": "Guardar entrada",
+      "builtin": "Integrada",
+      "heading": "Encabezado",
+      "target": "Va a {target}",
+      "noChildren": "No hay entradas activas bajo este encabezado.",
+      "disabled": "No",
+      "delete": "Eliminar",
+      "deleteWarning": "Elimina {title} y todas las entradas que hay bajo ella. Esto no se puede deshacer.",
+      "deleteConfirm": "Eliminar la entrada",
+      "empty": "Aún no hay ninguna entrada de navegación.",
+      "saving": "Guardando…"
     }
   },
   "identity": {
-    "metaTitle": "Site identity",
-    "heading": "Site identity",
-    "subtitle": "The pictures that make the site recognisable: its logo, its browser icon and the backdrop behind its pages.",
-    "loading": "Loading the site identity…",
-    "formHeading": "Pictures",
-    "formDescription": "A picture is uploaded as soon as you choose it and takes effect when you save. Only the pictures you change are saved.",
-    "nothingChanged": "Nothing was changed.",
+    "metaTitle": "Identidad del sitio",
+    "heading": "Identidad del sitio",
+    "subtitle": "Las imágenes que hacen reconocible el sitio: su logotipo, su icono del navegador y el fondo de sus páginas.",
+    "loading": "Cargando la identidad del sitio…",
+    "formHeading": "Imágenes",
+    "formDescription": "Una imagen se sube en cuanto la eliges y surte efecto al guardar. Solo se guardan las imágenes que cambies.",
+    "nothingChanged": "No se cambió nada.",
     "errors": {
-      "file": "That is not a valid uploaded file."
+      "file": "Ese archivo subido no es válido."
     },
     "logoFileId": {
-      "label": "Logo",
-      "help": "Shown in the header of every page, in place of the drawn mark. Without one, the site name is shown with the drawn mark."
+      "label": "Logotipo",
+      "help": "Se muestra en la cabecera de todas las páginas, en lugar de la marca dibujada. Sin él, se muestra el nombre del sitio con la marca dibujada."
     },
     "iconFileId": {
-      "label": "Icon",
-      "help": "The small picture on the browser tab and in bookmarks. A square PNG works best."
+      "label": "Icono",
+      "help": "La imagen pequeña de la pestaña del navegador y de los marcadores. Un PNG cuadrado funciona mejor."
     },
     "backdropFileId": {
-      "label": "Page backdrop",
-      "help": "Drawn across the top of every page, fading out downwards. Without one, the drawn pattern is shown."
+      "label": "Fondo de la página",
+      "help": "Se dibuja en la parte superior de todas las páginas, desvaneciéndose hacia abajo. Sin él, se muestra el patrón dibujado."
     }
   }
 }
