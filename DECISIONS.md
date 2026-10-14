@@ -1751,3 +1751,38 @@ default icons of the built-in entries. An entry's own icon wins over that defaul
 bar the icon stays above the label whatever the position says. A form that does not carry the
 icon fields never clears them.
 The migration changes the benchmark seed's hash.
+
+## Alerts: conversations, exact landing, the dimmed page
+
+**A new conversation message raises no alert.** Conversations have their own counter. The
+delivery stage for `conversation.message` and its configurable type are removed; mentions and
+quotes inside a message, and being added to a conversation, still alert. Mail and push were built
+from the same notification row that raised the alert and its counter, so they went with it: a
+hidden row kept only for the two channels was refused, and delivering them without a row is a
+redesign of the channels that has not been done. Old rows of the type stay and still list; a data
+migration (`0033`) marks the unread ones read and lowers each counter by its current-epoch rows,
+never below zero. An unsubscribe link or a queued mail for the retired type ends quietly.
+
+**Opening a conversation clears its alerts in the same write as its read state.**
+`conversations.markRead` marks the caller's unread current-epoch alerts about that conversation
+(its own and those about its messages) and lowers the counter by the rows it changed. The page
+calls it when the conversation is unread or the member has any unread alert, on whatever page of
+messages it opens; with neither there is no write and no refresh.
+
+**An alert's link names its target, and the page finds it.** Posts already carried their page.
+A wall post, a wall comment and a conversation message are named in the address (`?post=`,
+`?comment=`, `?message=`) and the page walks the existing reads to the page that holds them: at
+most ten pages, for signed-in visitors only, reusing the first page on a miss. A backend read
+that answers "the page holding this item" would make it one read; it needs a contract change and
+was left out. Report alerts open the report in the panel, approval alerts the approval screen, a
+follow alert the follower's profile. Announcements and a resolved report have no page of their
+own and open the alert list.
+
+**The named element is brought into view and the rest of the page dimmed** (`HashTarget`, once in
+the main layout). The dim layer is one fixed element with a large shadow around a hole: it takes
+no input and no focus, so the first click both dismisses it and acts. It follows the element
+while shown, leaves on any press, key, wheel or touch, on a scroll once the bringing-into-view
+has ended, or after four seconds. It runs when the visitor arrives by a link or a typed address,
+not on Back, Forward or reload, where the browser restores the position itself. With reduced
+motion there is no animated scroll and no fade.
+The migration changes the benchmark seed's hash.

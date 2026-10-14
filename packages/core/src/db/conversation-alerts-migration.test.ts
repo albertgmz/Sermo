@@ -35,10 +35,10 @@ function notice(ctx: Ctx, userId: number, type: string, epoch: number, readAt: n
     .run(userId, epoch, type, readAt);
 }
 
-test("migration 0031 marks unread conversation message alerts read and keeps the counters consistent", () => {
+test("migration 0033 marks unread conversation message alerts read and keeps the counters consistent", () => {
   const ctx = createContext({ path: ":memory:", config: { validateOutput: true } });
   contexts.push(ctx);
-  applyMigrations(ctx, 0, 30);
+  applyMigrations(ctx, 0, 32);
   ctx.sqlite.run("PRAGMA foreign_keys = OFF");
   // Member 101: two unread conversation alerts, one other alert, one already read.
   member(ctx, 101, 0, 3);
@@ -57,7 +57,7 @@ test("migration 0031 marks unread conversation message alerts read and keeps the
   member(ctx, 103, 0, 1);
   notice(ctx, 103, "content.mentioned", 0, null);
 
-  applyMigrations(ctx, 31, 31);
+  applyMigrations(ctx, 33, 33);
 
   const counts = ctx.sqlite
     .prepare<{ id: number; unread_notification_count: number }, []>(
