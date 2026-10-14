@@ -13,9 +13,12 @@ export type IconedUser = Pick<MemberView, "username" | "nameIcon">;
 // client component gets the drawn element instead.
 export function NameWithIcon({
   user,
+  wrap = false,
   children,
 }: {
   user: IconedUser;
+  // For a heading: the name breaks into lines instead of truncating, the icon stays beside it.
+  wrap?: boolean;
   children?: ReactNode;
 }) {
   const name = children ?? user.username;
@@ -39,7 +42,15 @@ export function NameWithIcon({
   return (
     <span className="inline-flex max-w-full items-center align-bottom">
       {wears.position === "before" && box}
-      <span className="min-w-0 truncate">{name}</span>
+      <span
+        className={
+          wrap
+            ? "min-w-0 whitespace-normal [overflow-wrap:anywhere]"
+            : "min-w-0 truncate"
+        }
+      >
+        {name}
+      </span>
       {wears.position === "after" && box}
     </span>
   );

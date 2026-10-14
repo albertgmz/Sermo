@@ -111,12 +111,14 @@ export function ProfileHeader({
             <div className="flex flex-wrap items-center gap-x-3">
               <h1
                 className={cn(
-                  "text-2xl leading-10 font-bold tracking-tight [overflow-wrap:anywhere]",
+                  "max-w-full min-w-0 text-2xl leading-10 font-bold tracking-tight [overflow-wrap:anywhere]",
                   name.className,
                 )}
                 style={name.style}
               >
-                <NameWithIcon user={card}>{profile.username}</NameWithIcon>
+                <NameWithIcon user={card} wrap>
+                  {profile.username}
+                </NameWithIcon>
               </h1>
               <span aria-hidden="true" className="h-5 w-px bg-border" />
               <div className="-ml-2 flex items-center md:ml-0 md:gap-1">

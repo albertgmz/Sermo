@@ -40,6 +40,24 @@ test("the name truncates on its own and the icon never shrinks, on either side",
   }
 });
 
+test("with wrap the name breaks into lines instead of truncating, the icon still never shrinks", () => {
+  for (const position of ["before", "after"] as const) {
+    const out = renderToStaticMarkup(
+      <h1>
+        <NameWithIcon
+          user={{ username: "ember", nameIcon: { icon: "star", position } }}
+          wrap
+        />
+      </h1>,
+    );
+    expect(out).toContain("[overflow-wrap:anywhere]");
+    expect(out).toContain("whitespace-normal");
+    expect(out).not.toContain("truncate");
+    expect(out).toContain("shrink-0");
+    expect(out.match(/<svg/g)).toHaveLength(1);
+  }
+});
+
 test("a member with no icon, or one the set does not know, gets the plain name", () => {
   expect(html(null)).toBe("<p>ember</p>");
   expect(html({ icon: "not-in-the-set", position: "before" })).toBe(
