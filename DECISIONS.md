@@ -1786,3 +1786,21 @@ has ended, or after four seconds. It runs when the visitor arrives by a link or 
 not on Back, Forward or reload, where the browser restores the position itself. With reduced
 motion there is no animated scroll and no fade.
 The migration changes the benchmark seed's hash.
+
+## The postbit: the author in a column beside the post
+
+**The author's information is one shared piece, `Postbit`, placed by `PostFrame`.** From `md` up
+it is a column of 10rem at the left of the post (avatar, name, title, badges, level, awards and a
+short list of facts: joined, posts, reactions) with the body at its right; below `md` it is a
+compact header above the body. Thread posts and conversation messages both get it from the one
+`PostFrame`, and neither page changed. `Postbit` knows nothing about posts and takes its
+arrangement as a prop, so the same piece can be a floating member card; it has one optional slot
+for actions, drawn directly under the facts so they stay next to the avatar on a long post. The
+avatar and the name are the links to the profile: there is no profile button.
+
+**A member whose profile the viewer may not open, or one the backend does not return, shows no
+facts.** The backend's minimal author carries an epoch date and zero counts; printing them would
+state things that are not true. `MemberView` carries `restricted` for this.
+
+The column's width is one variable (`--postbit-width`) used by the grid and by the cover, which
+sits behind the column and ends at its border; on phones the cover stays behind the header.
