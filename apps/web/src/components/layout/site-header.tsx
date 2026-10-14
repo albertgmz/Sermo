@@ -8,9 +8,9 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { getCounters, getViewerCard } from "@/components/layout/header-data";
+import { headerIconClass } from "@/components/layout/header-icon-class";
 import {
   AlertsPanel,
-  headerIconClass,
   MessagesPanel,
   SearchPanel,
 } from "@/components/layout/header-panels";

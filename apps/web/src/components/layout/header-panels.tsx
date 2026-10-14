@@ -2,6 +2,7 @@ import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { MarkAllReadForm } from "@/app/(main)/notifications/mark-all-read";
+import { headerIconClass } from "@/components/layout/header-icon-class";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { LoadedPanel } from "@/components/layout/loaded-panel";
 import {
@@ -13,9 +14,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-export const headerIconClass =
-  "relative inline-flex size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-(--spacing-inline-icon)";
 
 const footerClass = "flex items-center justify-between gap-2 border-t p-2";
 

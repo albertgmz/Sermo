@@ -52,7 +52,10 @@ async function MobileNavigation() {
 export default function MainLayout({ children }: LayoutProps<"/">) {
   const t = useTranslations("home.layout");
   return (
-    <div className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0">
+    <div
+      data-forum-layout=""
+      className="flex min-h-dvh flex-1 flex-col pb-(--spacing-mobile-nav) md:pb-0"
+    >
       <Suspense>
         <SessionNotice />
       </Suspense>

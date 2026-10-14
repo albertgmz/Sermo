@@ -24,8 +24,7 @@
     }
   },
   "narrowToggle": {
-    "narrow": "Use a narrower page",
-    "wide": "Use the full page width"
+    "label": "Use a narrower page"
   },
   "siteHeader": {
     "loadingMenu": "Loading menu…",

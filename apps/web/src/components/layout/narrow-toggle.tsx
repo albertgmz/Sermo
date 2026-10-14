@@ -3,30 +3,34 @@
 import { FoldHorizontal, UnfoldHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useLayoutEffect, useSyncExternalStore } from "react";
-import { headerIconClass } from "@/components/layout/header-panels";
+import { headerIconClass } from "@/components/layout/header-icon-class";
 import {
-  applyNarrow,
-  readNarrow,
+  isNarrow,
+  restoreNarrow,
   subscribeNarrow,
-  writeNarrow,
+  toggleNarrow,
 } from "@/components/layout/narrow-width";
 import { cn } from "@/lib/utils";
 
-// Shown only where the narrow width differs from the wide one (above 1100px).
-export function NarrowToggle({ className }: { className?: string }) {
+// One label whatever the state: the pressed state says the rest. Shown only where the narrow
+// width differs from the wide one (above 1100px).
+export function NarrowButton({
+  narrow,
+  onToggle,
+  className,
+}: {
+  narrow: boolean;
+  onToggle: () => void;
+  className?: string;
+}) {
   const t = useTranslations("layout.narrowToggle");
-  const narrow = useSyncExternalStore(subscribeNarrow, readNarrow, () => false);
-  // React resets attributes it does not manage when development remounts the root.
-  useLayoutEffect(() => {
-    if (narrow) applyNarrow(true);
-  }, [narrow]);
   return (
     <button
       type="button"
       aria-pressed={narrow}
-      aria-label={t(narrow ? "wide" : "narrow")}
-      title={t(narrow ? "wide" : "narrow")}
-      onClick={() => writeNarrow(!narrow)}
+      aria-label={t("label")}
+      title={t("label")}
+      onClick={onToggle}
       className={cn(
         headerIconClass,
         "hidden min-[1100px]:inline-flex",
@@ -35,5 +39,17 @@ export function NarrowToggle({ className }: { className?: string }) {
     >
       {narrow ? <UnfoldHorizontal /> : <FoldHorizontal />}
     </button>
+  );
+}
+
+export function NarrowToggle({ className }: { className?: string }) {
+  const narrow = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
+  useLayoutEffect(restoreNarrow, []);
+  return (
+    <NarrowButton
+      narrow={narrow}
+      onToggle={toggleNarrow}
+      className={className}
+    />
   );
 }
