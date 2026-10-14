@@ -180,3 +180,9 @@ test("an id that is not a record id reads nothing", async () => {
   expect(await loadMemberCard(0, "ember")).toBeNull();
   expect(paths).toHaveLength(0);
 });
+
+test("a name that is not a string reads nothing", async () => {
+  const paths = backend({ signedIn: true });
+  expect(await loadMemberCard(7, 5 as unknown as string)).toBeNull();
+  expect(paths).toHaveLength(0);
+});

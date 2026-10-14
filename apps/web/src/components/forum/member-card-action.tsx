@@ -16,7 +16,7 @@ const CLOSED = ["not_found", "forbidden", "unauthenticated"];
 // unfollow made from the card). The card is the postbit of the member with its actions. A member
 // whose profile the visitor cannot open gets a card with the name alone.
 export async function loadMemberCard(id: number, name: string) {
-  if (!isRecordId(id)) return null;
+  if (!isRecordId(id) || typeof name !== "string") return null;
   try {
     const viewer = await getViewer();
     const [author, relation] = await Promise.all([

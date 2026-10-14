@@ -7,40 +7,31 @@ import { MemberCardReload } from "@/components/forum/member-card-scope";
 import { PopoverContent } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// What a trigger and the mention delegate share: reading the card once, on the first open, and the
-// frame it is drawn in.
+// What a trigger and the mention delegate share: reading the card and the frame it is drawn in.
 export const CARD_DELAY = 300;
 export const CARD_CLOSE_DELAY = 150;
 
 export function useMemberCard(id: number, name: string) {
   // undefined until the first open has loaded it, null for an unknown member
   const [card, setCard] = useState<React.ReactNode>();
-  const requested = useRef(false);
+  const latest = useRef(0);
 
+  // Reads the card, on every open and after a write made inside it. What is shown stays until the
+  // new one arrives, so a follow made elsewhere on the page shows the next time; only the last
+  // read is kept.
   const load = useCallback(() => {
-    if (requested.current) return;
-    requested.current = true;
+    const mine = ++latest.current;
     startTransition(async () => {
       try {
-        setCard(await loadMemberCard(id, name));
-      } catch {
-        requested.current = false;
-      }
-    });
-  }, [id, name]);
-
-  // After a write made inside the card: read it again, keeping what is shown until it arrives.
-  const reload = useCallback(() => {
-    startTransition(async () => {
-      try {
-        setCard(await loadMemberCard(id, name));
+        const next = await loadMemberCard(id, name);
+        if (mine === latest.current) setCard(next);
       } catch {
         // the card keeps showing what it had
       }
     });
   }, [id, name]);
 
-  return { card, load, reload };
+  return { card, load };
 }
 
 export function MemberCardPopup({

@@ -79,6 +79,8 @@ test("an avatar trigger keeps the href and the label and draws no hit area", asy
   expect(out).toContain("shrink-0 rounded-full");
   expect(out).not.toContain(HIT_AREA);
   expect(out).not.toContain("relative");
+  expect(out).not.toContain("aria-haspopup");
+  expect(out).not.toContain("aria-expanded");
 });
 
 const user = { id: 3, username: "ember", avatar: null, frame: null };

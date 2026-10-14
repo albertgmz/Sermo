@@ -8,6 +8,7 @@ import {
 } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
+import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
@@ -66,92 +67,96 @@ export function MemberCard({
   const awards = user.awards ?? [];
   const slots = user.awardSlots ?? DESKTOP_AWARD_SLOTS;
   return (
-    <article
-      className={cn(
-        "relative isolate flex min-w-0 flex-col gap-3 rounded-lg border bg-card p-4 pt-8",
-        className,
-      )}
-    >
-      <CoverBackdrop cover={user.cover ?? null} variant="strip" />
-      <div className="flex items-end gap-5">
-        <UserAvatar user={user.card} size="xl" />
-        <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={cn(
-                "max-w-full truncate text-sm font-semibold",
-                name.className,
-              )}
-              style={name.style}
-            >
-              <NameWithIcon user={user.card} />
-            </span>
-            <UserBadges user={user.card} />
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {user.card.title}
-          </p>
-        </div>
-      </div>
-      <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex items-center gap-1.5">
-          <LevelBadge level={user.card} />
-          {user.level && user.awardXp !== undefined && (
-            <XpBar
-              level={levelWithBounds(
-                user.card.level,
-                user.awardXp,
-                user.level.currentLevelXp,
-                user.level.nextLevelXp,
-              )}
-              className="w-16"
-            />
-          )}
-        </div>
-        {awards.length > 0 ? (
-          <AwardRow
-            awards={awards}
-            max={slots}
-            maxMobile={Math.min(slots, MOBILE_AWARD_SLOTS)}
-            className="min-h-10 min-w-10 after:hidden"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            {user.awardCount
-              ? t("awardCount", { count: user.awardCount })
-              : t("emptyAwards")}
-          </span>
-        )}
-      </div>
-      <dl className="mt-auto grid grid-cols-3 gap-2 border-t pt-3 text-xs">
-        <div className="min-w-0">
-          <dt className="text-muted-foreground">{t("postsLabel")}</dt>
-          <dd className="font-semibold tabular-nums">
-            {formatCompact(user.postCount)}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-muted-foreground">{t("reactionsLabel")}</dt>
-          <dd className="font-semibold tabular-nums">
-            {formatCompact(user.reactionScore)}
-          </dd>
-        </div>
-        <div className="min-w-0">
-          <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
-          <dd className="truncate font-semibold">
-            <time dateTime={user.createdAt}>{formatDate(user.createdAt)}</time>
-          </dd>
-        </div>
-      </dl>
-      <Link
-        href={`/members/${user.card.id}`}
+    <MemberCardScope disabled>
+      <article
         className={cn(
-          buttonVariants({ variant: "outline" }),
-          "min-h-10 w-full",
+          "relative isolate flex min-w-0 flex-col gap-3 rounded-lg border bg-card p-4 pt-8",
+          className,
         )}
       >
-        {t("profile")}
-      </Link>
-    </article>
+        <CoverBackdrop cover={user.cover ?? null} variant="strip" />
+        <div className="flex items-end gap-5">
+          <UserAvatar user={user.card} size="xl" />
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={cn(
+                  "max-w-full truncate text-sm font-semibold",
+                  name.className,
+                )}
+                style={name.style}
+              >
+                <NameWithIcon user={user.card} />
+              </span>
+              <UserBadges user={user.card} />
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {user.card.title}
+            </p>
+          </div>
+        </div>
+        <div className="flex min-h-5 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <div className="flex items-center gap-1.5">
+            <LevelBadge level={user.card} />
+            {user.level && user.awardXp !== undefined && (
+              <XpBar
+                level={levelWithBounds(
+                  user.card.level,
+                  user.awardXp,
+                  user.level.currentLevelXp,
+                  user.level.nextLevelXp,
+                )}
+                className="w-16"
+              />
+            )}
+          </div>
+          {awards.length > 0 ? (
+            <AwardRow
+              awards={awards}
+              max={slots}
+              maxMobile={Math.min(slots, MOBILE_AWARD_SLOTS)}
+              className="min-h-10 min-w-10 after:hidden"
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {user.awardCount
+                ? t("awardCount", { count: user.awardCount })
+                : t("emptyAwards")}
+            </span>
+          )}
+        </div>
+        <dl className="mt-auto grid grid-cols-3 gap-2 border-t pt-3 text-xs">
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">{t("postsLabel")}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatCompact(user.postCount)}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">{t("reactionsLabel")}</dt>
+            <dd className="font-semibold tabular-nums">
+              {formatCompact(user.reactionScore)}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">{t("joinedLabel")}</dt>
+            <dd className="truncate font-semibold">
+              <time dateTime={user.createdAt}>
+                {formatDate(user.createdAt)}
+              </time>
+            </dd>
+          </div>
+        </dl>
+        <Link
+          href={`/members/${user.card.id}`}
+          className={cn(
+            buttonVariants({ variant: "outline" }),
+            "min-h-10 w-full",
+          )}
+        >
+          {t("profile")}
+        </Link>
+      </article>
+    </MemberCardScope>
   );
 }

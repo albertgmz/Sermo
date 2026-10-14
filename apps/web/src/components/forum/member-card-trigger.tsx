@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  openChange,
+  opensOnFocus,
+} from "@/components/forum/member-card-intent";
 import {
   CARD_CLOSE_DELAY,
   CARD_DELAY,
@@ -12,6 +16,12 @@ import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
+
+// The trigger is a link that a click never turns into a popup: it announces no popup state.
+const NOT_A_POPUP_BUTTON = {
+  "aria-haspopup": undefined,
+  "aria-expanded": undefined,
+};
 
 type Props = {
   id: number;
@@ -59,9 +69,6 @@ export function MemberCardTrigger(props: Props) {
   return <MemberCardWithPreference key={preference} {...props} />;
 }
 
-const isTouchLike = (pointerType: string) =>
-  pointerType === "touch" || pointerType === "pen";
-
 function MemberCardWithPreference({
   id,
   href,
@@ -73,11 +80,19 @@ function MemberCardWithPreference({
   ...rest
 }: Props) {
   const [open, setOpen] = useState(false);
-  const { card, load, reload } = useMemberCard(id, name);
+  const { card, load } = useMemberCard(id, name);
   const trigger = useRef<HTMLElement>(null);
   const pointerType = useRef("");
   const restoringFocus = useRef(false);
   const returnFocus = useRef(false);
+
+  // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
+  useLayoutEffect(
+    () => () => {
+      setOpen(false);
+    },
+    [],
+  );
 
   function show() {
     setOpen(true);
@@ -89,8 +104,9 @@ function MemberCardWithPreference({
       open={open}
       onOpenChange={(next, details) => {
         returnFocus.current = details.reason === "escape-key";
-        if (!next) setOpen(false);
-        else if (!isTouchLike(pointerType.current)) show();
+        const change = openChange(next, pointerType.current);
+        if (change === "close") setOpen(false);
+        else if (change === "open") show();
       }}
     >
       <PopoverTrigger
@@ -104,6 +120,7 @@ function MemberCardWithPreference({
         closeDelay={CARD_CLOSE_DELAY}
         render={<Link href={href} />}
         aria-label={rest["aria-label"]}
+        {...NOT_A_POPUP_BUTTON}
         className={classes(avatar, className)}
         style={style}
         onPointerOver={(event) => {
@@ -116,18 +133,25 @@ function MemberCardWithPreference({
           pointerType.current = "";
         }}
         onFocus={(event) => {
+          const focusVisible = event.currentTarget.matches(":focus-visible");
+          // Focus that shows a focus ring came from the keyboard, whatever was tapped before.
+          if (focusVisible) pointerType.current = "";
           if (restoringFocus.current) {
             restoringFocus.current = false;
           } else if (
-            !isTouchLike(pointerType.current) &&
-            event.currentTarget.matches(":focus-visible")
+            opensOnFocus({
+              pointerType: pointerType.current,
+              avatar,
+              focusVisible,
+            })
           ) {
             show();
           }
         }}
         onClick={(event) => {
-          // A click is always the link's own: it never toggles the card.
+          // A click is always the link's own: it never toggles the card, and it closes it.
           event.preventBaseUIHandler();
+          setOpen(false);
         }}
       >
         {children}
@@ -135,7 +159,7 @@ function MemberCardWithPreference({
       <MemberCardPopup
         name={name}
         card={card}
-        reload={reload}
+        reload={load}
         align="start"
         initialFocus={false}
         finalFocus={() => {

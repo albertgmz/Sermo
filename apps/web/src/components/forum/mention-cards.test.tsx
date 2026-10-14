@@ -1,8 +1,14 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
-import { MemberCardScope } from "./member-card-scope";
-import { MentionCards, mentionAt, mentionId } from "./mention-cards";
+
+mock.module("server-only", () => ({}));
+mock.module("next/headers", () => ({
+  headers: async () => new Headers(),
+  cookies: async () => ({ set: () => {}, toString: () => "" }),
+}));
+const { MemberCardScope } = await import("./member-card-scope");
+const { MentionCards, mentionAt, mentionId } = await import("./mention-cards");
 
 test("a mention carries a plain positive decimal id", () => {
   expect(mentionId("12")).toBe(12);

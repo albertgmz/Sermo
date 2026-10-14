@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { MemberCardScope } from "@/components/forum/member-card-scope";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionUsers } from "@/components/forum/reaction-users";
@@ -89,24 +90,26 @@ export function ReactionSummary({
           ))}
         </PopoverTitle>
         {reactions.users ? (
-          <ul className="max-h-64 overflow-y-auto py-1">
-            {reactions.users.map(({ user, type }) => (
-              <li
-                key={user.id}
-                className="flex min-h-10 items-center gap-2 px-3 text-sm"
-              >
-                <UserAvatar user={user} size="sm" />
-                <UserLink user={user} className="min-w-0 flex-1 truncate" />
-                <span title={type.label}>
-                  <ReactionPicture
-                    emoji={type.emoji}
-                    picture={type.picture}
-                    label={type.label}
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
+          <MemberCardScope disabled>
+            <ul className="max-h-64 overflow-y-auto py-1">
+              {reactions.users.map(({ user, type }) => (
+                <li
+                  key={user.id}
+                  className="flex min-h-10 items-center gap-2 px-3 text-sm"
+                >
+                  <UserAvatar user={user} size="sm" />
+                  <UserLink user={user} className="min-w-0 flex-1 truncate" />
+                  <span title={type.label}>
+                    <ReactionPicture
+                      emoji={type.emoji}
+                      picture={type.picture}
+                      label={type.label}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </MemberCardScope>
         ) : loadUsers ? (
           <ReactionUsers load={loadUsers} />
         ) : null}

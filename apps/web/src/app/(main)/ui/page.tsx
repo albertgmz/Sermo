@@ -46,6 +46,7 @@ import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Markdown } from "@/components/forum/markdown";
 import { MemberCard } from "@/components/forum/member-card";
+import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberRow } from "@/components/forum/member-row";
 import {
   MessageBody,
@@ -1072,33 +1073,49 @@ export default async function StyleguidePage() {
         <Section title="Hover cards">
           <p className="max-w-prose text-sm text-muted-foreground">
             Thread links preview on hover and keyboard focus, and navigate on
-            touch. A member avatar, a member name and an @mention open the
-            member card (the postbit with its actions) on hover or keyboard
-            focus; on touch and pen a tap goes to the profile. The name and
-            avatar inside the card, or inside a post's own postbit, are plain
-            links. Thread prefixes appear beside the title in both the link and
-            its preview.
+            touch. On the forum, a member avatar, a member name and an @mention
+            open the member card on mouse hover (an avatar and a mention only
+            then; a name also on keyboard focus). The card is the postbit column
+            with the follow and message actions. On touch and pen a tap goes to
+            the profile. The avatar and name inside a card, a thread preview, a
+            reaction list or a post&apos;s own postbit are plain links. The
+            samples here are plain links and a static card: the styleguide reads
+            and writes no member data.
           </p>
-          <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            {THREADS.map((thread) => (
-              <ThreadHoverCard
-                key={thread.id}
-                thread={thread}
-                className="font-medium underline-offset-4 hover:underline"
-              />
-            ))}
-            <UserAvatar user={ADMIN} size="lg" />
-            <UserLink user={ADMIN} />
-            <UserLink user={MODERATOR} />
-            <HtmlContent className="text-sm">{MENTION_HTML}</HtmlContent>
+          <MemberCardScope disabled>
+            <div className="flex min-h-10 flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              {THREADS.map((thread) => (
+                <ThreadHoverCard
+                  key={thread.id}
+                  thread={thread}
+                  className="font-medium underline-offset-4 hover:underline"
+                />
+              ))}
+              <UserAvatar user={ADMIN} size="lg" />
+              <UserLink user={ADMIN} />
+              <UserLink user={MODERATOR} />
+              <HtmlContent className="text-sm">{MENTION_HTML}</HtmlContent>
+            </div>
+          </MemberCardScope>
+          <div className="w-56 rounded-lg bg-popover p-3 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10">
+            <Postbit
+              author={SAMPLE_AUTHOR}
+              layout="column"
+              actions={
+                <MemberActionsDemo
+                  member={SAMPLE_AUTHOR.member}
+                  relation={RELATION.notFollowing}
+                  form="labelled"
+                />
+              }
+            />
           </div>
         </Section>
 
         <Section title="Members">
           <p className="max-w-prose text-sm text-muted-foreground">
-            One member card is shared by the members directory. A member&apos;s
-            cover fades behind the header; LITE mode replaces it with a
-            placeholder.
+            The members directory draws these cards. A member&apos;s cover fades
+            behind the header; LITE mode replaces it with a placeholder.
           </p>
           <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
             <MemberCard user={COVERED_CARD} />
