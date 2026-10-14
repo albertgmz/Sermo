@@ -13,6 +13,7 @@ import { renderMarkdown } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { enqueueJob } from "../jobs";
+import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
 import { notificationChannels, notificationTypes, typeById } from "./types";
 
@@ -47,18 +48,34 @@ function readState(
   ).get(userId)!;
 }
 
-function titles(ctx: Ctx, actor: Actor, rows: Row[]): Map<string, string> {
-  const result = new Map<string, string>();
-  const ids = (type: string) =>
-    JSON.stringify(rows.filter((row) => row.content_type === type).map((row) => row.content_id));
-  for (const [type, table] of [["announcement", "announcements"]] as const) {
-    for (const row of prepared(ctx, `notifications.titles.${table}`, () =>
-      ctx.sqlite.prepare<{ id: number; title: string }, [string]>(
-        `SELECT id, title FROM ${table} WHERE id IN (SELECT value FROM json_each(?1))`,
+type AnnouncementRow = { id: number; title: string; body_source: string; url: string | null };
+
+/** The announcements the page's alerts are about, by id. */
+function announcementRows(ctx: Ctx, rows: Row[]): Map<number, AnnouncementRow> {
+  return new Map(
+    prepared(ctx, "notifications.announcements", () =>
+      ctx.sqlite.prepare<AnnouncementRow, [string]>(
+        "SELECT id, title, body_source, url FROM announcements WHERE id IN (SELECT value FROM json_each(?1))",
       ),
-    ).all(ids(type)))
-      result.set(`${type}:${row.id}`, row.title);
-  }
+    )
+      .all(
+        JSON.stringify(
+          rows.filter((row) => row.content_type === "announcement").map((row) => row.content_id),
+        ),
+      )
+      .map((row) => [row.id, row]),
+  );
+}
+
+function titles(
+  ctx: Ctx,
+  actor: Actor,
+  rows: Row[],
+  announcements: Map<number, AnnouncementRow>,
+): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const [id, announcement] of announcements)
+    result.set(`announcement:${id}`, announcement.title);
   const threadIds = JSON.stringify(
     rows.map((row) => row.thread_id).filter((id): id is number => id !== null),
   );
@@ -101,7 +118,7 @@ function titles(ctx: Ctx, actor: Actor, rows: Row[]): Map<string, string> {
   return result;
 }
 
-function url(row: Row): string {
+function url(row: Row, announcements: Map<number, AnnouncementRow>): string {
   if (row.thread_id)
     return `/threads/${row.thread_id}${row.content_type === "post" ? `#post-${row.content_id}` : ""}`;
   switch (row.content_type) {
@@ -116,7 +133,7 @@ function url(row: Row): string {
     case "user":
       return `/users/${row.content_id}`;
     case "announcement":
-      return `/announcements/${row.content_id}`;
+      return announcements.get(row.content_id)?.url ?? `/announcements/${row.content_id}`;
     case "report_group":
       return `/reports/${row.content_id}`;
     default:
@@ -143,7 +160,8 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
     ctx,
     page.flatMap((row) => JSON.parse(row.actor_ids) as number[]),
   );
-  const contentTitles = titles(ctx, actor, page);
+  const announcements = announcementRows(ctx, page);
+  const contentTitles = titles(ctx, actor, page, announcements);
   const hiddenPosts = new Set(
     prepared(ctx, "notifications.hiddenPosts", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
@@ -172,12 +190,18 @@ export const notificationsListOp = implement(contracts.notificationsList, (ctx, 
           : (contentTitles.get(`${row.content_type}:${row.content_id}`) ??
             (row.thread_id ? contentTitles.get(`thread:${row.thread_id}`) : undefined) ??
             null),
-      url: url(row),
-      data: Object.fromEntries(
-        Object.entries(JSON.parse(row.data) as Record<string, unknown>).filter(
-          ([key]) => !key.startsWith("_"),
+      url: url(row, announcements),
+      data: {
+        ...Object.fromEntries(
+          Object.entries(JSON.parse(row.data) as Record<string, unknown>).filter(
+            ([key]) => !key.startsWith("_"),
+          ),
         ),
-      ),
+        // The text of an announcement, spoilers masked, for the row to show under its title.
+        ...(row.content_type === "announcement" && announcements.has(row.content_id)
+          ? { message: excerptFromMarkdown(announcements.get(row.content_id)!.body_source) }
+          : {}),
+      },
       createdAt: iso(row.created_at),
       updatedAt: iso(row.updated_at),
       read: row.read_at !== null || row.epoch !== state.notification_epoch,
@@ -347,12 +371,46 @@ export const announcementsCreateOp = implement(
     const userId = requireAuthenticated(actor).userId;
     const html = renderMarkdown(input.body);
     return writeTx(ctx, () => {
+      const audience = input.audience;
+      let groupId: number | null = null;
+      let userIds: number[] = [];
+      if (audience.kind === "group") {
+        const group = prepared(ctx, "notifications.audienceGroup", () =>
+          ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM groups WHERE id = ?1"),
+        ).get(audience.groupId);
+        if (!group) throw new ValidationError("That group does not exist.");
+        groupId = group.id;
+      } else if (audience.kind === "users") {
+        const keys = [...new Set(audience.usernames.map((name) => name.toLowerCase()))];
+        const found = prepared(ctx, "notifications.audienceUsers", () =>
+          ctx.sqlite.prepare<{ id: number; username_key: string }, [string]>(
+            "SELECT id, username_key FROM users WHERE username_key IN (SELECT value FROM json_each(?1)) AND erased_at IS NULL",
+          ),
+        ).all(JSON.stringify(keys));
+        const known = new Set(found.map((row) => row.username_key));
+        const missing = keys.filter((key) => !known.has(key));
+        if (missing.length) throw new ValidationError(`Unknown members: ${missing.join(", ")}.`);
+        userIds = found.map((row) => row.id).sort((a, b) => a - b);
+      }
       const id = Number(
         prepared(ctx, "notifications.insertAnnouncement", () =>
-          ctx.sqlite.prepare<unknown, [number, string, string, string, number]>(
-            "INSERT INTO announcements (user_id, title, body_source, body_html, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+          ctx.sqlite.prepare<
+            unknown,
+            [number, string, string, string, number, string | null, string, number | null, string]
+          >(
+            "INSERT INTO announcements (user_id, title, body_source, body_html, created_at, url, audience, audience_group_id, audience_user_ids) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
           ),
-        ).run(userId, input.title, input.body, html, ctx.now()).lastInsertRowid,
+        ).run(
+          userId,
+          input.title,
+          input.body,
+          html,
+          ctx.now(),
+          input.url,
+          audience.kind,
+          groupId,
+          JSON.stringify(userIds),
+        ).lastInsertRowid,
       );
       publishEvent(ctx, {
         type: "announcement.published",

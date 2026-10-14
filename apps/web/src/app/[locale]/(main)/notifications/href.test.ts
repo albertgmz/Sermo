@@ -241,6 +241,28 @@ const cases: [string, Record<string, unknown>, string][] = [
     "/notifications",
   ],
   [
+    "an announcement with a site link: that page",
+    {
+      type: "announcement",
+      contentType: "announcement",
+      contentId: 2,
+      threadId: null,
+      url: "/pages/rules",
+    },
+    "/pages/rules",
+  ],
+  [
+    "an announcement with an outside link: that address",
+    {
+      type: "announcement",
+      contentType: "announcement",
+      contentId: 2,
+      threadId: null,
+      url: "https://example.org/news",
+    },
+    "https://example.org/news",
+  ],
+  [
     "a kind this site does not know",
     {
       type: "something.new",

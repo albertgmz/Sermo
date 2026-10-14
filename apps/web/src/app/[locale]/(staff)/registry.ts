@@ -233,6 +233,19 @@ export const SECTIONS = [
         listed: false,
       },
       {
+        key: "communicationNotices",
+        path: "/admin/notices",
+        access: ["admin.announcements"],
+        built: true,
+      },
+      {
+        key: "communicationNoticeEdit",
+        path: "/admin/notices/[id]",
+        access: ["admin.announcements"],
+        built: true,
+        listed: false,
+      },
+      {
         key: "communicationNotifications",
         path: "/admin/notifications",
         access: ["admin.settings"],

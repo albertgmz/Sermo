@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  noticesDismiss,
   postsCreate,
   reactionsRemove,
   reactionsSet,
@@ -20,11 +21,16 @@ import {
   serializeLiteCookie,
   updateLiteState,
 } from "@/lib/lite-preferences";
+import {
+  NOTICES_DISMISSED_COOKIE,
+  withDismissed,
+} from "@/lib/notice-dismissals";
 import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
 import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { getViewer } from "@/lib/sermo/session";
 
 export async function setLiteMode(formData: FormData) {
   const store = await cookies();
@@ -59,6 +65,29 @@ export async function setLiteMode(formData: FormData) {
 export async function setLocaleCookie(language: string) {
   if (!isLocale(language)) return;
   (await cookies()).set(LOCALE_COOKIE, language, LOCALE_COOKIE_OPTIONS);
+}
+
+// Hides a site notice from the visitor: a member's dismissal is kept by the backend, a guest's in
+// a cookie. The page is drawn again without it.
+export async function dismissNotice(noticeId: number) {
+  requireIds(noticeId);
+  if ((await getViewer()).user) {
+    const done = await attempt("/", () => call(noticesDismiss, { noticeId }));
+    if (!done.ok) return;
+  } else {
+    const store = await cookies();
+    store.set(
+      NOTICES_DISMISSED_COOKIE,
+      withDismissed(store.get(NOTICES_DISMISSED_COOKIE)?.value, noticeId),
+      {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      },
+    );
+  }
+  refresh();
 }
 
 export async function logout() {

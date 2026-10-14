@@ -123,6 +123,10 @@
     "text": "El sitio no pudo confirmar tu sesión; puede que falten algunas cosas. Recarga para intentarlo de nuevo.",
     "unreachable": "No se pudo acceder al sitio en este momento; puede que falten algunas cosas. Recarga para intentarlo de nuevo."
   },
+  "noticeBanner": {
+    "label": "Avisos del sitio",
+    "dismiss": "Descartar aviso"
+  },
   "notFound": {
     "title": "Página no encontrada",
     "description": "La página que buscas no existe o se ha movido.",

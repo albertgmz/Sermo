@@ -1847,7 +1847,7 @@ describe("notification delivery rules", () => {
     expect(delivered(later)).toBe(40);
   });
 
-  test("members without notification.view get nothing; announcement authors skip themselves", async () => {
+  test("members without notification.view get nothing; announcement authors get it too", async () => {
     const f = fixture();
     const { ctx } = f;
     deny(ctx, "notification.view", { userId: f.recipient.id });
@@ -1860,7 +1860,7 @@ describe("notification delivery rules", () => {
         )
         .get(f.recipient.id)!.n,
     ).toBe(0);
-    expect(await types(ctx, f.author)).toEqual([]);
+    expect(await types(ctx, f.author)).toEqual(["announcement"]);
     expect(await types(ctx, f.other)).toEqual(["announcement"]);
   });
 

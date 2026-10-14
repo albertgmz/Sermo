@@ -660,15 +660,34 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
         0,
       ),
     );
-  if (event.type === "announcement.published")
-    result.push(
-      source(
-        "announcement",
-        "announcement",
-        "SELECT id AS user_id FROM users WHERE id > ?2 ORDER BY id LIMIT ?3",
-        0,
-      ),
-    );
+  if (event.type === "announcement.published") {
+    const row = prepared(ctx, "notifications.announcementAudience", () =>
+      ctx.sqlite.prepare<
+        { audience: string; audience_group_id: number | null; audience_user_ids: string },
+        [number]
+      >("SELECT audience, audience_group_id, audience_user_ids FROM announcements WHERE id = ?1"),
+    ).get(event.targetId);
+    if (row?.audience === "users")
+      result.push(listed("announcement", "announcement", JSON.parse(row.audience_user_ids)));
+    else if (row?.audience === "group")
+      result.push(
+        source(
+          "announcement",
+          "announcement",
+          "SELECT id AS user_id FROM users WHERE group_id = ?1 AND id > ?2 UNION SELECT user_id FROM user_groups WHERE group_id = ?1 AND user_id > ?2 ORDER BY user_id LIMIT ?3",
+          row.audience_group_id ?? 0,
+        ),
+      );
+    else
+      result.push(
+        source(
+          "announcement",
+          "announcement",
+          "SELECT id AS user_id FROM users WHERE id > ?2 ORDER BY id LIMIT ?3",
+          0,
+        ),
+      );
+  }
   return result;
 }
 
@@ -981,7 +1000,8 @@ function deliverBatch(
   const merged = new Map<number, { id: number; data: Record<string, unknown> }>();
   const insertedData = new Map<number, Record<string, unknown>>();
   for (const row of recipients) {
-    if (row.id === actorId || delivered.has(row.id)) continue;
+    // An announcement is not a reaction to someone's content: its sender gets it when addressed.
+    if ((row.id === actorId && stage.type !== "announcement") || delivered.has(row.id)) continue;
     // In-app off for a type turns off every channel of it: email and push need the notice row.
     if (!(prefs.get(row.id)?.in_app ?? defaultInApp)) continue;
     const recipient = memberActor(row.id, row.group_id, row, versions);

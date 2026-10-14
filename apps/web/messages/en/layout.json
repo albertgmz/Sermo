@@ -123,6 +123,10 @@
     "text": "The site could not confirm your session; some things may be missing. Reload to try again.",
     "unreachable": "The site could not be reached right now; some things may be missing. Reload to try again."
   },
+  "noticeBanner": {
+    "label": "Site notices",
+    "dismiss": "Dismiss notice"
+  },
   "notFound": {
     "title": "Page not found",
     "description": "The page you are looking for does not exist or has moved.",

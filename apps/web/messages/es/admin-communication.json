@@ -1,35 +1,57 @@
 {
   "errors": {
     "confirm": "Marca la confirmación para enviar el anuncio.",
-    "number": "Escribe un número entero."
+    "number": "Escribe un número entero.",
+    "choice": "Elige una de las opciones.",
+    "group": "Elige un grupo.",
+    "usernames": "Escribe al menos un nombre de usuario.",
+    "date": "Escribe una fecha y hora válidas.",
+    "id": "No se puede identificar ese aviso."
   },
   "announcements": {
-    "metaTitle": "Anuncios",
-    "pageHeading": "Anuncios",
-    "subtitle": "Mensajes enviados a todos los miembros como notificación.",
-    "loading": "Cargando los anuncios…",
-    "heading": "Anuncios enviados",
-    "new": "Nuevo anuncio",
-    "emptyTitle": "Aún no hay anuncios",
+    "metaTitle": "Enviar alerta",
+    "pageHeading": "Enviar alerta",
+    "subtitle": "Alertas enviadas a todos los miembros, a un grupo o a miembros concretos.",
+    "loading": "Cargando las alertas…",
+    "heading": "Alertas enviadas",
+    "new": "Nueva alerta",
+    "emptyTitle": "Aún no hay alertas",
     "emptyDescription": "No se ha enviado nada a los miembros.",
-    "byline": "Enviado por {author} el {date}",
+    "byline": "Enviada por {author} el {date}",
     "showText": "Mostrar el texto",
-    "notices": {
-      "sent": "Anuncio enviado. Se entrega a los miembros en segundo plano."
+    "link": "Abre {url}",
+    "audience": {
+      "all": "Enviada a todos los miembros",
+      "group": "Enviada al grupo {group}",
+      "users": "Enviada a {names}"
     },
-    "newMetaTitle": "Nuevo anuncio",
-    "newHeading": "Nuevo anuncio",
-    "newSubtitle": "Escribe un mensaje para todos los miembros.",
+    "notices": {
+      "sent": "Alerta enviada. Se entrega en segundo plano."
+    },
+    "newMetaTitle": "Nueva alerta",
+    "newHeading": "Nueva alerta",
+    "newSubtitle": "Escribe un mensaje para los miembros que elijas.",
     "form": {
-      "heading": "Anuncio",
-      "description": "Los miembros ven el título en sus notificaciones y el texto cuando lo abren.",
+      "heading": "Alerta",
+      "description": "Los miembros ven el título y el comienzo del texto en sus notificaciones.",
       "title": "Título",
       "body": "Texto",
       "bodyHelp": "Markdown.",
+      "url": "Enlace",
+      "urlHelp": "Opcional. Una ruta de este sitio (que empiece por /) o una dirección http(s) que abre la alerta. Sin enlace abre la lista de notificaciones.",
+      "audience": "Enviar a",
+      "audienceHelp": "Quien la envía también la recibe si está en el público.",
+      "audienceAll": "Todos los miembros",
+      "audienceGroup": "Un grupo",
+      "audienceUsers": "Miembros concretos",
+      "group": "Grupo",
+      "groupNone": "Elige un grupo",
+      "usernames": "Nombres de usuario",
+      "usernamesHelp": "Se usa para miembros concretos. Sepáralos con comas; un nombre desconocido detiene la alerta.",
       "confirm": "Confirmar",
-      "confirmWarning": "Esto notifica a todos los miembros del foro. Se entrega en segundo plano y no se puede retirar ni editar.",
-      "confirmBox": "Entiendo que llega a todos los miembros",
-      "send": "Enviar a todos los miembros"
+      "confirmWarning": "Esto notifica a todo el público elegido. Se entrega en segundo plano y no se puede retirar ni editar.",
+      "confirmBox": "Entiendo que llega al público que he elegido",
+      "send": "Enviar alerta"
     }
   },
   "notifications": {
@@ -78,6 +100,73 @@
       "label": "Resumen semanal",
       "help": "El resumen se envía a los miembros que no han visitado el foro desde hace al menos este tiempo.",
       "unit": "días"
+    }
+  },
+  "notices": {
+    "metaTitle": "Avisos",
+    "pageHeading": "Avisos",
+    "subtitle": "Banners que se muestran bajo la cabecera de todas las páginas.",
+    "loading": "Cargando los avisos…",
+    "notices": {
+      "created": "Aviso creado.",
+      "removed": "Aviso eliminado."
+    },
+    "list": {
+      "heading": "Avisos",
+      "description": "Los más recientes primero. Las fechas están en UTC.",
+      "emptyTitle": "Aún no hay avisos",
+      "emptyDescription": "Crea uno abajo.",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "group": "Grupo {group}",
+      "from": "desde {date}",
+      "until": "hasta {date}",
+      "edit": "Editar"
+    },
+    "create": {
+      "heading": "Nuevo aviso",
+      "description": "Se muestra de inmediato si está activo y dentro de sus fechas.",
+      "submit": "Crear aviso"
+    },
+    "fields": {
+      "title": "Título",
+      "body": "Texto",
+      "bodyHelp": "Markdown.",
+      "audience": "Se muestra a",
+      "audienceHelp": "Los invitados son los visitantes sin sesión; los miembros son todos los que la tienen.",
+      "everyone": "Todos",
+      "guests": "Invitados",
+      "members": "Miembros",
+      "group": "Un grupo",
+      "groupLabel": "Grupo",
+      "groupHelp": "Se usa cuando se muestra a un grupo: sus miembros principales y secundarios.",
+      "groupNone": "Elige un grupo",
+      "dismissible": "Descartar",
+      "dismissibleSwitch": "Los visitantes pueden descartarlo",
+      "active": "Activo",
+      "activeSwitch": "Mostrar el aviso",
+      "startsAt": "Empieza",
+      "dateHelp": "Opcional. Fecha y hora en UTC; sin inicio se muestra de inmediato.",
+      "endsAt": "Termina"
+    }
+  },
+  "noticeEdit": {
+    "metaTitle": "Aviso",
+    "heading": "Aviso",
+    "subtitle": "Cambia lo que dice el aviso y quién lo ve.",
+    "loading": "Cargando el aviso…",
+    "notices": {
+      "saved": "Aviso guardado. Los miembros que lo descartaron no lo vuelven a ver."
+    },
+    "form": {
+      "heading": "Aviso",
+      "description": "Al guardar se sustituyen todos los campos."
+    },
+    "delete": {
+      "heading": "Eliminar el aviso",
+      "summary": "Eliminar este aviso",
+      "warning": "Se eliminan el aviso y el registro de quién lo descartó.",
+      "submit": "Eliminar aviso"
     }
   }
 }

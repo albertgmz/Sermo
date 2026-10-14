@@ -2,6 +2,7 @@ import * as z from "zod";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
 import { MemberCard } from "./members";
+import { AnnouncementAudience } from "./notifications";
 import { BirthdayInput, Handle } from "./profiles";
 
 /*
@@ -404,6 +405,9 @@ export const announcementsList = defineContract({
       id: Id,
       title: z.string(),
       bodyHtml: z.string(),
+      /** What the alert opens; null opens the alert list. */
+      url: z.string().nullable(),
+      audience: AnnouncementAudience,
       author: UserSummary,
       createdAt: Timestamp,
     }),

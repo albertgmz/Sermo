@@ -125,9 +125,12 @@ describe("notifications", () => {
         })
       ).unreadCount,
     ).toBe(0);
+    // The sender is in the audience (everyone), so the alert reaches them too.
     expect(
-      (await execute(ctx, notificationsListOp, userActor(admin), { limit: 10 })).items,
-    ).toEqual([]);
+      (await execute(ctx, notificationsListOp, userActor(admin), { limit: 10 })).items.map(
+        (item) => item.type,
+      ),
+    ).toEqual(["announcement"]);
   });
 
   test("mentions outrank quotes and watches; reactions require visible content", async () => {

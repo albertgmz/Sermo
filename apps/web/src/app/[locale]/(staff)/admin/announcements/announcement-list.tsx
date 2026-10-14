@@ -7,6 +7,7 @@ import { Notice } from "@/components/staff/notice";
 import { buttonVariants } from "@/components/ui/button";
 import { read } from "@/lib/sermo/client";
 import { cn } from "@/lib/utils";
+import { groupsIfAllowed } from "../groups/data";
 
 // The announcements sent so far, newest first, with the link to write a new one.
 export async function AnnouncementList({
@@ -15,11 +16,22 @@ export async function AnnouncementList({
   searchParams: PageProps<"/[locale]/admin/announcements">["searchParams"];
 }) {
   const params = await searchParams;
-  const [t, format, page] = await Promise.all([
+  const [t, format, page, groups] = await Promise.all([
     getTranslations("adminCommunication.announcements"),
     getFormatter(),
     read(announcementsList, { cursor: cursorFrom(params) }),
+    groupsIfAllowed(),
   ]);
+  const audienceOf = (audience: (typeof page.items)[number]["audience"]) =>
+    audience.kind === "group"
+      ? t("audience.group", {
+          group:
+            groups?.find((group) => group.id === audience.groupId)?.title ??
+            `#${audience.groupId}`,
+        })
+      : audience.kind === "users"
+        ? t("audience.users", { names: audience.usernames.join(", ") })
+        : t("audience.all");
   return (
     <>
       <Notice
@@ -55,6 +67,10 @@ export async function AnnouncementList({
                   timeStyle: "short",
                 }),
               })}
+            </p>
+            <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+              {audienceOf(item.audience)}
+              {item.url && ` · ${t("link", { url: item.url })}`}
             </p>
             <details>
               <summary className="flex min-h-10 cursor-pointer items-center text-sm font-medium text-primary">

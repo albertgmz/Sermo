@@ -174,6 +174,32 @@ describe("announcements.list", () => {
     expectNoTableScan(w.ctx, announcementsSql, [100, 10]);
   });
 
+  test("shows the link and the audience of each announcement", async () => {
+    const w = world();
+    const target = insertUser(w.ctx, { username: "Target" });
+    await w.run("announcements.create", userActor(w.founder), { title: "All", body: "x" });
+    w.ctx.clock.advance(1000);
+    await w.run("announcements.create", userActor(w.founder), {
+      title: "Group",
+      body: "x",
+      url: "/pages/rules",
+      audience: { kind: "group", groupId: 3 },
+    });
+    w.ctx.clock.advance(1000);
+    await w.run("announcements.create", userActor(w.founder), {
+      title: "Named",
+      body: "x",
+      audience: { kind: "users", usernames: ["target"] },
+    });
+    const { items } = await w.run("announcements.list", userActor(w.founder), {});
+    expect(items.map((item: { audience: unknown }) => item.audience)).toEqual([
+      { kind: "users", usernames: [target.username] },
+      { kind: "group", groupId: 3 },
+      { kind: "all" },
+    ]);
+    expect(items.map((item: { url: unknown }) => item.url)).toEqual([null, "/pages/rules", null]);
+  });
+
   test("requires admin.announcements", async () => {
     const w = world();
     await expect(w.run("announcements.list", GUEST)).rejects.toBeInstanceOf(UnauthenticatedError);

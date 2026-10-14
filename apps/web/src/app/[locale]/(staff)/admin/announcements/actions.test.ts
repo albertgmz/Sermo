@@ -41,7 +41,70 @@ test("a confirmed announcement is sent with its title and text", async () => {
   expect(backend.asked[0]?.body).toEqual({
     title: "Maintenance",
     body: "Tonight.",
+    url: null,
+    audience: { kind: "all" },
   });
+});
+
+test("the audience and the link are sent as chosen", async () => {
+  backend = fakeBackend({
+    "announcements.create": () => Response.json({ id: 1 }),
+  });
+  const send = (extra: [string, string][]) =>
+    redirectedTo(() =>
+      sendAnnouncement(
+        null,
+        form([
+          ["title", "Maintenance"],
+          ["body", "Tonight."],
+          ["confirm", "on"],
+          ...extra,
+        ]),
+      ),
+    );
+  await send([
+    ["audience", "group"],
+    ["groupId", "3"],
+    ["url", " /pages/rules "],
+  ]);
+  await send([
+    ["audience", "users"],
+    ["usernames", " ember, Nova ,,"],
+    ["url", "https://example.org/news"],
+  ]);
+  expect(backend.asked.map((call) => call.body)).toMatchObject([
+    { url: "/pages/rules", audience: { kind: "group", groupId: 3 } },
+    {
+      url: "https://example.org/news",
+      audience: { kind: "users", usernames: ["ember", "Nova"] },
+    },
+  ]);
+});
+
+test("a group or a list of usernames is needed for those audiences", async () => {
+  backend = fakeBackend({});
+  const attempt = (extra: [string, string][]) =>
+    sendAnnouncement(
+      null,
+      form([
+        ["title", "Maintenance"],
+        ["body", "Tonight."],
+        ["confirm", "on"],
+        ...extra,
+      ]),
+    );
+  expect(await attempt([["audience", "group"]])).toEqual({
+    fields: { groupId: messages.adminCommunication.errors.group },
+  });
+  expect(
+    await attempt([
+      ["audience", "users"],
+      ["usernames", " , "],
+    ]),
+  ).toEqual({
+    fields: { usernames: messages.adminCommunication.errors.usernames },
+  });
+  expect(backend.asked).toEqual([]);
 });
 
 test("nothing is sent without the confirmation", async () => {

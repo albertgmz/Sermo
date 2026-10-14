@@ -1,35 +1,57 @@
 {
   "errors": {
     "confirm": "Tick the confirmation to send the announcement.",
-    "number": "Enter a whole number."
+    "number": "Enter a whole number.",
+    "choice": "Choose one of the options.",
+    "group": "Choose a group.",
+    "usernames": "Type at least one username.",
+    "date": "Enter a valid date and time.",
+    "id": "That notice cannot be identified."
   },
   "announcements": {
-    "metaTitle": "Announcements",
-    "pageHeading": "Announcements",
-    "subtitle": "Messages sent to every member as a notification.",
-    "loading": "Loading the announcements…",
-    "heading": "Announcements sent",
-    "new": "New announcement",
-    "emptyTitle": "No announcements yet",
+    "metaTitle": "Send alert",
+    "pageHeading": "Send alert",
+    "subtitle": "Alerts sent to every member, to a group or to named members.",
+    "loading": "Loading the alerts…",
+    "heading": "Alerts sent",
+    "new": "New alert",
+    "emptyTitle": "No alerts yet",
     "emptyDescription": "Nothing has been sent to the members.",
     "byline": "Sent by {author} on {date}",
     "showText": "Show the text",
-    "notices": {
-      "sent": "Announcement sent. It is delivered to the members in the background."
+    "link": "Opens {url}",
+    "audience": {
+      "all": "Sent to every member",
+      "group": "Sent to the group {group}",
+      "users": "Sent to {names}"
     },
-    "newMetaTitle": "New announcement",
-    "newHeading": "New announcement",
-    "newSubtitle": "Write a message for every member.",
+    "notices": {
+      "sent": "Alert sent. It is delivered in the background."
+    },
+    "newMetaTitle": "New alert",
+    "newHeading": "New alert",
+    "newSubtitle": "Write a message for the members you choose.",
     "form": {
-      "heading": "Announcement",
-      "description": "Members see the title in their notifications and the text when they open it.",
+      "heading": "Alert",
+      "description": "Members see the title and the start of the text in their notifications.",
       "title": "Title",
       "body": "Text",
       "bodyHelp": "Markdown.",
+      "url": "Link",
+      "urlHelp": "Optional. A path on this site (starting with /) or an http(s) address that the alert opens. Without one it opens the notifications list.",
+      "audience": "Send to",
+      "audienceHelp": "The sender gets the alert too when they are in the audience.",
+      "audienceAll": "Every member",
+      "audienceGroup": "A group",
+      "audienceUsers": "Named members",
+      "group": "Group",
+      "groupNone": "Choose a group",
+      "usernames": "Usernames",
+      "usernamesHelp": "Used for named members. Separate them with commas; an unknown name stops the alert.",
       "confirm": "Confirm",
-      "confirmWarning": "This notifies every member of the forum. It is delivered in the background and cannot be recalled or edited.",
-      "confirmBox": "I understand it goes to every member",
-      "send": "Send to every member"
+      "confirmWarning": "This notifies everyone in the audience. It is delivered in the background and cannot be recalled or edited.",
+      "confirmBox": "I understand it goes to the audience I chose",
+      "send": "Send alert"
     }
   },
   "notifications": {
@@ -78,6 +100,73 @@
       "label": "Weekly digest",
       "help": "The digest goes to members who have not visited for at least this long.",
       "unit": "days"
+    }
+  },
+  "notices": {
+    "metaTitle": "Notices",
+    "pageHeading": "Notices",
+    "subtitle": "Banners shown under the header of every page.",
+    "loading": "Loading the notices…",
+    "notices": {
+      "created": "Notice created.",
+      "removed": "Notice deleted."
+    },
+    "list": {
+      "heading": "Notices",
+      "description": "Newest first. Dates are in UTC.",
+      "emptyTitle": "No notices yet",
+      "emptyDescription": "Create one below.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "group": "Group {group}",
+      "from": "from {date}",
+      "until": "until {date}",
+      "edit": "Edit"
+    },
+    "create": {
+      "heading": "New notice",
+      "description": "It is shown at once if it is active and inside its dates.",
+      "submit": "Create notice"
+    },
+    "fields": {
+      "title": "Title",
+      "body": "Text",
+      "bodyHelp": "Markdown.",
+      "audience": "Shown to",
+      "audienceHelp": "Guests are visitors who are not signed in; members are everyone who is.",
+      "everyone": "Everyone",
+      "guests": "Guests",
+      "members": "Members",
+      "group": "A group",
+      "groupLabel": "Group",
+      "groupHelp": "Used when shown to a group: its primary and secondary members.",
+      "groupNone": "Choose a group",
+      "dismissible": "Dismiss",
+      "dismissibleSwitch": "Visitors can dismiss it",
+      "active": "Active",
+      "activeSwitch": "Show the notice",
+      "startsAt": "Starts",
+      "dateHelp": "Optional. Date and time in UTC; without a start it is shown at once.",
+      "endsAt": "Ends"
+    }
+  },
+  "noticeEdit": {
+    "metaTitle": "Notice",
+    "heading": "Notice",
+    "subtitle": "Change what the notice says and who sees it.",
+    "loading": "Loading the notice…",
+    "notices": {
+      "saved": "Notice saved. Members who dismissed it do not see it again."
+    },
+    "form": {
+      "heading": "Notice",
+      "description": "Every field is replaced when you save."
+    },
+    "delete": {
+      "heading": "Delete the notice",
+      "summary": "Delete this notice",
+      "warning": "The notice and the record of who dismissed it are deleted.",
+      "submit": "Delete notice"
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
+import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
 import { HashTarget } from "@/components/layout/hash-target";
@@ -77,6 +78,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
         <AnalyticsTag />
       </Suspense>
       <SiteHeader />
+      <Suspense>
+        <NoticeBanner />
+      </Suspense>
       <Suspense
         fallback={
           <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">

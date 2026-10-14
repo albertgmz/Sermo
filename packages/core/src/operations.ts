@@ -13,6 +13,7 @@ import { operations as jobs } from "./modules/jobs";
 import { operations as members } from "./modules/members";
 import { operations as moderation } from "./modules/moderation";
 import { operations as navigation } from "./modules/navigation";
+import { operations as notices } from "./modules/notices";
 import { operations as notifications } from "./modules/notifications";
 import { operations as pages } from "./modules/pages";
 import { operations as permissions } from "./modules/permissions";
@@ -48,6 +49,7 @@ export const operations: readonly AnyOperation[] = [
   ...images,
   ...moderation,
   ...notifications,
+  ...notices,
   ...seo,
   ...social,
   ...credits,

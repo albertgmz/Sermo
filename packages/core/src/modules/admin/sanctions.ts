@@ -83,27 +83,51 @@ export const bansListOp = implement(bansList, (ctx, actor, input) => {
 // announcements.list ------------------------------------------------------------------------
 
 export const announcementsSql =
-  "SELECT id, user_id, title, body_html, created_at FROM announcements WHERE id < ?1 ORDER BY id DESC LIMIT ?2";
+  "SELECT id, user_id, title, body_html, created_at, url, audience, audience_group_id, audience_user_ids FROM announcements WHERE id < ?1 ORDER BY id DESC LIMIT ?2";
 
 export const announcementsListOp = implement(announcementsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "admin.announcements");
   const cursor = input.cursor ? decodeCursor(input.cursor, Cursor)[0] : Number.MAX_SAFE_INTEGER;
   const rows = prepared(ctx, "admin.announcements", () =>
     ctx.sqlite.prepare<
-      { id: number; user_id: number; title: string; body_html: string; created_at: number },
+      {
+        id: number;
+        user_id: number;
+        title: string;
+        body_html: string;
+        created_at: number;
+        url: string | null;
+        audience: "all" | "group" | "users";
+        audience_group_id: number | null;
+        audience_user_ids: string;
+      },
       [number, number]
     >(announcementsSql),
   ).all(cursor, input.limit + 1);
   const page = rows.slice(0, input.limit);
-  const name = loadUserSummaries(
-    ctx,
-    page.map((row) => row.user_id),
-  );
+  const name = loadUserSummaries(ctx, [
+    ...page.map((row) => row.user_id),
+    ...page.flatMap((row) =>
+      row.audience === "users" ? (JSON.parse(row.audience_user_ids) as number[]) : [],
+    ),
+  ]);
   return {
     items: page.map((row) => ({
       id: row.id,
       title: row.title,
       bodyHtml: row.body_html,
+      url: row.url,
+      audience:
+        row.audience === "group"
+          ? { kind: "group" as const, groupId: row.audience_group_id ?? 0 }
+          : row.audience === "users"
+            ? {
+                kind: "users" as const,
+                usernames: (JSON.parse(row.audience_user_ids) as number[]).map(
+                  (id) => name(id).username,
+                ),
+              }
+            : { kind: "all" as const },
       author: name(row.user_id),
       createdAt: iso(row.created_at),
     })),

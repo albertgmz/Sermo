@@ -32,12 +32,12 @@ afterEach(() => {
   refreshed = 0;
 });
 
-async function click(read: boolean, pathname: string) {
+async function click(read: boolean, pathname: string, href = "/x") {
   globalThis.window = { location: { pathname } } as unknown as Window &
     typeof globalThis;
   const row = NotificationLink({
     id: 4,
-    href: "/x",
+    href,
     read,
     children: null,
   }) as ReactElement<{ onClick: () => void }>;
@@ -62,4 +62,25 @@ test("a notification that is already read is left alone", async () => {
   await click(true, "/notifications");
   expect(marked).toEqual([]);
   expect(refreshed).toBe(0);
+});
+
+test("an address outside the site opens in a new tab without the opener, and still marks read", async () => {
+  const outside = NotificationLink({
+    id: 4,
+    href: "https://example.org/news",
+    read: false,
+    children: null,
+  }) as ReactElement<{ target: string; rel: string; onClick: () => void }>;
+  expect(outside.type).toBe("a");
+  expect(outside.props.target).toBe("_blank");
+  expect(outside.props.rel).toBe("noopener noreferrer");
+  await click(false, "/notifications", "https://example.org/news");
+  expect(marked).toEqual([4]);
+  const inside = NotificationLink({
+    id: 4,
+    href: "/pages/rules",
+    read: false,
+    children: null,
+  }) as ReactElement<{ target?: string }>;
+  expect(inside.props.target).toBeUndefined();
 });
