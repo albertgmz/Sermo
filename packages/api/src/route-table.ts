@@ -214,6 +214,8 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["GET", "/conversations", "conversations.list"],
   ["POST", "/conversations", "conversations.create", 201],
   ["GET", "/conversations/{conversationId}", "conversations.get"],
+  ["PATCH", "/conversations/{conversationId}", "conversations.rename"],
+  ["POST", "/conversations/{conversationId}/participants", "conversations.addParticipants"],
   ["GET", "/conversations/{conversationId}/messages", "conversations.listMessages"],
   ["POST", "/conversations/{conversationId}/messages", "conversations.reply", 201],
   ["PUT", "/conversations/{conversationId}/read", "conversations.markRead"],

@@ -3,12 +3,14 @@ import type { Actor } from "../../actor";
 import { actorUserId, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import {
+  conversationsAddParticipants,
   conversationsCreate,
   conversationsGet,
   conversationsLeave,
   conversationsList,
   conversationsListMessages,
   conversationsMarkRead,
+  conversationsRename,
   conversationsReply,
 } from "../../contracts/conversations";
 import { writeTx } from "../../db/tx";
@@ -98,6 +100,22 @@ function summary(row: ConversationRow, user: ReturnType<typeof loadUserSummaries
   };
 }
 
+function viewerAbilities(
+  permissions: ReturnType<typeof permissionsOf>,
+  row: ConversationRow,
+  userId: number | null,
+) {
+  const starter = userId !== null && row.user_id === userId;
+  return {
+    canReply: permissions.can("conversation.reply"),
+    canInvite:
+      starter &&
+      permissions.can("conversation.start") &&
+      permissions.value("conversation.maxRecipients") !== 0,
+    canRename: starter,
+  };
+}
+
 function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
   const permissions = permissionsOf(ctx, actor);
   const participants = prepared(ctx, "conversations.participants", () =>
@@ -111,7 +129,7 @@ function fullConversation(ctx: Ctx, actor: Actor, row: ConversationRow) {
   return {
     ...summary(row, user),
     participants: participants.map((p) => ({ user: user(p.user_id), state: p.state })),
-    canReply: permissions.can("conversation.reply"),
+    ...viewerAbilities(permissions, row, actorUserId(actor)),
   };
 }
 
@@ -323,7 +341,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       conversation: {
         ...summary(row, user),
         participants: participantIds.map((id) => ({ user: user(id), state: "active" as const })),
-        canReply: permissions.can("conversation.reply"),
+        ...viewerAbilities(permissions, row, starter.userId),
       },
       message: newMessage(
         messageId,
@@ -511,6 +529,98 @@ export function reactableConversationMessage(
   return { authorId: row.user_id, isVisible: row.state === "visible" };
 }
 
+export const conversationsAddParticipantsOp = implement(
+  conversationsAddParticipants,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    const before = activeConversation(ctx, actor, input.conversationId);
+    if (before.user_id !== user.userId) throw new ForbiddenError();
+    requirePermission(ctx, actor, "conversation.start");
+    const ids = [...new Set(input.userIds)].filter((id) => id !== user.userId);
+    if (!ids.length) throw new ValidationError("At least one other person is required.");
+    const found = new Set(
+      prepared(ctx, "conversations.recipientIds", () =>
+        ctx.sqlite.prepare<{ id: number }, [string]>(
+          "SELECT id FROM users WHERE id IN (SELECT value FROM json_each(?1))",
+        ),
+      )
+        .all(JSON.stringify(ids))
+        .map((r) => r.id),
+    );
+    const missing = ids.filter((id) => !found.has(id));
+    if (missing.length) {
+      const message = `Unknown user IDs: ${missing.join(", ")}.`;
+      throw new ValidationError(message, [{ path: ["userIds"], message }]);
+    }
+    const permissions = permissionsOf(ctx, actor);
+    writeTx(ctx, () => {
+      const row = activeConversation(ctx, actor, input.conversationId);
+      if (row.user_id !== user.userId) throw new ForbiddenError();
+      const states = new Map(
+        prepared(ctx, "conversations.participantStates", () =>
+          ctx.sqlite.prepare<ParticipantRow, [number, string]>(
+            "SELECT user_id, state FROM conversation_participants WHERE conversation_id = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
+          ),
+        )
+          .all(row.id, JSON.stringify(ids))
+          .map((p) => [p.user_id, p.state] as const),
+      );
+      const added = ids.filter((id) => states.get(id) !== "active");
+      if (!added.length) return;
+      if (ignoredByRecipient(ctx, actor, user.userId, added)) throw new ForbiddenError();
+      const maxRecipients = permissions.value("conversation.maxRecipients");
+      if (maxRecipients !== -1 && row.participant_count - 1 + added.length > maxRecipients) {
+        const message = `You can add at most ${maxRecipients} recipients.`;
+        throw new ValidationError(message, [{ path: ["userIds"], message }]);
+      }
+      const reactivate = prepared(ctx, "conversations.reactivateParticipant", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversation_participants SET state = 'active', last_message_at = ?1 WHERE conversation_id = ?2 AND user_id = ?3 AND state = 'left'",
+        ),
+      );
+      const insert = prepared(ctx, "conversations.addParticipant", () =>
+        ctx.sqlite.prepare(
+          "INSERT INTO conversation_participants (conversation_id, user_id, state, joined_at, last_message_at, last_read_message_id) VALUES (?1, ?2, 'active', ?3, ?4, 0)",
+        ),
+      );
+      for (const id of added) {
+        if (states.has(id)) reactivate.run(row.last_message_at, row.id, id);
+        else insert.run(row.id, id, ctx.now(), row.last_message_at);
+      }
+      prepared(ctx, "conversations.incrementParticipants", () =>
+        ctx.sqlite.prepare(
+          "UPDATE conversations SET participant_count = participant_count + ?1 WHERE id = ?2",
+        ),
+      ).run(added.length, row.id);
+      publishEvent(ctx, {
+        type: "conversation.participants_added",
+        targetType: "conversation",
+        targetId: row.id,
+        payload: { userIds: added, actorId: user.userId },
+      });
+    });
+    return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
+  },
+);
+
+export const conversationsRenameOp = implement(
+  conversationsRename,
+  (ctx, actor, input) => {
+    const user = requireAuthenticated(actor);
+    const before = activeConversation(ctx, actor, input.conversationId);
+    if (before.user_id !== user.userId) throw new ForbiddenError();
+    writeTx(ctx, () => {
+      const row = activeConversation(ctx, actor, input.conversationId);
+      if (row.user_id !== user.userId) throw new ForbiddenError();
+      prepared(ctx, "conversations.rename", () =>
+        ctx.sqlite.prepare("UPDATE conversations SET title = ?1 WHERE id = ?2"),
+      ).run(input.title, row.id);
+    });
+    return fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId));
+  },
+  { public: "Only the starter, an active participant, can rename their own conversation." },
+);
+
 export const operations = [
   conversationsListOp,
   conversationsGetOp,
@@ -519,4 +629,6 @@ export const operations = [
   conversationsListMessagesOp,
   conversationsMarkReadOp,
   conversationsLeaveOp,
+  conversationsAddParticipantsOp,
+  conversationsRenameOp,
 ];

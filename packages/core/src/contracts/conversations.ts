@@ -32,6 +32,10 @@ export const ConversationSummary = z
 export const Conversation = ConversationSummary.extend({
   participants: z.array(z.object({ user: UserSummary, state: z.enum(PARTICIPANT_STATES) })),
   canReply: z.boolean(),
+  /** True when the viewer may add people: the starter, holding `conversation.start`, with room under `conversation.maxRecipients`. */
+  canInvite: z.boolean(),
+  /** True when the viewer may rename the conversation: its starter. */
+  canRename: z.boolean(),
 }).meta({ id: "Conversation" });
 
 export const Message = z
@@ -116,4 +120,26 @@ export const conversationsLeave = defineContract({
   kind: "write",
   input: z.object({ conversationId: Id }),
   output: Ok,
+});
+
+export const conversationsAddParticipants = defineContract({
+  name: "conversations.addParticipants",
+  summary:
+    "Add people to a conversation. Only its starter, while an active participant and holding " +
+    "`conversation.start`. The rules of starting a conversation apply to the people added " +
+    "(existing members, none who ignore the starter), and `conversation.maxRecipients` limits " +
+    "the other active participants after the addition. Someone already active is skipped; " +
+    "someone who left becomes active again. A new participant sees the conversation as unread, " +
+    "and each person added is told so.",
+  kind: "write",
+  input: z.object({ conversationId: Id, userIds: z.array(Id).min(1).max(50) }),
+  output: Conversation,
+});
+
+export const conversationsRename = defineContract({
+  name: "conversations.rename",
+  summary: "Change a conversation's title. Only its starter, while an active participant.",
+  kind: "write",
+  input: z.object({ conversationId: Id, title: Title }),
+  output: Conversation,
 });

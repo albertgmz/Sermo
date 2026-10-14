@@ -17,12 +17,14 @@ import {
   activeSql,
   clearConversationNoticesSql,
   clearMessageNoticesSql,
+  conversationsAddParticipantsOp,
   conversationsCreateOp,
   conversationsGetOp,
   conversationsLeaveOp,
   conversationsListMessagesOp,
   conversationsListOp,
   conversationsMarkReadOp,
+  conversationsRenameOp,
   conversationsReplyOp,
   inboxSql,
   messagesSql,
@@ -763,5 +765,271 @@ describe("conversations", () => {
       expectNoTableScan(ctx, clearConversationNoticesSql, [0, 1, 1]);
       expectNoTableScan(ctx, clearMessageNoticesSql, [0, 1, 1]);
     });
+  });
+});
+
+describe("adding people and renaming", () => {
+  const idOf = (actor: { kind: string; userId?: number }) => actor.userId ?? 0;
+  function setup() {
+    const base = fixture();
+    const d = insertUser(base.ctx);
+    return { ...base, d, dActor: userActor(d) };
+  }
+  async function started() {
+    const s = setup();
+    const made = await execute(s.ctx, conversationsCreateOp, s.a, start([idOf(s.b)]));
+    return { ...s, id: made.conversation.id };
+  }
+  const events = (ctx: ReturnType<typeof createTestContext>) =>
+    ctx.sqlite
+      .prepare<{ payload: string }, []>(
+        "SELECT payload FROM domain_events WHERE type = 'conversation.participants_added' ORDER BY id",
+      )
+      .all()
+      .map((e) => JSON.parse(e.payload) as { userIds: number[]; actorId: number });
+  const rowOf = (ctx: ReturnType<typeof createTestContext>, id: number, userId: number) =>
+    ctx.sqlite
+      .prepare<
+        { state: string; last_read_message_id: number; last_message_at: number },
+        [number, number]
+      >(
+        "SELECT state, last_read_message_id, last_message_at FROM conversation_participants WHERE conversation_id = ?1 AND user_id = ?2",
+      )
+      .get(id, userId);
+  const countOf = (ctx: ReturnType<typeof createTestContext>, id: number) =>
+    ctx.sqlite
+      .prepare<{ participant_count: number }, [number]>(
+        "SELECT participant_count FROM conversations WHERE id = ?1",
+      )
+      .get(id)!.participant_count;
+
+  test("the viewer's abilities tell the starter from another participant", async () => {
+    const { ctx, a, b, id } = await started();
+    const asStarter = await execute(ctx, conversationsGetOp, a, { conversationId: id });
+    expect([asStarter.canInvite, asStarter.canRename]).toEqual([true, true]);
+    const asOther = await execute(ctx, conversationsGetOp, b, { conversationId: id });
+    expect([asOther.canInvite, asOther.canRename]).toEqual([false, false]);
+    const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+    expect([made.conversation.canInvite, made.conversation.canRename]).toEqual([true, true]);
+  });
+
+  test("the starter adds people: counters, unread, event and a skipped repeat", async () => {
+    const { ctx, a, b, c, id } = await started();
+    const cId = idOf(c);
+    const result = await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [cId, cId, idOf(a), idOf(b)],
+    });
+    expect(result.participantCount).toBe(3);
+    expect(result.participants.map((p) => [p.user.id, p.state])).toEqual([
+      [idOf(a), "active"],
+      [idOf(b), "active"],
+      [cId, "active"],
+    ]);
+    expect(countOf(ctx, id)).toBe(3);
+    expect((await execute(ctx, conversationsGetOp, c, { conversationId: id })).isUnread).toBe(true);
+    expect((await execute(ctx, conversationsListOp, c, { limit: 10 })).items).toHaveLength(1);
+    expect(events(ctx)).toEqual([
+      { userIds: [idOf(b)], actorId: idOf(a) },
+      { userIds: [cId], actorId: idOf(a) },
+    ]);
+    // everyone is already active: nothing changes and no event is published
+    await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [cId, idOf(b)],
+    });
+    expect(countOf(ctx, id)).toBe(3);
+    expect(events(ctx)).toHaveLength(2);
+    // the new participant can reply
+    await execute(ctx, conversationsReplyOp, c, { conversationId: id, body: "hi" });
+  });
+
+  test("a new participant's inbox position follows the latest activity", async () => {
+    const { ctx, a, b, c, id } = await started();
+    ctx.clock.advance(5000);
+    await execute(ctx, conversationsReplyOp, b, { conversationId: id, body: "later" });
+    await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [idOf(c)],
+    });
+    expect(rowOf(ctx, id, idOf(c))).toMatchObject({ state: "active", last_read_message_id: 0 });
+    expect(rowOf(ctx, id, idOf(c))!.last_message_at).toBe(ctx.now());
+  });
+
+  test("someone who left becomes active again in the same row", async () => {
+    const { ctx, a, b, id } = await started();
+    await execute(ctx, conversationsLeaveOp, b, { conversationId: id });
+    expect(countOf(ctx, id)).toBe(1);
+    ctx.clock.advance(3000);
+    await execute(ctx, conversationsReplyOp, a, { conversationId: id, body: "alone" });
+    const result = await execute(ctx, conversationsAddParticipantsOp, a, {
+      conversationId: id,
+      userIds: [idOf(b)],
+    });
+    expect(result.participantCount).toBe(2);
+    expect(result.participants.every((p) => p.state === "active")).toBe(true);
+    expect(countOf(ctx, id)).toBe(2);
+    expect(
+      ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM conversation_participants WHERE conversation_id = ?1",
+        )
+        .get(id)!.n,
+    ).toBe(2);
+    expect(rowOf(ctx, id, idOf(b))!.last_message_at).toBe(ctx.now());
+    expect((await execute(ctx, conversationsListOp, b, { limit: 10 })).items).toHaveLength(1);
+    expect(events(ctx).at(-1)).toEqual({ userIds: [idOf(b)], actorId: idOf(a) });
+  });
+
+  test("only the starter, while active, may add people", async () => {
+    const { ctx, a, b, c, dActor, moderator, admin, id } = await started();
+    const input = { conversationId: id, userIds: [idOf(c)] };
+    await expect(execute(ctx, conversationsAddParticipantsOp, GUEST, input)).rejects.toThrow(
+      UnauthenticatedError,
+    );
+    await expect(execute(ctx, conversationsAddParticipantsOp, b, input)).rejects.toThrow(
+      ForbiddenError,
+    );
+    for (const outsider of [dActor, moderator, admin])
+      await expect(execute(ctx, conversationsAddParticipantsOp, outsider, input)).rejects.toThrow(
+        NotFoundError,
+      );
+    await expect(
+      execute(ctx, conversationsAddParticipantsOp, a, { ...input, conversationId: 999999 }),
+    ).rejects.toThrow(NotFoundError);
+    expect(countOf(ctx, id)).toBe(2);
+    await execute(ctx, conversationsLeaveOp, a, { conversationId: id });
+    await expect(execute(ctx, conversationsAddParticipantsOp, a, input)).rejects.toThrow(
+      NotFoundError,
+    );
+    expect(countOf(ctx, id)).toBe(1);
+    expect(events(ctx)).toHaveLength(1);
+  });
+
+  test("a starter restricted from conversations cannot add people", async () => {
+    const { ctx, a, c, id } = await started();
+    ctx.sqlite
+      .prepare("UPDATE users SET restricted_conversations_until = ?1 WHERE id = ?2")
+      .run(ctx.now() + 1e9, idOf(a));
+    ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    await expect(
+      execute(ctx, conversationsAddParticipantsOp, a, { conversationId: id, userIds: [idOf(c)] }),
+    ).rejects.toThrow(ForbiddenError);
+    const seen = await execute(ctx, conversationsGetOp, a, { conversationId: id });
+    expect(seen.canInvite).toBe(false);
+    expect(seen.canRename).toBe(true);
+  });
+
+  test("invalid people are refused", async () => {
+    const { ctx, a, id } = await started();
+    const add = (userIds: number[]) =>
+      execute(ctx, conversationsAddParticipantsOp, a, { conversationId: id, userIds });
+    const own = await add([idOf(a)]).catch((e: unknown) => e);
+    expect(own).toBeInstanceOf(ValidationError);
+    expect((own as Error).message).toBe("At least one other person is required.");
+    const unknown = await add([999999]).catch((e: unknown) => e);
+    expect(unknown).toBeInstanceOf(ValidationError);
+    expect((unknown as ValidationError).issues?.[0]?.path).toEqual(["userIds"]);
+    await expect(add([])).rejects.toThrow();
+    expect(countOf(ctx, id)).toBe(2);
+  });
+
+  test("the recipient limit counts the other active participants after the addition", async () => {
+    const { ctx, b } = setup();
+    const groupId = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Two recipients', 10) RETURNING id",
+      )
+      .get()!.id;
+    const starter = insertUser(ctx, { groupId });
+    const x = insertUser(ctx);
+    const y = insertUser(ctx);
+    setGroupPermission(ctx, groupId, "conversation.start", 1);
+    setGroupPermission(ctx, groupId, "conversation.maxRecipients", 2);
+    const s = userActor(starter);
+    const made = await execute(ctx, conversationsCreateOp, s, start([idOf(b)]));
+    const id = made.conversation.id;
+    expect(made.conversation.canInvite).toBe(true);
+    const tooMany = await execute(ctx, conversationsAddParticipantsOp, s, {
+      conversationId: id,
+      userIds: [x.id, y.id],
+    }).catch((e: unknown) => e);
+    expect(tooMany).toBeInstanceOf(ValidationError);
+    expect((tooMany as Error).message).toBe("You can add at most 2 recipients.");
+    expect(countOf(ctx, id)).toBe(2);
+    await execute(ctx, conversationsAddParticipantsOp, s, { conversationId: id, userIds: [x.id] });
+    expect(countOf(ctx, id)).toBe(3);
+    // someone already active does not count against the limit
+    await execute(ctx, conversationsAddParticipantsOp, s, {
+      conversationId: id,
+      userIds: [x.id, idOf(b)],
+    });
+    await expect(
+      execute(ctx, conversationsAddParticipantsOp, s, { conversationId: id, userIds: [y.id] }),
+    ).rejects.toThrow(ValidationError);
+    expect(countOf(ctx, id)).toBe(3);
+    expect((await execute(ctx, conversationsGetOp, s, { conversationId: id })).canInvite).toBe(
+      true,
+    );
+    ctx.sqlite
+      .prepare(
+        "UPDATE permission_entries SET value = 0 WHERE group_id = ?1 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'conversation.maxRecipients')",
+      )
+      .run(groupId);
+    ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    expect((await execute(ctx, conversationsGetOp, s, { conversationId: id })).canInvite).toBe(
+      false,
+    );
+  });
+
+  test("a person who ignores the starter cannot be added", async () => {
+    const { ctx, a, c, id } = await started();
+    ctx.sqlite
+      .prepare("INSERT INTO user_ignores (user_id, ignored_id, created_at) VALUES (?1, ?2, ?3)")
+      .run(idOf(c), idOf(a), ctx.now());
+    await expect(
+      execute(ctx, conversationsAddParticipantsOp, a, { conversationId: id, userIds: [idOf(c)] }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(countOf(ctx, id)).toBe(2);
+    expect(rowOf(ctx, id, idOf(c))).toBeNull();
+    expect(events(ctx)).toHaveLength(1);
+  });
+
+  test("the starter renames; nobody else does", async () => {
+    const { ctx, a, b, dActor, moderator, admin, id } = await started();
+    const renamed = await execute(ctx, conversationsRenameOp, a, {
+      conversationId: id,
+      title: "  New name  ",
+    });
+    expect(renamed.title).toBe("New name");
+    expect((await execute(ctx, conversationsGetOp, b, { conversationId: id })).title).toBe(
+      "New name",
+    );
+    expect((await execute(ctx, conversationsListOp, b, { limit: 5 })).items[0]!.title).toBe(
+      "New name",
+    );
+    const input = { conversationId: id, title: "Taken over" };
+    await expect(execute(ctx, conversationsRenameOp, GUEST, input)).rejects.toThrow(
+      UnauthenticatedError,
+    );
+    await expect(execute(ctx, conversationsRenameOp, b, input)).rejects.toThrow(ForbiddenError);
+    for (const outsider of [dActor, moderator, admin])
+      await expect(execute(ctx, conversationsRenameOp, outsider, input)).rejects.toThrow(
+        NotFoundError,
+      );
+    await expect(
+      execute(ctx, conversationsRenameOp, a, { conversationId: id, title: "   " }),
+    ).rejects.toThrow();
+    await execute(ctx, conversationsLeaveOp, a, { conversationId: id });
+    await expect(execute(ctx, conversationsRenameOp, a, input)).rejects.toThrow(NotFoundError);
+    expect(
+      ctx.sqlite
+        .prepare<{ title: string }, [number]>("SELECT title FROM conversations WHERE id = ?1")
+        .get(id)!.title,
+    ).toBe("New name");
   });
 });
