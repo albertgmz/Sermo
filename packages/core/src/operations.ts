@@ -2,6 +2,7 @@ import { operations as admin } from "./modules/admin";
 import { operations as appearance } from "./modules/appearance";
 import { operations as auth } from "./modules/auth";
 import { operations as awards } from "./modules/awards";
+import { operations as bookmarks } from "./modules/bookmarks";
 import { operations as conversations } from "./modules/conversations";
 import { operations as creditRules } from "./modules/credit-events";
 import { operations as credits } from "./modules/credits";
@@ -44,6 +45,7 @@ export const operations: readonly AnyOperation[] = [
   ...email,
   ...reactions,
   ...search,
+  ...bookmarks,
   ...jobs,
   ...settings,
   ...storage,
