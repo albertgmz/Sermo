@@ -190,11 +190,12 @@ const LEVELS: Spec = {
   standingExcludeStaff: "bool",
 };
 
-// The member names typed one per line (commas and spaces also separate), each once.
+// The member names typed one per line or separated by commas (a name may hold spaces), each once.
 const names = (raw: string) => [
   ...new Map(
     raw
-      .split(/[\s,]+/)
+      .split(/[\n,]+/)
+      .map((name) => name.trim())
       .filter(Boolean)
       .map((name) => [name.toLowerCase(), name] as const),
   ).values(),

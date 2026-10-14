@@ -543,6 +543,7 @@ const MEMBERS = () =>
     items: [
       { id: 7, username: "Ada" },
       { id: 8, username: "Adam" },
+      { id: 9, username: "Mary Jane" },
     ],
   });
 
@@ -552,14 +553,17 @@ test("the levels form turns typed usernames into ids and sends the switch", asyn
     saveLevels(
       null,
       form(
-        [...LEVEL_FIELDS, ["standingExcludedUserIds", "ada, ADAM\nada"]],
+        [
+          ...LEVEL_FIELDS,
+          ["standingExcludedUserIds", "ada, ADAM\n mary jane \nada"],
+        ],
         "standingExcludeStaff",
       ),
     ),
   );
   expect(sent()?.[0]?.body).toMatchObject({
     standingExcludeStaff: false,
-    standingExcludedUserIds: [7, 8],
+    standingExcludedUserIds: [7, 8, 9],
   });
   await redirectedTo(() =>
     saveLevels(
@@ -581,7 +585,7 @@ test("a username that belongs to no member is refused and nothing is saved", asy
   backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
   const state = await saveLevels(
     null,
-    form([...LEVEL_FIELDS, ["standingExcludedUserIds", "ada zed"]]),
+    form([...LEVEL_FIELDS, ["standingExcludedUserIds", "ada\nzed pop"]]),
   );
   expect(state).toEqual({
     fields: {
@@ -589,4 +593,16 @@ test("a username that belongs to no member is refused and nothing is saved", asy
     },
   });
   expect(sent()).toEqual([]);
+});
+
+test("names shown in the textarea, one per line, are read back to the same ids", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  const shown = ["Ada", "Mary Jane"].join("\n");
+  await redirectedTo(() =>
+    saveLevels(
+      null,
+      form([...LEVEL_FIELDS, ["standingExcludedUserIds", shown]]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({ standingExcludedUserIds: [7, 9] });
 });

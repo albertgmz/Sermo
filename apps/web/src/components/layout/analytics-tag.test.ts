@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { analyticsSnippets, carriesAnalytics } from "./analytics-snippets";
+import { analyticsSnippets, pageViewReporter } from "./analytics-snippets";
 
 test("provider none adds nothing", () => {
   expect(analyticsSnippets({ provider: "none" })).toEqual([]);
@@ -50,13 +50,17 @@ test("values reach the script as escaped literals", () => {
   expect(google?.code).toContain(String.raw`G-1\");alert(1);(\"`);
 });
 
-test("the styleguide carries no tag, other pages do", () => {
-  expect(carriesAnalytics("/ui")).toBe(false);
-  expect(carriesAnalytics("/ui?x=1")).toBe(false);
-  expect(carriesAnalytics("/ui/forms")).toBe(false);
-  expect(carriesAnalytics("/uis")).toBe(true);
-  expect(carriesAnalytics("/forums/1-a")).toBe(true);
-  expect(carriesAnalytics(null)).toBe(true);
+test("only navigations after the first page view are reported to matomo", () => {
+  const paq: unknown[][] = [];
+  const report = pageViewReporter(paq);
+  report("https://f.example/", "Home");
+  expect(paq).toEqual([]);
+  report("https://f.example/forums/1?x=2", "A forum");
+  expect(paq).toEqual([
+    ["setCustomUrl", "https://f.example/forums/1?x=2"],
+    ["setDocumentTitle", "A forum"],
+    ["trackPageView"],
+  ]);
 });
 
 test("the public layout renders the tag and nothing in the staff panel does", () => {

@@ -89,11 +89,6 @@ async function MonthView({
     latest?.year === standing.year && latest.month === standing.month;
   const winner = current ? latest : null;
   const past = current ? earlier : winners.items;
-  // With no winner to show for the last month, the hero shows who leads the running one.
-  const running = winner
-    ? null
-    : await read(standingsMonth, { month: "current", limit: 1 });
-  const leader = running?.items[0];
   const monthName = format.dateTime(
     new Date(Date.UTC(standing.year, standing.month - 1, 1)),
     { month: "long", year: "numeric", timeZone: "UTC" },
@@ -101,12 +96,6 @@ async function MonthView({
   return (
     <>
       {winner && <MonthHero winner={winner} />}
-      {running && leader && (
-        <MonthHero
-          leading
-          winner={{ ...leader, year: running.year, month: running.month }}
-        />
-      )}
       {standing.items.length > 0 ? (
         <SectionCard
           title={t("standingHeading")}
@@ -132,8 +121,7 @@ async function MonthView({
           )}
         </SectionCard>
       ) : (
-        !winner &&
-        !leader && (
+        !winner && (
           <div className="rounded-lg border bg-card">
             <EmptyState
               icon={Crown}

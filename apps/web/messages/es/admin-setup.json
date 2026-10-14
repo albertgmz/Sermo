@@ -13,7 +13,7 @@
     "id": "Ese registro no es válido.",
     "missing": "Elige un valor.",
     "permission": "Elige un permiso para este público.",
-    "unknownMembers": "Ningún miembro se llama {names}."
+    "unknownMembers": "No existe ningún miembro con estos nombres: {names}."
   },
   "pages": {
     "general": {

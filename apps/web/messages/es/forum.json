@@ -17,9 +17,7 @@
   },
   "memberActions": {
     "message": "Mensaje privado",
-    "aria": {
-      "message": "Enviar un mensaje privado a {username}"
-    }
+    "aria": { "message": "Enviar un mensaje privado a {username}" }
   },
   "memberCardTrigger": {
     "aria": {

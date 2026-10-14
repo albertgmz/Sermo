@@ -45,8 +45,20 @@ export function analyticsSnippets(analytics: Provider): Snippet[] {
   }
   return [];
 }
-// The styleguide sits among the public pages and carries no tag; `path` is the path the proxy
-// handed to the page (absent on a client-side render).
-export function carriesAnalytics(path: string | null) {
-  return !(path === "/ui" || /^\/ui[/?]/.test(path ?? ""));
+
+type Paq = unknown[][];
+
+// What Matomo is told about page views after the first one (the snippet reports that one): a
+// client navigation changes the address and the title without loading the page again.
+export function pageViewReporter(paq: Paq) {
+  let first = true;
+  return (href: string, title: string) => {
+    if (first) {
+      first = false;
+      return;
+    }
+    paq.push(["setCustomUrl", href]);
+    paq.push(["setDocumentTitle", title]);
+    paq.push(["trackPageView"]);
+  };
 }
