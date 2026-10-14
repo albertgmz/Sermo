@@ -3,7 +3,9 @@ import {
   attachTag,
   insertAtCaret,
   insertIntoComposer,
-  onComposerInsert,
+  onComposerRequest,
+  removeFromComposer,
+  withoutAttachTag,
 } from "./composer-insert";
 
 // A form is an event target, and what is inside it finds it with `closest`.
@@ -21,16 +23,28 @@ test("the tags are the ones the renderer reads", () => {
 test("a request reaches the box of its own composer only", () => {
   const mine = composer();
   const other = composer();
-  const got: string[] = [];
-  const stopMine = onComposerInsert(mine.form, (text) =>
-    got.push(`mine ${text}`),
+  const got: unknown[] = [];
+  const stopMine = onComposerRequest(mine.form, (request) =>
+    got.push(["mine", request]),
   );
-  onComposerInsert(other.form, (text) => got.push(`other ${text}`));
+  onComposerRequest(other.form, (request) => got.push(["other", request]));
   insertIntoComposer(mine.inside, "[ATTACH]1[/ATTACH]");
-  expect(got).toEqual(["mine [ATTACH]1[/ATTACH]"]);
+  removeFromComposer(mine.inside, 1);
+  expect(got).toEqual([
+    ["mine", { insert: "[ATTACH]1[/ATTACH]" }],
+    ["mine", { remove: 1 }],
+  ]);
   stopMine();
   insertIntoComposer(mine.inside, "again");
-  expect(got).toHaveLength(1);
+  expect(got).toHaveLength(2);
+});
+
+test("removing an attachment takes out its tags of both sizes and no other's", () => {
+  const text =
+    "a [ATTACH]1[/ATTACH] b [ATTACH=full]1[/ATTACH] c [ATTACH]12[/ATTACH] [ATTACH]21[/ATTACH]";
+  expect(withoutAttachTag(text, 1)).toBe(
+    "a  b  c [ATTACH]12[/ATTACH] [ATTACH]21[/ATTACH]",
+  );
 });
 
 test("a plain field takes the text over its selection and keeps the caret after it", () => {
@@ -43,4 +57,25 @@ test("a plain field takes the text over its selection and keeps the caret after 
   } as unknown as HTMLTextAreaElement;
   insertAtCaret(field, "[ATTACH]2[/ATTACH]");
   expect(calls).toEqual([["[ATTACH]2[/ATTACH]", 3, 5, "end"], ["focus"]]);
+});
+
+test("a field that never had the focus takes the text at its end", () => {
+  const calls: unknown[][] = [];
+  const field = {
+    value: "hello",
+    selectionStart: 0,
+    selectionEnd: 0,
+    setSelectionRange: (...args: unknown[]) => {
+      calls.push(["range", ...args]);
+      field.selectionStart = 5;
+      field.selectionEnd = 5;
+    },
+    setRangeText: (...args: unknown[]) => calls.push(args),
+    focus: () => {},
+  };
+  insertAtCaret(field as unknown as HTMLTextAreaElement, "x", false);
+  expect(calls).toEqual([
+    ["range", 5, 5],
+    ["x", 5, 5, "end"],
+  ]);
 });

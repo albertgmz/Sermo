@@ -95,10 +95,11 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { onComposerInsert } from "@/components/forum/composer-insert";
+import { onComposerRequest } from "@/components/forum/composer-insert";
 import {
   $applyLink,
   $insertText,
+  $removeAttachTags,
   $wrapSelection,
 } from "@/components/forum/editor-commands";
 import {
@@ -294,6 +295,7 @@ function Toolbar({ className }: { className?: string }) {
   });
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [mediaRefused, setMediaRefused] = useState(false);
 
   useEffect(
     () =>
@@ -360,92 +362,100 @@ function Toolbar({ className }: { className?: string }) {
     const address = window.prompt(t("mediaPrompt"), "https://");
     if (!address) return;
     const media = mediaTagOf(address);
+    setMediaRefused(!media);
     if (media) editor.update(() => $insertText(media));
-    else window.alert(t("mediaUnsupported"));
   }
 
   return (
-    <div
-      role="toolbar"
-      aria-label={t("aria.formatting")}
-      className={cn(
-        "relative flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]",
-        className,
+    <>
+      <div
+        role="toolbar"
+        aria-label={t("aria.formatting")}
+        className={cn(
+          "relative flex items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1 [scrollbar-width:none]",
+          className,
+        )}
+      >
+        {FORMATS.map(({ format, label, icon }) => (
+          <ToolbarButton
+            key={format}
+            label={t(label)}
+            icon={icon}
+            active={state.formats.includes(format)}
+            onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
+          />
+        ))}
+        <Divider />
+        <ToolbarButton
+          label={t("headingLabel")}
+          icon={Heading}
+          active={state.block === "heading"}
+          onClick={() => setBlock("heading")}
+        />
+        <ToolbarButton
+          label={t("bulletListLabel")}
+          icon={List}
+          active={state.block === "bullet"}
+          onClick={() => toggleList("bullet")}
+        />
+        <ToolbarButton
+          label={t("numberedListLabel")}
+          icon={ListOrdered}
+          active={state.block === "number"}
+          onClick={() => toggleList("number")}
+        />
+        <ToolbarButton
+          label={t("quoteLabel")}
+          icon={TextQuote}
+          active={state.block === "quote"}
+          onClick={() => setBlock("quote")}
+        />
+        <ToolbarButton
+          label={t("linkLabel")}
+          icon={Link2}
+          active={state.link}
+          onClick={toggleLink}
+        />
+        <ToolbarButton
+          label={t("spoilerLabel")}
+          icon={EyeOff}
+          onClick={() =>
+            editor.update(() => $wrapSelection("[SPOILER]", "[/SPOILER]"))
+          }
+        />
+        <ToolbarButton
+          label={t("codeBlockLabel")}
+          icon={SquareCode}
+          active={state.block === "code"}
+          // Turning a list item or a quote into a code block would pull it out of its list or quote
+          // and leave the rest broken, so the button waits until the caret is somewhere else.
+          disabled={["bullet", "number", "quote"].includes(state.block)}
+          onClick={() => setBlock("code")}
+        />
+        <ToolbarButton
+          label={t("mediaLabel")}
+          icon={Clapperboard}
+          onClick={addMedia}
+        />
+        <span className="ml-auto flex items-center gap-0.5 pl-2">
+          <ToolbarButton
+            label={t("undoLabel")}
+            icon={Undo2}
+            disabled={!canUndo}
+            onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
+          />
+          <ToolbarButton
+            label={t("redoLabel")}
+            icon={Redo2}
+            disabled={!canRedo}
+            onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
+          />
+        </span>
+      </div>
+      {mediaRefused && (
+        <FormError className="px-3 py-1.5">{t("mediaUnsupported")}</FormError>
       )}
-    >
-      {FORMATS.map(({ format, label, icon }) => (
-        <ToolbarButton
-          key={format}
-          label={t(label)}
-          icon={icon}
-          active={state.formats.includes(format)}
-          onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
-        />
-      ))}
-      <Divider />
-      <ToolbarButton
-        label={t("headingLabel")}
-        icon={Heading}
-        active={state.block === "heading"}
-        onClick={() => setBlock("heading")}
-      />
-      <ToolbarButton
-        label={t("bulletListLabel")}
-        icon={List}
-        active={state.block === "bullet"}
-        onClick={() => toggleList("bullet")}
-      />
-      <ToolbarButton
-        label={t("numberedListLabel")}
-        icon={ListOrdered}
-        active={state.block === "number"}
-        onClick={() => toggleList("number")}
-      />
-      <ToolbarButton
-        label={t("quoteLabel")}
-        icon={TextQuote}
-        active={state.block === "quote"}
-        onClick={() => setBlock("quote")}
-      />
-      <ToolbarButton
-        label={t("linkLabel")}
-        icon={Link2}
-        active={state.link}
-        onClick={toggleLink}
-      />
-      <ToolbarButton
-        label={t("spoilerLabel")}
-        icon={EyeOff}
-        onClick={() =>
-          editor.update(() => $wrapSelection("[SPOILER]", "[/SPOILER]"))
-        }
-      />
-      <ToolbarButton
-        label={t("codeBlockLabel")}
-        icon={SquareCode}
-        active={state.block === "code"}
-        onClick={() => setBlock("code")}
-      />
-      <ToolbarButton
-        label={t("mediaLabel")}
-        icon={Clapperboard}
-        onClick={addMedia}
-      />
-      <span className="ml-auto flex items-center gap-0.5 pl-2">
-        <ToolbarButton
-          label={t("undoLabel")}
-          icon={Undo2}
-          disabled={!canUndo}
-          onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
-        />
-        <ToolbarButton
-          label={t("redoLabel")}
-          icon={Redo2}
-          disabled={!canRedo}
-          onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
-        />
-      </span>
-    </div>
+    </>
   );
 }
 
@@ -455,10 +465,16 @@ function FormField({
   onChange,
   required,
   defaultValue,
+  onInsertReady,
   setInvalid,
 }: Pick<
   EditorProps,
-  "name" | "resetKey" | "onChange" | "required" | "defaultValue"
+  | "name"
+  | "resetKey"
+  | "onChange"
+  | "required"
+  | "defaultValue"
+  | "onInsertReady"
 > & {
   setInvalid: (invalid: boolean) => void;
 }) {
@@ -496,12 +512,19 @@ function FormField({
   // Text asked for from elsewhere in the composer (an attachment's tag) goes in at the caret.
   useEffect(
     () =>
-      onComposerInsert(inputRef.current?.form, (text) => {
-        editor.update(() => $insertText(text));
-        editor.focus();
+      onComposerRequest(inputRef.current?.form, (request) => {
+        if ("insert" in request) {
+          editor.update(() => $insertText(request.insert));
+          editor.focus();
+        } else {
+          editor.update(() => $removeAttachTags(request.remove));
+        }
       }),
     [editor],
   );
+
+  // Says that requests are now taken here, for a composer that queued some on the way.
+  useEffect(() => onInsertReady?.(), [onInsertReady]);
 
   useEffect(() => {
     const form = inputRef.current?.form;
@@ -574,6 +597,8 @@ export type EditorProps = {
   findMembers?: (prefix: string) => Promise<MemberHit[]>;
   // The name of a window event whose detail is Markdown to add at the end of the editor.
   insertEvent?: string;
+  // Called once the editor takes requests from the rest of its composer (see `LazyEditor`).
+  onInsertReady?: () => void;
 };
 
 export function Editor({
@@ -595,6 +620,7 @@ export function Editor({
   className,
   findMembers,
   insertEvent,
+  onInsertReady,
 }: EditorProps) {
   const t = useTranslations("editor.editor");
   const placeholder =
@@ -663,6 +689,7 @@ export function Editor({
           onChange={onChange}
           required={required}
           defaultValue={defaultValue}
+          onInsertReady={onInsertReady}
           setInvalid={setInvalid}
         />
       </div>

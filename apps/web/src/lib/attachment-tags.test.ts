@@ -28,6 +28,7 @@ const context: InlineContext = {
   liteImages: false,
   liteLabel: "LITE MODE",
   liteAria: "Picture hidden",
+  missingLabel: "Attachment",
 };
 
 test("a thumbnail is the thumbnail picture linked to the full file", () => {
@@ -57,9 +58,45 @@ test("a file that is not a picture is a row that links to it", () => {
   expect(html).not.toContain("<img");
 });
 
-test("an id that is not among the item's attachments stays as its text", () => {
-  const html = `<p>${slot(9)}</p>`;
-  expect(placeAttachments(html, [file(1)], context)).toBe(html);
+test("an id that is not among the item's attachments shows a label, not the number", () => {
+  const html = placeAttachments(`<p>${slot(9)}</p>`, [file(1)], context);
+  expect(html).toContain(">Attachment</span>");
+  expect(html).not.toContain(">9<");
+  expect(html).not.toContain("bb-attach");
+});
+
+test("an item with no attachments at all labels its tags the same way", () => {
+  expect(placeAttachments(slot(3), [], context)).toContain(">Attachment<");
+});
+
+test("inside a link no second link is made", () => {
+  const pdf = file(2, { contentType: "application/pdf" });
+  const linked = (inner: string) =>
+    `<a href="https://example.com/">${inner}</a>`;
+  const thumb = placeAttachments(linked(slot(1)), [file(1)], context);
+  expect(thumb.match(/<a /g)).toHaveLength(1);
+  expect(thumb).toContain("<img");
+  const full = placeAttachments(linked(slot(1, "full")), [file(1)], context);
+  expect(full.match(/<a /g)).toHaveLength(1);
+  expect(full).toContain("<img");
+  const row = placeAttachments(linked(slot(2)), [pdf], context);
+  expect(row.match(/<a /g)).toHaveLength(1);
+  expect(row).toContain("plan.png</a>");
+  const lite = placeAttachments(linked(slot(1)), [file(1)], {
+    ...context,
+    liteImages: true,
+  });
+  expect(lite.match(/<a /g)).toHaveLength(1);
+  expect(lite).not.toContain("/api/v1/files/1");
+});
+
+test("after the link is closed the attachment is a link again", () => {
+  const html = placeAttachments(
+    `<a href="/x">t</a> ${slot(1)} <abbr>${slot(1)}</abbr>`,
+    [file(1)],
+    context,
+  );
+  expect(html.match(/<a /g)).toHaveLength(3);
 });
 
 test("with post pictures blocked no address of the picture reaches the page", () => {

@@ -211,7 +211,8 @@
     "richCodeLabel": "Enriquecido (BB code):",
     "said": "dijo:",
     "spoiler": "Spoiler",
-    "spoilerFailed": "No se pudo cargar ese spoiler."
+    "spoilerFailed": "No se pudo cargar ese spoiler.",
+    "attachment": "Adjunto"
   },
   "contentActions": {
     "quote": "Citar",

@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   attachTag,
   insertIntoComposer,
+  removeFromComposer,
 } from "@/components/forum/composer-insert";
 import { FormError } from "@/components/forum/form-error";
 import { messageActionClass } from "@/components/forum/message-action";
@@ -81,14 +82,21 @@ export function AttachmentField({
         nodeId === undefined ? "/attachments" : `/threads/${nodeId}/uploads`,
         { method: "POST", body },
       );
-      const payload: { id?: number; error?: string } | null = await response
-        .json()
-        .catch(() => null);
+      const payload: {
+        id?: number;
+        error?: string;
+        contentType?: string;
+      } | null = await response.json().catch(() => null);
       if (response.ok && typeof payload?.id === "number") {
         const id = payload.id;
         setFiles((current) => [
           ...current,
-          { id, name: file.name, size: file.size, type: file.type },
+          {
+            id,
+            name: file.name,
+            size: file.size,
+            type: payload.contentType ?? file.type,
+          },
         ]);
       } else {
         setError(payload?.error ?? t("failed", { name: file.name }));
@@ -218,11 +226,13 @@ export function AttachmentField({
                 type="button"
                 aria-label={t("aria.remove", { name: file.name })}
                 className={INSERT_BUTTON}
-                onClick={() =>
+                onClick={() => {
+                  // Its tags come out of the text too: nothing is left to show a file that is gone.
+                  removeFromComposer(listed.current, file.id);
                   setFiles((current) =>
                     current.filter((other) => other.id !== file.id),
-                  )
-                }
+                  );
+                }}
               >
                 <X className="size-4" />
               </button>

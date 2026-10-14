@@ -16,6 +16,7 @@ import {
   $applyLink,
   $insertMention,
   $insertText,
+  $removeAttachTags,
   $wrapSelection,
 } from "./editor-commands";
 
@@ -169,4 +170,13 @@ test("a media tag and a spoiler with a title survive the export without escapes"
   expect(markdownOf(editor)).toBe(
     "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA] [SPOILER=Title]hid[/SPOILER]",
   );
+});
+
+test("removing an attachment takes its tags out of the editor, whichever the size", () => {
+  const editor = editorWith(
+    "a [ATTACH]4[/ATTACH] b [ATTACH=full]4[/ATTACH] c [ATTACH]5[/ATTACH]",
+    () => {},
+  );
+  run(editor, () => $removeAttachTags(4));
+  expect(markdownOf(editor)).toBe("a  b  c [ATTACH]5[/ATTACH]");
 });

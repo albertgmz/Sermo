@@ -50,7 +50,8 @@ test("a tag becomes its attachment, and one of another item stays as text", asyn
   cookie = undefined;
   const out = await render(`<p>${slot(1)} and ${slot(2)}</p>`);
   expect(out).toContain('src="/api/v1/files/1/thumb.png"');
-  expect(out).toContain('data-attach-id="2"');
+  expect(out).toContain(">attachment</span>");
+  expect(out).not.toContain('data-attach-id="2"');
 });
 
 test("with post pictures blocked the picture never reaches the page", async () => {

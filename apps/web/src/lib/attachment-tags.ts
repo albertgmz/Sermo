@@ -78,15 +78,20 @@ export type InlineContext = {
   liteImages: boolean;
   liteLabel: string;
   liteAria: string;
+  // What stands where a tag names an attachment the item does not have.
+  missingLabel: string;
 };
 
 function drawn(
   file: TaggedAttachment,
   how: Placeholder["size"],
   context: InlineContext,
+  inLink: boolean,
 ) {
   const name = escapeHtml(fileName(file.url, file.fileId));
   if (!file.contentType.startsWith("image/")) {
+    // A link inside a link is no link: inside one, the file is just its name.
+    if (inLink) return name;
     return (
       `<a href="${escapeHtml(file.url)}" class="inline-flex min-h-10 max-w-full items-center gap-2 rounded-md border bg-muted/40 px-3 align-middle text-sm font-normal! text-foreground! no-underline! hover:bg-muted md:min-h-8">` +
       `<span class="truncate">${name}</span>` +
@@ -99,24 +104,41 @@ function drawn(
   if (how === "full") {
     return `<img src="${escapeHtml(file.url)}" alt="${name}"${size(file, Number.POSITIVE_INFINITY)} loading="lazy" class="my-1 inline-block h-auto max-w-full rounded-md align-bottom">`;
   }
+  const thumb = `<img src="${escapeHtml(file.thumbnailUrl ?? file.url)}" alt="${name}"${size(file, THUMB_WIDTH)} loading="lazy" class="block h-auto max-w-full">`;
+  if (inLink) return thumb;
   return (
     `<a href="${escapeHtml(file.url)}" class="my-1 inline-block max-w-full overflow-hidden rounded-md border align-bottom">` +
-    `<img src="${escapeHtml(file.thumbnailUrl ?? file.url)}" alt="${name}"${size(file, THUMB_WIDTH)} loading="lazy" class="block h-auto max-w-full"></a>`
+    `${thumb}</a>`
   );
 }
 
-// Puts each attachment the text places in the spot of its placeholder. A placeholder whose id is
-// not among the item's own attachments is left as the renderer wrote it (its id as text).
+const ANCHOR = /^<a\b/;
+const TAG = new RegExp(String.raw`<a\b[^>]*>|</a>|${SPAN.source}`, "g");
+
+// Puts each attachment the text places in the spot of its placeholder. A tag for an attachment the
+// item does not have shows a small label instead of the bare id. Inside a link the attachment
+// comes without a link of its own.
 export function placeAttachments(
   html: string,
   attachments: readonly TaggedAttachment[],
   context: InlineContext,
 ): string {
-  if (attachments.length === 0) return html;
   const own = new Map(attachments.map((file) => [file.fileId, file]));
-  return html.replace(SPAN, (whole, attributes: string, text: string) => {
-    const placeholder = placeholderOf(attributes, text);
-    const file = placeholder && own.get(placeholder.id);
-    return placeholder && file ? drawn(file, placeholder.size, context) : whole;
-  });
+  let open = 0;
+  return html.replace(
+    TAG,
+    (whole, attributes: string | undefined, text: string | undefined) => {
+      if (attributes === undefined || text === undefined) {
+        if (ANCHOR.test(whole)) open += 1;
+        else open = Math.max(0, open - 1);
+        return whole;
+      }
+      const placeholder = placeholderOf(attributes, text);
+      if (!placeholder) return whole;
+      const file = own.get(placeholder.id);
+      return file
+        ? drawn(file, placeholder.size, context, open > 0)
+        : `<span class="inline-block rounded-sm border border-dashed px-1.5 text-xs text-muted-foreground">${escapeHtml(context.missingLabel)}</span>`;
+    },
+  );
 }

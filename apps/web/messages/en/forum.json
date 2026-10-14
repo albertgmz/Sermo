@@ -211,7 +211,8 @@
     "richCodeLabel": "Rich (BB code):",
     "said": "said:",
     "spoiler": "Spoiler",
-    "spoilerFailed": "That spoiler could not be loaded."
+    "spoilerFailed": "That spoiler could not be loaded.",
+    "attachment": "Attachment"
   },
   "contentActions": {
     "quote": "Quote",

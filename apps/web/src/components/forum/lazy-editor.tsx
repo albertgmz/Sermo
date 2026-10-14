@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type ComposerRequest,
   insertAtCaret,
-  onComposerInsert,
+  onComposerRequest,
+  requestOnComposer,
+  withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -42,17 +45,31 @@ export function LazyEditor({
   const [loaded, setLoaded] = useState<Loaded>();
   const ownBar = toolbarContainer === undefined;
 
-  // Until the editor is there, text asked for from elsewhere in the composer goes in at the caret
-  // of the plain field; focusing it brings the editor, which keeps the text.
-  useEffect(
-    () =>
-      loaded
-        ? undefined
-        : onComposerInsert(field.current?.form, (text) => {
-            if (field.current) insertAtCaret(field.current, text);
-          }),
-    [loaded],
-  );
+  // Requests from elsewhere in the composer (an attachment's tag to put in or take out) are taken
+  // by the plain field until the editor is there. Those that arrive after the field is gone and
+  // before the editor listens are kept, and handed to the editor once it says it is ready.
+  const ready = useRef(false);
+  const queue = useRef<ComposerRequest[]>([]);
+  const form = useRef<HTMLFormElement | null>(null);
+  useEffect(() => {
+    form.current = field.current?.form ?? null;
+    return onComposerRequest(form.current, (request) => {
+      if (ready.current) return;
+      const box = field.current;
+      if (!box) queue.current.push(request);
+      else if ("insert" in request) {
+        insertAtCaret(box, request.insert, asked.current);
+      } else {
+        box.value = withoutAttachTag(box.value, request.remove);
+      }
+    });
+  }, []);
+  const editorReady = useCallback(() => {
+    ready.current = true;
+    for (const request of queue.current.splice(0)) {
+      requestOnComposer(form.current, request);
+    }
+  }, []);
 
   function load() {
     if (asked.current) return;
@@ -85,6 +102,7 @@ export function LazyEditor({
         defaultValue={loaded.text}
         minHeight={minHeight}
         findMembers={findMembers}
+        onInsertReady={editorReady}
         className={className}
       />
     );

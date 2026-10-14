@@ -53,17 +53,18 @@ export async function HtmlContent(props: {
     stripHtmlMedia(props.children, state, origin),
     props.content !== undefined,
   );
-  if (props.attachments?.length) {
+  if (html.includes("bb-attach")) {
     const [locale, lite, liteImages] = await Promise.all([
       getLocale(),
       getTranslations("lite.litePlaceholder"),
       liteBlocks("postImages"),
     ]);
-    html = placeAttachments(html, props.attachments, {
+    html = placeAttachments(html, props.attachments ?? [], {
       locale,
       liteImages,
       liteLabel: lite("label"),
       liteAria: lite("aria.label"),
+      missingLabel: t("attachment"),
     });
   }
   const body = (

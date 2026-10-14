@@ -7,6 +7,7 @@ import {
   $isRangeSelection,
   $isTextNode,
 } from "lexical";
+import { withoutAttachTag } from "@/components/forum/composer-insert";
 
 // Replaces the "@" and what follows it, up to the caret, with the mention. A space goes after it
 // unless the text already goes on with one.
@@ -78,4 +79,13 @@ export function $wrapSelection(open: string, close: string) {
   // The end first, so the start's offset is still right when the opening goes in.
   at(end).insertText(close);
   at(start).insertText(open);
+}
+
+// Takes the tags that place attachment `id` out of the text.
+export function $removeAttachTags(id: number) {
+  for (const node of $getRoot().getAllTextNodes()) {
+    const text = node.getTextContent();
+    const kept = withoutAttachTag(text, id);
+    if (kept !== text) node.setTextContent(kept);
+  }
 }
