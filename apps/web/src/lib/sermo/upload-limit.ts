@@ -13,6 +13,7 @@ export const CATALOG_PURPOSES: readonly string[] = [
   "site_logo",
   "site_icon",
   "site_backdrop",
+  "reaction_image",
 ];
 export const CATALOG_UPLOAD_BYTES = 25 * 1024 * 1024;
 

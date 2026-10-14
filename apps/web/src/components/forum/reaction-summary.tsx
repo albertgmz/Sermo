@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionUsers } from "@/components/forum/reaction-users";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
@@ -70,7 +71,7 @@ export function ReactionSummary({
                 SIZES[size].emoji,
               )}
             >
-              {type.emoji}
+              <ReactionPicture emoji={type.emoji} picture={type.picture} />
             </span>
           ))}
         </span>
@@ -81,7 +82,7 @@ export function ReactionSummary({
           <span className="text-sm font-semibold text-foreground">{total}</span>
           {reactions.byType.map(({ type, count }) => (
             <span key={type.id} title={type.label} className="tabular-nums">
-              <span aria-hidden="true">{type.emoji}</span>{" "}
+              <ReactionPicture emoji={type.emoji} picture={type.picture} />{" "}
               <span className="sr-only">{type.label}: </span>
               {count}
             </span>
@@ -96,8 +97,12 @@ export function ReactionSummary({
               >
                 <UserAvatar user={user} size="sm" />
                 <UserLink user={user} className="min-w-0 flex-1 truncate" />
-                <span role="img" aria-label={type.label} title={type.label}>
-                  {type.emoji}
+                <span title={type.label}>
+                  <ReactionPicture
+                    emoji={type.emoji}
+                    picture={type.picture}
+                    label={type.label}
+                  />
                 </span>
               </li>
             ))}

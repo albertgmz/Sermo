@@ -34,6 +34,8 @@ const TYPE = {
   score: 1,
   position: 1,
   isActive: true,
+  image: null,
+  frames: null,
 };
 
 test("a new type sends what the form showed and leaves an empty score to the backend", async () => {
@@ -232,4 +234,157 @@ test("an order refused part-way says that the earlier rows were saved", async ()
   expect(
     backend.asked.filter((entry) => entry.operation === "reactionTypes.update"),
   ).toHaveLength(2);
+});
+
+test("a new type with a picture sends the file and the cut of the sheet", async () => {
+  backend = fakeBackend({
+    "reactionTypes.create": () => Response.json(TYPE),
+  });
+  await redirectedTo(() =>
+    createReactionType(
+      null,
+      form([
+        ["emoji", "x"],
+        ["title", "Pulse"],
+        ["fileId", "12"],
+        ["frameWidth", "32"],
+        ["frameHeight", "32"],
+        ["frameCount", "6"],
+        ["isActive", "on"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toEqual({
+    emoji: "x",
+    title: "Pulse",
+    isActive: true,
+    fileId: 12,
+    frameWidth: 32,
+    frameHeight: 32,
+    frameCount: 6,
+  });
+});
+
+test("a frame field that is not a number or a file id that is not valid is refused without a call", async () => {
+  backend = fakeBackend({});
+  const state = await createReactionType(
+    null,
+    form([
+      ["emoji", "x"],
+      ["title", "Pulse"],
+      ["fileId", "../12"],
+      ["frameWidth", "wide"],
+    ]),
+  );
+  expect(backend.asked).toEqual([]);
+  expect(state).toEqual({
+    fields: {
+      fileId: messages.adminContent.errors.file,
+      frameWidth: messages.adminContent.errors.number,
+    },
+  });
+});
+
+test("the backend's refusal of a frame size is shown next to its field", async () => {
+  backend = fakeBackend({
+    "reactionTypes.create": () =>
+      invalid("frameWidth", "The frame size does not divide the picture."),
+  });
+  const state = await createReactionType(
+    null,
+    form([
+      ["emoji", "x"],
+      ["title", "Pulse"],
+      ["fileId", "12"],
+      ["frameWidth", "7"],
+      ["frameHeight", "7"],
+    ]),
+  );
+  expect(state).toEqual({
+    fields: { frameWidth: "The frame size does not divide the picture." },
+  });
+});
+
+test("an edit with a new file and a cut sends both", async () => {
+  backend = fakeBackend({
+    "reactionTypes.update": () => Response.json(TYPE),
+  });
+  await redirectedTo(() =>
+    updateReactionType(
+      null,
+      form([
+        ["id", "4"],
+        ["emoji", "y"],
+        ["title", "Love"],
+        ["score", "2"],
+        ["fileId", "15"],
+        ["frameWidth", "16"],
+        ["frameHeight", "16"],
+        ["frameCount", "4"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toEqual({
+    emoji: "y",
+    title: "Love",
+    score: 2,
+    fileId: 15,
+    frameWidth: 16,
+    frameHeight: 16,
+    frameCount: 4,
+  });
+});
+
+test("an edit that removes the picture sends fileId null, and empty frame fields go back to the whole picture", async () => {
+  backend = fakeBackend({
+    "reactionTypes.update": () => Response.json(TYPE),
+  });
+  await redirectedTo(() =>
+    updateReactionType(
+      null,
+      form([
+        ["id", "4"],
+        ["emoji", "y"],
+        ["title", "Love"],
+        ["score", "2"],
+        ["fileId", ""],
+        ["fileIdRemove", "1"],
+        ["frameWidth", ""],
+        ["frameHeight", ""],
+        ["frameCount", ""],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toEqual({
+    emoji: "y",
+    title: "Love",
+    score: 2,
+    fileId: null,
+    frameWidth: null,
+    frameHeight: null,
+    frameCount: 1,
+  });
+});
+
+test("an edit that keeps the picture does not send a file", async () => {
+  backend = fakeBackend({
+    "reactionTypes.update": () => Response.json(TYPE),
+  });
+  await redirectedTo(() =>
+    updateReactionType(
+      null,
+      form([
+        ["id", "4"],
+        ["emoji", "y"],
+        ["title", "Love"],
+        ["score", "2"],
+        ["fileId", ""],
+        ["fileIdRemove", ""],
+        ["frameWidth", "16"],
+        ["frameHeight", "16"],
+        ["frameCount", "4"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).not.toHaveProperty("fileId");
 });

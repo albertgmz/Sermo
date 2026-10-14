@@ -74,6 +74,10 @@
       "label": "Shop artwork",
       "description": "Shop item artwork and shop glyphs."
     },
+    "reactions": {
+      "label": "Reaction pictures",
+      "description": "Custom reaction pictures; the reaction's emoji is shown instead."
+    },
     "postImages": {
       "label": "Content pictures",
       "description": "Pictures in posts, signatures, messages and editor previews."

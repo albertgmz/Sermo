@@ -27,6 +27,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks brand before emitting the site logo picture.",
   "src/components/layout/page-backdrop.tsx":
     "Checks brand before emitting the site backdrop picture.",
+  "src/components/forum/reaction-picture.tsx":
+    "Draws the reaction picture that src/lib/sermo/reactions.ts left in the data: the address is dropped there when the reactions category is blocked, so there is nothing to emit.",
   "src/components/ui/avatar.tsx":
     "Low-level image primitive, used only by the reviewed UserAvatar gate.",
 };
@@ -139,6 +141,8 @@ const BACKEND_PICTURE_GATES: Record<string, string> = {
   "src/components/layout/logo.tsx": "site_logo",
   "src/components/layout/site-icon.tsx": "site_icon",
   "src/components/layout/page-backdrop.tsx": "site_backdrop",
+  // Where the pictures reach the data the reaction gate draws from.
+  "src/lib/sermo/reactions.ts": "reaction_image",
 };
 
 test("backend pictures consult the category of their file purpose on the server", () => {

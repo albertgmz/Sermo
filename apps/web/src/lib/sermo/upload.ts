@@ -37,6 +37,7 @@ export const PANEL_PURPOSES = [
   "site_logo",
   "site_icon",
   "site_backdrop",
+  "reaction_image",
 ] as const;
 
 export const UPLOAD_PURPOSES = [...MEMBER_PURPOSES, ...PANEL_PURPOSES] as const;

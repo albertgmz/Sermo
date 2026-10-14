@@ -35,6 +35,10 @@ export const LITE_CATEGORIES = [
     purposes: ["shop_image"],
   },
   {
+    key: "reactions",
+    purposes: ["reaction_image"],
+  },
+  {
     key: "postImages",
     purposes: ["attachment"],
   },

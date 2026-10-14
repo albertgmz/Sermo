@@ -18,7 +18,32 @@ import {
   whole,
 } from "../groups/form-errors";
 
-const FIELDS = ["emoji", "title", "score", "position"];
+const FIELDS = [
+  "emoji",
+  "title",
+  "score",
+  "position",
+  "fileId",
+  "frameWidth",
+  "frameHeight",
+  "frameCount",
+];
+
+const FRAME_FIELDS = ["frameWidth", "frameHeight", "frameCount"] as const;
+
+// The picture and frame fields of the forms. `fileId` is the file uploaded just before (empty
+// when none), `fileIdRemove` the picture field's remove control. A frame field left empty is
+// undefined; one that is not a whole number is null.
+function pictureFields(formData: FormData) {
+  const typed = text(formData, "fileId");
+  return {
+    fileId: typed === "" ? undefined : parseId(typed),
+    remove: text(formData, "fileIdRemove") === "1",
+    frameWidth: optionalWhole(text(formData, "frameWidth")),
+    frameHeight: optionalWhole(text(formData, "frameHeight")),
+    frameCount: optionalWhole(text(formData, "frameCount")),
+  };
+}
 
 // A number the form may leave empty: undefined then, so the backend applies its own.
 function optionalWhole(raw: string): number | null | undefined {
@@ -33,11 +58,19 @@ export async function createReactionType(
   const score = optionalWhole(text(formData, "score"));
   const position = optionalWhole(text(formData, "position"));
   const fields: Record<string, string> = {};
+  const picture = pictureFields(formData);
   if (score === null) fields.score = t("number");
   if (position === null) fields.position = t("number");
+  if (picture.fileId === null) fields.fileId = t("file");
+  for (const name of FRAME_FIELDS)
+    if (picture[name] === null) fields[name] = t("number");
   if (Object.keys(fields).length > 0) return { fields };
   try {
     await call(reactionTypesCreate, {
+      fileId: picture.fileId ?? undefined,
+      frameWidth: picture.frameWidth ?? undefined,
+      frameHeight: picture.frameHeight ?? undefined,
+      frameCount: picture.frameCount ?? undefined,
       emoji: text(formData, "emoji"),
       title: text(formData, "title"),
       score: score ?? undefined,
@@ -59,12 +92,35 @@ export async function updateReactionType(
   if (reactionTypeId === null) return { error: t("id") };
   const score = whole(text(formData, "score"));
   if (score === null) return { fields: { score: t("number") } };
+  const picture = pictureFields(formData);
+  const fields: Record<string, string> = {};
+  if (picture.fileId === null) fields.fileId = t("file");
+  for (const name of FRAME_FIELDS)
+    if (picture[name] === null) fields[name] = t("number");
+  if (Object.keys(fields).length > 0) return { fields };
+  // A new file replaces the picture; the remove control takes it away, frames included.
+  const file =
+    picture.fileId != null
+      ? { fileId: picture.fileId }
+      : picture.remove
+        ? { fileId: null }
+        : {};
+  // The row form always carries the frame fields: empty ones go back to the whole picture.
+  const frames = formData.has("frameWidth")
+    ? {
+        frameWidth: picture.frameWidth ?? null,
+        frameHeight: picture.frameHeight ?? null,
+        frameCount: picture.frameCount ?? 1,
+      }
+    : {};
   try {
     await call(reactionTypesUpdate, {
       reactionTypeId,
       emoji: text(formData, "emoji"),
       title: text(formData, "title"),
       score,
+      ...file,
+      ...frames,
     });
   } catch (error) {
     return formFailure(error, FIELDS);

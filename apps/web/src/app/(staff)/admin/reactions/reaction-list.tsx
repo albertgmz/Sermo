@@ -1,12 +1,15 @@
 import { reactionTypesList } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
+import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
+import { PictureField } from "@/components/staff/picture-field";
 import { Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
+import { asType, withoutBlockedPictures } from "@/lib/sermo/reactions";
 import {
   createReactionType,
   saveReactionOrder,
@@ -26,6 +29,8 @@ export async function ReactionList({
     getTranslations("adminContent.reactions"),
     read(reactionTypesList, {}),
   ]);
+  // What a visitor would see: a picture LITE blocks is the emoji here too.
+  const shown = (await withoutBlockedPictures(items)).map(asType);
   const lastPosition = items.reduce(
     (most, item) => Math.max(most, item.position),
     0,
@@ -44,12 +49,14 @@ export async function ReactionList({
       />
       <Section heading={t("list.heading")} description={t("list.description")}>
         <ul aria-label={t("list.heading")} className="divide-y">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <li key={item.id} className="space-y-2 p-4">
               <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                <span aria-hidden="true" className="text-xl">
-                  {item.emoji}
-                </span>
+                <ReactionPicture
+                  emoji={item.emoji}
+                  picture={shown[index].picture}
+                  className="text-xl"
+                />
                 <span className="[overflow-wrap:anywhere]">{item.title}</span>
                 <Badge variant={item.isActive ? "success" : "secondary"}>
                   {item.isActive ? t("list.active") : t("list.inactive")}
@@ -60,6 +67,16 @@ export async function ReactionList({
                 emoji={item.emoji}
                 title={item.title}
                 score={item.score}
+                frames={item.frames && { ...item.frames }}
+                current={
+                  item.image ? (
+                    <ReactionPicture
+                      emoji={item.emoji}
+                      picture={shown[index].picture}
+                      label={item.title}
+                    />
+                  ) : undefined
+                }
               />
               <ConfirmStep
                 action={setReactionTypeActive}
@@ -130,6 +147,55 @@ export async function ReactionList({
         </FieldRow>
         <FieldRow name="title" label={t("create.title")} htmlFor="new-title">
           <Input id="new-title" name="title" required />
+        </FieldRow>
+        <FieldRow
+          name="fileId"
+          label={t("create.picture")}
+          htmlFor="new-file"
+          help={t("create.pictureHelp")}
+        >
+          <PictureField purpose="reaction_image" name="fileId" id="new-file" />
+        </FieldRow>
+        <FieldRow
+          name="frameWidth"
+          label={t("create.frameWidth")}
+          htmlFor="new-frame-width"
+          help={t("create.framesHelp")}
+        >
+          <Input
+            id="new-frame-width"
+            name="frameWidth"
+            type="number"
+            inputMode="numeric"
+            min={1}
+          />
+        </FieldRow>
+        <FieldRow
+          name="frameHeight"
+          label={t("create.frameHeight")}
+          htmlFor="new-frame-height"
+        >
+          <Input
+            id="new-frame-height"
+            name="frameHeight"
+            type="number"
+            inputMode="numeric"
+            min={1}
+          />
+        </FieldRow>
+        <FieldRow
+          name="frameCount"
+          label={t("create.frameCount")}
+          htmlFor="new-frame-count"
+          help={t("create.frameCountHelp")}
+        >
+          <Input
+            id="new-frame-count"
+            name="frameCount"
+            type="number"
+            inputMode="numeric"
+            min={1}
+          />
         </FieldRow>
         <FieldRow
           name="score"

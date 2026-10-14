@@ -19,14 +19,28 @@ afterAll(() => {
 });
 const { Reactions } = await import("./reactions");
 
-const LIKE = { id: 1, title: "Like", emoji: "👍", isActive: true };
-const LOVE = { id: 2, title: "Love", emoji: "❤️", isActive: true };
+const LIKE = {
+  id: 1,
+  title: "Like",
+  emoji: "👍",
+  isActive: true,
+  image: null,
+  frames: null,
+};
+const LOVE = {
+  id: 2,
+  title: "Love",
+  emoji: "❤️",
+  isActive: true,
+  image: null,
+  frames: null,
+};
 const reactionTypes = [LIKE, LOVE] as Parameters<
   typeof Reactions
 >[0]["reactionTypes"];
 const picker = [
-  { id: 1, key: "1", label: "Like", emoji: "👍" },
-  { id: 2, key: "2", label: "Love", emoji: "❤️" },
+  { id: 1, key: "1", label: "Like", emoji: "👍", picture: null },
+  { id: 2, key: "2", label: "Love", emoji: "❤️", picture: null },
 ];
 const none = { counts: {}, total: 0, mine: null };
 const some = { counts: { "1": 3, "2": 1 }, total: 4, mine: null };
@@ -103,4 +117,46 @@ test("another member's item without reactions has the button only", () => {
   expect(html).toContain('aria-pressed="false"');
   expect(html).not.toContain("show who reacted");
   expect(shown(html, 0)).toBe(0);
+});
+
+const SPARK = {
+  id: 3,
+  key: "3",
+  label: "Spark",
+  emoji: "✨",
+  picture: {
+    url: "/api/v1/files/9",
+    frames: { width: 16, height: 16, count: 3, columns: 3 },
+  },
+};
+
+test("the button and the summary draw a type's picture instead of its emoji", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <Reactions
+        target="post"
+        id={5}
+        reactions={{ counts: { "3": 2 }, total: 2, mine: 3 }}
+        authorId={7}
+        viewerId={9}
+        picker={[...picker, SPARK]}
+        reactionTypes={
+          [
+            {
+              id: 3,
+              title: "Spark",
+              emoji: "✨",
+              isActive: true,
+              image: { fileId: 9, url: "/api/v1/files/9" },
+              frames: SPARK.picture.frames,
+            },
+          ] as Parameters<typeof Reactions>[0]["reactionTypes"]
+        }
+      />,
+    ),
+  );
+  // The button (the viewer's own reaction) and the summary stack; the picker is closed.
+  expect(html.split('data-slot="reaction-picture"').length - 1).toBe(2);
+  expect(html).toContain("background-image:url(&quot;/api/v1/files/9&quot;)");
+  expect(html).not.toContain("✨");
 });

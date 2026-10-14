@@ -4,6 +4,8 @@ import { reactionTypesList } from "@sermo/core/contracts";
 import { cache } from "react";
 import type * as z from "zod";
 import type { ReactionType } from "@/components/forum/reaction-button";
+import { liteBlocks } from "@/lib/lite-mode";
+import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
 import { read } from "./client";
 
 type ApiReactionType = z.output<
@@ -15,18 +17,29 @@ type ApiSummary = {
   mine: number | null;
 };
 
+// The one place a reaction picture meets LITE: when the visitor blocks the category the address
+// is dropped here, so no later step can send it to the browser and the emoji is drawn instead.
+export async function withoutBlockedPictures(
+  types: ApiReactionType[],
+): Promise<ApiReactionType[]> {
+  if (!(await liteBlocks(liteCategoryOfPurpose("reaction_image"))))
+    return types;
+  return types.map((type) => ({ ...type, image: null, frames: null }));
+}
+
 // Every type, inactive ones included: old reactions keep showing with their emoji.
 export const getReactionTypes = cache(
   async (): Promise<ApiReactionType[]> =>
-    (await read(reactionTypesList, {})).items,
+    withoutBlockedPictures((await read(reactionTypesList, {})).items),
 );
 
-function asType(type: ApiReactionType): ReactionType {
+export function asType(type: ApiReactionType): ReactionType {
   return {
     id: type.id,
     key: String(type.id),
     label: type.title,
     emoji: type.emoji,
+    picture: type.image ? { url: type.image.url, frames: type.frames } : null,
   };
 }
 

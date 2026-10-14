@@ -163,10 +163,47 @@ export const PERMISSION_ICONS: { icon: PermissionIconKey; label: string }[] = [
 ];
 
 export const REACTION_TYPES: ReactionType[] = [
-  { id: 1, key: "1", label: "Like", emoji: "👍" },
-  { id: 2, key: "2", label: "Love", emoji: "❤️" },
-  { id: 3, key: "3", label: "Laugh", emoji: "😂" },
-  { id: 4, key: "4", label: "Wow", emoji: "😮" },
+  { id: 1, key: "1", label: "Like", emoji: "👍", picture: null },
+  { id: 2, key: "2", label: "Love", emoji: "❤️", picture: null },
+  { id: 3, key: "3", label: "Laugh", emoji: "😂", picture: null },
+  { id: 4, key: "4", label: "Wow", emoji: "😮", picture: null },
+];
+
+// Reaction pictures as the backend would hand them: a plain image and a sprite sheet of four
+// 32 x 32 frames (a dot that grows). The page checks LITE before using them, as the real pages do.
+const REACTION_STILL = picture(
+  64,
+  64,
+  `<circle cx="32" cy="32" r="26" fill="#d97706"/><path d="M32 14l5 12 13 1-10 9 3 13-11-7-11 7 3-13-10-9 13-1z" fill="#ffffff" fill-opacity="0.9"/>`,
+);
+const REACTION_SPRITE = picture(
+  128,
+  32,
+  [8, 11, 14, 11]
+    .map(
+      (radius, frame) =>
+        `<circle cx="${frame * 32 + 16}" cy="16" r="${radius}" fill="#0d9488"/>`,
+    )
+    .join(""),
+);
+export const REACTION_PICTURE_TYPES: ReactionType[] = [
+  {
+    id: 5,
+    key: "5",
+    label: "Star",
+    emoji: "⭐",
+    picture: { url: REACTION_STILL, frames: null },
+  },
+  {
+    id: 6,
+    key: "6",
+    label: "Pulse",
+    emoji: "💚",
+    picture: {
+      url: REACTION_SPRITE,
+      frames: { width: 32, height: 32, count: 4, columns: 4 },
+    },
+  },
 ];
 
 export const REACTIONS: ReactionsSummary = {

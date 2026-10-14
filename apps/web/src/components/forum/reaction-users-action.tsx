@@ -1,11 +1,12 @@
 "use server";
 
 import { reactionsList } from "@sermo/core/contracts";
+import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserLink } from "@/components/forum/user-link";
 import { call } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
-import { getReactionTypes } from "@/lib/sermo/reactions";
+import { asType, getReactionTypes } from "@/lib/sermo/reactions";
 
 // Renders the rows on the server so the avatars keep reading the LITE cookie. Only called once
 // the list is first opened.
@@ -37,8 +38,12 @@ export async function loadReactionUsers(
               className="min-w-0 flex-1 truncate"
             />
             {type && (
-              <span role="img" aria-label={type.title} title={type.title}>
-                {type.emoji}
+              <span title={type.title}>
+                <ReactionPicture
+                  emoji={type.emoji}
+                  picture={asType(type).picture}
+                  label={type.title}
+                />
               </span>
             )}
           </li>

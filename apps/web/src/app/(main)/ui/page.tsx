@@ -56,6 +56,7 @@ import { PendingButton } from "@/components/forum/pending-button";
 import { PermissionIcon } from "@/components/forum/permission-icon";
 import { Podium } from "@/components/forum/podium";
 import { PrefixTag } from "@/components/forum/prefix-tag";
+import { ReactionPicture } from "@/components/forum/reaction-picture";
 import { ReactionSummary } from "@/components/forum/reaction-summary";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
@@ -114,7 +115,7 @@ import {
   formatRelativeTime,
 } from "@/lib/format";
 import { getLiteState } from "@/lib/lite-mode";
-import { serializeLiteCookie } from "@/lib/lite-preferences";
+import { blocks, serializeLiteCookie } from "@/lib/lite-preferences";
 import { NOINDEX } from "@/lib/sermo/seo";
 import { cn } from "@/lib/utils";
 import {
@@ -143,6 +144,7 @@ import {
   PERMISSION_ICONS,
   PLAIN_CARD,
   PREFIXES,
+  REACTION_PICTURE_TYPES,
   REACTION_TYPES,
   REACTIONS,
   SAMPLE_COUNTS,
@@ -279,6 +281,10 @@ export default async function StyleguidePage() {
     getLiteState(),
     getTranslations("lite.page.demo"),
   ]);
+  // Sample pictures meet LITE here, as the pages do through the reactions seam.
+  const pictureTypes = blocks(lite, "reactions")
+    ? REACTION_PICTURE_TYPES.map((type) => ({ ...type, picture: null }))
+    : REACTION_PICTURE_TYPES;
   return (
     <>
       <PageHero
@@ -818,11 +824,39 @@ export default async function StyleguidePage() {
             />
             <ReactionDemo types={REACTION_TYPES} others={0} summary={null} />
           </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xl">
+            {[REACTION_TYPES[0], ...pictureTypes].map((type) => (
+              <span
+                key={type.id}
+                className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+              >
+                <ReactionPicture
+                  emoji={type.emoji}
+                  picture={type.picture}
+                  label={type.label}
+                  className="text-xl"
+                />
+                {type.label}
+              </span>
+            ))}
+          </div>
+          <div className="-ml-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <ReactionDemo
+              types={[...REACTION_TYPES.slice(0, 2), ...pictureTypes]}
+              others={0}
+              summary={null}
+              initial={pictureTypes[1].id}
+            />
+          </div>
           <p className="max-w-prose text-sm text-muted-foreground">
             Tap to like, tap again to remove. Hover, long-press or use the
             keyboard button after it to choose another reaction. The number is
             shown once; the emojis beside it open who reacted. On your own item
-            there is nothing to press and the summary shows the number.
+            there is nothing to press and the summary shows the number. A
+            reaction can carry a picture instead of its emoji: a plain image is
+            drawn whole, a sprite sheet steps through its frames (still with
+            reduced motion), and where LITE blocks the category the emoji is
+            drawn.
           </p>
         </Section>
 

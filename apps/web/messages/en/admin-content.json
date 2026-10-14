@@ -2,6 +2,7 @@
   "errors": {
     "id": "That is not a valid record.",
     "number": "Enter a whole number.",
+    "file": "That picture was not recognized; choose it again.",
     "choice": "Choose one of the offered values."
   },
   "reactions": {
@@ -30,6 +31,12 @@
       "emoji": "Emoji",
       "title": "Label",
       "score": "Score",
+      "picture": "Picture",
+      "pictureHelp": "Shown instead of the emoji. The emoji stays for places that cannot show a picture.",
+      "frameWidth": "Frame width",
+      "frameHeight": "Frame height",
+      "frameCount": "Frames",
+      "framesHelp": "For a sprite sheet: the size of one frame and how many frames to use, read left to right, then top to bottom. Leave the sizes empty to show the whole picture.",
       "save": "Save",
       "saving": "Saving…"
     },
@@ -43,7 +50,14 @@
       "description": "A reaction type cannot be deleted, only stopped from being offered.",
       "submit": "Add reaction",
       "emoji": "Emoji",
-      "emojiHelp": "The character shown on the button.",
+      "emojiHelp": "The character shown on the button, and wherever a picture cannot be shown.",
+      "picture": "Picture",
+      "pictureHelp": "Optional. A PNG or WebP image shown instead of the emoji. It is not animated; for an animation, upload a sprite sheet and give the frame size below.",
+      "frameWidth": "Frame width",
+      "framesHelp": "Sprite sheets only: the width and height of one frame, in pixels. Leave empty to show the whole picture.",
+      "frameHeight": "Frame height",
+      "frameCount": "Frames",
+      "frameCountHelp": "How many frames to use, read left to right, then top to bottom.",
       "title": "Label",
       "score": "Score",
       "scoreHelp": "Leave empty to use the forum's default score.",

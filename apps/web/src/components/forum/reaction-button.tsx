@@ -13,6 +13,10 @@ import {
 } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
 import {
+  ReactionPicture,
+  type ReactionPictureData,
+} from "@/components/forum/reaction-picture";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -26,6 +30,8 @@ export type ReactionType = {
   key: string;
   label: string;
   emoji: string;
+  // Null when the type has no picture or LITE blocks it: the emoji is drawn.
+  picture: ReactionPictureData | null;
 };
 
 const HOVER_OPEN_MS = 350;
@@ -92,9 +98,11 @@ export function ReactionButton({
   const content = (
     <>
       {active ? (
-        <span aria-hidden="true" className="text-base leading-none">
-          {active.emoji}
-        </span>
+        <ReactionPicture
+          emoji={active.emoji}
+          picture={active.picture}
+          className="text-base leading-none"
+        />
       ) : (
         <Heart />
       )}
@@ -240,7 +248,7 @@ export function ReactionButton({
             onClick={() => choose(type.id === current ? null : type.id)}
             className="flex size-10 select-none items-center justify-center rounded-full text-xl leading-none transition-transform hover:scale-125 focus-visible:scale-125 aria-pressed:bg-muted"
           >
-            {type.emoji}
+            <ReactionPicture emoji={type.emoji} picture={type.picture} />
           </button>
         ))}
       </PopoverContent>
