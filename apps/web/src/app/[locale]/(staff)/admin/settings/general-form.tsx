@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
+import { languageName } from "@/lib/language-name";
 import { saveGeneral } from "./actions";
 import { getSettings } from "./data";
 import { SwitchRow, TextRow } from "./fields";
@@ -14,7 +15,6 @@ export async function GeneralForm() {
     getTranslations("adminSetup.fields"),
     getSettings(),
   ]);
-  const languages = await getTranslations("adminSetup.languages");
   // The networks are the ones the backend returned; one without a phrase is labelled by its key.
   const networks = Object.keys(
     settings.socialLinks,
@@ -47,7 +47,7 @@ export async function GeneralForm() {
         >
           {SUPPORTED_LANGUAGES.map((code) => (
             <option key={code} value={code}>
-              {languages(code)}
+              {languageName(code)}
             </option>
           ))}
         </select>

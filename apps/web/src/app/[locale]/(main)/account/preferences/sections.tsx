@@ -6,7 +6,7 @@ import {
   watchesListThreads,
 } from "@sermo/core/contracts";
 import Link from "next/link";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { ActionForm } from "@/app/[locale]/(main)/account/action-form";
 import {
@@ -24,6 +24,7 @@ import { PageLinks } from "@/app/[locale]/(main)/account/paging";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Help, Row, Section, selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
+import { languageName } from "@/lib/language-name";
 import { read } from "@/lib/sermo/client";
 
 const PATH = "/account/preferences";
@@ -38,14 +39,12 @@ export async function PreferencesSection({
 }: {
   searchParams: SearchParams;
 }) {
-  const [t, locale, preferences, notice] = await Promise.all([
+  const [t, preferences, notice] = await Promise.all([
     getTranslations("account.preferences"),
-    getLocale(),
     read(preferencesGet, {}),
     noticeOf(searchParams, ["preferences"]),
   ]);
   const watchModes = MemberPreferences.shape.watchOnCreate.options;
-  const languages = new Intl.DisplayNames([locale], { type: "language" });
   return (
     <Section
       id="preferences"
@@ -81,7 +80,7 @@ export async function PreferencesSection({
             <option value="">{t("languageDefault")}</option>
             {SUPPORTED_LANGUAGES.map((code) => (
               <option key={code} value={code}>
-                {languages.of(code) ?? code}
+                {languageName(code)}
               </option>
             ))}
           </select>
