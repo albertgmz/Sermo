@@ -30,3 +30,12 @@ export const MemberCardReload = Reload;
 export function useMemberCardReload() {
   return useContext(Reload);
 }
+
+// Set by whatever holds a loaded card: closes it. A link out of the card uses it.
+const Close = createContext<() => void>(() => {});
+
+export const MemberCardClose = Close;
+
+export function useMemberCardClose() {
+  return useContext(Close);
+}

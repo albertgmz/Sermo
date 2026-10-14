@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState } from "react";
-import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  isPressOnAnchor,
+  opensCard,
+  opensCardKey,
+  returnsFocusToLink,
+} from "@/components/forum/member-card-intent";
 import {
   MemberCardSurface,
   useMemberCard,
@@ -74,13 +79,14 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         const mention = clickedMention(event, event.currentTarget);
         if (!mention) return;
         event.preventDefault();
-        setTarget(mention);
+        // The link of the open card closes it.
+        setTarget(target?.link === mention.link ? null : mention);
       }}
       onKeyDown={(event) => {
         const mention = keyedMention(event, event.currentTarget);
         if (!mention) return;
         event.preventDefault();
-        setTarget(mention);
+        setTarget(target?.link === mention.link ? null : mention);
       }}
     >
       {children}
@@ -103,18 +109,40 @@ function MentionPopup({
   onDismiss: () => void;
 }) {
   const { card, load } = useMemberCard(mention.id, mention.name);
+  const popup = useRef<HTMLDivElement>(null);
+  const reason = useRef<string | undefined>(undefined);
   useEffect(load, [load]);
+  // The link says it opens a dialog, and that it is open, while the card is.
+  useEffect(() => {
+    const { link } = mention;
+    link.setAttribute("aria-haspopup", "dialog");
+    link.setAttribute("aria-expanded", "true");
+    return () => {
+      link.removeAttribute("aria-haspopup");
+      link.removeAttribute("aria-expanded");
+    };
+  }, [mention]);
   return (
     <MemberCardSurface
       open
-      onOpenChange={(next) => {
-        if (!next) onDismiss();
+      onOpenChange={(next, details) => {
+        reason.current = details.reason;
+        if (!next && !isPressOnAnchor(details, mention.link)) onDismiss();
       }}
+      popupRef={popup}
       name={mention.name}
       card={card}
       reload={load}
       anchor={mention.link}
-      finalFocus={() => mention.link as HTMLElement}
+      finalFocus={() =>
+        returnsFocusToLink({
+          reason: reason.current,
+          focusInside: popup.current?.contains(document.activeElement) ?? false,
+          connected: mention.link.isConnected,
+        })
+          ? (mention.link as HTMLElement)
+          : false
+      }
     />
   );
 }

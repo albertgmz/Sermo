@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
+import { opensCard } from "@/components/forum/member-card-intent";
 import {
   MemberCardSurface,
   useMemberCard,
@@ -17,12 +17,6 @@ import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
 import { PopoverTrigger } from "@/components/ui/popover";
 import { getCommittedLiteValue, subscribeLiteValue } from "@/lib/lite-sync";
 import { cn } from "@/lib/utils";
-
-// The trigger is a link, not a toggle button: it announces no popup state.
-const NOT_A_POPUP_BUTTON = {
-  "aria-haspopup": undefined,
-  "aria-expanded": undefined,
-};
 
 type Props = {
   id: number;
@@ -118,16 +112,14 @@ function MemberCardWithPreference({
           role="link"
           render={<Link href={href} />}
           aria-label={rest["aria-label"]}
-          {...NOT_A_POPUP_BUTTON}
+          aria-haspopup="dialog"
+          aria-expanded={open}
           className={classes(avatar, className)}
           style={style}
-          onKeyDown={(event) => {
-            if (!opensCardKey(event.key)) return;
-            event.preventDefault();
-            toggle();
-          }}
           onClick={(event) => {
-            // The card's own handler is replaced by this one; a modified click is the link's.
+            // Enter is a click on the link and Space becomes one on key up (Base UI), so this is
+            // the one way in. The popover's own handler is replaced by this one; a modified click
+            // is the link's.
             event.preventBaseUIHandler();
             if (!opensCard(event)) return;
             event.preventDefault();
