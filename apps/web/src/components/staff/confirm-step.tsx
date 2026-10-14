@@ -69,7 +69,7 @@ export function ConfirmStep({
   const block = (
     <details
       open={Boolean(state?.error || state?.fields || state?.notice)}
-      className="min-w-0"
+      className="min-w-0 open:basis-full"
     >
       <summary
         className={cn(

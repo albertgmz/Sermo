@@ -95,6 +95,7 @@ import {
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { unescapeBbCode } from "@/components/forum/bb-text";
 import { onComposerRequest } from "@/components/forum/composer-insert";
 import {
   $applyLink,
@@ -109,7 +110,6 @@ import {
 } from "@/components/forum/editor-extras";
 import { FormError } from "@/components/forum/form-error";
 import { mediaTagOf } from "@/components/forum/media-url";
-import { unescapeBbCode } from "@/components/forum/bb-text";
 import { unescapeMentions } from "@/components/forum/mention-text";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";

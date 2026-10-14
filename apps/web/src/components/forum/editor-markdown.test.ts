@@ -69,7 +69,7 @@ const BB = [
   "[URL=https://a.com/x_y]a link[/URL]",
   "[URL]https://a.com/x_y*z[/URL]",
   "[IMG]https://a.com/a_b*c.png[/IMG]",
-  "[QUOTE=\"a_b\"]text[/QUOTE]",
+  '[QUOTE="a_b"]text[/QUOTE]',
   "[USER=3]some_user[/USER] and [FONT=Courier New]mono[/FONT]",
   "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
   "```\nlet a_b = [1] * 2;\n```",

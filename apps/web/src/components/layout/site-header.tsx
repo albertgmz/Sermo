@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { LogIn, Search } from "lucide-react";
 import { io } from "next/cache";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -149,10 +149,11 @@ async function AccountTools() {
             href="/login"
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "h-10 px-3 md:h-8",
+              "h-10 w-10 px-0 sm:w-auto sm:px-3 md:h-8",
             )}
           >
-            {t("login")}
+            <LogIn aria-hidden="true" className="sm:hidden" />
+            <span className="sr-only sm:not-sr-only">{t("login")}</span>
           </Link>
           <Link
             href="/register"

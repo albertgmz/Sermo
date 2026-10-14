@@ -22,7 +22,7 @@ export default async function ConversationsPage() {
   return (
     <PageLayout className="pt-2">
       <PageBreadcrumb items={[{ label: t("home"), href: "/" }]} />
-      <div className="mt-1 flex items-center justify-between gap-3">
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("heading")}
         </h1>
