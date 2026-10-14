@@ -87,6 +87,33 @@
       "more": "Más enlaces"
     }
   },
+  "navigation": {
+    "headerHome": "Inicio",
+    "headerForums": "Foros",
+    "headerMembers": "Miembros",
+    "headerAwards": "Trofeos",
+    "headerCredits": "Créditos",
+    "mobileHome": "Inicio",
+    "mobileForums": "Foros",
+    "mobileMessages": "Mensajes",
+    "mobileAlerts": "Notificaciones",
+    "mobileProfile": "Perfil",
+    "mobileLogin": "Iniciar sesión",
+    "accountProfile": "Perfil",
+    "accountSettings": "Cuenta",
+    "accountUpgrade": "Mejorar cuenta",
+    "footerCommunity": "Comunidad",
+    "footerUseful": "Útil",
+    "footerLegal": "Legal",
+    "footerCommunityForums": "Foros",
+    "footerCommunityMembers": "Miembros",
+    "footerCommunityAwards": "Trofeos",
+    "footerUsefulCredits": "Créditos",
+    "footerLegalTerms": "Términos",
+    "footerLegalPrivacy": "Privacidad",
+    "footerLegalNotice": "Aviso legal",
+    "footerLegalContact": "Contacto"
+  },
   "logo": {
     "aria": {
       "home": "Inicio de {site}"

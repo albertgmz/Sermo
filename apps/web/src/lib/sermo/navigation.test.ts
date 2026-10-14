@@ -1,5 +1,8 @@
-import { afterEach, mock, spyOn, test } from "bun:test";
+import { afterAll, afterEach, mock, spyOn, test } from "bun:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import english from "../../../messages/en/layout.json";
+import spanish from "../../../messages/es/layout.json";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -12,6 +15,18 @@ const incoming = new Headers({
   "x-forwarded-for": "203.0.113.9, 198.51.100.4",
 });
 mock.module("server-only", () => ({}));
+const intl = await import("next-intl/server");
+let language: "en" | "es" = "en";
+mock.module("next-intl/server", () => ({
+  getLocale: async () => language,
+  getTranslations: async () => (key: string) =>
+    (language === "es" ? spanish : english).navigation[
+      key as keyof typeof english.navigation
+    ],
+}));
+afterAll(() => {
+  mock.module("next-intl/server", () => intl);
+});
 mock.module("next/headers", () => ({
   headers: async () => incoming,
   cookies: async () => ({ set: () => {} }),
@@ -149,4 +164,82 @@ test("an answer that breaks the contract also gives the empty lists", async () =
   } finally {
     logged.mockRestore();
   }
+});
+
+const entry = (id: number, title: string, builtin: string | null) => ({
+  id,
+  title,
+  target: "/x",
+  builtin,
+  ...plain,
+  children: [],
+});
+
+test("a built-in entry that still has its seeded title is drawn in the visitor's language, a renamed one is not", async () => {
+  language = "es";
+  try {
+    globalThis.fetch = (async (url: string) =>
+      Response.json(
+        url.endsWith("/api/v1/me")
+          ? me
+          : {
+              header: [
+                entry(1, "Home", "header.home"),
+                entry(2, "Start", "header.forums"),
+                entry(3, "Forums", null),
+              ],
+              mobile: [entry(4, "Log in", "mobile.login")],
+              account: [entry(5, "Upgrade", "account.upgrade")],
+              footer: [
+                {
+                  ...entry(6, "Legal", "footer.legal"),
+                  children: [entry(7, "Legal notice", "footer.legal.notice")],
+                },
+              ],
+            },
+      )) as unknown as typeof fetch;
+    const { header, mobile, account, footer } = await getNavigation();
+    assert.deepEqual(
+      header.map((item) => item.title),
+      ["Inicio", "Start", "Forums"],
+    );
+    assert.equal(mobile[0]?.title, "Iniciar sesión");
+    assert.equal(account[0]?.title, "Mejorar cuenta");
+    assert.equal(footer[0]?.title, "Legal");
+    assert.equal(footer[0]?.children[0]?.title, "Aviso legal");
+  } finally {
+    language = "en";
+  }
+});
+
+test("the English titles are the ones the migrations seed", () => {
+  const dir = new URL("../../../../../packages/core/drizzle/", import.meta.url);
+  const sql = readFileSync(new URL("0021_site_chrome.sql", dir), "utf8");
+  const seeded = new Map<string, string>();
+  const rows = [
+    /\('(?:header|mobile|account|footer)', NULL, '([^']+)', (?:'[^']*'|NULL), \d+, 1, '\w+', '([a-z.]+)'/g,
+    /\('footer\.[a-z]+', '([^']+)', '[^']+', \d+, '([a-z.]+)'\)/g,
+  ];
+  for (const row of rows)
+    for (const [, title, builtin] of sql.matchAll(row))
+      seeded.set(builtin as string, title as string);
+  // Migration 0030 turns the header's Upgrade entry into the account menu's and drops the footer's.
+  seeded.set("account.upgrade", seeded.get("header.upgrade") as string);
+  seeded.delete("header.upgrade");
+  seeded.delete("footer.useful.upgrade");
+  const camel = (key: string) =>
+    key
+      .split(".")
+      .map((part, index) =>
+        index === 0 ? part : (part[0] as string).toUpperCase() + part.slice(1),
+      )
+      .join("");
+  assert.deepEqual(
+    Object.fromEntries([...seeded].map(([key, title]) => [camel(key), title])),
+    english.navigation,
+  );
+  assert.deepEqual(
+    Object.keys(spanish.navigation),
+    Object.keys(english.navigation),
+  );
 });

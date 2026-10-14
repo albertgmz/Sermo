@@ -87,6 +87,33 @@
       "more": "More links"
     }
   },
+  "navigation": {
+    "headerHome": "Home",
+    "headerForums": "Forums",
+    "headerMembers": "Members",
+    "headerAwards": "Awards",
+    "headerCredits": "Credits",
+    "mobileHome": "Home",
+    "mobileForums": "Forums",
+    "mobileMessages": "Messages",
+    "mobileAlerts": "Alerts",
+    "mobileProfile": "Profile",
+    "mobileLogin": "Log in",
+    "accountProfile": "Profile",
+    "accountSettings": "Account",
+    "accountUpgrade": "Upgrade",
+    "footerCommunity": "Community",
+    "footerUseful": "Useful",
+    "footerLegal": "Legal",
+    "footerCommunityForums": "Forums",
+    "footerCommunityMembers": "Members",
+    "footerCommunityAwards": "Awards",
+    "footerUsefulCredits": "Credits",
+    "footerLegalTerms": "Terms",
+    "footerLegalPrivacy": "Privacy",
+    "footerLegalNotice": "Legal notice",
+    "footerLegalContact": "Contact"
+  },
   "logo": {
     "aria": {
       "home": "{site} home"
