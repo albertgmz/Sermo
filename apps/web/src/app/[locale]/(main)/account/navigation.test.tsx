@@ -12,6 +12,7 @@ test("the links group lists the other account screens from the navigation, not t
   const html = await markup(<AccountLinks />);
   const hrefs = [...html.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
   expect(hrefs).toEqual([
+    "/account/bookmarks",
     "/account/privacy",
     "/account/notifications",
     "/account/preferences",
