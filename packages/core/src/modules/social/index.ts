@@ -331,6 +331,44 @@ export const usersUnfollowOp = implement(
   },
   { public: "A signed-in member can remove only their own follow row." },
 );
+/**
+ * One statement for a page of members: which exist, whether the viewer follows each and whether
+ * each has ignored the viewer (`user_follows_pair` and `user_ignores_pair`, one probe per member).
+ */
+export const relationsSql =
+  "SELECT u.id, " +
+  "EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = ?1 AND f.followed_id = u.id) AS following, " +
+  "EXISTS(SELECT 1 FROM user_ignores i WHERE i.user_id = u.id AND i.ignored_id = ?1) AS ignores_viewer " +
+  "FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))";
+
+export const usersRelationsOp = implement(
+  contracts.usersRelations,
+  (ctx, actor, input) => {
+    const viewerId = actorUserId(actor);
+    const mayFollow = can(ctx, actor, "member.follow");
+    const mayStart = can(ctx, actor, "conversation.start");
+    // The rule conversations.create applies: only a viewer who can be ignored is refused.
+    const ignorable = can(ctx, actor, "member.ignorable");
+    const rows = query<{ id: number; following: number; ignores_viewer: number }, [number, string]>(
+      ctx,
+      "relations",
+      relationsSql,
+    ).all(viewerId ?? 0, JSON.stringify([...new Set(input.userIds)]));
+    return {
+      items: rows.map((row) => {
+        const other = viewerId !== null && row.id !== viewerId;
+        return {
+          userId: row.id,
+          following: other && row.following === 1,
+          canFollow: other && mayFollow,
+          canMessage: other && mayStart && !(ignorable && row.ignores_viewer === 1),
+        };
+      }),
+    };
+  },
+  { public: "Every flag comes from the permissions API; a guest gets false for all of them." },
+);
+
 function followList(
   ctx: Ctx,
   actor: Parameters<typeof requireAuthenticated>[0],
@@ -545,6 +583,7 @@ export const operations = [
   watchesListNodesOp,
   usersFollowOp,
   usersUnfollowOp,
+  usersRelationsOp,
   usersListFollowersOp,
   usersListFollowingOp,
   usersIgnoreOp,

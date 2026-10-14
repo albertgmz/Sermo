@@ -21,7 +21,7 @@ function setup() {
   return { ctx, get, app, env };
 }
 
-for (const route of ["member-cards", "member-authors"] as const)
+for (const route of ["member-cards", "member-authors", "member-relations"] as const)
   test(`/${route} takes repeated userIds as an array of numbers, also for one value`, async () => {
     const { ctx, get } = setup();
     const users = Array.from({ length: 3 }, () => insertUser(ctx));
@@ -86,4 +86,16 @@ test("the account routes need a signed-in member", async () => {
     env,
   );
   expect(put.status).toBe(401);
+});
+
+test("/member-relations takes up to 50 ids, answers a guest with false flags and refuses 51", async () => {
+  const { ctx, get } = setup();
+  const ids = Array.from({ length: 51 }, () => insertUser(ctx).id);
+  const query = (list: number[]) => list.map((id) => `userIds=${id}`).join("&");
+  const fifty = await get(`/api/v1/member-relations?${query(ids.slice(0, 50))}`);
+  expect(fifty.status).toBe(200);
+  const body = (await fifty.json()) as { items: Record<string, unknown>[] };
+  expect(body.items).toHaveLength(50);
+  expect(body.items[0]).toMatchObject({ following: false, canFollow: false, canMessage: false });
+  expect((await get(`/api/v1/member-relations?${query(ids)}`)).status).toBe(400);
 });

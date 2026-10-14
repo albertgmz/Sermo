@@ -194,6 +194,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/profile/referrer", "users.setReferrer"],
   ["GET", "/member-cards", "users.cards"],
   ["GET", "/member-authors", "users.authors"],
+  ["GET", "/member-relations", "users.relations"],
   ["GET", "/members", "users.list"],
   ["GET", "/members/staff", "users.staff"],
   ["GET", "/members/birthdays", "users.birthdays"],

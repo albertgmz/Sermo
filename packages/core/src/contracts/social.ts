@@ -113,6 +113,34 @@ export const usersUnfollow = defineContract({
   output: Ok,
 });
 
+export const MemberRelation = z
+  .object({
+    userId: Id,
+    /** The viewer follows this member. */
+    following: z.boolean(),
+    /** The viewer may follow or unfollow this member (member.follow, and not themselves). */
+    canFollow: z.boolean(),
+    /** The viewer may start a conversation with this member. */
+    canMessage: z.boolean(),
+  })
+  .meta({ id: "MemberRelation" });
+
+export const usersRelations = defineContract({
+  name: "users.relations",
+  summary:
+    "What the viewer can do about up to 50 members, in one call and in no particular order: " +
+    "whether they follow each one, may follow or unfollow them (member.follow, not themselves) " +
+    "and may start a conversation with them (conversation.start, not themselves, and the " +
+    "member has not ignored the viewer in the sense conversations.create refuses: that rule " +
+    "applies only to a viewer holding member.ignorable). Unknown ids are left out. Open to " +
+    "everyone; a guest gets false for all three. The viewer's own follow list is theirs to " +
+    "read, and the ignore state shows only as `canMessage` false, which starting a " +
+    "conversation already reveals. It does not depend on profile privacy.",
+  kind: "read",
+  input: z.object({ userIds: z.array(Id).min(1).max(50) }),
+  output: z.object({ items: z.array(MemberRelation) }),
+});
+
 export const usersListFollowers = defineContract({
   name: "users.listFollowers",
   summary: "Members following a member, newest first. Requires profile.view.",
