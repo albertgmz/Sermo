@@ -37,8 +37,8 @@
     "levelLabel": "Mayor nivel",
     "reactionsLabel": "Más reacciones",
     "aria": { "sort": "Ordenar miembros" },
-    "members": "{count, plural, one {Un miembro coincide} other {# miembros coinciden}} con “{query}”. <link>Mostrar a todos</link>",
-    "emptyTitle": "Ningún miembro coincide con “{query}”",
+    "members": "{count, plural, one {Un miembro coincide} other {# miembros coinciden}} con «{query}». <link>Mostrar a todos</link>",
+    "emptyTitle": "Ningún miembro coincide con «{query}»",
     "emptyDescription": "La búsqueda encuentra nombres de usuario que empiezan por lo que escribes.",
     "showEveryone": "Mostrar a todos",
     "resultsHeading": "Miembros encontrados"
@@ -47,8 +47,8 @@
     "standingLink": "Clasificación completa",
     "emptyTitle": "Aún no hay miembro del mes",
     "emptyDescription": "Nadie obtuvo puntos en el último mes completo.",
-    "raceHeading": "La carrera de este mes",
-    "raceEmptyTitle": "La carrera no ha empezado",
+    "raceHeading": "La clasificación del mes",
+    "raceEmptyTitle": "La clasificación no ha empezado",
     "raceEmptyDescription": "El primer mensaje, reacción o referido del mes toma la delantera.",
     "winnersHeading": "Ganadores anteriores",
     "viewMore": "Ver más",
@@ -106,7 +106,7 @@
     "aboutHeading": "Acerca de",
     "bioEmpty": "<user>{username}</user> aún no ha escrito su biografía.",
     "signatureHeading": "Firma",
-    "joinedLabel": "Se unió",
+    "joinedLabel": "Se unió el",
     "loadingDetails": "Cargando detalles del perfil…",
     "loadingHeader": "Cargando encabezado del perfil…",
     "loadingSections": "Cargando secciones del perfil…",
@@ -137,7 +137,7 @@
     "lastSeen": "Última vez <time></time>",
     "birthday": "Cumpleaños: {date}",
     "editProfile": "Editar perfil",
-    "message": "Mensaje"
+    "message": "Mensaje privado"
   },
   "wall": {
     "aria": {

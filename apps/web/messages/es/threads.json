@@ -82,7 +82,7 @@
     "mergeLabel": "El número o la dirección del tema con el que fusionar este",
     "mergePlaceholder": "Número o dirección del tema",
     "mergeReview": "Revisar la fusión",
-    "mergeQuestion": "¿Fusionar este tema con “{title}” en {forum}?",
+    "mergeQuestion": "¿Fusionar este tema con «{title}» en {forum}?",
     "mergeWarning": "Sus mensajes pasan a ese tema y esta dirección lo abrirá a partir de ahora. No se puede deshacer.",
     "mergeConfirm": "Fusionar los temas",
     "mergeBack": "Elegir otro tema",

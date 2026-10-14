@@ -67,7 +67,7 @@
     "createForum": "Crear foro",
     "title": "Título",
     "description": "Descripción",
-    "parent": "Superior",
+    "parent": "Foro superior",
     "parentHelp": "Dónde se sitúa en el árbol.",
     "noParent": "Ninguno (nivel superior)",
     "position": "Orden de aparición",
@@ -105,7 +105,7 @@
     "groupIdentity": "Identidad",
     "title": "Título",
     "descriptionLabel": "Descripción",
-    "parent": "Superior",
+    "parent": "Foro superior",
     "parentHelp": "Mover un elemento mueve todo lo que hay bajo él. Un elemento no puede ir bajo sí mismo.",
     "noParent": "Ninguno (nivel superior)",
     "position": "Orden de aparición",
@@ -135,7 +135,7 @@
     "icon": "Icono",
     "iconHelp": "Reemplaza el icono de la lista de foros. Se guarda al guardar este bloque.",
     "cover": "Portada",
-    "coverHelp": "Una imagen ancha que se muestra tras el elemento. Se guarda al guardar este bloque."
+    "coverHelp": "Una imagen ancha que se muestra detrás del elemento. Se guarda al guardar este bloque."
   },
   "moderators": {
     "heading": "Moderadores",

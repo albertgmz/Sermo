@@ -20,7 +20,7 @@
     "allRevoked": "Se cerraron todas las sesiones del miembro."
   },
   "states": {
-    "valid": "Válido",
+    "valid": "Activa",
     "unconfirmed": "Sin confirmar",
     "banned": "Expulsado",
     "erased": "Borrado"
@@ -109,7 +109,7 @@
     "picturesHeading": "Imágenes",
     "picture": { "avatar": "Avatar", "cover": "Portada del perfil" },
     "pictureUnknown": "No se te muestra.",
-    "pictureSet": "Subida.",
+    "pictureSet": "Subido.",
     "pictureNone": "Ninguna.",
     "remove": "Quitar",
     "removeReason": "Motivo (opcional)",

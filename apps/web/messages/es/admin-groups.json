@@ -30,9 +30,9 @@
     "rank": "Rango",
     "rankHelp": "Decide qué grupo muestra un miembro y quién puede actuar sobre quién. No es un permiso. Déjalo vacío en un grupo nuevo para usar el valor predeterminado.",
     "userTitle": "Título bajo el nombre",
-    "userTitleHelp": "Se muestra bajo los miembros que muestran este grupo. Vacío para ninguno.",
+    "userTitleHelp": "Se muestra bajo los miembros que llevan este grupo. Vacío para ninguno.",
     "badge": "Estilo de insignia",
-    "badgeHelp": "La clave de estilo de la insignia que muestran los miembros que muestran este grupo: letras minúsculas, dígitos y guiones. Vacío para ninguna.",
+    "badgeHelp": "La clave de estilo de la insignia que muestran los miembros que llevan este grupo: letras minúsculas, dígitos y guiones. Vacío para ninguna.",
     "nameColour": "Color del nombre",
     "nameColourHelp": "Los miembros muestran su nombre con él, salvo que hayan elegido un color propio.",
     "isStaff": "Grupo del equipo",
@@ -186,7 +186,7 @@
   "memberPicker": {
     "label": "El nombre de usuario empieza por",
     "search": "Buscar",
-    "none": "Ningún nombre de usuario empieza por “{query}”."
+    "none": "Ningún nombre de usuario empieza por «{query}»."
   },
   "permissionForums": {
     "metaTitle": "Permisos de foros",

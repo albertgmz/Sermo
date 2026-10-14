@@ -191,15 +191,15 @@
     "socialLinks": {
       "discord": {
         "label": "Discord",
-        "help": "Una dirección http(s). Déjala vacía para omitirlo."
+        "help": "Una dirección http(s). Déjala vacía para omitirla."
       },
       "telegram": {
         "label": "Telegram",
-        "help": "Una dirección http(s). Déjala vacía para omitirlo."
+        "help": "Una dirección http(s). Déjala vacía para omitirla."
       },
       "x": {
         "label": "X",
-        "help": "Una dirección http(s). Déjala vacía para omitirlo."
+        "help": "Una dirección http(s). Déjala vacía para omitirla."
       }
     }
   },

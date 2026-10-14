@@ -220,7 +220,7 @@
       "push": "Push"
     },
     "required": "Obligatoria",
-    "cell": "{type} por {channel}",
+    "cell": "{type}: {channel}",
     "defaultsHelp": "Hasta que elijas, cada notificación sigue el valor predeterminado del foro.",
     "pushOff": "Las notificaciones push no están configuradas en este foro.",
     "submit": "Guardar notificaciones",

@@ -78,7 +78,7 @@ export async function DefaultsForm() {
                   <span className="sr-only">
                     {words("cell", {
                       type: label(type.id, "title"),
-                      channel: words(`channels.${channel}`),
+                      channel: words(`channels.${channel}`).toLowerCase(),
                     })}
                   </span>
                 </label>

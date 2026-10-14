@@ -86,7 +86,7 @@ export async function TypesSection({
                     <span className="sr-only">
                       {t("cell", {
                         type: words(type.id, "title"),
-                        channel: t(`channels.${channel}`),
+                        channel: t(`channels.${channel}`).toLowerCase(),
                       })}
                     </span>
                   </label>

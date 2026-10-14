@@ -12,12 +12,12 @@
     "awardCount": "{count, plural, one {# trofeo} other {# trofeos}}",
     "postsLabel": "Mensajes",
     "reactionsLabel": "Reacciones",
-    "joinedLabel": "Se unió",
+    "joinedLabel": "Se unió el",
     "profile": "Ver perfil"
   },
   "memberActions": {
-    "message": "Mensaje",
-    "aria": { "message": "Iniciar una conversación privada con {username}" }
+    "message": "Mensaje privado",
+    "aria": { "message": "Enviar un mensaje privado a {username}" }
   },
   "memberCardTrigger": {
     "aria": {
@@ -87,7 +87,7 @@
     }
   },
   "level": {
-    "badge": "NIV",
+    "badge": "Nv.",
     "xp": "{xp} XP",
     "aria": {
       "progress": "Nivel {level}, {xp} XP de {next} para el siguiente nivel"

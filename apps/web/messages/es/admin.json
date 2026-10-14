@@ -170,8 +170,8 @@
     "saving": "Guardando…"
   },
   "ordering": {
-    "none": "No se guardó nada. Se rechazó “{title}”: {message}",
-    "partial": "Se guardaron {saved} de {total}. Se rechazó “{title}”: {message}"
+    "none": "No se guardó nada. Se rechazó «{title}»: {message}",
+    "partial": "Se guardaron {saved} de {total}. Se rechazó «{title}»: {message}"
   },
   "confirmPassword": {
     "label": "Tu contraseña",
