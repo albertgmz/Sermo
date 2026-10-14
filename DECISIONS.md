@@ -1985,3 +1985,116 @@ Wording (owner's choice): threads and forums are followed, not watched ("Follow 
 tema"); members, threads and forums share the verb and buttons name what they follow. Thread stays
 "tema" in Spanish. Group promotions are "promoción" in Spanish; the paid account upgrade keeps
 "Mejora".
+
+## XenForo pass: posts, BB code, bookmarks, staff tools, light theme, account screen
+
+Behaviour follows XenForo where the owner asked for it; the look stays Sermo's. Migration `0035`
+carries every schema change of the pass.
+
+**Super admin is a column, not a permission.** `users.is_super_admin` is a flag only a super admin
+grants or removes (`users.setSuperAdmin`, password required, logged as `user.superAdmin`). A super
+admin bypasses the rank hierarchy and the rank ceiling when editing members; nobody else can act on
+a super admin. A usable super admin is not erased, not banned and holds `admin.members`, and the
+last usable one cannot be removed by any path (`setGroups`, group delete, permission changes,
+erasure). The migration marks `lucien`, else the lowest-id member of the Administrator group; the
+bootstrap marks the first admin of a fresh site. The owner's "cannot edit groups or sessions" came
+from the hierarchy refusing equal rank with no exemption for oneself. Not guarded: automatic group
+removals (promotions, shop expiry) and a super admin acting on themselves.
+
+**Conversation messages are edited and deleted like posts.** New permissions
+`conversation.editOwn` and `conversation.deleteOwn`; staff use `conversation.moderate`, and only in
+conversations they take part in, since moderators never see private conversations otherwise. The
+first message cannot be deleted on its own. `conversations.getMessage` returns the source only to a
+viewer who may edit the message.
+
+**A locked conversation blocks replies only.** The starter or a holder of `conversation.moderate`
+locks it. While locked, authors cannot edit or delete their messages and moderators can; renaming
+and adding people still work.
+
+**BB code next to Markdown.** Both render at write time; existing posts are unchanged. Our own
+parser with allowlisted colours, fonts, URL schemes and embed providers; unknown tags stay text.
+Code is highlighted on the server with highlight.js, the one dependency added: it is the only
+synchronous, dependency-free highlighter with the language coverage we need, so rendering stays
+before the write transaction. It is loaded with `require` and local types, because its own types
+pull the DOM library into the backend typecheck. Highlighting stops at 2,000 characters per block.
+Labels ("Code:", "said:", "Spoiler") are not stored: the web supplies them in the reader's language
+through CSS variables. `[color=…]` has no contrast guard, as in XenForo.
+
+**Spoilers are absent from the HTML until opened.** Their content is stored apart
+(`content_spoilers`) and `spoilers.get` checks that the reader can see the item; moderators may read
+those of reported or moderated messages and of the three messages around them. Excerpts, plain
+text, SEO and the member card mask them. Texts without per-reader visibility (signatures, static
+pages, announcements, notices) keep spoilers inline as `<details>`. Search can match words inside a
+spoiler; its snippet stays masked. Spoilers are reveal-on-click, not secrets, so a source read
+(profile posts, quotes) may contain them.
+
+**Attachments placed in the text.** Each uploaded file offers "Insert thumbnail" and "Insert full
+image"; the request travels as an event on the composer's own form, so several composers on one
+page stay apart. Inline files are not repeated in the list under the body; removing a file strips
+its tags. Inside a link an inline picture is drawn without its own link. A tag whose file is not on
+the item (views that carry no attachments, such as feed cards and moderation) shows a muted
+"Attachment" label. The toolbar's code button writes a fenced block, because the Markdown export
+escapes `_` and `*` inside `[CODE]`; it is disabled in lists and quotes. Media links become
+`[MEDIA=site]` through a table in the web, tested against the backend's resolver. Not done: a tag
+inside a spoiler stays a label after the spoiler opens.
+
+**One action bar for every item.** Thread posts, conversation messages, wall posts and comments use
+`ContentActions`: who reacted above it; React, Quote, Reply on one side; Bookmark, Share, Edit,
+Delete, Report and moderator tools on the other. Follow and Message left the posts for the member
+card. Share uses the system share sheet where there is one, otherwise a "Copy link" menu, and shows
+the link to copy by hand when the clipboard is unavailable; it is the same button everywhere. Report
+shows to signed-in members on others' items because these outputs have no `canReport` yet; a group
+without `report.create` is refused on sending. Only a thread post's Delete asks for a reason.
+
+**The member card opens on click.** A plain click, tap, Enter or Space on an avatar, name or
+mention opens it (popover from 48rem, bottom sheet below); modified clicks navigate. Hover no longer
+opens it. Cards never nest (`loadMemberCard` disables triggers inside). A card that cannot load
+shows the name and the profile link.
+
+**Bookmarks.** Threads, posts and conversations, no labels or notes. Pages ask `bookmarks.status`
+in one batched read instead of an `isBookmarked` field on every output. Removing needs no
+visibility, so items one can no longer see can still be cleared; the list skips them and scans at
+most 300 rows per request. A bookmark follows thread merges in the list and when set; `status` does
+not, so a bookmark made before a merge reads as absent on the target (resolving it on merge needs an
+index on the content). The account menu entry is fixed in the web code, because a seeded menu entry
+needs a migration. The toggle's label carries its state (no `aria-pressed`).
+
+**Alerts reach their sender and open their link.** The admin alert (`announcements`) goes to
+everyone, a group (primary or secondary) or named members, with an optional link. The sender gets it
+when in the audience; the old send skipped them, which is why the owner, the only admin, never saw
+one. The alert row shows the text and opens the link (external links in a new tab).
+
+**Notices.** Site-wide banners for everyone, guests, members or one group, with optional start and
+end (UTC). Members dismiss per account, guests in the `forum_notices_dismissed` cookie. One
+permission, `admin.announcements`, covers alerts and notices. No styles, types or page criteria.
+
+**Settings.** Analytics (Matomo or Google) and the month's exclusions (staff by permission, and
+members stored by id so a rename keeps them) live in the settings JSON. The analytics tag is added
+from the cached site in the main layout; staff pages are not tracked.
+
+**The light theme is a browser choice.** System, Light or Dark, stored like the page width and
+applied by a head script before paint; the server renders dark so a page without scripts is
+consistent. XenForo stores the style per account; here the root layout must not depend on the
+request. Colours an admin or member picks are drawn as text through an OKLCH lightness clamp
+(`.ink`, `--primary-ink`) that keeps their hue and reaches 4.5:1 in both themes; fills keep the
+raw colour, and browsers without relative colours get the raw colour. Tests compute contrast from
+the tokens and forbid fixed colours in components. The error page drawn outside the layouts stays
+dark.
+
+**One account screen.** `/account` holds profile, appearance and links to the other account
+screens; `/account/appearance` redirects to `/account#appearance`. Choices save at once, text after
+a pause or on leaving the field, with a saving/saved/error state per row and an Undo after clearing.
+Removing a picture asks first instead, because the backend deletes the file. The username keeps an
+explicit confirmation (rate-limited). Avatar and cover are framed in the browser (drag, zoom, pinch,
+keys) and cropped on a canvas to 512x512 or 1600x640, never enlarged; a picture the browser cannot
+decode is sent unframed, and framing an animated GIF makes a still picture. The picture route
+answers JSON only.
+
+**A dead session cookie does not block public files.** `GET /api/v1/files/<id>` treats a session
+cookie that no longer resolves (expired, revoked, a reset database) as a guest, so avatars and
+public pictures load; every other route still answers 401, and an invalid API key, bearer token or
+`Authorization` header, or a banned member, keeps its refusal. Private files stay 404 for guests.
+
+**The editor leaves BB code as typed.** The Markdown export escapes `*`, `_` and brackets; after it,
+escaped BB tags (`[*]`, `[SIZE=5]`, `[URL=…x_y]`) and the raw content of `URL`, `IMG`, `EMAIL`,
+`USER`, `MEDIA`, `ICODE`, `PLAIN` and `ATTACH` are restored, except inside code spans and fences.
