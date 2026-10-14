@@ -72,12 +72,12 @@
     "emptyCategoryDescription": "Los foros que se añadan a esta categoría aparecerán aquí."
   },
   "watch": {
-    "watch": "Vigilar",
-    "unwatch": "Dejar de vigilar",
-    "mode": "Qué vigilar",
+    "watch": "Seguir foro",
+    "unwatch": "Dejar de seguir foro",
+    "mode": "Qué seguir",
     "optionThreads": "Temas nuevos",
     "optionPosts": "Cada mensaje nuevo",
     "email": "Avisarme por correo",
-    "status": "{mode, select, posts {Vigilando cada mensaje nuevo} other {Vigilando temas nuevos}}{email, select, true {, por correo} other {}}"
+    "status": "{mode, select, posts {Siguiendo cada mensaje nuevo} other {Siguiendo temas nuevos}}{email, select, true {, por correo} other {}}"
   }
 }

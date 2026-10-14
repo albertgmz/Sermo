@@ -36,8 +36,8 @@
     "notifications": "Your notification settings were saved.",
     "preferences": "Your preferences were saved.",
     "failed": "That did not work. Try again.",
-    "threadUnwatched": "You no longer watch that thread.",
-    "forumUnwatched": "You no longer watch that forum."
+    "threadUnwatched": "You no longer follow that thread.",
+    "forumUnwatched": "You no longer follow that forum."
   },
   "errors": {
     "birthdayIncomplete": "Give the day and the month as numbers, with the year if you like, or leave all three empty.",
@@ -226,16 +226,16 @@
     "submit": "Save notifications",
     "types": {
       "thread_watched": {
-        "title": "New posts in a watched thread",
-        "body": "Someone replies in a thread you watch."
+        "title": "New posts in a followed thread",
+        "body": "Someone replies in a thread you follow."
       },
       "node_thread": {
-        "title": "New threads in a watched forum",
-        "body": "A new thread is started in a forum you watch."
+        "title": "New threads in a followed forum",
+        "body": "A new thread is started in a forum you follow."
       },
       "node_post": {
-        "title": "New posts in a watched forum",
-        "body": "A new post appears in a forum you watch for every post."
+        "title": "New posts in a followed forum",
+        "body": "A new post appears in a forum you follow for every post."
       },
       "content_quoted": {
         "title": "Quotes",
@@ -315,32 +315,32 @@
     "metaTitle": "Preferences",
     "heading": "Preferences",
     "loading": "Loading your preferences…",
-    "sectionHeading": "Watching and language",
+    "sectionHeading": "Thread following and language",
     "sectionDescription": "What happens when you post, and the language of the forum for you.",
     "createLabel": "Threads you start",
     "createHelp": "Whether you follow the threads you start.",
     "replyLabel": "Threads you reply to",
     "replyHelp": "Whether you follow the threads you reply to.",
     "watch": {
-      "none": "Do not watch",
-      "watch": "Watch",
-      "watch_email": "Watch and email me"
+      "none": "Do not follow",
+      "watch": "Follow",
+      "watch_email": "Follow and email me"
     },
     "languageLabel": "Language",
     "languageDefault": "Site default",
     "submit": "Save preferences",
-    "threadsHeading": "Watched threads",
+    "threadsHeading": "Followed threads",
     "threadsDescription": "You are told when someone replies in these.",
-    "threadsEmpty": "You are not watching any thread.",
-    "forumsHeading": "Watched forums",
+    "threadsEmpty": "You are not following any thread.",
+    "forumsHeading": "Followed forums",
     "forumsDescription": "You are told about new threads or posts in these.",
-    "forumsEmpty": "You are not watching any forum.",
+    "forumsEmpty": "You are not following any forum.",
     "mode": {
       "threads": "New threads",
       "posts": "Every new post"
     },
     "email": "Email",
-    "stop": "Stop watching"
+    "stop": "Unfollow"
   },
   "perks": {
     "metaTitle": "Perks",

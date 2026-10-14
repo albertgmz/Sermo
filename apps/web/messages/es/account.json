@@ -36,8 +36,8 @@
     "notifications": "Se guardaron tus ajustes de notificaciones.",
     "preferences": "Se guardaron tus preferencias.",
     "failed": "No funcionó. Inténtalo de nuevo.",
-    "threadUnwatched": "Ya no vigilas ese tema.",
-    "forumUnwatched": "Ya no vigilas ese foro."
+    "threadUnwatched": "Ya no sigues ese tema.",
+    "forumUnwatched": "Ya no sigues ese foro."
   },
   "errors": {
     "birthdayIncomplete": "Indica el día y el mes como números, con el año si quieres, o deja los tres vacíos.",
@@ -226,16 +226,16 @@
     "submit": "Guardar notificaciones",
     "types": {
       "thread_watched": {
-        "title": "Mensajes nuevos en un tema que vigilas",
-        "body": "Alguien responde en un tema que vigilas."
+        "title": "Mensajes nuevos en un tema que sigues",
+        "body": "Alguien responde en un tema que sigues."
       },
       "node_thread": {
-        "title": "Temas nuevos en un foro que vigilas",
-        "body": "Se crea un tema nuevo en un foro que vigilas."
+        "title": "Temas nuevos en un foro que sigues",
+        "body": "Se crea un tema nuevo en un foro que sigues."
       },
       "node_post": {
-        "title": "Mensajes nuevos en un foro que vigilas",
-        "body": "Aparece un mensaje nuevo en un foro en el que vigilas cada mensaje."
+        "title": "Mensajes nuevos en un foro que sigues",
+        "body": "Aparece un mensaje nuevo en un foro en el que sigues cada mensaje."
       },
       "content_quoted": {
         "title": "Citas",
@@ -315,32 +315,32 @@
     "metaTitle": "Preferencias",
     "heading": "Preferencias",
     "loading": "Cargando tus preferencias…",
-    "sectionHeading": "Vigilancia e idioma",
+    "sectionHeading": "Seguimiento de temas e idioma",
     "sectionDescription": "Qué ocurre cuando publicas y el idioma del foro para ti.",
     "createLabel": "Temas que creas",
-    "createHelp": "Si vigilas los temas que creas.",
+    "createHelp": "Si sigues los temas que creas.",
     "replyLabel": "Temas en los que respondes",
-    "replyHelp": "Si vigilas los temas en los que respondes.",
+    "replyHelp": "Si sigues los temas en los que respondes.",
     "watch": {
-      "none": "No vigilar",
-      "watch": "Vigilar",
-      "watch_email": "Vigilar y avisarme por correo"
+      "none": "No seguir",
+      "watch": "Seguir",
+      "watch_email": "Seguir y avisarme por correo"
     },
     "languageLabel": "Idioma",
     "languageDefault": "Predeterminado del sitio",
     "submit": "Guardar preferencias",
-    "threadsHeading": "Temas que vigilas",
+    "threadsHeading": "Temas que sigues",
     "threadsDescription": "Se te avisa cuando alguien responde en estos.",
-    "threadsEmpty": "No vigilas ningún tema.",
-    "forumsHeading": "Foros que vigilas",
+    "threadsEmpty": "No sigues ningún tema.",
+    "forumsHeading": "Foros que sigues",
     "forumsDescription": "Se te avisa de los temas o mensajes nuevos en estos.",
-    "forumsEmpty": "No vigilas ningún foro.",
+    "forumsEmpty": "No sigues ningún foro.",
     "mode": {
       "threads": "Temas nuevos",
       "posts": "Cada mensaje nuevo"
     },
     "email": "Correo",
-    "stop": "Dejar de vigilar"
+    "stop": "Dejar de seguir"
   },
   "perks": {
     "metaTitle": "Ventajas",

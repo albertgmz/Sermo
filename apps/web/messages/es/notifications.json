@@ -12,9 +12,9 @@
     "someone": "Alguien",
     "actors": "{shown, plural, one {{others, plural, =0 {<first></first>} one {<first></first> y # más} other {<first></first> y # más}}} other {{others, plural, =0 {<first></first> y <second></second>} one {<first></first>, <second></second> y # más} other {<first></first>, <second></second> y # más}}}}",
     "texts": {
-      "threadWatched": "Nueva respuesta de <actors></actors> en {titled, select, yes {“{title}”} other {un tema que vigilas}}",
-      "nodeThread": "Nuevo tema de <actors></actors>{titled, select, yes {: “{title}”} other { en un foro que vigilas}}",
-      "nodePost": "Nuevo mensaje de <actors></actors> en {titled, select, yes {“{title}”} other {un foro que vigilas}}",
+      "threadWatched": "Nueva respuesta de <actors></actors> en {titled, select, yes {“{title}”} other {un tema que sigues}}",
+      "nodeThread": "Nuevo tema de <actors></actors>{titled, select, yes {: “{title}”} other { en un foro que sigues}}",
+      "nodePost": "Nuevo mensaje de <actors></actors> en {titled, select, yes {“{title}”} other {un foro que sigues}}",
       "contentQuoted": "Cita de <actors></actors>{titled, select, yes { en “{title}”} other {}}",
       "contentMentioned": "Mención de <actors></actors>{titled, select, yes { en “{title}”} other {}}",
       "contentReaction": "Reacción {emoji} de <actors></actors> a tu {kind, select, post {mensaje} profile_post {publicación del muro} profile_post_comment {comentario} conversation_message {mensaje} other {contenido}}{titled, select, yes { en “{title}”} other {}}",

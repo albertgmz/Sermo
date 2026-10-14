@@ -12,9 +12,9 @@
     "someone": "Someone",
     "actors": "{shown, plural, one {{others, plural, =0 {<first></first>} one {<first></first> and # other} other {<first></first> and # others}}} other {{others, plural, =0 {<first></first> and <second></second>} one {<first></first>, <second></second> and # other} other {<first></first>, <second></second> and # others}}}}",
     "texts": {
-      "threadWatched": "<actors></actors> replied in {titled, select, yes {“{title}”} other {a thread you watch}}",
-      "nodeThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {in a forum you watch}}",
-      "nodePost": "<actors></actors> posted in {titled, select, yes {“{title}”} other {a forum you watch}}",
+      "threadWatched": "<actors></actors> replied in {titled, select, yes {“{title}”} other {a thread you follow}}",
+      "nodeThread": "<actors></actors> started the thread {titled, select, yes {“{title}”} other {in a forum you follow}}",
+      "nodePost": "<actors></actors> posted in {titled, select, yes {“{title}”} other {a forum you follow}}",
       "contentQuoted": "<actors></actors> quoted you{titled, select, yes { in “{title}”} other {}}",
       "contentMentioned": "<actors></actors> mentioned you{titled, select, yes { in “{title}”} other {}}",
       "contentReaction": "<actors></actors> reacted {emoji} to your {kind, select, post {post} profile_post {wall post} profile_post_comment {comment} conversation_message {message} other {content}}{titled, select, yes { in “{title}”} other {}}",

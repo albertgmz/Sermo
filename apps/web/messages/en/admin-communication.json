@@ -42,7 +42,7 @@
     "description": "New members start with these. Members who already chose keep their own choice.",
     "fixed": "Fixed",
     "help": "A fixed type is always delivered and cannot be changed. A dash means the type does not use that channel.",
-    "followsWatch": "Email follows each member's watch setting.",
+    "followsWatch": "Email respects each member's follow setting.",
     "retention": {
       "label": "Keep read notifications",
       "help": "Read notifications older than this are deleted.",

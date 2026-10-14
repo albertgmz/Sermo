@@ -27,9 +27,9 @@
       "confirm": "Poner el recuento en cola"
     },
     "promotions": {
-      "heading": "Ejecutar ascensos",
-      "description": "Evalúa ahora a cada miembro frente a cada ascenso activo. También se ejecuta a diario.",
-      "inputs": "Sin datos: abarca a todos los miembros y todos los ascensos activos.",
+      "heading": "Ejecutar promociones",
+      "description": "Evalúa ahora a cada miembro frente a cada promoción activa. También se ejecuta a diario.",
+      "inputs": "Sin datos: abarca a todos los miembros y todas las promociones activas.",
       "warning": "Esto pone en cola un barrido que puede mover miembros entre grupos.",
       "confirm": "Poner el barrido en cola"
     },
@@ -81,23 +81,23 @@
     "rejected": "No se aceptó el filtro de acción: {message}"
   },
   "promotionLog": {
-    "metaTitle": "Registro de ascensos",
-    "heading": "Registro de ascensos",
-    "subtitle": "Cambios de ascenso automáticos y manuales, lo más reciente primero.",
+    "metaTitle": "Registro de promociones",
+    "heading": "Registro de promociones",
+    "subtitle": "Cambios de promoción automáticos y manuales, lo más reciente primero.",
     "loading": "Cargando el registro…",
     "member": "Miembro",
     "emptyTitle": "No hay nada en el registro",
-    "emptyDescription": "Ningún cambio de ascenso coincide.",
+    "emptyDescription": "Ningún cambio de promoción coincide.",
     "automatic": "Automático",
     "action": {
-      "promote": "Ascendido",
+      "promote": "Promocionado",
       "demote": "Degradado",
       "exempt": "Exento",
       "reset": "Restablecido a automático"
     },
-    "promotion": "Ascenso",
+    "promotion": "Promoción",
     "groups": "Grupos",
-    "promotionNumber": "Ascenso {id}",
+    "promotionNumber": "Promoción {id}",
     "groupNumber": "Grupo {id}"
   },
   "creditLedger": {

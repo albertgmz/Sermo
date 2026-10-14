@@ -60,8 +60,8 @@
     "noForum": "Elige un foro."
   },
   "tools": {
-    "watch": "Vigilar",
-    "unwatch": "Dejar de vigilar",
+    "watch": "Seguir tema",
+    "unwatch": "Dejar de seguir tema",
     "email": "Avisarme por correo"
   },
   "moderation": {

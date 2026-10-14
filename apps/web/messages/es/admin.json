@@ -66,8 +66,8 @@
       "usersHistory": "Historial del miembro",
       "groupsList": "Grupos de usuarios",
       "groupsEdit": "Grupo de usuarios",
-      "groupsPromotions": "Ascensos de grupo",
-      "groupsPromotionEdit": "Ascenso de grupo",
+      "groupsPromotions": "Promociones de grupo",
+      "groupsPromotionEdit": "Promoción de grupo",
       "permissionsGroups": "Permisos de grupos",
       "permissionsGroupEdit": "Permisos de un grupo",
       "permissionsMembers": "Permisos de miembros",
@@ -98,7 +98,7 @@
       "moderationApprovalReview": "Revisión del elemento",
       "toolsMaintenance": "Mantenimiento",
       "toolsModeratorLog": "Registro de moderación",
-      "toolsPromotionLog": "Registro de ascensos",
+      "toolsPromotionLog": "Registro de promociones",
       "toolsCreditLedger": "Registro de créditos",
       "toolsShopPurchases": "Compras de la tienda",
       "toolsTasks": "Tareas en segundo plano"
@@ -138,7 +138,7 @@
       "reports": "Denuncias presentadas",
       "creditAdjustments": "Ajustes de créditos",
       "shopPurchases": "Compras de la tienda",
-      "promotions": "Ascensos aplicados",
+      "promotions": "Promociones aplicadas",
       "registrations": "Registros"
     }
   },

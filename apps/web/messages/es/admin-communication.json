@@ -42,7 +42,7 @@
     "description": "Los miembros nuevos empiezan con estos. Los que ya eligieron conservan su elección.",
     "fixed": "Fijo",
     "help": "Un tipo fijo se entrega siempre y no se puede cambiar. Un guion significa que el tipo no usa ese canal.",
-    "followsWatch": "El correo sigue el ajuste de vigilancia de cada miembro.",
+    "followsWatch": "El correo respeta el ajuste de seguimiento de cada miembro.",
     "retention": {
       "label": "Conservar notificaciones leídas",
       "help": "Las notificaciones leídas más antiguas que esto se eliminan.",
