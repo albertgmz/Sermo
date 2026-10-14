@@ -264,4 +264,31 @@ describe("a usable super admin always remains", () => {
       }),
     ).rejects.toBeInstanceOf(ConflictError);
   });
+
+  test("groups.delete refuses to delete the group that gives the last usable super admin admin.members", async () => {
+    const w = await world();
+    // The owner holds administration only through group 91; group 92 ranks above it.
+    w.ctx.sqlite.exec(
+      "INSERT INTO groups (id, title, rank) VALUES (91, 'Keepers', 10), (92, 'Elders', 50)",
+    );
+    await w.run("permissions.set", w.plain.actor, {
+      groupId: 91,
+      entries: ["admin.members", "admin.groups"].map((permission) => ({
+        permission,
+        value: "allow",
+      })),
+    });
+    w.ctx.sqlite.prepare("UPDATE users SET group_id = 91 WHERE id = ?1").run(w.owner.id);
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 92, 0)")
+      .run(w.owner.id);
+    await expect(w.run("groups.delete", w.owner.actor, { groupId: 91 })).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>("SELECT count(*) AS n FROM groups WHERE id = 91")
+        .get()!.n,
+    ).toBe(1);
+  });
 });
