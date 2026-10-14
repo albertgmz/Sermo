@@ -1688,3 +1688,17 @@ shows a guest no link to `/upgrade`; the page itself is unchanged and the shop's
 links to it for everyone. The
 header no longer marks any entry in the accent colour: that was drawn for this one entry only.
 The migration changes the benchmark seed's hash.
+
+## A narrower page, chosen in the browser
+
+**The page width is one CSS variable, switched by an attribute on `<html>`.** `--container-width`
+is 1420px; `data-width="narrow"` makes it 1100px inside the forum layout (`data-forum-layout` on
+the `(main)` wrapper). The shared `Container` reads it, so the header, the footer and every forum
+page narrow together with no condition in any component. The staff panel and the pages outside the
+forum layout stay wide: they have no button to undo the choice. The choice lives only in the
+visitor's `localStorage`: a cookie or an account setting would have made the root layout depend on
+the request for a cosmetic preference. A small script in the document head applies it before the
+first paint. The attribute, not the stored value, is what the button reads and toggles, so a
+browser that refuses storage still gets a working button for the page it is on; another tab's
+change is applied through the `storage` event. There is one narrow width, and the button is hidden
+below it, where it could change nothing.
