@@ -17,6 +17,7 @@ import { registerNotificationJobs } from "../notifications";
 import {
   conversationsCreateOp,
   conversationsDeleteMessageOp,
+  conversationsGetMessageOp,
   conversationsGetOp,
   conversationsListMessagesOp,
   conversationsReplyOp,
@@ -469,5 +470,53 @@ describe("statements", () => {
     const s = await setup();
     expectNoTableScan(s.ctx, firstMessageSql, [s.id]);
     expectNoTableScan(s.ctx, messageSql, [s.first]);
+  });
+});
+
+describe("reading a message's source for editing", () => {
+  const source = (s: Awaited<ReturnType<typeof setup>>, actor: typeof s.a, messageId: number) =>
+    execute(s.ctx, conversationsGetMessageOp, actor, { messageId });
+
+  test("the author gets the message with its source and abilities", async () => {
+    const s = await setup();
+    const mine = await s.reply(s.b, "**mine**");
+    const got = await source(s, s.b, mine.id);
+    expect(got.bodySource).toBe("**mine**");
+    expect([got.id, got.conversationId, got.canEdit]).toEqual([mine.id, s.id, true]);
+    expect(got.bodyHtml).toContain("<strong>mine</strong>");
+  });
+
+  test("a moderator who takes part gets anyone's message", async () => {
+    const s = await setup();
+    const theirs = await s.reply(s.b, "theirs");
+    expect((await source(s, s.admin, theirs.id)).bodySource).toBe("theirs");
+  });
+
+  test("another participant, a non-participant and a guest find nothing", async () => {
+    const s = await setup();
+    const theirs = await s.reply(s.b, "theirs");
+    await expect(source(s, s.c, theirs.id)).rejects.toThrow(NotFoundError);
+    await expect(source(s, s.outsider, theirs.id)).rejects.toThrow(NotFoundError);
+    await expect(source(s, GUEST, theirs.id)).rejects.toThrow(UnauthenticatedError);
+    // A moderator who does not take part cannot see the conversation at all.
+    const stranger = userActor(insertUser(s.ctx, { groupId: 4 }));
+    await expect(source(s, stranger, theirs.id)).rejects.toThrow(NotFoundError);
+  });
+
+  test("while the conversation is locked the author finds nothing and the moderator still reads it", async () => {
+    const s = await setup();
+    const mine = await s.reply(s.b, "mine");
+    await s.lock(s.a, true);
+    await expect(source(s, s.b, mine.id)).rejects.toThrow(NotFoundError);
+    expect((await source(s, s.admin, mine.id)).bodySource).toBe("mine");
+  });
+
+  test("a deleted message has no source, not even for the moderator", async () => {
+    const s = await setup();
+    const gone = await s.reply(s.b, "gone");
+    await s.remove(s.admin, gone.id);
+    await expect(source(s, s.admin, gone.id)).rejects.toThrow(NotFoundError);
+    await expect(source(s, s.b, gone.id)).rejects.toThrow(NotFoundError);
+    await expect(source(s, s.admin, 999999)).rejects.toThrow(NotFoundError);
   });
 });

@@ -230,6 +230,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["PUT", "/conversations/{conversationId}/read", "conversations.markRead"],
   ["POST", "/conversations/{conversationId}/leave", "conversations.leave"],
   ["PUT", "/conversations/{conversationId}/lock", "conversations.setLocked"],
+  ["GET", "/conversation-messages/{messageId}", "conversations.getMessage"],
   ["PATCH", "/conversation-messages/{messageId}", "conversations.updateMessage"],
   ["DELETE", "/conversation-messages/{messageId}", "conversations.deleteMessage"],
   ["GET", "/reaction-types", "reactionTypes.list"],

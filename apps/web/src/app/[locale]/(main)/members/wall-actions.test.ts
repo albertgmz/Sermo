@@ -26,7 +26,9 @@ const { deleteWallItem, editWallItem, wallItemSource } = await import(
   "./actions"
 );
 const { reportContent } = await import("../actions");
-const { deleteMessageAction } = await import("../conversations/actions");
+const { deleteMessageAction, editMessageAction } = await import(
+  "../conversations/actions"
+);
 
 const refusal = () =>
   Response.json(
@@ -193,4 +195,33 @@ test("deleting a conversation message asks for that message and refreshes the pa
   });
   assert.equal(refreshed, 1);
   await assert.rejects(() => deleteMessageAction(5, 0, {}));
+});
+
+test("editing a message sends its text, leaves its files alone and returns to it", async () => {
+  answer = Response.json({
+    id: 11,
+    conversationId: 5,
+    author: { id: 3, username: "ember" },
+    state: "visible",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    editedAt: "2026-01-02T00:00:00.000Z",
+    bodyHtml: "",
+    attachmentCount: 0,
+    attachments: [],
+    reactions: { counts: {}, total: 0, mine: null },
+    canEdit: true,
+    canDelete: false,
+  });
+  const digest = await editMessageAction(5, 11, {}, form({ body: "new" })).then(
+    () => "",
+    (error: { digest?: unknown }) => String(error.digest),
+  );
+  assert.match(digest, /;\/conversations\/5\?message=11#message-11;/);
+  assert.deepEqual(asked, [
+    {
+      method: "PATCH",
+      url: `${ROOT}/conversation-messages/11`,
+      body: { body: "new" },
+    },
+  ]);
 });

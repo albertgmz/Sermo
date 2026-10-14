@@ -9,10 +9,12 @@ import {
   conversationsRename,
   conversationsReply,
   conversationsSetLocked,
+  conversationsUpdateMessage,
   usersSearch,
 } from "@sermo/core/contracts";
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { conversationHref } from "@/app/[locale]/(main)/conversations/[id]/message-target";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
@@ -60,6 +62,30 @@ export async function markReadAction(
     call(conversationsMarkRead, { conversationId }),
   );
   return marked.ok ? {} : { error: marked.error };
+}
+
+// Saves an edited message and goes back to it. A form without the file list leaves the files as
+// they are.
+export async function editMessageAction(
+  conversationId: number,
+  messageId: number,
+  _previous: ReplyState,
+  formData: FormData,
+): Promise<ReplyState> {
+  requireIds(conversationId, messageId);
+  const saved = await attempt(
+    `/conversations/${conversationId}/edit/${messageId}`,
+    () =>
+      call(conversationsUpdateMessage, {
+        messageId,
+        body: String(formData.get("body") ?? ""),
+        attachmentIds: formData.has("attachments")
+          ? formIds(formData, "attachmentIds")
+          : undefined,
+      }),
+  );
+  if (!saved.ok) return { error: saved.error };
+  redirect(conversationHref(conversationId, messageId));
 }
 
 // Deletes a message (its author or a moderator, as the backend allows) and draws the page again.

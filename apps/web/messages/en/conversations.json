@@ -103,5 +103,15 @@
       "chosen": "Chosen recipients",
       "remove": "Remove {name}"
     }
+  },
+  "edit": {
+    "metaTitle": "Edit message",
+    "home": "Home",
+    "conversations": "Conversations",
+    "heading": "Edit message"
+  },
+  "editForm": {
+    "cancel": "Cancel",
+    "submit": "Save changes"
   }
 }

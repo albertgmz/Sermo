@@ -7,6 +7,7 @@ import {
   conversationsCreate,
   conversationsDeleteMessage,
   conversationsGet,
+  conversationsGetMessage,
   conversationsLeave,
   conversationsList,
   conversationsListMessages,
@@ -843,6 +844,21 @@ export const conversationsUpdateMessageOp = implement(
   },
 );
 
+export const conversationsGetMessageOp = implement(conversationsGetMessage, (ctx, actor, input) => {
+  const { message, conversation } = visibleTarget(ctx, actor, input.messageId);
+  // The source is for editors: whoever may not edit the message finds nothing.
+  if (!mayEdit(permissionsOf(ctx, actor), conversation, message)) throw new NotFoundError();
+  const row = prepared(ctx, "conversations.message", () =>
+    ctx.sqlite.prepare<MessageRow, [number]>(messageSql),
+  ).get(message.id)!;
+  const { body_source } = prepared(ctx, "conversations.messageSource", () =>
+    ctx.sqlite.prepare<{ body_source: string }, [number]>(
+      "SELECT body_source FROM conversation_messages WHERE id = ?1",
+    ),
+  ).get(message.id)!;
+  return { ...messages(ctx, actor, conversation, [row])[0]!, bodySource: body_source };
+});
+
 export const conversationsDeleteMessageOp = implement(
   conversationsDeleteMessage,
   (ctx, actor, input) => {
@@ -910,6 +926,7 @@ function deleteMessageState(ctx: Ctx, message: TargetMessage) {
 export const operations = [
   conversationsSetLockedOp,
   conversationsUpdateMessageOp,
+  conversationsGetMessageOp,
   conversationsDeleteMessageOp,
   conversationsListOp,
   conversationsGetOp,

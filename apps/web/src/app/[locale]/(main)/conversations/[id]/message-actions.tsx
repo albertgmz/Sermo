@@ -13,7 +13,7 @@ type Message = z.output<
 >["items"][number];
 
 // The footer of a message in a conversation. Delete is the backend's word for the viewer
-// (`canDelete`). There is no edit yet: the backend does not give a message's Markdown source.
+// and Edit (`canEdit`, which opens the edit page) are the backend's word for the viewer.
 export function MessageActions({
   message,
   viewerId,
@@ -43,6 +43,13 @@ export function MessageActions({
         message.state === "deleted"
           ? undefined
           : conversationHref(message.conversationId, message.id)
+      }
+      edit={
+        message.canEdit
+          ? {
+              href: `/conversations/${message.conversationId}/edit/${message.id}`,
+            }
+          : undefined
       }
       remove={
         message.canDelete && message.state !== "deleted"

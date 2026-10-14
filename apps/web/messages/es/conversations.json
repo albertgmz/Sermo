@@ -103,5 +103,15 @@
       "chosen": "Destinatarios elegidos",
       "remove": "Quitar a {name}"
     }
+  },
+  "edit": {
+    "metaTitle": "Editar mensaje",
+    "home": "Inicio",
+    "conversations": "Conversaciones",
+    "heading": "Editar mensaje"
+  },
+  "editForm": {
+    "cancel": "Cancelar",
+    "submit": "Guardar cambios"
   }
 }

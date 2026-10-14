@@ -83,9 +83,16 @@ test("another participant can report a message, and a moderator can also delete 
   expect(has(moderator, "Report")).toBe(true);
 });
 
-test("a message has no quote or reply control, and no edit until its source can be read", () => {
+test("edit follows the backend's flag and opens the message's edit page", () => {
+  const html = draw({ canEdit: true }, 3);
+  expect(has(html, "Edit")).toBe(true);
+  expect(html).toContain('href="/conversations/5/edit/11"');
+  expect(has(draw({ canEdit: false }, 3), "Edit")).toBe(false);
+});
+
+test("a message has no quote or reply control", () => {
   const html = draw({ canEdit: true, canDelete: true }, 3);
-  for (const label of ["Quote", "Reply", "Edit"]) {
+  for (const label of ["Quote", "Reply"]) {
     expect(has(html, label)).toBe(false);
   }
 });

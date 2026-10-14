@@ -61,6 +61,10 @@ export const Message = z
   })
   .meta({ id: "Message" });
 
+export const MessageDetail = Message.extend({ bodySource: z.string() }).meta({
+  id: "MessageDetail",
+});
+
 export const conversationsList = defineContract({
   name: "conversations.list",
   summary: "The viewer's active conversations, most recent activity first.",
@@ -173,6 +177,16 @@ export const conversationsUpdateMessage = defineContract({
   kind: "write",
   input: z.object({ messageId: Id, body: Body, attachmentIds: AttachmentIds }),
   output: Message,
+});
+
+export const conversationsGetMessage = defineContract({
+  name: "conversations.getMessage",
+  summary:
+    "One message with its source, for editing. Only for viewers who may edit it (`canEdit`); " +
+    "anyone else gets not found.",
+  kind: "read",
+  input: z.object({ messageId: Id }),
+  output: MessageDetail,
 });
 
 export const conversationsDeleteMessage = defineContract({
