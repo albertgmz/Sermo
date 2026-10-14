@@ -130,6 +130,9 @@ const allowedTypes = new Set([
 const maxBytesDefault = 25 * 1024 * 1024;
 /** Catalog and site pictures take these types whatever the site settings say for members. */
 const catalogTypes: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
+/** Reaction pictures need transparency, so jpeg is left out for them. */
+const typesOfCatalogPurpose = (purpose: Purpose): readonly string[] =>
+  purpose === "reaction_image" ? ["image/png", "image/webp"] : catalogTypes;
 const isCatalogPurpose = (purpose: Purpose): purpose is (typeof CATALOG_FILE_PURPOSES)[number] =>
   (CATALOG_FILE_PURPOSES as readonly string[]).includes(purpose);
 /**
@@ -145,6 +148,7 @@ function requireCatalogUpload(ctx: Ctx, actor: Actor, purpose: Purpose): void {
     requirePermission(ctx, actor, "admin.appearance");
   else if (purpose === "award_image") requirePermission(ctx, actor, "admin.awards");
   else if (purpose === "shop_image") requirePermission(ctx, actor, "admin.shop");
+  else if (purpose === "reaction_image") requirePermission(ctx, actor, "admin.reactionTypes");
   else if (isCatalogPurpose(purpose)) requirePermission(ctx, actor, "admin.settings");
 }
 /** The catalog purposes as an SQL list: these files are left out of the attachment.storageQuota sum. */
@@ -355,7 +359,7 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       if (
         !allowedTypes.has(declaredType) ||
         (catalog
-          ? !catalogTypes.includes(declaredType)
+          ? !typesOfCatalogPurpose(purpose).includes(declaredType)
           : config.allowedTypesByPurpose &&
             !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
       )

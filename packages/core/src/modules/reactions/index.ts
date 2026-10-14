@@ -22,8 +22,10 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
+import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
+import { publicPicture } from "../storage/url";
 
 type TypeRow = {
   id: number;
@@ -32,6 +34,10 @@ type TypeRow = {
   score: number;
   position: number;
   is_active: number;
+  image_file_id: number | null;
+  frame_width: number | null;
+  frame_height: number | null;
+  frame_count: number;
 };
 type ReactionRow = {
   id: number;
@@ -57,7 +63,28 @@ export const existingSql =
 export const listSql =
   "SELECT id, user_id, reaction_type_id, score, created_at FROM reactions WHERE content_type = ?1 AND content_id = ?2 AND user_id > ?3 ORDER BY user_id LIMIT ?4";
 
-function typeValue(r: TypeRow) {
+const typeColumns =
+  "id, title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count";
+
+function fileSize(ctx: Ctx, fileId: number) {
+  const file = prepared(ctx, "reactions.fileSize", () =>
+    ctx.sqlite.prepare<{ width: number | null; height: number | null }, [number]>(
+      "SELECT width, height FROM files WHERE id = ?1 AND deleted_at IS NULL",
+    ),
+  ).get(fileId);
+  if (!file?.width || !file.height) throw new ValidationError("The picture could not be measured.");
+  return { width: file.width, height: file.height };
+}
+function typeValue(ctx: Ctx, r: TypeRow) {
+  const frames =
+    r.image_file_id !== null && r.frame_width !== null && r.frame_height !== null
+      ? {
+          width: r.frame_width,
+          height: r.frame_height,
+          count: r.frame_count,
+          columns: Math.floor(fileSize(ctx, r.image_file_id).width / r.frame_width),
+        }
+      : null;
   return {
     id: r.id,
     title: r.title,
@@ -65,12 +92,47 @@ function typeValue(r: TypeRow) {
     score: r.score,
     position: r.position,
     isActive: !!r.is_active,
+    image: publicPicture(ctx, r.image_file_id),
+    frames,
   };
+}
+/**
+ * The frame fields a type ends up with, checked against the measured picture: both sizes or
+ * neither, dividing the picture, and no more frames than it holds. Without a picture there
+ * are no frames.
+ */
+function checkedFrames(
+  ctx: Ctx,
+  fileId: number | null,
+  width: number | null,
+  height: number | null,
+  count: number,
+) {
+  if (fileId === null) {
+    if (width !== null || height !== null || count !== 1)
+      throw new ValidationError("Frames need a picture.");
+    return { width: null, height: null, count: 1 };
+  }
+  if ((width === null) !== (height === null))
+    throw new ValidationError("Give both the frame width and the frame height, or neither.");
+  if (width === null || height === null) {
+    if (count !== 1) throw new ValidationError("More than one frame needs a frame size.");
+    return { width: null, height: null, count: 1 };
+  }
+  const file = fileSize(ctx, fileId);
+  if (file.width % width !== 0 || file.height % height !== 0)
+    throw new ValidationError(
+      `The frame size ${width}x${height} does not divide the picture (${file.width}x${file.height}).`,
+    );
+  const cells = (file.width / width) * (file.height / height);
+  if (count > cells)
+    throw new ValidationError(`The picture holds ${cells} frames of that size, not ${count}.`);
+  return { width, height, count };
 }
 function typeRow(ctx: Ctx, id: number) {
   return prepared(ctx, "reactions.type", () =>
     ctx.sqlite.prepare<TypeRow, [number]>(
-      "SELECT id, title, emoji, score, position, is_active FROM reaction_types WHERE id = ?1",
+      `SELECT ${typeColumns} FROM reaction_types WHERE id = ?1`,
     ),
   ).get(id);
 }
@@ -123,36 +185,98 @@ export const reactionTypesListOp = implement(
     items: cached(ctx, "reaction_types", () =>
       prepared(ctx, "reactions.types", () =>
         ctx.sqlite.prepare<TypeRow, []>(
-          "SELECT id, title, emoji, score, position, is_active FROM reaction_types ORDER BY position, id",
+          `SELECT ${typeColumns} FROM reaction_types ORDER BY position, id`,
         ),
       )
         .all()
-        .map(typeValue),
+        .map((row) => typeValue(ctx, row)),
     ),
   }),
   { public: "Reaction types are visible to everyone." },
 );
 export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
+    const fileId = input.fileId ?? null;
+    if (fileId !== null) attachUploadedFile(ctx, user.userId, fileId, "reaction_image");
+    const frames = checkedFrames(
+      ctx,
+      fileId,
+      input.frameWidth ?? null,
+      input.frameHeight ?? null,
+      input.frameCount,
+    );
     const row = ctx.sqlite
-      .prepare<TypeRow, [string, string, number, number, number]>(
-        "INSERT INTO reaction_types (title, emoji, score, position, is_active) VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id, title, emoji, score, position, is_active",
+      .prepare<
+        TypeRow,
+        [
+          string,
+          string,
+          number,
+          number,
+          number,
+          number | null,
+          number | null,
+          number | null,
+          number,
+        ]
+      >(
+        `INSERT INTO reaction_types (title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING ${typeColumns}`,
       )
-      .get(input.title, input.emoji, input.score, input.position, Number(input.isActive))!;
+      .get(
+        input.title,
+        input.emoji,
+        input.score,
+        input.position,
+        Number(input.isActive),
+        fileId,
+        frames.width,
+        frames.height,
+        frames.count,
+      )!;
     invalidate(ctx, "reaction_types");
     appendModeratorLog(ctx, actor, "reaction_type.create", "reaction_type", row.id);
-    return typeValue(row);
+    return typeValue(ctx, row);
   });
 });
 export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor, input) => {
+  const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "admin.reactionTypes");
   return writeTx(ctx, () => {
     const old = typeRow(ctx, input.reactionTypeId);
     if (!old) throw new NotFoundError();
+    const fileId = input.fileId === undefined ? old.image_file_id : input.fileId;
+    const replaced = fileId !== old.image_file_id;
+    if (replaced && fileId !== null) attachUploadedFile(ctx, user.userId, fileId, "reaction_image");
+    // Removing the picture takes its frames with it.
+    const frames =
+      fileId === null
+        ? checkedFrames(ctx, null, null, null, 1)
+        : checkedFrames(
+            ctx,
+            fileId,
+            input.frameWidth === undefined ? old.frame_width : input.frameWidth,
+            input.frameHeight === undefined ? old.frame_height : input.frameHeight,
+            input.frameCount ?? old.frame_count,
+          );
     const row = ctx.sqlite
-      .prepare<TypeRow, [string, string, number, number, number, number]>(
-        "UPDATE reaction_types SET title = ?1, emoji = ?2, score = ?3, position = ?4, is_active = ?5 WHERE id = ?6 RETURNING id, title, emoji, score, position, is_active",
+      .prepare<
+        TypeRow,
+        [
+          string,
+          string,
+          number,
+          number,
+          number,
+          number | null,
+          number | null,
+          number | null,
+          number,
+          number,
+        ]
+      >(
+        `UPDATE reaction_types SET title = ?1, emoji = ?2, score = ?3, position = ?4, is_active = ?5, image_file_id = ?6, frame_width = ?7, frame_height = ?8, frame_count = ?9 WHERE id = ?10 RETURNING ${typeColumns}`,
       )
       .get(
         input.title ?? old.title,
@@ -160,11 +284,16 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
         input.score ?? old.score,
         input.position ?? old.position,
         Number(input.isActive ?? !!old.is_active),
+        fileId,
+        frames.width,
+        frames.height,
+        frames.count,
         old.id,
       )!;
+    if (replaced && old.image_file_id !== null) releaseFile(ctx, old.image_file_id);
     invalidate(ctx, "reaction_types");
     appendModeratorLog(ctx, actor, "reaction_type.update", "reaction_type", row.id);
-    return typeValue(row);
+    return typeValue(ctx, row);
   });
 });
 export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {

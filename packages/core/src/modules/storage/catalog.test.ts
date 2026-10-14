@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { CATALOG_FILE_PURPOSES } from "../../db/schema";
@@ -78,9 +78,12 @@ const files = (ctx: Ctx, id: number) =>
     )
     .all(id);
 
+// Reaction pictures are stored unscaled and refuse large input: their own tests are below.
+const SCALED_PURPOSES = CATALOG_FILE_PURPOSES.filter((purpose) => purpose !== "reaction_image");
+
 describe("catalog uploads are renditions of the right size", () => {
   const expectations: Record<
-    (typeof CATALOG_FILE_PURPOSES)[number],
+    (typeof SCALED_PURPOSES)[number],
     { type: string; box: [number, number]; variants: [string, [number, number]][] }
   > = {
     frame: { type: "image/webp", box: [512, 512], variants: [["frame_256", [256, 256]]] },
@@ -104,7 +107,7 @@ describe("catalog uploads are renditions of the right size", () => {
     },
   };
 
-  for (const purpose of CATALOG_FILE_PURPOSES)
+  for (const purpose of SCALED_PURPOSES)
     test(purpose, async () => {
       const { ctx, storage, admin } = await setup();
       const expected = expectations[purpose];
@@ -191,6 +194,7 @@ describe("who may upload what", () => {
     site_logo: "admin.settings",
     site_icon: "admin.settings",
     site_backdrop: "admin.settings",
+    reaction_image: "admin.reactionTypes",
   };
 
   test("guests, members and moderators are refused; administrators may", async () => {
@@ -219,7 +223,13 @@ describe("who may upload what", () => {
   test("each purpose needs exactly its own permission", async () => {
     const { ctx, storage } = await setup();
     const bytes = await picture(40, 40);
-    const definitions = ["admin.appearance", "admin.awards", "admin.shop", "admin.settings"];
+    const definitions = [
+      "admin.appearance",
+      "admin.awards",
+      "admin.shop",
+      "admin.settings",
+      "admin.reactionTypes",
+    ];
     for (const holding of definitions) {
       const group = ctx.sqlite
         .prepare<{ id: number }, [string]>(
@@ -265,6 +275,88 @@ describe("who may upload what", () => {
       .toBuffer();
     await storage.upload(admin, stream(webp), "image/webp", "frame");
     await storage.upload(admin, stream(jpeg), "image/jpeg", "site_backdrop");
+  });
+});
+
+describe("reaction pictures", () => {
+  /** A sheet of distinct pixels: any rescaling or shifting shows. */
+  const sheet = (width: number, height: number) => {
+    const pixels = Buffer.alloc(width * height * 4);
+    for (let i = 0; i < width * height; i++)
+      pixels.set([i % 251, (i * 7) % 253, i % 13, 255], i * 4);
+    return { pixels, raw: { raw: { width, height, channels: 4 as const } } };
+  };
+
+  test("png and webp are stored as given, without any rescaling", async () => {
+    const { ctx, storage, admin } = await setup();
+    const { pixels, raw } = sheet(96, 32);
+    for (const [type, encode] of [
+      ["image/png", (input: Sharp) => input.png().toBuffer()],
+      ["image/webp", (input: Sharp) => input.webp({ lossless: true }).toBuffer()],
+    ] as const) {
+      const upload = await storage.upload(
+        admin,
+        stream(await encode(sharp(pixels, raw))),
+        type,
+        "reaction_image",
+      );
+      const rows = files(ctx, upload.id);
+      expect(rows).toHaveLength(1);
+      expect([rows[0]!.width, rows[0]!.height]).toEqual([96, 32]);
+      const stored = await sharp(await storage.download(admin, upload.id))
+        .ensureAlpha()
+        .raw()
+        .toBuffer();
+      expect(stored.equals(pixels)).toBe(true);
+    }
+  });
+
+  test("a picture at the limit passes and one pixel more is refused", async () => {
+    const { storage, admin } = await setup();
+    const flat = (width: number, height: number) =>
+      sharp({
+        create: { width, height, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 1 } },
+      })
+        .png()
+        .toBuffer();
+    const upload = await storage.upload(
+      admin,
+      stream(await flat(2048, 16)),
+      "image/png",
+      "reaction_image",
+    );
+    expect(upload.id).toBeGreaterThan(0);
+    for (const [width, height] of [
+      [2049, 16],
+      [16, 2049],
+    ] as const)
+      await expect(
+        storage.upload(admin, stream(await flat(width, height)), "image/png", "reaction_image"),
+      ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("jpeg, gif and animated images are refused", async () => {
+    const { storage, admin } = await setup();
+    const jpeg = await sharp(await picture(30, 30))
+      .flatten()
+      .jpeg()
+      .toBuffer();
+    await expect(
+      storage.upload(admin, stream(jpeg), "image/jpeg", "reaction_image"),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      storage.upload(admin, stream(gif), "image/gif", "reaction_image"),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const { pixels } = sheet(16, 32);
+    const animated = await sharp(pixels, {
+      raw: { width: 16, height: 32, channels: 4, pageHeight: 16 },
+    })
+      .webp()
+      .toBuffer();
+    expect((await sharp(animated, { pages: -1 }).metadata()).pages).toBe(2);
+    await expect(
+      storage.upload(admin, stream(animated), "image/webp", "reaction_image"),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });
 

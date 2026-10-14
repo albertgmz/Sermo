@@ -59,6 +59,7 @@ export const CATALOG_FILE_PURPOSES = [
   "site_logo",
   "site_icon",
   "site_backdrop",
+  "reaction_image",
 ] as const;
 export const FILE_PURPOSES = [...UPLOAD_SETTING_PURPOSES, ...CATALOG_FILE_PURPOSES] as const;
 /** Picture catalogs members choose from. */
@@ -878,6 +879,13 @@ export const reactionTypes = sqliteTable("reaction_types", {
   score: integer("score").notNull().default(1),
   position: integer("position").notNull().default(0),
   isActive: bool("is_active").notNull().default(true),
+  /** Optional picture drawn instead of the emoji (a public `reaction_image` file). */
+  imageFileId: integer("image_file_id"),
+  /** Size of one frame of a sprite sheet; null when the whole picture is the frame. */
+  frameWidth: integer("frame_width"),
+  frameHeight: integer("frame_height"),
+  /** Frames of the picture, read left to right, then top to bottom; 1 for a plain image. */
+  frameCount: integer("frame_count").notNull().default(1),
 });
 
 export const reactions = sqliteTable(

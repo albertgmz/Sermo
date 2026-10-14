@@ -218,6 +218,13 @@
       "when": 1791859375131,
       "tag": "0030_upgrade_in_account_menu",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1791940625481,
+      "tag": "0033_reaction_images",
+      "breakpoints": true
     }
   ]
 }

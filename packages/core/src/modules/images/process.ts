@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import sharp, { type Metadata } from "sharp";
+import { MAX_REACTION_IMAGE_SIDE } from "../../contracts/reactions";
 import type { FILE_PURPOSES } from "../../db/schema";
 import { ValidationError } from "../../errors";
 
@@ -29,9 +30,13 @@ interface Size {
   height: number;
   fit: "cover" | "inside";
   mime: string;
-  webp?: { quality: number; alphaQuality?: number };
+  webp?: { quality: number; alphaQuality?: number; lossless?: boolean };
 }
 const WEBP_ART = { quality: 90, alphaQuality: 100 };
+/** A reaction picture is a sprite sheet at times: its pixels must stay where the frames expect them. */
+const WEBP_EXACT = { quality: 100, alphaQuality: 100, lossless: true };
+/** Longest side of a reaction picture; nothing larger is accepted, so none is ever scaled. */
+const REACTION_IMAGE_SIDE = MAX_REACTION_IMAGE_SIDE;
 const insideWebp = (variant: string | null, width: number, height: number, webp?: Size["webp"]) =>
   ({ variant, width, height, fit: "inside", mime: "image/webp", webp }) satisfies Size;
 
@@ -56,6 +61,8 @@ function sizesFor(purpose: ImagePurpose, mime: string): Size[] {
     case "award_image":
     case "shop_image":
       return [insideWebp(null, 960, 540), insideWebp("art_small", 480, 270)];
+    case "reaction_image":
+      return [insideWebp(null, REACTION_IMAGE_SIDE, REACTION_IMAGE_SIDE, WEBP_EXACT)];
     case "site_logo":
       return [insideWebp(null, 640, 160, WEBP_ART)];
     case "site_icon":
@@ -99,6 +106,13 @@ export async function processImage(
     throw new ValidationError("Image type does not match its content.");
   if (!metadata.width || !metadata.height || metadata.width * metadata.height > MAX_PIXELS)
     throw new ValidationError("Image dimensions exceed the limit.");
+  if (
+    purpose === "reaction_image" &&
+    (metadata.width > REACTION_IMAGE_SIDE || metadata.height > REACTION_IMAGE_SIDE)
+  )
+    throw new ValidationError(
+      `Reaction pictures are at most ${REACTION_IMAGE_SIDE} pixels on a side.`,
+    );
   if ((metadata.pages ?? 1) > 1) throw new ValidationError("Animated images are not supported.");
 
   const output: ProcessedImage[] = [];
