@@ -199,3 +199,47 @@ test("the avatar and the name are plain links to the profile, never card trigger
     expect(out).not.toContain('role="link"');
   }
 });
+
+// The class contract of a long name with an icon; how it looks needs a browser.
+const LONG = {
+  ...author,
+  member: {
+    ...author.member,
+    username: "Bartholomew_Featherstonehaugh30",
+    nameIcon: { icon: "star", position: "after" },
+  },
+} as unknown as AuthorView;
+
+test("in the column a long name wraps within the column beside its icon", async () => {
+  const out = await html(<Postbit author={LONG} layout="column" />);
+  expect(out).toContain(
+    '<span class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">Bartholomew_Featherstonehaugh30</span>',
+  );
+  expect(out).not.toContain('<span class="min-w-0 truncate">');
+  expect(out).toContain("shrink-0");
+  expect(out).toContain("max-w-full min-w-0");
+});
+
+test("in the compact header a long name truncates in the room the avatar and the buttons leave", async () => {
+  const out = await html(<Postbit author={LONG} layout="compact" />);
+  expect(out).toContain(
+    '<span class="min-w-0 truncate">Bartholomew_Featherstonehaugh30</span>',
+  );
+  expect(out).toContain("shrink-0");
+  // the chain from the name to the buttons' row can shrink
+  expect(out).toContain("flex min-w-0 flex-1 flex-col");
+  expect(out).toContain("max-w-full min-w-0");
+});
+
+test("the responsive layout truncates below md and wraps from md", async () => {
+  const out = await html(<Postbit author={LONG} layout="responsive" />);
+  expect(out).toContain("min-w-0 truncate md:overflow-visible");
+  expect(out).toContain("md:whitespace-normal md:[overflow-wrap:anywhere]");
+});
+
+test("a name without an icon is laid out the same way", async () => {
+  const out = await html(<Postbit author={author} layout="column" />);
+  expect(out).toContain(
+    '<span class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">ember</span>',
+  );
+});

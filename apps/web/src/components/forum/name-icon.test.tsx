@@ -80,3 +80,29 @@ test("children replace the plain name and the icon stays beside them", () => {
   expect(out).toContain('<span class="min-w-0 truncate">Ember!</span>');
   expect(out).not.toContain(">ember<");
 });
+
+test("with wrap given and no icon the name is still its own span; left out it is the plain text", () => {
+  const user = { username: "ember", nameIcon: null };
+  expect(renderToStaticMarkup(<NameWithIcon user={user} wrap />)).toContain(
+    "whitespace-normal",
+  );
+  expect(
+    renderToStaticMarkup(<NameWithIcon user={user} wrap={false} />),
+  ).toContain(NAME);
+  expect(renderToStaticMarkup(<NameWithIcon user={user} />)).toBe("ember");
+});
+
+test("wrap md truncates below md and wraps from md", () => {
+  const out = renderToStaticMarkup(
+    <NameWithIcon
+      user={{
+        username: "ember",
+        nameIcon: { icon: "star", position: "after" },
+      }}
+      wrap="md"
+    />,
+  );
+  expect(out).toContain("min-w-0 truncate md:overflow-visible md:text-clip");
+  expect(out).toContain("md:whitespace-normal");
+  expect(out).toContain("shrink-0");
+});

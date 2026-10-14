@@ -12,10 +12,13 @@ export type LinkUser = Pick<
 export function UserLink({
   user,
   className,
+  wrap,
   children,
 }: {
   user: LinkUser;
   className?: string;
+  // How a long name is laid out: see NameWithIcon.
+  wrap?: boolean | "md";
   children?: React.ReactNode;
 }) {
   const name = userNameProps(user);
@@ -27,7 +30,9 @@ export function UserLink({
       className={cn(userLinkClass, name.className, className)}
       style={name.style}
     >
-      <NameWithIcon user={user}>{children}</NameWithIcon>
+      <NameWithIcon user={user} wrap={wrap}>
+        {children}
+      </NameWithIcon>
     </MemberCardTrigger>
   );
 }
