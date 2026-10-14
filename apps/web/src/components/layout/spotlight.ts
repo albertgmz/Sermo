@@ -202,3 +202,56 @@ export function createTraversalGuard(
     reset,
   };
 }
+
+// How long a returned-to entry keeps being put back at the scroll position the reader left. The
+// browser (or the router) can jump to the address's element after the page is drawn, and the page
+// can still be streaming and too short to scroll that far.
+export const RESTORE_MS = 1000;
+
+// The scroll position kept for each handled history entry, saved when the entry is left.
+export function createScrollMemory(handled: ReadonlySet<string>) {
+  const positions = new Map<string, number>();
+  return {
+    // Only entries whose arrival was handled are kept: they are the ones the jump to the address
+    // would move. Others are left to the browser.
+    leave(id: string, y: number) {
+      if (handled.has(id)) positions.set(id, y);
+    },
+    recall: (id: string) => positions.get(id),
+  };
+}
+
+export type RestoreEnv = {
+  scrollY(): number;
+  // The furthest the page can be scrolled right now.
+  maxScrollY(): number;
+  scrollTo(y: number): void;
+  on(type: string, listener: () => void): () => void;
+  frames(run: () => void): () => void;
+  later(run: () => void, ms: number): () => void;
+};
+
+// What a person does to take the scroll in their hands.
+const TAKING_OVER = ["pointerdown", "keydown", "wheel", "touchstart"];
+
+// Puts the page back at `y` and holds it there for a moment: every frame it moves the page if
+// something else did (the jump to the address), as far as the page is long enough. The first
+// action of the reader ends it.
+export function createScrollRestorer(env: RestoreEnv) {
+  const stops: (() => void)[] = [];
+  function stop() {
+    for (const undo of stops.splice(0)) undo();
+  }
+  function restore(y: number) {
+    stop();
+    for (const type of TAKING_OVER) stops.push(env.on(type, stop));
+    stops.push(env.later(stop, RESTORE_MS));
+    stops.push(
+      env.frames(() => {
+        const to = Math.min(y, env.maxScrollY());
+        if (Math.abs(env.scrollY() - to) >= 1) env.scrollTo(to);
+      }),
+    );
+  }
+  return { restore, stop };
+}

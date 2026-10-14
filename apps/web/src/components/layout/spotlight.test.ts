@@ -1,10 +1,14 @@
 import { expect, test } from "bun:test";
 import {
   type Box,
+  createScrollMemory,
+  createScrollRestorer,
   createSpotlight,
   createTraversalGuard,
   decideArrival,
   entryId,
+  RESTORE_MS,
+  type RestoreEnv,
   restoresScroll,
   type SpotlightTarget,
   TARGET,
@@ -380,4 +384,127 @@ test("an arrival starts once per history entry", () => {
   // Without entry keys the traversal guard decides.
   expect(decide(undefined, "navigate")).toBe("guard");
   expect(decide(undefined, "reload")).toBe("skip");
+});
+
+// A page whose scroll position something else can move, and whose length can change.
+function fakeScroller(options: { y: number; max: number }) {
+  let now = 0;
+  const frames = new Set<() => void>();
+  const timers: { at: number; run: () => void; live: boolean }[] = [];
+  const listeners = new Map<string, Set<() => void>>();
+  const jumps: number[] = [];
+  const page = {
+    y: options.y,
+    max: options.max,
+    frame() {
+      for (const run of [...frames]) run();
+    },
+    framing: () => frames.size,
+    fire(type: string) {
+      for (const listener of [...(listeners.get(type) ?? [])]) listener();
+    },
+    tick(ms: number) {
+      now += ms;
+      for (const timer of timers)
+        if (timer.live && timer.at <= now) {
+          timer.live = false;
+          timer.run();
+        }
+    },
+    jumps,
+  };
+  const env: RestoreEnv = {
+    scrollY: () => page.y,
+    maxScrollY: () => page.max,
+    scrollTo: (y) => {
+      jumps.push(y);
+      page.y = y;
+    },
+    on: (type, listener) => {
+      const set = listeners.get(type) ?? new Set();
+      listeners.set(type, set.add(listener));
+      return () => set.delete(listener);
+    },
+    frames: (run) => {
+      frames.add(run);
+      return () => frames.delete(run);
+    },
+    later: (run, ms) => {
+      const timer = { at: now + ms, run, live: true };
+      timers.push(timer);
+      return () => {
+        timer.live = false;
+      };
+    },
+  };
+  return { page, env };
+}
+
+test("the position is kept only for entries whose arrival was handled", () => {
+  const handled = new Set([entryId("a", "#post-1")]);
+  const memory = createScrollMemory(handled);
+  memory.leave(entryId("a", "#post-1"), 0);
+  memory.leave(entryId("b", "#post-1"), 300);
+  expect(memory.recall(entryId("a", "#post-1"))).toBe(0);
+  expect(memory.recall(entryId("b", "#post-1"))).toBeUndefined();
+  memory.leave(entryId("a", "#post-1"), 40);
+  expect(memory.recall(entryId("a", "#post-1"))).toBe(40);
+});
+
+test("a jump to the address after the restore is put back where the reader left", () => {
+  const { page, env } = fakeScroller({ y: 0, max: 5000 });
+  const restorer = createScrollRestorer(env);
+  restorer.restore(0);
+  page.frame();
+  expect(page.jumps).toEqual([]);
+  page.y = 1200; // the jump to #post-N
+  page.frame();
+  expect(page.y).toBe(0);
+  page.y = 16;
+  page.frame();
+  expect(page.y).toBe(0);
+});
+
+test("a page still too short is followed as far as it reaches, then the position is reached", () => {
+  const { page, env } = fakeScroller({ y: 0, max: 100 });
+  createScrollRestorer(env).restore(900);
+  page.frame();
+  expect(page.y).toBe(100);
+  page.max = 4000;
+  page.frame();
+  expect(page.y).toBe(900);
+});
+
+test("the reader's first action ends the holding", () => {
+  for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) {
+    const { page, env } = fakeScroller({ y: 0, max: 5000 });
+    createScrollRestorer(env).restore(0);
+    page.fire(type);
+    expect(page.framing()).toBe(0);
+    page.y = 700;
+    page.frame();
+    expect(page.y).toBe(700);
+  }
+});
+
+test("the holding ends by itself after a moment and leaves nothing listening", () => {
+  const { page, env } = fakeScroller({ y: 0, max: 5000 });
+  createScrollRestorer(env).restore(0);
+  page.tick(RESTORE_MS - 1);
+  expect(page.framing()).toBe(1);
+  page.tick(1);
+  expect(page.framing()).toBe(0);
+  page.y = 50;
+  page.frame();
+  expect(page.y).toBe(50);
+});
+
+test("a second restore replaces the first", () => {
+  const { page, env } = fakeScroller({ y: 0, max: 5000 });
+  const restorer = createScrollRestorer(env);
+  restorer.restore(100);
+  restorer.restore(300);
+  expect(page.framing()).toBe(1);
+  page.frame();
+  expect(page.y).toBe(300);
 });

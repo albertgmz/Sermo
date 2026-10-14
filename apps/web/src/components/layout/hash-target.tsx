@@ -4,13 +4,35 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   type Box,
+  createScrollMemory,
+  createScrollRestorer,
   createSpotlight,
   createTraversalGuard,
   decideArrival,
   entryId,
+  type RestoreEnv,
   type SpotlightEnv,
   TARGET,
 } from "@/components/layout/spotlight";
+
+const listen: SpotlightEnv["on"] = (type, listener) => {
+  const options = { capture: true, passive: true };
+  window.addEventListener(type, listener, options);
+  return () => window.removeEventListener(type, listener, options);
+};
+const everyFrame: SpotlightEnv["frames"] = (run) => {
+  let id = 0;
+  const tick = () => {
+    run();
+    id = window.requestAnimationFrame(tick);
+  };
+  id = window.requestAnimationFrame(tick);
+  return () => window.cancelAnimationFrame(id);
+};
+const after: SpotlightEnv["later"] = (run, ms) => {
+  const timer = window.setTimeout(run, ms);
+  return () => window.clearTimeout(timer);
+};
 
 function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
   return {
@@ -18,39 +40,59 @@ function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
     find: (id) => document.getElementById(id),
     reducedMotion: () =>
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-    on: (type, listener) => {
-      const options = { capture: true, passive: true };
-      window.addEventListener(type, listener, options);
-      return () => window.removeEventListener(type, listener, options);
-    },
-    frames: (run) => {
-      let id = 0;
-      const tick = () => {
-        run();
-        id = window.requestAnimationFrame(tick);
-      };
-      id = window.requestAnimationFrame(tick);
-      return () => window.cancelAnimationFrame(id);
-    },
-    later: (run, ms) => {
-      const timer = window.setTimeout(run, ms);
-      return () => window.clearTimeout(timer);
-    },
+    on: listen,
+    frames: everyFrame,
+    later: after,
     show,
     hide,
   };
 }
 
-// The history entry's key, where the Navigation API exists (the installed DOM types lack it).
+// The Navigation API (the installed DOM types lack it): the history entry's key, and the event
+// that announces a navigation before it happens.
 type NavigationWindow = Window & {
-  navigation?: { currentEntry?: { key: string } | null };
+  navigation?: {
+    currentEntry?: { key: string } | null;
+    addEventListener(
+      type: "navigate",
+      listener: (event: { navigationType: string }) => void,
+    ): void;
+    removeEventListener(
+      type: "navigate",
+      listener: (event: { navigationType: string }) => void,
+    ): void;
+  };
 };
 const entryKey = () =>
   (window as NavigationWindow).navigation?.currentEntry?.key;
 
+const restoreEnv: RestoreEnv = {
+  scrollY: () => window.scrollY,
+  maxScrollY: () => document.documentElement.scrollHeight - window.innerHeight,
+  scrollTo: (y) => window.scrollTo({ top: y, behavior: "instant" }),
+  on: listen,
+  frames: everyFrame,
+  later: after,
+};
+
 // Arrivals already handled, by history entry and address: Back and Forward to an entry restore
 // its scroll, and only a new entry dims.
 const handled = new Set<string>();
+
+// Where the reader left each handled entry, and the restoring of it. On a traversal the browser
+// (or the router, which scrolls to the address of a navigation but leaves a traversal to the
+// browser) can jump to the element the address names instead of the saved position, so the
+// position is put back once the page is drawn and held for a moment (see `createScrollRestorer`).
+const positions = createScrollMemory(handled);
+const restorer = createScrollRestorer(restoreEnv);
+
+// A navigation is about to leave the current entry (a replacement of it by the router is not
+// leaving): remember where the reader is.
+const onNavigate = (event: { navigationType: string }) => {
+  const key = entryKey();
+  if (key === undefined || event.navigationType === "replace") return;
+  positions.leave(entryId(key, window.location.hash), window.scrollY);
+};
 
 // Where entries have no key, traversals are told apart by a guard fed by `popstate`. It is
 // watched from the module: the component can be hidden and shown again by a client-side Back.
@@ -67,7 +109,13 @@ function arrives(navigationType?: string) {
   const hash = window.location.hash;
   const key = entryKey();
   const decision = decideArrival({ key, hash, handled, navigationType });
-  if (key !== undefined) handled.add(entryId(key, hash));
+  if (key !== undefined) {
+    const id = entryId(key, hash);
+    // Back or Forward to an entry already handled: it ends where the reader left it.
+    const left = handled.has(id) ? positions.recall(id) : undefined;
+    if (left !== undefined) restorer.restore(left);
+    handled.add(id);
+  }
   return decision === "guard" ? !traversals.consume() : decision === "start";
 }
 
@@ -120,11 +168,19 @@ export function HashTarget() {
     };
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
+    (window as NavigationWindow).navigation?.addEventListener(
+      "navigate",
+      onNavigate,
+    );
     const [entry] = performance.getEntriesByType("navigation");
     if (arrives((entry as PerformanceNavigationTiming)?.type)) current.start();
     return () => {
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);
+      (window as NavigationWindow).navigation?.removeEventListener(
+        "navigate",
+        onNavigate,
+      );
       current.stop();
     };
   }, []);
