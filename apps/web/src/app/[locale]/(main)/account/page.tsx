@@ -11,6 +11,7 @@ import { ProfileGroup } from "@/app/[locale]/(main)/account/profile-forms";
 import { ProfileSkeleton } from "@/app/[locale]/(main)/account/profile-skeleton";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
+import { ScrollToHash } from "@/components/layout/scroll-to-hash";
 import { formatNumber } from "@/lib/format";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,6 +59,7 @@ export default function AccountPage({
   const t = useTranslations("account.profile");
   return (
     <div className="space-y-4">
+      <ScrollToHash />
       <h1 className="text-2xl font-bold tracking-tight">{t("heading")}</h1>
       <Suspense
         fallback={
