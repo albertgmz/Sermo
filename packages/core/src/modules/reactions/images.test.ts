@@ -1,9 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import sharp from "sharp";
 import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
 import { execute } from "../../operation";
+import { createStorage, localDriver } from "../storage";
 import { reactionTypesCreateOp, reactionTypesListOp, reactionTypesUpdateOp } from "./index";
 
 function fixture() {
@@ -327,4 +332,125 @@ describe("reaction type pictures", () => {
     });
     expect(type.image?.fileId).toBe(fileId);
   });
+
+  test("clearing only the frame size goes back to the whole picture", async () => {
+    const f = fixture();
+    const fileId = upload(f.ctx, f.admin.id, { width: 96, height: 32 });
+    const type = await execute(f.ctx, reactionTypesCreateOp, f.actor, {
+      ...base,
+      fileId,
+      frameWidth: 32,
+      frameHeight: 32,
+      frameCount: 3,
+    });
+    const whole = await execute(f.ctx, reactionTypesUpdateOp, f.actor, {
+      reactionTypeId: type.id,
+      frameWidth: null,
+      frameHeight: null,
+    });
+    expect(whole.frames).toBeNull();
+    expect(whole.image?.fileId).toBe(fileId);
+    // A count above one sent with the cleared size is still refused.
+    await expect(
+      execute(f.ctx, reactionTypesUpdateOp, f.actor, {
+        reactionTypeId: type.id,
+        frameWidth: null,
+        frameHeight: null,
+        frameCount: 2,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("frames on a type without a picture are refused on update, as on create", async () => {
+    const f = fixture();
+    const type = await execute(f.ctx, reactionTypesCreateOp, f.actor, base);
+    await expect(
+      execute(f.ctx, reactionTypesUpdateOp, f.actor, {
+        reactionTypeId: type.id,
+        frameWidth: 32,
+        frameHeight: 32,
+        frameCount: 4,
+      }),
+    ).rejects.toThrow("Frames need a picture.");
+    await expect(
+      execute(f.ctx, reactionTypesUpdateOp, f.actor, { reactionTypeId: type.id, frameCount: 2 }),
+    ).rejects.toThrow("Frames need a picture.");
+    // The same update may bring the picture.
+    const fileId = upload(f.ctx, f.admin.id, { width: 64, height: 32 });
+    const updated = await execute(f.ctx, reactionTypesUpdateOp, f.actor, {
+      reactionTypeId: type.id,
+      fileId,
+      frameWidth: 32,
+      frameHeight: 32,
+      frameCount: 2,
+    });
+    expect(updated.frames?.count).toBe(2);
+    // Resetting the frame fields of a type without a picture is fine (the panel's form does).
+    const bare = await execute(f.ctx, reactionTypesCreateOp, f.actor, base);
+    await execute(f.ctx, reactionTypesUpdateOp, f.actor, {
+      reactionTypeId: bare.id,
+      frameWidth: null,
+      frameHeight: null,
+      frameCount: 1,
+    });
+  });
+
+  test("the public list degrades when the file of a picture is gone", async () => {
+    const f = fixture();
+    const fileId = upload(f.ctx, f.admin.id, { width: 96, height: 32 });
+    const type = await execute(f.ctx, reactionTypesCreateOp, f.actor, {
+      ...base,
+      fileId,
+      frameWidth: 32,
+      frameHeight: 32,
+      frameCount: 3,
+    });
+    const other = await execute(f.ctx, reactionTypesCreateOp, f.actor, { ...base, title: "Other" });
+    f.ctx.sqlite.prepare("UPDATE files SET deleted_at = 1 WHERE id = ?1").run(fileId);
+    f.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'reaction_types'")
+      .run();
+    const items = (await execute(f.ctx, reactionTypesListOp, GUEST, {})).items;
+    const degraded = items.find((item) => item.id === type.id);
+    expect(degraded?.image).toBeNull();
+    expect(degraded?.frames).toBeNull();
+    expect(degraded?.emoji).toBe("S");
+    expect(items.some((item) => item.id === other.id)).toBe(true);
+  });
+});
+
+const dirs: string[] = [];
+afterEach(async () => {
+  for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
+});
+
+test("an uploaded sprite sheet backs a type and is served to a guest once attached", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "sermo-reaction-files-"));
+  dirs.push(dir);
+  const f = fixture();
+  const storage = createStorage(f.ctx, { driver: localDriver(join(dir, "files")), tempDir: dir });
+  const bytes = await sharp({
+    create: { width: 64, height: 32, channels: 4, background: { r: 9, g: 8, b: 7, alpha: 1 } },
+  })
+    .png()
+    .toBuffer();
+  const sent = await storage.upload(
+    f.actor,
+    new Blob([bytes]).stream(),
+    "image/png",
+    "reaction_image",
+  );
+  // Not served to others before it is attached.
+  await expect(storage.download(GUEST, sent.id)).rejects.toBeInstanceOf(Error);
+  const type = await execute(f.ctx, reactionTypesCreateOp, f.actor, {
+    ...base,
+    fileId: sent.id,
+    frameWidth: 32,
+    frameHeight: 32,
+    frameCount: 2,
+  });
+  expect(type.image?.fileId).toBe(sent.id);
+  expect(type.frames).toEqual({ width: 32, height: 32, count: 2, columns: 2 });
+  const served = await storage.download(GUEST, sent.id);
+  expect((await sharp(served).metadata()).width).toBe(64);
 });

@@ -66,23 +66,29 @@ export const listSql =
 const typeColumns =
   "id, title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count";
 
-function fileSize(ctx: Ctx, fileId: number) {
-  const file = prepared(ctx, "reactions.fileSize", () =>
+function fileRow(ctx: Ctx, fileId: number) {
+  return prepared(ctx, "reactions.fileSize", () =>
     ctx.sqlite.prepare<{ width: number | null; height: number | null }, [number]>(
       "SELECT width, height FROM files WHERE id = ?1 AND deleted_at IS NULL",
     ),
   ).get(fileId);
+}
+function fileSize(ctx: Ctx, fileId: number) {
+  const file = fileRow(ctx, fileId);
   if (!file?.width || !file.height) throw new ValidationError("The picture could not be measured.");
   return { width: file.width, height: file.height };
 }
 function typeValue(ctx: Ctx, r: TypeRow) {
+  // A public read: a picture whose file is gone is left out, the emoji stays.
+  const file = r.image_file_id === null ? undefined : fileRow(ctx, r.image_file_id);
+  const imageFileId = file ? r.image_file_id : null;
   const frames =
-    r.image_file_id !== null && r.frame_width !== null && r.frame_height !== null
+    file?.width && r.frame_width !== null && r.frame_height !== null
       ? {
           width: r.frame_width,
           height: r.frame_height,
           count: r.frame_count,
-          columns: Math.floor(fileSize(ctx, r.image_file_id).width / r.frame_width),
+          columns: Math.floor(file.width / r.frame_width),
         }
       : null;
   return {
@@ -92,7 +98,7 @@ function typeValue(ctx: Ctx, r: TypeRow) {
     score: r.score,
     position: r.position,
     isActive: !!r.is_active,
-    image: publicPicture(ctx, r.image_file_id),
+    image: publicPicture(ctx, imageFileId),
     frames,
   };
 }
@@ -249,16 +255,19 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
     const fileId = input.fileId === undefined ? old.image_file_id : input.fileId;
     const replaced = fileId !== old.image_file_id;
     if (replaced && fileId !== null) attachUploadedFile(ctx, user.userId, fileId, "reaction_image");
-    // Removing the picture takes its frames with it.
+    const width = input.frameWidth === undefined ? old.frame_width : input.frameWidth;
+    const height = input.frameHeight === undefined ? old.frame_height : input.frameHeight;
+    // Removing the picture takes its frames with it; clearing the frame size goes back to the
+    // whole picture as the one frame, unless a count is sent with it.
     const frames =
-      fileId === null
+      input.fileId === null
         ? checkedFrames(ctx, null, null, null, 1)
         : checkedFrames(
             ctx,
             fileId,
-            input.frameWidth === undefined ? old.frame_width : input.frameWidth,
-            input.frameHeight === undefined ? old.frame_height : input.frameHeight,
-            input.frameCount ?? old.frame_count,
+            width,
+            height,
+            input.frameCount ?? (width === null && height === null ? 1 : old.frame_count),
           );
     const row = ctx.sqlite
       .prepare<
