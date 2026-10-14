@@ -32,6 +32,7 @@ const member = (id: number) => ({
   avatar: null,
   frame: null,
   nameColor: null,
+  restricted: false,
   title: "Member",
   badges: [],
   level: 1,
