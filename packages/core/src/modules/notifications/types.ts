@@ -46,7 +46,6 @@ export const notificationTypes: readonly NotificationDefinition[] = [
   entry("member.thread", ["content.created", "content.state_changed"], "follower"),
   entry("member.followed", ["member.followed"], "followed member"),
   entry("conversation.added", ["conversation.participants_added"], "added participant"),
-  entry("conversation.message", ["content.created", "content.state_changed"], "participant"),
   entry(
     "moderation.content",
     ["content.deleted", "content.edited", "content.state_changed", "moderation.action"],

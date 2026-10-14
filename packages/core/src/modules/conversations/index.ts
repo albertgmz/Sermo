@@ -65,6 +65,12 @@ export const activeSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.conversation_id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
 export const reactableSql =
   "SELECT m.user_id, m.state FROM conversation_messages m JOIN conversation_participants cp ON cp.conversation_id = m.conversation_id WHERE m.id = ?1 AND cp.user_id = ?2 AND cp.state = 'active'";
+// Alerts about a conversation: the ones whose content is the conversation (being added), and any
+// whose content is one of its messages (a mention), found through the member's own unread rows.
+export const clearConversationNoticesSql =
+  "UPDATE notifications INDEXED BY notifications_content SET read_at = ?1 WHERE content_type = 'conversation' AND content_id = ?2 AND user_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
+export const clearMessageNoticesSql =
+  "UPDATE notifications INDEXED BY notifications_user_unread SET read_at = ?1 WHERE user_id = ?3 AND content_type = 'conversation_message' AND json_extract(data, '$.conversationId') = ?2 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?3) AND read_at IS NULL";
 
 function activeConversation(ctx: Ctx, actor: Actor, id: number): ConversationRow {
   const user = requireAuthenticated(actor);
@@ -447,6 +453,20 @@ export const conversationsMarkReadOp = implement(
           "UPDATE conversation_participants SET last_read_message_id = ?1 WHERE conversation_id = ?2 AND user_id = ?3",
         ),
       ).run(row.last_message_id, row.id, user.userId);
+      const now = ctx.now();
+      const cleared =
+        prepared(ctx, "conversations.clearNotices", () =>
+          ctx.sqlite.prepare(clearConversationNoticesSql),
+        ).run(now, row.id, user.userId).changes +
+        prepared(ctx, "conversations.clearMessageNotices", () =>
+          ctx.sqlite.prepare(clearMessageNoticesSql),
+        ).run(now, row.id, user.userId).changes;
+      if (cleared)
+        prepared(ctx, "conversations.countDownNotices", () =>
+          ctx.sqlite.prepare(
+            "UPDATE users SET unread_notification_count = unread_notification_count - ?1 WHERE id = ?2",
+          ),
+        ).run(cleared, user.userId);
     });
     return { ok: true as const };
   },

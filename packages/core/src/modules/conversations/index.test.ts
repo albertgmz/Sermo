@@ -8,10 +8,15 @@ import {
 } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { ForbiddenError, NotFoundError, UnauthenticatedError, ValidationError } from "../../errors";
+import { dispatchEvents } from "../../events";
 import { execute } from "../../operation";
 import { encodeCursor } from "../../pagination";
+import { runDueJobs } from "../jobs";
+import { registerNotificationJobs } from "../notifications";
 import {
   activeSql,
+  clearConversationNoticesSql,
+  clearMessageNoticesSql,
   conversationsCreateOp,
   conversationsGetOp,
   conversationsLeaveOp,
@@ -575,5 +580,154 @@ describe("conversations", () => {
     expect((await execute(ctx, conversationsListOp, c, { limit: 10 })).items).toHaveLength(0);
     expectNoTableScan(ctx, activeSql, [id, idOf(a)]);
     expectNoTableScan(ctx, reactableSql, [privateConversation.message.id, idOf(a)]);
+  });
+
+  describe("alerts", () => {
+    const idOf = (actor: { kind: string; userId?: number }) => actor.userId ?? 0;
+    const unreadCount = (
+      ctx: ReturnType<typeof createTestContext>,
+      actor: ReturnType<typeof userActor>,
+    ) =>
+      ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT unread_notification_count AS n FROM users WHERE id = ?1",
+        )
+        .get(idOf(actor))!.n;
+    const unreadRows = (
+      ctx: ReturnType<typeof createTestContext>,
+      actor: ReturnType<typeof userActor>,
+    ) =>
+      ctx.sqlite
+        .prepare<{ content_type: string; content_id: number }, [number]>(
+          "SELECT content_type, content_id FROM notifications n WHERE user_id = ?1 AND read_at IS NULL AND epoch = (SELECT notification_epoch FROM users WHERE id = ?1) ORDER BY id",
+        )
+        .all(idOf(actor));
+    function notice(
+      ctx: ReturnType<typeof createTestContext>,
+      actor: ReturnType<typeof userActor>,
+      contentType: string,
+      contentId: number,
+      data: object = {},
+      epoch?: number,
+    ) {
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, data, created_at, updated_at) VALUES (?1, coalesce(?5, (SELECT notification_epoch FROM users WHERE id = ?1)), 'conversation.added', ?2, ?3, ?4, 0, 0)",
+        )
+        .run(idOf(actor), contentType, contentId, JSON.stringify(data), epoch ?? null);
+      ctx.sqlite
+        .prepare(
+          "UPDATE users SET unread_notification_count = unread_notification_count + 1 WHERE id = ?1",
+        )
+        .run(idOf(actor));
+    }
+
+    test("a reply creates no alert and leaves the alert counter alone", async () => {
+      const { ctx, a, b } = fixture();
+      registerNotificationJobs(ctx);
+      const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      await dispatchEvents(ctx);
+      await runDueJobs(ctx);
+      const before = unreadCount(ctx, b);
+      await execute(ctx, conversationsReplyOp, a, {
+        conversationId: made.conversation.id,
+        body: "again",
+      });
+      await dispatchEvents(ctx);
+      await runDueJobs(ctx);
+      expect(unreadCount(ctx, b)).toBe(before);
+      expect(
+        ctx.sqlite
+          .prepare<{ n: number }, []>(
+            "SELECT count(*) AS n FROM notifications WHERE type = 'conversation.message'",
+          )
+          .get()!.n,
+      ).toBe(0);
+      const detail = await execute(ctx, conversationsGetOp, b, {
+        conversationId: made.conversation.id,
+      });
+      expect(detail.isUnread).toBe(true);
+    });
+
+    test("marking a conversation read clears its alerts and the counter, for the caller only", async () => {
+      const { ctx, a, b, c } = fixture();
+      const one = await execute(ctx, conversationsCreateOp, a, start([idOf(b), idOf(c)]));
+      const two = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      const id = one.conversation.id;
+      // b: added to both conversations (first under an old epoch), a mention inside a message of the first, an alert of
+      // another kind, and one that belongs to an older epoch (already counted as read).
+      notice(ctx, b, "conversation", id);
+      notice(ctx, b, "conversation", two.conversation.id);
+      notice(ctx, b, "conversation_message", one.message.id, { conversationId: id });
+      notice(ctx, b, "thread", 99);
+      ctx.sqlite.prepare("UPDATE users SET notification_epoch = 1 WHERE id = ?1").run(idOf(b));
+      ctx.sqlite
+        .prepare("UPDATE users SET unread_notification_count = 0 WHERE id = ?1")
+        .run(idOf(b));
+      notice(ctx, b, "conversation", two.conversation.id);
+      notice(ctx, b, "conversation", id);
+      notice(ctx, b, "conversation_message", one.message.id, { conversationId: id });
+      notice(ctx, b, "thread", 98);
+      notice(ctx, c, "conversation", id);
+      expect(unreadCount(ctx, b)).toBe(4);
+
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: id });
+
+      expect(unreadRows(ctx, b).filter((row) => row.content_type !== "thread")).toEqual([
+        { content_type: "conversation", content_id: two.conversation.id },
+      ]);
+      expect(unreadRows(ctx, b).filter((row) => row.content_type === "thread")).toHaveLength(1);
+      expect(unreadCount(ctx, b)).toBe(2);
+      // The older epoch's rows were not touched, and nobody else's counter moved.
+      expect(
+        ctx.sqlite
+          .prepare<{ n: number }, [number]>(
+            "SELECT count(*) AS n FROM notifications WHERE user_id = ?1 AND epoch = 0 AND read_at IS NULL",
+          )
+          .get(idOf(b))!.n,
+      ).toBe(4);
+      expect(unreadCount(ctx, c)).toBe(1);
+      expect(unreadRows(ctx, c)).toHaveLength(1);
+      // Marking it again changes nothing.
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: id });
+      expect(unreadCount(ctx, b)).toBe(2);
+    });
+
+    test("alerts are cleared even when the conversation itself is already read", async () => {
+      const { ctx, a, b } = fixture();
+      const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: made.conversation.id });
+      notice(ctx, b, "conversation", made.conversation.id);
+      await execute(ctx, conversationsMarkReadOp, b, { conversationId: made.conversation.id });
+      expect(unreadCount(ctx, b)).toBe(0);
+      expect(unreadRows(ctx, b)).toEqual([]);
+    });
+
+    test("a non-participant, a guest and a left member clear nothing", async () => {
+      const { ctx, a, b, c } = fixture();
+      const made = await execute(ctx, conversationsCreateOp, a, start([idOf(b)]));
+      const id = made.conversation.id;
+      notice(ctx, c, "conversation", id);
+      await expect(
+        execute(ctx, conversationsMarkReadOp, c, { conversationId: id }),
+      ).rejects.toThrow(NotFoundError);
+      await expect(
+        execute(ctx, conversationsMarkReadOp, GUEST, { conversationId: id }),
+      ).rejects.toThrow(UnauthenticatedError);
+      notice(ctx, b, "conversation", id);
+      await execute(ctx, conversationsLeaveOp, b, { conversationId: id });
+      await expect(
+        execute(ctx, conversationsMarkReadOp, b, { conversationId: id }),
+      ).rejects.toThrow(NotFoundError);
+      expect(unreadCount(ctx, c)).toBe(1);
+      expect(unreadCount(ctx, b)).toBe(1);
+      expect(unreadRows(ctx, b)).toHaveLength(1);
+    });
+
+    test("the clearing statements use an index", () => {
+      const { ctx } = fixture();
+      expectNoTableScan(ctx, clearConversationNoticesSql, [0, 1, 1]);
+      expectNoTableScan(ctx, clearMessageNoticesSql, [0, 1, 1]);
+    });
   });
 });

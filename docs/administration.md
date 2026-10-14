@@ -699,7 +699,7 @@ is authorized by its signed token. `announcements.create` needs `admin.announcem
 | `profile.comment`, `profile.commented` | The profile post's author, and earlier commenters, on a new comment |
 | `member.thread` | Followers, when the member starts a thread |
 | `member.followed` | A member who gained a follower |
-| `conversation.added`, `conversation.message` | Conversation participants |
+| `conversation.added` | A member added to a conversation (new messages raise the conversation counter, not an alert) |
 | `moderation.content`, `moderation.member` | A member whose content or account a moderator acted on (with `notify`) |
 | `report.resolved` | Reporters, when their report is resolved or rejected (with `notify`) |
 | `moderator.report`, `moderator.approval` | Moderators who can handle a new report or approve new content |

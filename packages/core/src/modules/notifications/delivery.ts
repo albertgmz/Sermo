@@ -581,16 +581,6 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
         ),
       );
     }
-    if (item.type === "conversation_message" && item.conversationId && !isFirstMessage(ctx, item))
-      result.push(
-        source(
-          "conversation",
-          "conversation.message",
-          "SELECT user_id FROM conversation_participants WHERE conversation_id = ?1 AND state = 'active' AND user_id > ?2 ORDER BY user_id LIMIT ?3",
-          item.conversationId,
-          { conversationId: item.conversationId },
-        ),
-      );
     return result;
   }
   if (event.type === "member.followed")
