@@ -1804,3 +1804,29 @@ state things that are not true. `MemberView` carries `restricted` for this.
 
 The column's width is one variable (`--postbit-width`) used by the grid and by the cover, which
 sits behind the column and ends at its border; on phones the cover stays behind the header.
+
+## The conversation page: widgets, adding people, renaming
+
+**A conversation's starter may add people and rename it; nobody else may.** Two operations,
+`conversations.addParticipants` and `conversations.rename`, with no new permission, event or
+column. Adding needs `conversation.start` and renaming `conversation.reply`: a rename changes what
+every participant sees, so it is not a write on the actor's own row. Someone else who can see the
+conversation gets Forbidden, someone who cannot NotFound. The rules of creation apply to the
+people added (members only, not yourself, not someone who ignores the starter), and
+`conversation.maxRecipients` limits the other active participants after the addition. Someone
+already in is skipped; someone who left is made active again in the same row, with the read
+position they had; a new person starts unread exactly when there is a message they can see. The
+conversation keeps its place by last message in their inbox. `conversation.participants_added` is
+published for those who became active, so they get the existing alert, again on a re-addition.
+`Conversation` carries `canInvite` (with room left under the limit) and `canRename`; the web app
+never derives the starter rule itself.
+
+**The page shows the name as its heading and widgets beside it**: information, participants with
+"Add people", rename, and "mark as read". One widget set is drawn in the aside from `lg` up and
+in a sheet behind a "Details" button below it, where a compact line of participants stays in the
+header. Leaving stays a header control.
+
+**Opening a conversation still marks it read; the "mark as read" widget is for when that failed.**
+The two requests met here: with the automatic mark, a card shown while the latest message is
+unread would flash on every open. So the card is drawn only when the conversation is unread and
+the automatic mark was refused, and a refused press says why.
