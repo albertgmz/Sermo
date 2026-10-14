@@ -124,11 +124,14 @@ export function createSpotlight(env: SpotlightEnv) {
   }
 
   // A link to another place on this page was followed: starts once the address has changed.
-  function startWhenHashIs(hash: string) {
+  function startWhenHashIs(hash: string, onArrive?: () => void) {
     stop();
     let waited = 0;
     const look = () => {
-      if (env.hash() === hash) return start();
+      if (env.hash() === hash) {
+        onArrive?.();
+        return start();
+      }
       if (waited >= NAVIGATE_MS) return;
       waited += 50;
       stops.push(env.later(look, 50));
@@ -143,18 +146,32 @@ export function createSpotlight(env: SpotlightEnv) {
 export const restoresScroll = (type: string | undefined) =>
   type === "reload" || type === "back_forward";
 
-// Whether the first arrival, when the component mounts, starts the dimming. Not after a reload or
-// a visit by history of the whole document, and not when the component is mounted again (or shown
-// again) because of a client-side Back or Forward, which `guard` knows about.
-export const startsOnMount = (
-  navigationType: string | undefined,
-  guard: { consume(): boolean },
-) => {
-  const traversal = guard.consume();
-  return !restoresScroll(navigationType) && !traversal;
-};
+// Whether an arrival at an address starts the dimming. Which history entries were handled is
+// remembered, because the order in which the router, the component and the page's `popstate`
+// listener see a Back or Forward is not reliable. `key` is the history entry's key (the
+// Navigation API); it stays the same through the router's `replaceState` and differs for every
+// new navigation, even to an address already visited. `handled` holds `entryId(key, hash)` of the
+// arrivals already seen. `navigationType` is the document load's type, given only when the
+// component mounts. Answers "guard" when there is no key: the caller falls back to the traversal
+// guard below.
+export const entryId = (key: string, hash: string) => `${key}${hash}`;
 
-// Tells a visit by history (Back, Forward) from a new navigation. A traversal is announced by
+export function decideArrival(arrival: {
+  key: string | undefined;
+  hash: string;
+  handled: ReadonlySet<string>;
+  navigationType?: string;
+}): "start" | "skip" | "guard" {
+  if (!TARGET.test(arrival.hash)) return "skip";
+  if (restoresScroll(arrival.navigationType)) return "skip";
+  if (arrival.key === undefined) return "guard";
+  return arrival.handled.has(entryId(arrival.key, arrival.hash))
+    ? "skip"
+    : "start";
+}
+
+// The fallback where history entries have no key: tells a visit by history (Back, Forward)
+// from a new navigation. A traversal is announced by
 // `traversal()` before the address, the path or the query change in the page, or the component
 // mounts again. `consume()` asks whether the change being handled is that traversal: every
 // effect of the same commit gets the same answer, and the mark is gone by the next task. A link

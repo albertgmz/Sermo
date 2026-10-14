@@ -3,9 +3,10 @@ import {
   type Box,
   createSpotlight,
   createTraversalGuard,
+  decideArrival,
+  entryId,
   restoresScroll,
   type SpotlightTarget,
-  startsOnMount,
   TARGET,
 } from "./spotlight";
 
@@ -356,26 +357,27 @@ test("the dimming is given plain numbers, not the rectangle the browser returned
   expect(page.visible).toEqual({ ...BOX, top: 40 });
 });
 
-test("a component mounted again by a client-side Back does not start", () => {
-  const pending: { run: () => void; ms: number; live: boolean }[] = [];
-  const guard = createTraversalGuard((run, ms) => {
-    const item = { run, ms, live: true };
-    pending.push(item);
-    return () => {
-      item.live = false;
-    };
-  });
-  // A plain arrival by a link: the document's entry says navigate.
-  expect(startsOnMount("navigate", guard)).toBe(true);
-  // popstate, then the component is mounted again (or shown again) while the document's entry
-  // still says navigate: its mount effect and its path effect both see the traversal.
-  guard.traversal();
-  expect(startsOnMount("navigate", guard)).toBe(false);
-  expect(guard.consume()).toBe(true);
-  for (const item of pending) if (item.live && item.ms === 0) item.run();
-  // The next arrival is new again.
-  expect(startsOnMount("navigate", guard)).toBe(true);
-  // A reload or a document-level history visit never starts, with or without a mark.
-  expect(startsOnMount("reload", guard)).toBe(false);
-  expect(startsOnMount("back_forward", guard)).toBe(false);
+test("an arrival starts once per history entry", () => {
+  const handled = new Set<string>();
+  const hash = "#post-42";
+  const decide = (key: string | undefined, navigationType?: string, h = hash) =>
+    decideArrival({ key, hash: h, handled, navigationType });
+  // First arrival by a link or by typing.
+  expect(decide("k1", "navigate")).toBe("start");
+  handled.add(entryId("k1", hash));
+  // Back or Forward to the same entry, or the router re-running effects on it.
+  expect(decide("k1")).toBe("skip");
+  // A new navigation to the same address is a new entry.
+  expect(decide("k2")).toBe("start");
+  // A same-document link to a post is a new entry with another hash.
+  expect(decide("k1", undefined, "#post-43")).toBe("start");
+  // A reload or a document-level visit by history never starts.
+  expect(decide("k3", "reload")).toBe("skip");
+  expect(decide("k3", "back_forward")).toBe("skip");
+  // An address that names nothing never starts.
+  expect(decide("k4", "navigate", "#top")).toBe("skip");
+  expect(decide("k4", "navigate", "")).toBe("skip");
+  // Without entry keys the traversal guard decides.
+  expect(decide(undefined, "navigate")).toBe("guard");
+  expect(decide(undefined, "reload")).toBe("skip");
 });

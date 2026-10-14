@@ -6,8 +6,9 @@ import {
   type Box,
   createSpotlight,
   createTraversalGuard,
+  decideArrival,
+  entryId,
   type SpotlightEnv,
-  startsOnMount,
   TARGET,
 } from "@/components/layout/spotlight";
 
@@ -40,15 +41,34 @@ function browserEnv(show: (box: Box) => void, hide: () => void): SpotlightEnv {
   };
 }
 
-// History traversals are watched from the module, not from the component: the component can be
-// hidden and shown again by a client-side Back (the router keeps pages it left), and then its own
-// listeners and state are gone while the traversal is still the cause of what happens next.
+// The history entry's key, where the Navigation API exists (the installed DOM types lack it).
+type NavigationWindow = Window & {
+  navigation?: { currentEntry?: { key: string } | null };
+};
+const entryKey = () =>
+  (window as NavigationWindow).navigation?.currentEntry?.key;
+
+// Arrivals already handled, by history entry and address: Back and Forward to an entry restore
+// its scroll, and only a new entry dims.
+const handled = new Set<string>();
+
+// Where entries have no key, traversals are told apart by a guard fed by `popstate`. It is
+// watched from the module: the component can be hidden and shown again by a client-side Back.
 const traversals = createTraversalGuard((run, ms) => {
   const timer = window.setTimeout(run, ms);
   return () => window.clearTimeout(timer);
 });
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && entryKey() === undefined) {
   window.addEventListener("popstate", () => traversals.traversal());
+}
+
+// Whether the arrival at the current address starts the dimming; the entry is recorded as handled.
+function arrives(navigationType?: string) {
+  const hash = window.location.hash;
+  const key = entryKey();
+  const decision = decideArrival({ key, hash, handled, navigationType });
+  if (key !== undefined) handled.add(entryId(key, hash));
+  return decision === "guard" ? !traversals.consume() : decision === "start";
 }
 
 // When the address names an element of the page (a post, a wall post or comment, a message), it
@@ -64,7 +84,7 @@ export function HashTarget() {
   const arrived = useRef(false);
 
   // Once: the listeners, and the first arrival, unless the browser restores the scroll itself
-  // (a reload, or a visit by history of the document) or the component comes back by a traversal.
+  // (a reload, or a visit by history of the document) or the entry was handled already.
   useEffect(() => {
     const env = browserEnv(
       (next) => setBox(next),
@@ -73,8 +93,8 @@ export function HashTarget() {
     const current = createSpotlight(env);
     spotlight.current = current;
     const onHashChange = () => {
-      if (traversals.consume()) current.stop();
-      else current.start();
+      if (arrives()) current.start();
+      else current.stop();
     };
     const onClick = (event: MouseEvent) => {
       traversals.reset();
@@ -91,17 +111,17 @@ export function HashTarget() {
         to.search === here.search &&
         TARGET.test(to.hash)
       ) {
-        current.startWhenHashIs(to.hash);
+        // A link followed is a new arrival, even to the address already shown.
+        current.startWhenHashIs(to.hash, () => {
+          const key = entryKey();
+          if (key !== undefined) handled.add(entryId(key, to.hash));
+        });
       }
     };
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
     const [entry] = performance.getEntriesByType("navigation");
-    if (
-      startsOnMount((entry as PerformanceNavigationTiming)?.type, traversals)
-    ) {
-      current.start();
-    }
+    if (arrives((entry as PerformanceNavigationTiming)?.type)) current.start();
     return () => {
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);
@@ -116,8 +136,8 @@ export function HashTarget() {
       arrived.current = true;
       return;
     }
-    if (traversals.consume()) spotlight.current?.stop();
-    else spotlight.current?.start();
+    if (arrives()) spotlight.current?.start();
+    else spotlight.current?.stop();
   }, [pathname, search]);
 
   if (!box) return null;
