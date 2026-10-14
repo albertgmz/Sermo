@@ -157,7 +157,13 @@
   /* Spacing. */
   --aside-width: 18.75rem;
   --page-gap: 1rem;
+  --container-width: 1420px;
   --prefix-offset: 0.0625rem;
+}
+
+/* The visitor chose a narrower page (the header button); see layout/narrow-width.ts. */
+:root[data-width="narrow"] {
+  --container-width: 1100px;
 }
 
 /*

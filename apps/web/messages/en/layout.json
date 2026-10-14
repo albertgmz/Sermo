@@ -23,6 +23,10 @@
       "unread": "{label}, {count, plural, one {# unread} other {# unread}}"
     }
   },
+  "narrowToggle": {
+    "narrow": "Use a narrower page",
+    "wide": "Use the full page width"
+  },
   "siteHeader": {
     "loadingMenu": "Loading menu…",
     "loadingNavigation": "Loading navigation…",

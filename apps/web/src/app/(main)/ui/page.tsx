@@ -80,6 +80,7 @@ import { WallComments } from "@/components/forum/wall-comments";
 import { HeaderPanel } from "@/components/layout/header-panel";
 import { headerIconClass } from "@/components/layout/header-panels";
 import { Logo, LogoMark } from "@/components/layout/logo";
+import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
@@ -363,6 +364,18 @@ export default async function StyleguidePage() {
               </li>
             ))}
           </ul>
+        </Section>
+
+        <Section title="Narrow layout toggle">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The header button that narrows the page to 1100px. The choice is
+            kept in the visitor's browser only. It is hidden below 1100px, where
+            the page is not wider than the narrow width anyway, so it shows here
+            only on a wide window.
+          </p>
+          <div className="flex items-center gap-2">
+            <NarrowToggle />
+          </div>
         </Section>
 
         <Section title="Page layout">

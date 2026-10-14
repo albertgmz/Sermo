@@ -15,6 +15,7 @@ import {
   SearchPanel,
 } from "@/components/layout/header-panels";
 import { Logo } from "@/components/layout/logo";
+import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { buttonVariants } from "@/components/ui/button";
@@ -83,6 +84,7 @@ export function SiteHeader() {
             <Search />
           </IconLink>
           <SearchPanel className={PANEL} />
+          <NarrowToggle />
           <Suspense
             fallback={
               <LoadingRegion label={t("loadingAccount")}>
