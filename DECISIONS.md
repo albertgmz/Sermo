@@ -1930,3 +1930,28 @@ only for browsers without the Navigation API.
 In the profile heading a name with an icon wraps (`NameWithIcon` `wrap`); in rows and lists it
 still truncates with the icon visible. The conversation details sheet scrolls its body and keeps
 its cards at their natural height.
+
+## Member card and history fixes after the wave 3 browser pass
+
+**The card's client parts are registered where a card can open.** A server action that returns UI
+can only reference client components that the current route's client reference manifest lists,
+and Next lists only those imported by a server module of that route. `member-card-parts.ts` lists
+every client component the card can hold and is imported by the server modules that draw card
+triggers (`UserLink`, `UserAvatar`, `HtmlContent`), so routes without a member name, such as the
+sign-in pages, do not load them. A test walks the card action's imports and fails when a client
+part is missing from the list.
+
+**A loading card never blanks the page.** The card's content may wait for its client code; it has
+its own loading boundary inside the popup and is installed in a transition, so the page's own
+boundaries keep their content and the card does not close under a resting pointer.
+
+**Back and Forward to a target address end where the reader left.** The browser jumps to the
+element the address names after restoring the saved position. The position is recorded when a
+handled entry with a target is left (a Navigation API `navigate` event, replacements ignored) and
+held for up to a second after a traversal, until the reader scrolls, types or touches. Other
+entries are left to the browser.
+
+**Same-page hash links go through one component.** This Next version keeps the first load's hash
+in the route's address and appends the next hash to it (`#post-45#post-43`). `HashLink` pushes the
+current path and query with the new hash when the target is on the page (so selection and cursor
+views are kept) and is used for post numbers and the reply link.
