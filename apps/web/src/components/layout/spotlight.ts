@@ -212,8 +212,8 @@ export const RESTORE_MS = 1000;
 export function createScrollMemory(handled: ReadonlySet<string>) {
   const positions = new Map<string, number>();
   return {
-    // Only entries whose arrival was handled are kept: they are the ones the jump to the address
-    // would move. Others are left to the browser.
+    // Only entries whose arrival was handled are kept. (An entry whose address names no target
+    // is never given here: see `createHistoryScroll`.)
     leave(id: string, y: number) {
       if (handled.has(id)) positions.set(id, y);
     },
@@ -254,4 +254,40 @@ export function createScrollRestorer(env: RestoreEnv) {
     );
   }
   return { restore, stop };
+}
+
+// Sent on the window by a link that changed the address without a navigation: the hash it names.
+export const HASH_LINK_EVENT = "sermo:hash-link";
+
+// The history entry's scroll position, kept while an address that names a target is left and put
+// back when it is returned to. Every other entry is left to the browser, which restores it itself.
+export function createHistoryScroll(deps: {
+  // The key of the current entry (the Navigation API), if there is one.
+  key(): string | undefined;
+  hash(): string;
+  scrollY(): number;
+  handled: ReadonlySet<string>;
+  restore(y: number): void;
+}) {
+  const memory = createScrollMemory(deps.handled);
+  return {
+    // A navigation is about to leave the current entry; a replacement of it is not leaving.
+    onNavigate(navigationType: string) {
+      const key = deps.key();
+      const hash = deps.hash();
+      if (key === undefined || navigationType === "replace") return;
+      if (!TARGET.test(hash)) return;
+      memory.leave(entryId(key, hash), deps.scrollY());
+    },
+    // The entry now shown, before it is recorded as handled: a revisit is put back where it was.
+    revisit() {
+      const key = deps.key();
+      const hash = deps.hash();
+      if (key === undefined || !TARGET.test(hash)) return;
+      const id = entryId(key, hash);
+      if (!deps.handled.has(id)) return;
+      const y = memory.recall(id);
+      if (y !== undefined) deps.restore(y);
+    },
+  };
 }

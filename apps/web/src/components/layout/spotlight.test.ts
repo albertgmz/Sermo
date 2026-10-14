@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   type Box,
+  createHistoryScroll,
   createScrollMemory,
   createScrollRestorer,
   createSpotlight,
@@ -507,4 +508,81 @@ test("a second restore replaces the first", () => {
   expect(page.framing()).toBe(1);
   page.frame();
   expect(page.y).toBe(300);
+});
+
+// The entry bookkeeping around a traversal, with the browser faked.
+function fakeHistory(start: { key: string; hash: string; y: number }) {
+  const state = { ...start };
+  const handled = new Set<string>();
+  const restored: number[] = [];
+  const scroll = createHistoryScroll({
+    key: () => state.key,
+    hash: () => state.hash,
+    scrollY: () => state.y,
+    handled,
+    restore: (y) => restored.push(y),
+  });
+  return { state, handled, restored, scroll };
+}
+
+test("an entry with a target is saved under its own key when it is left, and put back on return", () => {
+  const h = fakeHistory({ key: "a", hash: "#post-45", y: 0 });
+  h.handled.add(entryId("a", "#post-45"));
+  h.scroll.onNavigate("push");
+  // the new entry
+  h.state.key = "b";
+  h.state.hash = "";
+  h.state.y = 900;
+  h.scroll.onNavigate("traverse");
+  // Back to the first
+  h.state.key = "a";
+  h.state.hash = "#post-45";
+  h.state.y = 16;
+  h.scroll.revisit();
+  expect(h.restored).toEqual([0]);
+});
+
+test("a replacement of the entry is not leaving it", () => {
+  const h = fakeHistory({ key: "a", hash: "#post-45", y: 0 });
+  h.handled.add(entryId("a", "#post-45"));
+  h.scroll.onNavigate("push");
+  h.state.y = 16; // the jump
+  h.scroll.onNavigate("replace");
+  h.scroll.revisit();
+  expect(h.restored).toEqual([0]);
+});
+
+test("entries whose address names no target are left to the browser", () => {
+  const h = fakeHistory({ key: "a", hash: "", y: 300 });
+  h.handled.add(entryId("a", ""));
+  h.scroll.onNavigate("push");
+  h.scroll.revisit();
+  h.state.hash = "#top";
+  h.handled.add(entryId("a", "#top"));
+  h.scroll.onNavigate("push");
+  h.scroll.revisit();
+  expect(h.restored).toEqual([]);
+});
+
+test("an entry not yet handled, or without a saved position, restores nothing", () => {
+  const h = fakeHistory({ key: "a", hash: "#post-45", y: 5 });
+  h.scroll.onNavigate("push");
+  h.scroll.revisit();
+  h.handled.add(entryId("a", "#post-45"));
+  h.scroll.revisit();
+  expect(h.restored).toEqual([]);
+});
+
+test("without an entry key nothing is kept", () => {
+  const h = fakeHistory({ key: "a", hash: "#post-45", y: 5 });
+  const none = createHistoryScroll({
+    key: () => undefined,
+    hash: () => "#post-45",
+    scrollY: () => 5,
+    handled: h.handled,
+    restore: (y) => h.restored.push(y),
+  });
+  none.onNavigate("push");
+  none.revisit();
+  expect(h.restored).toEqual([]);
 });

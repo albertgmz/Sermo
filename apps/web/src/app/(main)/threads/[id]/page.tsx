@@ -17,11 +17,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
 import { MarkRead } from "@/app/(main)/threads/[id]/mark-read";
 import { SPLIT_FORM, SplitPanel } from "@/app/(main)/threads/[id]/moderation";
-import {
-  pageCount,
-  postPermalink,
-  threadHref,
-} from "@/app/(main)/threads/[id]/pages";
+import { pageCount, threadHref } from "@/app/(main)/threads/[id]/pages";
 import {
   mayRestore,
   type ThreadMay,
@@ -47,7 +43,6 @@ import { memberActionsOf } from "@/components/forum/member-actions";
 import { messageActionClass } from "@/components/forum/message-row";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
-import { PostPermalink } from "@/components/forum/post-permalink";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { QuoteButton } from "@/components/forum/quote-button";
 import type { ReactionType } from "@/components/forum/reaction-button";
@@ -55,6 +50,7 @@ import { Reactions } from "@/components/forum/reactions";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { ShareButton } from "@/components/forum/share-button";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
+import { HashLink } from "@/components/layout/hash-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,12 +176,12 @@ function PostItem({
             </span>
           )}
           <ShareButton href={href} className={QUIET_ICON} />
-          <PostPermalink
-            href={postPermalink(post.position, post.id)}
+          <HashLink
+            href={href}
             className="inline-flex h-10 min-w-10 items-center justify-center px-1.5 tabular-nums hover:text-foreground md:h-7 md:min-w-7"
           >
             {t("postNumber", { number })}
-          </PostPermalink>
+          </HashLink>
         </>
       }
       signed={signed}
@@ -209,10 +205,10 @@ function PostItem({
               label={t("quote")}
             />
           )}
-          <Link href="#reply" className={messageActionClass}>
+          <HashLink href="#reply" className={messageActionClass}>
             <Reply />
             {t("reply")}
-          </Link>
+          </HashLink>
           {post.canEdit && (
             <Link
               href={`/threads/${post.threadId}/edit/${post.id}`}

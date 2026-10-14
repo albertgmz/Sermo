@@ -1,3 +1,4 @@
+import "@/components/forum/member-card-parts";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { NameWithIcon } from "@/components/forum/name-icon";
 import { userLinkClass, userNameProps } from "@/components/forum/user-name";

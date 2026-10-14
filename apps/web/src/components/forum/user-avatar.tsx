@@ -1,3 +1,4 @@
+import "@/components/forum/member-card-parts";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";

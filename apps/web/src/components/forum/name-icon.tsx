@@ -27,16 +27,18 @@ export function NameWithIcon({
 }: {
   user: IconedUser;
   // For a heading: the name breaks into lines instead of truncating, the icon stays beside it.
-  // `"md"`: truncating below `md`, breaking into lines from `md` up. Left out, a name without an
-  // icon is the plain text; given, the name is always its own span.
+  // `"md"`: truncating below `md`, breaking into lines from `md` up. A name without an icon is the
+  // plain text, except where it truncates (`false`, and `"md"` below `md`).
   wrap?: boolean | "md";
   children?: ReactNode;
 }) {
   const name = children ?? user.username;
   const wears = user.nameIcon;
   const Icon = wears ? iconComponent(wears.icon) : null;
-  // No icon: the plain name, laid out exactly as it was.
-  if ((!wears || !Icon) && wrap === undefined) return <>{name}</>;
+  // No icon: the plain name, laid out exactly as it was, unless it has to truncate: that needs a
+  // span of its own (a name that breaks into lines is plain text the container wraps).
+  if ((!wears || !Icon) && (wrap === undefined || wrap === true))
+    return <>{name}</>;
   // With an icon the name is its own truncating span beside an icon that never shrinks, so a
   // caller that truncates the name shortens the name and keeps the icon, on either side.
   const box = wears && Icon && (

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   expectDetailsFocus,
   forgetDetailsFocus,
+  isRedirect,
   MARK_MS,
   takeDetailsFocus,
 } from "./details-focus";
@@ -22,4 +23,12 @@ test("a refused write, or no write, gives nothing back", () => {
 test("a mark that is too old is ignored", () => {
   expectDetailsFocus(0);
   expect(takeDetailsFocus(MARK_MS + 1)).toBe(false);
+});
+
+test("a redirect is told from another failure", () => {
+  expect(
+    isRedirect({ digest: "NEXT_REDIRECT;push;/conversations/3;307;" }),
+  ).toBe(true);
+  expect(isRedirect(new Error("boom"))).toBe(false);
+  expect(isRedirect(null)).toBe(false);
 });

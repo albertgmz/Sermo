@@ -4,12 +4,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   type Box,
-  createScrollMemory,
+  createHistoryScroll,
   createScrollRestorer,
   createSpotlight,
   createTraversalGuard,
   decideArrival,
   entryId,
+  HASH_LINK_EVENT,
   type RestoreEnv,
   type SpotlightEnv,
   TARGET,
@@ -80,19 +81,19 @@ const restoreEnv: RestoreEnv = {
 const handled = new Set<string>();
 
 // Where the reader left each handled entry, and the restoring of it. On a traversal the browser
-// (or the router, which scrolls to the address of a navigation but leaves a traversal to the
-// browser) can jump to the element the address names instead of the saved position, so the
-// position is put back once the page is drawn and held for a moment (see `createScrollRestorer`).
-const positions = createScrollMemory(handled);
+// can jump to the element the address names instead of the saved position (Next scrolls to the
+// address of a navigation and leaves a traversal to the browser), so the position is put back once
+// the page is drawn and held for a moment (see `createScrollRestorer`).
 const restorer = createScrollRestorer(restoreEnv);
-
-// A navigation is about to leave the current entry (a replacement of it by the router is not
-// leaving): remember where the reader is.
-const onNavigate = (event: { navigationType: string }) => {
-  const key = entryKey();
-  if (key === undefined || event.navigationType === "replace") return;
-  positions.leave(entryId(key, window.location.hash), window.scrollY);
-};
+const historyScroll = createHistoryScroll({
+  key: () => entryKey(),
+  hash: () => window.location.hash,
+  scrollY: () => window.scrollY,
+  handled,
+  restore: (y) => restorer.restore(y),
+});
+const onNavigate = (event: { navigationType: string }) =>
+  historyScroll.onNavigate(event.navigationType);
 
 // Where entries have no key, traversals are told apart by a guard fed by `popstate`. It is
 // watched from the module: the component can be hidden and shown again by a client-side Back.
@@ -112,8 +113,7 @@ function arrives(navigationType?: string) {
   if (key !== undefined) {
     const id = entryId(key, hash);
     // Back or Forward to an entry already handled: it ends where the reader left it.
-    const left = handled.has(id) ? positions.recall(id) : undefined;
-    if (left !== undefined) restorer.restore(left);
+    historyScroll.revisit();
     handled.add(id);
   }
   return decision === "guard" ? !traversals.consume() : decision === "start";
@@ -166,6 +166,15 @@ export function HashTarget() {
         });
       }
     };
+    // A link that changed the address by itself (see HashLink): a new arrival.
+    const onHashLink = (event: Event) => {
+      const hash = (event as CustomEvent<string>).detail;
+      current.startWhenHashIs(hash, () => {
+        const key = entryKey();
+        if (key !== undefined) handled.add(entryId(key, hash));
+      });
+    };
+    window.addEventListener(HASH_LINK_EVENT, onHashLink);
     window.addEventListener("hashchange", onHashChange);
     document.addEventListener("click", onClick);
     (window as NavigationWindow).navigation?.addEventListener(
@@ -175,6 +184,7 @@ export function HashTarget() {
     const [entry] = performance.getEntriesByType("navigation");
     if (arrives((entry as PerformanceNavigationTiming)?.type)) current.start();
     return () => {
+      window.removeEventListener(HASH_LINK_EVENT, onHashLink);
       window.removeEventListener("hashchange", onHashChange);
       document.removeEventListener("click", onClick);
       (window as NavigationWindow).navigation?.removeEventListener(

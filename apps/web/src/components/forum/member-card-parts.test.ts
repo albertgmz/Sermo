@@ -3,9 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 const SRC = resolve(import.meta.dir, "../..");
-const ROOTS = ["postbit.tsx", "member-actions.tsx", "member-card.tsx"].map(
-  (file) => resolve(import.meta.dir, file),
-);
+const ACTION = resolve(import.meta.dir, "member-card-action.tsx");
+const PARTS = resolve(import.meta.dir, "member-card-parts.ts");
 
 function target(spec: string, from: string) {
   const base = spec.startsWith("@/")
@@ -19,46 +18,92 @@ function target(spec: string, from: string) {
     .find((file) => /\.tsx?$/.test(file) && existsSync(file));
 }
 
-// The client modules a server render of the card can reference: the walk stops at each one.
+// Every module a file loads: named, default and side-effect imports, and re-exports (not type-only).
+function specifiers(source: string) {
+  const found: string[] = [];
+  const patterns = [
+    /^\s*(?:import|export)\s(?!type\s)[^;]*?\sfrom\s+["']([^"']+)["']/gm,
+    /^\s*import\s+["']([^"']+)["']/gm,
+  ];
+  for (const pattern of patterns)
+    for (const match of source.matchAll(pattern)) found.push(match[1]);
+  return found;
+}
+
+// The client modules a server render of the card can reference, found from the action that
+// renders it. The walk stops at each client module, and does not go through the parts list itself
+// (it would find everything it imports).
 function clientModules() {
   const seen = new Set<string>();
   const found = new Set<string>();
   const walk = (file: string) => {
-    if (seen.has(file)) return;
+    if (seen.has(file) || file === PARTS) return;
     seen.add(file);
     const source = readFileSync(file, "utf8");
     if (/^\s*["']use client["']/.test(source)) {
       found.add(file);
       return;
     }
-    for (const match of source.matchAll(
-      /^(?:import|export)\s(?!type\s)[^;]*?from\s+["']([^"']+)["']/gm,
-    )) {
-      const next = target(match[1], file);
+    for (const spec of specifiers(source)) {
+      const next = target(spec, file);
       if (next) walk(next);
     }
   };
-  for (const root of ROOTS) walk(root);
+  // The action file itself is "use server": what it renders is what its imports draw.
+  for (const spec of specifiers(readFileSync(ACTION, "utf8"))) {
+    const next = target(spec, ACTION);
+    if (next) walk(next);
+  }
   return found;
 }
 
-test("the card parts list holds every client module the card can reference", () => {
-  const listed = new Set(
-    [
-      ...readFileSync(
-        resolve(import.meta.dir, "member-card-parts.ts"),
-        "utf8",
-      ).matchAll(/from\s+["']([^"']+)["']/g),
-    ]
-      .map((match) => target(match[1], resolve(SRC, "x")))
+function parts() {
+  const source = readFileSync(PARTS, "utf8");
+  const imports = [
+    ...source.matchAll(/^import\s+\{([^}]*)\}\s+from\s+["']([^"']+)["']/gm),
+  ].map((match) => ({
+    names: match[1]
+      .split(",")
+      .map((name) => name.trim())
       .filter(Boolean),
-  );
-  const missing = [...clientModules()].filter((file) => !listed.has(file));
+    file: target(match[2], PARTS),
+  }));
+  const array = /Object\.freeze\(\[([^\]]*)\]\)/.exec(source)?.[1] ?? "";
+  const listed = array
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  return { imports, listed };
+}
+
+test("the parts list imports every client module the card can reference", () => {
+  const imported = new Set(parts().imports.map((entry) => entry.file));
+  const missing = [...clientModules()].filter((file) => !imported.has(file));
   expect(missing.map((file) => file.slice(SRC.length))).toEqual([]);
 });
 
-test("the root layout imports the list", () => {
-  expect(readFileSync(resolve(SRC, "app/layout.tsx"), "utf8")).toContain(
-    'import "@/components/forum/member-card-parts"',
+test("everything the parts list imports is in its array, so the import is used", () => {
+  const { imports, listed } = parts();
+  const unused = imports
+    .flatMap((entry) => entry.names)
+    .filter((name) => !listed.includes(name));
+  expect(unused).toEqual([]);
+  expect(listed.length).toBeGreaterThan(0);
+});
+
+test("the walk finds the modules it is meant to", () => {
+  const names = [...clientModules()].map((file) =>
+    file.slice(SRC.length).replaceAll("\\", "/"),
   );
+  expect(names).toContain("/components/forum/member-follow-button.tsx");
+  expect(names).toContain("/components/ui/progress.tsx");
+});
+
+test("the server modules that render a card trigger import the list", () => {
+  for (const file of ["user-link.tsx", "user-avatar.tsx", "html-content.tsx"]) {
+    const source = readFileSync(resolve(import.meta.dir, file), "utf8");
+    expect(specifiers(source)).toContain(
+      "@/components/forum/member-card-parts",
+    );
+  }
 });

@@ -18,10 +18,3 @@ export function threadHref(
   const page = pageOf(position);
   return `/threads/${threadId}${page > 1 ? `?page=${page}` : ""}${postId === undefined ? "" : `#post-${postId}`}`;
 }
-
-// A post's address relative to the thread page being read, so the slug the visitor arrived by
-// stays: `?page=N#post-ID`, with no query on the first page.
-export function postPermalink(position: number, postId: number) {
-  const page = pageOf(position);
-  return `${page > 1 ? `?page=${page}` : "?"}#post-${postId}`;
-}

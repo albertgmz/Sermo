@@ -22,3 +22,10 @@ export function takeDetailsFocus(now = Date.now()) {
   markedAt = null;
   return marked;
 }
+
+// Next ends an action that redirects by rejecting its promise with an error whose digest starts so.
+export const isRedirect = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "digest" in error &&
+  String(error.digest).startsWith("NEXT_REDIRECT");

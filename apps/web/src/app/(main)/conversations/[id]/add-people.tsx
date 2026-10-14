@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   expectDetailsFocus,
   forgetDetailsFocus,
+  isRedirect,
 } from "@/app/(main)/conversations/[id]/details-focus";
 import { addParticipantsAction } from "@/app/(main)/conversations/actions";
 import { RecipientPicker } from "@/app/(main)/conversations/new/recipient-picker";
@@ -44,13 +45,20 @@ export function AddPeople({
       action={async (previous, formData) => {
         // A success is a redirect that draws the drawer anew: its button takes the focus back.
         expectDetailsFocus();
-        const state = await addParticipantsAction(
-          conversationId,
-          previous,
-          formData,
-        );
-        if (state?.error) forgetDetailsFocus();
-        return state;
+        try {
+          const state = await addParticipantsAction(
+            conversationId,
+            previous,
+            formData,
+          );
+          if (state?.error) forgetDetailsFocus();
+          return state;
+        } catch (error) {
+          // A success rejects with a redirect (Next sends the page elsewhere); any other throw is
+          // no success.
+          if (!isRedirect(error)) forgetDetailsFocus();
+          throw error;
+        }
       }}
       submit={t("submit")}
       aside={

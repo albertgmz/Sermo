@@ -237,9 +237,10 @@ test("the responsive layout truncates below md and wraps from md", async () => {
   expect(out).toContain("md:whitespace-normal md:[overflow-wrap:anywhere]");
 });
 
-test("a name without an icon is laid out the same way", async () => {
-  const out = await html(<Postbit author={author} layout="column" />);
-  expect(out).toContain(
-    '<span class="min-w-0 whitespace-normal [overflow-wrap:anywhere]">ember</span>',
-  );
+test("a name without an icon wraps as plain text in the column and truncates in the compact header", async () => {
+  const column = await html(<Postbit author={author} layout="column" />);
+  expect(column).toContain("[overflow-wrap:anywhere]");
+  expect(column).toContain(">ember</a>");
+  const compact = await html(<Postbit author={author} layout="compact" />);
+  expect(compact).toContain('<span class="min-w-0 truncate">ember</span>');
 });

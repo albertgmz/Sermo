@@ -1,3 +1,4 @@
+import "@/components/forum/member-card-parts";
 import { MentionCards } from "@/components/forum/mention-cards";
 import { prose } from "@/components/forum/prose";
 import { stripHtmlMedia } from "@/lib/lite-markdown";

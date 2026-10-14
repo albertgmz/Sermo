@@ -11,11 +11,12 @@ import { Tooltip } from "@/components/ui/tooltip";
 // that a server module of that route imports (a client module importing them does not count).
 // A page with a name that opens a card but no postbit (the home feed, a forum, the members list,
 // conversations, the panel) would otherwise fail with "Could not find the module ... in the React
-// Client Manifest" (error #441). The root layout imports this module, so every route lists them.
+// Client Manifest" (error #441). The server modules that render a card trigger (`user-link`, `user-avatar`,
+// `html-content` for mentions) import this module, so exactly the routes that can open a card list them.
 //
 // Every client module (`"use client"`) reachable from `Postbit`, `MemberActions` and
-// `MemberCardMinimal` must be listed; `member-card-parts.test.ts` scans their imports and fails
-// when one is missing. The call to `Object.freeze` keeps the imports from being dropped.
+// `MemberCardMinimal` must be listed; `member-card-parts.test.ts` walks the imports from `member-card-action.tsx`
+// and fails when a client module is not imported here, or is imported here and missing from the array. The call to `Object.freeze` keeps the imports from being dropped.
 export const CARD_CLIENT_PARTS = Object.freeze([
   Avatar,
   MemberCardScope,
