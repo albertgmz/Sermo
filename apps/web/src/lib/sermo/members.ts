@@ -131,6 +131,10 @@ export type MemberRelation = {
   canMessage: boolean;
 };
 
+const isDrift = (error: SermoError) =>
+  error.code === "validation" ||
+  error.message.endsWith("does not match its contract.");
+
 // The relations of the members a screen shows, as the viewer, in one read per 50 members. A guest
 // has none and asks nothing; neither has a member the backend did not answer for.
 export async function relationsFor(
@@ -148,8 +152,10 @@ export async function relationsFor(
         for (const { userId, ...relation } of items)
           relations.set(userId, relation);
     } catch (error) {
-      // The buttons are an extra: a refusal or an outage leaves the page without them.
-      if (!(error instanceof SermoError)) throw error;
+      // The buttons are an extra: a refusal or an outage leaves the page without them. A request
+      // the backend calls invalid or an answer that breaks the contract is a drift between the
+      // two, and is not hidden.
+      if (!(error instanceof SermoError) || isDrift(error)) throw error;
     }
   }
   return (id) => relations.get(id) ?? null;

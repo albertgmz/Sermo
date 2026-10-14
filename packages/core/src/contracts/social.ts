@@ -118,7 +118,7 @@ export const MemberRelation = z
     userId: Id,
     /** The viewer follows this member. */
     following: z.boolean(),
-    /** The viewer may follow or unfollow this member (member.follow, and not themselves). */
+    /** The viewer may start following this member (member.follow, and not themselves). */
     canFollow: z.boolean(),
     /** The viewer may start a conversation with this member. */
     canMessage: z.boolean(),
@@ -129,10 +129,11 @@ export const usersRelations = defineContract({
   name: "users.relations",
   summary:
     "What the viewer can do about up to 50 members, in one call and in no particular order: " +
-    "whether they follow each one, may follow or unfollow them (member.follow, not themselves) " +
-    "and may start a conversation with them (conversation.start, not themselves, and the " +
-    "member has not ignored the viewer in the sense conversations.create refuses: that rule " +
-    "applies only to a viewer holding member.ignorable). Unknown ids are left out. Open to " +
+    "whether they follow each one, may start following them (member.follow, not themselves; " +
+    "unfollowing needs no permission) and may start a conversation with them (conversation.start, " +
+    "a conversation.maxRecipients other than 0, not themselves, and the member has not ignored " +
+    "the viewer in the sense conversations.create refuses: that rule applies only to a viewer " +
+    "holding member.ignorable). Unknown ids are left out. Open to " +
     "everyone; a guest gets false for all three. The viewer's own follow list is theirs to " +
     "read, and the ignore state shows only as `canMessage` false, which starting a " +
     "conversation already reveals. It does not depend on profile privacy.",

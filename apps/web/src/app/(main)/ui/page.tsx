@@ -18,6 +18,7 @@ import { LiteSettingsForm } from "@/app/(main)/lite/settings-form";
 import { discard, discardLine } from "@/app/(main)/ui/actions";
 import { EditorDemo } from "@/app/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/(main)/ui/lite-menu-demo";
+import { MemberActionsDemo } from "@/app/(main)/ui/member-actions-demo";
 import { ReactionDemo } from "@/app/(main)/ui/reaction-demo";
 import { SkeletonDemos } from "@/app/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/(main)/ui/staff-demos";
@@ -43,7 +44,6 @@ import { LevelBadge, XpBar } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
 import { Markdown } from "@/components/forum/markdown";
-import { MemberActions } from "@/components/forum/member-actions";
 import { MemberCard } from "@/components/forum/member-card";
 import { MemberRow } from "@/components/forum/member-row";
 import {
@@ -1131,7 +1131,7 @@ export default async function StyleguidePage() {
                 layout="column"
                 className="p-3"
                 actions={
-                  <MemberActions
+                  <MemberActionsDemo
                     member={SAMPLE_AUTHOR.member}
                     relation={RELATION.notFollowing}
                     form="labelled"
@@ -1154,7 +1154,7 @@ export default async function StyleguidePage() {
                 author={SAMPLE_AUTHOR}
                 className="p-3"
                 actions={
-                  <MemberActions
+                  <MemberActionsDemo
                     member={SAMPLE_AUTHOR.member}
                     relation={RELATION.following}
                   />
@@ -1176,12 +1176,12 @@ export default async function StyleguidePage() {
                 ).map(([label, relation]) => (
                   <div key={label} className="grid gap-1.5">
                     <p className="text-xs text-muted-foreground">{label}</p>
-                    <MemberActions
+                    <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
                       relation={relation}
                       form="labelled"
                     />
-                    <MemberActions
+                    <MemberActionsDemo
                       member={SAMPLE_AUTHOR.member}
                       relation={relation}
                       form="compact"

@@ -21,6 +21,12 @@ export const scenarios: Scenario[] = [
     run: (env, i) => env.call("users.authors", env.actors.guest, { userIds: window(env, i, 20) }),
   },
   {
+    name: "users.relations 50 ids",
+    kind: "read",
+    run: (env, i) =>
+      env.call("users.relations", env.actors.member(i), { userIds: window(env, i, 50) }),
+  },
+  {
     name: "profiles.get with the member fields",
     kind: "read",
     run: (env, i) =>

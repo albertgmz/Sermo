@@ -15,6 +15,7 @@ export function MemberFollowButton({
   action,
   className,
   labelClassName,
+  errorClassName,
 }: {
   username: string;
   following: boolean;
@@ -22,6 +23,8 @@ export function MemberFollowButton({
   className?: string;
   // How the visible text is hidden where only the icon fits.
   labelClassName?: string;
+  // Where a refusal is drawn.
+  errorClassName?: string;
 }) {
   const t = useTranslations("members.wallButtons");
   const [pending, start] = useTransition();
@@ -48,9 +51,7 @@ export function MemberFollowButton({
         </span>
       </Button>
       {error && (
-        <FormError className="max-w-36 text-xs [overflow-wrap:anywhere]">
-          {error}
-        </FormError>
+        <FormError className={cn("text-xs", errorClassName)}>{error}</FormError>
       )}
     </>
   );

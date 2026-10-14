@@ -15,9 +15,8 @@ mock.module("next-intl", () => ({ ...intl, useTranslations }));
 afterAll(() => {
   mock.module("next-intl", () => intl);
 });
-const { MemberActions, hasMemberActions, memberActionsOf } = await import(
-  "./member-actions"
-);
+const { MemberActions, memberActionsOf } = await import("./member-actions");
+const { hasMemberActions } = await import("./member-actions-view");
 
 const ember = { id: 3, username: "ember", restricted: false };
 const ALL = { following: false, canFollow: true, canMessage: true };
@@ -94,6 +93,7 @@ test("the forms: icons with hidden text, text below md only, or text always", as
     <MemberActions member={ember} relation={ALL} form="compact" />,
   );
   expect(compact).toContain('data-form="compact"');
+  expect(compact).toContain("relative");
   expect(compact).toContain("size-10");
   expect(compact).toContain('class="sr-only"');
   const responsive = await html(
@@ -107,4 +107,13 @@ test("the forms: icons with hidden text, text below md only, or text always", as
   );
   expect(labelled).toContain('data-form="labelled"');
   expect(labelled).not.toContain("sr-only");
+});
+
+test("a member already followed can be unfollowed without permission to follow", async () => {
+  const relation = { following: true, canFollow: false, canMessage: false };
+  const out = await html(<MemberActions member={ember} relation={relation} />);
+  expect(out).toContain('aria-label="Unfollow ember"');
+  expect(memberActionsOf(ember, relation)).toBeDefined();
+  const none = { following: false, canFollow: false, canMessage: false };
+  expect(await html(<MemberActions member={ember} relation={none} />)).toBe("");
 });

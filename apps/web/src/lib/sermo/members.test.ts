@@ -73,3 +73,26 @@ test("a refusal leaves the page without buttons instead of failing it", async ()
   const relation = await relationsFor(1, [2]);
   expect(relation(2)).toBeNull();
 });
+
+test("a request the backend calls invalid is not hidden", async () => {
+  backend(() =>
+    Response.json(
+      { error: { code: "validation", message: "Invalid." } },
+      { status: 422 },
+    ),
+  );
+  await expect(relationsFor(1, [2])).rejects.toThrow("Invalid.");
+});
+
+test("an answer that breaks the contract is not hidden", async () => {
+  const log = console.error;
+  console.error = () => {};
+  try {
+    backend(() => Response.json({ items: [{ userId: 2 }] }));
+    await expect(relationsFor(1, [2])).rejects.toThrow(
+      "does not match its contract",
+    );
+  } finally {
+    console.error = log;
+  }
+});

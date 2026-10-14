@@ -15,6 +15,7 @@ import {
   memberActor,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
+  permissionsOf,
   requestVersions,
   requirePermission,
 } from "../../permissions";
@@ -345,10 +346,14 @@ export const usersRelationsOp = implement(
   contracts.usersRelations,
   (ctx, actor, input) => {
     const viewerId = actorUserId(actor);
-    const mayFollow = can(ctx, actor, "member.follow");
-    const mayStart = can(ctx, actor, "conversation.start");
-    // The rule conversations.create applies: only a viewer who can be ignored is refused.
-    const ignorable = can(ctx, actor, "member.ignorable");
+    const permissions = permissionsOf(ctx, actor);
+    const mayFollow = permissions.can("member.follow");
+    // The rules conversations.create applies: a limit of zero recipients (-1 is unlimited) refuses
+    // everyone, and only a viewer who can be ignored is refused by a member who ignores them.
+    const mayStart =
+      permissions.can("conversation.start") &&
+      permissions.value("conversation.maxRecipients") !== 0;
+    const ignorable = permissions.can("member.ignorable");
     const rows = query<{ id: number; following: number; ignores_viewer: number }, [number, string]>(
       ctx,
       "relations",

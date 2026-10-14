@@ -106,6 +106,23 @@ describe("users.relations", () => {
     });
   });
 
+  test("a recipient limit of zero removes only the message flag", async () => {
+    const s = scene();
+    const id = s.ctx.sqlite
+      .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+      .get("conversation.maxRecipients")!.id;
+    s.ctx.sqlite
+      .prepare(
+        "INSERT OR REPLACE INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, 2, 0, 0)",
+      )
+      .run(id);
+    invalidate(s.ctx, "permissions");
+    expect(await one(s.ctx, userActor(s.viewer), s.other)).toMatchObject({
+      canFollow: true,
+      canMessage: false,
+    });
+  });
+
   test("a conversations restriction removes only the message flag", async () => {
     const s = scene();
     s.ctx.sqlite
