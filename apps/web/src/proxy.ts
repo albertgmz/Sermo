@@ -15,7 +15,13 @@ import {
   mayOpenStyleguide,
 } from "@/app/[locale]/(staff)/registry";
 import { LOCALE_COOKIE } from "@/i18n/locale-cookie";
-import { LOCALES, type Locale, negotiateLocale } from "@/i18n/locales";
+import {
+  fromAcceptLanguage,
+  isLocale,
+  LOCALES,
+  type Locale,
+  negotiateLocale,
+} from "@/i18n/locales";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -33,6 +39,7 @@ import {
   LEGACY_FORUM_PREFIX,
   toBackendPath,
 } from "@/lib/sermo/addresses";
+import { siteDefaultLanguage } from "@/lib/sermo/default-language";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -186,10 +193,15 @@ const PATH_HEADER = "x-sermo-path";
 
 // The language of this visitor: their cookie, else their browser's, else English. Every page
 // request is answered in it, and the answer depends on both.
-function localeOf(request: NextRequest): Locale {
+// The site's default is asked for only when neither names a supported language.
+async function localeOf(request: NextRequest): Promise<Locale> {
+  const cookie = request.cookies.get(LOCALE_COOKIE)?.value;
+  const accepted = request.headers.get("accept-language");
+  const own = isLocale(cookie) || fromAcceptLanguage(accepted) !== undefined;
   return negotiateLocale(
-    request.cookies.get(LOCALE_COOKIE)?.value,
-    request.headers.get("accept-language"),
+    cookie,
+    accepted,
+    own ? undefined : await siteDefaultLanguage(),
   );
 }
 
@@ -299,7 +311,7 @@ async function handleRequest(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) return;
   const prefixed = localePrefixRedirect(request);
   if (prefixed) return prefixed;
-  const locale = localeOf(request);
+  const locale = await localeOf(request);
   const lite = parseLiteCookieHeader(request.headers.get("cookie") ?? "");
   if (blocksImageRequest(lite, request.nextUrl.pathname)) {
     return new NextResponse(

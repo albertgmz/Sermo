@@ -49,7 +49,17 @@ const state = {
   viewerAsked: 0,
   // When set, the viewer read fails with this instead of answering.
   fail: null as (() => Promise<never>) | null,
+  // The site's default language, and how often the proxy asked for it.
+  siteDefault: "en",
+  defaultAsked: 0,
 };
+mock.module("@/lib/sermo/default-language", () => ({
+  siteDefaultLanguage: async () => {
+    state.defaultAsked += 1;
+    return state.siteDefault;
+  },
+  forgetDefaultLanguage: () => {},
+}));
 mock.module("server-only", () => ({}));
 mock.module("@/lib/sermo/viewer", () => ({
   viewerOf: async () => {
@@ -172,6 +182,8 @@ function reset(overrides: Partial<typeof state> = {}) {
     viewer: null,
     viewerAsked: 0,
     fail: null,
+    siteDefault: "en",
+    defaultAsked: 0,
     ...overrides,
   });
 }
@@ -1116,4 +1128,25 @@ test("a picture-looking address that is no page gets the 404 of the language, va
   });
   assert.equal(rewriteOf(response), "http://localhost/es/pictures/tobi.jpg");
   assert.equal(response?.headers.get("vary"), "Cookie, Accept-Language");
+});
+
+test("the site's default language comes after the cookie and the browser, and is asked for only then", async () => {
+  reset({ siteDefault: "es" });
+  assert.equal(
+    rewriteOf(await ask("/forums", { cookie: "forum_locale=en" })),
+    "http://localhost/en/forums",
+  );
+  assert.equal(
+    rewriteOf(await ask("/forums", { headers: { "accept-language": "en" } })),
+    "http://localhost/en/forums",
+  );
+  assert.equal(state.defaultAsked, 0);
+  assert.equal(
+    rewriteOf(await ask("/forums", { headers: { "accept-language": "fr" } })),
+    "http://localhost/es/forums",
+  );
+  assert.equal(rewriteOf(await ask("/forums")), "http://localhost/es/forums");
+  assert.equal(state.defaultAsked, 2);
+  reset({ siteDefault: "en" });
+  assert.equal(rewriteOf(await ask("/forums")), "http://localhost/en/forums");
 });

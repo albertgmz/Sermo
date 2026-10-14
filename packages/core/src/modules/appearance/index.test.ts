@@ -672,4 +672,13 @@ describe("site.get", () => {
     await run(ctx, "paletteColors.delete", admin, { colorId: rose.id });
     expect((await site()).palette.nameColors).toHaveLength(before.length - 1);
   });
+
+  test("carries the site's default language", async () => {
+    const { ctx, admin } = await setup();
+    const language = async () =>
+      ((await run(ctx, "site.get", GUEST, {})) as { defaultLanguage: string }).defaultLanguage;
+    expect(await language()).toBe("en");
+    await run(ctx, "settings.update", admin, { defaultLanguage: "es" });
+    expect(await language()).toBe("es");
+  });
 });

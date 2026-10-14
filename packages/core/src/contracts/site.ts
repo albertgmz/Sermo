@@ -3,6 +3,7 @@ import { defineContract } from "../operation";
 import { PaletteColor } from "./appearance";
 import { Empty } from "./common";
 import { ImageReference } from "./images";
+import { SUPPORTED_LANGUAGES } from "./settings";
 
 /**
  * What every page needs to draw the site before it knows anything about the visitor: the name,
@@ -30,6 +31,11 @@ export const Site = z
     maxUploadBytes: z.number().int().positive(),
     /** Whether the forum list shows the forum statistics panel (the site setting). */
     forumStatsEnabled: z.boolean(),
+    /**
+     * Language for guests and members who have not chosen one; the web interface uses it when
+     * the visitor's browser asks for no supported language.
+     */
+    defaultLanguage: z.enum(SUPPORTED_LANGUAGES),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),
