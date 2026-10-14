@@ -1916,3 +1916,17 @@ profile. The mention card never moves focus.
 **Mentions share one popover.** Post HTML is drawn on the server and is not parsed in the browser;
 one delegate around it opens a single card anchored to the hovered mention, with the same loading
 and popup pieces as the name trigger.
+
+## Back and Forward on an address with a target: told apart by history entry
+
+The first fix told a traversal from a new arrival with a `popstate` listener. In a browser the
+router and the effect run before that event is seen, so Back still scrolled to the post and
+dimmed the page. Each history entry has a stable key (`navigation.currentEntry.key`) that survives
+the router's `replaceState` and is new for every navigation: the component remembers the key and
+hash it has already handled and does nothing on a second visit to the same entry. A new
+navigation to the same address is a new entry and is handled again. The `popstate` guard stays
+only for browsers without the Navigation API.
+
+In the profile heading a name with an icon wraps (`NameWithIcon` `wrap`); in rows and lists it
+still truncates with the icon visible. The conversation details sheet scrolls its body and keeps
+its cards at their natural height.
