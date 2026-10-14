@@ -46,7 +46,7 @@ export function WidgetsSheet({
           </SheetTitle>
           <SheetDescription className="sr-only">{description}</SheetDescription>
         </SheetHeader>
-        <div className="grid gap-(--page-gap) overflow-y-auto p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-(--page-gap) overflow-y-auto p-3 [&>*]:shrink-0">
           {children}
         </div>
       </SheetContent>
