@@ -7,6 +7,7 @@ import {
   Body,
   ContentState,
   Empty,
+  IconKey,
   Id,
   moderationNotice,
   Ok,
@@ -69,13 +70,6 @@ export const NodeSettings = z
   })
   .meta({ id: "NodeSettings" });
 
-/** A key of the web app's icon set: lowercase words joined by hyphens. The backend knows no set. */
-export const IconKey = z
-  .string()
-  .trim()
-  .max(64)
-  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters and digits joined by single hyphens.");
-
 export const Node = z
   .object({
     id: Id,
@@ -84,7 +78,10 @@ export const Node = z
     title: z.string(),
     description: z.string(),
     icon: ImageReference,
-    /** The icon from the site's icon set shown when there is no uploaded icon; null for none. */
+    /**
+     * The icon from the site's icon set, drawn as a glyph before the title; null for none. The
+     * uploaded `icon` and `cover` pictures are separate and do not replace it.
+     */
     iconKey: IconKey.nullable(),
     cover: ImageReference,
     position: z.number().int(),

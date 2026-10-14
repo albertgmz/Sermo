@@ -3,6 +3,13 @@ import { CONTENT_STATES, REACTION_CONTENT_TYPES } from "../db/schema";
 import { MAX_BODY_LENGTH } from "../limits";
 
 export const Id = z.number().int().positive();
+/** A key of the web app's icon set: lowercase words joined by hyphens. The backend knows no set. */
+export const IconKey = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters and digits joined by single hyphens.");
+
 export const Timestamp = z.iso.datetime().describe("ISO 8601 UTC timestamp");
 export const ContentState = z.enum(CONTENT_STATES);
 export const ReactionContentType = z.enum(REACTION_CONTENT_TYPES);

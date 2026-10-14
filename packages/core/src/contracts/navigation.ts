@@ -5,8 +5,7 @@ import {
   NAVIGATION_LOCATIONS,
 } from "../db/schema";
 import { defineContract } from "../operation";
-import { Empty, Id, Ok, Timestamp } from "./common";
-import { IconKey } from "./forums";
+import { Empty, IconKey, Id, Ok, Timestamp } from "./common";
 
 /*
  * The links of the public site are data: the header, the bar at the bottom of a phone, the

@@ -62,11 +62,24 @@ describe("node icon key", () => {
   });
 
   test("permissions are unchanged", async () => {
-    const { ctx, member } = setup();
+    const { ctx, admin, member } = setup();
+    const moderator = userActor(insertUser(ctx, { groupId: 3 }));
     const input = { parentId: null, type: "forum" as const, title: "F", iconKey: "music" };
     await expect(call(ctx, nodesCreateOp, GUEST, input)).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
     await expect(call(ctx, nodesCreateOp, member, input)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(call(ctx, nodesCreateOp, moderator, input)).rejects.toBeInstanceOf(ForbiddenError);
+
+    const made = await call(ctx, nodesCreateOp, admin, { ...input, iconKey: "star" });
+    const change = { nodeId: made.id, iconKey: "music" };
+    await expect(call(ctx, nodesUpdateOp, GUEST, change)).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+    await expect(call(ctx, nodesUpdateOp, member, change)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(call(ctx, nodesUpdateOp, moderator, change)).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    expect((await call(ctx, nodesGetOp, GUEST, { nodeId: made.id })).node.iconKey).toBe("star");
   });
 });

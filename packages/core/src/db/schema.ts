@@ -562,7 +562,7 @@ export const nodes = sqliteTable(
     lastThreadTitle: text("last_thread_title"),
     lastPosterId: integer("last_poster_id"),
     iconFileId: integer("icon_file_id"),
-    /** A key of the web app's icon set, shown when the node has no uploaded icon; null for none. */
+    /** A key of the web app's icon set, drawn as a glyph before the title (the uploaded pictures are separate); null for none. */
     iconKey: text("icon_key"),
     coverFileId: integer("cover_file_id"),
     contentUpdatedAt: integer("content_updated_at"),
