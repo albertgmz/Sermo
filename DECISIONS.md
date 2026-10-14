@@ -1702,3 +1702,29 @@ first paint. The attribute, not the stored value, is what the button reads and t
 browser that refuses storage still gets a working button for the page it is on; another tab's
 change is applied through the `storage` event. There is one narrow width, and the button is hidden
 below it, where it could change nothing.
+
+## Reaction pictures and sprite sheets
+
+**A reaction type can carry a picture; its emoji stays required.** The picture is a new catalog
+file purpose, `reaction_image`, uploaded with `admin.reactionTypes`. It is stored unscaled, as
+lossless WebP from a PNG or WebP upload of at most 2048 pixels a side: a rendition that changed the
+pixel geometry would break the frames. Animated input is refused, as for every other picture. The
+emoji is what is shown wherever a picture cannot be: with LITE blocking, in notification
+sentences and in plain text.
+
+**A sprite sheet is one file plus a frame size and a frame count** (migration `0031`:
+`image_file_id`, `frame_width`, `frame_height`, `frame_count` on `reaction_types`). Frames read
+left to right, then top to bottom, at most 64 of them. The geometry is checked at write time
+against the measured file: the frame size divides the picture and the count fits its cells.
+`ReactionType` carries `image` and `frames` (with `columns`, so a client lays the sheet out
+without another read). A type whose file row is gone lists without its picture: a public read
+does not fail for one broken type. There is one fixed frame duration (100 ms) and no editor;
+the animation is CSS only and holds the first frame under `prefers-reduced-motion`.
+
+**Reactions are a LITE category of their own, decided in the data seam.** `lib/sermo/reactions.ts`
+drops `image` and `frames` on the server when the category is blocked, so the address never
+reaches the browser, and its output is a sealed type: only that output can be handed to
+`ReactionPicture`, the one reviewed gate that draws a reaction picture. `Art` could not be used:
+it is an async server component and the reaction button is a client component. Every picture is
+drawn in the square box the emoji had, whatever the frame's shape.
+The migration changes the benchmark seed's hash.
