@@ -6,7 +6,7 @@ import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
 import { iso } from "../../time";
-import type { ThreadRow } from "../forums";
+import { repliableThreads, type ThreadRow } from "../forums";
 import {
   latestComments,
   mayViewProfile,
@@ -173,8 +173,25 @@ function merge(
   return out;
 }
 
-/** What the viewer may see of a batch of posts, with the threads loaded on the way. */
-function acceptPosts(ctx: Ctx, actor: Actor, nodes: Set<number>, threads: Map<number, ThreadRow>) {
+/**
+ * What the viewer may see of a batch of posts, with the threads loaded on the way. `once` makes
+ * the feed a list of conversations: `newest` keeps a post only when it is the newest visible
+ * post of its thread, so a thread is listed once, at its latest activity, across pages too;
+ * `perAnswer` keeps the first post of a thread this request accepts and drops the older ones.
+ */
+function acceptPosts(
+  ctx: Ctx,
+  actor: Actor,
+  nodes: Set<number>,
+  threads: Map<number, ThreadRow>,
+  once?: "newest" | "perAnswer",
+) {
+  const taken = new Set<number>();
+  const first = (threadId: number) => {
+    if (taken.has(threadId)) return false;
+    taken.add(threadId);
+    return true;
+  };
   return (rows: PostCandidate[]) => {
     loadThreads(ctx, rows, threads);
     const ignored = ignoredAmong(
@@ -191,7 +208,9 @@ function acceptPosts(ctx: Ctx, actor: Actor, nodes: Set<number>, threads: Map<nu
           thread.state === "visible" &&
           thread.merged_into_id === null &&
           nodes.has(thread.node_id) &&
-          !ignored.has(row.user_id)
+          !ignored.has(row.user_id) &&
+          (once !== "newest" || row.id === thread.last_post_id) &&
+          (once !== "perAnswer" || first(thread.id))
         );
       }),
     );
@@ -236,6 +255,11 @@ function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, Th
   const postItems = new Map(
     postsInThreads(ctx, actor, postRows, threads).map((entry) => [entry.post.id, entry]),
   );
+  const repliable = repliableThreads(
+    ctx,
+    actor,
+    [...new Set(postRows.map((row) => row.thread_id))].flatMap((id) => threads.get(id) ?? []),
+  );
   const wallItems = new Map<number, ReturnType<typeof profilePostValues>[number]>();
   if (wallRows.length > 0) {
     const rows = prepared(ctx, "feed.wallRows", () =>
@@ -257,7 +281,16 @@ function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, Th
     if (!entry) return [];
     const type =
       entry.thread.firstPostId === entry.post.id ? ("thread" as const) : ("post" as const);
-    return [{ type, createdAt, following, thread: entry.thread, post: entry.post }];
+    return [
+      {
+        type,
+        createdAt,
+        following,
+        canReply: repliable.has(entry.thread.id),
+        thread: entry.thread,
+        post: entry.post,
+      },
+    ];
   });
 }
 
@@ -320,7 +353,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
       ? (before, count) =>
           authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count)
       : (before, count) => latestPosts.all(before, count),
-    acceptPosts(ctx, actor, nodes, threads),
+    acceptPosts(ctx, actor, nodes, threads, authors ? "perAnswer" : "newest"),
   );
   const walls = source<WallCandidate>(
     1,

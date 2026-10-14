@@ -9,8 +9,9 @@ import {
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
 import { writeTx } from "../../db/tx";
-import { UnauthenticatedError } from "../../errors";
+import { ForbiddenError, UnauthenticatedError } from "../../errors";
 import { currentActor } from "../../permissions";
+import { forumSql } from "../forums";
 import { PROFILE_ACCESS_SQL } from "../profiles/shared";
 import { feedSql } from "./feed";
 import { countStatements, fillPosts, type World, world } from "./fixtures.test";
@@ -43,7 +44,7 @@ async function pageThrough(
 }
 
 describe("feed.list latest", () => {
-  test("merges threads, replies and wall posts, newest first, for guests too", async () => {
+  test("merges threads and wall posts, newest first, a thread at its newest post, for guests too", async () => {
     const w = world();
     const t1 = await w.thread(w.alice, w.open.id, "First");
     await w.wall(w.bob, w.carolUser.id, "hello carol");
@@ -53,12 +54,8 @@ describe("feed.list latest", () => {
       const page = await w.call("feed.list", actor, {});
       expect(page.nextCursor).toBeNull();
       const described = page.items.map(describeItem);
-      const expected = [
-        "thread:Second body",
-        "post:a reply",
-        "wall:hello carol",
-        "thread:First body",
-      ];
+      // The first thread is one entry, at its reply: its opening post is not listed again.
+      const expected = ["thread:Second body", "post:a reply", "wall:hello carol"];
       // Guests only see wall posts if their group may open profiles.
       expect(described).toEqual(
         actor === GUEST && !(await w.call("auth.me", GUEST, {})).permissions.canViewProfiles
@@ -67,6 +64,7 @@ describe("feed.list latest", () => {
       );
       expect(page.items[0].thread.title).toBe("Second");
       expect(page.items[1].post.threadId).toBe(t1.thread.id);
+      expect(page.items[1].thread.title).toBe("First");
       expect(page.items.every((item: Item) => item.following === false)).toBe(true);
     }
   });
@@ -79,25 +77,19 @@ describe("feed.list latest", () => {
     await w.call("threads.delete", w.mod, { threadId: gone.thread.id, reason: "x", notify: false });
     const hiddenReply = await w.reply(w.bob, shown.thread.id, "removed reply");
     await w.call("posts.delete", w.mod, { postId: hiddenReply.id, reason: "x", notify: false });
-    await w.reply(w.bob, shown.thread.id, "kept reply");
-    const guest = await w.call("feed.list", GUEST, {});
-    expect(guest.items.map(describeItem)).toEqual(["post:kept reply", "thread:Shown body"]);
-    // Staff who may open the secret forum get its posts too; deleted ones stay out for everyone.
-    const staff = await w.call("feed.list", w.admin, {});
-    expect(staff.items.map(describeItem)).toEqual([
-      "post:kept reply",
-      "thread:Secret body",
+    // With its only reply removed the thread is listed at its opening post again.
+    expect((await w.call("feed.list", GUEST, {})).items.map(describeItem)).toEqual([
       "thread:Shown body",
     ]);
+    const kept = await w.reply(w.bob, shown.thread.id, "kept reply");
+    const guest = await w.call("feed.list", GUEST, {});
+    expect(guest.items.map(describeItem)).toEqual(["post:kept reply"]);
+    // Staff who may open the secret forum get its posts too; deleted ones stay out for everyone.
+    const staff = await w.call("feed.list", w.admin, {});
+    expect(staff.items.map(describeItem)).toEqual(["post:kept reply", "thread:Secret body"]);
     // A post awaiting approval is not in the feed.
-    w.ctx.sqlite
-      .prepare(
-        "UPDATE posts SET state = 'moderated' WHERE id = (SELECT first_post_id FROM threads WHERE title = 'Shown')",
-      )
-      .run();
-    expect((await w.call("feed.list", GUEST, {})).items.map(describeItem)).toEqual([
-      "post:kept reply",
-    ]);
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1").run(kept.id);
+    expect((await w.call("feed.list", GUEST, {})).items).toEqual([]);
   });
 
   test("a private profile hides its wall posts from those who may not open it", async () => {
@@ -214,16 +206,75 @@ describe("feed.list latest", () => {
 
   test("pages hold the same items as one long page, without gaps or repeats", async () => {
     const w = world();
-    const t = await w.thread(w.alice, w.open.id, "T1");
-    for (let i = 0; i < 7; i++) {
-      await w.reply(w.bob, t.thread.id, `reply ${i}`);
+    const threads = [];
+    for (let i = 0; i < 4; i++) threads.push(await w.thread(w.alice, w.open.id, `T${i}`));
+    for (let i = 0; i < 9; i++) {
+      // Threads 0 to 2 take the replies in turn; thread 3 stays at its opening post.
+      await w.reply(w.bob, threads[i % 3]!.thread.id, `reply ${i}`);
       if (i % 3 === 0) await w.wall(w.carol, w.aliceUser.id, `wall ${i}`);
     }
-    await w.thread(w.carol, w.open.id, "T2");
+    await w.thread(w.carol, w.open.id, "T4");
     const whole = (await w.call("feed.list", w.alice, { limit: 100 })).items.map(describeItem);
-    expect(whole).toHaveLength(12);
+    expect(whole).toEqual([
+      "thread:T4 body",
+      "post:reply 8",
+      "post:reply 7",
+      "wall:wall 6",
+      "post:reply 6",
+      "wall:wall 3",
+      "wall:wall 0",
+      "thread:T3 body",
+    ]);
     for (const limit of [1, 2, 5])
       expect((await pageThrough(w, w.alice, "latest", limit)).map(describeItem)).toEqual(whole);
+  });
+
+  test("a thread is listed once, at its newest post, on one page and across two", async () => {
+    const w = world();
+    const busy = await w.thread(w.alice, w.open.id, "Busy");
+    const quiet = await w.thread(w.carol, w.open.id, "Quiet");
+    for (let i = 0; i < 30; i++) await w.reply(i % 2 ? w.alice : w.bob, busy.thread.id, `r${i}`);
+    const threadIds = (items: Item[]) => items.map((item) => item.thread.id);
+    const whole = await w.call("feed.list", GUEST, { limit: 100 });
+    expect(whole.items.map(describeItem)).toEqual(["post:r29", "thread:Quiet body"]);
+    expect(threadIds(whole.items)).toEqual([busy.thread.id, quiet.thread.id]);
+    const first = await w.call("feed.list", GUEST, { limit: 1 });
+    expect(first.items.map(describeItem)).toEqual(["post:r29"]);
+    expect(first.nextCursor).not.toBeNull();
+    const rest = await pageThrough(w, GUEST, "latest", 1);
+    expect(rest.map(describeItem)).toEqual(["post:r29", "thread:Quiet body"]);
+    expect(threadIds(rest)).toEqual([busy.thread.id, quiet.thread.id]);
+  });
+
+  test("a new reply moves its thread to the top", async () => {
+    const w = world();
+    const older = await w.thread(w.alice, w.open.id, "Older");
+    await w.thread(w.carol, w.open.id, "Newer");
+    await w.wall(w.bob, w.carolUser.id, "a wall");
+    expect((await w.call("feed.list", w.alice, {})).items.map(describeItem)).toEqual([
+      "wall:a wall",
+      "thread:Newer body",
+      "thread:Older body",
+    ]);
+    await w.reply(w.bob, older.thread.id, "bump");
+    const after = await w.call("feed.list", w.alice, {});
+    expect(after.items.map(describeItem)).toEqual([
+      "post:bump",
+      "wall:a wall",
+      "thread:Newer body",
+    ]);
+    expect(after.items[0].thread.id).toBe(older.thread.id);
+  });
+
+  test("a thread whose newest post is by an ignored member is left out", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Alices");
+    await w.reply(w.bob, t.thread.id, "bob last");
+    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    expect((await w.call("feed.list", w.carol, {})).items).toEqual([]);
+    expect((await w.call("feed.list", w.alice, {})).items.map(describeItem)).toEqual([
+      "post:bob last",
+    ]);
   });
 
   test("a page can be short while nextCursor is set: what the viewer cannot see is skipped in bounded batches", async () => {
@@ -264,6 +315,7 @@ describe("feed.list following", () => {
 
   test("shows only the followed members' threads, replies and wall posts, flagged as followed", async () => {
     const w = world();
+    await w.thread(w.alice, w.open.id, "Alice alone");
     const t = await w.thread(w.alice, w.open.id, "By alice");
     await w.thread(w.carol, w.open.id, "By carol");
     await w.reply(w.alice, t.thread.id, "alice again");
@@ -271,29 +323,53 @@ describe("feed.list following", () => {
     await w.wall(w.alice, w.carolUser.id, "alice wall");
     await w.wall(w.carol, w.aliceUser.id, "carol wall");
     await w.call("users.follow", w.bob, { userId: w.aliceUser.id });
+    // "By alice" is one entry, at the newest post alice wrote in it (not the thread's newest).
     const following = await w.call("feed.list", w.bob, { scope: "following" });
     expect(following.items.map(describeItem)).toEqual([
       "wall:alice wall",
       "post:alice again",
-      "thread:By alice body",
+      "thread:Alice alone body",
     ]);
     expect(following.items.every((item: Item) => item.following)).toBe(true);
     expect(following.nextCursor).toBeNull();
-    // In the latest feed the flag marks only the followed author's items.
+    // In the latest feed the flag marks only the followed author's items: "By alice" is listed
+    // there at carol's reply, which is not flagged.
     const latest = await w.call("feed.list", w.bob, {});
     expect(latest.items.filter((item: Item) => item.following).map(describeItem)).toEqual([
       "wall:alice wall",
-      "post:alice again",
-      "thread:By alice body",
+      "thread:Alice alone body",
     ]);
     expect(latest.items.some((item: Item) => !item.following)).toBe(true);
   });
 
+  test("a thread is listed once per answer; a later page may bring it back with older activity", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Long");
+    const other = await w.thread(w.alice, w.open.id, "Other");
+    for (let i = 0; i < 12; i++) await w.reply(w.alice, t.thread.id, `r${i}`);
+    await w.call("users.follow", w.bob, { userId: w.aliceUser.id });
+    const whole = await w.call("feed.list", w.bob, { scope: "following", limit: 100 });
+    expect(whole.items.map(describeItem)).toEqual(["post:r11", "thread:Other body"]);
+    expect(whole.items.map((item: Item) => item.thread.id)).toEqual([t.thread.id, other.thread.id]);
+    // A page of one examines ten posts: the next answer starts below them and lists the thread
+    // again, at the newest of the older posts.
+    const first = await w.call("feed.list", w.bob, { scope: "following", limit: 1 });
+    expect(first.items.map(describeItem)).toEqual(["post:r11"]);
+    const second = await w.call("feed.list", w.bob, {
+      scope: "following",
+      limit: 10,
+      cursor: first.nextCursor,
+    });
+    expect(second.items.map(describeItem)).toEqual(["post:r1", "thread:Other body"]);
+  });
+
   test("pages through several followed authors without gaps, hiding what the viewer cannot open", async () => {
     const w = world();
-    const t = await w.thread(w.alice, w.open.id, "Base");
+    await w.thread(w.alice, w.open.id, "Base");
     const secret = await w.thread(w.admin, w.secret.id, "Hidden");
+    // One thread per reply: each is its own conversation, so none is folded into another.
     for (let i = 0; i < 5; i++) {
+      const t = await w.thread(w.mod, w.open.id, `T${i}`);
       await w.reply(i % 2 ? w.alice : w.carol, t.thread.id, `r${i}`);
       fillPosts(w.ctx, secret.thread.id, w.aliceUser.id, 1);
     }
@@ -508,6 +584,106 @@ describe("feed.list following with more than 100 follows", () => {
   });
 });
 
+describe("feed.list canReply", () => {
+  const canReplyOf = async (w: World, actor: Parameters<World["call"]>[1], scope = "latest") =>
+    Object.fromEntries(
+      (await w.call("feed.list", actor, { scope })).items.map((item: Item) => [
+        item.type === "profilePost" ? "wall" : item.thread.title,
+        item.canReply,
+      ]),
+    );
+  /** What `threads.get` answers for the same thread: the feed must agree with it. */
+  const onThreadPage = async (w: World, actor: Parameters<World["call"]>[1], threadId: number) =>
+    (await w.call("threads.get", actor, { threadId })).permissions.canReply;
+
+  test("a member may reply, a guest may not; a wall post carries no canReply", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Open");
+    await w.reply(w.carol, t.thread.id, "a reply");
+    await w.thread(w.alice, w.open.id, "Fresh");
+    await w.wall(w.bob, w.carolUser.id, "a wall");
+    expect(await canReplyOf(w, w.bob)).toEqual({ wall: undefined, Fresh: true, Open: true });
+    expect(await canReplyOf(w, tokenActor(w.bobUser))).toEqual({
+      wall: undefined,
+      Fresh: true,
+      Open: true,
+    });
+    const guest = await canReplyOf(w, GUEST);
+    expect(guest.Fresh).toBe(false);
+    expect(guest.Open).toBe(false);
+    expect(await onThreadPage(w, w.bob, t.thread.id)).toBe(true);
+    expect(await onThreadPage(w, GUEST, t.thread.id)).toBe(false);
+  });
+
+  test("a locked thread takes replies only from those who may reply to locked threads", async () => {
+    const w = world();
+    const locked = await w.thread(w.alice, w.open.id, "Locked");
+    await w.thread(w.alice, w.open.id, "Unlocked");
+    await w.call("threads.setLocked", w.mod, { threadId: locked.thread.id, isLocked: true });
+    expect(await canReplyOf(w, w.bob)).toEqual({ Unlocked: true, Locked: false });
+    expect(await canReplyOf(w, w.mod)).toEqual({ Unlocked: true, Locked: true });
+    expect(await onThreadPage(w, w.bob, locked.thread.id)).toBe(false);
+    expect(await onThreadPage(w, w.mod, locked.thread.id)).toBe(true);
+    await expect(w.reply(w.bob, locked.thread.id, "no")).rejects.toBeInstanceOf(ForbiddenError);
+    await w.reply(w.mod, locked.thread.id, "yes");
+  });
+
+  test("a forum where the member may not reply answers false, in every scope", async () => {
+    const w = world();
+    const readOnly = insertNode(w.ctx, { parentId: w.category.id });
+    invalidate(w.ctx, "node_tree");
+    const closed = await w.thread(w.alice, readOnly.id, "Closed");
+    await w.thread(w.alice, w.open.id, "Open");
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'forum.reply'), ?1, 2, 0, -1)",
+      )
+      .run(readOnly.id);
+    invalidate(w.ctx, "permissions");
+    expect(await canReplyOf(w, w.bob)).toEqual({ Open: true, Closed: false });
+    expect(await canReplyOf(w, w.mod)).toEqual({ Open: true, Closed: true });
+    expect(await onThreadPage(w, w.bob, closed.thread.id)).toBe(false);
+    await expect(w.reply(w.bob, closed.thread.id, "no")).rejects.toBeInstanceOf(ForbiddenError);
+    await w.call("users.follow", w.bob, { userId: w.aliceUser.id });
+    expect(await canReplyOf(w, w.bob, "following")).toEqual({ Open: true, Closed: false });
+    w.ctx.sqlite.prepare("UPDATE posts SET reaction_counts = '{\"1\":5}'").run();
+    refreshRankings(w.ctx);
+    expect(await canReplyOf(w, w.bob, "top")).toEqual({ Open: true, Closed: false });
+  });
+
+  test("a member banned from a thread may not reply to it, until the ban ends", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Banned here");
+    await w.thread(w.alice, w.open.id, "Elsewhere");
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO thread_bans (thread_id, user_id, moderator_id, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      )
+      .run(t.thread.id, w.bobUser.id, w.aliceUser.id, w.ctx.now(), w.ctx.now() + 600_000);
+    expect(await canReplyOf(w, w.bob)).toEqual({ Elsewhere: true, "Banned here": false });
+    expect(await canReplyOf(w, w.carol)).toEqual({ Elsewhere: true, "Banned here": true });
+    expect(await onThreadPage(w, w.bob, t.thread.id)).toBe(false);
+    await expect(w.reply(w.bob, t.thread.id, "no")).rejects.toBeInstanceOf(ForbiddenError);
+    w.ctx.clock.advance(600_000);
+    expect(await canReplyOf(w, w.bob)).toEqual({ Elsewhere: true, "Banned here": true });
+  });
+
+  test("the thread bans of a page are one statement, whatever the number of threads", async () => {
+    const one = world();
+    const many = world();
+    await one.thread(one.alice, one.open.id, "T");
+    for (let i = 0; i < 10; i++) await many.thread(many.alice, many.open.id, `T${i}`);
+    const read = (w: World) => {
+      const viewer = writeTx(w.ctx, () => currentActor(w.ctx, w.bob));
+      return () => w.call("feed.list", viewer, { limit: 10 });
+    };
+    const withOne = await countStatements(one.ctx, read(one));
+    const withMany = await countStatements(many.ctx, read(many));
+    expect((await read(many)()).items).toHaveLength(10);
+    expect(withMany).toBe(withOne);
+  });
+});
+
 describe("feed.list wall posts", () => {
   test("a page of wall posts on many walls runs about as many statements as one wall", async () => {
     const one = world();
@@ -547,6 +723,7 @@ describe("the feed queries read their indexes", () => {
     expectNoTableScan(w.ctx, viewerSql.principals, ["[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.followedAmong, [1, "[1,2]"]);
     expectNoTableScan(w.ctx, viewerSql.followed, [1, 100]);
+    expectNoTableScan(w.ctx, forumSql.threadBansAmong, [1, "[1,2]", 0]);
     for (const [sql, index] of [
       [feedSql.followedPosts, "posts_user_id"],
       [feedSql.followedWall, "profile_posts_user_id"],

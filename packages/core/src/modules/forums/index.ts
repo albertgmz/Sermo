@@ -137,6 +137,8 @@ export const forumSql = {
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
+  threadBansAmong:
+    "SELECT thread_id FROM thread_bans WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2)) AND (expires_at IS NULL OR expires_at > ?3)",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
@@ -354,6 +356,39 @@ function mayDelete(
   return (
     permissions.can("forum.deleteAny", { nodeId }) ||
     (!locked && permissions.can("forum.deleteOwn", { nodeId, ownerId }))
+  );
+}
+/** Whether a reply is accepted in the thread: `threads.get` and the feed answer with it. */
+function mayReply(
+  permissions: ReturnType<typeof permissionsOf>,
+  row: Pick<ThreadRow, "node_id" | "is_locked">,
+  threadBanned: boolean,
+): boolean {
+  return (
+    permissions.can("forum.reply", { nodeId: row.node_id, threadBanned }) &&
+    (!row.is_locked || permissions.can("forum.replyLocked", { nodeId: row.node_id }))
+  );
+}
+/**
+ * The threads, among `rows`, the viewer may reply in: the viewer's thread bans are read once
+ * for the whole page. Callers pass threads the viewer may open.
+ */
+export function repliableThreads(ctx: Ctx, actor: Actor, rows: ThreadRow[]): Set<number> {
+  const userId = actorUserId(actor);
+  const banned = new Set(
+    userId === null || rows.length === 0
+      ? []
+      : statement<{ thread_id: number }, [number, string, number]>(
+          ctx,
+          "threadBansAmong",
+          forumSql.threadBansAmong,
+        )
+          .all(userId, JSON.stringify(rows.map((row) => row.id)), ctx.now())
+          .map((ban) => ban.thread_id),
+  );
+  const permissions = permissionsOf(ctx, actor);
+  return new Set(
+    rows.filter((row) => mayReply(permissions, row, banned.has(row.id))).map((row) => row.id),
   );
 }
 /** Removing a thread's cover: the author of a visible thread, or whoever may edit others' threads. */
@@ -873,12 +908,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
             return watch ? { email: !!watch.email } : null;
           })(),
     permissions: {
-      canReply:
-        can(ctx, actor, "forum.reply", {
-          nodeId: node.id,
-          threadBanned: !!row.thread_banned,
-        }) &&
-        (!row.is_locked || can(ctx, actor, "forum.replyLocked", { nodeId: node.id })),
+      canReply: mayReply(permissionsOf(ctx, actor), row, !!row.thread_banned),
       canEditTitle: mayEditTitle(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
       // Reporting targets the first post, and watching needs a visible thread: both are open to
