@@ -4,6 +4,7 @@ import {
   clampZoom,
   cropRect,
   dragBy,
+  encodeFramed,
   MAX_ZOOM,
   outputName,
   outputSize,
@@ -134,4 +135,36 @@ test("JPEG, WebP and PNG keep their format; anything else becomes PNG", () => {
   );
   expect(outputName("me.JPEG", "image/jpeg")).toBe("me.jpg");
   expect(outputName("", "image/webp")).toBe("picture.webp");
+});
+
+test("a WebP request that comes back as PNG is made again as JPEG", async () => {
+  const asked: string[] = [];
+  const encode = (answers: Record<string, string>) => async (type: string) => {
+    asked.push(type);
+    return new Blob(["x"], { type: answers[type] ?? type });
+  };
+  // A browser that cannot write WebP.
+  const safari = await encodeFramed(encode({ "image/webp": "image/png" }), {
+    type: "image/webp",
+    quality: 0.92,
+  });
+  expect(safari?.type).toBe("image/jpeg");
+  expect(asked).toEqual(["image/webp", "image/jpeg"]);
+
+  asked.length = 0;
+  expect((await encodeFramed(encode({}), { type: "image/webp" }))?.type).toBe(
+    "image/webp",
+  );
+  expect(asked).toEqual(["image/webp"]);
+
+  // A PNG or JPEG request is taken as it comes back, and the file is named after it.
+  asked.length = 0;
+  const png = await encodeFramed(encode({}), { type: "image/png" });
+  expect(outputName("a.gif", png?.type ?? "")).toBe("a.png");
+  expect(asked).toEqual(["image/png"]);
+
+  // A canvas that cannot encode at all.
+  expect(await encodeFramed(async () => null, { type: "image/webp" })).toBe(
+    null,
+  );
 });

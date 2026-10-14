@@ -159,6 +159,7 @@ export async function About() {
       </AutosaveForm>
       <AutosaveForm
         action={saveProfile.bind(null, "birthday")}
+        requires={["day", "month"]}
         title={t("birthdayLabel")}
         description={t("birthdayHelp")}
         htmlFor="profile-birthday-day"

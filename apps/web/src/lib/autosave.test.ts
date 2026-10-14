@@ -3,6 +3,7 @@ import {
   createAutosave,
   type Entries,
   isCleared,
+  isReady,
   type SaveResult,
   type SaveState,
 } from "@/lib/autosave";
@@ -36,7 +37,11 @@ function clock() {
   };
 }
 
-function setting(initial: Entries, answer: () => Promise<SaveResult>) {
+function setting(
+  initial: Entries,
+  answer: () => Promise<SaveResult>,
+  extra: { ready?: (entries: Entries) => boolean; wait?: () => string } = {},
+) {
   const time = clock();
   const field = { entries: initial };
   const sent: Entries[] = [];
@@ -52,6 +57,7 @@ function setting(initial: Entries, answer: () => Promise<SaveResult>) {
     },
     onState: (state) => states.push(state),
     timers: time.timers,
+    ...extra,
     delay: 1000,
     savedFor: 3000,
     undoFor: 6000,
@@ -256,4 +262,110 @@ test("another kind of save goes through the same states and answers what it did"
     }),
   ).toEqual({ error: "" });
   expect(s.sent).toEqual([]);
+});
+
+test("an edit after a clearing save gives up the Undo", async () => {
+  const s = setting([["about", "Text"]], ok);
+  s.field.entries = [["about", ""]];
+  await s.autosave.flush();
+  expect(s.states.at(-1)).toEqual({ phase: "saved", undo: true });
+  s.field.entries = [["about", "N"]];
+  s.autosave.edit();
+  expect(s.states.at(-1)).toEqual({ phase: "saved", undo: false });
+  await s.autosave.undo();
+  expect(s.field.entries).toEqual([["about", "N"]]);
+  expect(s.sent).toHaveLength(1);
+});
+
+test("a refusal goes away when the field is back at what is saved", async () => {
+  const s = setting([["about", "Fine"]], async () => ({ error: "No." }));
+  s.field.entries = [["about", "Bad"]];
+  await s.autosave.flush();
+  expect(s.states.at(-1)).toEqual({ phase: "error", message: "No." });
+  s.field.entries = [["about", "Fine"]];
+  s.autosave.edit();
+  expect(s.states.at(-1)).toEqual({ phase: "idle" });
+  s.time.advance(5000);
+  expect(s.sent).toHaveLength(1);
+  // Leaving the field at the saved value clears it too.
+  s.field.entries = [["about", "Bad"]];
+  await s.autosave.flush();
+  s.field.entries = [["about", "Fine"]];
+  await s.autosave.flush();
+  expect(s.states.at(-1)).toEqual({ phase: "idle" });
+});
+
+test("a row that is not complete waits for the member to leave it", async () => {
+  const required = ["day", "month"];
+  const s = setting(
+    [
+      ["day", ""],
+      ["month", ""],
+    ],
+    ok,
+    { ready: (entries) => isReady(entries, required) },
+  );
+  s.field.entries = [
+    ["day", "4"],
+    ["month", ""],
+  ];
+  s.autosave.edit();
+  s.time.advance(5000);
+  expect(s.sent).toEqual([]);
+  // The month arrives: the row is complete and saves after the pause.
+  s.field.entries = [
+    ["day", "4"],
+    ["month", "5"],
+  ];
+  s.autosave.edit(true);
+  await tick();
+  expect(s.sent).toEqual([
+    [
+      ["day", "4"],
+      ["month", "5"],
+    ],
+  ]);
+  // Leaving the row with a part missing still saves, so the member is told what is wrong.
+  s.field.entries = [
+    ["day", ""],
+    ["month", "5"],
+  ];
+  s.autosave.edit();
+  await s.autosave.flush();
+  expect(s.sent).toHaveLength(2);
+});
+
+test("a row is complete when every required field is filled or all are empty", () => {
+  const entries = (day: string, month: string, year: string): Entries => [
+    ["day", day],
+    ["month", month],
+    ["year", year],
+  ];
+  const need = ["day", "month"];
+  expect(isReady(entries("", "", ""), need)).toBe(true);
+  expect(isReady(entries("4", "5", ""), need)).toBe(true);
+  expect(isReady(entries("4", "", ""), need)).toBe(false);
+  expect(isReady(entries("", "", "1990"), need)).toBe(false);
+  expect(isReady(entries("4", "", ""), [])).toBe(true);
+});
+
+test("a save of another kind asked while one runs is told to wait", async () => {
+  let release = () => {};
+  const s = setting([], ok, { wait: () => "Wait." });
+  const first = s.autosave.perform(
+    () =>
+      new Promise<SaveResult>((done) => {
+        release = () => done({ ok: true });
+      }),
+  );
+  let ran = false;
+  expect(
+    await s.autosave.perform(async () => {
+      ran = true;
+      return { ok: true };
+    }),
+  ).toEqual({ error: "Wait." });
+  expect(ran).toBe(false);
+  release();
+  await first;
 });

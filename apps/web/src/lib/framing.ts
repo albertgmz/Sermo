@@ -121,3 +121,17 @@ export function outputName(original: string, type: string): string {
   const stem = original.replace(/\.[^./\\]*$/, "") || "picture";
   return `${stem}.${EXTENSIONS[type] ?? "png"}`;
 }
+
+// Encodes with the requested format and answers what the browser really made: Safari cannot write
+// WebP and falls back to PNG, which for a photo is far larger. A WebP request that did not come
+// back as WebP is made again as JPEG. The caller names the file after the blob's own type.
+export async function encodeFramed(
+  encode: (type: string, quality?: number) => Promise<Blob | null>,
+  requested: { type: string; quality?: number },
+): Promise<Blob | null> {
+  const blob = await encode(requested.type, requested.quality);
+  if (blob && blob.type !== requested.type && requested.type === "image/webp") {
+    return (await encode("image/jpeg", 0.92)) ?? blob;
+  }
+  return blob;
+}

@@ -1,6 +1,5 @@
 // Sends a framed picture to the account's picture route and reads its answer. The route attaches
-// the picture as the avatar or the cover as well, and answers JSON to a request that asks for it
-// (the same route answers a redirect to a plain form post).
+// the picture as the avatar or the cover as well, and always answers JSON.
 
 export type PictureKind = "avatar" | "cover";
 

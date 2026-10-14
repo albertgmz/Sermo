@@ -22,6 +22,7 @@ import {
   createAutosave,
   type Entries,
   IDLE,
+  isReady,
   type SaveResult,
   type SaveState,
 } from "@/lib/autosave";
@@ -44,12 +45,16 @@ export function useAutosave(options: {
   save?: (entries: Entries) => Promise<SaveResult>;
   read?: () => Entries;
   write?: (entries: Entries) => void;
+  ready?: (entries: Entries) => boolean;
 }): { state: SaveState; autosave: Autosave } {
+  const t = useTranslations("forum.autosave");
   const [state, setState] = useState<SaveState>(IDLE);
   // The latest handlers, so the one controller made on the first render never goes stale.
   const latest = useRef(options);
+  const latestWait = useRef(() => t("busy"));
   useEffect(() => {
     latest.current = options;
+    latestWait.current = () => t("busy");
   });
   const [autosave] = useState(() =>
     createAutosave({
@@ -57,6 +62,8 @@ export function useAutosave(options: {
         (await latest.current.save?.(entries)) ?? { ok: true },
       read: () => latest.current.read?.() ?? [],
       write: (entries) => latest.current.write?.(entries),
+      ready: (entries) => latest.current.ready?.(entries) ?? true,
+      wait: () => latestWait.current(),
       onState: setState,
     }),
   );
@@ -109,6 +116,7 @@ export function AutosaveForm({
   description,
   htmlFor,
   id,
+  requires = [],
   children,
 }: {
   action: Action;
@@ -116,6 +124,9 @@ export function AutosaveForm({
   description?: React.ReactNode;
   htmlFor?: string;
   id?: string;
+  // Fields that must all be filled before a pause saves the row (the row is also complete when
+  // every field is empty). Leaving the row saves it either way, so a refusal says what is missing.
+  requires?: readonly string[];
   children: React.ReactNode;
 }) {
   const form = useRef<HTMLFormElement>(null);
@@ -123,6 +134,7 @@ export function AutosaveForm({
     form.current ? entriesOf(new FormData(form.current)) : [];
   const { state, autosave } = useAutosave({
     save: (entries) => action(toFormData(entries)),
+    ready: (entries) => isReady(entries, requires),
     read,
     write: (entries) => {
       for (const [name, value] of entries) {
@@ -142,6 +154,12 @@ export function AutosaveForm({
   useEffect(() => {
     autosave.baseline(read());
   }, [autosave]);
+  // A page that is closing or hidden saves what was typed in the last second.
+  useEffect(() => {
+    const leave = () => void autosave.flush();
+    window.addEventListener("pagehide", leave);
+    return () => window.removeEventListener("pagehide", leave);
+  }, [autosave]);
   return (
     <form
       ref={form}
@@ -150,8 +168,7 @@ export function AutosaveForm({
         void autosave.flush();
       }}
       onChange={(event) => {
-        if (event.target instanceof HTMLSelectElement) void autosave.flush();
-        else autosave.edit();
+        autosave.edit(event.target instanceof HTMLSelectElement);
       }}
       onBlur={(event) => {
         // Moving between the fields of one row is not leaving it.

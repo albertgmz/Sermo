@@ -35,6 +35,7 @@ import {
   clampZoom,
   cropRect,
   dragBy,
+  encodeFramed,
   type Framing,
   MAX_ZOOM,
   outputName,
@@ -57,20 +58,24 @@ const PREVIEW: Record<Shape, { width: number; height: number }> = {
 const KEY_STEP = 0.05;
 const ZOOM_STEP = 0.2;
 
+// `scale` is the size of `image` over the size of the picture the rectangle is measured in, for
+// the downscaled bitmap the preview draws from.
 function draw(
   context: CanvasRenderingContext2D,
   image: ImageBitmap,
   rect: Rect,
   width: number,
   height: number,
+  scale = 1,
 ) {
   context.clearRect(0, 0, width, height);
+  context.imageSmoothingQuality = "high";
   context.drawImage(
     image,
-    rect.x,
-    rect.y,
-    rect.width,
-    rect.height,
+    rect.x * scale,
+    rect.y * scale,
+    rect.width * scale,
+    rect.height * scale,
     0,
     0,
     width,
@@ -82,12 +87,16 @@ function Framer({
   file,
   shape,
   limit,
+  busy,
+  setBusy,
   onConfirm,
   onClose,
 }: {
   file: File;
   shape: Shape;
   limit: number | null;
+  busy: boolean;
+  setBusy: (busy: boolean) => void;
   onConfirm: (blob: Blob, name: string) => Promise<SaveResult>;
   onClose: () => void;
 }) {
@@ -95,39 +104,55 @@ function Framer({
   const { aspect } = SHAPES[shape];
   const canvas = useRef<HTMLCanvasElement>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
+  // The full picture, for the crop that is saved, and a smaller copy the preview draws from, so a
+  // large photo does not make every drag frame resample millions of pixels.
   const [image, setImage] = useState<ImageBitmap | null>(null);
+  const [small, setSmall] = useState<ImageBitmap | null>(null);
   const [unreadable, setUnreadable] = useState(false);
   const [framing, setFraming] = useState<Framing>({ zoom: 1, cx: 0, cy: 0 });
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let current: ImageBitmap | null = null;
+    const made: ImageBitmap[] = [];
     let live = true;
-    createImageBitmap(file).then(
-      (bitmap) => {
-        if (!live) {
-          bitmap.close();
-          return;
-        }
-        current = bitmap;
-        setFraming(centred(bitmap));
-        setImage(bitmap);
-      },
-      () => live && setUnreadable(true),
-    );
+    (async () => {
+      const full = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      });
+      made.push(full);
+      const wanted = PREVIEW[shape].width * 2;
+      const reduced =
+        full.width > wanted
+          ? await createImageBitmap(full, {
+              resizeWidth: wanted,
+              resizeQuality: "high",
+            })
+          : full;
+      if (reduced !== full) made.push(reduced);
+      if (!live) return;
+      setFraming(centred(full));
+      setSmall(reduced);
+      setImage(full);
+    })().catch(() => live && setUnreadable(true));
     return () => {
       live = false;
-      current?.close();
+      for (const bitmap of made) bitmap.close();
     };
-  }, [file]);
+  }, [file, shape]);
 
   useEffect(() => {
     const context = canvas.current?.getContext("2d");
-    if (!context || !image) return;
+    if (!context || !image || !small) return;
     const { width, height } = PREVIEW[shape];
-    draw(context, image, cropRect(image, aspect, framing), width, height);
-  }, [image, framing, shape, aspect]);
+    draw(
+      context,
+      small,
+      cropRect(image, aspect, framing),
+      width,
+      height,
+      small.width / image.width,
+    );
+  }, [image, small, framing, shape, aspect]);
 
   const viewWidth = () => canvas.current?.getBoundingClientRect().width ?? 0;
   const move = (dx: number, dy: number) =>
@@ -135,6 +160,19 @@ function Framer({
     setFraming((now) => dragBy(image, aspect, now, dx, dy, viewWidth()));
   const zoom = (to: number) =>
     image && setFraming((now) => zoomTo(image, aspect, now, to));
+
+  function onPointerDown(event: React.PointerEvent<HTMLElement>) {
+    // The primary button only: a right click opens a menu and must not start a drag.
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointers.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  const onPointerEnd = (event: React.PointerEvent) =>
+    pointers.current.delete(event.pointerId);
 
   function onPointerMove(event: React.PointerEvent) {
     const known = pointers.current.get(event.pointerId);
@@ -192,19 +230,30 @@ function Framer({
     target.width = size.width;
     target.height = size.height;
     const context = target.getContext("2d");
-    const { type, quality } = outputType(file.type);
+    if (context) {
+      context.imageSmoothingQuality = "high";
+      draw(context, image, rect, size.width, size.height);
+    }
     const blob = context
-      ? await new Promise<Blob | null>((done) => {
-          draw(context, image, rect, size.width, size.height);
-          target.toBlob(done, type, quality);
-        })
+      ? await encodeFramed(
+          (type, quality) =>
+            new Promise<Blob | null>((done) =>
+              target.toBlob(done, type, quality),
+            ),
+          outputType(file.type),
+        )
       : null;
+    await send(blob, blob ? outputName(file.name, blob.type) : "");
+  }
+
+  // Hands a picture on (the framed one, or the original) and keeps the dialog open to say why not.
+  async function send(blob: Blob | null, name: string) {
     if (!blob) {
       setError(t("encodeFailed"));
     } else if (limit !== null && blob.size > limit) {
       setError(t("overLimit", { size: megabytes(limit) }));
     } else {
-      const result = await onConfirm(blob, outputName(file.name, type));
+      const result = await onConfirm(blob, name);
       if ("error" in result) setError(result.error || t("failed"));
       else onClose();
     }
@@ -234,18 +283,11 @@ function Framer({
             aria-label={shape === "avatar" ? t("avatarLabel") : t("coverLabel")}
             aria-describedby="framing-hint"
             onKeyDown={onKeyDown}
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              pointers.current.set(event.pointerId, {
-                x: event.clientX,
-                y: event.clientY,
-              });
-            }}
+            onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
-            onPointerUp={(event) => pointers.current.delete(event.pointerId)}
-            onPointerCancel={(event) =>
-              pointers.current.delete(event.pointerId)
-            }
+            onPointerUp={onPointerEnd}
+            onPointerCancel={onPointerEnd}
+            onLostPointerCapture={onPointerEnd}
             className={cn(
               "relative mx-auto w-full cursor-grab touch-none overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing",
               shape === "avatar" ? "max-w-72" : "max-w-xl",
@@ -291,6 +333,9 @@ function Framer({
           </div>
         </div>
       )}
+      {file.type === "image/gif" && !unreadable && (
+        <p className="text-xs text-muted-foreground">{t("gifStill")}</p>
+      )}
       <output
         aria-live="polite"
         className="block text-xs font-medium text-destructive empty:hidden [overflow-wrap:anywhere]"
@@ -307,14 +352,29 @@ function Framer({
         >
           {t("cancel")}
         </Button>
-        <Button
-          type="button"
-          className="min-h-10 px-4"
-          disabled={busy || !image}
-          onClick={save}
-        >
-          {busy ? t("saving") : t("save")}
-        </Button>
+        {unreadable ? (
+          <Button
+            type="button"
+            className="min-h-10 px-4"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError("");
+              void send(file, file.name);
+            }}
+          >
+            {busy ? t("saving") : t("useOriginal")}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            className="min-h-10 px-4"
+            disabled={busy || !image}
+            onClick={save}
+          >
+            {busy ? t("saving") : t("save")}
+          </Button>
+        )}
       </DialogFooter>
     </>
   );
@@ -333,8 +393,13 @@ export function FramingDialog({
   onConfirm: (blob: Blob, name: string) => Promise<SaveResult>;
   onClose: () => void;
 }) {
+  // While a picture is being sent the dialog stays: closing would hide the outcome.
+  const [busy, setBusy] = useState(false);
   return (
-    <Dialog open={file !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={file !== null}
+      onOpenChange={(open) => !open && !busy && onClose()}
+    >
       <DialogContent
         className="top-auto bottom-0 left-0 max-h-[90dvh] max-w-full translate-x-0 translate-y-0 overflow-y-auto rounded-b-none pb-[max(1rem,env(safe-area-inset-bottom))] sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-b-xl sm:pb-4"
         showCloseButton={false}
@@ -345,6 +410,8 @@ export function FramingDialog({
             file={file}
             shape={shape}
             limit={limit}
+            busy={busy}
+            setBusy={setBusy}
             onConfirm={onConfirm}
             onClose={onClose}
           />

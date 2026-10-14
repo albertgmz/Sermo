@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SaveStatus, useAutosave } from "@/components/forum/autosave";
 import { FramingDialog } from "@/components/forum/framing-dialog";
 import { SettingsRow } from "@/components/forum/settings";
@@ -35,18 +35,28 @@ export function PictureRow({
 }) {
   const t = useTranslations("account.pictures");
   const router = useRouter();
+  const pathname = usePathname();
   const limit = uploadLimit(kind, useUploadLimit());
   const input = useRef<HTMLInputElement>(null);
+  const choose = useRef<HTMLButtonElement>(null);
+  const removeButton = useRef<HTMLButtonElement>(null);
+  const keep = useRef<HTMLButtonElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [asking, setAsking] = useState(false);
   const { state, autosave } = useAutosave({});
   const [refused, setRefused] = useState("");
 
+  // The confirmation takes focus when it opens, so a keyboard or screen reader user lands in it.
+  useEffect(() => {
+    if (asking) keep.current?.focus();
+  }, [asking]);
+
   async function send(blob: Blob, name: string): Promise<SaveResult> {
     const result = await autosave.perform(async () => {
       const answer = await uploadPicture(kind, blob, name);
       if (answer.ok) return { ok: true };
-      if (answer.signIn) window.location.assign("/login?next=%2Faccount");
+      if (answer.signIn)
+        window.location.assign(`/login?next=${encodeURIComponent(pathname)}`);
       return { error: answer.error };
     });
     if ("ok" in result) router.refresh();
@@ -55,6 +65,8 @@ export function PictureRow({
 
   async function removeIt() {
     setAsking(false);
+    // The Remove button goes with the picture, so focus stays on the row at the one that remains.
+    choose.current?.focus();
     const result = await autosave.perform(remove);
     if ("ok" in result) router.refresh();
   }
@@ -94,6 +106,7 @@ export function PictureRow({
             }}
           />
           <Button
+            ref={choose}
             type="button"
             variant="outline"
             className="min-h-10 px-4"
@@ -101,11 +114,13 @@ export function PictureRow({
           >
             {hasPicture ? t("replace") : t("choose")}
           </Button>
-          {hasPicture && !asking && (
+          {hasPicture && (
             <Button
+              ref={removeButton}
               type="button"
               variant="outline"
               className="min-h-10 px-4"
+              aria-expanded={asking}
               onClick={() => setAsking(true)}
             >
               {t("remove")}
@@ -130,10 +145,14 @@ export function PictureRow({
               {t("removeYes")}
             </Button>
             <Button
+              ref={keep}
               type="button"
               variant="outline"
               className="min-h-10 px-4"
-              onClick={() => setAsking(false)}
+              onClick={() => {
+                setAsking(false);
+                removeButton.current?.focus();
+              }}
             >
               {t("removeNo")}
             </Button>

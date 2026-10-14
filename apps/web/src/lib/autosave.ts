@@ -41,11 +41,25 @@ const same = (a: Entries, b: Entries) =>
 export const isCleared = (before: Entries, after: Entries) =>
   filled(before) && !filled(after);
 
+// Whether the fields of a row may be saved before the member leaves it. A row can name the fields
+// that must all be filled (a birthday needs its day and month); emptying every field is always
+// complete, because that clears the setting.
+export function isReady(
+  entries: Entries,
+  required: readonly string[],
+): boolean {
+  if (!filled(entries)) return true;
+  return required.every((name) =>
+    entries.some(([field, value]) => field === name && value.trim() !== ""),
+  );
+}
+
 export type Autosave = {
   // The fields were saved (or loaded) as they are: later changes are measured against this.
   baseline: (entries: Entries) => void;
-  // A key was pressed: save after a pause.
-  edit: () => void;
+  // A field changed: save after a pause, or at once with `immediate` (a choice from a list). A
+  // row that is not complete yet waits until it is, or until the member leaves it.
+  edit: (immediate?: boolean) => void;
   // The field was left: save now if anything changed.
   flush: () => Promise<void>;
   // A choice was made: save exactly these entries now.
@@ -62,6 +76,10 @@ export function createAutosave(options: {
   read: () => Entries;
   write: (entries: Entries) => void;
   onState: (state: SaveState) => void;
+  // Whether the fields are complete enough to save while the member is still in the row.
+  ready?: (entries: Entries) => boolean;
+  // What to answer a save of another kind that is asked while one is running.
+  wait?: () => string;
   delay?: number;
   savedFor?: number;
   undoFor?: number;
@@ -72,6 +90,8 @@ export function createAutosave(options: {
     read,
     write,
     onState,
+    ready = () => true,
+    wait = () => "",
     delay = 1000,
     savedFor = 3000,
     undoFor = 6000,
@@ -81,6 +101,7 @@ export function createAutosave(options: {
   let previous: Entries | null = null;
   let busy = false;
   let queued: { entries: () => Entries; force: boolean } | null = null;
+  let errored = false;
   let pause: unknown = null;
   let settle: unknown = null;
 
@@ -94,6 +115,7 @@ export function createAutosave(options: {
     entries: Entries | null,
     undoable: boolean,
   ) {
+    errored = "error" in result;
     if ("error" in result) {
       onState({ phase: "error", message: result.error });
       return;
@@ -139,7 +161,14 @@ export function createAutosave(options: {
       return;
     }
     const now = entries();
-    if (!force && same(now, saved)) return;
+    if (!force && same(now, saved)) {
+      // Back at what is saved: a refusal of an earlier text no longer applies.
+      if (errored) {
+        errored = false;
+        onState(IDLE);
+      }
+      return;
+    }
     await run(now, !force);
   }
 
@@ -147,11 +176,28 @@ export function createAutosave(options: {
     baseline(entries) {
       saved = entries;
     },
-    edit() {
+    edit(immediate = false) {
       stop(pause);
+      pause = null;
+      // Any change after a clearing save gives up the Undo: it would put back stale text.
+      if (previous) {
+        previous = null;
+        onState({ phase: "saved", undo: false });
+      }
+      const now = read();
+      if (errored && same(now, saved)) {
+        errored = false;
+        onState(IDLE);
+        return;
+      }
+      if (!ready(now)) return;
+      if (immediate) {
+        void request(read, false);
+        return;
+      }
       pause = timers.set(() => {
         pause = null;
-        void request(read, false);
+        if (ready(read())) void request(read, false);
       }, delay);
     },
     async flush() {
@@ -165,7 +211,7 @@ export function createAutosave(options: {
       await request(() => entries, true);
     },
     async perform(task) {
-      if (busy) return { error: "" };
+      if (busy) return { error: wait() };
       const result = await attempt(task);
       conclude(result, null, false);
       return result;

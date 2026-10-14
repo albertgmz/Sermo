@@ -97,12 +97,18 @@ function backend(...answers: Response[]) {
 
 const member = { cookie: "sermo.session_token=abc" };
 
-test("a visitor without a session cookie is sent to sign in and nothing is read or sent", async () => {
+const answer = async (response: Response) => ({
+  status: response.status,
+  body: await response.json().catch(() => null),
+});
+
+test("a visitor without a session cookie is told 401 and nothing is read or sent", async () => {
   const asked = backend(Response.json({}));
   const { request, state } = posted({});
-  const response = await POST(request);
-  expect(response.status).toBe(303);
-  expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
+  expect(await answer(await POST(request))).toEqual({
+    status: 401,
+    body: { error: "" },
+  });
   expect(state.pulled).toBe(false);
   expect(asked).toEqual([]);
 });
@@ -127,13 +133,8 @@ test("a body that is no multipart form, or declares no length or too much, is re
   ]) {
     const { request, state } = posted({ ...member, ...headers });
     const response = await POST(request);
-    expect(response.status).toBe(303);
-    expect(
-      new URL(
-        response.headers.get("location") ?? "",
-        "http://x",
-      ).searchParams.get("notice"),
-    ).toBe("failed");
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(typeof (await response.json()).error).toBe("string");
     expect(state.pulled).toBe(false);
   }
   expect(asked).toEqual([]);
@@ -149,15 +150,16 @@ test("a purpose that is not a picture of the member is refused", async () => {
   expect(asked).toEqual([]);
 });
 
-test("a picture is streamed on and attached, then the member is back on the page", async () => {
+test("a picture is streamed on and attached", async () => {
   const asked = backend(
     Response.json({ id: 9 }, { status: 201 }),
     Response.json({ fileId: 9, url: "/api/v1/files/9" }),
   );
   const { request } = posted(member, "kind=cover", 12);
-  const response = await POST(request);
-  expect(response.status).toBe(303);
-  expect(response.headers.get("location")).toBe("/account?notice=cover#cover");
+  expect(await answer(await POST(request))).toEqual({
+    status: 200,
+    body: { ok: true },
+  });
   expect(asked[0]).toEqual({
     url: "http://127.0.0.1:8787/api/v1/files?purpose=cover",
     method: "POST",
@@ -167,100 +169,41 @@ test("a picture is streamed on and attached, then the member is back on the page
   expect(asked[1].body).toEqual({ fileId: 9 });
 });
 
-test("a picture the backend refuses comes back with the backend's message in its section", async () => {
+test("a picture the backend refuses comes back with the backend's message and status", async () => {
   backend(
     Response.json(
       { error: { code: "validation", message: "File exceeds upload limit." } },
       { status: 400 },
     ),
   );
-  const { request } = posted(member);
-  const response = await POST(request);
-  const location = new URL(response.headers.get("location") ?? "", "http://x");
-  expect(location.pathname).toBe("/account");
-  expect(location.hash).toBe("#avatar");
-  expect(location.searchParams.get("notice")).toBe("failed");
-  expect(location.searchParams.get("where")).toBe("avatar");
-  expect(location.searchParams.get("message")).toBe(
-    "File exceeds upload limit.",
-  );
+  expect(await answer(await POST(posted(member).request))).toEqual({
+    status: 400,
+    body: { error: "File exceeds upload limit." },
+  });
 });
 
-test("a session the backend no longer accepts is sent to sign in", async () => {
+test("a session the backend no longer accepts is told 401", async () => {
   backend(
     Response.json(
       { error: { code: "unauthenticated", message: "Sign in." } },
       { status: 401 },
     ),
   );
-  const response = await POST(posted(member).request);
-  expect(response.headers.get("location")).toBe("/login?next=%2Faccount");
+  expect((await POST(posted(member).request)).status).toBe(401);
 });
 
-test("a picture above the site's limit comes back with the limit in the message and is not sent", async () => {
+test("a picture above the site's limit is a 413 with the limit in the message and is not sent", async () => {
   const asked = backend(Response.json({}));
   const { request, state } = posted({
     ...member,
     "content-length": String(7 * 1024 * 1024),
   });
-  const response = await POST(request);
-  expect(response.status).toBe(303);
-  expect(
-    new URL(
-      response.headers.get("location") ?? "",
-      "http://x",
-    ).searchParams.get("message"),
-  ).toBe(messages.account.pictures.overLimit.replace("{size}", "5"));
+  expect(await answer(await POST(request))).toEqual({
+    status: 413,
+    body: {
+      error: messages.account.pictures.overLimit.replace("{size}", "5"),
+    },
+  });
   expect(state.pulled).toBe(false);
   expect(asked).toEqual([]);
-});
-
-const json = { accept: "application/json" };
-
-test("a script that asks for JSON is answered with JSON, not a redirect", async () => {
-  const asked = backend(
-    Response.json({ id: 9 }, { status: 201 }),
-    Response.json({ fileId: 9, url: "/api/v1/files/9" }),
-  );
-  const response = await POST(
-    posted({ ...member, ...json }, "kind=avatar").request,
-  );
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ ok: true });
-  expect(asked[1].body).toEqual({ fileId: 9 });
-});
-
-test("a refusal comes back as JSON with the backend's message and status", async () => {
-  backend(
-    Response.json(
-      { error: { code: "validation", message: "File exceeds upload limit." } },
-      { status: 400 },
-    ),
-  );
-  const response = await POST(posted({ ...member, ...json }).request);
-  expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({
-    error: "File exceeds upload limit.",
-  });
-});
-
-test("a picture above the site's limit is a 413 with the limit in the message", async () => {
-  const asked = backend(Response.json({}));
-  const response = await POST(
-    posted({
-      ...member,
-      ...json,
-      "content-length": String(7 * 1024 * 1024),
-    }).request,
-  );
-  expect(response.status).toBe(413);
-  expect(await response.json()).toEqual({
-    error: messages.account.pictures.overLimit.replace("{size}", "5"),
-  });
-  expect(asked).toEqual([]);
-});
-
-test("a script without a session is told 401", async () => {
-  const response = await POST(posted(json).request);
-  expect(response.status).toBe(401);
 });
