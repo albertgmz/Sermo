@@ -106,7 +106,7 @@ export function buildAdminMembers(ctx: Ctx, actor: Actor, rows: AdminRow[]): Map
       credits: row.credits,
       canEdit: editable,
       isSuperAdmin: !!row.is_super_admin,
-      canSetSuperAdmin: viewerIsSuperAdmin && row.erased_at === null,
+      canSetSuperAdmin: viewerIsSuperAdmin && editable && row.erased_at === null,
     });
   }
   return result;

@@ -204,3 +204,64 @@ describe("users.setSuperAdmin", () => {
     }
   });
 });
+
+describe("a usable super admin always remains", () => {
+  const ban = (w: Awaited<ReturnType<typeof world>>, id: number) =>
+    w.ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(id);
+
+  test("a banned, erased or powerless flag holder is not another super admin", async () => {
+    const w = await world();
+    w.flag(w.peer.id);
+    expect(() => assertOtherSuperAdmin(w.ctx, w.owner.id)).not.toThrow();
+    ban(w, w.peer.id);
+    expect(() => assertOtherSuperAdmin(w.ctx, w.owner.id)).toThrow(ConflictError);
+    w.ctx.sqlite
+      .prepare("UPDATE users SET banned_permanently = 0, banned_until = ?1 WHERE id = ?2")
+      .run(w.ctx.now() + 60_000, w.peer.id);
+    expect(() => assertOtherSuperAdmin(w.ctx, w.owner.id)).toThrow(ConflictError);
+    w.ctx.sqlite
+      .prepare("UPDATE users SET banned_until = ?1 WHERE id = ?2")
+      .run(w.ctx.now() - 1, w.peer.id);
+    expect(() => assertOtherSuperAdmin(w.ctx, w.owner.id)).not.toThrow();
+    // A flag without admin.members cannot administer.
+    w.ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(w.peer.id);
+    expect(() => assertOtherSuperAdmin(w.ctx, w.owner.id)).toThrow(ConflictError);
+  });
+
+  test("removing the flag is refused when the other holder is banned", async () => {
+    const w = await world();
+    w.flag(w.peer.id);
+    ban(w, w.peer.id);
+    await expect(w.setSuper(w.owner, w.owner.id, false)).rejects.toBeInstanceOf(ConflictError);
+    expect(w.isSuper(w.owner.id)).toBe(true);
+  });
+
+  test("users.setGroups refuses a change that leaves no usable super admin", async () => {
+    const w = await world();
+    w.flag(w.peer.id);
+    ban(w, w.peer.id);
+    await expect(
+      w.run("users.setGroups", w.owner.actor, { userId: w.owner.id, primaryGroupId: 2 }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ group_id: number }, [number]>("SELECT group_id FROM users WHERE id = ?1")
+        .get(w.owner.id)!.group_id,
+    ).toBe(4);
+    // With another usable super admin the same change goes through.
+    w.ctx.sqlite.prepare("UPDATE users SET banned_permanently = 0 WHERE id = ?1").run(w.peer.id);
+    expect(
+      await w.run("users.setGroups", w.owner.actor, { userId: w.owner.id, primaryGroupId: 2 }),
+    ).toMatchObject({ primaryGroupId: 2 });
+  });
+
+  test("taking admin.members from the group of the last usable super admin is refused", async () => {
+    const w = await world();
+    await expect(
+      w.run("permissions.set", w.owner.actor, {
+        groupId: 4,
+        entries: [{ permission: "admin.members", value: "never" }],
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+});

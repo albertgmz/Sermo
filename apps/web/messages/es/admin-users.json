@@ -50,7 +50,7 @@
     "moderator": "Moderador",
     "id": "Miembro n.º {id}",
     "erased": "Esta cuenta se borró. Sus pestañas son de solo lectura; lo que escribió el miembro permanece bajo el nombre que se muestra.",
-    "readOnly": "Este miembro tiene un rango igual o superior al tuyo, así que todos los formularios son de solo lectura.",
+    "readOnly": "Este miembro tiene un rango igual o superior al tuyo, o es superadministrador, así que todos los formularios son de solo lectura.",
     "tabs": "Secciones del miembro"
   },
   "tabs": {

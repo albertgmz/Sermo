@@ -50,7 +50,7 @@
     "moderator": "Moderator",
     "id": "Member #{id}",
     "erased": "This account was erased. Its tabs are read-only; what the member wrote stays under the name shown.",
-    "readOnly": "This member ranks at or above you, so every form is read-only.",
+    "readOnly": "This member ranks at or above you, or is a super admin, so every form is read-only.",
     "tabs": "Member sections"
   },
   "tabs": {

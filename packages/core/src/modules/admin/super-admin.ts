@@ -1,10 +1,19 @@
-import { requireAuthenticated } from "../../actor";
+import { GUEST, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { usersSetSuperAdmin } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
 import { ConflictError } from "../../errors";
 import { implement } from "../../operation";
-import { currentActor, requirePermission, requireSuperAdmin } from "../../permissions";
+import {
+  can,
+  currentActor,
+  currentVersions,
+  memberActor,
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  requirePermission,
+  requireSuperAdmin,
+} from "../../permissions";
 import { appendModeratorLog } from "../moderation";
 import { confirmActorPassword, requireNotErased, targetMember } from "./shared";
 
@@ -17,14 +26,41 @@ export function isSuperAdminRow(ctx: Ctx, userId: number): boolean {
   ).get(userId);
 }
 
-/** Throws ConflictError unless a super admin other than `userId` exists whose account is not erased. */
-export function assertOtherSuperAdmin(ctx: Ctx, userId: number): void {
-  const other = prepared(ctx, "admin.otherSuperAdmin", () =>
-    ctx.sqlite.prepare<{ id: number }, [number]>(
-      "SELECT id FROM users WHERE is_super_admin = 1 AND erased_at IS NULL AND id != ?1 LIMIT 1",
+type Holder = PrincipalRow & { id: number; group_id: number };
+
+/**
+ * Whether a super admin other than `excluding` can still administer: their account is not erased
+ * or banned and they hold `admin.members`. Read inside the caller's write transaction.
+ */
+export function usableSuperAdminExists(ctx: Ctx, excluding = 0): boolean {
+  const holders = prepared(ctx, "admin.superAdmins", () =>
+    ctx.sqlite.prepare<Holder, [number]>(
+      `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.is_super_admin = 1 AND u.erased_at IS NULL AND u.id != ?1`,
     ),
-  ).get(userId);
-  if (!other) throw new ConflictError("Cannot remove the last super admin.");
+  ).all(excluding);
+  const versions = currentVersions(ctx);
+  // `can` refuses a banned member before anything else.
+  return holders.some((row) =>
+    can(ctx, memberActor(row.id, row.group_id, row, versions), "admin.members", { target: GUEST }),
+  );
+}
+
+/** Throws ConflictError unless a usable super admin other than `userId` exists. */
+export function assertOtherSuperAdmin(ctx: Ctx, userId: number): void {
+  if (!usableSuperAdminExists(ctx, userId))
+    throw new ConflictError("Cannot remove the last super admin.");
+}
+
+/**
+ * For a change that may take `admin.members` from a super admin: capture before it whether a
+ * usable super admin exists, and call the returned check after it, in the same transaction.
+ */
+export function guardSuperAdmins(ctx: Ctx): () => void {
+  const had = usableSuperAdminExists(ctx);
+  return () => {
+    if (had && !usableSuperAdminExists(ctx))
+      throw new ConflictError("This would leave no usable super admin.");
+  };
 }
 
 export const usersSetSuperAdminOp = implement(usersSetSuperAdmin, async (ctx, actor, input) => {

@@ -42,6 +42,7 @@ import {
 import { helpFor, titleFor, viewerLanguage } from "../../shared/language";
 import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
+import { guardSuperAdmins } from "../admin/super-admin";
 import { appendModeratorLog } from "../moderation";
 
 export type { NodeTree, NodeTreeEntry } from "../../permissions";
@@ -295,6 +296,7 @@ export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) 
     if (group.builtin) throw new ConflictError("Built-in groups cannot be deleted.");
     const ceiling = memberStanding(ctx, current).maxRank;
     assertRank(group.rank, ceiling);
+    const keepSuperAdmin = guardSuperAdmins(ctx);
     // Members hold what they paid for: a group a shop item sells stays until the item goes.
     if (soldByShop(ctx, group.id)) throw new ConflictError("A shop item sells this group.");
     // Its members move to the Member group, which is an assignment like any other: nobody
@@ -313,6 +315,7 @@ export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) 
       .run(group.id);
     ctx.sqlite.prepare("DELETE FROM groups WHERE id = ?1").run(group.id);
     assertAdministrator(ctx);
+    keepSuperAdmin();
     appendModeratorLog(ctx, actor, "group.delete", "group", group.id);
     return { ok: true };
   });
@@ -354,6 +357,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
     requirePermission(ctx, current, "admin.members", { target });
     requireNotErased(ctx, input.userId);
     const wasAdministrator = can(ctx, target, "admin.permissions");
+    const keepSuperAdmin = guardSuperAdmins(ctx);
     const before = memberGroups(ctx, input.userId);
     const ids = [input.primaryGroupId, ...(input.secondaryGroupIds ?? [])].filter(
       (id): id is number => id !== undefined,
@@ -381,6 +385,7 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
       for (const id of new Set(input.secondaryGroupIds)) insert.run(input.userId, id, ctx.now());
     }
     assertAdministrator(ctx, { userId: input.userId, wasAdministrator });
+    keepSuperAdmin();
     appendModeratorLog(ctx, actor, "user.groups", "user", input.userId);
     const after = memberGroups(ctx, input.userId);
     const oldIds = new Set([
@@ -501,6 +506,9 @@ export const permissionsSetOp = implement(permissionsSet, async (ctx, actor, inp
       userId && changesAdministration
         ? { userId, wasAdministrator: can(ctx, getMember(ctx, userId), "admin.permissions") }
         : undefined;
+    const keepSuperAdmin = input.entries.some((entry) => entry.permission === "admin.members")
+      ? guardSuperAdmins(ctx)
+      : () => {};
     const find = prepared(ctx, "permissions.definitionId", () =>
       ctx.sqlite.prepare<{ id: number }, [string]>(
         "SELECT id FROM permission_definitions WHERE key = ?1",
@@ -576,6 +584,7 @@ export const permissionsSetOp = implement(permissionsSet, async (ctx, actor, inp
         );
     }
     if (changesAdministration) assertAdministrator(ctx, affected);
+    keepSuperAdmin();
     appendModeratorLog(
       ctx,
       actor,
