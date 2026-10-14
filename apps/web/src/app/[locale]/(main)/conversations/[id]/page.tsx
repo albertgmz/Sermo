@@ -20,6 +20,7 @@ import { MessageActions } from "@/app/[locale]/(main)/conversations/[id]/message
 import { MessagesSkeleton } from "@/app/[locale]/(main)/conversations/[id]/messages-skeleton";
 import { WidgetsSheet } from "@/app/[locale]/(main)/conversations/[id]/widgets-sheet";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
+import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { EditedMark } from "@/components/forum/edited-mark";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadMore } from "@/components/forum/load-more";
@@ -29,6 +30,7 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { UserLink } from "@/components/forum/user-link";
 import { getCounters } from "@/components/layout/header-data";
 import { PageLayout } from "@/components/layout/page-layout";
+import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { pageHolding } from "@/lib/sermo/locate";
@@ -48,9 +50,12 @@ function conversationIdOf(raw: string) {
 function Header({
   conversation,
   member,
+  bookmarked,
 }: {
   conversation: Conversation;
   member: Members;
+  // Null when the bookmark state could not be read: no toggle is drawn.
+  bookmarked: boolean | null;
 }) {
   const t = useTranslations("conversations.conversation");
   return (
@@ -75,6 +80,14 @@ function Header({
         >
           <ConversationWidgets conversation={conversation} member={member} />
         </WidgetsSheet>
+        {bookmarked !== null && (
+          <BookmarkButton
+            contentType="conversation"
+            contentId={conversation.id}
+            bookmarked={bookmarked}
+            labelClassName="max-sm:sr-only"
+          />
+        )}
         <LeaveForm
           conversationId={conversation.id}
           label={t("leave")}
@@ -106,9 +119,10 @@ export default async function ConversationPage({
     searchParams,
   ]);
   const conversationId = conversationIdOf(raw);
-  const [conversation, { permissions }, t] = await Promise.all([
+  const [conversation, { permissions }, bookmarks, t] = await Promise.all([
     read(conversationsGet, { conversationId }),
     getMember(),
+    bookmarkedAmong("conversation", [conversationId]),
     getTranslations("conversations.conversation"),
   ]);
   const member = await membersFor(
@@ -124,7 +138,11 @@ export default async function ConversationPage({
           <ConversationWidgets conversation={conversation} member={member} />
         }
       >
-        <Header conversation={conversation} member={member} />
+        <Header
+          conversation={conversation}
+          member={member}
+          bookmarked={bookmarks ? bookmarks.has(conversation.id) : null}
+        />
         <div className="mt-4">
           <Suspense
             fallback={

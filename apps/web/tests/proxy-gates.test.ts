@@ -402,6 +402,17 @@ test("a guest on a members-only page is sent to sign in and back", async () => {
   );
 });
 
+test("the bookmarks page is members-only", async () => {
+  reset();
+  const response = await ask("/account/bookmarks?cursor=abc");
+  assert.ok(response);
+  assert.equal(response.status, 307);
+  assert.equal(
+    response.headers.get("location"),
+    "http://localhost/login?next=%2Faccount%2Fbookmarks%3Fcursor%3Dabc",
+  );
+});
+
 test("either session cookie counts as having a session", async () => {
   for (const cookie of [SESSION, SECURE_SESSION]) {
     reset();

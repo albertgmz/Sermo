@@ -38,6 +38,7 @@ import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { canonicalPathOf } from "@/lib/sermo/addresses";
+import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
 import { authorsFor } from "@/lib/sermo/members";
@@ -232,10 +233,15 @@ export default async function ThreadPage({
   const [
     { thread, node, permissions, resolvedPermissions, watching },
     { user },
+    bookmarks,
     t,
   ] = await Promise.all([
     getThread(id),
     getViewer(),
+    // Settled by the same request-wide viewer read; guests ask nothing.
+    getViewer().then(({ user: viewer }) =>
+      viewer ? bookmarkedAmong("thread", [id]) : null,
+    ),
     getTranslations("threads.page"),
   ]);
   const page = pageNumber(pageParam);
@@ -288,6 +294,7 @@ export default async function ThreadPage({
         <ThreadTools
           thread={thread}
           watching={watching}
+          bookmarked={bookmarks ? bookmarks.has(thread.id) : null}
           canWatch={permissions.canWatch}
           may={may}
           mayRemoveCover={mayRemoveCover}

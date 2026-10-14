@@ -10,6 +10,7 @@
     "accountHeading": "Tu cuenta",
     "settingsHeading": "Ajustes",
     "profile": "Perfil",
+    "bookmarks": "Marcadores",
     "appearance": "Apariencia",
     "privacy": "Privacidad",
     "notifications": "Notificaciones",
@@ -311,6 +312,21 @@
         "title": "Seguridad de la cuenta",
         "body": "Mensajes sobre la seguridad de tu cuenta."
       }
+    }
+  },
+  "bookmarks": {
+    "metaTitle": "Marcadores",
+    "heading": "Marcadores",
+    "sectionHeading": "Elementos guardados",
+    "loading": "Cargando tus marcadores…",
+    "emptyTitle": "Aún no tienes marcadores",
+    "emptyDescription": "Marca un tema, un mensaje o una conversación para encontrarlo aquí más tarde.",
+    "loadMore": "Mostrar más",
+    "details": "{type} de {author}, {time}",
+    "types": {
+      "thread": "Tema",
+      "post": "Mensaje",
+      "conversation": "Conversación"
     }
   },
   "preferences": {

@@ -145,5 +145,6 @@ test("known keys have their own icon and every other entry a generic one", () =>
   expect(iconFor("mobile.home")).not.toBe(iconFor(null));
   expect(iconFor("mobile.messages")).not.toBe(iconFor("mobile.alerts"));
   expect(iconFor("account.upgrade")).not.toBe(iconFor(null));
+  expect(iconFor("account.bookmarks")).not.toBe(iconFor(null));
   expect(iconFor("something.else")).toBe(iconFor(null));
 });

@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  bookmarksSet,
   noticesDismiss,
   postsCreate,
   reactionsRemove,
@@ -191,6 +192,27 @@ export async function followFromPage(
     if (follow === true) await call(usersFollow, { userId });
     else await call(usersUnfollow, { userId });
   });
+  if (!done.ok) return { error: done.error };
+  refresh();
+  return {};
+}
+
+export type BookmarkState = { error?: string };
+const BOOKMARKABLE = ["thread", "post", "conversation"] as const;
+
+// Bookmarks or un-bookmarks an item from where it is drawn and stays on the page. The caller says
+// which state it wants, so a second click on a stale page cannot flip it back.
+export async function setBookmark(
+  contentType: (typeof BOOKMARKABLE)[number],
+  contentId: number,
+  bookmarked: boolean,
+): Promise<BookmarkState> {
+  if (!BOOKMARKABLE.includes(contentType)) return {};
+  requireIds(contentId);
+  const page = await pageOfRequest();
+  const done = await attempt(page, () =>
+    call(bookmarksSet, { contentType, contentId, bookmarked }),
+  );
   if (!done.ok) return { error: done.error };
   refresh();
   return {};

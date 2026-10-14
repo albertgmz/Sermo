@@ -1,4 +1,8 @@
 {
+  "bookmark": {
+    "add": "Añadir marcador",
+    "remove": "Quitar marcador"
+  },
   "breadcrumb": {
     "aria": {
       "label": "ruta de navegación",

@@ -7,7 +7,10 @@ import { useTranslations } from "next-intl";
 const GROUPS = [
   {
     title: "accountHeading",
-    links: [{ label: "profile", href: "/account" }],
+    links: [
+      { label: "profile", href: "/account" },
+      { label: "bookmarks", href: "/account/bookmarks" },
+    ],
   },
   {
     title: "settingsHeading",

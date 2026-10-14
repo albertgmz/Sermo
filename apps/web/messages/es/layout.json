@@ -75,6 +75,7 @@
     "dark": "Oscuro"
   },
   "userMenu": {
+    "bookmarks": "Marcadores",
     "logout": "Cerrar sesión",
     "aria": {
       "account": "Menú de la cuenta"

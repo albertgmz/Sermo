@@ -9,16 +9,18 @@ import {
   watchThreadAction,
 } from "@/app/[locale]/(main)/threads/actions";
 import { ActionForm } from "@/components/forum/action-form";
+import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { Label } from "@/components/ui/label";
 
 type Found = z.output<typeof threadsGet.output>;
 type Thread = Found["thread"];
 
-// The row of buttons under the title: watching, for any signed-in member, and the moderation menu
+// The row of buttons under the title: watching and bookmarking, for any signed-in member, and the moderation menu
 // for those it applies to. Whether the member watches the thread comes with it (`threads.get`).
 export async function ThreadTools({
   thread,
   watching,
+  bookmarked,
   canWatch,
   may,
   mayRemoveCover,
@@ -26,6 +28,8 @@ export async function ThreadTools({
 }: {
   thread: Thread;
   watching: Found["watching"];
+  // Null when the bookmark state could not be read: no toggle is drawn.
+  bookmarked: boolean | null;
   canWatch: boolean;
   may: ThreadMay;
   mayRemoveCover: boolean;
@@ -67,6 +71,13 @@ export async function ThreadTools({
             </Label>
           </ActionForm>
         )
+      )}
+      {bookmarked !== null && (
+        <BookmarkButton
+          contentType="thread"
+          contentId={thread.id}
+          bookmarked={bookmarked}
+        />
       )}
       {moderate && (
         <ModerationMenu

@@ -10,6 +10,7 @@
     "accountHeading": "Your account",
     "settingsHeading": "Settings",
     "profile": "Profile",
+    "bookmarks": "Bookmarks",
     "appearance": "Appearance",
     "privacy": "Privacy",
     "notifications": "Notifications",
@@ -311,6 +312,21 @@
         "title": "Account security",
         "body": "Messages about the safety of your account."
       }
+    }
+  },
+  "bookmarks": {
+    "metaTitle": "Bookmarks",
+    "heading": "Bookmarks",
+    "sectionHeading": "Saved items",
+    "loading": "Loading your bookmarks…",
+    "emptyTitle": "No bookmarks yet",
+    "emptyDescription": "Bookmark a thread, a post or a conversation to find it here later.",
+    "loadMore": "Show more",
+    "details": "{type} by {author}, {time}",
+    "types": {
+      "thread": "Thread",
+      "post": "Post",
+      "conversation": "Conversation"
     }
   },
   "preferences": {

@@ -1,4 +1,8 @@
 {
+  "bookmark": {
+    "add": "Bookmark",
+    "remove": "Remove bookmark"
+  },
   "breadcrumb": {
     "aria": {
       "label": "breadcrumb",

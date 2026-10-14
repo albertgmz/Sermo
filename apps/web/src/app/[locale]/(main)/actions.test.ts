@@ -32,8 +32,14 @@ mock.module("next/cache", () => ({
 }));
 
 const source = "./actions.ts?reactions";
-const { followFromPage, react, replyFromFeed, setLiteMode, setLocaleCookie } =
-  (await import(source)) as typeof import("./actions");
+const {
+  followFromPage,
+  react,
+  replyFromFeed,
+  setBookmark,
+  setLiteMode,
+  setLocaleCookie,
+} = (await import(source)) as typeof import("./actions");
 
 const SUMMARY = { counts: {}, total: 0, mine: null };
 
@@ -306,6 +312,32 @@ test("a member id that cannot be a record is refused before the backend is asked
   onPage("http://localhost:3105/threads/5");
   const asked = backend(Response.json({ ok: true }));
   await expect(followFromPage(0, true)).rejects.toThrow();
+  expect(asked).toHaveLength(0);
+});
+
+test("bookmarking from a page is one PUT that refreshes the page and does not redirect", async () => {
+  onPage("http://localhost:3105/threads/5");
+  const asked = backend(Response.json({ ok: true }));
+  expect(await setBookmark("post", 12, true)).toEqual({});
+  expect(refreshed).toBe(1);
+  expect(asked).toHaveLength(1);
+  expect(asked[0].method).toBe("PUT");
+  expect(asked[0].path).toBe("/api/v1/bookmarks");
+  expect(asked[0].body).toEqual({
+    contentType: "post",
+    contentId: 12,
+    bookmarked: true,
+  });
+});
+
+test("a refused bookmark goes back to the button and a forged type is not sent", async () => {
+  onPage("http://localhost:3105/threads/5");
+  const asked = backend(refusal(404, "not_found", "Not found."));
+  expect(await setBookmark("thread", 5, true)).toEqual({ error: "Not found." });
+  expect(refreshed).toBe(0);
+  asked.length = 0;
+  expect(await setBookmark("profile" as never, 5, true)).toEqual({});
+  await expect(setBookmark("thread", 0, true)).rejects.toThrow();
   expect(asked).toHaveLength(0);
 });
 

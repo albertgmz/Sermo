@@ -1,5 +1,6 @@
 import {
   Bell,
+  Bookmark,
   Crown,
   House,
   Inbox,
@@ -43,6 +44,7 @@ const ICONS: Record<string, LucideIcon> = {
   "account.profile": UserRound,
   "account.settings": Settings,
   "account.upgrade": Crown,
+  "account.bookmarks": Bookmark,
 };
 
 // Paths that also mark an entry as current.

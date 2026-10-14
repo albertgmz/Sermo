@@ -75,6 +75,7 @@
     "dark": "Dark"
   },
   "userMenu": {
+    "bookmarks": "Bookmarks",
     "logout": "Log out",
     "aria": {
       "account": "Account menu"
