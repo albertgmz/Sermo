@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { Suspense } from "react";
+import "@/components/forum/member-card-parts";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { widthScript } from "@/components/layout/narrow-width";
 import { SiteIcon } from "@/components/layout/site-icon";
