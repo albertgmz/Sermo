@@ -112,3 +112,16 @@ test("code keeps the escapes the editor wrote, around BB tags that are restored"
   ].join("\n");
   assert.equal(unescapeBbCode(written), expected);
 });
+
+test("a longer closing fence ends the block and an escaped backtick opens no span", () => {
+  const b = String.raw`\[B\]`;
+  const tick = "`";
+  const block = ["```", b, "````", b].join("\n");
+  assert.equal(unescapeBbCode(block), ["```", b, "````", "[B]"].join("\n"));
+  const slash = String.raw`\ `.trim();
+  const escaped = `a ${slash}${tick} ${b} and ${slash}${tick} b`;
+  assert.equal(
+    unescapeBbCode(escaped),
+    `a ${slash}${tick} [B] and ${slash}${tick} b`,
+  );
+});

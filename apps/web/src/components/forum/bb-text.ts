@@ -43,9 +43,10 @@ const ESCAPE = /\\([!-/:-@[-`{-~])/g;
 const dropEscapes = (text: string) => text.replace(ESCAPE, "$1");
 
 // Fenced code blocks and inline code spans, which the editor writes as the text is and which read
-// back as it is: a backslash in them is part of the code.
+// back as it is: a backslash in them is part of the code. A closing fence may be longer than the
+// opening one, and an escaped backtick opens nothing.
 const CODE =
-  /^(\x60{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\1[ \t]*$|(?![\s\S]))|(\x60+)(?!\x60)[^\n]*?[^\x60\n]\2(?!\x60)/gm;
+  /^((\x60|~)\2{2,})[^\n]*\n[\s\S]*?(?:^\1\2*[ \t]*$|(?![\s\S]))|(?<!\\)(\x60+)(?!\x60)[^\n]*?[^\x60\n]\3(?!\x60)/gm;
 
 function restore(text: string) {
   return text

@@ -1,8 +1,4 @@
-import {
-  DISMISSING,
-  pollFor,
-  restoresScroll,
-} from "@/components/layout/spotlight";
+import { DISMISSING, pollFor } from "@/components/layout/spotlight";
 
 // Brings the element an address names into view once it is on the page. A section that streams in
 // after the page loads is not there when the browser looks for it, so the browser stays at the top.
@@ -12,9 +8,8 @@ export type ScrollEnv = {
   find(
     id: string,
   ): { scrollIntoView(options: { block: "start" }): void } | null;
-  // The type of the document load (`reload`, `back_forward`, ...), and whether the arrival is a
-  // visit by history inside the app. Both leave the scroll to the browser or the router.
-  navigationType(): string | undefined;
+  // Whether the arrival is a visit by history inside the app (Back, Forward): the router puts the
+  // reader back where they were.
   traversal(): boolean;
   // Listens for an event anywhere on the page; returns what stops listening.
   on(type: string, listener: () => void): () => void;
@@ -35,8 +30,7 @@ function idOf(hash: string) {
 // Returns what cancels the wait. The wait also ends when the reader scrolls, touches or types.
 export function scrollToHash(env: ScrollEnv) {
   const id = idOf(env.hash());
-  if (!id || restoresScroll(env.navigationType()) || env.traversal())
-    return () => {};
+  if (!id || env.traversal()) return () => {};
   const stops: (() => void)[] = [];
   const stop = () => {
     for (const undo of stops.splice(0)) undo();
