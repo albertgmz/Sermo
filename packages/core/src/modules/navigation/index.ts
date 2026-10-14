@@ -41,6 +41,8 @@ interface EntryRow {
   is_enabled: number;
   audience: Audience;
   permission: string | null;
+  icon: string | null;
+  icon_position: "before" | "after";
   builtin: string | null;
   created_at: number;
   updated_at: number;
@@ -110,6 +112,8 @@ const entryValue = (row: EntryRow) => ({
   isEnabled: !!row.is_enabled,
   audience: row.audience,
   permission: row.permission,
+  icon: row.icon,
+  iconPosition: row.icon_position,
   builtin: row.builtin,
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),
@@ -120,6 +124,8 @@ const linkValue = (row: EntryRow) => ({
   title: row.title,
   target: row.target,
   builtin: row.builtin,
+  icon: row.icon,
+  iconPosition: row.icon_position,
 });
 
 function entryRow(ctx: Ctx, id: number): EntryRow {
@@ -207,7 +213,7 @@ const create = implement(navigationCreate, (ctx, actor, input) => {
     const columns = audienceColumns(input.audience, input.permission);
     const row = ctx.sqlite
       .prepare<EntryRow, (string | number | null)[]>(
-        "INSERT INTO navigation_entries (location, parent_id, title, target, position, is_enabled, audience, permission, builtin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?9) RETURNING *",
+        "INSERT INTO navigation_entries (location, parent_id, title, target, position, is_enabled, audience, permission, icon, icon_position, builtin, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, ?11, ?11) RETURNING *",
       )
       .get(
         input.location,
@@ -218,6 +224,8 @@ const create = implement(navigationCreate, (ctx, actor, input) => {
         input.isEnabled ? 1 : 0,
         columns.audience,
         columns.permission,
+        input.icon,
+        input.iconPosition,
         ctx.now(),
       )!;
     invalidate(ctx, "navigation");
@@ -262,7 +270,7 @@ const update = implement(navigationUpdate, (ctx, actor, input) => {
         : { audience: row.audience, permission: row.permission };
     ctx.sqlite
       .prepare<unknown, (string | number | null)[]>(
-        "UPDATE navigation_entries SET location = ?1, parent_id = ?2, title = ?3, target = ?4, position = ?5, is_enabled = ?6, audience = ?7, permission = ?8, updated_at = ?9 WHERE id = ?10",
+        "UPDATE navigation_entries SET location = ?1, parent_id = ?2, title = ?3, target = ?4, position = ?5, is_enabled = ?6, audience = ?7, permission = ?8, icon = ?9, icon_position = ?10, updated_at = ?11 WHERE id = ?12",
       )
       .run(
         location,
@@ -273,6 +281,8 @@ const update = implement(navigationUpdate, (ctx, actor, input) => {
         (input.isEnabled ?? !!row.is_enabled) ? 1 : 0,
         columns.audience,
         columns.permission,
+        input.icon === undefined ? row.icon : input.icon,
+        input.iconPosition ?? row.icon_position,
         ctx.now(),
         row.id,
       );

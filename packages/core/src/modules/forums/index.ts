@@ -98,6 +98,7 @@ type NodeRow = {
   min_account_age_days: number;
   min_post_count: number;
   icon_file_id: number | null;
+  icon_key: string | null;
   cover_file_id: number | null;
   thread_count: number;
   post_count: number;
@@ -133,7 +134,7 @@ const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
-  "id, icon_file_id, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
+  "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
 /** SQL shared by the hot paths and their query-plan tests. */
 export const forumSql = {
   sticky: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 1 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?4)) OR (state = 'deleted' AND ?3 = 1)) ORDER BY sort_at DESC, id DESC`,
@@ -627,6 +628,7 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
         row.icon_file_id === null
           ? null
           : { fileId: row.icon_file_id, url: resolvedFileUrl(ctx, row.icon_file_id, true) },
+      iconKey: row.icon_key,
       cover:
         row.cover_file_id === null
           ? null
@@ -748,9 +750,9 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
     const row = forumDb(ctx)
       .prepare<
         { id: number },
-        [number | null, string, string, string, number, number, number | null]
+        [number | null, string, string, string, number, number, number | null, string | null]
       >(
-        "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at, tab_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id",
+        "INSERT INTO nodes (parent_id, type, title, description, position, content_updated_at, tab_id, icon_key) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) RETURNING id",
       )
       .get(
         input.parentId,
@@ -760,6 +762,7 @@ export const nodesCreateOp = implement(contracts.nodesCreate, (ctx, actor, input
         input.position,
         ctx.now(),
         input.tabId ?? null,
+        input.iconKey ?? null,
       )!;
     writeNodeSettings(ctx, row.id, input.settings);
     invalidate(ctx, "node_tree");
@@ -782,14 +785,17 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
       throw new ValidationError("A node cannot be its own descendant.");
     const parentId = input.parentId === undefined ? current.parentId : input.parentId;
     requireTabFor(ctx, input.tabId, parentId, current.type);
-    const currentTab = forumDb(ctx)
-      .prepare<{ tab_id: number | null }, [number]>("SELECT tab_id FROM nodes WHERE id = ?1")
-      .get(input.nodeId)!.tab_id;
+    const stored = forumDb(ctx)
+      .prepare<{ tab_id: number | null; icon_key: string | null }, [number]>(
+        "SELECT tab_id, icon_key FROM nodes WHERE id = ?1",
+      )
+      .get(input.nodeId)!;
+    const currentTab = stored.tab_id;
     // A category moved under another node leaves the tabs: only root categories belong to one.
     const tabId = parentId !== null ? null : input.tabId === undefined ? currentTab : input.tabId;
     forumDb(ctx)
       .prepare(
-        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4, content_updated_at = ?6, tab_id = ?7 WHERE id = ?5",
+        "UPDATE nodes SET parent_id = ?1, title = ?2, description = ?3, position = ?4, content_updated_at = ?6, tab_id = ?7, icon_key = ?8 WHERE id = ?5",
       )
       .run(
         parentId,
@@ -799,6 +805,7 @@ export const nodesUpdateOp = implement(contracts.nodesUpdate, (ctx, actor, input
         input.nodeId,
         ctx.now(),
         tabId,
+        input.iconKey === undefined ? stored.icon_key : input.iconKey,
       );
     writeNodeSettings(ctx, input.nodeId, input.settings);
     invalidate(ctx, "node_tree");

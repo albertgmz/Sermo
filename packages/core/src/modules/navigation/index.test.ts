@@ -57,12 +57,16 @@ describe("navigation.get", () => {
     expect(Object.keys(view.header[0]).sort()).toEqual([
       "builtin",
       "children",
+      "icon",
+      "iconPosition",
       "id",
       "target",
       "title",
     ]);
     expect(Object.keys(view.footer[0].children[0]).sort()).toEqual([
       "builtin",
+      "icon",
+      "iconPosition",
       "id",
       "target",
       "title",
@@ -554,5 +558,83 @@ describe("navigation.create and update rules", () => {
           ["header", "mobile", "account", "footer"].indexOf(b),
       ),
     );
+  });
+});
+
+describe("navigation icons", () => {
+  test("an icon and its position round-trip through create, update, list and get", async () => {
+    const { ctx, create, admin, member } = setup();
+    const made = await create({ icon: "star", iconPosition: "after" });
+    expect(made.icon).toBe("star");
+    expect(made.iconPosition).toBe("after");
+    const plain = await create({ title: "Plain" });
+    expect(plain.icon).toBeNull();
+    expect(plain.iconPosition).toBe("before");
+    const changed = await run(ctx, "navigation.update", admin, {
+      entryId: made.id,
+      icon: "house",
+      iconPosition: "before",
+    });
+    expect([changed.icon, changed.iconPosition]).toEqual(["house", "before"]);
+    const untouched = await run(ctx, "navigation.update", admin, {
+      entryId: made.id,
+      title: "Renamed",
+    });
+    expect([untouched.icon, untouched.iconPosition]).toEqual(["house", "before"]);
+    const listed = (await run(ctx, "navigation.list", admin)).items.find(
+      (entry: { id: number }) => entry.id === made.id,
+    );
+    expect([listed.icon, listed.iconPosition]).toEqual(["house", "before"]);
+    const view = await run(ctx, "navigation.get", member);
+    const link = view.header.find((entry: { id: number }) => entry.id === made.id);
+    expect([link.icon, link.iconPosition]).toEqual(["house", "before"]);
+  });
+
+  test("null clears the icon", async () => {
+    const { ctx, create, admin } = setup();
+    const made = await create({ icon: "star" });
+    const cleared = await run(ctx, "navigation.update", admin, { entryId: made.id, icon: null });
+    expect(cleared.icon).toBeNull();
+  });
+
+  test("a child's icon is part of its parent's link", async () => {
+    const { ctx, create, member } = setup();
+    const parent = await create({ title: "Parent", target: null });
+    await create({ title: "Child", parentId: parent.id, icon: "book-open", iconPosition: "after" });
+    const view = await run(ctx, "navigation.get", member);
+    const link = view.header.find((entry: { id: number }) => entry.id === parent.id);
+    expect([link.children[0].icon, link.children[0].iconPosition]).toEqual(["book-open", "after"]);
+  });
+
+  test("a built-in entry may change its icon and position", async () => {
+    const { ctx, admin, entryId } = setup();
+    const id = entryId("header.home");
+    const changed = await run(ctx, "navigation.update", admin, {
+      entryId: id,
+      icon: "messages-square",
+      iconPosition: "after",
+    });
+    expect([changed.icon, changed.iconPosition]).toEqual(["messages-square", "after"]);
+  });
+
+  test("a malformed key is a validation error", async () => {
+    const { ctx, create, admin } = setup();
+    const made = await create({});
+    for (const icon of ["Star", "two words", "-star", "star-", "a--b", "", "x".repeat(65)]) {
+      await expect(create({ icon })).rejects.toBeInstanceOf(ValidationError);
+      await expect(
+        run(ctx, "navigation.update", admin, { entryId: made.id, icon }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
+    await expect(create({ iconPosition: "middle" })).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("permissions are unchanged", async () => {
+    const { ctx, create, member, moderator } = setup();
+    await expect(create({ icon: "star" }, member)).rejects.toBeInstanceOf(ForbiddenError);
+    const made = await create({});
+    await expect(
+      run(ctx, "navigation.update", moderator, { entryId: made.id, icon: "star" }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

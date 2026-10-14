@@ -1,7 +1,12 @@
 import * as z from "zod";
-import { NAVIGATION_AUDIENCES, NAVIGATION_LOCATIONS } from "../db/schema";
+import {
+  NAVIGATION_AUDIENCES,
+  NAVIGATION_ICON_POSITIONS,
+  NAVIGATION_LOCATIONS,
+} from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Timestamp } from "./common";
+import { IconKey } from "./forums";
 
 /*
  * The links of the public site are data: the header, the bar at the bottom of a phone, the
@@ -13,6 +18,7 @@ import { Empty, Id, Ok, Timestamp } from "./common";
 
 export const NavigationLocation = z.enum(NAVIGATION_LOCATIONS);
 export const NavigationAudience = z.enum(NAVIGATION_AUDIENCES);
+export const NavigationIconPosition = z.enum(NAVIGATION_ICON_POSITIONS);
 
 /** A path of this site (`/forums`, `/pages/rules`) or an absolute http(s) URL. */
 export const NavigationTarget = z
@@ -42,6 +48,10 @@ export const NavigationEntry = z
     /** Who sees it. `permission` shows it to holders of the global permission in `permission`. */
     audience: NavigationAudience,
     permission: z.string().nullable(),
+    /** A key of the site's icon set drawn next to the title; null for none. */
+    icon: IconKey.nullable(),
+    /** Whether the icon sits before or after the title. */
+    iconPosition: NavigationIconPosition,
     /** Set on the entries the site ships with: a stable key the client can attach behaviour to. */
     builtin: z.string().nullable(),
     createdAt: Timestamp,
@@ -56,12 +66,16 @@ export const NavigationLink = z
     title: z.string(),
     target: z.string().nullable(),
     builtin: z.string().nullable(),
+    icon: IconKey.nullable(),
+    iconPosition: NavigationIconPosition,
     children: z.array(
       z.object({
         id: Id,
         title: z.string(),
         target: z.string().nullable(),
         builtin: z.string().nullable(),
+        icon: IconKey.nullable(),
+        iconPosition: NavigationIconPosition,
       }),
     ),
   })
@@ -101,7 +115,8 @@ export const navigationCreate = defineContract({
   name: "navigation.create",
   summary:
     "Add a navigation entry (at most 200 in all). A child's parent must be a top-level entry of " +
-    "the same location. `audience: permission` needs the id of a registered global permission " +
+    "the same location. `icon` is a key of the site's icon set (null for none), drawn before or " +
+    "after the title. `audience: permission` needs the id of a registered global permission " +
     "in `permission`; any other audience takes none. Requires admin.settings.",
   kind: "write",
   input: z.object({
@@ -113,6 +128,8 @@ export const navigationCreate = defineContract({
     isEnabled: z.boolean().default(true),
     audience: NavigationAudience.default("everyone"),
     permission: z.string().trim().min(1).max(100).nullable().default(null),
+    icon: IconKey.nullable().default(null),
+    iconPosition: NavigationIconPosition.default("before"),
   }),
   output: NavigationEntry,
 });
@@ -121,7 +138,7 @@ export const navigationUpdate = defineContract({
   name: "navigation.update",
   summary:
     "Change a navigation entry. A built-in entry keeps its location, parent and target: only " +
-    "its title, position, audience and whether it is enabled can change. An entry that has " +
+    "its title, icon, icon position, position, audience and whether it is enabled can change. An entry that has " +
     "children cannot be moved under another entry. Requires admin.settings.",
   kind: "write",
   input: z.object({
@@ -134,6 +151,8 @@ export const navigationUpdate = defineContract({
     isEnabled: z.boolean().optional(),
     audience: NavigationAudience.optional(),
     permission: z.string().trim().min(1).max(100).nullable().optional(),
+    icon: IconKey.nullable().optional(),
+    iconPosition: NavigationIconPosition.optional(),
   }),
   output: NavigationEntry,
 });

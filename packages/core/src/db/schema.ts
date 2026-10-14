@@ -562,6 +562,8 @@ export const nodes = sqliteTable(
     lastThreadTitle: text("last_thread_title"),
     lastPosterId: integer("last_poster_id"),
     iconFileId: integer("icon_file_id"),
+    /** A key of the web app's icon set, shown when the node has no uploaded icon; null for none. */
+    iconKey: text("icon_key"),
     coverFileId: integer("cover_file_id"),
     contentUpdatedAt: integer("content_updated_at"),
     requireThreadApproval: bool("require_thread_approval").notNull().default(false),
@@ -1894,6 +1896,7 @@ export const rankings = sqliteTable(
 
 export const NAVIGATION_LOCATIONS = ["header", "mobile", "account", "footer"] as const;
 export const NAVIGATION_AUDIENCES = ["everyone", "guests", "members", "permission"] as const;
+export const NAVIGATION_ICON_POSITIONS = ["before", "after"] as const;
 
 /**
  * The links of the public site. Two levels: a top-level entry and its children, in one location.
@@ -1913,6 +1916,12 @@ export const navigationEntries = sqliteTable(
     audience: text("audience", { enum: NAVIGATION_AUDIENCES }).notNull().default("everyone"),
     /** With audience `permission`: the id of a global permission. */
     permission: text("permission"),
+    /** A key of the web app's icon set drawn next to the title; null for none. */
+    icon: text("icon"),
+    /** Whether the icon sits before or after the title. */
+    iconPosition: text("icon_position", { enum: NAVIGATION_ICON_POSITIONS })
+      .notNull()
+      .default("before"),
     /** A stable key on the entries the site ships with; null on the ones an administrator adds. */
     builtin: text("builtin"),
     createdAt: integer("created_at").notNull(),

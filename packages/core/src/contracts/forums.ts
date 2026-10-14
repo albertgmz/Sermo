@@ -69,6 +69,13 @@ export const NodeSettings = z
   })
   .meta({ id: "NodeSettings" });
 
+/** A key of the web app's icon set: lowercase words joined by hyphens. The backend knows no set. */
+export const IconKey = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use lowercase letters and digits joined by single hyphens.");
+
 export const Node = z
   .object({
     id: Id,
@@ -77,6 +84,8 @@ export const Node = z
     title: z.string(),
     description: z.string(),
     icon: ImageReference,
+    /** The icon from the site's icon set shown when there is no uploaded icon; null for none. */
+    iconKey: IconKey.nullable(),
     cover: ImageReference,
     position: z.number().int(),
     /** The forum list tab of this node's root category; null when that category has none. */
@@ -212,6 +221,8 @@ export const nodesCreate = defineContract({
     position: z.number().int().default(0),
     /** A root category's forum list tab. Refused on any other node. */
     tabId: Id.nullable().optional(),
+    /** A key of the site's icon set; null for none. */
+    iconKey: IconKey.nullable().optional(),
     settings: NodeSettings.partial().optional(),
   }),
   output: Node,
@@ -229,6 +240,8 @@ export const nodesUpdate = defineContract({
     position: z.number().int().optional(),
     /** A root category's forum list tab; null removes it. Refused on any other node. */
     tabId: Id.nullable().optional(),
+    /** A key of the site's icon set; null removes it. */
+    iconKey: IconKey.nullable().optional(),
     settings: NodeSettings.partial().optional(),
   }),
   output: Node,
