@@ -1861,3 +1861,32 @@ Left as the colour already behaves: renewing a lapsed timed icon takes it off un
 again; a card can show a lapsed icon until the expiry job runs; staff can take an icon off a
 member only by an erase. Six icons ship in the starter shop.
 The migration changes the benchmark seed's hash.
+
+## Postbit actions: follow and message beside every post
+
+**One batched read answers for the viewer.** `users.relations` takes up to 50 member ids and says,
+for each, whether the viewer follows them, may start following them and may start a conversation
+with them. It is kept apart from `users.cards` and `users.authors`, which stay the same for every
+viewer. A thread or conversation page asks it once for the authors on the page, in parallel with
+the authors read, and only for a signed-in viewer; a failed read removes the buttons and nothing
+else.
+
+**"May message" follows conversation creation.** It is false without `conversation.start`, for
+yourself, when the viewer's recipient limit is 0, and when the member ignores a viewer who can be
+ignored, so the button is not offered when sending would be refused for a reason this read can
+know. The ignore state therefore shows as "cannot message" for up to 50 members in one request;
+creation already revealed it one member at a time.
+
+**Unfollowing needs no permission.** `canFollow` means "may start following"; the control is drawn
+when the viewer may follow or already follows, because `users.unfollow` is open to a member who
+lost `member.follow`.
+
+**Following from a post does not navigate.** The action ends in `refresh()`, as reactions do: a
+redirect would lose the reader's place and replay the scroll to a `#post-N` address. The profile
+header keeps its redirecting button.
+
+**One shared piece.** `MemberActions` draws both actions, as two 40px icon buttons in the phone
+header and labelled in the column, and nothing for a guest, yourself, or a restricted or unknown
+member. There is no profile button: the avatar and the name are the links. A refusal is shown
+under the buttons without widening the row. The styleguide draws the same view with an action
+that stores nothing.
