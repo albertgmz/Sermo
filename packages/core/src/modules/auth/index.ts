@@ -1246,10 +1246,17 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
     return { user: null, permissions, resolvedPermissions: resolved, staff };
   const row = prepared(ctx, "auth.me", () =>
     ctx.sqlite.prepare<
-      { id: number; username: string; email: string; group_id: number; created_at: number },
+      {
+        id: number;
+        username: string;
+        email: string;
+        group_id: number;
+        created_at: number;
+        language: string | null;
+      },
       [number]
     >(
-      "SELECT u.id, u.username, a.email, u.group_id, u.created_at FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+      "SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
@@ -1262,6 +1269,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       email: row.email,
       groupId: row.group_id,
       createdAt: iso(row.created_at),
+      language: row.language,
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

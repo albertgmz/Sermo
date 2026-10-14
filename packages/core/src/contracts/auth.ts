@@ -27,6 +27,8 @@ export const SelfUser = z
     groupId: Id,
     createdAt: Timestamp,
     displayGroup: DisplayGroup.nullable(),
+    /** The interface language the member chose (a code of `SUPPORTED_LANGUAGES`); null when they made no choice. */
+    language: z.string().nullable(),
   })
   .meta({ id: "SelfUser" });
 

@@ -616,6 +616,15 @@ test("auth.me returns guest, member, moderator, admin and token permissions", as
   }
 });
 
+test("auth.me carries the member's language: null without a choice, the stored code otherwise", async () => {
+  const ctx = createTestContext();
+  const user = insertUser(ctx, {});
+  const actor = userActor(user);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.language).toBeNull();
+  ctx.sqlite.prepare("UPDATE users SET language = 'es' WHERE id = ?1").run(user.id);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.language).toBe("es");
+});
+
 test("auth.me summary follows specific permission entries", async () => {
   const ctx = createTestContext();
   const adminPermission = ctx.sqlite
