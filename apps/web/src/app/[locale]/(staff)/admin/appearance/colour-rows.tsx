@@ -108,6 +108,7 @@ function Sample({
         <Button
           type="button"
           tabIndex={-1}
+          className="accent-scope"
           style={
             valid
               ? ({

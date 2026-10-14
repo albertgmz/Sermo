@@ -246,6 +246,19 @@ for (const [theme, tokens] of [
   });
 }
 
+test("browsers without relative colours get plain colours", () => {
+  const relative = [
+    ...css.matchAll(/^\s*(--[\w-]+|color):\s*oklch\(\s*from/gm),
+  ].map((match) => match[1]);
+  expect(new Set(relative)).toEqual(new Set(["--primary-ink", "color"]));
+  const fallback = css.slice(
+    css.indexOf("@supports not (color: oklch(from red l c h))"),
+  );
+  expect(fallback).toContain("--primary-ink: var(--primary);");
+  expect(fallback).toContain("color: var(--ink);");
+  expect(fallback).toContain(".accent-scope");
+});
+
 test("skeletons show against the card on the light theme", () => {
   expect(
     contrast(resolve(light, "skeleton"), resolve(light, "card")),

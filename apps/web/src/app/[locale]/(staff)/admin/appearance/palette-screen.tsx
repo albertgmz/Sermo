@@ -56,6 +56,7 @@ async function Sample({
       type="button"
       tabIndex={-1}
       size="sm"
+      className="accent-scope"
       style={
         {
           "--primary": colour.color,

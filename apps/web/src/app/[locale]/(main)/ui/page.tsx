@@ -376,10 +376,9 @@ export default async function StyleguidePage() {
                   {
                     "--primary": accent.color,
                     "--primary-foreground": accent.foreground,
-                    "--ring": accent.color,
                   } as React.CSSProperties
                 }
-                className="space-y-3 rounded-lg border bg-card p-3"
+                className="accent-scope space-y-3 rounded-lg border bg-card p-3"
               >
                 <p className="text-sm font-semibold text-primary-ink">
                   {accent.label}

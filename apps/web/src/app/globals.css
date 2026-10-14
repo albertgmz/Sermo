@@ -263,12 +263,19 @@
  * the root (ViewerAccent); the values above are what shows until the site's data is read.
  */
 :root {
-  /* The accent as text, a link or a ring; --primary stays for fills. */
+  --chart-2: var(--primary);
+}
+
+/*
+ * The accent as text, a link or a ring; --primary stays for fills. A subtree that sets its own
+ * --primary (a swatch, a preview) takes .accent-scope so these follow it instead of the root's.
+ */
+:root,
+.accent-scope {
   --primary-ink: oklch(
     from var(--primary) clamp(var(--accent-min), l, var(--ink-max)) c h
   );
   --ring: var(--primary-ink);
-  --chart-2: var(--primary);
 }
 
 /*
@@ -279,6 +286,17 @@
 /* A colour somebody chose, drawn as text: set --ink on the element. */
 .ink {
   color: oklch(from var(--ink) clamp(var(--ink-min), l, var(--ink-max)) c h);
+}
+
+/* A browser without relative colours keeps the colours as they are. */
+@supports not (color: oklch(from red l c h)) {
+  :root,
+  .accent-scope {
+    --primary-ink: var(--primary);
+  }
+  .ink {
+    color: var(--ink);
+  }
 }
 
 .bb-content .bb-left {
