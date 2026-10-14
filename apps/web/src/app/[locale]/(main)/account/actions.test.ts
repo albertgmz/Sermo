@@ -23,10 +23,9 @@ mock.module("next/headers", () => ({
 }));
 
 const {
-  clearBirthday,
   removePicture,
-  saveAbout,
   saveAppearance,
+  saveProfile,
   savePreferences,
   stopIgnoring,
   stopWatchingForum,
@@ -145,36 +144,23 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return null;
 }
 
-const about = {
-  about: "Hello",
-  location: "Lisbon",
-  website: "",
-  discord: "",
-  telegram: "",
-  x: "",
-};
-
 test("a birthday blanked in all three fields is cleared", async () => {
   const asked = backend();
-  const to = await redirectedTo(() =>
-    saveAbout(null, form({ ...about, day: "", month: "", year: "" })),
+  const saved = await saveProfile(
+    "birthday",
+    form({ day: "", month: "", year: "" }),
   );
+  expect(saved).toEqual({ ok: true });
   expect(asked[0].method).toBe("PATCH");
-  expect(asked[0].body).toMatchObject({ birthday: null });
-  expect(to?.search).toBe("?notice=about");
+  expect(asked[0].body).toEqual({ birthday: null });
 });
 
 test("a date with a day and a month is sent as typed, the year when given", async () => {
   const asked = backend();
-  await redirectedTo(() =>
-    saveAbout(null, form({ ...about, day: "31", month: "2", year: "" })),
-  );
-  expect(asked[0].body).toMatchObject({ birthday: { day: 31, month: 2 } });
-  expect(asked[0].body).not.toHaveProperty("birthday.year");
-  await redirectedTo(() =>
-    saveAbout(null, form({ ...about, day: "3", month: "12", year: "1990" })),
-  );
-  expect(asked[1].body).toMatchObject({
+  await saveProfile("birthday", form({ day: "31", month: "2", year: "" }));
+  expect(asked[0].body).toEqual({ birthday: { day: 31, month: 2 } });
+  await saveProfile("birthday", form({ day: "3", month: "12", year: "1990" }));
+  expect(asked[1].body).toEqual({
     birthday: { day: 3, month: 12, year: 1990 },
   });
 });
@@ -182,7 +168,7 @@ test("a date with a day and a month is sent as typed, the year when given", asyn
 test("a birthday the backend refuses shows the backend's words", async () => {
   backend(refusal("Pick a real date.", 400));
   expect(
-    await saveAbout(null, form({ ...about, day: "31", month: "2", year: "" })),
+    await saveProfile("birthday", form({ day: "31", month: "2", year: "" })),
   ).toEqual({ error: "Pick a real date." });
 });
 
@@ -197,26 +183,59 @@ test("a year with no day or month, or a day that is not a number, is not sent", 
   ];
   for (const birthday of fields) {
     expect(
-      await saveAbout(null, form({ ...about, ...birthday })),
+      await saveProfile("birthday", form(birthday)),
       JSON.stringify(birthday),
     ).toEqual({ error: messages.account.errors.birthdayIncomplete });
   }
   expect(asked).toEqual([]);
 });
 
-test("clearing the birthday is its own action and saving the form never reads a clear field", async () => {
+test("each row of the profile saves only its own field", async () => {
   const asked = backend();
-  const to = await redirectedTo(clearBirthday);
-  expect(asked[0].body).toEqual({ birthday: null });
-  expect(to?.search).toBe("?notice=birthdayRemoved");
-  // A form that posts `clear=birthday` (as the old button did) still only saves what it carries.
-  await redirectedTo(() =>
-    saveAbout(
-      null,
-      form({ ...about, day: "3", month: "4", year: "", clear: "birthday" }),
-    ),
+  await saveProfile("about", form({ about: " Hello " }));
+  await saveProfile("location", form({ location: "Lisbon" }));
+  await saveProfile("website", form({ website: "" }));
+  await saveProfile("telegram", form({ telegram: "ember" }));
+  await saveProfile("customTitle", form({ customTitle: " Captain " }));
+  await saveProfile("signature", form({ signature: "**bye**" }));
+  expect(asked.map((entry) => entry.body)).toEqual([
+    { about: " Hello " },
+    { location: "Lisbon" },
+    { website: "" },
+    { socials: { telegram: "ember" } },
+    { customTitle: "Captain" },
+    { signature: "**bye**" },
+  ]);
+});
+
+test("emptying a title or a signature clears it", async () => {
+  const asked = backend();
+  expect(await saveProfile("customTitle", form({ customTitle: "  " }))).toEqual(
+    { ok: true },
   );
-  expect(asked[1].body).toMatchObject({ birthday: { day: 3, month: 4 } });
+  await saveProfile("signature", form({ signature: "" }));
+  expect(asked.map((entry) => entry.body)).toEqual([
+    { customTitle: null },
+    { signature: null },
+  ]);
+});
+
+test("a refused profile field answers the backend's words and nothing redirects", async () => {
+  backend(refusal("A custom title needs a perk.", 403));
+  expect(
+    await saveProfile("customTitle", form({ customTitle: "Captain" })),
+  ).toEqual({ error: "A custom title needs a perk." });
+});
+
+test("a part that is not a field of the profile does nothing and says so generically", async () => {
+  const asked = backend();
+  for (const part of ["credits", "__proto__", "", undefined, "level"]) {
+    expect(
+      await saveProfile(part as "about", form({ about: "x" })),
+      String(part),
+    ).toEqual({ error: generic });
+  }
+  expect(asked).toEqual([]);
 });
 
 test("a refusal of a button comes back to its own section with the backend's words", async () => {
@@ -235,12 +254,18 @@ test("a refusal of a button comes back to its own section with the backend's wor
   expect(thread?.searchParams.get("message")).toBe("Not watching.");
   const forum = await redirectedTo(() => stopWatchingForum(3));
   expect(forum?.searchParams.get("where")).toBe("forums");
+});
+
+test("removing a picture answers in place, with the backend's words when it refuses", async () => {
+  const asked = backend();
+  expect(await removePicture("avatar")).toEqual({ ok: true });
+  expect(asked[0]).toMatchObject({ path: "/api/v1/profile/avatar" });
+  expect(asked[0].body).toEqual({ fileId: null });
+  expect(await removePicture("cover")).toEqual({ ok: true });
+  expect(asked[1]).toMatchObject({ path: "/api/v1/profile/cover" });
 
   backend(refusal("Nothing to remove."));
-  const picture = await redirectedTo(() => removePicture("cover"));
-  expect(picture?.pathname).toBe("/account");
-  expect(picture?.searchParams.get("where")).toBe("cover");
-  expect(picture?.searchParams.get("message")).toBe("Nothing to remove.");
+  expect(await removePicture("cover")).toEqual({ error: "Nothing to remove." });
 });
 
 test("a button that worked says so in its section", async () => {
@@ -252,10 +277,6 @@ test("a button that worked says so in its section", async () => {
     method: "DELETE",
     path: "/api/v1/users/7/ignore",
   });
-  const removed = await redirectedTo(() => removePicture("avatar"));
-  expect(removed?.search).toBe("?notice=avatarRemoved");
-  expect(asked[1]).toMatchObject({ path: "/api/v1/profile/avatar" });
-  expect(asked[1].body).toEqual({ fileId: null });
 });
 
 test("a bound argument that is not what the page binds does nothing and says so generically", async () => {
@@ -271,9 +292,9 @@ test("a bound argument that is not what the page binds does nothing and says so 
     }
   }
   for (const kind of ["banner", "", "Avatar", undefined, "attachment"]) {
-    const to = await redirectedTo(() => removePicture(kind as "avatar"));
-    expect(to?.searchParams.get("message"), String(kind)).toBe(generic);
-    expect(to?.searchParams.get("where")).toBe("pictures");
+    expect(await removePicture(kind as "avatar"), String(kind)).toEqual({
+      error: generic,
+    });
   }
   expect(asked).toEqual([]);
 });
@@ -282,35 +303,35 @@ test("an appearance choice is a known field and a plain record id, or empty to t
   const asked = backend();
   for (const field of ["fontSize", "__proto__", "constructor", "", undefined]) {
     expect(
-      await saveAppearance(field as "accent", null, form({ value: "3" })),
+      await saveAppearance(field as "accent", form({ value: "3" })),
       String(field),
     ).toEqual({ error: generic });
   }
   for (const value of ["abc", "-3", "0", "1e2", "0x10", " 7", "3.5", "7 "]) {
-    expect(await saveAppearance("frame", null, form({ value })), value).toEqual(
-      { error: generic },
-    );
+    expect(await saveAppearance("frame", form({ value })), value).toEqual({
+      error: generic,
+    });
   }
   expect(asked).toEqual([]);
 
-  const worn = await redirectedTo(() =>
-    saveAppearance("frame", null, form({ value: "5" })),
-  );
+  expect(await saveAppearance("frame", form({ value: "5" }))).toEqual({
+    ok: true,
+  });
   expect(asked[0]).toMatchObject({ method: "PUT", path: "/api/v1/appearance" });
   expect(asked[0].body).toEqual({ frameId: 5 });
-  expect(worn?.pathname).toBe("/account/appearance");
-  await redirectedTo(() =>
-    saveAppearance("nameColor", null, form({ value: "" })),
-  );
+  await saveAppearance("nameColor", form({ value: "" }));
   expect(asked[1].body).toEqual({ nameColorId: null });
-  await redirectedTo(() =>
-    saveAppearance("nameIcon", null, form({ value: "9" })),
-  );
+  await saveAppearance("nameIcon", form({ value: "9" }));
   expect(asked[2].body).toEqual({ nameIconItemId: 9 });
-  await redirectedTo(() =>
-    saveAppearance("nameIcon", null, form({ value: "" })),
-  );
+  await saveAppearance("nameIcon", form({ value: "" }));
   expect(asked[3].body).toEqual({ nameIconItemId: null });
+});
+
+test("an appearance choice the backend refuses answers its words, so the row shows them", async () => {
+  backend(refusal("You do not own that frame.", 403));
+  expect(await saveAppearance("frame", form({ value: "5" }))).toEqual({
+    error: "You do not own that frame.",
+  });
 });
 
 const PREFERENCES = {

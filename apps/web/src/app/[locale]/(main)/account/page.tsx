@@ -3,15 +3,11 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { AppearanceGroup } from "@/app/[locale]/(main)/account/appearance-group";
 import { getSelf } from "@/app/[locale]/(main)/account/data";
+import { AccountLinks } from "@/app/[locale]/(main)/account/navigation";
 import type { SearchParams } from "@/app/[locale]/(main)/account/notice";
-import {
-  AboutSection,
-  ReferralSection,
-  TitleSection,
-  UsernameSection,
-} from "@/app/[locale]/(main)/account/profile-forms";
-import { PicturesSection } from "@/app/[locale]/(main)/account/profile-pictures";
+import { ProfileGroup } from "@/app/[locale]/(main)/account/profile-forms";
 import { ProfileSkeleton } from "@/app/[locale]/(main)/account/profile-skeleton";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { StatTile } from "@/components/forum/stat";
@@ -72,11 +68,9 @@ export default function AccountPage({
       >
         <div className="space-y-4">
           <Stats />
-          <PicturesSection searchParams={searchParams} />
-          <UsernameSection searchParams={searchParams} />
-          <AboutSection searchParams={searchParams} />
-          <TitleSection searchParams={searchParams} />
-          <ReferralSection />
+          <ProfileGroup searchParams={searchParams} />
+          <AppearanceGroup />
+          <AccountLinks />
         </div>
       </Suspense>
     </div>

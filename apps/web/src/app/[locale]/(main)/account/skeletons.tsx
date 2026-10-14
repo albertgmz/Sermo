@@ -39,3 +39,35 @@ export function SectionSkeleton({
 export function PageHeadingSkeleton({ heading }: { heading: string }) {
   return <h1 className="text-2xl font-bold tracking-tight">{heading}</h1>;
 }
+
+// A group of settings rows while it loads: the heading is real text, the rows are bars.
+export function GroupSkeleton({
+  heading,
+  description,
+  rows = 3,
+}: {
+  heading: string;
+  description?: string;
+  rows?: number;
+}) {
+  return (
+    <section className="min-w-0 space-y-2">
+      <div className="px-1">
+        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {heading}
+        </h2>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+      <div className="divide-y overflow-hidden rounded-xl border bg-card">
+        {ROWS.slice(0, rows).map((row) => (
+          <div key={row} className="space-y-2 p-4">
+            <FormRowSkeleton />
+            <TextSkeleton />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

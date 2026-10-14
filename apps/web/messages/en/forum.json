@@ -2,6 +2,29 @@
   "relativeTime": {
     "title": "{date} at {time}"
   },
+  "autosave": {
+    "saving": "Saving…",
+    "saved": "Saved",
+    "undo": "Undo",
+    "failed": "That did not save. Try again."
+  },
+  "framing": {
+    "avatarTitle": "Frame your avatar",
+    "coverTitle": "Frame your cover",
+    "description": "Move and zoom the picture. What is inside the frame is what gets saved.",
+    "avatarLabel": "Avatar frame: the part of the picture that will be saved",
+    "coverLabel": "Cover frame: the part of the picture that will be saved",
+    "hint": "Drag to move. With the keyboard, the arrow keys move the picture and + and − zoom.",
+    "zoom": "Zoom",
+    "reading": "Reading the picture…",
+    "unreadable": "This picture cannot be read. Try a JPEG, PNG or WebP file.",
+    "encodeFailed": "The framed picture could not be made. Try another one.",
+    "overLimit": "The framed picture is larger than the {size} MB the site allows. Zoom in or choose a smaller picture.",
+    "failed": "The picture could not be saved. Try again.",
+    "save": "Save picture",
+    "saving": "Saving…",
+    "cancel": "Cancel"
+  },
   "forumCard": {
     "newBadge": "New",
     "threads": "{count, plural, one {# thread} other {# threads}}",

@@ -1,7 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { messages } from "@/i18n/messages";
-import { translator } from "@/lib/test-intl";
+import { translator, withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
 mock.module("next-intl/server", () => ({
@@ -28,31 +28,29 @@ mock.module("@/app/[locale]/(main)/account/data", () => ({
   shopHref: "/credits",
 }));
 
-const { AboutSection } = await import("./profile-forms");
+const { About } = await import("./profile-forms");
 
 async function markup(element: React.ReactNode) {
-  return new Response(await renderToReadableStream(element)).text();
+  return new Response(await renderToReadableStream(withIntl(element))).text();
 }
 
-test("Enter in the profile form saves it: the clear control belongs to a form of its own", async () => {
-  const html = await markup(
-    await AboutSection({ searchParams: Promise.resolve({}) }),
+test("no profile row has a save button: each is a form that saves itself", async () => {
+  const html = await markup(await About());
+  expect(html).not.toContain('type="submit"');
+  expect(html).not.toContain("Save profile");
+  // About, location, website, birthday, Discord, Telegram and X: one form each.
+  expect(html.match(/<form\b/g)).toHaveLength(7);
+});
+
+test("the three fields of the birthday are one row, so they save together", async () => {
+  const html = await markup(await About());
+  const forms = html.split("<form").slice(1);
+  const birthday = forms.find((form) =>
+    form.includes(messages.account.about.birthdayLabel),
   );
-  const profileForm = html.slice(
-    html.indexOf("<form"),
-    html.indexOf("</form>"),
-  );
-  // The submit button a browser takes for Enter is the first one the form owns.
-  const owned = [...profileForm.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
-    .map((match) => match[0])
-    .filter((button) => !/\sform="/.test(button));
-  expect(owned).toHaveLength(1);
-  expect(owned[0]).toContain(messages.account.about.submit);
-  expect(profileForm).not.toContain('name="clear"');
-  // The clear button is there, handed to another form.
-  const clear = profileForm.match(
-    /<button\b[^>]*form="clear-birthday"[^>]*>[\s\S]*?<\/button>/,
-  );
-  expect(clear?.[0]).toContain(messages.account.about.clearBirthday);
-  expect(html).toContain('<form id="clear-birthday"');
+  expect(birthday).toBeDefined();
+  for (const name of ["day", "month", "year"]) {
+    expect(birthday).toContain(`name="${name}"`);
+  }
+  expect(birthday).not.toContain('name="location"');
 });

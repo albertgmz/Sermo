@@ -9,9 +9,8 @@
   "navigation": {
     "accountHeading": "Your account",
     "settingsHeading": "Settings",
-    "profile": "Profile",
+    "profile": "Profile and appearance",
     "bookmarks": "Bookmarks",
-    "appearance": "Appearance",
     "privacy": "Privacy",
     "notifications": "Notifications",
     "preferences": "Preferences",
@@ -22,14 +21,7 @@
     }
   },
   "notices": {
-    "avatar": "Your avatar was saved.",
-    "avatarRemoved": "Your avatar was removed.",
-    "cover": "Your cover was saved.",
-    "coverRemoved": "Your cover was removed.",
     "username": "Your username was changed.",
-    "about": "Your profile was saved.",
-    "birthdayRemoved": "Your birthday was removed.",
-    "title": "Your title and signature were saved.",
     "titleRemoved": "Your title was removed.",
     "signatureRemoved": "Your signature was removed.",
     "privacy": "Your privacy settings were saved.",
@@ -51,40 +43,48 @@
     "next": "Next page"
   },
   "profile": {
-    "metaTitle": "Profile",
-    "heading": "Profile",
+    "metaTitle": "Profile and appearance",
+    "heading": "Profile and appearance",
     "loading": "Loading your profile…",
     "postsLabel": "Total Posts",
     "reputationLabel": "Total Reputation",
     "followersLabel": "Followers",
-    "followingLabel": "Following"
+    "followingLabel": "Following",
+    "profileGroup": "Profile",
+    "profileDescription": "What other members see. Changes save as you make them.",
+    "moreGroup": "More settings"
   },
   "pictures": {
-    "heading": "Pictures",
-    "description": "Your avatar and the cover behind your profile.",
     "avatarLabel": "Avatar",
-    "avatarHelp": "A square picture works best. Choose a new one to replace it.",
+    "avatarHelp": "Choose a picture, then move and zoom it inside the frame. It is cropped to a square.",
     "coverLabel": "Cover",
-    "coverHelp": "Shown behind your profile, your posts and your member card.",
+    "coverHelp": "Shown behind your profile, your posts and your member card. Choose a picture, then frame it.",
     "limit": "Up to {size} MB.",
     "overLimit": "This picture is larger than the {size} MB the site allows.",
     "coverGalleryWorn": "A cover from the gallery is worn, so it shows instead of the one you upload. Take it off in Appearance to show yours.",
-    "upload": "Upload",
-    "remove": "Remove"
+    "remove": "Remove",
+    "choose": "Choose picture",
+    "replace": "Replace picture",
+    "removeAvatarConfirm": "Remove your avatar? The picture is deleted and cannot be brought back.",
+    "removeCoverConfirm": "Remove your cover? The picture is deleted and cannot be brought back.",
+    "removeYes": "Remove",
+    "removeNo": "Keep",
+    "notImage": "Choose an image file (JPEG, PNG, WebP or GIF).",
+    "aria": {
+      "avatar": "Your avatar",
+      "cover": "Your cover"
+    }
   },
   "username": {
-    "heading": "Username",
-    "description": "The name shown on your profile and posts.",
     "label": "Username",
     "free": "You can change your username freely.",
     "units": "You have {count, plural, one {# change} other {# changes}} left. Each change uses one.",
     "none": "You have no username change left. <shop>Get one in the shop</shop>",
     "confirmation": "I want to change my username to {username}.",
-    "submit": "Change username"
+    "submit": "Change username",
+    "limited": "Changing your username is confirmed first because it is limited and other members know you by this name."
   },
   "about": {
-    "heading": "About and contact",
-    "description": "What other members can read on your profile.",
     "aboutLabel": "About you",
     "aboutHelp": "Plain text.",
     "locationLabel": "Location",
@@ -97,17 +97,13 @@
     "monthPlaceholder": "Month",
     "yearLabel": "Year",
     "yearPlaceholder": "Year",
-    "birthdayHelp": "The year is optional. Only the day and the month show on your profile.",
-    "clearBirthday": "Clear birthday",
+    "birthdayHelp": "The year is optional. Only the day and the month show on your profile. Empty all three to remove it.",
     "discordLabel": "Discord",
     "telegramLabel": "Telegram",
     "xLabel": "X",
-    "handlesHelp": "Your handle on each network, without the @.",
-    "submit": "Save profile"
+    "handlesHelp": "Your handle on each network, without the @."
   },
   "title": {
-    "heading": "Title and signature",
-    "description": "Shown under your name and at the foot of your posts.",
     "titleLabel": "Custom title",
     "titleHelp": "Up to {count, plural, one {# character} other {# characters}}. Leave it empty to use the title that comes with your group or level.",
     "signatureLabel": "Signature",
@@ -115,19 +111,15 @@
     "notShown": "You have this saved, but it is not shown at the moment.",
     "remove": "Remove",
     "titleLocked": "A custom title needs a perk. <shop>See what the shop offers</shop>",
-    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>",
-    "submit": "Save"
+    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>"
   },
   "referral": {
     "heading": "Invite members",
     "description": "Members who register through your link count as your referrals.",
-    "linkLabel": "Your link",
     "count": "{count, plural, one {# member has} other {# members have}} joined through it."
   },
   "appearance": {
-    "metaTitle": "Appearance",
     "heading": "Appearance",
-    "loading": "Loading appearance settings…",
     "description": "How the forum looks for you, and how you look to everyone else.",
     "themeHeading": "Theme",
     "themeDescription": "Light, dark, or follow your device. Kept in this browser only.",
@@ -158,10 +150,6 @@
       "noCover": "No cover",
       "cover": "{name} cover"
     }
-  },
-  "appearanceForm": {
-    "pending": "Saving…",
-    "saved": "Saved"
   },
   "privacy": {
     "metaTitle": "Privacy",

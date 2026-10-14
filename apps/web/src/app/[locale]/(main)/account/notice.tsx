@@ -62,7 +62,7 @@ export async function Notice({ notice }: { notice: Shown | undefined }) {
         notice.key === "failed" ? "text-destructive" : "text-success",
       )}
     >
-      {notice.message ?? t(notice.key as "avatar")}
+      {notice.message ?? t(notice.key as "username")}
     </output>
   );
 }

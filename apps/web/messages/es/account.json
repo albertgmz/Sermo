@@ -9,9 +9,8 @@
   "navigation": {
     "accountHeading": "Tu cuenta",
     "settingsHeading": "Ajustes",
-    "profile": "Perfil",
+    "profile": "Perfil y apariencia",
     "bookmarks": "Marcadores",
-    "appearance": "Apariencia",
     "privacy": "Privacidad",
     "notifications": "Notificaciones",
     "preferences": "Preferencias",
@@ -22,14 +21,7 @@
     }
   },
   "notices": {
-    "avatar": "Se guardó tu avatar.",
-    "avatarRemoved": "Se eliminó tu avatar.",
-    "cover": "Se guardó tu portada.",
-    "coverRemoved": "Se eliminó tu portada.",
     "username": "Se cambió tu nombre de usuario.",
-    "about": "Se guardó tu perfil.",
-    "birthdayRemoved": "Se eliminó tu cumpleaños.",
-    "title": "Se guardaron tu título y tu firma.",
     "titleRemoved": "Se eliminó tu título.",
     "signatureRemoved": "Se eliminó tu firma.",
     "privacy": "Se guardaron tus ajustes de privacidad.",
@@ -51,40 +43,48 @@
     "next": "Página siguiente"
   },
   "profile": {
-    "metaTitle": "Perfil",
-    "heading": "Perfil",
+    "metaTitle": "Perfil y apariencia",
+    "heading": "Perfil y apariencia",
     "loading": "Cargando tu perfil…",
     "postsLabel": "Mensajes en total",
     "reputationLabel": "Reputación total",
     "followersLabel": "Seguidores",
-    "followingLabel": "Siguiendo"
+    "followingLabel": "Siguiendo",
+    "profileGroup": "Perfil",
+    "profileDescription": "Lo que ven los demás miembros. Los cambios se guardan al hacerlos.",
+    "moreGroup": "Más ajustes"
   },
   "pictures": {
-    "heading": "Imágenes",
-    "description": "Tu avatar y la portada detrás de tu perfil.",
     "avatarLabel": "Avatar",
-    "avatarHelp": "Una imagen cuadrada funciona mejor. Elige una nueva para reemplazarla.",
+    "avatarHelp": "Elige una imagen y luego muévela y amplíala dentro del marco. Se recorta en un cuadrado.",
     "coverLabel": "Portada",
-    "coverHelp": "Se muestra detrás de tu perfil, tus mensajes y tu tarjeta de miembro.",
+    "coverHelp": "Se muestra detrás de tu perfil, tus mensajes y tu tarjeta de miembro. Elige una imagen y luego encuádrala.",
     "limit": "Hasta {size} MB.",
     "overLimit": "Esta imagen supera los {size} MB que permite el sitio.",
     "coverGalleryWorn": "Llevas una portada de la galería, así que se muestra en lugar de la que subes. Quítala en Apariencia para mostrar la tuya.",
-    "upload": "Subir",
-    "remove": "Quitar"
+    "remove": "Quitar",
+    "choose": "Elegir imagen",
+    "replace": "Cambiar imagen",
+    "removeAvatarConfirm": "¿Quitar tu avatar? La imagen se elimina y no se puede recuperar.",
+    "removeCoverConfirm": "¿Quitar tu portada? La imagen se elimina y no se puede recuperar.",
+    "removeYes": "Quitar",
+    "removeNo": "Conservar",
+    "notImage": "Elige un archivo de imagen (JPEG, PNG, WebP o GIF).",
+    "aria": {
+      "avatar": "Tu avatar",
+      "cover": "Tu portada"
+    }
   },
   "username": {
-    "heading": "Nombre de usuario",
-    "description": "El nombre que se muestra en tu perfil y tus mensajes.",
     "label": "Nombre de usuario",
     "free": "Puedes cambiar tu nombre de usuario libremente.",
     "units": "Te {count, plural, one {queda un cambio} other {quedan # cambios}}. Cada cambio usa uno.",
     "none": "No te queda ningún cambio de nombre de usuario. <shop>Consigue uno en la tienda</shop>",
     "confirmation": "Quiero cambiar mi nombre de usuario a {username}.",
-    "submit": "Cambiar nombre de usuario"
+    "submit": "Cambiar nombre de usuario",
+    "limited": "El cambio de nombre de usuario se confirma primero porque está limitado y los demás miembros te conocen por este nombre."
   },
   "about": {
-    "heading": "Acerca de ti y contacto",
-    "description": "Lo que otros miembros pueden leer en tu perfil.",
     "aboutLabel": "Acerca de ti",
     "aboutHelp": "Texto sin formato.",
     "locationLabel": "Ubicación",
@@ -97,17 +97,13 @@
     "monthPlaceholder": "Mes",
     "yearLabel": "Año",
     "yearPlaceholder": "Año",
-    "birthdayHelp": "El año es opcional. En tu perfil solo se muestran el día y el mes.",
-    "clearBirthday": "Borrar cumpleaños",
+    "birthdayHelp": "El año es opcional. En tu perfil solo se muestran el día y el mes. Vacía los tres para quitarlo.",
     "discordLabel": "Discord",
     "telegramLabel": "Telegram",
     "xLabel": "X",
-    "handlesHelp": "Tu usuario en cada red, sin la @.",
-    "submit": "Guardar perfil"
+    "handlesHelp": "Tu usuario en cada red, sin la @."
   },
   "title": {
-    "heading": "Título y firma",
-    "description": "Se muestran bajo tu nombre y al pie de tus mensajes.",
     "titleLabel": "Título personalizado",
     "titleHelp": "Hasta {count, plural, one {# carácter} other {# caracteres}}. Déjalo vacío para usar el título que viene con tu grupo o nivel.",
     "signatureLabel": "Firma",
@@ -115,19 +111,15 @@
     "notShown": "Lo tienes guardado, pero ahora no se muestra.",
     "remove": "Quitar",
     "titleLocked": "Un título personalizado requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
-    "signatureLocked": "Una firma requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
-    "submit": "Guardar"
+    "signatureLocked": "Una firma requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>"
   },
   "referral": {
     "heading": "Invitar miembros",
     "description": "Los miembros que se registren con tu enlace cuentan como tus referidos.",
-    "linkLabel": "Tu enlace",
     "count": "{count, plural, one {Se ha unido un miembro} other {Se han unido # miembros}} con tu enlace."
   },
   "appearance": {
-    "metaTitle": "Apariencia",
     "heading": "Apariencia",
-    "loading": "Cargando los ajustes de apariencia…",
     "description": "Cómo ves el foro y cómo te ven los demás.",
     "themeHeading": "Tema",
     "themeDescription": "Claro, oscuro o el de tu dispositivo. Solo se guarda en este navegador.",
@@ -158,10 +150,6 @@
       "noCover": "Sin portada",
       "cover": "Portada {name}"
     }
-  },
-  "appearanceForm": {
-    "pending": "Guardando…",
-    "saved": "Guardado"
   },
   "privacy": {
     "metaTitle": "Privacidad",

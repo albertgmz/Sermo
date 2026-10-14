@@ -1,29 +1,7 @@
-import type { Metadata } from "next";
-import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
-import { AppearancePanel } from "@/app/[locale]/(main)/account/appearance/panel";
-import { AppearanceSkeleton } from "@/app/[locale]/(main)/account/appearance/skeleton";
-import { LoadingRegion } from "@/components/forum/skeletons";
+import { redirect } from "next/navigation";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("account.appearance");
-  return { title: t("metaTitle") };
-}
-
-export default function AppearancePage({
-  searchParams,
-}: PageProps<"/[locale]/account/appearance">) {
-  const t = useTranslations("account.appearance");
-  return (
-    <Suspense
-      fallback={
-        <LoadingRegion label={t("loading")}>
-          <AppearanceSkeleton />
-        </LoadingRegion>
-      }
-    >
-      <AppearancePanel searchParams={searchParams} />
-    </Suspense>
-  );
+// Appearance is a group of the account screen now. A visit to the old address is sent there with
+// a redirect of its own, so the old page does not stay in the history.
+export default function AppearancePage(): never {
+  redirect("/account#appearance");
 }

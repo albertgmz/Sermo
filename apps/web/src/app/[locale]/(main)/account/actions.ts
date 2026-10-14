@@ -19,9 +19,11 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import type * as z from "zod";
 import type { FormState } from "@/app/[locale]/(main)/account/action-form";
 import { failedPath } from "@/app/[locale]/(main)/account/notice";
 import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
+import type { SaveResult } from "@/lib/autosave";
 import { call } from "@/lib/sermo/client";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
@@ -62,13 +64,20 @@ function text(formData: FormData, name: string): string {
 // A picture is uploaded by the route handler in ./picture/route.ts: its body is too large for an
 // action.
 
-export async function removePicture(kind: "avatar" | "cover") {
-  if (!isPicturePurpose(kind)) return pressInvalid(ACCOUNT, "pictures");
-  await press(ACCOUNT, kind, `${kind}Removed`, () =>
+// The backend deletes the file when the picture is removed, so there is nothing to put back: the
+// page asks the member to confirm before it calls this.
+export async function removePicture(
+  kind: "avatar" | "cover",
+): Promise<SaveResult> {
+  if (!isPicturePurpose(kind)) return { error: await invalidArgument() };
+  const removed = await attempt(ACCOUNT, () =>
     call(kind === "avatar" ? imagesSetAvatar : imagesSetCover, {
       fileId: null,
     }),
   );
+  if (!removed.ok) return { error: removed.error };
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
 // Username -------------------------------------------------------------------------------------
@@ -111,53 +120,61 @@ function birthdayOf(formData: FormData) {
   };
 }
 
-export async function saveAbout(
-  _previous: FormState,
+// Every row of the profile saves on its own, so this takes one part of it: the fields that row
+// holds, as FormData. A birthday is the three fields together; a title or a signature that is
+// emptied is cleared.
+const PROFILE_PARTS = [
+  "about",
+  "location",
+  "website",
+  "birthday",
+  "discord",
+  "telegram",
+  "x",
+  "customTitle",
+  "signature",
+] as const;
+
+type ProfileChange = z.input<typeof profilesUpdate.input>;
+
+export type ProfilePart = (typeof PROFILE_PARTS)[number];
+
+function profileChange(
+  part: ProfilePart,
   formData: FormData,
-): Promise<FormState> {
-  const birthday = birthdayOf(formData);
-  if (!birthday) {
+): ProfileChange | null {
+  switch (part) {
+    case "birthday":
+      return birthdayOf(formData);
+    case "discord":
+    case "telegram":
+    case "x":
+      return { socials: { [part]: text(formData, part) } };
+    case "customTitle":
+    case "signature":
+      return { [part]: text(formData, part).trim() || null };
+    default:
+      return { [part]: text(formData, part) };
+  }
+}
+
+export async function saveProfile(
+  part: ProfilePart,
+  formData: FormData,
+): Promise<SaveResult> {
+  if (!PROFILE_PARTS.includes(part)) return { error: await invalidArgument() };
+  const change = profileChange(part, formData);
+  if (!change) {
     const t = await getTranslations("account.errors");
     return { error: t("birthdayIncomplete") };
   }
-  const saved = await attempt(ACCOUNT, () =>
-    call(profilesUpdate, {
-      about: text(formData, "about"),
-      location: text(formData, "location"),
-      website: text(formData, "website"),
-      socials: {
-        discord: text(formData, "discord"),
-        telegram: text(formData, "telegram"),
-        x: text(formData, "x"),
-      },
-      ...birthday,
-    }),
-  );
-  if (!saved.ok) return { error: saved.error };
-  return done("about", "about");
-}
-
-export async function clearBirthday() {
-  await press(ACCOUNT, "about", "birthdayRemoved", () =>
-    call(profilesUpdate, { birthday: null }),
-  );
-}
-
-// Title and signature: only the fields the form carries are sent; an empty one clears.
-export async function saveTitleAndSignature(
-  _previous: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const change: { customTitle?: string | null; signature?: string | null } = {};
-  if (formData.has("customTitle"))
-    change.customTitle = text(formData, "customTitle").trim() || null;
-  if (formData.has("signature"))
-    change.signature = text(formData, "signature").trim() || null;
   const saved = await attempt(ACCOUNT, () => call(profilesUpdate, change));
   if (!saved.ok) return { error: saved.error };
-  return done("title", "title");
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
 
+// The remove buttons of a title or a signature that is saved but not shown any more.
 export async function clearTitle() {
   await press(ACCOUNT, "title", "titleRemoved", () =>
     call(profilesUpdate, { customTitle: null }),
@@ -182,21 +199,21 @@ const WORN = {
 
 export type AppearanceField = keyof typeof WORN;
 
+// A choice saves as it is made: the page is read again and nothing redirects.
 export async function saveAppearance(
   field: AppearanceField,
-  _previous: FormState,
   formData: FormData,
-): Promise<FormState> {
+): Promise<SaveResult> {
   if (!Object.hasOwn(WORN, field)) return { error: await invalidArgument() };
   const raw = text(formData, "value");
   const id = raw === "" ? null : parseId(raw);
   if (raw !== "" && id === null) return { error: await invalidArgument() };
-  const saved = await attempt("/account/appearance", () =>
+  const saved = await attempt(ACCOUNT, () =>
     call(appearanceSet, { [WORN[field]]: id }),
   );
   if (!saved.ok) return { error: saved.error };
   revalidatePath("/", "layout");
-  redirect(`/account/appearance?saved=${field}#${field}`);
+  return { ok: true };
 }
 
 // Privacy --------------------------------------------------------------------------------------

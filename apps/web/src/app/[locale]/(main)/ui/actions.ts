@@ -6,6 +6,7 @@ import type { ActionFormState } from "@/components/forum/action-form";
 import type { LineComposerState } from "@/components/forum/line-composer";
 import { Markdown } from "@/components/forum/markdown";
 import type { StaffFormState } from "@/components/staff/form-rows";
+import type { SaveResult } from "@/lib/autosave";
 
 export async function discard(_formData: FormData) {
   await requireStyleguide();
@@ -68,4 +69,14 @@ export async function confirmSample(
     return { fields: { actorPassword: "That is not your password." } };
   }
   return { notice: "Done. The styleguide changes nothing." };
+}
+
+// The styleguide's autosaving rows: refuses a value over twenty characters the way a backend
+// would, otherwise takes it and stores nothing.
+export async function saveSetting(formData: FormData): Promise<SaveResult> {
+  await requireStyleguide();
+  const long = [...formData.values()].some(
+    (value) => String(value).length > 20,
+  );
+  return long ? { error: "Use 20 characters or fewer." } : { ok: true };
 }

@@ -43,7 +43,7 @@ export async function PerksList() {
       key: "signature",
       icon: Signature,
       has: self.may.setSignature,
-      use: "/account#title",
+      use: "/account#signature",
     },
     {
       key: "customTitle",
@@ -55,7 +55,7 @@ export async function PerksList() {
       key: "coverPreset",
       icon: Image,
       has: Boolean(can["profile.coverPreset"]),
-      use: "/account/appearance#cover",
+      use: "/account#coverPreset",
     },
     {
       key: "awardSlots",

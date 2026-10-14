@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { SettingsGroup, SettingsLinkRow } from "@/components/forum/settings";
 
 const GROUPS = [
   {
@@ -15,7 +16,6 @@ const GROUPS = [
   {
     title: "settingsHeading",
     links: [
-      { label: "appearance", href: "/account/appearance" },
       { label: "privacy", href: "/account/privacy" },
       { label: "notifications", href: "/account/notifications" },
       { label: "preferences", href: "/account/preferences" },
@@ -26,6 +26,30 @@ const GROUPS = [
     ],
   },
 ] as const;
+
+// The same links as rows, for the settings screen: every screen the navigation lists except the
+// settings screen itself.
+type AccountLink = (typeof GROUPS)[number]["links"][number];
+
+export function AccountLinks() {
+  const t = useTranslations("account.navigation");
+  const lite = useTranslations("lite.navigation");
+  const links = GROUPS.flatMap((group): AccountLink[] => [
+    ...group.links,
+  ]).filter(({ href }) => href !== "/account");
+  return (
+    <SettingsGroup
+      id="more"
+      heading={useTranslations("account.profile")("moreGroup")}
+    >
+      {links.map(({ label, href }) => (
+        <SettingsLinkRow key={href} href={href}>
+          {label ? t(label) : lite("label")}
+        </SettingsLinkRow>
+      ))}
+    </SettingsGroup>
+  );
+}
 
 export function AccountNavigation() {
   const pathname = usePathname();

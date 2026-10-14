@@ -2,6 +2,29 @@
   "relativeTime": {
     "title": "{date} a las {time}"
   },
+  "autosave": {
+    "saving": "Guardando…",
+    "saved": "Guardado",
+    "undo": "Deshacer",
+    "failed": "No se guardó. Inténtalo de nuevo."
+  },
+  "framing": {
+    "avatarTitle": "Encuadra tu avatar",
+    "coverTitle": "Encuadra tu portada",
+    "description": "Mueve y amplía la imagen. Lo que queda dentro del marco es lo que se guarda.",
+    "avatarLabel": "Marco del avatar: la parte de la imagen que se guardará",
+    "coverLabel": "Marco de la portada: la parte de la imagen que se guardará",
+    "hint": "Arrastra para mover. Con el teclado, las flechas mueven la imagen y + y − amplían.",
+    "zoom": "Zoom",
+    "reading": "Leyendo la imagen…",
+    "unreadable": "No se puede leer esta imagen. Prueba con un archivo JPEG, PNG o WebP.",
+    "encodeFailed": "No se pudo crear la imagen encuadrada. Prueba con otra.",
+    "overLimit": "La imagen encuadrada supera los {size} MB que permite el sitio. Amplía más o elige una imagen más pequeña.",
+    "failed": "No se pudo guardar la imagen. Inténtalo de nuevo.",
+    "save": "Guardar imagen",
+    "saving": "Guardando…",
+    "cancel": "Cancelar"
+  },
   "forumCard": {
     "newBadge": "Nuevo",
     "threads": "{count, plural, one {# tema} other {# temas}}",

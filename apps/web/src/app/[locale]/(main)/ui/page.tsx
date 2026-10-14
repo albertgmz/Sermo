@@ -25,6 +25,7 @@ import { EditorDemo } from "@/app/[locale]/(main)/ui/editor-demo";
 import { LiteMenuDemo } from "@/app/[locale]/(main)/ui/lite-menu-demo";
 import { MemberActionsDemo } from "@/app/[locale]/(main)/ui/member-actions-demo";
 import { ReactionDemo } from "@/app/[locale]/(main)/ui/reaction-demo";
+import { SettingsDemo } from "@/app/[locale]/(main)/ui/settings-demo";
 import { SkeletonDemos } from "@/app/[locale]/(main)/ui/skeleton-demos";
 import { StaffDemos } from "@/app/[locale]/(main)/ui/staff-demos";
 import { Art } from "@/components/forum/art";
@@ -1793,6 +1794,17 @@ export default async function StyleguidePage() {
               }
             </Signature>
           </div>
+        </Section>
+
+        <Section title="Settings rows, autosave and framing">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The account screen is built from grouped rows. A text row saves
+            after a pause and when it is left, a choice saves when pressed, and
+            each row shows Saving, Saved or the refusal beside its title. A
+            picture is framed (drag, zoom, arrow keys) before it is cropped and
+            uploaded.
+          </p>
+          <SettingsDemo />
         </Section>
       </PageLayout>
     </>

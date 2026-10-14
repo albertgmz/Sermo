@@ -735,8 +735,7 @@ test("a signature never shows its pictures or the LITE label, whatever the visit
 });
 
 test("the signature field holds the stored source whatever LITE hides", async () => {
-  const section = () =>
-    markup(<TitleSection searchParams={Promise.resolve({})} />);
+  const section = () => markup(<TitleSection />);
   const escaped = storedSignature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
   cookie = "postImages";
   const hidden = await section();
