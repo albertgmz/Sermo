@@ -547,14 +547,23 @@ export default async function StyleguidePage() {
         <Section title="Icon picker">
           <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="sg-icon-none">No icon chosen</Label>
-              <IconPicker name="icon-none" id="sg-icon-none" />
+              <Label id="sg-icon-none-label" htmlFor="sg-icon-none">
+                No icon chosen
+              </Label>
+              <IconPicker
+                name="icon-none"
+                id="sg-icon-none"
+                labelId="sg-icon-none-label"
+              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sg-icon-set">An icon chosen</Label>
+              <Label id="sg-icon-set-label" htmlFor="sg-icon-set">
+                An icon chosen
+              </Label>
               <IconPicker
                 name="icon-set"
                 id="sg-icon-set"
+                labelId="sg-icon-set-label"
                 defaultValue="gamepad-2"
               />
             </div>

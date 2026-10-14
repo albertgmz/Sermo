@@ -80,7 +80,11 @@ export async function NodeCreateForm({
         htmlFor={`${type}-icon`}
         help={t("iconHelp")}
       >
-        <IconPicker name="iconKey" id={`${type}-icon`} />
+        <IconPicker
+          name="iconKey"
+          id={`${type}-icon`}
+          labelId={`${type}-icon-label`}
+        />
       </FieldRow>
       {type === "category" && tabs.length > 0 && (
         <FieldRow

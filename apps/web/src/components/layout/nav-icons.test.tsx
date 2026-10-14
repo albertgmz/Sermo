@@ -1,7 +1,7 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
-import { toNavItems } from "./nav";
+import { toNavItems } from "./nav-server";
 
 const navigation = { ...(await import("next/navigation")) };
 mock.module("next/navigation", () => ({
@@ -44,10 +44,10 @@ test("a label draws the entry's icon before or after the title", () => {
     entry("Rules", null, null),
   ]);
   expect(render(<NavLabel item={before} />)).toMatch(
-    /^<svg[^>]*lucide-store[^>]*>.*<[/]svg>Shop$/,
+    /^<span[^>]*><svg[^>]*lucide-store[^>]*>.*<[/]svg><[/]span>Shop$/,
   );
   expect(render(<NavLabel item={after} />)).toMatch(
-    /^Chat<svg[^>]*lucide-message-circle[^>]*>/,
+    /^Chat<span[^>]*><svg[^>]*lucide-message-circle[^>]*>/,
   );
   expect(render(<NavLabel item={none} />)).toBe("Rules");
 });
@@ -82,8 +82,10 @@ test("the header draws the icon of a link on its side of the title", () => {
       ])}
     />,
   );
-  expect(html).toMatch(/<svg[^>]*lucide-store[^>]*>.*<[/]svg>Shop<[/]a>/);
-  expect(html).toMatch(/>Chat<svg[^>]*lucide-message-circle/);
+  expect(html).toMatch(
+    /<span[^>]*><svg[^>]*lucide-store[^>]*>.*<[/]svg><[/]span>Shop<[/]a>/,
+  );
+  expect(html).toMatch(/>Chat<span[^>]*><svg[^>]*lucide-message-circle/);
   expect(html).toContain(">Rules</a>");
 });
 
@@ -95,6 +97,8 @@ test("the phone bar keeps the icon above the title whatever the position says", 
   const html = render(
     <MobileNav items={items} unread={{ conversations: 0, notifications: 0 }} />,
   );
-  expect(html).toMatch(/lucide-store[^>]*>.*<[/]span><span[^>]*>Shop<[/]span>/);
+  expect(html).toMatch(
+    /lucide-store[^>]*>.*<[/]svg><[/]span><[/]span><span[^>]*>Shop<[/]span>/,
+  );
   expect(html).toMatch(/lucide-house/);
 });

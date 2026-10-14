@@ -124,7 +124,12 @@ export async function NodeForm({
         htmlFor="node-icon"
         help={t("iconHelp")}
       >
-        <IconPicker name="iconKey" id="node-icon" defaultValue={node.iconKey} />
+        <IconPicker
+          name="iconKey"
+          id="node-icon"
+          labelId="node-icon-label"
+          defaultValue={node.iconKey}
+        />
       </FieldRow>
       {node.parentId === null && (
         <FieldRow

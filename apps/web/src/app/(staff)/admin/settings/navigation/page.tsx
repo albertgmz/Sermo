@@ -19,6 +19,7 @@ async function Editor({
 }: {
   searchParams: PageProps<"/admin/settings/navigation">["searchParams"];
 }) {
+  const { entry: added } = await searchParams;
   const [t, entries, permissions] = await Promise.all([
     getTranslations("adminSetup.navigation"),
     getEntries(),
@@ -60,7 +61,11 @@ async function Editor({
   return (
     <div className="space-y-4">
       <SettingsNotice searchParams={searchParams} />
-      <AddForm entries={entries} permissions={permissions} />
+      <AddForm
+        key={typeof added === "string" ? added : "new"}
+        entries={entries}
+        permissions={permissions}
+      />
       <Entries places={places} permissions={permissions} />
     </div>
   );

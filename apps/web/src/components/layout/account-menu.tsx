@@ -1,6 +1,7 @@
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { getViewerCard } from "@/components/layout/header-data";
-import { accountItems, toNavItems } from "@/components/layout/nav";
+import { accountItems } from "@/components/layout/nav";
+import { toNavItems } from "@/components/layout/nav-server";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getLiteState } from "@/lib/lite-mode";
 import { getNavigation } from "@/lib/sermo/navigation";

@@ -108,8 +108,10 @@ test("a link draws its own icon on the side it asks for, and none without one", 
     ],
   });
   const html = renderToStaticMarkup(await FooterColumns());
-  expect(html).toMatch(/<svg[^>]*lucide-star[^>]*>.*<[/]svg>Boards<[/]a>/);
-  expect(html).toMatch(/Chat<svg[^>]*lucide-heart/);
+  expect(html).toMatch(
+    /<span[^>]*><svg[^>]*lucide-star[^>]*>.*<[/]svg><[/]span>Boards<[/]a>/,
+  );
+  expect(html).toMatch(/Chat<span[^>]*><svg[^>]*lucide-heart/);
   expect(html).toContain(">Rules</a>");
   expect(html).toContain(">Odd</a>");
 });

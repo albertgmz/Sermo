@@ -26,8 +26,12 @@ const BACK = "/admin/settings/navigation";
 
 // The header, the phone bar, the account menu and the footer ask for the navigation on every
 // request, as the visitor, so nothing is cached and a change shows at once.
-function done(notice: "saved" | "added" | "deleted"): never {
-  redirect(`${BACK}?${new URLSearchParams({ notice })}`);
+// A new entry's id rides along (`entry`): the page keys the add form by it, so the form starts
+// empty after each add, the icon picker included.
+function done(notice: "saved" | "added" | "deleted", entry?: number): never {
+  const query = new URLSearchParams({ notice });
+  if (entry !== undefined) query.set("entry", String(entry));
+  redirect(`${BACK}?${query}`);
 }
 
 const NAMES = [
@@ -42,14 +46,15 @@ const NAMES = [
   "iconPosition",
 ];
 
-// The icon chosen in the picker ("" is none) and which side of the title it sits on.
+// The icon chosen in the picker ("" is none) and which side of the title it sits on. A field the
+// form did not carry is left out, so the backend keeps what the entry has.
 function iconOf(formData: FormData) {
-  const position = NavigationIconPosition.safeParse(
-    text(formData, "iconPosition") || "before",
-  );
+  const position = formData.has("iconPosition")
+    ? NavigationIconPosition.safeParse(text(formData, "iconPosition"))
+    : undefined;
   return {
-    icon: text(formData, "icon") || null,
-    iconPosition: position.success ? position.data : undefined,
+    ...(formData.has("icon") && { icon: text(formData, "icon") || null }),
+    ...(position?.success && { iconPosition: position.data }),
   };
 }
 
@@ -94,22 +99,25 @@ export async function addEntry(
   const who = await audienceOf(formData);
   if (who.fail) return who.fail;
   const target = text(formData, "target").trim();
+  let created: number;
   try {
-    await call(navigationCreate, {
-      location: location.data,
-      parentId,
-      title: text(formData, "title"),
-      target: target === "" ? null : target,
-      ...(position !== undefined && { position }),
-      isEnabled: formData.get("isEnabled") !== null,
-      audience: who.audience,
-      permission: who.permission,
-      ...iconOf(formData),
-    });
+    created = (
+      await call(navigationCreate, {
+        location: location.data,
+        parentId,
+        title: text(formData, "title"),
+        target: target === "" ? null : target,
+        ...(position !== undefined && { position }),
+        isEnabled: formData.get("isEnabled") !== null,
+        audience: who.audience,
+        permission: who.permission,
+        ...iconOf(formData),
+      })
+    ).id;
   } catch (error) {
     return formFailure(error, NAMES);
   }
-  done("added");
+  done("added", created);
 }
 
 // One entry's own fields. The order is saved by `saveOrder`, never here.

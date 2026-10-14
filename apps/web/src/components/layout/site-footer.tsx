@@ -6,13 +6,9 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { SocialIcon } from "@/components/forum/social-icon";
 import { Container } from "@/components/layout/container";
 import { Logo } from "@/components/layout/logo";
-import {
-  hasHref,
-  type LinkItem,
-  linkProps,
-  toNavItems,
-} from "@/components/layout/nav";
+import { hasHref, type LinkItem, linkProps } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
+import { toNavItems } from "@/components/layout/nav-server";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getSite } from "@/lib/sermo/site";
@@ -155,8 +151,8 @@ export async function FooterColumns() {
     <div className={COLUMN_GRID}>
       {columns.map((column) => (
         <nav key={column.id} aria-label={column.title}>
-          <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            {column.title}
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <NavLabel item={column} />
           </h2>
           <ul className="mt-1">
             {column.children.filter(hasHref).map((link) => (

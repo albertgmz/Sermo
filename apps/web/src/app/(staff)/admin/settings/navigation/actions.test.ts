@@ -87,7 +87,9 @@ test("a new entry sends what the form showed and expires the site cache", async 
       ]),
     ),
   );
-  expect(digest).toMatch(/;\/admin\/settings\/navigation\?notice=added;/);
+  expect(digest).toMatch(
+    /;\/admin\/settings\/navigation\?notice=added&entry=5;/,
+  );
   expect(backend.asked).toMatchObject([
     {
       operation: "navigation.create",
@@ -133,9 +135,25 @@ test("an audience of permission carries the permission, an empty target is a hea
     isEnabled: false,
     audience: "permission",
     permission: "admin.settings",
-    icon: null,
-    iconPosition: "before",
   });
+  expect(backend.asked[0]?.body).not.toHaveProperty("icon");
+  expect(backend.asked[0]?.body).not.toHaveProperty("iconPosition");
+});
+
+test("an entry's own form without the icon fields sends neither, so the icon and side are kept", async () => {
+  backend = fakeBackend({ "navigation.update": () => Response.json(ENTRY) });
+  await redirectedTo(() =>
+    saveEntry(
+      null,
+      form([
+        ["id", "5"],
+        ["title", "House rules"],
+        ["audience", "everyone"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).not.toHaveProperty("icon");
+  expect(backend.asked[0]?.body).not.toHaveProperty("iconPosition");
 });
 
 test("an unknown place, audience or parent is refused without a call", async () => {

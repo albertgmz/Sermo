@@ -57,6 +57,7 @@ export function Row({
     <div id={id} className={cn(rowClass, "scroll-mt-4")}>
       {htmlFor ? (
         <label
+          id={`${htmlFor}-label`}
           htmlFor={htmlFor}
           className="self-start text-sm font-medium sm:pt-3"
         >

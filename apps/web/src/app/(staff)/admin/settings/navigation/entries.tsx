@@ -175,13 +175,18 @@ function Row({
         </div>
         <div className="flex flex-wrap items-end gap-3 sm:col-span-2 lg:col-span-full">
           <div className="space-y-1">
-            <label htmlFor={`${id}-icon`} className="text-xs font-medium">
+            <label
+              id={`${id}-icon-label`}
+              htmlFor={`${id}-icon`}
+              className="text-xs font-medium"
+            >
               {t("row.icon")}
             </label>
             <div>
               <IconPicker
                 name="icon"
                 id={`${id}-icon`}
+                labelId={`${id}-icon-label`}
                 defaultValue={item.icon}
               />
             </div>

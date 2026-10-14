@@ -83,7 +83,7 @@ export async function AddForm({
         htmlFor="add-icon"
         help={t("add.iconHelp")}
       >
-        <IconPicker name="icon" id="add-icon" />
+        <IconPicker name="icon" id="add-icon" labelId="add-icon-label" />
       </FieldRow>
       <FieldRow
         name="iconPosition"

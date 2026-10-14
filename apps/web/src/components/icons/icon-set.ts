@@ -17,7 +17,7 @@ import {
   BriefcaseBusiness,
   Brush,
   Bug,
-  Building2,
+  BuildingComplex,
   Calendar,
   Camera,
   Car,
@@ -26,7 +26,7 @@ import {
   ChartLine,
   ChevronsRight,
   CircleCheck,
-  CircleHelp,
+  CircleQuestionMark,
   CircleX,
   Clapperboard,
   Clock,
@@ -45,6 +45,7 @@ import {
   Earth,
   ExternalLink,
   Eye,
+  FaceSlightlySmiling,
   FileText,
   Film,
   Flag,
@@ -93,6 +94,7 @@ import {
   MessagesSquare,
   Mic,
   Microscope,
+  MicSignal,
   Monitor,
   Moon,
   Mouse,
@@ -107,7 +109,6 @@ import {
   Percent,
   Pizza,
   Plane,
-  Podcast,
   Puzzle,
   Radio,
   Receipt,
@@ -123,7 +124,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   Smartphone,
-  Smile,
   Sparkles,
   SquareTerminal,
   Star,
@@ -136,7 +136,7 @@ import {
   Target,
   Terminal,
   ThumbsUp,
-  Trash2,
+  Trash,
   TreePine,
   TrendingUp,
   TriangleAlert,
@@ -153,12 +153,20 @@ import {
   Wrench,
   Zap,
 } from "lucide-react";
+import type messages from "../../../messages/en/ui.json";
+
+// A key of the site's icon set, as the interface text names it: the labels of the picker are keyed
+// by these, so a key without a label (or a label without an icon) does not compile.
+export type IconName = keyof typeof messages.iconPicker.labels;
 
 // The site's icon set: the keys stored for forums, navigation entries and anything else that
 // takes an icon, mapped to the component that draws them. The backend keeps only the key; this
-// file is the one place that knows which keys exist. Names and search words for the picker live
-// in `icon-meta.ts`, so pages that only draw an icon do not load them. Keys are lucide's names.
-export const ICONS: Record<string, LucideIcon> = {
+// file is the one place that knows which keys exist. Search words for the picker live in
+// `icon-meta.ts` and the labels in the messages. Keys are lucide's names as they were when the
+// set was made (a few components have since been renamed in lucide; the keys stay, because they
+// are stored). Only server code and the picker import this file: client components of the public
+// pages receive the icon already rendered.
+export const ICONS: Record<IconName, LucideIcon> = {
   "messages-square": MessagesSquare,
   "message-circle-more": MessageCircleMore,
   "message-circle": MessageCircle,
@@ -168,7 +176,7 @@ export const ICONS: Record<string, LucideIcon> = {
   library: Library,
   "graduation-cap": GraduationCap,
   lightbulb: Lightbulb,
-  "circle-help": CircleHelp,
+  "circle-help": CircleQuestionMark,
   info: Info,
   flag: Flag,
   bookmark: Bookmark,
@@ -177,7 +185,7 @@ export const ICONS: Record<string, LucideIcon> = {
   star: Star,
   heart: Heart,
   "thumbs-up": ThumbsUp,
-  smile: Smile,
+  smile: FaceSlightlySmiling,
   "party-popper": PartyPopper,
   trophy: Trophy,
   award: Award,
@@ -249,7 +257,7 @@ export const ICONS: Record<string, LucideIcon> = {
   palette: Palette,
   "pen-tool": PenTool,
   "layout-template": LayoutTemplate,
-  podcast: Podcast,
+  podcast: MicSignal,
   users: Users,
   "user-round": UserRound,
   "user-plus": UserPlus,
@@ -309,8 +317,8 @@ export const ICONS: Record<string, LucideIcon> = {
   paperclip: Paperclip,
   scale: Scale,
   landmark: Landmark,
-  "building-2": Building2,
-  "trash-2": Trash2,
+  "building-2": BuildingComplex,
+  "trash-2": Trash,
 };
 
 // The component for a stored key; null for no key or a key the set does not know (an icon that
@@ -318,5 +326,7 @@ export const ICONS: Record<string, LucideIcon> = {
 export function iconComponent(
   key: string | null | undefined,
 ): LucideIcon | null {
-  return (key && Object.hasOwn(ICONS, key) ? ICONS[key] : null) ?? null;
+  return (
+    (key && Object.hasOwn(ICONS, key) ? ICONS[key as IconName] : null) ?? null
+  );
 }

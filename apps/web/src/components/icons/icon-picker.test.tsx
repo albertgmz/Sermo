@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { messages } from "@/i18n/messages";
 import { withIntl } from "@/lib/test-intl";
-import { ICON_ENTRIES, searchIcons } from "./icon-meta";
+import { labelledIcons, searchIcons } from "./icon-meta";
 import { IconGrid, IconPicker } from "./icon-picker";
 
+const ENTRIES = labelledIcons((key) => messages.ui.iconPicker.labels[key]);
 const render = (node: React.ReactNode) => renderToStaticMarkup(withIntl(node));
 
 test("the hidden input carries the key the picker starts with", () => {
@@ -36,11 +38,37 @@ test("the trigger takes the id of its label", () => {
   expect(html).toMatch(/<button[^>]*id="node-icon"/);
 });
 
+test("with a label id, the trigger is named by the label and the chosen icon together", () => {
+  const html = render(
+    <>
+      <label id="icon-label" htmlFor="node-icon">
+        Icon
+      </label>
+      <IconPicker
+        name="icon"
+        id="node-icon"
+        labelId="icon-label"
+        defaultValue="gamepad-2"
+      />
+    </>,
+  );
+  const named = html.match(/<button[^>]*aria-labelledby="([^"]+)"/)?.[1];
+  const [label, value] = (named ?? "").split(" ");
+  expect(label).toBe("icon-label");
+  expect(value).toBeTruthy();
+  // Both ids exist in the page and the value is the text of the chosen icon.
+  expect(html).toContain(`id="${value}"`);
+  expect(html).toMatch(new RegExp(`id="${value}"[^>]*>.*Gamepad`));
+  expect(render(<IconPicker name="icon" id="node-icon" />)).not.toContain(
+    "aria-labelledby",
+  );
+});
+
 test("the grid has a named button for each icon and marks the chosen one", () => {
   const html = render(
-    <IconGrid entries={ICON_ENTRIES} value="star" onChoose={() => {}} />,
+    <IconGrid entries={ENTRIES} value="star" onChoose={() => {}} />,
   );
-  expect(html.match(/<button/g)).toHaveLength(ICON_ENTRIES.length);
+  expect(html.match(/<button/g)).toHaveLength(ENTRIES.length);
   expect(html).toContain('aria-label="Star"');
   expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
   expect(html).toMatch(/aria-label="Star"[^>]*aria-pressed="true"/);
@@ -49,7 +77,7 @@ test("the grid has a named button for each icon and marks the chosen one", () =>
 });
 
 test("a search narrows the grid and a search with no match says so", () => {
-  const found = searchIcons("pets");
+  const found = searchIcons("pets", ENTRIES);
   const some = render(
     <IconGrid entries={found} value={null} onChoose={() => {}} />,
   );
@@ -57,7 +85,11 @@ test("a search narrows the grid and a search with no match says so", () => {
   expect(some).toContain('aria-label="Dog"');
   expect(some).not.toContain('aria-label="Star"');
   const none = render(
-    <IconGrid entries={searchIcons("zzzz")} value={null} onChoose={() => {}} />,
+    <IconGrid
+      entries={searchIcons("zzzz", ENTRIES)}
+      value={null}
+      onChoose={() => {}}
+    />,
   );
   expect(none).not.toContain("<button");
   expect(none).toContain("No icon matches that search.");

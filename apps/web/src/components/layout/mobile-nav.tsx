@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Counters } from "@/components/layout/header-data";
 import {
-  entryIcon,
+  iconFor,
   isCurrent,
   type LinkItem,
   linkProps,
@@ -32,7 +32,7 @@ export function MobileNav({
     >
       <ul className="mx-auto grid h-14 max-w-lg auto-cols-fr grid-flow-col">
         {items.map((item) => {
-          const Icon = entryIcon(item, true);
+          const Icon = iconFor(item.builtin);
           const count = item.builtin ? counts[item.builtin] : 0;
           return (
             <li key={item.id}>
@@ -42,7 +42,16 @@ export function MobileNav({
                 className="flex h-full flex-col items-center justify-center gap-1 border-t-2 border-transparent text-(length:--text-caption) font-medium text-muted-foreground transition-colors aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
               >
                 <span className="relative">
-                  <Icon className="size-5" />
+                  {item.iconNode ? (
+                    <span
+                      aria-hidden="true"
+                      className="inline-flex size-5 [&>svg]:size-full"
+                    >
+                      {item.iconNode}
+                    </span>
+                  ) : (
+                    <Icon className="size-5" />
+                  )}
                   {!!count && (
                     <span className="absolute -top-0.5 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
                   )}

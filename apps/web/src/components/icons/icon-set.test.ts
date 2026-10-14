@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
-import { ICON_ENTRIES, searchIcons } from "./icon-meta";
+import { messages } from "@/i18n/messages";
+import { ICON_KEYWORDS, labelledIcons, searchIcons } from "./icon-meta";
 import { ICONS, iconComponent } from "./icon-set";
+
+const LABELS = messages.ui.iconPicker.labels;
+const english = labelledIcons((key) => LABELS[key]);
 
 // The keys the forum icon map knew before the set existed, and the ones the navigation draws by
 // default: stored values and built-in entries must keep resolving.
@@ -59,22 +63,31 @@ test("the set is a hundred or more icons and every key has the shape the backend
   for (const key of keys) expect(key).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 });
 
-test("the picker's entries are the keys of the set, once each, with a label", () => {
-  const entries = ICON_ENTRIES.map((entry) => entry.key);
+test("the picker's entries, the labels and the icons are the same keys, once each", () => {
+  const entries = ICON_KEYWORDS.map((entry) => entry.key);
   expect(new Set(entries).size).toBe(entries.length);
   expect([...entries].sort()).toEqual(Object.keys(ICONS).sort());
-  for (const entry of ICON_ENTRIES)
-    expect(entry.label.length).toBeGreaterThan(0);
+  expect(Object.keys(LABELS).sort()).toEqual(Object.keys(ICONS).sort());
+  for (const label of Object.values(LABELS))
+    expect(label.length).toBeGreaterThan(0);
 });
 
 test("a search keeps the icons that match every word, by key, label or search word", () => {
-  expect(searchIcons("")).toBe(ICON_ENTRIES);
-  expect(searchIcons("   ")).toBe(ICON_ENTRIES);
-  const keys = (query: string) => searchIcons(query).map((e) => e.key);
+  expect(searchIcons("", english)).toBe(english);
+  expect(searchIcons("   ", english)).toBe(english);
+  const keys = (query: string) => searchIcons(query, english).map((e) => e.key);
   expect(keys("gamepad")).toContain("gamepad-2");
   expect(keys("CRYPTO")).toContain("bitcoin");
   expect(keys("pets animals")).toEqual(["paw-print", "dog", "cat"]);
   expect(keys("money coin")).toContain("coins");
   expect(keys("money coin")).not.toContain("gamepad-2");
   expect(keys("zzzz")).toEqual([]);
+});
+
+test("a search matches the label in the language it is given, not an English one", () => {
+  const spanish = labelledIcons((key) => (key === "dog" ? "Perro" : "x"));
+  expect(searchIcons("perro", spanish).map((e) => e.key)).toEqual(["dog"]);
+  expect(searchIcons("discussion", spanish)).toEqual([]);
+  // The search words stay data: they still find the icon.
+  expect(searchIcons("pets", spanish).map((e) => e.key)).toContain("dog");
 });

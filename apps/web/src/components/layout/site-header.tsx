@@ -16,7 +16,7 @@ import {
 } from "@/components/layout/header-panels";
 import { Logo } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
-import { toNavItems } from "@/components/layout/nav";
+import { toNavItems } from "@/components/layout/nav-server";
 import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

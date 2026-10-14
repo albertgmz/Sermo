@@ -9,9 +9,14 @@
 //   defaultValue  The key chosen at the start; null or omitted for none. A key the set does not
 //                 know is kept (and shown as text) until another choice replaces it.
 //   id            Id of the trigger, for a label's htmlFor.
+//   labelId       Id of that label. A label that points at the button replaces the button's
+//                 content as its name, so the chosen icon would never be announced; with the
+//                 label's id the button is named by the label and the chosen icon together.
 //   className     Classes of the trigger.
 //
-// Use it:  <IconPicker name="icon" defaultValue={entry.icon} id="icon" />
+// The picker follows its form: a `reset` event of the form puts the starting icon back.
+//
+// Use it:  <IconPicker name="icon" defaultValue={entry.icon} id="icon" labelId="icon-label" />
 //          and read formData.get("icon") in the action ("" means none).
 //
 // Keyboard: the search field has focus when the popover opens; ArrowDown moves into the grid,
@@ -20,10 +25,10 @@
 
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  ICON_ENTRIES,
   type IconEntry,
+  labelledIcons,
   searchIcons,
 } from "@/components/icons/icon-meta";
 import { iconComponent } from "@/components/icons/icon-set";
@@ -113,11 +118,13 @@ export function IconPicker({
   name,
   defaultValue = null,
   id,
+  labelId,
   className,
 }: {
   name: string;
   defaultValue?: string | null;
   id?: string;
+  labelId?: string;
   className?: string;
 }) {
   const t = useTranslations("ui.iconPicker");
@@ -125,7 +132,24 @@ export function IconPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const search = useRef<HTMLInputElement>(null);
-  const known = ICON_ENTRIES.find((entry) => entry.key === value);
+  const hidden = useRef<HTMLInputElement>(null);
+  const valueId = useId();
+  const entries = useMemo(
+    () => labelledIcons((key) => t(`labels.${key}`)),
+    [t],
+  );
+  const known = entries.find((entry) => entry.key === value);
+
+  // A form that is reset (and not stopped from it) starts the picker over.
+  useEffect(() => {
+    const form = hidden.current?.form;
+    if (!form) return;
+    const reset = (event: Event) => {
+      if (!event.defaultPrevented) setValue(defaultValue || null);
+    };
+    form.addEventListener("reset", reset);
+    return () => form.removeEventListener("reset", reset);
+  }, [defaultValue]);
   const Current = iconComponent(value);
 
   function choose(key: string | null) {
@@ -135,7 +159,7 @@ export function IconPicker({
 
   return (
     <>
-      <input type="hidden" name={name} value={value ?? ""} />
+      <input ref={hidden} type="hidden" name={name} value={value ?? ""} />
       <Popover
         open={open}
         onOpenChange={(next) => {
@@ -145,6 +169,7 @@ export function IconPicker({
       >
         <PopoverTrigger
           id={id}
+          aria-labelledby={labelId ? `${labelId} ${valueId}` : undefined}
           render={
             <Button
               type="button"
@@ -156,7 +181,7 @@ export function IconPicker({
             />
           }
         >
-          <span className="flex min-w-0 items-center gap-2">
+          <span id={valueId} className="flex min-w-0 items-center gap-2">
             {Current && <Current className="size-4" aria-hidden="true" />}
             <span className="truncate">
               {value ? (known?.label ?? value) : t("none")}
@@ -207,7 +232,7 @@ export function IconPicker({
             }}
           >
             <IconGrid
-              entries={searchIcons(query)}
+              entries={searchIcons(query, entries)}
               value={value}
               onChoose={choose}
             />
