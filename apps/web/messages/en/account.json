@@ -139,6 +139,9 @@
     "nameColorHeading": "Name colour",
     "nameColorDescription": "The colour of your username in threads, lists and your profile.",
     "nameColorsEmpty": "You have no name colours yet. <shop>Get name colours in the shop</shop>",
+    "nameIconHeading": "Name icon",
+    "nameIconDescription": "A small icon next to your username in threads, lists and your profile.",
+    "nameIconsEmpty": "You have no name icons yet. <shop>Get name icons in the shop</shop>",
     "coverHeading": "Profile cover",
     "coverDescription": "A picture from the gallery behind your profile, your posts and your member card. It shows instead of the cover you uploaded.",
     "coversEmpty": "The gallery needs a perk. <perks>See your perks</perks>",
@@ -147,6 +150,8 @@
       "frame": "{name} frame",
       "noFrame": "No frame",
       "nameColor": "{name} name colour",
+      "nameIcon": "{name} name icon",
+      "noNameIcon": "No name icon",
       "noCover": "No cover",
       "cover": "{name} cover"
     }

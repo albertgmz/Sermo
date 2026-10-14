@@ -8,6 +8,7 @@ import {
 } from "@/components/forum/award-icon";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { LevelBadge, levelWithBounds, XpBar } from "@/components/forum/level";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { UserBadges } from "@/components/forum/user-badges";
 import { userNameProps } from "@/components/forum/user-name";
@@ -83,7 +84,7 @@ export function MemberCard({
               )}
               style={name.style}
             >
-              {user.card.username}
+              <NameWithIcon user={user.card} />
             </span>
             <UserBadges user={user.card} />
           </p>

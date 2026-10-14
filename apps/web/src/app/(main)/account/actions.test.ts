@@ -41,6 +41,7 @@ const card = {
   avatar: null,
   frame: null,
   nameColor: null,
+  nameIcon: null,
   title: "Member",
   badges: [],
   restricted: false,
@@ -56,7 +57,14 @@ function succeeded(method: string, path: string): unknown {
       nameColorId: null,
       frameId: null,
       coverPresetId: null,
-      available: { accents: [], nameColors: [], frames: [], covers: [] },
+      nameIconItemId: null,
+      available: {
+        accents: [],
+        nameColors: [],
+        frames: [],
+        nameIcons: [],
+        covers: [],
+      },
     };
   }
   if (path.startsWith("/api/v1/profile/")) return null;
@@ -287,4 +295,12 @@ test("an appearance choice is a known field and a plain record id, or empty to t
     saveAppearance("nameColor", null, form({ value: "" })),
   );
   expect(asked[1].body).toEqual({ nameColorId: null });
+  await redirectedTo(() =>
+    saveAppearance("nameIcon", null, form({ value: "9" })),
+  );
+  expect(asked[2].body).toEqual({ nameIconItemId: 9 });
+  await redirectedTo(() =>
+    saveAppearance("nameIcon", null, form({ value: "" })),
+  );
+  expect(asked[3].body).toEqual({ nameIconItemId: null });
 });

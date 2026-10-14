@@ -72,6 +72,7 @@ function member(
     avatar: null,
     frame: null,
     nameColor: null,
+    nameIcon: null,
     title: "Member",
     badges: [],
     level: 1,
@@ -142,6 +143,24 @@ export const NAME_COLORS = [
   { label: "Gold", color: "#eab308" },
   { label: "Legendary", color: "#a78bfa" },
 ];
+
+// Icons a member may wear beside their name, and the side they chose.
+export const NAME_ICONS = [
+  { label: "star before", icon: "star", position: "before", color: null },
+  { label: "heart after", icon: "heart", position: "after", color: null },
+  {
+    label: "crown in gold",
+    icon: "crown",
+    position: "before",
+    color: "#eab308",
+  },
+  {
+    label: "flame in coral",
+    icon: "flame",
+    position: "after",
+    color: "#fb923c",
+  },
+] as const;
 
 // The accents a site may offer: the colour and the text on it.
 export const ACCENTS = [

@@ -23,6 +23,8 @@ function initialOf(effect: Item["effect"]): Initial {
       return { type: "frame", frameId: effect.frameId };
     case "nameColor":
       return { type: "nameColor", colorId: effect.colorId };
+    case "nameIcon":
+      return { type: "nameIcon", icon: effect.icon, position: effect.position };
     case "threadCover":
       return { type: "threadCover", coverId: effect.coverId };
     case "group":

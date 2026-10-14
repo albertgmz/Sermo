@@ -43,6 +43,7 @@ const author = (id: number): AuthorView => ({
     avatar: null,
     frame: null,
     nameColor: null,
+    nameIcon: null,
     title: "",
     badges: [],
     level: 1,

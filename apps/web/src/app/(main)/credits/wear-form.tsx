@@ -12,7 +12,7 @@ export function WearForm({
   itemName,
   returnTo,
 }: {
-  look: "frameId" | "nameColorId";
+  look: "frameId" | "nameColorId" | "nameIconItemId";
   catalogId: number;
   worn: boolean;
   itemName: string;

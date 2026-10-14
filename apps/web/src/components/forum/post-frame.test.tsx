@@ -13,6 +13,7 @@ const author = {
     avatar: null,
     frame: null,
     nameColor: null,
+    nameIcon: null,
     title: "",
     badges: [],
     level: 1,

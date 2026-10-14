@@ -242,6 +242,16 @@ describe("starter content", () => {
     );
   });
 
+  test("the name icon items load with their icon and side", async () => {
+    const state = await snapshot(first);
+    const icons = state.shopItems.filter((item) => item.effect.type === "nameIcon");
+    const wanted = shop.items.filter((item) => item.effect.type === "nameIcon");
+    expect(wanted.length).toBeGreaterThan(0);
+    expect(icons.map((item) => item.effect as object)).toEqual(
+      wanted.map((item) => item.effect as object),
+    );
+  });
+
   test("no file under apps/web is read", () => {
     expect(read.length).toBeGreaterThan(150);
     for (const path of read) {

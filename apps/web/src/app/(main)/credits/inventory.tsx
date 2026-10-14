@@ -43,7 +43,7 @@ function Held({ label }: { label: string }) {
 
 // What the member can do with an entry follows from its effect; the backend refuses what is not
 // allowed.
-async function Control({
+export async function Control({
   entry,
   appearance,
   threads,
@@ -74,6 +74,16 @@ async function Control({
           look="nameColorId"
           catalogId={effect.colorId}
           worn={appearance.nameColorId === effect.colorId}
+          itemName={item.name}
+          returnTo={returnTo}
+        />
+      );
+    case "nameIcon":
+      return (
+        <WearForm
+          look="nameIconItemId"
+          catalogId={item.id}
+          worn={appearance.nameIconItemId === item.id}
           itemName={item.name}
           returnTo={returnTo}
         />

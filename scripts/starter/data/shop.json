@@ -9,6 +9,10 @@
       "description": "Show your username in a colour of your own across the forum."
     },
     {
+      "name": "Name icons",
+      "description": "A small icon next to your username across the forum. You wear one at a time, before or after your name."
+    },
+    {
       "name": "Thread covers",
       "description": "A thread cover is a photo for one of your own threads. Covers are used up: each one goes on a single thread."
     },
@@ -1236,6 +1240,84 @@
       "effect": {
         "type": "nameColor",
         "color": "#f472b6"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Star icon",
+      "description": "Show a star before your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "star",
+        "position": "before"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Heart icon",
+      "description": "Show a heart after your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "heart",
+        "position": "after"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Crown icon",
+      "description": "Show a crown before your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "crown",
+        "position": "before"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Flame icon",
+      "description": "Show a flame after your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "flame",
+        "position": "after"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Sparkles icon",
+      "description": "Show a sparkles after your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "sparkles",
+        "position": "after"
+      }
+    },
+    {
+      "category": "Name icons",
+      "name": "Rocket icon",
+      "description": "Show a rocket before your username across the forum.",
+      "price": 2000,
+      "consumable": false,
+      "image": null,
+      "effect": {
+        "type": "nameIcon",
+        "icon": "rocket",
+        "position": "before"
       }
     },
     {

@@ -53,6 +53,13 @@ function effectOf(formData: FormData): Effect | null {
       const colorId = id("colorId");
       return colorId === null ? null : { type, colorId };
     }
+    case "nameIcon": {
+      const icon = text(formData, "icon").trim();
+      const position = text(formData, "iconPosition");
+      if (icon === "" || (position !== "before" && position !== "after"))
+        return null;
+      return { type, icon, position };
+    }
     case "threadCover": {
       const coverId = id("coverId");
       return coverId === null ? null : { type, coverId };

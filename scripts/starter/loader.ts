@@ -22,6 +22,7 @@ import shop from "./data/shop.json";
 type Effect =
   | { type: "frame" | "threadCover"; name: string }
   | { type: "nameColor"; color: string }
+  | { type: "nameIcon"; icon: string; position: "before" | "after" }
   | { type: "group"; group: string }
   | { type: "highlight"; days: number }
   | { type: "permission"; permission: string; value?: number }

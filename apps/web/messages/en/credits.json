@@ -68,6 +68,7 @@
     "frameUnnamed": "An avatar frame",
     "nameColor": "Name colour: {name}",
     "nameColorUnnamed": "A name colour",
+    "nameIcon": "Name icon, {position, select, before {before} other {after}} your name",
     "threadCover": "Cover for one of your threads: {name}",
     "threadCoverUnnamed": "A cover for one of your threads",
     "highlight": "Highlights one of your threads for {days, plural, one {# day} other {# days}}",

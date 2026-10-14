@@ -30,6 +30,7 @@ const profile = (socials: Record<string, string>) =>
       avatar: null,
       frame: null,
       nameColor: null,
+      nameIcon: null,
       title: "Newcomer",
       badges: [],
       level: 1,

@@ -1,9 +1,13 @@
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import { userLinkClass, userNameProps } from "@/components/forum/user-name";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
-export type LinkUser = Pick<MemberView, "id" | "username" | "nameColor">;
+export type LinkUser = Pick<
+  MemberView,
+  "id" | "username" | "nameColor" | "nameIcon"
+>;
 
 export function UserLink({
   user,
@@ -23,7 +27,7 @@ export function UserLink({
       className={cn(userLinkClass, name.className, className)}
       style={name.style}
     >
-      {children ?? user.username}
+      <NameWithIcon user={user}>{children}</NameWithIcon>
     </MemberCardTrigger>
   );
 }

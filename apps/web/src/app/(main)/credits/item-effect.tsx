@@ -42,6 +42,8 @@ export function ItemEffect({
         ? t("nameColor", { name: color.name })
         : t("nameColorUnnamed");
     }
+    case "nameIcon":
+      return t("nameIcon", { position: effect.position });
     case "threadCover": {
       const cover = catalogs.covers.get(effect.coverId);
       return cover

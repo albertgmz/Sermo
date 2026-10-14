@@ -66,6 +66,10 @@ test("each effect type sends exactly the fields it needs", async () => {
       { type: "nameColor", colorId: 3 },
     ],
     [
+      { effectType: "nameIcon", icon: "star", iconPosition: "after" },
+      { type: "nameIcon", icon: "star", position: "after" },
+    ],
+    [
       { effectType: "threadCover", coverId: "4" },
       { type: "threadCover", coverId: 4 },
     ],
@@ -175,6 +179,17 @@ test("an incomplete effect or a bad number is refused; the backend refusal is sh
   expect(await saveItem(null, form({ ...base, effectType: "frame" }))).toEqual({
     fields: { effect: e.effect },
   });
+  for (const fields of [
+    { icon: "", iconPosition: "before" },
+    { icon: "star", iconPosition: "middle" },
+    { icon: "star", iconPosition: "" },
+  ])
+    expect(
+      await saveItem(
+        null,
+        form({ ...base, effectType: "nameIcon", ...fields }),
+      ),
+    ).toEqual({ fields: { effect: e.effect } });
   expect(
     await saveItem(null, form({ ...base, effectType: "bump", price: "x" })),
   ).toEqual({ fields: { price: e.number } });

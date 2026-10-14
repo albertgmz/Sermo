@@ -5,6 +5,7 @@ import { AppearanceForm } from "@/app/(main)/account/appearance-form";
 import { getSelf, getWorn, shopHref } from "@/app/(main)/account/data";
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
 import { isHexColor } from "@/lib/css-color";
@@ -60,7 +61,7 @@ export async function AppearancePanel({
                 className={cn("truncate text-sm font-semibold", name.className)}
                 style={name.style}
               >
-                {member.username}
+                <NameWithIcon user={member} />
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {member.title}
@@ -215,6 +216,62 @@ export async function AppearancePanel({
             {available.nameColors.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 {t.rich("nameColorsEmpty", {
+                  shop: (chunks) => (
+                    <Link href={shopHref} className={linkClass}>
+                      {chunks}
+                    </Link>
+                  ),
+                })}
+              </p>
+            )}
+          </AppearanceForm>
+
+          <AppearanceForm
+            field="nameIcon"
+            title={t("nameIconHeading")}
+            description={t("nameIconDescription")}
+            saved={saved === "nameIcon"}
+          >
+            <ul className="flex flex-wrap gap-2">
+              {[null, ...available.nameIcons].map((held) => (
+                <li key={held?.itemId ?? "none"} className="max-w-full">
+                  <button
+                    type="submit"
+                    name="value"
+                    value={held?.itemId ?? ""}
+                    aria-pressed={
+                      (held?.itemId ?? null) === worn.nameIconItemId
+                    }
+                    aria-label={
+                      held
+                        ? t("aria.nameIcon", { name: held.name })
+                        : t("aria.noNameIcon")
+                    }
+                    className={cn(choiceClass, "gap-2 px-3 pr-7")}
+                  >
+                    <span className="truncate font-semibold">
+                      <NameWithIcon
+                        user={{
+                          username: member.username,
+                          nameIcon: held
+                            ? { icon: held.icon, position: held.position }
+                            : null,
+                        }}
+                      />
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {held?.name ?? t("none")}
+                    </span>
+                    {(held?.itemId ?? null) === worn.nameIconItemId && (
+                      <Selected />
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {available.nameIcons.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t.rich("nameIconsEmpty", {
                   shop: (chunks) => (
                     <Link href={shopHref} className={linkClass}>
                       {chunks}

@@ -35,7 +35,14 @@ function succeeded(path: string): unknown {
       nameColorId: null,
       frameId: null,
       coverPresetId: null,
-      available: { accents: [], nameColors: [], frames: [], covers: [] },
+      nameIconItemId: null,
+      available: {
+        accents: [],
+        nameColors: [],
+        frames: [],
+        nameIcons: [],
+        covers: [],
+      },
     };
   }
   return {
@@ -158,7 +165,7 @@ test("a bound argument that is not a record id does nothing and is answered gene
   expect(asked).toEqual([]);
 });
 
-test("only the frame and the name colour are worn from the shop, by a record id or none", async () => {
+test("only the frame, the name colour and the name icon are worn from the shop, by a record id or none", async () => {
   const asked = backend();
   for (const look of [
     "accentId",
@@ -188,4 +195,12 @@ test("only the frame and the name colour are worn from the shop, by a record id 
     await redirectedTo(() => wearItem("frameId", null, "/credits", {})),
   ).toBe("/credits?notice=removed");
   expect(asked[1].body).toEqual({ frameId: null });
+  expect(
+    await redirectedTo(() => wearItem("nameIconItemId", 12, "/credits", {})),
+  ).toBe("/credits?notice=worn");
+  expect(asked[2].body).toEqual({ nameIconItemId: 12 });
+  expect(
+    await redirectedTo(() => wearItem("nameIconItemId", null, "/credits", {})),
+  ).toBe("/credits?notice=removed");
+  expect(asked[3].body).toEqual({ nameIconItemId: null });
 });

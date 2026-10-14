@@ -15,6 +15,8 @@ export type MemberView = {
   frame: { url: string; placement: FramePlacement } | null;
   /** #rrggbb: the colour the member chose, else their highest group's, else null. */
   nameColor: string | null;
+  /** The icon the member wears beside their name, and on which side; null for none. */
+  nameIcon: { icon: string; position: "before" | "after" } | null;
   /** The title to show under or beside the name. */
   title: string;
   /**

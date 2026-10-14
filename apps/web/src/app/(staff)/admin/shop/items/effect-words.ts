@@ -22,6 +22,8 @@ export function effectWords(effect: Effect, lookups: Lookups, say: Say) {
       return say("words.nameColor", {
         name: name(lookups.colours, effect.colorId),
       });
+    case "nameIcon":
+      return say("words.nameIcon", { position: effect.position });
     case "threadCover":
       return say("words.threadCover", {
         name: name(lookups.covers, effect.coverId),

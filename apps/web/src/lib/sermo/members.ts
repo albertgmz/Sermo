@@ -33,6 +33,7 @@ export function plainMember({ id, username }: MemberRef): MemberView {
     avatar: null,
     frame: null,
     nameColor: null,
+    nameIcon: null,
     title: "",
     badges: [],
     level: 1,

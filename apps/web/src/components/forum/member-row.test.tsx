@@ -11,6 +11,7 @@ const user = {
   avatar: null,
   frame: null,
   nameColor: null,
+  nameIcon: null,
   title: "Member",
   badges: [],
   level: 1,

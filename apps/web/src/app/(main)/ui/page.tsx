@@ -142,6 +142,7 @@ import {
   MODERATOR,
   memberOf,
   NAME_COLORS,
+  NAME_ICONS,
   NEWCOMER,
   NOTIFICATIONS,
   PERMISSION_ICONS,
@@ -1009,6 +1010,32 @@ export default async function StyleguidePage() {
                 />
               </li>
             ))}
+          </ul>
+        </Section>
+
+        <Section title="Name icons">
+          <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold">
+            {NAME_ICONS.map(({ label, icon, position, color }) => (
+              <li key={label} className="flex items-center gap-2">
+                <UserLink
+                  user={{
+                    ...NEWCOMER,
+                    username: label,
+                    nameColor: color,
+                    nameIcon: { icon, position },
+                  }}
+                />
+              </li>
+            ))}
+            <li className="flex items-center gap-2">
+              <UserLink
+                user={{
+                  ...NEWCOMER,
+                  username: "unknown key",
+                  nameIcon: { icon: "not-in-the-set", position: "before" },
+                }}
+              />
+            </li>
           </ul>
         </Section>
 

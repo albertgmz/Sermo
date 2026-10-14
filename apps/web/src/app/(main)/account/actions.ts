@@ -174,6 +174,7 @@ const WORN = {
   accent: "accentId",
   nameColor: "nameColorId",
   frame: "frameId",
+  nameIcon: "nameIconItemId",
   cover: "coverPresetId",
 } as const;
 

@@ -1,5 +1,6 @@
 import type { Catalogs, ShopItemData } from "@/app/(main)/credits/items";
 import { Art } from "@/components/forum/art";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import { ShopIcon } from "@/components/forum/shop-icon";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { userNameProps } from "@/components/forum/user-name";
@@ -74,6 +75,22 @@ export function ItemPreview({
         style={name.style}
       >
         {wearer.username}
+      </p>
+    );
+  } else if (effect.type === "nameIcon") {
+    front = (
+      <p
+        className={cn(
+          "min-w-0 truncate font-bold tracking-tight",
+          size === "card" ? "px-3 text-2xl" : "px-1 text-xs",
+        )}
+      >
+        <NameWithIcon
+          user={{
+            username: wearer.username,
+            nameIcon: { icon: effect.icon, position: effect.position },
+          }}
+        />
       </p>
     );
   } else if (!art) {

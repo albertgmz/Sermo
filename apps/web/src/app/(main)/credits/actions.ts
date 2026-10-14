@@ -24,7 +24,7 @@ function back(returnTo: string, notice: string): never {
 }
 
 // The parts of the appearance an item unlocks, which are the only ones the shop pages wear.
-const LOOKS = ["frameId", "nameColorId"] as const;
+const LOOKS = ["frameId", "nameColorId", "nameIconItemId"] as const;
 
 export async function buyItem(
   itemId: number,

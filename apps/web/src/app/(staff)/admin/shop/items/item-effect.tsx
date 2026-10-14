@@ -11,6 +11,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { IconPicker } from "@/components/icons/icon-picker";
 import { FieldRow } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ export type EffectType =
   | "group"
   | "frame"
   | "nameColor"
+  | "nameIcon"
   | "threadCover"
   | "highlight"
   | "bump"
@@ -35,6 +37,8 @@ export type Initial = {
   permission?: string;
   value?: number;
   days?: number;
+  icon?: string;
+  position?: "before" | "after";
 };
 
 type Picture = { id: number; name: string; picture: React.ReactNode };
@@ -201,6 +205,38 @@ export function ItemEffect({
             <p className="text-sm text-muted-foreground">{t("noColours")}</p>
           )}
         </FieldRow>
+      )}
+      {type === "nameIcon" && (
+        <>
+          <FieldRow
+            name="icon"
+            label={t("icon")}
+            htmlFor={`${idPrefix}-icon`}
+            help={t("iconHelp")}
+          >
+            <IconPicker
+              name="icon"
+              id={`${idPrefix}-icon`}
+              labelId={`${idPrefix}-icon-label`}
+              defaultValue={initial?.icon}
+            />
+          </FieldRow>
+          <FieldRow
+            name="iconPosition"
+            label={t("iconPosition")}
+            htmlFor={`${idPrefix}-icon-position`}
+          >
+            <select
+              id={`${idPrefix}-icon-position`}
+              name="iconPosition"
+              defaultValue={initial?.position ?? "before"}
+              className={selectClass}
+            >
+              <option value="before">{t("positionBefore")}</option>
+              <option value="after">{t("positionAfter")}</option>
+            </select>
+          </FieldRow>
+        </>
       )}
       {type === "group" && (
         <FieldRow

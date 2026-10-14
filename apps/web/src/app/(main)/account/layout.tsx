@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { AccountNavigation } from "@/app/(main)/account/navigation";
 import { logout } from "@/app/(main)/actions";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import {
   AccountHeaderSkeleton,
   LoadingRegion,
@@ -94,7 +95,7 @@ async function AccountHeader() {
           )}
           style={name.style}
         >
-          {member.username}
+          <NameWithIcon user={member} />
         </p>
         <p className="break-words text-sm text-muted-foreground">
           {member.title}

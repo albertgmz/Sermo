@@ -8,6 +8,7 @@ import {
   KeyRound,
   type LucideIcon,
   Palette,
+  Smile,
   UserPen,
 } from "lucide-react";
 import type * as z from "zod";
@@ -23,6 +24,7 @@ export const SHOP_EFFECT_TYPES = [
   "group",
   "frame",
   "nameColor",
+  "nameIcon",
   "threadCover",
   "highlight",
   "bump",
@@ -34,6 +36,7 @@ const ICONS: Record<ShopEffectType, LucideIcon> = {
   group: Crown,
   frame: Frame,
   nameColor: Palette,
+  nameIcon: Smile,
   threadCover: Image,
   highlight: Highlighter,
   bump: ArrowUpToLine,

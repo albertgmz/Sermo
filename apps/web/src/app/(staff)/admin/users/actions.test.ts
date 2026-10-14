@@ -38,6 +38,7 @@ const card = {
   avatar: null,
   frame: null,
   nameColor: null,
+  nameIcon: null,
   title: "",
   badges: [],
   restricted: false,

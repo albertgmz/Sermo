@@ -13,6 +13,7 @@ import { CopyHandle } from "@/app/(main)/members/[id]/copy-handle";
 import type { Profile } from "@/app/(main)/members/[id]/profile";
 import { FollowButton } from "@/app/(main)/members/wall-buttons";
 import { Art } from "@/components/forum/art";
+import { NameWithIcon } from "@/components/forum/name-icon";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { type Network, SocialIcon } from "@/components/forum/social-icon";
 import { StatInline } from "@/components/forum/stat";
@@ -115,7 +116,7 @@ export function ProfileHeader({
                 )}
                 style={name.style}
               >
-                {profile.username}
+                <NameWithIcon user={card}>{profile.username}</NameWithIcon>
               </h1>
               <span aria-hidden="true" className="h-5 w-px bg-border" />
               <div className="-ml-2 flex items-center md:ml-0 md:gap-1">
