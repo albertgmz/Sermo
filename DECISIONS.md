@@ -1955,3 +1955,28 @@ entries are left to the browser.
 in the route's address and appends the next hash to it (`#post-45#post-43`). `HashLink` pushes the
 current path and query with the new hash when the target is on the page (so selection and cursor
 views are kept) and is used for post numbers and the reply link.
+
+## Spanish: a second interface language with no locale in any address
+
+**Pages live under a hidden locale segment.** With `cacheComponents`, a language read from a cookie
+or header in the request config would make every page dynamic, and the usual fix is a locale in
+the address. The routes live under `app/[locale]` instead, prerendered for `en` and `es`, and the
+proxy rewrites each page request to the visitor's language; the address the visitor sees never
+changes. A request that names `/en/…` or `/es/…` is sent (307) to the same address without it, so
+the segment is never a second address. Upload routes and `favicon.ico` stay outside it at their
+public paths. Responses vary on `Cookie` and `Accept-Language`.
+
+**Which language.** The cookie `forum_locale`, then the browser's `Accept-Language` (first
+supported language by weight), then the site's default language (`site.get` now carries
+`defaultLanguage`; the proxy keeps it for 60 seconds and never waits on it after the first read),
+then English. A member's saved language (`auth.me` carries it) reaches the proxy through the
+cookie: saving preferences sets or clears it, and on a browser whose cookie differs a small client
+step writes it through a server action, which also drops the router's cached pages. Guests have no
+chooser: they follow their browser. Server actions and route handlers cannot read the segment and
+negotiate from the same sources.
+
+**Text.** `messages/es` holds the same 31 files as `messages/en`, which stay the source of the
+types. A parity test holds every Spanish message to the English keys, arguments, rich-text tags and
+plural/select selectors (as sets, so word order is free). Dates and numbers are formatted in the
+active language. Not translated: the backend's own refusal messages shown in forms (English
+literals in the backend), the error page drawn outside the layouts, and the styleguide.
