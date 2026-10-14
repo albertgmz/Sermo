@@ -109,6 +109,7 @@ import {
 } from "@/components/forum/editor-extras";
 import { FormError } from "@/components/forum/form-error";
 import { mediaTagOf } from "@/components/forum/media-url";
+import { unescapeBbCode } from "@/components/forum/bb-text";
 import { unescapeMentions } from "@/components/forum/mention-text";
 import { prose } from "@/components/forum/prose";
 import { Button } from "@/components/ui/button";
@@ -497,8 +498,10 @@ function FormField({
         validationRef.current.value = hasText ? "filled" : "";
         if (hasText) setInvalid(false);
       }
-      const next = unescapeMentions(
-        editorState.read(() => $convertToMarkdownString(TRANSFORMERS)),
+      const next = unescapeBbCode(
+        unescapeMentions(
+          editorState.read(() => $convertToMarkdownString(TRANSFORMERS)),
+        ),
       );
       if (next === lastValue.current) return;
       lastValue.current = next;

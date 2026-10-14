@@ -10,6 +10,7 @@ import {
 } from "@lexical/markdown";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { createEditor } from "lexical";
+import { unescapeBbCode } from "./bb-text";
 import { unescapeMentions } from "./mention-text";
 
 // What the editor writes back for a Markdown source it was given, as the edit form does.
@@ -30,7 +31,9 @@ function roundTrip(source: string) {
   editor.update(
     () => {
       $convertFromMarkdownString(source, TRANSFORMERS);
-      out = unescapeMentions($convertToMarkdownString(TRANSFORMERS));
+      out = unescapeBbCode(
+        unescapeMentions($convertToMarkdownString(TRANSFORMERS)),
+      );
     },
     { discrete: true },
   );
@@ -60,6 +63,14 @@ for (const source of SAME) {
 const BB = [
   "A [ATTACH]12[/ATTACH] thumbnail and [ATTACH=full]13[/ATTACH] full.",
   "[SPOILER]hidden[/SPOILER]",
+  "[LIST=1][*]one[*]two[/LIST]",
+  "[LIST]\n[*]one\n[*]two\n[/LIST]",
+  "[SIZE=5]big[/SIZE] and [COLOR=#ff0000]red[/COLOR]",
+  "[URL=https://a.com/x_y]a link[/URL]",
+  "[URL]https://a.com/x_y*z[/URL]",
+  "[IMG]https://a.com/a_b*c.png[/IMG]",
+  "[QUOTE=\"a_b\"]text[/QUOTE]",
+  "[USER=3]some_user[/USER] and [FONT=Courier New]mono[/FONT]",
   "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
   "```\nlet a_b = [1] * 2;\n```",
 ];
@@ -69,3 +80,14 @@ for (const source of BB) {
     assert.equal(roundTrip(source), source);
   });
 }
+
+// Square brackets that are not BB tags are still the editor's to write.
+test("text in brackets that is not a tag keeps the editor's escapes", () => {
+  assert.equal(roundTrip("a [b] c * d _e_ f"), String.raw`a [b] c \* d *e* f`);
+  const link = String.raw`[link\_a](https://x.y)`;
+  assert.equal(unescapeBbCode(link), link);
+  assert.equal(
+    unescapeBbCode(String.raw`[URL=https://a/b\_c]x\_y[/URL]`),
+    String.raw`[URL=https://a/b_c]x\_y[/URL]`,
+  );
+});
