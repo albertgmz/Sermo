@@ -1838,3 +1838,26 @@ dimming lives outside the component: this Next version hides a page it leaves in
 unmounting it, which reset a guard kept in the component. The reaction picker wraps onto further
 rows and never exceeds the viewport, since staff can now add reaction types beyond what one row
 holds on a phone.
+
+## Name icons: a shop item worn on the name
+
+**A name icon is bought, held and worn like a name colour.** The effect is
+`{ type: "nameIcon", icon, position }`: an icon key checked by shape (the web app owns the set)
+and `before` or `after`. Buying grants nothing, so the purchased-grant rules are not involved; the
+item cannot be consumable. A member wears one such item at a time: `users.name_icon_item_id`
+(migration `0034`), set through `appearance.set` with the same held check as a colour, inside the
+write. Expiry, the last unit, an upgrade and an erase take it off where they take a colour off.
+`MemberCard` carries `nameIcon`, read for the whole page in one statement by primary key; a
+restricted member's minimal card carries none. A stored effect that no longer parses gives no
+icon instead of failing the read.
+
+**One piece draws a name with its icon, on the server.** `NameWithIcon` is used by `UserLink` and
+the few places that draw a name themselves, and is marked server-only: the icon set stays out of
+every public page's client bundle. With an icon the name truncates in its own span and the icon
+stays visible on either side. The header's account menu, notification rows and the client pickers
+draw names plain, as they do for the colour.
+
+Left as the colour already behaves: renewing a lapsed timed icon takes it off until it is worn
+again; a card can show a lapsed icon until the expiry job runs; staff can take an icon off a
+member only by an erase. Six icons ship in the starter shop.
+The migration changes the benchmark seed's hash.
