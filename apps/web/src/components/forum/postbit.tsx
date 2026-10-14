@@ -107,7 +107,9 @@ export function Postbit({
               user={member}
               // The name wraps inside the column and truncates beside the avatar and the
               // buttons of the compact header; the link may shrink to the room it has.
-              wrap={pick(false, true, "md")}
+              wrap={
+                layout === "compact" ? false : layout === "column" ? true : "md"
+              }
               className="max-w-full min-w-0 [overflow-wrap:anywhere]"
             />
             <span className="contents [&>*]:max-w-full [&>*]:overflow-hidden">
