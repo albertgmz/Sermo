@@ -487,3 +487,84 @@ describe("the standings job", () => {
     expectNoTableScan(w.ctx, standingSql.winners, [202602, 12]);
   });
 });
+
+describe("members the site leaves out", () => {
+  /** December: the moderator leads, then m1, then m2. January: the admin leads, then m1, then m2. */
+  function staffScenario() {
+    const w = world();
+    const c = content(w);
+    const [m1, m2] = [1, 2].map((i) => w.user({ username: `x${i}` }));
+    w.ctx.clock.set(JAN(15));
+    c.posts(w.moderator.id, 9, DEC(3));
+    c.posts(m1!.id, 5, DEC(4));
+    c.posts(m2!.id, 2, DEC(5));
+    c.posts(w.admin.id, 8, JAN(2));
+    c.posts(m1!.id, 4, JAN(3));
+    c.posts(m2!.id, 1, JAN(4));
+    return { w, m1: m1!, m2: m2! };
+  }
+  const ids = (list: { card: { id: number } }[]) => list.map((entry) => entry.card.id);
+
+  test("staff are not stored for the month with the switch on, and are with it off", async () => {
+    const { w, m1, m2 } = staffScenario();
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).toEqual([w.admin.id, m1.id, m2.id]);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).toEqual([m1.id, m2.id]);
+  });
+
+  test("members listed in the settings are not stored", async () => {
+    const { w, m1, m2 } = staffScenario();
+    await w.call("settings.update", w.adminActor, { standingExcludedUserIds: [m1.id] });
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).toEqual([w.admin.id, m2.id]);
+  });
+
+  test("standings.month leaves them out at once, without waiting for the job", async () => {
+    const { w, m1, m2 } = staffScenario();
+    refreshStandings(w.ctx);
+    expect(ids((await month(w, "current")).items)).toEqual([w.admin.id, m1.id, m2.id]);
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    expect(ids((await month(w, "current")).items)).toEqual([m1.id, m2.id]);
+    await w.call("settings.update", w.adminActor, {
+      standingExcludeStaff: false,
+      standingExcludedUserIds: [m1.id],
+    });
+    expect(ids((await month(w, "current")).items)).toEqual([w.admin.id, m2.id]);
+    // A page still fills from the rows behind the left-out ones.
+    const first = await month(w, "current", { limit: 1 });
+    expect(ids(first.items)).toEqual([w.admin.id]);
+    const second = await month(w, "current", { limit: 1, cursor: first.nextCursor });
+    expect(ids(second.items)).toEqual([m2.id]);
+  });
+
+  test("a member is staff by what they hold, not by their group", async () => {
+    const { w, m1 } = staffScenario();
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    refreshStandings(w.ctx);
+    expect(rows(w, 202601).map((row) => row.user_id)).toContain(m1.id);
+    // Moving an ordinary member into the moderators' group makes them staff.
+    w.ctx.sqlite.prepare("UPDATE users SET group_id = 3 WHERE id = ?1").run(m1.id);
+    expect(ids((await month(w, "current")).items)).not.toContain(m1.id);
+  });
+
+  test("the winner of a finished month is the best member who is not left out", async () => {
+    const { w, m1 } = staffScenario();
+    await w.call("settings.update", w.adminActor, { standingExcludeStaff: true });
+    refreshStandings(w.ctx);
+    expect(ids((await winners(w)).items)).toEqual([m1.id]);
+  });
+
+  test("without exclusions the staff member wins, and a decided winner is not rewritten", async () => {
+    const { w, m1 } = staffScenario();
+    refreshStandings(w.ctx);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+    await w.call("settings.update", w.adminActor, {
+      standingExcludeStaff: true,
+      standingExcludedUserIds: [m1.id],
+    });
+    refreshStandings(w.ctx);
+    expect(ids((await winners(w)).items)).toEqual([w.moderator.id]);
+  });
+});

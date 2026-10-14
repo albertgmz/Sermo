@@ -1,9 +1,10 @@
 import "server-only";
 
-import { siteGet } from "@sermo/core/contracts";
+import { type Analytics, siteGet } from "@sermo/core/contracts";
 import { cacheLife, cacheTag } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
+import type * as z from "zod";
 import { callWith } from "./transport";
 
 export type SiteIdentity = {
@@ -23,6 +24,8 @@ export type SiteIdentity = {
   maxUploadBytes: number | null;
   // Whether the forum list shows the statistics panel; off when the site could not be read.
   forumStatsEnabled: boolean;
+  // The analytics tag public pages carry; provider "none" when unset or the site could not be read.
+  analytics: z.output<typeof Analytics>;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
 };
@@ -50,6 +53,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       socialLinks,
       maxUploadBytes,
       forumStatsEnabled,
+      analytics,
       palette,
     } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
@@ -64,6 +68,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       socialLinks,
       maxUploadBytes,
       forumStatsEnabled,
+      analytics,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -86,6 +91,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       socialLinks: { discord: null, telegram: null, x: null },
       maxUploadBytes: null,
       forumStatsEnabled: false,
+      analytics: { provider: "none" },
       accents: [],
     };
   }

@@ -464,3 +464,129 @@ test("the titles are replaced only by a form that showed them; shown and empty c
   await redirectedTo(() => saveLevels(null, form(LEVEL_FIELDS, "levelTitles")));
   expect(sent()?.[0]?.body).toMatchObject({ levelTitles: [] });
 });
+
+test("the general form sends the analytics setting whole only when it showed it", async () => {
+  backend = fakeBackend({ "settings.get": read, "settings.update": read });
+  await redirectedTo(() =>
+    saveGeneral(
+      null,
+      form(
+        [
+          ["siteName", "Forum"],
+          ["analytics.provider", "matomo"],
+          ["analytics.url", " https://stats.example.com/ "],
+          ["analytics.siteId", "3"],
+          ["analytics.measurementId", "G-IGNORED1"],
+        ],
+        "analytics",
+      ),
+    ),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({
+    analytics: {
+      provider: "matomo",
+      url: "https://stats.example.com/",
+      siteId: 3,
+    },
+  });
+  expect(sent()?.[0]?.body).not.toHaveProperty("analytics.measurementId");
+  await redirectedTo(() =>
+    saveGeneral(
+      null,
+      form(
+        [
+          ["siteName", "Forum"],
+          ["analytics.provider", "google"],
+          ["analytics.measurementId", "G-ABC123"],
+        ],
+        "analytics",
+      ),
+    ),
+  );
+  expect(sent()?.[1]?.body).toMatchObject({
+    analytics: { provider: "google", measurementId: "G-ABC123" },
+  });
+  await redirectedTo(() =>
+    saveGeneral(
+      null,
+      form([
+        ["siteName", "Forum"],
+        ["analytics.provider", "none"],
+      ]),
+    ),
+  );
+  expect(sent()?.[2]?.body).not.toHaveProperty("analytics");
+});
+
+test("a Matomo site id that is not a number stays on the form", async () => {
+  backend = fakeBackend({ "settings.get": read });
+  const state = await saveGeneral(
+    null,
+    form(
+      [
+        ["siteName", "Forum"],
+        ["analytics.provider", "matomo"],
+        ["analytics.url", "https://stats.example.com/"],
+        ["analytics.siteId", "abc"],
+      ],
+      "analytics",
+    ),
+  );
+  expect(state).toEqual({
+    fields: { "analytics.siteId": messages.adminSetup.errors.number },
+  });
+  expect(sent()).toEqual([]);
+});
+
+const MEMBERS = () =>
+  Response.json({
+    items: [
+      { id: 7, username: "Ada" },
+      { id: 8, username: "Adam" },
+    ],
+  });
+
+test("the levels form turns typed usernames into ids and sends the switch", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  await redirectedTo(() =>
+    saveLevels(
+      null,
+      form(
+        [...LEVEL_FIELDS, ["standingExcludedUserIds", "ada, ADAM\nada"]],
+        "standingExcludeStaff",
+      ),
+    ),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({
+    standingExcludeStaff: false,
+    standingExcludedUserIds: [7, 8],
+  });
+  await redirectedTo(() =>
+    saveLevels(
+      null,
+      form([
+        ...LEVEL_FIELDS,
+        ["standingExcludeStaff", "on"],
+        ["standingExcludedUserIds", ""],
+      ]),
+    ),
+  );
+  expect(sent()?.[1]?.body).toMatchObject({
+    standingExcludeStaff: true,
+    standingExcludedUserIds: [],
+  });
+});
+
+test("a username that belongs to no member is refused and nothing is saved", async () => {
+  backend = fakeBackend({ "settings.update": read, "users.search": MEMBERS });
+  const state = await saveLevels(
+    null,
+    form([...LEVEL_FIELDS, ["standingExcludedUserIds", "ada zed"]]),
+  );
+  expect(state).toEqual({
+    fields: {
+      standingExcludedUserIds: messages.adminSetup.errors.unknownMembers,
+    },
+  });
+  expect(sent()).toEqual([]);
+});

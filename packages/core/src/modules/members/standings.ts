@@ -1,11 +1,20 @@
 import * as z from "zod";
-import type { Actor } from "../../actor";
+import type { Actor, PermissionVersions } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { standingsMonth, standingsWinners } from "../../contracts/members";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import {
+  currentVersions,
+  memberActor,
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  requestVersions,
+  requirePermission,
+  resolvedPermissions,
+} from "../../permissions";
+import { ADMIN_PERMISSIONS } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
@@ -49,6 +58,7 @@ export const standingSql = {
     "DELETE FROM member_month_stats WHERE month = ?1 AND user_id IN (SELECT value FROM json_each(?2))",
   // The best placed member who is neither banned nor erased when the winner is written.
   top: "SELECT s.user_id, s.posts, s.reactions, s.referrals, s.points_tenths FROM member_month_stats s JOIN users u ON u.id = s.user_id WHERE s.month = ?1 AND u.erased_at IS NULL AND u.banned_permanently = 0 AND (u.banned_until IS NULL OR u.banned_until <= ?2) ORDER BY s.points_tenths DESC, s.posts DESC, s.user_id LIMIT 1",
+  principals: `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id IN (SELECT value FROM json_each(?1))`,
   winner: "SELECT 1 FROM month_winners WHERE month = ?1",
   prune:
     "DELETE FROM member_month_stats WHERE id IN (SELECT id FROM member_month_stats WHERE month < ?1 LIMIT ?2)",
@@ -80,6 +90,36 @@ const monthOf = (ms: number) => {
 const previousOf = ({ year, month }: { year: number; month: number }) =>
   month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 const startOf = ({ year, month }: { year: number; month: number }) => Date.UTC(year, month - 1, 1);
+
+// Exclusions -----------------------------------------------------------------------------------
+
+/**
+ * Which of a batch of members the site leaves out of the standings: the ones its settings list
+ * and, with `standingExcludeStaff`, anyone who holds `moderation.access` or an administration
+ * permission (decided through the permissions, never by group). Read per call, so a change of
+ * the settings takes effect on the next read.
+ */
+function excluderFor(ctx: Ctx, versions: PermissionVersions): (ids: number[]) => Set<number> {
+  const settings = readSiteSettings(ctx);
+  const listed = new Set(settings.standingExcludedUserIds);
+  if (!settings.standingExcludeStaff && listed.size === 0) return () => new Set();
+  const principals = prepared(ctx, "members.standingPrincipals", () =>
+    ctx.sqlite.prepare<PrincipalRow & { id: number; group_id: number }, [string]>(
+      standingSql.principals,
+    ),
+  );
+  return (ids) => {
+    const out = new Set(ids.filter((id) => listed.has(id)));
+    const rest = ids.filter((id) => !out.has(id));
+    if (!settings.standingExcludeStaff || rest.length === 0) return out;
+    for (const row of principals.all(JSON.stringify(rest))) {
+      const held = resolvedPermissions(ctx, memberActor(row.id, row.group_id, row, versions));
+      if (held["moderation.access"] === true || ADMIN_PERMISSIONS.some((id) => held[id] === true))
+        out.add(row.id);
+    }
+    return out;
+  };
+}
 
 // The job ---------------------------------------------------------------------------------------
 
@@ -204,10 +244,19 @@ function* storeMonth(
   stats: Map<number, MonthStats>,
 ): Generator<void, void, void> {
   const settings = readSiteSettings(ctx);
-  const scored = [...stats]
+  const withPoints = [...stats]
     .map(([userId, entry]) => ({ userId, entry, tenths: pointsTenths(settings, entry) }))
     .filter((row) => row.tenths > 0)
     .sort((a, b) => a.userId - b.userId);
+  // Members the site leaves out are not stored, so they cannot win the month either.
+  const excluder = excluderFor(ctx, currentVersions(ctx));
+  const left = new Set<number>();
+  for (let at = 0; at < withPoints.length; at += WRITE_BATCH) {
+    for (const id of excluder(withPoints.slice(at, at + WRITE_BATCH).map((row) => row.userId)))
+      left.add(id);
+    yield;
+  }
+  const scored = withPoints.filter((row) => !left.has(row.userId));
   const upsert = prepared(ctx, "members.standingUpsert", () =>
     ctx.sqlite.prepare<unknown, [number, number, number, number, number, number]>(
       standingSql.upsert,
@@ -367,7 +416,13 @@ const shownIn =
 export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) => {
   requirePermission(ctx, actor, "profile.view");
   const now = ctx.now();
-  const shown = shownIn(ctx, actor, now);
+  const shownAmong = shownIn(ctx, actor, now);
+  const excluder = excluderFor(ctx, requestVersions(ctx, actor));
+  // A member the site leaves out is not listed, whatever the last refresh stored.
+  const shown = <Row extends EntryRow>(rows: Row[]) => {
+    const left = excluder(rows.map((row) => row.user_id));
+    return shownAmong(rows.filter((row) => !left.has(row.user_id)));
+  };
   const current = monthOf(now);
   const window = input.month === "current" ? current : previousOf(current);
   const key = monthKey(window.year, window.month);

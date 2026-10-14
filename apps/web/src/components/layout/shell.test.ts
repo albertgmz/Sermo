@@ -36,26 +36,51 @@ test("the staff bar links the panel when it holds something and moderation when 
       ...staff,
     },
   });
-  expect(staffLinks(standing({}))).toEqual({ admin: false, moderation: false });
+  expect(staffLinks(standing({}))).toMatchObject({
+    admin: false,
+    moderation: false,
+  });
   // Granted permissions of other kinds, or a limit, are no staff work.
   expect(
     staffLinks(standing({ "forum.reply": true, "admin.groups": false })),
-  ).toEqual({ admin: false, moderation: false });
+  ).toMatchObject({ admin: false, moderation: false });
   expect(
     staffLinks(standing({ "admin.announcements": true }, { panel: true })),
-  ).toEqual({ admin: true, moderation: false });
+  ).toMatchObject({ admin: true, moderation: false });
   // A permission that opens a screen but makes the backend report no panel still gets the link.
-  expect(staffLinks(standing({ "award.grant": true }))).toEqual({
+  expect(staffLinks(standing({ "award.grant": true }))).toMatchObject({
     admin: true,
     moderation: false,
   });
   // A moderator of one forum has no global flag: the staff summary shows them.
   expect(
     staffLinks(standing({}, { panel: true, moderatedNodeIds: [3] })),
-  ).toEqual({ admin: true, moderation: true });
+  ).toMatchObject({ admin: true, moderation: true });
   expect(
     staffLinks(standing({}, { panel: true, moderatesEverywhere: true })),
-  ).toEqual({ admin: true, moderation: true });
+  ).toMatchObject({ admin: true, moderation: true });
+});
+
+test("the moderation link leads to a queue the viewer may open", () => {
+  const href = (
+    resolvedPermissions: Record<string, boolean | number>,
+    staff: Partial<Standing["staff"]> = {},
+  ) =>
+    staffLinks({
+      resolvedPermissions,
+      staff: {
+        panel: false,
+        moderatesEverywhere: false,
+        moderatedNodeIds: [],
+        ...staff,
+      },
+    }).moderationHref;
+  expect(href({}, { moderatesEverywhere: true })).toBe("/moderation/approvals");
+  expect(href({ "profilePost.approve": true })).toBe("/moderation/approvals");
+  // Reports without approvals must not be sent to a page that answers 404.
+  expect(href({ "report.manageProfiles": true })).toBe("/moderation/reports");
+  // The log alone has neither queue: the landing page.
+  expect(href({ "moderatorLog.view": true })).toBe("/moderation");
 });
 
 test("the moderation badge adds the two queues and marks a cut-off queue with more", () => {

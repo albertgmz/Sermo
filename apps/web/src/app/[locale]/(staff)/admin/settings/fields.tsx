@@ -8,7 +8,7 @@ import { Shown } from "./shown";
 // are `adminSetup.fields.<key>` in the messages. The value is what the backend returned.
 export type FieldKey = Exclude<
   keyof typeof messages.adminSetup.fields,
-  "socialLinks"
+  "socialLinks" | "analytics"
 >;
 
 type FieldText = Awaited<

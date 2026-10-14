@@ -12,7 +12,8 @@
     "language": "Choose one of the languages offered.",
     "id": "That is not a valid record.",
     "missing": "Choose a value.",
-    "permission": "Choose a permission for this audience."
+    "permission": "Choose a permission for this audience.",
+    "unknownMembers": "No member is called {names}."
   },
   "pages": {
     "general": {
@@ -21,7 +22,9 @@
       "subtitle": "The site's name, default language, profile posts, the forum statistics panel and the accounts it links to.",
       "formHeading": "General settings",
       "linksHeading": "Social links",
-      "linksDescription": "The site's own accounts elsewhere, shown in the footer."
+      "linksDescription": "The site's own accounts elsewhere, shown in the footer.",
+      "analyticsHeading": "Analytics",
+      "analyticsDescription": "A visitor analytics tag added to every public page. The staff panel never carries it."
     },
     "members": {
       "metaTitle": "New members",
@@ -188,6 +191,15 @@
       "help": "Points for each member a member brought in.",
       "unit": "points"
     },
+    "standingExcludeStaff": {
+      "label": "Exclude staff",
+      "help": "Members who hold moderation or administration permissions are left out of the standings and cannot win the month.",
+      "switch": "Leave staff out of the member of the month"
+    },
+    "standingExcludedUserIds": {
+      "label": "Excluded members",
+      "help": "Usernames, one per line or separated by commas. These members are left out of the standings and cannot win the month. Winners already decided stay as they are."
+    },
     "socialLinks": {
       "discord": {
         "label": "Discord",
@@ -200,6 +212,29 @@
       "x": {
         "label": "X",
         "help": "An http(s) address. Leave empty to leave it out."
+      }
+    },
+    "analytics": {
+      "provider": {
+        "label": "Provider",
+        "help": "None adds nothing. Fill in only the fields of the provider you choose."
+      },
+      "options": {
+        "none": "None",
+        "matomo": "Matomo",
+        "google": "Google Analytics"
+      },
+      "url": {
+        "label": "Matomo address",
+        "help": "The https address of your Matomo installation, for example https://stats.example.com/."
+      },
+      "siteId": {
+        "label": "Matomo site id",
+        "help": "The number Matomo gives this site."
+      },
+      "measurementId": {
+        "label": "Google measurement id",
+        "help": "Starts with G-, for example G-ABC123XYZ."
       }
     }
   },

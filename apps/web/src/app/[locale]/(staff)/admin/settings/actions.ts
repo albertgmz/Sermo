@@ -1,6 +1,6 @@
 "use server";
 
-import { settingsGet } from "@sermo/core/contracts";
+import { settingsGet, usersSearch } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
@@ -32,6 +32,33 @@ const GENERAL: Spec = {
   forumStatsEnabled: "bool",
 };
 
+// The analytics setting is one nested object, sent whole by a form that showed it: the provider
+// and the fields that provider uses.
+async function analyticsFrom(
+  formData: FormData,
+  parsed: Parsed,
+): Promise<Record<string, unknown> | null> {
+  const t = await getTranslations("adminSetup.errors");
+  const provider = text(formData, "analytics.provider");
+  if (provider === "none") return { provider };
+  if (provider === "matomo") {
+    const siteId = whole(text(formData, "analytics.siteId"));
+    if (siteId === null) parsed.fields["analytics.siteId"] = t("number");
+    return {
+      provider,
+      url: text(formData, "analytics.url").trim(),
+      siteId,
+    };
+  }
+  if (provider === "google") {
+    return {
+      provider,
+      measurementId: text(formData, "analytics.measurementId").trim(),
+    };
+  }
+  return null;
+}
+
 export async function saveGeneral(
   _previous: StaffFormState,
   formData: FormData,
@@ -45,9 +72,14 @@ export async function saveGeneral(
     if (typeof typed === "string") socialLinks[network] = typed.trim() || null;
   }
   parsed.body.socialLinks = socialLinks;
+  if (shownKeys(formData).has("analytics")) {
+    const analytics = await analyticsFrom(formData, parsed);
+    if (analytics === null) return { error: await invalidArgument() };
+    parsed.body.analytics = analytics;
+  }
   return saveSettings(parsed, {
     back: "/admin/settings",
-    known: knownIn(GENERAL, "socialLinks"),
+    known: knownIn(GENERAL, "socialLinks", "analytics"),
     site: true,
   });
 }
@@ -155,7 +187,27 @@ const LEVELS: Spec = {
   standingPostPoints: "int",
   standingReactionsPerPoint: "int",
   standingReferralPoints: "int",
+  standingExcludeStaff: "bool",
 };
+
+// The member names typed one per line (commas and spaces also separate), each once.
+const names = (raw: string) => [
+  ...new Map(
+    raw
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .map((name) => [name.toLowerCase(), name] as const),
+  ).values(),
+];
+
+// The id of the member with this exact username (any case), or null.
+async function memberId(username: string): Promise<number | null> {
+  const { items } = await call(usersSearch, { prefix: username, limit: 25 });
+  const wanted = username.toLowerCase();
+  return (
+    items.find((item) => item.username.toLowerCase() === wanted)?.id ?? null
+  );
+}
 
 export async function saveLevels(
   _previous: StaffFormState,
@@ -191,9 +243,28 @@ export async function saveLevels(
   // The list is replaced as a whole, so only by a form that showed it.
   if (listShown) parsed.body.levelTitles = titles;
 
+  // The members left out of the standings, typed as usernames and sent as ids.
+  if (shownKeys(formData).has("standingExcludedUserIds")) {
+    const found = await Promise.all(
+      names(text(formData, "standingExcludedUserIds")).map(
+        async (name) => [name, await memberId(name)] as const,
+      ),
+    );
+    const unknown = found.filter(([, id]) => id === null).map(([name]) => name);
+    if (unknown.length > 0)
+      parsed.fields.standingExcludedUserIds = t("unknownMembers", {
+        names: unknown.join(", "),
+      });
+    parsed.body.standingExcludedUserIds = found.flatMap(([, id]) =>
+      id === null ? [] : [id],
+    );
+  }
+
   return saveSettings(parsed, {
     back: "/admin/settings/levels",
-    known: knownIn(LEVELS, "levelTitles"),
+    known: (name) =>
+      knownIn(LEVELS, "levelTitles")(name) ||
+      name === "standingExcludedUserIds",
     rename: (path) =>
       path[0] === "levelTitles" && typeof path[1] === "number"
         ? ["levelTitles", rows[path[1]] ?? path[1]]

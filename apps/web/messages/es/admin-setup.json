@@ -12,7 +12,8 @@
     "language": "Elige uno de los idiomas ofrecidos.",
     "id": "Ese registro no es válido.",
     "missing": "Elige un valor.",
-    "permission": "Elige un permiso para este público."
+    "permission": "Elige un permiso para este público.",
+    "unknownMembers": "Ningún miembro se llama {names}."
   },
   "pages": {
     "general": {
@@ -21,7 +22,9 @@
       "subtitle": "El nombre del sitio, el idioma predeterminado, las publicaciones del perfil, el panel de estadísticas del foro y las cuentas a las que enlaza.",
       "formHeading": "Ajustes generales",
       "linksHeading": "Enlaces sociales",
-      "linksDescription": "Las cuentas propias del sitio en otros lugares, que se muestran en el pie de página."
+      "linksDescription": "Las cuentas propias del sitio en otros lugares, que se muestran en el pie de página.",
+      "analyticsHeading": "Analítica",
+      "analyticsDescription": "Una etiqueta de analítica de visitas que se añade a todas las páginas públicas. El panel del personal nunca la lleva."
     },
     "members": {
       "metaTitle": "Miembros nuevos",
@@ -188,6 +191,15 @@
       "help": "Puntos por cada miembro que trajo un miembro.",
       "unit": "puntos"
     },
+    "standingExcludeStaff": {
+      "label": "Excluir al personal",
+      "help": "Los miembros con permisos de moderación o administración quedan fuera de la clasificación y no pueden ganar el mes.",
+      "switch": "Dejar al personal fuera del miembro del mes"
+    },
+    "standingExcludedUserIds": {
+      "label": "Miembros excluidos",
+      "help": "Nombres de usuario, uno por línea o separados por comas. Estos miembros quedan fuera de la clasificación y no pueden ganar el mes. Los ganadores ya decididos no cambian."
+    },
     "socialLinks": {
       "discord": {
         "label": "Discord",
@@ -200,6 +212,29 @@
       "x": {
         "label": "X",
         "help": "Una dirección http(s). Déjala vacía para omitirla."
+      }
+    },
+    "analytics": {
+      "provider": {
+        "label": "Proveedor",
+        "help": "Ninguno no añade nada. Rellena solo los campos del proveedor que elijas."
+      },
+      "options": {
+        "none": "Ninguno",
+        "matomo": "Matomo",
+        "google": "Google Analytics"
+      },
+      "url": {
+        "label": "Dirección de Matomo",
+        "help": "La dirección https de tu instalación de Matomo, por ejemplo https://stats.example.com/."
+      },
+      "siteId": {
+        "label": "Id del sitio en Matomo",
+        "help": "El número que Matomo da a este sitio."
+      },
+      "measurementId": {
+        "label": "Id de medición de Google",
+        "help": "Empieza por G-, por ejemplo G-ABC123XYZ."
       }
     }
   },

@@ -8,6 +8,7 @@ import { saveGeneral } from "./actions";
 import { getSettings } from "./data";
 import { SwitchRow, TextRow } from "./fields";
 import { Shown } from "./shown";
+import { Subheading } from "./subheading";
 
 export async function GeneralForm() {
   const [t, f, settings] = await Promise.all([
@@ -76,6 +77,89 @@ export async function GeneralForm() {
           />
         </FieldRow>
       ))}
+      <Subheading
+        heading={t("analyticsHeading")}
+        description={t("analyticsDescription")}
+      />
+      <Shown name="analytics" />
+      <FieldRow
+        name="analytics.provider"
+        label={f("analytics.provider.label")}
+        htmlFor="field-analytics-provider"
+        help={f("analytics.provider.help")}
+      >
+        <select
+          id="field-analytics-provider"
+          name="analytics.provider"
+          defaultValue={settings.analytics.provider}
+          aria-describedby="field-analytics-provider-help"
+          className={selectClass}
+        >
+          {(["none", "matomo", "google"] as const).map((provider) => (
+            <option key={provider} value={provider}>
+              {f(`analytics.options.${provider}`)}
+            </option>
+          ))}
+        </select>
+      </FieldRow>
+      <FieldRow
+        name="analytics.url"
+        label={f("analytics.url.label")}
+        htmlFor="field-analytics-url"
+        help={f("analytics.url.help")}
+      >
+        <Input
+          id="field-analytics-url"
+          name="analytics.url"
+          type="text"
+          inputMode="url"
+          autoCapitalize="none"
+          defaultValue={
+            settings.analytics.provider === "matomo"
+              ? settings.analytics.url
+              : ""
+          }
+          aria-describedby="field-analytics-url-help"
+        />
+      </FieldRow>
+      <FieldRow
+        name="analytics.siteId"
+        label={f("analytics.siteId.label")}
+        htmlFor="field-analytics-siteId"
+        help={f("analytics.siteId.help")}
+      >
+        <Input
+          id="field-analytics-siteId"
+          name="analytics.siteId"
+          type="number"
+          inputMode="numeric"
+          defaultValue={
+            settings.analytics.provider === "matomo"
+              ? settings.analytics.siteId
+              : ""
+          }
+          aria-describedby="field-analytics-siteId-help"
+        />
+      </FieldRow>
+      <FieldRow
+        name="analytics.measurementId"
+        label={f("analytics.measurementId.label")}
+        htmlFor="field-analytics-measurementId"
+        help={f("analytics.measurementId.help")}
+      >
+        <Input
+          id="field-analytics-measurementId"
+          name="analytics.measurementId"
+          type="text"
+          autoCapitalize="characters"
+          defaultValue={
+            settings.analytics.provider === "google"
+              ? settings.analytics.measurementId
+              : ""
+          }
+          aria-describedby="field-analytics-measurementId-help"
+        />
+      </FieldRow>
     </FormRows>
   );
 }

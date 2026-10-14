@@ -16,11 +16,19 @@ const ITEM =
   "inline-flex h-10 items-center rounded-md px-2 font-medium outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-8";
 
 // What the staff bar links to for this viewer: the panel when it has a home for them (the backend
-// says there is anything in it, or a screen of it opens), and the moderation landing when they may open a moderation screen.
+// says there is anything in it, or a screen of it opens), and moderation when they may open a moderation screen.
+// Moderation leads to the first queue the viewer may open (approvals, then reports) and to the
+// landing page only when they have neither.
 export function staffLinks(viewer: Standing) {
+  const moderationHref = canOpen(viewer, screenByKey("moderationApprovals"))
+    ? "/moderation/approvals"
+    : canOpen(viewer, screenByKey("moderationReports"))
+      ? "/moderation/reports"
+      : "/moderation";
   return {
     admin: canOpen(viewer, screenByKey("home")),
     moderation: canOpen(viewer, screenByKey("moderationHome")),
+    moderationHref,
   };
 }
 
@@ -35,10 +43,12 @@ export function pendingBadge(
 export function StaffBar({
   admin,
   moderation,
+  moderationHref = "/moderation/approvals",
   pending = null,
 }: {
   admin: boolean;
   moderation: boolean;
+  moderationHref?: string;
   pending?: PendingCount | null;
 }) {
   const t = useTranslations("layout.staffBar");
@@ -57,7 +67,7 @@ export function StaffBar({
             </Link>
           )}
           {moderation && (
-            <Link href="/moderation" className={ITEM}>
+            <Link href={moderationHref} className={ITEM}>
               {t("moderation")}
               {badge && (
                 <>

@@ -318,6 +318,7 @@ export const operations = [
         socialLinks: settings.socialLinks,
         maxUploadBytes: settings.maxUploadBytes,
         forumStatsEnabled: settings.forumStatsEnabled,
+        analytics: settings.analytics,
         defaultLanguage: settings.defaultLanguage,
         palette: {
           accents: lists.activeColors.accent,

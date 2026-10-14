@@ -46,6 +46,7 @@ test("the site is read without the visitor and keeps only its identity", async (
     socialLinks,
     maxUploadBytes: siteBody().maxUploadBytes,
     forumStatsEnabled: false,
+    analytics: { provider: "none" },
     accents: [],
   });
   assert.equal(seen[0].get("cookie"), null);
@@ -122,6 +123,7 @@ test("an unreachable backend gives the default name and is logged outside the bu
       socialLinks: noSocialLinks,
       maxUploadBytes: null,
       forumStatsEnabled: false,
+      analytics: { provider: "none" },
       accents: [],
     });
     assert.equal(logged.mock.calls.length, 1);

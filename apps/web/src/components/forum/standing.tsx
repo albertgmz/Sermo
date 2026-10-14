@@ -88,12 +88,15 @@ function Breakdown({ entry }: { entry: Activity }) {
   );
 }
 
+// `leading`: the month is still running and this is who is ahead, not a winner.
 export function MonthHero({
   winner,
   action,
+  leading = false,
 }: {
   winner: MonthWinner;
   action?: React.ReactNode;
+  leading?: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("forum.standing");
@@ -112,7 +115,7 @@ export function MonthHero({
             className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide text-primary uppercase"
           >
             <Crown aria-hidden="true" className="size-4" />
-            {t("heading")}
+            {leading ? t("leadingHeading") : t("heading")}
           </h2>
           <p className="text-xs font-medium text-muted-foreground">
             {monthLabel(format, winner)}

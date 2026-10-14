@@ -85,6 +85,12 @@ function NewestMembers({ members }: { members: MemberView[] }) {
   );
 }
 
+// The month that is running: its first rows are the race list and, while there is no winner of the
+// last month to show, the leader in the hero.
+const getRace = cache(() =>
+  read(standingsMonth, { month: "current", limit: RACE }),
+);
+
 // The last complete month, as the backend counts it.
 const getLastMonth = cache(async () => {
   const { year, month } = await read(standingsMonth, {
@@ -104,11 +110,24 @@ function isMonthOf(
 
 async function MemberOfTheMonth() {
   const t = await getTranslations("members.overview");
-  const [winners, last] = await Promise.all([getWinners(), getLastMonth()]);
+  const [winners, last, race] = await Promise.all([
+    getWinners(),
+    getLastMonth(),
+    getRace(),
+  ]);
   const [latest] = winners.items;
-  return latest && isMonthOf(latest, last) ? (
+  if (latest && isMonthOf(latest, last))
+    return (
+      <MonthHero
+        winner={latest}
+        action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
+      />
+    );
+  const [leader] = race.items;
+  return leader ? (
     <MonthHero
-      winner={latest}
+      leading
+      winner={{ ...leader, year: race.year, month: race.month }}
       action={<ViewLink view="month">{t("standingLink")}</ViewLink>}
     />
   ) : (
@@ -126,7 +145,7 @@ async function RaceAndWinners({ viewerId }: { viewerId?: number }) {
   const t = await getTranslations("members.overview");
   const format = await getFormatter();
   const [race, winners, last] = await Promise.all([
-    read(standingsMonth, { month: "current", limit: RACE }),
+    getRace(),
     getWinners(),
     getLastMonth(),
   ]);

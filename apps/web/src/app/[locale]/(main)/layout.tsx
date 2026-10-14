@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { AnalyticsTag } from "@/components/layout/analytics-tag";
 import { HashTarget } from "@/components/layout/hash-target";
 import { getAccent, getCounters } from "@/components/layout/header-data";
 import { LocaleSyncGate } from "@/components/layout/locale-sync-gate";
@@ -33,6 +34,7 @@ async function Chrome() {
         <StaffBar
           admin={links.admin}
           moderation={links.moderation}
+          moderationHref={links.moderationHref}
           pending={pending}
         />
       )}
@@ -70,6 +72,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
       </Suspense>
       <Suspense>
         <LocaleSyncGate />
+      </Suspense>
+      <Suspense>
+        <AnalyticsTag />
       </Suspense>
       <SiteHeader />
       <Suspense

@@ -135,3 +135,24 @@ test("settings stored before the forum statistics switch existed still parse, wi
     .run(JSON.stringify(stored));
   expect((await run(ctx, "site.get", GUEST)).forumStatsEnabled).toBe(false);
 });
+
+test("site.get carries the analytics setting, none by default", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  expect((await run(ctx, "site.get", GUEST)).analytics).toEqual({ provider: "none" });
+  await run(ctx, "settings.update", admin, {
+    analytics: { provider: "matomo", url: "https://stats.example.com/", siteId: 4 },
+  });
+  expect((await run(ctx, "site.get", GUEST)).analytics).toEqual({
+    provider: "matomo",
+    url: "https://stats.example.com/",
+    siteId: 4,
+  });
+  await run(ctx, "settings.update", admin, {
+    analytics: { provider: "google", measurementId: "G-ABC123" },
+  });
+  expect((await run(ctx, "site.get", GUEST)).analytics).toEqual({
+    provider: "google",
+    measurementId: "G-ABC123",
+  });
+});

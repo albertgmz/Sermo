@@ -17,7 +17,9 @@
   },
   "memberActions": {
     "message": "Mensaje privado",
-    "aria": { "message": "Enviar un mensaje privado a {username}" }
+    "aria": {
+      "message": "Enviar un mensaje privado a {username}"
+    }
   },
   "memberCardTrigger": {
     "aria": {
@@ -123,6 +125,7 @@
   },
   "standing": {
     "heading": "Miembro del mes",
+    "leadingHeading": "Va en cabeza este mes",
     "totalPoints": "Puntos totales",
     "pts": "pts",
     "parts": {

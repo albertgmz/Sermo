@@ -17,7 +17,9 @@
   },
   "memberActions": {
     "message": "Message",
-    "aria": { "message": "Start a private conversation with {username}" }
+    "aria": {
+      "message": "Start a private conversation with {username}"
+    }
   },
   "memberCardTrigger": {
     "aria": {
@@ -123,6 +125,7 @@
   },
   "standing": {
     "heading": "Member of the month",
+    "leadingHeading": "Leading this month",
     "totalPoints": "Total points",
     "pts": "pts",
     "parts": {
