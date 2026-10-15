@@ -2192,3 +2192,12 @@ cookies on every parent domain; withdrawing analytics or embeds reloads the page
 pressed before choosing records a choice with only embeds on. The referral cookie is `forum_ref`
 (30 days). The policy version comes from an optional `cookiePolicyVersion` on the site (1 until the
 backend sends it). Policy text and lifetimes are drafts. Not checked in a browser yet.
+
+**Polling reads only what is new.** `conversations.listMessages` takes `afterMessageId`, `posts.list`
+takes `afterPosition`, and `feed.newCount` (`GET /feed/new-count`, latest or following) counts new
+feed items up to 99 with the same filters as `feed.list`, without building them. `posts.list` with
+`afterPosition` also returns `afterPostId`, the post the viewer can see at that position: a poller
+that gets a different id (or null) reloads the thread, which makes merges exact; splits, edits,
+removals and late approvals are not seen by a poll and show on the next reload. Every new query is
+one index seek (no migration). One tab's polling (about 29 requests a minute) stays well inside the
+read rate limit.
