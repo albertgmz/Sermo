@@ -1,11 +1,21 @@
 "use client";
 
-import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import {
+  type InfiniteData,
+  infiniteQueryOptions,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  defaultRangeExtractor,
+  type Range,
+  useWindowVirtualizer,
+} from "@tanstack/react-virtual";
 import { ChevronDown, LoaderCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   type ReactNode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -35,37 +45,74 @@ const LOAD_AHEAD = "800px 0px";
 
 type ListQuery = {
   listKey: readonly (string | number)[];
+  // Which draw of the screen the pages are from: a new one (the server drew the screen again)
+  // refreshes the pages the list holds.
   stamp: number;
   start: string | null;
   pages: ListPage[];
-  loadPage: (cursor: string) => Promise<ListPage>;
+  // A page by its cursor; null is the first page of a list that began at the top.
+  loadPage: (cursor: string | null) => Promise<ListPage>;
 };
+
+// The page parameter of each page: where the list began, then the cursor each page named.
+function pageParamsOf(start: string | null, pages: ListPage[]) {
+  return [start, ...pages.slice(0, -1).map((page) => page.nextCursor)];
+}
+
+// The list after the server drew its screen again (a reply was written, a reaction counted): the
+// pages drawn again replace the first ones, and the pages the visitor had loaded beyond them stay,
+// so the list does not shrink under them. Rows that came twice are shown once.
+export function mergeRefreshed(
+  held: InfiniteData<ListPage, unknown>,
+  fresh: ListPage[],
+  start: string | null,
+): InfiniteData<ListPage, unknown> {
+  return {
+    pages: [...fresh, ...held.pages.slice(fresh.length)],
+    pageParams: [
+      ...pageParamsOf(start, fresh),
+      ...held.pageParams.slice(fresh.length),
+    ],
+  };
+}
+
+// The rows to keep mounted whatever the window says: the one that holds the keyboard focus (a
+// composer or a picker being used), text typed and not sent, or a loaded embed or player. Without
+// them a row that scrolls away takes that state with it.
+export function holdsState(row: Element, active: Element | null) {
+  if (active && active !== row.ownerDocument.body && row.contains(active)) {
+    return true;
+  }
+  const fields = row.querySelectorAll(
+    "textarea, input:not([type=hidden]):not([type=checkbox]):not([type=radio]), [contenteditable=true]",
+  );
+  for (const field of fields) {
+    const text = (field as HTMLInputElement).value ?? field.textContent;
+    if (text?.trim()) return true;
+  }
+  return row.querySelector("iframe, video, audio") !== null;
+}
+
+// The indexes the window shows plus those of the rows to keep, in order.
+export function withKept(shown: number[], kept: number[]) {
+  return [...new Set([...shown, ...kept])].sort((a, b) => a - b);
+}
 
 // The query of one list. The pages the server drew are its data from the start, and nothing asks
 // the backend again (no refetch on mount, focus or reconnect); the cache holds a list only while
-// its screen is mounted, so coming back to a screen always starts from what the server drew. The
-// render's stamp is in the key: a screen the server drew again (after a write, say) is a new list.
+// its screen is mounted, so coming back to a screen always starts from what the server drew.
 export function listQueryOptions({
   listKey,
-  stamp,
   start,
   pages,
   loadPage,
-}: ListQuery) {
+}: Omit<ListQuery, "stamp">) {
   return infiniteQueryOptions({
-    queryKey: ["list", ...listKey, start ?? "", stamp],
-    queryFn: ({ pageParam }) => {
-      if (pageParam === null) {
-        throw new Error("The first page of a list comes from the server.");
-      }
-      return loadPage(pageParam);
-    },
+    queryKey: ["list", ...listKey, start ?? ""],
+    queryFn: ({ pageParam }) => loadPage(pageParam),
     initialPageParam: start,
     getNextPageParam: (last: ListPage) => last.nextCursor,
-    initialData: {
-      pages,
-      pageParams: [start, ...pages.slice(0, -1).map((page) => page.nextCursor)],
-    },
+    initialData: { pages, pageParams: pageParamsOf(start, pages) },
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 0,
     retry: false,
@@ -150,10 +197,19 @@ export function InfiniteList({
   moreClassName?: string;
 }) {
   const t = useTranslations("forum.infiniteList");
-  const query = useInfiniteQuery(
-    listQueryOptions({ listKey, stamp, start, pages, loadPage }),
-  );
+  const options = listQueryOptions({ listKey, start, pages, loadPage });
+  const query = useInfiniteQuery(options);
   const loaded = query.data.pages;
+  const client = useQueryClient();
+  const drawn = useRef(stamp);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only a new draw of the screen refreshes
+  useEffect(() => {
+    if (drawn.current === stamp) return;
+    drawn.current = stamp;
+    client.setQueryData(options.queryKey, (held) =>
+      held ? mergeRefreshed(held, pages, start) : held,
+    );
+  }, [stamp]);
   // The server draws the rows of the first page as plain markup; the list switches to windowed
   // layout once it is in the browser, over the same elements. Until then it is that page and the
   // link to the one after it, even when the address asked for more pages.
@@ -182,8 +238,24 @@ export function InfiniteList({
   }, []);
   const memory = listId(listKey, start);
   const [remembered] = useState(() => drawnHeights.get(memory));
+  const current = useRef(rows);
+  current.current = rows;
+  const keepMounted = useCallback((range: Range) => {
+    const root = box.current;
+    if (!root) return defaultRangeExtractor(range);
+    const active = document.activeElement;
+    const kept: number[] = [];
+    for (const row of root.querySelectorAll("[data-key]")) {
+      if (!holdsState(row, active)) continue;
+      const key = row.getAttribute("data-key");
+      const index = current.current.findIndex((entry) => entry.key === key);
+      if (index >= 0) kept.push(index);
+    }
+    return withKept(defaultRangeExtractor(range), kept);
+  }, []);
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
+    rangeExtractor: keepMounted,
     estimateSize: (index) => remembered?.get(rows[index].key) ?? estimateSize,
     overscan: 5,
     scrollMargin,
@@ -241,25 +313,25 @@ export function InfiniteList({
               : undefined
           }
         >
-          <List
-            style={
-              live
-                ? {
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    transform: `translateY(${(items[0]?.start ?? 0) - scrollMargin}px)`,
-                  }
-                : undefined
-            }
-          >
+          <List>
             {items.map((item) => (
               <Row
                 key={item.key}
                 data-index={item.index}
+                data-key={item.key}
                 ref={virtualizer.measureElement}
                 className={SPACING[spacing]}
+                style={
+                  live
+                    ? {
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${item.start - scrollMargin}px)`,
+                      }
+                    : undefined
+                }
               >
                 {rows[item.index].node}
               </Row>

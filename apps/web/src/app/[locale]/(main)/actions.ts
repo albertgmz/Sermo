@@ -11,7 +11,7 @@ import {
   usersUnfollow,
 } from "@sermo/core/contracts";
 import { refresh } from "next/cache";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { LineComposerState } from "@/components/forum/line-composer";
 import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
@@ -31,6 +31,7 @@ import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
 import { requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
+import { pageOfRequest } from "@/lib/sermo/request-page";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { getViewer } from "@/lib/sermo/session";
 
@@ -109,17 +110,6 @@ export type ReactionTarget = keyof typeof CONTENT;
 
 export type ReactionState = { error?: string };
 export type FollowState = { error?: string };
-
-// The page the reaction was made on, as the browser names it. Without one, or with one that is
-// not on this site, the visitor lands on the home page after signing in.
-async function pageOfRequest(): Promise<string> {
-  const sent = await headers();
-  const referer = sent.get("referer");
-  if (!referer || !URL.canParse(referer)) return "/";
-  const { host, pathname, search } = new URL(referer);
-  if (host !== (sent.get("x-forwarded-host") ?? sent.get("host"))) return "/";
-  return safeReturnPath(pathname + search);
-}
 
 export async function react(
   target: ReactionTarget,
@@ -217,21 +207,22 @@ export async function setBookmark(
   return {};
 }
 
-// Replies to a thread from its card in the feed and goes back to the feed address the form was
-// on. That address can differ from the one in the browser by its hash alone (the comment count
-// leads to the composer), which is no navigation to the server, so the page is refreshed first.
+// Replies to a thread from its card in the feed and goes back to the address the form was on: the
+// feed as the visitor has it, `?pages=N` included, so the list and the place in it stay. That
+// address can differ from the one in the browser by its hash alone (the comment count leads to
+// the composer), which is no navigation to the server, so the page is refreshed first.
 export async function replyFromFeed(
   threadId: number,
-  returnTo: string,
   _previous: LineComposerState,
   formData: FormData,
 ): Promise<LineComposerState> {
   requireIds(threadId);
   const body = String(formData.get("body") ?? "");
-  const created = await attempt(returnTo, () =>
+  const page = await pageOfRequest();
+  const created = await attempt(page, () =>
     call(postsCreate, { threadId, body }),
   );
   if (!created.ok) return { error: created.error };
   refresh();
-  redirect(safeReturnPath(returnTo));
+  redirect(page);
 }

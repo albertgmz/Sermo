@@ -9,7 +9,7 @@ const page = (nextCursor: string | null): ListPage => ({
 });
 
 test("the infinite list gets the first page and the pages the address asks for as its data", async () => {
-  const more = recorded(async (cursor: string) =>
+  const more = recorded(async (cursor: string | null) =>
     page(cursor === "c1" ? "c2" : null),
   );
   const element = await PagedList({

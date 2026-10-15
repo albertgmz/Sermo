@@ -183,7 +183,6 @@ export function FeedItem({
   viewerId,
   picker,
   reactionTypes,
-  returnTo,
 }: {
   item: ApiFeedItem;
   author: (id: number) => AuthorView;
@@ -193,8 +192,6 @@ export function FeedItem({
   // What the picker offers; none when the viewer may not react.
   picker: ReactionType[];
   reactionTypes: Awaited<ReturnType<typeof getReactionTypes>>;
-  // The feed address the card is on: where an answer written in it returns to.
-  returnTo: string;
 }) {
   const t = useTranslations("home.feedItem");
   if (item.type === "profilePost") {
@@ -252,7 +249,7 @@ export function FeedItem({
               links={links}
               action={
                 profilePost.canComment
-                  ? commentOnWallPost.bind(null, profilePost.id, returnTo)
+                  ? commentOnWallPost.bind(null, profilePost.id, undefined)
                   : undefined
               }
               member={(id) => author(id).member}
@@ -327,7 +324,7 @@ export function FeedItem({
         item.canReply && (
           <div id={`${anchor}-comment`} className="scroll-mt-24">
             <LineComposer
-              action={replyFromFeed.bind(null, thread.id, returnTo)}
+              action={replyFromFeed.bind(null, thread.id)}
               placeholder={t("replyPlaceholder")}
               submitLabel={t("replySubmit")}
             />

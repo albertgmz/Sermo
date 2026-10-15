@@ -39,7 +39,6 @@ const { FeedItem } = await import("./feed-item");
 
 type Item = Parameters<typeof FeedItem>[0]["item"];
 
-const FEED = "/?tab=top&cursor=abc";
 const MEMBER = 3;
 
 const author = (id: number): AuthorView => ({
@@ -163,7 +162,6 @@ async function render(item: Item, viewerId: number | null) {
         viewerId={viewerId}
         picker={[]}
         reactionTypes={[]}
-        returnTo={FEED}
       />,
     ),
   );

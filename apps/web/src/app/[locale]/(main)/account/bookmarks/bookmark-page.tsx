@@ -24,10 +24,13 @@ export function bookmarkHref(item: Item) {
 // One page of the member's bookmarks, newest first, drawn: the list's first page and each page the
 // browser asks for. A page may be short, or empty, while the backend still has more to look
 // through (it skips what the member can no longer see).
-export async function bookmarksPage(cursor?: string): Promise<ListPage> {
+export async function bookmarksPage(
+  cursor?: string,
+  reader: typeof read = read,
+): Promise<ListPage> {
   const [t, { items, nextCursor }] = await Promise.all([
     getTranslations("account.bookmarks"),
-    read(bookmarksList, { cursor }),
+    reader(bookmarksList, { cursor }),
   ]);
   const member = await membersFor(items.map((item) => item.author));
   return {

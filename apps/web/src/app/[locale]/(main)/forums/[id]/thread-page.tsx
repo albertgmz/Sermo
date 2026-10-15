@@ -11,8 +11,9 @@ export async function threadsPage(
   nodeId: number,
   prefixId: number | undefined,
   cursor?: string,
+  reader: typeof read = read,
 ): Promise<ListPage> {
-  const list = await read(threadsList, { nodeId, prefixId, cursor });
+  const list = await reader(threadsList, { nodeId, prefixId, cursor });
   const threads = [...list.sticky, ...list.items];
   const member = await membersFor(threads.flatMap(threadMembers));
   const now = Date.now();

@@ -5,8 +5,9 @@ const realFetch = globalThis.fetch;
 const asked: { url: string; body: unknown }[] = [];
 
 mock.module("server-only", () => ({}));
+let incoming = new Headers();
 mock.module("next/headers", () => ({
-  headers: async () => new Headers(),
+  headers: async () => incoming,
   cookies: async () => ({ set: () => {} }),
 }));
 let refreshed = 0;
@@ -22,6 +23,7 @@ mock.module("next/cache", () => ({
 const { commentOnWallPost, postToWall } = await import("./actions");
 
 beforeEach(() => {
+  incoming = new Headers();
   asked.length = 0;
   refreshed = 0;
   globalThis.fetch = (async (url: string, init: RequestInit) => {
@@ -165,4 +167,38 @@ test("a refused comment answers its form and refreshes nothing", async () => {
   const state = await commentOnWallPost(8, "/", {}, form({ body: "" }));
   assert.deepEqual(state, { error: "No." });
   assert.equal(refreshed, 0);
+});
+
+// The feed has no address of its own to give: a comment written on a card there returns to the
+// address the browser has, the number of pages loaded included.
+test("a comment written in the feed returns to the feed address the browser has", async () => {
+  incoming = new Headers({
+    referer: "http://localhost:3105/?tab=top&pages=3",
+    host: "localhost:3105",
+  });
+  globalThis.fetch = (async () =>
+    Response.json({
+      id: 12,
+      profilePostId: 8,
+      author: { id: 3, username: "ember" },
+      state: "visible",
+      createdAt: "2026-10-13T03:57:31.497Z",
+      editedAt: null,
+      bodyHtml: "<p>hi</p>",
+      bodySource: "hi",
+      reactions: { counts: {}, total: 0, mine: null },
+      canEdit: true,
+      canDelete: true,
+    })) as unknown as typeof fetch;
+  const digest = await commentOnWallPost(
+    8,
+    undefined,
+    {},
+    form({ body: "hi" }),
+  ).then(
+    () => undefined,
+    (error: { digest?: unknown }) => String(error.digest),
+  );
+  assert.equal(digest?.split(";")[0], "NEXT_REDIRECT");
+  assert.equal(digest?.split(";")[2], "/?tab=top&pages=3");
 });

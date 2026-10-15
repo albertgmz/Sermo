@@ -7,9 +7,12 @@ import { withIntl } from "@/lib/test-intl";
 import { withQuery } from "@/lib/test-query";
 import {
   flattenRows,
+  holdsState,
   InfiniteList,
   listQueryOptions,
+  mergeRefreshed,
   watchSentinel,
+  withKept,
 } from "./infinite-list";
 
 const page = (keys: string[], nextCursor: string | null): ListPage => ({
@@ -18,13 +21,12 @@ const page = (keys: string[], nextCursor: string | null): ListPage => ({
 });
 
 function options(
-  loadPage: (cursor: string) => Promise<ListPage>,
+  loadPage: (cursor: string | null) => Promise<ListPage>,
   pages = [page(["a", "b"], "c1")],
   start: string | null = null,
 ) {
   return listQueryOptions({
     listKey: ["test"],
-    stamp: 1,
     start,
     pages,
     loadPage,
@@ -39,7 +41,9 @@ function observe(opts: ReturnType<typeof options>) {
 }
 
 test("the pages the server drew are the data: nothing is fetched on mount", async () => {
-  const loadPage = recorded(async (_cursor: string) => page(["x"], null));
+  const loadPage = recorded(async (_cursor: string | null) =>
+    page(["x"], null),
+  );
   const { observer, stop } = observe(
     options(loadPage, [page(["a", "b"], "c1"), page(["c"], "c2")]),
   );
@@ -53,7 +57,7 @@ test("the pages the server drew are the data: nothing is fetched on mount", asyn
 });
 
 test("the next page is asked for by the cursor the last page named, and appended", async () => {
-  const loadPage = recorded(async (cursor: string) =>
+  const loadPage = recorded(async (cursor: string | null) =>
     cursor === "c1" ? page(["c", "d"], "c2") : page(["e"], null),
   );
   const { observer, stop } = observe(options(loadPage));
@@ -71,7 +75,9 @@ test("the next page is asked for by the cursor the last page named, and appended
 });
 
 test("at the end of the list there is no next page and nothing more is asked for", async () => {
-  const loadPage = recorded(async (_cursor: string) => page(["z"], null));
+  const loadPage = recorded(async (_cursor: string | null) =>
+    page(["z"], null),
+  );
   const { observer, stop } = observe(options(loadPage));
   await observer.fetchNextPage();
   expect(observer.getCurrentResult().hasNextPage).toBe(false);
@@ -82,7 +88,7 @@ test("at the end of the list there is no next page and nothing more is asked for
 
 test("a failed page keeps what is shown and a second try can succeed", async () => {
   let calls = 0;
-  const loadPage = recorded(async (_cursor: string) => {
+  const loadPage = recorded(async (_cursor: string | null) => {
     calls += 1;
     if (calls === 1) throw new Error("down");
     return page(["c"], null);
@@ -115,7 +121,7 @@ test("a row a later page repeats is shown once", () => {
 });
 
 test("the server's markup holds the first page's rows, in a list, and the link to the next page", () => {
-  const loadPage = recorded(async (_cursor: string) => page([], null));
+  const loadPage = recorded(async (_cursor: string | null) => page([], null));
   const html = renderToStaticMarkup(
     withIntl(
       withQuery(
@@ -239,4 +245,100 @@ test("a sentinel that is let go stops watching, and without an observer nothing 
   expect(() =>
     watchSentinel({} as Element, () => {}, undefined)(),
   ).not.toThrow();
+});
+
+// Stand-ins for the elements of a row, with only what `holdsState` asks of them.
+function fakeRow(
+  parts: {
+    fields?: { value?: string; textContent?: string }[];
+    media?: boolean;
+    holds?: unknown;
+  } = {},
+) {
+  const body = {};
+  return {
+    ownerDocument: { body },
+    contains: (node: unknown) => node === parts.holds,
+    querySelectorAll: () => parts.fields ?? [],
+    querySelector: () => (parts.media ? {} : null),
+  } as unknown as Element;
+}
+
+test("a row that holds the focus, typed text, a loaded embed or a player stays mounted", () => {
+  const focused = {} as Element;
+  expect(holdsState(fakeRow({ holds: focused }), focused)).toBe(true);
+  expect(holdsState(fakeRow({ fields: [{ value: "half a rep" }] }), null)).toBe(
+    true,
+  );
+  expect(
+    holdsState(fakeRow({ fields: [{ textContent: "typed" }] }), null),
+  ).toBe(true);
+  expect(holdsState(fakeRow({ media: true }), null)).toBe(true);
+});
+
+test("a row with nothing to lose is left to the window", () => {
+  const elsewhere = {} as Element;
+  expect(holdsState(fakeRow(), null)).toBe(false);
+  expect(holdsState(fakeRow(), elsewhere)).toBe(false);
+  expect(
+    holdsState(
+      fakeRow({ fields: [{ value: "  " }, { textContent: "" }] }),
+      null,
+    ),
+  ).toBe(false);
+  // The page body holds the focus when nothing does: that is no row's.
+  const row = fakeRow();
+  const body = (row as unknown as { ownerDocument: { body: Element } })
+    .ownerDocument.body;
+  expect(holdsState(row, body)).toBe(false);
+});
+
+test("the window and the rows to keep make one ordered range", () => {
+  expect(withKept([10, 11, 12], [2, 11])).toEqual([2, 10, 11, 12]);
+  expect(withKept([3, 4], [])).toEqual([3, 4]);
+});
+
+test("a screen drawn again replaces the first pages and keeps the ones loaded beyond", () => {
+  const held = {
+    pages: [
+      page(["a"], "c1"),
+      page(["b"], "c2"),
+      page(["c"], "c3"),
+      page(["d"], null),
+    ],
+    pageParams: [null, "c1", "c2", "c3"],
+  };
+  const merged = mergeRefreshed(
+    held,
+    [page(["a2"], "c1"), page(["b2"], "c2")],
+    null,
+  );
+  expect(merged.pages.map((p) => p.rows[0].key)).toEqual([
+    "a2",
+    "b2",
+    "c",
+    "d",
+  ]);
+  expect(merged.pageParams).toEqual([null, "c1", "c2", "c3"]);
+  // A list that began at a cursor keeps it.
+  expect(mergeRefreshed(held, [page(["x"], "c1")], "s").pageParams[0]).toBe(
+    "s",
+  );
+  // Nothing held beyond the new pages: the new pages are the list.
+  const short = mergeRefreshed(
+    { pages: [page(["a"], null)], pageParams: [null] },
+    [page(["a"], "c1"), page(["b"], null)],
+    null,
+  );
+  expect(short.pages).toHaveLength(2);
+});
+
+test("the first page of a list is asked for by a null cursor, like any other", async () => {
+  const loadPage = recorded(async (_cursor: string | null) =>
+    page(["x"], null),
+  );
+  const { observer, stop } = observe(options(loadPage));
+  await observer.refetch();
+  expect(loadPage.calls[0]).toEqual([null]);
+  stop();
 });

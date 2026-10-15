@@ -15,6 +15,10 @@ import { refusal, searchPage } from "./search-page";
 
 const card = "rounded-lg border bg-card";
 
+// A search is the backend's costliest and most limited read (30 a minute per visitor, and each
+// page also looks up its members), so an address that asks for more pages gets two.
+const RESTORED_PAGES = 2;
+
 // The member the visitor typed: the backend finds usernames by their start, the exact one is ours
 // to pick.
 async function authorId(username: string) {
@@ -142,7 +146,7 @@ export async function Results({
         <PagedList
           first={page}
           more={moreResults.bind(null, filters, wanted)}
-          pages={pages}
+          pages={Math.min(pages, RESTORED_PAGES)}
           start={cursor}
           listKey={["search", searchHref(filters)]}
           hrefBase={searchHref(filters)}

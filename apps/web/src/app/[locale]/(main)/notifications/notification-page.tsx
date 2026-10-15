@@ -8,8 +8,9 @@ import { read } from "@/lib/sermo/client";
 // asks for. The unread count is the backend's at the time of the read.
 export async function notificationsPage(
   cursor?: string,
+  reader: typeof read = read,
 ): Promise<{ page: ListPage; unreadCount: number }> {
-  const list = await read(notificationsList, { cursor });
+  const list = await reader(notificationsList, { cursor });
   const { entries, member } = await notificationEntries(list.items);
   return {
     unreadCount: list.unreadCount,

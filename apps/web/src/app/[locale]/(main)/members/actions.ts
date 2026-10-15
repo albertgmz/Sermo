@@ -18,6 +18,7 @@ import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
+import { pageOfRequest } from "@/lib/sermo/request-page";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 
 export type WallState = { error?: string; done?: boolean };
@@ -39,23 +40,25 @@ export async function postToWall(
   redirect(safeReturnPath(returnTo));
 }
 
-// Comments on a wall post and goes back to the page the form was on: the wall, or the feed. That
+// Comments on a wall post and goes back to the page the form was on: the wall (its address,
+// `returnTo`), or the feed (no `returnTo`: the address the browser has, `?pages=N` included). That
 // address can differ from the one in the browser by its hash alone (the comment count leads to
 // the composer), which is no navigation to the server, so the page is refreshed first.
 export async function commentOnWallPost(
   profilePostId: number,
-  returnTo: string,
+  returnTo: string | undefined,
   _previous: WallState,
   formData: FormData,
 ): Promise<WallState> {
   requireIds(profilePostId);
   const body = String(formData.get("body") ?? "");
-  const created = await attempt(returnTo, () =>
+  const page = returnTo === undefined ? await pageOfRequest() : returnTo;
+  const created = await attempt(page, () =>
     call(profileCommentsCreate, { profilePostId, body }),
   );
   if (!created.ok) return { error: created.error };
   refresh();
-  redirect(safeReturnPath(returnTo));
+  redirect(safeReturnPath(page));
 }
 
 // A wall post or a comment on one: the same actions on both.

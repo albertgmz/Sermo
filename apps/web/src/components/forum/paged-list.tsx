@@ -13,7 +13,7 @@ export async function PagedList({
   ...list
 }: {
   first: ListPage;
-  more: (cursor: string) => Promise<ListPage>;
+  more: (cursor: string | null) => Promise<ListPage>;
   // How many pages the address asks for.
   pages: number;
   // The cursor the first page began at, when the address names one.

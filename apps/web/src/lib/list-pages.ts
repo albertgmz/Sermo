@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SermoError } from "@/lib/sermo/errors";
 
 // One row of a list drawn on the server: its key and what it shows.
 export type ListRow = { key: string; node: ReactNode };
@@ -53,17 +54,24 @@ export function placeHref(href: string, count: number) {
 
 // The pages an address asks for: the first one, which the screen has already read, and the next
 // ones through `more`, the same function the browser calls when the visitor scrolls. A failure is
-// the screen's, as it is for the first page.
+// the screen's only for the first page: the first page the backend does not give (a rate limit, a
+// failure) ends the restoring, the screen shows the pages it has, and the list offers the rest as
+// it does for any later page.
 export async function restorePages(
   first: ListPage,
-  more: (cursor: string) => Promise<ListPage>,
+  more: (cursor: string | null) => Promise<ListPage>,
   count: number,
 ) {
   const pages = [first];
   while (pages.length < count) {
     const cursor = pages[pages.length - 1].nextCursor;
     if (!cursor) break;
-    pages.push(await more(cursor));
+    try {
+      pages.push(await more(cursor));
+    } catch (error) {
+      if (!(error instanceof SermoError)) throw error;
+      break;
+    }
   }
   return pages;
 }

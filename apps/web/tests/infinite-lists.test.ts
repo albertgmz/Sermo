@@ -46,7 +46,9 @@ for (const [name, screen, action] of SCREENS) {
     const code = source(screen);
     expect(code).toContain("<PagedList");
     expect(code).not.toContain("LoadMore");
-    expect(code).toMatch(/pages=\{pagesParam\(|pages=\{pages\}/);
+    expect(code).toMatch(
+      /pages=\{pagesParam\(|pages=\{pages\}|pages=\{Math\.min\(pages,/,
+    );
     expect(code).toMatch(/more=\{more\w+(\.bind\([^)]*\))?\}/);
   });
 
@@ -61,6 +63,9 @@ for (const [name, screen, action] of SCREENS) {
       "utf8",
     );
     expect(code.startsWith('"use server";')).toBe(true);
+    // A stale cursor or an ended session ends the list; it is no 404 or sign-in page mid-scroll.
+    expect(code).toMatch(/endQuietly|endsTheList/);
+    expect(code).not.toContain("read(");
   });
 }
 

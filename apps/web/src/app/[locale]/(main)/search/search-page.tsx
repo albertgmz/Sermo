@@ -21,12 +21,12 @@ const titleLinkClass =
 // search) is shown as it is worded; a failure of the backend itself is not ours to hide.
 export async function refusal<T>(
   pending: Promise<T>,
-): Promise<{ value: T } | { message: string }> {
+): Promise<{ value: T } | { message: string; code: string }> {
   try {
     return { value: await pending };
   } catch (error) {
     if (!(error instanceof SermoError) || error.status >= 500) throw error;
-    return { message: await errorMessage(error) };
+    return { message: await errorMessage(error), code: error.code };
   }
 }
 

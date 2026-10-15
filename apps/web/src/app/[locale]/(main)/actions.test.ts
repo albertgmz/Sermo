@@ -216,13 +216,18 @@ test("the viewing mode goes back to a path of this site and to nowhere else", as
   }
 });
 
-test("a reply from a feed card is one write and returns to the feed address it was written on", async () => {
-  for (const page of ["/", "/?tab=following", "/?tab=top&cursor=abc"]) {
+test("a reply from a feed card is one write and returns to the feed address it was written on, pages included", async () => {
+  for (const page of [
+    "/",
+    "/?tab=following",
+    "/?tab=top&cursor=abc",
+    "/?pages=4",
+    "/?tab=top&cursor=abc&pages=3",
+  ]) {
     refreshed = 0;
+    onPage(`http://localhost:3105${page}`);
     const asked = backend(Response.json(postBody({ threadId: 7 })));
-    const parts = await redirectOf(
-      replyFromFeed(7, page, {}, replyForm("hello")),
-    );
+    const parts = await redirectOf(replyFromFeed(7, {}, replyForm("hello")));
     expect(parts?.[0]).toBe("NEXT_REDIRECT");
     expect(parts?.[2]).toBe(page);
     expect(asked).toHaveLength(1);
@@ -235,37 +240,39 @@ test("a reply from a feed card is one write and returns to the feed address it w
 });
 
 test("a refused reply from a feed card answers its form with the backend's message and goes nowhere", async () => {
+  onPage("http://localhost:3105/?tab=top");
   backend(refusal(403, "forbidden", "This thread is locked."));
-  expect(await replyFromFeed(7, "/?tab=top", {}, replyForm("hello"))).toEqual({
+  expect(await replyFromFeed(7, {}, replyForm("hello"))).toEqual({
     error: "This thread is locked.",
   });
   expect(refreshed).toBe(0);
 });
 
-test("a reply from a feed card does not follow a return path that leaves the site", async () => {
-  for (const page of ["https://elsewhere.example/", "//elsewhere.example"]) {
+test("a reply from a feed card does not follow an address that is not on this site", async () => {
+  for (const [referer, host] of [
+    ["https://elsewhere.example/?pages=2", "localhost:3105"],
+    [undefined, undefined],
+  ] as const) {
+    onPage(referer, host);
     backend(Response.json(postBody({ threadId: 7 })));
-    const parts = await redirectOf(
-      replyFromFeed(7, page, {}, replyForm("hello")),
-    );
+    const parts = await redirectOf(replyFromFeed(7, {}, replyForm("hello")));
     expect(parts?.[0]).toBe("NEXT_REDIRECT");
     expect(parts?.[2]).toBe("/");
   }
 });
 
-test("a guest who replies from a feed card is sent to sign in and back to the feed", async () => {
+test("a guest who replies from a feed card is sent to sign in and back to the feed as they had it", async () => {
+  onPage("http://localhost:3105/?tab=top&pages=3");
   backend(refusal(401, "unauthenticated"));
-  const parts = await redirectOf(
-    replyFromFeed(7, "/?tab=top", {}, replyForm("hello")),
-  );
-  expect(parts?.[2]).toBe("/login?next=%2F%3Ftab%3Dtop");
+  const parts = await redirectOf(replyFromFeed(7, {}, replyForm("hello")));
+  expect(parts?.[2]).toBe("/login?next=%2F%3Ftab%3Dtop%26pages%3D3");
   expect(refreshed).toBe(0);
 });
 
 test("a thread id that is not a record id never reaches the backend", async () => {
   const asked = backend(Response.json(postBody()));
   await expect(
-    replyFromFeed(Number.NaN, "/", {}, replyForm("hello")),
+    replyFromFeed(Number.NaN, {}, replyForm("hello")),
   ).rejects.toThrow();
   expect(asked).toHaveLength(0);
 });

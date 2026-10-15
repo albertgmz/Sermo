@@ -7,6 +7,7 @@ import {
   placeHref,
   restorePages,
 } from "./list-pages";
+import { SermoError } from "./sermo/errors";
 import { recorded } from "./test-calls";
 
 const page = (nextCursor: string | null): ListPage => ({
@@ -45,8 +46,8 @@ test("the address keeps the number of pages and nothing else of it changes", () 
 });
 
 test("restoring draws the pages the address asks for, through the cursors, and stops at the end", async () => {
-  const more = recorded(async (cursor: string) =>
-    page(cursor === "c3" ? null : `c${Number(cursor.slice(1)) + 1}`),
+  const more = recorded(async (cursor: string | null) =>
+    page(cursor === "c3" ? null : `c${Number((cursor ?? "c0").slice(1)) + 1}`),
   );
   const three = await restorePages(page("c1"), more, 3);
   expect(three).toHaveLength(3);
@@ -62,4 +63,25 @@ test("restoring draws the pages the address asks for, through the cursors, and s
   expect(more.calls).toHaveLength(0);
   expect(await restorePages(page("c1"), more, 1)).toHaveLength(1);
   expect(more.calls).toHaveLength(0);
+});
+
+test("restoring stops at the first page the backend does not give and draws the pages it has", async () => {
+  const more = recorded(async (cursor: string | null) => {
+    if (cursor === "c2") throw new SermoError("rate_limited", 429, "slow down");
+    return page(`c${Number((cursor ?? "c0").slice(1)) + 1}`);
+  });
+  const pages = await restorePages(page("c1"), more, 6);
+  expect(pages).toHaveLength(2);
+  expect(more.calls).toEqual([["c1"], ["c2"]]);
+});
+
+test("a failure that is not the backend's is not hidden", async () => {
+  const more = async () => {
+    throw new Error("boom");
+  };
+  let raised = false;
+  await restorePages(page("c1"), more, 3).catch(() => {
+    raised = true;
+  });
+  expect(raised).toBe(true);
 });

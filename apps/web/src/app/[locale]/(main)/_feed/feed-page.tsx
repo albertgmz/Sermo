@@ -24,9 +24,13 @@ export function feedHref(tab: Tab, cursor?: string) {
 }
 
 // One page of the feed, drawn: the home page's first page and each page the browser asks for.
-export async function feedPage(tab: Tab, cursor?: string): Promise<ListPage> {
+export async function feedPage(
+  tab: Tab,
+  cursor?: string,
+  reader: typeof read = read,
+): Promise<ListPage> {
   const [feed, viewer, reactionTypes] = await Promise.all([
-    read(feedList, { scope: tab, cursor }),
+    reader(feedList, { scope: tab, cursor }),
     getViewer(),
     getReactionTypes(),
   ]);
@@ -56,7 +60,6 @@ export async function feedPage(tab: Tab, cursor?: string): Promise<ListPage> {
             viewerId={viewer.user?.id ?? null}
             picker={picker}
             reactionTypes={reactionTypes}
-            returnTo={feedHref(tab, cursor)}
           />
         ),
       };

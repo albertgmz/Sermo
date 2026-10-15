@@ -1,9 +1,11 @@
 "use server";
 
 import { conversationsPage } from "@/app/[locale]/(main)/conversations/conversation-page";
+import { call } from "@/lib/sermo/client";
+import { endQuietly } from "@/lib/sermo/list-actions";
 
-// The next page of the list, drawn on the server so the avatars keep reading the LITE cookie.
-// Called as the visitor scrolls.
-export async function moreConversations(cursor: string) {
-  return conversationsPage(cursor);
+// A page of the list after the first, drawn on the server so the avatars keep reading the LITE
+// cookie. Called as the visitor scrolls; `null` is the first page.
+export async function moreConversations(cursor: string | null) {
+  return endQuietly(() => conversationsPage(cursor ?? undefined, call));
 }

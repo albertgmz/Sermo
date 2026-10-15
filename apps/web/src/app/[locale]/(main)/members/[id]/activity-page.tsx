@@ -49,9 +49,10 @@ function ActivityTitle({
 export async function postsPage(
   userId: number,
   cursor?: string,
+  reader: typeof read = read,
 ): Promise<ListPage> {
   const [{ items, nextCursor }, t, format] = await Promise.all([
-    read(postsByAuthor, { userId, cursor }),
+    reader(postsByAuthor, { userId, cursor }),
     getTranslations("members.profile"),
     getFormatter(),
   ]);
@@ -93,9 +94,10 @@ export async function postsPage(
 export async function threadsPage(
   userId: number,
   cursor?: string,
+  reader: typeof read = read,
 ): Promise<ListPage> {
   const [{ items, nextCursor }, t, format] = await Promise.all([
-    read(threadsByAuthor, { userId, cursor }),
+    reader(threadsByAuthor, { userId, cursor }),
     getTranslations("members.profile"),
     getFormatter(),
   ]);

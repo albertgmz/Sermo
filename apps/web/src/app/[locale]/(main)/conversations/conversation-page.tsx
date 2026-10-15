@@ -6,8 +6,11 @@ import { membersFor } from "@/lib/sermo/members";
 
 // One page of the member's conversations, drawn: the list's first page and each page the browser
 // asks for.
-export async function conversationsPage(cursor?: string): Promise<ListPage> {
-  const { items, nextCursor } = await read(conversationsList, { cursor });
+export async function conversationsPage(
+  cursor?: string,
+  reader: typeof read = read,
+): Promise<ListPage> {
+  const { items, nextCursor } = await reader(conversationsList, { cursor });
   const member = await membersFor(items.map((c) => c.lastMessage.user));
   return {
     nextCursor,
