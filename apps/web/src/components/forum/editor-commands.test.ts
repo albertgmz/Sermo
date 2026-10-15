@@ -9,6 +9,7 @@ import { $createLinkNode, $isLinkNode, LinkNode } from "@lexical/link";
 import {
   $createListItemNode,
   $createListNode,
+  $isListNode,
   ListItemNode,
   ListNode,
 } from "@lexical/list";
@@ -20,6 +21,7 @@ import {
   QuoteNode,
 } from "@lexical/rich-text";
 import {
+  $createLineBreakNode,
   $createParagraphNode,
   $createTextNode,
   $getRoot,
@@ -30,8 +32,11 @@ import {
   $setSelection,
   createEditor,
   type EditorState,
+  type ElementNode,
+  KEY_DOWN_COMMAND,
   type LexicalNode,
   type TextFormatType,
+  type TextNode,
 } from "lexical";
 import {
   $applyLink,
@@ -40,6 +45,7 @@ import {
   $removeAttachTags,
   $removeFormatting,
   $wrapSelection,
+  registerRemoveFormattingShortcut,
 } from "./editor-commands";
 
 // An editor holding one paragraph, with the caret (or the range) set by `select`.
@@ -434,7 +440,7 @@ test("tags in inline code are shown as written", () => {
   });
 });
 
-test("the whole clean is one update, so one Undo restores everything", () => {
+test("the clean is one update, and the state before it holds everything", () => {
   const editor = richEditor(() => {
     $getRoot().append(
       $createHeadingNode("h2").append(formatted("[b]x[/b] bold", "bold")),
@@ -447,9 +453,234 @@ test("the whole clean is one update, so one Undo restores everything", () => {
     previous.push(prevEditorState),
   );
   run(editor, () => $removeFormatting());
-  // The history records the state before each update: one update is one Undo step.
+  // The history plugin records the state before each update, so a clean that is one update is one
+  // Undo step. This checks that the clean is one update and that the state before it is whole; the
+  // plugin itself is not driven here (@lexical/history is not a dependency of this app).
   expect(previous).toHaveLength(1);
   expect(markdownOf(editor)).not.toBe(before);
   editor.setEditorState(previous[0] as EditorState);
   expect(markdownOf(editor)).toBe(before);
+});
+
+// The top-level blocks as "type:text", with the items of a list joined by "|".
+function outline(editor: ReturnType<typeof createEditor>) {
+  return editor.read(() =>
+    $getRoot()
+      .getChildren()
+      .map((block) =>
+        $isListNode(block)
+          ? `${block.getType()}:${block
+              .getChildren()
+              .map((item) => item.getTextContent())
+              .join("|")}`
+          : `${block.getType()}:${block.getTextContent()}`,
+      ),
+  );
+}
+
+test("a selection takes only the touched list items out of the list", () => {
+  const editor = richEditor(() => {
+    const b = $createTextNode("b");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append($createTextNode("a")),
+        $createListItemNode().append(b),
+        $createListItemNode().append($createTextNode("c")),
+      ),
+    );
+    b.select(0, 1);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["list:a", "paragraph:b", "list:c"]);
+});
+
+test("a selection over the first items leaves the rest in the list", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("a");
+    const b = $createTextNode("b");
+    $getRoot().append(
+      $createListNode("number").append(
+        $createListItemNode().append(a),
+        $createListItemNode().append(b),
+        $createListItemNode().append($createTextNode("c")),
+      ),
+    );
+    a.select(0, 0).focus.set(b.getKey(), 1, "text");
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:a", "paragraph:b", "list:c"]);
+});
+
+test("a selected nested list item leaves the list and the others stay", () => {
+  let inner: TextNode | undefined;
+  const editor = richEditor(() => {
+    inner = $createTextNode("child");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append($createTextNode("top")),
+        $createListItemNode().append(
+          $createListNode("bullet").append(
+            $createListItemNode().append(inner),
+            $createListItemNode().append($createTextNode("sibling")),
+          ),
+        ),
+      ),
+    );
+    inner.select(0, 5);
+  });
+  run(editor, () => $removeFormatting());
+  editor.read(() => {
+    const kinds = $getRoot()
+      .getChildren()
+      .map((block) => block.getType());
+    expect(kinds).toEqual(["list", "paragraph", "list"]);
+    const text = $getRoot()
+      .getChildren()
+      .map((b) => b.getTextContent());
+    expect(text).toEqual(["top", "child", "sibling"]);
+  });
+});
+
+test("with nothing selected every list item becomes a paragraph", () => {
+  const editor = richEditor(() => {
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append($createTextNode("a")),
+        $createListItemNode().append($createTextNode("b")),
+      ),
+    );
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:a", "paragraph:b"]);
+});
+
+function quoteOf(...lines: (string | TextNode)[]) {
+  const quote = $createQuoteNode();
+  lines.forEach((line, index) => {
+    if (index) quote.append($createLineBreakNode());
+    quote.append(typeof line === "string" ? $createTextNode(line) : line);
+  });
+  return quote;
+}
+
+test("a selection takes only the touched lines out of a quote", () => {
+  const editor = richEditor(() => {
+    const two = $createTextNode("two");
+    $getRoot().append(quoteOf("one", two, "three"));
+    two.select(0, 3);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    "quote:one",
+    "paragraph:two",
+    "quote:three",
+  ]);
+});
+
+test("with nothing selected a quote becomes one paragraph with its lines", () => {
+  const editor = richEditor(() => {
+    $getRoot().append(quoteOf("one", "two"));
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:one\ntwo"]);
+});
+
+test("typed QUOTE tags, with or without attribution, are stripped", () => {
+  const editor = richEditor(() => {
+    $getRoot().append(
+      $createParagraphNode().append(
+        $createTextNode(
+          '[QUOTE]hi[/QUOTE] [QUOTE="wren, post: 1"]there[/QUOTE]',
+        ),
+      ),
+    );
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:hi there"]);
+});
+
+test("typed LIST tags are stripped and their items become separate lines", () => {
+  const editor = richEditor(() => {
+    $getRoot().append(
+      $createParagraphNode().append(
+        $createTextNode("[LIST][*]one[*][b]two[/b][/LIST] after"),
+      ),
+      $createParagraphNode().append($createTextNode("[LIST=1][*]x[*]y[/LIST]")),
+    );
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    "paragraph:one\ntwo after",
+    "paragraph:x\ny",
+  ]);
+  editor.read(() => {
+    const kinds = ($getRoot().getFirstChild() as ElementNode)
+      .getChildren()
+      .map((node) => node.getType());
+    expect(kinds).toEqual(["text", "linebreak", "text"]);
+  });
+});
+
+test("IMG, EMAIL, URL, USER, PLAIN and TABLE tags stay as typed", () => {
+  const text =
+    "[IMG]https://a.test/x.png[/IMG] [EMAIL]a@b.test[/EMAIL] [URL=https://a.test]a[/URL] [USER=3]w[/USER] [PLAIN]p[/PLAIN] [TABLE][TR][TD]c[/TD][/TR][/TABLE]";
+  const editor = richEditor(() => {
+    $getRoot().append($createParagraphNode().append($createTextNode(text)));
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([`paragraph:${text}`]);
+});
+
+// A key event as the editor receives it, without a DOM.
+function keyEvent(init: Partial<KeyboardEvent>) {
+  let prevented = 0;
+  const event = {
+    key: "\\",
+    ctrlKey: true,
+    metaKey: false,
+    shiftKey: false,
+    altKey: false,
+    preventDefault: () => prevented++,
+    ...init,
+  } as KeyboardEvent;
+  return { event, prevented: () => prevented };
+}
+
+function shortcutEditor() {
+  const editor = richEditor(() => {
+    $getRoot().append($createParagraphNode().append(formatted("text", "bold")));
+  });
+  registerRemoveFormattingShortcut(editor);
+  const updates: number[] = [];
+  editor.registerUpdateListener(() => updates.push(1));
+  return { editor, updates };
+}
+
+test("Ctrl+\\ cleans once and stops the key", () => {
+  const { editor, updates } = shortcutEditor();
+  const { event, prevented } = keyEvent({});
+  editor.dispatchCommand(KEY_DOWN_COMMAND, event);
+  editor.read(() => {
+    expect($getRoot().getAllTextNodes()[0]?.getFormat()).toBe(0);
+  });
+  expect(prevented()).toBe(1);
+  expect(updates).toHaveLength(1);
+});
+
+test("other keys, Shift or Alt with the backslash, and no Ctrl do nothing", () => {
+  const { editor, updates } = shortcutEditor();
+  for (const init of [
+    { key: "q" },
+    { shiftKey: true },
+    { altKey: true },
+    { ctrlKey: false },
+  ]) {
+    const { event, prevented } = keyEvent(init);
+    editor.dispatchCommand(KEY_DOWN_COMMAND, event);
+    expect(prevented()).toBe(0);
+  }
+  editor.read(() => {
+    expect($getRoot().getAllTextNodes()[0]?.getFormat()).toBe(1);
+  });
+  expect(updates).toHaveLength(0);
 });

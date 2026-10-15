@@ -64,8 +64,6 @@ import {
   type EditorState,
   type ElementNode,
   FORMAT_TEXT_COMMAND,
-  IS_APPLE,
-  KEY_DOWN_COMMAND,
   type LexicalEditor,
   mergeRegister,
   PASTE_COMMAND,
@@ -106,6 +104,7 @@ import {
   $removeAttachTags,
   $removeFormatting,
   $wrapSelection,
+  registerRemoveFormattingShortcut,
 } from "@/components/forum/editor-commands";
 import {
   InsertPlugin,
@@ -221,32 +220,9 @@ function initialEditorState(markdown: string): string | undefined {
   return state.isEmpty() ? undefined : JSON.stringify(state);
 }
 
-// Ctrl+\ (Cmd+\ on a Mac, where Lexical maps its other shortcuts the same way) takes the
-// formatting off, in editors with the bar and without it.
 function RemoveFormattingShortcut() {
   const [editor] = useLexicalComposerContext();
-  useEffect(
-    () =>
-      editor.registerCommand(
-        KEY_DOWN_COMMAND,
-        (event) => {
-          const modifier = IS_APPLE ? event.metaKey : event.ctrlKey;
-          if (
-            event.key !== "\\" ||
-            !modifier ||
-            event.shiftKey ||
-            event.altKey
-          ) {
-            return false;
-          }
-          event.preventDefault();
-          editor.update(() => $removeFormatting());
-          return true;
-        },
-        COMMAND_PRIORITY_LOW,
-      ),
-    [editor],
-  );
+  useEffect(() => registerRemoveFormattingShortcut(editor), [editor]);
   return null;
 }
 
