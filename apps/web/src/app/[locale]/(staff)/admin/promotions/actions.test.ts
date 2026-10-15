@@ -41,7 +41,7 @@ const PROMOTION = {
   id: 5,
   title: "Regulars",
   isActive: true,
-  criteria: [{ criterion: "post_count", value: 50 }],
+  rule: { match: "all", conditions: [{ criterion: "post_count", value: 50 }] },
   groupIds: [7],
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
@@ -91,7 +91,10 @@ test("only the criteria the backend lists and the form ticked are sent", async (
       actorPassword: "secret",
       title: "Regulars",
       isActive: true,
-      criteria: [{ criterion: "post_count", value: 50 }],
+      rule: {
+        match: "all",
+        conditions: [{ criterion: "post_count", value: 50 }],
+      },
       groupIds: [7, 8],
     },
   });
@@ -117,7 +120,7 @@ test("an edited promotion goes to its own address with the ticked groups", async
   expect(backend.asked.at(-1)?.path).toBe("/api/v1/promotions/5");
   expect(backend.asked.at(-1)?.body).toMatchObject({
     isActive: false,
-    criteria: [],
+    rule: { match: "all", conditions: [] },
     groupIds: [7, 9],
   });
 });
@@ -137,7 +140,7 @@ test("a criterion value that is not a number is refused before saving", async ()
       ]),
     ),
   ).toEqual({
-    fields: { criteria: messages.adminGroups.errors.criterionValue },
+    fields: { rule: messages.adminGroups.errors.criterionValue },
   });
 });
 
@@ -243,4 +246,32 @@ test("a promotion is deleted with the password in the write, and a refused one s
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
   expect(backend.asked).toEqual([]);
+});
+
+test("an edit keeps how the rule matches and the conditions the form does not draw", async () => {
+  backend = fakeBackend({
+    "promotions.criteria": () => Response.json(CRITERIA),
+    "promotions.update": () => Response.json(PROMOTION),
+  });
+  const kept = [{ criterion: "in_group", ids: [3] }];
+  await redirectedTo(() =>
+    savePromotion(
+      null,
+      form([
+        ["id", "5"],
+        ["title", "Regulars"],
+        ["rule:match", "any"],
+        ["rule:kept", JSON.stringify(kept)],
+        ["use:post_count", "on"],
+        ["value:post_count", "50"],
+        ["groupIds", "7"],
+      ]),
+    ),
+  );
+  expect(backend.asked.at(-1)?.body).toMatchObject({
+    rule: {
+      match: "any",
+      conditions: [{ criterion: "post_count", value: 50 }, ...kept],
+    },
+  });
 });

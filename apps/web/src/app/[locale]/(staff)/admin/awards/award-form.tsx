@@ -24,9 +24,6 @@ export async function AwardForm({ award }: { award?: Award }) {
     read(awardsCriteria, {}),
   ]);
   const key = `award-${award?.id ?? "new"}`;
-  const values = new Map(
-    award?.criteria.map((entry) => [entry.criterion, entry.value]),
-  );
   return (
     <FormRows
       action={saveAward}
@@ -161,7 +158,7 @@ export async function AwardForm({ award }: { award?: Award }) {
       <CriteriaFields
         namespace="adminEconomy.awards.form"
         criteria={criteria}
-        values={values}
+        rule={award?.rule}
         showHelp={false}
       />
     </FormRows>

@@ -2,6 +2,7 @@ import * as z from "zod";
 import { SHOP_INVENTORY_STATES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, IconKey, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { CriteriaRule } from "./criteria";
 import { ImageReference } from "./images";
 
 /**
@@ -59,6 +60,8 @@ export const ShopCategory = z
     description: z.string(),
     position: z.number().int(),
     isActive: z.boolean(),
+    /** Who sees and may buy from it; no conditions = everyone. Only shown with admin.shop, empty otherwise. */
+    rule: CriteriaRule,
     createdAt: Timestamp,
     updatedAt: Timestamp,
   })
@@ -85,6 +88,8 @@ export const ShopItem = z
     durationSeconds: z.number().int().positive().nullable(),
     effect: ShopEffect,
     position: z.number().int(),
+    /** Who sees and may buy it; no conditions = everyone. Only shown with admin.shop, empty otherwise. */
+    rule: CriteriaRule,
     createdAt: Timestamp,
     updatedAt: Timestamp,
   })
@@ -131,12 +136,14 @@ const CategoryInput = {
   description: z.string().trim().max(500),
   position: z.number().int().min(0).max(1_000_000),
   isActive: z.boolean(),
+  rule: CriteriaRule,
 };
 
 export const shopCategoriesList = defineContract({
   name: "shopCategories.list",
   summary:
-    "Shop categories in display order. Open to everyone; inactive categories only with admin.shop.",
+    "Shop categories in display order. Open to everyone; inactive categories only with admin.shop. " +
+    "A category whose rule does not hold for the viewer is left out (with admin.shop, all are listed).",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(ShopCategory) }),
@@ -151,6 +158,7 @@ export const shopCategoriesCreate = defineContract({
     description: CategoryInput.description.default(""),
     position: CategoryInput.position.default(0),
     isActive: CategoryInput.isActive.default(true),
+    rule: CategoryInput.rule.default({ match: "all", conditions: [] }),
   }),
   output: ShopCategory,
 });
@@ -166,6 +174,7 @@ export const shopCategoriesUpdate = defineContract({
     description: CategoryInput.description.optional(),
     position: CategoryInput.position.optional(),
     isActive: CategoryInput.isActive.optional(),
+    rule: CategoryInput.rule.optional(),
   }),
   output: ShopCategory,
 });
@@ -198,13 +207,15 @@ const ItemInput = {
     .nullable(),
   effect: ShopEffect,
   position: z.number().int().min(0).max(1_000_000),
+  rule: CriteriaRule,
 };
 
 export const shopItemsList = defineContract({
   name: "shopItems.list",
   summary:
     "The items of one category in display order. Open to everyone; inactive items, and the " +
-    "items of an inactive category, only with admin.shop.",
+    "items of an inactive category, only with admin.shop. Items whose rule (or whose category's) " +
+    "does not hold for the viewer are left out, with admin.shop all are listed.",
   kind: "read",
   input: z.object({ categoryId: Id, ...pageInput }),
   output: Page(ShopItem),
@@ -212,7 +223,9 @@ export const shopItemsList = defineContract({
 
 export const shopItemsGet = defineContract({
   name: "shopItems.get",
-  summary: "One shop item. Open to everyone; an inactive item only with admin.shop.",
+  summary:
+    "One shop item. Open to everyone; an inactive item, or one whose rule (or whose category's) " +
+    "does not hold for the viewer, only with admin.shop (not found otherwise).",
   kind: "read",
   input: z.object({ itemId: Id }),
   output: ShopItem,
@@ -221,7 +234,7 @@ export const shopItemsGet = defineContract({
 export const shopItemsCreate = defineContract({
   name: "shopItems.create",
   summary:
-    "Create a shop item. A `frame`, `nameColor` or `threadCover` effect must name an entry of " +
+    "Create a shop item. Its rule, and a category's, may only use `cheap` criteria. A `frame`, `nameColor` or `threadCover` effect must name an entry of " +
     "its catalog that has a picture or a colour. A `usernameChange` effect needs a consumable item " +
     "(a validation error naming `isConsumable` otherwise), a `nameIcon` effect an item that is not " +
     "(a validation error naming `isConsumable`). A consumable has no duration and cannot have a `group` effect. A " +
@@ -240,6 +253,7 @@ export const shopItemsCreate = defineContract({
     isGiftable: ItemInput.isGiftable.default(false),
     durationSeconds: ItemInput.durationSeconds.default(null),
     position: ItemInput.position.default(0),
+    rule: ItemInput.rule.default({ match: "all", conditions: [] }),
   }),
   output: ShopItem,
 });
@@ -265,6 +279,7 @@ export const shopItemsUpdate = defineContract({
     durationSeconds: ItemInput.durationSeconds.optional(),
     effect: ItemInput.effect.optional(),
     position: ItemInput.position.optional(),
+    rule: ItemInput.rule.optional(),
   }),
   output: ShopItem,
 });
@@ -285,6 +300,7 @@ export const shopBuy = defineContract({
   name: "shop.buy",
   summary:
     "Buy an active item of an active category, for yourself or, with `recipientId`, as a gift. " +
+    "An item the buyer cannot see because of its rule (or its category's) is not found. " +
     "In one transaction: charges the buyer price x quantity (a conflict when the balance or the " +
     "stock is short), adds the item to the recipient's inventory, lowers the stock and records " +
     "the purchase. A consumable adds `quantity` units; any other item takes quantity 1 and is a " +

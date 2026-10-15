@@ -23,7 +23,7 @@ async function world() {
   const group = await w.run("groups.create", founder.actor, { title: "Earned" });
   const promotion = await w.run("promotions.create", founder.actor, {
     title: "Rule",
-    criteria: [{ criterion: "post_count", value: 0 }],
+    rule: { match: "all", conditions: [{ criterion: "post_count", value: 0 }] },
     groupIds: [group.id],
   });
   const category = await w.run("shopCategories.create", founder.actor, { name: "Gifts" });

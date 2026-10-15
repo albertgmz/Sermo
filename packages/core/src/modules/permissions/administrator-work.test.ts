@@ -95,7 +95,7 @@ describe("administrator guard work for one affected member", () => {
     const promotionId = Number(
       ctx.sqlite
         .prepare(
-          "INSERT INTO promotions (title, criteria, group_ids, created_at, updated_at) VALUES ('Promotion', '[]', '[3]', ?1, ?1)",
+          "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('Promotion', '[3]', ?1, ?1)",
         )
         .run(ctx.now()).lastInsertRowid,
     );
@@ -118,7 +118,7 @@ describe("administrator guard work for one affected member", () => {
     const promotionId = Number(
       ctx.sqlite
         .prepare(
-          "INSERT INTO promotions (title, criteria, group_ids, created_at, updated_at) VALUES ('Cleared', '[]', '[]', ?1, ?1)",
+          "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('Cleared', '[]', ?1, ?1)",
         )
         .run(ctx.now()).lastInsertRowid,
     );

@@ -4,6 +4,7 @@ import { type Ctx, prepared } from "../../context";
 import { ShopEffect, type ShopItem } from "../../contracts/shop";
 import type { ShopInventoryState } from "../../db/schema";
 import { NotFoundError } from "../../errors";
+import { everyone, parseRule } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { publicPicture } from "../storage/url";
@@ -16,6 +17,7 @@ export type CategoryRow = {
   description: string;
   position: number;
   is_active: number;
+  rule: string;
   created_at: number;
   updated_at: number;
 };
@@ -82,12 +84,14 @@ export function item(ctx: Ctx, id: number): ItemRow {
   if (!row) throw new NotFoundError();
   return row;
 }
-export const categoryValue = (row: CategoryRow) => ({
+/** The rule is shown only to those who manage the shop (`withRule`); everyone else gets an empty one. */
+export const categoryValue = (row: CategoryRow, withRule = false) => ({
   id: row.id,
   name: row.name,
   description: row.description,
   position: row.position,
   isActive: !!row.is_active,
+  rule: withRule ? parseRule(row.rule) : everyone(),
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),
 });
@@ -101,8 +105,8 @@ function parseEffect(row: ItemRow): Effect {
   }
   throw new Error(`The stored effect of shop item ${row.id} cannot be read.`);
 }
-export const itemValue = (ctx: Ctx, row: ItemRow): Item => ({
-  ...categoryValue(row),
+export const itemValue = (ctx: Ctx, row: ItemRow, withRule = false): Item => ({
+  ...categoryValue(row, withRule),
   categoryId: row.category_id,
   icon: row.icon,
   image: publicPicture(ctx, row.image_file_id),

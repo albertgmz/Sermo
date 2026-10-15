@@ -22,9 +22,8 @@ test("award hot queries use indexed lookups and keyset order", () => {
       [awardSql.everGranted, [1]],
       [awardSql.revoke, [ctx.now(), 1, 1]],
       [claimSql, [1, 1, 0, ctx.now(), 0]],
-      [evaluationSql.member, [1, ctx.now()]],
+      [evaluationSql.member, [1]],
       [evaluationSql.members, [0, SWEEP_CHUNK]],
-      [evaluationSql.warnings, ["[1,2]", ctx.now()]],
       [evaluationSql.totals, ["[1,2]"]],
       ["SELECT id, username FROM users WHERE id IN (SELECT value FROM json_each(?1))", ["[1,2]"]],
       [

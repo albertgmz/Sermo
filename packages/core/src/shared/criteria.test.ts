@@ -1,30 +1,258 @@
 import { describe, expect, test } from "bun:test";
 import type { Ctx } from "../context";
-import { createTestContext, insertUser } from "../testing";
+import { ValidationError } from "../errors";
+import { createTestContext, expectNoTableScan, insertUser, userActor } from "../testing";
 import {
-  attachPurchasedItems,
-  CRITERIA_USER_COLUMNS,
-  type Criterion,
-  criterionIds,
-  eligible,
-  type MemberFacts,
+  actorFacts,
+  assertRule,
+  type Condition,
+  criterionDefinitions,
+  evaluate,
+  everyone,
+  type Facts,
+  guestFacts,
+  loadFacts,
+  type Rule,
 } from "./criteria";
 
-const facts = (overrides: Partial<MemberFacts> = {}): MemberFacts => ({
-  post_count: 0,
-  created_at: 0,
-  reaction_score: 0,
-  email_verified: 0,
-  avatar_file_id: null,
-  last_activity_at: null,
-  warning_points: 0,
+const NOW = 100 * 86_400_000;
+const DAY = 86_400_000;
+const facts = (overrides: Partial<Facts> = {}): Facts => ({
+  memberId: 1,
+  now: NOW,
+  postCount: 0,
+  createdAt: NOW,
+  reactionScore: 0,
+  emailVerified: false,
+  hasAvatar: false,
+  lastActivityAt: null,
   credits: 0,
-  shop_purchase_count: 0,
+  purchaseCount: 0,
+  warningPoints: 0,
+  purchasedItemIds: new Set(),
+  groupIds: new Set(),
   ...overrides,
 });
-const NOW = 10_000_000;
-const check = (member: MemberFacts, criterion: string, value: number) =>
-  eligible(member, [{ criterion, value }], NOW);
+const all = (...conditions: Condition[]): Rule => ({ match: "all", conditions });
+const any = (...conditions: Condition[]): Rule => ({ match: "any", conditions });
+
+type Case = [label: string, condition: Omit<Condition, "criterion">, member: Facts, holds: boolean];
+/** Every criterion of the registry: it holds, it does not hold, and the edge value. */
+const table: Record<string, Case[]> = {
+  post_count: [
+    ["above", { value: 10 }, facts({ postCount: 11 }), true],
+    ["edge", { value: 10 }, facts({ postCount: 10 }), true],
+    ["below", { value: 10 }, facts({ postCount: 9 }), false],
+  ],
+  days_registered: [
+    ["older", { value: 30 }, facts({ createdAt: NOW - 31 * DAY }), true],
+    ["edge", { value: 30 }, facts({ createdAt: NOW - 30 * DAY }), true],
+    ["newer", { value: 30 }, facts({ createdAt: NOW - 30 * DAY + 1 }), false],
+  ],
+  reaction_score: [
+    ["above", { value: 5 }, facts({ reactionScore: 6 }), true],
+    ["edge", { value: 5 }, facts({ reactionScore: 5 }), true],
+    ["below", { value: 5 }, facts({ reactionScore: 4 }), false],
+  ],
+  email_verified: [
+    ["verified, must be", { value: 1 }, facts({ emailVerified: true }), true],
+    ["unverified, must be", { value: 1 }, facts({ emailVerified: false }), false],
+    ["unverified, must not be", { value: 0 }, facts({ emailVerified: false }), true],
+    ["verified, must not be", { value: 0 }, facts({ emailVerified: true }), false],
+  ],
+  has_avatar: [
+    ["has one, must", { value: 1 }, facts({ hasAvatar: true }), true],
+    ["has none, must", { value: 1 }, facts({ hasAvatar: false }), false],
+    ["has none, must not", { value: 0 }, facts({ hasAvatar: false }), true],
+    ["has one, must not", { value: 0 }, facts({ hasAvatar: true }), false],
+  ],
+  active_within_days: [
+    ["recent", { value: 7 }, facts({ lastActivityAt: NOW - 3 * DAY }), true],
+    ["edge", { value: 7 }, facts({ lastActivityAt: NOW - 7 * DAY }), true],
+    ["too long ago", { value: 7 }, facts({ lastActivityAt: NOW - 7 * DAY - 1 }), false],
+    ["never active", { value: 7 }, facts({ lastActivityAt: null }), false],
+  ],
+  inactive_days: [
+    ["gone long", { value: 7 }, facts({ lastActivityAt: NOW - 8 * DAY }), true],
+    ["edge", { value: 7 }, facts({ lastActivityAt: NOW - 7 * DAY }), true],
+    ["recent", { value: 7 }, facts({ lastActivityAt: NOW - 7 * DAY + 1 }), false],
+    ["never active", { value: 7 }, facts({ lastActivityAt: null }), true],
+  ],
+  warning_points_below: [
+    ["under", { value: 5 }, facts({ warningPoints: 4 }), true],
+    ["edge is excluded", { value: 5 }, facts({ warningPoints: 5 }), false],
+    ["none, limit 0", { value: 0 }, facts({ warningPoints: 0 }), false],
+  ],
+  credits_at_least: [
+    ["above", { value: 100 }, facts({ credits: 101 }), true],
+    ["edge", { value: 100 }, facts({ credits: 100 }), true],
+    ["below", { value: 100 }, facts({ credits: 99 }), false],
+    ["negative balance", { value: 0 }, facts({ credits: -5 }), false],
+  ],
+  credits_at_most: [
+    ["below", { value: 100 }, facts({ credits: 99 }), true],
+    ["edge", { value: 100 }, facts({ credits: 100 }), true],
+    ["above", { value: 100 }, facts({ credits: 101 }), false],
+    ["negative balance counts", { value: 0 }, facts({ credits: -40 }), true],
+  ],
+  purchased_item: [
+    ["bought", { value: 7 }, facts({ purchasedItemIds: new Set([7, 8]) }), true],
+    ["bought another", { value: 7 }, facts({ purchasedItemIds: new Set([8]) }), false],
+    ["bought none", { value: 7 }, facts(), false],
+  ],
+  purchases_at_least: [
+    ["above", { value: 3 }, facts({ purchaseCount: 4 }), true],
+    ["edge", { value: 3 }, facts({ purchaseCount: 3 }), true],
+    ["below", { value: 3 }, facts({ purchaseCount: 2 }), false],
+    ["zero asked", { value: 0 }, facts({ purchaseCount: 0 }), true],
+  ],
+  is_guest: [
+    ["guest, must be", { value: 1 }, guestFacts(createTestContext()), true],
+    ["member, must be", { value: 1 }, facts(), false],
+    ["member, must not be", { value: 0 }, facts(), true],
+    ["guest, must not be", { value: 0 }, guestFacts(createTestContext()), false],
+  ],
+  in_group: [
+    ["in the group", { ids: [3] }, facts({ groupIds: new Set([2, 3]) }), true],
+    ["in one of several", { ids: [9, 3] }, facts({ groupIds: new Set([3]) }), true],
+    ["in another group", { ids: [3] }, facts({ groupIds: new Set([2]) }), false],
+    ["in none", { ids: [3] }, facts(), false],
+  ],
+  not_in_group: [
+    ["in another group", { ids: [3] }, facts({ groupIds: new Set([2]) }), true],
+    ["in the group", { ids: [3] }, facts({ groupIds: new Set([3]) }), false],
+    ["in one of several", { ids: [9, 3] }, facts({ groupIds: new Set([3]) }), false],
+    ["in none", { ids: [3] }, facts(), true],
+  ],
+  is_member: [
+    ["listed", { ids: [4, 1] }, facts({ memberId: 1 }), true],
+    ["not listed", { ids: [4, 5] }, facts({ memberId: 1 }), false],
+  ],
+};
+
+describe("evaluate: every criterion", () => {
+  test("the table covers the whole registry", () => {
+    expect(Object.keys(table).sort()).toEqual(criterionDefinitions.map((d) => d.id).sort());
+  });
+
+  for (const [criterion, cases] of Object.entries(table))
+    for (const [label, condition, member, holds] of cases)
+      test(`${criterion}: ${label}`, () => {
+        expect(evaluate(all({ criterion, ...condition }), member)).toBe(holds);
+      });
+});
+
+describe("evaluate: rules", () => {
+  const member = facts({ credits: 50, purchaseCount: 1 });
+  const atLeast50: Condition = { criterion: "credits_at_least", value: 50 };
+  const bought1: Condition = { criterion: "purchases_at_least", value: 1 };
+  const atMost49: Condition = { criterion: "credits_at_most", value: 49 };
+
+  test("an empty rule is everyone, whatever match says, guests included", () => {
+    expect(evaluate(everyone(), member)).toBe(true);
+    expect(evaluate(any(), member)).toBe(true);
+    expect(evaluate(everyone(), guestFacts(createTestContext()))).toBe(true);
+  });
+
+  test("all needs every condition", () => {
+    expect(evaluate(all(atLeast50, bought1), member)).toBe(true);
+    expect(evaluate(all(atLeast50, bought1, atMost49), member)).toBe(false);
+  });
+
+  test("any needs one condition", () => {
+    expect(evaluate(any(atMost49, bought1), member)).toBe(true);
+    expect(evaluate(any(atMost49, { criterion: "post_count", value: 1 }), member)).toBe(false);
+  });
+
+  test("a criterion that does not exist never holds", () => {
+    expect(evaluate(all({ criterion: "made_up", value: 0 }), member)).toBe(false);
+    expect(evaluate(any({ criterion: "made_up", value: 0 }), member)).toBe(false);
+    expect(evaluate(any({ criterion: "made_up", value: 0 }, bought1), member)).toBe(true);
+  });
+
+  test("a condition without what its criterion takes never holds", () => {
+    expect(evaluate(all({ criterion: "post_count" }), member)).toBe(false);
+    expect(evaluate(all({ criterion: "in_group" }), member)).toBe(false);
+  });
+
+  test("a guest satisfies only the audience criteria", () => {
+    const guest = guestFacts(createTestContext());
+    expect(evaluate(all({ criterion: "inactive_days", value: 0 }), guest)).toBe(false);
+    expect(evaluate(all({ criterion: "credits_at_most", value: 0 }), guest)).toBe(false);
+    expect(evaluate(all({ criterion: "is_member", ids: [1] }), guest)).toBe(false);
+    expect(evaluate(all({ criterion: "in_group", ids: [1] }), guest)).toBe(false);
+    expect(evaluate(all({ criterion: "not_in_group", ids: [2] }), guest)).toBe(true);
+    expect(evaluate(all({ criterion: "is_guest", value: 1 }), guest)).toBe(true);
+  });
+});
+
+describe("assertRule", () => {
+  const ctx = createTestContext();
+  const refuses = (rule: Rule, allowed: "cheap" | "background") =>
+    expect(() => assertRule(ctx, rule, allowed)).toThrow(ValidationError);
+
+  test("accepts the empty rule and every criterion with what it takes", () => {
+    assertRule(ctx, everyone(), "cheap");
+    assertRule(
+      ctx,
+      all(
+        { criterion: "post_count", value: 3 },
+        { criterion: "email_verified", value: 0 },
+        { criterion: "in_group", ids: [2, 3] },
+        { criterion: "is_member", ids: [1] },
+      ),
+      "cheap",
+    );
+  });
+
+  test("refuses an unknown criterion", () => {
+    refuses(all({ criterion: "made_up", value: 1 }), "background");
+  });
+
+  test("refuses a condition that lacks, or has too much of, what its criterion takes", () => {
+    refuses(all({ criterion: "post_count" }), "background");
+    refuses(all({ criterion: "post_count", value: 1, ids: [1] }), "background");
+    refuses(all({ criterion: "in_group", value: 1 }), "background");
+    refuses(all({ criterion: "in_group", ids: [1], value: 1 }), "background");
+    refuses(all({ criterion: "is_member" }), "background");
+  });
+
+  test("refuses a yes/no value other than 0 and 1", () => {
+    for (const criterion of ["email_verified", "has_avatar", "is_guest"])
+      refuses(all({ criterion, value: 2 }), "background");
+  });
+
+  test("refuses a group that does not exist", () => {
+    refuses(all({ criterion: "in_group", ids: [2, 9999] }), "cheap");
+    refuses(all({ criterion: "not_in_group", ids: [9999] }), "background");
+  });
+
+  test("a consumer that allows only cheap criteria refuses every background one", () => {
+    const background = criterionDefinitions.filter(
+      (definition) => definition.cost === "background",
+    );
+    expect(background.length).toBeGreaterThan(0);
+    for (const definition of background) {
+      refuses(all({ criterion: definition.id, value: 1 }), "cheap");
+      assertRule(ctx, all({ criterion: definition.id, value: 1 }), "background");
+    }
+  });
+});
+
+function stampStatements(ctx: Ctx) {
+  const statements: string[] = [];
+  const original = ctx.sqlite.prepare.bind(ctx.sqlite);
+  (ctx.sqlite as { prepare: unknown }).prepare = (sql: string) => {
+    statements.push(sql);
+    return original(sql);
+  };
+  return {
+    statements,
+    restore: () => {
+      (ctx.sqlite as { prepare: unknown }).prepare = original;
+    },
+  };
+}
 
 function shopItem(ctx: Ctx, name: string): number {
   const category = ctx.sqlite
@@ -38,180 +266,170 @@ function shopItem(ctx: Ctx, name: string): number {
     )
     .get(category, name)!.id;
 }
-
-function purchase(ctx: Ctx, buyerId: number, itemId: number) {
+function purchase(ctx: Ctx, buyerId: number, itemId: number, recipientId = buyerId) {
   ctx.sqlite
     .prepare(
-      "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, price, created_at) VALUES (?1, ?2, ?2, 5, 0)",
+      "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, price, created_at) VALUES (?1, ?2, ?3, 5, 0)",
     )
-    .run(itemId, buyerId);
+    .run(itemId, buyerId, recipientId);
 }
 
-describe("economy criteria in eligible", () => {
-  test("the new criteria are registered", () => {
-    for (const id of [
-      "credits_at_least",
-      "credits_at_most",
-      "purchased_item",
-      "purchases_at_least",
-    ])
-      expect(criterionIds.has(id)).toBe(true);
-  });
-
-  test("credits_at_least is inclusive", () => {
-    expect(check(facts({ credits: 99 }), "credits_at_least", 100)).toBe(false);
-    expect(check(facts({ credits: 100 }), "credits_at_least", 100)).toBe(true);
-    expect(check(facts({ credits: 101 }), "credits_at_least", 100)).toBe(true);
-    expect(check(facts({ credits: -5 }), "credits_at_least", 0)).toBe(false);
-    expect(check(facts({ credits: -5 }), "credits_at_least", -5)).toBe(true);
-  });
-
-  test("credits_at_most is inclusive and counts negative balances", () => {
-    expect(check(facts({ credits: 101 }), "credits_at_most", 100)).toBe(false);
-    expect(check(facts({ credits: 100 }), "credits_at_most", 100)).toBe(true);
-    expect(check(facts({ credits: -40 }), "credits_at_most", 0)).toBe(true);
-    expect(check(facts({ credits: 0 }), "credits_at_most", 0)).toBe(true);
-  });
-
-  test("purchases_at_least reads the purchase counter", () => {
-    expect(check(facts({ shop_purchase_count: 2 }), "purchases_at_least", 3)).toBe(false);
-    expect(check(facts({ shop_purchase_count: 3 }), "purchases_at_least", 3)).toBe(true);
-    expect(check(facts({ shop_purchase_count: 0 }), "purchases_at_least", 0)).toBe(true);
-  });
-
-  test("purchased_item needs the item among the attached ids, and is false when none attached", () => {
-    expect(check(facts(), "purchased_item", 7)).toBe(false);
-    expect(check(facts({ purchased_item_ids: new Set() }), "purchased_item", 7)).toBe(false);
-    expect(check(facts({ purchased_item_ids: new Set([8]) }), "purchased_item", 7)).toBe(false);
-    expect(check(facts({ purchased_item_ids: new Set([7, 8]) }), "purchased_item", 7)).toBe(true);
-  });
-
-  test("all conditions must hold, and an unknown criterion never does", () => {
-    const member = facts({ credits: 50, shop_purchase_count: 1 });
-    const conditions: Criterion[] = [
-      { criterion: "credits_at_least", value: 50 },
-      { criterion: "purchases_at_least", value: 1 },
-    ];
-    expect(eligible(member, conditions, NOW)).toBe(true);
-    expect(
-      eligible(member, [...conditions, { criterion: "credits_at_most", value: 49 }], NOW),
-    ).toBe(false);
-    expect(eligible(member, [{ criterion: "made_up", value: 0 }], NOW)).toBe(false);
-    expect(eligible(member, [], NOW)).toBe(true);
-  });
-
-  test("CRITERIA_USER_COLUMNS selects the economy facts from users", () => {
+describe("loadFacts", () => {
+  test("reads the member row and the verified email", () => {
     const ctx = createTestContext();
     const user = insertUser(ctx);
     ctx.sqlite
-      .prepare("UPDATE users SET credits = 12, shop_purchase_count = 3 WHERE id = ?1")
-      .run(user.id);
-    const row = ctx.sqlite
-      .prepare<{ credits: number; shop_purchase_count: number }, [number]>(
-        `SELECT ${CRITERIA_USER_COLUMNS} FROM users u WHERE u.id = ?1`,
+      .prepare(
+        "UPDATE users SET post_count = 12, reaction_score = 4, credits = -7, shop_purchase_count = 3, last_activity_at = 555, created_at = 99, avatar_file_id = NULL WHERE id = ?1",
       )
-      .get(user.id)!;
-    expect(row).toMatchObject({ credits: 12, shop_purchase_count: 3 });
+      .run(user.id);
+    ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(user.id);
+    const [loaded] = [
+      ...loadFacts(ctx, [user.id], [all({ criterion: "post_count", value: 1 })]).values(),
+    ];
+    expect(loaded).toMatchObject({
+      memberId: user.id,
+      now: ctx.now(),
+      postCount: 12,
+      reactionScore: 4,
+      credits: -7,
+      purchaseCount: 3,
+      lastActivityAt: 555,
+      createdAt: 99,
+      hasAvatar: false,
+      emailVerified: true,
+    });
+  });
+
+  test("groups are the primary group and the groups assigned by hand", () => {
+    const ctx = createTestContext();
+    const [a, b, c] = [insertUser(ctx), insertUser(ctx), insertUser(ctx, { groupId: 3 })];
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 3, 0), (?1, 4, 0)",
+      )
+      .run(a.id);
+    const loaded = loadFacts(ctx, [a.id, b.id, c.id], [all({ criterion: "in_group", ids: [3] })]);
+    expect([...loaded.get(a.id)!.groupIds].sort()).toEqual([2, 3, 4]);
+    expect([...loaded.get(b.id)!.groupIds]).toEqual([2]);
+    expect([...loaded.get(c.id)!.groupIds]).toEqual([3]);
+  });
+
+  test("warning points are the unexpired ones, summed per member", () => {
+    const ctx = createTestContext();
+    const [a, b] = [insertUser(ctx), insertUser(ctx)];
+    const moderator = insertUser(ctx, { groupId: 3 });
+    const warn = ctx.sqlite.prepare(
+      "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, expires_at) VALUES (?1, ?2, ?3, 'r', 0, ?4)",
+    );
+    warn.run(a.id, moderator.id, 2, null);
+    warn.run(a.id, moderator.id, 3, ctx.now() + 10_000);
+    warn.run(a.id, moderator.id, 40, ctx.now() - 1);
+    const loaded = loadFacts(
+      ctx,
+      [a.id, b.id],
+      [all({ criterion: "warning_points_below", value: 9 })],
+    );
+    expect(loaded.get(a.id)!.warningPoints).toBe(5);
+    expect(loaded.get(b.id)!.warningPoints).toBe(0);
+  });
+
+  test("purchased items: only the items asked about, a gift counts for the buyer", () => {
+    const ctx = createTestContext();
+    const [a, b, c] = [insertUser(ctx), insertUser(ctx), insertUser(ctx)];
+    const [x, y, z] = [shopItem(ctx, "X"), shopItem(ctx, "Y"), shopItem(ctx, "Z")];
+    purchase(ctx, a.id, x);
+    purchase(ctx, a.id, x);
+    purchase(ctx, a.id, y);
+    purchase(ctx, b.id, z); // nobody asks about z
+    purchase(ctx, b.id, x, c.id); // a gift to c
+    const loaded = loadFacts(
+      ctx,
+      [a.id, b.id, c.id],
+      [
+        all({ criterion: "purchased_item", value: x }),
+        all({ criterion: "post_count", value: 3 }, { criterion: "purchased_item", value: y }),
+      ],
+    );
+    expect([...loaded.get(a.id)!.purchasedItemIds].sort()).toEqual([x, y].sort());
+    expect([...loaded.get(b.id)!.purchasedItemIds]).toEqual([x]);
+    expect(loaded.get(c.id)!.purchasedItemIds.size).toBe(0);
+  });
+
+  test("a page of members costs one query per kind of fact the rules ask for, and nothing else", () => {
+    const reads = (rules: (item: number) => Rule[]) => {
+      // A fresh context each time: prepared statements are cached per context.
+      const ctx = createTestContext();
+      const members = Array.from({ length: 20 }, () => insertUser(ctx).id);
+      const item = shopItem(ctx, "Item");
+      const spy = stampStatements(ctx);
+      try {
+        loadFacts(ctx, members, rules(item));
+        return spy.statements.length;
+      } finally {
+        spy.restore();
+      }
+    };
+    expect(reads(() => [everyone()])).toBe(0);
+    expect(
+      reads(() => [all({ criterion: "is_guest", value: 0 }, { criterion: "is_member", ids: [1] })]),
+    ).toBe(0);
+    expect(
+      reads(() => [
+        all({ criterion: "post_count", value: 1 }, { criterion: "credits_at_least", value: 1 }),
+      ]),
+    ).toBe(1);
+    expect(reads(() => [all({ criterion: "in_group", ids: [2] })])).toBe(1);
+    expect(
+      reads((item) => [
+        all({ criterion: "post_count", value: 1 }),
+        any({ criterion: "in_group", ids: [2] }, { criterion: "purchased_item", value: item }),
+        all({ criterion: "warning_points_below", value: 3 }),
+      ]),
+    ).toBe(4);
+  });
+
+  test("a rule that names an item but no member page loads nothing", () => {
+    const ctx = createTestContext();
+    expect(loadFacts(ctx, [], [all({ criterion: "post_count", value: 1 })]).size).toBe(0);
+  });
+
+  test("its queries use indexes", () => {
+    const ctx = createTestContext();
+    expectNoTableScan(
+      ctx,
+      "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))",
+      ["[1,2]"],
+    );
+    expectNoTableScan(
+      ctx,
+      "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",
+      ["[1,2]", 0],
+    );
+    expectNoTableScan(
+      ctx,
+      "SELECT m.value AS buyer_id, i.value AS item_id FROM json_each(?1) m, json_each(?2) i WHERE EXISTS (SELECT 1 FROM shop_purchases p WHERE p.buyer_id = m.value AND p.item_id = i.value)",
+      ["[1,2]", "[1,2]"],
+    );
+    expectNoTableScan(
+      ctx,
+      "SELECT id AS user_id, group_id FROM users WHERE id IN (SELECT value FROM json_each(?1)) UNION SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1))",
+      ["[1,2]"],
+    );
+    expectNoTableScan(ctx, "SELECT id FROM groups WHERE id IN (SELECT value FROM json_each(?1))", [
+      "[1,2]",
+    ]);
   });
 });
 
-describe("attachPurchasedItems", () => {
-  const member = (id: number): MemberFacts & { id: number } => ({ id, ...facts() });
-
-  test("loads only the items some condition asks about", () => {
+describe("actorFacts", () => {
+  test("a guest has the facts of a guest and a member's are loaded", () => {
     const ctx = createTestContext();
-    const buyer = insertUser(ctx);
-    const wanted = shopItem(ctx, "Wanted");
-    const other = shopItem(ctx, "Other");
-    purchase(ctx, buyer.id, wanted);
-    purchase(ctx, buyer.id, other);
-    const m = member(buyer.id);
-    attachPurchasedItems(ctx, [m], [[{ criterion: "purchased_item", value: wanted }]]);
-    expect([...m.purchased_item_ids!]).toEqual([wanted]);
-    expect(eligible(m, [{ criterion: "purchased_item", value: wanted }], NOW)).toBe(true);
-    expect(eligible(m, [{ criterion: "purchased_item", value: other }], NOW)).toBe(false);
-  });
-
-  test("only purchased_item conditions count; other criteria with the same value are ignored", () => {
-    const ctx = createTestContext();
-    const buyer = insertUser(ctx);
-    const item = shopItem(ctx, "Item");
-    purchase(ctx, buyer.id, item);
-    const m = member(buyer.id);
-    attachPurchasedItems(ctx, [m], [[{ criterion: "purchases_at_least", value: item }]]);
-    expect(m.purchased_item_ids).toBeUndefined();
-  });
-
-  test("runs no query when no condition asks or there are no members", () => {
-    const ctx = createTestContext();
-    const buyer = insertUser(ctx);
-    const item = shopItem(ctx, "Item");
-    purchase(ctx, buyer.id, item);
-    const statements: string[] = [];
-    const sqlite = ctx.sqlite;
-    const original = sqlite.prepare.bind(sqlite);
-    (sqlite as { prepare: unknown }).prepare = (sql: string) => {
-      statements.push(sql);
-      return original(sql);
-    };
-    try {
-      const m = member(buyer.id);
-      attachPurchasedItems(ctx, [m], [[{ criterion: "post_count", value: 1 }], []]);
-      attachPurchasedItems(ctx, [m], []);
-      attachPurchasedItems(ctx, [], [[{ criterion: "purchased_item", value: item }]]);
-      expect(m.purchased_item_ids).toBeUndefined();
-      expect(statements.filter((sql) => sql.includes("shop_purchases"))).toEqual([]);
-    } finally {
-      (sqlite as { prepare: unknown }).prepare = original;
-    }
-  });
-
-  test("loads several members and several lists of conditions in one call", () => {
-    const ctx = createTestContext();
-    const [a, b, c] = [insertUser(ctx), insertUser(ctx), insertUser(ctx)];
-    const x = shopItem(ctx, "X");
-    const y = shopItem(ctx, "Y");
-    const z = shopItem(ctx, "Z");
-    purchase(ctx, a.id, x);
-    purchase(ctx, a.id, x); // bought twice: still one entry
-    purchase(ctx, a.id, y);
-    purchase(ctx, b.id, y);
-    purchase(ctx, b.id, z); // nobody asks about z
-    const members = [member(a.id), member(b.id), member(c.id)];
-    attachPurchasedItems(ctx, members, [
-      [{ criterion: "purchased_item", value: x }],
-      [
-        { criterion: "post_count", value: 3 },
-        { criterion: "purchased_item", value: y },
-      ],
-    ]);
-    expect([...members[0]!.purchased_item_ids!].sort()).toEqual([x, y].sort());
-    expect([...members[1]!.purchased_item_ids!]).toEqual([y]);
-    expect(members[2]!.purchased_item_ids).toBeUndefined();
-  });
-
-  test("a gift counts for the buyer, not the recipient", () => {
-    const ctx = createTestContext();
-    const buyer = insertUser(ctx);
-    const recipient = insertUser(ctx);
-    const item = shopItem(ctx, "Gift");
-    ctx.sqlite
-      .prepare(
-        "INSERT INTO shop_purchases (item_id, buyer_id, recipient_id, price, created_at) VALUES (?1, ?2, ?3, 5, 0)",
-      )
-      .run(item, buyer.id, recipient.id);
-    const members = [member(buyer.id), member(recipient.id)];
-    attachPurchasedItems(ctx, members, [[{ criterion: "purchased_item", value: item }]]);
-    expect(members[0]!.purchased_item_ids?.has(item)).toBe(true);
-    expect(members[1]!.purchased_item_ids).toBeUndefined();
-  });
-
-  test("an item nobody bought attaches nothing", () => {
-    const ctx = createTestContext();
-    const buyer = insertUser(ctx);
-    const item = shopItem(ctx, "Unsold");
-    const m = member(buyer.id);
-    attachPurchasedItems(ctx, [m], [[{ criterion: "purchased_item", value: item }]]);
-    expect(m.purchased_item_ids).toBeUndefined();
+    const user = insertUser(ctx);
+    ctx.sqlite.prepare("UPDATE users SET post_count = 9 WHERE id = ?1").run(user.id);
+    const rule = all({ criterion: "post_count", value: 9 });
+    expect(evaluate(rule, actorFacts(ctx, { kind: "guest" }, [rule]))).toBe(false);
+    expect(actorFacts(ctx, { kind: "guest" }, [rule]).memberId).toBeNull();
+    expect(evaluate(rule, actorFacts(ctx, userActor(user), [rule]))).toBe(true);
   });
 });

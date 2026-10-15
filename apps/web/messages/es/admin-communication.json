@@ -138,6 +138,7 @@
       "guests": "Invitados",
       "members": "Miembros",
       "group": "Un grupo",
+      "custom": "Una regla personalizada (se conserva tal cual)",
       "groupLabel": "Grupo",
       "groupHelp": "Se usa cuando se muestra a un grupo: sus miembros principales y secundarios.",
       "groupNone": "Elige un grupo",

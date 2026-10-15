@@ -67,7 +67,7 @@ async function setup() {
     (await (
       await asSession("POST", "/promotions", {
         title,
-        criteria: [{ criterion: "post_count", value: 1000 }],
+        rule: { match: "all", conditions: [{ criterion: "post_count", value: 1000 }] },
         groupIds: [groupId],
         actorPassword: PASSWORD,
       })
@@ -122,7 +122,7 @@ test("every guarded route holds a browser session to the password", async () => 
     }),
     asSession("POST", "/promotions", {
       title: "Second",
-      criteria: [{ criterion: "post_count", value: 5 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 5 }] },
       groupIds: [group.id],
     }),
     asSession("PATCH", `/promotions/${promotion.id}`, { title: "Renamed" }),
@@ -251,7 +251,7 @@ test("every guarded route refuses an API key, with or without the password, and 
       "/promotions",
       {
         title: "Second",
-        criteria: [{ criterion: "post_count", value: 5 }],
+        rule: { match: "all", conditions: [{ criterion: "post_count", value: 5 }] },
         groupIds: [group.id],
       },
     ],

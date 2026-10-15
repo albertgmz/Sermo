@@ -6,6 +6,7 @@ export * from "./bookmarks";
 export * from "./common";
 export * from "./conversations";
 export * from "./credits";
+export * from "./criteria";
 export * from "./feed";
 export * from "./forums";
 export * from "./images";

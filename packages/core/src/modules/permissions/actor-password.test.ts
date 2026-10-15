@@ -16,7 +16,7 @@ async function world() {
   const group = await w.run("groups.create", founder.actor, { title: "Helpers" });
   const promotion = await w.run("promotions.create", founder.actor, {
     title: "Rule",
-    criteria: [{ criterion: "post_count", value: 1000 }],
+    rule: { match: "all", conditions: [{ criterion: "post_count", value: 1000 }] },
     groupIds: [group.id],
   });
   const rows = (sql: string) => w.ctx.sqlite.prepare<{ n: number }, []>(sql).get()!.n;
@@ -92,7 +92,7 @@ const writes: [string, (w: World, actorPassword?: string, as?: Actor) => Promise
     (w, actorPassword, as = w.founder.actor) =>
       w.run("promotions.create", as, {
         title: "Another",
-        criteria: [{ criterion: "post_count", value: 5 }],
+        rule: { match: "all", conditions: [{ criterion: "post_count", value: 5 }] },
         groupIds: [w.group.id],
         actorPassword,
       }),

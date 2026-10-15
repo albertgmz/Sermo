@@ -22,9 +22,6 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
     read(promotionsCriteria, {}),
     getGroups(),
   ]);
-  const values = new Map(
-    promotion?.criteria.map((entry) => [entry.criterion, entry.value]),
-  );
   const chosen = new Set(promotion?.groupIds);
   return (
     <FormRows
@@ -62,7 +59,7 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
       <CriteriaFields
         namespace="adminGroups.promotionForm"
         criteria={criteria}
-        values={values}
+        rule={promotion?.rule}
         showHelp
       />
       <FieldRow name="groupIds" label={t("groups")} help={t("groupsHelp")}>

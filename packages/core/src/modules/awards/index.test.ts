@@ -289,7 +289,7 @@ describe("award catalog and reads", () => {
       icon: "",
       xp: 0,
       credits: 0,
-      criteria: [{ criterion: "has_avatar", value: 0 }],
+      rule: { match: "all", conditions: [{ criterion: "has_avatar", value: 0 }] },
     });
     expect(updated).toMatchObject({
       name: "Updated",
@@ -305,15 +305,18 @@ describe("award catalog and reads", () => {
     const unused = await call("create", { name: "Unused", tier: "bronze" });
     expect(await call("delete", { awardId: unused.id })).toEqual({ ok: true });
     await expect(call("get", { awardId: unused.id })).rejects.toBeInstanceOf(NotFoundError);
-    for (const criteria of [
+    for (const conditions of [
       [{ criterion: "missing", value: 0 }],
       [{ criterion: "has_avatar", value: 2 }],
       [{ criterion: "email_verified", value: 2 }],
+      [{ criterion: "post_count" }],
+      [{ criterion: "in_group", ids: [9999] }],
     ]) {
+      const rule = { match: "all", conditions };
       await expect(
-        call("create", { name: "Invalid", tier: "bronze", criteria }),
+        call("create", { name: "Invalid", tier: "bronze", rule }),
       ).rejects.toBeInstanceOf(ValidationError);
-      await expect(call("update", { awardId: award.id, criteria })).rejects.toBeInstanceOf(
+      await expect(call("update", { awardId: award.id, rule })).rejects.toBeInstanceOf(
         ValidationError,
       );
     }

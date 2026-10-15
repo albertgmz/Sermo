@@ -1,37 +1,31 @@
 import type { Ctx } from "../../context";
 import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
-import {
-  attachPurchasedItems,
-  CRITERIA_USER_COLUMNS,
-  eligible,
-  type MemberFacts,
-} from "../../shared/criteria";
+import { loadFacts, evaluate as ruleHolds } from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
 import { grantAward } from "./grants";
-import { type AwardRow, all, awardSql, conditions, one, type TotalRow } from "./store";
+import { type AwardRow, all, awardSql, one, ruleOf, type TotalRow } from "./store";
 
 // Granting can append several ledger and event rows per award; keep each lock brief.
 export const SWEEP_CHUNK = 50;
-type MemberRow = MemberFacts & { id: number };
+type MemberRow = { id: number };
 export const evaluationSql = {
-  member: `SELECT u.id, ${CRITERIA_USER_COLUMNS}, a.email_verified, coalesce((SELECT sum(w.points) FROM warnings w WHERE w.user_id = u.id AND (w.expires_at IS NULL OR w.expires_at > ?2)), 0) AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1`,
-  members: `SELECT u.id, ${CRITERIA_USER_COLUMNS}, a.email_verified, 0 AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id > ?1 ORDER BY u.id LIMIT ?2`,
-  warnings:
-    "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",
+  member: "SELECT id FROM users WHERE id = ?1",
+  members: "SELECT id FROM users WHERE id > ?1 ORDER BY id LIMIT ?2",
   totals: "SELECT * FROM member_award_totals WHERE user_id IN (SELECT value FROM json_each(?1))",
 };
 
 function evaluate(ctx: Ctx, members: MemberRow[]): number {
   const plans = all<AwardRow>(ctx, "catalog", awardSql.catalog)
     .filter((award) => award.is_active)
-    .map((award) => ({ award, tests: conditions(award) }))
-    .filter((plan) => plan.tests.length > 0);
+    .map((award) => ({ award, rule: ruleOf(award) }))
+    // An award with no conditions is granted by hand only, whatever an empty rule means elsewhere.
+    .filter((plan) => plan.rule.conditions.length > 0);
   if (plans.length === 0 || members.length === 0) return 0;
-  attachPurchasedItems(
+  const facts = loadFacts(
     ctx,
-    members,
-    plans.map((plan) => plan.tests),
+    members.map((m) => m.id),
+    plans.map((plan) => plan.rule),
   );
   const totals = all<TotalRow>(
     ctx,
@@ -40,17 +34,17 @@ function evaluate(ctx: Ctx, members: MemberRow[]): number {
     JSON.stringify(members.map((m) => m.id)),
   );
   const byMember = new Map(totals.map((row) => [`${row.user_id}:${row.award_id}`, row]));
-  const now = ctx.now();
   let granted = 0;
   for (const member of members) {
-    for (const { award, tests } of plans) {
+    const memberFacts = facts.get(member.id)!;
+    for (const { award, rule } of plans) {
       const total = byMember.get(`${member.id}:${award.id}`);
       if (total?.auto_granted || (!award.is_stackable && (total?.count ?? 0) > 0)) continue;
-      if (!eligible(member, tests, now)) continue;
+      if (!ruleHolds(rule, memberFacts)) continue;
       if (grantAward(ctx, award, member.id, null, "")) {
         granted++;
         // Later criteria in this transaction see the credits just paid.
-        member.credits += award.credits;
+        memberFacts.credits += award.credits;
       }
     }
   }
@@ -59,7 +53,7 @@ function evaluate(ctx: Ctx, members: MemberRow[]): number {
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
   return writeTx(ctx, () => {
-    const member = one<MemberRow>(ctx, "evaluationMember", evaluationSql.member, userId, ctx.now());
+    const member = one<MemberRow>(ctx, "evaluationMember", evaluationSql.member, userId);
     return member ? evaluate(ctx, [member]) : 0;
   });
 }
@@ -80,15 +74,6 @@ export function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): number {
       after,
       SWEEP_CHUNK,
     );
-    const warnings = all<{ user_id: number; points: number }>(
-      ctx,
-      "evaluationWarnings",
-      evaluationSql.warnings,
-      JSON.stringify(members.map((member) => member.id)),
-      ctx.now(),
-    );
-    const points = new Map(warnings.map((row) => [row.user_id, row.points]));
-    for (const member of members) member.warning_points = points.get(member.id) ?? 0;
     evaluate(ctx, members);
     if (members.length === SWEEP_CHUNK) {
       enqueueJob(ctx, "awards.sweep", { after: members.at(-1)!.id }, { uniqueKey: "awards.sweep" });

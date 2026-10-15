@@ -12,9 +12,9 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { formFailure, text } from "../groups/form-errors";
+import { AUDIENCES, ruleOfAudience } from "./audience";
 import { dateValue } from "./dates";
 
-const AUDIENCES = noticesCreate.input.shape.audience.options;
 const FIELDS = ["title", "body", "audience", "groupId", "startsAt", "endsAt"];
 
 type Parsed = z.input<typeof noticesCreate.input>;
@@ -24,13 +24,22 @@ async function fields(
   formData: FormData,
 ): Promise<Parsed | { fields: Record<string, string> }> {
   const t = await getTranslations("adminCommunication.errors");
-  const audience = AUDIENCES.find(
-    (name) => name === text(formData, "audience"),
-  );
-  if (!audience) return { fields: { audience: t("choice") } };
+  const chosen = text(formData, "audience");
+  const audience = AUDIENCES.find((name) => name === chosen);
+  if (!audience && chosen !== "custom")
+    return { fields: { audience: t("choice") } };
   const groupId = parseId(text(formData, "groupId"));
   if (audience === "group" && groupId === null)
     return { fields: { groupId: t("group") } };
+  // A rule the form cannot draw travels in a hidden field and is saved as it was.
+  let rule: Parsed["rule"];
+  if (audience) rule = ruleOfAudience(audience, groupId);
+  else
+    try {
+      rule = JSON.parse(text(formData, "rule"));
+    } catch {
+      return { fields: { audience: t("choice") } };
+    }
   const startsAt = dateValue(text(formData, "startsAt"));
   if (startsAt === undefined) return { fields: { startsAt: t("date") } };
   const endsAt = dateValue(text(formData, "endsAt"));
@@ -39,8 +48,7 @@ async function fields(
     title: text(formData, "title"),
     // A browser sends the line breaks of a text area as CRLF; the source is kept with LF.
     body: text(formData, "body").replaceAll("\r\n", "\n"),
-    audience,
-    groupId: audience === "group" ? groupId : null,
+    rule,
     dismissible: formData.get("dismissible") !== null,
     active: formData.get("active") !== null,
     startsAt,

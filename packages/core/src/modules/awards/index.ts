@@ -4,11 +4,11 @@ import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import * as contracts from "../../contracts/awards";
 import { writeTx } from "../../db/tx";
-import { ConflictError, NotFoundError, ValidationError } from "../../errors";
+import { ConflictError, NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, requirePermission } from "../../permissions";
-import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
+import { assertRule, criterionDefinitions, type Rule } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
@@ -23,12 +23,12 @@ import {
   awardSql,
   awardValue,
   compareAwards,
-  conditions,
   type GrantRow,
   grantValues,
   loadAwards,
   memberXp,
   one,
+  ruleOf,
   run,
   type TotalRow,
 } from "./store";
@@ -46,13 +46,8 @@ function visibleMember(ctx: Ctx, actor: Actor, id: number): void {
   const access = profileAccess(ctx, actor, id);
   if (!mayViewProfile(ctx, actor, id, access)) throw new NotFoundError();
 }
-function validate(tests: Criterion[]): void {
-  for (const item of tests) {
-    if (!criterionIds.has(item.criterion))
-      throw new ValidationError(`Unknown criterion: ${item.criterion}`);
-    if ((item.criterion === "email_verified" || item.criterion === "has_avatar") && item.value > 1)
-      throw new ValidationError("Boolean criterion must be 0 or 1.");
-  }
+function validate(ctx: Ctx, rule: Rule): void {
+  assertRule(ctx, rule, "background");
 }
 function grantsPage(
   ctx: Ctx,
@@ -95,14 +90,14 @@ export const operations = [
   }),
   implement(contracts.awardsCreate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
-    validate(input.criteria);
+    validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const id = Number(
         run(
           ctx,
           "create",
-          "INSERT INTO awards (name, description, icon, tier, xp, credits, is_stackable, is_active, criteria, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
+          "INSERT INTO awards (name, description, icon, tier, xp, credits, is_stackable, is_active, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
           input.name,
           input.description,
           input.icon,
@@ -111,7 +106,7 @@ export const operations = [
           input.credits,
           Number(input.isStackable),
           Number(input.isActive),
-          JSON.stringify(input.criteria),
+          JSON.stringify(input.rule),
           ctx.now(),
         ).lastInsertRowid,
       );
@@ -120,7 +115,7 @@ export const operations = [
   }),
   implement(contracts.awardsUpdate, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
-    if (input.criteria) validate(input.criteria);
+    if (input.rule) validate(ctx, input.rule);
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
@@ -129,7 +124,7 @@ export const operations = [
       run(
         ctx,
         "update",
-        "UPDATE awards SET name = ?1, description = ?2, icon = ?3, tier = ?4, xp = ?5, credits = ?6, is_stackable = ?7, is_active = ?8, criteria = ?9, updated_at = ?10 WHERE id = ?11",
+        "UPDATE awards SET name = ?1, description = ?2, icon = ?3, tier = ?4, xp = ?5, credits = ?6, is_stackable = ?7, is_active = ?8, rule = ?9, updated_at = ?10 WHERE id = ?11",
         input.name ?? award.name,
         input.description ?? award.description,
         input.icon ?? award.icon,
@@ -138,7 +133,7 @@ export const operations = [
         input.credits ?? award.credits,
         Number(input.isStackable ?? !!award.is_stackable),
         Number(input.isActive ?? !!award.is_active),
-        JSON.stringify(input.criteria ?? conditions(award)),
+        JSON.stringify(input.rule ?? ruleOf(award)),
         ctx.now(),
         award.id,
       );

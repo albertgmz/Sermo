@@ -197,7 +197,7 @@ describe("permissions administration", () => {
     );
     ctx.sqlite
       .prepare(
-        "INSERT INTO promotions (title, group_ids, criteria, created_at, updated_at) VALUES ('P', ?1, '[]', 0, 0)",
+        "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('P', ?1, 0, 0)",
       )
       .run(JSON.stringify([group.id]));
     const promotionId = Number(

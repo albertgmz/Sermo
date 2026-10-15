@@ -137,7 +137,7 @@ the server checks every action anyway.
 
 ## Promotions
 
-Promotions add secondary groups automatically while a member meets criteria, and remove them
+Promotions add secondary groups automatically while a member meets a rule, and remove them
 when the member no longer does. They need `admin.promotions`:
 
 | Task | REST | Operation |
@@ -163,7 +163,32 @@ when the member no longer does. They need `admin.promotions`:
 
 Promotions and automatic awards also share the four [economy criteria](#economy-criteria).
 
-All criteria of a promotion must hold. Members are evaluated right after relevant activity (a new
+### Rules
+
+One engine answers every "who does this apply to" question, so a criterion written once works
+everywhere. A rule is `{ "match": "all" | "any", "conditions": [...] }`: `all` needs every condition,
+`any` needs one, and a rule with no conditions means everyone. A condition is
+`{ "criterion": "<id>", "value": <number> }` for the criteria above, or
+`{ "criterion": "<id>", "ids": [<id>, ...] }` for the audience criteria:
+
+| Criterion | Takes | Holds when |
+| --- | --- | --- |
+| `is_guest` | `value` 1 or 0 | 1: the visitor is signed out; 0: signed in |
+| `in_group` | `ids` (groups) | the member is in one of the groups, as primary group or one assigned by hand |
+| `not_in_group` | `ids` (groups) | the member is in none of them (a guest is in none) |
+| `is_member` | `ids` (members) | the member is one of the listed members |
+
+Each criterion is `cheap` (read from the member's own row or one indexed lookup) or `background`
+(`warning_points_below`). `GET /promotions/criteria` and `GET /awards/criteria` list the class
+as `cost`. Promotions and awards are checked in the background and take every criterion. Notices
+and shop categories and items are checked while a request is served and refuse a `background`
+criterion. Guests satisfy only the audience criteria.
+
+Notices (`rule`) are shown to the members the rule holds for. Shop categories and items (`rule`)
+are listed to, and may be bought by, only the members the rule holds for; an administrator with
+`admin.shop` sees them all. No conditions means everyone.
+
+A promotion needs a rule with at least one condition. Members are evaluated right after relevant activity (a new
 post, thread, profile post or comment, a received reaction, a warning, a profile change such as a
 new avatar, an administrator changing their groups) and by a daily sweep over everyone;
 `promotions.run` starts a sweep immediately.
@@ -307,7 +332,7 @@ Revocation targets one grant and takes back exactly the XP and credits it origin
 if the award's values have since changed; the balance can go below zero. Credit rules attached
 to that grant reverse separately when the revoke event is processed.
 
-An award with an empty `criteria` list is manual only. Otherwise all criteria must hold for an
+An award whose `rule` has no conditions is manual only. Otherwise the rule must hold for an
 automatic grant. Members are evaluated after relevant activity (including credit changes and
 purchases) and by a daily sweep. Each award is granted automatically at most once per member,
 even when stackable. Losing eligibility never takes it back, and revoking an automatic grant

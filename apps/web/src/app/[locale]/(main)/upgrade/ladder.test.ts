@@ -48,6 +48,7 @@ function item({
     durationSeconds: null,
     effect: group ? { type: "group", groupId: 1 } : { type: "bump" },
     position,
+    rule: { match: "all", conditions: [] },
     createdAt: STAMP,
     updatedAt: STAMP,
   };
@@ -60,6 +61,7 @@ function category(id: number, isActive = true) {
     description: "",
     position: id,
     isActive,
+    rule: { match: "all", conditions: [] },
     createdAt: STAMP,
     updatedAt: STAMP,
   };

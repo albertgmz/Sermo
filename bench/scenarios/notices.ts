@@ -5,16 +5,15 @@ export const scenarios: Scenario[] = [
     name: "notices.current guest",
     kind: "read",
     async setup(env) {
-      for (const [title, audience] of [
-        ["Bench notice for everyone", "everyone"],
-        ["Bench notice for guests", "guests"],
-        ["Bench notice for members", "members"],
+      for (const [title, conditions] of [
+        ["Bench notice for everyone", []],
+        ["Bench notice for guests", [{ criterion: "is_guest", value: 1 }]],
+        ["Bench notice for members", [{ criterion: "is_guest", value: 0 }]],
       ] as const)
         await env.call("notices.create", env.actors.admin, {
           title,
           body: "A notice shown on every page.",
-          audience,
-          groupId: null,
+          rule: { match: "all", conditions },
           dismissible: true,
           active: true,
           startsAt: null,

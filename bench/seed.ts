@@ -1060,7 +1060,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
   const promotionIds: number[] = [];
   tx(db, () => {
     const insert = db.prepare(
-      "INSERT INTO promotions (id, title, is_active, criteria, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+      "INSERT INTO promotions (id, title, is_active, rule, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
     );
     for (let id = 1; id <= SIZES.promotions; id++) {
       const criteria = [
@@ -1076,7 +1076,7 @@ function seedThirdPass(db: Database, rng: Rng, input: ThirdPassInput): ThirdPass
         id,
         `Promotion ${id}`,
         id % 10 === 0 ? 0 : 1,
-        JSON.stringify(criteria),
+        JSON.stringify({ match: "all", conditions: criteria }),
         JSON.stringify(groupIds),
         now,
       );
@@ -1396,7 +1396,7 @@ function seedEconomy(
   const stackable: boolean[] = [false];
   tx(db, () => {
     const insert = db.prepare(
-      "INSERT INTO awards (id, name, description, icon, tier, xp, credits, is_stackable, is_active, criteria, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+      "INSERT INTO awards (id, name, description, icon, tier, xp, credits, is_stackable, is_active, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
     );
     for (let id = 1; id <= SIZES.awards; id++) {
       const xp = 10 * rng.int(1, 50);
@@ -1421,7 +1421,7 @@ function seedEconomy(
         credits,
         id % 5 === 0 ? 1 : 0,
         id % 10 === 7 ? 0 : 1,
-        JSON.stringify(criteria),
+        JSON.stringify({ match: "all", conditions: criteria }),
         now,
       );
     }

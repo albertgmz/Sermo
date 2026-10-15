@@ -525,14 +525,14 @@ export async function loadStarter(options: StarterOptions): Promise<StarterLine[
       let present = awardRows.get(key(award.name));
       const known = present !== undefined;
       if (!present) {
-        let criteria: { criterion: string; value: number }[] = [];
-        if (award.criteria) criteria = award.criteria;
+        let conditions: { criterion: string; value: number }[] = [];
+        if (award.criteria) conditions = award.criteria;
         if (award.rankItem) {
           const itemId = rankCategory
             ? (await listItems(rankCategory)).get(key(award.rankItem))?.id
             : undefined;
           if (!itemId) throw new Error(`the rank "${award.rankItem}" is not in the shop`);
-          criteria = [{ criterion: "purchased_item", value: itemId }];
+          conditions = [{ criterion: "purchased_item", value: itemId }];
         }
         present = await call<Existing>("awards.create", {
           name: award.name,
@@ -540,7 +540,7 @@ export async function loadStarter(options: StarterOptions): Promise<StarterLine[
           icon: award.icon,
           tier: award.tier,
           xp: award.xp,
-          criteria,
+          rule: { match: "all", conditions },
         });
         awardRows.set(key(award.name), present);
         if (award.manual)

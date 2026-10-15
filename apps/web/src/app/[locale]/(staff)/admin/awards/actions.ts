@@ -13,7 +13,7 @@ import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { criteriaOf, formFailure, text, whole } from "../groups/form-errors";
+import { formFailure, ruleOf, text, whole } from "../groups/form-errors";
 
 const FIELDS = [
   "name",
@@ -24,7 +24,7 @@ const FIELDS = [
   "credits",
   "isStackable",
   "isActive",
-  "criteria",
+  "rule",
 ];
 
 const TIERS: readonly string[] = awardsCreate.input.shape.tier.options;
@@ -50,13 +50,13 @@ export async function saveAward(
   if (fileId === null) return { error: t("file") };
   const removePicture = text(formData, "fileIdRemove") === "1";
 
-  let criteria: ReturnType<typeof criteriaOf>;
+  let rule: ReturnType<typeof ruleOf>;
   try {
-    criteria = criteriaOf((await call(awardsCriteria, {})).items, formData);
+    rule = ruleOf((await call(awardsCriteria, {})).items, formData);
   } catch (error) {
     return formFailure(error, []);
   }
-  if (criteria === null) return { fields: { criteria: t("criterionValue") } };
+  if (rule === null) return { fields: { rule: t("criterionValue") } };
 
   const fields = {
     name: text(formData, "name"),
@@ -67,7 +67,7 @@ export async function saveAward(
     credits,
     isStackable: formData.get("isStackable") !== null,
     isActive: formData.get("isActive") !== null,
-    criteria,
+    rule,
   };
   let saved: number;
   try {

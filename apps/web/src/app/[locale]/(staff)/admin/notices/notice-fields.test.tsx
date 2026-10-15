@@ -30,8 +30,10 @@ const notice = {
   title: "Mods",
   bodySource: "Hello",
   bodyHtml: "<p>Hello</p>",
-  audience: "group" as const,
-  groupId: 3,
+  rule: {
+    match: "all" as const,
+    conditions: [{ criterion: "in_group", ids: [3] }],
+  },
   dismissible: true,
   active: true,
   startsAt: null,
@@ -65,5 +67,20 @@ test("without the group list the form keeps the notice's group, so saving it wor
 test("a new notice has no hidden group", async () => {
   withoutGroupList();
   const html = renderToStaticMarkup(await NoticeFields({ prefix: "new" }));
+  expect(html).not.toContain('name="groupId"');
+});
+
+test("a rule the form cannot draw is offered as custom and travels in a hidden field", async () => {
+  withoutGroupList();
+  const rule = {
+    match: "any" as const,
+    conditions: [{ criterion: "is_member", ids: [4, 5] }],
+  };
+  const html = renderToStaticMarkup(
+    await NoticeFields({ notice: { ...notice, rule }, prefix: "notice" }),
+  );
+  expect(html).toContain('<option value="custom" selected');
+  expect(html).toContain('name="rule"');
+  expect(html).toContain(JSON.stringify(rule).replaceAll('"', "&quot;"));
   expect(html).not.toContain('name="groupId"');
 });

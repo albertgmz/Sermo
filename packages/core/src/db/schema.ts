@@ -23,6 +23,12 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { auth_user } from "./auth-schema";
 
+/**
+ * The rule column default: `{ match, conditions }` (shared/criteria.ts) with no conditions, which
+ * matches everyone.
+ */
+export const EMPTY_RULE = '{"match":"all","conditions":[]}';
+
 export const CONTENT_STATES = ["visible", "moderated", "deleted"] as const;
 export type ContentStateValue = (typeof CONTENT_STATES)[number];
 
@@ -86,8 +92,6 @@ export const SPOILER_CONTENT_TYPES = [
   "conversation_message",
 ] as const;
 export type SpoilerContentType = (typeof SPOILER_CONTENT_TYPES)[number];
-/** Who a global notice is shown to; `group` names one group in `audience_group_id`. */
-export const NOTICE_AUDIENCES = ["everyone", "guests", "members", "group"] as const;
 /** Who an administrator's alert goes to; `group` and `users` name them in the row. */
 export const ANNOUNCEMENT_AUDIENCES = ["all", "group", "users"] as const;
 export const PERMISSION_SCOPES = ["global", "node"] as const;
@@ -493,8 +497,8 @@ export const promotions = sqliteTable("promotions", {
   id: integer("id").primaryKey(),
   title: text("title").notNull(),
   isActive: bool("is_active").notNull().default(true),
-  /** JSON array of {criterion, value}; all must hold. */
-  criteria: text("criteria").notNull().default("[]"),
+  /** JSON rule `{ match, conditions }` (shared/criteria.ts); at least one condition. */
+  rule: text("rule").notNull().default(EMPTY_RULE),
   /** JSON array of secondary group ids to add. */
   groupIds: text("group_ids").notNull().default("[]"),
   createdAt: integer("created_at").notNull(),
@@ -1468,8 +1472,8 @@ export const notices = sqliteTable("notices", {
   title: text("title").notNull(),
   bodySource: text("body_source").notNull(),
   bodyHtml: text("body_html").notNull(),
-  audience: text("audience", { enum: NOTICE_AUDIENCES }).notNull().default("everyone"),
-  audienceGroupId: integer("audience_group_id"),
+  /** JSON rule `{ match, conditions }` for who sees it; only `cheap` criteria. */
+  rule: text("rule").notNull().default(EMPTY_RULE),
   dismissible: bool("dismissible").notNull().default(true),
   active: bool("active").notNull().default(true),
   startsAt: integer("starts_at"),
@@ -1725,8 +1729,8 @@ export const awards = sqliteTable("awards", {
   /** Whether a member can hold it more than once. */
   isStackable: bool("is_stackable").notNull().default(false),
   isActive: bool("is_active").notNull().default(true),
-  /** JSON array of {criterion, value} (shared/criteria.ts); empty = granted by hand only. */
-  criteria: text("criteria").notNull().default("[]"),
+  /** JSON rule `{ match, conditions }` (shared/criteria.ts); no conditions = granted by hand only. */
+  rule: text("rule").notNull().default(EMPTY_RULE),
   /** Grants currently held, over all members. */
   grantCount: counter("grant_count"),
   createdAt: integer("created_at").notNull(),
@@ -1797,6 +1801,8 @@ export const shopCategories = sqliteTable("shop_categories", {
   description: text("description").notNull().default(""),
   position: integer("position").notNull().default(0),
   isActive: bool("is_active").notNull().default(true),
+  /** JSON rule for who sees and may buy from it; no conditions = everyone. */
+  rule: text("rule").notNull().default(EMPTY_RULE),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -1823,6 +1829,8 @@ export const shopItems = sqliteTable(
     /** JSON, validated by the ShopEffect contract. */
     effect: text("effect").notNull(),
     position: integer("position").notNull().default(0),
+    /** JSON rule for who sees and may buy it; no conditions = everyone. */
+    rule: text("rule").notNull().default(EMPTY_RULE),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     imageFileId: integer("image_file_id"),

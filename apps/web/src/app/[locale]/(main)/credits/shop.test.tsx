@@ -51,6 +51,7 @@ function item(id: number, categoryId: number, type: "group" | "bump") {
     durationSeconds: null,
     effect: type === "group" ? { type, groupId: 1 } : { type },
     position: id,
+    rule: { match: "all", conditions: [] },
     createdAt: STAMP,
     updatedAt: STAMP,
   };
@@ -62,6 +63,7 @@ const categories = [1, 2, 3].map((id) => ({
   description: "",
   position: id,
   isActive: true,
+  rule: { match: "all", conditions: [] },
   createdAt: STAMP,
   updatedAt: STAMP,
 }));

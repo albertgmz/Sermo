@@ -116,12 +116,13 @@ export function criterionBody(
 ) {
   return {
     id,
-    label: `promotion.criterion.${id}`,
-    description: `promotion.criterion.${id}.description`,
+    label: `criterion.${id}`,
+    description: `criterion.${id}.description`,
     title: `Title of ${id}`,
     help: `Help for ${id}`,
     kind,
     unit,
+    cost: "cheap",
   };
 }
 

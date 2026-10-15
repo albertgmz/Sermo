@@ -62,6 +62,7 @@ function rank(id: number, price: number) {
     durationSeconds: null,
     effect: { type: "group", groupId: 1 },
     position: id,
+    rule: { match: "all", conditions: [] },
     createdAt: STAMP,
     updatedAt: STAMP,
   };
@@ -83,6 +84,7 @@ function backend(faq: () => Response) {
             description: "",
             position: 1,
             isActive: true,
+            rule: { match: "all", conditions: [] },
             createdAt: STAMP,
             updatedAt: STAMP,
           },

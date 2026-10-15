@@ -45,7 +45,7 @@ function award(id: number, isActive: boolean) {
     credits: 0,
     isStackable: false,
     isActive,
-    criteria: [],
+    rule: { match: "all", conditions: [] },
     grantCount: 0,
     createdAt: STAMP,
     updatedAt: STAMP,

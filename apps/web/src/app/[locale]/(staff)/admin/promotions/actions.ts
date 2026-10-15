@@ -13,13 +13,13 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import {
-  criteriaOf,
   formFailure,
   missingPassword,
+  ruleOf,
   text,
 } from "../groups/form-errors";
 
-const FIELDS = ["title", "isActive", "criteria", "groupIds", "actorPassword"];
+const FIELDS = ["title", "isActive", "rule", "groupIds", "actorPassword"];
 
 // The groups ticked.
 function groupIdsOf(formData: FormData) {
@@ -40,19 +40,19 @@ export async function savePromotion(
   if (raw !== "" && promotionId === null) return { error: t("id") };
   const groupIds = groupIdsOf(formData);
   if (groupIds === null) return { fields: { groupIds: t("groupIds") } };
-  let criteria: ReturnType<typeof criteriaOf>;
+  let rule: ReturnType<typeof ruleOf>;
   try {
-    criteria = criteriaOf((await call(promotionsCriteria, {})).items, formData);
+    rule = ruleOf((await call(promotionsCriteria, {})).items, formData);
   } catch (error) {
     return formFailure(error, []);
   }
-  if (criteria === null) {
-    return { fields: { criteria: t("criterionValue") } };
+  if (rule === null) {
+    return { fields: { rule: t("criterionValue") } };
   }
   const fields = {
     title: text(formData, "title"),
     isActive: formData.get("isActive") !== null,
-    criteria,
+    rule,
     groupIds,
   };
   // Who is in which group follows from the rules, so a change to them asks for the password,

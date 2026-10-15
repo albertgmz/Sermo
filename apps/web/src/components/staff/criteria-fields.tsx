@@ -1,6 +1,7 @@
 import type { awardsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { drawn, type Rule, undrawn } from "@/components/staff/criteria-rule";
 import { FieldRow } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -9,28 +10,37 @@ type Criterion = z.output<typeof awardsCriteria.output>["items"][number];
 
 const checkbox = "size-5";
 
-// CriteriaFields: the "criteria" row of a rule form. Each criterion the backend describes is a
-// switch to use it and a control for its value chosen by its `kind` (a yes/no choice, an item id,
-// or a number with its unit). The fields are `use:<id>` and `value:<id>`, read by `criteriaOf`.
+// CriteriaFields: the "rule" row of a form. Each criterion the backend describes that takes a number
+// is a switch to use it and a control for its value chosen by its `kind` (a yes/no choice, an item
+// id, or a number with its unit). The fields are `use:<id>` and `value:<id>`, read by `ruleOf`. How
+// the rule matches and the conditions drawn nowhere here travel in two hidden fields, so saving the
+// form keeps them.
 //
 // Props
 //   namespace  The form's message namespace: `criteria`, `criteriaHelp`, `kinds.*`, `units.*`,
 //              `holds`, `notHold` and `use`.
 //   criteria   What the backend lists.
-//   values     The value of each criterion the rule already uses, by criterion id.
+//   rule       The rule being edited, if any.
 //   showHelp   Whether to print each criterion's own help text under its switch.
 export async function CriteriaFields({
   namespace,
   criteria,
-  values,
+  rule,
   showHelp,
 }: {
   namespace: "adminEconomy.awards.form" | "adminGroups.promotionForm";
   criteria: readonly Criterion[];
-  values: ReadonlyMap<string, number>;
+  rule?: Rule | undefined;
   showHelp: boolean;
 }) {
   const t = await getTranslations(namespace);
+  const values = new Map(
+    rule?.conditions.flatMap((entry) =>
+      entry.value === undefined
+        ? []
+        : [[entry.criterion, entry.value] as const],
+    ),
+  );
   const kinds = {
     atLeast: t("kinds.atLeast"),
     atMost: t("kinds.atMost"),
@@ -46,9 +56,15 @@ export async function CriteriaFields({
     item: "",
   };
   return (
-    <FieldRow name="criteria" label={t("criteria")} help={t("criteriaHelp")}>
+    <FieldRow name="rule" label={t("criteria")} help={t("criteriaHelp")}>
+      <input type="hidden" name="rule:match" value={rule?.match ?? "all"} />
+      <input
+        type="hidden"
+        name="rule:kept"
+        value={JSON.stringify(undrawn(rule, criteria))}
+      />
       <div className="grid gap-2 lg:grid-cols-2">
-        {criteria.map((definition) => {
+        {drawn(criteria).map((definition) => {
           const id = `criterion-${definition.id}`;
           const current = values.get(definition.id);
           return (

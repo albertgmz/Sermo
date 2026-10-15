@@ -2,15 +2,7 @@ import * as z from "zod";
 import { USER_PROMOTION_STATES } from "../db/schema";
 import { defineContract } from "../operation";
 import { ActorPassword, Empty, Id, Ok, Page, pageInput, Timestamp } from "./common";
-
-/** One condition on a member; `criterion` is an id from promotions.criteria or awards.criteria. */
-export const PromotionCriterion = z
-  .object({
-    criterion: z.string().min(1).max(50),
-    /** Threshold (counts, days, points) or 1/0 for yes/no criteria. */
-    value: z.number().int().min(0).max(1_000_000_000),
-  })
-  .meta({ id: "PromotionCriterion" });
+import { CriteriaRule, CriterionDefinition, NonEmptyCriteriaRule } from "./criteria";
 
 const CONFIRM =
   " `actorPassword` is the acting administrator's own password: it is verified under " +
@@ -24,35 +16,19 @@ export const Promotion = z
     id: Id,
     title: z.string(),
     isActive: z.boolean(),
-    /** All must hold. */
-    criteria: z.array(PromotionCriterion),
-    /** Secondary groups the promotion adds while its criteria hold. */
+    /** Who the promotion applies to. A new or changed rule has at least one condition. */
+    rule: CriteriaRule,
+    /** Secondary groups the promotion adds while its rule holds. */
     groupIds: z.array(Id),
     createdAt: Timestamp,
     updatedAt: Timestamp,
   })
   .meta({ id: "Promotion" });
 
-export const CriterionDefinition = z
-  .object({
-    id: z.string(),
-    /** Phrase keys. */
-    label: z.string(),
-    description: z.string(),
-    /** The label in the viewer's language; a readable form of the id when there is no phrase. */
-    title: z.string(),
-    /** The description in the viewer's language; empty when there is no phrase. */
-    help: z.string(),
-    /** How `value` is read: a minimum, a maximum, yes/no (1 = must hold), or a shop item id. */
-    kind: z.enum(["atLeast", "atMost", "below", "boolean", "item"]),
-    unit: z.enum(["count", "days", "points", "boolean", "item"]),
-  })
-  .meta({ id: "PromotionCriterionDefinition" });
-
 const PromotionInput = {
   title: z.string().trim().min(1).max(100),
   isActive: z.boolean(),
-  criteria: z.array(PromotionCriterion).min(1).max(20),
+  rule: NonEmptyCriteriaRule,
   groupIds: z.array(Id).min(1).max(20),
 };
 
@@ -83,7 +59,7 @@ export const promotionsGet = defineContract({
 export const promotionsCreate = defineContract({
   name: "promotions.create",
   summary:
-    "Create a promotion: criteria (all must hold) and the secondary groups to add. Members are " +
+    "Create a promotion: a rule (match all or any of its conditions) and the secondary groups to add. Members are " +
     "evaluated by the next sweep, or right after their next relevant activity. Requires " +
     "admin.promotions; the guest group cannot be granted, nor groups ranked at or above the actor." +
     CONFIRM,
@@ -107,7 +83,7 @@ export const promotionsUpdate = defineContract({
     promotionId: Id,
     title: PromotionInput.title.optional(),
     isActive: PromotionInput.isActive.optional(),
-    criteria: PromotionInput.criteria.optional(),
+    rule: PromotionInput.rule.optional(),
     groupIds: PromotionInput.groupIds.optional(),
     actorPassword: ActorPassword.optional(),
   }),
@@ -131,7 +107,7 @@ export const MemberPromotion = z
     title: z.string(),
     /** Null when the promotion has never applied and the member is not exempt. */
     state: z.enum(USER_PROMOTION_STATES).nullable(),
-    /** Whether the criteria hold now. */
+    /** Whether the rule holds now. */
     eligible: z.boolean(),
     /** Groups currently granted to the member by this promotion. */
     grantedGroupIds: z.array(Id),

@@ -28,8 +28,7 @@ const NOTICE = {
   title: "Maintenance",
   bodySource: "Tonight.",
   bodyHtml: "<p>Tonight.</p>",
-  audience: "everyone",
-  groupId: null,
+  rule: { match: "all", conditions: [] },
   dismissible: true,
   active: true,
   startsAt: null,
@@ -51,7 +50,7 @@ const fields = (extra: [string, string][] = []): [string, string][] => [
   ...extra,
 ];
 
-test("a new notice is sent with its audience, switches and dates in UTC", async () => {
+test("a new notice is sent with its rule, switches and dates in UTC", async () => {
   backend = fakeBackend({ "notices.create": () => Response.json(NOTICE) });
   const digest = await redirectedTo(() =>
     createNotice(
@@ -68,8 +67,7 @@ test("a new notice is sent with its audience, switches and dates in UTC", async 
   expect(backend.asked[0]?.body).toEqual({
     title: "Maintenance",
     body: "Tonight.\nLate.",
-    audience: "everyone",
-    groupId: null,
+    rule: { match: "all", conditions: [] },
     dismissible: true,
     active: true,
     startsAt: "2030-01-02T09:30:00.000Z",
@@ -91,8 +89,7 @@ test("unticked switches are sent off, and a group is kept only for the group aud
     ),
   );
   expect(backend.asked[0]?.body).toMatchObject({
-    audience: "members",
-    groupId: null,
+    rule: { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] },
     dismissible: false,
     active: false,
   });
@@ -108,8 +105,20 @@ test("unticked switches are sent off, and a group is kept only for the group aud
     ),
   );
   expect(backend.asked[1]?.body).toMatchObject({
-    audience: "group",
-    groupId: 3,
+    rule: { match: "all", conditions: [{ criterion: "in_group", ids: [3] }] },
+  });
+  await redirectedTo(() =>
+    createNotice(
+      null,
+      form([
+        ["title", "T"],
+        ["body", "B"],
+        ["audience", "guests"],
+      ]),
+    ),
+  );
+  expect(backend.asked[2]?.body).toMatchObject({
+    rule: { match: "all", conditions: [{ criterion: "is_guest", value: 1 }] },
   });
 });
 
@@ -172,4 +181,39 @@ test("deleting sends the id and returns to the list; a refusal is shown", async 
   expect(await removeNotice(null, form([["id", "3"]]))).toEqual({
     error: "Not found.",
   });
+});
+
+test("a custom rule is sent back as it was read, and a damaged one is refused before sending", async () => {
+  backend = fakeBackend({ "notices.update": () => Response.json(NOTICE) });
+  const rule = {
+    match: "any",
+    conditions: [{ criterion: "is_member", ids: [4, 5] }],
+  };
+  await redirectedTo(() =>
+    saveNotice(
+      null,
+      form([
+        ["id", "3"],
+        ...fields([
+          ["audience", "custom"],
+          ["rule", JSON.stringify(rule)],
+        ]),
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toMatchObject({ rule });
+  const errors = messages.adminCommunication.errors;
+  expect(
+    await saveNotice(
+      null,
+      form([
+        ["id", "3"],
+        ...fields([
+          ["audience", "custom"],
+          ["rule", "{broken"],
+        ]),
+      ]),
+    ),
+  ).toEqual({ fields: { audience: errors.choice } });
+  expect(backend.asked).toHaveLength(1);
 });

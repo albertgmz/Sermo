@@ -4,7 +4,7 @@ import { ForbiddenError } from "../../errors";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { PERMISSION_IDS } from "../../permissions";
-import { criteria } from "../../shared/criteria";
+import { criterionDefinitions } from "../../shared/criteria";
 import { readableTitle, titleFor } from "../../shared/language";
 
 function world() {
@@ -36,11 +36,11 @@ describe("titles a client can show", () => {
     const w = world();
     for (const name of ["promotions.criteria", "awards.criteria"]) {
       const { items } = await run(w, name);
-      expect(items.map((item) => item.id)).toEqual(criteria.map((item) => item.id));
+      expect(items.map((item) => item.id)).toEqual(criterionDefinitions.map((item) => item.id));
       for (const item of items) {
         expect(item.title.trim(), item.id).not.toBe("");
         expect(item.title, item.id).not.toBe(item.label);
-        expect(item.label).toBe(`promotion.criterion.${item.id}`);
+        expect(item.label).toBe(`criterion.${item.id}`);
         expect(item.help.trim(), item.id).not.toBe("");
       }
     }

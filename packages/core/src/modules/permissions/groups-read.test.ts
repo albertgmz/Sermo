@@ -102,7 +102,7 @@ describe("reading groups", () => {
     const d = insertUser(w.ctx, {});
     const promotion = await execute(w.ctx, getOperation("promotions.create"), w.admin, {
       title: "Rule",
-      criteria: [{ criterion: "post_count", value: 0 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 0 }] },
       groupIds: [helpers.id],
     });
     await execute(w.ctx, getOperation("promotions.apply"), w.admin, {

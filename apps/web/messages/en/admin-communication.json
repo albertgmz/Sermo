@@ -138,6 +138,7 @@
       "guests": "Guests",
       "members": "Members",
       "group": "A group",
+      "custom": "A custom rule (kept as it is)",
       "groupLabel": "Group",
       "groupHelp": "Used when shown to a group: its primary and secondary members.",
       "groupNone": "Choose a group",

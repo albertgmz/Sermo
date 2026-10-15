@@ -22,12 +22,13 @@ import {
   requirePermission,
 } from "../../permissions";
 import {
-  attachPurchasedItems,
-  type Criterion,
+  assertRule,
   criterionDefinitions,
-  criterionIds,
-  eligible,
-  type MemberFacts,
+  type Facts,
+  loadFacts,
+  parseRule,
+  type Rule,
+  evaluate as ruleHolds,
 } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
@@ -40,7 +41,7 @@ type PromotionRow = {
   id: number;
   title: string;
   is_active: number;
-  criteria: string;
+  rule: string;
   group_ids: string;
   created_at: number;
   updated_at: number;
@@ -48,7 +49,8 @@ type PromotionRow = {
 type StateRow = { user_id: number; promotion_id: number; state: "auto" | "manual" | "exempt" };
 type PromotionState = StateRow["state"] | null;
 type Decision = { groups: number[]; state: PromotionState; action: "promote" | "demote" | null };
-type MemberRow = MemberFacts & { id: number; group_id: number };
+type MemberRow = { id: number; group_id: number };
+type Member = MemberRow & { facts: Facts };
 type LogRow = {
   id: number;
   user_id: number;
@@ -60,9 +62,8 @@ type LogRow = {
 };
 const CHUNK = 200;
 const PROMOTION_SQL =
-  "SELECT id, title, is_active, criteria, group_ids, created_at, updated_at FROM promotions";
-const memberSql =
-  "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, coalesce((SELECT sum(w.points) FROM warnings w WHERE w.user_id = u.id AND (w.expires_at IS NULL OR w.expires_at > ?2)), 0) AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1";
+  "SELECT id, title, is_active, rule, group_ids, created_at, updated_at FROM promotions";
+const memberSql = "SELECT id, group_id FROM users WHERE id = ?1";
 
 function all<T extends object>(
   ctx: Ctx,
@@ -108,13 +109,13 @@ function promotion(ctx: Ctx, id: number): PromotionRow {
   if (!row) throw new NotFoundError();
   return row;
 }
-const conditions = (row: PromotionRow) => JSON.parse(row.criteria) as Criterion[];
+const ruleOf = (row: PromotionRow): Rule => parseRule(row.rule);
 const groupIds = (row: PromotionRow) => JSON.parse(row.group_ids) as number[];
-const promotionPlans = new WeakMap<PromotionRow, { tests: Criterion[]; ids: number[] }>();
+const promotionPlans = new WeakMap<PromotionRow, { rule: Rule; ids: number[] }>();
 function planFor(p: PromotionRow) {
   let plan = promotionPlans.get(p);
   if (!plan) {
-    plan = { tests: conditions(p), ids: [...new Set(groupIds(p))].sort((a, b) => a - b) };
+    plan = { rule: ruleOf(p), ids: [...new Set(groupIds(p))].sort((a, b) => a - b) };
     promotionPlans.set(p, plan);
   }
   return plan;
@@ -123,16 +124,24 @@ const value = (row: PromotionRow) => ({
   id: row.id,
   title: row.title,
   isActive: !!row.is_active,
-  criteria: conditions(row),
+  rule: ruleOf(row),
   groupIds: groupIds(row),
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),
 });
-function member(ctx: Ctx, id: number): MemberRow {
-  const row = one<MemberRow>(ctx, "member", memberSql, id, ctx.now());
+/** The members with the facts every promotion's rule reads, loaded together. */
+function withFacts(ctx: Ctx, members: MemberRow[], promotions: PromotionRow[]): Member[] {
+  const facts = loadFacts(
+    ctx,
+    members.map((m) => m.id),
+    promotions.map((p) => planFor(p).rule),
+  );
+  return members.map((m) => ({ ...m, facts: facts.get(m.id)! }));
+}
+function member(ctx: Ctx, id: number): Member {
+  const row = one<MemberRow>(ctx, "member", memberSql, id);
   if (!row) throw new NotFoundError();
-  attachPurchasedItems(ctx, [row], rows(ctx).map(conditions));
-  return row;
+  return withFacts(ctx, [row], rows(ctx))[0]!;
 }
 function target(ctx: Ctx, id: number): Actor {
   const row = one<PrincipalRow & { id: number; group_id: number }>(
@@ -144,13 +153,13 @@ function target(ctx: Ctx, id: number): Actor {
   if (!row) throw new NotFoundError();
   return memberActor(id, row.group_id, row, currentVersions(ctx));
 }
-function validate(ctx: Ctx, actor: Actor, tests: Criterion[], ids: number[]): void {
-  for (const item of tests) {
-    if (!criterionIds.has(item.criterion))
-      throw new ValidationError(`Unknown criterion: ${item.criterion}`);
-    if ((item.criterion === "email_verified" || item.criterion === "has_avatar") && item.value > 1)
-      throw new ValidationError("Boolean criterion must be 0 or 1.");
-  }
+function validate(ctx: Ctx, actor: Actor, rule: Rule, ids: number[]): void {
+  assertRule(ctx, rule, "background");
+  // A rule that reads a group the promotion grants would undo or hold itself.
+  const granted = new Set(ids);
+  for (const condition of rule.conditions)
+    if (condition.ids?.some((id) => granted.has(id)) && condition.criterion.endsWith("in_group"))
+      throw new ValidationError("A promotion's rule cannot depend on a group it grants.");
   assertGrantRanks(ctx, actor, ids);
   if (grantsAdministration(ctx, ids))
     throw new ValidationError("A promotion cannot grant a group that decides admin.permissions.");
@@ -244,18 +253,12 @@ function log(
     ctx.now(),
   );
 }
-function decide(
-  m: MemberRow,
-  p: PromotionRow,
-  current: PromotionState,
-  old: number[],
-  now: number,
-): Decision {
-  const { ids, tests } = planFor(p);
+function decide(m: Member, p: PromotionRow, current: PromotionState, old: number[]): Decision {
+  const { ids, rule } = planFor(p);
   if (ids.length === 0) return { groups: [], state: null, action: null };
   if (current === "manual") return { groups: ids, state: "manual", action: null };
   if (current === "exempt") return { groups: [], state: "exempt", action: null };
-  if (p.is_active && eligible(m, tests, now))
+  if (p.is_active && ruleHolds(rule, m.facts))
     return { groups: ids, state: "auto", action: "promote" };
   return { groups: [], state: null, action: old.length ? "demote" : null };
 }
@@ -335,13 +338,13 @@ function reconcile(
 }
 function evaluate(
   ctx: Ctx,
-  m: MemberRow,
+  m: Member,
   p: PromotionRow,
   known?: { old: number[]; state: PromotionState },
 ): boolean {
   const current = known ? known.state : state(ctx, m.id, p.id);
   const old = known?.old ?? grants(ctx, m.id, p.id);
-  const result = decide(m, p, current, old, ctx.now());
+  const result = decide(m, p, current, old);
   if (!differs(old, current, result)) return false;
   return reconcile(ctx, m, p, result.groups, result.state, result.action, null, {
     old,
@@ -350,9 +353,9 @@ function evaluate(
 }
 export function evaluateMember(ctx: Ctx, userId: number): number {
   return writeTx(ctx, () => {
-    const m = one<MemberRow>(ctx, "member", memberSql, userId, ctx.now());
-    if (!m) return 0;
-    attachPurchasedItems(ctx, [m], rows(ctx).map(conditions));
+    const row = one<MemberRow>(ctx, "member", memberSql, userId);
+    if (!row) return 0;
+    const m = withFacts(ctx, [row], evaluationRows(ctx))[0]!;
     const states = all<StateRow>(
       ctx,
       "memberStates",
@@ -381,12 +384,12 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
     return changes;
   });
 }
-function status(ctx: Ctx, m: MemberRow, p: PromotionRow) {
+function status(ctx: Ctx, m: Member, p: PromotionRow) {
   return {
     promotionId: p.id,
     title: p.title,
     state: state(ctx, m.id, p.id),
-    eligible: eligible(m, conditions(p), ctx.now()),
+    eligible: ruleHolds(ruleOf(p), m.facts),
     grantedGroupIds: grants(ctx, m.id, p.id),
   };
 }
@@ -415,16 +418,16 @@ export const operations = [
     await confirmActorPassword(ctx, actor, input.actorPassword);
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
-      validate(ctx, current, input.criteria, input.groupIds);
+      validate(ctx, current, input.rule, input.groupIds);
       const now = ctx.now();
       const id = Number(
         run(
           ctx,
           "create",
-          "INSERT INTO promotions (title, is_active, criteria, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+          "INSERT INTO promotions (title, is_active, rule, group_ids, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
           input.title,
           Number(input.isActive),
-          JSON.stringify(input.criteria),
+          JSON.stringify(input.rule),
           JSON.stringify([...new Set(input.groupIds)]),
           now,
         ).lastInsertRowid,
@@ -438,16 +441,16 @@ export const operations = [
     return writeTx(ctx, () => {
       const current = administratorNow(ctx, actor);
       const p = promotion(ctx, input.promotionId);
-      const tests = input.criteria ?? conditions(p);
+      const rule = input.rule ?? ruleOf(p);
       const ids = input.groupIds ?? groupIds(p);
-      validate(ctx, current, tests, ids);
+      validate(ctx, current, rule, ids);
       run(
         ctx,
         "update",
-        "UPDATE promotions SET title = ?1, is_active = ?2, criteria = ?3, group_ids = ?4, updated_at = ?5 WHERE id = ?6",
+        "UPDATE promotions SET title = ?1, is_active = ?2, rule = ?3, group_ids = ?4, updated_at = ?5 WHERE id = ?6",
         input.title ?? p.title,
         Number(input.isActive ?? !!p.is_active),
-        JSON.stringify(tests),
+        JSON.stringify(rule),
         JSON.stringify([...new Set(ids)]),
         ctx.now(),
         p.id,
@@ -505,7 +508,7 @@ export const operations = [
       if (input.action === "reset") {
         const old = grants(ctx, m.id, p.id);
         const oldState = state(ctx, m.id, p.id);
-        const result = decide(m, p, null, [], ctx.now());
+        const result = decide(m, p, null, []);
         // A reset that grants the groups now is held to the rules of promoting by hand.
         if (result.groups.length > 0) assertGrantable(ctx, current, groupIds(p));
         reconcile(ctx, m, p, result.groups, result.state, null, null, {
@@ -592,19 +595,11 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     const members = all<MemberRow>(
       ctx,
       "sweepPage",
-      "SELECT u.id, u.group_id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, 0 AS warning_points FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id > ?1 ORDER BY u.id LIMIT ?2",
+      "SELECT id, group_id FROM users WHERE id > ?1 ORDER BY id LIMIT ?2",
       after,
       CHUNK,
     );
     const ids = JSON.stringify(members.map((m) => m.id));
-    const warnings = all<{ user_id: number; points: number }>(
-      ctx,
-      "sweepWarnings",
-      "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",
-      ids,
-      ctx.now(),
-    );
-    const points = new Map(warnings.map((w) => [w.user_id, w.points]));
     const states = all<StateRow>(
       ctx,
       "sweepStates",
@@ -641,15 +636,13 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     for (const row of handGroups) countGroup(row.user_id, row.group_id, 1);
     for (const row of grantRows) countGroup(row.user_id, row.group_id, 1);
     const active = evaluationRows(ctx);
-    attachPurchasedItems(ctx, members, active.map(conditions));
     const now = ctx.now();
-    for (const m of members) {
-      m.warning_points = points.get(m.id) ?? 0;
+    for (const m of withFacts(ctx, members, active)) {
       for (const p of active) {
         const key = `${m.id}:${p.id}`;
         const oldState = stateMap.get(key) ?? null;
         const old = grantMap.get(key) ?? [];
-        const result = decide(m, p, oldState, old, now);
+        const result = decide(m, p, oldState, old);
         if (!differs(old, oldState, result)) continue;
         const desired = result.groups;
         const nextState = result.state;
@@ -764,7 +757,7 @@ export function deletePromotionChunk(ctx: Ctx, progress: DeleteProgress): number
       CHUNK,
     );
     for (const { user_id } of batch) {
-      const m = one<MemberRow>(ctx, "member", memberSql, user_id, ctx.now());
+      const m = one<MemberRow>(ctx, "member", memberSql, user_id);
       if (!m) continue;
       const old = grants(ctx, user_id, p.id);
       const current = state(ctx, user_id, p.id);

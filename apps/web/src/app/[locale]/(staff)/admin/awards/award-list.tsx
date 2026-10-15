@@ -56,7 +56,7 @@ export async function AwardList({
                     ) : (
                       <Badge variant="outline">{t("inactive")}</Badge>
                     )}
-                    {award.criteria.length > 0 && (
+                    {award.rule.conditions.length > 0 && (
                       <Badge variant="outline">{t("automatic")}</Badge>
                     )}
                   </span>

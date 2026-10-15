@@ -25,6 +25,7 @@ import {
 import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
+import { allowedBy } from "./audience";
 import {
   category,
   type InventoryRow,
@@ -111,7 +112,10 @@ function purchase(
   if (gift) requirePermission(ctx, current, "shop.gift");
   const row = item(ctx, input.itemId);
   const value = itemValue(ctx, row);
-  const unavailable = !row.is_active || !category(ctx, row.category_id).is_active;
+  const parent = category(ctx, row.category_id);
+  // Inactive, or hidden from the buyer by its rule or its category's.
+  const unavailable =
+    !row.is_active || !parent.is_active || allowedBy(ctx, current, [parent, row]).length < 2;
   if (unavailable && !can(ctx, current, "admin.shop")) throw new NotFoundError();
   if (gift) {
     if (!value.isGiftable) throw new ForbiddenError("This gift cannot be sent.");

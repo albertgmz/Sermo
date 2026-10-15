@@ -10,7 +10,7 @@ import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import { evaluateMember } from "./index";
 
 const op = (name: string) => getOperation(name);
-const CRITERIA = [{ criterion: "post_count", value: 0 }];
+const RULE = { match: "all", conditions: [{ criterion: "post_count", value: 0 }] };
 const entries = (permissions: string[], value: "allow" | "never" | "unset") =>
   permissions.map((permission) => ({ permission, value }));
 const createGroup = (ctx: Ctx, actor: Actor, title: string, rank: number) =>
@@ -18,7 +18,7 @@ const createGroup = (ctx: Ctx, actor: Actor, title: string, rank: number) =>
 const createPromotion = (ctx: Ctx, actor: Actor, groupIds: number[], title = "Rule") =>
   execute(ctx, op("promotions.create"), actor, {
     title,
-    criteria: CRITERIA,
+    rule: RULE,
     groupIds,
   }) as Promise<{ id: number }>;
 const administrators = (ctx: Ctx) =>
@@ -222,7 +222,7 @@ describe("administration is never earned by a promotion", () => {
     const promotionId = Number(
       ctx.sqlite
         .prepare(
-          "INSERT INTO promotions (title, group_ids, criteria, created_at, updated_at) VALUES ('Old', ?1, '[]', 0, 0)",
+          "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('Old', ?1, 0, 0)",
         )
         .run(JSON.stringify([group.id])).lastInsertRowid,
     );
@@ -259,7 +259,7 @@ describe("returning a member to automatic evaluation", () => {
     const stored = Number(
       ctx.sqlite
         .prepare(
-          "INSERT INTO promotions (title, group_ids, criteria, created_at, updated_at) VALUES ('Old', ?1, '[]', 0, 0)",
+          "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('Old', ?1, 0, 0)",
         )
         .run(JSON.stringify([earned.id])).lastInsertRowid,
     );

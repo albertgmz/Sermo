@@ -558,7 +558,7 @@ const AWARD = {
   credits: 0,
   isStackable: false,
   isActive: true,
-  criteria: [],
+  rule: { match: "all", conditions: [] },
   grantCount: 0,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",

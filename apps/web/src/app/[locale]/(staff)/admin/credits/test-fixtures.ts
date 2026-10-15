@@ -12,6 +12,7 @@ export const CATEGORY = {
   description: "",
   position: 0,
   isActive: true,
+  rule: { match: "all", conditions: [] },
   ...STAMPS,
 };
 
@@ -30,6 +31,7 @@ export const ITEM = {
   durationSeconds: null,
   effect: { type: "bump" },
   position: 0,
+  rule: { match: "all", conditions: [] },
   ...STAMPS,
 };
 
@@ -44,7 +46,7 @@ export const AWARD = {
   credits: 0,
   isStackable: false,
   isActive: true,
-  criteria: [],
+  rule: { match: "all", conditions: [] },
   grantCount: 0,
   ...STAMPS,
 };

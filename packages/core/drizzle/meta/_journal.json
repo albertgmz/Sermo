@@ -253,6 +253,13 @@
       "when": 1792006701141,
       "tag": "0035_xenforo_pass",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792032702197,
+      "tag": "0036_criteria_engine",
+      "breakpoints": true
     }
   ]
 }

@@ -328,7 +328,7 @@ test("a gift unlocks the buyer's automatic award once, and revocation uses its o
     tier: "gold",
     xp: 7,
     credits: 11,
-    criteria: [{ criterion: "purchased_item", value: item.id }],
+    rule: { match: "all", conditions: [{ criterion: "purchased_item", value: item.id }] },
   });
   await act("shop.buy", { itemId: item.id, recipientId }, userActor(members[0]!));
   await drainEvents(ctx);

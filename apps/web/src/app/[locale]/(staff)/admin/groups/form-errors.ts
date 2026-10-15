@@ -1,6 +1,11 @@
 import "server-only";
 
 import { getTranslations } from "next-intl/server";
+import {
+  type CriterionKind,
+  isDrawn,
+  type Rule,
+} from "@/components/staff/criteria-rule";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { errorMessage } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -94,19 +99,29 @@ export const text = (formData: FormData, name: string) => {
 export const whole = (raw: string) =>
   /^-?\d{1,15}$/.test(raw.trim()) ? Number(raw.trim()) : null;
 
-// The criteria a form offered, as the backend takes them, or null when a ticked one has no whole
+// The rule a form offered, as the backend takes it, or null when a ticked criterion has no whole
 // number for a value. `offered` is the list the backend gave the form (so a field invented by a
-// client is ignored); a yes/no criterion sends 1 or 0 and the range is the backend's.
-export function criteriaOf(
-  offered: readonly { id: string }[],
+// client is ignored); a yes/no criterion sends 1 or 0 and the range is the backend's. The form
+// keeps how the rule matches and the conditions it does not draw in two hidden fields.
+export function ruleOf(
+  offered: readonly { id: string; kind?: CriterionKind }[],
   formData: FormData,
-) {
-  const criteria: { criterion: string; value: number }[] = [];
-  for (const definition of offered) {
+): Rule | null {
+  const conditions: Rule["conditions"] = [];
+  for (const definition of offered.filter(isDrawn)) {
     if (formData.get(`use:${definition.id}`) === null) continue;
     const value = whole(text(formData, `value:${definition.id}`).trim());
     if (value === null) return null;
-    criteria.push({ criterion: definition.id, value });
+    conditions.push({ criterion: definition.id, value });
   }
-  return criteria;
+  let kept: unknown = [];
+  try {
+    kept = JSON.parse(text(formData, "rule:kept") || "[]");
+  } catch {
+    // Not what the form wrote: nothing is kept.
+  }
+  return {
+    match: text(formData, "rule:match") === "any" ? "any" : "all",
+    conditions: [...conditions, ...(Array.isArray(kept) ? kept : [])],
+  };
 }

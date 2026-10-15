@@ -65,12 +65,12 @@ export async function PromotionList({
                     </Badge>
                   </p>
                   <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                    {promotion.criteria
+                    {promotion.rule.conditions
                       .map(
                         (entry) =>
-                          `${names.get(entry.criterion) ?? entry.criterion}: ${entry.value}`,
+                          `${names.get(entry.criterion) ?? entry.criterion}: ${entry.ids?.join(", ") ?? entry.value}`,
                       )
-                      .join(" · ")}
+                      .join(promotion.rule.match === "any" ? " / " : " · ")}
                   </p>
                   <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
                     {t("grants")}{" "}

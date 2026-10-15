@@ -14,8 +14,10 @@ import {
   requirePermission,
   validatePurchasedGrant,
 } from "../../permissions";
+import { assertRule } from "../../shared/criteria";
 import { catalogImageById, paletteColorById } from "../appearance";
 import { releaseFile } from "../images/attach";
+import { allowedBy } from "./audience";
 import {
   type CategoryRow,
   category,
@@ -77,9 +79,10 @@ function assertCatalogEntry(ctx: Ctx, effect: Effect, forSale: boolean): void {
 function validateItem(
   ctx: Ctx,
   actor: Actor,
-  value: Pick<Item, "effect" | "isConsumable" | "durationSeconds" | "isActive">,
+  value: Pick<Item, "effect" | "isConsumable" | "durationSeconds" | "isActive" | "rule">,
   forSale = value.isActive,
 ): void {
+  assertRule(ctx, value.rule, "cheap");
   if (value.isConsumable && (value.durationSeconds !== null || value.effect.type === "group"))
     throw new ValidationError("Consumables cannot have a duration or grant a group.");
   const effect = value.effect;
@@ -97,11 +100,11 @@ export const categoriesList = implement(
   contracts.shopCategoriesList,
   (ctx, actor) => {
     const admin = can(ctx, actor, "admin.shop");
+    const rows = statement<CategoryRow>(ctx, shopSql.categories)
+      .all()
+      .filter((row) => admin || row.is_active);
     return {
-      items: statement<CategoryRow>(ctx, shopSql.categories)
-        .all()
-        .filter((row) => admin || row.is_active)
-        .map(categoryValue),
+      items: (admin ? rows : allowedBy(ctx, actor, rows)).map((row) => categoryValue(row, admin)),
     };
   },
   { public: "The active shop catalog is visible to everyone." },
@@ -111,11 +114,20 @@ export const categoriesCreate = implement(contracts.shopCategoriesCreate, (ctx, 
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     managerNow(ctx, actor);
+    assertRule(ctx, input.rule, "cheap");
     return categoryValue(
       statement<CategoryRow>(
         ctx,
-        "INSERT INTO shop_categories (name, description, position, is_active, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5) RETURNING *",
-      ).get(input.name, input.description, input.position, Number(input.isActive), ctx.now())!,
+        "INSERT INTO shop_categories (name, description, position, is_active, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6) RETURNING *",
+      ).get(
+        input.name,
+        input.description,
+        input.position,
+        Number(input.isActive),
+        JSON.stringify(input.rule),
+        ctx.now(),
+      )!,
+      true,
     );
   });
 });
@@ -124,18 +136,21 @@ export const categoriesUpdate = implement(contracts.shopCategoriesUpdate, (ctx, 
   return writeTx(ctx, () => {
     managerNow(ctx, actor);
     const row = category(ctx, input.categoryId);
+    if (input.rule) assertRule(ctx, input.rule, "cheap");
     return categoryValue(
       statement<CategoryRow>(
         ctx,
-        "UPDATE shop_categories SET name = ?1, description = ?2, position = ?3, is_active = ?4, updated_at = ?5 WHERE id = ?6 RETURNING *",
+        "UPDATE shop_categories SET name = ?1, description = ?2, position = ?3, is_active = ?4, rule = ?5, updated_at = ?6 WHERE id = ?7 RETURNING *",
       ).get(
         input.name ?? row.name,
         input.description ?? row.description,
         input.position ?? row.position,
         Number(input.isActive ?? !!row.is_active),
+        input.rule ? JSON.stringify(input.rule) : row.rule,
         ctx.now(),
         row.id,
       )!,
+      true,
     );
   });
 });
@@ -163,16 +178,29 @@ export const itemsList = implement(
     const admin = can(ctx, actor, "admin.shop");
     const parent = statement<CategoryRow>(ctx, shopSql.category).get(input.categoryId);
     if (!parent || (!admin && !parent.is_active)) return { items: [], nextCursor: null };
-    const rows = statement<ItemRow>(ctx, itemsSql(admin)).all(
-      input.categoryId,
-      cursor[0]!,
-      cursor[1]!,
-      input.limit + 1,
-    );
+    if (!admin && allowedBy(ctx, actor, [parent]).length === 0)
+      return { items: [], nextCursor: null };
+    // Rows the viewer's rule hides are skipped, so keep reading, in larger batches, until the page
+    // is full.
+    const size = Math.max(input.limit + 1, 100);
+    const rows: ItemRow[] = [];
+    let after = cursor;
+    for (;;) {
+      const batch = statement<ItemRow>(ctx, itemsSql(admin)).all(
+        input.categoryId,
+        after[0]!,
+        after[1]!,
+        size,
+      );
+      rows.push(...(admin ? batch : allowedBy(ctx, actor, batch)));
+      const last = batch.at(-1);
+      if (batch.length < size || rows.length > input.limit || !last) break;
+      after = [last.position, last.id];
+    }
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);
     return {
-      items: page.map((row) => itemValue(ctx, row)),
+      items: page.map((row) => itemValue(ctx, row, admin)),
       nextCursor: rows.length > input.limit && last ? encodeCursor([last.position, last.id]) : null,
     };
   },
@@ -182,12 +210,13 @@ export const itemsGet = implement(
   contracts.shopItemsGet,
   (ctx, actor, input) => {
     const row = item(ctx, input.itemId);
-    if (
-      !can(ctx, actor, "admin.shop") &&
-      (!row.is_active || !category(ctx, row.category_id).is_active)
-    )
-      throw new NotFoundError();
-    return itemValue(ctx, row);
+    const admin = can(ctx, actor, "admin.shop");
+    if (!admin) {
+      const parent = category(ctx, row.category_id);
+      if (!row.is_active || !parent.is_active || allowedBy(ctx, actor, [parent, row]).length < 2)
+        throw new NotFoundError();
+    }
+    return itemValue(ctx, row, admin);
   },
   { public: "The active shop catalog is visible to everyone." },
 );
@@ -201,7 +230,7 @@ export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, inp
       ctx,
       statement<ItemRow>(
         ctx,
-        "INSERT INTO shop_items (category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13) RETURNING *",
+        "INSERT INTO shop_items (category_id, name, description, icon, price, is_active, stock, is_consumable, is_giftable, duration_seconds, effect, position, rule, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14) RETURNING *",
       ).get(
         input.categoryId,
         input.name,
@@ -215,8 +244,10 @@ export const itemsCreate = implement(contracts.shopItemsCreate, (ctx, actor, inp
         input.durationSeconds,
         JSON.stringify(input.effect),
         input.position,
+        JSON.stringify(input.rule),
         ctx.now(),
       )!,
+      true,
     );
   });
 });
@@ -224,7 +255,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
   requirePermission(ctx, actor, "admin.shop");
   return writeTx(ctx, () => {
     const current = managerNow(ctx, actor);
-    const previous = itemValue(ctx, item(ctx, input.itemId));
+    const previous = itemValue(ctx, item(ctx, input.itemId), true);
     grantPermissions(ctx, current, previous.effect);
     assertGrantRank(ctx, current, previous.effect);
     const value = {
@@ -253,7 +284,7 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
       ctx,
       statement<ItemRow>(
         ctx,
-        "UPDATE shop_items SET category_id = ?1, name = ?2, description = ?3, icon = ?4, price = ?5, is_active = ?6, stock = ?7, is_consumable = ?8, is_giftable = ?9, duration_seconds = ?10, effect = ?11, position = ?12, updated_at = ?13 WHERE id = ?14 RETURNING *",
+        "UPDATE shop_items SET category_id = ?1, name = ?2, description = ?3, icon = ?4, price = ?5, is_active = ?6, stock = ?7, is_consumable = ?8, is_giftable = ?9, duration_seconds = ?10, effect = ?11, position = ?12, rule = ?13, updated_at = ?14 WHERE id = ?15 RETURNING *",
       ).get(
         value.categoryId,
         value.name,
@@ -267,9 +298,11 @@ export const itemsUpdate = implement(contracts.shopItemsUpdate, (ctx, actor, inp
         value.durationSeconds,
         JSON.stringify(value.effect),
         value.position,
+        JSON.stringify(value.rule),
         ctx.now(),
         previous.id,
       )!,
+      true,
     );
   });
 });

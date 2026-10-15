@@ -57,6 +57,7 @@ const CRITERIA = {
       help: "h",
       kind: "atLeast",
       unit: "count",
+      cost: "cheap",
     },
     {
       id: "has_avatar",
@@ -66,6 +67,7 @@ const CRITERIA = {
       help: "h",
       kind: "boolean",
       unit: "boolean",
+      cost: "cheap",
     },
   ],
 };
@@ -113,7 +115,10 @@ test("an award sends the criteria ticked, ignores unknown ones, and attaches its
         credits: 0,
         isStackable: true,
         isActive: false,
-        criteria: [{ criterion: "post_count", value: 10 }],
+        rule: {
+          match: "all",
+          conditions: [{ criterion: "post_count", value: 10 }],
+        },
       },
     ],
     ["images.setAwardImage", { fileId: 9 }],
@@ -137,7 +142,7 @@ test("a bad tier, number or criterion value is refused; the backend answer is sh
       null,
       form({ ...base, "use:post_count": "on", "value:post_count": "" }),
     ),
-  ).toEqual({ fields: { criteria: e.criterionValue } });
+  ).toEqual({ fields: { rule: e.criterionValue } });
   expect(await saveAward(null, form({ ...base, id: "7" }))).toEqual({
     error: "Held more than once.",
   });

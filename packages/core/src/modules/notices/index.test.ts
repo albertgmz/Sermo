@@ -17,11 +17,15 @@ const run = (ctx: Ctx, name: string, actor: Parameters<typeof execute>[2], input
   // biome-ignore lint/suspicious/noExplicitAny: operations are called by name, their output is loosely typed
   execute(ctx, getOperation(name), actor, input) as Promise<any>;
 
+const rule = (...conditions: object[]) => ({ match: "all", conditions });
+const GUESTS = rule({ criterion: "is_guest", value: 1 });
+const MEMBERS = rule({ criterion: "is_guest", value: 0 });
+const inGroup = (id: number) => rule({ criterion: "in_group", ids: [id] });
+
 const FIELDS = {
   title: "Notice",
   body: "Hello **there**",
-  audience: "everyone",
-  groupId: null,
+  rule: rule(),
   dismissible: true,
   active: true,
   startsAt: null,
@@ -56,11 +60,11 @@ describe("notices management", () => {
       ...FIELDS,
       noticeId: made.id,
       title: "Changed",
-      audience: "members",
+      rule: MEMBERS,
       dismissible: false,
     });
     expect(updated.title).toBe("Changed");
-    expect(updated.audience).toBe("members");
+    expect(updated.rule).toEqual(MEMBERS);
     expect((await run(ctx, "notices.list", admin)).items).toHaveLength(1);
     await run(ctx, "notices.delete", admin, { noticeId: made.id });
     expect((await run(ctx, "notices.list", admin)).items).toHaveLength(0);
@@ -69,29 +73,42 @@ describe("notices management", () => {
     );
   });
 
-  test("a group audience needs an existing group; the end must follow the start", async () => {
-    const { create } = setup();
-    await expect(create({ audience: "group", groupId: null })).rejects.toBeInstanceOf(
-      ValidationError,
-    );
-    await expect(create({ audience: "group", groupId: 9999 })).rejects.toBeInstanceOf(
-      ValidationError,
-    );
+  test("the rule must be valid and cheap to check; the end must follow the start", async () => {
+    const { ctx, admin, create } = setup();
+    const refused = [
+      inGroup(9999),
+      rule({ criterion: "made_up", value: 1 }),
+      rule({ criterion: "post_count" }),
+      rule({ criterion: "is_guest", value: 2 }),
+      // Summing warnings is not allowed while a page is served.
+      rule({ criterion: "warning_points_below", value: 3 }),
+    ];
+    for (const bad of refused)
+      await expect(create({ rule: bad })).rejects.toBeInstanceOf(ValidationError);
     await expect(
       create({ startsAt: "2030-01-02T00:00:00.000Z", endsAt: "2030-01-01T00:00:00.000Z" }),
     ).rejects.toBeInstanceOf(ValidationError);
-    expect((await create({ audience: "group", groupId: 3 })).groupId).toBe(3);
-    expect((await create({ audience: "guests", groupId: 3 })).groupId).toBeNull();
+    expect((await create({ rule: inGroup(3) })).rule).toEqual(inGroup(3));
+    const made = await create();
+    await expect(
+      run(ctx, "notices.update", admin, {
+        ...FIELDS,
+        noticeId: made.id,
+        rule: refused[4],
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const listed = (await run(ctx, "notices.list", admin)).items;
+    expect(listed.find((item: { id: number }) => item.id === made.id).rule).toEqual(rule());
   });
 });
 
 describe("notices.current", () => {
-  test("audiences: everyone, guests, members and a group (primary or secondary)", async () => {
+  test("rules: everyone, guests, members and a group (primary or secondary)", async () => {
     const { ctx, admin, moderator, member, memberUser, create, titles } = setup();
-    await create({ title: "E", audience: "everyone" });
-    await create({ title: "G", audience: "guests" });
-    await create({ title: "M", audience: "members" });
-    await create({ title: "Mods", audience: "group", groupId: 3 });
+    await create({ title: "E", rule: rule() });
+    await create({ title: "G", rule: GUESTS });
+    await create({ title: "M", rule: MEMBERS });
+    await create({ title: "Mods", rule: inGroup(3) });
     expect(await titles(GUEST)).toEqual(["G", "E"]);
     expect(await titles(member)).toEqual(["M", "E"]);
     expect(await titles(moderator)).toEqual(["Mods", "M", "E"]);
@@ -101,6 +118,24 @@ describe("notices.current", () => {
       .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 3, ?2)")
       .run(memberUser.id, ctx.now());
     expect(await titles(member)).toEqual(["Mods", "M", "E"]);
+  });
+
+  test("a list of members, any/all matching and the member's own facts", async () => {
+    const { ctx, moderator, member, memberUser, create, titles } = setup();
+    const other = insertUser(ctx);
+    await create({ title: "Listed", rule: rule({ criterion: "is_member", ids: [memberUser.id] }) });
+    await create({
+      title: "Guests or mods",
+      rule: { match: "any", conditions: [...GUESTS.conditions, ...inGroup(3).conditions] },
+    });
+    await create({ title: "Not mods", rule: rule({ criterion: "not_in_group", ids: [3] }) });
+    await create({ title: "Rich", rule: rule({ criterion: "credits_at_least", value: 50 }) });
+    expect(await titles(member)).toEqual(["Not mods", "Listed"]);
+    expect(await titles(userActor(other))).toEqual(["Not mods"]);
+    expect(await titles(moderator)).toEqual(["Guests or mods"]);
+    expect(await titles(GUEST)).toEqual(["Not mods", "Guests or mods"]);
+    ctx.sqlite.prepare("UPDATE users SET credits = 50 WHERE id = ?1").run(memberUser.id);
+    expect(await titles(member)).toEqual(["Rich", "Not mods", "Listed"]);
   });
 
   test("inactive notices and those outside their dates are not shown", async () => {
@@ -147,7 +182,7 @@ describe("notices.dismiss", () => {
   test("a notice that is not dismissible, not shown, or unknown is not found; guests sign in", async () => {
     const { ctx, member, create } = setup();
     const fixed = await create({ dismissible: false });
-    const guests = await create({ audience: "guests" });
+    const guests = await create({ rule: GUESTS });
     const off = await create({ active: false });
     for (const id of [fixed.id, guests.id, off.id, 9999])
       await expect(run(ctx, "notices.dismiss", member, { noticeId: id })).rejects.toBeInstanceOf(

@@ -108,7 +108,7 @@ for (const seed of [0x12345678, 0x51a7e, 0xdecafbad]) {
         tier: "gold",
         xp: 10,
         credits: 13,
-        criteria: [{ criterion: "purchases_at_least", value: 1 }],
+        rule: { match: "all", conditions: [{ criterion: "purchases_at_least", value: 1 }] },
       });
       const reaction = await act("reactionTypes.create", {
         title: "Sequence reaction",

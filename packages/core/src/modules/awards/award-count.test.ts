@@ -56,7 +56,7 @@ describe("users.award_count", () => {
 
   test("an automatic grant counts", async () => {
     const { w, count, create } = setup();
-    await create({ criteria: [{ criterion: "post_count", value: 1 }] });
+    await create({ rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] } });
     w.ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(w.member.id);
     expect(evaluateMember(w.ctx, w.member.id)).toBe(1);
     expect(count(w.member.id)).toBe(1);

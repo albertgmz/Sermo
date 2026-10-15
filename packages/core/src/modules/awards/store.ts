@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import type { Award } from "../../contracts/awards";
 import { NotFoundError } from "../../errors";
-import type { Criterion } from "../../shared/criteria";
+import { parseRule, type Rule } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { publicPicture } from "../storage/url";
@@ -19,7 +19,7 @@ export type AwardRow = {
   credits: number;
   is_stackable: number;
   is_active: number;
-  criteria: string;
+  rule: string;
   grant_count: number;
   created_at: number;
   updated_at: number;
@@ -78,7 +78,7 @@ export function memberXp(ctx: Ctx, id: number): number {
   if (!row) throw new NotFoundError();
   return row.award_xp;
 }
-export const conditions = (row: AwardRow): Criterion[] => JSON.parse(row.criteria);
+export const ruleOf = (row: AwardRow): Rule => parseRule(row.rule);
 export const awardValue = (ctx: Ctx, row: AwardRow): z.infer<typeof Award> => ({
   id: row.id,
   name: row.name,
@@ -90,7 +90,7 @@ export const awardValue = (ctx: Ctx, row: AwardRow): z.infer<typeof Award> => ({
   credits: row.credits,
   isStackable: !!row.is_stackable,
   isActive: !!row.is_active,
-  criteria: conditions(row),
+  rule: ruleOf(row),
   grantCount: row.grant_count,
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),

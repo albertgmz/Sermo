@@ -73,6 +73,10 @@ function beforeCombinationUpdateTriggers() {
   applyMigrations(ctx, 0, 16);
   // This database stops at an early migration; the principal load reads a later column.
   ctx.sqlite.run("ALTER TABLE users ADD COLUMN is_super_admin integer DEFAULT false NOT NULL");
+  // The promotion evaluation reads the rule column that migration 0036 adds.
+  ctx.sqlite.run(
+    `ALTER TABLE promotions ADD COLUMN rule text DEFAULT '{"match":"all","conditions":[]}' NOT NULL`,
+  );
   syncPermissionRegistry(ctx);
   return setup(ctx);
 }
@@ -965,7 +969,7 @@ describe("combination triggers cover UPDATE of the owner and of the group", () =
           .run(first.id, holders);
       else if (table === "user_group_grants") {
         ctx.sqlite.run(
-          "INSERT INTO promotions (id, title, group_ids, criteria, created_at, updated_at) VALUES (1, 'P', '[]', '[]', 0, 0)",
+          "INSERT INTO promotions (id, title, group_ids, created_at, updated_at) VALUES (1, 'P', '[]', 0, 0)",
         );
         ctx.sqlite
           .prepare(

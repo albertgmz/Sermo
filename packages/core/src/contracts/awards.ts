@@ -2,8 +2,8 @@ import * as z from "zod";
 import { AWARD_TIERS } from "../db/schema";
 import { defineContract } from "../operation";
 import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common";
+import { CriteriaRule, CriterionDefinition } from "./criteria";
 import { ImageReference } from "./images";
-import { CriterionDefinition, PromotionCriterion } from "./promotions";
 
 /**
  * An award (achievements are awards too). A stackable award can be granted to the same member
@@ -26,11 +26,11 @@ export const Award = z
     isStackable: z.boolean(),
     isActive: z.boolean(),
     /**
-     * Granted automatically, once per member, when all hold; empty = by hand only. An award the
-     * criteria granted is never taken back when they stop holding, and never granted again by
-     * them after it was revoked.
+     * Granted automatically, once per member, when the rule holds; no conditions = by hand only.
+     * An award the rule granted is never taken back when it stops holding, and never granted
+     * again by it after it was revoked.
      */
-    criteria: z.array(PromotionCriterion),
+    rule: CriteriaRule,
     /** Grants currently held, over all members. */
     grantCount: z.number().int().nonnegative(),
     createdAt: Timestamp,
@@ -60,7 +60,7 @@ const AwardInput = {
   credits: z.number().int().min(0).max(1_000_000),
   isStackable: z.boolean(),
   isActive: z.boolean(),
-  criteria: z.array(PromotionCriterion).max(20),
+  rule: CriteriaRule,
 };
 
 export const awardsList = defineContract({
@@ -102,7 +102,7 @@ export const awardsCriteria = defineContract({
 export const awardsCreate = defineContract({
   name: "awards.create",
   summary:
-    "Create an award. With criteria, members are evaluated by the next sweep or after their " +
+    "Create an award. With conditions in its rule, members are evaluated by the next sweep or after their " +
     "next relevant activity. Requires admin.awards.",
   kind: "write",
   input: z.object({
@@ -113,7 +113,7 @@ export const awardsCreate = defineContract({
     credits: AwardInput.credits.default(0),
     isStackable: AwardInput.isStackable.default(false),
     isActive: AwardInput.isActive.default(true),
-    criteria: AwardInput.criteria.default([]),
+    rule: AwardInput.rule.default({ match: "all", conditions: [] }),
   }),
   output: Award,
 });
@@ -134,7 +134,7 @@ export const awardsUpdate = defineContract({
     credits: AwardInput.credits.optional(),
     isStackable: AwardInput.isStackable.optional(),
     isActive: AwardInput.isActive.optional(),
-    criteria: AwardInput.criteria.optional(),
+    rule: AwardInput.rule.optional(),
   }),
   output: Award,
 });
@@ -152,7 +152,7 @@ export const awardsDelete = defineContract({
 export const awardsRun = defineContract({
   name: "awards.run",
   summary:
-    "Queue a sweep that evaluates every member against every active award with criteria now " +
+    "Queue a sweep that evaluates every member against every active award with conditions now " +
     "(it also runs daily). Requires admin.awards.",
   kind: "write",
   input: Empty,

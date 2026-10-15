@@ -13,7 +13,6 @@ import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../err
 import { dispatchEvents, publishEvent } from "../../events";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
-import { criteria, eligible } from "../../shared/criteria";
 import { enqueueJob, runDueJobs } from "../jobs/queue";
 import { deletePromotionChunk, evaluateMember, registerPromotionJobs, sweepChunk } from "./index";
 
@@ -26,52 +25,6 @@ const group = (ctx: ReturnType<typeof createTestContext>, rank = 30) =>
     .get(rank)!.id;
 
 describe("promotions", () => {
-  test("the criteria registry evaluates all conditions", () => {
-    const now = Date.UTC(2026, 0, 10);
-    const facts = {
-      post_count: 4,
-      created_at: now - 10 * 86_400_000,
-      reaction_score: 3,
-      email_verified: 1,
-      avatar_file_id: 8,
-      last_activity_at: now - 2 * 86_400_000,
-      warning_points: 1,
-      credits: 0,
-      shop_purchase_count: 0,
-    };
-    expect(criteria).toHaveLength(12);
-    expect(
-      eligible(
-        facts,
-        [
-          { criterion: "post_count", value: 4 },
-          { criterion: "days_registered", value: 10 },
-          { criterion: "reaction_score", value: 3 },
-          { criterion: "email_verified", value: 1 },
-          { criterion: "has_avatar", value: 1 },
-          { criterion: "active_within_days", value: 2 },
-          { criterion: "inactive_days", value: 2 },
-          { criterion: "warning_points_below", value: 2 },
-        ],
-        now,
-      ),
-    ).toBe(true);
-    expect(
-      eligible(
-        { ...facts, last_activity_at: null },
-        [{ criterion: "active_within_days", value: 100 }],
-        now,
-      ),
-    ).toBe(false);
-    expect(
-      eligible(
-        { ...facts, last_activity_at: null },
-        [{ criterion: "inactive_days", value: 100 }],
-        now,
-      ),
-    ).toBe(true);
-    expect(eligible(facts, [{ criterion: "warning_points_below", value: 1 }], now)).toBe(false);
-  });
   test("automatic, manual, exempt, reset, and hand-assigned groups", async () => {
     const ctx = createTestContext();
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
@@ -81,20 +34,29 @@ describe("promotions", () => {
     await expect(
       execute(ctx, create, GUEST, {
         title: "Posts",
-        criteria: [{ criterion: "post_count", value: 1 }],
+        rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
         groupIds: [id],
       }),
     ).rejects.toBeInstanceOf(UnauthenticatedError);
     await expect(
       execute(ctx, create, admin, {
         title: "Bad",
-        criteria: [{ criterion: "missing", value: 1 }],
+        rule: { match: "all", conditions: [{ criterion: "missing", value: 1 }] },
         groupIds: [id],
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+    // A rule that reads a group the promotion grants would undo or hold itself.
+    for (const criterion of ["in_group", "not_in_group"])
+      await expect(
+        execute(ctx, create, admin, {
+          title: "Loop",
+          rule: { match: "all", conditions: [{ criterion, ids: [id] }] },
+          groupIds: [id],
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
     const p = (await execute(ctx, create, admin, {
       title: "Posts",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     expect(sweepChunk(ctx)).toBeGreaterThan(0);
@@ -174,7 +136,7 @@ describe("promotions", () => {
     const id = group(ctx);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Scores",
-      criteria: [{ criterion: "reaction_score", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "reaction_score", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     await expect(
@@ -268,7 +230,7 @@ describe("promotions", () => {
     invalidate(ctx, "node_tree");
     const p = (await execute(ctx, op("create"), admin, {
       title: "Poster",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     registerPromotionJobs(ctx);
@@ -311,7 +273,7 @@ describe("promotions", () => {
     const id = group(ctx);
     await execute(ctx, op("create"), admin, {
       title: "Verified",
-      criteria: [{ criterion: "email_verified", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "email_verified", value: 1 }] },
       groupIds: [id],
     });
     let last = 0;
@@ -341,7 +303,7 @@ describe("promotions", () => {
     const id = group(ctx);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Rule",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     const inputs: [string, object][] = [
@@ -350,7 +312,11 @@ describe("promotions", () => {
       ["get", { promotionId: p.id }],
       [
         "create",
-        { title: "Rule", criteria: [{ criterion: "post_count", value: 1 }], groupIds: [id] },
+        {
+          title: "Rule",
+          rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
+          groupIds: [id],
+        },
       ],
       ["update", { promotionId: p.id, title: "Other" }],
       ["delete", { promotionId: p.id }],
@@ -374,7 +340,10 @@ describe("promotions", () => {
     const member = insertUser(ctx);
     const safe = group(ctx);
     const high = group(ctx, 1000);
-    const input = { title: "Rule", criteria: [{ criterion: "post_count", value: 1 }] };
+    const input = {
+      title: "Rule",
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
+    };
     for (const groupId of [1, high])
       await expect(
         execute(ctx, op("create"), admin, { ...input, groupIds: [groupId] }),
@@ -406,7 +375,7 @@ describe("promotions", () => {
     const second = group(ctx);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Manual",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [first],
     })) as { id: number };
     await execute(ctx, op("apply"), admin, {
@@ -463,7 +432,7 @@ describe("promotions", () => {
     const id = group(ctx);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Posts",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
@@ -544,12 +513,12 @@ describe("promotions", () => {
     const id = group(ctx);
     const scoreRule = (await execute(ctx, op("create"), admin, {
       title: "Scores",
-      criteria: [{ criterion: "reaction_score", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "reaction_score", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     const warningRule = (await execute(ctx, op("create"), admin, {
       title: "Warnings",
-      criteria: [{ criterion: "warning_points_below", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "warning_points_below", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     registerPromotionJobs(ctx);
@@ -639,7 +608,7 @@ describe("promotions", () => {
     const hand = group(ctx, 20);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Avatar",
-      criteria: [{ criterion: "has_avatar", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "has_avatar", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
     registerPromotionJobs(ctx);
@@ -702,7 +671,7 @@ describe("promotions", () => {
     const granted = group(ctx, 25);
     const p = (await execute(ctx, op("create"), admin, {
       title: "Many",
-      criteria: [{ criterion: "post_count", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [hand, granted],
     })) as { id: number };
     let first = 0;

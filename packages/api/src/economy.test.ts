@@ -222,7 +222,7 @@ const cases: RouteCase[] = [
       credits: 5,
       isActive: true,
       isStackable: false,
-      criteria: [],
+      rule: { match: "all", conditions: [] },
       grantCount: 0,
     }),
   },

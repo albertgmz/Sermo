@@ -1,14 +1,13 @@
 import * as z from "zod";
-import { NOTICE_AUDIENCES } from "../db/schema";
 import { defineContract } from "../operation";
 import { Body, Empty, Id, Ok, Timestamp, Title } from "./common";
+import { CriteriaRule } from "./criteria";
 
 const NoticeFields = {
   title: Title,
   body: Body,
-  audience: z.enum(NOTICE_AUDIENCES),
-  /** Required for audience `group`, ignored otherwise. */
-  groupId: Id.nullable(),
+  /** Who sees it; no conditions = everyone. Only `cheap` criteria: it is checked on each request. */
+  rule: CriteriaRule,
   dismissible: z.boolean(),
   active: z.boolean(),
   startsAt: Timestamp.nullable(),
@@ -26,8 +25,7 @@ export const NoticeDetail = z
     title: z.string(),
     bodySource: z.string(),
     bodyHtml: z.string(),
-    audience: z.enum(NOTICE_AUDIENCES),
-    groupId: Id.nullable(),
+    rule: CriteriaRule,
     dismissible: z.boolean(),
     active: z.boolean(),
     startsAt: Timestamp.nullable(),
@@ -40,8 +38,8 @@ export const NoticeDetail = z
 export const noticesCurrent = defineContract({
   name: "notices.current",
   summary:
-    "The notices shown to the viewer now, newest first: active, inside their dates, for the " +
-    "viewer's audience (guests, members, or a group the member is in), less those a member " +
+    "The notices shown to the viewer now, newest first: active, inside their dates, whose rule " +
+    "holds for the viewer (guests, members, a group, listed members, ...), less those a member " +
     "dismissed. Open to everyone; guests keep their dismissals in the browser.",
   kind: "read",
   input: Empty,
@@ -68,7 +66,9 @@ export const noticesList = defineContract({
 
 export const noticesCreate = defineContract({
   name: "notices.create",
-  summary: "Create a notice. Requires admin.announcements.",
+  summary:
+    "Create a notice. Its rule may only use `cheap` criteria (a validation error otherwise). " +
+    "Requires admin.announcements.",
   kind: "write",
   input: z.object(NoticeFields),
   output: NoticeDetail,

@@ -2,6 +2,7 @@ import { noticesList } from "@sermo/core/contracts";
 import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { EmptyState } from "@/components/forum/empty-state";
+import type { Rule } from "@/components/staff/criteria-rule";
 import { FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { read } from "@/lib/sermo/client";
 import { groupsIfAllowed } from "../groups/data";
 import { createNotice } from "./actions";
+import { audienceOf } from "./audience";
 import { NoticeFields } from "./notice-fields";
 
 // The notices, newest first, each with the link to edit it, and the form for a new one.
@@ -25,6 +27,14 @@ export async function NoticeList({
   ]);
   const when = (iso: string) =>
     format.dateTime(new Date(iso), { dateStyle: "medium", timeStyle: "short" });
+  const audienceLabel = (rule: Rule) => {
+    const { audience, groupId } = audienceOf(rule);
+    if (audience !== "group") return t(`fields.${audience}`);
+    return t("list.group", {
+      group:
+        groups?.find((group) => group.id === groupId)?.title ?? `#${groupId}`,
+    });
+  };
   return (
     <>
       <Notice
@@ -51,13 +61,7 @@ export async function NoticeList({
                   </Badge>
                 </p>
                 <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                  {item.audience === "group"
-                    ? t("list.group", {
-                        group:
-                          groups?.find((group) => group.id === item.groupId)
-                            ?.title ?? `#${item.groupId}`,
-                      })
-                    : t(`fields.${item.audience}`)}
+                  {audienceLabel(item.rule)}
                   {item.startsAt &&
                     ` · ${t("list.from", { date: when(item.startsAt) })}`}
                   {item.endsAt &&

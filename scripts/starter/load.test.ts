@@ -110,10 +110,9 @@ async function snapshot(site: Site) {
     categories,
     shopItems,
     awards: (
-      await run<{ items: { name: string; image: unknown; criteria: { criterion: string }[] }[] }>(
-        site,
-        "awards.list",
-      )
+      await run<{
+        items: { name: string; image: unknown; rule: { conditions: { criterion: string }[] } }[];
+      }>(site, "awards.list")
     ).items,
     rules: (await run<{ items: unknown[] }>(site, "creditRules.list")).items,
     pages: (await run<{ items: { slug: string }[] }>(site, "pages.list")).items,
@@ -183,7 +182,7 @@ describe("starter content", () => {
       .filter((item) => item.effect.type === "group")
       .map((item) => item.id);
     const bought = state.awards
-      .flatMap((award) => award.criteria)
+      .flatMap((award) => award.rule.conditions)
       .filter((criterion) => criterion.criterion === "purchased_item");
     expect(bought).toHaveLength(ranks.length);
   });

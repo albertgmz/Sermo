@@ -6,6 +6,7 @@ import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { groupsIfAllowed } from "../groups/data";
+import { audienceOf } from "./audience";
 import { dateInput } from "./dates";
 
 type NoticeItem = z.output<typeof noticesList.output>["items"][number];
@@ -25,6 +26,9 @@ export async function NoticeFields({
     groupsIfAllowed(),
   ]);
   const id = (name: string) => `${prefix}-${name}`;
+  const { audience, groupId } = notice
+    ? audienceOf(notice.rule)
+    : { audience: "everyone" as const, groupId: null };
   return (
     <>
       <FieldRow name="title" label={t("title")} htmlFor={id("title")}>
@@ -59,19 +63,25 @@ export async function NoticeFields({
         <select
           id={id("audience")}
           name="audience"
-          defaultValue={notice?.audience ?? "everyone"}
+          defaultValue={audience}
           className={selectClass}
         >
           <option value="everyone">{t("everyone")}</option>
           <option value="guests">{t("guests")}</option>
           <option value="members">{t("members")}</option>
-          {(groups || notice?.audience === "group") && (
+          {(groups || audience === "group") && (
             <option value="group">{t("group")}</option>
+          )}
+          {audience === "custom" && (
+            <option value="custom">{t("custom")}</option>
           )}
         </select>
       </FieldRow>
-      {!groups && notice?.groupId != null && (
-        <input type="hidden" name="groupId" value={notice.groupId} />
+      {!groups && groupId !== null && (
+        <input type="hidden" name="groupId" value={groupId} />
+      )}
+      {notice && audience === "custom" && (
+        <input type="hidden" name="rule" value={JSON.stringify(notice.rule)} />
       )}
       {groups && (
         <FieldRow
@@ -83,7 +93,7 @@ export async function NoticeFields({
           <select
             id={id("group")}
             name="groupId"
-            defaultValue={notice?.groupId ?? ""}
+            defaultValue={groupId ?? ""}
             className={selectClass}
           >
             <option value="">{t("groupNone")}</option>

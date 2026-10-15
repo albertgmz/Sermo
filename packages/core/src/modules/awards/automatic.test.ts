@@ -29,7 +29,7 @@ async function drainEvents(ctx: ReturnType<typeof createTestContext>) {
   for (let i = 0; i < 20; i++) if ((await dispatchEvents(ctx)) === 0) return;
   throw new Error("Award events did not terminate.");
 }
-const postCriterion = [{ criterion: "post_count", value: 1 }];
+const postRule = { match: "all", conditions: [{ criterion: "post_count", value: 1 }] };
 
 describe("automatic awards", () => {
   test("credits events terminate, automatic grants survive lost eligibility and are never regranted", async () => {
@@ -40,7 +40,7 @@ describe("automatic awards", () => {
       xp: 5,
       credits: 10,
       isStackable: true,
-      criteria: postCriterion,
+      rule: postRule,
     });
     expect(evaluateMember(ctx, member.id)).toBe(0);
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
@@ -90,7 +90,7 @@ describe("automatic awards", () => {
         name: "Manual and automatic",
         tier: "bronze",
         isStackable,
-        criteria: postCriterion,
+        rule: postRule,
       });
       const manual = await call("grant", { userId: member.id, awardId: award.id });
       expect(evaluateMember(ctx, member.id)).toBe(isStackable ? 1 : 0);
@@ -115,7 +115,7 @@ describe("automatic awards", () => {
     await call("create", {
       name: "Inactive",
       tier: "gold",
-      criteria: postCriterion,
+      rule: postRule,
       isActive: false,
     });
     expect(evaluateMember(ctx, member.id)).toBe(0);
@@ -130,9 +130,9 @@ describe("automatic awards", () => {
       name: "Credits threshold",
       tier: "gold",
       credits: 5,
-      criteria: [{ criterion: "credits_at_least", value: 10 }],
+      rule: { match: "all", conditions: [{ criterion: "credits_at_least", value: 10 }] },
     });
-    await call("create", { name: "Starter", tier: "bronze", credits: 10, criteria: postCriterion });
+    await call("create", { name: "Starter", tier: "bronze", credits: 10, rule: postRule });
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
     expect(evaluateMember(ctx, member.id)).toBe(1);
     await drainEvents(ctx);
@@ -153,19 +153,22 @@ describe("automatic awards", () => {
       const award = await call("create", {
         name: "Facts",
         tier: "gold",
-        criteria: [
-          { criterion: "post_count", value: 2 },
-          { criterion: "days_registered", value: 5 },
-          { criterion: "reaction_score", value: 3 },
-          { criterion: "email_verified", value: 1 },
-          { criterion: "has_avatar", value: 0 },
-          { criterion: "active_within_days", value: 3 },
-          { criterion: "inactive_days", value: 1 },
-          { criterion: "warning_points_below", value: 3 },
-          { criterion: "credits_at_least", value: 10 },
-          { criterion: "credits_at_most", value: 10 },
-          { criterion: "purchases_at_least", value: 4 },
-        ],
+        rule: {
+          match: "all",
+          conditions: [
+            { criterion: "post_count", value: 2 },
+            { criterion: "days_registered", value: 5 },
+            { criterion: "reaction_score", value: 3 },
+            { criterion: "email_verified", value: 1 },
+            { criterion: "has_avatar", value: 0 },
+            { criterion: "active_within_days", value: 3 },
+            { criterion: "inactive_days", value: 1 },
+            { criterion: "warning_points_below", value: 3 },
+            { criterion: "credits_at_least", value: 10 },
+            { criterion: "credits_at_most", value: 10 },
+            { criterion: "purchases_at_least", value: 4 },
+          ],
+        },
       });
       ctx.sqlite
         .prepare(
@@ -228,7 +231,7 @@ describe("automatic awards", () => {
       const award = await call("create", {
         name: "Buyer",
         tier: "bronze",
-        criteria: [{ criterion: "purchased_item", value: item }],
+        rule: { match: "all", conditions: [{ criterion: "purchased_item", value: item }] },
       });
       const purchase = Number(
         ctx.sqlite
@@ -273,7 +276,7 @@ describe("automatic awards", () => {
   ] as const) {
     test(`subscriber evaluates the affected member after ${type}`, async () => {
       const { ctx, member, call } = setup();
-      const award = await call("create", { name: type, tier: "bronze", criteria: postCriterion });
+      const award = await call("create", { name: type, tier: "bronze", rule: postRule });
       ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
       writeTx(ctx, () => {
         if (type === "credits.changed")
@@ -296,7 +299,7 @@ describe("automatic awards", () => {
     const award = await call("create", {
       name: "Verified",
       tier: "bronze",
-      criteria: [{ criterion: "email_verified", value: 1 }],
+      rule: { match: "all", conditions: [{ criterion: "email_verified", value: 1 }] },
     });
     const verify = async () => {
       writeTx(ctx, () =>
@@ -319,7 +322,7 @@ describe("automatic awards", () => {
 
   test("subscriber ignores its own grant and revoke events and non-admin group changes", async () => {
     const { ctx, member, call } = setup();
-    await call("create", { name: "Not yet", tier: "bronze", criteria: postCriterion });
+    await call("create", { name: "Not yet", tier: "bronze", rule: postRule });
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);
     for (const type of [
       "award.granted",
@@ -377,7 +380,7 @@ describe("automatic awards", () => {
       const award = await call("create", {
         name: "Author",
         tier: "bronze",
-        criteria: [{ criterion: "email_verified", value: 0 }],
+        rule: { match: "all", conditions: [{ criterion: "email_verified", value: 0 }] },
       });
       writeTx(ctx, () => publishEvent(ctx, { type: "content.created", targetType, targetId }));
       await drainEvents(ctx);
@@ -408,7 +411,7 @@ describe("award sweeps", () => {
       tier: "silver",
       xp: 2,
       credits: 3,
-      criteria: postCriterion,
+      rule: postRule,
     });
     const progress: number[] = [];
     registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
@@ -448,7 +451,7 @@ describe("award sweeps", () => {
   test("a retried predecessor does not release or duplicate its successor", async () => {
     const { ctx, call } = setup();
     for (let i = 0; i < SWEEP_CHUNK; i++) insertUser(ctx);
-    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    const award = await call("create", { name: "Sweep", tier: "bronze", rule: postRule });
     ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
     const first = Number(
       enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }),
@@ -484,7 +487,7 @@ describe("award sweeps", () => {
   test("a stale claim grants nothing and queues nothing", async () => {
     const { ctx, member, call } = setup();
     ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
-    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    const award = await call("create", { name: "Sweep", tier: "bronze", rule: postRule });
     const id = Number(enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }));
     ctx.sqlite
       .prepare("UPDATE jobs SET status = 'running', locked_until = ?1 WHERE id = ?2")
@@ -499,7 +502,7 @@ describe("award sweeps", () => {
     const { ctx, call } = setup();
     for (let i = 0; i < SWEEP_CHUNK * 2 + 7; i++) insertUser(ctx);
     ctx.sqlite.prepare("UPDATE users SET post_count = 1").run();
-    const award = await call("create", { name: "Sweep", tier: "bronze", criteria: postCriterion });
+    const award = await call("create", { name: "Sweep", tier: "bronze", rule: postRule });
     const total = (ctx.sqlite.prepare("SELECT count(*) AS n FROM users").get() as { n: number }).n;
     let visited = 0;
     registerJobHandler(ctx, "awards.sweep", (context, payload, job) => {
@@ -531,7 +534,7 @@ describe("award sweeps", () => {
       name: "Rollback",
       tier: "bronze",
       credits: 1,
-      criteria: postCriterion,
+      rule: postRule,
     });
     expect(() => sweepChunk(ctx)).toThrow(ConflictError);
     expect((await call("get", { awardId: award.id })).grantCount).toBe(0);
