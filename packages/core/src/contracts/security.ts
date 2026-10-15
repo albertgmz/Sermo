@@ -102,8 +102,8 @@ export const authSessionDevices = defineContract({
   summary:
     "The device, address and approximate place of each of the signed-in member's live sessions, " +
     "by session id, parsed from the user agent the session was opened with, and when each was " +
-    "last used (to within a few minutes; null for a session that predates the record). Only a " +
-    "browser session may ask.",
+    "last used (to within a few minutes; null until a session opened by registration is first " +
+    "used). Only a browser session may ask.",
   kind: "read",
   input: z.object({}),
   output: z.object({

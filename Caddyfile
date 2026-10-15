@@ -25,15 +25,24 @@
 	@backend {
 		path /api/* /mcp /health /robots.txt /llms.txt /sitemap.xml /sitemaps/* /feed.atom /forums/*/feed.atom /nodes/*/feed.atom /*.txt
 	}
+	# Cloudflare's visitor location headers are dropped here, because a visitor can send them too.
+	# Behind Cloudflare, with SERMO_TRUST_LOCATION_HEADERS=true, delete these three lines from each
+	# upstream (see "Sign-in location and log retention" in docs/deployment.md).
 	handle @backend {
 		reverse_proxy sermo:3000 {
 			header_up X-Forwarded-For {client_ip}
+			header_up -CF-IPCountry
+			header_up -CF-Region
+			header_up -CF-IPCity
 		}
 	}
 
 	handle {
 		reverse_proxy web:3000 {
 			header_up X-Forwarded-For {client_ip}
+			header_up -CF-IPCountry
+			header_up -CF-Region
+			header_up -CF-IPCity
 		}
 	}
 }

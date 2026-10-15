@@ -306,32 +306,39 @@ export const authNotMeOp = implement(
   authNotMe,
   async (ctx, _actor, input) => {
     const claim = await verifyNotMe(ctx, input.token);
-    const revoked = writeTx(ctx, () => {
+    // A link works once: it dies when the member's sessions were cut at or after the sign-in it
+    // was sent for, by itself or any other way.
+    const usable = () => {
       const member = prepared(ctx, "security.notMeMember", () =>
         ctx.sqlite.prepare<
           { sessions_revoked_at: number | null; erased_at: number | null },
           [number]
         >("SELECT sessions_revoked_at, erased_at FROM users WHERE id = ?1"),
       ).get(claim.userId);
-      // A link works once: it dies when the member's sessions were cut at or after the sign-in
-      // it was sent for, by itself or any other way.
       if (
         !member ||
         member.erased_at !== null ||
         (member.sessions_revoked_at !== null && member.sessions_revoked_at >= claim.issuedAt)
       )
         throw new ValidationError("Expired or invalid link.");
-      const live = prepared(ctx, "security.notMeSessions", () =>
+    };
+    const revoked = writeTx(ctx, () => {
+      usable();
+      return prepared(ctx, "security.notMeSessions", () =>
         ctx.sqlite.prepare<{ n: number }, [number, number]>(sessionSql.count),
       ).get(claim.userId, ctx.now())!.n;
-      markSessionsRevoked(ctx, claim.userId);
-      return live;
     });
+    // The sessions and keys go first and the link is spent last: if one of these fails the member
+    // can use the link again. Two requests with the same link both reach the end of the deletes
+    // (which are idempotent), and only one passes the check that spends it.
     const authContext = await getAuth(ctx).$context;
     await authContext.internalAdapter.deleteUserSessions(String(claim.userId));
-    // A session that began between the transaction and the delete is cut too.
-    writeTx(ctx, () => markSessionsRevoked(ctx, claim.userId));
     await revokeApiKeys(ctx, claim.userId);
+    writeTx(ctx, () => {
+      usable();
+      // Also cuts a session that began while the deletes ran.
+      markSessionsRevoked(ctx, claim.userId);
+    });
     return { revoked };
   },
   { public: "The signed, expiring, single-use token from the member's mail authorizes this." },

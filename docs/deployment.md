@@ -88,7 +88,9 @@ The place comes from one of two sources, in this order:
    Transforms) and set `SERMO_TRUST_LOCATION_HEADERS=true`. The backend then reads `CF-IPCountry`,
    `CF-Region` and `CF-IPCity`. It does so only together with `SERMO_TRUSTED_PROXY_HEADER`, and
    the ingress must be reachable only from Cloudflare: otherwise anyone can send those headers, as
-   anyone could send a forged `X-Forwarded-For` (see TLS, case b, for the ingress setup). Leave it
+   anyone could send a forged `X-Forwarded-For` (see TLS, case b, for the ingress setup). The
+   shipped `Caddyfile` deletes the three headers from every request, so with Cloudflare in front
+   also remove the three `header_up -CF-…` lines under each upstream there. Leave the setting
    `false` everywhere else; the headers are then ignored.
 2. A MaxMind database: put a GeoLite2 City (or Country) `.mmdb` file on the data volume and set
    `SERMO_GEOIP_DATABASE` to its path (for example `/data/GeoLite2-City.mmdb`). It is read once at

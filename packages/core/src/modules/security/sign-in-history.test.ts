@@ -282,7 +282,7 @@ describe("sessions show when they were last used and where they were opened", ()
       location: FRANCE,
       lastActiveAt: "2026-01-01T00:00:00.000Z",
     });
-    // The session the registration opened predates the record.
+    // The session the registration opened has no record until it is first used.
     expect(list.items[1]).toMatchObject({ location: null, lastActiveAt: null });
   });
 
@@ -326,7 +326,7 @@ describe("sessions show when they were last used and where they were opened", ()
     expect(stored()).toBe(w.ctx.clock.now());
   });
 
-  test("a session that predates the record gets a row, one that is gone gets none, time never goes back", async () => {
+  test("a session opened by registration gets its row at first use, one that is gone gets none, time never goes back", async () => {
     const w = await accounts();
     const ada = await w.register("Ada");
     const session = w.ctx.sqlite
@@ -471,6 +471,24 @@ describe("the new-sign-in alert", () => {
     expect((await mailed(w)).filter((message) => message.subject.includes("sign-in"))).toHaveLength(
       0,
     );
+  });
+
+  test("an alert that cannot be queued never costs the sign-in its log row or its session record", async () => {
+    const { w, ada } = await setup();
+    await signIn(w, CHROME, SPAIN);
+    w.ctx.sqlite.run("DROP TABLE jobs");
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      await signIn(w, FIREFOX, FRANCE);
+    } finally {
+      console.error = quiet;
+    }
+    expect(rows(w, ada.id).map((row) => row.action)).toEqual(["sign_in", "sign_in"]);
+    expect(
+      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM session_activity").get()!
+        .n,
+    ).toBe(2);
   });
 
   test("without mail the sign-in still works and nothing is queued", async () => {

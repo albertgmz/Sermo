@@ -49,19 +49,24 @@ export async function recordSignIn(
   const location = address ? resolveLocation(ctx, address.ip, input.location) : NO_LOCATION;
   let alertToken: string | null = null;
   if (address && !device.isBot) {
-    const seen = prepared(ctx, "security.signInSeen", () =>
-      ctx.sqlite.prepare<Seen, [number, string | null, string | null, string | null]>(
-        sessionActivitySql.seen,
-      ),
-    ).get(input.userId, device.browser, device.os, location.country);
-    if (seen && seen.total > 0) {
-      const newBrowser = device.browser !== null && seen.with_browser > 0 && !seen.same_browser;
-      const newCountry = location.country !== null && seen.with_country > 0 && !seen.same_country;
-      if (newBrowser || newCountry) alertToken = await signNotMe(ctx, input.userId);
+    try {
+      const seen = prepared(ctx, "security.signInSeen", () =>
+        ctx.sqlite.prepare<Seen, [number, string | null, string | null, string | null]>(
+          sessionActivitySql.seen,
+        ),
+      ).get(input.userId, device.browser, device.os, location.country);
+      if (seen && seen.total > 0) {
+        const newBrowser = device.browser !== null && seen.with_browser > 0 && !seen.same_browser;
+        const newCountry = location.country !== null && seen.with_country > 0 && !seen.same_country;
+        if (newBrowser || newCountry) alertToken = await signNotMe(ctx, input.userId);
+      }
+    } catch (error) {
+      // No alert is better than losing the record of the sign-in.
+      console.error("The new-sign-in check failed", error);
     }
   }
+  const now = ctx.now();
   writeTx(ctx, () => {
-    const now = ctx.now();
     logMemberIp(ctx, input.userId, input.ip, input.userAgent, "sign_in", undefined, location);
     prepared(ctx, "security.sessionOpen", () => ctx.sqlite.prepare(sessionActivitySql.open)).run(
       input.sessionId,
@@ -70,22 +75,28 @@ export async function recordSignIn(
       location.region,
       location.city,
     );
-    if (!alertToken) return;
-    const member = prepared(ctx, "security.memberEmail", () =>
-      ctx.sqlite.prepare<{ email: string }, [number]>(sessionActivitySql.email),
-    ).get(input.userId);
-    if (!member) return;
-    const site = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
-    queueAccountEmail(ctx, {
-      kind: "newDevice",
-      userId: input.userId,
-      email: member.email,
-      url: `${site}/not-me?token=${encodeURIComponent(alertToken)}`,
-      device: { browser: device.browser, os: device.os },
-      location,
-      at: now,
-    });
   });
+  if (!alertToken) return;
+  try {
+    writeTx(ctx, () => {
+      const member = prepared(ctx, "security.memberEmail", () =>
+        ctx.sqlite.prepare<{ email: string }, [number]>(sessionActivitySql.email),
+      ).get(input.userId);
+      if (!member) return;
+      const site = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
+      queueAccountEmail(ctx, {
+        kind: "newDevice",
+        userId: input.userId,
+        email: member.email,
+        url: `${site}/not-me?token=${encodeURIComponent(alertToken)}`,
+        device: { browser: device.browser, os: device.os },
+        location,
+        at: now,
+      });
+    });
+  } catch (error) {
+    console.error("The new-sign-in mail could not be queued", error);
+  }
 }
 
 /** A session's last-active time is moved forward at most once per this long, per session. */
