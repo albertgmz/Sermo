@@ -7,6 +7,7 @@ import {
   type GestureState,
   type Hit,
   idleGesture,
+  locksPage,
   reduceGesture,
   SLOP_PX,
 } from "./reaction-gesture";
@@ -26,6 +27,7 @@ function run(events: GestureEvent[], from: GestureState = idleGesture) {
 const touchDown = (given: number | null = null): GestureEvent => ({
   type: "down",
   pointer: "touch",
+  pointerId: 1,
   x: 100,
   y: 300,
   given,
@@ -33,22 +35,31 @@ const touchDown = (given: number | null = null): GestureEvent => ({
 const mouseDown = (given: number | null = null): GestureEvent => ({
   type: "down",
   pointer: "mouse",
+  pointerId: 1,
   x: 100,
   y: 300,
   given,
 });
-const onReaction = (reactionId: number) => ({ reactionId, distance: 0 });
-const nearPicker = { reactionId: null, distance: 20 };
-const onButton = { reactionId: null, distance: 0 };
-const far = { reactionId: null, distance: CANCEL_DISTANCE_PX + 1 };
+const onReaction = (reactionId: number): Hit => ({
+  reactionId,
+  overButton: false,
+  distance: 0,
+});
+const nearPicker: Hit = { reactionId: null, overButton: false, distance: 20 };
+const onButton: Hit = { reactionId: null, overButton: true, distance: 0 };
+const far: Hit = {
+  reactionId: null,
+  overButton: false,
+  distance: CANCEL_DISTANCE_PX + 1,
+};
 const move = (hit: Hit, x = 100) =>
-  ({ type: "move", x, y: 260, hit }) as GestureEvent;
+  ({ type: "move", pointerId: 1, x, y: 260, hit }) as GestureEvent;
 
 describe("tap", () => {
   test("a touch that lifts before the hold leaves the tap to the click", () => {
     const { state, effects } = run([
       touchDown(),
-      { type: "up", hit: onButton },
+      { type: "up", pointerId: 1, hit: onButton },
     ]);
     expect(effects).toEqual([{ type: "startHold" }, { type: "clearHold" }]);
     expect(state.phase).toBe("idle");
@@ -57,7 +68,7 @@ describe("tap", () => {
   test("a mouse click starts no hold and opens nothing", () => {
     const { state, effects } = run([
       mouseDown(),
-      { type: "up", hit: onButton },
+      { type: "up", pointerId: 1, hit: onButton },
     ]);
     expect(effects).toEqual([]);
     expect(state.phase).toBe("idle");
@@ -66,7 +77,7 @@ describe("tap", () => {
   test("a hold that arrives after the lift does nothing", () => {
     const { effects } = run([
       touchDown(),
-      { type: "up", hit: onButton },
+      { type: "up", pointerId: 1, hit: onButton },
       { type: "hold" },
     ]);
     expect(effects).not.toContainEqual({ type: "open" });
@@ -90,6 +101,7 @@ describe("scroll before the hold", () => {
       touchDown(),
       {
         type: "move",
+        pointerId: 1,
         x: 100 + SLOP_PX - 1,
         y: 300,
         hit: onButton,
@@ -99,7 +111,10 @@ describe("scroll before the hold", () => {
   });
 
   test("the browser taking the touch for a scroll cancels the hold", () => {
-    const { state, effects } = run([touchDown(), { type: "cancel" }]);
+    const { state, effects } = run([
+      touchDown(),
+      { type: "cancel", pointerId: 1 },
+    ]);
     expect(effects).toEqual([{ type: "startHold" }, { type: "clearHold" }]);
     expect(state.phase).toBe("idle");
   });
@@ -121,7 +136,7 @@ describe("hold", () => {
     const { state, effects } = run([
       touchDown(),
       { type: "hold" },
-      { type: "up", hit: onButton },
+      { type: "up", pointerId: 1, hit: onButton },
     ]);
     expect(state.phase).toBe("idle");
     expect(effects).not.toContainEqual({ type: "close" });
@@ -133,7 +148,7 @@ describe("hold", () => {
       touchDown(),
       { type: "hold" },
       move(nearPicker),
-      { type: "up", hit: nearPicker },
+      { type: "up", pointerId: 1, hit: nearPicker },
     ]);
     expect(effects).not.toContainEqual({ type: "close" });
     expect(effects.some((effect) => effect.type === "choose")).toBe(false);
@@ -165,7 +180,7 @@ describe("slide", () => {
       touchDown(),
       { type: "hold" },
       move(onReaction(3)),
-      { type: "up", hit: onReaction(3) },
+      { type: "up", pointerId: 1, hit: onReaction(3) },
     ]);
     expect(effects.at(-1)).toEqual({ type: "choose", typeId: 3 });
     expect(state.phase).toBe("idle");
@@ -177,7 +192,7 @@ describe("slide", () => {
       touchDown(3),
       { type: "hold" },
       move(onReaction(3)),
-      { type: "up", hit: onReaction(3) },
+      { type: "up", pointerId: 1, hit: onReaction(3) },
     ]);
     expect(effects.at(-1)).toEqual({ type: "choose", typeId: null });
   });
@@ -187,7 +202,7 @@ describe("slide", () => {
       touchDown(),
       { type: "hold" },
       move(onReaction(2)),
-      { type: "up", hit: onReaction(4) },
+      { type: "up", pointerId: 1, hit: onReaction(4) },
     ]);
     expect(effects.at(-1)).toEqual({ type: "choose", typeId: 4 });
   });
@@ -210,7 +225,7 @@ describe("slide", () => {
       { type: "hold" },
       move(far),
       move(onReaction(2)),
-      { type: "up", hit: onReaction(2) },
+      { type: "up", pointerId: 1, hit: onReaction(2) },
     ]);
     expect(state.phase).toBe("idle");
     expect(effects.some((effect) => effect.type === "choose")).toBe(false);
@@ -221,7 +236,11 @@ describe("slide", () => {
     const { state } = run([
       touchDown(),
       { type: "hold" },
-      move({ reactionId: null, distance: CANCEL_DISTANCE_PX }),
+      move({
+        reactionId: null,
+        overButton: false,
+        distance: CANCEL_DISTANCE_PX,
+      }),
     ]);
     expect(state.phase).toBe("sliding");
   });
@@ -230,7 +249,7 @@ describe("slide", () => {
     const { effects } = run([
       touchDown(),
       { type: "hold" },
-      { type: "up", hit: far },
+      { type: "up", pointerId: 1, hit: far },
     ]);
     expect(effects.at(-1)).toEqual({ type: "close" });
     expect(effects.some((effect) => effect.type === "choose")).toBe(false);
@@ -240,7 +259,7 @@ describe("slide", () => {
     const { state, effects } = run([
       touchDown(),
       { type: "hold" },
-      { type: "cancel" },
+      { type: "cancel", pointerId: 1 },
     ]);
     expect(effects.at(-1)).toEqual({ type: "close" });
     expect(state.phase).toBe("idle");
@@ -263,15 +282,105 @@ describe("mouse", () => {
     const { effects } = run([
       mouseDown(),
       move(onReaction(1)),
-      { type: "up", hit: onReaction(1) },
+      { type: "up", pointerId: 1, hit: onReaction(1) },
     ]);
     expect(effects.at(-1)).toEqual({ type: "choose", typeId: 1 });
   });
 
-  test("dragging far away cancels", () => {
+  test("dragging far away cancels without flashing the picker open", () => {
     const { state, effects } = run([mouseDown(), move(far)]);
     expect(state.phase).toBe("cancelled");
-    expect(effects.at(-1)).toEqual({ type: "close" });
+    expect(effects).toEqual([{ type: "swallowClick" }, { type: "close" }]);
+  });
+
+  test("a drift within the button stays a click", () => {
+    const { state, effects } = run([
+      mouseDown(),
+      move(onButton),
+      { type: "up", pointerId: 1, hit: onButton },
+    ]);
+    expect(state.phase).toBe("idle");
+    expect(effects).toEqual([]);
+  });
+});
+
+describe("a second pointer", () => {
+  const second = 2;
+
+  test("a second finger down during a slide is not a new press", () => {
+    const { state, effects } = run([
+      touchDown(),
+      { type: "hold" },
+      move(onReaction(2)),
+      {
+        ...(touchDown() as GestureEvent & { type: "down" }),
+        pointerId: second,
+      },
+    ]);
+    expect(state.phase).toBe("sliding");
+    expect(state.pointerId).toBe(1);
+    expect(state.hover).toBe(2);
+    expect(effects).not.toContainEqual({ type: "clearHold" });
+    expect(
+      effects.filter((effect) => effect.type === "startHold"),
+    ).toHaveLength(1);
+  });
+
+  test("moves, lifts and cancels of the other finger are ignored", () => {
+    const events: GestureEvent[] = [
+      { type: "move", pointerId: second, x: 0, y: 0, hit: far },
+      { type: "up", pointerId: second, hit: onReaction(3) },
+      { type: "cancel", pointerId: second },
+    ];
+    const { state, effects } = run([touchDown(), { type: "hold" }, ...events]);
+    expect(state.phase).toBe("sliding");
+    expect(effects.some((effect) => effect.type === "choose")).toBe(false);
+    expect(effects).not.toContainEqual({ type: "close" });
+  });
+
+  test("a second finger during the press does not restart the hold", () => {
+    const { state, effects } = run([
+      touchDown(),
+      {
+        ...(touchDown() as GestureEvent & { type: "down" }),
+        pointerId: second,
+      },
+    ]);
+    expect(state.pointerId).toBe(1);
+    expect(effects).toEqual([{ type: "startHold" }]);
+  });
+
+  test("once the first finger has lifted a new press is accepted", () => {
+    const { state } = run([
+      touchDown(),
+      { type: "up", pointerId: 1, hit: onButton },
+      {
+        ...(touchDown() as GestureEvent & { type: "down" }),
+        pointerId: second,
+      },
+    ]);
+    expect(state.phase).toBe("pressing");
+    expect(state.pointerId).toBe(second);
+  });
+});
+
+describe("locksPage", () => {
+  test("holds the page from the hold until the finger lifts, also after a cancel", () => {
+    const phases = (events: GestureEvent[]) =>
+      events.map((_, index) => run(events.slice(0, index + 1)).state);
+    const slideAway = phases([
+      touchDown(),
+      { type: "hold" },
+      move(far),
+      move(onReaction(1)),
+      { type: "up", pointerId: 1, hit: onReaction(1) },
+    ]);
+    expect(slideAway.map(locksPage)).toEqual([false, true, true, true, false]);
+  });
+
+  test("lets the page scroll before the hold", () => {
+    expect(locksPage(run([touchDown()]).state)).toBe(false);
+    expect(locksPage(run([touchDown(), move(onButton)]).state)).toBe(false);
   });
 });
 

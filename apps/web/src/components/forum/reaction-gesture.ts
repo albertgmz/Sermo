@@ -12,13 +12,19 @@ export const CANCEL_DISTANCE_PX = 48;
 
 export type Pointer = "touch" | "mouse";
 
-// What is under the finger: the reaction there, if any, and how far the point is from the button
-// and the picker (0 on either of them).
-export type Hit = { reactionId: number | null; distance: number };
+// What is under the finger: the reaction there, if any, whether it is on the button, and how far
+// the point is from the button and the picker (0 on either of them).
+export type Hit = {
+  reactionId: number | null;
+  overButton: boolean;
+  distance: number;
+};
 
 export type GestureState = {
   phase: "idle" | "pressing" | "sliding" | "cancelled";
   pointer: Pointer;
+  // The one pointer the gesture follows; a second finger is ignored until it ends.
+  pointerId: number;
   originX: number;
   originY: number;
   // The reaction the viewer already gave, so lifting on it takes it back.
@@ -31,14 +37,15 @@ export type GestureEvent =
   | {
       type: "down";
       pointer: Pointer;
+      pointerId: number;
       x: number;
       y: number;
       given: number | null;
     }
   | { type: "hold" }
-  | { type: "move"; x: number; y: number; hit: Hit }
-  | { type: "up"; hit: Hit }
-  | { type: "cancel" };
+  | { type: "move"; pointerId: number; x: number; y: number; hit: Hit }
+  | { type: "up"; pointerId: number; hit: Hit }
+  | { type: "cancel"; pointerId: number };
 
 export type GestureEffect =
   | { type: "startHold" }
@@ -53,11 +60,18 @@ export type GestureEffect =
 export const idleGesture: GestureState = {
   phase: "idle",
   pointer: "touch",
+  pointerId: -1,
   originX: 0,
   originY: 0,
   given: null,
   hover: null,
 };
+
+// While the picker is open under the finger, and until it lifts after a cancel, the page must not
+// scroll or select text.
+export function locksPage(state: GestureState) {
+  return state.phase === "sliding" || state.phase === "cancelled";
+}
 
 type Step = { state: GestureState; effects: GestureEffect[] };
 
@@ -87,12 +101,19 @@ function slide(state: GestureState, hit: Hit, effects: GestureEffect[]): Step {
 }
 
 export function reduceGesture(state: GestureState, event: GestureEvent): Step {
+  if (event.type === "down") {
+    // A second finger while a gesture runs is not a new press.
+    if (state.phase !== "idle") return stay(state);
+  } else if ("pointerId" in event && event.pointerId !== state.pointerId) {
+    return stay(state);
+  }
   switch (event.type) {
     case "down":
       return {
         state: {
           phase: "pressing",
           pointer: event.pointer,
+          pointerId: event.pointerId,
           originX: event.x,
           originY: event.y,
           given: event.given,
@@ -123,10 +144,19 @@ export function reduceGesture(state: GestureState, event: GestureEvent): Step {
             effects: [{ type: "clearHold" }],
           };
         }
-        return slide({ ...state, phase: "sliding" }, event.hit, [
+        // A mouse that drifts within the button is still clicking it.
+        if (event.hit.overButton) return stay(state);
+        const started = slide({ ...state, phase: "sliding" }, event.hit, [
           { type: "open" },
           { type: "swallowClick" },
         ]);
+        // Gone far in one move: no flash of the picker, only the click to swallow.
+        return started.state.phase === "cancelled"
+          ? {
+              state: started.state,
+              effects: [{ type: "swallowClick" }, { type: "close" }],
+            }
+          : started;
       }
       if (state.phase === "sliding") return slide(state, event.hit, []);
       return stay(state);

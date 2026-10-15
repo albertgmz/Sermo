@@ -19,6 +19,7 @@ import {
 import {
   type PickerPlacement,
   placePicker,
+  VIEWPORT_MARGIN_PX,
 } from "@/components/forum/reaction-placement";
 import { useReactionGesture } from "@/components/forum/use-reaction-gesture";
 import {
@@ -48,6 +49,17 @@ const REFUSAL_MS = 6000;
 // any number of reaction types); each button is size-10, the 40px touch target.
 export const PICKER_CLASS =
   "w-auto max-w-[calc(100vw-2rem)] flex-row flex-wrap gap-0 rounded-3xl p-1";
+
+// Shifts a label that runs past the screen's margin back inside it.
+function keepInViewport(node: HTMLElement | null) {
+  if (!node) return;
+  node.style.translate = "";
+  const rect = node.getBoundingClientRect();
+  const left = VIEWPORT_MARGIN_PX - rect.left;
+  const right = window.innerWidth - VIEWPORT_MARGIN_PX - rect.right;
+  const shift = left > 0 ? left : right < 0 ? right : 0;
+  if (shift !== 0) node.style.translate = `${shift}px 0`;
+}
 
 const SIZES = {
   default: "",
@@ -83,7 +95,6 @@ export function ReactionButton({
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
-  const button = useRef<HTMLButtonElement>(null);
   const picker = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const viaTrigger = useRef(false);
@@ -97,7 +108,6 @@ export function ReactionButton({
   }, [refusal]);
 
   const gesture = useReactionGesture({
-    button,
     picker,
     given: current,
     open: () => {
@@ -168,7 +178,7 @@ export function ReactionButton({
 
   function choose(typeId: number | null) {
     clearTimeout(timer.current);
-    if (open && viaTrigger.current) button.current?.focus();
+    if (open && viaTrigger.current) gesture.button.current?.focus();
     show(false);
     setRefusal(undefined);
     startTransition(async () => {
@@ -187,8 +197,9 @@ export function ReactionButton({
       if (event.pointerType === "mouse") schedule(true, HOVER_OPEN_MS);
     },
     onPointerLeave: (event: React.PointerEvent) => {
-      if (event.pointerType === "mouse") schedule(false, HOVER_CLOSE_MS);
-      else clearTimeout(timer.current);
+      if (event.pointerType !== "mouse") clearTimeout(timer.current);
+      // Right after a drag the leave is the capture letting go: the picker stays for a click.
+      else if (!gesture.justReleased()) schedule(false, HOVER_CLOSE_MS);
     },
   };
 
@@ -210,7 +221,7 @@ export function ReactionButton({
         {...hover}
       >
         <button
-          ref={button}
+          ref={gesture.buttonRef}
           type="button"
           aria-pressed={current !== null}
           aria-label={t("aria.state", {
@@ -247,14 +258,11 @@ export function ReactionButton({
         anchor={anchor}
         aria-label={t("aria.choose")}
         initialFocus={() => viaTrigger.current}
-        finalFocus={() => (viaTrigger.current ? button.current : false)}
-        className={cn(
-          PICKER_CLASS,
-          gesture.sliding && "touch-none select-none",
-        )}
+        finalFocus={() => (viaTrigger.current ? gesture.button.current : false)}
+        className={PICKER_CLASS}
         {...hover}
       >
-        {types.map((type, index) => (
+        {types.map((type) => (
           <button
             key={type.id}
             type="button"
@@ -270,19 +278,17 @@ export function ReactionButton({
               <ReactionPicture emoji={type.emoji} picture={type.picture} />
             </span>
             {type.id === gesture.hover && (
+              // Zero wide and centred on the reaction; the label is pulled back inside the screen.
               <span
                 aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background",
-                  // The ends keep the bubble on screen; the rest centre it over the reaction.
-                  index === 0
-                    ? "left-0"
-                    : index === types.length - 1
-                      ? "right-0"
-                      : "left-1/2 -translate-x-1/2",
-                )}
+                className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
               >
-                {type.label}
+                <span
+                  ref={keepInViewport}
+                  className="whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background"
+                >
+                  {type.label}
+                </span>
               </span>
             )}
           </button>
