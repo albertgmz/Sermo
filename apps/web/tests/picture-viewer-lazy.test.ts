@@ -19,3 +19,13 @@ test("the picture lightbox is loaded lazily and by nothing else", () => {
   expect(viewer).toMatch(/dynamic\(\s*\(\)\s*=>\s*import\(/);
   expect(viewer).not.toMatch(/^import[^;]*picture-lightbox/m);
 });
+
+// A touch-action of pan-y alone would block pinch zoom on the picture; the swipe still works
+// because a vertical pan stays the browser's and a horizontal move is read by the viewer.
+test("the picture area allows pinch zoom", () => {
+  const source = readFileSync(
+    `${root}src/components/forum/picture-lightbox.tsx`,
+    "utf8",
+  );
+  expect(source).toContain('touchAction: "pan-y pinch-zoom"');
+});

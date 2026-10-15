@@ -63,6 +63,9 @@ export function pictureEntry(
 // visitor (deleted, moved, closed to them, a session that ended). Anything else may pass.
 const GONE = ["not_found", "forbidden", "unauthenticated", "validation"];
 
+// The kinds of file `media.list` lists as pictures; a file of another kind is not shown here either.
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 function pictureOf(
   attachments: Attachment[],
   fileId: number,
@@ -71,7 +74,7 @@ function pictureOf(
   const file = attachments.find(
     (attachment) =>
       attachment.fileId === fileId &&
-      attachment.contentType.startsWith("image/"),
+      IMAGE_TYPES.includes(attachment.contentType),
   );
   return (
     file && {
@@ -127,7 +130,6 @@ async function postDetails(
       author: { id: post.author.id, username: post.author.username },
       createdAt: post.createdAt,
       where: {
-        kind: "post",
         href: threadHref(post.threadId, post.position, post.id),
         label: thread.thread.title,
       },
@@ -170,7 +172,6 @@ async function wallDetails(
       author: { id: post.author.id, username: post.author.username },
       createdAt: post.createdAt,
       where: {
-        kind: "wall",
         href: wallTargetHref(post.profileUserId, post.id),
         label: null,
       },

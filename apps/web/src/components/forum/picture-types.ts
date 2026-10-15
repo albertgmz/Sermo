@@ -26,7 +26,7 @@ export type PictureDetails = {
   createdAt: string;
   // The post or the wall post the picture is attached to; `label` is the thread's title (none for
   // a wall post).
-  where: { href: string; label: string | null; kind: PictureRef["kind"] };
+  where: { href: string; label: string | null };
   // The picture itself, for an address that names one the list does not hold.
   picture: {
     url: GatedUrl | null;

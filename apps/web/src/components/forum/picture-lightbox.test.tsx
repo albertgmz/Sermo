@@ -99,7 +99,7 @@ const post = (over: Partial<PictureDetails> = {}): PictureResult => ({
   details: {
     author: { id: 3, username: "ember" },
     createdAt: "2026-01-01T00:00:00.000Z",
-    where: { kind: "post", href: "/threads/7#post-31", label: "Tomatoes" },
+    where: { href: "/threads/7#post-31", label: "Tomatoes" },
     picture: { url: null, width: null, height: null },
     viewerId: 1,
     reactions,
@@ -128,7 +128,7 @@ test("the details show who posted the picture and where it is, with links to bot
 test("a wall post's picture says it is on a wall and asks for a comment", () => {
   const html = draw(
     post({
-      where: { kind: "wall", href: "/members/9?post=12", label: null },
+      where: { href: "/members/9?post=12", label: null },
       reply: { kind: "wall", profilePostId: 12 },
     }),
   );
@@ -151,7 +151,7 @@ test("a comment on a wall post is the page's own comment action", async () => {
   calls.length = 0;
   draw(
     post({
-      where: { kind: "wall", href: "/members/9?post=12", label: null },
+      where: { href: "/members/9?post=12", label: null },
       reactions: { ...reactions, target: "profilePost", id: 12 },
       reply: { kind: "wall", profilePostId: 12 },
     }),

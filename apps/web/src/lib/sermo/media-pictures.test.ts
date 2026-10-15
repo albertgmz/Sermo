@@ -166,7 +166,6 @@ test("a picture of a post comes with its poster, where it is, the reactions and 
   const { details } = result;
   expect(details.author).toEqual({ id: 3, username: "ember" });
   expect(details.where).toEqual({
-    kind: "post",
     href: threadHref(7, 25, 31),
     label: "Tomatoes",
   });
@@ -210,7 +209,6 @@ test("a picture on a wall post comes with a comment to write, where the wall all
   });
   const result = await pictureDetails("wall", 12, 6);
   if (result.status !== "ready") throw new Error(result.status);
-  expect(result.details.where.kind).toBe("wall");
   expect(result.details.where.label).toBeNull();
   expect(result.details.where.href).toBe("/members/9?post=12#profile-post-12");
   expect(result.details.reply).toEqual({ kind: "wall", profilePostId: 12 });
@@ -264,7 +262,7 @@ test("a post that is hidden, or a file that is not one of its pictures, is gone"
   expect(await pictureDetails("post", 31, 8)).toEqual({ status: "gone" });
   backend({
     post: Response.json(
-      postBody({ attachments: [file(7, { contentType: "application/pdf" })] }),
+      postBody({ attachments: [file(7, { contentType: "image/svg+xml" })] }),
     ),
   });
   expect(await pictureDetails("post", 31, 7)).toEqual({ status: "gone" });
