@@ -116,6 +116,7 @@ export function ProfileHeader({
           user={card}
           size="2xl"
           link={false}
+          eager
           className="ring-4 ring-background"
         />
 

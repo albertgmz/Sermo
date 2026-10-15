@@ -40,7 +40,7 @@ export async function AccountMenu() {
   return (
     <UserMenu
       lite={await getLiteState()}
-      triggerAvatar={<UserAvatar user={card} size="md" link={false} />}
+      triggerAvatar={<UserAvatar user={card} size="md" link={false} eager />}
       avatar={<UserAvatar user={card} size="lg" link={false} />}
       links={links}
       screenLinks={screenLinks}

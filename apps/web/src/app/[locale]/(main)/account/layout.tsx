@@ -83,7 +83,7 @@ async function AccountHeader() {
         variant="full"
         className="opacity-45"
       />
-      <UserAvatar user={member} size="xl" link={false} />
+      <UserAvatar user={member} size="xl" link={false} eager />
       <div className="min-w-0 flex-1 basis-36">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           {t("heading")}

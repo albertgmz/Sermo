@@ -26,11 +26,15 @@ export async function UserAvatar({
   user,
   size = "md",
   link = true,
+  eager = false,
   className,
 }: {
   user: AvatarUser;
   size?: UserAvatarSize;
   link?: boolean;
+  // A picture in the first screen (the account menu, the profile hero, the opening post):
+  // fetched at once, where every other avatar waits until it is near the viewport.
+  eager?: boolean;
   className?: string;
 }) {
   const linked = link && user.id !== undefined;
@@ -43,6 +47,9 @@ export async function UserAvatar({
   // opening, so a framed avatar takes the same room as a plain one.
   const inner = placement ? { scale: placement.scale / 100 } : undefined;
   const unringed = placement && "ring-0!";
+  const loading = eager
+    ? ({ loading: "eager", decoding: "auto" } as const)
+    : undefined;
   const avatar = (
     <Avatar
       className={cn(
@@ -66,6 +73,7 @@ export async function UserAvatar({
               : user.avatar.smallUrl
           }
           alt=""
+          {...loading}
           style={inner}
         />
       ) : (
@@ -80,6 +88,7 @@ export async function UserAvatar({
         <AvatarImage
           src={frame.url}
           alt=""
+          {...loading}
           className="pointer-events-none absolute aspect-auto size-auto max-w-none rounded-none object-fill"
           style={{
             width: `${placement.width}%`,

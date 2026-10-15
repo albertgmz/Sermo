@@ -350,7 +350,7 @@ async function ThreadPosts({
         <MarkRead threadId={thread.id} position={lastPosition} />
       )}
       <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
-        {posts.map((post) => (
+        {posts.map((post, index) => (
           <PostItem
             key={post.id}
             post={post}
@@ -367,6 +367,7 @@ async function ThreadPosts({
             reactionTypes={reactionTypes}
             may={may}
             isFirst={post.id === thread.firstPostId}
+            eagerAvatar={index === 0}
             selecting={selecting}
             canQuote={canQuote}
             bookmarked={bookmarks ? bookmarks.has(post.id) : null}
