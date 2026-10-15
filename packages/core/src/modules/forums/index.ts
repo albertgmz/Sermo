@@ -2864,6 +2864,9 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
     )
       throw new ConflictError("Target thread changed; retry.");
     requireCurrentMerger(ctx, actor, [target.id, ...input.sourceThreadIds]);
+    // A thread whose removal for good has begun is not merged either way.
+    for (const id of [target.id, ...input.sourceThreadIds])
+      if (threadRow(ctx, id)?.state === "deleted") assertRemovalNotBegun(ctx, "thread", id);
     let base =
       (statement<{ position: number }, [number]>(
         ctx,

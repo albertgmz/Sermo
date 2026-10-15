@@ -859,6 +859,30 @@ describe("a thread whose removal has begun", () => {
         .get(t.thread.id),
     ).toEqual({ state: "deleted" });
   });
+
+  test("is not merged into another thread, nor another thread into it", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Half gone");
+    const other = await w.thread(w.alice, w.open.id, "Still here");
+    fillPosts(w.ctx, t.thread.id, w.bobUser.id, 600);
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    expect(await w.call("threads.hardDelete", w.admin, { threadId: t.thread.id })).toMatchObject({
+      completed: false,
+    });
+    const refused = /being deleted for good/;
+    await expect(
+      w.call("threads.merge", w.admin, {
+        threadId: other.thread.id,
+        sourceThreadIds: [t.thread.id],
+      }),
+    ).rejects.toThrow(refused);
+    await expect(
+      w.call("threads.merge", w.admin, {
+        threadId: t.thread.id,
+        sourceThreadIds: [other.thread.id],
+      }),
+    ).rejects.toThrow(refused);
+  });
 });
 
 describe("who may not delete for good", () => {
