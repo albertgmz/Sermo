@@ -1,43 +1,48 @@
 "use client";
 
-import { type ComponentType, useMemo, useRef, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import {
   createOpener,
   type Loader,
   loadedCode,
 } from "@/components/ui/lazy-popup-gate";
 import {
-  HOVER_DELAY,
-  hovers,
-  isPlainClick,
-  type OpenedBy,
-  type Opening,
-  openedByClick,
-  opensFromKey,
-  spaceOpens,
-} from "@/components/ui/lazy-popup-intent";
+  createTrigger,
+  type OpenKey,
+} from "@/components/ui/lazy-popup-handlers";
+import type { OpenedBy, Opening } from "@/components/ui/lazy-popup-intent";
 
 // A menu, popover, sheet or tooltip whose code (Base UI and the positioning library with it) is
 // not part of the page's first load. Until the visitor reaches for it, the page holds a plain
 // trigger drawn by the caller with the same look and the same attributes as the real one. The
 // first pointer over it, touch or focus fetches the code; the click, key or hover that asks for the
 // popup swaps in the real component, which mounts open, so one gesture is enough. A gesture that
-// arrives before the code does is kept and the popup opens as soon as the code is there.
+// arrives before the code does is kept, shown on the trigger as busy, and withdrawn by a second
+// press, Escape or a press elsewhere. A code that cannot be fetched (twice) reloads the page.
 
-// What the plain trigger puts on its element.
+// What the plain trigger puts on its element: the handlers take the real events, which carry more
+// than they read.
 export type LazyTriggerProps = {
   onPointerEnter: (event: React.PointerEvent<HTMLElement>) => void;
   onPointerLeave: () => void;
   onPointerDown: (event: React.PointerEvent<HTMLElement>) => void;
+  onPointerCancel: () => void;
   onTouchStart: () => void;
-  onFocus: (event: React.FocusEvent<HTMLElement>) => void;
+  onFocus: () => void;
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void;
   onKeyUp: (event: React.KeyboardEvent<HTMLElement>) => void;
+  // Set while the popup is on its way.
+  "aria-busy"?: true;
+  "data-loading"?: "";
 };
 
 // What the real popup is given besides the caller's props.
-export type OpenedProps = { openedBy: OpenedBy };
+export type OpenedProps = {
+  openedBy: OpenedBy;
+  // The arrow key that opened a menu.
+  openKey?: OpenKey;
+};
 
 export function LazyPopup<P extends object>({
   load,
@@ -57,85 +62,62 @@ export function LazyPopup<P extends object>({
   opening?: Opening;
   // The popup is being swapped in to open, for a parent that keeps the open state itself.
   onOpen?: () => void;
-  // The code could not be fetched; the trigger stays as it is and asks again next time.
+  // The code could not be fetched, twice. Without it a press reloads the page (a tooltip, which is
+  // no button, stays as it is).
   onLoadError?: () => void;
 }) {
   const [shown, setShown] = useState(false);
+  const [busy, setBusy] = useState(false);
   const latest = useRef({ onOpen, onLoadError });
   latest.current = { onOpen, onLoadError };
-  const openedBy = useRef<OpenedBy>("pointer");
-  const pointerType = useRef<string>(undefined);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const [opener] = useState(() =>
-    createOpener(
-      load,
-      () => {
+  const [made] = useState(() => {
+    const opener = createOpener(load, {
+      slot: opening === "hover" ? "hover" : "press",
+      busy: setBusy,
+      show: () => {
         setShown(true);
         latest.current.onOpen?.();
       },
-      () => latest.current.onLoadError?.(),
-    ),
+      fail: () => {
+        if (latest.current.onLoadError) latest.current.onLoadError();
+        else if (opening !== "hover")
+          window.location.assign(window.location.href);
+      },
+    });
+    return { opener, ...createTrigger(opener, opening) };
+  });
+
+  // The trigger is gone: nothing is left resting or waiting.
+  useEffect(
+    () => () => {
+      made.dispose();
+      made.opener.cancel();
+    },
+    [made],
   );
 
-  const handlers = useMemo<LazyTriggerProps>(() => {
-    const stopHover = () => clearTimeout(hoverTimer.current);
-    return {
-      onPointerEnter: (event) => {
-        opener.warm();
-        if (opening !== "hover" || !hovers(event)) return;
-        // The pointer has to rest, as on the real tooltip's trigger.
-        stopHover();
-        hoverTimer.current = setTimeout(() => {
-          openedBy.current = "pointer";
-          opener.open();
-        }, HOVER_DELAY);
-      },
-      onPointerLeave: () => {
-        if (opening !== "hover") return;
-        // A hover that ended before the tooltip came asks for nothing.
-        stopHover();
-        opener.cancel();
-      },
-      onPointerDown: (event) => {
-        pointerType.current = event.pointerType;
-      },
-      onTouchStart: opener.warm,
-      onFocus: (event) => {
-        opener.warm();
-        if (
-          opening === "hover" &&
-          event.currentTarget.matches(":focus-visible")
-        ) {
-          openedBy.current = "keyboard";
-          opener.open();
-        }
-      },
-      onClick: (event) => {
-        if (opening === "hover" || !isPlainClick(event)) return;
-        event.preventDefault();
-        // A press just before this click says how it was made; none, and it was a key.
-        openedBy.current = openedByClick(pointerType.current);
-        pointerType.current = undefined;
-        opener.open();
-      },
-      onKeyDown: (event) => {
-        if (spaceOpens(opening, event.key)) event.preventDefault();
-        if (!opensFromKey(opening, event.key)) return;
-        event.preventDefault();
-        openedBy.current = "keyboard";
-        opener.open();
-      },
-      onKeyUp: (event) => {
-        if (!spaceOpens(opening, event.key)) return;
-        event.preventDefault();
-        openedBy.current = "keyboard";
-        opener.open();
-      },
+  // While the popup is on its way, Escape or a press anywhere but on the trigger withdraws it.
+  useEffect(() => {
+    if (!busy) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") made.opener.cancel();
     };
-  }, [opener, opening]);
+    const away = (event: PointerEvent) => {
+      if (!made.isTrigger(event.target)) made.opener.cancel();
+    };
+    document.addEventListener("keydown", escape);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [busy, made]);
 
   const Loaded = shown ? loadedCode(load) : undefined;
-  if (Loaded) return <Loaded {...popup} openedBy={openedBy.current} />;
-  return trigger(handlers);
+  if (Loaded) return <Loaded {...popup} {...made.gesture()} />;
+  const { handlers } = made;
+  return trigger(
+    busy ? { ...handlers, "aria-busy": true, "data-loading": "" } : handlers,
+  );
 }

@@ -18,6 +18,16 @@ test("matomo loads its tracker from the site's own address with the site id", ()
   );
   expect(config?.code).toContain("_paq.push(['setSiteId',7]);");
   expect(config?.code).toContain("_paq.push(['trackPageView']);");
+  // The first view names its own page, so a script that arrives late (after a client navigation)
+  // does not record the page it finds then, and the navigation is not counted twice.
+  const code = config?.code ?? "";
+  expect(code).toContain("_paq.push(['setCustomUrl',location.href]);");
+  expect(code.indexOf("'setCustomUrl'")).toBeLessThan(
+    code.indexOf("'trackPageView'"),
+  );
+  expect(code.indexOf("'setDocumentTitle'")).toBeLessThan(
+    code.indexOf("'trackPageView'"),
+  );
   expect(loader?.src).toBe("https://stats.example.com/matomo.js");
 });
 

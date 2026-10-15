@@ -20,6 +20,7 @@ export function LazyTooltip(props: LazyTooltipPopupProps) {
       trigger={(lazy) => (
         <span
           role="img"
+          data-slot="tooltip-trigger"
           aria-label={label}
           className={className}
           style={style}

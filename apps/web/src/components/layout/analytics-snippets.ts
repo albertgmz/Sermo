@@ -27,6 +27,10 @@ export function analyticsSnippets(
           (options.cookieless ? "_paq.push(['disableCookies']);" : "") +
           `_paq.push(['setTrackerUrl',${literal(`${base}matomo.php`)}]);` +
           `_paq.push(['setSiteId',${literal(analytics.siteId)}]);` +
+          // The address and title of this page as it is now: the library may arrive after a
+          // navigation, and would otherwise record the page it finds then.
+          "_paq.push(['setCustomUrl',location.href]);" +
+          "_paq.push(['setDocumentTitle',document.title]);" +
           "_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);",
       },
       { id: "analytics-matomo-js", src: `${base}matomo.js` },

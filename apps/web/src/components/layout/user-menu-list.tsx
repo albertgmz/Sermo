@@ -3,7 +3,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { PanelSkeleton } from "@/components/layout/panel-skeleton";
-import { type ListKind, listQuery } from "@/components/layout/user-menu-tabs";
+import {
+  type ListKind,
+  listQuery,
+} from "@/components/layout/user-menu-list-query";
 
 // The rows of one tab of the avatar menu. `load` is a server action that returns the rows drawn, so
 // the avatars keep reading the LITE cookie. The component is mounted when its tab opens and not

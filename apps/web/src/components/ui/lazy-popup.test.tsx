@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createOpener, fetchCode, loadedCode } from "./lazy-popup-gate";
 import {
   HOVER_DELAY,
   hovers,
   isPlainClick,
+  menuOpening,
   openedByClick,
   opensFromKey,
 } from "./lazy-popup-intent";
@@ -20,18 +20,6 @@ const click = {
   shiftKey: false,
   altKey: false,
 };
-
-function deferred() {
-  let resolve!: (value: { default: string }) => void;
-  let reject!: (error: unknown) => void;
-  const promise = new Promise<{ default: string }>((ok, no) => {
-    resolve = ok;
-    reject = no;
-  });
-  return { promise, resolve, reject };
-}
-
-const tick = () => new Promise((done) => setTimeout(done, 0));
 
 test("a plain click opens, a modified or non-primary click is left to the browser", () => {
   expect(isPlainClick(click)).toBe(true);
@@ -53,89 +41,6 @@ test("a touch is no hover", () => {
   expect(hovers({ pointerType: "mouse" })).toBe(true);
   expect(hovers({ pointerType: "pen" })).toBe(true);
   expect(hovers({ pointerType: "touch" })).toBe(false);
-});
-
-test("the code is fetched once however many triggers ask, and warming opens nothing", async () => {
-  let fetched = 0;
-  const load = async () => {
-    fetched += 1;
-    return { default: "popup" };
-  };
-  let shown = 0;
-  const a = createOpener(
-    load,
-    () => shown++,
-    () => {},
-  );
-  const b = createOpener(
-    load,
-    () => shown++,
-    () => {},
-  );
-  a.warm();
-  b.warm();
-  a.warm();
-  await tick();
-  expect(fetched).toBe(1);
-  expect(shown).toBe(0);
-  expect(loadedCode(load)).toBe("popup");
-});
-
-test("a click before the code arrives opens as soon as it does, and one after opens at once", async () => {
-  const slow = deferred();
-  const load = () => slow.promise;
-  let shown = 0;
-  const opener = createOpener(
-    load,
-    () => shown++,
-    () => {},
-  );
-  opener.open();
-  expect(shown).toBe(0);
-  slow.resolve({ default: "popup" });
-  await tick();
-  expect(shown).toBe(1);
-  opener.open();
-  expect(shown).toBe(2);
-});
-
-test("a hover that ends before the code arrives opens nothing", async () => {
-  const slow = deferred();
-  const load = () => slow.promise;
-  let shown = 0;
-  const opener = createOpener(
-    load,
-    () => shown++,
-    () => {},
-  );
-  opener.open();
-  opener.cancel();
-  slow.resolve({ default: "popup" });
-  await tick();
-  expect(shown).toBe(0);
-});
-
-test("a failed fetch is reported, forgotten and tried again by the next gesture", async () => {
-  let attempts = 0;
-  const load = async () => {
-    attempts += 1;
-    if (attempts === 1) throw new Error("offline");
-    return { default: "popup" };
-  };
-  let shown = 0;
-  let failures = 0;
-  const opener = createOpener(
-    load,
-    () => shown++,
-    () => failures++,
-  );
-  opener.open();
-  await tick();
-  expect([shown, failures, loadedCode(load)]).toEqual([0, 1, undefined]);
-  opener.open();
-  await tick();
-  expect([attempts, shown, failures]).toEqual([2, 1, 1]);
-  await fetchCode(load);
 });
 
 test("before the code is there the page holds the caller's plain trigger and nothing else", () => {
@@ -218,7 +123,7 @@ test("the postbit's tooltips are plain spans until the pointer comes, and keep t
     </LazyTooltip>,
   );
   expect(html).toBe(
-    '<span role="img" aria-label="Chrome on Windows" class="x"><i></i></span>',
+    '<span role="img" data-slot="tooltip-trigger" aria-label="Chrome on Windows" class="x"><i></i></span>',
   );
   for (const file of [
     "award-icon.tsx",
@@ -240,4 +145,27 @@ test("a click says how it was made: touch, a mouse or pen press, or a key", () =
 
 test("a tooltip waits as long as Base UI's own trigger does", () => {
   expect(HOVER_DELAY).toBe(600);
+});
+
+test("a menu asked for with a key mounts closed and has the key replayed; any other way it mounts open", () => {
+  expect(menuOpening("keyboard", "ArrowDown")).toEqual({
+    defaultOpen: false,
+    replay: "ArrowDown",
+  });
+  expect(menuOpening("keyboard", "ArrowUp").replay).toBe("ArrowUp");
+  // Enter and Space reach the menu as a click.
+  expect(menuOpening("keyboard")).toEqual({
+    defaultOpen: false,
+    replay: "click",
+  });
+  expect(menuOpening("pointer")).toEqual({ defaultOpen: true, replay: null });
+  expect(menuOpening("touch")).toEqual({ defaultOpen: true, replay: null });
+});
+
+test("the two menu popups take the replayed key from the shared hook", () => {
+  for (const file of ["guest-menu-popup.tsx", "header-menu-popup.tsx"]) {
+    const source = readFileSync(join(LAYOUT, file), "utf8");
+    expect(source, file).toContain("useMenuOpening(openedBy, openKey)");
+    expect(source, file).toContain("defaultOpen={defaultOpen}");
+  }
 });

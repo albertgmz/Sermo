@@ -10,6 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { OpenedProps } from "@/components/ui/lazy-popup";
+import { useMenuOpening } from "@/components/ui/lazy-popup-focus";
 
 export type HeaderMenuPopupProps = {
   entry: NavItem;
@@ -24,10 +26,14 @@ export default function HeaderMenuPopup({
   entry,
   current,
   className,
-}: HeaderMenuPopupProps) {
+  openedBy,
+  openKey,
+}: HeaderMenuPopupProps & OpenedProps) {
+  const { defaultOpen, trigger } = useMenuOpening(openedBy, openKey);
   return (
-    <DropdownMenu defaultOpen>
+    <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
+        ref={trigger}
         aria-current={current ? "page" : undefined}
         className={className}
       >

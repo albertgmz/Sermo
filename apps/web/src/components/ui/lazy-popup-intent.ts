@@ -54,3 +54,14 @@ export function openedByClick(pointerType: string | undefined): OpenedBy {
   if (pointerType === "touch") return "touch";
   return pointerType ? "pointer" : "keyboard";
 }
+
+// How a menu that was asked for with a key comes up. Base UI highlights the first item (the last,
+// for ArrowUp) only for a menu opened by a key on its own trigger, so the menu mounts closed and
+// the key is replayed on the real trigger; any other way it mounts open.
+export function menuOpening(
+  openedBy: OpenedBy,
+  openKey?: "ArrowDown" | "ArrowUp",
+): { defaultOpen: boolean; replay: "click" | "ArrowDown" | "ArrowUp" | null } {
+  if (openedBy !== "keyboard") return { defaultOpen: true, replay: null };
+  return { defaultOpen: false, replay: openKey ?? "click" };
+}

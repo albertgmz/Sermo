@@ -1,12 +1,7 @@
 import { expect, test } from "bun:test";
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import {
-  badgeText,
-  combinedUnread,
-  listKey,
-  listQuery,
-  openingTab,
-} from "./user-menu-tabs";
+import { listKey, listQuery } from "./user-menu-list-query";
+import { badgeText, combinedUnread, openingTab } from "./user-menu-tabs";
 
 test("the menu opens on the alerts when any are unread, even with unread conversations", () => {
   expect(openingTab({ notifications: 3, conversations: 0 })).toBe("alerts");
@@ -76,4 +71,13 @@ test("nothing is kept once a tab closes: the rows belong to the member who opene
   stop();
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(client.getQueryData(listKey("bookmarks", 0))).toBeUndefined();
+});
+
+test("the light trigger path holds no react-query: the tabs module imports nothing from it", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(
+    new URL("./user-menu-tabs.ts", import.meta.url),
+    "utf8",
+  );
+  expect(source).not.toMatch(/react-query/);
 });

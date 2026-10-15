@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
 import { fetchCode, loadedCode } from "@/components/ui/lazy-popup-gate";
@@ -58,6 +58,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
   const enabled = useMemberCardsEnabled();
   const [target, setTarget] = useState<Mention | null>(null);
   const Popup = loadedCode(loadPopup);
+  const waiting = useRef<Element | null>(null);
 
   // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
   useLayoutEffect(
@@ -69,18 +70,38 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
 
   if (!enabled) return children;
 
+  // A mention waiting for the card's code, marked busy. A second press on it, Escape or a press
+  // on another mention withdraws the wish.
+  function settle(link?: Element) {
+    const waited = waiting.current;
+    if (!waited || (link && waited !== link)) return false;
+    waiting.current = null;
+    waited.removeAttribute("aria-busy");
+    waited.removeAttribute("data-loading");
+    return true;
+  }
+
   // The link of the open card closes it. A card whose code has not come yet opens when it does; if
-  // it cannot come, the mention is the link it always was.
+  // it cannot come (after a second try), the mention is the link it always was.
   function choose(mention: Mention) {
+    const again = waiting.current === mention.link;
+    settle();
+    if (again) return;
     if (target?.link === mention.link) return setTarget(null);
     if (Popup) return setTarget(mention);
-    fetchCode(loadPopup).then(
-      () => setTarget(mention),
-      () => {
-        const href = mention.link.getAttribute("href");
-        if (href) window.location.assign(href);
-      },
-    );
+    waiting.current = mention.link;
+    mention.link.setAttribute("aria-busy", "true");
+    mention.link.setAttribute("data-loading", "");
+    fetchCode(loadPopup)
+      .catch(() => fetchCode(loadPopup))
+      .then(
+        () => settle(mention.link) && setTarget(mention),
+        () => {
+          if (!settle(mention.link)) return;
+          const href = mention.link.getAttribute("href");
+          if (href) window.location.assign(href);
+        },
+      );
   }
 
   return (
@@ -88,7 +109,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
     <div
       className="contents"
       onPointerOver={(event) => {
-        if (mentionAt(event.target, event.currentTarget))
+        if (!Popup && mentionAt(event.target, event.currentTarget))
           fetchCode(loadPopup).catch(() => {});
       }}
       onClick={(event) => {
@@ -98,6 +119,7 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         choose(mention);
       }}
       onKeyDown={(event) => {
+        if (event.key === "Escape") settle();
         const mention = keyedMention(event, event.currentTarget);
         if (!mention) return;
         event.preventDefault();

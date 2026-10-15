@@ -104,6 +104,7 @@ function MemberCardWithPreference({
         <Link
           href={href}
           role="link"
+          data-slot="popover-trigger"
           aria-label={rest["aria-label"]}
           aria-haspopup="dialog"
           aria-expanded="false"

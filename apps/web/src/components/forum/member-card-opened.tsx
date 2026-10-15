@@ -35,7 +35,6 @@ export default function OpenedMemberCard({
   children,
   open,
   onOpenChange,
-  openedBy: _openedBy,
   ...rest
 }: OpenedMemberCardProps & OpenedProps) {
   const { card, load } = useMemberCard(id, name);

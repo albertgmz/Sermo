@@ -57,6 +57,7 @@ export function HeaderPanel({
       trigger={(lazy) => (
         <button
           type="button"
+          data-slot="popover-trigger"
           data-shortcut={shortcut}
           aria-haspopup="dialog"
           aria-expanded="false"

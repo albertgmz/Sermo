@@ -51,6 +51,7 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
         trigger={(lazy) => (
           <button
             type="button"
+            data-slot="dropdown-menu-trigger"
             aria-haspopup="menu"
             aria-expanded="false"
             aria-current={current ? "page" : undefined}
@@ -128,6 +129,7 @@ export function MobileMenu({
       trigger={(lazy) => (
         <button
           type="button"
+          data-slot="sheet-trigger"
           aria-haspopup="dialog"
           aria-expanded="false"
           aria-label={t("aria.open")}

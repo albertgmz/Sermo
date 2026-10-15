@@ -21,6 +21,7 @@ export function GuestMenu({ lite }: { lite: LiteState }) {
       trigger={(lazy) => (
         <button
           type="button"
+          data-slot="dropdown-menu-trigger"
           aria-haspopup="menu"
           aria-expanded="false"
           aria-label={label}

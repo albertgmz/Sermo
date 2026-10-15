@@ -128,6 +128,6 @@ test("until it is reached for the trigger is a plain link with no Base UI part",
       ember
     </MemberCardTrigger>,
   );
-  expect(out).not.toContain("data-slot");
   expect(out).not.toContain("data-base-ui");
+  expect(out).not.toContain("tabindex");
 });
