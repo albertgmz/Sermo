@@ -64,7 +64,7 @@ export function asType(type: ApiReactionType): ReactionType {
 // forums. `forumId` is the forum the item is in, null for what is not in a forum (wall posts,
 // comments, conversations), where a type limited to forums is not offered. The backend decides
 // again when the reaction is given.
-export function usableIn(type: RawReactionType, forumId: number | null) {
+function usableIn(type: RawReactionType, forumId: number | null) {
   return (
     type.forumIds.length === 0 ||
     (forumId !== null && type.forumIds.includes(forumId))
@@ -88,6 +88,20 @@ export function pickerTypes(
         ? { ...asType(type), locked: type.lockHint ?? "" }
         : asType(type),
     );
+}
+
+// The viewer's own reaction when the picker no longer offers its type (set to hide, or limited to
+// other forums since): shown greyed, so the button still draws it and takes it back. Nothing when
+// the picker is empty (the viewer may not react here) or already holds it.
+export function heldType(
+  picker: ReactionType[],
+  mine: number | null,
+  types: ApiReactionType[],
+): ReactionType | null {
+  if (mine === null || picker.length === 0 || picker.some((t) => t.id === mine))
+    return null;
+  const type = types.find((entry) => entry.id === mine);
+  return type ? { ...asType(type), locked: "" } : null;
 }
 
 // The summary of an item in the shape the reaction components take.

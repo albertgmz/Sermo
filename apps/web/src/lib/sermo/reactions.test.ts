@@ -7,7 +7,7 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ set: () => {}, toString: () => cookie }),
 }));
 
-const { asType, pickerTypes, reactionsView, withoutBlockedPictures } =
+const { asType, heldType, pickerTypes, reactionsView, withoutBlockedPictures } =
   await import("./reactions");
 
 afterEach(() => {
@@ -143,4 +143,14 @@ test("a type limited to forums is offered in them and nowhere else", async () =>
 test("a locked type with no hint is still locked", async () => {
   const types = await sealed(typeOf(1, { access: "locked" }));
   expect(pickerTypes(types, null)[0].locked).toBe("");
+});
+
+test("the viewer's own reaction stays drawn when its type is no longer offered", async () => {
+  const types = await sealed(typeOf(1), typeOf(2, { access: "hidden" }));
+  const picker = pickerTypes(types, null);
+  expect(heldType(picker, 2, types)).toMatchObject({ id: 2, locked: "" });
+  expect(heldType(picker, 1, types)).toBeNull();
+  expect(heldType(picker, null, types)).toBeNull();
+  // An empty picker means the viewer may not react here at all.
+  expect(heldType([], 2, types)).toBeNull();
 });

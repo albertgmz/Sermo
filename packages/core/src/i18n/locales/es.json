@@ -351,7 +351,6 @@
   "reaction.lock.atLeast": "{criterion}: {value} o más",
   "reaction.lock.atMost": "{criterion}: {value} o menos",
   "reaction.lock.below": "{criterion}: menos de {value}",
-  "reaction.lock.group": "Miembro de {groups}",
   "reaction.lock.and": "{first} y {second}",
   "reaction.lock.or": "{first} o {second}",
   "credits.trigger.thread_created": "Crear un tema",

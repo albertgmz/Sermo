@@ -351,7 +351,6 @@
   "reaction.lock.atLeast": "{criterion}: {value} or more",
   "reaction.lock.atMost": "{criterion}: {value} or less",
   "reaction.lock.below": "{criterion}: below {value}",
-  "reaction.lock.group": "Member of {groups}",
   "reaction.lock.and": "{first} and {second}",
   "reaction.lock.or": "{first} or {second}",
   "credits.trigger.thread_created": "Starting a thread",

@@ -340,7 +340,7 @@ export function ReactionButton(props: {
             </button>
           ),
         )}
-        {lockedNote && (
+        {lockedNote?.locked && (
           <p
             role="status"
             className="basis-full px-3 pb-1 pt-0.5 text-xs text-muted-foreground"

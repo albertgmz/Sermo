@@ -66,7 +66,7 @@ const reaction = {
   type: "content.reaction",
   contentType: "post",
   actors: [],
-  actorCount: 0,
+  actorCount: 1,
   contentTitle: "Welcome",
   data: { reactionTypeId: 4 },
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -115,4 +115,20 @@ test("the alert reads the same in Spanish", async () => {
   expect(html).toContain(
     "dio a tu mensaje la reacción «Corona» 👑 en «Welcome»",
   );
+});
+
+test("a grouped reaction alert does not name one type for several members", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <NotificationRow
+        item={{ ...reaction, actors: [], actorCount: 3 }}
+        href="/threads/1"
+        emoji="👑"
+        reaction="Crown"
+        member={member}
+      />,
+    ),
+  );
+  expect(html).toContain("gave your post a reaction");
+  expect(html).not.toContain("Crown");
 });

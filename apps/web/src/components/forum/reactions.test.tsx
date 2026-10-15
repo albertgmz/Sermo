@@ -206,3 +206,21 @@ test("when every reaction is locked the button is still drawn, to open the picke
   );
   expect(html).toContain("Choose a reaction");
 });
+
+test("the viewer's own reaction is drawn in the button although its type is not offered", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <Reactions
+        part="button"
+        target="post"
+        id={5}
+        reactions={{ counts: { "2": 1 }, total: 1, mine: 2 }}
+        authorId={7}
+        viewerId={9}
+        picker={[picker[0]]}
+        reactionTypes={reactionTypes}
+      />,
+    ),
+  );
+  expect(html).toContain('aria-label="Love, 1 reaction"');
+});

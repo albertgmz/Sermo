@@ -4,7 +4,7 @@ import { canReact, ReactionControl } from "@/components/forum/reaction-control";
 import { ReactionSummaryLive } from "@/components/forum/reaction-summary-live";
 import { loadReactionUsers } from "@/components/forum/reaction-users-action";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
-import { reactionsView } from "@/lib/sermo/reactions";
+import { heldType, reactionsView } from "@/lib/sermo/reactions";
 
 // The backend's name of what each target reacts to, as the list of who reacted asks for it.
 const CONTENT_TYPE = {
@@ -47,14 +47,17 @@ export function Reactions({
 }) {
   const view = reactionsView(reactions, reactionTypes);
   const stateKey = `reaction:${target}:${id}`;
-  const pressable = canReact(viewerId, authorId, picker);
+  // The viewer's own reaction stays in the button even when its type is no longer offered.
+  const held = heldType(picker, reactions.mine, reactionTypes);
+  const offered = held ? [...picker, held] : picker;
+  const pressable = canReact(viewerId, authorId, offered);
   return (
     <ReactionControl
       stateKey={stateKey}
       action={react.bind(null, target, id)}
       total={reactions.total}
       viewerTypeId={reactions.mine}
-      picker={picker}
+      picker={offered}
       viewerId={viewerId}
       authorId={authorId}
       // Where the viewer can react, the summary may gain its first reaction in place.

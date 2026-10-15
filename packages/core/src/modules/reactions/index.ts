@@ -147,7 +147,7 @@ function forViewer(ctx: Ctx, actor: Actor, types: readonly Listed[], asked?: Lan
       ...value,
       rule: administrator ? rule : null,
       access: open ? ("open" as const) : locked ? ("locked" as const) : ("hidden" as const),
-      lockHint: locked ? lockHint(ctx, language!, rule) : null,
+      lockHint: locked ? lockHint(language!, rule) : null,
     };
   });
 }
@@ -375,11 +375,16 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
             height,
             input.frameCount ?? (width === null && height === null ? 1 : old.frame_count),
           );
-    const access = checkedAccess(
-      ctx,
-      input.rule ?? parseRule(old.rule),
-      input.forumIds ?? (JSON.parse(old.forum_ids) as number[]),
-    );
+    // What is not being changed is kept as it is: a stored rule that names a group deleted since
+    // must not stop a rename or a reorder.
+    const access =
+      input.rule === undefined && input.forumIds === undefined
+        ? { rule: old.rule, forumIds: old.forum_ids }
+        : checkedAccess(
+            ctx,
+            input.rule ?? parseRule(old.rule),
+            input.forumIds ?? (JSON.parse(old.forum_ids) as number[]),
+          );
     const row = ctx.sqlite
       .prepare<
         TypeRow,

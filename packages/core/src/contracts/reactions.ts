@@ -11,6 +11,7 @@ import {
 } from "./common";
 import { CriteriaRule } from "./criteria";
 import { ImageReference } from "./images";
+import { SUPPORTED_LANGUAGES } from "./settings";
 
 /** Most frames a sprite sheet may hold. */
 export const MAX_REACTION_FRAMES = 64;
@@ -128,7 +129,7 @@ export const reactionTypesList = defineContract({
   kind: "read",
   input: z.object({
     language: z
-      .enum(["en", "es"])
+      .enum(SUPPORTED_LANGUAGES)
       .optional()
       .describe(
         "The language of `lockHint`; the viewer's own (else the site's) when left out. A " +

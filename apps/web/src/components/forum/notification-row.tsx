@@ -117,7 +117,9 @@ export function NotificationRow({
             title: item.contentTitle ?? "",
             kind: item.contentType,
             emoji,
-            named: reaction ? "yes" : "no",
+            // Alerts of one item are grouped and carry the latest reaction's type: it names the
+            // reaction only where one member gave it.
+            named: reaction && item.actorCount === 1 ? "yes" : "no",
             reaction,
             action: text(item.data.action),
             state: text(item.data.state),

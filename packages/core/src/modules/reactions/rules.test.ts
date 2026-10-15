@@ -273,16 +273,11 @@ describe("reaction type picker state", () => {
     expect(await hint()).toBe("Unlocks with: Post count: 500 or more");
   });
 
-  test("a yes/no criterion, a group and an or-match are phrased; anything else is plain Locked", async () => {
+  test("a yes/no criterion and an or-match are phrased; anything else is plain Locked", async () => {
     const f = fixture();
     const vip = f.ctx.sqlite
       .prepare<{ id: number }, []>(
         "INSERT INTO groups (title, rank) VALUES ('VIP', 5) RETURNING id",
-      )
-      .get()!.id;
-    const donor = f.ctx.sqlite
-      .prepare<{ id: number }, []>(
-        "INSERT INTO groups (title, rank) VALUES ('Donor', 4) RETURNING id",
       )
       .get()!.id;
     const hintOf = async (rule: Rule) => {
@@ -293,19 +288,18 @@ describe("reaction type picker state", () => {
       await hintOf({ match: "all", conditions: [{ criterion: "has_avatar", value: 1 }] }),
     ).toBe("Unlocks with: Has an avatar");
     expect(
-      await hintOf({ match: "all", conditions: [{ criterion: "in_group", ids: [vip, donor] }] }),
-    ).toBe("Unlocks with: Member of VIP or Donor");
-    expect(
       await hintOf({
         match: "any",
         conditions: [
           { criterion: "post_count", value: 10 },
-          { criterion: "in_group", ids: [vip] },
+          { criterion: "has_avatar", value: 1 },
         ],
       }),
-    ).toBe("Unlocks with: Post count: 10 or more or Member of VIP");
-    // Too involved to phrase: a window, a list read in a mode, a boolean that must not hold.
+    ).toBe("Unlocks with: Post count: 10 or more or Has an avatar");
+    // Too involved to phrase: a window, a list read in a mode, a boolean that must not hold, and
+    // any group list (group titles are not public).
     for (const rule of [
+      { match: "all", conditions: [{ criterion: "in_group", ids: [vip] }] },
       { match: "all", conditions: [{ criterion: "has_avatar", value: 0 }] },
       { match: "all", conditions: [{ criterion: "not_in_group", ids: [vip] }] },
       { match: "all", conditions: [{ criterion: "credits_earned", value: 5, days: 7 }] },
@@ -313,8 +307,37 @@ describe("reaction type picker state", () => {
       { match: "all", conditions: [{ criterion: "no_such_criterion" }] },
       { match: "all", conditions: [] },
     ] as Rule[])
-      expect(lockHint(f.ctx, "en", rule)).toBe("Locked");
-    expect(lockHint(f.ctx, "es", everyone)).toBe("Bloqueada");
+      expect(lockHint("en", rule)).toBe("Locked");
+    expect(lockHint("es", everyone)).toBe("Bloqueada");
+  });
+
+  test("a rename or a reorder is not stopped by a stored rule that names a group deleted since", async () => {
+    const f = fixture();
+    const vip = f.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('VIP', 5) RETURNING id",
+      )
+      .get()!.id;
+    const type = await create(f, {
+      rule: { match: "all", conditions: [{ criterion: "in_group", ids: [vip] }] },
+    });
+    f.ctx.sqlite.prepare("DELETE FROM groups WHERE id = ?1").run(vip);
+    const moved = await execute(f.ctx, reactionTypesUpdateOp, f.as, {
+      reactionTypeId: type.id,
+      position: 9,
+    });
+    expect(moved.position).toBe(9);
+    expect(moved.rule).toEqual({
+      match: "all",
+      conditions: [{ criterion: "in_group", ids: [vip] }],
+    });
+    // Saving the rule itself is checked again.
+    expect(
+      execute(f.ctx, reactionTypesUpdateOp, f.as, {
+        reactionTypeId: type.id,
+        rule: { match: "all", conditions: [{ criterion: "in_group", ids: [vip] }] },
+      }),
+    ).rejects.toThrow(ValidationError);
   });
 
   test("only administrators see the rule", async () => {
@@ -441,8 +464,8 @@ describe("what the rules cost", () => {
       title: "C",
       rule: { match: "all", conditions: [{ criterion: "in_group", ids: [vip] }] },
     });
-    // the group rule reads the member's groups and, locked, the group's title
-    expect((await listCost(f, f.reactorActor, "es")) - base).toBe(3);
+    // the group rule reads the member's groups: one more statement, whatever the hints
+    expect((await listCost(f, f.reactorActor, "es")) - base).toBe(2);
   });
 
   test("a reaction with a rule decides it from one facts statement", async () => {
