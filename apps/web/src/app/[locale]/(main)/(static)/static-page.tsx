@@ -34,9 +34,12 @@ async function siblingLinks(): Promise<LinkItem[]> {
 export async function StaticPage({
   slug,
   path,
+  after,
 }: {
   slug: string;
   path: string;
+  // Shown under the page's own text (the privacy page adds what the server records).
+  after?: React.ReactNode;
 }) {
   const [page, links, t, format] = await Promise.all([
     getPage(slug),
@@ -81,6 +84,7 @@ export async function StaticPage({
           })}
         </p>
         <HtmlContent className="mt-6">{page.bodyHtml}</HtmlContent>
+        {after}
       </article>
     </PageLayout>
   );

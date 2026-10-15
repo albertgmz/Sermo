@@ -3,10 +3,19 @@ import { apiUrl, publicUrl } from "./config";
 import { SermoError } from "./errors";
 import { buildRequest } from "./request";
 
+// The proxy's visitor location headers (Cloudflare's "Add visitor location headers"). They are
+// passed on as they came; the backend trusts them only when it was told a proxy sets them.
+export const LOCATION_HEADERS = [
+  "cf-ipcountry",
+  "cf-region",
+  "cf-ipcity",
+] as const;
+
 export type Forward = {
   cookie?: string;
   userAgent?: string;
   clientIp?: string;
+  location?: Partial<Record<(typeof LOCATION_HEADERS)[number], string>>;
 };
 
 export type Described<I extends z.ZodType, O extends z.ZodType> = {
@@ -25,6 +34,12 @@ export function forwardFromHeaders(headers: Headers): Forward {
     cookie: headers.get("cookie") ?? undefined,
     userAgent: headers.get("user-agent") ?? undefined,
     clientIp: lastForwardedFor(headers.get("x-forwarded-for")),
+    location: Object.fromEntries(
+      LOCATION_HEADERS.flatMap((name) => {
+        const value = headers.get(name);
+        return value ? [[name, value]] : [];
+      }),
+    ),
   };
 }
 
@@ -46,6 +61,10 @@ export function forwardHeaders(forward: Forward, hasBody: boolean): Headers {
   if (hasBody) headers.set("content-type", "application/json");
   if (forward.userAgent) headers.set("user-agent", forward.userAgent);
   if (forward.clientIp) headers.set("x-forwarded-for", forward.clientIp);
+  for (const name of LOCATION_HEADERS) {
+    const value = forward.location?.[name];
+    if (value) headers.set(name, value);
+  }
   return headers;
 }
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import * as z from "zod";
 import { SermoError } from "./errors";
-import { callWith, sermoCookies } from "./transport";
+import { callWith, forwardFromHeaders, sermoCookies } from "./transport";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -175,4 +175,29 @@ test("an unreachable API is an internal error; any other rejection passes throug
     callWith({}, get, { threadId: 5 }),
     (error) => error === signal,
   );
+});
+
+test("the proxy's visitor location headers are passed on, and only those", async () => {
+  const seen = fake(Response.json({ title: "Hi" }));
+  const forward = forwardFromHeaders(
+    new Headers({
+      "x-forwarded-for": "198.51.100.4",
+      "cf-ipcountry": "ES",
+      "cf-region": "Catalonia",
+      "cf-ipcity": "Barcelona",
+      "cf-connecting-ip": "203.0.113.9",
+      "x-sermo-client-country": "KP",
+    }),
+  );
+  await callWith(forward, get, { threadId: 5 });
+  const headers = new Headers(seen[0].init.headers);
+  assert.equal(headers.get("cf-ipcountry"), "ES");
+  assert.equal(headers.get("cf-region"), "Catalonia");
+  assert.equal(headers.get("cf-ipcity"), "Barcelona");
+  assert.equal(headers.get("cf-connecting-ip"), null);
+  assert.equal(headers.get("x-sermo-client-country"), null);
+  // A visitor without them sends none.
+  const bare = fake(Response.json({ title: "Hi" }));
+  await callWith(forwardFromHeaders(new Headers()), get, { threadId: 5 });
+  assert.equal(new Headers(bare[0].init.headers).get("cf-ipcountry"), null);
 });

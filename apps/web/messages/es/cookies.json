@@ -53,6 +53,37 @@
     "noNames": "La pone el proveedor, no este sitio",
     "privacyLink": "Política de privacidad"
   },
+  "logged": {
+    "heading": "Qué registra el servidor",
+    "intro": "Además de las cookies anteriores, el servidor del sitio guarda un registro por seguridad y moderación. Solo se registran las acciones de los miembros con sesión iniciada; las de los visitantes sin cuenta no.",
+    "items": {
+      "signIns": {
+        "title": "Inicios de sesión y registro",
+        "text": "Por cada inicio de sesión, cada intento fallido en tu cuenta y tu registro: la hora, la dirección desde la que te conectaste, tu navegador, sistema y tipo de dispositivo (leídos del texto de identificación que envía tu navegador, que no se conserva) y el lugar aproximado, como país, región y ciudad. Permite que revises tu propio historial de inicios de sesión, que te avisemos por correo de un inicio de sesión desde un navegador o país nuevo y que el personal investigue abusos."
+      },
+      "content": {
+        "title": "Publicaciones",
+        "text": "Los mismos datos por cada hilo, mensaje, mensaje privado, publicación de perfil y comentario que escribas."
+      },
+      "reports": {
+        "title": "Denuncias",
+        "text": "Los mismos datos por cada denuncia que envíes."
+      }
+    },
+    "sessions": {
+      "title": "Navegadores con sesión iniciada",
+      "text": "Por cada navegador con sesión iniciada: cuándo empezó la sesión, cuándo se usó por última vez (con un margen de pocos minutos) y el lugar aproximado desde el que empezó. Se te muestra en tu página de seguridad y se borra cuando la sesión termina."
+    },
+    "retention": {
+      "title": "Cuánto tiempo se conserva",
+      "text": "El registro se borra automáticamente a los {days, plural, one {# día} other {# días}}. Al eliminar tu cuenta se borran tus filas de inmediato.",
+      "unknown": "El registro se borra automáticamente pasado un tiempo fijo. Al eliminar tu cuenta se borran tus filas de inmediato."
+    },
+    "access": {
+      "title": "Quién puede verlo y qué no hacemos",
+      "text": "Puedes ver tus propios inicios de sesión. Las direcciones solo las ve el personal con un permiso específico, nunca las de miembros de igual o mayor rango. No tomamos la huella de tu navegador: no se recoge nada más que lo que envía con cada solicitud."
+    }
+  },
   "items": {
     "session": {
       "title": "Inicio de sesión",

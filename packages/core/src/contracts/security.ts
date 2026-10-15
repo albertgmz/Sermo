@@ -163,3 +163,6 @@ export const privacyLogRetention = defineContract({
   input: z.object({}),
   output: z.object({ days: z.number().int().positive() }),
 });
+
+/** Every action that leaves a row in the address log: the privacy pages list what each kind records. */
+export const IP_LOG_ACTIONS = IP_ACTIONS;

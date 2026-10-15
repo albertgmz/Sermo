@@ -75,6 +75,27 @@ cookie-carrying requests against it, Better Auth builds links and cookie setting
 `web` uses it as `SERMO_PUBLIC_URL`. If you change `INGRESS_PORT` or put a domain in front, change
 `BETTER_AUTH_URL` with it.
 
+### Sign-in location and log retention
+
+The backend keeps a log of the address, device and approximate place behind sign-ins, registrations
+and posts (staff see it with the View IPs permission; a member sees only their own sign-ins on
+`/account/security`). A daily job deletes rows older than `SERMO_IP_LOG_RETENTION_DAYS` (default
+180), a few hundred at a time. The privacy and cookie pages state the age you set.
+
+The place comes from one of two sources, in this order:
+
+1. Cloudflare, when it is in front: turn on **Add visitor location headers** (Rules > Managed
+   Transforms) and set `SERMO_TRUST_LOCATION_HEADERS=true`. The backend then reads `CF-IPCountry`,
+   `CF-Region` and `CF-IPCity`. It does so only together with `SERMO_TRUSTED_PROXY_HEADER`, and
+   the ingress must be reachable only from Cloudflare: otherwise anyone can send those headers, as
+   anyone could send a forged `X-Forwarded-For` (see TLS, case b, for the ingress setup). Leave it
+   `false` everywhere else; the headers are then ignored.
+2. A MaxMind database: put a GeoLite2 City (or Country) `.mmdb` file on the data volume and set
+   `SERMO_GEOIP_DATABASE` to its path (for example `/data/GeoLite2-City.mmdb`). It is read once at
+   start, so restart after replacing it. With no file configured nothing is looked up.
+
+Without either source the log has no place and the alert for a new country never fires.
+
 ## Upload limit
 
 A member's upload limit is a site setting (default 25 MiB, at most 1 GiB). A request has to pass:

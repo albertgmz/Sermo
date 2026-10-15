@@ -398,6 +398,8 @@
     "currentDevice": "Este dispositivo",
     "sessionDates": "Sesión iniciada <createdTime>{created}</createdTime><separator> · </separator>Caduca <expiresTime>{expires}</expiresTime>",
     "sessionIp": "Dirección IP {ip}",
+    "sessionLastActive": "Última actividad <time>{when}</time>",
+    "sessionPlace": "Cerca de {place}",
     "revoke": "Revocar",
     "revokeLabel": "Revocar {device}",
     "revokeOthers": "Cerrar sesión en todos los demás",
@@ -450,6 +452,17 @@
       "verification": "Un enlace de confirmación va de camino a tu dirección.",
       "resendFailed": "No se pudo enviar el enlace. Inténtalo más tarde.",
       "rateLimited": "Demasiados intentos. Espera un rato e inténtalo de nuevo."
+    },
+    "history": {
+      "heading": "Historial de inicios de sesión",
+      "description": "Tus inicios de sesión más recientes y los intentos fallidos en esta cuenta. Los lugares son aproximados.",
+      "loading": "Cargando el historial de inicios de sesión…",
+      "success": "Sesión iniciada",
+      "failed": "Contraseña incorrecta",
+      "unknownPlace": "Lugar desconocido",
+      "empty": "No hay inicios de sesión registrados.",
+      "failedLoad": "No se pudo cargar el historial de inicios de sesión. Inténtalo de nuevo en un momento.",
+      "retention": "El historial se conserva durante {days, plural, one {# día} other {# días}}."
     }
   },
   "loading": {
@@ -459,6 +472,8 @@
     "logoutDescription": "Termina tu sesión en este navegador.",
     "sessionsHeading": "Dispositivos",
     "sessionsDescription": "Navegadores con sesión iniciada en tu cuenta.",
+    "historyHeading": "Historial de inicios de sesión",
+    "historyDescription": "Tus inicios de sesión más recientes y los intentos fallidos en esta cuenta. Los lugares son aproximados.",
     "passwordHeading": "Contraseña",
     "passwordDescription": "Elige una contraseña nueva para tu cuenta.",
     "emailHeading": "Correo electrónico",

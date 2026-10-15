@@ -53,6 +53,37 @@
     "noNames": "Set by the provider, not by this site",
     "privacyLink": "Privacy policy"
   },
+  "logged": {
+    "heading": "What the server records",
+    "intro": "Besides the cookies above, the site's server keeps a log for security and moderation. Only the actions of signed-in members are logged; visitors without an account are not.",
+    "items": {
+      "signIns": {
+        "title": "Sign-ins and registration",
+        "text": "For every sign-in, every failed sign-in on your account and your registration: the time, the address you connected from, your browser, system and device type (read from the identification text your browser sends, which is not kept), and the approximate place, as country, region and city. It lets you review your own sign-in history, lets us warn you by email about a sign-in from a new browser or country, and lets staff investigate abuse."
+      },
+      "content": {
+        "title": "Posting",
+        "text": "The same details for every thread, post, private message, profile post and comment you write."
+      },
+      "reports": {
+        "title": "Reports",
+        "text": "The same details for every report you send."
+      }
+    },
+    "sessions": {
+      "title": "Signed-in browsers",
+      "text": "For each browser you are signed in on: when the session began, when it was last used (to within a few minutes) and the approximate place it began from. This is shown to you on your security page and is deleted when the session ends."
+    },
+    "retention": {
+      "title": "How long it is kept",
+      "text": "The log is deleted automatically after {days, plural, one {# day} other {# days}}. Deleting your account deletes your rows at once.",
+      "unknown": "The log is deleted automatically after a fixed time. Deleting your account deletes your rows at once."
+    },
+    "access": {
+      "title": "Who can see it, and what we do not do",
+      "text": "You can see your own sign-ins. Addresses are visible only to staff who hold a specific permission, never for members of equal or higher rank. We do not fingerprint your browser: nothing beyond what it sends with every request is collected."
+    }
+  },
   "items": {
     "session": {
       "title": "Sign-in",

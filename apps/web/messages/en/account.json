@@ -398,6 +398,8 @@
     "currentDevice": "This device",
     "sessionDates": "Signed in <createdTime>{created}</createdTime><separator> · </separator>Expires <expiresTime>{expires}</expiresTime>",
     "sessionIp": "IP address {ip}",
+    "sessionLastActive": "Last active <time>{when}</time>",
+    "sessionPlace": "Near {place}",
     "revoke": "Revoke",
     "revokeLabel": "Revoke {device}",
     "revokeOthers": "Sign out everywhere else",
@@ -450,6 +452,17 @@
       "verification": "A confirmation link is on its way to your address.",
       "resendFailed": "The link could not be sent. Try again later.",
       "rateLimited": "Too many attempts. Wait a while and try again."
+    },
+    "history": {
+      "heading": "Sign-in history",
+      "description": "Your most recent sign-ins and failed attempts on this account. Places are approximate.",
+      "loading": "Loading sign-in history…",
+      "success": "Signed in",
+      "failed": "Wrong password",
+      "unknownPlace": "Unknown place",
+      "empty": "No sign-ins are on record.",
+      "failedLoad": "The sign-in history could not be loaded. Try again in a moment.",
+      "retention": "The history is kept for {days, plural, one {# day} other {# days}}."
     }
   },
   "loading": {
@@ -459,6 +472,8 @@
     "logoutDescription": "End your session in this browser.",
     "sessionsHeading": "Devices",
     "sessionsDescription": "Browsers that are signed in to your account.",
+    "historyHeading": "Sign-in history",
+    "historyDescription": "Your most recent sign-ins and failed attempts on this account. Places are approximate.",
     "passwordHeading": "Password",
     "passwordDescription": "Choose a new password for your account.",
     "emailHeading": "Email",

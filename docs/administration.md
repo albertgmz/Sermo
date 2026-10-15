@@ -691,6 +691,19 @@ logged but never shown in these views, so someone guessing at an account does no
 to it. Erasing a member deletes their rows. Crawlers (recognised by user agent) do not count as
 thread views.
 
+Each row also holds the approximate place (country code, region, city) when one is known: from the
+proxy's location headers when `SERMO_TRUST_LOCATION_HEADERS=true` (Cloudflare's "Add visitor
+location headers"), else from the optional MaxMind database at `SERMO_GEOIP_DATABASE`, else none
+(`docs/deployment.md`, "Sign-in location and log retention"). A daily job deletes rows older than
+`SERMO_IP_LOG_RETENTION_DAYS` (default 180), in batches of 200 so requests never wait on it; the
+privacy and cookie pages state that age. Members see their own recent sign-ins, successful and
+failed, with device and place, in **Sign-in history** on `/account/security` (`auth.signInHistory`),
+and each session there shows when it was last used (written at most once every five minutes per
+session, by the five-second flush). A sign-in from a browser (browser and system) or country not
+seen in the member's retained sign-ins sends a security mail with a "This wasn't me" link; the first
+sign-in, crawlers and unknown browsers or places never do. The link (valid a week, works once)
+signs the member out everywhere and sends them to log in and change their password.
+
 ### Warnings
 
 `POST /users/{userId}/warnings` (`warnings.create`, `member.warn` over the member) gives 1 to 1,000
@@ -1070,7 +1083,8 @@ The single server process runs everything; there is no separate worker to deploy
   member activity are written. Every minute: temporary shop item expiry is queued. Every
   hour: expired sessions, API keys and verification tokens, old read markers, finished jobs and old
   read notifications are purged, and search engine (IndexNow) and file cleanup work is queued. Daily at 03:00 UTC: the
-  promotion and award sweeps, credit balance repair, file cleanup, a rebuild of the stored counters,
+  promotion and award sweeps, credit balance repair, file cleanup, the deletion of old address-log
+  rows, a rebuild of the stored counters,
   and SQLite's `PRAGMA optimize`.
   Weekly on Monday at 04:00 UTC: the email digest.
 - **Checkpointer.** SQLite runs in WAL mode; a background thread copies the WAL into the database

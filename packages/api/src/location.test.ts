@@ -20,7 +20,11 @@ function seen(options: Parameters<typeof createApp>[1]) {
       { headers: { "x-forwarded-for": "198.51.100.1", ...headers } },
       { requestIP: () => ({ address: "10.0.0.1", family: "IPv4" as const, port: 1 }) },
     );
-    return (await response.json()) as { country: string | null; city: string | null } | null;
+    return (await response.json()) as {
+      country: string | null;
+      region: string | null;
+      city: string | null;
+    } | null;
   };
 }
 

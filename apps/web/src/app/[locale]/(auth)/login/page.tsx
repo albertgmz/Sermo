@@ -18,10 +18,10 @@ export default async function LoginPage({
 }: PageProps<"/[locale]/login">) {
   const t = await getTranslations("auth.login");
   const resend = await getTranslations("auth.resendForm");
-  const { next, registered, reset, resent } = await searchParams;
+  const { next, registered, reset, resent, notMe } = await searchParams;
   return (
     <AuthShell heading={t("heading")}>
-      {(registered || reset || resent) && (
+      {(registered || reset || resent || notMe) && (
         <p
           role="status"
           className="mb-4 text-center text-sm text-muted-foreground"
@@ -30,7 +30,9 @@ export default async function LoginPage({
             ? t("resentNotice")
             : reset
               ? t("resetNotice")
-              : t("registeredNotice")}
+              : notMe
+                ? t("notMeNotice")
+                : t("registeredNotice")}
         </p>
       )}
       <LoginForm next={safeReturnPath(next)} />

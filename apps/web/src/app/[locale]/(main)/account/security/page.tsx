@@ -7,8 +7,10 @@ import {
   PasswordSection,
 } from "@/app/[locale]/(main)/account/security/sections";
 import { Sessions } from "@/app/[locale]/(main)/account/security/sessions";
+import { SignInHistory } from "@/app/[locale]/(main)/account/security/sign-in-history";
 import {
   EmailSkeleton,
+  HistorySkeleton,
   PasswordSkeleton,
   SessionsSkeleton,
 } from "@/app/[locale]/(main)/account/security/skeletons";
@@ -36,6 +38,15 @@ export default function SecurityPage({
         }
       >
         <Sessions searchParams={searchParams} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <LoadingRegion label={t("history.loading")}>
+            <HistorySkeleton />
+          </LoadingRegion>
+        }
+      >
+        <SignInHistory />
       </Suspense>
       <Suspense fallback={<PasswordSkeleton />}>
         <PasswordSection searchParams={searchParams} />

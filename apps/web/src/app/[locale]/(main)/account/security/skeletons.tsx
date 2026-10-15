@@ -41,6 +41,22 @@ export function SessionsSkeleton() {
   );
 }
 
+export function HistorySkeleton() {
+  const t = useTranslations("account.loading");
+  return (
+    <SectionShell
+      heading={t("historyHeading")}
+      description={t("historyDescription")}
+    >
+      <div className="divide-y">
+        <MemberRowSkeleton />
+        <MemberRowSkeleton />
+        <MemberRowSkeleton />
+      </div>
+    </SectionShell>
+  );
+}
+
 export function PasswordSkeleton() {
   const t = useTranslations("account.loading");
   return (

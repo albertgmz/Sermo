@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { LoggedData } from "@/components/forum/logged-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
 import {
@@ -111,6 +112,7 @@ export default async function CookiePolicyPage() {
         {OPTIONAL_CATEGORIES.map((category) => (
           <Section key={category} category={category} />
         ))}
+        <LoggedData />
       </article>
     </PageLayout>
   );

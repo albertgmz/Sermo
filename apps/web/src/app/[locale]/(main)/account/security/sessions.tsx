@@ -13,6 +13,7 @@ import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format";
+import { placeLabel } from "@/lib/location";
 import { getCurrentAccount, listSessions } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
@@ -49,6 +50,8 @@ export async function Sessions({
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
       ipAddress: known.get(session.id)?.ipAddress ?? session.ipAddress,
+      lastActiveAt: known.get(session.id)?.lastActiveAt ?? null,
+      place: placeLabel(known.get(session.id)?.location, locale),
     }))
     .sort((a, b) => Number(b.current) - Number(a.current));
   const failure = listing.ok
@@ -102,6 +105,23 @@ export async function Sessions({
                       expires: formatDateTime(session.expiresAt, locale),
                     })}
                   </p>
+                  {session.lastActiveAt && (
+                    <p className="text-xs text-muted-foreground">
+                      {t.rich("sessionLastActive", {
+                        time: (chunks) => (
+                          <time dateTime={session.lastActiveAt ?? undefined}>
+                            {chunks}
+                          </time>
+                        ),
+                        when: formatDateTime(session.lastActiveAt, locale),
+                      })}
+                    </p>
+                  )}
+                  {session.place && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("sessionPlace", { place: session.place })}
+                    </p>
+                  )}
                   {session.ipAddress && (
                     <p className="text-xs break-all text-muted-foreground">
                       {t("sessionIp", { ip: session.ipAddress })}

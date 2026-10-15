@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import {
   EmailSkeleton,
+  HistorySkeleton,
   PasswordSkeleton,
   SessionsSkeleton,
 } from "@/app/[locale]/(main)/account/security/skeletons";
@@ -16,6 +17,7 @@ export default function Loading() {
           {t("securityHeading")}
         </h1>
         <SessionsSkeleton />
+        <HistorySkeleton />
         <PasswordSkeleton />
         <EmailSkeleton />
         <section className="rounded-lg border bg-card p-4">

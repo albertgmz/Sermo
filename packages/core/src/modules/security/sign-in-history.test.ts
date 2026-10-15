@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { expectNoTableScan } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
+import { writeTx } from "../../db/tx";
 import { ForbiddenError, UnauthenticatedError, ValidationError } from "../../errors";
 import { accounts, closeAll, PASSWORD } from "../admin/fixtures.test";
 import { getAuth, markSessionsRevoked, resolveActor } from "../auth";
@@ -17,6 +18,7 @@ import {
   requestLocation,
   setLocationHeaders,
 } from "./location";
+import { logIp } from "./log";
 import { IP_LOG_PURGE_BATCH, purgeIpLog, registerSecurityJobs, retentionSql } from "./retention";
 import {
   ACTIVE_STEP_MS,
@@ -189,6 +191,9 @@ describe("the optional location database", () => {
       }),
     );
     expect(resolved.actor).toMatchObject({ kind: "user", userId: ada.id, clientLocation: SPAIN });
+    // The row an action of that request writes carries the place.
+    writeTx(w.ctx, () => logIp(w.ctx, resolved.actor, "post"));
+    expect(rows(w, ada.id).at(-1)).toEqual({ action: "post", ...SPAIN });
   });
 });
 
