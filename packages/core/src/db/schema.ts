@@ -2306,8 +2306,12 @@ export const termsAcceptances = sqliteTable(
     ip: text("ip"),
     acceptedAt: integer("accepted_at").notNull(),
   },
-  // One acceptance per member, kind and version; also the lookup of a member's newest version.
-  (t) => [uniqueIndex("terms_acceptances_member").on(t.userId, t.kind, t.version)],
+  (t) => [
+    // One acceptance per member, kind and version; also the lookup of a member's newest version.
+    uniqueIndex("terms_acceptances_member").on(t.userId, t.kind, t.version),
+    // The retention job's walk over the rows that still hold an address.
+    index("terms_acceptances_with_ip").on(t.id).where(sql`ip IS NOT NULL`),
+  ],
 );
 
 // ---------------------------------------------------------------------------

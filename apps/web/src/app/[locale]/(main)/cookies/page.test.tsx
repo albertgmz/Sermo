@@ -67,6 +67,7 @@ test("the administrator's text takes the place of the draft, and the table of co
     title: "Our cookies",
     bodyHtml: "<p>We keep it short.</p>",
     isPublished: true,
+    version: 1,
     updatedAt: "2026-10-01T10:00:00.000Z",
   };
   const shown = await page();

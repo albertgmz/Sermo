@@ -14,7 +14,9 @@ afterAll(() => {
 });
 
 const draw = (pages: "both" | "terms" | "rules" | "none") =>
-  renderToStaticMarkup(withIntl(<RegisterForm pages={pages} />));
+  renderToStaticMarkup(
+    withIntl(<RegisterForm pages={pages} turnstileKey={null} />),
+  );
 
 test("the checkbox names and links only the pages the site publishes", () => {
   const both = draw("both");

@@ -2630,3 +2630,30 @@ is only found when a visitor submits; a page loaded before a deploy that added t
 reload; signature pictures skip the external-media rules; the site cache can delay the widget a
 minute; the `signatureNeeds` sentence is English in the Spanish interface (backend refusal text is
 untranslated everywhere).
+
+**Terms and rules acceptance (item 7c).** The `terms` and `rules` static pages carry a version
+(`static_pages.version`, default 1) that an administrator raises on purpose with "Publish as a new
+version" when saving (a new page, or a page created again after a delete, starts above every version
+accepted under its slug). `terms_acceptances` (migration `0049`) holds one row per member, kind and
+version with the time and the trusted client address; sign-up records the versions published then
+(the register form's one checkbox names the published ones of terms and rules, and privacy; a page
+that cannot be read stops the form rather than being left out), and the prompt's Accept records the
+versions the member was shown (a version that moved on is a conflict). Existing members have no
+record and are asked on their next visit. A member who has not accepted every published page at its
+current version (or later) is refused threads, posts, wall posts and comments (creating and
+editing), reactions (set, not remove) and conversations (start, reply, add people, edit a message)
+with a `forbidden` error whose issue path is `acceptance`; reading, account pages, sign-out and
+accepting stay open. The accepted versions travel with the resolved actor (two indexed subselects in
+the existing member lookup); the current versions are one two-row lookup per gated write. API keys
+are refused the same writes and cannot accept (session only). `auth.me` lists `pendingAcceptance`;
+the (main) layout draws one prompt with a link to each page and an Accept button, and the composers'
+and reactions' refusal line redraws the page so the prompt appears. Naming a conversation, and
+saving profile text, wait for the acceptance too (clearing a field does not); this deliberately
+narrows "account pages stay allowed" to the parts others do not read, and staff edits of another
+member's profile stay open; reports stay open because they reach only staff. The daily retention job
+drops an acceptance's address at the `ip_log` age and keeps the row; a partial index over the rows
+that still hold one keeps that walk short. Staff read a member's versions, dates (newest first) and
+(with `member.viewIps`) addresses on the member's details page; erasing the member deletes the rows.
+Known limits: the staff panels have no prompt, the register page reads both pages in full to know
+which exist, and a sign-up through the API can claim acceptance with `acceptTerms` without having
+seen the pages.

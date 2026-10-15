@@ -1,5 +1,6 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import type { ReactElement } from "react";
+import { siteAnswer } from "@/lib/test-bodies";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -7,6 +8,13 @@ afterEach(() => {
 });
 
 mock.module("server-only", () => ({}));
+const nextCache = await import("next/cache");
+// The page reads the site (for the Turnstile key) through the cached site read.
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
@@ -28,12 +36,15 @@ const { RegisterForm } = await import("./register-form");
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
   mock.module("@/app/[locale]/(auth)/actions", () => actions);
+  mock.module("next/cache", () => nextCache);
 });
 
 type Answer = "published" | "draft" | "not_found" | "rate_limited" | "down";
 
 function backend(answers: Record<"terms" | "rules", Answer>) {
   globalThis.fetch = (async (input: string) => {
+    const site = siteAnswer(input);
+    if (site) return site;
     const slug = new URL(input).pathname.split("/").pop() as "terms" | "rules";
     const answer = answers[slug];
     if (answer === "published" || answer === "draft")
