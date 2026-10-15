@@ -69,6 +69,8 @@ export function requireTakeoverRights(ctx: Ctx, actor: Actor, target: Actor): vo
     requirePermission(ctx, actor, "admin.permissions");
 }
 
+const KEY_REFUSED = "This needs a signed-in session; an API key cannot do it.";
+
 /**
  * The acting administrator's own password, verified the way Better Auth verifies a sign-in. At
  * most five wrong answers per session and twenty per member in fifteen minutes: after that every
@@ -84,8 +86,7 @@ export const verifyActorPassword = markPublic(
     field = "actorPassword",
   ): Promise<{ userId: number }> => {
     const user = requireAuthenticated(actor);
-    if (actor.kind !== "user")
-      throw new ForbiddenError("This needs a signed-in session; an API key cannot do it.");
+    if (actor.kind !== "user") throw new ForbiddenError(KEY_REFUSED);
     await checkOwnPassword(
       ctx,
       await getAuth(ctx).$context,
@@ -99,16 +100,19 @@ export const verifyActorPassword = markPublic(
 );
 
 /**
- * The confirmation of a write that changes groups, permissions or promotion rules. A password
+ * The confirmation of a write that changes groups, permissions or promotion rules. An API key is
+ * refused whether or not it sends a password: these changes need a signed-in session. A password
  * that is sent is verified (same helper, same limit) and a wrong one stops the request
- * before anything is changed. An interactive session (a browser session cookie, marked
- * by the HTTP layer) must send one. API keys and in-process callers (loaders, jobs, tests build
- * their actors by hand and never carry the mark) are not asked. Called after the early
- * permission check, so someone who may not act is told so whatever they send.
+ * before anything is changed. An interactive session (a browser session cookie, marked by the
+ * HTTP layer on every session actor it resolves, for REST and MCP alike) must send one.
+ * In-process callers (loaders, jobs, tests build their actors by hand, never carry the mark and
+ * are never a key) are not asked. Called after the early permission check, so someone who may
+ * not act is told so whatever they send.
  */
 export const confirmActorPassword = markPublic(
   "Checks the actor's own password when one is sent or required; it grants nothing.",
   async (ctx: Ctx, actor: Actor, password: string | undefined): Promise<void> => {
+    if (actor.kind === "token") throw new ForbiddenError(KEY_REFUSED);
     if (password !== undefined) return void (await verifyActorPassword(ctx, actor, password));
     if (actor.kind === "user" && actor.interactive)
       throw new ValidationError("The acting administrator's password is required.", [

@@ -159,11 +159,23 @@ describe("the actorPassword on group, permission and promotion writes", () => {
         expect(snapshot(w)).not.toBe(before);
       });
 
-      test("an API key is not asked for a password", async () => {
+      test("an API key is refused without a password, and changes nothing", async () => {
         const w = await world();
         const before = snapshot(w);
-        await write(w, undefined, tokenActor(w.founder));
-        expect(snapshot(w)).not.toBe(before);
+        await expect(write(w, undefined, tokenActor(w.founder))).rejects.toBeInstanceOf(
+          ForbiddenError,
+        );
+        expect(snapshot(w)).toBe(before);
+      });
+
+      test("an API key is refused with the right or a wrong password, and changes nothing", async () => {
+        const w = await world();
+        const before = snapshot(w);
+        for (const password of [PASSWORD, WRONG])
+          await expect(write(w, password, tokenActor(w.founder))).rejects.toThrow(
+            /signed-in session; an API key cannot do it/,
+          );
+        expect(snapshot(w)).toBe(before);
       });
 
       test("an interactive session must send one, and changes nothing without", async () => {
@@ -188,15 +200,12 @@ describe("the actorPassword on group, permission and promotion writes", () => {
     });
   }
 
-  test("an API key that sends the password is refused, and one that does not is not", async () => {
+  test("an API key does not count against the password limit", async () => {
     const w = await world();
     const key = tokenActor(w.founder);
-    await expect(
-      w.run("groups.create", key, { title: "Keyed", actorPassword: PASSWORD }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    expect(w.groupCount()).toBe(5 + 1);
-    await w.run("groups.create", key, { title: "Keyed" });
-    expect(w.groupCount()).toBe(5 + 2);
+    for (let i = 0; i < 6; i++)
+      await expect(writes[0]![1](w, WRONG, key)).rejects.toBeInstanceOf(ForbiddenError);
+    await writes[0]![1](w, PASSWORD);
   });
 
   test("a member without the permission is still refused with the right password", async () => {

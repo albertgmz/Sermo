@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Ctx } from "@sermo/core";
 import { closeContext } from "@sermo/core";
-import { createTestContext } from "@sermo/core/testing";
+import { createTestContext, insertNode } from "@sermo/core/testing";
 import { createApp } from "./app";
 
 const contexts: Ctx[] = [];
@@ -59,10 +59,23 @@ async function setup() {
     });
   const groups = () =>
     ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM groups").get()!.n;
-  return { id, ctx, asSession, asKey, groups };
+  const createGroup = async (title: string) =>
+    (await (await asSession("POST", "/groups", { title, actorPassword: PASSWORD })).json()) as {
+      id: number;
+    };
+  const createRule = async (title: string, groupId: number) =>
+    (await (
+      await asSession("POST", "/promotions", {
+        title,
+        criteria: [{ criterion: "post_count", value: 1000 }],
+        groupIds: [groupId],
+        actorPassword: PASSWORD,
+      })
+    ).json()) as { id: number };
+  return { id, ctx, asSession, asKey, groups, createGroup, createRule };
 }
 
-test("a browser session cannot change groups without the password; an API key can", async () => {
+test("a browser session cannot change groups without the password; an API key cannot at all", async () => {
   const { asSession, asKey, groups } = await setup();
   const before = groups();
 
@@ -87,25 +100,19 @@ test("a browser session cannot change groups without the password; an API key ca
   expect(right.status).toBe(201);
   expect(groups()).toBe(before + 1);
 
-  // The API key is exempt, and refused if it sends a password.
-  expect((await asKey("POST", "/groups", { title: "Scripted" })).status).toBe(201);
-  const keyed = await asKey("POST", "/groups", { title: "Keyed", actorPassword: PASSWORD });
-  expect(keyed.status).toBe(403);
-  expect(groups()).toBe(before + 2);
+  // The API key is refused whether or not it sends a password.
+  for (const body of [{ title: "Scripted" }, { title: "Keyed", actorPassword: PASSWORD }]) {
+    const keyed = await asKey("POST", "/groups", body);
+    expect(keyed.status).toBe(403);
+    expect(await keyed.json()).toMatchObject({ error: { code: "forbidden" } });
+  }
+  expect(groups()).toBe(before + 1);
 });
 
 test("every guarded route holds a browser session to the password", async () => {
-  const { id, asSession, asKey } = await setup();
-  const group = (await (await asKey("POST", "/groups", { title: "Target" })).json()) as {
-    id: number;
-  };
-  const promotion = (await (
-    await asKey("POST", "/promotions", {
-      title: "Rule",
-      criteria: [{ criterion: "post_count", value: 1000 }],
-      groupIds: [group.id],
-    })
-  ).json()) as { id: number };
+  const { id, asSession, createGroup, createRule } = await setup();
+  const group = await createGroup("Target");
+  const promotion = await createRule("Rule", group.id);
   const refused = [
     asSession("PATCH", `/groups/${group.id}`, { title: "Renamed" }),
     asSession("PUT", `/users/${id}/groups`, { secondaryGroupIds: [group.id] }),
@@ -130,9 +137,8 @@ test("every guarded route holds a browser session to the password", async () => 
 });
 
 test("a DELETE takes the password from its JSON body, or from the query as before", async () => {
-  const { asSession, asKey, groups } = await setup();
-  const make = async (title: string) =>
-    ((await (await asKey("POST", "/groups", { title })).json()) as { id: number }).id;
+  const { asSession, createGroup, groups } = await setup();
+  const make = async (title: string) => (await createGroup(title)).id;
   const before = groups();
 
   const inBody = await make("By body");
@@ -148,9 +154,8 @@ test("a DELETE takes the password from its JSON body, or from the query as befor
 });
 
 test("a field in both the body and the query of a DELETE takes the body's value", async () => {
-  const { asSession, asKey, groups } = await setup();
-  const make = async (title: string) =>
-    ((await (await asKey("POST", "/groups", { title })).json()) as { id: number }).id;
+  const { asSession, createGroup, groups } = await setup();
+  const make = async (title: string) => (await createGroup(title)).id;
   const first = await make("First");
   const before = groups();
 
@@ -168,20 +173,9 @@ test("a field in both the body and the query of a DELETE takes the body's value"
 });
 
 test("a promotion is deleted with the password in the body, and a path parameter beats a body one", async () => {
-  const { ctx, asSession, asKey } = await setup();
-  const group = (await (await asKey("POST", "/groups", { title: "Target" })).json()) as {
-    id: number;
-  };
-  const rule = async (title: string) =>
-    (
-      (await (
-        await asKey("POST", "/promotions", {
-          title,
-          criteria: [{ criterion: "post_count", value: 1000 }],
-          groupIds: [group.id],
-        })
-      ).json()) as { id: number }
-    ).id;
+  const { ctx, asSession, createGroup, createRule } = await setup();
+  const group = await createGroup("Target");
+  const rule = async (title: string) => (await createRule(title, group.id)).id;
   const kept = await rule("Kept");
   const removed = await rule("Removed");
   const response = await asSession("DELETE", `/promotions/${removed}`, {
@@ -224,4 +218,52 @@ test("missing, wrong and too many wrong passwords all name the password field, u
     "rate_limited",
     [["actorPassword"]],
   ]);
+});
+
+test("every guarded route refuses an API key, with or without the password, and changes nothing", async () => {
+  const { id, ctx, asKey, createGroup, createRule } = await setup();
+  const group = await createGroup("Target");
+  const promotion = await createRule("Rule", group.id);
+  const node = insertNode(ctx, { type: "forum" }).id;
+  const state = () =>
+    JSON.stringify([
+      ctx.sqlite.prepare("SELECT id, title FROM groups ORDER BY id").all(),
+      ctx.sqlite.prepare("SELECT user_id, group_id FROM user_groups").all(),
+      ctx.sqlite.prepare("SELECT count(*) FROM permission_entries").all(),
+      ctx.sqlite.prepare("SELECT id, title FROM promotions ORDER BY id").all(),
+      ctx.sqlite.prepare("SELECT count(*) FROM jobs").all(),
+      ctx.sqlite.prepare("SELECT count(*) FROM moderator_log").all(),
+    ]);
+  const before = state();
+  const routes: [string, string, object][] = [
+    ["POST", "/groups", { title: "Keyed" }],
+    ["PATCH", `/groups/${group.id}`, { title: "Renamed" }],
+    ["DELETE", `/groups/${group.id}`, {}],
+    ["PUT", `/users/${id}/groups`, { secondaryGroupIds: [group.id] }],
+    [
+      "PUT",
+      "/permissions/entries",
+      { groupId: group.id, entries: [{ permission: "forum.reply", value: "allow" }] },
+    ],
+    ["PUT", `/nodes/${node}/moderators/${id}`, {}],
+    [
+      "POST",
+      "/promotions",
+      {
+        title: "Second",
+        criteria: [{ criterion: "post_count", value: 5 }],
+        groupIds: [group.id],
+      },
+    ],
+    ["PATCH", `/promotions/${promotion.id}`, { title: "Renamed" }],
+    ["DELETE", `/promotions/${promotion.id}`, {}],
+    ["PUT", `/users/${id}/promotions/${promotion.id}`, { action: "exempt" }],
+  ];
+  for (const [method, path, body] of routes)
+    for (const extra of [{}, { actorPassword: PASSWORD }, { actorPassword: "nope-nope-1" }]) {
+      const response = await asKey(method, path, { ...body, ...extra });
+      expect([method, path, response.status]).toEqual([method, path, 403]);
+      expect(await response.json()).toMatchObject({ error: { code: "forbidden" } });
+    }
+  expect(state()).toBe(before);
 });

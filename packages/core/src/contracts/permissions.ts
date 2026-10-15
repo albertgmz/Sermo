@@ -7,7 +7,8 @@ const CONFIRM =
   " `actorPassword` is the acting administrator's own password: it is verified in the " +
   "same step and under the same wrong-answer limit as users.adminUpdateIdentity, and a wrong " +
   "one changes nothing. A browser session (session cookie) must send it (missing: a validation " +
-  "error naming actorPassword); an API key or token is not asked and is refused if it sends one.";
+  "error naming actorPassword). An API key or token cannot make this change: it is refused " +
+  "whether or not it sends a password.";
 
 // Groups -------------------------------------------------------------------------------------
 

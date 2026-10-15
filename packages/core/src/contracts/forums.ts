@@ -577,8 +577,8 @@ export const nodesSetModerator = defineContract({
     "standard moderator set), or remove that. Requires admin.permissions. `actorPassword` is " +
     "the acting administrator's own password: it is verified under the same wrong-answer " +
     "limit as users.adminUpdateIdentity, and a wrong one changes nothing. A browser session " +
-    "(session cookie) must send it (missing: a validation error naming actorPassword); an API " +
-    "key or token is not asked and is refused if it sends one.",
+    "(session cookie) must send it (missing: a validation error naming actorPassword). An API " +
+    "key or token cannot make this change: it is refused whether or not it sends a password.",
   kind: "write",
   input: z.object({
     nodeId: Id,
