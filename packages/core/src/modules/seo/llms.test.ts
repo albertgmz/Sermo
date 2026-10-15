@@ -66,6 +66,55 @@ test("llms.txt falls back to a plain summary and caps the forum list", () => {
   expect(text).toContain(`Only the first ${LLMS_FORUM_CAP} forums are listed here`);
 });
 
+test("llms.txt text cannot become a live link, a heading or a second line", () => {
+  const ctx = createTestContext();
+  const category = insertNode(ctx, {
+    title: "[cat](http://evil.example)\n# x",
+    type: "category",
+  });
+  const backslash = insertNode(ctx, { title: "a\\", parentId: category.id });
+  const markup = insertNode(ctx, { title: "Plain", parentId: category.id });
+  describeNode(ctx, backslash.id, "[click](http://evil.example)");
+  describeNode(
+    ctx,
+    markup.id,
+    "line one\n\n## Injected\n<http://evil.example> `code` [x](http://evil.example)",
+  );
+  invalidate(ctx, "node_tree");
+
+  const text = llmsTxt(ctx, BASE);
+  expect(text).toContain("## \\[cat\\]\\(http://evil.example\\) # x\n");
+  expect(text).toContain(
+    `- [a\\\\](${BASE}/forums/${backslash.id}-a): \\[click\\]\\(http://evil.example\\)\n`,
+  );
+  expect(text).toContain(
+    `- [Plain](${BASE}/forums/${markup.id}-plain): line one ## Injected \\<http://evil.example\\> \\\`code\\\` \\[x\\]\\(http://evil.example\\)\n`,
+  );
+  expect(text).not.toMatch(/^#+ .*Injected/m);
+  expect(text).not.toMatch(/(?<!\\)\]\(http:\/\/evil/);
+});
+
+test("llms.txt cuts a long forum note on a word and adds an ellipsis", () => {
+  const ctx = createTestContext();
+  const long = insertNode(ctx, { title: "Long" });
+  const short = insertNode(ctx, { title: "Exact" });
+  const unbroken = insertNode(ctx, { title: "Unbroken" });
+  describeNode(ctx, long.id, `${"word ".repeat(100)}end`);
+  describeNode(ctx, short.id, "x".repeat(200));
+  describeNode(ctx, unbroken.id, "y".repeat(500));
+  invalidate(ctx, "node_tree");
+
+  const lines = llmsTxt(ctx, BASE).split("\n");
+  const noteOf = (id: number) => {
+    const line = lines.find((row) => row.includes(`/forums/${id}-`))!;
+    return line.slice(line.indexOf("): ") + 3);
+  };
+  expect(noteOf(long.id)).toBe(`${"word ".repeat(39)}word…`);
+  expect(noteOf(long.id).length).toBeLessThanOrEqual(201);
+  expect(noteOf(short.id)).toBe("x".repeat(200));
+  expect(noteOf(unbroken.id)).toBe(`${"y".repeat(200)}…`);
+});
+
 test("llms.txt refuses a base URL that is not an origin", () => {
   expect(() => llmsTxt(createTestContext(), "not a url")).toThrow();
 });

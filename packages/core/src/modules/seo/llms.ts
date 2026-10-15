@@ -7,8 +7,20 @@ import { canonicalUrl, requireBaseURL } from "./paths";
 /** The most forums /llms.txt lists; the sitemap has the rest. */
 export const LLMS_FORUM_CAP = 200;
 
+/** The longest note after a forum link, in characters. */
+const NOTE_CAP = 200;
+
 const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
-const linkText = (value: string) => oneLine(value).replace(/[[\]]/g, "\\$&");
+/** One line of text that cannot become a link, a tag or a code span when read as Markdown. */
+const plain = (value: string) => oneLine(value).replace(/[\\[\]()<>`]/g, "\\$&");
+/** At most NOTE_CAP characters, cut on a word, with an ellipsis. */
+function note(value: string): string {
+  const text = oneLine(value);
+  if (text.length <= NOTE_CAP) return plain(text);
+  const cut = text.slice(0, NOTE_CAP);
+  const space = cut.lastIndexOf(" ");
+  return `${plain((space > 0 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?-]+$/, ""))}…`;
+}
 
 /**
  * The llms.txt summary of the site (llmstxt.org format): the site's name and description, the
@@ -18,8 +30,8 @@ const linkText = (value: string) => oneLine(value).replace(/[[\]]/g, "\\$&");
 export function llmsTxt(ctx: Ctx, baseURL: string): string {
   const origin = requireBaseURL(baseURL);
   const settings = readSiteSettings(ctx);
-  const siteName = oneLine(settings.siteName) || "Forum";
-  const description = oneLine(settings.siteDescription);
+  const siteName = plain(settings.siteName) || "Forum";
+  const description = plain(settings.siteDescription);
   const at = (path: string) => new URL(path, origin).href;
 
   const tree = getNodeTree(ctx);
@@ -37,9 +49,9 @@ export function llmsTxt(ctx: Ctx, baseURL: string): string {
     listed++;
     const category = tree.ancestors(entry.id).findLast((parent) => parent.type === "category");
     const key = category?.id ?? null;
-    if (category) titles.set(key, oneLine(category.title));
-    const note = oneLine(entry.description);
-    const line = `- [${linkText(entry.title)}](${canonicalUrl(baseURL, "node", entry.id, entry.title)})${note ? `: ${note}` : ""}`;
+    if (category) titles.set(key, plain(category.title));
+    const about = note(entry.description);
+    const line = `- [${plain(entry.title)}](${canonicalUrl(baseURL, "node", entry.id, entry.title)})${about ? `: ${about}` : ""}`;
     const lines = groups.get(key);
     if (lines) lines.push(line);
     else groups.set(key, [line]);
