@@ -10,6 +10,9 @@ const stores = new Set<Store>();
 
 export const currentEpoch = () => epoch;
 
+// Who the page is drawn for: null for a guest, and before the page has said.
+export const currentViewer = () => viewer ?? null;
+
 export function registerStore(store: Store) {
   stores.add(store);
 }

@@ -4,18 +4,13 @@ import { getTranslations } from "next-intl/server";
 import { RegisterForm } from "@/app/[locale]/(auth)/register/register-form";
 import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
+import { referrerOf } from "@/lib/referral/link";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.register");
   return {
     title: t("metaTitle"),
   };
-}
-
-// The member whose link brought the visitor: a plain number, or nothing.
-function referrerOf(value: string | string[] | undefined) {
-  const text = Array.isArray(value) ? value[0] : value;
-  return text && /^[1-9][0-9]{0,15}$/.test(text) ? text : undefined;
 }
 
 export default async function RegisterPage({
@@ -49,7 +44,7 @@ export default async function RegisterPage({
             <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
               {t("description")}
             </p>
-            <RegisterForm referrer={referrerOf(ref)} />
+            <RegisterForm referrer={referrerOf(ref)?.toString()} />
           </div>
         </div>
       </div>

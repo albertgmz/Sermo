@@ -1,9 +1,10 @@
 "use server";
 
-import { usersSetReferrer } from "@sermo/core/contracts";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { REFERRAL_COOKIE } from "@/lib/consent/inventory";
+import { referrerOf } from "@/lib/referral/link";
 import {
   requestPasswordReset,
   resetPassword,
@@ -12,9 +13,7 @@ import {
   signInWithUsername,
   signUp,
 } from "@/lib/sermo/auth";
-import { forwardFromRequest } from "@/lib/sermo/client";
 import { safeReturnPath } from "@/lib/sermo/return-path";
-import { callWith } from "@/lib/sermo/transport";
 
 export type AuthState = { error: string; username: string };
 
@@ -68,24 +67,6 @@ export async function login(
   redirect(safeReturnPath(formData.get("next")));
 }
 
-// Names the member whose link brought the visitor here. A courtesy, not part of signing up: a
-// refusal changes nothing the visitor sees. The session the sign-up just opened is in the cookie
-// jar, not in the request headers.
-async function refer(value: FormDataEntryValue | null) {
-  const userId = Number(value);
-  if (!Number.isSafeInteger(userId) || userId < 1) return;
-  try {
-    await callWith(
-      {
-        ...(await forwardFromRequest()),
-        cookie: (await cookies()).toString(),
-      },
-      usersSetReferrer,
-      { userId },
-    );
-  } catch {}
-}
-
 export async function register(
   _previous: AuthState,
   formData: FormData,
@@ -98,9 +79,21 @@ export async function register(
     return { error: t("passwordRequired"), username };
   }
   if (!formData.get("terms")) return { error: t("termsRequired"), username };
-  const result = await signUp({ username, email, password });
+  // The member whose link brought the visitor travels with the sign-up, and the backend decides
+  // whether and when it counts. The cookie, kept once the visitor accepted it, was set by the
+  // first link they followed and so wins; without it the form carries the `?ref=` of the page.
+  const store = await cookies();
+  const referrer =
+    referrerOf(store.get(REFERRAL_COOKIE)?.value) ??
+    referrerOf(String(formData.get("ref") ?? ""));
+  const result = await signUp({
+    username,
+    email,
+    password,
+    ...(referrer === null ? {} : { ref: referrer }),
+  });
   if (!result.ok) return failure(result, username);
-  if (result.signedIn) await refer(formData.get("ref"));
+  if (store.has(REFERRAL_COOKIE)) store.delete(REFERRAL_COOKIE);
   redirect(result.signedIn ? "/" : "/login?registered=1");
 }
 

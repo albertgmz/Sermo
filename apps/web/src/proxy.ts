@@ -22,6 +22,7 @@ import {
   type Locale,
   negotiateLocale,
 } from "@/i18n/locales";
+import { CONSENT_COOKIE, REFERRAL_COOKIE } from "@/lib/consent/inventory";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -33,12 +34,14 @@ import {
   parseLiteCookieHeader,
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
+import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
 import {
   canonicalPathOf,
   FORUM_PREFIX,
   LEGACY_FORUM_PREFIX,
   toBackendPath,
 } from "@/lib/sermo/addresses";
+import { publicUrl } from "@/lib/sermo/config";
 import { siteDefaultLanguage } from "@/lib/sermo/default-language";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
@@ -244,8 +247,48 @@ function localePrefixRedirect(request: NextRequest) {
   return undefined;
 }
 
+// What a request does to the referral cookie (see `referralStep`), and the canonical address of
+// a page that was reached through a `?ref=` link: the same address without it.
+function withReferral(
+  request: NextRequest,
+  response: NextResponse | undefined,
+) {
+  const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/api/") || pathname.startsWith("/_next/"))
+    return response;
+  const pageLoad = isDocumentRequest(request);
+  const step = referralStep(
+    request.nextUrl,
+    {
+      referral: request.cookies.get(REFERRAL_COOKIE)?.value,
+      consent: request.cookies.get(CONSENT_COOKIE)?.value,
+    },
+    pageLoad,
+    publicUrl(),
+  );
+  // Only a page that is served says where it really is; a redirect or a 404 does not.
+  const served = response === undefined || response.status === 200;
+  const canonical = pageLoad && served ? step.canonical : null;
+  if (step.set === null && !step.clear && canonical === null) return response;
+  const answer = response ?? NextResponse.next();
+  if (step.set !== null) {
+    answer.cookies.set(REFERRAL_COOKIE, String(step.set), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: publicUrl().startsWith("https:"),
+      path: "/",
+      maxAge: REFERRAL_MAX_AGE,
+    });
+  } else if (step.clear) {
+    answer.cookies.delete(REFERRAL_COOKIE);
+  }
+  if (canonical !== null)
+    answer.headers.append("Link", `<${canonical}>; rel="canonical"`);
+  return answer;
+}
+
 export async function proxy(request: NextRequest) {
-  const response = await handleRequest(request);
+  const response = withReferral(request, await handleRequest(request));
   // Old installations set an HttpOnly preference. Replace it so tab sync can
   // observe changes without treating an invisible legacy cookie as a mismatch.
   if (

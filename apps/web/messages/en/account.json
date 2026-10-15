@@ -111,7 +111,7 @@
   },
   "referral": {
     "heading": "Invite members",
-    "description": "Members who register through your link count as your referrals.",
+    "description": "Members who register through your link count as your referrals. Links you copy with Share or Copy link carry your code too; a link copied from the address bar does not.",
     "count": "{count, plural, one {# member has} other {# members have}} joined through it."
   },
   "appearance": {

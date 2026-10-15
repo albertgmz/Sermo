@@ -111,7 +111,7 @@
   },
   "referral": {
     "heading": "Invitar miembros",
-    "description": "Los miembros que se registren con tu enlace cuentan como tus referidos.",
+    "description": "Los miembros que se registren con tu enlace cuentan como tus referidos. Los enlaces que copias con Compartir o Copiar enlace también llevan tu código; uno copiado de la barra de direcciones, no.",
     "count": "{count, plural, one {Se ha unido un miembro} other {Se han unido # miembros}} con tu enlace."
   },
   "appearance": {

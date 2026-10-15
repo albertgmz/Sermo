@@ -82,10 +82,12 @@ export const signInWithEmail = (
 // Better Auth appends `error=<code>` to it when a link does not work.
 const landing = (path: string) => `${new URL(publicUrl()).origin}${path}`;
 
+// `ref` is the member whose link brought the visitor; the backend records it with the sign-up.
 export const signUp = (input: {
   username: string;
   email: string;
   password: string;
+  ref?: number;
 }) =>
   post("sign-up/email", {
     ...input,

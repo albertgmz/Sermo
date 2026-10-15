@@ -12,6 +12,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { shareAddress } from "@/lib/referral/link";
+import { currentViewer } from "@/lib/session-epoch";
 import { cn } from "@/lib/utils";
 
 // Hands the link to the device's share sheet where there is one and says so; false where there is
@@ -110,7 +112,9 @@ export function ShareButton({
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
 
-  const address = () => new URL(href, location.origin).href;
+  // A signed-in member's copy of the link carries their id, so those who register through it are
+  // credited to them.
+  const address = () => shareAddress(href, location.origin, currentViewer());
 
   async function copy() {
     const target = address();
