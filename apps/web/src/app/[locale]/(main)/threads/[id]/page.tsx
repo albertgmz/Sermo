@@ -108,6 +108,9 @@ export default async function ThreadPage({
   const page = pageNumber(pageParam);
   const seo = await getSeo(id, page, cursor !== undefined);
   const may = threadMay(resolvedPermissions, permissions);
+  // Where only titles are open to the viewer, the posts are not asked for at all.
+  const contentOpen = resolvedPermissions["forum.viewContent"] !== false;
+  const canReactHere = resolvedPermissions["forum.react"] !== false;
   const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
   const selecting = select === "1" && may.split;
   const prefix = prefixView(thread.prefix);
@@ -176,75 +179,81 @@ export default async function ThreadPage({
         <PostNote icon={Trash2}>{t("threadDeleted")}</PostNote>
       )}
 
-      <Suspense
-        fallback={
-          <LoadingRegion label={t("aria.loadingPosts")}>
-            <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
-              <PostSkeleton />
-              <PostSkeleton />
-              <PostSkeleton />
-            </div>
-          </LoadingRegion>
-        }
-      >
-        <ThreadPosts
-          thread={thread}
-          highlighted={highlighted}
-          page={page}
-          cursor={typeof cursor === "string" ? cursor : undefined}
-          viewerId={user?.id ?? null}
-          may={may}
-          selecting={selecting}
-          canQuote={permissions.canReply}
-        />
-      </Suspense>
+      {!contentOpen && <PostNote icon={Lock}>{t("contentClosed")}</PostNote>}
+      {contentOpen && (
+        <Suspense
+          fallback={
+            <LoadingRegion label={t("aria.loadingPosts")}>
+              <div className="mt-4 divide-y divide-border overflow-hidden rounded-lg border bg-card">
+                <PostSkeleton />
+                <PostSkeleton />
+                <PostSkeleton />
+              </div>
+            </LoadingRegion>
+          }
+        >
+          <ThreadPosts
+            thread={thread}
+            highlighted={highlighted}
+            page={page}
+            cursor={typeof cursor === "string" ? cursor : undefined}
+            viewerId={user?.id ?? null}
+            may={may}
+            selecting={selecting}
+            canQuote={permissions.canReply}
+            canReactHere={canReactHere}
+          />
+        </Suspense>
+      )}
 
-      <section
-        id="reply"
-        aria-label={t("aria.reply")}
-        className="mt-4 scroll-mt-4"
-      >
-        {permissions.canReply ? (
-          <>
-            {thread.isLocked && (
-              <PostNote icon={Lock}>{t("lockedModerators")}</PostNote>
-            )}
-            <ReplyComposer
-              key={thread.lastPost.postId}
-              threadId={thread.id}
-              tailKey={tailKey(thread.id)}
-              attachIn={may.attach ? node.id : null}
-            />
-          </>
-        ) : user ? (
-          <PostNote icon={Lock}>
-            {thread.isLocked ? t("locked") : t("cannotReply")}
-          </PostNote>
-        ) : (
-          <div className="rounded-lg border bg-card">
-            <EmptyState
-              title={t("replyTitle")}
-              description={t("replyDescription")}
-            >
-              <Link
-                href={`/login?next=${encodeURIComponent(`/threads/${thread.id}`)}`}
-                className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "h-10 px-4",
-                )}
+      {contentOpen && (
+        <section
+          id="reply"
+          aria-label={t("aria.reply")}
+          className="mt-4 scroll-mt-4"
+        >
+          {permissions.canReply ? (
+            <>
+              {thread.isLocked && (
+                <PostNote icon={Lock}>{t("lockedModerators")}</PostNote>
+              )}
+              <ReplyComposer
+                key={thread.lastPost.postId}
+                threadId={thread.id}
+                tailKey={tailKey(thread.id)}
+                attachIn={may.attach ? node.id : null}
+              />
+            </>
+          ) : user ? (
+            <PostNote icon={Lock}>
+              {thread.isLocked ? t("locked") : t("cannotReply")}
+            </PostNote>
+          ) : (
+            <div className="rounded-lg border bg-card">
+              <EmptyState
+                title={t("replyTitle")}
+                description={t("replyDescription")}
               >
-                {t("login")}
-              </Link>
-              <Link
-                href="/register"
-                className={cn(buttonVariants(), "h-10 px-4")}
-              >
-                {t("register")}
-              </Link>
-            </EmptyState>
-          </div>
-        )}
-      </section>
+                <Link
+                  href={`/login?next=${encodeURIComponent(`/threads/${thread.id}`)}`}
+                  className={cn(
+                    buttonVariants({ variant: "outline" }),
+                    "h-10 px-4",
+                  )}
+                >
+                  {t("login")}
+                </Link>
+                <Link
+                  href="/register"
+                  className={cn(buttonVariants(), "h-10 px-4")}
+                >
+                  {t("register")}
+                </Link>
+              </EmptyState>
+            </div>
+          )}
+        </section>
+      )}
     </PageLayout>
   );
 }
@@ -275,6 +284,7 @@ async function ThreadPosts({
   may,
   selecting,
   canQuote,
+  canReactHere,
 }: {
   thread: Awaited<ReturnType<typeof getThread>>["thread"];
   highlighted: boolean;
@@ -284,6 +294,7 @@ async function ThreadPosts({
   may: ThreadMay;
   selecting: boolean;
   canQuote: boolean;
+  canReactHere: boolean;
 }) {
   const [
     {
@@ -321,9 +332,10 @@ async function ThreadPosts({
     ...posts.map((post) => post.author),
     ...(user ? [user] : []),
   ]);
-  const picker = permissions.canReact
-    ? pickerTypes(reactionTypes, thread.node.id)
-    : [];
+  const picker =
+    permissions.canReact && canReactHere
+      ? pickerTypes(reactionTypes, thread.node.id)
+      : [];
   // One signature per member on the page: under their first post.
   const seen = new Set<number>();
   const firstOfAuthor = new Set(

@@ -1,6 +1,7 @@
 import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { can } from "../../permissions";
+import { readGates } from "../forums/read-gates";
 import { requireComment, requirePost, requireProfileView } from "../profiles/shared";
 
 type Content = {
@@ -22,6 +23,8 @@ function one(ctx: Ctx, name: string, sql: string, id: number): Content | null {
 function forumVisible(ctx: Ctx, actor: Actor, row: Content): boolean {
   const nodeId = row.node_id;
   if (nodeId === undefined || !can(ctx, actor, "node.view", { nodeId })) return false;
+  // Threads of other members may be closed to the recipient in this forum.
+  if (!readGates(ctx, actor).opens(nodeId, row.thread_user_id ?? row.user_id)) return false;
   if (row.thread_state && row.thread_state !== "visible") {
     const threadAllowed =
       (row.thread_state === "moderated" && row.thread_user_id === actorUserId(actor)) ||

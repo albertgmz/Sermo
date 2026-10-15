@@ -4,6 +4,7 @@ import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, permissionsOf } from "../../permissions";
+import { readGates } from "../forums/read-gates";
 import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
 import { canonicalUrl, resolveCanonical } from "./paths";
@@ -160,6 +161,11 @@ export function threadSeo(
     throw new NotFoundError();
   const node = getNodeTree(ctx).get(thread.node_id);
   if (!node) throw new NotFoundError();
+  // A thread the viewer may not open does not exist for them; one whose text is closed to them
+  // gives a title and no description. A public page needs both gates open to guests.
+  const gates = readGates(ctx, actor);
+  if (!gates.opens(thread.node_id, thread.user_id)) throw new NotFoundError();
+  const guestGates = readGates(ctx, GUEST);
   const baseCanonical = canonicalUrl(baseURL, "thread", id, thread.title);
   const pageCanonical = page === 1 ? baseCanonical : `${baseCanonical}?page=${page}`;
   const requested = new URL(requestedPath, baseURL);
@@ -177,11 +183,17 @@ export function threadSeo(
           ),
         ).get(thread.first_post_id ?? 0);
   const guestVisible =
-    thread.state === "visible" && can(ctx, GUEST, "node.view", { nodeId: thread.node_id });
+    thread.state === "visible" &&
+    can(ctx, GUEST, "node.view", { nodeId: thread.node_id }) &&
+    guestGates.opensOthers(thread.node_id) &&
+    guestGates.readsOthers(thread.node_id);
   const indexable =
     guestVisible && rows.length >= (page === 1 ? 1 : Math.min(pageSize, 2)) && !!first;
-  const description =
-    thread.excerpt || (first && excerptFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) || "";
+  const description = !gates.reads(thread.node_id, thread.user_id)
+    ? ""
+    : thread.excerpt ||
+      (first && excerptFromMarkdown(first.body_source, 200, SEO_TEXT_LIMIT)) ||
+      "";
   const values = { siteName: templates.siteName, title: thread.title, description, username: "" };
   const breadcrumb: WithContext<BreadcrumbList> = {
     "@context": "https://schema.org",

@@ -11,6 +11,7 @@ import {
   type PrincipalRow,
 } from "../../permissions";
 import { renderPlainText } from "../../render";
+import { readGates } from "../forums/read-gates";
 import { registerJobHandler } from "../jobs/queue";
 import { mayViewProfile, requireComment, requirePost } from "../profiles/shared";
 import { canonicalUrl } from "../seo/paths";
@@ -149,6 +150,7 @@ function visibleContent(ctx: Ctx, actor: Actor, item: PushItem): Content | null 
             "SELECT t.id,t.title,t.node_id,t.user_id,t.state,p.state AS post_state,p.user_id AS post_user_id FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id = ?1",
           ).get(item.contentId);
     if (!row || !can(ctx, actor, "node.view", { nodeId: row.node_id })) return null;
+    if (!readGates(ctx, actor).opens(row.node_id, row.user_id)) return null;
     if (!stateVisible(ctx, actor, row.state, row.user_id, row.node_id)) return null;
     if (row.post_state && !stateVisible(ctx, actor, row.post_state, row.post_user_id!, row.node_id))
       return null;

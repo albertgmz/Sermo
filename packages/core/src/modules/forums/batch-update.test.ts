@@ -295,6 +295,8 @@ test("a moderator revoked in another process is refused thread by thread, and no
     entries: [
       { permission: "forum.lock", value: "allow" },
       { permission: "node.view", value: "allow" },
+      { permission: "forum.viewOthers", value: "allow" },
+      { permission: "forum.viewContent", value: "allow" },
     ],
   });
   const staff = insertUser(w.ctx, { groupId: group.id });

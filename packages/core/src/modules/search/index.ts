@@ -8,6 +8,7 @@ import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissio
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { threadPresenter } from "../forums/presentation";
+import { readGates } from "../forums/read-gates";
 import { requireSiteView } from "../members/site-access";
 import { maskMarkupForExcerpt } from "../seo/excerpt";
 
@@ -19,7 +20,7 @@ export const searchSql = {
   details:
     // A merge stores position p as -(p + 1) while it renumbers; results return the real position.
     "SELECT p.id, CASE WHEN p.position < 0 THEN -p.position - 1 ELSE p.position END AS position, p.created_at, p.user_id, p.state AS post_state, " +
-    "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state " +
+    "t.id AS thread_id, t.title, t.node_id, t.prefix_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id " +
     "FROM posts p JOIN threads t ON t.id = p.thread_id " +
     "WHERE p.id IN (SELECT value FROM json_each(?1))",
   bodies:
@@ -36,6 +37,8 @@ type Detail = {
   node_id: number;
   prefix_id: number | null;
   thread_state: string;
+  thread_user_id: number;
+  first_post_id: number | null;
 };
 
 function excerpt(source: string): string {
@@ -51,6 +54,12 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
   const expression = words.map((word) => `"${word}"`).join(" AND ");
   const match = input.titlesOnly ? `title : (${expression})` : expression;
   const viewable = new Set(viewableNodeIds(ctx, actor));
+  const gates = readGates(ctx, actor);
+  // Where only titles are open, the opening post stands for its thread in a search by title.
+  const titleOnly = (detail: Detail) =>
+    input.titlesOnly &&
+    detail.id === detail.first_post_id &&
+    !gates.reads(detail.node_id, detail.user_id);
   if (input.nodeId !== undefined && !viewable.has(input.nodeId)) throw new NotFoundError();
   const nodes =
     input.nodeId === undefined
@@ -88,6 +97,8 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         detail?.post_state === "visible" &&
         detail.thread_state === "visible" &&
         nodes.has(detail.node_id) &&
+        gates.opens(detail.node_id, detail.thread_user_id) &&
+        (gates.reads(detail.node_id, detail.user_id) || titleOnly(detail)) &&
         (input.authorId === undefined || detail.user_id === input.authorId) &&
         (input.prefixId === undefined || detail.prefix_id === input.prefixId)
       )
@@ -117,7 +128,7 @@ export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
         position: row.position,
         createdAt: iso(row.created_at),
         author: users(row.user_id),
-        excerpt: excerpt(source.get(row.id) ?? ""),
+        excerpt: gates.reads(row.node_id, row.user_id) ? excerpt(source.get(row.id) ?? "") : "",
       },
       thread: {
         id: row.thread_id,

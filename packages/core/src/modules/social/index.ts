@@ -22,6 +22,7 @@ import {
 } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { readGates } from "../forums/read-gates";
 import { requireSiteView } from "../members/site-access";
 
 type Thread = {
@@ -87,6 +88,8 @@ function visibleThread(
   row: Thread,
 ): boolean {
   if (!can(ctx, actor, "node.view", { nodeId: row.node_id })) return false;
+  // Threads of other members may be closed to the viewer in this forum.
+  if (!readGates(ctx, actor).opens(row.node_id, row.user_id)) return false;
   if (row.state === "visible") return true;
   if (row.state === "moderated")
     return (

@@ -4,7 +4,13 @@ import { threadsRanked } from "../../contracts/feed";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
 import { getNodeTree } from "../../permissions";
-import { type ThreadRow, threadColumns, threadRowsByIds, threadValuesFor } from "../forums";
+import {
+  readGates,
+  type ThreadRow,
+  threadColumns,
+  threadRowsByIds,
+  threadValuesFor,
+} from "../forums";
 import { purgeEndedFeatures } from "../forums/features";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { ignoredAmong, visibleNodes } from "./viewer";
@@ -338,7 +344,9 @@ function newestThreads(
 }
 
 export const threadsRankedOp = implement(threadsRanked, (ctx, actor, input) => {
-  const nodes = visibleNodes(ctx, actor);
+  // Forums whose other members' threads are closed to the viewer take no part in a ranking.
+  const gates = readGates(ctx, actor);
+  const nodes = new Set([...visibleNodes(ctx, actor)].filter((id) => gates.opensOthers(id)));
   if (input.by === "latestPosts" || input.by === "latestThreads")
     return {
       items: threadValuesFor(ctx, actor, newestThreads(ctx, nodes, input.by, input.limit)),

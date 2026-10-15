@@ -58,6 +58,9 @@ import { resolvedFileUrl } from "../storage/url";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
+import { type ReadGates, readGates } from "./read-gates";
+
+export { type ReadGates, readGates } from "./read-gates";
 
 type State = "visible" | "moderated" | "deleted";
 export type ThreadRow = {
@@ -187,6 +190,21 @@ export const forumSql = {
   // Unread state uses post ids: reading a post clears notices for it and every older post.
   clearThreadNotices:
     "UPDATE notifications INDEXED BY notifications_user_thread SET read_at = ?1 WHERE user_id = ?2 AND thread_id = ?3 AND epoch = (SELECT notification_epoch FROM users WHERE id = ?2) AND read_at IS NULL AND type IN ('thread.watched', 'node.thread', 'node.post', 'content.quoted', 'content.mentioned', 'member.thread') AND (content_type = 'thread' OR (content_type = 'post' AND content_id <= ?4))",
+} as const;
+/**
+ * The same listing statements for a viewer who may open only their own threads in the forum:
+ * the author comes first, through the index on authors, then the forum.
+ */
+const ownOnly = (sql: string, viewer: number) =>
+  sql.replace(
+    "FROM threads WHERE node_id = ?1",
+    `FROM threads INDEXED BY threads_user_id WHERE user_id = ?${viewer} AND node_id = ?1`,
+  );
+export const ownThreadSql = {
+  sticky: ownOnly(forumSql.sticky, 4),
+  stickyByPrefix: ownOnly(forumSql.stickyByPrefix, 4),
+  threadPage: ownOnly(forumSql.threadPage, 7),
+  threadPageByPrefix: ownOnly(forumSql.threadPageByPrefix, 7),
 } as const;
 function statement<Row, Params extends SQLQueryBindings[]>(ctx: Ctx, name: string, sql: string) {
   return prepared(ctx, `forums.${name}`, () => ctx.sqlite.prepare<Row, Params>(sql));
@@ -332,20 +350,26 @@ function mayViewState(
   if (state === "moderated") return ownerId === viewerId || check("forum.viewModerated", nodeId);
   return check("forum.viewDeleted", nodeId);
 }
-/** Whether content of a state, owned by a member, in a forum, is shown to the viewer. */
-export type ContentRule = (nodeId: number, state: State, ownerId: number) => boolean;
+/**
+ * Whether content of a state, owned by a member, in a forum, is shown to the viewer. `gates` are
+ * the viewer's read gates: they decide whether a thread other members started may be opened
+ * (`threadReadable`) and whether a post's text may be read (`postReadable`).
+ */
+export type ContentRule = ((nodeId: number, state: State, ownerId: number) => boolean) & {
+  readonly gates: ReadGates;
+};
 /**
  * The rule of the per-forum listing as one function for a viewer, resolving their permissions
  * once: the forum must be open (`canOpen`, by default node.view there), then the state rule.
  * A page of items passes the set of forums it already holds.
  */
 export const contentRule = markPublic(
-  "The rule itself decides per forum with node.view, forum.viewModerated and forum.viewDeleted.",
+  "The rule itself decides per forum with node.view, forum.viewModerated, forum.viewDeleted, forum.viewOthers and forum.viewContent.",
   function contentRule(ctx: Ctx, actor: Actor, canOpen?: (nodeId: number) => boolean): ContentRule {
     const permissions = permissionsOf(ctx, actor);
     const viewerId = actorUserId(actor);
     const open = canOpen ?? ((nodeId: number) => permissions.can("node.view", { nodeId }));
-    return (nodeId, state, ownerId) =>
+    const rule = (nodeId: number, state: State, ownerId: number) =>
       open(nodeId) &&
       mayViewState(
         (permission, node) => permissions.can(permission, { nodeId: node }),
@@ -354,19 +378,35 @@ export const contentRule = markPublic(
         ownerId,
         nodeId,
       );
+    return Object.assign(rule, { gates: readGates(ctx, actor) });
   },
 );
-/** A thread that was not merged away, in an open forum, in a state the viewer may see. */
+/**
+ * A thread that was not merged away, in an open forum, in a state the viewer may see, that the
+ * viewer started or may open (`forum.viewOthers`).
+ */
 export function threadReadable(rule: ContentRule, thread: ThreadRow): boolean {
-  return thread.merged_into_id === null && rule(thread.node_id, thread.state, thread.user_id);
+  return (
+    thread.merged_into_id === null &&
+    rule(thread.node_id, thread.state, thread.user_id) &&
+    rule.gates.opens(thread.node_id, thread.user_id)
+  );
 }
-/** A post the viewer may see in a thread they may see. */
-export function postReadable(
+/** A post in a state the viewer may see, in a thread they may open: its existence, not its text. */
+export function postOpen(
   rule: ContentRule,
   thread: ThreadRow,
   post: { state: State; user_id: number },
 ): boolean {
   return threadReadable(rule, thread) && rule(thread.node_id, post.state, post.user_id);
+}
+/** A post whose text the viewer may read: a post they may see, in a forum whose content is open to them. */
+export function postReadable(
+  rule: ContentRule,
+  thread: ThreadRow,
+  post: { state: State; user_id: number },
+): boolean {
+  return postOpen(rule, thread, post) && rule.gates.reads(thread.node_id, post.user_id);
 }
 function requireNode(ctx: Ctx, actor: Actor, id: number) {
   const node = getNodeTree(ctx).get(id);
@@ -392,16 +432,13 @@ export function requirePost(ctx: Ctx, actor: Actor, id: number, withBody = false
   const post = postRow(ctx, id, withBody);
   if (!post) throw new NotFoundError();
   const thread = requireThread(ctx, actor, post.thread_id);
-  if (
-    !postReadable(
-      contentRule(ctx, actor, () => true),
-      thread.row,
-      post,
-    )
-  )
-    throw new NotFoundError();
+  const rule = contentRule(ctx, actor, () => true);
+  if (!postOpen(rule, thread.row, post)) throw new NotFoundError();
+  // The thread is known to the viewer, so its text being closed to them is not a secret.
+  if (!rule.gates.reads(thread.row.node_id, post.user_id)) throw new ForbiddenError(CONTENT_CLOSED);
   return { post, thread };
 }
+const CONTENT_CLOSED = "The posts of this forum are not open to you.";
 function mayEdit(
   permissions: ReturnType<typeof permissionsOf>,
   nodeId: number,
@@ -464,6 +501,7 @@ function mayReply(
 ): boolean {
   return (
     permissions.can("forum.reply", { nodeId: row.node_id, threadBanned }) &&
+    permissions.can("forum.viewContent", { nodeId: row.node_id }) &&
     (!row.is_locked || permissions.can("forum.replyLocked", { nodeId: row.node_id })) &&
     settings !== undefined &&
     postingRuleRefusal(ctx, actor, settings) === null
@@ -546,6 +584,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
   );
   const cutoff = ctx.now() - 30 * 86400000;
   const present = threadPresenter(ctx);
+  const gates = readGates(ctx, actor);
   return rows.map((row) => {
     const read = reads.get(row.id);
     return {
@@ -554,7 +593,8 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       node: present.node(row.node_id),
       title: row.title,
       prefix: present.prefix(row.prefix_id),
-      excerpt: row.excerpt,
+      // Where only titles are open to the viewer, the start of the opening post is not.
+      excerpt: gates.reads(row.node_id, row.user_id) ? row.excerpt : "",
       cover: present.cover(row.cover_id),
       highlightedUntil: isoOrNull(row.highlighted_until),
       bumpedAt: isoOrNull(row.bumped_at),
@@ -686,11 +726,13 @@ function nodeValues(ctx: Ctx, actor: Actor, ids: number[]) {
     [...rows.values()].flatMap((r) => (r.last_poster_id == null ? [] : [r.last_poster_id])),
   );
   const permissions = permissionsOf(ctx, actor);
+  const gates = readGates(ctx, actor);
   return ids.map((id) => {
     const entry = tree.get(id)!;
     const row = rows.get(id)!;
+    // The newest post is some member's thread: not shown where others' threads are closed.
     const lastPost =
-      row.last_post_id == null
+      row.last_post_id == null || !gates.opensOthers(id)
         ? null
         : {
             postId: row.last_post_id,
@@ -961,10 +1003,14 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: input.nodeId }));
   const cursor = input.cursor ? decodeCursor(input.cursor, threadCursor) : null;
   const prefixId = input.prefixId;
+  // Where threads of other members are closed to the viewer, only theirs are listed.
+  const own = !permissions.can("forum.viewOthers", { nodeId: input.nodeId });
+  const sql = own ? ownThreadSql : forumSql;
+  const key = (name: string) => (own ? `own.${name}` : name);
   const sticky = cursor
     ? []
     : prefixId === undefined
-      ? statement<ThreadRow, [number, number, number, number]>(ctx, "sticky", forumSql.sticky).all(
+      ? statement<ThreadRow, [number, number, number, number]>(ctx, key("sticky"), sql.sticky).all(
           input.nodeId,
           viewModerated,
           viewDeleted,
@@ -972,8 +1018,8 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
         )
       : statement<ThreadRow, [number, number, number, number, number]>(
           ctx,
-          "stickyByPrefix",
-          forumSql.stickyByPrefix,
+          key("stickyByPrefix"),
+          sql.stickyByPrefix,
         ).all(input.nodeId, viewModerated, viewDeleted, userId, prefixId);
   const pageParams = [
     input.nodeId,
@@ -988,13 +1034,13 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
     prefixId === undefined
       ? statement<ThreadRow, [number, number, number, number, number, number, number]>(
           ctx,
-          "threadPage",
-          forumSql.threadPage,
+          key("threadPage"),
+          sql.threadPage,
         ).all(...pageParams)
       : statement<ThreadRow, [number, number, number, number, number, number, number, number]>(
           ctx,
-          "threadPageByPrefix",
-          forumSql.threadPageByPrefix,
+          key("threadPageByPrefix"),
+          sql.threadPageByPrefix,
         ).all(...pageParams, prefixId);
   const page = rows.slice(0, input.limit);
   const values = threadValues(ctx, actor, [...sticky, ...page]);
@@ -1228,6 +1274,7 @@ function mergingPostPage(
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
   const { row } = requireThread(ctx, actor, input.threadId);
   requireSiteView(ctx, actor);
+  if (!readGates(ctx, actor).readsOthers(row.node_id)) throw new ForbiddenError(CONTENT_CLOSED);
   const permissions = permissionsOf(ctx, actor);
   const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: row.node_id }));
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: row.node_id }));
@@ -1297,10 +1344,11 @@ export const reactablePost = markPublic(
     ctx: Ctx,
     actor: Actor,
     postId: number,
-  ): { authorId: number; isVisible: boolean } {
+  ): { authorId: number; isVisible: boolean; nodeId: number } {
     const { post, thread } = requirePost(ctx, actor, postId);
     return {
       authorId: post.user_id,
+      nodeId: thread.row.node_id,
       isVisible: post.state === "visible" && thread.row.state === "visible",
     };
   },
@@ -1471,6 +1519,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
 export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
+  if (!readGates(ctx, actor).readsOthers(row.node_id)) throw new ForbiddenError(CONTENT_CLOSED);
   requirePermission(ctx, actor, "forum.reply", {
     nodeId: row.node_id,
     threadBanned: !!row.thread_banned,

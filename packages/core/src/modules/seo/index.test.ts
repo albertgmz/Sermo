@@ -71,6 +71,8 @@ test("SEO uses node, profile, and state-specific thread permissions", async () =
     execute(ctx, getOperation("seo.thread"), viewer, threadInput),
   ).rejects.toBeInstanceOf(NotFoundError);
   setPermission(ctx, groupId, "node.view", 1, node.id);
+  setPermission(ctx, groupId, "forum.viewOthers", 1, node.id);
+  setPermission(ctx, groupId, "forum.viewContent", 1, node.id);
   expect(
     (await execute(ctx, getOperation("seo.node"), viewer, { nodeId: node.id })).title,
   ).toContain("Restricted");

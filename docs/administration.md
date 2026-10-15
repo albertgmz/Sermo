@@ -61,8 +61,12 @@ category, its defaults and its conditions. Examples:
 - `attachment.storageQuota` (bytes, -1 for unlimited), `conversation.maxRecipients`,
   `mention.maxPerItem`: limits.
 - `admin.groups`, `admin.members`, `admin.permissions`, `admin.settings`, `admin.nodes`,
-  `admin.promotions`, `admin.announcements`, `admin.reactionTypes`: administration, each
-  separate.
+  `admin.prefixes`, `admin.navigation`, `admin.pages`, `admin.promotions`,
+  `admin.announcements`, `admin.reactionTypes`: administration, each separate.
+  Thread prefixes (`threadPrefixes.*`), navigation entries (`navigation.*`) and static pages
+  (`pages.list`, `pages.getSource`, `pages.save`, `pages.delete`, and reading a draft) are managed
+  with `admin.prefixes`, `admin.navigation` and `admin.pages`; `admin.nodes` keeps the forums
+  and the forum list tabs, and `admin.settings` the rest of the site settings.
 
 All permission operations need `admin.permissions`.
 
@@ -92,6 +96,27 @@ Registered needs the ones it uses.
 | `content.editSilently`: an edit leaves no "edited" note on posts, wall posts, comments and messages; the earlier text is still kept where revisions are kept, and staff who read a post's history still see the edit. | flag | Administrator |
 | `forum.viewOwnHistory`: read the edit history of one's own posts (per forum), only while the post is visible to the author and only the edits they made themselves. | flag | members |
 | `attachment.maxFileSize`: largest single file in bytes (-1: only the site's own upload limit; 0: no file). It can only lower the site's limit, never raise it for a trusted group. Covers attachments, avatars and covers. | integer | -1 |
+
+### Forum permissions: own content, reading and reacting
+
+Node permissions, so each can be set on a category or a forum. A group made by hand holds none
+of them until it is set.
+
+| Permission | Type | Built-in default |
+| --- | --- | --- |
+| `forum.deleteOwn`: hide one's own replies (soft delete: staff restore them). | flag | members |
+| `forum.deleteOwnThread`: hide a thread one started (`threads.delete`, also in `threads.batchUpdate`). Not in a locked thread. A member's own hiding leaves no moderator-log entry. | flag | Administrator; give it to the Member group to turn it on |
+| `forum.hardDeleteOwn`: delete one's own post or thread for good (`posts.hardDelete`, `threads.hardDelete`) in one step, without hiding it first, because the author cannot open content that is hidden. It never reaches what staff hid, a locked thread, a thread that holds other members' posts or one of more than 500 posts (hide it, or ask staff). The move is logged. Staff with `forum.hardDelete` keep the two-step rule. Separate from hiding: a group can hold either. | flag | Administrator |
+| `forum.lockOwn`: lock a thread one started, and unlock it again only when the author locked it: a lock staff set, or one that left no moderator-log entry, stays. | flag | Administrator |
+| `forum.react`: react to posts in the forum, as well as `reaction.react`. Which reaction types a forum offers is set on the reaction type (`forumIds`). | flag | posters |
+| `forum.viewOthers`: open threads other members started. Denied, a member sees only their own threads in that forum: the thread list, `threads.get`, `posts.*`, search, the feed, Hot, staff picks, bookmarks, watches, alerts, email, push, the digest and the public pages (Atom feeds, sitemaps, IndexNow, `seo.thread`) all leave the others out, and the forum's latest post is not shown. | flag | everyone |
+| `forum.viewContent`: read the posts of a thread. Denied, titles are listed but the start of the opening post, `posts.list`, `posts.get`, replying, reactions, the feed, search hits (a search by title still finds the thread, with no text), the media list and the public pages carry nothing; `threads.get` answers with the title and `resolvedPermissions` says so, and the web page shows a note. A member can still open a post they wrote with `posts.get`. Staff tools (reports, the approval queue, history) do not apply the two read gates. | flag | everyone |
+
+Take either read gate from a group with `never` on the forum (or `no` to cancel one inherited);
+the Guest group is separate from Registered, so deny both for a forum members are not to read
+either. Quoting a post in the editor reads it, so a quote of a post the member cannot read is
+not offered; the server's check that a `[quote]` names a visible post does not apply the read
+gates yet.
 
 ### Values
 
@@ -574,10 +599,15 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `profilePost.approve`, `profilePost.deleteAny`, `profilePost.undelete`, `profilePost.editAny`, `profilePost.viewModerated`, `profilePost.viewDeleted` | Moderating profile posts and comments | Moderator, Administrator |
 | `report.manageProfiles` | Handling reports on profile content and on members | Moderator, Administrator |
 | `member.warn`, `member.restrict`, `warning.view` | Warnings and restrictions; reading anyone's warnings and restrictions | Moderator, Administrator |
+| `forum.warn` | Warning a member about one of their posts in this forum (`warnings.create` with a `postId`); a forum moderator holds it with the rest of the set | Moderator, Administrator |
+| `warning.delete` | Deleting a warning, or ending it now (`warnings.delete`, `warnings.expire`), for members of lower rank | Moderator, Administrator |
+| `warning.maxPoints`, `warning.perDay` | The most points one warning may carry, and the most warnings one moderator gives in 24 hours; −1 is unlimited, 0 allows none | Moderator 10 and 20, Administrator unlimited |
+| `member.editProfile` | Editing the basic profile of a member of lower rank: about, location, website, birthday, links, title, signature, removing pictures (`users.adminUpdateProfile`; what a member wears needs `admin.members`) | Moderator, Administrator |
+| `member.banMaxDays` | The longest ban the holder may give, in days; −1 allows a permanent one, 0 none. Banning also needs `member.ban` | Moderator 30, Administrator unlimited |
 | `profile.bypassPrivacy` | Seeing and posting on profiles whatever their privacy settings | Moderator, Administrator |
 | `wordFilter.view` | Listing word filters | Moderator, Administrator |
 | `moderation.access` | Marks the member as a moderator in `auth.me` (`isModerator`) so clients can show the queues | Moderator, Administrator |
-| `member.ban`, `member.spamCleanup` | Global bans and spam cleanup | Administrator |
+| `member.ban`, `member.spamCleanup` | Global bans and spam cleanup (give `member.ban` to the Moderator group to let moderators ban up to their `member.banMaxDays`) | Administrator |
 | `conversation.moderate`, `conversation.viewHidden` | Moderating private conversation messages and their reports; seeing hidden messages there | Administrator |
 | `wordFilter.manage`, `moderatorLog.view` | Managing word filters; reading the whole moderator log | Administrator |
 | `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them; only for members the holder outranks | Administrator |
@@ -795,6 +825,16 @@ a reason and an optional expiry. The response returns the member's active points
 unexpired warnings). `GET /users/{userId}/warnings` (`warnings.list`) shows a member's warnings to
 themselves and to holders of `warning.view`, each with the type it was given under.
 
+A moderator's warning is held to `warning.maxPoints` (a type above it is refused for them) and to
+`warning.perDay`, counted from the moderator log so a deleted warning does not give the place
+back. A group with `member.warn` and no value for either cannot warn: set them. A warning about
+a post (`postId`, which must be the member's) needs `forum.warn` in that forum instead of
+`member.warn`, so a forum can be taken from a moderator with `never`; a warning without a post
+still follows `member.warn`. `POST /warnings/{warningId}/expire` (`warnings.expire`) ends a
+warning now and `DELETE /warnings/{warningId}` (`warnings.delete`) removes it; both need
+`warning.delete` over the member and lift the automatic actions the member's points no longer reach
+in the same call. The staff panel offers them on a member's Sanctions tab.
+
 **Warning types** (`/moderation/warning-types`, `admin.settings` to change them; moderators with
 `member.warn` can read them) are named in English and Spanish, with default points, a default
 expiry in days (none = never) and an optional default reason. A moderator sends `typeId` with
@@ -836,7 +876,8 @@ acting member); its `member.groups_changed` event names the action (`reason: "wa
 ### Bans
 
 `POST /users/{userId}/bans` (`bans.create`, `member.ban` over the member) bans with a reason and
-`expiresAt` (a future time, or `null` for a permanent ban). You cannot ban yourself. A banned
+`expiresAt` (a future time, or `null` for a permanent ban) that may not be further away than the
+acting member's `member.banMaxDays`. You cannot ban yourself. A banned
 member is refused on every request and has no permissions; their sessions and API keys are revoked
 in the background. Lift a ban with `POST /bans/{banId}/lift` (`bans.lift`, `member.ban`); the ban id
 is returned by `bans.create` and recorded in the moderator log. When email is enabled the member

@@ -535,7 +535,11 @@ describe("forum follow-up coverage", () => {
     const { ctx, forum, member, other, mod } = setup();
     const t = await call(ctx, threadsCreateOp, member, { nodeId: forum.id, title: "T", body: "B" });
     const p = await call(ctx, postsCreateOp, member, { threadId: t.thread.id, body: "R" });
-    expect(reactablePost(ctx, other, p.id)).toEqual({ authorId: p.author.id, isVisible: true });
+    expect(reactablePost(ctx, other, p.id)).toEqual({
+      authorId: p.author.id,
+      isVisible: true,
+      nodeId: forum.id,
+    });
     await call(ctx, postsDeleteOp, member, { postId: p.id });
     await deny(
       Promise.resolve().then(() => reactablePost(ctx, other, p.id)),

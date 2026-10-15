@@ -144,6 +144,8 @@ describe("site.view", () => {
 
     const bare = customMember(w.ctx, [
       "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
       "profile.view",
       "search.use",
       "member.viewList",
@@ -348,7 +350,13 @@ describe("bookmark.create", () => {
     await expect(
       execute(w.ctx, bookmarksSetOp, GUEST, { ...input, bookmarked: true }),
     ).rejects.toThrow(UnauthenticatedError);
-    const holder = customMember(w.ctx, ["bookmark.create", "node.view", "site.view"]);
+    const holder = customMember(w.ctx, [
+      "bookmark.create",
+      "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
+      "site.view",
+    ]);
     await execute(w.ctx, bookmarksSetOp, holder.actor, { ...input, bookmarked: true });
   });
 });
@@ -372,7 +380,12 @@ describe("reaction.viewList", () => {
     await list(w.memberActor);
     setEntry(w.ctx, 1, "reaction.viewList", -1);
     await expect(list(GUEST)).rejects.toThrow(ForbiddenError);
-    const bare = customMember(w.ctx, ["node.view", "site.view"]);
+    const bare = customMember(w.ctx, [
+      "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
+      "site.view",
+    ]);
     await expect(list(bare.actor)).rejects.toThrow(ForbiddenError);
     setEntry(w.ctx, bare.groupId, "reaction.viewList", 1);
     await list(bare.actor);
@@ -453,7 +466,12 @@ describe("content.editSilently and forum.viewOwnHistory", () => {
     setEntry(w.ctx, 2, "forum.viewOwnHistory", 0);
     expect(() => history(w.memberActor)).toThrow(NotFoundError);
     expect(() => history(GUEST)).toThrow();
-    const holderGroupMember = customMember(w.ctx, ["node.view", "site.view"]);
+    const holderGroupMember = customMember(w.ctx, [
+      "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
+      "site.view",
+    ]);
     expect(() => history(holderGroupMember.actor)).toThrow(NotFoundError);
   });
 

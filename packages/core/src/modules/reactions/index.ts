@@ -465,6 +465,14 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
   return writeTx(ctx, () => {
     const target = reactables[input.contentType](ctx, actor, input.contentId);
     if (!target.isVisible || target.authorId === user.userId) throw new ForbiddenError();
+    // Reacting to a post also needs the permission in its forum.
+    if (
+      input.contentType === "post" &&
+      !can(ctx, actor, "forum.react", {
+        nodeId: (target as ReturnType<typeof reactablePost>).nodeId,
+      })
+    )
+      throw new ForbiddenError();
     const type = typeRow(ctx, input.reactionTypeId);
     if (!type?.is_active) throw new ValidationError("Reaction type is unavailable.");
     const previous = existing(ctx, input.contentType, input.contentId, user.userId);

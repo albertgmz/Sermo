@@ -12,6 +12,7 @@ import { can, requirePermission } from "../../permissions";
 import { renderBbCode } from "../../render";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { readGates } from "../forums/read-gates";
 import { enqueueJob } from "../jobs";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { readSiteSettings } from "../settings";
@@ -74,17 +75,25 @@ function titles(
   announcements: Map<number, AnnouncementRow>,
 ): Map<string, string> {
   const result = new Map<string, string>();
+  const gates = readGates(ctx, actor);
   for (const [id, announcement] of announcements)
     result.set(`announcement:${id}`, announcement.title);
   const threadIds = JSON.stringify(
     rows.map((row) => row.thread_id).filter((id): id is number => id !== null),
   );
   for (const row of prepared(ctx, "notifications.titles.threads", () =>
-    ctx.sqlite.prepare<{ id: number; title: string; node_id: number; state: string }, [string]>(
-      "SELECT id, title, node_id, state FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
+    ctx.sqlite.prepare<
+      { id: number; title: string; node_id: number; state: string; user_id: number },
+      [string]
+    >(
+      "SELECT id, title, node_id, state, user_id FROM threads WHERE id IN (SELECT value FROM json_each(?1))",
     ),
   ).all(threadIds))
-    if (row.state === "visible" && can(ctx, actor, "node.view", { nodeId: row.node_id }))
+    if (
+      row.state === "visible" &&
+      can(ctx, actor, "node.view", { nodeId: row.node_id }) &&
+      gates.opens(row.node_id, row.user_id)
+    )
       result.set(`thread:${row.id}`, row.title);
   const messageConversationIds = rows
     .filter(

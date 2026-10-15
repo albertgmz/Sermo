@@ -480,6 +480,35 @@ export const PERMISSIONS = {
     requiresAccount: true,
     own: true,
   },
+  /** React to posts and threads in the forum (as well as `reaction.react`). */
+  "forum.react": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /**
+   * Open threads other members started. Without it a member sees only their own threads in the
+   * forum: lists, search, feeds, alerts and the public pages leave the others out.
+   */
+  "forum.viewOthers": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: EVERYONE,
+  },
+  /**
+   * Read the posts of a thread. Without it only titles are listed, and the text of the opening
+   * post, the posts, search results, feeds and public pages are closed; what a member wrote
+   * themselves stays readable to them.
+   */
+  "forum.viewContent": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: EVERYONE,
+  },
   "forum.viewAttachments": {
     scope: "node",
     category: "forum",

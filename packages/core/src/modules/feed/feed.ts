@@ -7,7 +7,7 @@ import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
 import { iso } from "../../time";
-import { repliableThreads, type ThreadRow, threadRowsByIds } from "../forums";
+import { readGates, repliableThreads, type ThreadRow, threadRowsByIds } from "../forums";
 import { activeFeatures, featureKinds, kindsOf } from "../forums/features";
 import {
   latestComments,
@@ -228,6 +228,7 @@ export const acceptPosts = markPublic(
     threads: Map<number, ThreadRow>,
     once?: "newest" | "perAnswer",
   ) {
+    const gates = readGates(ctx, actor);
     const taken = new Set<number>();
     const first = (threadId: number) => {
       if (taken.has(threadId)) return false;
@@ -250,6 +251,9 @@ export const acceptPosts = markPublic(
             thread.state === "visible" &&
             thread.merged_into_id === null &&
             nodes.has(thread.node_id) &&
+            // A thread the viewer may not open, or a post whose text is closed to them, is left out.
+            gates.opens(thread.node_id, thread.user_id) &&
+            gates.reads(thread.node_id, row.user_id) &&
             !ignored.has(row.user_id) &&
             (once !== "newest" || row.id === thread.last_post_id) &&
             (once !== "perAnswer" || first(thread.id))

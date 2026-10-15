@@ -151,7 +151,14 @@ describe("a member whose groups lack site.view", () => {
         "INSERT INTO groups (title, rank) VALUES ('Closed out', 10) RETURNING id",
       )
       .get()!.id;
-    for (const key of ["node.view", "profile.view", "member.viewList", "profilePost.view"])
+    for (const key of [
+      "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
+      "profile.view",
+      "member.viewList",
+      "profilePost.view",
+    ])
       setEntry(w.ctx, groupId, key, 1);
     const row = insertUser(w.ctx, { groupId });
     const actor = userActor(row);
@@ -213,7 +220,14 @@ describe("more reads that follow site.view", () => {
         "INSERT INTO groups (title, rank) VALUES ('Closed out', 10) RETURNING id",
       )
       .get()!.id;
-    for (const key of ["node.view", "profile.view", "reaction.viewList", ...grants])
+    for (const key of [
+      "node.view",
+      "forum.viewOthers",
+      "forum.viewContent",
+      "profile.view",
+      "reaction.viewList",
+      ...grants,
+    ])
       setEntry(w.ctx, groupId, key, 1);
     const row = insertUser(w.ctx, { groupId });
     return { groupId, row, actor: userActor(row) };

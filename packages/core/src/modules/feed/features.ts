@@ -2,7 +2,7 @@ import { prepared } from "../../context";
 import { threadsFeatured } from "../../contracts/feed";
 import { implement } from "../../operation";
 import { iso, isoOrNull } from "../../time";
-import { threadRowsByIds, threadValuesFor } from "../forums";
+import { readGates, threadRowsByIds, threadValuesFor } from "../forums";
 import { activeFeatures, type FeatureRow } from "../forums/features";
 import { feedSql } from "./feed";
 import { firstSurvivors } from "./rankings";
@@ -17,6 +17,7 @@ import { ignoredAmong, visibleNodes } from "./viewer";
  */
 export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) => {
   const nodes = visibleNodes(ctx, actor);
+  const gates = readGates(ctx, actor);
   const byThread = new Map<number, FeatureRow>();
   for (const feature of activeFeatures(ctx, ctx.now())) {
     const held = byThread.get(feature.thread_id);
@@ -55,6 +56,7 @@ export const threadsFeaturedOp = implement(threadsFeatured, (ctx, actor, input) 
         thread.merged_into_id === null &&
         openings.get(thread.first_post_id ?? 0) === "visible" &&
         nodes.has(thread.node_id) &&
+        gates.opens(thread.node_id, thread.user_id) &&
         !ignored.has(thread.user_id)
         ? [{ feature, thread }]
         : [];

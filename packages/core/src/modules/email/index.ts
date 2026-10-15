@@ -17,6 +17,7 @@ import {
   viewableNodeIds,
 } from "../../permissions";
 import { renderPlainText } from "../../render";
+import { readGates } from "../forums/read-gates";
 import { enqueueJob, MAX_ATTEMPTS, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
 import { signUnsubscribe, verifyUnsubscribe } from "./token";
@@ -314,7 +315,13 @@ function digestNodes(ctx: Ctx, run: DigestRun, user: DigestRecipient, actor: Act
   const combinationId = user.permission_combination_id || -user.id;
   let nodes = run.visibleNodes.get(combinationId);
   if (!nodes) {
-    nodes = new Set(viewableNodeIds(ctx, actor).filter((id) => run.candidateNodes.has(id)));
+    // Forums whose other members' threads are closed to the member are left out of their digest.
+    const gates = readGates(ctx, actor);
+    nodes = new Set(
+      viewableNodeIds(ctx, actor).filter(
+        (id) => run.candidateNodes.has(id) && gates.opensOthers(id),
+      ),
+    );
     run.visibleNodes.set(combinationId, nodes);
   }
   return nodes;

@@ -215,7 +215,7 @@ function loadVisible(ctx: Ctx, actor: Actor, userId: number, rows: Row[]): Map<s
         threadId: thread.id,
         postPosition: null,
         authorId: thread.user_id,
-        excerpt: thread.excerpt,
+        excerpt: rule.gates.reads(thread.node_id, thread.user_id) ? thread.excerpt : "",
       });
   }
   for (const post of posts) {

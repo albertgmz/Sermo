@@ -2,6 +2,7 @@ import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, viewableNodeIds } from "../../permissions";
+import { readGates } from "../forums/read-gates";
 import { requireSiteOpenToGuests } from "../members/site-access";
 import { canonicalPath, canonicalUrl, requireBaseURL } from "./paths";
 
@@ -33,9 +34,13 @@ export function atomFeed(
     throw new RangeError("Invalid feed limit");
   requireSiteOpenToGuests(ctx);
   const node = nodeId == null ? undefined : getNodeTree(ctx).get(nodeId);
-  if (nodeId != null && (!node || !can(ctx, GUEST, "node.view", { nodeId })))
+  // A feed carries the start of each thread: only forums whose threads and posts are open to
+  // guests are public here.
+  const gates = readGates(ctx, GUEST);
+  const open = (id: number) => gates.opensOthers(id) && gates.readsOthers(id);
+  if (nodeId != null && (!node || !can(ctx, GUEST, "node.view", { nodeId }) || !open(nodeId)))
     throw new NotFoundError();
-  const publicNodeIds = nodeId == null ? viewableNodeIds(ctx, GUEST) : [];
+  const publicNodeIds = nodeId == null ? viewableNodeIds(ctx, GUEST).filter(open) : [];
   const rows =
     nodeId == null
       ? prepared(ctx, "seo.atomSite", () =>

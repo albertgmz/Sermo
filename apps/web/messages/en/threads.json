@@ -27,6 +27,7 @@
     "locked": "This thread is locked. It no longer accepts replies.",
     "lockedModerators": "This thread is locked. Only moderators can reply.",
     "cannotReply": "You cannot reply to this thread.",
+    "contentClosed": "The posts of this forum are not open to you. Only the title is shown.",
     "pagination": "Page {page} of {pages}",
     "previous": "Previous",
     "next": "Next",

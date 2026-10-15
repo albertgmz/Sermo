@@ -200,9 +200,10 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
         )
       : null,
   ]);
-  const picker = permissions.canReact
-    ? pickerTypes(reactionTypes, found.thread.node.id)
-    : [];
+  const picker =
+    permissions.canReact && found.resolvedPermissions["forum.react"] !== false
+      ? pickerTypes(reactionTypes, found.thread.node.id)
+      : [];
   return posts.map((post) => ({
     key: `post-${post.id}`,
     id: post.id,

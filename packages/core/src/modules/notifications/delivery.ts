@@ -18,6 +18,7 @@ import {
 } from "../../permissions";
 import { allCombinations, flagAt } from "../../permissions/state";
 import { deliverEmail, type EmailItem } from "../email";
+import { readGates } from "../forums/read-gates";
 import { enqueueJob, registerJobHandler } from "../jobs";
 import { deliverPush, type PushItem } from "../push/delivery";
 import { readSiteSettings } from "../settings";
@@ -35,6 +36,8 @@ type Content = {
   firstPostId: number | null;
   conversationId: number | null;
   position: number | null;
+  /** Who started the thread a forum post is in: the forum's read gate looks at them. */
+  threadUserId?: number;
 };
 type Stage = {
   name: string;
@@ -117,6 +120,7 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           firstPostId: row.first_post_id,
           conversationId: null,
           position: 0,
+          threadUserId: row.user_id,
         }
       );
     }
@@ -129,12 +133,13 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
             thread_id: number;
             node_id: number;
             thread_state: string;
+            thread_user_id: number;
             first_post_id: number | null;
             position: number;
           },
           [number]
         >(
-          "SELECT p.user_id, p.state, p.thread_id, p.position, t.node_id, t.state AS thread_state, t.first_post_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+          "SELECT p.user_id, p.state, p.thread_id, p.position, t.node_id, t.state AS thread_state, t.user_id AS thread_user_id, t.first_post_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
         ),
       ).get(id);
       return (
@@ -150,6 +155,7 @@ function content(ctx: Ctx, event: DomainEvent): Content | null {
           firstPostId: row.first_post_id,
           conversationId: null,
           position: row.position,
+          threadUserId: row.thread_user_id,
         }
       );
     }
@@ -719,7 +725,11 @@ function visible(ctx: Ctx, actor: Actor, item: Content | null, type: string): bo
       : can(ctx, actor, "profilePost.approve");
   }
   if (item.state !== "visible") return false;
-  if (item.nodeId !== null) return can(ctx, actor, "node.view", { nodeId: item.nodeId });
+  if (item.nodeId !== null)
+    return (
+      can(ctx, actor, "node.view", { nodeId: item.nodeId }) &&
+      readGates(ctx, actor).opens(item.nodeId, item.threadUserId ?? item.userId)
+    );
   if (item.conversationId !== null) return true;
   if (item.profileUserId !== null) return can(ctx, actor, "profile.view");
   return true;

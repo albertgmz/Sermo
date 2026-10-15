@@ -4,13 +4,14 @@ import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { consumeEvents, type DomainEvent } from "../../events";
 import { permissionsOf } from "../../permissions";
+import { readGates } from "../forums/read-gates";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { siteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
 import { indexNowBatches, sendIndexNow } from "./indexnow";
 import { canonicalUrl } from "./paths";
 
-type ThreadUrl = { id: number; title: string; node_id: number; state: string };
+type ThreadUrl = { id: number; title: string; node_id: number; state: string; user_id: number };
 type ProfileUrl = { id: number; username: string };
 type EventRow = { state: string; thread_id: number; profile_user_id: number };
 
@@ -34,15 +35,18 @@ function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null
       event.targetType === "thread"
         ? prepared(ctx, "seo.eventThread", () =>
             ctx.sqlite.prepare<ThreadUrl, [number]>(
-              "SELECT id,title,node_id,state FROM threads WHERE id=?1",
+              "SELECT id,title,node_id,state,user_id FROM threads WHERE id=?1",
             ),
           ).get(event.targetId)
         : prepared(ctx, "seo.eventPostThread", () =>
             ctx.sqlite.prepare<ThreadUrl & { post_state: string }, [number]>(
-              "SELECT t.id,t.title,t.node_id,t.state,p.state AS post_state FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id=?1",
+              "SELECT t.id,t.title,t.node_id,t.state,t.user_id,p.state AS post_state FROM posts p JOIN threads t ON t.id=p.thread_id WHERE p.id=?1",
             ),
           ).get(event.targetId);
     if (!thread || !guest.can("node.view", { nodeId: thread.node_id })) return null;
+    // Only threads whose text is open to guests are announced.
+    const gates = readGates(ctx, GUEST);
+    if (!gates.opensOthers(thread.node_id) || !gates.readsOthers(thread.node_id)) return null;
     if (thread.state !== "visible" && event.targetType !== "thread") return null;
     if (thread.state !== "visible" && event.type !== "content.deleted") return null;
     if (
