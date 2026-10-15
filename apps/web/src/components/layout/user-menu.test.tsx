@@ -180,6 +180,7 @@ test("the loaded menu is the real trigger on a phone: a sheet, with the same lab
   const html = render(
     <UserMenuPopup
       {...base}
+      openedBy="pointer"
       label="Account menu, 5 unread"
       title="Account menu"
       trigger={<span>small avatar</span>}

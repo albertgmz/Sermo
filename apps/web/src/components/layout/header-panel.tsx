@@ -11,8 +11,7 @@ const TRIGGER =
 const loadPopup = () => import("@/components/layout/header-panel-popup");
 
 // A header icon that opens a panel under it, at every width: on a phone the panel is never wider
-// than the screen. Following a link inside the panel closes it. `onOpenChange` runs each time the
-// panel opens or closes, however it closes. The panel's code (Base UI) is fetched when the icon is
+// than the screen. Following a link inside the panel closes it. The panel's code (Base UI) is fetched when the icon is
 // first reached for; until then the icon is a plain button.
 export function HeaderPanel({
   label,
@@ -21,7 +20,6 @@ export function HeaderPanel({
   icon,
   className,
   shortcut,
-  onOpenChange,
   children,
 }: {
   label: string;
@@ -31,7 +29,6 @@ export function HeaderPanel({
   className?: string;
   // The name a keyboard shortcut finds this button by (`data-shortcut`).
   shortcut?: string;
-  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const t = useTranslations("layout.headerPanel");
@@ -51,7 +48,6 @@ export function HeaderPanel({
     trigger,
     className: classes,
     shortcut,
-    onOpenChange,
     children,
   };
   return (

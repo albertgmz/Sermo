@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { OpenedProps } from "@/components/ui/lazy-popup";
+import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
 import {
   Popover,
   PopoverContent,
@@ -15,7 +17,6 @@ export type HeaderPanelPopupProps = {
   trigger: React.ReactNode;
   className: string;
   shortcut?: string;
-  onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 };
 
@@ -27,16 +28,13 @@ export default function HeaderPanelPopup({
   trigger,
   className,
   shortcut,
-  onOpenChange,
   children,
-}: HeaderPanelPopupProps) {
+  openedBy,
+}: HeaderPanelPopupProps & OpenedProps) {
+  const focus = usePopupFocus(openedBy);
   const [open, setOpen] = useState(true);
-  function change(next: boolean) {
-    setOpen(next);
-    onOpenChange?.(next);
-  }
   return (
-    <Popover open={open} onOpenChange={change}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         data-shortcut={shortcut}
         aria-label={label}
@@ -45,12 +43,14 @@ export default function HeaderPanelPopup({
         {trigger}
       </PopoverTrigger>
       <PopoverContent
+        ref={focus.ref}
+        initialFocus={focus.initialFocus}
         align="end"
         sideOffset={8}
         className="w-88 max-w-[calc(100vw-1rem)] gap-0 p-0"
         onClick={(event) => {
           if (event.defaultPrevented) return;
-          if ((event.target as Element).closest("a")) change(false);
+          if ((event.target as Element).closest("a")) setOpen(false);
         }}
       >
         <PopoverTitle className="border-b px-4 py-3 text-sm font-semibold">

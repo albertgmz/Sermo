@@ -39,3 +39,18 @@ export function isPlainClick(event: {
     !event.altKey
   );
 }
+
+// How long the pointer rests on a tooltip's trigger before the tooltip is swapped in and shown: the
+// delay Base UI's own tooltip trigger has.
+export const HOVER_DELAY = 600;
+
+// What began the gesture that opened the popup. Base UI chooses where focus goes from how a popup
+// was opened (a sheet opened by touch takes focus itself, so no keyboard rises; a menu opened by a
+// key focuses its first item), and a popup that mounts already open has to be told.
+export type OpenedBy = "touch" | "pointer" | "keyboard";
+
+// A click with no pointer press before it is the keyboard's (Enter, Space, a shortcut's `.click()`).
+export function openedByClick(pointerType: string | undefined): OpenedBy {
+  if (pointerType === "touch") return "touch";
+  return pointerType ? "pointer" : "keyboard";
+}

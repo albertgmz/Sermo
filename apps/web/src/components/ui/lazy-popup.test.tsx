@@ -3,7 +3,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createOpener, fetchCode, loadedCode } from "./lazy-popup-gate";
-import { hovers, isPlainClick, opensFromKey } from "./lazy-popup-intent";
+import {
+  HOVER_DELAY,
+  hovers,
+  isPlainClick,
+  openedByClick,
+  opensFromKey,
+} from "./lazy-popup-intent";
 import { LazyPopup } from "./lazy-popup";
 import { LazyTooltip } from "./lazy-tooltip";
 
@@ -223,4 +229,15 @@ test("the postbit's tooltips are plain spans until the pointer comes, and keep t
       "@/components/ui/tooltip",
     );
   }
+});
+
+test("a click says how it was made: touch, a mouse or pen press, or a key", () => {
+  expect(openedByClick("touch")).toBe("touch");
+  expect(openedByClick("mouse")).toBe("pointer");
+  expect(openedByClick("pen")).toBe("pointer");
+  expect(openedByClick(undefined)).toBe("keyboard");
+});
+
+test("a tooltip waits as long as Base UI's own trigger does", () => {
+  expect(HOVER_DELAY).toBe(600);
 });

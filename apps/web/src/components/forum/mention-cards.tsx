@@ -1,14 +1,14 @@
 "use client";
 
-import { lazy, Suspense, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { opensCard, opensCardKey } from "@/components/forum/member-card-intent";
 import { useMemberCardsEnabled } from "@/components/forum/member-card-scope";
-import { fetchCode } from "@/components/ui/lazy-popup-gate";
+import { fetchCode, loadedCode } from "@/components/ui/lazy-popup-gate";
 
 // The card (Base UI, the positioning, the sheet and the server action that reads it) is fetched
-// when a mention is first reached for, and shown by the click that follows.
+// when a mention is first reached for, and shown by the click that follows (as soon as it is
+// there). Without it a mention is still a link.
 const loadPopup = () => import("@/components/forum/mention-popup");
-const MentionPopup = lazy(loadPopup);
 
 const MENTION = "a.mention[data-user-id]";
 
@@ -57,6 +57,7 @@ export function keyedMention(
 export function MentionCards({ children }: { children: React.ReactNode }) {
   const enabled = useMemberCardsEnabled();
   const [target, setTarget] = useState<Mention | null>(null);
+  const Popup = loadedCode(loadPopup);
 
   // The page can be kept hidden when the visitor navigates away (Activity): a card is transient.
   useLayoutEffect(
@@ -67,6 +68,20 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
   );
 
   if (!enabled) return children;
+
+  // The link of the open card closes it. A card whose code has not come yet opens when it does; if
+  // it cannot come, the mention is the link it always was.
+  function choose(mention: Mention) {
+    if (target?.link === mention.link) return setTarget(null);
+    if (Popup) return setTarget(mention);
+    fetchCode(loadPopup).then(
+      () => setTarget(mention),
+      () => {
+        const href = mention.link.getAttribute("href");
+        if (href) window.location.assign(href);
+      },
+    );
+  }
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: one delegate for the mention links inside, which are the focusable, keyboard-reachable elements
@@ -80,25 +95,22 @@ export function MentionCards({ children }: { children: React.ReactNode }) {
         const mention = clickedMention(event, event.currentTarget);
         if (!mention) return;
         event.preventDefault();
-        // The link of the open card closes it.
-        setTarget(target?.link === mention.link ? null : mention);
+        choose(mention);
       }}
       onKeyDown={(event) => {
         const mention = keyedMention(event, event.currentTarget);
         if (!mention) return;
         event.preventDefault();
-        setTarget(target?.link === mention.link ? null : mention);
+        choose(mention);
       }}
     >
       {children}
-      {target && (
-        <Suspense fallback={null}>
-          <MentionPopup
-            key={target.seq}
-            mention={target}
-            onDismiss={() => setTarget(null)}
-          />
-        </Suspense>
+      {target && Popup && (
+        <Popup
+          key={target.seq}
+          mention={target}
+          onDismiss={() => setTarget(null)}
+        />
       )}
     </div>
   );

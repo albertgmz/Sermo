@@ -7,6 +7,7 @@ import {
   MemberCardSurface,
   useMemberCard,
 } from "@/components/forum/member-card-popup";
+import type { OpenedProps } from "@/components/ui/lazy-popup";
 import { PopoverTrigger } from "@/components/ui/popover";
 
 export type OpenedMemberCardProps = {
@@ -34,8 +35,9 @@ export default function OpenedMemberCard({
   children,
   open,
   onOpenChange,
+  openedBy: _openedBy,
   ...rest
-}: OpenedMemberCardProps) {
+}: OpenedMemberCardProps & OpenedProps) {
   const { card, load } = useMemberCard(id, name);
   const trigger = useRef<HTMLElement>(null);
   // One function for the life of the trigger: a new one on every render would make the trigger

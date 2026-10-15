@@ -13,6 +13,8 @@ import {
 import { NavLabel } from "@/components/layout/nav-label";
 import { SearchForm } from "@/components/layout/site-search-form";
 import { Button } from "@/components/ui/button";
+import type { OpenedProps } from "@/components/ui/lazy-popup";
+import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
 import {
   Sheet,
   SheetContent,
@@ -70,7 +72,9 @@ export default function MobileMenuPopup({
   className,
   logo,
   labels,
-}: MobileMenuPopupProps) {
+  openedBy,
+}: MobileMenuPopupProps & OpenedProps) {
+  const focus = usePopupFocus(openedBy);
   const [open, setOpen] = useState(true);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -88,6 +92,8 @@ export default function MobileMenuPopup({
       </SheetTrigger>
       <SheetContent
         side="left"
+        ref={focus.ref}
+        initialFocus={focus.initialFocus}
         className="w-[min(20rem,85vw)] gap-0 [&_[data-slot=sheet-close]]:top-2 [&_[data-slot=sheet-close]]:right-2 [&_[data-slot=sheet-close]]:size-10"
       >
         <SheetHeader className="border-b py-2">

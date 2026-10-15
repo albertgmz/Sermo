@@ -18,7 +18,7 @@ const VARIABLE_NAMESPACES: Record<string, string[]> = {
 function used() {
   const found = new Map<string, string>();
   for (const [file, source] of clientModules()) {
-    const name = file.slice(file.indexOf("src")).replaceAll("\\", "/");
+    const name = file.replaceAll("\\", "/").replace(/^.*[/]apps[/]web[/]/, "");
     for (const namespace of namespacesIn(source)) {
       const options =
         namespace === null ? VARIABLE_NAMESPACES[name] : [namespace];

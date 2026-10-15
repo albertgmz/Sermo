@@ -10,6 +10,8 @@ import {
   type MenuTab,
   openingTab,
 } from "@/components/layout/user-menu-tabs";
+import type { OpenedProps } from "@/components/ui/lazy-popup";
+import { usePopupFocus } from "@/components/ui/lazy-popup-focus";
 import {
   Popover,
   PopoverContent,
@@ -53,8 +55,9 @@ export type UserMenuPopupProps = Omit<
 // The avatar button and the menu it opens, which Base UI draws: a popover on a wide screen and a
 // sheet on a phone, with the same tabs in both. It is loaded when the plain button of `UserMenu`
 // is pressed, and mounts open on the tab that has something unread.
-export default function UserMenuPopup(props: UserMenuPopupProps) {
-  const { label, title, trigger, ...body } = props;
+export default function UserMenuPopup(props: UserMenuPopupProps & OpenedProps) {
+  const { label, title, trigger, openedBy, ...body } = props;
+  const focus = usePopupFocus(openedBy);
   const wide = useWide();
   const [open, setOpen] = useState(true);
   const [tab, setTab] = useState<MenuTab>(() => openingTab(body.unread));
@@ -80,6 +83,8 @@ export default function UserMenuPopup(props: UserMenuPopupProps) {
         <PopoverContent
           align="end"
           sideOffset={8}
+          ref={focus.ref}
+          initialFocus={focus.initialFocus}
           className="w-[26rem] max-w-[calc(100vw-1rem)] gap-0 p-0"
           onClick={closeOnLink}
         >
@@ -96,6 +101,8 @@ export default function UserMenuPopup(props: UserMenuPopupProps) {
       </SheetTrigger>
       <SheetContent
         side="bottom"
+        ref={focus.ref}
+        initialFocus={focus.initialFocus}
         showCloseButton={false}
         className="max-h-[85dvh] gap-0 overflow-y-auto p-0 pb-[env(safe-area-inset-bottom)]"
         onClick={closeOnLink}
