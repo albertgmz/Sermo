@@ -2211,3 +2211,11 @@ composer as a page. The thread draft (title, text, prefix; attachments are dropp
 member in the tab's session storage and cleared at send; a failed request or a sign-in redirect
 during the send loses it. Posting a new thread without JavaScript did not work before and still
 does not.
+
+**`/llms.txt` is a backend route beside `robots.txt`.** It is built from the site name and
+description and the forums a guest can see (at most 200, grouped by category, notes cut at 200
+characters, all site text flattened to one line and escaped), and links the OpenAPI document, the
+MCP endpoint, the Atom feed and the sitemap. It is not an operation (no contract, no MCP tool) and
+is documented in the OpenAPI document like `robots.txt`. The ingress's `/*.txt` rule reaches it; a
+deployment that sends every path to the web app needs a rule for it, as for `robots.txt`. Not
+built: `llms-full.txt`, browser tools.
