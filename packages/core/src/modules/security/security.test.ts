@@ -721,6 +721,8 @@ describe("sessions show their device", () => {
       sessionId: listed.items[0].id,
       ipAddress: "203.0.113.50",
       device: expect.objectContaining({ os: "iOS", isBot: false }),
+      location: null,
+      lastActiveAt: expect.any(String),
     });
     expect(own.items[1]).toMatchObject({
       ipAddress: null,

@@ -17,6 +17,10 @@ type AccountJob = {
   expiresAt?: string | null;
   eventId?: number;
   banId?: number;
+  /** For "newDevice": the device and place the sign-in came from, and when. */
+  device?: { browser: string | null; os: string | null };
+  location?: { country: string | null; region: string | null; city: string | null };
+  at?: number;
 };
 
 /** Account mail is available only after the server has configured a delivery driver. */
@@ -67,6 +71,18 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
         ...(job.url ? { url: job.url } : {}),
         ...(job.reason ? { reason: job.reason } : {}),
         ...(job.expiresAt !== undefined ? { expiresAt: job.expiresAt } : {}),
+        ...(job.kind === "newDevice" && job.at !== undefined
+          ? {
+              signIn: {
+                browser: job.device?.browser ?? null,
+                os: job.device?.os ?? null,
+                country: job.location?.country ?? null,
+                region: job.location?.region ?? null,
+                city: job.location?.city ?? null,
+                at: job.at,
+              },
+            }
+          : {}),
       });
       await state.mailer.send({
         to: job.email,

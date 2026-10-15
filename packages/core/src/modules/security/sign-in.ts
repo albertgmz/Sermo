@@ -1,3 +1,4 @@
+import type { ClientLocation } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { writeTx } from "../../db/tx";
 import { logMemberIp } from "./log";
@@ -18,6 +19,7 @@ export function logFailedSignIn(
   tried: { kind: "email" | "username"; value: string },
   ip: string | null | undefined,
   userAgent: string | null | undefined,
+  location?: ClientLocation | null,
 ): void {
   // Logging must never turn a refused sign-in into a server error.
   try {
@@ -28,7 +30,9 @@ export function logFailedSignIn(
       ),
     ).get(key);
     if (!member) return;
-    writeTx(ctx, () => logMemberIp(ctx, member.id, ip, userAgent, "sign_in_failed"));
+    writeTx(ctx, () =>
+      logMemberIp(ctx, member.id, ip, userAgent, "sign_in_failed", undefined, location),
+    );
   } catch (error) {
     console.error("The failed sign-in could not be logged", error);
   }

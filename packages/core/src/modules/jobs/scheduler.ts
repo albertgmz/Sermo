@@ -5,6 +5,7 @@ import { writeTx } from "../../db/tx";
 import { dispatchEvents } from "../../events";
 import { purgeExpiredCredentialsBatch } from "../auth";
 import { pruneSignInFailures } from "../auth/sign-in-limit";
+import { flushSessionActivity } from "../security/session";
 import { queueSeoEvents } from "../seo/delivery";
 import { queueStorageEvents } from "../storage";
 import { enqueueJob, flushActivity, flushDownloadCounts, flushViewCounts } from "./queue";
@@ -36,6 +37,7 @@ export function runViewsTask(ctx: Ctx): number {
   const views = flushViewCounts(ctx);
   flushDownloadCounts(ctx);
   flushActivity(ctx);
+  flushSessionActivity(ctx);
   return views;
 }
 
@@ -139,6 +141,7 @@ export function runDailyTasks(ctx: Ctx): void {
   enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" });
   enqueueJob(ctx, "credits.recalculate", { after: 0 }, { uniqueKey: "credits.recalculate" });
   enqueueJob(ctx, "storage.cleanup", {}, { uniqueKey: "storage.cleanup" });
+  enqueueJob(ctx, "security.retention", {}, { uniqueKey: "security.retention" });
   enqueueJob(
     ctx,
     "rebuild-counters",

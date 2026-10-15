@@ -5,15 +5,18 @@ import {
   closeContext,
   closeEmail,
   configurePush,
+  configureSecurity,
   createContext,
   ensureAdmin,
   flushActivity,
   flushDownloadCounts,
+  flushSessionActivity,
   flushViewCounts,
   isLoopbackHost,
   localDriver,
   notificationChannels,
   notificationPushPhrase,
+  openGeoDatabase,
   registerAccountEmailJobs,
   registerAwardJobs,
   registerCreditJobs,
@@ -26,6 +29,7 @@ import {
   registerPromotionJobs,
   registerPushJobs,
   registerRankingJobs,
+  registerSecurityJobs,
   registerSeoJobs,
   registerShopJobs,
   registerSocialJobs,
@@ -333,6 +337,19 @@ export function readConfiguration(source: Record<string, string | undefined> = p
     !["true", "false"].includes(source.SERMO_SESSION_COOKIE_CACHE)
   )
     throw new Error("SERMO_SESSION_COOKIE_CACHE must be true or false.");
+  const retentionDays = Number(source.SERMO_IP_LOG_RETENTION_DAYS || "180");
+  if (!Number.isInteger(retentionDays) || retentionDays < 1)
+    throw new Error("SERMO_IP_LOG_RETENTION_DAYS must be a positive whole number of days.");
+  if (
+    source.SERMO_TRUST_LOCATION_HEADERS &&
+    !["true", "false"].includes(source.SERMO_TRUST_LOCATION_HEADERS)
+  )
+    throw new Error("SERMO_TRUST_LOCATION_HEADERS must be true or false.");
+  const trustLocationHeaders = source.SERMO_TRUST_LOCATION_HEADERS === "true";
+  if (trustLocationHeaders && !source.SERMO_TRUSTED_PROXY_HEADER)
+    throw new Error(
+      "SERMO_TRUST_LOCATION_HEADERS needs SERMO_TRUSTED_PROXY_HEADER: the location headers are trusted only behind a proxy.",
+    );
   const vapidNames = [
     "SERMO_VAPID_PUBLIC_KEY",
     "SERMO_VAPID_PRIVATE_KEY",
@@ -383,6 +400,9 @@ export function readConfiguration(source: Record<string, string | undefined> = p
       password: source.SERMO_SMTP_PASSWORD,
     },
     trustedProxyHeader: source.SERMO_TRUSTED_PROXY_HEADER ?? null,
+    trustLocationHeaders,
+    ipLogRetentionDays: retentionDays,
+    geoDatabase: source.SERMO_GEOIP_DATABASE || null,
     rateLimits: Object.fromEntries(
       (["read", "write", "search", "mcp"] as const).flatMap((bucket) => {
         const name = `SERMO_RATE_LIMIT_${bucket.toUpperCase()}`;
@@ -429,6 +449,10 @@ async function main(): Promise<void> {
     },
   });
   configurePush(ctx, { vapid: config.vapid });
+  configureSecurity(ctx, {
+    ipLogRetentionDays: config.ipLogRetentionDays,
+    geoLookup: await openGeoDatabase(config.geoDatabase),
+  });
   const stopCheckpointer = startCheckpointer(ctx);
   registerJobHandlers(ctx);
   const driver =
@@ -455,6 +479,7 @@ async function main(): Promise<void> {
   registerShopJobs(ctx);
   registerRankingJobs(ctx);
   registerStandingJobs(ctx);
+  registerSecurityJobs(ctx);
   const emailTypes = {
     ...notificationChannels,
     defaults: {
@@ -491,6 +516,7 @@ async function main(): Promise<void> {
   const stopScheduler = startScheduler(ctx);
   const app = createApp(ctx, {
     trustedProxyHeader: config.trustedProxyHeader,
+    trustProxyLocation: config.trustLocationHeaders,
     rateLimits: config.rateLimits,
     storage: { driver, tempDir: join(dirname(config.path), "upload-temp") },
   });
@@ -507,6 +533,7 @@ async function main(): Promise<void> {
         flushViewCounts(ctx);
         flushDownloadCounts(ctx);
         flushActivity(ctx);
+        flushSessionActivity(ctx);
       },
       stopScheduler,
       stopWorker,

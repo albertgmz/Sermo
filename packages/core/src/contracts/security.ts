@@ -3,6 +3,15 @@ import { IP_ACTIONS } from "../db/schema";
 import { defineContract } from "../operation";
 import { Id, Page, pageInput, Timestamp, UserSummary } from "./common";
 
+/** Where a request came from, as coarse as the trusted source gave it; any part may be null. */
+export const Location = z
+  .object({
+    country: z.string().nullable().describe("ISO 3166-1 alpha-2 code, upper case."),
+    region: z.string().nullable(),
+    city: z.string().nullable(),
+  })
+  .meta({ id: "Location" });
+
 /** What was parsed from a request's user agent; the raw string is not kept in the log. */
 export const Device = z
   .object({
@@ -91,11 +100,66 @@ export const ipsMembers = defineContract({
 export const authSessionDevices = defineContract({
   name: "auth.sessionDevices",
   summary:
-    "The device and address of each of the signed-in member's live sessions, by session id, " +
-    "parsed from the user agent the session was opened with. Only a browser session may ask.",
+    "The device, address and approximate place of each of the signed-in member's live sessions, " +
+    "by session id, parsed from the user agent the session was opened with, and when each was " +
+    "last used (to within a few minutes; null for a session that predates the record). Only a " +
+    "browser session may ask.",
   kind: "read",
   input: z.object({}),
   output: z.object({
-    items: z.array(z.object({ sessionId: Id, ipAddress: z.string().nullable(), device: Device })),
+    items: z.array(
+      z.object({
+        sessionId: Id,
+        ipAddress: z.string().nullable(),
+        device: Device,
+        location: Location.nullable(),
+        lastActiveAt: Timestamp.nullable(),
+      }),
+    ),
   }),
+});
+
+export const SIGN_IN_HISTORY_LIMIT = 100;
+
+export const authSignInHistory = defineContract({
+  name: "auth.signInHistory",
+  summary:
+    "The signed-in member's own recent sign-ins, newest first, successful and failed (a wrong " +
+    "password for this account), each with its time, device, approximate place and result. The " +
+    "log keeps rows for a limited time (see privacy.logRetention). Only a browser session may ask.",
+  kind: "read",
+  input: z.object({ limit: z.number().int().min(1).max(SIGN_IN_HISTORY_LIMIT).default(20) }),
+  output: z.object({
+    items: z.array(
+      z.object({
+        id: Id,
+        at: Timestamp,
+        result: z.enum(["success", "failed"]),
+        device: Device,
+        location: Location.nullable(),
+      }),
+    ),
+  }),
+});
+
+export const authNotMe = defineContract({
+  name: "auth.notMe",
+  summary:
+    "The 'This wasn't me' link of a new-sign-in mail, without signing in: signs the member out " +
+    "everywhere (every session and API key). The signed token is the authorization; it works " +
+    "once, expires after a week, and stops working as soon as the member's sessions have been " +
+    "cut since the sign-in it was sent for.",
+  kind: "write",
+  input: z.object({ token: z.string().min(16).max(1000) }),
+  output: z.object({ revoked: z.number().int().nonnegative() }),
+});
+
+export const privacyLogRetention = defineContract({
+  name: "privacy.logRetention",
+  summary:
+    "How long the site keeps the log of addresses, devices and places behind sign-ins and " +
+    "posts, in days. Public: the privacy and cookie pages state it.",
+  kind: "read",
+  input: z.object({}),
+  output: z.object({ days: z.number().int().positive() }),
 });

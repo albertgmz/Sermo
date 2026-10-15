@@ -19,6 +19,15 @@ export interface TemplateInput {
   unsubscribe?: { typeUrl: string; allUrl: string };
 }
 
+interface SignIn {
+  browser: string | null;
+  os: string | null;
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  at: number;
+}
+
 export type AccountTemplate =
   | "verify"
   | "welcome"
@@ -27,7 +36,8 @@ export type AccountTemplate =
   | "changeEmail"
   | "emailChanged"
   | "apiKeyCreated"
-  | "banned";
+  | "banned"
+  | "newDevice";
 
 /** Security mail shares the layout but never includes unsubscribe links. */
 export function renderAccountEmail(input: {
@@ -37,6 +47,8 @@ export function renderAccountEmail(input: {
   url?: string;
   reason?: string;
   expiresAt?: string | null;
+  /** The new sign-in a "newDevice" mail is about. */
+  signIn?: SignIn;
 }) {
   const { kind, language, site } = input;
   const expiry = input.expiresAt
@@ -54,6 +66,7 @@ export function renderAccountEmail(input: {
     site,
     reason: input.reason ?? "",
     expiresAt: expiry,
+    ...(input.signIn ? signInValues(language, input.signIn) : {}),
   };
   return renderEmail({
     language,
@@ -64,6 +77,42 @@ export function renderAccountEmail(input: {
       ? { links: [{ label: phrase(language, `email.account.${kind}.link`), url: input.url }] }
       : {}),
   });
+}
+
+function signInValues(language: Language, signIn: SignIn) {
+  const device = signIn.browser
+    ? signIn.os
+      ? phrase(language, "email.account.newDevice.deviceOn", {
+          browser: signIn.browser,
+          os: signIn.os,
+        })
+      : signIn.browser
+    : phrase(language, "email.account.newDevice.unknownDevice");
+  let country = signIn.country;
+  if (country)
+    try {
+      country = new Intl.DisplayNames([language], { type: "region" }).of(country) ?? country;
+    } catch {
+      // keep the code
+    }
+  const parts = [signIn.city, signIn.region, country].filter(
+    (part, at, all): part is string => !!part && all.indexOf(part) === at,
+  );
+  return {
+    device,
+    place: parts.length
+      ? parts.join(", ")
+      : phrase(language, "email.account.newDevice.unknownPlace"),
+    time: new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "UTC",
+      timeZoneName: "short",
+    }).format(new Date(signIn.at)),
+  };
 }
 
 export async function renderEmail(

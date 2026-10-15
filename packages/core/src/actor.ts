@@ -24,6 +24,14 @@ export interface Principal {
   readonly versions: PermissionVersions;
 }
 
+/** Where the request came from, as coarse as the trusted source gives it (any part may be null). */
+export interface ClientLocation {
+  /** ISO 3166-1 alpha-2 country code, upper case. */
+  readonly country: string | null;
+  readonly region: string | null;
+  readonly city: string | null;
+}
+
 export interface PermissionVersions {
   readonly permissions: number;
   readonly nodeTree: number;
@@ -50,6 +58,8 @@ export type Actor =
       readonly sessionId: number;
       /** Trusted client IP supplied by the HTTP actor resolver when available. */
       readonly clientIp?: string;
+      /** Location the trusted proxy reported for the request, when it did. */
+      readonly clientLocation?: ClientLocation;
       readonly userAgent?: string;
       readonly principal?: Principal;
       /**
@@ -65,6 +75,8 @@ export type Actor =
       readonly groupId: number;
       readonly tokenId: number;
       readonly clientIp?: string;
+      /** Location the trusted proxy reported for the request, when it did. */
+      readonly clientLocation?: ClientLocation;
       readonly userAgent?: string;
       readonly principal?: Principal;
     };

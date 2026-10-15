@@ -1,8 +1,9 @@
-import type { Actor } from "../../actor";
+import type { Actor, ClientLocation } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { IpAction, IpContentType } from "../../db/schema";
 import { markPublic } from "../../operation";
 import { parseAddress } from "./address";
+import { resolveLocation } from "./config";
 import { type Device, deviceOf } from "./device";
 
 export interface IpContent {
@@ -12,7 +13,7 @@ export interface IpContent {
 
 export const ipLogSql = {
   insert:
-    "INSERT INTO ip_log (user_id, ip, ip_net, action, content_type, content_id, browser, os, device_type, brand, model, is_bot, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+    "INSERT INTO ip_log (user_id, ip, ip_net, action, content_type, content_id, browser, os, device_type, brand, model, is_bot, country, region, city, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
   erase: "DELETE FROM ip_log WHERE user_id = ?1",
 };
 
@@ -20,7 +21,8 @@ export const ipLogSql = {
  * Writes one `ip_log` row for a member: the address normalised, the device parsed from the user
  * agent (through the bounded cache). Does nothing when `ip` is not an address (an internal
  * caller, the adapter's `unknown` placeholder). Call it inside the write transaction of the
- * action it records.
+ * action it records. The location is the one the trusted proxy reported, else the optional
+ * database's, else none.
  */
 export function logMemberIp(
   ctx: Ctx,
@@ -29,10 +31,12 @@ export function logMemberIp(
   userAgent: string | null | undefined,
   action: IpAction,
   content?: IpContent,
+  reported?: ClientLocation | null,
 ): void {
   const address = parseAddress(ip);
   if (!address) return;
   const device: Device = deviceOf(userAgent);
+  const location = resolveLocation(ctx, address.ip, reported);
   prepared(ctx, "security.ipLogInsert", () => ctx.sqlite.prepare(ipLogSql.insert)).run(
     userId,
     address.ip,
@@ -46,6 +50,9 @@ export function logMemberIp(
     device.brand,
     device.model,
     device.isBot ? 1 : 0,
+    location.country,
+    location.region,
+    location.city,
     ctx.now(),
   );
 }
@@ -55,6 +62,14 @@ export const logIp = markPublic(
   "Records the actor's own action; it grants and refuses nothing.",
   (ctx: Ctx, actor: Actor, action: IpAction, content?: IpContent): void => {
     if (actor.kind === "guest") return;
-    logMemberIp(ctx, actor.userId, actor.clientIp, actor.userAgent, action, content);
+    logMemberIp(
+      ctx,
+      actor.userId,
+      actor.clientIp,
+      actor.userAgent,
+      action,
+      content,
+      actor.clientLocation,
+    );
   },
 );

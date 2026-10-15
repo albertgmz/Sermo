@@ -53,6 +53,16 @@ export {
 export { registerPromotionJobs } from "./modules/promotions";
 export { configurePush, registerPushJobs, validatePushVapid } from "./modules/push";
 export {
+  configureSecurity,
+  flushSessionActivity,
+  type GeoLookup,
+  openGeoDatabase,
+  proxyLocation,
+  registerSecurityJobs,
+  requestLocation,
+  setLocationHeaders,
+} from "./modules/security";
+export {
   atomFeed,
   llmsTxt,
   queueSeoEvents,

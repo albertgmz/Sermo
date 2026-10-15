@@ -45,7 +45,9 @@ import {
 } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { queueCounts } from "../moderation";
+import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
+import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
 import { usernameChange } from "./rename-marker";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
@@ -683,6 +685,7 @@ function buildAuth(ctx: Ctx) {
               { kind: email ? "email" : "username", value: tried },
               headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
               headers?.get("user-agent"),
+              requestLocation(headers),
             );
         }
         // A new password also ends the member's API keys: they are credentials too.
@@ -736,15 +739,13 @@ function buildAuth(ctx: Ctx) {
             if (context?.path === "/sign-up/email") return;
             const headers = context?.headers ?? context?.request?.headers;
             try {
-              writeTx(ctx, () =>
-                logMemberIp(
-                  ctx,
-                  Number(session.userId),
-                  headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
-                  session.userAgent ?? headers?.get("user-agent"),
-                  "sign_in",
-                ),
-              );
+              await recordSignIn(ctx, {
+                userId: Number(session.userId),
+                sessionId: Number(session.id),
+                ip: headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+                userAgent: session.userAgent ?? headers?.get("user-agent"),
+                location: requestLocation(headers),
+              });
             } catch (error) {
               console.error("The sign-in could not be logged", error);
             }
@@ -827,6 +828,8 @@ function buildAuth(ctx: Ctx) {
                   headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
                   headers?.get("user-agent"),
                   "register",
+                  undefined,
+                  requestLocation(headers),
                 );
                 publishEvent(ctx, {
                   type: "member.registered",
@@ -1081,6 +1084,7 @@ export async function resolveActor(
   const key = bearer ?? headers.get("x-api-key");
   const clientIp = headers.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip") ?? undefined;
   const userAgent = headers.get("user-agent") ?? undefined;
+  const clientLocation = requestLocation(headers);
   if (key !== null && key !== undefined) {
     const hash = await defaultKeyHasher(key);
     const row = prepared(ctx, "auth.apiKey", () =>
@@ -1103,6 +1107,7 @@ export async function resolveActor(
         tokenId: row.id,
         principal,
         ...(clientIp ? { clientIp } : {}),
+        ...(clientLocation ? { clientLocation } : {}),
         ...(userAgent ? { userAgent } : {}),
       },
       setCookies: [],
@@ -1134,6 +1139,8 @@ export async function resolveActor(
     new Date(session.session.createdAt).getTime() <= sessionsRevokedAt
   )
     throw new UnauthenticatedError();
+  // Buffered and throttled, never written during the request (see flushSessionActivity).
+  noteSessionActive(ctx, sessionId);
   return {
     actor: {
       kind: "user",
@@ -1142,6 +1149,7 @@ export async function resolveActor(
       sessionId,
       principal,
       ...(clientIp ? { clientIp } : {}),
+      ...(clientLocation ? { clientLocation } : {}),
       ...(userAgent ? { userAgent } : {}),
     },
     setCookies: result.headers.getSetCookie(),

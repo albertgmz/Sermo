@@ -8,11 +8,13 @@ import {
   GUEST,
   getAuth,
   llmsTxt,
+  proxyLocation,
   readSiteSettings,
   resolveActor,
   robotsTxt,
   SermoError,
   type StorageConfig,
+  setLocationHeaders,
   sitemapIndex,
   sitemapShard,
   UnauthenticatedError,
@@ -33,6 +35,12 @@ import { uploadMultipart } from "./upload";
 export const RATE_LIMITS = { read: 300, write: 60, search: 30, mcp: 60 } as const;
 export interface AppOptions {
   trustedProxyHeader: string | null;
+  /**
+   * Take the visitor's place from the proxy's location headers (Cloudflare's "Add visitor location
+   * headers"). Only with `trustedProxyHeader`, and only when nothing but that proxy can reach
+   * the server: the headers are as forgeable as the address header otherwise. Off by default.
+   */
+  trustProxyLocation?: boolean;
   storage?: StorageConfig;
   /** Override the fixed window in tests. */
   rateLimitWindowMs?: number;
@@ -147,6 +155,12 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     const headers = new Headers(c.req.raw.headers);
     headers.delete(CLIENT_IP_HEADER);
     headers.set(CLIENT_IP_HEADER, ip);
+    // The place travels like the address: whatever the client sent under our names is dropped,
+    // and they are set again only from the proxy's own headers on the trusted proxy path.
+    setLocationHeaders(
+      headers,
+      options.trustedProxyHeader && options.trustProxyLocation ? proxyLocation(headers) : null,
+    );
     c.req.raw = new Request(c.req.raw, { headers });
     c.set("clientIp", ip);
     await next();

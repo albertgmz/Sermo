@@ -232,3 +232,36 @@ test("rate limits come from the environment and must be positive integers", () =
       "SERMO_RATE_LIMIT_WRITE",
     );
 });
+
+test("the log retention age, the location headers and the location database are configured by environment", () => {
+  const base = {
+    BETTER_AUTH_SECRET: "test-secret-for-sermo-tests-0123456789abcdef",
+    BETTER_AUTH_URL: "http://localhost:3000",
+  };
+  const defaults = readConfiguration(base);
+  expect(defaults.ipLogRetentionDays).toBe(180);
+  expect(defaults.trustLocationHeaders).toBe(false);
+  expect(defaults.geoDatabase).toBeNull();
+  expect(readConfiguration({ ...base, SERMO_IP_LOG_RETENTION_DAYS: "30" }).ipLogRetentionDays).toBe(
+    30,
+  );
+  for (const bad of ["0", "-5", "1.5", "soon"])
+    expect(() => readConfiguration({ ...base, SERMO_IP_LOG_RETENTION_DAYS: bad })).toThrow(
+      "SERMO_IP_LOG_RETENTION_DAYS",
+    );
+  // The location headers are trusted only behind a configured proxy.
+  expect(() => readConfiguration({ ...base, SERMO_TRUST_LOCATION_HEADERS: "true" })).toThrow(
+    "SERMO_TRUSTED_PROXY_HEADER",
+  );
+  expect(() => readConfiguration({ ...base, SERMO_TRUST_LOCATION_HEADERS: "yes" })).toThrow(
+    "SERMO_TRUST_LOCATION_HEADERS",
+  );
+  const behind = readConfiguration({
+    ...base,
+    SERMO_TRUSTED_PROXY_HEADER: "x-forwarded-for",
+    SERMO_TRUST_LOCATION_HEADERS: "true",
+    SERMO_GEOIP_DATABASE: "/data/GeoLite2-City.mmdb",
+  });
+  expect(behind.trustLocationHeaders).toBe(true);
+  expect(behind.geoDatabase).toBe("/data/GeoLite2-City.mmdb");
+});
