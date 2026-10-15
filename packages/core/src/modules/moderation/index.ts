@@ -28,7 +28,12 @@ import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
 import { moderationOf } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
-import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
+import {
+  assertThreadNotBeingPurged,
+  assertThreadTransferIdle,
+  forumSql,
+  registerForumTransferJobs,
+} from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
@@ -891,6 +896,8 @@ function stateChange(
 ) {
   if (target.type === "thread") assertThreadTransferIdle(ctx, target.id);
   if (row.state === state) return false;
+  if (target.type === "thread" && row.state === "deleted")
+    assertThreadNotBeingPurged(ctx, target.id, row.created_at as number);
   if (target.type === "post" && row.id === row.first_post_id)
     throw new ValidationError("Change the thread state instead of its first post.");
   const delta = Number(state === "visible") - Number(row.state === "visible");

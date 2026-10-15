@@ -85,7 +85,7 @@
     "batchApply": "Aplicar",
     "batchClear": "Quitar la selección",
     "batchTooMany": "Selecciona como máximo 100 temas a la vez.",
-    "batchDone": "{changed, plural, one {# tema cambiado} other {# temas cambiados}}, {same} ya estaban como se pedía.",
+    "batchDone": "{changed, plural, one {# tema cambiado} other {# temas cambiados}}, {same, plural, one {# ya estaba como se pedía} other {# ya estaban como se pedía}}.",
     "batchRefused": "{count, plural, one {# tema fue rechazado} other {# temas fueron rechazados}}: {reasons}"
   },
   "watch": {

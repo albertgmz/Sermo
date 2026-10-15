@@ -249,7 +249,7 @@ describe("threads.batchUpdate", () => {
     ).toBe(true);
   });
 
-  test("a thread refused halfway through is rolled back alone", async () => {
+  test("a thread refused before it writes is reported, and the others are applied", async () => {
     const { w, a1, a2 } = await setup();
     // A thread with a merge pending is refused after other items already wrote.
     w.ctx.sqlite
@@ -338,4 +338,76 @@ test("repeating a lock or a pin notifies nobody: no event for a thread that did 
   await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "stick" } });
   await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "stick" } });
   expect(events()).toBe(afterFirst + 1);
+});
+
+test("an unexpected failure undoes the whole batch, the threads already changed included", async () => {
+  const { w, a1, a2 } = await setup();
+  // The second thread's log row cannot be written: not a refusal, a fault.
+  w.ctx.sqlite.run(
+    `CREATE TRIGGER batch_fault BEFORE INSERT ON moderator_log WHEN new.target_id = ${a2} BEGIN SELECT RAISE(ABORT, 'disk full'); END`,
+  );
+  await expect(
+    w.call("threads.batchUpdate", w.mod, { threadIds: [a1, a2], update: { action: "lock" } }),
+  ).rejects.toThrow("disk full");
+  expect([a1, a2].map((id) => row(w, id).is_locked)).toEqual([0, 0]);
+  expect(logged(w, "thread.lock")).toEqual([]);
+});
+
+describe("the post budget of a batch", () => {
+  const withPosts = (w: World, ids: number[], replies: number[]) => {
+    for (const [i, id] of ids.entries())
+      w.ctx.sqlite
+        .prepare("UPDATE threads SET reply_count = ?1 WHERE id = ?2")
+        .run(replies[i]!, id);
+  };
+  const outcome = (out: { results: { error: { code: string } | null }[] }) =>
+    out.results.map((r) => r.error?.code ?? "ok");
+
+  test("delete, restore and move stop taking threads once their posts add up to the budget", async () => {
+    const { w, other, a1, a2 } = await setup();
+    const a3 = (await w.thread(w.alice, w.open.id, "A3")).thread.id as number;
+    withPosts(w, [a1, a2, a3], [99_999, 99_999, 99_999]);
+    const del = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a1, a2, a3],
+      update: { action: "delete" },
+    });
+    expect(outcome(del)).toEqual(["ok", "ok", "conflict"]);
+    expect(del.results[2].error.message).toMatch(/smaller batch/);
+    expect([a1, a2, a3].map((id) => row(w, id).state)).toEqual(["deleted", "deleted", "visible"]);
+    const restored = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a1, a2, a3],
+      update: { action: "restore" },
+    });
+    // a3 is visible already: it costs its posts all the same, and comes last.
+    expect(outcome(restored)).toEqual(["ok", "ok", "conflict"]);
+    const moved = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a1, a2, a3],
+      update: { action: "move", nodeId: other.id },
+    });
+    expect(outcome(moved)).toEqual(["ok", "ok", "conflict"]);
+    expect([a1, a2, a3].map((id) => row(w, id).node_id)).toEqual([other.id, other.id, w.open.id]);
+  });
+
+  test("the first thread is always taken, a smaller one later still fits, other actions are free", async () => {
+    const { w, a1, a2 } = await setup();
+    const a3 = (await w.thread(w.alice, w.open.id, "A3")).thread.id as number;
+    withPosts(w, [a1, a2, a3], [300_000, 10, 10]);
+    const del = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a1, a2, a3],
+      update: { action: "delete" },
+    });
+    // The huge first thread is taken, as the single action would take it; nothing else fits.
+    expect(outcome(del)).toEqual(["ok", "conflict", "conflict"]);
+    const hugeLast = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a2, a3, a1],
+      update: { action: "delete" },
+    });
+    // Small threads first leave no room for the huge one.
+    expect(outcome(hugeLast)).toEqual(["ok", "ok", "conflict"]);
+    const locks = await w.call("threads.batchUpdate", w.admin, {
+      threadIds: [a1, a2, a3],
+      update: { action: "lock" },
+    });
+    expect(outcome(locks)).toEqual(["ok", "ok", "ok"]);
+  });
 });

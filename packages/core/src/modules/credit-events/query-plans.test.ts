@@ -17,7 +17,7 @@ test("every credit rule query uses indexed lookups or the allowed small rule tab
       apply: [1, 1, "thread", 1, 0, 10, 1, ctx.now()],
       flip: ["reverted", 2, "thread", 1, "applied", 0, 500],
       sourceApplied: ["post", 1, 1, 2],
-      firstVisibilityChange: ["thread", 1],
+      firstVisibilityChange: ["thread", 1, 0],
       thread: [1],
       post: [1],
       profile_post: [1],

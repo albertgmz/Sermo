@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { insertUser } from "@sermo/core/testing";
 import { actorUserId, GUEST } from "../../actor";
 import { ConflictError, ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
 import { dispatchEvents } from "../../events";
 import { registerCreditRuleJobs } from "../credit-events";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
+import { runDueJobs } from "../jobs";
+import { registerNotificationJobs } from "../notifications";
 
 type Sqlite = World["ctx"]["sqlite"];
 const count = (sqlite: Sqlite, sql: string, ...params: number[]) =>
@@ -87,6 +90,21 @@ async function furnished(w: World) {
     .run(reply.id, w.carolUser.id);
   sql
     .prepare(
+      "INSERT INTO post_revisions (post_id, editor_id, body_source, body_html, edited_at) VALUES (?1, ?2, 'old', '<p>old</p>', 1)",
+    )
+    .run(reply.id, w.bobUser.id);
+  sql
+    .prepare(
+      "INSERT INTO content_spoilers (content_type, content_id, position, html) VALUES ('post', ?1, 0, '<p>s</p>')",
+    )
+    .run(reply.id);
+  sql
+    .prepare(
+      "INSERT INTO thread_bans (thread_id, user_id, moderator_id, created_at) VALUES (?1, ?2, ?3, 1)",
+    )
+    .run(t.thread.id, w.bobUser.id, actorUserId(w.mod));
+  sql
+    .prepare(
       "INSERT INTO credit_rules (title, trigger, amount, created_at, updated_at) VALUES ('r', 'reply_posted', 5, 1, 1)",
     )
     .run();
@@ -138,18 +156,44 @@ function leftovers(w: World, threadId: number, postIds: number[]) {
     features: one("SELECT count(*) AS n FROM thread_features WHERE thread_id = ?1", threadId),
     watches: one("SELECT count(*) AS n FROM thread_watches WHERE thread_id = ?1", threadId),
     reads: one("SELECT count(*) AS n FROM thread_reads WHERE thread_id = ?1", threadId),
-    reports:
-      one("SELECT count(*) AS n FROM report_groups", threadId) +
-      one("SELECT count(*) AS n FROM reports"),
+    reports: one(
+      "SELECT count(*) AS n FROM report_groups WHERE target_type = 'post' AND target_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
+    reportRows: one(
+      "SELECT count(*) AS n FROM reports WHERE group_id NOT IN (SELECT id FROM report_groups)",
+    ),
     alerts: one(
       "SELECT count(*) AS n FROM notifications WHERE thread_id = ?1 OR (content_type = 'post' AND content_id IN (SELECT value FROM json_each(?2)))",
       threadId,
       posts,
     ),
-    quotes: one("SELECT count(*) AS n FROM content_quotes"),
-    mentions: one("SELECT count(*) AS n FROM content_mentions"),
-    credits: one("SELECT count(*) AS n FROM credit_rule_applications"),
-    attachments: one("SELECT count(*) AS n FROM attachments"),
+    quotes: one(
+      "SELECT count(*) AS n FROM content_quotes WHERE (content_type = 'post' AND content_id IN (SELECT value FROM json_each(?1))) OR quoted_post_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
+    mentions: one(
+      "SELECT count(*) AS n FROM content_mentions WHERE content_type = 'post' AND content_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
+    spoilers: one(
+      "SELECT count(*) AS n FROM content_spoilers WHERE content_type = 'post' AND content_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
+    revisions: one(
+      "SELECT count(*) AS n FROM post_revisions WHERE post_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
+    bans: one("SELECT count(*) AS n FROM thread_bans WHERE thread_id = ?1", threadId),
+    credits: one(
+      "SELECT count(*) AS n FROM credit_rule_applications WHERE (source_type = 'post' AND source_id IN (SELECT value FROM json_each(?1))) OR (source_type = 'thread' AND source_id = ?2)",
+      posts,
+      threadId,
+    ),
+    attachments: one(
+      "SELECT count(*) AS n FROM attachments WHERE content_type = 'post' AND content_id IN (SELECT value FROM json_each(?1))",
+      posts,
+    ),
     rankings: one("SELECT count(*) AS n FROM rankings WHERE target_id = ?1", threadId),
     search: one(
       "SELECT count(*) AS n FROM search_fts WHERE rowid IN (SELECT value FROM json_each(?1))",
@@ -669,5 +713,229 @@ describe("what a purge must not leave behind", () => {
         w.bobUser.id,
       ),
     ).toBe(1);
+  });
+});
+
+describe("the cost of a purge", () => {
+  test("thousands of unread alerts on one post cost time in proportion, not squared", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Popular");
+    const reply = await w.reply(w.bob, t.thread.id, "Everyone follows this");
+    const sql = w.ctx.sqlite;
+    const members = Array.from({ length: 4000 }, () => insertUser(w.ctx).id);
+    const alert = sql.prepare(
+      "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, thread_id, created_at, updated_at) VALUES (?1, 0, 'thread.watched', 'post', ?2, ?3, 1, 1)",
+    );
+    for (const id of members) alert.run(id, reply.id, t.thread.id);
+    sql
+      .prepare(
+        "UPDATE users SET unread_notification_count = 1 WHERE id IN (SELECT value FROM json_each(?1))",
+      )
+      .run(JSON.stringify(members));
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    const started = performance.now();
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    const took = performance.now() - started;
+    expect(count(sql, "SELECT count(*) AS n FROM notifications")).toBe(0);
+    expect(count(sql, "SELECT sum(unread_notification_count) AS n FROM users")).toBe(0);
+    // The correlated form of the counter update took 3.5 s for these 4,000 members; the join, a few ms.
+    expect(took).toBeLessThan(1000);
+  });
+});
+
+describe("a removed row's id given to a new one", () => {
+  test("the new post still pays its credits, whatever the removed one went through", async () => {
+    const w = world();
+    await w.call("creditRules.create", w.admin, {
+      title: "Reply",
+      trigger: "reply_posted",
+      amount: 10,
+    });
+    registerCreditRuleJobs(w.ctx);
+    const t = await w.thread(w.alice, w.open.id, "Reuse");
+    // The old post waits for approval, is approved, deleted and removed: its events say
+    // "moderated" first, which would make a later post of the same id look like a held one.
+    w.ctx.sqlite
+      .prepare("UPDATE nodes SET require_reply_approval = 1 WHERE id = ?1")
+      .run(w.open.id);
+    const old = await w.reply(w.bob, t.thread.id, "Held at first");
+    w.ctx.sqlite
+      .prepare("UPDATE nodes SET require_reply_approval = 0 WHERE id = ?1")
+      .run(w.open.id);
+    await w.call("moderation.setState", w.admin, {
+      target: { type: "post", id: old.id },
+      state: "visible",
+    });
+    await dispatchEvents(w.ctx);
+    await w.call("moderation.setState", w.admin, {
+      target: { type: "post", id: old.id },
+      state: "deleted",
+    });
+    await dispatchEvents(w.ctx);
+    await w.call("posts.hardDelete", w.admin, { postId: old.id });
+    const next = await w.reply(w.carol, t.thread.id, "Takes the id");
+    expect(next.id).toBe(old.id);
+    await dispatchEvents(w.ctx);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ credits: number }, [number]>("SELECT credits FROM users WHERE id = ?1")
+        .get(w.carolUser.id)!.credits,
+    ).toBe(10);
+  });
+});
+
+describe("merge tombstones of a removed thread", () => {
+  test("go with it, however many merges deep, so no old address can open another thread", async () => {
+    const w = world();
+    const a = (await w.thread(w.alice, w.open.id, "A")).thread.id as number;
+    const b = (await w.thread(w.alice, w.open.id, "B")).thread.id as number;
+    const c = (await w.thread(w.alice, w.open.id, "C")).thread.id as number;
+    const keep = (await w.thread(w.alice, w.open.id, "Keeper")).thread.id as number;
+    await w.call("bookmarks.set", w.carol, {
+      contentType: "thread",
+      contentId: a,
+      bookmarked: true,
+    });
+    // A into B, then B (with A's address) into C.
+    expect(
+      (await w.call("threads.merge", w.admin, { threadId: b, sourceThreadIds: [a] })).completed,
+    ).toBe(true);
+    expect(
+      (await w.call("threads.merge", w.admin, { threadId: c, sourceThreadIds: [b] })).completed,
+    ).toBe(true);
+    expect((await w.call("threads.get", w.admin, { threadId: a })).thread.id).toBe(c);
+    await w.call("threads.delete", w.admin, { threadId: c });
+    await w.call("threads.hardDelete", w.admin, { threadId: c });
+    const left = w.ctx.sqlite
+      .prepare<{ id: number }, []>("SELECT id FROM threads ORDER BY id")
+      .all()
+      .map((row) => row.id);
+    expect(left).toEqual([keep]);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM bookmarks")).toBe(0);
+    for (const id of [a, b, c])
+      await expect(w.call("threads.get", w.admin, { threadId: id })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+  });
+});
+
+describe("a thread whose removal has begun", () => {
+  test("cannot be brought back by any route, until it is gone", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Half gone");
+    fillPosts(w.ctx, t.thread.id, w.bobUser.id, 600);
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    // Before it begins, restoring is allowed (and undone again here).
+    await w.call("threads.restore", w.mod, { threadId: t.thread.id });
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    expect(await w.call("threads.hardDelete", w.admin, { threadId: t.thread.id })).toMatchObject({
+      completed: false,
+    });
+    const refused = /being deleted for good/;
+    await expect(w.call("threads.restore", w.mod, { threadId: t.thread.id })).rejects.toThrow(
+      refused,
+    );
+    await expect(
+      w.call("moderation.setState", w.admin, {
+        target: { type: "thread", id: t.thread.id },
+        state: "visible",
+      }),
+    ).rejects.toThrow(refused);
+    await expect(
+      w.call("moderation.bulk", w.admin, {
+        targets: [{ type: "thread", id: t.thread.id }],
+        action: "restore",
+      }),
+    ).rejects.toThrow(refused);
+    const batch = await w.call("threads.batchUpdate", w.mod, {
+      threadIds: [t.thread.id],
+      update: { action: "restore" },
+    });
+    expect(batch.results[0].error).toMatchObject({ code: "conflict" });
+    expect(batch.results[0].error.message).toMatch(refused);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(t.thread.id),
+    ).toEqual({ state: "deleted" });
+  });
+});
+
+describe("who may not delete for good", () => {
+  test("posts: guests are asked to sign in, members and the author see nothing, a moderator is refused", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const reply = await w.reply(w.bob, t.thread.id, "R");
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    const attempt = (actor: Parameters<World["call"]>[1]) =>
+      w.call("posts.hardDelete", actor, { postId: reply.id });
+    await expect(attempt(GUEST)).rejects.toBeInstanceOf(UnauthenticatedError);
+    // A deleted post is not visible to its author or to other members: it is not there for them.
+    await expect(attempt(w.bob)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(w.carol)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(w.mod)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM posts WHERE id = ?1", reply.id)).toBe(1);
+  });
+
+  test("a forum the member cannot see: not found, not forbidden", async () => {
+    const w = world();
+    const t = await w.thread(w.admin, w.secret.id, "Hidden");
+    const reply = await w.reply(w.admin, t.thread.id, "R");
+    await w.call("posts.delete", w.admin, { postId: reply.id });
+    await w.call("threads.delete", w.admin, { threadId: t.thread.id });
+    await expect(w.call("posts.hardDelete", w.carol, { postId: reply.id })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+    await expect(
+      w.call("threads.hardDelete", w.carol, { threadId: t.thread.id }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test("profile posts: guests, members and moderators are refused", async () => {
+    const w = world();
+    const post = await w.wall(w.alice, w.bobUser.id, "On the wall");
+    await w.call("profilePosts.delete", w.alice, { profilePostId: post.id });
+    const attempt = (actor: Parameters<World["call"]>[1]) =>
+      w.call("profilePosts.hardDelete", actor, { profilePostId: post.id });
+    await expect(attempt(GUEST)).rejects.toBeInstanceOf(UnauthenticatedError);
+    // Members cannot see a deleted post; the moderator can, and may not delete it for good.
+    await expect(attempt(w.carol)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(w.bob)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(attempt(w.mod)).rejects.toBeInstanceOf(ForbiddenError);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM profile_posts")).toBe(1);
+  });
+});
+
+describe("a removed report's id given to a new one", () => {
+  test("the moderators are alerted to the new report, not told it is old news", async () => {
+    const w = world();
+    registerNotificationJobs(w.ctx);
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const first = await w.reply(w.bob, t.thread.id, "Spam");
+    await w.call("reports.create", w.carol, {
+      target: { type: "post", id: first.id },
+      reason: "spam",
+    });
+    await dispatchEvents(w.ctx);
+    await runDueJobs(w.ctx);
+    const alerts = () =>
+      count(
+        w.ctx.sqlite,
+        "SELECT count(*) AS n FROM notifications WHERE type = 'moderator.report'",
+      );
+    expect(alerts()).toBeGreaterThan(0);
+    await w.call("posts.delete", w.bob, { postId: first.id });
+    await w.call("posts.hardDelete", w.admin, { postId: first.id });
+    expect(alerts()).toBe(0);
+    const second = await w.reply(w.bob, t.thread.id, "More spam");
+    await w.call("reports.create", w.carol, {
+      target: { type: "post", id: second.id },
+      reason: "spam again",
+    });
+    // SQLite gave the removed report group's id to the new one.
+    expect(count(w.ctx.sqlite, "SELECT id AS n FROM report_groups")).toBe(1);
+    await dispatchEvents(w.ctx);
+    await runDueJobs(w.ctx);
+    expect(alerts()).toBeGreaterThan(0);
   });
 });

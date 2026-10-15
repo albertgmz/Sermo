@@ -126,9 +126,11 @@ function creation(ctx: Ctx, event: DomainEvent, row: Content): void {
   if (event.type !== "content.created" && event.type !== "content.state_changed") return;
   // The first transition involving visibility distinguishes initial approval from restores
   // and re-approval after an edit. It also identifies creation events delivered after approval.
+  // Only events from the content's own life count: a removed row's id can be given to a new one.
   const first = query<{ id: number; previous_state: string }>(ctx, "firstVisibilityChange").get(
     event.targetType,
     event.targetId,
+    row.created_at,
   );
   if (event.type === "content.created") {
     if (first && first.previous_state !== "visible") return;

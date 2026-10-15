@@ -85,7 +85,7 @@
     "batchApply": "Apply",
     "batchClear": "Clear selection",
     "batchTooMany": "Select at most 100 threads at a time.",
-    "batchDone": "{changed, plural, one {# thread changed} other {# threads changed}}, {same} already as asked.",
+    "batchDone": "{changed, plural, one {# thread changed} other {# threads changed}}, {same, plural, one {# already as asked} other {# already as asked}}.",
     "batchRefused": "{count, plural, one {# thread was refused} other {# threads were refused}}: {reasons}"
   },
   "watch": {

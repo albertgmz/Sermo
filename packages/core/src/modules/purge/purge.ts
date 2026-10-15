@@ -18,15 +18,17 @@ import { enqueueJob } from "../jobs";
  *   in a job after the commit, and a reply of a deleted thread keeps its credits until now.
  * - Kept, with the reference nulled: `ip_log` rows. The address history of a member is a
  *   security record, so the row stays and only its pointer to the content goes.
- * - Kept as they are: `moderator_log` and `credit_transactions` (append-only ledgers that name
- *   the content by id) and `domain_events`. Events are never deleted: ids are not reused only
+ * - Kept as they are: `moderator_log` (append-only; it names the content by id),
+ *   `credit_transactions` (append-only; it names the credit rule, never the content) and
+ *   `domain_events`. Events are never deleted: ids are not reused only
  *   while no row is removed from the end of the table, and a subscriber's cursor would skip the
  *   events that took the freed ids. A subscriber finds the content gone and does nothing.
  *
  * SQLite hands the id of a deleted newest row to the next insert, so what names the old id and
- * would then attach to the new row (quotes, credit applications, alerts, bookmarks, reports) is
- * deleted rather than kept. What cannot be reached (read markers, the ledgers) is listed in the
- * task notes.
+ * would then attach to the new row (quotes, credit applications, alerts, bookmarks, reports,
+ * the merge tombstones of a thread) is deleted rather than kept. Readers of the kept rows look
+ * only at their own row's life (`created_at`): the credit rules and the report alerts do. A read
+ * marker is clamped by the caller. What cannot be reached is listed in the task notes.
  */
 export type PurgeType = "post" | "profile_post" | "profile_post_comment";
 
@@ -82,10 +84,11 @@ function removeAlerts(ctx: Ctx, key: string, where: string, ...params: SQLQueryB
   if (!unread.length) return;
   const counts = new Map<number, number>();
   for (const row of unread) counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
+  // A join, not a subquery per member: the counts are read once, however many members there are.
   statement(
     ctx,
     "alertsCount",
-    "UPDATE users SET unread_notification_count = max(0, unread_notification_count - (SELECT json_extract(value, '$.n') FROM json_each(?1) WHERE json_extract(value, '$.id') = users.id)) WHERE id IN (SELECT json_extract(value, '$.id') FROM json_each(?1))",
+    "UPDATE users SET unread_notification_count = max(0, unread_notification_count - c.n) FROM (SELECT json_extract(value, '$.id') AS id, json_extract(value, '$.n') AS n FROM json_each(?1)) AS c WHERE users.id = c.id",
   ).run(JSON.stringify([...counts].map(([id, n]) => ({ id, n }))));
 }
 const aboutContent = "n.content_type = ?1 AND n.content_id IN (SELECT value FROM json_each(?2))";
@@ -223,8 +226,36 @@ export function purgeContent(ctx: Ctx, type: PurgeType, ids: number[]): void {
   ).run(json);
 }
 
+/**
+ * The merge tombstones that resolve to the thread, directly or through other tombstones: threads
+ * merged into it, or into one merged into it. They are found through the moderator log, which
+ * names every merge by its target (an index seek), not by scanning the threads.
+ */
+function tombstonesOf(ctx: Ctx, threadId: number): number[] {
+  const found: number[] = [];
+  const queue = [threadId];
+  for (let target = queue.shift(); target !== undefined; target = queue.shift()) {
+    const merged = statement<{ id: number }>(
+      ctx,
+      "tombstones",
+      "SELECT id FROM threads WHERE merged_into_id = ?1 AND id IN (SELECT json_extract(details, '$.sourceId') FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action = 'thread.merge')",
+    ).all(target);
+    for (const { id } of merged) {
+      found.push(id);
+      queue.push(id);
+    }
+  }
+  return found;
+}
+
 /** What hangs off a thread itself (its posts are purged separately), then the thread. */
 export function purgeThread(ctx: Ctx, threadId: number): void {
+  // The old addresses of merged threads go too: an id can be given to a new thread, and an old
+  // address must not then open an unrelated one.
+  for (const id of [threadId, ...tombstonesOf(ctx, threadId)]) purgeThreadRows(ctx, id);
+}
+
+function purgeThreadRows(ctx: Ctx, threadId: number): void {
   const json = JSON.stringify([threadId]);
   takeBackCredits(ctx, "thread", json);
   for (const [key, sql] of bySource) statement(ctx, key, sql).run("thread", json);

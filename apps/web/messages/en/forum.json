@@ -200,9 +200,7 @@
     }
   },
   "composer": {
-    "aria": {
-      "close": "Close"
-    }
+    "aria": { "close": "Close" }
   },
   "threadComposer": {
     "post": "Post",

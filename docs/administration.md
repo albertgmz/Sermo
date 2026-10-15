@@ -690,7 +690,9 @@ the queue; edited content sent back to the queue notifies nobody.
   `moderation.bulk` it judges each thread on its own, with the permission of the single action in
   that thread's forum, and answers per thread (`changed`, or the `error` that refused it); a
   refused thread changes nothing and the others are applied, in one transaction. Every thread is
-  logged as the single action is. The forum's thread list offers it to staff as ticks and a bar.
+  logged as the single action is. Delete, restore and move cost in proportion to a thread's posts:
+  once the posts of the threads taken add up to 250,000, further threads are refused ("try again in a
+  smaller batch"); the first is always taken. The forum's thread list offers it to staff as ticks and a bar.
 
 A member's own delete (a reply, a wall post or a comment) is a soft delete too: moderators can see
 and restore it. Only staff delete for good, and only content that is already soft-deleted:
@@ -700,7 +702,8 @@ and restore it. Only staff delete for good, and only content that is already sof
   and `POST /profile-posts/{profilePostId}/hard-delete` (`profilePosts.hardDelete`,
   `profilePost.hardDelete`). They erase the content with its reactions, attachments, alerts,
   bookmarks, reports and the credits it paid. A thread goes 500 posts per call (a wall post 500
-  comments), newest first, and stays deleted until a call answers `completed: true`. The
+  comments), newest first, and stays deleted until a call answers `completed: true`; until then it
+  cannot be restored. Merge tombstones that resolve to a removed thread go with it. The
   moderator log keeps the entry, with the title and author. Post positions are not renumbered, so a
   thread has a gap where a post was. The permissions are Administrator by default and can be
   granted per forum.

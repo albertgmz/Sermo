@@ -1915,10 +1915,27 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   });
   return threadValue(ctx, actor, row.id);
 });
+/**
+ * A deleted thread that `threads.hardDelete` has begun on is missing its newest posts for good,
+ * so it cannot come back. Only a log entry from this thread's own life counts: the id of an
+ * earlier thread may have been reused.
+ */
+export function assertThreadNotBeingPurged(ctx: Ctx, threadId: number, createdAt: number): void {
+  const begun = prepared(ctx, "forums.purgeBegun", () =>
+    ctx.sqlite.prepare<{ found: number }, [number, number]>(
+      "SELECT 1 AS found FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action = 'thread.hardDelete' AND created_at >= ?2 AND json_extract(details, '$.completed') = 0 LIMIT 1",
+    ),
+  ).get(threadId, createdAt);
+  if (begun)
+    throw new ConflictError(
+      "This thread is being deleted for good and part of it is already gone. Finish deleting it.",
+    );
+}
 function restoreThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
   assertTransferIdle(ctx, id);
   const current = requireThread(ctx, moderator, id).row;
   requireRestorer(ctx, moderator, current.state, current.node_id);
+  if (current.state === "deleted") assertThreadNotBeingPurged(ctx, id, current.created_at);
   const changed = changeThreadState(ctx, id, "visible");
   if (changed)
     publishEvent(ctx, {
@@ -3091,17 +3108,37 @@ function batchItem(
       return setThreadPrefix(ctx, moderator, id, update.prefixId, notice);
   }
 }
+/**
+ * What one batch may do to the posts of its threads. Deleting, restoring and moving a thread cost
+ * in proportion to its posts (author counters, reports and log rows are updated by post), so a
+ * batch of them stops taking threads once their posts add up to this many. The first thread is
+ * always taken, as the single action would take it.
+ */
+export const BATCH_POST_BUDGET = 250_000;
+const BY_POSTS = new Set(["delete", "restore", "move"]);
+
 export const threadsBatchUpdateOp = implement(contracts.threadsBatchUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   if (input.update.action === "move") requireMoveTarget(ctx, actor, input.update.nodeId);
   return writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
     // Each thread in its own savepoint: a refused one is undone alone and the others stay.
+    let spent = 0;
     const results = input.threadIds.map((threadId) => {
       try {
-        const changed = writeTx(ctx, () =>
-          batchItem(ctx, moderator, threadId, input.update, input),
-        );
+        const changed = writeTx(ctx, () => {
+          let cost = 0;
+          if (BY_POSTS.has(input.update.action)) {
+            cost = requireThread(ctx, moderator, threadId).row.reply_count + 1;
+            if (spent > 0 && spent + cost > BATCH_POST_BUDGET)
+              throw new ConflictError(
+                "Too many posts for one batch. Try this thread again in a smaller batch.",
+              );
+          }
+          const done = batchItem(ctx, moderator, threadId, input.update, input);
+          spent += cost;
+          return done;
+        });
         return { threadId, changed, error: null };
       } catch (error) {
         if (!(error instanceof SermoError)) throw error;

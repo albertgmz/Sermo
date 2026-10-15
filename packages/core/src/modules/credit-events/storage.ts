@@ -36,7 +36,7 @@ export const queries = {
   sourceApplied:
     "SELECT 1 AS found FROM credit_rule_applications INDEXED BY credit_rule_applications_paid WHERE source_type = ?1 AND source_id = ?2 AND rule_id = ?3 AND source_user_id = ?4 LIMIT 1",
   firstVisibilityChange:
-    "SELECT id, json_extract(payload, '$.previousState') AS previous_state FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND type IN ('content.deleted', 'content.state_changed') AND (json_extract(payload, '$.previousState') = 'visible' OR json_extract(payload, '$.state') = 'visible') ORDER BY id LIMIT 1",
+    "SELECT id, json_extract(payload, '$.previousState') AS previous_state FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND type IN ('content.deleted', 'content.state_changed') AND created_at >= ?3 AND (json_extract(payload, '$.previousState') = 'visible' OR json_extract(payload, '$.state') = 'visible') ORDER BY id LIMIT 1",
   thread: "SELECT user_id, node_id, state, created_at FROM threads WHERE id = ?1",
   post: "SELECT p.user_id, p.position, p.state, p.created_at, t.node_id, t.user_id AS recipient_id, t.state AS parent_state FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
   profile_post:

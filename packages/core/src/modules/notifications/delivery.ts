@@ -270,16 +270,18 @@ function pastEvents(
   before: number,
   types: readonly string[],
   after = 0,
+  // Only events from this time on: the target's own life, when its id was given to a new row.
+  since = 0,
 ): PastEvent[] {
   return prepared(ctx, "notifications.history", () =>
     ctx.sqlite.prepare<
       { id: number; type: string; payload: string },
-      [string, number, number, number, string]
+      [string, number, number, number, string, number]
     >(
-      "SELECT id, type, payload FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND id > ?3 AND id < ?4 AND type IN (SELECT value FROM json_each(?5)) ORDER BY id",
+      "SELECT id, type, payload FROM domain_events WHERE target_type = ?1 AND target_id = ?2 AND id > ?3 AND id < ?4 AND type IN (SELECT value FROM json_each(?5)) AND created_at >= ?6 ORDER BY id",
     ),
   )
-    .all(targetType, targetId, after, before, JSON.stringify(types))
+    .all(targetType, targetId, after, before, JSON.stringify(types), since)
     .map((row) => ({
       id: row.id,
       type: row.type,
@@ -369,10 +371,21 @@ function heldMentions(ctx: Ctx, item: Content, history: PastEvent[]): number[] {
  * reopens when it is reported again).
  */
 function reportCycle(ctx: Ctx, groupId: number, before: number): PastEvent[] {
-  const events = pastEvents(ctx, "report_group", groupId, before, [
-    "report.created",
-    "report.state_changed",
-  ]);
+  // A group removed with its content can give its id to a new one: only this group's events count.
+  const group = prepared(ctx, "notifications.reportGroupSince", () =>
+    ctx.sqlite.prepare<{ created_at: number }, [number]>(
+      "SELECT created_at FROM report_groups WHERE id = ?1",
+    ),
+  ).get(groupId);
+  const events = pastEvents(
+    ctx,
+    "report_group",
+    groupId,
+    before,
+    ["report.created", "report.state_changed"],
+    0,
+    group?.created_at ?? 0,
+  );
   const closed = events.findLastIndex(
     (e) =>
       e.type === "report.state_changed" &&

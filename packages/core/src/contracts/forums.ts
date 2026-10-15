@@ -473,7 +473,9 @@ export const threadsDelete = defineContract({
 
 export const threadsRestore = defineContract({
   name: "threads.restore",
-  summary: "Make a deleted or unapproved thread visible again. Moderators only.",
+  summary:
+    "Make a deleted or unapproved thread visible again. Moderators only. A deleted thread that " +
+    "`threads.hardDelete` has begun on cannot come back (a conflict).",
   kind: "write",
   input: z.object({ ...moderationNotice, threadId: Id }),
   output: Thread,
@@ -490,7 +492,9 @@ export const threadsHardDelete = defineContract({
     "newest first and the opening post last: the thread stays (deleted) until a call returns " +
     "`completed: true`, so a large thread takes several calls. Each call is one transaction and " +
     "is logged as `thread.hardDelete` (`details.removedPosts`, `details.completed`, and the " +
-    "title and author, which stay in the log after the thread is gone). The member counters need " +
+    "title and author, which stay in the log after the thread is gone). The merge tombstones that " +
+    "resolve to the thread go with it. Once a call has removed posts but not finished, the " +
+    "thread cannot be restored (a conflict). The member counters need " +
     "no change, because a deleted thread no longer counts; the author's reaction score gives " +
     "back the reactions the removed posts held.",
   kind: "write",
@@ -533,7 +537,10 @@ export const threadsBatchUpdate = defineContract({
     "the same rules (a transfer pending, a thread that cannot be featured). The answer lists " +
     "every thread in the order given: `changed` says whether it differed, `error` says why a " +
     "thread was refused. A refused thread changes nothing; the others are applied, all in one " +
-    "transaction. Each thread is logged in the moderator log as the single action is, with the " +
+    "transaction. Delete, restore and move cost in proportion to a thread's posts: once the " +
+    "posts (`replyCount + 1`) of the threads taken so far add up to 250,000, a further thread is " +
+    "refused with a conflict (`try again in a smaller batch`); the first thread is always taken. " +
+    "Each thread is logged in the moderator log as the single action is, with the " +
     "shared reason, and its author is notified as for the single action unless `notify` is " +
     "false. A thread listed twice is a validation error.",
   kind: "write",

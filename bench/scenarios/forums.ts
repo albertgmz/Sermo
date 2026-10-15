@@ -357,6 +357,35 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    // The expensive actions of a batch: 25 typical threads deleted or restored in one request,
+    // following the first one's state; they end visible.
+    name: "threads.batchUpdate 25 delete/restore",
+    kind: "write",
+    setup: prepare,
+    async teardown(env) {
+      // Restored through the operation, so the forum's counters come back too.
+      const batch = typical.slice(40, 65);
+      const state = env.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(batch[0]!)!.state;
+      if (state === "deleted")
+        await env.call("threads.batchUpdate", env.actors.moderator(0), {
+          threadIds: batch,
+          update: { action: "restore" },
+        });
+    },
+    run(env) {
+      const batch = typical.slice(40, 65);
+      const state = env.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(batch[0]!)!.state;
+      return env.call("threads.batchUpdate", env.actors.moderator(0), {
+        threadIds: batch,
+        update: { action: state === "visible" ? "delete" : "restore" },
+      });
+    },
+  },
+  {
     name: "threads.delete/restore huge",
     kind: "write",
     setup: prepare,
