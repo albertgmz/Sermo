@@ -5,7 +5,7 @@ import { type Ctx, prepared } from "../../context";
 import { SiteSettings, settingsGet, settingsUpdate } from "../../contracts/settings";
 import { writeTx } from "../../db/tx";
 import { implement } from "../../operation";
-import { requirePermission } from "../../permissions";
+import { currentActor, requirePermission } from "../../permissions";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
 
@@ -114,6 +114,7 @@ export function updateSiteSettings(
   requirePermission(ctx, actor, "admin.settings");
   const user = requireAuthenticated(actor);
   return writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "admin.settings");
     const rows = quotaRows(ctx);
     const current = readSiteSettings(ctx);
     for (const [key, purpose] of SITE_PICTURES) {

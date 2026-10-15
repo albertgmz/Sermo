@@ -198,3 +198,77 @@ test("posts and search results never expose the temporary positions of a merge i
   for (const [id, position] of seen)
     expect(finalPositions.find((p) => p.id === id)!.position).toBe(position);
 });
+
+test("posts.list pages through every post of the target exactly once at every step of a merge", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, {});
+  invalidate(ctx, "node_tree");
+  const author = insertUser(ctx);
+  const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+  registerModerationJobs(ctx);
+  const target = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Target",
+    body: "Body",
+  });
+  const source = await execute(ctx, threadsCreateOp, userActor(author), {
+    nodeId: node.id,
+    title: "Source",
+    body: "Body",
+  });
+  const start = ctx.now() + 1000;
+  // Interleaved in time, so that renumbering mixes the two streams.
+  addPosts(ctx, target.thread.id, author.id, 100, start);
+  addPosts(ctx, source.thread.id, author.id, 600, start + 5);
+  await execute(ctx, threadsMergeOp, moderator, {
+    threadId: target.thread.id,
+    sourceThreadIds: [source.thread.id],
+  });
+
+  const phases = new Set<string>();
+  const check = async () => {
+    const ids = [];
+    let cursor: string | undefined;
+    do {
+      const page = await execute(ctx, postsListOp, moderator, {
+        threadId: target.thread.id,
+        limit: 37,
+        cursor,
+      });
+      ids.push(...page.items.map((post) => post.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    const stored = ctx.sqlite
+      .prepare<{ id: number }, [number]>("SELECT id FROM posts WHERE thread_id = ?1")
+      .all(target.thread.id)
+      .map((post) => post.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect([...ids].sort((a, b) => a - b)).toEqual(stored.sort((a, b) => a - b));
+  };
+  for (let i = 0; i < 80; i++) {
+    const job = nextJob(ctx);
+    if (!job) break;
+    if (job.type === "forums.mergeFinalize") {
+      const phase = (JSON.parse(job.payload).phase ?? "streams") as string;
+      const negative = ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT COUNT(*) AS n FROM posts WHERE thread_id = ?1 AND position < 0",
+        )
+        .get(target.thread.id)!.n;
+      phases.add(negative > 0 ? `${phase} with renumbered posts` : phase);
+    }
+    await check();
+    await runDueJobs(ctx, { limit: 1 });
+  }
+  expect(nextJob(ctx)).toBeNull();
+  expect([...phases]).toEqual(
+    expect.arrayContaining(["streams with renumbered posts", "flip", "reads"]),
+  );
+  await check();
+  const final = await execute(ctx, postsListOp, moderator, {
+    threadId: target.thread.id,
+    page: 8,
+    limit: 100,
+  });
+  expect(final.items.map((post) => post.position)).toEqual([700, 701]);
+});

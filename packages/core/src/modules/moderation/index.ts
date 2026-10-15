@@ -354,7 +354,9 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
   requirePermission(ctx, actor, "report.create");
   visibleTarget(ctx, actor, target);
   return writeTx(ctx, () => {
-    const visible = visibleTarget(ctx, actor, target);
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "report.create");
+    const visible = visibleTarget(ctx, current, target);
     const now = ctx.now();
     exec(
       ctx,
@@ -604,7 +606,12 @@ export function setReportState(
       groupId,
     );
     if (!group) throw new NotFoundError();
-    requireContentModerator(ctx, actor, { type: group.target_type, id: group.target_id }, "report");
+    requireContentModerator(
+      ctx,
+      currentActor(ctx, actor),
+      { type: group.target_type, id: group.target_id },
+      "report",
+    );
     if (state === "assigned" && assigneeId != null) {
       const assignedActor = principalMember(ctx, assigneeId);
       requireContentModerator(
@@ -1011,7 +1018,7 @@ export function moderateContent(
     const row = targetRow(ctx, target);
     requireContentModerator(
       ctx,
-      actor,
+      currentActor(ctx, actor),
       target,
       state === "deleted" ? "delete" : row.state === "deleted" ? "restore" : "approve",
       row,
@@ -1061,10 +1068,11 @@ export function bulkModerate(
   )
     throw new ValidationError("This action requires threads.");
   return writeTx(ctx, () => {
+    const moderator = currentActor(ctx, actor);
     if (action === "move") {
       if (
         nodeId == null ||
-        !can(ctx, actor, "forum.move", { nodeId }) ||
+        !can(ctx, moderator, "forum.move", { nodeId }) ||
         !read(ctx, "forumNode", "SELECT id FROM nodes WHERE id = ?1 AND type = 'forum'", nodeId)
       )
         throw new NotFoundError();
@@ -1079,7 +1087,7 @@ export function bulkModerate(
           : action === "unlock"
             ? "lock"
             : action;
-      const row = requireContentModerator(ctx, actor, target, permissionAction, current);
+      const row = requireContentModerator(ctx, moderator, target, permissionAction, current);
       if (action === "move") {
         assertThreadTransferIdle(ctx, row.id);
         if (row.node_id === nodeId) {
@@ -1289,6 +1297,7 @@ export function upsertWordFilter(ctx: Ctx, actor: Actor, filter: Filter) {
   if (filter.action === "replace" && filter.replacement == null)
     throw new ValidationError("A replacement is required.");
   return writeTx(ctx, () => {
+    requireGlobal(ctx, currentActor(ctx, actor), "wordFilter.manage");
     const now = ctx.now();
     exec(
       ctx,
@@ -1314,6 +1323,7 @@ export function upsertWordFilter(ctx: Ctx, actor: Actor, filter: Filter) {
 export function removeWordFilter(ctx: Ctx, actor: Actor, id: number) {
   requireGlobal(ctx, actor, "wordFilter.manage");
   return writeTx(ctx, () => {
+    requireGlobal(ctx, currentActor(ctx, actor), "wordFilter.manage");
     const row = read<{ id: number }>(
       ctx,
       "filterById",

@@ -7,7 +7,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { type Criterion, criterionDefinitions, criterionIds } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
@@ -97,6 +97,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.awards");
     validate(input.criteria);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const id = Number(
         run(
           ctx,
@@ -121,6 +122,7 @@ export const operations = [
     requirePermission(ctx, actor, "admin.awards");
     if (input.criteria) validate(input.criteria);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
       if (input.isStackable === false && one(ctx, "stacked", awardSql.stacked, award.id))
         throw new ConflictError("A member holds this award more than once.");
@@ -146,6 +148,7 @@ export const operations = [
   implement(contracts.awardsDelete, (ctx, actor, input) => {
     requirePermission(ctx, actor, "admin.awards");
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
       if (one(ctx, "everGranted", awardSql.everGranted, input.awardId))
         throw new ConflictError("An award that was granted can only be deactivated.");
@@ -156,17 +159,23 @@ export const operations = [
   }),
   implement(contracts.awardsRun, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.awards");
-    return {
-      queued: enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }) !== null,
-    };
+    return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
+      return {
+        queued:
+          enqueueJob(ctx, "awards.sweep", { after: 0 }, { uniqueKey: "awards.sweep" }) !== null,
+      };
+    });
   }),
   implement(contracts.awardsGrant, (ctx, actor, input) => {
     requirePermission(ctx, actor, "award.grant");
     const granter = requireAuthenticated(actor);
     return writeTx(ctx, () => {
+      const current = currentActor(ctx, actor);
+      requirePermission(ctx, current, "award.grant");
       const award = awardRow(ctx, input.awardId);
       // Only award administrators may learn that an inactive award exists.
-      if (!award.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
+      if (!award.is_active && !can(ctx, current, "admin.awards")) throw new NotFoundError();
       memberXp(ctx, input.userId);
       requireNotErased(ctx, input.userId);
       const grant = grantAward(ctx, award, input.userId, granter.userId, input.reason)!;
@@ -177,6 +186,7 @@ export const operations = [
     requirePermission(ctx, actor, "award.grant");
     const revoker = requireAuthenticated(actor);
     return writeTx(ctx, () => {
+      requirePermission(ctx, currentActor(ctx, actor), "award.grant");
       revokeAward(ctx, input.memberAwardId, revoker.userId, input.reason);
       return { ok: true };
     });

@@ -18,6 +18,7 @@ import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
   can,
+  currentActor,
   currentVersions,
   getNodeTree,
   PERMISSIONS,
@@ -132,6 +133,20 @@ const threadDetailColumns = threadColumns
 /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
 const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
+/**
+ * While a merge renumbers its target the stored column no longer pages. A post's slot is its
+ * decoded position; while the streams are merged it is the order they stand in: the first post,
+ * the renumbered posts by their new position, then the ones still to renumber in the order they
+ * were moved in.
+ */
+const mergingSlot = (streams: boolean) =>
+  streams
+    ? `ROW_NUMBER() OVER (ORDER BY CASE WHEN position = 0 THEN 0 WHEN position < 0 THEN 1 ELSE 2 END, ${storedPosition("position")}) - 1`
+    : storedPosition("position");
+const mergingPostsSql = (streams: boolean) =>
+  `(SELECT id, ${mergingSlot(streams)} AS slot FROM posts WHERE thread_id = ?1) s JOIN posts p ON p.id = s.id`;
+const postVisible =
+  "(p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1))";
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
@@ -142,6 +157,10 @@ export const forumSql = {
   threadPage: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   threadPageByPrefix: `SELECT ${threadColumns} FROM threads WHERE node_id = ?1 AND is_sticky = 0 AND prefix_id = ?8 AND merged_into_id IS NULL AND (state = 'visible' OR (state = 'moderated' AND (?2 = 1 OR user_id = ?7)) OR (state = 'deleted' AND ?3 = 1)) AND (sort_at, id) < (?4, ?5) ORDER BY sort_at DESC, id DESC LIMIT ?6`,
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
+  mergingPostPage: (streams: boolean) =>
+    `SELECT ${postColumns}, b.body_html FROM ${mergingPostsSql(streams)} JOIN post_bodies b ON b.post_id = p.id WHERE s.slot BETWEEN ?2 AND ?3 AND ${postVisible} ORDER BY s.slot`,
+  mergingPostBeyond: (streams: boolean) =>
+    `SELECT p.id FROM ${mergingPostsSql(streams)} WHERE s.slot > ?3 AND ${postVisible} LIMIT 1`,
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
@@ -187,6 +206,42 @@ function threadRow(ctx: Ctx, id: number, viewerId = 0): ThreadRow | undefined {
       ctx.now(),
     ) ?? undefined
   );
+}
+/** Inside a write transaction: the forum a thread is in as committed now. */
+function committedNodeId(ctx: Ctx, threadId: number): number {
+  const row = threadRow(ctx, threadId);
+  if (!row) throw new NotFoundError();
+  return row.node_id;
+}
+/** Inside a write transaction: the split permission, as the moderator holds it now, on the source and the new forum. */
+function requireCurrentSplitter(ctx: Ctx, actor: Actor, sourceId: number, nodeId: number): void {
+  const moderator = currentActor(ctx, actor);
+  requirePermission(ctx, moderator, "forum.split", { nodeId: committedNodeId(ctx, sourceId) });
+  requirePermission(ctx, moderator, "node.view", { nodeId }, { notFound: true });
+  requirePermission(ctx, moderator, "forum.split", { nodeId });
+}
+/** Inside a write transaction: the merge permission, as the moderator holds it now, on every thread's forum. */
+function requireCurrentMerger(ctx: Ctx, actor: Actor, threadIds: number[]): void {
+  const moderator = currentActor(ctx, actor);
+  for (const id of threadIds) {
+    const nodeId = committedNodeId(ctx, id);
+    requirePermission(ctx, moderator, "node.view", { nodeId }, { notFound: true });
+    requirePermission(ctx, moderator, "forum.merge", { nodeId });
+  }
+}
+/**
+ * Inside a write transaction: restoring needs the permission that matches the state the content
+ * is in now, or either one for visible content. The request's actor was resolved before the
+ * transaction opened.
+ */
+function requireRestorer(ctx: Ctx, actor: Actor, state: State, nodeId: number): void {
+  if (state === "moderated") requirePermission(ctx, actor, "forum.approve", { nodeId });
+  else if (state === "deleted") requirePermission(ctx, actor, "forum.undelete", { nodeId });
+  else if (
+    !can(ctx, actor, "forum.undelete", { nodeId }) &&
+    !can(ctx, actor, "forum.approve", { nodeId })
+  )
+    throw new ForbiddenError();
 }
 /**
  * Why the forum's own posting rules (read-only, minimum account age, minimum post count) stop
@@ -970,6 +1025,40 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   };
 });
 
+/** One snapshot of a page of the target of a merge in progress, and whether posts follow it. */
+function mergingPostPage(
+  ctx: Ctx,
+  threadId: number,
+  start: number,
+  end: number,
+  [viewModerated, viewDeleted, viewer]: [number, number, number],
+) {
+  return ctx.db.transaction(
+    () => {
+      const finalize = statement<{ payload: string }, [string]>(
+        ctx,
+        "mergeFinalizeState",
+        "SELECT payload FROM jobs WHERE unique_key = ?1",
+      ).get(finalizeJobKey(threadId));
+      // Until the finalize job has left the streams step, posts renumbered so far stand apart.
+      const streams =
+        !!finalize && (JSON.parse(finalize.payload) as { phase?: string }).phase === undefined;
+      return {
+        rows: statement<PostRow, [number, number, number, number, number, number]>(
+          ctx,
+          `mergingPostPage.${streams}`,
+          forumSql.mergingPostPage(streams),
+        ).all(threadId, start, end, viewModerated, viewDeleted, viewer),
+        beyond: statement<{ id: number }, [number, number, number, number, number, number]>(
+          ctx,
+          `mergingPostBeyond.${streams}`,
+          forumSql.mergingPostBeyond(streams),
+        ).get(threadId, start, end, viewModerated, viewDeleted, viewer),
+      };
+    },
+    { behavior: "deferred" },
+  );
+}
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
   const { row } = requireThread(ctx, actor, input.threadId);
   const permissions = permissionsOf(ctx, actor);
@@ -978,16 +1067,22 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
   const cursor = input.cursor ? decodeCursor(input.cursor, postCursor) : null;
   const start = cursor?.[0] ?? ((input.page ?? 1) - 1) * input.limit;
   const end = start + input.limit - 1;
-  const rows = statement<PostRow, [number, number, number, number, number, number]>(
-    ctx,
-    "postPage",
-    forumSql.postPage,
-  ).all(input.threadId, start, end, viewModerated, viewDeleted, actorUserId(actor) ?? -1);
-  const beyond = statement<{ id: number }, [number, number, number, number, number]>(
-    ctx,
-    "postBeyond",
-    forumSql.postBeyond,
-  ).get(input.threadId, end, viewModerated, viewDeleted, actorUserId(actor) ?? -1);
+  const viewer = actorUserId(actor) ?? -1;
+  const { rows, beyond } =
+    row.transfer_role === "merge_target"
+      ? mergingPostPage(ctx, input.threadId, start, end, [viewModerated, viewDeleted, viewer])
+      : {
+          rows: statement<PostRow, [number, number, number, number, number, number]>(
+            ctx,
+            "postPage",
+            forumSql.postPage,
+          ).all(input.threadId, start, end, viewModerated, viewDeleted, viewer),
+          beyond: statement<{ id: number }, [number, number, number, number, number]>(
+            ctx,
+            "postBeyond",
+            forumSql.postBeyond,
+          ).get(input.threadId, end, viewModerated, viewDeleted, viewer),
+        };
   return {
     items: postValues(ctx, actor, rows, row.is_locked, row.node_id, row.first_post_id),
     nextCursor: beyond ? encodeCursor([end + 1]) : null,
@@ -1397,6 +1492,9 @@ export const threadsSetStickyOp = implement(contracts.threadsSetSticky, (ctx, ac
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.stick", { nodeId: row.node_id });
   writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "forum.stick", {
+      nodeId: committedNodeId(ctx, row.id),
+    });
     forumDb(ctx)
       .prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2")
       .run(Number(input.isSticky), row.id);
@@ -1426,6 +1524,9 @@ export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, ac
   const { row } = requireThread(ctx, actor, input.threadId);
   requirePermission(ctx, actor, "forum.lock", { nodeId: row.node_id });
   writeTx(ctx, () => {
+    requirePermission(ctx, currentActor(ctx, actor), "forum.lock", {
+      nodeId: committedNodeId(ctx, row.id),
+    });
     forumDb(ctx)
       .prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2")
       .run(Number(input.isLocked), row.id);
@@ -1462,6 +1563,10 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
     const current = threadRow(ctx, row.id)!;
+    const moderator = currentActor(ctx, actor);
+    requirePermission(ctx, moderator, "forum.move", { nodeId: current.node_id });
+    requirePermission(ctx, moderator, "node.view", { nodeId: input.nodeId }, { notFound: true });
+    requirePermission(ctx, moderator, "forum.move", { nodeId: input.nodeId });
     if (current.node_id === input.nodeId) {
       appendModeratorLog(
         ctx,
@@ -1534,6 +1639,9 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   requirePermission(ctx, actor, "forum.deleteAny", { nodeId: row.node_id });
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
+    requirePermission(ctx, currentActor(ctx, actor), "forum.deleteAny", {
+      nodeId: committedNodeId(ctx, row.id),
+    });
     if (changeThreadState(ctx, row.id, "deleted"))
       publishEvent(ctx, {
         type: "content.deleted",
@@ -1562,17 +1670,12 @@ export const threadsRestoreOp = implement(contracts.threadsRestore, (ctx, actor,
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
-  if (row.state === "moderated")
-    requirePermission(ctx, actor, "forum.approve", { nodeId: row.node_id });
-  else if (row.state === "deleted")
-    requirePermission(ctx, actor, "forum.undelete", { nodeId: row.node_id });
-  else if (
-    !can(ctx, actor, "forum.undelete", { nodeId: row.node_id }) &&
-    !can(ctx, actor, "forum.approve", { nodeId: row.node_id })
-  )
-    throw new ForbiddenError();
+  requireRestorer(ctx, actor, row.state, row.node_id);
   writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
+    const current = threadRow(ctx, row.id);
+    if (!current) throw new NotFoundError();
+    requireRestorer(ctx, currentActor(ctx, actor), current.state, current.node_id);
     if (changeThreadState(ctx, row.id, "visible"))
       publishEvent(ctx, {
         type: "content.state_changed",
@@ -1634,6 +1737,10 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
   if (post.id === thread.row.first_post_id) throw new ValidationError("Delete the thread instead.");
   if (post.state === "deleted") throw new ValidationError("The post is already deleted.");
   writeTx(ctx, () => {
+    const moderator = currentActor(ctx, actor);
+    const current = threadRow(ctx, thread.row.id)!;
+    if (!mayDelete(permissionsOf(ctx, moderator), current.node_id, post.user_id, current.is_locked))
+      throw new ForbiddenError();
     if (changePostState(ctx, post.id, "deleted"))
       publishEvent(ctx, {
         type: "content.deleted",
@@ -1645,7 +1752,7 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
           ...moderationPayload(actor, post.user_id, input),
         },
       });
-    if (can(ctx, actor, "forum.deleteAny", { nodeId: thread.row.node_id }))
+    if (can(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id }))
       appendModeratorLog(
         ctx,
         actor,
@@ -1663,14 +1770,16 @@ export const postsRestoreOp = implement(contracts.postsRestore, (ctx, actor, inp
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
   const nodeId = thread.row.node_id;
-  if (post.state === "moderated") requirePermission(ctx, actor, "forum.approve", { nodeId });
-  else if (post.state === "deleted") requirePermission(ctx, actor, "forum.undelete", { nodeId });
-  else if (
-    !can(ctx, actor, "forum.undelete", { nodeId }) &&
-    !can(ctx, actor, "forum.approve", { nodeId })
-  )
-    throw new ForbiddenError();
+  requireRestorer(ctx, actor, post.state, nodeId);
   writeTx(ctx, () => {
+    const current = postRow(ctx, post.id);
+    if (!current) throw new NotFoundError();
+    requireRestorer(
+      ctx,
+      currentActor(ctx, actor),
+      current.state,
+      committedNodeId(ctx, current.thread_id),
+    );
     if (changePostState(ctx, post.id, "visible"))
       publishEvent(ctx, {
         type: "content.state_changed",
@@ -2347,6 +2456,7 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
         : job.selectedIds === undefined && job.fromPosition === input.fromPosition)
     ) {
       writeTx(ctx, () => {
+        requireCurrentSplitter(ctx, actor, source.id, input.nodeId);
         forumDb(ctx)
           .prepare("UPDATE thread_transfers SET failed_at = NULL WHERE job_key = ?1")
           .run(`forums.split.${target.id}`);
@@ -2363,6 +2473,7 @@ export const threadsSplitOp = implement(contracts.threadsSplit, (ctx, actor, inp
     const current = threadRow(ctx, source.id)!;
     if (current.state !== source.state || current.node_id !== source.node_id)
       throw new ConflictError("Thread changed; retry.");
+    requireCurrentSplitter(ctx, actor, source.id, input.nodeId);
     const throughPosition =
       statement<{ position: number }, [number]>(
         ctx,
@@ -2497,6 +2608,7 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
     for (const id of retrySources)
       requirePermission(ctx, actor, "forum.merge", { nodeId: threadRow(ctx, id)!.node_id });
     writeTx(ctx, () => {
+      requireCurrentMerger(ctx, actor, [target.id, ...retrySources]);
       forumDb(ctx)
         .prepare("UPDATE thread_transfers SET failed_at = NULL WHERE job_key = ?1")
         .run(jobKey);
@@ -2519,6 +2631,7 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
       currentTarget.merged_into_id != null
     )
       throw new ConflictError("Target thread changed; retry.");
+    requireCurrentMerger(ctx, actor, [target.id, ...input.sourceThreadIds]);
     let base =
       (statement<{ position: number }, [number]>(
         ctx,
