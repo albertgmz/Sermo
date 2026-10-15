@@ -31,7 +31,8 @@ test("the buttons that send them do not draw the page again either", () => {
     "components/forum/reaction-summary-live.tsx",
   ]) {
     const code = source(file);
-    expect(code, file).not.toMatch(/router\.refresh|\brefresh\(|useRouter/);
+    // They may go to the sign-in page (`router.push`) but never draw the page again.
+    expect(code, file).not.toMatch(/router\.refresh|\brefresh\(/);
     // What is shown comes from the store of changes, not from state that a row losing its place
     // in a long list would lose.
     expect(code, file).not.toContain("useOptimistic");
@@ -86,4 +87,26 @@ test("the follow button of the feed's suggestions is the in-place one", () => {
   expect(code).toContain("<MemberFollowButton");
   expect(code).not.toMatch(/<FollowButton\b/);
   expect(code).not.toContain("wall-buttons");
+});
+
+test("what drawing an added post needs is read on the server, never taken from the browser", () => {
+  for (const file of [
+    "app/[locale]/(main)/threads/poll-posts.ts",
+    "app/[locale]/(main)/threads/reply-in-place.ts",
+  ]) {
+    expect(source(file), file).not.toMatch(/context|PostRowContext/);
+  }
+  expect(source("app/[locale]/(main)/threads/[id]/post-item.tsx")).toContain(
+    "countView: false",
+  );
+});
+
+test("the tab drops what it remembers when the page is drawn for another visitor", () => {
+  expect(source("app/[locale]/(main)/layout.tsx")).toContain("<ViewerScope");
+  const scope = source("components/layout/viewer-scope.tsx");
+  expect(scope).toContain("enterViewer(");
+  expect(scope).toContain("announceViewerChange()");
+  // Both stores answer to it.
+  expect(source("lib/item-state.ts")).toContain("registerStore(");
+  expect(source("lib/tail.ts")).toContain("registerStore(");
 });

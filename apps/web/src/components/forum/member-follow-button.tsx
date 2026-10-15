@@ -1,6 +1,7 @@
 "use client";
 
 import { UserCheck, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { FormError } from "@/components/forum/form-error";
@@ -12,31 +13,34 @@ import { cn } from "@/lib/utils";
 // Follows or unfollows from where a member is drawn, without leaving the page. `action` is asked
 // for the opposite of what is shown, which shows at once (on every button of that member) and is
 // put back when the backend refuses; the refusal is shown under the button.
-export function MemberFollowButton({
-  userId,
-  username,
-  following: drawn,
-  action,
-  className,
-  labelClassName,
-  errorClassName,
-}: {
+export function MemberFollowButton(props: {
   userId: number;
   username: string;
   following: boolean;
-  action: (follow: boolean) => Promise<{ error?: string }>;
+  action: (follow: boolean) => Promise<{ error?: string; signIn?: string }>;
   className?: string;
   // How the visible text is hidden where only the icon fits.
   labelClassName?: string;
   // Where a refusal is drawn.
   errorClassName?: string;
 }) {
+  const {
+    userId,
+    username,
+    following: drawn,
+    action,
+    className,
+    labelClassName,
+    errorClassName,
+  } = props;
   const t = useTranslations("members.wallButtons");
+  const tFailed = useTranslations("lib.errors");
+  const router = useRouter();
   const reloadCard = useMemberCardReload();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | undefined>();
   const stateKey = `follow:${userId}`;
-  const following = useItemState(stateKey, drawn);
+  const following = useItemState(stateKey, drawn, props);
   return (
     <>
       <Button
@@ -51,9 +55,17 @@ export function MemberFollowButton({
         className={cn("aria-disabled:opacity-50", className)}
         onClick={() =>
           start(async () => {
-            const refused = await changeItem(stateKey, drawn, !following, () =>
-              action(!following),
+            const { error: refused, signIn } = await changeItem(
+              stateKey,
+              drawn,
+              !following,
+              () => action(!following),
+              tFailed("generic"),
             );
+            if (signIn) {
+              router.push(signIn);
+              return;
+            }
             setError(refused);
             // Inside a member card the page's refresh does not reach the card: read it again.
             if (!refused) reloadCard();

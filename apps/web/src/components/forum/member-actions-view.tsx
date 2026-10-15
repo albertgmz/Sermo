@@ -14,7 +14,7 @@ export type MemberActionsForm = "compact" | "labelled" | "responsive";
 export type FollowAction = (
   userId: number,
   follow: boolean,
-) => Promise<{ error?: string }>;
+) => Promise<{ error?: string; signIn?: string }>;
 
 const BUTTON: Record<MemberActionsForm, string> = {
   compact: "size-10 px-0",

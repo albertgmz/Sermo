@@ -354,9 +354,9 @@ test("new entries are put in front of the pages held, which stay", () => {
     pages: [page(["c", "d"], "c1"), page(["e"], null)],
     pageParams: [null, "c1"],
   };
-  const next = prependFresh(held, page(["a", "b"], "c0"), null);
+  const next = prependFresh(held, page(["a", "b", "c"], "c0"), null);
   expect(next.pages.map((p) => p.rows.map((r) => r.key))).toEqual([
-    ["a", "b"],
+    ["a", "b", "c"],
     ["c", "d"],
     ["e"],
   ]);
@@ -370,6 +370,26 @@ test("new entries are put in front of the pages held, which stay", () => {
     "d",
     "e",
   ]);
+});
+
+test("more new entries than a page holds begin the list again from the newest page, losing none", () => {
+  const held = {
+    pages: [page(["c", "d"], "c1"), page(["e"], null)],
+    pageParams: [null, "c1"],
+  };
+  // Fifteen new entries fill the page and the row the list began with is further down.
+  const keys = Array.from({ length: 15 }, (_, i) => `n${i}`);
+  const next = prependFresh(held, page(keys, "c9"), null);
+  expect(next.pages).toHaveLength(1);
+  expect(next.pageParams).toEqual([null]);
+  expect(next.pages[0].nextCursor).toBe("c9");
+  expect(flattenRows(next.pages).map((r) => r.key)).toEqual(keys);
+});
+
+test("a short feed that is all new is put in front as it is", () => {
+  const held = { pages: [page(["c"], null)], pageParams: [null] };
+  const next = prependFresh(held, page(["a", "b"], null), null);
+  expect(flattenRows(next.pages).map((r) => r.key)).toEqual(["a", "b", "c"]);
 });
 
 test("a thread that moved to the top is shown once, where the newer page has it", () => {

@@ -77,15 +77,23 @@ export function mergeRefreshed(
   };
 }
 
-// The list with the page of the newest entries put in front of what it holds. The page overlaps
-// the first one held when little is new: a row that is on both is shown once, where the newer
-// page has it (`flattenRows` keeps the first), which is how a thread that moved to the top is not
-// shown twice. The pages the visitor loaded stay.
+// The list with the page of the newest entries put in front of what it holds. When little is
+// new the page reaches the row the list began with: a row that is on both is shown once, where
+// the newer page has it (`flattenRows` keeps the first), which is how a thread that moved to the
+// top is not shown twice, and the pages the visitor loaded stay. When more is new than one page
+// holds, the page does not reach it and some of the new entries would be missing between the two:
+// the list then begins again from the newest page (the sentinel goes on from there).
 export function prependFresh(
   held: InfiniteData<ListPage, unknown>,
   fresh: ListPage,
   start: string | null,
 ): InfiniteData<ListPage, unknown> {
+  const top = held.pages[0]?.rows[0]?.key;
+  const reaches =
+    top !== undefined && fresh.rows.some((row) => row.key === top);
+  if (top !== undefined && !reaches && fresh.nextCursor !== null) {
+    return { pages: [fresh], pageParams: [start] };
+  }
   return {
     pages: [fresh, ...held.pages],
     pageParams: [start, ...held.pageParams],

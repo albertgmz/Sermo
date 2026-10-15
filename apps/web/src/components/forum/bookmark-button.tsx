@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark, BookmarkCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { setBookmark } from "@/app/[locale]/(main)/actions";
@@ -13,13 +14,7 @@ import { cn } from "@/lib/utils";
 // for the opposite of what is shown, which shows at once and is put back when the backend refuses
 // (the refusal is shown under the button). The label carries the state (no `aria-pressed`: a
 // reader would say "Remove bookmark, pressed").
-export function BookmarkButton({
-  contentType,
-  contentId,
-  bookmarked,
-  className,
-  labelClassName,
-}: {
+export function BookmarkButton(props: {
   contentType: "thread" | "post" | "conversation";
   contentId: number;
   bookmarked: boolean;
@@ -28,10 +23,14 @@ export function BookmarkButton({
   // width of a touch target.
   labelClassName?: string;
 }) {
+  const { contentType, contentId, bookmarked, className, labelClassName } =
+    props;
   const t = useTranslations("ui.bookmark");
+  const tFailed = useTranslations("lib.errors");
+  const router = useRouter();
   const [pending, start] = useTransition();
   const stateKey = `bookmark:${contentType}:${contentId}`;
-  const shown = useItemState(stateKey, bookmarked);
+  const shown = useItemState(stateKey, bookmarked, props);
   const [error, setError] = useState<string | undefined>();
   const label = t(shown ? "remove" : "add");
   return (
@@ -49,11 +48,15 @@ export function BookmarkButton({
         )}
         onClick={() =>
           start(async () => {
-            setError(
-              await changeItem(stateKey, bookmarked, !shown, () =>
-                setBookmark(contentType, contentId, !shown),
-              ),
+            const { error: refused, signIn } = await changeItem(
+              stateKey,
+              bookmarked,
+              !shown,
+              () => setBookmark(contentType, contentId, !shown),
+              tFailed("generic"),
             );
+            if (signIn) router.push(signIn);
+            else setError(refused);
           })
         }
       >

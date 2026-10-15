@@ -22,6 +22,14 @@ export function createKeyedStore<T>() {
       else values.set(key, value);
       for (const listener of [...listeners]) listener();
     },
+    // Empties the store without telling the components (it may happen while one is rendering);
+    // `announce` tells them.
+    reset() {
+      values.clear();
+    },
+    announce() {
+      for (const listener of [...listeners]) listener();
+    },
     clear() {
       values.clear();
       for (const listener of [...listeners]) listener();

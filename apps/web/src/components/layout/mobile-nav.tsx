@@ -12,18 +12,16 @@ import {
 } from "@/components/layout/nav";
 import { useCounter } from "@/lib/counters";
 
-export function MobileNav({
-  items,
-  unread,
-}: {
+export function MobileNav(props: {
   items: LinkItem[];
   unread: Pick<Counters, "conversations" | "notifications">;
 }) {
+  const { items, unread } = props;
   const t = useTranslations("layout.mobileNav");
   const pathname = usePathname();
   const counts: Record<string, number> = {
-    "mobile.messages": useCounter("conversations", unread.conversations),
-    "mobile.alerts": useCounter("notifications", unread.notifications),
+    "mobile.messages": useCounter("conversations", unread.conversations, props),
+    "mobile.alerts": useCounter("notifications", unread.notifications, props),
   };
 
   return (

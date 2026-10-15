@@ -32,17 +32,7 @@ function PanelSkeleton({ label }: { label: string }) {
 // is a server action that returns the rendered rows. The rows of the last opening stay up while
 // a new one is fetched, and when the unread count changes under an open panel they are fetched
 // again.
-export function LoadedPanel({
-  label,
-  title,
-  unread: drawn,
-  counter,
-  icon,
-  className,
-  loadingLabel,
-  load,
-  footer,
-}: {
+export function LoadedPanel(props: {
   label: string;
   title: string;
   // The count the page drew, and which count it is: a poll finds newer ones.
@@ -54,8 +44,19 @@ export function LoadedPanel({
   load: () => Promise<React.ReactNode>;
   footer: React.ReactNode;
 }) {
+  const {
+    label,
+    title,
+    unread: drawn,
+    counter,
+    icon,
+    className,
+    loadingLabel,
+    load,
+    footer,
+  } = props;
   const t = useTranslations("layout.headerPanels");
-  const unread = useCounter(counter, drawn);
+  const unread = useCounter(counter, drawn, props);
   const [rows, setRows] = useState<React.ReactNode>();
   const [failed, setFailed] = useState(false);
   const [, startTransition] = useTransition();

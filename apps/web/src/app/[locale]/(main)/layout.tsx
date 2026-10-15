@@ -20,6 +20,7 @@ import {
   StaffBar,
   staffLinks,
 } from "@/components/layout/staff-bar";
+import { ViewerScope } from "@/components/layout/viewer-scope";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getNavigation } from "@/lib/sermo/navigation";
 import { getViewer } from "@/lib/sermo/session";
@@ -31,6 +32,7 @@ async function Chrome() {
   const pending = links.moderation ? pendingBadge(await getCounters()) : null;
   return (
     <>
+      <ViewerScope viewerId={viewer.user?.id ?? null} />
       <ViewerAccent accent={accent} />
       {viewer.user && (links.admin || links.moderation) && (
         <StaffBar

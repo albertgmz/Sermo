@@ -22,10 +22,54 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
-const context = {
-  threadAuthorId: 3,
-  may: {} as never,
-  canQuote: true,
+const user = { id: 3, username: "ember" };
+const threadBody = {
+  thread: {
+    id: 7,
+    nodeId: 2,
+    node: { id: 2, title: "Garden" },
+    title: "Tomatoes",
+    prefix: null,
+    excerpt: "",
+    cover: null,
+    highlightedUntil: null,
+    bumpedAt: null,
+    author: user,
+    state: "visible",
+    isSticky: false,
+    isLocked: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    replyCount: 1,
+    viewCount: 1,
+    firstPostId: 1,
+    lastPost: {
+      postId: 31,
+      position: 25,
+      postedAt: "2026-01-01T00:00:00.000Z",
+      user,
+    },
+    readPosition: null,
+    isUnread: false,
+  },
+  seo: {
+    title: "t",
+    description: "d",
+    canonical: "http://localhost/threads/7",
+    robots: "index,follow",
+    redirect: false,
+    jsonLd: [],
+  },
+  node: { id: 2, title: "Garden" },
+  watching: null,
+  permissions: {
+    canReply: true,
+    canEditTitle: false,
+    canModerate: false,
+    canReport: true,
+    canRemoveCover: false,
+    canWatch: true,
+  },
+  resolvedPermissions: { "forum.undelete": true },
 };
 const held = { id: 31, mark: 25 };
 
@@ -48,6 +92,7 @@ function backend(posts: Response | (() => Response)) {
     if (pathname === "/api/v1/bookmarks/status") {
       return Response.json({ bookmarked: [] });
     }
+    if (pathname === "/api/v1/threads/7") return Response.json(threadBody);
     if (pathname === "/api/v1/threads/7/read") {
       return Response.json({ readPosition: 27 });
     }
@@ -66,7 +111,7 @@ const refusal = (status: number, code: string) =>
 
 test("a poll with nothing new is one backend request, after the held position", async () => {
   const asked = backend(page({}));
-  expect(await pollPosts(7, context, held)).toEqual({ rows: [] });
+  expect(await pollPosts(7, held)).toEqual({ rows: [] });
   expect(asked).toEqual([
     {
       method: "GET",
@@ -85,13 +130,16 @@ test("new replies are drawn as rows ordered by position, and the thread is marke
       ],
     }),
   );
-  const answer = await pollPosts(7, context, held);
+  const answer = await pollPosts(7, held);
   expect(
     "rows" in answer && answer.rows.map((row) => [row.key, row.id, row.mark]),
   ).toEqual([
     ["post-32", 32, 26],
     ["post-33", 33, 27],
   ]);
+  // How the rows are drawn comes from the thread, read here without counting a view.
+  const thread = asked.find((request) => request.path === "/api/v1/threads/7");
+  expect(thread?.search).toContain("countView=false");
   const read = asked.find(
     (request) => request.path === "/api/v1/threads/7/read",
   );
@@ -102,36 +150,36 @@ test("a different post at the held position means the thread is drawn again, and
   backend(
     page({ afterPostId: 40, items: [postBody({ id: 32, position: 26 })] }),
   );
-  expect(await pollPosts(7, context, held)).toEqual({ reload: true });
+  expect(await pollPosts(7, held)).toEqual({ reload: true });
 });
 
 test("no post at the held position (it was removed or hidden) is a reload too", async () => {
   backend(page({ afterPostId: null }));
-  expect(await pollPosts(7, context, held)).toEqual({ reload: true });
+  expect(await pollPosts(7, held)).toEqual({ reload: true });
 });
 
 test("a missing afterPostId is a reload, never taken for a match", async () => {
   backend(Response.json({ items: [], nextCursor: null }));
-  expect(await pollPosts(7, context, held)).toEqual({ reload: true });
+  expect(await pollPosts(7, held)).toEqual({ reload: true });
 });
 
 test("a thread that is gone, or a session that ended, stops polling", async () => {
   backend(refusal(404, "not_found"));
-  expect(await pollPosts(7, context, held)).toEqual({ stop: true });
+  expect(await pollPosts(7, held)).toEqual({ stop: true });
   backend(refusal(401, "unauthenticated"));
-  expect(await pollPosts(7, context, held)).toEqual({ stop: true });
+  expect(await pollPosts(7, held)).toEqual({ stop: true });
 });
 
 test("a rate limit or a failure is raised, so the poll backs off", async () => {
   backend(refusal(429, "rate_limited"));
-  await expect(pollPosts(7, context, held)).rejects.toThrow();
+  await expect(pollPosts(7, held)).rejects.toThrow();
   backend(refusal(500, "internal"));
-  await expect(pollPosts(7, context, held)).rejects.toThrow();
+  await expect(pollPosts(7, held)).rejects.toThrow();
 });
 
 test("an id that cannot be a record never reaches the backend", async () => {
   const asked = backend(page({}));
-  await expect(pollPosts(0, context, held)).rejects.toThrow();
-  await expect(pollPosts(7, context, { id: 0, mark: 1 })).rejects.toThrow();
+  await expect(pollPosts(0, held)).rejects.toThrow();
+  await expect(pollPosts(7, { id: 0, mark: 1 })).rejects.toThrow();
   expect(asked).toHaveLength(0);
 });

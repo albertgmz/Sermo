@@ -13,10 +13,10 @@ import {
 } from "react";
 import { usePolling } from "@/lib/polling";
 import {
-  appendRows,
   EMPTY_TAIL,
   markTailShown,
-  newestHeld,
+  pollFound,
+  pollFrom,
   readTail,
   type TailPoll,
   updateTail,
@@ -67,20 +67,26 @@ export function LiveTail({
   intervalMs: number;
 }) {
   const router = useRouter();
-  const tail = useTail(tailKey) ?? EMPTY_TAIL;
+  const held = useTail(tailKey) ?? EMPTY_TAIL;
+  // A page drawn newer than a row has the row: it is not shown twice while the effect below takes
+  // it out.
+  const tail = {
+    ...held,
+    rows: held.rows.filter((row) => row.mark > drawn.mark),
+  };
   const Row = as ?? Fragment;
   const atEnd = useRef(false);
 
   useEffect(() => markTailShown(tailKey), [tailKey]);
 
   useEffect(() => {
-    updateTail(tailKey, (held) =>
-      held.rows.some((row) => row.mark <= drawn.mark)
+    updateTail(tailKey, (now) =>
+      now.rows.some((row) => row.mark <= drawn.mark)
         ? {
-            ...held,
-            rows: held.rows.filter((row) => row.mark > drawn.mark),
+            ...now,
+            rows: now.rows.filter((row) => row.mark > drawn.mark),
           }
-        : held,
+        : now,
     );
   }, [tailKey, drawn.mark]);
 
@@ -100,13 +106,13 @@ export function LiveTail({
   usePolling(
     async () => {
       const answer = await poll(
-        newestHeld(readTail(tailKey) ?? EMPTY_TAIL, drawn),
+        pollFrom(readTail(tailKey) ?? EMPTY_TAIL, drawn),
       );
       if ("stop" in answer) return "stop";
       // The thread changed under the page (a merge moved posts): draw it again.
       if ("reload" in answer) return router.refresh();
       if (answer.rows.length > 0) {
-        updateTail(tailKey, (held) => appendRows(held, answer.rows));
+        updateTail(tailKey, (now) => pollFound(now, answer.rows));
       }
     },
     { intervalMs },

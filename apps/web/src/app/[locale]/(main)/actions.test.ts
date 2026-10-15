@@ -136,18 +136,15 @@ test("the backend's refusal goes back to the button and refreshes nothing", asyn
   expect(revalidated).toEqual([]);
 });
 
-test("a guest is sent to sign in and back to the page they were on", async () => {
+// The button has shown the change already: a redirect would leave it standing, so the answer says
+// where to sign in and the button puts the change back and goes there.
+test("a visitor who must sign in is told where, and is not redirected", async () => {
   onPage("http://localhost:3105/threads/5?page=2");
   backend(refusal(401, "unauthenticated"));
-  let digest = "";
-  try {
-    await react("post", 9, 2);
-  } catch (error) {
-    digest = String((error as { digest?: unknown }).digest);
-  }
-  expect(digest).toMatch(
-    /^NEXT_REDIRECT;[a-z]+;\/login\?next=%2Fthreads%2F5%3Fpage%3D2;/,
-  );
+  expect(await react("post", 9, 2)).toEqual({
+    error: "unauthenticated",
+    signIn: "/login?next=%2Fthreads%2F5%3Fpage%3D2",
+  });
   expect(refreshed).toBe(0);
   expect(revalidated).toEqual([]);
 });
@@ -310,13 +307,21 @@ test("the backend's refusal of a follow goes back to the button and refreshes no
   expect(refreshed).toBe(0);
 });
 
-test("a guest who follows is sent to sign in and back to the page", async () => {
+test("a visitor who follows and must sign in is told where, and is not redirected", async () => {
   onPage("http://localhost:3105/threads/5?page=2");
   backend(refusal(401, "unauthenticated"));
-  expect((await redirectOf(followFromPage(8, true)))?.[2]).toBe(
-    "/login?next=%2Fthreads%2F5%3Fpage%3D2",
-  );
+  const answer = await followFromPage(8, true);
+  expect(answer.signIn).toBe("/login?next=%2Fthreads%2F5%3Fpage%3D2");
+  expect(await redirectOf(followFromPage(8, true))).toBeUndefined();
   expect(refreshed).toBe(0);
+});
+
+test("a visitor who bookmarks and must sign in is told where, and is not redirected", async () => {
+  onPage("http://localhost:3105/threads/5");
+  backend(refusal(401, "unauthenticated"));
+  const answer = await setBookmark("post", 12, true);
+  expect(answer.signIn).toBe("/login?next=%2Fthreads%2F5");
+  expect(await redirectOf(setBookmark("post", 12, true))).toBeUndefined();
 });
 
 test("a member id that cannot be a record is refused before the backend is asked", async () => {

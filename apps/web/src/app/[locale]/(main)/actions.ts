@@ -30,7 +30,7 @@ import {
 import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
 import { requireIds } from "@/lib/sermo/ids";
-import { attempt } from "@/lib/sermo/outcome";
+import { attempt, attemptInPlace } from "@/lib/sermo/outcome";
 import { pageOfRequest } from "@/lib/sermo/request-page";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { getViewer } from "@/lib/sermo/session";
@@ -108,8 +108,9 @@ const CONTENT = {
 
 export type ReactionTarget = keyof typeof CONTENT;
 
-export type ReactionState = { error?: string };
-export type FollowState = { error?: string };
+// `signIn`: the session has ended; the client puts its change back and goes there.
+export type ReactionState = { error?: string; signIn?: string };
+export type FollowState = { error?: string; signIn?: string };
 
 export async function react(
   target: ReactionTarget,
@@ -121,8 +122,8 @@ export async function react(
   if (typeId !== null) requireIds(typeId);
   const contentType = CONTENT[target];
   const page = await pageOfRequest();
-  // The backend refuses what the viewer may not do; a guest is sent to sign in and back.
-  const done = await attempt(page, () =>
+  // The backend refuses what the viewer may not do; a visitor who must sign in is told where.
+  const done = await attemptInPlace(page, () =>
     typeId === null
       ? call(reactionsRemove, { contentType, contentId: id })
       : call(reactionsSet, {
@@ -133,7 +134,7 @@ export async function react(
   );
   // The page is not drawn again: the button and the summary of the item already show the reaction
   // (`lib/item-state`), and a refusal puts the old one back.
-  if (!done.ok) return { error: done.error };
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
   return {};
 }
 
@@ -175,15 +176,15 @@ export async function followFromPage(
 ): Promise<FollowState> {
   requireIds(userId);
   const page = await pageOfRequest();
-  const done = await attempt(page, async () => {
+  const done = await attemptInPlace(page, async () => {
     if (follow === true) await call(usersFollow, { userId });
     else await call(usersUnfollow, { userId });
   });
-  if (!done.ok) return { error: done.error };
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
   return {};
 }
 
-export type BookmarkState = { error?: string };
+export type BookmarkState = { error?: string; signIn?: string };
 const BOOKMARKABLE = ["thread", "post", "conversation"] as const;
 
 // Bookmarks or un-bookmarks an item from where it is drawn and stays on the page, which is not
@@ -197,10 +198,10 @@ export async function setBookmark(
   if (!BOOKMARKABLE.includes(contentType)) return {};
   requireIds(contentId);
   const page = await pageOfRequest();
-  const done = await attempt(page, () =>
+  const done = await attemptInPlace(page, () =>
     call(bookmarksSet, { contentType, contentId, bookmarked }),
   );
-  if (!done.ok) return { error: done.error };
+  if (!done.ok) return { error: done.error, signIn: done.signIn };
   return {};
 }
 

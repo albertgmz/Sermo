@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
 import { createKeyedStore } from "@/lib/keyed-store";
+import { currentEpoch, registerStore } from "@/lib/session-epoch";
 
 // The end of a conversation or of the last page of a thread, as it grows while the visitor reads:
 // rows drawn on the server that arrived after the page was drawn (found by a poll, or the
 // visitor's own, answered by the server), and the texts the visitor has sent that the server has
-// not answered yet. `mark` is what the next poll asks "after" (a message id, a post position) and
-// `id` is the row's own record.
+// not answered yet. `mark` is what a poll asks "after" (a message id, a post position) and `id` is
+// the row's own record.
+//
+// Where the next poll starts (`polled`) is apart from the rows: it moves only with what a poll
+// returned, never with the visitor's own row. Their answer can sit past rows nobody has fetched
+// (another member wrote in between), and a poll that started after it would skip them.
 export type TailRow = {
   key: string;
   id: number;
@@ -15,9 +20,10 @@ export type TailRow = {
 export type Tail = {
   rows: TailRow[];
   pending: { id: number; text: string }[];
+  polled: { id: number; mark: number } | null;
 };
 
-export const EMPTY_TAIL: Tail = { rows: [], pending: [] };
+export const EMPTY_TAIL: Tail = { rows: [], pending: [], polled: null };
 
 // Rows in the order of their marks, each key once (the first one held wins: a row seen twice, by a
 // poll and by the answer to its author's own send, is the same row).
@@ -50,16 +56,28 @@ export function settlePending(
   return row ? appendRows(rest, [row]) : rest;
 }
 
-// The newest row held, or what the page was drawn with.
-export function newestHeld(
+// What a poll returned joins the tail, and the next poll starts after the newest of it.
+export function pollFound(tail: Tail, rows: TailRow[]): Tail {
+  const last = rows.reduce<TailRow | undefined>(
+    (newest, row) => (!newest || row.mark > newest.mark ? row : newest),
+    undefined,
+  );
+  const joined = appendRows(tail, rows);
+  if (!last || (tail.polled && tail.polled.mark >= last.mark)) return joined;
+  return { ...joined, polled: { id: last.id, mark: last.mark } };
+}
+
+// Where the next poll starts: after the newest row a poll returned, or what the page was drawn
+// with when that is newer.
+export function pollFrom(
   tail: Tail,
   drawn: { id: number; mark: number },
 ): { id: number; mark: number } {
-  const last = tail.rows.at(-1);
-  return last ? { id: last.id, mark: last.mark } : drawn;
+  return tail.polled && tail.polled.mark > drawn.mark ? tail.polled : drawn;
 }
 
 const tails = createKeyedStore<Tail>();
+registerStore(tails);
 
 // What the tails hold outlives the component that shows them: a list that is hidden for a moment
 // (a boundary above it waits for something) is shown again with its rows, and only the page
@@ -98,13 +116,20 @@ export async function sendIntoTail(
   run: () => Promise<{ error?: string; row?: TailRow } | undefined>,
 ): Promise<string | undefined> {
   const id = nextPending++;
+  const epoch = currentEpoch();
+  // Another visitor's tab state is not this one's to write to.
+  const settle = (row: TailRow | undefined) => {
+    if (epoch === currentEpoch()) {
+      updateTail(key, (tail) => settlePending(tail, id, row));
+    }
+  };
   if (text.trim()) updateTail(key, (tail) => addPending(tail, { id, text }));
   try {
     const answer = await run();
-    updateTail(key, (tail) => settlePending(tail, id, answer?.row));
+    settle(answer?.row);
     return answer?.error;
   } catch (error) {
-    updateTail(key, (tail) => settlePending(tail, id, undefined));
+    settle(undefined);
     throw error;
   }
 }

@@ -4,7 +4,6 @@ import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
-import type { PostRowContext } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { QUOTE_EVENT } from "@/app/[locale]/(main)/threads/[id]/quote";
 import { replyAction } from "@/app/[locale]/(main)/threads/actions";
 import { replyInPlace } from "@/app/[locale]/(main)/threads/reply-in-place";
@@ -17,14 +16,11 @@ import { Button } from "@/components/ui/button";
 export function ReplyComposer({
   threadId,
   tailKey,
-  rowContext,
   attachIn,
 }: {
   threadId: number;
-  // Where the end of the last page is kept while it is open, and what drawing a post there needs
-  // to know of the thread.
+  // Where the end of the last page is kept while it is open.
   tailKey: string;
-  rowContext: PostRowContext;
   // The forum to attach files in, when the viewer may attach files there.
   attachIn: number | null;
 }) {
@@ -34,7 +30,7 @@ export function ReplyComposer({
   // one stays in the form.
   const { state, pending, generation, onSubmit } = useTailForm({
     tailKey,
-    send: replyInPlace.bind(null, threadId, rowContext),
+    send: replyInPlace.bind(null, threadId),
     redirecting: replyAction.bind(null, threadId),
     failed: tFailed("generic"),
   });

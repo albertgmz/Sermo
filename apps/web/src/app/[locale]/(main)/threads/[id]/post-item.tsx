@@ -1,8 +1,12 @@
+import { threadsGet } from "@sermo/core/contracts";
 import { Hourglass, PenLine, Sparkles, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SPLIT_FORM } from "@/app/[locale]/(main)/threads/[id]/moderation";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import type { ThreadMay } from "@/app/[locale]/(main)/threads/[id]/permissions";
+import {
+  type ThreadMay,
+  threadMay,
+} from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostActions } from "@/app/[locale]/(main)/threads/[id]/post-actions";
 import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachments";
 import { EditedMark } from "@/components/forum/edited-mark";
@@ -12,6 +16,7 @@ import type { ReactionType } from "@/components/forum/reaction-button";
 import { HashLink } from "@/components/layout/hash-link";
 import { inlineAttachmentIds } from "@/lib/attachment-tags";
 import { bookmarkedAmong } from "@/lib/sermo/bookmarks";
+import { call } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
 import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
@@ -163,25 +168,22 @@ export function PostItem({
   );
 }
 
-// What drawing the posts that are added to a thread needs to know of the thread and of what the
-// viewer may do in it, from the page that drew the thread.
-export type PostRowContext = {
-  threadAuthorId: number;
-  may: ThreadMay;
-  canQuote: boolean;
-};
-
-// Posts that came after the last page was drawn, drawn the way the page draws them. A signature
-// stays under the author's first post on the page, so none is drawn here.
-export async function postRows(
-  posts: ApiPost[],
-  context: PostRowContext,
-): Promise<TailRow[]> {
+// Posts that came after the last page was drawn, drawn the way the page draws them. They are all
+// of one thread, whose author and what the viewer may do in it are read here (without counting a
+// view), never taken from the browser. A signature stays under the author's first post on the
+// page, so none is drawn here.
+export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
   if (posts.length === 0) return [];
-  const [{ user, permissions }, reactionTypes] = await Promise.all([
+  const [{ user, permissions }, reactionTypes, found] = await Promise.all([
     getViewer(),
     getReactionTypes(),
+    call(threadsGet, { threadId: posts[0].threadId, countView: false }),
   ]);
+  const context = {
+    threadAuthorId: found.thread.author.id,
+    may: threadMay(found.resolvedPermissions),
+    canQuote: found.permissions.canReply,
+  };
   const [author, bookmarks] = await Promise.all([
     authorsFor(posts.map((post) => post.author)),
     user

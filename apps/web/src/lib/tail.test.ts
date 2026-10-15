@@ -1,10 +1,12 @@
 import { beforeEach, expect, test } from "bun:test";
+import { enterViewer } from "@/lib/session-epoch";
 import {
   addPending,
   appendRows,
   EMPTY_TAIL,
   markTailShown,
-  newestHeld,
+  pollFound,
+  pollFrom,
   readTail,
   sendIntoTail,
   settlePending,
@@ -48,11 +50,48 @@ test("a refused text goes without a row", () => {
   expect(settlePending(waiting, 1, undefined)).toEqual(EMPTY_TAIL);
 });
 
-test("the newest row held is where the next poll starts", () => {
+test("the next poll starts after the newest row a poll returned, or what the page was drawn with", () => {
   const drawn = { id: 4, mark: 4 };
-  expect(newestHeld(EMPTY_TAIL, drawn)).toEqual(drawn);
-  const tail = appendRows(EMPTY_TAIL, [row(6), row(5)]);
-  expect(newestHeld(tail, drawn)).toEqual({ id: 6, mark: 6 });
+  expect(pollFrom(EMPTY_TAIL, drawn)).toEqual(drawn);
+  const tail = pollFound(EMPTY_TAIL, [row(5), row(6)]);
+  expect(pollFrom(tail, drawn)).toEqual({ id: 6, mark: 6 });
+  // A page drawn newer than the poll starts after the page.
+  expect(pollFrom(tail, { id: 9, mark: 9 })).toEqual({ id: 9, mark: 9 });
+});
+
+test("the visitor's own row does not move where the next poll starts", () => {
+  const drawn = { id: 10, mark: 10 };
+  const sent = settlePending(
+    addPending(EMPTY_TAIL, { id: 1, text: "mine" }),
+    1,
+    row(12),
+  );
+  expect(sent.rows.map((r) => r.mark)).toEqual([12]);
+  expect(pollFrom(sent, drawn)).toEqual(drawn);
+});
+
+test("a member's row that arrived just before the visitor's send is still fetched and shown in order", () => {
+  const drawn = { id: 10, mark: 10 };
+  // Another member wrote 11; the visitor, who has not received it, sent and the answer is 12.
+  let tail = settlePending(
+    addPending(EMPTY_TAIL, { id: 1, text: "mine" }),
+    1,
+    row(12),
+  );
+  // The next poll asks after 10, not after 12, and the server answers 11 and 12.
+  const from = pollFrom(tail, drawn);
+  expect(from.mark).toBe(10);
+  tail = pollFound(tail, [row(11), row(12)]);
+  expect(tail.rows.map((r) => r.id)).toEqual([11, 12]);
+  expect(pollFrom(tail, drawn)).toEqual({ id: 12, mark: 12 });
+});
+
+test("a poll that found nothing leaves where the next one starts", () => {
+  const drawn = { id: 10, mark: 10 };
+  const tail = pollFound(EMPTY_TAIL, []);
+  expect(pollFrom(tail, drawn)).toEqual(drawn);
+  const found = pollFound(tail, [row(11)]);
+  expect(pollFound(found, [])).toBe(found);
 });
 
 test("a text shows as waiting before the server answers and is replaced by its row", async () => {
@@ -130,4 +169,21 @@ test("what a tail holds stays when it goes off the screen, and a tail not yet wr
   off();
   expect(tailIsShown("c:1")).toBe(false);
   expect(readTail("c:1")?.rows.map((r) => r.id)).toEqual([3]);
+});
+
+test("what one visitor was reading is gone for the next, and an answer from before does not come back", async () => {
+  enterViewer(20);
+  writeTail("c:2", pollFound(EMPTY_TAIL, [row(5)]));
+  let answer = (_: { row: TailRow }) => {};
+  const sent = sendIntoTail(
+    "c:2",
+    "mine",
+    () => new Promise((done) => (answer = done)),
+  );
+  enterViewer(21);
+  expect(readTail("c:2")).toBeUndefined();
+  answer({ row: row(9) });
+  await sent;
+  expect(readTail("c:2")).toBeUndefined();
+  enterViewer(null);
 });

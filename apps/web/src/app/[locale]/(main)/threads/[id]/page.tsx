@@ -212,11 +212,6 @@ export default async function ThreadPage({
               key={thread.lastPost.postId}
               threadId={thread.id}
               tailKey={tailKey(thread.id)}
-              rowContext={{
-                threadAuthorId: thread.author.id,
-                may,
-                canQuote: permissions.canReply,
-              }}
               attachIn={may.attach ? node.id : null}
             />
           </>
@@ -378,16 +373,11 @@ async function ThreadPosts({
           <LiveTail
             tailKey={tailKey(thread.id)}
             drawn={{ id: lastPost.id, mark: lastPost.position }}
-            poll={pollPosts.bind(null, thread.id, {
-              threadAuthorId: thread.author.id,
-              may,
-              canQuote,
-            })}
+            poll={pollPosts.bind(null, thread.id)}
             intervalMs={POLL_MS.thread}
             pendingRow={
               user && (
                 <PostFrame
-                  id="post-pending"
                   author={author(user.id)}
                   createdAt={new Date().toISOString()}
                   actions={null}

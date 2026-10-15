@@ -10,20 +10,17 @@ import { withViewerReaction } from "@/lib/reaction-state";
 
 // The summary of an item as the viewer's own reaction changes it: it follows the button of the
 // same item (`stateKey`) without the page being drawn again.
-export function ReactionSummaryLive({
-  stateKey,
-  summary,
-  drawnMine,
-  offered,
-  ...rest
-}: {
-  stateKey: string;
-  // What the server drew, and the viewer's reaction in it.
-  summary: ReactionsSummary;
-  drawnMine: number | null;
-  offered: ReactionType[];
-} & Omit<React.ComponentProps<typeof ReactionSummary>, "reactions">) {
-  const mine = useItemState(stateKey, drawnMine);
+export function ReactionSummaryLive(
+  props: {
+    stateKey: string;
+    // What the server drew, and the viewer's reaction in it.
+    summary: ReactionsSummary;
+    drawnMine: number | null;
+    offered: ReactionType[];
+  } & Omit<React.ComponentProps<typeof ReactionSummary>, "reactions">,
+) {
+  const { stateKey, summary, drawnMine, offered, ...rest } = props;
+  const mine = useItemState(stateKey, drawnMine, props);
   return (
     <ReactionSummary
       reactions={withViewerReaction(summary, drawnMine, mine, offered)}

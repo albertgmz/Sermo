@@ -264,7 +264,6 @@ async function Messages({
             intervalMs={POLL_MS.messages}
             pendingRow={
               <PostFrame
-                id="message-pending"
                 author={author(user.id)}
                 createdAt={new Date().toISOString()}
                 actions={null}

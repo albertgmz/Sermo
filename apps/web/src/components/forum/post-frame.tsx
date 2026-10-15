@@ -49,7 +49,8 @@ export function PostFrame({
   signed = false,
   children,
 }: {
-  id: string;
+  // None for the row drawn for a text that is being sent (there can be several).
+  id?: string;
   author: AuthorView;
   createdAt: string;
   // The cover draws over the whole frame instead of its top.

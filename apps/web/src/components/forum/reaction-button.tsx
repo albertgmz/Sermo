@@ -2,7 +2,7 @@
 
 import { ChevronDown, Heart } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { messageActionClass } from "@/components/forum/message-action";
@@ -61,22 +61,14 @@ const SIZES = {
   sm: "text-(length:--text-caption) md:h-7 md:min-w-7 [&_svg]:size-3.5",
 };
 
-export function ReactionButton({
-  stateKey,
-  action,
-  total,
-  viewerTypeId,
-  types,
-  viewerId,
-  authorId,
-  size = "default",
-  className,
-}: {
+export function ReactionButton(props: {
   // What the viewer's reaction on this item is kept under, so that everything that shows it
   // follows the change without the page being drawn again.
   stateKey: string;
   // Resolves with the backend's message when it refused the reaction.
-  action: (typeId: number | null) => Promise<{ error?: string } | undefined>;
+  action: (
+    typeId: number | null,
+  ) => Promise<{ error?: string; signIn?: string } | undefined>;
   total: number;
   viewerTypeId: number | null;
   types: ReactionType[];
@@ -85,8 +77,21 @@ export function ReactionButton({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
+  const {
+    stateKey,
+    action,
+    total,
+    viewerTypeId,
+    types,
+    viewerId,
+    authorId,
+    size = "default",
+    className,
+  } = props;
   const t = useTranslations("forum.reactionButton");
-  const current = useItemState(stateKey, viewerTypeId);
+  const tFailed = useTranslations("lib.errors");
+  const router = useRouter();
+  const current = useItemState(stateKey, viewerTypeId, props);
   const [refusal, setRefusal] = useState<string>();
   const pathname = usePathname();
   const search = useSearchParams().toString();
@@ -183,10 +188,18 @@ export function ReactionButton({
     if (open && viaTrigger.current) gesture.button.current?.focus();
     show(false);
     setRefusal(undefined);
-    // Shown at once; a refusal puts the old reaction back and says why.
-    void changeItem(stateKey, viewerTypeId, typeId, () => action(typeId)).then(
-      setRefusal,
-    );
+    // Shown at once; a refusal puts the old reaction back and says why, and a session that has
+    // ended sends the member to sign in.
+    void changeItem(
+      stateKey,
+      viewerTypeId,
+      typeId,
+      () => action(typeId),
+      tFailed("generic"),
+    ).then(({ error, signIn }) => {
+      if (signIn) router.push(signIn);
+      else setRefusal(error);
+    });
   }
 
   const hover = {
