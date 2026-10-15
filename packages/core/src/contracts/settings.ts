@@ -128,8 +128,6 @@ export const SiteSettings = z
     approvalRule: CriteriaRule.default({ match: "all", conditions: [] }),
     /** The home page tab of members who chose none, and of guests. */
     homeTab: HomeTabSetting.default({ rules: [], fallback: "latest" }),
-    warningBanThreshold: z.number().int().min(0).max(1000),
-    warningBanDays: z.number().int().min(1).max(3650),
     threadTitleTemplate: z.string().min(1).max(200),
     nodeTitleTemplate: z.string().min(1).max(200),
     profileTitleTemplate: z.string().min(1).max(200),

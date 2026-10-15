@@ -161,6 +161,11 @@ const soldByShop = (ctx: Ctx, groupId: number) =>
       "SELECT id FROM shop_items WHERE json_extract(effect, '$.type') = 'group' AND json_extract(effect, '$.groupId') = ?1 LIMIT 1",
     )
     .get(groupId);
+/** Whether an automatic warning action adds this group. */
+const addedByWarning = (ctx: Ctx, groupId: number) =>
+  !!ctx.sqlite
+    .prepare<{ id: number }, [number]>("SELECT id FROM warning_actions WHERE group_id = ?1 LIMIT 1")
+    .get(groupId);
 /**
  * Whether a promotion grants this group: one lists it, or a member still holds it through one
  * (a deleted promotion's grants are removed by a job).
@@ -299,6 +304,7 @@ export const groupsDeleteOp = implement(groupsDelete, async (ctx, actor, input) 
     const keepSuperAdmin = guardSuperAdmins(ctx);
     // Members hold what they paid for: a group a shop item sells stays until the item goes.
     if (soldByShop(ctx, group.id)) throw new ConflictError("A shop item sells this group.");
+    if (addedByWarning(ctx, group.id)) throw new ConflictError("A warning action adds this group.");
     // Its members move to the Member group, which is an assignment like any other: nobody
     // gives out a group ranked at or above their own (the deleter may be one of the members).
     const moved = ctx.sqlite

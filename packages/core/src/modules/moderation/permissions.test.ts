@@ -11,7 +11,6 @@ import type { PermissionId } from "../../permissions";
 import { conversationsCreateOp } from "../conversations";
 import { postsCreateOp, threadsCreateOp } from "../forums";
 import { runDueJobs } from "../jobs";
-import { updateSiteSettings } from "../settings";
 import {
   addWarning,
   banUser,
@@ -326,7 +325,11 @@ describe("moderation permission decisions", () => {
       .get()!.id;
     grant(ctx, "member.immuneToAutoBan", groupId);
     const target = insertUser(ctx, { groupId });
-    updateSiteSettings(ctx, admin, { warningBanThreshold: 2, warningBanDays: 2 });
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO warning_actions (threshold, kind, days, created_at) VALUES (?1, 'ban', ?2, ?3)",
+      )
+      .run(2, 2, ctx.now());
     expect(addWarning(ctx, admin, target.id, 2, "Rule").activePoints).toBe(2);
     expect(
       ctx.sqlite

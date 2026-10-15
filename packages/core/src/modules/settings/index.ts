@@ -48,8 +48,6 @@ const defaults: StoredSiteSettingsValue = {
   linksRule: { match: "all", conditions: [] },
   approvalRule: { match: "all", conditions: [] },
   homeTab: { rules: [], fallback: "latest" },
-  warningBanThreshold: 0,
-  warningBanDays: 7,
   threadTitleTemplate: "{title} | {site}",
   nodeTitleTemplate: "{title} | {site}",
   profileTitleTemplate: "{username} | {site}",

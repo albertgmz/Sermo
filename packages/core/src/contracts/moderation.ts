@@ -194,16 +194,28 @@ const Warning = z.object({
   reason: z.string(),
   createdAt: Timestamp,
   expiresAt: Timestamp.nullable(),
+  /** The type the warning was given under; null for a custom warning or a deleted type. */
+  typeId: Id.nullable(),
+  /** The type's name in the viewer's language. */
+  typeName: z.string().nullable(),
 });
 export const warningsCreate = defineContract({
   name: "warnings.create",
-  summary: "Issue warning points that may trigger a temporary ban.",
+  summary:
+    "Issue warning points. Requires member.warn over the member. With a `typeId`, points, " +
+    "expiry and reason default to the type's (a locked type refuses a different `points` or " +
+    "any `expiresAt`); without one the warning is custom and needs `points` and a `reason`. " +
+    "`expiresAt` omitted takes the type's expiry, null never expires. Warning actions whose " +
+    "threshold the member's active points now reach are applied in the same transaction; an " +
+    "action that cannot be applied (for instance a ban on the last administrator) refuses the " +
+    "warning.",
   kind: "write",
   input: z.object({
     ...moderationNotice,
     userId: Id,
-    points: z.number().int().positive().max(1000),
-    reason: Reason,
+    typeId: Id.optional(),
+    points: z.number().int().positive().max(1000).optional(),
+    reason: Reason.optional(),
     expiresAt: Timestamp.nullable().optional(),
   }),
   output: z.object({ id: Id, activePoints: z.number().int().nonnegative() }),
@@ -214,6 +226,121 @@ export const warningsList = defineContract({
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(Warning),
+});
+
+const WarningType = z
+  .object({
+    id: Id,
+    /** The name in the viewer's language. */
+    name: z.string(),
+    nameEn: z.string(),
+    nameEs: z.string(),
+    points: z.number().int().positive(),
+    /** Days until a warning of this type expires; null = never. */
+    expiryDays: z.number().int().positive().nullable(),
+    defaultReason: z.string(),
+    /** The moderator cannot change the points or the expiry. */
+    locked: z.boolean(),
+  })
+  .meta({ id: "WarningType" });
+const WarningTypeFields = {
+  nameEn: z.string().trim().min(1).max(60),
+  nameEs: z.string().trim().min(1).max(60),
+  points: z.number().int().positive().max(1000),
+  expiryDays: z.number().int().positive().max(3650).nullable().default(null),
+  defaultReason: z.string().trim().max(5000).default(""),
+  locked: z.boolean().default(false),
+};
+export const warningTypesList = defineContract({
+  name: "warningTypes.list",
+  summary:
+    "The warning types, oldest first. Requires member.warn (to pick one) or admin.settings " +
+    "(to manage them).",
+  kind: "read",
+  input: z.object({}),
+  output: z.object({ items: z.array(WarningType) }),
+});
+export const warningTypesCreate = defineContract({
+  name: "warningTypes.create",
+  summary: "Create a warning type, named in English and Spanish. Requires admin.settings.",
+  kind: "write",
+  input: z.object(WarningTypeFields),
+  output: WarningType,
+});
+export const warningTypesUpdate = defineContract({
+  name: "warningTypes.update",
+  summary:
+    "Replace a warning type's settings. Warnings already given keep their own points and " +
+    "expiry. Requires admin.settings.",
+  kind: "write",
+  input: z.object({ typeId: Id, ...WarningTypeFields }),
+  output: WarningType,
+});
+export const warningTypesDelete = defineContract({
+  name: "warningTypes.delete",
+  summary:
+    "Delete a warning type. Warnings given under it stay, as custom warnings. Requires " +
+    "admin.settings.",
+  kind: "write",
+  input: z.object({ typeId: Id }),
+  output: Ok,
+});
+
+const WarningAction = z
+  .object({
+    id: Id,
+    /** Active warning points that trigger the action. */
+    threshold: z.number().int().positive(),
+    kind: z.enum(["ban", "group", "restriction"]),
+    /** How long the ban, group membership or restriction lasts; null = permanent. */
+    days: z.number().int().positive().nullable(),
+    groupId: Id.nullable(),
+    groupTitle: z.string().nullable(),
+    restrictionKind: z.enum(["posting", "conversations", "profile_posts"]).nullable(),
+  })
+  .meta({ id: "WarningAction" });
+const WarningActionFields = {
+  threshold: z.number().int().positive().max(100_000),
+  kind: WarningAction.shape.kind,
+  days: z.number().int().positive().max(3650).nullable().default(null),
+  groupId: Id.nullable().default(null),
+  restrictionKind: WarningAction.shape.restrictionKind.default(null),
+};
+export const warningActionsList = defineContract({
+  name: "warningActions.list",
+  summary: "The automatic warning actions, lowest threshold first. Requires admin.settings.",
+  kind: "read",
+  input: z.object({}),
+  output: z.object({ items: z.array(WarningAction) }),
+});
+export const warningActionsCreate = defineContract({
+  name: "warningActions.create",
+  summary:
+    "Create an automatic action: when a member's active warning points reach the threshold, " +
+    "ban them, add them to a group (one ranked below the actor that does not decide " +
+    "admin.permissions) or restrict them, for `days` or permanently. Each action fires once " +
+    "per crossing. Requires admin.settings.",
+  kind: "write",
+  input: z.object(WarningActionFields),
+  output: WarningAction,
+});
+export const warningActionsUpdate = defineContract({
+  name: "warningActions.update",
+  summary:
+    "Replace an automatic action's settings; members it already acted on keep what it did. " +
+    "Requires admin.settings.",
+  kind: "write",
+  input: z.object({ actionId: Id, ...WarningActionFields }),
+  output: WarningAction,
+});
+export const warningActionsDelete = defineContract({
+  name: "warningActions.delete",
+  summary:
+    "Delete an automatic action. Group memberships it added for a limited time end now; bans, " +
+    "restrictions and permanent memberships stay. Requires admin.settings.",
+  kind: "write",
+  input: z.object({ actionId: Id }),
+  output: Ok,
 });
 export const bansCreate = defineContract({
   name: "bans.create",

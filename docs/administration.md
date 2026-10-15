@@ -581,7 +581,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `conversation.moderate`, `conversation.viewHidden` | Moderating private conversation messages and their reports; seeing hidden messages there | Administrator |
 | `wordFilter.manage`, `moderatorLog.view` | Managing word filters; reading the whole moderator log | Administrator |
 | `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them; only for members the holder outranks | Administrator |
-| `member.immuneToAutoBan` | Held by the warned member: reaching the warning threshold does not ban them | Administrator |
+| `member.immuneToAutoBan` | Held by the warned member: reaching a warning threshold applies no automatic action to them | Administrator |
 
 Most moderation calls accept `notify` (default `true`) and an optional `message` (up to 1,000
 characters) for the member the action concerns, plus a `reason` that goes into the moderator log.
@@ -790,12 +790,30 @@ signs the member out everywhere and sends them to log in and change their passwo
 
 ### Warnings
 
-`POST /users/{userId}/warnings` (`warnings.create`, `member.warn` over the member) gives 1 to 1,000
-points with a reason and an optional expiry. The response returns the member's active points (the
-sum of unexpired warnings). When `warningBanThreshold` is above 0 (default 0, off) and the active
-points reach it, the member is banned for `warningBanDays` (default 7), unless they hold
-`member.immuneToAutoBan`. `GET /users/{userId}/warnings` (`warnings.list`) shows a member's
-warnings to themselves and to holders of `warning.view`.
+`POST /users/{userId}/warnings` (`warnings.create`, `member.warn` over the member) gives points with
+a reason and an optional expiry. The response returns the member's active points (the sum of
+unexpired warnings). `GET /users/{userId}/warnings` (`warnings.list`) shows a member's warnings to
+themselves and to holders of `warning.view`, each with the type it was given under.
+
+**Warning types** (`/moderation/warning-types`, `admin.settings` to change them; moderators with
+`member.warn` can read them) are named in English and Spanish, with default points, a default
+expiry in days (none = never) and an optional default reason. A moderator sends `typeId` with
+`warnings.create` and may change `points`, `reason` and `expiresAt` unless the type is locked, which
+fixes points and expiry (the reason stays free). Without a type the warning is custom and needs
+`points` and a `reason`. Deleting a type keeps its warnings, as custom ones.
+
+**Automatic actions** (`/moderation/warning-actions`, `admin.settings`) fire when a member's active
+points reach a threshold, in the same transaction as the warning: a ban, adding the member to a
+group (a secondary group ranked below the administrator, never one that decides
+`admin.permissions`) or a restriction, each for a number of days or permanently. An action fires
+once per crossing: it fires again only after the member's points have fallen below the threshold
+and reached it anew. Members holding `member.immuneToAutoBan` are skipped. An action that cannot be
+applied (a ban on the last administrator, a group that has come to decide `admin.permissions`)
+refuses the warning with its reason. When points fall below the threshold (a warning expires), the
+group memberships an action added for a limited time are taken back, and so are those whose time
+ends; an hourly job notices both. Bans and restrictions end on their own date and are never lifted
+early; permanent memberships, and memberships the member already had, stay. Changing an action
+counts from the next warning; deleting one ends the timed memberships it added.
 
 ### Bans
 

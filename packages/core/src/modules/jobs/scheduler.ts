@@ -71,6 +71,7 @@ export async function runHourlyTasks(
     { uniqueKey: `notification-retention:${Math.floor(ctx.now() / 3_600_000)}` },
   );
   pruneSignInFailures(ctx);
+  enqueueJob(ctx, "moderation.warningSweep", {}, { uniqueKey: "moderation.warningSweep" });
   queueSeoEvents(ctx);
   queueStorageEvents(ctx);
   const cutoff = ctx.now() - 30 * DAY_MS;

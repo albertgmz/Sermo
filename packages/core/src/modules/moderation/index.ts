@@ -23,6 +23,7 @@ import {
   viewableNodeIds,
 } from "../../permissions";
 import { renderContent } from "../../render";
+import { viewerLanguage } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
@@ -41,6 +42,23 @@ import { ruleShortfall } from "./member-rules";
 import { type Notice, noticeForOther } from "./notify";
 import { describeQueueItems, NO_CONTEXT, queueContextKey } from "./queue-context";
 import { restrictionsCreateOp, restrictionsLiftOp, restrictionsListOp } from "./restrictions";
+import {
+  activeWarningPoints,
+  applyWarningActions,
+  reconcileWarningActions,
+  registerWarningJobs,
+} from "./warning-actions";
+import {
+  resolveWarning,
+  warningActionsCreateOp,
+  warningActionsDeleteOp,
+  warningActionsListOp,
+  warningActionsUpdateOp,
+  warningTypesCreateOp,
+  warningTypesDeleteOp,
+  warningTypesListOp,
+  warningTypesUpdateOp,
+} from "./warning-config";
 
 export { requireNegativeReactionRoom, requireWriteRoom } from "./limits";
 export type { SpamChecker, SpamFetch, SpamSubmission, SpamVerdict } from "./spam";
@@ -189,7 +207,7 @@ function requireThreadBanner(ctx: Ctx, actor: Actor, nodeId: number, userId: num
     target: principalMember(ctx, userId),
   });
 }
-function principalMember(ctx: Ctx, userId: number): Actor {
+export function principalMember(ctx: Ctx, userId: number): Actor {
   const row = read<PrincipalRow & { id: number; group_id: number }>(
     ctx,
     "principalMember",
@@ -1487,14 +1505,18 @@ export function addWarning(
   ctx: Ctx,
   actor: Actor,
   userId: number,
-  points: number,
-  reason: string,
-  expiresAt: number | null = null,
+  points: number | undefined,
+  reason: string | undefined,
+  expiresAt?: number | null,
   notice?: Pick<Notice, "notify" | "message">,
+  typeId?: number,
 ) {
   requireAuthenticated(actor);
   requirePermission(ctx, actor, "member.warn", { target: principalMember(ctx, userId) });
-  if (!Number.isInteger(points) || points <= 0 || !reason.trim())
+  if (
+    typeId === undefined &&
+    (points === undefined || !Number.isInteger(points) || points <= 0 || !reason || !reason.trim())
+  )
     throw new ValidationError("Positive points and a reason are required.");
   return writeTx(ctx, () => {
     // The actor was resolved before this transaction: decide with what is committed now.
@@ -1503,88 +1525,43 @@ export function addWarning(
     requirePermission(ctx, current, "member.warn", { target });
     requireNotErased(ctx, userId);
     const now = ctx.now();
+    const given = resolveWarning(ctx, now, { points, reason, expiresAt, typeId });
+    // Actions the member's points no longer reach are lifted first, so a new crossing fires.
+    reconcileWarningActions(ctx, userId, now);
     const id = Number(
       exec(
         ctx,
         "warningInsert",
-        "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO warnings (user_id, moderator_id, points, reason, created_at, expires_at, type_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         userId,
         actorUserId(actor),
-        points,
-        reason,
+        given.points,
+        given.reason,
         now,
-        expiresAt,
+        given.expiresAt,
+        typeId,
       ).lastInsertRowid,
     );
-    appendModeratorLog(ctx, actor, "warning.add", "user", userId, reason, {
+    appendModeratorLog(ctx, actor, "warning.add", "user", userId, given.reason, {
       warningId: id,
-      points,
-      expiresAt,
+      points: given.points,
+      expiresAt: given.expiresAt,
+      typeId: typeId ?? null,
     });
     publishEvent(ctx, {
       type: "member.warned",
       targetType: "user",
       targetId: userId,
-      payload: { moderatorId: actorUserId(actor), points, reason, warningId: id, ...notice },
+      payload: {
+        moderatorId: actorUserId(actor),
+        points: given.points,
+        reason: given.reason,
+        warningId: id,
+        ...notice,
+      },
     });
-    const activePoints = read<{ n: number }>(
-      ctx,
-      "activePoints",
-      "SELECT coalesce(sum(points), 0) AS n FROM warnings WHERE user_id = ?1 AND (expires_at IS NULL OR expires_at > ?2)",
-      userId,
-      now,
-    )!.n;
-    const settings = readSiteSettings(ctx);
-    const threshold = settings.warningBanThreshold;
-    if (threshold > 0 && activePoints >= threshold && !can(ctx, target, "member.immuneToAutoBan")) {
-      const wasAdministrator = can(ctx, target, "admin.permissions");
-      const expires = now + settings.warningBanDays * 86_400_000;
-      exec(
-        ctx,
-        "autoBan",
-        "UPDATE users SET banned_until = max(coalesce(banned_until, 0), ?1), sessions_revoked_at = ?3 WHERE id = ?2",
-        expires,
-        userId,
-        now,
-      );
-      // The automatic ban obeys the same rule as a manual one (see insertBan).
-      assertAdministrator(ctx, { userId, wasAdministrator });
-      const banId = Number(
-        exec(
-          ctx,
-          "banInsert",
-          "INSERT INTO bans (user_id, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-          userId,
-          actorUserId(actor),
-          `Warning threshold: ${activePoints} points`,
-          now,
-          expires,
-        ).lastInsertRowid,
-      );
-      appendModeratorLog(ctx, actor, "ban.threshold", "user", userId, reason, {
-        banId,
-        activePoints,
-      });
-      publishEvent(ctx, {
-        type: "member.banned",
-        targetType: "user",
-        targetId: userId,
-        payload: {
-          moderatorId: actorUserId(actor),
-          reason,
-          banId,
-          lifted: false,
-          expiresAt: iso(expires),
-          ...notice,
-        },
-      });
-      enqueueJob(
-        ctx,
-        "moderation.revokeCredentials",
-        { userId },
-        { uniqueKey: `moderation.revokeCredentials.${banId}` },
-      );
-    }
+    const activePoints = activeWarningPoints(ctx, userId, now);
+    applyWarningActions(ctx, actor, userId, activePoints, id, notice ?? { notify: true });
     return { id, activePoints };
   });
 }
@@ -1624,6 +1601,8 @@ function insertBan(
   reason: string,
   expiresAt: number | null,
   notice: Pick<Notice, "notify" | "message"> = { notify: true },
+  logAction = "ban.add",
+  details: Record<string, unknown> = {},
 ) {
   const wasAdministrator = can(ctx, principalMember(ctx, userId), "admin.permissions");
   const now = ctx.now();
@@ -1644,7 +1623,11 @@ function insertBan(
   exec(ctx, "banRevoke", "UPDATE users SET sessions_revoked_at = ?1 WHERE id = ?2", now, userId);
   // A ban takes every permission away: it may not leave the forum without an administrator.
   assertAdministrator(ctx, { userId, wasAdministrator });
-  appendModeratorLog(ctx, actor, "ban.add", "user", userId, reason, { banId: id, expiresAt });
+  appendModeratorLog(ctx, actor, logAction, "user", userId, reason, {
+    banId: id,
+    expiresAt,
+    ...details,
+  });
   publishEvent(ctx, {
     type: "member.banned",
     targetType: "user",
@@ -1699,13 +1682,21 @@ export function listWarnings(
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
-  const rows = query<{ id: number }>(
+  const language = viewerLanguage(ctx, actor);
+  const rows = query<{
+    id: number;
+    type_name_en: string | null;
+    type_name_es: string | null;
+  }>(
     ctx,
     "warningList",
-    "SELECT * FROM warnings WHERE user_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
+    "SELECT w.*, t.name_en AS type_name_en, t.name_es AS type_name_es FROM warnings w LEFT JOIN warning_types t ON t.id = w.type_id WHERE w.user_id = ?1 AND w.id < ?2 ORDER BY w.id DESC LIMIT ?3",
   ).all(userId, cursor, limit + 1);
   return {
-    items: rows.slice(0, limit),
+    items: rows.slice(0, limit).map(({ type_name_en, type_name_es, ...warning }) => ({
+      ...warning,
+      type_name: language === "es" ? type_name_es : type_name_en,
+    })),
     nextCursor: rows.length > limit ? encodeCursor([rows[limit - 1]!.id]) : null,
   };
 }
@@ -2221,8 +2212,11 @@ export const operations = [
       input.userId,
       input.points,
       input.reason,
-      input.expiresAt ? Date.parse(input.expiresAt) : null,
+      input.expiresAt === undefined || input.expiresAt === null
+        ? input.expiresAt
+        : Date.parse(input.expiresAt),
       { notify: input.notify, message: input.message },
+      input.typeId,
     ),
   ),
   implement(contracts.warningsList, (ctx, actor, input) =>
@@ -2294,6 +2288,14 @@ export const operations = [
     });
   }),
   restrictionsCreateOp,
+  warningTypesListOp,
+  warningTypesCreateOp,
+  warningTypesUpdateOp,
+  warningTypesDeleteOp,
+  warningActionsListOp,
+  warningActionsCreateOp,
+  warningActionsUpdateOp,
+  warningActionsDeleteOp,
   restrictionsLiftOp,
   restrictionsListOp,
   reportsViewConversationMessageOp,
@@ -2301,6 +2303,7 @@ export const operations = [
 
 export function registerModerationJobs(ctx: Ctx): void {
   registerForumTransferJobs(ctx);
+  registerWarningJobs(ctx);
   registerJobHandler(ctx, "moderation.revokeCredentials", async (_ctx, payload) => {
     const userId = (payload as { userId?: unknown })?.userId;
     if (!Number.isSafeInteger(userId) || Number(userId) < 1)

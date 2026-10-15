@@ -7,7 +7,6 @@ import { can, permissionState } from "../../permissions";
 import * as permissionChecks from "../../permissions/check";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import { addWarning, banUser, resumeSpamCleanup } from "../moderation";
-import { updateSiteSettings } from "../settings";
 import { permissionsSetOp, usersSetGroupsOp } from "./index";
 
 function scenario(administrator = false) {
@@ -48,7 +47,11 @@ describe("administrator guard work for one affected member", () => {
     test(`a ${kind} ban of a non-administrator resolves no unrelated combinations`, () => {
       const { ctx, admin, member, resolvedUnrelated } = scenario();
       if (kind === "warning") {
-        updateSiteSettings(ctx, admin, { warningBanThreshold: 1, warningBanDays: 2 });
+        ctx.sqlite
+          .prepare(
+            "INSERT INTO warning_actions (threshold, kind, days, created_at) VALUES (?1, 'ban', ?2, ?3)",
+          )
+          .run(1, 2, ctx.now());
         addWarning(ctx, admin, member.id, 1, "Rule");
       } else if (kind === "spam") resumeSpamCleanup(ctx, admin, member.id, null);
       else banUser(ctx, admin, member.id, "Rule", kind === "permanent" ? null : ctx.now() + 60_000);

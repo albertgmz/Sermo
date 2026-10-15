@@ -6,7 +6,7 @@ import { RESTRICTION_PERMANENT } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
-import { implement } from "../../operation";
+import { implement, markPublic } from "../../operation";
 import {
   can,
   currentActor,
@@ -19,8 +19,9 @@ import {
 import { iso, isoOrNull } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { appendModeratorLog } from "./index";
+import type { Notice } from "./notify";
 
-type Kind = "posting" | "conversations" | "profile_posts";
+export type Kind = "posting" | "conversations" | "profile_posts";
 type Row = {
   id: number;
   user_id: number;
@@ -72,6 +73,53 @@ function refresh(ctx: Ctx, userId: number, kind: Kind, now: number) {
     .run(active?.expiry ?? null, userId);
 }
 
+/**
+ * The restriction itself, without the permission decision: the caller has authorized it (an
+ * automatic warning action is not a moderator's restriction). Inside the caller's write
+ * transaction.
+ */
+export const insertAuthorizedRestriction = markPublic(
+  "The caller authorizes the restriction.",
+  function insertRestriction(
+    ctx: Ctx,
+    actor: Actor,
+    userId: number,
+    kind: Kind,
+    reason: string,
+    expiry: number | null,
+    notice: Pick<Notice, "notify" | "message">,
+    details: Record<string, unknown> = {},
+  ) {
+    const now = ctx.now();
+    const row = prepared(ctx, "restrictions.insert", () =>
+      ctx.sqlite.prepare<Row, [number, string, number, string, number, number | null]>(
+        "INSERT INTO user_restrictions (user_id, kind, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
+      ),
+    ).get(userId, kind, actorUserId(actor)!, reason, now, expiry)!;
+    refresh(ctx, userId, kind, now);
+    appendModeratorLog(ctx, actor, "restriction.add", "user", userId, reason, {
+      restrictionId: row.id,
+      kind,
+      ...details,
+    });
+    publishEvent(ctx, {
+      type: "member.restricted",
+      targetType: "user",
+      targetId: userId,
+      payload: {
+        moderatorId: actorUserId(actor),
+        reason,
+        kind,
+        lifted: false,
+        expiresAt: isoOrNull(expiry),
+        notify: notice.notify,
+        message: notice.message,
+      },
+    });
+    return value(row, now);
+  },
+);
+
 export const restrictionsCreateOp = implement(restrictionsCreate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const expiry = input.expiresAt === null ? null : Date.parse(input.expiresAt);
@@ -83,32 +131,10 @@ export const restrictionsCreateOp = implement(restrictionsCreate, (ctx, actor, i
       target: target(ctx, input.userId),
     });
     requireNotErased(ctx, input.userId);
-    const now = ctx.now();
-    const row = prepared(ctx, "restrictions.insert", () =>
-      ctx.sqlite.prepare<Row, [number, string, number, string, number, number | null]>(
-        "INSERT INTO user_restrictions (user_id, kind, moderator_id, reason, created_at, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",
-      ),
-    ).get(input.userId, input.kind, actorUserId(actor)!, input.reason, now, expiry)!;
-    refresh(ctx, input.userId, input.kind, now);
-    appendModeratorLog(ctx, actor, "restriction.add", "user", input.userId, input.reason, {
-      restrictionId: row.id,
-      kind: input.kind,
+    return insertAuthorizedRestriction(ctx, actor, input.userId, input.kind, input.reason, expiry, {
+      notify: input.notify,
+      message: input.message,
     });
-    publishEvent(ctx, {
-      type: "member.restricted",
-      targetType: "user",
-      targetId: input.userId,
-      payload: {
-        moderatorId: actorUserId(actor),
-        reason: input.reason,
-        kind: input.kind,
-        lifted: false,
-        expiresAt: input.expiresAt,
-        notify: input.notify,
-        message: input.message,
-      },
-    });
-    return value(row, now);
   });
 });
 

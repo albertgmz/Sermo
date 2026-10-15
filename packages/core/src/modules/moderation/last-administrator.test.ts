@@ -4,7 +4,6 @@ import { ConflictError } from "../../errors";
 import { execute } from "../../operation";
 import { can } from "../../permissions";
 import { permissionsSetOp } from "../permissions";
-import { updateSiteSettings } from "../settings";
 import { addWarning, banUser, liftBan, resumeSpamCleanup } from ".";
 
 /**
@@ -52,7 +51,11 @@ describe("the sole permission administrator", () => {
 
   test("cannot be banned by the warning threshold", async () => {
     const { ctx, founder, holder, banned, count } = await scenario();
-    updateSiteSettings(ctx, founder, { warningBanThreshold: 2, warningBanDays: 2 });
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO warning_actions (threshold, kind, days, created_at) VALUES (?1, 'ban', ?2, ?3)",
+      )
+      .run(2, 2, ctx.now());
     expect(addWarning(ctx, founder, holder.id, 1, "First").activePoints).toBe(1);
     expect(() => addWarning(ctx, founder, holder.id, 1, "Second")).toThrow(ConflictError);
     expect(banned()).toEqual({ banned_until: null, banned_permanently: 0 });

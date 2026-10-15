@@ -22,10 +22,10 @@ test("site settings are admin controlled, validated, and read without a write", 
   await expect(execute(ctx, update, admin, { maxUploadBytes: 0 })).rejects.toThrow();
   const changed = await execute(ctx, update, admin, {
     maxUploadBytes: 1024,
-    warningBanThreshold: 8,
+    floodSeconds: 8,
   });
   expect(changed.maxUploadBytes).toBe(1024);
-  expect(readSiteSettings(ctx).warningBanThreshold).toBe(8);
+  expect(readSiteSettings(ctx).floodSeconds).toBe(8);
   expectNoTableScan(ctx, "SELECT value FROM site_settings WHERE key = 'configuration'", []);
   expectNoTableScan(ctx, settingsQuotaSql, []);
 });

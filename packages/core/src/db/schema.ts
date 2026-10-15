@@ -1299,6 +1299,25 @@ export const reports = sqliteTable(
   ],
 );
 
+/** What a warning type may do automatically once a member's active points reach a threshold. */
+export const WARNING_ACTION_KINDS = ["ban", "group", "restriction"] as const;
+export type WarningActionKind = (typeof WARNING_ACTION_KINDS)[number];
+
+/**
+ * A kind of warning a moderator picks: default points and expiry (null = never) and reason, the
+ * name in each language. `locked` fixes points and expiry for the moderator.
+ */
+export const warningTypes = sqliteTable("warning_types", {
+  id: integer("id").primaryKey(),
+  nameEn: text("name_en").notNull(),
+  nameEs: text("name_es").notNull(),
+  points: integer("points").notNull(),
+  expiryDays: integer("expiry_days"),
+  defaultReason: text("default_reason").notNull().default(""),
+  locked: bool("locked").notNull().default(false),
+  createdAt: integer("created_at").notNull(),
+});
+
 export const warnings = sqliteTable(
   "warnings",
   {
@@ -1313,8 +1332,59 @@ export const warnings = sqliteTable(
     reason: text("reason").notNull(),
     createdAt: integer("created_at").notNull(),
     expiresAt: integer("expires_at"),
+    /** The type the moderator picked; null for a custom warning or after the type was deleted. */
+    typeId: integer("type_id").references(() => warningTypes.id, { onDelete: "set null" }),
   },
-  (t) => [index("warnings_user_expiry").on(t.userId, t.expiresAt, t.id)],
+  (t) => [
+    index("warnings_user_expiry").on(t.userId, t.expiresAt, t.id),
+    index("warnings_type").on(t.typeId).where(sql`type_id IS NOT NULL`),
+  ],
+);
+
+/**
+ * An automatic action: when a member's active warning points reach `threshold` the action is
+ * applied once. `days` null = permanent. `groupId` is set for kind group, `restrictionKind`
+ * for kind restriction.
+ */
+export const warningActions = sqliteTable(
+  "warning_actions",
+  {
+    id: integer("id").primaryKey(),
+    threshold: integer("threshold").notNull(),
+    kind: text("kind", { enum: WARNING_ACTION_KINDS }).notNull(),
+    days: integer("days"),
+    groupId: integer("group_id").references(() => groups.id),
+    restrictionKind: text("restriction_kind", { enum: RESTRICTION_KINDS }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("warning_actions_threshold").on(t.threshold, t.id)],
+);
+
+/**
+ * One row while an action is in effect for a member (applied at a crossing, removed when their
+ * points fall below the threshold again). `groupAddedAt` is the `created_at` of the
+ * `user_groups` row the action added and may lift; null when it added nothing it may lift.
+ * `groupEndsAt` is when a timed group ends by itself.
+ */
+export const warningActionFires = sqliteTable(
+  "warning_action_fires",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actionId: integer("action_id")
+      .notNull()
+      .references(() => warningActions.id, { onDelete: "cascade" }),
+    firedAt: integer("fired_at").notNull(),
+    groupId: integer("group_id"),
+    groupAddedAt: integer("group_added_at"),
+    groupEndsAt: integer("group_ends_at"),
+  },
+  (t) => [
+    uniqueIndex("warning_action_fires_member").on(t.userId, t.actionId),
+    index("warning_action_fires_action").on(t.actionId),
+  ],
 );
 
 export const bans = sqliteTable(

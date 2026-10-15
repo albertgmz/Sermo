@@ -512,7 +512,11 @@ describe("moderation core", () => {
     const ctx = createTestContext();
     const admin = userActor(insertUser(ctx, { groupId: 4 }));
     const target = insertUser(ctx);
-    updateSiteSettings(ctx, admin, { warningBanThreshold: 3, warningBanDays: 2 });
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO warning_actions (threshold, kind, days, created_at) VALUES (?1, 'ban', ?2, ?3)",
+      )
+      .run(3, 2, ctx.now());
     addWarning(ctx, admin, target.id, 2, "old", ctx.now() + 10);
     ctx.clock.advance(11);
     expect(addWarning(ctx, admin, target.id, 2, "current").activePoints).toBe(2);
