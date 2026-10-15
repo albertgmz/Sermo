@@ -77,9 +77,9 @@ export const flag = (id: string, test: (facts: Facts) => boolean): Spec =>
   withValue(id, "boolean", "boolean", "member", (facts, value) => yes(test(facts), value));
 
 /** A yes/no criterion that one indexed lookup answers (a row exists or it does not). */
-export function lookup(id: string, measure: Measurer): Spec {
+export function lookup(id: string, measure: Measurer, refresh?: Spec["refresh"]): Spec {
   const condition = { criterion: id };
-  return withValue(
+  const spec = withValue(
     id,
     "boolean",
     "boolean",
@@ -89,6 +89,7 @@ export function lookup(id: string, measure: Measurer): Spec {
     false,
     measure,
   );
+  return refresh ? { ...spec, refresh } : spec;
 }
 
 /**

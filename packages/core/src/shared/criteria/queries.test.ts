@@ -272,7 +272,7 @@ describe("economy criteria", () => {
     expect(asks([never], "one")).toEqual([false, true]);
   });
 
-  test("wears_item holds when the frame, name colour or name icon the item gives is chosen", () => {
+  test("wears_item holds when the frame, name color or name icon the item gives is chosen", () => {
     const { ctx, member, other } = world();
     const cat = category(ctx);
     const frame = item(ctx, cat, { type: "frame", frameId: 11 });
@@ -412,6 +412,132 @@ describe("economy criteria", () => {
   });
 });
 
+describe("moderation criteria", () => {
+  const set = (ctx: Ctx, userId: number, columns: string) =>
+    ctx.sqlite.prepare(`UPDATE users SET ${columns} WHERE id = ?1`).run(userId);
+
+  test("a restriction is active while its expiry on the member's row lies ahead", () => {
+    const { ctx, member, other } = world();
+    const third = insertUser(ctx).id;
+    const fourth = insertUser(ctx).id;
+    const ahead = ctx.now() + 60_000;
+    set(ctx, member, `restricted_posting_until = ${ahead}`);
+    set(ctx, other, "restricted_posting_until = 253402300799999");
+    set(ctx, third, `restricted_posting_until = ${ctx.now()}`);
+    const asks = (criterion: string, value: number) =>
+      holdsFor(ctx, [member, other, third, fourth], { criterion, value });
+    expect(asks("restricted_posting", 1)).toEqual([true, true, false, false]);
+    expect(asks("restricted_posting", 0)).toEqual([false, false, true, true]);
+    // The three kinds are separate.
+    expect(asks("restricted_conversations", 1)).toEqual([false, false, false, false]);
+    set(
+      ctx,
+      fourth,
+      `restricted_conversations_until = ${ahead}, restricted_profile_posts_until = ${ahead}`,
+    );
+    expect(asks("restricted_conversations", 1)).toEqual([false, false, false, true]);
+    expect(asks("restricted_profile_posts", 1)).toEqual([false, false, false, true]);
+  });
+
+  test("thread_banned holds for a ban that has not run out, in any thread", () => {
+    const { ctx, member, other, node } = world();
+    const third = insertUser(ctx).id;
+    const [t1, t2] = [thread(ctx, other, node), thread(ctx, other, node)];
+    const ban = (userId: number, threadId: number, expiresAt: number | null) =>
+      insertRow(
+        ctx,
+        "INSERT INTO thread_bans (thread_id, user_id, moderator_id, created_at, expires_at) VALUES (?1, ?2, ?3, 1, ?4)",
+        threadId,
+        userId,
+        other,
+        expiresAt,
+      );
+    ban(member, t1, null);
+    ban(member, t2, ctx.now() - 1);
+    ban(other, t1, ctx.now() - 1);
+    ban(third, t2, ctx.now() + 1);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other, third], { criterion: "thread_banned", value });
+    expect(asks(1)).toEqual([true, false, true]);
+    expect(asks(0)).toEqual([false, true, false]);
+  });
+
+  test("banned_before holds for any ban on record, lifted, over or current", () => {
+    const { ctx, member, other } = world();
+    const [lifted, over, current, never] = [
+      insertUser(ctx).id,
+      insertUser(ctx).id,
+      member,
+      insertUser(ctx).id,
+    ];
+    const ban = (userId: number, expiresAt: number | null, liftedAt: number | null) =>
+      insertRow(
+        ctx,
+        "INSERT INTO bans (user_id, moderator_id, reason, created_at, expires_at, lifted_at) VALUES (?1, ?2, 'r', 1, ?3, ?4)",
+        userId,
+        other,
+        expiresAt,
+        liftedAt,
+      );
+    ban(lifted, null, 5);
+    ban(over, 3, null);
+    ban(current, null, null);
+    const asks = (value: number) =>
+      holdsFor(ctx, [lifted, over, current, never], { criterion: "banned_before", value });
+    expect(asks(1)).toEqual([true, true, true, false]);
+    expect(asks(0)).toEqual([false, false, false, true]);
+  });
+
+  test("reports_resolved counts the member's reports that a moderator resolved", () => {
+    const { ctx, member, other } = world();
+    let target = 0;
+    const report = (reporter: number, state: string) => {
+      target += 1;
+      const group = insertRow(
+        ctx,
+        "INSERT INTO report_groups (target_type, target_id, state, report_count, created_at, updated_at) VALUES ('post', ?1, ?2, 1, 1, 1)",
+        target,
+        state,
+      );
+      insertRow(
+        ctx,
+        "INSERT INTO reports (group_id, reporter_id, reason, created_at) VALUES (?1, ?2, 'r', 1)",
+        group,
+        reporter,
+      );
+    };
+    report(member, "resolved");
+    report(member, "resolved");
+    report(member, "rejected");
+    report(member, "open");
+    report(other, "assigned");
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "reports_resolved", value });
+    expect(asks(2)).toEqual([true, false]);
+    expect(asks(3)).toEqual([false, false]);
+  });
+
+  test("moderator_actions counts the member's entries in the moderator log", () => {
+    const { ctx, member, other } = world();
+    for (let n = 0; n < 3; n++)
+      insertRow(
+        ctx,
+        "INSERT INTO moderator_log (actor_id, action, target_type, target_id, created_at) VALUES (?1, 'post.delete', 'post', ?2, 1)",
+        member,
+        n + 1,
+      );
+    insertRow(
+      ctx,
+      "INSERT INTO moderator_log (actor_id, action, target_type, target_id, created_at) VALUES (?1, 'post.delete', 'post', 9, 1)",
+      other,
+    );
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "moderator_actions", value });
+    expect(asks(3)).toEqual([true, false]);
+    expect(asks(4)).toEqual([false, false]);
+  });
+});
+
 describe("profile criteria", () => {
   const set = (ctx: Ctx, userId: number, columns: string) =>
     ctx.sqlite.prepare(`UPDATE users SET ${columns} WHERE id = ?1`).run(userId);
@@ -427,7 +553,7 @@ describe("profile criteria", () => {
     expect(asks(0)).toEqual([false, false, true]);
   });
 
-  test("a name colour, an accent colour and a frame are each their own setting", () => {
+  test("a name color, an accent color and a frame are each their own setting", () => {
     const { ctx, member, other } = world();
     set(ctx, member, "name_color_id = 1");
     set(ctx, other, "accent_color_id = 1, frame_id = 2");

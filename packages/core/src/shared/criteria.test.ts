@@ -41,6 +41,9 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   socialLinkCount: 0,
   profileComplete: false,
   usernameChangedAt: null,
+  restrictedPosting: false,
+  restrictedConversations: false,
+  restrictedProfilePosts: false,
   awardCount: 0,
   awardXp: 0,
   measures: new Map(),
@@ -59,6 +62,13 @@ const yesNo = (flag: keyof Facts): Case[] => [
   ["lacks it, must", { value: 1 }, facts({ [flag]: false }), false],
   ["lacks it, must not", { value: 0 }, facts({ [flag]: false }), true],
   ["has it, must not", { value: 0 }, facts({ [flag]: true }), false],
+];
+/** The cases of a yes/no criterion that one lookup answers (a row exists or it does not). */
+const lookupCases = (criterion: string): Case[] => [
+  ["has one, must", { value: 1 }, measured(criterion, {}, 1), true],
+  ["has none, must", { value: 1 }, facts(), false],
+  ["has none, must not", { value: 0 }, facts(), true],
+  ["has one, must not", { value: 0 }, measured(criterion, {}, 1), false],
 ];
 /** The cases of a criterion that holds items, categories or the like: one of them, or each. */
 const ownCases = (criterion: string): Case[] => [
@@ -297,6 +307,13 @@ const table: Record<string, Case[]> = {
     ["too long ago", { value: 30 }, facts({ usernameChangedAt: NOW - 30 * DAY - 1 }), false],
     ["never changed", { value: 30 }, facts({ usernameChangedAt: null }), false],
   ],
+  restricted_posting: yesNo("restrictedPosting"),
+  restricted_conversations: yesNo("restrictedConversations"),
+  restricted_profile_posts: yesNo("restrictedProfilePosts"),
+  thread_banned: lookupCases("thread_banned"),
+  banned_before: lookupCases("banned_before"),
+  reports_resolved: countCases("reports_resolved"),
+  moderator_actions: countCases("moderator_actions"),
   awards_held_at_least: [
     ["above", { value: 3 }, facts({ awardCount: 4 }), true],
     ["edge", { value: 3 }, facts({ awardCount: 3 }), true],
@@ -690,7 +707,7 @@ describe("loadFacts", () => {
 
   test("its queries use indexes", () => {
     const ctx = createTestContext();
-    expectNoTableScan(ctx, memberFactsSql, ["[1,2]"]);
+    expectNoTableScan(ctx, memberFactsSql, ["[1,2]", 0]);
     expectNoTableScan(
       ctx,
       "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",

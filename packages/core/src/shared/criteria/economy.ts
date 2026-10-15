@@ -37,7 +37,7 @@ export const economySpecs: readonly Spec[] = [
       refresh: onPurchaseOrUse,
     },
   ),
-  // Owns it and shows it: the frame, name colour or name icon the item gives is the one chosen.
+  // Owns it and shows it: the frame, name color or name icon the item gives is the one chosen.
   listed(
     "wears_item",
     "shopItems",

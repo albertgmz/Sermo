@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { writeTx } from "../../db/tx";
-import { dispatchEvents, publishEvent } from "../../events";
+import { type DomainEvent, dispatchEvents, publishEvent } from "../../events";
 import { registerAwardJobs } from "../../modules/awards/automatic";
 import { registerPromotionJobs } from "../../modules/promotions";
 import { execute } from "../../operation";
@@ -70,6 +70,48 @@ describe("events that change a criterion's fact", () => {
     expect(membersAffected(ctx, used, [owns])).toEqual([author.id]);
     expect(membersAffected(ctx, used, [replies])).toEqual([]);
     expect(isRefreshedBy({ ...used, type: "member.followed" })).toBe(false);
+  });
+
+  test("a restriction, a ban or a thread ban tells the member, a resolved report its reporters", () => {
+    const { ctx, author, replier } = world();
+    const group = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO report_groups (target_type, target_id, state, report_count, created_at, updated_at) VALUES ('post', 1, 'resolved', 2, 1, 1) RETURNING id",
+      )
+      .get()!.id;
+    for (const reporter of [author.id, replier.id])
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO reports (group_id, reporter_id, reason, created_at) VALUES (?1, ?2, 'r', 1)",
+        )
+        .run(group, reporter);
+    const event = (type: DomainEvent["type"], targetId: number, payload = {}) =>
+      ({ id: 1, type, targetType: "user", targetId, payload, createdAt: 0 }) as DomainEvent;
+    const asks = (event: DomainEvent, ...conditions: Rule["conditions"]) =>
+      membersAffected(ctx, event, [rule(...conditions)]);
+    expect(
+      asks(event("member.restricted", replier.id), { criterion: "restricted_posting", value: 1 }),
+    ).toEqual([replier.id]);
+    expect(
+      asks(event("member.thread_banned", replier.id), { criterion: "thread_banned", value: 1 }),
+    ).toEqual([replier.id]);
+    expect(
+      asks(event("member.banned", replier.id), { criterion: "banned_before", value: 1 }),
+    ).toEqual([replier.id]);
+    // A ban says nothing about a restriction.
+    expect(
+      asks(event("member.banned", replier.id), { criterion: "restricted_posting", value: 1 }),
+    ).toEqual([]);
+    const resolved = event("report.state_changed", group, { state: "resolved" });
+    expect(asks(resolved, { criterion: "reports_resolved", value: 1 }).sort()).toEqual(
+      [author.id, replier.id].sort(),
+    );
+    expect(
+      asks(event("report.state_changed", group, { state: "rejected" }), {
+        criterion: "reports_resolved",
+        value: 1,
+      }),
+    ).toEqual([]);
   });
 
   test("an award is given to the thread's author as soon as a reply makes the rule hold", async () => {

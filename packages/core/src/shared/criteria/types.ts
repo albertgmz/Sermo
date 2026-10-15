@@ -53,6 +53,9 @@ export interface Facts {
   profileComplete: boolean;
   /** When the username last changed; null if never. */
   usernameChangedAt: number | null;
+  restrictedPosting: boolean;
+  restrictedConversations: boolean;
+  restrictedProfilePosts: boolean;
   /** Awards held, each grant counting, and the XP of those grants. */
   awardCount: number;
   awardXp: number;
