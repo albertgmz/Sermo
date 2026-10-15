@@ -358,6 +358,13 @@
       "when": 1792083465713,
       "tag": "0050_warning_types",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "6",
+      "when": 1792088289859,
+      "tag": "0051_search_plain_text",
+      "breakpoints": true
     }
   ]
 }

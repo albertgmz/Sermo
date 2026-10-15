@@ -2755,3 +2755,31 @@ needs the password, what a key cannot do (DECISIONS "API keys are credentials"),
 refuses; it states no limit numbers. The page's first load has its own budget group (231000 bytes;
 218.8 KiB measured). Known limits: Swagger UI's labels are English, the web has no API keys page to
 link from, and non-`/api` operations of the spec work only behind the ingress.
+
+**BB code is the only text format (item 5b, plan B).** Posts, messages, wall posts, comments,
+signatures, announcements, notices and static pages are BB code (XenForo's tags plus `[hr]`);
+Markdown is dropped and typed Markdown or HTML stays literal text. Outside tags only bare
+http(s)/www addresses and `@mentions` are recognised (hashtags come later). No admin-defined BB
+codes. The renderer is our own linear scanner (tag lexer, one pairing stack, explicit-stack tree
+builder; unknown, malformed or unpaired tags stay text) and `marked` is gone: it took 650-880 ms on
+10,000 characters of unclosed emphasis, which no cap on the Markdown side fixed cleanly, and the
+remark alternative needed seven work caps to stay under the budget. A message whose reading (parse,
+HTML, sanitize; not the database lookups) takes over 50 ms is refused with a ValidationError ("This
+message is too complex"); the deadline is checked every 64 steps and is the safety net, while the
+adversarial suite (about 340 inputs of 10,000 characters) stays under 12 ms p95 without it. The
+bound is made less brittle instead of raised: the renderer is warmed up once per process when a
+context is created, and a render that trips the bound is tried once more before the message is
+refused. Nesting limits are unchanged (10 quotes, 10 spoilers, 30 in all). A message embeds at most
+50 `[MEDIA]` players; later ones are links to the provider's page. A quote of a post is
+`[QUOTE="Name, post: N, member: M"]`, resolved and attributed when saved as `:::quote{post=N}` was.
+Code highlighting is capped (4,000 characters and 20 blocks per message, no line over 200
+characters) because highlight.js cost grows steeply with line length. `[URL=/path]` may name a page
+of the site. The signature line limit counts lines as drawn (breaks, paragraphs, list items,
+headings, aligned blocks), because BB code puts a list on one source line; the other signature
+limits still measure the rendered HTML. Excerpts are cut with the renderer's own tokens (`arr[i]`
+stays, pictures and attachments leave nothing). The search index reads `post_bodies.body_text`
+(migration `0051`), a post's text without its tags written at save: NULL means not computed (the
+index reads the source), the empty string means a post with no text (a picture only), so tag names
+and quote attributions are not searchable words; every writer of `post_bodies` must set it. There is
+no conversion: old posts keep their stored HTML and are indexed by their source until they are
+edited.
