@@ -21,7 +21,7 @@
     "db:generate": "cd packages/core && drizzle-kit generate",
     "check": "bun run typecheck && bun run lint && bun run test && bun run check:web && bun run bench",
     "check:fast": "bun run typecheck && bun run lint && bun run test && bun run check:web",
-    "check:web": "cd apps/web && bun run typecheck && bun run test && bun run build"
+    "check:web": "cd apps/web && bun run typecheck && bun run test && bun run build && bun run js-budget"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

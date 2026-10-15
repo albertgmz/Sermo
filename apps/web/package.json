@@ -9,7 +9,8 @@
     "lint": "biome check",
     "test": "bun test",
     "format": "biome format --write",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "js-budget": "bun scripts/js-budget.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
