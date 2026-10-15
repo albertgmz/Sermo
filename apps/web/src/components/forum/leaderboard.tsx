@@ -144,6 +144,61 @@ export function LeaderboardScore({
   );
 }
 
+// One member of a ranking: rank, avatar, name and the score. A list draws it inside an item of its
+// own (`Leaderboard`, or the infinite list of a long ranking).
+export function LeaderboardRow({
+  member,
+  by,
+  viewerId,
+  rank,
+  compact = false,
+}: {
+  member: LeaderboardMember;
+  by: LeaderboardKind;
+  viewerId?: number;
+  rank: number;
+  compact?: boolean;
+}) {
+  const locale = useLocale();
+  const t = useTranslations("forum.leaderboard");
+  return (
+    <div
+      className={cn(
+        "flex min-h-12 items-center gap-3 px-4 py-2",
+        compact && "min-h-10 gap-2 px-3 py-0",
+        member.card.id === viewerId && "bg-primary/5",
+      )}
+    >
+      <RankNumber rank={rank} />
+      <UserAvatar
+        user={member.card}
+        className="relative after:absolute after:-inset-1"
+      />
+      <UserLink
+        user={member.card}
+        className={cn(
+          "min-w-0 flex-1 truncate text-sm",
+          compact && "min-h-10 content-center",
+        )}
+      />
+      {by === "xp" && !compact ? (
+        <>
+          <LevelBadge level={member.card} />
+          <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
+            {formatNumber(member.awardXp, locale)}
+            <span className="text-xs font-medium text-muted-foreground">
+              {" "}
+              {t("xp")}
+            </span>
+          </span>
+        </>
+      ) : (
+        <LeaderboardScore by={by} member={member} compact={compact} />
+      )}
+    </div>
+  );
+}
+
 export function Leaderboard({
   members,
   by,
@@ -157,45 +212,17 @@ export function Leaderboard({
   start?: number;
   compact?: boolean;
 }) {
-  const locale = useLocale();
-  const t = useTranslations("forum.leaderboard");
   return (
     <ol start={start} className="divide-y divide-border">
       {members.map((member, index) => (
-        <li
-          key={member.card.id}
-          className={cn(
-            "flex min-h-12 items-center gap-3 px-4 py-2",
-            compact && "min-h-10 gap-2 px-3 py-0",
-            member.card.id === viewerId && "bg-primary/5",
-          )}
-        >
-          <RankNumber rank={start + index} />
-          <UserAvatar
-            user={member.card}
-            className="relative after:absolute after:-inset-1"
+        <li key={member.card.id}>
+          <LeaderboardRow
+            member={member}
+            by={by}
+            viewerId={viewerId}
+            rank={start + index}
+            compact={compact}
           />
-          <UserLink
-            user={member.card}
-            className={cn(
-              "min-w-0 flex-1 truncate text-sm",
-              compact && "min-h-10 content-center",
-            )}
-          />
-          {by === "xp" && !compact ? (
-            <>
-              <LevelBadge level={member.card} />
-              <span className="w-16 shrink-0 text-right text-sm font-semibold tabular-nums">
-                {formatNumber(member.awardXp, locale)}
-                <span className="text-xs font-medium text-muted-foreground">
-                  {" "}
-                  {t("xp")}
-                </span>
-              </span>
-            </>
-          ) : (
-            <LeaderboardScore by={by} member={member} compact={compact} />
-          )}
         </li>
       ))}
     </ol>

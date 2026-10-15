@@ -1,16 +1,17 @@
-import {
-  standingsMonth,
-  standingsWinners,
-  usersList,
-  usersStaff,
-} from "@sermo/core/contracts";
+import { standingsWinners, usersStaff } from "@sermo/core/contracts";
 import { Crown } from "lucide-react";
 import type { Metadata } from "next";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { Directory } from "@/app/[locale]/(main)/members/directory";
 import { MembersNav } from "@/app/[locale]/(main)/members/members-nav";
+import { monthPage } from "@/app/[locale]/(main)/members/month-page";
+import {
+  moreMonth,
+  moreRanking,
+} from "@/app/[locale]/(main)/members/more-members";
 import { Overview } from "@/app/[locale]/(main)/members/overview";
+import { rankingPage } from "@/app/[locale]/(main)/members/ranking-page";
 import { StaffList } from "@/app/[locale]/(main)/members/staff-list";
 import {
   type MemberSort,
@@ -19,12 +20,9 @@ import {
   viewHref,
 } from "@/app/[locale]/(main)/members/views";
 import { EmptyState } from "@/components/forum/empty-state";
-import {
-  Leaderboard,
-  type LeaderboardKind,
-} from "@/components/forum/leaderboard";
-import { LoadMore } from "@/components/forum/load-more";
-import { SectionCard } from "@/components/forum/section-card";
+import type { LeaderboardKind } from "@/components/forum/leaderboard";
+import { PagedList } from "@/components/forum/paged-list";
+import { SectionCard, SectionHeader } from "@/components/forum/section-card";
 import {
   HeadingSkeleton,
   LoadingRegion,
@@ -33,13 +31,10 @@ import {
   MemberRowSkeleton,
   TabsSkeleton,
 } from "@/components/forum/skeletons";
-import {
-  MonthHero,
-  StandingList,
-  WinnerList,
-} from "@/components/forum/standing";
+import { MonthHero, WinnerList } from "@/components/forum/standing";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 
@@ -52,36 +47,19 @@ function first(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : (value ?? "")).trim();
 }
 
-// Where the next page of a list continues: the number of the first row travels with the cursor,
-// since a cursor says nothing about how many rows came before it.
-function nextHref(
-  view: ViewValue,
-  cursor: string,
-  start: number,
-  extra?: Record<string, string>,
-) {
-  const params = new URLSearchParams(extra);
-  params.set("cursor", cursor);
-  params.set("start", String(start));
-  const base = viewHref(view);
-  return `${base}${base.includes("?") ? "&" : "?"}${params}`;
-}
-
 async function MonthView({
-  viewerId,
   cursor,
-  start,
+  pages,
 }: {
-  viewerId?: number;
   cursor?: string;
-  start: number;
+  pages: number;
 }) {
   const [t, loadMore, format, winners, standing] = await Promise.all([
     getTranslations("members.members"),
     getTranslations("members.loadMore"),
     getFormatter(),
     read(standingsWinners, {}),
-    read(standingsMonth, { month: "previous", cursor }),
+    monthPage(cursor),
   ]);
   // The first winner is the member of the month only while it is the last complete month's.
   const [latest, ...earlier] = winners.items;
@@ -96,30 +74,25 @@ async function MonthView({
   return (
     <>
       {winner && <MonthHero winner={winner} />}
-      {standing.items.length > 0 ? (
-        <SectionCard
-          title={t("standingHeading")}
-          description={t("monthStanding", { month: monthName })}
-        >
-          <StandingList
-            entries={standing.items}
-            viewerId={viewerId}
-            start={start}
-          />
-          {standing.nextCursor && (
-            <div className="p-3">
-              <LoadMore
-                href={nextHref(
-                  "month",
-                  standing.nextCursor,
-                  start + standing.items.length,
-                )}
-              >
-                {loadMore("label")}
-              </LoadMore>
-            </div>
-          )}
-        </SectionCard>
+      {standing.rows.length > 0 ? (
+        <PagedList
+          first={standing}
+          more={moreMonth}
+          pages={pages}
+          start={cursor}
+          listKey={["members", "month"]}
+          hrefBase={viewHref("month")}
+          moreLabel={loadMore("label")}
+          estimateSize={72}
+          as="ul"
+          className="overflow-hidden rounded-lg border bg-card"
+          header={
+            <SectionHeader
+              title={t("standingHeading")}
+              description={t("monthStanding", { month: monthName })}
+            />
+          }
+        />
       ) : (
         !winner && (
           <div className="rounded-lg border bg-card">
@@ -145,33 +118,34 @@ async function RankingView({
   title,
   sort,
   by,
-  viewerId,
   cursor,
-  start,
+  pages,
 }: {
   view: ViewValue;
   title: string;
   sort: MemberSort;
   by: LeaderboardKind;
-  viewerId?: number;
   cursor?: string;
-  start: number;
+  pages: number;
 }) {
-  const [{ items, nextCursor }, loadMore] = await Promise.all([
-    read(usersList, { sort, cursor }),
+  const [first, loadMore] = await Promise.all([
+    rankingPage(sort, by, cursor),
     getTranslations("members.loadMore"),
   ]);
   return (
-    <SectionCard title={title}>
-      <Leaderboard members={items} by={by} viewerId={viewerId} start={start} />
-      {nextCursor && (
-        <div className="p-3">
-          <LoadMore href={nextHref(view, nextCursor, start + items.length)}>
-            {loadMore("label")}
-          </LoadMore>
-        </div>
-      )}
-    </SectionCard>
+    <PagedList
+      first={first}
+      more={moreRanking.bind(null, view)}
+      pages={pages}
+      start={cursor}
+      listKey={["members", view]}
+      hrefBase={viewHref(view)}
+      moreLabel={loadMore("label")}
+      estimateSize={56}
+      as="ul"
+      className="overflow-hidden rounded-lg border bg-card"
+      header={<SectionHeader title={title} />}
+    />
   );
 }
 
@@ -189,10 +163,7 @@ export default async function MembersPage({
   const query = first(params.q);
   const sort = first(params.sort);
   const cursor = first(params.cursor) || undefined;
-  const start = Math.min(
-    1_000_000,
-    Math.max(1, Math.floor(Number(first(params.start))) || 1),
-  );
+  const pages = pagesParam(params.pages);
   // A search or a sort without a view is a link to the directory.
   const param = first(params.view) || (query || sort ? "all" : "");
   const view = VIEWS.find((entry) => entry.value === param) ?? VIEWS[0];
@@ -229,7 +200,7 @@ export default async function MembersPage({
             </LoadingRegion>
           }
         >
-          <MonthView viewerId={viewerId} cursor={cursor} start={start} />
+          <MonthView cursor={cursor} pages={pages} />
         </Suspense>
       )}
       {"sort" in view && (
@@ -245,9 +216,8 @@ export default async function MembersPage({
             title={views(view.label)}
             sort={view.sort}
             by={view.ranking}
-            viewerId={viewerId}
             cursor={cursor}
-            start={start}
+            pages={pages}
           />
         </Suspense>
       )}
@@ -282,7 +252,7 @@ export default async function MembersPage({
             </LoadingRegion>
           }
         >
-          <Directory query={query} sort={sort} cursor={cursor} />
+          <Directory query={query} sort={sort} cursor={cursor} pages={pages} />
         </Suspense>
       )}
     </PageLayout>

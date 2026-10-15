@@ -37,6 +37,26 @@ const SCREENS = [
     "app/[locale]/(main)/notifications/page.tsx",
     "notifications/more-notifications.ts",
   ],
+  [
+    "award holders",
+    "app/[locale]/(main)/awards/[id]/page.tsx",
+    "awards/[id]/more-holders.ts",
+  ],
+  [
+    "credits history",
+    "app/[locale]/(main)/credits/history.tsx",
+    "credits/more-history.ts",
+  ],
+  [
+    "member rankings and the month's standing",
+    "app/[locale]/(main)/members/page.tsx",
+    "members/more-members.ts",
+  ],
+  [
+    "member directory",
+    "app/[locale]/(main)/members/directory.tsx",
+    "members/more-members.ts",
+  ],
 ] as const;
 
 // The pager of these screens is the one shared list: a screen that still draws its own link to
@@ -44,7 +64,8 @@ const SCREENS = [
 for (const [name, screen, action] of SCREENS) {
   test(`${name} draw their list through the shared paged list`, () => {
     const code = source(screen);
-    expect(code).toContain("<PagedList");
+    // Directly, or in a card with a heading over it (`PagedCard`, which draws one).
+    expect(code).toMatch(/<Paged(List|Card)/);
     expect(code).not.toContain("LoadMore");
     expect(code).toMatch(
       /pages=\{pagesParam\(|pages=\{pages\}|pages=\{Math\.min\(pages,/,

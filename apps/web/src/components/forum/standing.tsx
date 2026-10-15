@@ -175,7 +175,7 @@ export function MonthHero({
 
 // One member's month. `label` replaces the rank with a caption above the
 // name (the month, in a list of winners).
-function StandingRow({
+export function StandingRow({
   entry,
   rank,
   label,
@@ -191,7 +191,7 @@ function StandingRow({
   compact?: boolean;
 }) {
   return (
-    <li
+    <div
       className={cn(
         "flex items-center gap-3 px-4 py-2.5",
         leader && "py-4",
@@ -235,7 +235,7 @@ function StandingRow({
         value={entry.points}
         className={leader ? "text-xl text-primary-ink" : "text-sm"}
       />
-    </li>
+    </div>
   );
 }
 
@@ -252,13 +252,14 @@ export function StandingList({
   return (
     <ol className="divide-y divide-border">
       {entries.map((entry, index) => (
-        <StandingRow
-          key={entry.card.id}
-          entry={entry}
-          rank={start + index}
-          leader={start === 1 && index === 0}
-          viewer={entry.card.id === viewerId}
-        />
+        <li key={entry.card.id}>
+          <StandingRow
+            entry={entry}
+            rank={start + index}
+            leader={start === 1 && index === 0}
+            viewer={entry.card.id === viewerId}
+          />
+        </li>
       ))}
     </ol>
   );
@@ -275,12 +276,13 @@ export function WinnerList({
   return (
     <ol className="divide-y divide-border">
       {winners.map((winner) => (
-        <StandingRow
-          key={`${winner.year}-${winner.month}`}
-          entry={winner}
-          label={monthLabel(format, winner)}
-          compact={compact}
-        />
+        <li key={`${winner.year}-${winner.month}`}>
+          <StandingRow
+            entry={winner}
+            label={monthLabel(format, winner)}
+            compact={compact}
+          />
+        </li>
       ))}
     </ol>
   );

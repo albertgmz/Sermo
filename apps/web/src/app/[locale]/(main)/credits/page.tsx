@@ -23,6 +23,7 @@ import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { formatNumber } from "@/lib/format";
+import { pagesParam } from "@/lib/list-pages";
 import { read, readIfAllowed } from "@/lib/sermo/client";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -162,7 +163,10 @@ async function Content({
         />
       )}
       {tab === "history" && user && (
-        <History cursor={first(query.cursor) || undefined} />
+        <History
+          cursor={first(query.cursor) || undefined}
+          pages={pagesParam(query.pages)}
+        />
       )}
     </>
   );

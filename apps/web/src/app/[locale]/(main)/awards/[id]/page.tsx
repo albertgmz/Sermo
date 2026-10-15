@@ -1,30 +1,25 @@
-import { awardsGet, awardsHolders, awardsMember } from "@sermo/core/contracts";
+import { awardsGet, awardsMember } from "@sermo/core/contracts";
 import { Check, Lock, Users } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
+import { holdersPage } from "@/app/[locale]/(main)/awards/[id]/holders-page";
+import { moreHolders } from "@/app/[locale]/(main)/awards/[id]/more-holders";
 import { TIERS } from "@/app/[locale]/(main)/awards/tiers";
 import { Art } from "@/components/forum/art";
 import { AwardIcon } from "@/components/forum/award-icon";
-import { EmptyState } from "@/components/forum/empty-state";
-import { LevelBadge } from "@/components/forum/level";
-import { LoadMore } from "@/components/forum/load-more";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
-import { RelativeTime } from "@/components/forum/relative-time";
-import { SectionCard } from "@/components/forum/section-card";
+import { PagedCard } from "@/components/forum/paged-card";
 import {
   LoadingRegion,
   MemberListSkeleton,
 } from "@/components/forum/skeletons";
 import { StatInline } from "@/components/forum/stat";
-import { UserAvatar } from "@/components/forum/user-avatar";
-import { UserBadges } from "@/components/forum/user-badges";
-import { UserLink } from "@/components/forum/user-link";
 import { PageLayout } from "@/components/layout/page-layout";
 import { formatDate, formatNumber } from "@/lib/format";
+import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
-import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
 
@@ -53,79 +48,40 @@ export async function generateMetadata({
   return { title: t("metaTitle", { name: award.name }) };
 }
 
-// A member holding a stackable award twice is two grants and two rows: the list is as the backend
-// returns it.
+// The award's holders, newest grant first.
 async function Holders({
   awardId,
-  viewerId,
   cursor,
+  pages,
 }: {
   awardId: number;
-  viewerId?: number;
   cursor?: string;
+  pages: number;
 }) {
-  const locale = await getLocale();
-  const [t, holders] = await Promise.all([
+  const [t, first] = await Promise.all([
     getTranslations("awards.award"),
-    read(awardsHolders, { awardId, cursor }),
+    holdersPage(awardId, cursor),
   ]);
-  const member = await membersFor(holders.items.map(({ user }) => user));
   const award = await getAward(awardId);
   return (
-    <SectionCard
+    <PagedCard
       title={t("holdersHeading")}
       description={t("grants", { count: award.grantCount })}
-    >
-      {holders.items.length === 0 ? (
-        <EmptyState
-          icon={Users}
-          title={t("emptyTitle")}
-          description={t("emptyDescription")}
-        />
-      ) : (
-        <ol className="divide-y divide-border">
-          {holders.items.map((grant) => {
-            const holder = member(grant.user.id);
-            return (
-              <li
-                key={grant.id}
-                className={cn(
-                  "flex min-h-14 items-center gap-3 px-4 py-2",
-                  grant.user.id === viewerId && "bg-primary/5",
-                )}
-              >
-                <UserAvatar user={holder} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <UserLink user={holder} className="truncate text-sm" />
-                    <UserBadges user={holder} limit={1} />
-                    <LevelBadge level={holder} />
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {grant.reason || holder.title}
-                  </p>
-                </div>
-                <div className="shrink-0 text-right text-xs text-muted-foreground">
-                  <p className="font-medium text-foreground">
-                    {formatDate(grant.grantedAt, locale)}
-                  </p>
-                  <RelativeTime date={grant.grantedAt} />
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-      {holders.nextCursor && (
-        <div className="p-3">
-          <LoadMore
-            href={`/awards/${awardId}?cursor=${encodeURIComponent(holders.nextCursor)}`}
-          >
-            {t("loadMore")}
-          </LoadMore>
-        </div>
-      )}
-    </SectionCard>
+      empty={{
+        icon: Users,
+        title: t("emptyTitle"),
+        description: t("emptyDescription"),
+      }}
+      first={first}
+      more={moreHolders.bind(null, awardId)}
+      pages={pages}
+      start={cursor}
+      listKey={["award", awardId]}
+      hrefBase={`/awards/${awardId}`}
+      moreLabel={t("loadMore")}
+      estimateSize={64}
+      as="ul"
+    />
   );
 }
 
@@ -239,7 +195,11 @@ export default async function AwardPage({
           </LoadingRegion>
         }
       >
-        <Holders awardId={awardId} viewerId={user?.id} cursor={cursor} />
+        <Holders
+          awardId={awardId}
+          cursor={cursor}
+          pages={pagesParam(query.pages)}
+        />
       </Suspense>
     </PageLayout>
   );

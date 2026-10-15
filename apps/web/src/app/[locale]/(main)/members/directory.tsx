@@ -1,13 +1,14 @@
-import { usersList, usersSearch } from "@sermo/core/contracts";
+import { usersSearch } from "@sermo/core/contracts";
 import { SearchX } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { directoryPage } from "@/app/[locale]/(main)/members/directory-page";
 import { MemberSearch } from "@/app/[locale]/(main)/members/member-search";
+import { moreDirectory } from "@/app/[locale]/(main)/members/more-members";
 import { EmptyState } from "@/components/forum/empty-state";
 import { LevelBadge } from "@/components/forum/level";
-import { LoadMore } from "@/components/forum/load-more";
-import { MemberCard } from "@/components/forum/member-card";
 import { MemberRow } from "@/components/forum/member-row";
+import { PagedList } from "@/components/forum/paged-list";
 import { SectionCard } from "@/components/forum/section-card";
 import { TabLinks } from "@/components/forum/tab-links";
 import { buttonVariants } from "@/components/ui/button";
@@ -83,28 +84,29 @@ async function Found({ query, everyone }: { query: string; everyone: string }) {
 async function Everyone({
   sort,
   cursor,
+  pages,
 }: {
   sort: (typeof SORTS)[number]["value"];
   cursor?: string;
+  pages: number;
 }) {
-  const [{ items, nextCursor }, loadMore] = await Promise.all([
-    read(usersList, { sort, cursor }),
+  const [first, loadMore] = await Promise.all([
+    directoryPage(sort, cursor),
     getTranslations("members.loadMore"),
   ]);
-  const params = new URLSearchParams({ view: "all" });
-  if (sort !== SORTS[0].value) params.set("sort", sort);
-  if (nextCursor) params.set("cursor", nextCursor);
   return (
-    <>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map((item) => (
-          <MemberCard key={item.card.id} user={item} />
-        ))}
-      </div>
-      {nextCursor && (
-        <LoadMore href={`/members?${params}`}>{loadMore("label")}</LoadMore>
-      )}
-    </>
+    <PagedList
+      first={first}
+      more={moreDirectory.bind(null, sort)}
+      pages={pages}
+      start={cursor}
+      listKey={["members", "all", sort]}
+      hrefBase={directoryHref(sort, "")}
+      moreLabel={loadMore("label")}
+      // A page is a grid of about twenty cards, one or three to a line.
+      estimateSize={2000}
+      spacing="spaced"
+    />
   );
 }
 
@@ -112,10 +114,12 @@ export async function Directory({
   query,
   sort: sortParam,
   cursor,
+  pages,
 }: {
   query: string;
   sort: string;
   cursor?: string;
+  pages: number;
 }) {
   const t = await getTranslations("members.directory");
   const sort = SORTS.find((entry) => entry.value === sortParam) ?? SORTS[0];
@@ -144,7 +148,7 @@ export async function Directory({
             active={sort.value}
             label={t("aria.sort")}
           />
-          <Everyone sort={sort.value} cursor={cursor} />
+          <Everyone sort={sort.value} cursor={cursor} pages={pages} />
         </>
       )}
     </>
