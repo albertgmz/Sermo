@@ -90,6 +90,9 @@ function Row({
             className="text-sm font-semibold [overflow-wrap:anywhere]"
           />
           {entry.flagged && <Badge variant="destructive">{t("flagged")}</Badge>}
+          {entry.erasureStopped && (
+            <Badge variant="outline">{t("stopped")}</Badge>
+          )}
         </p>
         <dl className="grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
           <Fact label={t("email")}>
@@ -158,7 +161,11 @@ function Row({
             </Fact>
           )}
         </dl>
-        <DecideControls userIds={[user.id]} options={rejectOptions(viewer)} />
+        <DecideControls
+          userIds={[user.id]}
+          options={rejectOptions(viewer)}
+          stopped={entry.erasureStopped}
+        />
       </div>
     </article>
   );
@@ -181,6 +188,9 @@ export async function SignupList({ searchParams }: { searchParams: Params }) {
   return (
     <SignupSelection
       pageIds={page.items.map((entry) => entry.user.id)}
+      stoppedIds={page.items
+        .filter((entry) => entry.erasureStopped)
+        .map((entry) => entry.user.id)}
       options={rejectOptions(viewer)}
     >
       <CursorList

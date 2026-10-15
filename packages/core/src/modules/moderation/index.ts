@@ -47,7 +47,13 @@ import {
   takeOverLock,
 } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
-import { inQueueSql } from "../members/signup-review";
+import {
+  afterBan,
+  afterLift,
+  announceWaiting,
+  inQueueSql,
+  isInQueue,
+} from "../members/signup-review";
 import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
 import { assertRemovalNotBegun } from "../purge/purge";
@@ -1725,6 +1731,7 @@ function insertBan(
 ) {
   const wasAdministrator = can(ctx, principalMember(ctx, userId), "admin.permissions");
   const now = ctx.now();
+  const wasInQueue = isInQueue(ctx, userId);
   const id = Number(
     exec(
       ctx,
@@ -1738,6 +1745,7 @@ function insertBan(
     ).lastInsertRowid,
   );
   refreshBanState(ctx, userId, now);
+  afterBan(ctx, userId, wasInQueue, expiresAt);
   // The member's sessions end with the ban, cached copies included (the job deletes the rows).
   exec(ctx, "banRevoke", "UPDATE users SET sessions_revoked_at = ?1 WHERE id = ?2", now, userId);
   // A ban takes every permission away: it may not leave the forum without an administrator.
@@ -1931,6 +1939,7 @@ export function liftBan(
     const now = ctx.now();
     exec(ctx, "liftBan", "UPDATE bans SET lifted_at = ?1 WHERE id = ?2", now, banId);
     refreshBanState(ctx, ban.user_id, now);
+    afterLift(ctx, ban.user_id);
     appendModeratorLog(ctx, actor, "ban.lift", "user", ban.user_id, reason, { banId });
     publishEvent(ctx, {
       type: "member.banned",
@@ -2508,6 +2517,14 @@ export const operations = [
 export function registerModerationJobs(ctx: Ctx): void {
   registerForumTransferJobs(ctx);
   registerWarningJobs(ctx);
+  // A ban that held a waiting account out of the queue has ended: the account is back, and staff hear of it.
+  registerJobHandler(ctx, "signups.reannounce", (_ctx, payload) => {
+    const userId = (payload as { userId?: unknown })?.userId;
+    if (!Number.isSafeInteger(userId)) return;
+    writeTx(ctx, () => {
+      if (isInQueue(ctx, Number(userId))) announceWaiting(ctx, Number(userId));
+    });
+  });
   registerJobHandler(ctx, "moderation.revokeCredentials", async (_ctx, payload) => {
     const userId = (payload as { userId?: unknown })?.userId;
     if (!Number.isSafeInteger(userId) || Number(userId) < 1)

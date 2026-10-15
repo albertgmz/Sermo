@@ -83,7 +83,79 @@ test("a ban has a length: days, and for good only where the viewer may", () => {
   expect(bounded).not.toContain(s.reject.banForever);
   expect(radiosOf(bounded, "duration")).toHaveLength(1);
   expect(bounded).toContain('max="30"');
-  expect(bounded).toContain("up to 30 days");
+});
+
+const checked = (html: string, name: string) =>
+  radiosOf(html, name)
+    .filter((radio) => radio.includes("checked"))
+    .map((radio) => /value="([a-z]+)"/.exec(radio)?.[1]);
+
+test("the ban starts at what the API would give: for good for bound -1, otherwise the longest allowed", () => {
+  // Bound -1: for good is the default and what it does is said.
+  const free = controls({
+    erase: false,
+    ban: { forever: true, maxDays: 3650 },
+  });
+  expect(checked(free, "duration")).toEqual(["forever"]);
+  expect(free).toContain(s.reject.banForeverNote);
+  expect(free).not.toContain("Your bans are limited");
+  // Bound 30: days is the default, set to 30, and the limit is said as what it makes of this ban.
+  const limited = controls({
+    erase: false,
+    ban: { forever: false, maxDays: 30 },
+  });
+  expect(checked(limited, "duration")).toEqual(["days"]);
+  expect(limited).toMatch(
+    /name="banDays"[^>]*value="30"|value="30"[^>]*name="banDays"/,
+  );
+  expect(limited).toContain(
+    "Your bans are limited to 30 days, so this is a ban of 30 days. The account returns to the queue when it ends.",
+  );
+  // What a time-limited reject does.
+  expect(limited).toContain(s.reject.banTimedNote);
+  expect(limited).not.toContain(s.reject.banForever);
+});
+
+test("a bound of 0 offers no ban, so only erasing (or nothing) is left to reject with", () => {
+  const none = controls({ erase: true, ban: null });
+  expect(none).not.toContain(s.reject.mode.ban);
+  expect(none).not.toContain('name="banDays"');
+});
+
+test("an account whose erasure stopped part way is offered only the deletion", () => {
+  const html = renderToStaticMarkup(
+    withIntl(<DecideControls userIds={[7]} options={BOTH} stopped />),
+  );
+  expect(html).not.toContain(s.approve);
+  expect(html).toContain(s.reject.summaryDelete);
+  expect(radiosOf(html, "mode")).toHaveLength(1);
+  expect(html).toContain(s.reject.mode.delete);
+  expect(html).not.toContain(s.reject.mode.ban);
+  expect(html).not.toContain('name="banDays"');
+  expect(html).toContain('name="actorPassword"');
+  // Without the right to erase there is nothing to offer at all.
+  const none = renderToStaticMarkup(
+    withIntl(
+      <DecideControls
+        userIds={[7]}
+        options={{ erase: false, ban: BOTH.ban }}
+        stopped
+      />,
+    ),
+  );
+  expect(none).not.toContain(s.approve);
+  expect(none).not.toContain(s.reject.summary);
+  expect(none).not.toContain(s.reject.summaryDelete);
+});
+
+test("ticking a stopped account among others drops approving and banning and says why", () => {
+  const html = renderToStaticMarkup(
+    withIntl(<DecideControls userIds={[7, 8]} options={BOTH} stopped />),
+  );
+  expect(html).toContain(s.stoppedBulk);
+  expect(html).not.toContain(s.approve);
+  expect(html).not.toContain(s.reject.mode.ban);
+  expect(html).toContain(s.reject.mode.delete);
 });
 
 test("rejecting offers only what the viewer may do, and nothing when neither", () => {
@@ -110,7 +182,7 @@ test("rejecting offers only what the viewer may do, and nothing when neither", (
 test("the list bar waits for ticks: nothing to decide on until a row is selected", () => {
   const html = renderToStaticMarkup(
     withIntl(
-      <SignupSelection pageIds={[7, 8]} options={BOTH}>
+      <SignupSelection pageIds={[7, 8]} stoppedIds={[]} options={BOTH}>
         <SignupTick id={7} name="wren" />
       </SignupSelection>,
     ),
@@ -126,7 +198,7 @@ test("an empty page has no bar, and a tick outside the list draws nothing", () =
   expect(
     renderToStaticMarkup(
       withIntl(
-        <SignupSelection pageIds={[]} options={BOTH}>
+        <SignupSelection pageIds={[]} stoppedIds={[]} options={BOTH}>
           x
         </SignupSelection>,
       ),

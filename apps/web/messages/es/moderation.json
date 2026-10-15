@@ -248,13 +248,17 @@
       "banDays": "Días de expulsión",
       "banDaysUnit": "días",
       "banForever": "Para siempre",
-      "banLengthHelpAny": "Una expulsión para siempre cierra la cuenta. Una expulsión por días la retiene fuera de la cola hasta que acabe.",
-      "banLengthHelpMax": "{count, plural, one {Puedes expulsar hasta # día.} other {Puedes expulsar hasta # días.}} La cuenta queda retenida fuera de la cola hasta que acabe la expulsión."
+      "summaryDelete": "Rechazar borrando la cuenta…",
+      "banLimited": "{count, plural, one {Tus expulsiones están limitadas a # día, así que esta es una expulsión de # día.} other {Tus expulsiones están limitadas a # días, así que esta es una expulsión de # días.}} La cuenta vuelve a la cola cuando termina.",
+      "banForeverNote": "Una expulsión para siempre cierra la cuenta: sale de la cola y sigue cerrada.",
+      "banTimedNote": "Mientras dura la expulsión la cuenta queda retenida y fuera de la cola. Cuando termina vuelve a la cola, con un aviso nuevo para el personal. Al miembro ya se le dijo que fue rechazado."
     },
     "result": {
       "approve": "{done, plural, one {# alta aprobada} other {# altas aprobadas}}{skipped, plural, =0 {} other {, omitidos: #}}{failed, plural, =0 {} other {, fallidos: #}}.",
       "reject": "{done, plural, one {# alta rechazada} other {# altas rechazadas}}{skipped, plural, =0 {} other {, omitidos: #}}{failed, plural, =0 {} other {, fallidos: #}}.",
       "more": "{count, plural, one {Otro más no se muestra.} other {# más no se muestran.}}"
-    }
+    },
+    "stopped": "Su borrado se detuvo a medias",
+    "stoppedBulk": "El borrado de al menos un alta marcada se detuvo a medias. Solo borrar las cuentas puede terminarlo, así que no se ofrece aprobar ni expulsar."
   }
 }

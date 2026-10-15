@@ -4,7 +4,7 @@ import { type Ctx, prepared } from "../../context";
 import { signupsDecide, signupsList } from "../../contracts/signups";
 import { ACCEPTANCE_KINDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ValidationError } from "../../errors";
+import { ConflictError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -40,16 +40,19 @@ type Row = PrincipalRow & {
   username: string;
   created_at: number;
   signup_review: "pending" | "flagged";
+  erased_at: number | null;
   email: string;
 };
 
 export const signupSql = {
-  page: `SELECT u.id, u.group_id, u.username, u.created_at, u.signup_review, a.email, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE ${inQueueSql(3)} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
+  page: `SELECT u.id, u.group_id, u.username, u.created_at, u.signup_review, u.erased_at, a.email, ${PRINCIPAL_COLUMNS} FROM users u JOIN auth_user a ON a.id = u.id WHERE ${inQueueSql(3)} AND u.id < ?1 ORDER BY u.id DESC LIMIT ?2`,
   // The address it signed up from: its first register row, found through the member's rows.
   registered:
     "SELECT ip, ip_net, country FROM ip_log WHERE user_id = ?1 AND action = 'register' ORDER BY id LIMIT 1",
   /** One account, if it still waits. */
-  waiting: `SELECT u.id, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1 AND ${AWAITING_SQL}`,
+  waiting: `SELECT u.id, a.email, u.erased_at FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1 AND ${AWAITING_SQL}`,
+  /** One account a decision may still be made on: in the queue and not erased. */
+  decidable: `SELECT u.id, a.email FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1 AND u.erased_at IS NULL AND ${inQueueSql(2)}`,
   clear: "UPDATE users SET signup_review = NULL WHERE id = ?1",
   names: "SELECT id, username FROM users WHERE id IN (SELECT value FROM json_each(?1))",
 };
@@ -121,6 +124,7 @@ export const signupsListOp = implement(signupsList, (ctx, actor, input) => {
         emailHidden,
         createdAt: iso(row.created_at),
         flagged: row.signup_review === "flagged",
+        erasureStopped: row.erased_at !== null,
         country: registered?.country ?? null,
         ip: readIps ? (registered?.ip ?? null) : null,
         sharedAddress:
@@ -151,10 +155,28 @@ export const maskEmail = (email: string): string => {
   return at < 1 ? "***" : `${email[0]}***${email.slice(at)}`;
 };
 
+/** The account if it still holds its place in the queue, an erasure that stopped part way included. */
 const waiting = (ctx: Ctx, userId: number) =>
   prepared(ctx, "signups.waiting", () =>
-    ctx.sqlite.prepare<{ id: number; email: string }, [number]>(signupSql.waiting),
+    ctx.sqlite.prepare<{ id: number; email: string; erased_at: number | null }, [number]>(
+      signupSql.waiting,
+    ),
   ).get(userId);
+
+/**
+ * The account a decision may still be made on. Anyone else is a conflict: it was decided on
+ * already (a second decider, a double submit), is held back by a ban, or its erasure stopped part
+ * way, which only erasing again finishes.
+ */
+function decidable(ctx: Ctx, userId: number): { id: number; email: string } {
+  const row = prepared(ctx, "signups.decidable", () =>
+    ctx.sqlite.prepare<{ id: number; email: string }, [number, number]>(signupSql.decidable),
+  ).get(userId, ctx.now());
+  if (row) return row;
+  if (waiting(ctx, userId)?.erased_at != null)
+    throw new ConflictError("Its erasure stopped part way: reject it by erasing to finish it.");
+  throw new ConflictError("This account is not waiting for approval.");
+}
 
 /** The permission over the account, on the actor as the database has it now (inside a transaction). */
 function requireApprover(ctx: Ctx, current: Actor, userId: number) {
@@ -167,8 +189,7 @@ function approve(ctx: Ctx, actor: Actor, userId: number, reason: string) {
   writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requireApprover(ctx, current, userId);
-    const row = waiting(ctx, userId);
-    if (!row) throw new SkipMember("This account is not waiting for approval.");
+    const row = decidable(ctx, userId);
     ctx.sqlite.prepare(signupSql.clear).run(userId);
     appendModeratorLog(ctx, actor, "signup.approve", "user", userId, reason);
     publishDecided(ctx, actor, userId, "approve");
@@ -196,8 +217,7 @@ function rejectByBan(
       target: targetMember(ctx, current, userId, true),
     });
     requireBanLength(ctx, current, expiresAt);
-    const row = waiting(ctx, userId);
-    if (!row) throw new SkipMember("This account is not waiting for approval.");
+    const row = decidable(ctx, userId);
     if (expiresAt === null) ctx.sqlite.prepare(signupSql.clear).run(userId);
     // The ban is the log entry of the rejection; the member gets the rejection mail, not a ban mail.
     insertAuthorizedBan(
@@ -226,22 +246,29 @@ function publishDecided(ctx: Ctx, actor: Actor, userId: number, decision: "appro
 
 /**
  * Rejects by erasing the account: the erasure of `users.adminErase` (admin.members over it). The
- * rejection mail is queued in the erasure's first transaction, while the address is still the
- * member's (the erasure spares it), so an erasure that stops part way has still told them; it
- * leaves the account waiting, and deciding again finishes it without a second mail.
+ * rejection mail is queued by the transaction that marks the account erased, while the address is
+ * still the member's (the erasure spares that job), and only by it, under a key of its own: an
+ * erasure that stopped part way leaves the account in the queue, and deciding again finishes it
+ * without a second mail. A second decider meanwhile gets a conflict.
  */
 async function rejectByErasing(ctx: Ctx, actor: Actor, userId: number, reason: string) {
   requireApprover(ctx, actor, userId);
-  if (!waiting(ctx, userId)) throw new SkipMember("This account is not waiting for approval.");
+  if (!waiting(ctx, userId)) throw new ConflictError("This account is not waiting for approval.");
   await eraseAsAdministrator(ctx, actor, userId, reason || NO_REASON, {
-    entry: { action: "signup.reject", details: { mode: "delete" } },
+    entry: {
+      action: "signup.reject",
+      details: { mode: "delete" },
+      onMark: (email) =>
+        queueAccountEmail(
+          ctx,
+          { kind: "signupRejected", userId, email, reason },
+          `signup-rejected:${userId}`,
+        ),
+    },
     also: (current) => {
       requireApprover(ctx, current, userId);
-      const row = waiting(ctx, userId);
-      if (!row) throw new SkipMember("This account is not waiting for approval.");
-      // A resumed erasure may already hold the placeholder address: the mail went the first time.
-      if (!row.email.endsWith("@invalid"))
-        queueAccountEmail(ctx, { kind: "signupRejected", userId, email: row.email, reason });
+      if (!waiting(ctx, userId))
+        throw new ConflictError("This account is not waiting for approval.");
     },
   });
 }

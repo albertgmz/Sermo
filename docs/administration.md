@@ -1265,9 +1265,14 @@ member pages; to the others it is masked (`j***@example.com`). There are no regi
 so none are shown. A sign-up the spam check flags is refused when the setting is off, as before;
 with it on it lands in the queue marked and is never approved by itself. `pendingSignups` in
 `auth.counters` counts the waiting accounts (at most 99, as the other queues) for staff who hold the
-permission. A banned account that waits is not in the queue while the ban runs. Staff who hold the
-permission get one standing `moderator.signup` alert listing the newest newcomers (it grows with
-each, rather than one alert per account) and it clears when nobody waits any more.
+permission. A banned account that waits is not in the queue while the ban runs, except one whose erasure stopped
+part way (`erasureStopped`: it stays listed so it can be finished). Staff who hold the permission get
+one standing `moderator.signup` alert listing the newest newcomers (it grows with each, rather than
+one alert per account). It follows the queue: it clears when nobody is in it any more (after a
+decision, a ban, an erasure or the member deleting their account) and is raised again for an
+account that comes back (a ban lifted, or a ban for a time that ends, for which a job runs at that
+time). That is the simplest correct shape: events at the places that change membership, plus one job
+per timed ban, rather than a periodic sweep.
 
 `POST /admin/signups/decide` (`signups.decide`) approves or rejects up to 50 accounts, one by one:
 an account no longer waiting, or one the actor may not act on, is skipped and reported without
@@ -1281,9 +1286,11 @@ waiting it out. **Rejecting by erasure** is a choice (`mode` `delete`): it is th
 `users.adminErase`, so it needs `admin.members` over the account (and `admin.permissions` when the
 account holds any), the actor's own password and a session (an API key is refused), and it removes
 the sign-up address and the terms record. An erasure that stopped part way leaves the account
-waiting; deciding again finishes it (it sends no second mail). Either way the member is emailed the
-reason, if one was given, in their language; the address is dropped from the finished mail job and
-no failure record keeps it. Each decision is one moderator log entry, `signup.approve` or
+in the queue, marked; only deciding again by erasure finishes it (approving or banning it is
+refused), and it sends no second mail (the mail is queued by the transaction that marks the account
+erased, once). A second decider on an account being erased gets a conflict. Either way the member is emailed the
+reason, if one was given, in their language; the address is dropped from the mail job on every way out
+(sent, undeliverable, given up) and no failure record or job error keeps it. Each decision is one moderator log entry, `signup.approve` or
 `signup.reject` (an erasure also writes its ban entry, as any erasure does).
 
 ## Batch update members

@@ -2,6 +2,7 @@ import { dispatchEvents } from "../../events";
 import { resolvedActor } from "../../permissions/test-contexts";
 import { promoteVerifiedMember } from "../auth";
 import { runDueJobs } from "../jobs/queue";
+import { registerModerationJobs } from "../moderation";
 import { registerNotificationJobs } from "../notifications";
 import { accounts, PASSWORD } from "./fixtures.test";
 
@@ -15,6 +16,7 @@ export { PASSWORD };
 export async function queueWorld(options: { mail?: boolean } = {}) {
   const w = await accounts(options);
   registerNotificationJobs(w.ctx);
+  registerModerationJobs(w.ctx);
   const founder = await w.register("Founder", 4);
   const moderator = await w.register("Moderator", 3);
   const member = await w.register("Regular");

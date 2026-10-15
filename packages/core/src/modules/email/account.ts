@@ -34,6 +34,9 @@ export function queueAccountEmail(ctx: Ctx, job: AccountJob, uniqueKey?: string)
   enqueueJob(ctx, "email.account", job, uniqueKey ? { uniqueKey } : {});
 }
 
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[]\]/g, "export function registerAccountEmailJobs(");
+
 export function registerAccountEmailJobs(ctx: Ctx): void {
   // The member of a rejected sign-up was erased: the job must not keep their address once it is
   // done with it (sent, or given up on).
@@ -43,88 +46,105 @@ export function registerAccountEmailJobs(ctx: Ctx): void {
         .prepare("UPDATE jobs SET payload = json_set(payload, '$.email', '') WHERE id = ?1")
         .run(jobId),
     );
-  registerJobHandler(ctx, "email.account", async (_context, payload, claimed) => {
-    const job = payload as AccountJob;
-    if (!job || typeof job.email !== "string" || !Number.isSafeInteger(job.userId))
-      throw new Error("Invalid account email job.");
-    const state = accountMailState(ctx);
-    if (!state || state.config.driver === "none") return;
-    if (job.banId !== undefined) {
-      const ban = prepared(ctx, "accountEmail.activeBan", () =>
-        ctx.sqlite.prepare<
-          { expires_at: number | null; lifted_at: number | null },
-          [number, number]
-        >("SELECT expires_at, lifted_at FROM bans WHERE id = ?1 AND user_id = ?2"),
-      ).get(job.banId, job.userId);
-      if (
-        !ban ||
-        ban.lifted_at !== null ||
-        (ban.expires_at !== null && ban.expires_at <= ctx.now())
-      )
-        return;
-    }
-    if (undeliverable(ctx, job.email.toLowerCase())) return;
-    const member = prepared(ctx, "accountEmail.member", () =>
-      ctx.sqlite.prepare<{ language: string | null }, [number]>(
-        "SELECT language FROM users WHERE id = ?1",
-      ),
-    ).get(job.userId);
-    if (!member) return;
-    try {
-      const settings = readSiteSettings(ctx);
-      const rendered = await renderAccountEmail({
-        kind: job.kind,
-        language: languageFor(member.language, settings.defaultLanguage),
-        site: settings.siteName,
-        ...(job.url ? { url: job.url } : {}),
-        ...(job.reason ? { reason: job.reason } : {}),
-        ...(job.expiresAt !== undefined ? { expiresAt: job.expiresAt } : {}),
-        ...(job.kind === "newDevice" && job.at !== undefined
-          ? {
-              signIn: {
-                browser: job.device?.browser ?? null,
-                os: job.device?.os ?? null,
-                country: job.location?.country ?? null,
-                region: job.location?.region ?? null,
-                city: job.location?.city ?? null,
-                at: job.at,
-              },
-            }
-          : {}),
-      });
-      await state.mailer.send({
-        to: job.email,
-        from: state.config.sender,
-        ...(state.config.replyTo ? { replyTo: state.config.replyTo } : {}),
-        ...rendered,
-      });
-      if (job.kind === "signupRejected") dropAddress(claimed.id);
-    } catch (error) {
-      const rejected = mailboxRejected(error);
-      const attempts =
-        prepared(ctx, "accountEmail.attempts", () =>
-          ctx.sqlite.prepare<{ attempts: number }, [number]>(
-            "SELECT attempts FROM jobs WHERE id = ?1",
-          ),
-        ).get(claimed.id)?.attempts ?? 0;
-      const last = rejected || attempts >= MAX_ATTEMPTS;
-      // The member of a rejected sign-up may be erased: no record of the failure keeps their address.
+  registerJobHandler(
+    ctx,
+    "email.account",
+    async (_context, payload, claimed) => {
+      const job = payload as AccountJob;
+      if (!job || typeof job.email !== "string" || !Number.isSafeInteger(job.userId))
+        throw new Error("Invalid account email job.");
+      const state = accountMailState(ctx);
+      // The member of a rejected sign-up was erased: the job drops their address on every way out.
       const erased = job.kind === "signupRejected";
-      recordFailure(
-        ctx,
-        job.userId,
-        erased ? `erased-${job.userId}@invalid` : job.email,
-        job.kind,
-        erased && error instanceof Error
-          ? new Error(error.message.split(job.email).join(""))
-          : error,
-        last,
-        erased ? false : rejected,
-      );
-      if (erased && last) dropAddress(claimed.id);
-      if (!rejected) throw error;
-    }
-  });
+      const finish = () => {
+        if (erased) dropAddress(claimed.id);
+      };
+      if (!state || state.config.driver === "none") return finish();
+      if (job.banId !== undefined) {
+        const ban = prepared(ctx, "accountEmail.activeBan", () =>
+          ctx.sqlite.prepare<
+            { expires_at: number | null; lifted_at: number | null },
+            [number, number]
+          >("SELECT expires_at, lifted_at FROM bans WHERE id = ?1 AND user_id = ?2"),
+        ).get(job.banId, job.userId);
+        if (
+          !ban ||
+          ban.lifted_at !== null ||
+          (ban.expires_at !== null && ban.expires_at <= ctx.now())
+        )
+          return finish();
+      }
+      if (undeliverable(ctx, job.email.toLowerCase())) return finish();
+      const member = prepared(ctx, "accountEmail.member", () =>
+        ctx.sqlite.prepare<{ language: string | null }, [number]>(
+          "SELECT language FROM users WHERE id = ?1",
+        ),
+      ).get(job.userId);
+      if (!member) return finish();
+      try {
+        const settings = readSiteSettings(ctx);
+        const rendered = await renderAccountEmail({
+          kind: job.kind,
+          language: languageFor(member.language, settings.defaultLanguage),
+          site: settings.siteName,
+          ...(job.url ? { url: job.url } : {}),
+          ...(job.reason ? { reason: job.reason } : {}),
+          ...(job.expiresAt !== undefined ? { expiresAt: job.expiresAt } : {}),
+          ...(job.kind === "newDevice" && job.at !== undefined
+            ? {
+                signIn: {
+                  browser: job.device?.browser ?? null,
+                  os: job.device?.os ?? null,
+                  country: job.location?.country ?? null,
+                  region: job.location?.region ?? null,
+                  city: job.location?.city ?? null,
+                  at: job.at,
+                },
+              }
+            : {}),
+        });
+        await state.mailer.send({
+          to: job.email,
+          from: state.config.sender,
+          ...(state.config.replyTo ? { replyTo: state.config.replyTo } : {}),
+          ...rendered,
+        });
+        finish();
+      } catch (error) {
+        const rejected = mailboxRejected(error);
+        const attempts =
+          prepared(ctx, "accountEmail.attempts", () =>
+            ctx.sqlite.prepare<{ attempts: number }, [number]>(
+              "SELECT attempts FROM jobs WHERE id = ?1",
+            ),
+          ).get(claimed.id)?.attempts ?? 0;
+        const last = rejected || attempts >= MAX_ATTEMPTS;
+        // No record of the failure keeps the erased member's address, the job's own error included.
+        const clean =
+          erased && error instanceof Error
+            ? new Error(error.message.replace(new RegExp(escapeRegExp(job.email), "gi"), ""))
+            : error;
+        recordFailure(
+          ctx,
+          job.userId,
+          erased ? `erased-${job.userId}@invalid` : job.email,
+          job.kind,
+          clean,
+          last,
+          erased ? false : rejected,
+        );
+        if (erased && last) dropAddress(claimed.id);
+        if (!rejected) throw clean;
+      }
+    },
+    {
+      // A job that runs out of attempts without a handler's say (leases that expire) is cleaned too.
+      onFailed: (_ctx, failed) => {
+        const job = failed.payload as { kind?: unknown } | null;
+        if (job?.kind === "signupRejected") dropAddress(failed.id);
+      },
+    },
+  );
   writeTx(ctx, () => {
     ctx.sqlite
       .prepare(

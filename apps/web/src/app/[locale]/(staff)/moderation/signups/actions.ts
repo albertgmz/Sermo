@@ -18,8 +18,8 @@ function idsOf(raw: string): number[] | null {
   return [...new Set(ids as number[])];
 }
 
-// Approves or rejects the sign-ups named in `userIds`. Rejecting erases the account by default,
-// which asks for the staff member's own password, or bans it for good. The backend judges every
+// Approves or rejects the sign-ups named in `userIds`. Rejecting bans the account (for the length
+// given, or for good) or erases it, which asks for the staff member's own password. The backend judges every
 // account on its own and answers for each; the page is shown the counts and the reasons of the
 // ones it did not change.
 export async function decideSignups(

@@ -97,16 +97,21 @@ async function renameErased(ctx: Ctx, userId: number): Promise<void> {
  * entry the first transaction writes (the default is `member.erase`; rejecting a sign-up writes
  * its own).
  */
-export async function eraseMember(
+/** What the first transaction of an erasure writes, and what else it does when it marks the account. */
+export interface EraseEntry {
+  action: string;
+  details: Record<string, unknown>;
+  /** Run once, inside the transaction that marks the account erased (never on a resumed erasure), with its address. */
+  onMark?: (email: string) => void;
+}
+
+async function eraseOnce(
   ctx: Ctx,
   actor: Actor,
   userId: number,
   reason: string,
   guard: (current: Actor) => void,
-  entry: { action: string; details: Record<string, unknown> } = {
-    action: "member.erase",
-    details: {},
-  },
+  entry: EraseEntry,
 ): Promise<void> {
   // 1. Mark, ban for good (refused for the last holder of admin.permissions) and log, together.
   writeTx(ctx, () => {
@@ -118,6 +123,7 @@ export async function eraseMember(
       ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(userId);
       ctx.sqlite.prepare(eraseSql.mark).run(userId, ctx.now());
       appendModeratorLog(ctx, actor, entry.action, "user", userId, reason, entry.details);
+      entry.onMark?.(own.email);
     }
     if (own?.banned_permanently !== 1)
       insertAuthorizedBan(ctx, actor, userId, reason, null, { notify: false });
@@ -186,6 +192,32 @@ export async function eraseMember(
   }
 }
 
+/** The accounts being erased by this process now: a second erasure of one is refused, not interleaved. */
+const erasing = new WeakMap<Ctx, Set<number>>();
+
+/**
+ * Closes an account for good (see `eraseOnce`). A second call for an account this process is
+ * already erasing is a conflict; a call for one whose erasure stopped part way resumes it.
+ */
+export async function eraseMember(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  reason: string,
+  guard: (current: Actor) => void,
+  entry: EraseEntry = { action: "member.erase", details: {} },
+): Promise<void> {
+  const busy = erasing.get(ctx) ?? new Set<number>();
+  erasing.set(ctx, busy);
+  if (busy.has(userId)) throw new ConflictError("This account is being erased right now.");
+  busy.add(userId);
+  try {
+    await eraseOnce(ctx, actor, userId, reason, guard, entry);
+  } finally {
+    busy.delete(userId);
+  }
+}
+
 /**
  * An administrator erases another member: admin.members over them, and admin.permissions when
  * they hold any administration permission (checked again in the first transaction). The caller
@@ -197,7 +229,7 @@ export async function eraseAsAdministrator(
   userId: number,
   reason: string,
   options: {
-    entry?: { action: string; details: Record<string, unknown> };
+    entry?: EraseEntry;
     /** The caller's own decision, run in the first transaction on the actor read again there. */
     also?: (current: Actor) => void;
   } = {},

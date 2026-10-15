@@ -1407,7 +1407,8 @@ export async function ensureAdmin(
         throw new ConflictError("Admin bootstrap conflicts with an existing account.");
     }
     const changed = ctx.sqlite
-      .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
+      // The administrator the site is started with never waits in the sign-up queue.
+      .prepare("UPDATE users SET group_id = ?1, signup_review = NULL WHERE id = ?2")
       .run(GROUP_IDS.admin, targetId).changes;
     if (!changed) throw new ConflictError("Admin bootstrap account is missing its forum profile.");
     // A site always has a super admin: the first administrator is one when there is none.

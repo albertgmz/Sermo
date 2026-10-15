@@ -28,10 +28,13 @@ export function SignupTick({ id, name }: { id: number; name: string }) {
 // accounts the page still lists count: after a decision the ones that left drop out.
 export function SignupSelection({
   pageIds,
+  stoppedIds,
   options,
   children,
 }: {
   pageIds: readonly number[];
+  // The accounts whose erasure stopped part way.
+  stoppedIds: readonly number[];
   options: RejectOptions;
   children: React.ReactNode;
 }) {
@@ -58,6 +61,9 @@ export function SignupSelection({
               <DecideControls
                 userIds={[...selection.selected]}
                 options={options}
+                stopped={[...selection.selected].some((id) =>
+                  stoppedIds.includes(id),
+                )}
               />
             )}
           </section>

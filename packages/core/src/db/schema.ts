@@ -1733,6 +1733,10 @@ export const notifications = sqliteTable(
     index("notifications_user_unread_recent")
       .on(t.userId, t.epoch, t.updatedAt, t.id)
       .where(sql`read_at IS NULL`),
+    // The standing sign-up alerts still unread, to clear them once nobody waits: a handful of rows.
+    index("notifications_signup_alert")
+      .on(t.id)
+      .where(sql`type = 'moderator.signup' AND read_at IS NULL`),
   ],
 );
 

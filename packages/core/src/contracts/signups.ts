@@ -28,6 +28,11 @@ export const SignupEntry = z
     /** The viewer does not manage members (admin.members over the account): the address is masked. */
     emailHidden: z.boolean(),
     createdAt: Timestamp,
+    /**
+     * A rejection by erasure stopped part way: the account is closed but not yet empty. Only
+     * rejecting it by erasing again finishes it; approving or banning it is refused.
+     */
+    erasureStopped: z.boolean(),
     /** The spam check flagged the sign-up. A flagged account is never approved automatically. */
     flagged: z.boolean(),
     /** ISO 3166-1 alpha-2 country the sign-up came from, when the log knows it. */
@@ -66,7 +71,8 @@ export const signupsList = defineContract({
     "the address and the other accounts seen on it, and the terms it accepted. Only confirmed " +
     "accounts are listed (an account that has not confirmed its email is not waiting for staff " +
     "yet), and neither are the ones a ban holds back: a rejected one banned for good is closed, one " +
-    "banned for a time returns when the ban ends. The email is masked unless the viewer holds " +
+    "banned for a time returns when the ban ends (an account whose erasure stopped part way stays " +
+    "listed, `erasureStopped`, so staff can finish it). The email is masked unless the viewer holds " +
     "admin.members over the account. Requires member.approveRegistrations.",
   kind: "read",
   input: z.object({ ...pageInput }),

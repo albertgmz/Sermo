@@ -248,13 +248,17 @@
       "banDays": "Days of the ban",
       "banDaysUnit": "days",
       "banForever": "For good",
-      "banLengthHelpAny": "A ban for good closes the account. A ban for days holds it out of the queue until the ban ends.",
-      "banLengthHelpMax": "{count, plural, one {You may ban for up to # day.} other {You may ban for up to # days.}} The account is held out of the queue until the ban ends."
+      "summaryDelete": "Reject by deleting the account…",
+      "banLimited": "{count, plural, one {Your bans are limited to # day, so this is a ban of # day.} other {Your bans are limited to # days, so this is a ban of # days.}} The account returns to the queue when it ends.",
+      "banForeverNote": "A ban for good closes the account: it leaves the queue and stays closed.",
+      "banTimedNote": "While the ban runs the account is held and out of the queue. When it ends the account returns to the queue, with a new alert to staff. The member has already been told it was rejected."
     },
     "result": {
       "approve": "{done, plural, one {# sign-up approved} other {# sign-ups approved}}{skipped, plural, =0 {} other {, # skipped}}{failed, plural, =0 {} other {, # failed}}.",
       "reject": "{done, plural, one {# sign-up rejected} other {# sign-ups rejected}}{skipped, plural, =0 {} other {, # skipped}}{failed, plural, =0 {} other {, # failed}}.",
       "more": "{count, plural, one {# more is not listed.} other {# more are not listed.}}"
-    }
+    },
+    "stopped": "Its erasure stopped part way",
+    "stoppedBulk": "The erasure of at least one ticked sign-up stopped part way. Only deleting the accounts can finish it, so approving and banning are not offered."
   }
 }

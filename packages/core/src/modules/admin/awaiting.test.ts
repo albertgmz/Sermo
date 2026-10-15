@@ -7,6 +7,7 @@ import { getOperation, operations } from "../../operations";
 import { can, resolvedPermissions } from "../../permissions";
 import { getAuth } from "../auth";
 import { signupQueueSql } from "../moderation";
+import { signupAlertSql, someoneWaitsSql } from "../notifications/delivery";
 import { closeAll } from "./fixtures.test";
 import { PASSWORD, queueWorld } from "./signup-fixtures.test";
 
@@ -232,6 +233,9 @@ describe("the counter and the alert", () => {
       cap: 99,
     });
     expectNoTableScan(w.ctx, signupQueueSql, [Number.MAX_SAFE_INTEGER, 100, 0]);
+    // The alert is cleared through its own small index, and "does anyone wait" is one seek.
+    expectNoTableScan(w.ctx, signupAlertSql, [1, 0]);
+    expectNoTableScan(w.ctx, someoneWaitsSql, [0, Number.MAX_SAFE_INTEGER]);
   });
 
   test("staff who hold the permission get an alert, which clears once someone decides", async () => {

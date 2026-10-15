@@ -24,9 +24,8 @@ mock.module("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
 
-const { BatchView, dropPreview, FRESH, keepAnswers } = await import(
-  "./batch-form"
-);
+const { BatchView, dropPreview, editsChoice, FRESH, keepAnswers } =
+  await import("./batch-form");
 const { BatchScreen } = await import("./batch-screen");
 const { BATCH_ACTIONS } = await import("./state");
 
@@ -296,4 +295,23 @@ test("a stretch of a rule that found nobody but may go on offers to look further
   expect(has(html, "step", "preview@400")).toBe(true);
   // Still nothing to apply.
   expect(html).not.toContain(b.what.heading);
+});
+
+test("any control of the rule builder or the member picker that edits the choice drops the preview", () => {
+  // Stand-ins for a DOM element: `closest` answers for the selectors the form asks about.
+  const inside = (roles: string[]) => ({
+    closest: (selector: string) =>
+      roles.some((role) => selector.split(",").includes(role)) ? {} : null,
+  });
+  // Add and remove a condition are buttons; the picker's choices are options.
+  expect(editsChoice(inside(["button"]))).toBe(true);
+  expect(editsChoice(inside(["[role=option]"]))).toBe(true);
+  expect(editsChoice(inside(["[role=slider]"]))).toBe(true);
+  // Plain text around the controls does not.
+  expect(editsChoice(inside([]))).toBe(false);
+  expect(editsChoice(null)).toBe(false);
+  // A key press edits only on a slider, and not when it is only moving between controls.
+  expect(editsChoice(inside(["[role=slider]"]), "ArrowRight")).toBe(true);
+  expect(editsChoice(inside(["[role=slider]"]), "Tab")).toBe(false);
+  expect(editsChoice(inside(["button"]), "a")).toBe(false);
 });

@@ -11,8 +11,8 @@ import { decideSignups } from "./actions";
 import type { RejectOptions } from "./reject-options";
 
 // What rejecting does to the account, and what each choice keeps. Banning is the default; erasing
-// asks for the password. A ban has a length: for good where the viewer may, otherwise days up to
-// the bound they hold.
+// asks for the password. A ban has a length: it starts at what the API would give, for good where
+// the viewer may, otherwise the longest ban their bound allows, and says what that does.
 function RejectChoice({ options }: { options: RejectOptions }) {
   const t = useTranslations("moderation.signups.reject");
   const id = useId();
@@ -21,8 +21,8 @@ function RejectChoice({ options }: { options: RejectOptions }) {
     ...(options.erase ? (["delete"] as const) : []),
   ];
   const [mode, setMode] = useState<"ban" | "delete">(modes[0] ?? "ban");
-  const [forever, setForever] = useState(false);
   const { ban } = options;
+  const [forever, setForever] = useState(ban?.forever === true);
   return (
     <>
       <fieldset className="space-y-1">
@@ -65,7 +65,7 @@ function RejectChoice({ options }: { options: RejectOptions }) {
                 inputMode="numeric"
                 min={1}
                 max={ban.maxDays}
-                defaultValue={Math.min(7, ban.maxDays)}
+                defaultValue={ban.maxDays}
                 disabled={forever}
                 aria-label={t("banDays")}
                 className="w-24"
@@ -86,10 +86,13 @@ function RejectChoice({ options }: { options: RejectOptions }) {
               </label>
             )}
           </div>
+          {!ban.forever && (
+            <p className="text-xs text-pretty text-muted-foreground">
+              {t("banLimited", { count: ban.maxDays })}
+            </p>
+          )}
           <p className="text-xs text-pretty text-muted-foreground">
-            {ban.forever
-              ? t("banLengthHelpAny")
-              : t("banLengthHelpMax", { count: ban.maxDays })}
+            {forever ? t("banForeverNote") : t("banTimedNote")}
           </p>
         </fieldset>
       )}
@@ -117,29 +120,41 @@ function ApproveForm({ ids }: { ids: string }) {
 
 // Approve and reject for the sign-ups named: one row's, or the ticked rows'. Both end in a
 // redirect back to the queue with what the backend did.
+// `stopped`: the erasure of at least one of the accounts stopped part way. Only erasing again
+// finishes it, so neither approving nor banning is offered, and no choice of what rejecting does.
 export function DecideControls({
   userIds,
   options,
+  stopped = false,
 }: {
   userIds: readonly number[];
   options: RejectOptions;
+  stopped?: boolean;
 }) {
   const t = useTranslations("moderation.signups");
   const ids = userIds.join(",");
+  const offered: RejectOptions = stopped
+    ? { erase: options.erase, ban: null }
+    : options;
   return (
     <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
-      <ApproveForm ids={ids} />
-      {(options.ban || options.erase) && (
+      {!stopped && <ApproveForm ids={ids} />}
+      {stopped && userIds.length > 1 && (
+        <p className="w-full text-xs text-pretty text-muted-foreground">
+          {t("stoppedBulk")}
+        </p>
+      )}
+      {(offered.ban || offered.erase) && (
         <ConfirmStep
           action={decideSignups}
           fields={{ decision: "reject", userIds: ids }}
-          summary={t("reject.summary")}
+          summary={stopped ? t("reject.summaryDelete") : t("reject.summary")}
           submit={t("reject.submit")}
           pendingLabel={t("reject.pending")}
           warning={t("reject.warning")}
           reason={t("reject.reason")}
         >
-          <RejectChoice options={options} />
+          <RejectChoice options={offered} />
         </ConfirmStep>
       )}
     </div>

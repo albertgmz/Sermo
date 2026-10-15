@@ -1312,15 +1312,17 @@ function deleteUnreadBatch(
 }
 
 /**
- * Marks every unread notice of one type read, for the sign-up alert once nobody waits (the
- * alert is one standing row per staff member, not one per account).
+ * The sign-up alerts still unread, from the partial index on them (`notifications_signup_alert`):
+ * the alert is one standing row per staff member, so there are few.
  */
-function markTypeReadBatch(ctx: Ctx, type: string, eventId: number, after: number): number[] {
-  const rows = prepared(ctx, "notifications.unreadOfTypeAll", () =>
-    ctx.sqlite.prepare<UnreadRow, [string, number, number]>(
-      "SELECT n.id, n.user_id, n.epoch, u.notification_epoch AS current_epoch FROM notifications n JOIN users u ON u.id = n.user_id WHERE n.type = ?1 AND n.id > ?3 AND n.read_at IS NULL AND n.last_event_id < ?2 ORDER BY n.id LIMIT 40",
-    ),
-  ).all(type, eventId, after);
+export const signupAlertSql =
+  "SELECT n.id, n.user_id, n.epoch, u.notification_epoch AS current_epoch FROM notifications n JOIN users u ON u.id = n.user_id WHERE n.type = 'moderator.signup' AND n.read_at IS NULL AND n.id > ?2 AND n.last_event_id < ?1 ORDER BY n.id LIMIT 40";
+
+/** Marks the standing sign-up alerts read, once nobody waits any more. */
+function markSignupAlertsRead(ctx: Ctx, eventId: number, after: number): number[] {
+  const rows = prepared(ctx, "notifications.signupAlerts", () =>
+    ctx.sqlite.prepare<UnreadRow, [number, number]>(signupAlertSql),
+  ).all(eventId, after);
   if (rows.length) {
     prepared(ctx, "notifications.markRows", () =>
       ctx.sqlite.prepare<unknown, [number, string]>(
@@ -1357,13 +1359,12 @@ function markReadBatch(
   return rows.map((row) => row.id);
 }
 
-/** Whether any account waits in the sign-up queue (one indexed read). */
+/** Whether any account waits in the sign-up queue (one seek of the index on the waiting). */
+export const someoneWaitsSql = `SELECT u.id FROM users u WHERE ${inQueueSql(1)} AND u.id < ?2 LIMIT 1`;
 const someoneWaits = (ctx: Ctx): boolean =>
   !!prepared(ctx, "notifications.someoneWaits", () =>
-    ctx.sqlite.prepare<{ id: number }, [number]>(
-      `SELECT u.id FROM users u WHERE ${inQueueSql(1)} LIMIT 1`,
-    ),
-  ).get(ctx.now());
+    ctx.sqlite.prepare<{ id: number }, [number, number]>(someoneWaitsSql),
+  ).get(ctx.now(), Number.MAX_SAFE_INTEGER);
 
 const saveProgress = (ctx: Ctx) =>
   prepared(ctx, "notifications.progress", () =>
@@ -1475,7 +1476,7 @@ async function processEvent(ctx: Ctx, progress: Progress): Promise<void> {
     );
   // The sign-up alert clears once nobody waits any more (one decision leaves it standing).
   if (event.type === "member.signup_decided" && !someoneWaits(ctx))
-    await inBatches(ctx, (after) => markTypeReadBatch(ctx, "moderator.signup", event.id, after));
+    await inBatches(ctx, (after) => markSignupAlertsRead(ctx, event.id, after));
   const phases = stages(ctx, event, item);
   for (const stage of phases)
     if (

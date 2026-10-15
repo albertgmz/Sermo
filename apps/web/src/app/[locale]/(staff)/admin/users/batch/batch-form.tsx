@@ -147,6 +147,31 @@ export function dropPreview(kept: Kept): Kept {
   return { ...kept, preview: undefined, resume: null };
 }
 
+// Controls of the rule builder and the member picker that change what is chosen without a native
+// change event: add and remove a condition, pick or drop a member, drag a slider.
+const EDITING =
+  "button,[role=option],[role=menuitem],[role=slider],[role=radio],[role=checkbox],[role=switch]";
+const KEYS_THAT_EDIT = new Set([
+  "Tab",
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+  "Escape",
+]);
+
+// Whether a click, a pointer release or a key press on `target` edits the choice of members.
+export function editsChoice(
+  target: { closest: (selector: string) => unknown } | null,
+  key?: string,
+): boolean {
+  if (!target) return false;
+  if (key !== undefined) {
+    return !KEYS_THAT_EDIT.has(key) && Boolean(target.closest("[role=slider]"));
+  }
+  return Boolean(target.closest(EDITING));
+}
+
 type Props = {
   groups: Group[];
   actions: readonly BatchActionName[];
@@ -216,7 +241,20 @@ export function BatchView({
           heading={t("who.heading")}
           description={t("who.description", { count: limit })}
         >
-          <div className="divide-y" onChange={onEdit} onInput={onEdit}>
+          <div
+            className="divide-y"
+            onChange={onEdit}
+            onInput={onEdit}
+            onClickCapture={(event) => {
+              if (editsChoice(event.target as Element)) onEdit();
+            }}
+            onPointerUpCapture={(event) => {
+              if (editsChoice(event.target as Element)) onEdit();
+            }}
+            onKeyDownCapture={(event) => {
+              if (editsChoice(event.target as Element, event.key)) onEdit();
+            }}
+          >
             <FieldRow name="selection" label={t("who.kind")}>
               <fieldset className="flex flex-wrap gap-x-5">
                 <legend className="sr-only">{t("who.kind")}</legend>

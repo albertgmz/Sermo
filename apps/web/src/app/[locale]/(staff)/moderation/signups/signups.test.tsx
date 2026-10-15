@@ -43,6 +43,7 @@ const ENTRIES = [
     user: { id: 41, username: "wren" },
     email: "wren@example.test",
     emailHidden: false,
+    erasureStopped: false,
     createdAt: at,
     flagged: true,
     country: "ES",
@@ -65,6 +66,7 @@ const ENTRIES = [
     user: { id: 42, username: "finch" },
     email: "f***@example.test",
     emailHidden: true,
+    erasureStopped: false,
     createdAt: at,
     flagged: false,
     country: null,
@@ -173,6 +175,25 @@ test("a viewer who may not open the member's page or the address lookup gets pla
   expect(page).not.toContain("/admin/users/41");
   expect(page).not.toContain("/moderation/ips");
   expect(page).toContain("wren");
+});
+
+test("a row whose erasure stopped part way says so and offers only the deletion", async () => {
+  const stopped = { ...ENTRIES[1], erasureStopped: true };
+  backend(
+    {
+      "member.approveRegistrations": true,
+      "admin.members": true,
+      "member.ban": true,
+    },
+    () => Response.json({ items: [ENTRIES[0], stopped], nextCursor: null }),
+  );
+  const page = await html(queue());
+  const s = messages.moderation.signups;
+  expect(page.split(s.stopped)).toHaveLength(2);
+  // The ordinary row keeps approve and reject; the stopped one has neither approve nor ban.
+  expect(page.split(s.approve).length).toBe(2);
+  expect(page.split(s.reject.summary).length).toBe(2);
+  expect(page.split(s.reject.summaryDelete).length).toBe(2);
 });
 
 test("an empty queue says nobody is waiting", async () => {
