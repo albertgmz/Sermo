@@ -391,3 +391,81 @@ describe("an author's own lock and delete are not moderator actions", () => {
     expect(moderatorActions(w, (w.mod as { userId: number }).userId)).toBe(true);
   });
 });
+
+describe("what an author keeps from staff, second round", () => {
+  test("staff locking a thread its author already locked makes the lock staff's", async () => {
+    for (const how of ["single", "bulk"]) {
+      const w = world();
+      grant(w, "forum.lockOwn");
+      const mine = await w.thread(w.alice, w.open.id, "Mine");
+      await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: true });
+      if (how === "single")
+        await w.call("threads.setLocked", w.mod, { threadId: mine.thread.id, isLocked: true });
+      else
+        await w.call("moderation.bulk", w.mod, {
+          targets: [{ type: "thread", id: mine.thread.id }],
+          action: "lock",
+        });
+      expect(threadRow(w, mine.thread.id)!.is_locked).toBe(1);
+      await expect(
+        w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false }),
+      ).rejects.toThrow(ForbiddenError);
+      // The author's own lock, when staff leave it alone, is still theirs to lift.
+      const other = await w.thread(w.alice, w.open.id, "Other");
+      await w.call("threads.setLocked", w.alice, { threadId: other.thread.id, isLocked: true });
+      await w.call("threads.setLocked", w.alice, { threadId: other.thread.id, isLocked: false });
+    }
+  });
+
+  test("a post or a thread a warning was given about is not erased by its author", async () => {
+    const w = world();
+    grant(w, "forum.hardDeleteOwn");
+    const t = await w.thread(w.bob, w.open.id, "Warned");
+    const reply = await w.reply(w.bob, t.thread.id, "Rude");
+    await w.call("warnings.create", w.mod, {
+      userId: w.bobUser.id,
+      postId: reply.id,
+      points: 1,
+      reason: "Rude",
+    });
+    await expect(w.call("posts.hardDelete", w.bob, { postId: reply.id })).rejects.toThrow(
+      ConflictError,
+    );
+    await expect(w.call("threads.hardDelete", w.bob, { threadId: t.thread.id })).rejects.toThrow(
+      ConflictError,
+    );
+    expect(postState(w, reply.id)).toBe("visible");
+    // A warning without a post, or about another post, changes nothing.
+    const other = await w.thread(w.bob, w.open.id, "Fine");
+    await w.call("warnings.create", w.mod, { userId: w.bobUser.id, points: 1, reason: "x" });
+    await w.call("threads.hardDelete", w.bob, { threadId: other.thread.id });
+  });
+
+  test("the warned-about lookup is an index seek on the member's log entries", () => {
+    const w = world();
+    expectNoTableScan(w.ctx, forumSql.warnedAbout, [1, "[1,2]"]);
+  });
+
+  test("an administrator deleting their own live thread is told the staff rule, and is not offered a one-step delete", async () => {
+    const w = world();
+    grant(w, "forum.hardDeleteOwn");
+    const t = await w.thread(w.admin, w.open.id, "Admin's");
+    await w.reply(w.bob, t.thread.id, "Bob");
+    const error = await w
+      .call("threads.hardDelete", w.admin, { threadId: t.thread.id })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ConflictError);
+    expect((error as Error).message).toContain("Delete the thread first");
+    const got = await w.call("threads.get", w.admin, { threadId: t.thread.id });
+    expect(got.permissions.canHardDelete).toBe(false);
+    const posts = await w.call("posts.list", w.admin, { threadId: t.thread.id });
+    expect(posts.items.map((p: { canHardDelete: boolean }) => p.canHardDelete)).toEqual([
+      false,
+      false,
+    ]);
+    // Hidden first, it goes, as for any staff.
+    await w.call("threads.delete", w.admin, { threadId: t.thread.id });
+    await w.call("threads.hardDelete", w.admin, { threadId: t.thread.id });
+    expect(threadRow(w, t.thread.id)).toBeNull();
+  });
+});

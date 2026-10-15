@@ -177,6 +177,8 @@ export const forumSql = {
    */
   newestLock:
     "SELECT json_extract(payload, '$.isLocked') AS locked, json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isLocked') IS NOT NULL ORDER BY id DESC LIMIT 1",
+  warnedAbout:
+    "SELECT 1 AS n FROM moderator_log WHERE target_type = 'user' AND target_id = ?1 AND action = 'warning.add' AND json_extract(details, '$.postId') IN (SELECT value FROM json_each(?2)) LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
@@ -691,7 +693,9 @@ export function postValuesMixed(
       row.id !== firstPostId &&
       (row.state === "deleted"
         ? permissions.can("forum.hardDelete", { nodeId })
-        : !locked && permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
+        : !locked &&
+          !permissions.can("forum.hardDelete", { nodeId }) &&
+          permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
     canReact: permissions.can("forum.react", { nodeId }),
     canReport: permissions.can("report.create"),
     ...(detail ? { bodySource: row.body_source } : {}),
@@ -1105,6 +1109,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
         row.state === "deleted"
           ? can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id })
           : !row.is_locked &&
+            !can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id }) &&
             can(ctx, actor, "forum.hardDeleteOwn", { nodeId: row.node_id, ownerId: row.user_id }),
       // Reporting targets the first post, and watching needs a visible thread: both are open to
       // a signed-in viewer who got this far; reporting also needs the permission (createReport).
@@ -1870,6 +1875,27 @@ function mayLockThread(
     .get(row.id);
   return newest?.locked === 1 && newest.actor_id === null;
 }
+/**
+ * Staff locking a thread that is already locked by its author makes the lock theirs: the lock
+ * event is published again, naming them, so the author can no longer lift it. Nothing else
+ * changes, nobody is told. The caller has authorized the lock.
+ */
+export const takeOverLock = markPublic(
+  "The caller has authorized the lock; this only records whose it is.",
+  function takeOverLock(ctx: Ctx, actor: Actor, row: { id: number; user_id: number }, reason = "") {
+    if (actorUserId(actor) === row.user_id) return;
+    const newest = forumDb(ctx)
+      .prepare<{ actor_id: number | null; locked: number | null }, [number]>(forumSql.newestLock)
+      .get(row.id);
+    if (newest?.locked === 1 && newest.actor_id === null)
+      publishEvent(ctx, {
+        type: "content.edited",
+        targetType: "thread",
+        targetId: row.id,
+        payload: { isLocked: true, actorId: actorUserId(actor), reason, notify: false },
+      });
+  },
+);
 function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, notice: Notice) {
   const current = requireThread(ctx, moderator, id).row;
   if (!mayLockThread(ctx, moderator, current, isLocked)) throw new ForbiddenError();
@@ -1881,6 +1907,7 @@ function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, n
   )
     return false;
   forumDb(ctx).prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2").run(Number(isLocked), id);
+  if (isLocked && current.is_locked) takeOverLock(ctx, moderator, current, notice.reason);
   if (!!current.is_locked !== isLocked)
     publishEvent(ctx, {
       type: "content.edited",
@@ -3305,15 +3332,28 @@ function hardDeletePath(
   ownerId: number,
   state: State,
 ): "staff" | "own" {
-  const staff = can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id });
-  if (staff && state === "deleted") return "staff";
+  // Whoever holds forum.hardDelete is staff here, author or not: the two-step rule is theirs.
+  if (can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id })) return "staff";
   if (!row.is_locked && can(ctx, actor, "forum.hardDeleteOwn", { nodeId: row.node_id, ownerId })) {
     if (state === "deleted")
       throw new ConflictError("Content that was hidden by staff cannot be deleted by its author.");
     return "own";
   }
-  if (staff) return "staff";
   throw new ForbiddenError();
+}
+
+/**
+ * A warning given about a post (`warnings.create` with a `postId`) is recorded only in the
+ * moderator log, as a `warning.add` entry on the member with the post in its details: the member
+ * does not delete the post it was given for. One seek on the log's target index, which holds
+ * the member's entries only.
+ */
+function requireNotWarnedAbout(ctx: Ctx, userId: number, postIds: number[]): void {
+  const warned = forumDb(ctx)
+    .prepare<{ n: number }, [number, string]>(forumSql.warnedAbout)
+    .get(userId, JSON.stringify(postIds));
+  if (warned)
+    throw new ConflictError("A warning was given about this. Hide it, or ask staff to delete it.");
 }
 
 /** Reports on content are staff's to settle: their author does not delete the content under them. */
@@ -3371,14 +3411,12 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         throw new ConflictError(
           "This thread holds hidden posts. Hide the thread, or ask staff to delete it.",
         );
-      requireNotReported(
-        ctx,
-        [
-          ...found.map((post) => post.id),
-          ...(current.first_post_id ? [current.first_post_id] : []),
-        ],
-        current.id,
-      );
+      const posts = [
+        ...found.map((post) => post.id),
+        ...(current.first_post_id ? [current.first_post_id] : []),
+      ];
+      requireNotWarnedAbout(ctx, current.user_id, posts);
+      requireNotReported(ctx, posts, current.id);
     }
     const chunk = found.slice(0, PURGE_CHUNK);
     const ids = chunk.map((post) => post.id);
@@ -3438,6 +3476,7 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
         "Delete the post first; only a deleted post can be removed for good.",
       );
     if (path === "own") {
+      requireNotWarnedAbout(ctx, current.post.user_id, [current.post.id]);
       requireNotReported(ctx, [current.post.id]);
       changePostState(ctx, current.post.id, "deleted");
     }

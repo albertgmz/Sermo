@@ -493,3 +493,57 @@ describe("stale actors", () => {
     }
   });
 });
+
+describe("lifting a ban", () => {
+  const input = (
+    w: ReturnType<typeof world>,
+    who: Parameters<typeof execute>[2],
+    days: number | null,
+  ) =>
+    run(w.ctx, "bans.create", who, {
+      userId: w.memberRow.id,
+      reason: "Rude",
+      expiresAt: days === null ? null : new Date(w.ctx.now() + days * DAY).toISOString(),
+    });
+  const lift = (w: ReturnType<typeof world>, who: Parameters<typeof execute>[2], id: number) =>
+    run(w.ctx, "bans.lift", who, { banId: id, reason: "Sorry" });
+
+  test("a moderator lifts only a ban they could set, and not one a higher-ranked member set", async () => {
+    const w = world();
+    setEntry(w.ctx, MODERATORS, "member.ban", 1);
+    const permanent = await input(w, w.admin, null);
+    await expect(lift(w, w.moderator, permanent.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await lift(w, w.admin, permanent.id);
+    const years = await input(w, w.admin, 5 * 365);
+    await expect(lift(w, w.moderator, years.id)).rejects.toBeInstanceOf(ForbiddenError);
+    // Short, but put on by a member of higher rank.
+    const shortByAdmin = await input(w, w.admin, 5);
+    await lift(w, w.admin, years.id);
+    await expect(lift(w, w.moderator, shortByAdmin.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await lift(w, w.admin, shortByAdmin.id);
+    // Their own, and a peer's, within the bound.
+    const own = await input(w, w.moderator, 10);
+    await lift(w, w.moderator, own.id);
+    const peer = userActor(insertUser(w.ctx, { groupId: MODERATORS }));
+    const theirs = await input(w, peer, 10);
+    await lift(w, w.moderator, theirs.id);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, []>("SELECT count(*) AS n FROM bans WHERE lifted_at IS NULL")
+        .get()!.n,
+    ).toBe(0);
+  });
+
+  test("the bound is the holder's own: -1 lifts a permanent ban, a smaller value lifts less", async () => {
+    const w = world();
+    const wide = customMember(w.ctx, ["member.ban", ["member.banMaxDays", -1]], 60);
+    const narrow = customMember(w.ctx, ["member.ban", ["member.banMaxDays", 3]], 60);
+    const permanent = await input(w, wide.actor, null);
+    await expect(lift(w, narrow.actor, permanent.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await lift(w, wide.actor, permanent.id);
+    const week = await input(w, wide.actor, 7);
+    await expect(lift(w, narrow.actor, week.id)).rejects.toBeInstanceOf(ForbiddenError);
+    const two = await input(w, wide.actor, 2);
+    await lift(w, narrow.actor, two.id);
+  });
+});

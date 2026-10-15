@@ -56,7 +56,7 @@ async function scenario() {
     body: "Body",
   })) as { thread: { id: number } };
   const threadId = created.thread.id;
-  const ban = (await execute(fixture, op("bans.create"), founder, {
+  const ban = (await execute(fixture, op("bans.create"), userActor(staff), {
     userId: banned.id,
     reason: "Earlier",
     expiresAt: null,

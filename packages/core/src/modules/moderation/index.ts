@@ -22,6 +22,7 @@ import {
   currentVersions,
   type FlagPermissionId,
   memberActor,
+  memberStanding,
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionsOf,
@@ -42,6 +43,7 @@ import {
   readGates,
   registerForumTransferJobs,
   requirePost,
+  takeOverLock,
 } from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { assertAdministrator } from "../permissions";
@@ -1201,6 +1203,8 @@ export function bulkModerate(
         }
       } else if (action === "lock" || action === "unlock") {
         if (!!row.is_locked === (action === "lock")) {
+          if (action === "lock")
+            takeOverLock(ctx, moderator, row as { id: number; user_id: number }, reason);
           appendModeratorLog(
             ctx,
             actor,
@@ -1639,6 +1643,12 @@ export function addWarning(
  * A ban lasts at most `member.banMaxDays` days from now (-1: for good, 0: none at all). Taking
  * the longest value of the member's groups is the integer rule; the ban permission is separate.
  */
+function requireBanReach(ctx: Ctx, actor: Actor, expiresAt: number | null): void {
+  const days = permissionValue(ctx, actor, "member.banMaxDays");
+  if (days === -1) return;
+  if (expiresAt === null || expiresAt > ctx.now() + days * DAY_MS)
+    throw new ForbiddenError("This ban is longer than you may set, so you may not lift it.");
+}
 function requireBanLength(ctx: Ctx, actor: Actor, expiresAt: number | null): void {
   const days = permissionValue(ctx, actor, "member.banMaxDays");
   if (days === -1) return;
@@ -1852,17 +1862,31 @@ export function liftBan(
 ) {
   requireAuthenticated(actor);
   return writeTx(ctx, () => {
-    const ban = read<{ user_id: number; lifted_at: number | null; expires_at: number | null }>(
+    const ban = read<{
+      user_id: number;
+      moderator_id: number;
+      lifted_at: number | null;
+      expires_at: number | null;
+    }>(
       ctx,
       "banById",
-      "SELECT user_id, lifted_at, expires_at FROM bans WHERE id = ?1",
+      "SELECT user_id, moderator_id, lifted_at, expires_at FROM bans WHERE id = ?1",
       banId,
     );
     if (!ban) throw new NotFoundError();
-    requirePermission(ctx, currentActor(ctx, actor), "member.ban", {
+    const current = currentActor(ctx, actor);
+    requirePermission(ctx, current, "member.ban", {
       target: principalMember(ctx, ban.user_id),
     });
     if (ban.lifted_at != null) throw new ConflictError("This ban was already lifted.");
+    // Lifting undoes a ban: it takes the reach setting one takes. A ban longer than the actor may
+    // set, or one a member of higher rank put on, is theirs to lift only with that reach.
+    requireBanReach(ctx, current, ban.expires_at);
+    if (
+      memberStanding(ctx, principalMember(ctx, ban.moderator_id)).maxRank >
+      memberStanding(ctx, current).maxRank
+    )
+      throw new ForbiddenError("This ban was set by a member of higher rank.");
     // An erased account stays closed: the ban that closed it is not lifted.
     if (
       read<{ erased_at: number | null }>(

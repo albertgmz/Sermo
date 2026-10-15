@@ -408,7 +408,10 @@ export const bansCreate = defineContract({
 });
 export const bansLift = defineContract({
   name: "bans.lift",
-  summary: "Lift an active ban. Requires member.ban over the member.",
+  summary:
+    "Lift an active ban. Requires member.ban over the member, and the reach to have set it: a ban " +
+    "longer than the actor's member.banMaxDays (a permanent one needs -1) is not theirs to lift, nor " +
+    "is one a member of higher rank put on.",
   kind: "write",
   input: z.object({ ...moderationNotice, banId: Id, reason: z.string().max(5000).default("") }),
   output: Ok,
