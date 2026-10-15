@@ -17,6 +17,11 @@ import {
   type ReactionPictureData,
 } from "@/components/forum/reaction-picture";
 import {
+  type PickerPlacement,
+  placePicker,
+} from "@/components/forum/reaction-placement";
+import { useReactionGesture } from "@/components/forum/use-reaction-gesture";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -36,7 +41,6 @@ export type ReactionType = {
 
 const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 250;
-const LONG_PRESS_MS = 450;
 // How long the backend's refusal stays under the button.
 const REFUSAL_MS = 6000;
 
@@ -77,11 +81,11 @@ export function ReactionButton({
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
+  const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const picker = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const touch = useRef(false);
-  const longPressed = useRef(false);
   const viaTrigger = useRef(false);
 
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -91,6 +95,18 @@ export function ReactionButton({
     const hide = setTimeout(() => setRefusal(undefined), REFUSAL_MS);
     return () => clearTimeout(hide);
   }, [refusal]);
+
+  const gesture = useReactionGesture({
+    button,
+    picker,
+    given: current,
+    open: () => {
+      viaTrigger.current = false;
+      show(true);
+    },
+    close: () => show(false),
+    choose: (typeId) => choose(typeId),
+  });
 
   const buttonClass = cn(
     messageActionClass,
@@ -129,7 +145,16 @@ export function ReactionButton({
   if (viewerId === authorId || types.length === 0) return null;
 
   function show(next: boolean) {
-    if (!next) longPressed.current = false;
+    const rect = anchor.current?.getBoundingClientRect();
+    if (next && rect) {
+      setPlacement(
+        placePicker({
+          anchor: rect,
+          count: types.length,
+          viewport: { width: window.innerWidth, height: window.innerHeight },
+        }),
+      );
+    }
     setOpen(next);
   }
 
@@ -193,29 +218,9 @@ export function ReactionButton({
             count,
           })}
           className={buttonClass}
-          onPointerDown={(event) => {
-            longPressed.current = false;
-            touch.current = event.pointerType !== "mouse";
-            if (!touch.current) return;
-            clearTimeout(timer.current);
-            timer.current = setTimeout(() => {
-              longPressed.current = true;
-              viaTrigger.current = false;
-              setOpen(true);
-            }, LONG_PRESS_MS);
-          }}
-          onPointerUp={() => {
-            if (touch.current) clearTimeout(timer.current);
-          }}
-          onPointerCancel={() => clearTimeout(timer.current)}
-          onContextMenu={(event) => {
-            if (touch.current) event.preventDefault();
-          }}
+          {...gesture.handlers}
           onClick={() => {
-            if (longPressed.current) {
-              longPressed.current = false;
-              return;
-            }
+            if (gesture.consumeSwallowedClick()) return;
             choose(current === null ? types[0].id : null);
           }}
         >
@@ -234,26 +239,52 @@ export function ReactionButton({
         )}
       </span>
       <PopoverContent
-        side="top"
+        ref={picker}
+        side={placement?.side ?? "top"}
+        sideOffset={placement?.sideOffset}
+        alignOffset={placement?.alignOffset}
         align="start"
         anchor={anchor}
         aria-label={t("aria.choose")}
         initialFocus={() => viaTrigger.current}
         finalFocus={() => (viaTrigger.current ? button.current : false)}
-        className={PICKER_CLASS}
+        className={cn(
+          PICKER_CLASS,
+          gesture.sliding && "touch-none select-none",
+        )}
         {...hover}
       >
-        {types.map((type) => (
+        {types.map((type, index) => (
           <button
             key={type.id}
             type="button"
             title={type.label}
             aria-label={type.label}
             aria-pressed={type.id === current}
+            data-reaction-id={type.id}
+            data-hovered={type.id === gesture.hover}
             onClick={() => choose(type.id === current ? null : type.id)}
-            className="flex size-10 select-none items-center justify-center rounded-full text-xl leading-none transition-transform hover:scale-125 focus-visible:scale-125 aria-pressed:bg-muted"
+            className="group relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
           >
-            <ReactionPicture emoji={type.emoji} picture={type.picture} />
+            <span className="flex transition-transform group-hover:scale-125 group-focus-visible:scale-125 group-data-[hovered=true]:-translate-y-1 group-data-[hovered=true]:scale-150">
+              <ReactionPicture emoji={type.emoji} picture={type.picture} />
+            </span>
+            {type.id === gesture.hover && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute bottom-full mb-2 whitespace-nowrap rounded-full bg-foreground px-2 py-0.5 text-xs leading-normal text-background",
+                  // The ends keep the bubble on screen; the rest centre it over the reaction.
+                  index === 0
+                    ? "left-0"
+                    : index === types.length - 1
+                      ? "right-0"
+                      : "left-1/2 -translate-x-1/2",
+                )}
+              >
+                {type.label}
+              </span>
+            )}
           </button>
         ))}
       </PopoverContent>
