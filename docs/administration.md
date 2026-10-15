@@ -1411,33 +1411,45 @@ Quotes and spoilers can be nested inside each other up to 10 levels deep each, a
 ## Tags
 
 A hashtag is `#` and 1 to 50 letters, numbers and `_` with at least one letter (accents work),
-not preceded by a letter, number, `&`, `/` or `=`; `a#b`, `&#123;` and the fragment of an address are
+not preceded by a letter, number, `&`, `/`, `=` or `#`; `a#b`, `##x`, `&#123;` and the fragment of an address are
 not tags. Code, plain text, links, addresses and the attribution of a quote hold none. A name is
-compared in NFC and lowercase. In posts, thread opening posts and conversation messages a
+compared in NFC and lowercase (a Greek final sigma is folded to `σ`), and needs a letter that draws something (the Hangul filler letters do not count). In posts, thread opening posts and conversation messages a
 hashtag that names a tag links to `/tags/<name>`; wall posts, comments, signatures and pages
 show it as typed.
 
 - **A thread's tags** are the ones set when it is started (`tags` of `threads.create`) or later
   (`tags` of `threads.update`, which replaces the list), and the hashtags of its opening post.
   Only the thread's author (while it is unlocked) and staff (`forum.editAny` in the forum, or
-  `tag.manage`) may set them, with `tag.apply`; a thread holds at most 10. Editing the opening
+  `tag.manage`) may set them, and each needs `tag.apply` (a posting restriction takes `tag.apply` and
+  `tag.create` away); a thread holds at most 10. Editing the opening
   post takes off the tags its earlier hashtags put there; tags set by hand stay. Hashtags in
   replies only link, and an unknown one stays plain text; so do those in conversations, which
-  never create a tag or tag a thread. A tag the opening post's hashtags put on a thread is that
+  never create a tag or tag a thread. A hashtag inside a `[SPOILER]`, `[ISPOILER]` or `[QUOTE]` of
+  the opening post links where it stands when the tag is known, and never tags the thread or makes
+  a tag. A tag counts as known to a writer only if it is used in a forum they can open (so a link,
+  or a refusal to list it, never tells them about forums they cannot see). A moderator who saves
+  a tag list without being able to read the opening post keeps the tags its hashtags put there.
+  A tag the opening post's hashtags put on a thread is that
   post's text: a viewer who may not read it (`forum.viewContent`) does not see the tag on the
   thread or on the tag page. Merging threads moves the tags of the thread merged away to the
   other one (never past 10).
 - **The tag page** (`tags.get`, `tags.threads`, `/tags/<name>` in the web app) lists the threads
   carrying the tag, newest activity first, under the rules of a forum's thread list (forums the
   viewer cannot open, `forum.viewOthers`, moderated and deleted threads, merged threads out).
-  A tag with nothing the viewer may open does not exist for them. It is indexed, and listed in
+  A tag with nothing the viewer may open does not exist for them (a tag whose 2,048 newest threads
+  are all closed to the viewer is not found either; the page goes on from where it stopped). It is
+  indexed, and listed in
   the sitemap (`tag-<n>.xml`), only with at least 3 threads whose titles and text are open to
   guests.
 - **Managing.** Renaming or merging keeps the old name as an alias, so links and hashtags already
   written keep working; deleting a tag leaves them as links to a page that no longer exists. A tag
-  that no thread carries any more goes away by itself. The screen is `/admin/tags`.
-- **Criterion.** `tags_added_at_least` (tags a member has put on threads that still carry them) is
-  a counter on the member's row, so promotions, awards, notices and the shop can use it.
+  that no thread carries any more goes away by itself, unless it has old names (they were chosen by
+  staff): it stays, with no page, and the name reaches it again when a thread takes it. The screen is
+  `/admin/tags`; renaming, merging and deleting check the permission again inside the transaction.
+- **Criterion.** `tags_added_at_least` (tags a member has put on visible threads that still carry
+  them, as `post_count` counts visible posts of visible threads: hiding a thread or holding it for
+  approval takes its tags out of the count, restoring or approving it brings them back) is a
+  counter on the member's row, so promotions, awards, notices and the shop can use it.
 - **Search.** Search treats `#rust` as the word `rust`; the web app sends a search for a single
   hashtag that names a tag to that tag's page.
 
