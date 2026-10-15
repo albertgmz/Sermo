@@ -1,5 +1,6 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import { type Ctx, prepared } from "../../context";
+import { ConflictError } from "../../errors";
 import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs";
 
@@ -20,9 +21,9 @@ import { enqueueJob } from "../jobs";
  *   security record, so the row stays and only its pointer to the content goes.
  * - Kept as they are: `moderator_log` (append-only; it names the content by id),
  *   `credit_transactions` (append-only; it names the credit rule, never the content) and
- *   `domain_events`. Events are never deleted: ids are not reused only
- *   while no row is removed from the end of the table, and a subscriber's cursor would skip the
- *   events that took the freed ids. A subscriber finds the content gone and does nothing.
+ *   `domain_events`. Events are never deleted: an id is reused only when the newest row of a
+ *   table is removed, and a subscriber's cursor would then skip the events that took the freed
+ *   ids. A subscriber finds the content gone and does nothing.
  *
  * SQLite hands the id of a deleted newest row to the next insert, so what names the old id and
  * would then attach to the new row (quotes, credit applications, alerts, bookmarks, reports,
@@ -270,4 +271,24 @@ function purgeThreadRows(ctx: Ctx, threadId: number): void {
     ["thread", "DELETE FROM threads WHERE id = ?1"],
   ] as const)
     statement(ctx, `thread.${key}`, sql).run(threadId);
+}
+
+/**
+ * Removal of a deleted thread or wall post has begun, and is not finished, when its newest
+ * hard-delete log entry says so (`completed: false`); an entry that says `completed: true` closes
+ * the life of an earlier row of the same id. Such content is missing its newest posts or comments
+ * for good and cannot be brought back. Time plays no part: a thread made by a split carries an
+ * old date. One seek on the log's target index.
+ */
+export function assertRemovalNotBegun(ctx: Ctx, type: "thread" | "profile_post", id: number): void {
+  const action = `${type}.hardDelete`;
+  const begun = statement(
+    ctx,
+    "removalBegun",
+    "SELECT 1 AS found FROM moderator_log b WHERE b.target_type = ?1 AND b.target_id = ?2 AND b.action = ?3 AND json_extract(b.details, '$.completed') = 0 AND NOT EXISTS (SELECT 1 FROM moderator_log d WHERE d.target_type = ?1 AND d.target_id = ?2 AND d.action = ?3 AND json_extract(d.details, '$.completed') = 1 AND d.id > b.id) LIMIT 1",
+  ).get(type, id, action);
+  if (begun)
+    throw new ConflictError(
+      `This ${type === "thread" ? "thread" : "wall post"} is being deleted for good and part of it is already gone. Finish deleting it.`,
+    );
 }

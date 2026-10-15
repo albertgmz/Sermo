@@ -939,3 +939,106 @@ describe("a removed report's id given to a new one", () => {
     expect(alerts()).toBeGreaterThan(0);
   });
 });
+
+describe("a thread or wall post whose removal has begun", () => {
+  test("a thread made by a split that took a removed thread's id, with an older date, can be restored", async () => {
+    const w = world();
+    const p = await w.thread(w.alice, w.open.id, "Parent");
+    const reply = await w.reply(w.bob, p.thread.id, "Moves out");
+    const x = await w.thread(w.alice, w.open.id, "Big");
+    fillPosts(w.ctx, x.thread.id, w.bobUser.id, 600);
+    await w.call("threads.delete", w.mod, { threadId: x.thread.id });
+    expect(await w.call("threads.hardDelete", w.admin, { threadId: x.thread.id })).toMatchObject({
+      completed: false,
+    });
+    expect(await w.call("threads.hardDelete", w.admin, { threadId: x.thread.id })).toMatchObject({
+      completed: true,
+    });
+    const split = await w.call("threads.split", w.admin, {
+      threadId: p.thread.id,
+      postIds: [reply.id],
+      title: "Split",
+      nodeId: w.open.id,
+    });
+    expect(split.completed).toBe(true);
+    // The id of the removed thread, and the older date of the post it was made from.
+    expect(split.thread.id).toBe(x.thread.id);
+    await w.call("threads.delete", w.mod, { threadId: split.thread.id });
+    await w.call("threads.restore", w.mod, { threadId: split.thread.id });
+    expect(
+      w.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM threads WHERE id = ?1")
+        .get(split.thread.id),
+    ).toEqual({ state: "visible" });
+  });
+
+  test("a wall post with more than 500 comments cannot be restored by any route until it is gone", async () => {
+    const w = world();
+    const post = await w.wall(w.alice, w.bobUser.id, "Busy wall");
+    const insert = w.ctx.sqlite.prepare(
+      "INSERT INTO profile_post_comments (profile_post_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, 'visible', 1, 'c', '<p>c</p>')",
+    );
+    for (let i = 0; i < 520; i++) insert.run(post.id, w.carolUser.id);
+    await w.call("profilePosts.delete", w.admin, { profilePostId: post.id });
+    // Before it begins, restoring is allowed (and undone again here).
+    await w.call("profilePosts.restore", w.mod, { profilePostId: post.id });
+    await w.call("profilePosts.delete", w.admin, { profilePostId: post.id });
+    expect(
+      await w.call("profilePosts.hardDelete", w.admin, { profilePostId: post.id }),
+    ).toMatchObject({ completed: false });
+    const refused = /being deleted for good/;
+    await expect(w.call("profilePosts.restore", w.mod, { profilePostId: post.id })).rejects.toThrow(
+      refused,
+    );
+    await expect(
+      w.call("moderation.setState", w.admin, {
+        target: { type: "profile_post", id: post.id },
+        state: "visible",
+      }),
+    ).rejects.toThrow(refused);
+    await expect(
+      w.call("moderation.bulk", w.admin, {
+        targets: [{ type: "profile_post", id: post.id }],
+        action: "restore",
+      }),
+    ).rejects.toThrow(refused);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ state: string }, [number]>("SELECT state FROM profile_posts WHERE id = ?1")
+        .get(post.id),
+    ).toEqual({ state: "deleted" });
+    expect(
+      await w.call("profilePosts.hardDelete", w.admin, { profilePostId: post.id }),
+    ).toMatchObject({ completed: true });
+  });
+});
+
+describe("the unread counters of members who held alerts on removed content", () => {
+  test("two unread alerts take two off, a read alert nothing, and no counter goes below 0", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const reply = await w.reply(w.bob, t.thread.id, "R");
+    const [two, short, none] = [insertUser(w.ctx).id, insertUser(w.ctx).id, insertUser(w.ctx).id];
+    const sql = w.ctx.sqlite;
+    const alert = sql.prepare(
+      "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, thread_id, created_at, updated_at, read_at) VALUES (?1, 0, ?2, 'post', ?3, ?4, 1, 1, ?5)",
+    );
+    // Two unread alerts of different types and a read one for the first member.
+    alert.run(two, "content.quoted", reply.id, t.thread.id, null);
+    alert.run(two, "content.mentioned", reply.id, t.thread.id, null);
+    alert.run(two, "thread.watched", reply.id, t.thread.id, 9);
+    // Counters that are lower than what is removed.
+    alert.run(short, "content.quoted", reply.id, t.thread.id, null);
+    alert.run(short, "content.mentioned", reply.id, t.thread.id, null);
+    alert.run(none, "content.quoted", reply.id, t.thread.id, null);
+    const setCounter = sql.prepare("UPDATE users SET unread_notification_count = ?1 WHERE id = ?2");
+    setCounter.run(5, two);
+    setCounter.run(1, short);
+    setCounter.run(0, none);
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    expect([two, short, none].map((id) => user(w, id).unread_notification_count)).toEqual([
+      3, 0, 0,
+    ]);
+  });
+});

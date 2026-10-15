@@ -703,7 +703,8 @@ and restore it. Only staff delete for good, and only content that is already sof
   `profilePost.hardDelete`). They erase the content with its reactions, attachments, alerts,
   bookmarks, reports and the credits it paid. A thread goes 500 posts per call (a wall post 500
   comments), newest first, and stays deleted until a call answers `completed: true`; until then it
-  cannot be restored. Merge tombstones that resolve to a removed thread go with it. The
+  cannot be restored (a wall post likewise). Merging such a thread into another is not blocked: its
+  remaining posts move on. Merge tombstones that resolve to a removed thread go with it. The
   moderator log keeps the entry, with the title and author. Post positions are not renumbered, so a
   thread has a gap where a post was. The permissions are Administrator by default and can be
   granted per forum.

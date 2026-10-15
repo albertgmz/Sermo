@@ -378,7 +378,7 @@ describe("the post budget of a batch", () => {
       threadIds: [a1, a2, a3],
       update: { action: "restore" },
     });
-    // a3 is visible already: it costs its posts all the same, and comes last.
+    // a3 is visible already and would change nothing, but the budget is spent before it.
     expect(outcome(restored)).toEqual(["ok", "ok", "conflict"]);
     const moved = await w.call("threads.batchUpdate", w.admin, {
       threadIds: [a1, a2, a3],
@@ -410,4 +410,24 @@ describe("the post budget of a batch", () => {
     });
     expect(outcome(locks)).toEqual(["ok", "ok", "ok"]);
   });
+});
+
+test("a thread that did no work does not use up the budget", async () => {
+  const { w, a1, a2 } = await setup();
+  const a3 = (await w.thread(w.alice, w.open.id, "A3")).thread.id as number;
+  for (const id of [a1, a2, a3])
+    w.ctx.sqlite.prepare("UPDATE threads SET reply_count = 99999 WHERE id = ?1").run(id);
+  await w.call("threads.delete", w.admin, { threadId: a3 });
+  // Two visible threads are restored to nothing: they cost no budget, so the deleted one still fits.
+  const out = await w.call("threads.batchUpdate", w.admin, {
+    threadIds: [a1, a2, a3],
+    update: { action: "restore" },
+  });
+  expect(
+    out.results.map((r: { changed: boolean; error: unknown }) => [r.changed, r.error]),
+  ).toEqual([
+    [false, null],
+    [false, null],
+    [true, null],
+  ]);
 });

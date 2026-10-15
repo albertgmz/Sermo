@@ -48,7 +48,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
-import { PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
+import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
 import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
@@ -1915,27 +1915,11 @@ export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, i
   });
   return threadValue(ctx, actor, row.id);
 });
-/**
- * A deleted thread that `threads.hardDelete` has begun on is missing its newest posts for good,
- * so it cannot come back. Only a log entry from this thread's own life counts: the id of an
- * earlier thread may have been reused.
- */
-export function assertThreadNotBeingPurged(ctx: Ctx, threadId: number, createdAt: number): void {
-  const begun = prepared(ctx, "forums.purgeBegun", () =>
-    ctx.sqlite.prepare<{ found: number }, [number, number]>(
-      "SELECT 1 AS found FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action = 'thread.hardDelete' AND created_at >= ?2 AND json_extract(details, '$.completed') = 0 LIMIT 1",
-    ),
-  ).get(threadId, createdAt);
-  if (begun)
-    throw new ConflictError(
-      "This thread is being deleted for good and part of it is already gone. Finish deleting it.",
-    );
-}
 function restoreThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
   assertTransferIdle(ctx, id);
   const current = requireThread(ctx, moderator, id).row;
   requireRestorer(ctx, moderator, current.state, current.node_id);
-  if (current.state === "deleted") assertThreadNotBeingPurged(ctx, id, current.created_at);
+  if (current.state === "deleted") assertRemovalNotBegun(ctx, "thread", id);
   const changed = changeThreadState(ctx, id, "visible");
   if (changed)
     publishEvent(ctx, {
@@ -3136,7 +3120,7 @@ export const threadsBatchUpdateOp = implement(contracts.threadsBatchUpdate, (ctx
               );
           }
           const done = batchItem(ctx, moderator, threadId, input.update, input);
-          spent += cost;
+          if (done) spent += cost;
           return done;
         });
         return { threadId, changed, error: null };

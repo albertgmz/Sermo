@@ -44,7 +44,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
-import { PURGE_CHUNK, purgeContent } from "../purge/purge";
+import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
@@ -473,6 +473,7 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
     if (!current) throw new NotFoundError();
     if (current.state === "deleted") requirePermission(ctx, fresh, "profilePost.undelete");
     else requirePermission(ctx, fresh, "profilePost.approve");
+    if (current.state === "deleted") assertRemovalNotBegun(ctx, "profile_post", row.id);
     const result = prepared(ctx, "profiles.restorePost", () =>
       ctx.sqlite.prepare<unknown, [number, string]>(
         "UPDATE profile_posts SET state = 'visible' WHERE id = ?1 AND state = ?2",

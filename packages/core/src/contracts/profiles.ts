@@ -263,7 +263,7 @@ export const profilePostsHardDelete = defineContract({
     "reports. Only a soft-deleted profile post can be deleted for good (a conflict otherwise). " +
     "Requires profilePost.hardDelete (administrators by default) and the right to see deleted " +
     "profile posts. At most 500 comments go in one call, newest first: the post stays (deleted) " +
-    "until a call returns `completed: true`. Each call is one transaction and is logged as " +
+    "until a call returns `completed: true`, and cannot be restored meanwhile (a conflict). Each call is one transaction and is logged as " +
     "`profile_post.hardDelete`.",
   kind: "write",
   input: z.object({ profilePostId: Id, reason: moderationNotice.reason }),
@@ -272,7 +272,9 @@ export const profilePostsHardDelete = defineContract({
 
 export const profilePostsRestore = defineContract({
   name: "profilePosts.restore",
-  summary: "Make a deleted or unapproved profile post visible again. Moderators only.",
+  summary:
+    "Make a deleted or unapproved profile post visible again. Moderators only. A deleted post " +
+    "that `profilePosts.hardDelete` has begun on cannot come back (a conflict).",
   kind: "write",
   input: z.object({ ...moderationNotice, profilePostId: Id }),
   output: ProfilePost,
