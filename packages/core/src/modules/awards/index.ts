@@ -97,6 +97,7 @@ function readersOf(ctx: Ctx, awardId: number): string[] {
     ["notice", "notices", "title"],
     ["shop category", "shop_categories", "name"],
     ["shop item", "shop_items", "name"],
+    ["reaction type", "reaction_types", "title"],
   ] as const)
     for (const row of all<{ name: string; rule: string }>(
       ctx,

@@ -69,7 +69,9 @@ function prepare(env: BenchEnv) {
 }
 
 // A reaction type given by members who meet a rule of two cheap criteria, in the forums of
-// the posts below: the rule and the forum list are both decided on every reaction.
+// the posts below: the rule and the forum list are both decided on every reaction. A type cannot
+// be deleted, so it is switched on here and off in `stopRuled` (an inactive type is not decided
+// for anyone, so the other scenarios, and a reused working copy, keep their baseline).
 async function prepareRuled(env: BenchEnv) {
   prepare(env);
   const forumOf = env.ctx.sqlite.prepare<{ id: number; node_id: number }, [string]>(
@@ -87,7 +89,12 @@ async function prepareRuled(env: BenchEnv) {
     }
   ).items.find((item) => item.title === "Bench rule");
   ruledType = (
-    existing ??
+    (existing &&
+      ((await env.call("reactionTypes.update", env.actors.admin, {
+        reactionTypeId: existing.id,
+        isActive: true,
+        forumIds,
+      })) as { id: number })) ??
     ((await env.call("reactionTypes.create", env.actors.admin, {
       title: "Bench rule",
       emoji: "R",
@@ -101,6 +108,13 @@ async function prepareRuled(env: BenchEnv) {
       forumIds,
     })) as { id: number })
   ).id;
+}
+
+async function stopRuled(env: BenchEnv) {
+  await env.call("reactionTypes.update", env.actors.admin, {
+    reactionTypeId: ruledType,
+    isActive: false,
+  });
 }
 
 export const scenarios: Scenario[] = [
@@ -126,6 +140,7 @@ export const scenarios: Scenario[] = [
     name: "reactions.set posts with a rule and forums",
     kind: "write",
     setup: prepareRuled,
+    teardown: stopRuled,
     run(env, i) {
       const row = ruledPosts[i % ruledPosts.length]!;
       // The toggle reads the current state: a member who holds the ruled type moves to the first
@@ -146,6 +161,7 @@ export const scenarios: Scenario[] = [
     name: "reactionTypes.list member with rules",
     kind: "read",
     setup: prepareRuled,
+    teardown: stopRuled,
     run: (env, i) => env.call("reactionTypes.list", env.actors.member(i), {}),
   },
   {

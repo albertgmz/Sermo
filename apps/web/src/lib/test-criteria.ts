@@ -17,6 +17,28 @@ export const LIMITS: RuleLimits = {
 type Kind = Criterion["kind"];
 type Unit = Criterion["unit"];
 
+// The criteria the backend answers with a measure of the member's history.
+const MEASURED = new Set([
+  "posts_in_threads",
+  "replies_received",
+  "busiest_thread_replies",
+  "profile_posts_written",
+  "profile_comments_written",
+  "attachments_uploaded",
+  "bookmarks_at_least",
+  "watching_forums_at_least",
+  "watching_threads_at_least",
+  "owns_item",
+  "wears_item",
+  "bought_in_category",
+  "gifted_items",
+  "credits_earned",
+  "credits_from_rule",
+  "holds_awards",
+  "thread_banned",
+  "banned_before",
+]);
+
 const entry = (
   id: string,
   kind: Kind,
@@ -30,6 +52,7 @@ const entry = (
   idKind: null,
   window: false,
   modes: [],
+  measured: MEASURED.has(id),
   title: `Title of ${id}`,
   help: `Help for ${id}`,
   ...more,

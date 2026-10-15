@@ -135,7 +135,8 @@
       "login": "Log in to react, {count, plural, one {{count} reaction} other {{count} reactions}}",
       "state": "{label}, {count, plural, one {{count} reaction} other {{count} reactions}}",
       "choose": "Choose a reaction",
-      "locked": "{label}, locked. {hint}"
+      "locked": "{label}, locked. {hint}",
+      "kept": "{label}, your reaction, no longer offered. Press to remove it"
     }
   },
   "reactionSummary": {

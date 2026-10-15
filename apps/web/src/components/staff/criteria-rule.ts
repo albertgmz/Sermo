@@ -17,6 +17,7 @@ export type Criterion = Pick<
   | "idKind"
   | "window"
   | "modes"
+  | "measured"
 >;
 export type IdKind = NonNullable<Criterion["idKind"]>;
 export type Mode = Criterion["modes"][number];
@@ -25,12 +26,14 @@ export type Mode = Criterion["modes"][number];
 // is only checked while a request is served takes the `cheap` criteria alone (the backend refuses
 // the others).
 export const PLACES = {
-  promotion: { cheapOnly: false, empty: "required" },
-  award: { cheapOnly: false, empty: "manual" },
-  notice: { cheapOnly: true, empty: "everyone" },
-  shopCategory: { cheapOnly: true, empty: "everyone" },
-  shopItem: { cheapOnly: true, empty: "everyone" },
-  reactionType: { cheapOnly: true, empty: "everyone" },
+  promotion: { cheapOnly: false, noMeasured: false, empty: "required" },
+  award: { cheapOnly: false, noMeasured: false, empty: "manual" },
+  notice: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  shopCategory: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  shopItem: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  // Decided on every reaction and for every picker: no criterion that measures the member's
+  // history either (the backend refuses them).
+  reactionType: { cheapOnly: true, noMeasured: true, empty: "everyone" },
 } as const;
 export type Place = keyof typeof PLACES;
 
@@ -83,6 +86,7 @@ export function offeredCriteria(
   return criteria.filter(
     (criterion) =>
       (!PLACES[place].cheapOnly || criterion.cost === "cheap") &&
+      (!PLACES[place].noMeasured || !criterion.measured) &&
       choosable(criterion, available),
   );
 }

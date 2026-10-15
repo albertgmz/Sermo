@@ -101,7 +101,7 @@ describe("an award that needs other awards", () => {
     ];
     await call("update", { awardId: a, rule: requires(b) });
     await expect(call("delete", { awardId: b })).rejects.toThrow(/award "A"/);
-    // Promotions, notices and the shop name awards too.
+    // Promotions, notices, the shop and reaction types name awards too.
     ctx.sqlite
       .prepare(
         "INSERT INTO promotions (title, group_ids, rule, created_at, updated_at) VALUES ('P', '[]', ?1, 0, 0)",
@@ -112,8 +112,11 @@ describe("an award that needs other awards", () => {
         "INSERT INTO shop_categories (name, rule, created_at, updated_at) VALUES ('Shelf', ?1, 0, 0)",
       )
       .run(JSON.stringify(requires(b)));
+    ctx.sqlite
+      .prepare("UPDATE reaction_types SET title = 'Crown', rule = ?1 WHERE id = 1")
+      .run(JSON.stringify(requires(b)));
     await expect(call("delete", { awardId: b })).rejects.toThrow(
-      /award "A", promotion "P", shop category "Shelf"/,
+      /award "A", promotion "P", shop category "Shelf", reaction type "Crown"/,
     );
     expect(ctx.sqlite.prepare("SELECT count(*) AS n FROM awards WHERE id = ?1").get(b)).toEqual({
       n: 1,
@@ -122,6 +125,9 @@ describe("an award that needs other awards", () => {
     await call("update", { awardId: a, rule: { match: "all", conditions: [] } });
     ctx.sqlite.prepare("DELETE FROM promotions").run();
     ctx.sqlite.prepare("DELETE FROM shop_categories").run();
+    ctx.sqlite
+      .prepare("UPDATE reaction_types SET rule = ?1 WHERE id = 1")
+      .run('{"match":"all","conditions":[]}');
     await call("delete", { awardId: b });
     const reused = await create("C", { match: "all", conditions: [] });
     expect(reused).toBe(b);

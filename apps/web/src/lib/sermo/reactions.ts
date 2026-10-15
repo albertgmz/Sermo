@@ -91,7 +91,7 @@ export function pickerTypes(
 }
 
 // The viewer's own reaction when the picker no longer offers its type (set to hide, or limited to
-// other forums since): shown greyed, so the button still draws it and takes it back. Nothing when
+// other forums since): kept in the picker greyed, so the button still draws it and takes it back. Nothing when
 // the picker is empty (the viewer may not react here) or already holds it.
 export function heldType(
   picker: ReactionType[],
@@ -101,7 +101,7 @@ export function heldType(
   if (mine === null || picker.length === 0 || picker.some((t) => t.id === mine))
     return null;
   const type = types.find((entry) => entry.id === mine);
-  return type ? { ...asType(type), locked: "" } : null;
+  return type ? { ...asType(type), kept: true } : null;
 }
 
 // The summary of an item in the shape the reaction components take.

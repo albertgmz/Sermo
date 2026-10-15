@@ -254,3 +254,20 @@ test("a typed number is a whole number up to the schema's limit, or nothing", ()
   ])
     expect(numberOf(bad, max)).toBeUndefined();
 });
+
+test("reaction types are offered the cheap criteria that do not measure the member's history", () => {
+  const offered = ids("reactionType");
+  const expected = CRITERIA.filter(
+    (entry) => entry.cost === "cheap" && !entry.measured,
+  ).map((entry) => entry.id);
+  expect(offered).toEqual(expected);
+  for (const id of [
+    "thread_banned",
+    "banned_before",
+    "holds_awards",
+    "owns_item",
+  ])
+    expect(offered).not.toContain(id);
+  for (const id of ["post_count", "in_group", "purchases_at_least"])
+    expect(offered).toContain(id);
+});

@@ -59,12 +59,18 @@ const places = Object.keys(PLACES) as Place[];
 test("every place offers each criterion it allows, and notices and the shop hide the background ones", () => {
   for (const place of places) {
     const expected = CRITERIA.filter(
-      (entry) => !PLACES[place].cheapOnly || entry.cost === "cheap",
+      (entry) =>
+        (!PLACES[place].cheapOnly || entry.cost === "cheap") &&
+        (!PLACES[place].noMeasured || !entry.measured),
     ).map((entry) => entry.id);
     expect(addable(draw(place))).toEqual(expected);
   }
   for (const place of ["notice", "shopCategory", "shopItem"] as const)
     expect(addable(draw(place))).not.toContain("warning_points_below");
+  expect(addable(draw("reactionType"))).not.toContain("thread_banned");
+  expect(addable(draw("reactionType"))).not.toContain("holds_awards");
+  expect(addable(draw("reactionType"))).toContain("in_group");
+  expect(addable(draw("notice"))).toContain("thread_banned");
   expect(addable(draw("promotion"))).toContain("warning_points_below");
   expect(addable(draw("award"))).toContain("warning_points_below");
 });

@@ -60,7 +60,9 @@ export const ReactionType = z
           "locked), true = the type left out of the picker (`access` hidden).",
       ),
     rule: CriteriaRule.nullable().describe(
-      "Who may give the type, as a rule of cheap criteria (an empty rule is everyone). Only " +
+      "Who may give the type, as a rule of cheap criteria (an empty rule is everyone). Criteria " +
+        "that measure the member's history (`measured` in criteria.list) are refused, so the " +
+        "rule costs at most three statements: the member's row, groups and purchases. Only " +
         "for holders of admin.reactionTypes; null for everyone else.",
     ),
     access: z

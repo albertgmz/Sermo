@@ -148,7 +148,7 @@ test("a locked type with no hint is still locked", async () => {
 test("the viewer's own reaction stays drawn when its type is no longer offered", async () => {
   const types = await sealed(typeOf(1), typeOf(2, { access: "hidden" }));
   const picker = pickerTypes(types, null);
-  expect(heldType(picker, 2, types)).toMatchObject({ id: 2, locked: "" });
+  expect(heldType(picker, 2, types)).toMatchObject({ id: 2, kept: true });
   expect(heldType(picker, 1, types)).toBeNull();
   expect(heldType(picker, null, types)).toBeNull();
   // An empty picker means the viewer may not react here at all.

@@ -138,7 +138,7 @@ export async function RuleField({
         key={`${place}:${owner ?? "new"}:${JSON.stringify(rule)}`}
         place={place}
         criteria={criteria.map(
-          ({ id, title, help, kind, unit, cost, idKind, window, modes }) => ({
+          ({
             id,
             title,
             help,
@@ -148,6 +148,18 @@ export async function RuleField({
             idKind,
             window,
             modes,
+            measured,
+          }) => ({
+            id,
+            title,
+            help,
+            kind,
+            unit,
+            cost,
+            idKind,
+            window,
+            modes,
+            measured,
           }),
         )}
         rule={rule}

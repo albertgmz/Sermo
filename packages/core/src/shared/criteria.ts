@@ -132,6 +132,7 @@ export const criterionDefinitions = specs.map((spec) => ({
   idKind: spec.takes.ids,
   window: spec.takes.window,
   modes: [...spec.takes.modes],
+  measured: spec.source === "measure",
 }));
 
 /** The only place a rule is decided. A condition that names no known criterion never holds. */
@@ -464,6 +465,16 @@ export function afterAwardGrant(
 /** Whether a rule holds a criterion too heavy to load on every event; the sweep decides those. */
 export const needsSweep = (rule: Rule): boolean =>
   rule.conditions.some((condition) => byId.get(condition.criterion)?.sweepOnly === true);
+
+/**
+ * The criteria in a rule that are answered by a measure: one statement for each such condition on
+ * top of the per-kind facts. A consumer that decides a rule on every request refuses them to keep
+ * its statement count fixed.
+ */
+export const measuredCriteria = (rule: Rule): string[] =>
+  rule.conditions.flatMap((condition) =>
+    byId.get(condition.criterion)?.source === "measure" ? [condition.criterion] : [],
+  );
 
 /** The facts of whoever makes a request: a guest's, or the signed-in member's loaded for `rules`. */
 export function actorFacts(ctx: Ctx, actor: Actor, rules: Iterable<Rule>): Facts {

@@ -86,6 +86,12 @@ export const CriterionDefinition = z
      * a request is served; `background` ones only run in background checks (promotions, awards).
      */
     cost: z.enum(["cheap", "background"]),
+    /**
+     * Whether the fact is a measure of the member's history (one statement for each condition
+     * that uses it) rather than the member's row, groups or purchases. Places decided on every
+     * request, such as reaction types, refuse these to keep their cost fixed.
+     */
+    measured: z.boolean(),
   })
   .meta({ id: "CriterionDefinition" });
 

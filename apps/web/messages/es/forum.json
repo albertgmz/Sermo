@@ -135,7 +135,8 @@
       "login": "Inicia sesión para reaccionar, {count, plural, one {{count} reacción} other {{count} reacciones}}",
       "state": "{label}, {count, plural, one {{count} reacción} other {{count} reacciones}}",
       "choose": "Elegir una reacción",
-      "locked": "{label}, bloqueada. {hint}"
+      "locked": "{label}, bloqueada. {hint}",
+      "kept": "{label}, tu reacción, ya no disponible. Pulsa para quitarla"
     }
   },
   "reactionSummary": {

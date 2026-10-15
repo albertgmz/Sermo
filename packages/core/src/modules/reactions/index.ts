@@ -18,7 +18,14 @@ import type { Language } from "../../i18n";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, getNodeTree, requirePermission } from "../../permissions";
-import { actorFacts, assertRule, evaluate, parseRule, type Rule } from "../../shared/criteria";
+import {
+  actorFacts,
+  assertRule,
+  evaluate,
+  measuredCriteria,
+  parseRule,
+  type Rule,
+} from "../../shared/criteria";
 import { lockHint } from "../../shared/criteria/hint";
 import { viewerLanguage } from "../../shared/language";
 import { parseReactionCounts, reactionSummary } from "../../shared/reactions";
@@ -234,6 +241,14 @@ function adjustCounts(json: string, oldType: number | null, newType: number | nu
  */
 function checkedAccess(ctx: Ctx, rule: Rule, forumIds: readonly number[]) {
   assertRule(ctx, rule, "cheap");
+  // A rule is decided on every reaction and for every picker drawn: only facts that come from the
+  // member's row, groups or purchases (at most three statements, whatever the rules), never a
+  // measure of their history (one more statement for each).
+  const measured = measuredCriteria(rule);
+  if (measured.length > 0)
+    throw new ValidationError(
+      `A reaction rule cannot use ${[...new Set(measured)].join(", ")}: it reads the member's history, which is too much to check on every reaction.`,
+    );
   const ids = [...new Set(forumIds)];
   const tree = getNodeTree(ctx);
   if (ids.some((id) => tree.get(id)?.type !== "forum"))

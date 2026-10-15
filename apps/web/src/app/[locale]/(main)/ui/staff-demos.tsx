@@ -37,6 +37,7 @@ const criterion = (
   idKind: null,
   window: false,
   modes: [],
+  measured: false,
   ...more,
 });
 

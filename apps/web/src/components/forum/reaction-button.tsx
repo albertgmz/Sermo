@@ -36,6 +36,9 @@ export type ReactionType = {
   // Set when the viewer may not give it yet: why, in words. The picker shows it greyed with a
   // padlock; it cannot be chosen. The backend refuses it as well.
   locked?: string;
+  // Set on the viewer's own reaction when its type is no longer offered (hidden, or limited to
+  // other forums): drawn greyed, and pressing it takes the reaction back.
+  kept?: true;
 };
 
 const HOVER_OPEN_MS = 350;
@@ -99,7 +102,7 @@ export function ReactionButton(props: {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
-  // The locked reaction pressed last, and why it is locked: touch has no hover to show it.
+  // The locked reaction pressed (or pointed at) last: its hint is drawn over it, as touch has no hover.
   const [lockedNote, setLockedNote] = useState<ReactionType>();
   const [placement, setPlacement] = useState<PickerPlacement>();
   const anchor = useRef<HTMLSpanElement>(null);
@@ -137,7 +140,7 @@ export function ReactionButton(props: {
   );
   const active = types.find((type) => type.id === current);
   // A tap on the button gives the first reaction the viewer may give.
-  const first = types.find((type) => type.locked === undefined);
+  const first = types.find((type) => type.locked === undefined && !type.kept);
   const count =
     total - Number(viewerTypeId !== null) + Number(current !== null);
   const content = (
@@ -286,7 +289,23 @@ export function ReactionButton(props: {
         {...hover}
       >
         {types.map((type) =>
-          type.locked !== undefined ? (
+          type.kept ? (
+            // The viewer's own reaction, whose type is no longer offered: greyed, and pressing it
+            // takes it back.
+            <button
+              key={type.id}
+              type="button"
+              title={type.label}
+              aria-label={t("aria.kept", { label: type.label })}
+              aria-pressed="true"
+              onClick={() => choose(null)}
+              className="relative flex size-10 select-none items-center justify-center rounded-full bg-muted text-xl leading-none"
+            >
+              <span className="flex opacity-60 grayscale">
+                <ReactionPicture emoji={type.emoji} picture={type.picture} />
+              </span>
+            </button>
+          ) : type.locked !== undefined ? (
             <button
               key={type.id}
               type="button"
@@ -296,9 +315,18 @@ export function ReactionButton(props: {
                 hint: type.locked,
               })}
               aria-disabled="true"
-              onClick={() => setLockedNote(type)}
+              aria-pressed={type.id === current}
+              onClick={() =>
+                type.id === current ? choose(null) : setLockedNote(type)
+              }
               onFocus={() => setLockedNote(type)}
-              className="relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none"
+              onPointerEnter={(event) =>
+                event.pointerType === "mouse" && setLockedNote(type)
+              }
+              onPointerLeave={() =>
+                setLockedNote((now) => (now?.id === type.id ? undefined : now))
+              }
+              className="relative flex size-10 select-none items-center justify-center rounded-full text-xl leading-none aria-pressed:bg-muted"
             >
               <span className="flex opacity-40 grayscale">
                 <ReactionPicture emoji={type.emoji} picture={type.picture} />
@@ -307,6 +335,21 @@ export function ReactionButton(props: {
                 aria-hidden="true"
                 className="absolute bottom-1 right-1 size-3.5 text-foreground"
               />
+              {lockedNote?.id === type.id && type.locked && (
+                // The hint rides on the label bubble: out of the layout, so the picker keeps the
+                // size `placePicker` measured. It may wrap, and is pulled back inside the screen.
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute bottom-full left-1/2 mb-2 flex w-0 justify-center"
+                >
+                  <span
+                    ref={keepInViewport}
+                    className="w-max max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
+                  >
+                    {type.locked}
+                  </span>
+                </span>
+              )}
             </button>
           ) : (
             <button
@@ -339,14 +382,6 @@ export function ReactionButton(props: {
               )}
             </button>
           ),
-        )}
-        {lockedNote?.locked && (
-          <p
-            role="status"
-            className="basis-full px-3 pb-1 pt-0.5 text-xs text-muted-foreground"
-          >
-            {lockedNote.label}: {lockedNote.locked}
-          </p>
         )}
       </PopoverContent>
     </Popover>

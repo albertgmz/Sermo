@@ -372,6 +372,29 @@ describe("saving a rule and forums", () => {
     expect((await listFor(f, f.as)).find((t) => t.id === type.id)!.rule).toEqual(posts(5));
   });
 
+  test("a rule that reads the member's history is refused, whatever else it holds", async () => {
+    const f = fixture();
+    const heavy = (criterion: string) => ({
+      match: "all",
+      conditions: [
+        { criterion: "post_count", value: 1 },
+        { criterion, value: 0 },
+      ],
+    });
+    for (const criterion of ["thread_banned", "banned_before"]) {
+      expect(create(f, { rule: heavy(criterion) })).rejects.toThrow(
+        new RegExp(`cannot use ${criterion}`),
+      );
+    }
+    const type = await create(f);
+    expect(
+      execute(f.ctx, reactionTypesUpdateOp, f.as, {
+        reactionTypeId: type.id,
+        rule: heavy("thread_banned"),
+      }),
+    ).rejects.toThrow(ValidationError);
+  });
+
   test("forums must exist and must be forums, not categories", async () => {
     const f = fixture();
     expect(create(f, { forumIds: [f.category.id] })).rejects.toThrow(ValidationError);
@@ -445,6 +468,27 @@ describe("what the rules cost", () => {
     expect((await listCost(f, f.reactorActor)) - plain).toBe(1);
     // A guest has no facts to load.
     expect(await listCost(f, GUEST)).toBe(guestPlain);
+  });
+
+  test("the rules of every kind a reaction type may use cost at most three statements", async () => {
+    const f = fixture();
+    const base = await listCost(f, f.reactorActor, "en");
+    const vip = f.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('VIP', 5) RETURNING id",
+      )
+      .get()!.id;
+    for (const rule of [
+      posts(1),
+      { match: "all", conditions: [{ criterion: "reaction_score", value: 1 }] },
+      { match: "all", conditions: [{ criterion: "days_registered", value: 1 }] },
+      { match: "any", conditions: [{ criterion: "in_group", ids: [vip] }] },
+      { match: "all", conditions: [{ criterion: "not_in_group", ids: [vip] }] },
+      { match: "all", conditions: [{ criterion: "purchases_at_least", value: 1 }] },
+    ] as Rule[])
+      await create(f, { title: `T${Math.random()}`, rule });
+    // the member's row, the member's groups; purchases_at_least is a count on the row
+    expect((await listCost(f, f.reactorActor, "en")) - base).toBe(2);
   });
 
   test("a locked hint costs the viewer's language unless the client names it", async () => {

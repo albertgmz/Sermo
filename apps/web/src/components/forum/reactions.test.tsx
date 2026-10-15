@@ -8,6 +8,15 @@ mock.module("next/navigation", () => ({
   ...navigation,
   usePathname: () => "/threads/3",
   useSearchParams: () => new URLSearchParams(),
+  // The reaction button holds the router (for the sign-in path); drawn here, nothing navigates.
+  useRouter: () => ({
+    push() {},
+    replace() {},
+    refresh() {},
+    back() {},
+    forward() {},
+    prefetch() {},
+  }),
 }));
 // Another suite replaces the translator with one that fills no placeholders: use the real one.
 const intl = { ...(await import("next-intl")) };
