@@ -2377,3 +2377,21 @@ Spanish, German or French layouts. Members turn shortcuts off in Preferences
 (`users.keyboard_shortcuts`, default on, migration `0040`, carried by `auth.me`); guests have them
 on. Known limits: the staff panel and sign-in pages have no shortcuts; on non-Latin layouts letter
 keys can still match by position.
+
+**Load only what's needed: a JavaScript budget per page.** `apps/web/scripts/js-budget.ts` reads
+the build's per-route client reference manifests and the build manifest, and prints the gzip size
+of the client JavaScript each route loads. `js-budgets.json` gives each group of routes a budget:
+home, thread, editor, forum, profile, conversations, account, search, auth, staff (shared), the
+styleguide, and the rest. `check:web` runs it after the build, and it fails when a route is over
+budget, has no budget, or a budget matches no route. Budgets are the measured size plus 10%. The
+owner's example of about 150 KB for the thread page is out of reach without a larger rework: React
+and Next are 134 KB, and the shared page layout adds about 100 KB. So the budgets guard against
+growth rather than meet that target. The measure leaves out the `nomodule` polyfill and misses
+about 2% that Next loads on its own, which the headroom covers. Cuts: the thread page's reply
+editor loads on focus or first input through the existing `LazyEditor` (thread page 436 to 322
+KB). A quote pressed before then goes into the plain field, and the caret lands below it once the
+editor arrives. Keyboard shortcuts load after the page through `next/dynamic` (about 8 KB off
+every main page). Avatars and pictures in posts load lazily, except the header, profile and
+account avatars, which load at once. Fonts were already Latin-only through `next/font`, and there
+is no animation library. Known limits: Markdown pictures and the site logo have no stored size, so
+they can shift the page as they load.
