@@ -344,7 +344,7 @@ export function ReactionButton(props: {
                 >
                   <span
                     ref={keepInViewport}
-                    className="w-max max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
+                    className="w-max shrink-0 max-w-[min(18rem,calc(100vw-2rem))] rounded-2xl bg-foreground px-2 py-1 text-center text-xs leading-normal text-background"
                   >
                     {type.locked}
                   </span>
