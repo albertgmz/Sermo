@@ -467,6 +467,17 @@
       "change": "Change email",
       "unavailable": "Email features are not available on this forum, so the address cannot be confirmed or changed here."
     },
+    "delete": {
+      "heading": "Delete account",
+      "summary": "Delete my account…",
+      "warning": "This closes your account for good and cannot be undone. Every session ends, and nobody, you included, can sign in to it again.",
+      "removes": "Removed: your email address and password, your profile details (about, title, signature, location, website, birthday, social handles), your avatar and cover, your push devices, your saved cookie choice, the record of the terms you accepted, the addresses and devices logged for you, who you follow and who follows you, and your referral links.",
+      "keeps": "Kept: what you wrote (threads, posts, wall posts, messages) stays, under the name Deleted member and a number. So do your credits history and any warnings or moderation log entries about you. Your old name is not rewritten where other members mentioned or quoted you.",
+      "confirmLabel": "Type your username ({username}) to confirm",
+      "confirmMismatch": "The username you typed is not yours.",
+      "submit": "Delete my account for good",
+      "pending": "Deleting…"
+    },
     "errors": {
       "generic": "Something went wrong. Try again.",
       "rateLimited": "Too many attempts. Wait a while and try again.",

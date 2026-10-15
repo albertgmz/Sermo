@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { DeleteAccountSection } from "@/app/[locale]/(main)/account/security/delete-account";
 import {
   EmailSection,
   PasswordSection,
@@ -65,6 +66,10 @@ export default function SecurityPage({
           </PendingButton>
         </form>
       </section>
+      {/* No fallback: the section is drawn only for a member whose groups allow it. */}
+      <Suspense fallback={null}>
+        <DeleteAccountSection />
+      </Suspense>
     </div>
   );
 }

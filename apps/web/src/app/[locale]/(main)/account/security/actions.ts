@@ -1,8 +1,15 @@
 "use server";
 
+import { usersDeleteOwnAccount } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import type { FormState } from "@/app/[locale]/(auth)/actions";
+import {
+  formFailure,
+  text,
+} from "@/app/[locale]/(staff)/admin/groups/form-errors";
+import type { StaffFormState } from "@/components/staff/form-rows";
+import { forgetAdoptedConsent } from "@/lib/consent/sync";
 import {
   changePassword,
   getCurrentAccount,
@@ -11,7 +18,10 @@ import {
   revokeOtherSessions,
   revokeSession,
   sendVerificationEmail,
+  signOut,
 } from "@/lib/sermo/auth";
+import { call } from "@/lib/sermo/client";
+import { getViewer } from "@/lib/sermo/session";
 
 const SECURITY = "/account/security";
 
@@ -110,4 +120,33 @@ export async function resendOwnVerification() {
       ? "rateLimited"
       : "resendFailed";
   redirect(`${SECURITY}?notice=${notice}#email`);
+}
+
+// Deletes the member's own account. The username is typed out as it is now (read again here,
+// never taken from the form) and the password goes with the write, which checks it first. The
+// session is over by then, so the browser's cookies are cleared and the member lands on the home
+// page with a notice. The confirmation step shows a refusal of the password on its own field,
+// which it calls `actorPassword`.
+export async function deleteAccount(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const { user } = await getViewer();
+  if (!user) redirect("/login");
+  if (text(formData, "confirmUsername").trim() !== user.username) {
+    const t = await getTranslations("account.security.delete");
+    return { error: t("confirmMismatch") };
+  }
+  try {
+    await call(usersDeleteOwnAccount, {
+      password: text(formData, "actorPassword"),
+    });
+  } catch (error) {
+    const state = await formFailure(error, ["password"]);
+    const password = state?.fields?.password;
+    return password ? { ...state, fields: { actorPassword: password } } : state;
+  }
+  await signOut();
+  await forgetAdoptedConsent();
+  redirect("/?notice=accountDeleted");
 }

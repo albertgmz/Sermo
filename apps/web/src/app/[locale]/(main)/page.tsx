@@ -74,6 +74,10 @@ export default function HomePage(props: PageProps<"/[locale]">) {
       mainClassName="space-y-(--page-gap)"
     >
       <h1 className="sr-only">{t("heading")}</h1>
+      {/* No fallback: only the page a deleted account lands on has a notice. */}
+      <Suspense fallback={null}>
+        <AccountDeletedNotice {...props} />
+      </Suspense>
       {/* No fallback: only members get a composer, and the shell cannot tell them from guests
           without reading the cookie. The composer settles on the session alone, ahead of the
           feed. */}
@@ -99,6 +103,20 @@ export default function HomePage(props: PageProps<"/[locale]">) {
         <HomeTabs {...props} />
       </Suspense>
     </PageLayout>
+  );
+}
+
+// The line shown to a member whose account was just deleted: the action sends them here.
+async function AccountDeletedNotice({ searchParams }: PageProps<"/[locale]">) {
+  const [{ notice }, t] = await Promise.all([
+    searchParams,
+    getTranslations("home.page"),
+  ]);
+  if (notice !== "accountDeleted") return null;
+  return (
+    <output className="block rounded-lg border bg-card p-4 text-sm text-success">
+      {t("accountDeleted")}
+    </output>
   );
 }
 

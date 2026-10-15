@@ -193,3 +193,11 @@ test("the bar shows three tabs and the rest are in a More menu; the open tab is 
   expect([bar("following"), bar("forums")]).toEqual([false, false]);
   expect(html).toContain(">More<");
 });
+
+test("the line a deleted account lands on is shown for that notice only", async () => {
+  backend({ member: false });
+  const line = "Your account was deleted and you were signed out.";
+  expect(await render({ notice: "accountDeleted" })).toContain(line);
+  expect(await render()).not.toContain(line);
+  expect(await render({ notice: "other" })).not.toContain(line);
+});

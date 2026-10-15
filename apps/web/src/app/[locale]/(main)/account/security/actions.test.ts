@@ -1,6 +1,7 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
 import { translator } from "@/lib/test-intl";
+import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
 
@@ -12,10 +13,12 @@ mock.module("next-intl/server", () => ({
 }));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ set: () => {} }),
+  cookies: async () => ({ set: () => {}, get: () => undefined }),
 }));
 
-const { revokeOtherDevices, updatePassword } = await import("./actions");
+const { deleteAccount, revokeOtherDevices, updatePassword } = await import(
+  "./actions"
+);
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -92,4 +95,88 @@ test("a dead session on a device action is sent to sign in", async () => {
   expect(await redirectedTo(revokeOtherDevices)).toMatch(
     /^NEXT_REDIRECT;[a-z]+;\/login;/,
   );
+});
+
+// An account deletion asks who the visitor is first, then deletes, then signs out.
+function backendOf(answers: Record<string, () => Response>) {
+  const asked: { url: string; body: unknown }[] = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    asked.push({ url, body: init.body ? JSON.parse(String(init.body)) : null });
+    const path = new URL(url).pathname;
+    return (answers[path] ?? (() => Response.json({})))();
+  }) as unknown as typeof fetch;
+  return asked;
+}
+
+const member = () => Response.json(viewerBody(true));
+const deletion = { confirmUsername: "ember", actorPassword: "right-password" };
+
+test("a username that is not the member's is refused before the backend is asked to delete", async () => {
+  const asked = backendOf({ "/api/v1/me": member });
+  const state = await deleteAccount(
+    null,
+    form({ ...deletion, confirmUsername: "someone" }),
+  );
+  expect(state).toEqual({
+    error: messages.account.security.delete.confirmMismatch,
+  });
+  expect(asked.map((entry) => new URL(entry.url).pathname)).toEqual([
+    "/api/v1/me",
+  ]);
+});
+
+test("a wrong password is shown on the password field", async () => {
+  backendOf({
+    "/api/v1/me": member,
+    "/api/v1/me/delete-account": () =>
+      Response.json(
+        {
+          error: {
+            code: "forbidden",
+            message: "That password is not correct.",
+            issues: [{ path: ["password"], message: "Wrong" }],
+          },
+        },
+        { status: 403 },
+      ),
+  });
+  expect(await deleteAccount(null, form(deletion))).toEqual({
+    error: undefined,
+    fields: { actorPassword: "That password is not correct." },
+  });
+});
+
+test("another refusal is shown as the form's message", async () => {
+  backendOf({
+    "/api/v1/me": member,
+    "/api/v1/me/delete-account": () =>
+      Response.json(
+        {
+          error: {
+            code: "conflict",
+            message: "Cannot remove the last administrator.",
+          },
+        },
+        { status: 409 },
+      ),
+  });
+  expect(await deleteAccount(null, form(deletion))).toEqual({
+    error: "Cannot remove the last administrator.",
+  });
+});
+
+test("a deleted account signs the browser out and lands on the home page with a notice", async () => {
+  const asked = backendOf({
+    "/api/v1/me": member,
+    "/api/v1/me/delete-account": () => Response.json({ ok: true }),
+  });
+  const digest = await redirectedTo(() => deleteAccount(null, form(deletion)));
+  expect(digest).toMatch(/^NEXT_REDIRECT;[a-z]+;\/\?notice=accountDeleted;/);
+  expect(
+    asked.map((entry) => [new URL(entry.url).pathname, entry.body]),
+  ).toEqual([
+    ["/api/v1/me", null],
+    ["/api/v1/me/delete-account", { password: "right-password" }],
+    ["/api/auth/sign-out", null],
+  ]);
 });

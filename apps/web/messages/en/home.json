@@ -11,6 +11,7 @@
     "placeholder": "What's on your mind?",
     "description": "Posts go to your profile wall.",
     "startThread": "Start a thread",
+    "accountDeleted": "Your account was deleted and you were signed out.",
     "tabs": {
       "latest": "Latest",
       "following": "Following",

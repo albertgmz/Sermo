@@ -75,6 +75,7 @@ Registered needs the ones it uses.
 | --- | --- | --- |
 | `site.view`: open forums, threads, the feed, search, profiles, the member list and its pages, spoilers, bookmarks and the files of posts and wall posts (conversation files stay). When the Guest group lacks it, the public surfaces serve nothing too: Atom feeds, sitemaps, `llms.txt`, the SEO operations and the IndexNow announcements. A guest without it is asked to sign in; a member's own card and avatar files stay. Writes are not gated, and the email and push alerts of posts a closed-out member subscribed to are still sent. | flag | everyone |
 | `member.viewList`: the member list and the pages of `/members` (staff, birthdays, the monthly race and winners), the rankings, and the holders of an award. It covers those lists, not every query that returns members: the prefix search for mentions and recipients stays open. | flag | everyone |
+| `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. | flag | posters |
 | `profile.uploadAvatar`, `profile.uploadCover`: upload or set the picture. Taking it off needs nothing. | flags | members |
 | `bookmark.create`: adding a bookmark. Removing one needs nothing. | flag | members |
 | `profile.renameNeedsApproval`: the member cannot change their own username and is told to ask staff, who can rename them. There is no request queue. | flag | nobody; Administrator `never` |
@@ -1148,6 +1149,19 @@ cookie is deleted once the account exists.
 
 Erasing a member ends their links as before: the referrer's count drops by one and the members
 they referred lose their referrer.
+
+## Deleting an account
+
+A member with `profile.deleteAccount` can close their own account from **Security** on
+`/account/security` (`POST /me/delete-account`, `users.deleteOwnAccount`). It runs the same
+erasure as `users.adminErase`: the account is marked erased and banned for good, sessions and API
+keys end, and the address, password, profile details, pictures, push devices, saved cookie choice,
+accepted-terms record, logged addresses, follows and referral links are removed. What the member
+wrote stays under the name `Deleted member <id>`, and the ledger, warnings and moderator log keep
+their entries (the log's `member.erase` entry names the member as the actor). The member types
+their username and their password to confirm, and an API key is refused. A super admin cannot
+delete their own account (another super admin removes the flag first) and neither can the last
+administrator.
 
 ## Cookie banner and consent
 

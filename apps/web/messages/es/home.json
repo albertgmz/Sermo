@@ -11,6 +11,7 @@
     "placeholder": "¿Qué hay de nuevo?",
     "description": "Las publicaciones van al muro de tu perfil.",
     "startThread": "Iniciar un tema",
+    "accountDeleted": "Tu cuenta se eliminó y se cerró tu sesión.",
     "tabs": {
       "latest": "Recientes",
       "following": "Siguiendo",

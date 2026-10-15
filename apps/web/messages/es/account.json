@@ -467,6 +467,17 @@
       "change": "Cambiar correo",
       "unavailable": "Las funciones de correo no están disponibles en este foro, así que la dirección no se puede confirmar ni cambiar aquí."
     },
+    "delete": {
+      "heading": "Eliminar la cuenta",
+      "summary": "Eliminar mi cuenta…",
+      "warning": "Esto cierra tu cuenta para siempre y no se puede deshacer. Se cierran todas las sesiones y nadie, tú incluido, podrá volver a entrar en ella.",
+      "removes": "Se elimina: tu correo electrónico y tu contraseña, los datos de tu perfil (sobre ti, título, firma, ubicación, sitio web, cumpleaños y redes), tu avatar y tu portada, tus dispositivos de notificaciones, tu elección de cookies guardada, el registro de los términos que aceptaste, las direcciones y dispositivos registrados a tu nombre, a quién sigues y quién te sigue, y tus enlaces de referido.",
+      "keeps": "Se conserva: lo que escribiste (temas, mensajes, publicaciones en muros y mensajes privados) sigue ahí, con el nombre Deleted member y un número. También tu historial de créditos y las advertencias o entradas del registro de moderación sobre ti. Tu nombre anterior no se reescribe donde otros miembros te mencionaron o te citaron.",
+      "confirmLabel": "Escribe tu nombre de usuario ({username}) para confirmar",
+      "confirmMismatch": "El nombre de usuario que escribiste no es el tuyo.",
+      "submit": "Eliminar mi cuenta para siempre",
+      "pending": "Eliminando…"
+    },
     "errors": {
       "generic": "Algo salió mal. Inténtalo de nuevo.",
       "rateLimited": "Demasiados intentos. Espera un rato e inténtalo de nuevo.",
