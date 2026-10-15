@@ -2598,3 +2598,35 @@ turns a refusal into an acceptance. The prose of `/cookies` is the static page w
 withdrawal is not pushed to other devices; sessions opened by the confirmation link do not sync
 until the next choice or sign-in; the adopted cookie outlives session expiry, "sign out
 everywhere" and account deletion until the next sign-in on that browser.
+
+**Signature limits and Turnstile (item 6b).** Signature limits sit on the anti-spam screen:
+characters and lines (source), links, pictures, emoji and text size (measured on the rendered HTML,
+so Markdown and BB code count alike; 0 and -1 both mean no limit, as for the daily caps, and a kind
+is forbidden by leaving it out of the allowed formatting), the allowed kinds (bold, italic,
+underline, strikethrough, code, colour, font, size, heading, link, picture, list, alignment;
+anything outside the list is refused at save, never stripped) and a cheap-criteria rule on who may
+set one. Quotes, tables, code blocks, spoilers, media, more than one block and a signature that
+draws nothing (only whitespace-like, default-ignorable or control characters) are never allowed. A
+heading counts as text size 8 minus its level. The forum has no smilies, so the limit counts emoji:
+each pictograph on its own (a joined sequence counts every pictograph in it, so a chain of joiners
+cannot hide emoji), a flag or keycap once, the copyright and trade mark signs and similar only with
+the emoji selector, a character with the text selector only when it is an emoji by default (a face,
+a flame: most systems draw those in colour anyway). It is strict on purpose: symbols from U+2190 up
+that some systems draw in colour (arrows, card suits, the sun, check marks) count even bare. A
+signature kept by a member who no longer holds the rule stays stored and is not shown (one facts
+query per page of cards, none for an empty rule); saved signatures are not re-checked until saved
+again. Turnstile guards registration, sign-in, password reset requests and resend-confirmation (the
+only forms a guest can submit; guests cannot post or report): the token travels in
+`x-sermo-turnstile`, the Better Auth before hook verifies it with siteverify (trusted client IP as
+`remoteip`, 5 s timeout), requires the action to be the form's own and the host to be one of the
+site's (public address, site address, trusted origins; `*.` entries match sub-domains; `www.` is not
+folded), and fails closed (400 missing or refused, 503 outage). The secret is write-only in its own
+`site_settings` row (plain text, so backups carry it); Turnstile cannot be on without key and
+secret. Server-side calls (the admin reset link) and a member's own resend are exempt; a session
+does not excuse sign-up or sign-in. Sign-in is off in the default form list, and its checkbox warns,
+because a wrong secret locks every guarded form. The widget script loads only on guarded forms, is
+listed as strictly necessary in the cookie policy and needs no consent. Known limits: a wrong secret
+is only found when a visitor submits; a page loaded before a deploy that added the action needs a
+reload; signature pictures skip the external-media rules; the site cache can delay the widget a
+minute; the `signatureNeeds` sentence is English in the Spanish interface (backend refusal text is
+untranslated everywhere).
