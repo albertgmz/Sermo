@@ -1,3 +1,5 @@
+import { isPlainClick } from "@/components/ui/lazy-popup-intent";
+
 // When a click on a member's avatar, name or mention opens the card, and what happens around it.
 // Plain functions, so the rules can be tested without a browser.
 
@@ -6,21 +8,7 @@
 // built on Base UI needs nothing else for the keyboard: Enter is a native click on the link and
 // Space is turned into one (modifiers kept) on key up; handling Space again would open the card
 // and close it at once.
-export function opensCard(event: {
-  button: number;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  shiftKey: boolean;
-  altKey: boolean;
-}) {
-  return (
-    event.button === 0 &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.shiftKey &&
-    !event.altKey
-  );
-}
+export const opensCard = isPlainClick;
 
 // Space on a plain link (a mention) does not click it; it opens the card as it would a button.
 export const opensCardKey = (key: string) => key === " ";
