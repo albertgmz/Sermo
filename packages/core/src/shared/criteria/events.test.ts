@@ -114,6 +114,30 @@ describe("events that change a criterion's fact", () => {
     ).toEqual([]);
   });
 
+  test("new or edited content tells the members it mentions", () => {
+    const { ctx, author, replier, post } = world();
+    const mentioning = post(author.id, 1);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO content_mentions (content_type, content_id, user_id, created_at) VALUES ('post', ?1, ?2, 1)",
+      )
+      .run(mentioning, replier.id);
+    const created = {
+      id: 1,
+      type: "content.created",
+      targetType: "post",
+      targetId: mentioning,
+      payload: {},
+      createdAt: 0,
+    } as const;
+    const mentions = rule({ criterion: "mentioned_by_others", value: 1 });
+    expect(membersAffected(ctx, created, [mentions])).toEqual([replier.id]);
+    expect(membersAffected(ctx, { ...created, type: "content.edited" }, [mentions])).toEqual([
+      replier.id,
+    ]);
+    expect(membersAffected(ctx, { ...created, targetType: "thread" }, [mentions])).toEqual([]);
+  });
+
   test("an award is given to the thread's author as soon as a reply makes the rule hold", async () => {
     const { ctx, admin, author, replier, thread, post } = world();
     const created = (await execute(ctx, getOperation("awards.create"), admin, {

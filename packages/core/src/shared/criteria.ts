@@ -7,6 +7,7 @@ import { awardSpecs } from "./criteria/awards";
 import { withIds, withValue, yes } from "./criteria/build";
 import { contentSpecs } from "./criteria/content";
 import { economySpecs } from "./criteria/economy";
+import { engagementSpecs } from "./criteria/engagement";
 import { moderationSpecs } from "./criteria/moderation";
 import { profileSpecs } from "./criteria/profile";
 import {
@@ -110,6 +111,7 @@ const specs: readonly Spec[] = [
   ...awardSpecs,
   ...profileSpecs,
   ...moderationSpecs,
+  ...engagementSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
 
@@ -402,7 +404,8 @@ export function loadFacts(
       const memberFacts = facts.get(row.user_id);
       if (!memberFacts || row.n === null) continue;
       if (perId) (memberFacts.measures.get(key) as Map<number, number>).set(row.id!, row.n);
-      else memberFacts.measures.set(key, row.n);
+      // A statement may answer in several rows for one member (one per source); they add up.
+      else memberFacts.measures.set(key, Number(memberFacts.measures.get(key) ?? 0) + row.n);
     }
   }
   return facts;

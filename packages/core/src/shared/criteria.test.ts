@@ -314,6 +314,18 @@ const table: Record<string, Case[]> = {
   banned_before: lookupCases("banned_before"),
   reports_resolved: countCases("reports_resolved"),
   moderator_actions: countCases("moderator_actions"),
+  mentioned_by_others: countCases("mentioned_by_others"),
+  days_since_last_post: [
+    ["posted long ago", { value: 7 }, measured("days_since_last_post", {}, NOW - 8 * DAY), true],
+    ["edge", { value: 7 }, measured("days_since_last_post", {}, NOW - 7 * DAY), true],
+    [
+      "posted recently",
+      { value: 7 },
+      measured("days_since_last_post", {}, NOW - 7 * DAY + 1),
+      false,
+    ],
+    ["never posted", { value: 7 }, facts(), true],
+  ],
   awards_held_at_least: [
     ["above", { value: 3 }, facts({ awardCount: 4 }), true],
     ["edge", { value: 3 }, facts({ awardCount: 3 }), true],

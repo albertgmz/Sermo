@@ -412,6 +412,77 @@ describe("economy criteria", () => {
   });
 });
 
+describe("engagement criteria", () => {
+  test("days_since_last_post is read from the newest visible post", () => {
+    const { ctx, member, other, node } = world();
+    const third = insertUser(ctx).id;
+    const day = 86_400_000;
+    const at = (userId: number, threadId: number, daysAgo: number, state = "visible") => {
+      position += 1;
+      insertRow(
+        ctx,
+        "INSERT INTO posts (thread_id, user_id, position, state, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+        threadId,
+        userId,
+        position,
+        state,
+        ctx.now() - daysAgo * day,
+      );
+    };
+    const t = thread(ctx, other, node);
+    at(member, t, 30);
+    at(member, t, 10);
+    // A newer post that is hidden does not count.
+    at(member, t, 1, "deleted");
+    at(other, t, 2);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other, third], { criterion: "days_since_last_post", value });
+    expect(asks(10)).toEqual([true, false, true]);
+    expect(asks(11)).toEqual([false, false, true]);
+    expect(asks(2)).toEqual([true, true, true]);
+  });
+
+  test("mentioned_by_others counts mentions in other members' visible content", () => {
+    const { ctx, member, other, node } = world();
+    const t = thread(ctx, other, node);
+    const own = thread(ctx, member, node);
+    const mention = (type: string, id: number) =>
+      insertRow(
+        ctx,
+        "INSERT INTO content_mentions (content_type, content_id, user_id, created_at) VALUES (?1, ?2, ?3, 1)",
+        type,
+        id,
+        member,
+      );
+    // In another member's posts (one hidden), in their profile post and comment.
+    mention("post", post(ctx, t, other));
+    mention("post", post(ctx, t, other));
+    mention("post", post(ctx, t, other, "deleted"));
+    // In the member's own post: not by others.
+    mention("post", post(ctx, own, member));
+    const wall = insertRow(
+      ctx,
+      "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'b', 'b')",
+      member,
+      other,
+    );
+    mention("profile_post", wall);
+    mention(
+      "profile_post_comment",
+      insertRow(
+        ctx,
+        "INSERT INTO profile_post_comments (profile_post_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'b', 'b')",
+        wall,
+        other,
+      ),
+    );
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "mentioned_by_others", value });
+    expect(asks(4)).toEqual([true, false]);
+    expect(asks(5)).toEqual([false, false]);
+  });
+});
+
 describe("moderation criteria", () => {
   const set = (ctx: Ctx, userId: number, columns: string) =>
     ctx.sqlite.prepare(`UPDATE users SET ${columns} WHERE id = ?1`).run(userId);
