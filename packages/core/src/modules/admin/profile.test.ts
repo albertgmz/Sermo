@@ -422,6 +422,15 @@ describe("users.adminUpdateProfile with member.editProfile", () => {
     expect(view.card.username).toBe("Target");
     expect(view.email).toBeNull();
     expect(view.canEdit).toBe(false);
+    // What is private to the member stays out of the answer.
+    expect(view).toMatchObject({
+      emailVerified: false,
+      lastActivityAt: null,
+      usernameChangedAt: null,
+      credits: 0,
+      isSuperAdmin: false,
+      canSetSuperAdmin: false,
+    });
     expect(w.stored()).toMatchObject({ about: "Cleaned" });
     expect(w.logOf(w.target.id).map((entry) => entry.action)).toEqual(["member.profile"]);
     for (const worn of [

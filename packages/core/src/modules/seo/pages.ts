@@ -205,8 +205,9 @@ export function threadSeo(
       item: canonicalUrl(baseURL, "node", item.id, item.title),
     })),
   };
+  // The structured data carries the text: only to a viewer whose own groups open it too.
   const posting: WithContext<DiscussionForumPosting> | null =
-    first && indexable
+    first && indexable && gates.reads(thread.node_id, thread.user_id)
       ? {
           "@context": "https://schema.org",
           "@type": "DiscussionForumPosting",

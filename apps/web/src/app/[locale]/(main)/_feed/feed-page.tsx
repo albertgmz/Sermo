@@ -68,11 +68,13 @@ export async function feedPage(
             now={now}
             viewerId={viewer.user?.id ?? null}
             picker={
-              item.type === "profilePost" && !mayReactOnWalls
-                ? []
-                : pickerFor(
-                    item.type === "profilePost" ? null : item.thread.node.id,
-                  )
+              item.type === "profilePost"
+                ? mayReactOnWalls
+                  ? pickerFor(null)
+                  : []
+                : item.post.canReact
+                  ? pickerFor(item.thread.node.id)
+                  : []
             }
             reactionTypes={reactionTypes}
             viewList={viewList}

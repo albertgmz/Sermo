@@ -11,6 +11,28 @@ import { clearMemberPicture } from "../images";
 import { appendModeratorLog } from "../moderation";
 import { profileFieldChanges, storeProfileChanges } from "../profiles/fields";
 import { loadAdminMember } from "./members";
+
+/**
+ * The member as the editor may see them: whoever holds `admin.members` over them gets the
+ * administration view; a moderator who holds only `member.editProfile` gets it without what is
+ * private (the address, the last activity, the credits, the verification and the super admin
+ * marks).
+ */
+function viewFor(ctx: Ctx, actor: Actor, userId: number) {
+  const view = loadAdminMember(ctx, actor, userId);
+  if (view.canEdit) return view;
+  return {
+    ...view,
+    email: null,
+    emailVerified: false,
+    lastActivityAt: null,
+    usernameChangedAt: null,
+    credits: 0,
+    isSuperAdmin: false,
+    canSetSuperAdmin: false,
+  };
+}
+
 import { requireNotErased, targetMember } from "./shared";
 
 const unavailable = () => new ValidationError("That catalog entry is not available.");
@@ -95,7 +117,7 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
     ...(input.removeAvatar ? (["avatar"] as const) : []),
     ...(input.removeCover ? (["cover"] as const) : []),
   ];
-  if (keys.length === 0 && pictures.length === 0) return loadAdminMember(ctx, actor, input.userId);
+  if (keys.length === 0 && pictures.length === 0) return viewFor(ctx, actor, input.userId);
 
   writeTx(ctx, () => {
     // The administrator may have lost the permission since the request began.
@@ -118,5 +140,5 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
       removed,
     });
   });
-  return loadAdminMember(ctx, actor, input.userId);
+  return viewFor(ctx, actor, input.userId);
 });

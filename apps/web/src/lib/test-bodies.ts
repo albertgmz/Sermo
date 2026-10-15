@@ -129,6 +129,7 @@ export function postBody(over: Record<string, unknown> = {}) {
     canEdit: true,
     canDelete: true,
     canHardDelete: false,
+    canReact: true,
     canReport: true,
     bodySource: "",
     ...over,

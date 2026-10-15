@@ -237,8 +237,10 @@ export const warningsCreate = defineContract({
 export const warningsDelete = defineContract({
   name: "warnings.delete",
   summary:
-    "Delete a warning: it stops counting and disappears from the member's list. The automatic " +
-    "actions the member's points no longer reach are lifted in the same transaction. Requires " +
+    "Delete a warning: it stops counting and disappears from the member's list. The timed group " +
+    "memberships that automatic actions gave, and that the member's points no longer reach, are " +
+    "taken back in the same transaction and the actions re-armed; a ban or restriction an action " +
+    "applied stays (lift it with bans.lift / restrictions.lift). Requires " +
     "warning.delete over the member. Logged with the warning's points and reason.",
   kind: "write",
   input: z.object({ warningId: Id, reason: z.string().trim().max(1000).default("") }),
@@ -248,8 +250,8 @@ export const warningsExpire = defineContract({
   name: "warnings.expire",
   summary:
     "End a warning now: it stops counting but stays in the member's list. Conflict when it " +
-    "has already expired. The automatic actions the member's points no longer reach are lifted " +
-    "in the same transaction. Requires warning.delete over the member.",
+    "has already expired. Automatic actions are taken back as for warnings.delete. Requires " +
+    "warning.delete over the member.",
   kind: "write",
   input: z.object({ warningId: Id, reason: z.string().trim().max(1000).default("") }),
   output: z.object({ activePoints: z.number().int().nonnegative() }),

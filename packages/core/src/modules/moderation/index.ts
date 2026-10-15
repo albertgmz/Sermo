@@ -266,7 +266,9 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
       !thread ||
       !visible(thread.state, thread.user_id) ||
       // A thread other members started may be closed to the viewer in this forum.
-      !readGates(ctx, actor).opens(row.node_id!, thread.user_id)
+      !readGates(ctx, actor).opens(row.node_id!, thread.user_id) ||
+      // So may the text of a post: a post the viewer cannot read cannot be reported by them.
+      !readGates(ctx, actor).reads(row.node_id!, row.user_id)
     )
       throw new NotFoundError();
     if (!visible(row.state, row.user_id)) throw new NotFoundError();

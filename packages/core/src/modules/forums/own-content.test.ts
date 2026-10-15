@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { expectNoTableScan } from "@sermo/core/testing";
 import { ConflictError, ForbiddenError, NotFoundError, UnauthenticatedError } from "../../errors";
+import { evaluate, loadFacts, type Rule } from "../../shared/criteria";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
 import { setEntry } from "../permissions/group-fixture";
 import { forumSql } from "./index";
@@ -111,7 +112,8 @@ describe("forum.lockOwn", () => {
     ).toBe(true);
     await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: true });
     expect(threadRow(w, mine.thread.id)!.is_locked).toBe(1);
-    expect(logged(w, "thread.lock")).toBe(1);
+    // An author's own lock is not a moderator action: nothing reaches the moderator log.
+    expect(logged(w, "thread.lock")).toBe(0);
     await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false });
     expect(threadRow(w, mine.thread.id)!.is_locked).toBe(0);
     await expect(
@@ -190,7 +192,7 @@ describe("forum.hardDeleteOwn", () => {
     expect(postState(w, reply.id)).toBeNull();
     expect(threadRow(w, t.thread.id)!.reply_count).toBe(1);
     expect(counts(w, w.aliceUser.id)).toBe(posts - 1);
-    expect(logged(w, "post.hardDelete")).toBe(1);
+    expect(logged(w, "post.hardDelete")).toBe(0);
     // Someone else's post, the opening post and a guest are refused.
     await expect(w.call("posts.hardDelete", w.alice, { postId: theirs.id })).rejects.toThrow(
       ForbiddenError,
@@ -331,5 +333,61 @@ describe("forum.lockOwn and the bulk tool", () => {
     await expect(
       w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false }),
     ).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("an author's own lock and delete are not moderator actions", () => {
+  const moderatorActions = (w: World, memberId: number) => {
+    const rule: Rule = {
+      match: "all",
+      conditions: [{ criterion: "moderator_actions", value: 1 }],
+    };
+    const facts = loadFacts(w.ctx, [memberId], [rule]);
+    return evaluate(rule, facts.get(memberId)!);
+  };
+  const dashboard = async (w: World) =>
+    (await w.call("admin.activity", w.admin, {})).items.find(
+      (item: { kind: string }) => item.kind === "moderation",
+    )?.month;
+
+  test("neither the promotion criterion nor the staff dashboard count them", async () => {
+    const w = world();
+    grant(w, "forum.lockOwn");
+    grant(w, "forum.hardDeleteOwn");
+    const before = await dashboard(w);
+    const mine = await w.thread(w.alice, w.open.id, "Mine");
+    const reply = await w.reply(w.alice, mine.thread.id, "Reply");
+    for (let i = 0; i < 3; i++) {
+      await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: true });
+      await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false });
+    }
+    await w.call("posts.hardDelete", w.alice, { postId: reply.id });
+    await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: true });
+    await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false });
+    await w.call("threads.hardDelete", w.alice, { threadId: mine.thread.id });
+    expect(threadRow(w, mine.thread.id)).toBeNull();
+    expect(moderatorActions(w, w.aliceUser.id)).toBe(false);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM moderator_log WHERE actor_id = ?1",
+        )
+        .get(w.aliceUser.id)!.n,
+    ).toBe(0);
+    w.ctx.clock.advance(61_000);
+    expect(await dashboard(w)).toBe(before);
+  });
+
+  test("the same actions by staff on someone's content are logged and counted", async () => {
+    const w = world();
+    const theirs = await w.thread(w.alice, w.open.id, "Theirs");
+    const reply = await w.reply(w.bob, theirs.thread.id, "Bob");
+    await w.call("threads.setLocked", w.mod, { threadId: theirs.thread.id, isLocked: true });
+    await w.call("threads.setLocked", w.mod, { threadId: theirs.thread.id, isLocked: false });
+    await w.call("posts.delete", w.admin, { postId: reply.id });
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    expect(logged(w, "thread.lock")).toBe(2);
+    expect(logged(w, "post.hardDelete")).toBe(1);
+    expect(moderatorActions(w, (w.mod as { userId: number }).userId)).toBe(true);
   });
 });

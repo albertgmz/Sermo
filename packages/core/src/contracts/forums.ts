@@ -177,6 +177,8 @@ export const Post = z
     canDelete: z.boolean(),
     /** posts.hardDelete would accept it: staff on a deleted post, or its author on their own live one. */
     canHardDelete: z.boolean(),
+    /** forum.react holds in the post's forum (the site-wide reaction permission is separate). */
+    canReact: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
   })

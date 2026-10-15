@@ -55,12 +55,23 @@ export interface FlagDefinition extends BaseDefinition {
   readonly hierarchy?: boolean;
   /** The context must say whether the actor is banned from the thread (`threadBanned`). */
   readonly threadBan?: boolean;
+  /**
+   * A read gate that restricts by denial: granted unless some group of the member says never, so
+   * a group made by hand (or a member whose groups hold no entry) is not locked out.
+   */
+  readonly defaultAllow?: boolean;
 }
 
 export interface IntegerDefinition extends BaseDefinition {
   readonly type: "integer";
   /** -1 means unlimited. */
   readonly defaults: Partial<Record<BuiltinGroup, number>>;
+  /**
+   * What the member resolves to when none of their groups holds an entry (0 when omitted): for a
+   * limit on an action another permission grants, the built-in bound, so a group made by hand
+   * that holds the action is neither locked out nor unbounded.
+   */
+  readonly unset?: number;
   readonly unit: "bytes" | "minutes" | "count";
 }
 
@@ -497,6 +508,7 @@ export const PERMISSIONS = {
     category: "forum",
     type: "flag",
     defaults: EVERYONE,
+    defaultAllow: true,
   },
   /**
    * Read the posts of a thread. Without it only titles are listed, and the text of the opening
@@ -508,6 +520,7 @@ export const PERMISSIONS = {
     category: "forum",
     type: "flag",
     defaults: EVERYONE,
+    defaultAllow: true,
   },
   "forum.viewAttachments": {
     scope: "node",
@@ -740,31 +753,33 @@ export const PERMISSIONS = {
   "member.warn": { ...globalModerator("moderation"), hierarchy: true },
   /** Delete a warning, or end it early (it stops counting, the record stays). */
   "warning.delete": { ...globalModerator("moderation"), hierarchy: true },
-  /** Most points one warning may carry, a type's or a custom value (-1 unlimited, 0 none). */
+  /** Most points one warning may carry, a type's or a custom value (-1 unlimited, 0 none; 10 when unset). */
   "warning.maxPoints": {
     scope: "global",
     category: "moderation",
     type: "integer",
     unit: "count",
     defaults: { moderator: 10, admin: -1 },
+    unset: 10,
   },
-  /** Most warnings one moderator may give in 24 hours (-1 unlimited, 0 none). */
+  /** Most warnings one moderator may give in 24 hours (-1 unlimited, 0 none; 20 when unset). */
   "warning.perDay": {
     scope: "global",
     category: "moderation",
     type: "integer",
     unit: "count",
     defaults: { moderator: 20, admin: -1 },
+    unset: 20,
   },
   /**
    * Edit the basic profile of a member who ranks below: about, location, website, birthday, links,
    * title, signature and removing pictures. What a member wears stays with `admin.members`.
    */
   "member.editProfile": { ...globalModerator("moderation"), hierarchy: true },
-  "member.ban": { ...globalAdmin("moderation"), hierarchy: true },
+  "member.ban": { ...globalModerator("moderation"), hierarchy: true },
   /**
    * Longest ban the holder may give, in days (-1 permanent, 0 none). Banning needs `member.ban`
-   * as well, which only administrators hold by default.
+   * as well; moderators hold both, bounded to 30 days.
    */
   "member.banMaxDays": {
     scope: "global",
@@ -772,6 +787,7 @@ export const PERMISSIONS = {
     type: "integer",
     unit: "count",
     defaults: { moderator: 30, admin: -1 },
+    unset: 30,
   },
   "member.spamCleanup": { ...globalAdmin("moderation"), hierarchy: true },
   /** Held by the warned member: reaching the warning threshold does not ban them. */

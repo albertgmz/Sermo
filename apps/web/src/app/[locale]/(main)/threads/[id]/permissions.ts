@@ -21,8 +21,9 @@ export type ThreadMay = {
   any: boolean;
 };
 
-// What the thread's own answer adds for its author: hiding, locking and deleting for good where
-// the viewer holds the "own" permissions, which `resolvedPermissions` cannot say.
+// What the thread's own answer says about hiding, locking and deleting for good. It is exact (own
+// content, a locked thread, a thread already hidden) where `resolvedPermissions` can only say the
+// permission is held, so when it is there it decides alone.
 type OwnMay = {
   canDelete?: boolean;
   canLock?: boolean;
@@ -34,12 +35,12 @@ export function threadMay(resolved: Resolved, own: OwnMay = {}): ThreadMay {
   const may = {
     stick: flag("forum.stick"),
     feature: flag("forum.feature"),
-    lock: flag("forum.lock") || own.canLock === true,
+    lock: own.canLock ?? flag("forum.lock"),
     move: flag("forum.move"),
     merge: flag("forum.merge"),
     split: flag("forum.split"),
-    delete: flag("forum.deleteAny") || own.canDelete === true,
-    hardDelete: flag("forum.hardDelete") || own.canHardDelete === true,
+    delete: own.canDelete ?? flag("forum.deleteAny"),
+    hardDelete: own.canHardDelete ?? flag("forum.hardDelete"),
     attach: flag("forum.uploadAttachments"),
     restoreDeleted: flag("forum.undelete"),
     restoreWaiting: flag("forum.approve"),

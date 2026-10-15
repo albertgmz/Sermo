@@ -46,6 +46,22 @@ function buildLayout() {
   };
 }
 export const LAYOUT = buildLayout();
+/** Flags granted unless a group says never (`defaultAllow`), as the bits of each scope. */
+const DEFAULT_ALLOW_GLOBAL = new Uint32Array(LAYOUT.globalWords);
+const DEFAULT_ALLOW_NODE = new Uint32Array(LAYOUT.nodeWords);
+/** Integers resolved to `unset` when no group holds an entry (all others to 0). */
+const UNSET_GLOBAL = new Float64Array(LAYOUT.globalInts);
+const UNSET_NODE = new Float64Array(LAYOUT.nodeInts);
+for (const id of PERMISSION_IDS) {
+  const def: PermissionDefinition = PERMISSIONS[id];
+  const slot = LAYOUT.slots.get(id)!;
+  if (def.type === "flag" && def.defaultAllow) {
+    const bits = slot.scope === "global" ? DEFAULT_ALLOW_GLOBAL : DEFAULT_ALLOW_NODE;
+    bits[slot.index >>> 5]! |= 1 << (slot.index & 31);
+  } else if (def.type === "integer" && def.unset !== undefined) {
+    (slot.scope === "global" ? UNSET_GLOBAL : UNSET_NODE)[slot.index] = def.unset;
+  }
+}
 export const VIEW_SLOT = LAYOUT.slots.get("node.view")!.index;
 
 export function slotOf(id: PermissionId): Slot {
@@ -443,22 +459,25 @@ export function computeCombination(
   }
   // Any never denies; otherwise any allow grants.
   const globalFlags = new Uint32Array(globalWords);
-  for (let w = 0; w < globalWords; w++) globalFlags[w] = globalAllow[w]! & ~globalNever[w]!;
+  for (let w = 0; w < globalWords; w++)
+    globalFlags[w] = (globalAllow[w]! | DEFAULT_ALLOW_GLOBAL[w]!) & ~globalNever[w]!;
   const nodeFlags = new Uint32Array(n * nodeWords);
   const viewWord = VIEW_SLOT >>> 5;
   const viewMask = 1 << (VIEW_SLOT & 31);
   for (let i = 0; i < n; i++) {
     const base = i * nodeWords;
     for (let w = 0; w < nodeWords; w++)
-      nodeFlags[base + w] = nodeAllow[base + w]! & ~nodeNever[base + w]!;
+      nodeFlags[base + w] = (nodeAllow[base + w]! | DEFAULT_ALLOW_NODE[w]!) & ~nodeNever[base + w]!;
     // A node is viewable only if its parent is, and nothing in a node is permitted without view.
     const parent = state.parentIndex[i]!;
     const parentView = parent < 0 || (nodeFlags[parent * nodeWords + viewWord]! & viewMask) !== 0;
     if (!parentView || (nodeFlags[base + viewWord]! & viewMask) === 0)
       nodeFlags.fill(0, base, base + nodeWords);
   }
-  for (let k = 0; k < globalInts; k++) if (Number.isNaN(globalInt[k]!)) globalInt[k] = 0;
-  for (let k = 0; k < n * nodeInts; k++) if (Number.isNaN(nodeInt[k]!)) nodeInt[k] = 0;
+  for (let k = 0; k < globalInts; k++)
+    if (Number.isNaN(globalInt[k]!)) globalInt[k] = UNSET_GLOBAL[k]!;
+  for (let k = 0; k < n * nodeInts; k++)
+    if (Number.isNaN(nodeInt[k]!)) nodeInt[k] = UNSET_NODE[k % nodeInts]!;
 
   let maxRank = 0;
   let displayGroupId: number | null = null;

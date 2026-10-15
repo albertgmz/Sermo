@@ -6,7 +6,7 @@ import { PERMISSIONS } from "../../permissions";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
 import { forumSql, ownThreadSql } from "../forums";
 import { atomFeed, seoForThread, sitemapEntries } from "../seo";
-import { setEntry } from "./group-fixture";
+import { customMember, setEntry } from "./group-fixture";
 
 const GUESTS = 1;
 const MEMBERS = 2;
@@ -328,5 +328,82 @@ describe("the other doors", () => {
     expect(ownThreadSql.threadPageByPrefix).toContain("user_id = ?7");
     for (const key of ["sticky", "stickyByPrefix", "threadPage", "threadPageByPrefix"] as const)
       expect(ownThreadSql[key]).not.toBe(forumSql[key]);
+  });
+});
+
+describe("a group made by hand", () => {
+  test("keeps reading others' threads and their text, and is closed out only by a never", async () => {
+    const w = world();
+    const theirs = await w.thread(w.bob, w.open.id, "Theirs", "Bob text");
+    // Holds the forum and the site and nothing else: no entry for either gate.
+    const reader = customMember(w.ctx, ["node.view", "site.view"]);
+    const got = await w.call("threads.get", reader.actor, { threadId: theirs.thread.id });
+    expect(got.thread.excerpt).toContain("Bob");
+    expect(got.resolvedPermissions["forum.viewOthers"]).toBe(true);
+    expect(got.resolvedPermissions["forum.viewContent"]).toBe(true);
+    expect(
+      (await w.call("posts.list", reader.actor, { threadId: theirs.thread.id })).items,
+    ).toHaveLength(1);
+    expect(ids((await w.call("threads.list", reader.actor, { nodeId: w.open.id })).items)).toEqual([
+      theirs.thread.id,
+    ]);
+    setEntry(w.ctx, reader.groupId, "forum.viewContent", -1, w.open.id);
+    await expect(
+      w.call("posts.list", reader.actor, { threadId: theirs.thread.id }),
+    ).rejects.toThrow(ForbiddenError);
+    setEntry(w.ctx, reader.groupId, "forum.viewOthers", -1, w.open.id);
+    await expect(
+      w.call("threads.get", reader.actor, { threadId: theirs.thread.id }),
+    ).rejects.toThrow(NotFoundError);
+    // Without the forum itself nothing opens: the gates grant nothing the view does not.
+    const outside = customMember(w.ctx, ["site.view"]);
+    await expect(
+      w.call("threads.get", outside.actor, { threadId: theirs.thread.id }),
+    ).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe("the other doors, second round", () => {
+  test("a post carries whether the forum lets the viewer react", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "T", "Text");
+    const canReact = async () =>
+      (await w.call("posts.list", w.bob, { threadId: t.thread.id })).items[0].canReact;
+    expect(await canReact()).toBe(true);
+    close(w, "forum.react");
+    expect(await canReact()).toBe(false);
+  });
+
+  test("a post whose text is closed to the viewer cannot be reported by them", async () => {
+    const w = world();
+    const theirs = await w.thread(w.bob, w.open.id, "Theirs", "Bob text");
+    close(w, "forum.viewContent");
+    await expect(
+      w.call("reports.create", w.alice, {
+        target: { type: "post", id: theirs.post.id },
+        reason: "spam",
+      }),
+    ).rejects.toThrow(NotFoundError);
+    // Staff read it, and so may report it.
+    await w.call("reports.create", w.mod, {
+      target: { type: "post", id: theirs.post.id },
+      reason: "spam",
+    });
+  });
+
+  test("the structured data of a thread carries no text for a viewer whose group is closed out of it", async () => {
+    const w = world();
+    const theirs = await w.thread(w.bob, w.open.id, "Public", "Bob public text");
+    fillPosts(w.ctx, theirs.thread.id, w.bobUser.id, 2);
+    const guest = seoForThread(w.ctx, GUEST, theirs.thread.id);
+    expect(JSON.stringify(guest.jsonLd)).toContain("Bob public text");
+    // Members lose the text; guests keep it.
+    setEntry(w.ctx, MEMBERS, "forum.viewContent", -1, w.open.id);
+    const member = seoForThread(w.ctx, w.alice, theirs.thread.id);
+    expect(JSON.stringify(member.jsonLd)).not.toContain("Bob public text");
+    expect(member.description).toBe("");
+    expect(JSON.stringify(seoForThread(w.ctx, GUEST, theirs.thread.id).jsonLd)).toContain(
+      "Bob public text",
+    );
   });
 });

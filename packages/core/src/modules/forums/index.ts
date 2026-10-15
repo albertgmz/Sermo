@@ -170,12 +170,13 @@ export const forumSql = {
   threadBansAmong:
     "SELECT thread_id FROM thread_bans WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2)) AND (expires_at IS NULL OR expires_at > ?3)",
   /**
-   * The newest lock or unlock of a thread, by the single tool or the bulk one: who did it, and
-   * whether it locked (index seek on the log's target). A bulk entry that changed nothing counts
-   * for nothing.
+   * The newest lock or unlock of a thread, by the single tool or the bulk one, from the events
+   * they publish (an author's own lock is not a moderator action and is never in the moderator
+   * log): whether it locked, and who did it when that was not the author (`actorId` is set only
+   * when someone acts on another member's thread). Index seek on the events' target.
    */
   newestLock:
-    "SELECT actor_id, CASE action WHEN 'bulk.lock' THEN 1 WHEN 'bulk.unlock' THEN 0 ELSE json_extract(details, '$.isLocked') END AS locked FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action IN ('thread.lock', 'bulk.lock', 'bulk.unlock') AND coalesce(json_extract(details, '$.changed'), 1) != 0 ORDER BY id DESC LIMIT 1",
+    "SELECT json_extract(payload, '$.isLocked') AS locked, json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isLocked') IS NOT NULL ORDER BY id DESC LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
@@ -691,6 +692,7 @@ export function postValuesMixed(
       (row.state === "deleted"
         ? permissions.can("forum.hardDelete", { nodeId })
         : !locked && permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
+    canReact: permissions.can("forum.react", { nodeId }),
     canReport: permissions.can("report.create"),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
@@ -1850,8 +1852,8 @@ export const threadsSetFeaturedOp = implement(contracts.threadsSetFeatured, (ctx
 });
 /**
  * Who locks a thread: whoever holds forum.lock there, or its author with forum.lockOwn. The
- * author unlocks only a lock they put on themselves: the newest lock entry of the thread's log
- * is theirs (a lock staff set, or one that left no entry, stays).
+ * author unlocks only a lock they put on themselves: the newest lock event of the thread names
+ * no one else (a lock staff set, or one that left no such event, stays).
  */
 function mayLockThread(
   ctx: Ctx,
@@ -1864,9 +1866,9 @@ function mayLockThread(
     return false;
   if (isLocked) return true;
   const newest = forumDb(ctx)
-    .prepare<{ actor_id: number; locked: number | null }, [number]>(forumSql.newestLock)
+    .prepare<{ actor_id: number | null; locked: number | null }, [number]>(forumSql.newestLock)
     .get(row.id);
-  return newest?.actor_id === row.user_id && newest.locked === 1;
+  return newest?.locked === 1 && newest.actor_id === null;
 }
 function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, notice: Notice) {
   const current = requireThread(ctx, moderator, id).row;
@@ -1884,20 +1886,22 @@ function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, n
       type: "content.edited",
       targetType: "thread",
       targetId: id,
-      payload: moderationPayload(moderator, current.user_id, notice),
+      payload: { isLocked, ...moderationPayload(moderator, current.user_id, notice) },
     });
-  appendModeratorLog(
-    ctx,
-    moderator,
-    "thread.lock",
-    "thread",
-    id,
-    notice.reason,
-    {
-      isLocked,
-    },
-    current.node_id,
-  );
+  // A moderator action is logged; an author's own lock is not (the log counts as moderator actions).
+  if (can(ctx, moderator, "forum.lock", { nodeId: current.node_id }))
+    appendModeratorLog(
+      ctx,
+      moderator,
+      "thread.lock",
+      "thread",
+      id,
+      notice.reason,
+      {
+        isLocked,
+      },
+      current.node_id,
+    );
   return !!current.is_locked !== isLocked;
 }
 export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, actor, input) => {
@@ -3365,7 +3369,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
           .get(current.id)
       )
         throw new ConflictError(
-          "Staff hid part of this thread. Hide the thread, or ask staff to delete it.",
+          "This thread holds hidden posts. Hide the thread, or ask staff to delete it.",
         );
       requireNotReported(
         ctx,
@@ -3390,22 +3394,24 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
     } else {
       purgeThread(ctx, current.id);
     }
-    // The title and author stay in the log: the thread itself will not.
-    appendModeratorLog(
-      ctx,
-      actor,
-      "thread.hardDelete",
-      "thread",
-      current.id,
-      input.reason,
-      {
-        title: current.title,
-        authorId: current.user_id,
-        removedPosts: ids.length,
-        completed: !more,
-      },
-      current.node_id,
-    );
+    // The title and author stay in the log: the thread itself will not. An author's own delete
+    // is not a moderator action and is not logged.
+    if (path === "staff")
+      appendModeratorLog(
+        ctx,
+        actor,
+        "thread.hardDelete",
+        "thread",
+        current.id,
+        input.reason,
+        {
+          title: current.title,
+          authorId: current.user_id,
+          removedPosts: ids.length,
+          completed: !more,
+        },
+        current.node_id,
+      );
     return { completed: !more, removedPosts: ids.length };
   });
 });
@@ -3437,16 +3443,17 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
     }
     purgeContent(ctx, "post", [post.id]);
     settleThreadAfterPurge(ctx, current.thread.row.id, current.thread.row.first_post_id);
-    appendModeratorLog(
-      ctx,
-      actor,
-      "post.hardDelete",
-      "post",
-      post.id,
-      input.reason,
-      { threadId: current.thread.row.id, authorId: post.user_id },
-      current.thread.row.node_id,
-    );
+    if (path === "staff")
+      appendModeratorLog(
+        ctx,
+        actor,
+        "post.hardDelete",
+        "post",
+        post.id,
+        input.reason,
+        { threadId: current.thread.row.id, authorId: post.user_id },
+        current.thread.row.node_id,
+      );
     return { ok: true as const };
   });
 });

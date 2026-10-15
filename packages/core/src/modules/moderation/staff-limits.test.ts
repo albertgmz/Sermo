@@ -65,6 +65,7 @@ describe("registry shapes", () => {
     expect(PERMISSIONS["warning.maxPoints"].defaults).toEqual({ moderator: 10, admin: -1 });
     expect(PERMISSIONS["warning.perDay"].defaults).toEqual({ moderator: 20, admin: -1 });
     expect(PERMISSIONS["member.banMaxDays"].defaults).toEqual({ moderator: 30, admin: -1 });
+    expect(PERMISSIONS["member.ban"].defaults).toEqual({ moderator: "allow", admin: "allow" });
     for (const id of ["warning.delete", "member.editProfile", "forum.warn"] as const) {
       expect(PERMISSIONS[id].defaults).toEqual({ moderator: "allow", admin: "allow" });
       expect(PERMISSIONS[id]).toMatchObject({ hierarchy: true });
@@ -106,14 +107,23 @@ describe("warning.maxPoints", () => {
     expect(w.warnings().map((row) => row.points)).toEqual([2, 15]);
   });
 
-  test("a group with member.warn and no value cannot warn; the value it is given is its ceiling", async () => {
+  test("a group with member.warn and no value is held to the built-in ceiling; the value it is given replaces it", async () => {
     const w = world();
     const bare = customMember(w.ctx, ["member.warn"], 20);
-    await expect(w.warn(bare.actor)).rejects.toBeInstanceOf(ForbiddenError);
+    // No entry in any group: the registry's built-in value (10 points), not none.
+    await w.warn(bare.actor, { points: 10 });
+    await expect(w.warn(bare.actor, { points: 11 })).rejects.toBeInstanceOf(ForbiddenError);
     setEntry(w.ctx, bare.groupId, "warning.maxPoints", 3);
     setEntry(w.ctx, bare.groupId, "warning.perDay", -1);
     await w.warn(bare.actor, { points: 3 });
     await expect(w.warn(bare.actor, { points: 4 })).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("a group with member.warn and no daily value is held to the built-in 20 a day", async () => {
+    const w = world();
+    const bare = customMember(w.ctx, ["member.warn"], 20);
+    for (let i = 0; i < 20; i++) await w.warn(bare.actor);
+    await expect(w.warn(bare.actor)).rejects.toBeInstanceOf(RateLimitedError);
   });
 
   test("the highest value of a member's groups applies", async () => {
@@ -157,9 +167,13 @@ describe("warning.perDay", () => {
     await w.warn(limited.actor);
   });
 
-  test("0 allows none and -1 is unlimited", async () => {
+  test("an explicit 0 allows none and -1 is unlimited", async () => {
     const w = world();
-    const none = customMember(w.ctx, ["member.warn", ["warning.maxPoints", -1]], 20);
+    const none = customMember(
+      w.ctx,
+      ["member.warn", ["warning.maxPoints", -1], ["warning.perDay", 0]],
+      20,
+    );
     await expect(w.warn(none.actor)).rejects.toBeInstanceOf(ForbiddenError);
     setEntry(w.ctx, none.groupId, "warning.perDay", -1);
     for (let i = 0; i < 25; i++) await w.warn(none.actor);
@@ -364,9 +378,10 @@ describe("member.banMaxDays", () => {
       expiresAt: days === null ? null : new Date(w.ctx.now() + days * DAY).toISOString(),
     });
 
-  test("a moderator given the ban permission bans up to the days of their value, never for good", async () => {
+  test("a moderator bans up to the days of their value, never for good", async () => {
     const w = world();
-    await expect(ban(w, w.moderator, 1)).rejects.toBeInstanceOf(ForbiddenError);
+    // The registry gives moderators member.ban; a migration seeds it on a database that exists
+    // already, so here the entry is made by hand.
     setEntry(w.ctx, MODERATORS, "member.ban", 1);
     await ban(w, w.moderator, 30);
     await expect(ban(w, w.moderator, 31)).rejects.toBeInstanceOf(ForbiddenError);
@@ -375,9 +390,13 @@ describe("member.banMaxDays", () => {
     await ban(w, w.admin, 400);
   });
 
-  test("a group with member.ban and no value cannot ban; -1 allows a permanent ban", async () => {
+  test("a group with member.ban and no value bans up to the built-in 30 days; an explicit 0 bans none, -1 allows a permanent ban", async () => {
     const w = world();
     const bare = customMember(w.ctx, ["member.ban"], 20);
+    await ban(w, bare.actor, 30);
+    await expect(ban(w, bare.actor, 31)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(ban(w, bare.actor, null)).rejects.toBeInstanceOf(ForbiddenError);
+    setEntry(w.ctx, bare.groupId, "member.banMaxDays", 0);
     await expect(ban(w, bare.actor, 1)).rejects.toBeInstanceOf(ForbiddenError);
     setEntry(w.ctx, bare.groupId, "member.banMaxDays", 2);
     await ban(w, bare.actor, 2);
