@@ -13,18 +13,22 @@ const hrefs = (links: { href: string }[]) => links.map((link) => link.href);
 test("the menu lists the account screens of the account page, in the same order", () => {
   const menu = hrefs(menuAccountLinks([]));
   const page = hrefs(accountLinks());
-  expect(menu).toEqual(
-    page.filter((href) => href !== "/account" && href !== "/account/bookmarks"),
-  );
+  expect(menu).toEqual(page.filter((href) => href !== "/account/bookmarks"));
   expect(menu).toContain(DATA_SAVER_HREF);
 });
 
 test("the menu leaves out what it reaches another way", () => {
-  const menu = hrefs(menuAccountLinks(["/account/privacy", "/members/4"]));
+  const menu = hrefs(
+    menuAccountLinks(["/account", "/account/privacy", "/members/4"]),
+  );
   expect(menu).not.toContain("/account");
   expect(menu).not.toContain("/account/bookmarks");
   expect(menu).not.toContain("/account/privacy");
   expect(menu).toContain("/account/security");
+});
+
+test("the settings link stays when no navigation entry lists it", () => {
+  expect(hrefs(menuAccountLinks(["/members/4"]))).toContain("/account");
 });
 
 test("every link of the account page is in the list the menu reads", () => {

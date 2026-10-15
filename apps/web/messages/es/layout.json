@@ -87,7 +87,7 @@
     },
     "status": {
       "label": "Actualiza tu estado",
-      "placeholder": "Actualiza tu estado...",
+      "placeholder": "Actualiza tu estado…",
       "submit": "Publicar estado",
       "posted": "Tu estado se publicó.",
       "view": "Ver tu muro"

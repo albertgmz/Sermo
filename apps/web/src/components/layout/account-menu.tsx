@@ -18,16 +18,16 @@ import { getViewer } from "@/lib/sermo/session";
 // The signed-in member's own menu, shared by the site header and the staff panel's top bar:
 // alerts, conversations, account links and bookmarks behind the avatar. Nothing for a guest.
 export async function AccountMenu() {
-  const [viewer, card, navigation, account, lite] = await Promise.all([
+  const [viewer, card, unread, navigation, account, lite] = await Promise.all([
     getViewer(),
     getViewerCard(),
+    getCounters(),
     getNavigation(),
     getTranslations("account.navigation"),
     getTranslations("lite.navigation"),
   ]);
   if (!viewer.user || !card) return null;
   await io();
-  const unread = await getCounters();
   const links = accountItems(
     toNavItems(navigation.account, `/members/${viewer.user.id}`),
   );

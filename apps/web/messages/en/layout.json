@@ -87,7 +87,7 @@
     },
     "status": {
       "label": "Update your status",
-      "placeholder": "Update your status...",
+      "placeholder": "Update your status…",
       "submit": "Post status",
       "posted": "Your status was posted.",
       "view": "View your wall"

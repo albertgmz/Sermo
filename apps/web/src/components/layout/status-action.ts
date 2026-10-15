@@ -1,6 +1,7 @@
 "use server";
 
 import { profilePostsCreate } from "@sermo/core/contracts";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { call } from "@/lib/sermo/client";
 import { attempt } from "@/lib/sermo/outcome";
@@ -21,5 +22,8 @@ export async function postStatus(
   const created = await attempt("/", () =>
     call(profilePostsCreate, { userId: user.id, body, attachmentIds: [] }),
   );
-  return created.ok ? { posted: true } : { error: created.error };
+  if (!created.ok) return { error: created.error };
+  // The wall and the feed behind the open menu show the new post.
+  refresh();
+  return { posted: true };
 }

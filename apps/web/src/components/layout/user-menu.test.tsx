@@ -169,5 +169,5 @@ test("a list is not mounted, so not asked for, until its tab is the one open", (
 test("the status line is there only for a member who may post on their wall", () => {
   expect(body("account")).not.toContain("Update your status");
   const html = body("account", { status: { wallHref: "/members/1" } });
-  expect(html).toContain('placeholder="Update your status..."');
+  expect(html).toContain('placeholder="Update your status…"');
 });

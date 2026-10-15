@@ -171,7 +171,7 @@ export function UserMenuBody(props: UserMenuBodyProps) {
             {links.map((link) => (
               <li key={link.id}>
                 <Link {...linkProps(link)} className={ROW}>
-                  <NavLabel item={link} />
+                  <NavLabel item={link} withDefault />
                 </Link>
               </li>
             ))}

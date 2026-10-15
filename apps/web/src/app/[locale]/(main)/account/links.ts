@@ -27,9 +27,8 @@ export type AccountLink = (typeof ACCOUNT_GROUPS)[number]["links"][number];
 
 export const DATA_SAVER_HREF = "/account/data-saver";
 
-// The profile screen holds the picture and the appearance; the bookmarks have a tab of their own in
-// the avatar menu.
-const NOT_IN_MENU: readonly string[] = ["/account", "/account/bookmarks"];
+// The bookmarks have a tab of their own in the avatar menu.
+const NOT_IN_MENU: readonly string[] = ["/account/bookmarks"];
 
 export function accountLinks(): AccountLink[] {
   return ACCOUNT_GROUPS.flatMap((group): AccountLink[] => [...group.links]);
@@ -37,7 +36,7 @@ export function accountLinks(): AccountLink[] {
 
 // What the Account tab of the avatar menu lists after the entries of the site's own account
 // navigation: the account screens, except the ones the menu reaches another way (`taken` are the
-// addresses it already lists).
+// addresses it already lists, so the settings link stays when an admin switches its entry off).
 export function menuAccountLinks(taken: readonly string[]): AccountLink[] {
   return accountLinks().filter(
     ({ href }) => !NOT_IN_MENU.includes(href) && !taken.includes(href),
