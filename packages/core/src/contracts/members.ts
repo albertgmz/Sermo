@@ -151,7 +151,7 @@ export const usersStaff = defineContract({
   summary:
     "The members of the groups marked as staff (at most 200), highest group rank first, then " +
     "by username, each with the titles of their staff groups. Banned members are left out. " +
-    "Requires profile.view.",
+    "Requires site.view, profile.view and member.viewList.",
   kind: "read",
   input: Empty,
   output: z.object({
@@ -164,7 +164,7 @@ export const usersBirthdays = defineContract({
   summary:
     "The members whose birthday is today (UTC), whatever the year, at most 50, oldest account " +
     "first; on 28 February of a year without a 29th, those born on the 29th too. Banned members " +
-    "and members whose profile the viewer may not open are left out. Requires profile.view.",
+    "and members whose profile the viewer may not open are left out. Requires site.view, profile.view and member.viewList.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(MemberCard) }),
@@ -194,7 +194,7 @@ export const standingsMonth = defineContract({
     "to the older account. Only members with points are listed; banned members and members " +
     "whose profile the viewer may not open are left out. `current` is the month in progress, " +
     "recomputed in the background every few minutes; `previous` is the last complete month. " +
-    "Requires profile.view.",
+    "Requires site.view, profile.view and member.viewList.",
   kind: "read",
   input: z.object({ month: z.enum(["current", "previous"]).default("current"), ...pageInput }),
   output: Page(StandingEntry).extend({
@@ -211,7 +211,7 @@ export const standingsWinners = defineContract({
     "points when the month ended, fixed at that moment. A month in which nobody scored has no " +
     "winner and is left out, and so is a month whose winner is banned or has a profile the " +
     "viewer may not open. The first item is the current member of the month when it is last " +
-    "month's. Requires profile.view.",
+    "month's. Requires site.view, profile.view and member.viewList.",
   kind: "read",
   input: z.object({ limit: z.number().int().min(1).max(24).default(12) }),
   output: z.object({

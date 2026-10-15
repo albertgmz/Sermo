@@ -146,7 +146,7 @@ export const usersRelations = defineContract({
 
 export const usersListFollowers = defineContract({
   name: "users.listFollowers",
-  summary: "Members following a member, newest first. Requires profile.view.",
+  summary: "Members following a member, newest first. Requires site.view and profile.view.",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(FollowEntry),
@@ -155,7 +155,7 @@ export const usersListFollowers = defineContract({
 export const usersListFollowing = defineContract({
   name: "users.listFollowing",
   summary:
-    "Members a member follows, newest first. Requires profile.view, and member.viewFollowing for anyone but the member.",
+    "Members a member follows, newest first. Requires site.view and profile.view, and member.viewFollowing for anyone but the member.",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(FollowEntry),

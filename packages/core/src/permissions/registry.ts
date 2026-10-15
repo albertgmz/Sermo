@@ -329,8 +329,9 @@ export const PERMISSIONS = {
     defaults: MEMBERS_UNLIMITED,
   },
   /**
-   * The days `profile.renameLimit` counts back over (-1 or 0: every change ever made). A window
-   * is not a quantity of permission, so when a member's groups differ the longest applies.
+   * The days `profile.renameLimit` counts back over; -1 counts every change ever made. 0 is the
+   * same as unset: it counts every change when no group of the member sets days, and any group
+   * that does set days overrides it. When groups differ the longest window applies.
    */
   "profile.renameWindowDays": {
     scope: "global",

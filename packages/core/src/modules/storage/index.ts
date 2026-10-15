@@ -264,9 +264,10 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
     if (record.visibility === "unattached") return actorUserId(actor) === record.uploader_id;
     return record.visibility === "public";
   }
-  // Files of content are the site's content: closed to anyone who may not open the site. Avatars
-  // and covers (public files with no link) stay as they are.
-  if (!can(ctx, actor, "site.view")) return false;
+  // Files of posts and wall posts are the site's content: closed to anyone who may not open the
+  // site. Conversation files are not (a closed-out member keeps their inbox), and avatars and
+  // covers (public files with no link) stay as they are.
+  if (link.content_type !== "conversation_message" && !can(ctx, actor, "site.view")) return false;
   try {
     if (link.content_type === "post") {
       reactablePost(ctx, actor, link.content_id);

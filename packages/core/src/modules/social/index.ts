@@ -22,6 +22,7 @@ import {
 } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
+import { requireSiteView } from "../members/site-access";
 
 type Thread = {
   id: number;
@@ -393,6 +394,7 @@ function followList(
   limit: number,
   mode: "followers" | "following",
 ) {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
   // Whom a member follows is theirs to read; others need member.viewFollowing.
   if (mode === "following" && actorUserId(actor) !== userId)

@@ -218,7 +218,7 @@ export const reactionsRemove = defineContract({
 
 export const reactionsList = defineContract({
   name: "reactions.list",
-  summary: "Who reacted to an item, and with what. Requires `reaction.viewList`.",
+  summary: "Who reacted to an item, and with what. Requires `reaction.viewList` and `site.view`.",
   kind: "read",
   input: z.object({ ...ContentRef, ...pageInput }),
   output: Page(z.object({ user: UserSummary, reactionTypeId: Id, createdAt: Timestamp })),

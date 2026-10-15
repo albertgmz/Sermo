@@ -397,6 +397,38 @@ describe("username change permissions", () => {
     await expect(w.rename("Name C")).rejects.toThrow(ForbiddenError);
   });
 
+  test("of two windows the longer applies, 0 counting as unset", async () => {
+    const w = await world();
+    await w.buyUnits(5);
+    w.ctx.sqlite.prepare("INSERT INTO groups (id, title, rank) VALUES (92, 'Windows', 10)").run();
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 92, 0)")
+      .run(w.memberRow.id);
+    const second = (value: number) => {
+      w.ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, 92, 0, ?1 FROM permission_definitions WHERE key = 'profile.renameWindowDays' ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+        )
+        .run(value);
+      w.ctx.sqlite
+        .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+        .run();
+    };
+    entry(w, "profile.renameLimit", 1);
+    // 0 alone counts every change ever.
+    entry(w, "profile.renameWindowDays", 0);
+    second(0);
+    await w.rename("One");
+    w.ctx.clock.advance(100 * DAY);
+    await expect(w.rename("Two")).rejects.toThrow(ForbiddenError);
+    // Another group's 30 days overrides the 0: the change 100 days ago is outside the window.
+    second(30);
+    await w.rename("Two");
+    // -1 in either group counts every change ever.
+    second(-1);
+    await expect(w.rename("Three")).rejects.toThrow(ForbiddenError);
+  });
+
   test("of a member's groups the highest limit wins, and a banned member can change nothing", async () => {
     const w = await world();
     await w.buyUnits(5);

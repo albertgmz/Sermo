@@ -1321,7 +1321,9 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
     isAdmin: checks.can("admin.permissions"),
     isModerator: checks.can("moderation.access"),
     canViewProfiles: checks.can("profile.view"),
-    canPostProfile: checks.can("profilePost.post"),
+    // Own wall: the web draws the viewer's wall composer and link from it; another member's wall is
+    // `profiles.get` `canPostOnWall`.
+    canPostProfile: checks.can("profilePost.postOwn"),
     canStartConversations: checks.can("conversation.start"),
     canReact: checks.can("reaction.react"),
   };

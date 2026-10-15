@@ -20,6 +20,7 @@ import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
 import { releaseFile } from "../images/attach";
 import { enqueueJob } from "../jobs/queue";
+import { requireSiteView } from "../members/site-access";
 import { mayViewProfile, profileAccess } from "../profiles/shared";
 import { grantAward, revokeAward } from "./grants";
 import {
@@ -42,12 +43,14 @@ import {
 export { registerAwardJobs } from "./automatic";
 
 function visibleAward(ctx: Ctx, actor: Actor, id: number): AwardRow {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
   const row = awardRow(ctx, id);
   if (!row.is_active && !can(ctx, actor, "admin.awards")) throw new NotFoundError();
   return row;
 }
 function visibleMember(ctx: Ctx, actor: Actor, id: number): void {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view", {}, { notFound: true });
   const access = profileAccess(ctx, actor, id);
   if (!mayViewProfile(ctx, actor, id, access)) throw new NotFoundError();
@@ -126,6 +129,7 @@ function grantsPage(
 
 export const operations = [
   implement(contracts.awardsList, (ctx, actor) => {
+    requireSiteView(ctx, actor);
     requirePermission(ctx, actor, "profile.view");
     const admin = can(ctx, actor, "admin.awards");
     return {
@@ -140,6 +144,8 @@ export const operations = [
   ),
   implement(contracts.awardsHolders, (ctx, actor, input) => {
     visibleAward(ctx, actor, input.awardId);
+    // A list of members, like the member list itself.
+    requirePermission(ctx, actor, "member.viewList");
     return grantsPage(ctx, "holders", input.awardId, input);
   }),
   implement(contracts.awardsCriteria, (ctx, actor) => {

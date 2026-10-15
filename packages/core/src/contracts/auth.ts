@@ -14,6 +14,7 @@ export const GlobalPermissions = z
     isAdmin: z.boolean(),
     isModerator: z.boolean(),
     canViewProfiles: z.boolean(),
+    /** The viewer may post on their own profile wall (profilePost.postOwn). */
     canPostProfile: z.boolean(),
     canStartConversations: z.boolean(),
     canReact: z.boolean(),

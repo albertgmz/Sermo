@@ -34,6 +34,7 @@ import { iso } from "../../time";
 import { reactableConversationMessage } from "../conversations";
 import { reactablePost } from "../forums";
 import { attachUploadedFile, releaseFile } from "../images/attach";
+import { requireSiteView } from "../members/site-access";
 import { appendModeratorLog, requireNegativeReactionRoom } from "../moderation";
 import { reactableProfileComment, reactableProfilePost } from "../profiles";
 import { publicPicture } from "../storage/url";
@@ -542,6 +543,7 @@ export const reactionsListOp = implement(
   (ctx, actor, input) => {
     requirePermission(ctx, actor, "reaction.viewList");
     reactables[input.contentType](ctx, actor, input.contentId);
+    requireSiteView(ctx, actor);
     const after = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
       : 0;

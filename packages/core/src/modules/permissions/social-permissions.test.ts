@@ -6,6 +6,7 @@ import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { ForbiddenError } from "../../errors";
 import { execute } from "../../operation";
+import { authMeOp } from "../auth";
 import {
   conversationsAddParticipantsOp,
   conversationsCreateOp,
@@ -406,5 +407,19 @@ describe("conversations", () => {
       body: "two",
     });
     expect(editedAt()).toBe(stamped);
+  });
+});
+
+describe("auth.me canPostProfile", () => {
+  test("follows posting on one's own wall, not on other members' walls", async () => {
+    const w = world();
+    const flag = async (actor: AnyActor) =>
+      (await execute(w.ctx, authMeOp, actor, {})).permissions.canPostProfile;
+    const ownOnly = customMember(w.ctx, [...WALL, "profilePost.postOwn"]);
+    const othersOnly = customMember(w.ctx, [...WALL, "profilePost.post"]);
+    expect(await flag(ownOnly.actor)).toBe(true);
+    expect(await flag(othersOnly.actor)).toBe(false);
+    expect(await flag(w.aActor)).toBe(true);
+    expect(await flag(GUEST)).toBe(false);
   });
 });

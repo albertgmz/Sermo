@@ -31,7 +31,8 @@ export const bookmarksList = defineContract({
   name: "bookmarks.list",
   summary:
     "The viewer's bookmarks, newest first. Items the viewer can no longer see are left out, so " +
-    "a page may be short while `nextCursor` is set. Signed-in members.",
+    "a page may be short while `nextCursor` is set. Signed-in members; empty for a viewer without " +
+    "`site.view`.",
   kind: "read",
   input: z.object({ ...pageInput }),
   output: Page(Bookmark),

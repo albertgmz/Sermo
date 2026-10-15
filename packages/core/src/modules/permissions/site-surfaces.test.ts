@@ -6,6 +6,7 @@ import { ForbiddenError, NotFoundError, UnauthenticatedError } from "../../error
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { bookmarksListOp, bookmarksSetOp } from "../bookmarks";
+import { conversationsCreateOp } from "../conversations";
 import { feedListOp } from "../feed/feed";
 import { threadsCreateOp } from "../forums";
 import { runDueJobs } from "../jobs";
@@ -13,6 +14,7 @@ import { usersCardsOp } from "../members";
 import { usersBirthdaysOp, usersStaffOp } from "../members/directory";
 import { standingsMonthOp, standingsWinnersOp } from "../members/standings";
 import { profilePostsCreateOp } from "../profiles";
+import { reactionsListOp, reactionsSetOp, reactionTypesCreateOp } from "../reactions";
 import {
   atomFeed,
   llmsTxt,
@@ -22,6 +24,7 @@ import {
   sitemapShard,
 } from "../seo";
 import { updateSiteSettings } from "../settings";
+import { usersListFollowersOp, usersListFollowingOp } from "../social";
 import { spoilersGetOp } from "../spoilers";
 import { getFileRecord } from "../storage";
 
@@ -200,5 +203,114 @@ describe("a member whose groups lack site.view", () => {
     expect(
       w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM bookmarks").get()!.n,
     ).toBe(0);
+  });
+});
+
+describe("more reads that follow site.view", () => {
+  async function closedOut(w: Awaited<ReturnType<typeof world>>, grants: string[]) {
+    const groupId = w.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Closed out', 10) RETURNING id",
+      )
+      .get()!.id;
+    for (const key of ["node.view", "profile.view", "reaction.viewList", ...grants])
+      setEntry(w.ctx, groupId, key, 1);
+    const row = insertUser(w.ctx, { groupId });
+    return { groupId, row, actor: userActor(row) };
+  }
+
+  test("who reacted, and who follows whom", async () => {
+    const w = await world();
+    const type = await execute(w.ctx, reactionTypesCreateOp, w.admin, {
+      title: "Like",
+      emoji: "+",
+      score: 1,
+      position: 0,
+    });
+    const fan = userActor(insertUser(w.ctx));
+    await execute(w.ctx, reactionsSetOp, fan, {
+      contentType: "post",
+      contentId: w.made.post.id,
+      reactionTypeId: type.id,
+    });
+    const out = await closedOut(w, ["member.viewFollowing"]);
+    const list = (actor: Parameters<typeof execute>[2]) =>
+      execute(w.ctx, reactionsListOp, actor, {
+        contentType: "post",
+        contentId: w.made.post.id,
+        limit: 20,
+      });
+    const followers = (actor: Parameters<typeof execute>[2]) =>
+      execute(w.ctx, usersListFollowersOp, actor, { userId: w.author.id, limit: 20 });
+    const following = (actor: Parameters<typeof execute>[2]) =>
+      execute(w.ctx, usersListFollowingOp, actor, { userId: w.author.id, limit: 20 });
+    expect((await list(GUEST)).items).toHaveLength(1);
+    await followers(GUEST);
+    await following(GUEST);
+
+    setEntry(w.ctx, 1, "site.view", -1);
+    for (const read of [list, followers, following])
+      await expect(read(GUEST)).rejects.toThrow(UnauthenticatedError);
+    for (const read of [list, followers, following])
+      await expect(read(out.actor)).rejects.toThrow(ForbiddenError);
+    // A closed-out member still reads the list of whom they follow themselves.
+    await expect(
+      execute(w.ctx, usersListFollowingOp, out.actor, { userId: out.row.id, limit: 20 }),
+    ).rejects.toThrow(ForbiddenError);
+    setEntry(w.ctx, out.groupId, "site.view", 1);
+    for (const read of [list, followers, following]) await read(out.actor);
+  });
+
+  test("the holders of an award need member.viewList, an award and a member's awards need site.view", async () => {
+    const w = await world();
+    const award = (await execute(w.ctx, getOperation("awards.create"), w.admin, {
+      name: "First",
+      tier: "bronze",
+    })) as { id: number };
+    const reads = (actor: Parameters<typeof execute>[2]) => ({
+      list: () => execute(w.ctx, getOperation("awards.list"), actor, {}),
+      get: () => execute(w.ctx, getOperation("awards.get"), actor, { awardId: award.id }),
+      holders: () =>
+        execute(w.ctx, getOperation("awards.holders"), actor, { awardId: award.id, limit: 20 }),
+      member: () => execute(w.ctx, getOperation("awards.member"), actor, { userId: w.author.id }),
+      grants: () =>
+        execute(w.ctx, getOperation("awards.memberGrants"), actor, {
+          userId: w.author.id,
+          limit: 20,
+        }),
+    });
+    for (const read of Object.values(reads(GUEST))) await read();
+    const out = await closedOut(w, ["member.viewList"]);
+    for (const read of Object.values(reads(out.actor)))
+      await expect(read()).rejects.toThrow(ForbiddenError);
+    setEntry(w.ctx, out.groupId, "site.view", 1);
+    for (const read of Object.values(reads(out.actor))) await read();
+    setEntry(w.ctx, out.groupId, "member.viewList", 0);
+    const after = reads(out.actor);
+    await expect(after.holders()).rejects.toThrow(ForbiddenError);
+    await after.member();
+    await after.get();
+  });
+
+  test("a closed-out member still downloads the files of their conversations, not of posts", async () => {
+    const w = await world();
+    const out = await closedOut(w, ["conversation.receive"]);
+    const talk = await execute(w.ctx, conversationsCreateOp, w.authorActor, {
+      title: "Hi",
+      recipientIds: [out.row.id],
+      body: "with a file",
+    });
+    const file = w.ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO files (driver, storage_key, byte_size, content_type, sha256, uploader_id, purpose, visibility, created_at) VALUES ('local', 'conv' || ?1, 3, 'text/plain', 'h', ?2, 'attachment', 'private', 0) RETURNING id",
+      )
+      .get(talk.message.id, w.author.id)!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO attachments (file_id, content_type, content_id, position, created_at) VALUES (?1, 'conversation_message', ?2, 0, 0)",
+      )
+      .run(file, talk.message.id);
+    expect(getFileRecord(w.ctx, out.actor, file).id).toBe(file);
+    expect(() => getFileRecord(w.ctx, out.actor, w.file)).toThrow(NotFoundError);
   });
 });

@@ -13,14 +13,14 @@ export const SeoMetadata = z.object({
 
 export const seoNode = defineContract({
   name: "seo.node",
-  summary: "Canonical metadata and redirect decision for a node path.",
+  summary: "Canonical metadata and redirect decision for a node path. Requires site.view.",
   kind: "read",
   input: z.object({ nodeId: Id, requestedPath: z.string().max(2048).default("") }),
   output: SeoMetadata,
 });
 export const seoThread = defineContract({
   name: "seo.thread",
-  summary: "Canonical metadata and structured data for a thread page.",
+  summary: "Canonical metadata and structured data for a thread page. Requires site.view.",
   kind: "read",
   input: z.object({
     threadId: Id,
@@ -32,7 +32,7 @@ export const seoThread = defineContract({
 });
 export const seoProfile = defineContract({
   name: "seo.profile",
-  summary: "Canonical metadata and redirect decision for a public profile.",
+  summary: "Canonical metadata and redirect decision for a public profile. Requires site.view.",
   kind: "read",
   input: z.object({ userId: Id, requestedPath: z.string().max(2048).default("") }),
   output: SeoMetadata,

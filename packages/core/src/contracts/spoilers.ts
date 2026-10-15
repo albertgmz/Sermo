@@ -8,7 +8,7 @@ export const spoilersGet = defineContract({
   summary:
     "The HTML of one spoiler of a post, conversation message, profile post or comment. A body's " +
     "HTML holds only a placeholder naming the spoiler's position; the content is returned here " +
-    "to a viewer who can see the item, and is not found otherwise.",
+    "to a viewer who can see the item (and holds `site.view`), and is not found otherwise.",
   kind: "read",
   input: z.object({
     contentType: z.enum(SPOILER_CONTENT_TYPES),

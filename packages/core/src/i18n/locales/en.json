@@ -127,7 +127,7 @@
   "permission.profile.renameLimit": "Username changes allowed",
   "permission.profile.renameLimit.description": "Most username changes a member may make within the days below. -1 is no limit and 0 allows none; of a member's groups the highest wins. Every change counts, free or bought.",
   "permission.profile.renameWindowDays": "Days the username change limit covers",
-  "permission.profile.renameWindowDays.description": "The days the limit above counts back over. -1 or 0 counts every change ever made. When a member's groups differ the longest applies.",
+  "permission.profile.renameWindowDays.description": "The days the limit above counts back over. -1 counts every change ever made. 0 is the same as unset: it counts every change unless one of the member's groups sets days. When groups differ the longest applies.",
   "permission.content.editSilently": "Edit without the edited note",
   "permission.content.editSilently.description": "Edits to posts, wall posts, comments and messages leave no edited note. The earlier text is still kept where revisions are kept, and staff reading a post's history still see the edit.",
   "permission.attachment.maxFileSize": "Largest single file",

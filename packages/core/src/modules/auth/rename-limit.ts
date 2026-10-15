@@ -14,9 +14,9 @@ export interface RenameStanding {
 /**
  * Whether a member may change their own username now, by the permissions alone (a shop unit or
  * `profile.renameFree` is a separate matter): `profile.renameNeedsApproval` refuses outright, and
- * `profile.renameLimit` changes within the last `profile.renameWindowDays` days (0 or -1: ever)
- * refuse once used up. For the limit -1 is unlimited and 0 allows none, so the most permissive of
- * a member's groups wins; a banned member resolves to 0. Reads at most `profile.renameLimit` rows of the member's own changes.
+ * `profile.renameLimit` changes within the last `profile.renameWindowDays` days (-1 or 0: ever)
+ * refuse once used up. For the limit -1 is unlimited and 0 allows none, so the most permissive
+ * of a member's groups wins; a banned member resolves to 0. Reads at most `profile.renameLimit` rows of the member's own changes.
  */
 export function renameStanding(ctx: Ctx, actor: Actor, userId: number): RenameStanding {
   if (can(ctx, actor, "profile.renameNeedsApproval"))

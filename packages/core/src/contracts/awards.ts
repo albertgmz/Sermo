@@ -67,7 +67,7 @@ export const awardsList = defineContract({
   name: "awards.list",
   summary:
     "Every active award, best tier first (legendary, gold, silver, bronze), then by XP " +
-    "descending. With admin.awards, inactive awards too. Requires profile.view.",
+    "descending. With admin.awards, inactive awards too. Requires site.view and profile.view.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(Award) }),
@@ -75,7 +75,8 @@ export const awardsList = defineContract({
 
 export const awardsGet = defineContract({
   name: "awards.get",
-  summary: "One award. Inactive awards are visible only with admin.awards. Requires profile.view.",
+  summary:
+    "One award. Inactive awards are visible only with admin.awards. Requires site.view and profile.view.",
   kind: "read",
   input: z.object({ awardId: Id }),
   output: Award,
@@ -85,7 +86,8 @@ export const awardsHolders = defineContract({
   name: "awards.holders",
   summary:
     "The grants of one award that members currently hold, newest first (a member holding a " +
-    "stackable award several times appears once per grant). Requires profile.view.",
+    "stackable award several times appears once per grant). Requires site.view, profile.view and " +
+    "member.viewList.",
   kind: "read",
   input: z.object({ awardId: Id, ...pageInput }),
   output: Page(MemberAward),
@@ -193,7 +195,8 @@ export const awardsMember = defineContract({
   name: "awards.member",
   summary:
     "A member's XP total and the awards they hold with a count each, best tier first, then by " +
-    "XP descending. Requires being able to view the member's profile (not found otherwise).",
+    "XP descending. Requires site.view and being able to view the member's profile (not found " +
+    "otherwise).",
   kind: "read",
   input: z.object({ userId: Id }),
   output: z.object({ xp: z.number().int().nonnegative(), items: z.array(HeldAward) }),
@@ -203,7 +206,7 @@ export const awardsMemberGrants = defineContract({
   name: "awards.memberGrants",
   summary:
     "The grants a member currently holds, one per grant, newest first. Requires being able to " +
-    "view the member's profile (not found otherwise).",
+    "view the member's profile (not found otherwise), and site.view.",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(MemberAward),

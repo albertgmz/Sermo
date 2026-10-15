@@ -127,7 +127,7 @@
   "permission.profile.renameLimit": "Cambios de nombre de usuario permitidos",
   "permission.profile.renameLimit.description": "Máximo de cambios de nombre de usuario que un miembro puede hacer en los días indicados abajo. -1 es sin límite y 0 no permite ninguno; entre los grupos de un miembro gana el más alto. Cuenta cada cambio, gratuito o comprado.",
   "permission.profile.renameWindowDays": "Días que abarca el límite de cambios de nombre",
-  "permission.profile.renameWindowDays.description": "Los días hacia atrás que cuenta el límite anterior. -1 o 0 cuenta todos los cambios hechos alguna vez. Si los grupos de un miembro difieren, se aplica el más largo.",
+  "permission.profile.renameWindowDays.description": "Los días hacia atrás que cuenta el límite anterior. -1 cuenta todos los cambios hechos alguna vez. 0 equivale a sin definir: cuenta todos los cambios salvo que un grupo del miembro fije días. Si los grupos difieren, se aplica el más largo.",
   "permission.content.editSilently": "Editar sin la nota de edición",
   "permission.content.editSilently.description": "Las ediciones de mensajes, publicaciones de perfil, comentarios y mensajes privados no dejan la nota de edición. El texto anterior se sigue guardando donde se guardan las revisiones, y el personal que lee el historial de un mensaje sigue viendo la edición.",
   "permission.attachment.maxFileSize": "Archivo individual más grande",
