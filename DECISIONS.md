@@ -1371,15 +1371,16 @@ is not kept: a browser can call the REST API directly with the same session cook
 requirement is made by the backend, and it keys on one explicit marker: the actor field
 `interactive`, which only the HTTP layer sets (the request middleware of `/api/v1` and `/mcp`),
 on a `user` actor it resolved from a session cookie. An interactive actor that sends no
-`actorPassword` gets a validation error naming the field. An API key or token is not asked and is
-refused if it sends one (it cannot confirm). Actors built by hand (the starter loader, the dev
-fixture, jobs, tests) never carry the marker and are not asked; a new caller that resolves
-sessions from cookies and should be held to the rule must set it. The promotion writes are
-included because a promotion grants groups to members. Group names stay readable without it.
-**Owner review:** API keys are exempt, so a stolen key can change groups and permissions without
-the password; the alternative is to forbid these writes to keys altogether. The exemption is only
-as good as the difficulty of getting a key, so a key can no longer be had with a cookie alone: see
-"API keys are credentials" below. `DELETE` routes read
+`actorPassword` gets a validation error naming the field; a wrong one is refused before anything
+changes. An API key or token is refused on all of these operations (Forbidden), whether or not it
+sends a password: it cannot confirm, so these changes need a signed-in session plus the
+administrator's password. `users.setSuperAdmin` follows the same rule. Actors built by hand (the
+starter loader, the dev fixture, jobs, tests, the benchmark harness's `callInProcess`) never carry
+the marker and are not asked; they are never a key and cannot be built from HTTP or MCP, since the
+request middleware marks every session actor it resolves. A new caller that resolves sessions from
+cookies and should be held to the rule must set the marker. The promotion writes are included
+because a promotion grants groups to members. Group names stay readable without it. This replaces
+the earlier exemption for keys (Owner review #3). `DELETE` routes read
 their input from the query string, so `groups.delete` and `promotions.delete` over REST carry the
 password there.
 
@@ -1443,8 +1444,8 @@ rights) pays no statement for it: the check is the permission state already in m
 holds a plain member to one statement and a guest to none, as before. Unlike the activity counts
 of the panel's home page the numbers are not cached: they are a few indexed rows for staff only.
 
-**API keys are credentials.** A key acts without the password rule, so walking around the rule
-by minting one from a stolen browser session had to be closed. `POST /api/auth/api-key/create`
+**API keys are credentials.** A key cannot change groups, permissions or promotions at all;
+minting a key from a stolen browser session still had to be closed. `POST /api/auth/api-key/create`
 from a session now needs the member's current password in the body (`{ "name": "...", "password":
 "..." }`): a missing one is a 400 (`PASSWORD_REQUIRED`), a wrong one a 403 (`INVALID_PASSWORD`),
 and the answers are counted with the same limits as `actorPassword` (five wrong per session,
@@ -1455,8 +1456,8 @@ member out of every session each revoke all the member's API keys; revoking one 
 not. What a key can and cannot do:
 
 - A key acts with the permissions of its member, on every operation that does not ask for a session.
-  That includes the group, permission and promotion writes that otherwise take `actorPassword`
-  (the key is not asked, and refused if it sends one: the Owner review item above).
+  The group, permission, moderator and promotion writes that take `actorPassword` are not among
+  them: a key is refused there, with or without a password.
 - A key cannot create, list or delete keys, change the member's password, address or username through
   Better Auth, or open a session (those endpoints need a session cookie, and a request with a key is
   unauthenticated there).
@@ -2136,3 +2137,8 @@ the picker, and press-drag-release works too. The gesture is a pure state machin
 (`reaction-gesture.ts`) with its placement maths (`reaction-placement.ts`: 16 px margins, 40 px
 reactions, flips below when there is no room above), used by the one reaction button everywhere.
 Not yet checked on real phones; a second finger during a slide can still double a reaction.
+
+**API keys cannot change groups or permissions.** Recorded in "Group, permission and promotion
+writes are confirmed with the password" above. The benchmark's guarded scenarios (permission,
+group, moderator and promotion writes) now call the operation in-process, so their timings leave
+out HTTP and key checks and are not comparable with runs before 0.1.35.
