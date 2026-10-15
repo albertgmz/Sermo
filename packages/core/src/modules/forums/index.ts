@@ -1079,8 +1079,13 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
   return { sticky: values.slice(0, sticky.length), items: values.slice(sticky.length), nextCursor };
 });
 /** Whether the viewer may read a poll of the thread, and whether they may add one. */
-function threadPollFacts(ctx: Ctx, actor: Actor, row: ThreadRow): { exists: boolean; canAdd: boolean } {
-  if (!readGates(ctx, actor).reads(row.node_id, row.user_id)) return { exists: false, canAdd: false };
+function threadPollFacts(
+  ctx: Ctx,
+  actor: Actor,
+  row: ThreadRow,
+): { exists: boolean; canAdd: boolean } {
+  if (!readGates(ctx, actor).reads(row.node_id, row.user_id))
+    return { exists: false, canAdd: false };
   if (pollOfThread(ctx, row.id)) return { exists: true, canAdd: false };
   return { exists: false, canAdd: mayAddPoll(permissionsOf(ctx, actor), actor, row) };
 }

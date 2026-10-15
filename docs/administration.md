@@ -259,6 +259,7 @@ mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in no
 | | `busiest_thread_replies` | `n` | the member's thread with most replies has `n` | background |
 | | `profile_posts_written`, `profile_comments_written`, `attachments_uploaded` | `n` | the member wrote or uploaded `n` (visible, attached) | background |
 | | `bookmarks_at_least`, `watching_forums_at_least`, `watching_threads_at_least` | `n` | the member has `n` | background |
+| | `polls_voted_at_least` | `n` | the member took part in `n` polls or quizzes (a counter on the member) | cheap |
 | Economy | `owns_item`, `wears_item` | `ids` (shop items), `mode` (one, each) | the member holds the item now, or holds it and has the frame, name color or name icon it gives in use | cheap |
 | | `bought_in_category` | `ids` (shop categories), `mode` (one, each) | the member bought something in the category, gifts included | cheap |
 | | `gifted_items` | `n` | the member paid for `n` units that went to others | background |
@@ -1541,6 +1542,52 @@ show it as typed.
   counter on the member's row, so promotions, awards, notices and the shop can use it.
 - **Search.** Search treats `#rust` as the word `rust`; the web app sends a search for a single
   hashtag that names a tag to that tag's page.
+
+## Polls and quizzes
+
+A thread can carry one poll or one quiz. A poll is a single question with 2 to 20 answers; a quiz
+is a series of up to 20 questions of 2 to 8 answers, one of them right. Either is written with a new
+thread (`poll` of `threads.create`) or added later (`polls.create`, `/threads/<id>/poll`) by the
+thread's author while it is unlocked, or by staff who manage polls. Questions and answers are one
+line of text (200 and 100 characters): BB code is read for its words only (tags, pictures and links
+leave nothing), the word filter rewrites them, and a text it holds for approval is refused (with a
+new thread it holds the thread instead). Each question and answer may carry a picture, an
+attachment of the poll that follows the thread's reading rules (and `forum.viewAttachments`); the
+data saver blocks it like any post picture.
+
+- **Poll options.** Single or multiple choice (up to `maxChoices`), an optional close date or
+  closing by hand (`polls.close`, which also reopens: a reopened poll loses a close date that has
+  passed), whether a vote may be changed, whether voters may add one answer of their own (checked
+  like the creator's text, under `poll.addAnswer`, which a posting restriction takes away), and
+  when the results are shown: always, once the viewer has voted, or once the poll closes. A closed
+  poll shows its results to everyone; its creator and staff who manage polls always see them.
+  Voters are public or anonymous, chosen when the poll is made: an anonymous poll never lists
+  voters to anyone, staff included, and nothing written to the moderator log names a voter.
+- **Quizzes** are taken one question at a time. An answer is final and the web shows at once
+  whether it was right, which answer was, and the question's explanation; the score is kept with the
+  member. `polls.get` never carries a right answer or an explanation for a question the viewer
+  has not answered (nor to the creator and staff: they read them with `polls.definition`, which
+  needs the right to edit), and a quiz never carries vote counts. Once a member has taken a quiz its
+  questions, answers and right answers cannot change (texts and explanations can); delete it to
+  start over.
+- **Permissions** (per forum): `poll.create`, `poll.vote`, `poll.addAnswer`, `poll.closeOwn`,
+  `poll.closeAny`, `poll.viewVoters` (members by default) and `poll.manage` (moderators and
+  administrators: edit and delete any poll, add one to any thread). Voting needs a visible thread
+  whose posts the viewer may read (`forum.viewContent`): a titles-only reader sees no poll. Every
+  write re-checks the member inside its transaction. The creator may delete a poll nobody voted in
+  and remove an answer nobody voted for; staff may do either any time (the votes go with them).
+- **What happens to a poll.** Hiding a thread hides its poll; hard deleting a thread removes it
+  with its votes and pictures. Merging threads moves the poll of the merged thread to the target when
+  the target has none; otherwise it stays on the merged-away thread, out of sight, until that thread
+  is deleted for good. Splitting leaves it with the original thread, moving a thread keeps it (the new
+  forum's permissions apply), batch updates and erasing a member's account leave votes as they are
+  (an erased voter shows as `Deleted member <id>` in a public poll).
+- **Search and SEO.** The question text is part of the thread's opening-post entry of the search index
+  (kept by triggers on `polls`), so a thread is found by its question; answers are not indexed.
+  Results are not in a thread's metadata or structured data, and are marked `data-nosnippet` in the page.
+- **Criterion.** `polls_voted_at_least` (polls voted in and quizzes started) is a counter on the
+  member's row (`users.poll_vote_count`, kept by triggers on `poll_ballots`), refreshed by the
+  `poll.voted` event.
 
 ## Operations
 
