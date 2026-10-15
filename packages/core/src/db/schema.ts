@@ -487,6 +487,21 @@ export const usernameChanges = sqliteTable(
   (t) => [index("username_changes_member").on(t.userId, t.changedAt)],
 );
 
+/**
+ * A member's latest cookie choice, kept on the account so it follows them to another device and
+ * can be shown to a regulator: the optional categories they accepted (a JSON array of names, none
+ * when they refused all), the version of the cookie policy they answered, and when. One row per
+ * member, replaced by each new choice; erasing the member deletes it.
+ */
+export const consentRecords = sqliteTable("consent_records", {
+  userId: integer("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  categories: text("categories").notNull(),
+  policyVersion: integer("policy_version").notNull(),
+  decidedAt: integer("decided_at").notNull(),
+});
+
 /** Secondary groups assigned by hand. */
 export const userGroups = sqliteTable(
   "user_groups",

@@ -49,6 +49,8 @@ export type Actor =
       readonly versions?: PermissionVersions;
       /** The request's user agent, supplied by the HTTP actor resolver when available. */
       readonly userAgent?: string;
+      /** Location the trusted proxy reported for the request, when it did. */
+      readonly clientLocation?: ClientLocation;
     }
   | {
       readonly kind: "user";

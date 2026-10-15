@@ -35,6 +35,21 @@ export const Site = z
     /** The analytics tag public pages carry (the site setting); provider `none` adds nothing. */
     analytics: Analytics,
     /**
+     * The version of the cookie policy visitors answer in the cookie banner. A saved choice of
+     * another version counts as none, so raising it (`consent.askAgain`) asks everyone again.
+     */
+    cookiePolicyVersion: z.number().int().min(1),
+    /**
+     * Whether Matomo runs without cookies and without asking for consent (the site setting).
+     * Meaningful only when `analytics` is Matomo.
+     */
+    matomoCookieless: z.boolean(),
+    /**
+     * Whether the cookie banner is shown to visitors outside Europe too (the site setting;
+     * `consent.banner` tells whether it applies to one visitor).
+     */
+    cookieBannerOutsideEu: z.boolean(),
+    /**
      * Language for guests and members who have not chosen one; the web interface uses it when
      * the visitor's browser asks for no supported language.
      */

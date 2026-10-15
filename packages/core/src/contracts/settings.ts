@@ -166,6 +166,23 @@ export const SiteSettings = z
      */
     analytics: Analytics.default({ provider: "none" }),
     /**
+     * Matomo without cookies: the tag runs in its cookieless mode and, when on, is not held back
+     * for consent (the cookie policy page says so). Whether that is lawful varies by country.
+     * Has no effect unless the analytics provider is Matomo.
+     */
+    matomoCookieless: z.boolean().default(false),
+    /**
+     * Show the cookie banner to visitors outside Europe as well (the default). Off: only visitors
+     * in the EU, the EEA, the United Kingdom and Switzerland, or of unknown country, are asked;
+     * everyone else is treated as having accepted until they choose otherwise in the settings.
+     */
+    cookieBannerOutsideEu: z.boolean().default(true),
+    /**
+     * The version of the cookie policy; raised only by `consent.askAgain`, which makes everyone
+     * choose again. Not changed by `settings.update`.
+     */
+    cookiePolicyVersion: z.number().int().min(1).max(1_000_000).default(1),
+    /**
      * The site's own pictures: an unattached file the actor uploaded with the purpose
      * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the
      * previous file; null removes it.
@@ -207,12 +224,15 @@ function withoutDefaults<S extends z.ZodRawShape>(shape: S): WithoutDefaults<S> 
   ) as WithoutDefaults<S>;
 }
 
+/** What `settings.update` may change: every setting but the ones with an operation of their own. */
+const { cookiePolicyVersion: _askAgainOnly, ...UPDATABLE } = SiteSettings.shape;
+
 export const settingsUpdate = defineContract({
   name: "settings.update",
   summary:
     "Update site configuration: only the keys sent change, every other setting keeps its " +
     "stored value. Administrators only.",
   kind: "write",
-  input: z.object(withoutDefaults(SiteSettings.shape)).partial(),
+  input: z.object(withoutDefaults(UPDATABLE)).partial(),
   output: SiteSettings,
 });

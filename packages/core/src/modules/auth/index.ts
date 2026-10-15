@@ -1133,7 +1133,14 @@ export async function resolveActor(
   const cookie = headers.get("cookie");
   if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie))
     return {
-      actor: userAgent ? Object.freeze({ kind: "guest" as const, userAgent }) : GUEST,
+      actor:
+        userAgent || clientLocation
+          ? Object.freeze({
+              kind: "guest" as const,
+              ...(userAgent ? { userAgent } : {}),
+              ...(clientLocation ? { clientLocation } : {}),
+            })
+          : GUEST,
       setCookies: [],
     };
   const result = await getAuth(ctx).api.getSession({ headers, returnHeaders: true });

@@ -73,6 +73,9 @@ const defaults: StoredSiteSettingsValue = {
   standingExcludeStaff: false,
   standingExcludedUserIds: [],
   analytics: { provider: "none" },
+  matomoCookieless: false,
+  cookieBannerOutsideEu: true,
+  cookiePolicyVersion: 1,
   socialLinks: { discord: null, telegram: null, x: null },
   logoFileId: null,
   iconFileId: null,
@@ -86,6 +89,15 @@ export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {
     ),
   ).get();
   return row ? StoredSiteSettings.parse(JSON.parse(row.value)) : structuredClone(defaults);
+}
+
+/** Stores the configuration (everything but the group quotas, which are permission entries). */
+export function storeSiteSettings(ctx: Ctx, stored: StoredSiteSettingsValue): void {
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+    .run(JSON.stringify(stored), ctx.now());
 }
 
 export const settingsQuotaSql =
@@ -162,11 +174,7 @@ export function updateSiteSettings(
       }
     }
     const { groupUploadLimitBytes: _quota, ...stored } = next;
-    ctx.sqlite
-      .prepare(
-        "INSERT INTO site_settings (key, value, updated_at) VALUES ('configuration', ?1, ?2) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-      )
-      .run(JSON.stringify(stored), ctx.now());
+    storeSiteSettings(ctx, stored);
     appendModeratorLog(ctx, actor, "settings.update", "settings", 1, "", {
       changedKeys: Object.keys(changes),
     });

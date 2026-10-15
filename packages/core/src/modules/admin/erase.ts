@@ -8,6 +8,7 @@ import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { deletePendingTokens, getAuth, markSessionsRevoked, revokeUserCredentials } from "../auth";
 import { renameThroughAuth } from "../auth/username";
+import { deleteConsentRecord } from "../consent";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
 import { ipLogSql } from "../security/log";
@@ -139,6 +140,7 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
     ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, "");
     ctx.sqlite.prepare(eraseSql.pushDevices).run(input.userId);
     ctx.sqlite.prepare(ipLogSql.erase).run(input.userId);
+    deleteConsentRecord(ctx, input.userId);
     ctx.sqlite.prepare(eraseSql.uncountReferral).run(input.userId);
     ctx.sqlite.prepare(eraseSql.endReferrals).run(input.userId);
   });

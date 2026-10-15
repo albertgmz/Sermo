@@ -4,6 +4,7 @@ export * from "./auth";
 export * from "./awards";
 export * from "./bookmarks";
 export * from "./common";
+export * from "./consent";
 export * from "./conversations";
 export * from "./credits";
 export * from "./criteria";

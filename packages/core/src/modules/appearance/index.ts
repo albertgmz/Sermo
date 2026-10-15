@@ -320,6 +320,9 @@ export const operations = [
         maxUploadBytes: settings.maxUploadBytes,
         forumStatsEnabled: settings.forumStatsEnabled,
         analytics: settings.analytics,
+        cookiePolicyVersion: settings.cookiePolicyVersion,
+        matomoCookieless: settings.matomoCookieless,
+        cookieBannerOutsideEu: settings.cookieBannerOutsideEu,
         defaultLanguage: settings.defaultLanguage,
         palette: {
           accents: lists.activeColors.accent,
