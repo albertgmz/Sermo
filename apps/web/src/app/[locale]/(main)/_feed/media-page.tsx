@@ -1,9 +1,10 @@
 import { mediaList } from "@sermo/core/contracts";
+import { ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { wallTargetHref } from "@/app/[locale]/(main)/members/[id]/wall-target";
 import { threadHref } from "@/app/[locale]/(main)/threads/[id]/pages";
-import { Art } from "@/components/forum/art";
+import { LazyArt } from "@/components/forum/art";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 
@@ -48,11 +49,19 @@ export async function mediaPage(
                       }
                       className="relative block aspect-square overflow-hidden rounded-md border bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <Art
-                        category="postImages"
-                        src={item.file.thumbnailUrl ?? item.file.url}
-                        className="absolute inset-0"
-                      />
+                      {item.file.thumbnailUrl ? (
+                        <LazyArt
+                          category="postImages"
+                          src={item.file.thumbnailUrl}
+                          className="absolute inset-0 size-full"
+                        />
+                      ) : (
+                        // The original may be large (or an animation): the tile links to the
+                        // post, which draws it, and shows an icon until then.
+                        <span className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                          <ImageIcon aria-hidden="true" className="size-6" />
+                        </span>
+                      )}
                     </Link>
                   </li>
                 ))}

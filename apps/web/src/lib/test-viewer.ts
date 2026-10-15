@@ -12,6 +12,7 @@ export function viewerBody(signedIn: boolean) {
           language: null,
           keyboardShortcuts: true,
           homeTab: null,
+          openHomeTab: "latest",
         }
       : null,
     permissions: {

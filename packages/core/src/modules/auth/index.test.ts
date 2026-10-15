@@ -15,6 +15,7 @@ import * as authSchema from "../../db/auth-schema";
 import * as forumSchema from "../../db/schema";
 import { ConflictError, ForbiddenError, UnauthenticatedError } from "../../errors";
 import { execute } from "../../operation";
+import { getOperation } from "../../operations";
 import {
   authMeOp,
   ensureAdmin,
@@ -876,4 +877,27 @@ test("hot credential and self lookups use indexes", () => {
     "SELECT u.id, u.username, a.email, u.group_id, u.created_at FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
     [1],
   );
+});
+
+test("auth.me carries the tab the home page opens on: the member's choice, else the site's rules, else its fallback", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const user = insertUser(ctx, {});
+  const actor = userActor(user);
+  const opens = async () => (await execute(ctx, authMeOp, actor, {})).user?.openHomeTab;
+  expect(await opens()).toBe("latest");
+  await execute(ctx, getOperation("settings.update"), admin, {
+    homeTab: {
+      rules: [
+        {
+          rule: { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] },
+          tab: "forums",
+        },
+      ],
+      fallback: "hot",
+    },
+  });
+  expect(await opens()).toBe("forums");
+  ctx.sqlite.prepare("UPDATE users SET home_tab = 'media' WHERE id = ?1").run(user.id);
+  expect(await opens()).toBe("media");
 });

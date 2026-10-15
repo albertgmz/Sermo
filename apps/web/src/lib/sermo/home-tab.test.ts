@@ -22,9 +22,7 @@ afterAll(() => {
   mock.module("next/headers", () => headersModule);
 });
 
-import { viewerBody } from "@/lib/test-viewer";
-
-const { getDefaultTab } = await import("./home-tab");
+const { getGuestTab } = await import("./home-tab");
 
 function backend(answer: (path: string) => Response) {
   const asked: { path: string; headers: Headers }[] = [];
@@ -40,28 +38,24 @@ function backend(answer: (path: string) => Response) {
 
 test("a guest's default is read without the visitor, so it can be shared", async () => {
   const asked = backend(() => Response.json({ tab: "forums" }));
-  expect(await getDefaultTab(false)).toBe("forums");
+  expect(await getGuestTab()).toBe("forums");
   expect(asked).toHaveLength(1);
   expect(asked[0]?.path).toBe("/api/v1/site/home-tab");
   expect(asked[0]?.headers.get("cookie")).toBeNull();
 });
 
-test("a failed read gives Latest and never throws", async () => {
+test("a refusal or an answer that is no tab gives Latest and never throws", async () => {
   const log = spyOn(console, "error").mockImplementation(() => {});
   backend(() =>
     Response.json({ error: { code: "internal" } }, { status: 500 }),
   );
-  expect(await getDefaultTab(false)).toBe("latest");
+  expect(await getGuestTab()).toBe("latest");
+  expect(await getGuestTab()).toBe("latest");
+  backend(() => Response.json({ tab: "photos" }));
+  expect(await getGuestTab()).toBe("latest");
+  globalThis.fetch = (async () => {
+    throw new TypeError("connection refused");
+  }) as unknown as typeof fetch;
+  expect(await getGuestTab()).toBe("latest");
   log.mockRestore();
-});
-
-test("a member's default is read as the member", async () => {
-  const asked = backend((path) =>
-    Response.json(path.endsWith("/me") ? viewerBody(true) : { tab: "hot" }),
-  );
-  expect(await getDefaultTab(true)).toBe("hot");
-  // The visitor is settled on the session first (once per request, shared with the page).
-  const read = asked.filter((entry) => entry.path === "/api/v1/site/home-tab");
-  expect(read).toHaveLength(1);
-  expect(read[0]?.headers.get("cookie")).toContain("sermo.session_token=abc");
 });

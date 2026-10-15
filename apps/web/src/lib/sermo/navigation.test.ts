@@ -77,6 +77,7 @@ const me = {
     language: null,
     keyboardShortcuts: true,
     homeTab: null,
+    openHomeTab: "latest",
   },
   permissions: {
     isAdmin: false,

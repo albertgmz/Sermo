@@ -3,14 +3,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { FeaturedThreads } from "@/app/[locale]/(main)/_feed/featured-threads";
 import {
   moreFeed,
   moreMedia,
   newFeedCount,
 } from "@/app/[locale]/(main)/_feed/feed-actions";
-import { feedPage, type Tab } from "@/app/[locale]/(main)/_feed/feed-page";
+import {
+  TABS as FEED_TABS,
+  feedPage,
+  type Tab,
+} from "@/app/[locale]/(main)/_feed/feed-page";
 import { FeedSidebar } from "@/app/[locale]/(main)/_feed/feed-sidebar";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
 import { ForumList } from "@/app/[locale]/(main)/forums/forum-list";
@@ -41,7 +45,7 @@ import {
 } from "@/lib/home-tabs";
 import { pagesParam } from "@/lib/list-pages";
 import { POLL_MS } from "@/lib/poll-intervals";
-import { getDefaultTab } from "@/lib/sermo/home-tab";
+import { getGuestTab } from "@/lib/sermo/home-tab";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -74,11 +78,15 @@ export default function HomePage(props: PageProps<"/[locale]">) {
           without reading the cookie. The composer settles on the session alone, ahead of the
           feed. */}
       <Suspense fallback={null}>
-        <HomeComposer />
+        <OnFeedTabs {...props}>
+          <HomeComposer />
+        </OnFeedTabs>
       </Suspense>
       {/* No fallback: the block is drawn only when something is featured. */}
       <Suspense fallback={null}>
-        <FeaturedThreads />
+        <OnFeedTabs {...props}>
+          <FeaturedThreads />
+        </OnFeedTabs>
       </Suspense>
       <Suspense
         fallback={
@@ -142,16 +150,33 @@ function forumsTabHref(section: string | null, stats: StatsTab) {
   return `/?${params.toString()}`;
 }
 
+// The tab the page opens on, once per request: the address, else the default of the visitor. A
+// member's default comes with the session (their choice, or the site's rules decided for them);
+// only a guest asks the site, and that answer is shared.
+const opening = cache(
+  async (searchParams: PageProps<"/[locale]">["searchParams"]) => {
+    const [params, viewer] = await Promise.all([searchParams, getViewer()]);
+    const signedIn = viewer.user !== null;
+    const home = viewer.user?.openHomeTab ?? (await getGuestTab());
+    const tab = openTab({ named: tabParam(params.tab), home, signedIn });
+    return { params, signedIn, home, tab };
+  },
+);
+
+// What belongs to the feed (the wall composer, the featured threads) is drawn on its tabs only.
+async function OnFeedTabs({
+  searchParams,
+  children,
+}: PageProps<"/[locale]"> & { children: React.ReactNode }) {
+  const { tab } = await opening(searchParams);
+  return FEED_TABS.some((feed) => feed === tab) ? children : null;
+}
+
 async function HomeTabs({ searchParams }: PageProps<"/[locale]">) {
-  const [params, viewer, t] = await Promise.all([
-    searchParams,
-    getViewer(),
+  const [{ params, signedIn, home, tab }, t] = await Promise.all([
+    opening(searchParams),
     getTranslations("home.page"),
   ]);
-  const signedIn = viewer.user !== null;
-  // The member's own choice comes with the session; only a visitor with none asks the site.
-  const home = viewer.user?.homeTab ?? (await getDefaultTab(signedIn));
-  const tab = openTab({ named: tabParam(params.tab), home, signedIn });
   const { bar, more } = barOf({ active: tab, fallback: home, signedIn });
   const link = (value: HomeTab) => ({
     value,

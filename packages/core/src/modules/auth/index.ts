@@ -49,6 +49,8 @@ import { requestLocation } from "../security/location";
 import { logMemberIp } from "../security/log";
 import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
+import { readSiteSettings } from "../settings";
+import { resolveHomeTab } from "../settings/home-tab";
 import { usernameChange } from "./rename-marker";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
@@ -1342,6 +1344,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       language: row.language,
       keyboardShortcuts: row.keyboard_shortcuts === 1,
       homeTab: row.home_tab,
+      openHomeTab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab),
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { renderToReadableStream } from "react-dom/server";
 import { translator, withIntl } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
@@ -45,10 +53,12 @@ function backend({
   member,
   siteTab = "latest",
   own = null,
+  siteFails = false,
 }: {
   member: boolean;
   siteTab?: string;
   own?: string | null;
+  siteFails?: boolean;
 }) {
   asked.length = 0;
   globalThis.fetch = (async (url: string) => {
@@ -56,11 +66,15 @@ function backend({
     asked.push({ path: pathname, search: searchParams });
     if (pathname === "/api/v1/me") {
       const body = viewerBody(member);
-      if (body.user) Object.assign(body.user, { homeTab: own });
+      // The backend decides the member's default: their choice, else the site's answer.
+      if (body.user)
+        Object.assign(body.user, { homeTab: own, openHomeTab: own ?? siteTab });
       return Response.json(body);
     }
     if (pathname === "/api/v1/site/home-tab")
-      return Response.json({ tab: siteTab });
+      return siteFails
+        ? Response.json({ error: { code: "internal" } }, { status: 500 })
+        : Response.json({ tab: siteTab });
     return Response.json({ items: [], nextCursor: null });
   }) as unknown as typeof fetch;
 }
@@ -101,12 +115,35 @@ test("a member's own choice opens without asking the site, and beats its default
   expect(paths()).not.toContain(FORUMS);
 });
 
-test("a member with no choice gets the site's default for them", async () => {
+test("a member with no choice gets the default the backend decided for them, with no extra request", async () => {
   backend({ member: true, siteTab: "hot" });
   await render();
-  expect(paths()).toContain(SITE_TAB);
+  expect(paths()).not.toContain(SITE_TAB);
   const feed = asked.find((entry) => entry.path === FEED);
   expect(feed?.search.get("scope")).toBe("hot");
+});
+
+test("a guest whose default cannot be read gets Latest, not an error page", async () => {
+  const log = spyOn(console, "error").mockImplementation(() => {});
+  backend({ member: false, siteFails: true });
+  const html = await render();
+  log.mockRestore();
+  expect(asked.find((entry) => entry.path === FEED)?.search.get("scope")).toBe(
+    "latest",
+  );
+  expect(html).toContain('href="/?tab=hot"');
+});
+
+test("the featured threads and the wall composer are asked for on the feed tabs only", async () => {
+  const FEATURED = "/api/v1/featured-threads";
+  backend({ member: true });
+  await render({ tab: "hot" });
+  expect(paths()).toContain(FEATURED);
+  for (const tab of ["forums", "media"]) {
+    backend({ member: true });
+    await render({ tab });
+    expect(paths(), tab).not.toContain(FEATURED);
+  }
 });
 
 test("a tab in the address wins over the choice and the default", async () => {

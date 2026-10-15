@@ -17,7 +17,7 @@ mock.module("next-intl/server", () => ({
 }));
 // The gate reads the visitor's LITE choice on the server; the page is the thing under test here.
 mock.module("@/components/forum/art", () => ({
-  Art: ({ src, category }: { src: string; category: string }) => (
+  LazyArt: ({ src, category }: { src: string; category: string }) => (
     <span data-art={`${category} ${src}`} />
   ),
 }));
@@ -80,12 +80,13 @@ test("a page of pictures is one row holding a grid of links to where each is", a
   const html = renderToStaticMarkup(withIntl(page.rows[0]?.node));
   expect(html).toContain('href="/threads/5#post-99"');
   expect(html).toContain('aria-label="inThread:Holiday"');
-  // The thumbnail is drawn when there is one, the picture itself when there is not, always through
-  // the gate of the post pictures.
+  // The thumbnail is drawn through the gate of the post pictures, never the original.
   expect(html).toContain('data-art="postImages /api/v1/files/1007"');
   expect(html).toContain('href="/members/12?post=4#profile-post-4"');
   expect(html).toContain('aria-label="onProfile"');
-  expect(html).toContain('data-art="postImages /api/v1/files/6"');
+  // A picture with no thumbnail is not fetched at all: an icon stands in for it.
+  expect(html).not.toContain("/api/v1/files/6");
+  expect(html).not.toContain("/api/v1/files/7");
 });
 
 test("a page with nothing to show has no rows, and keeps the cursor to go on", async () => {

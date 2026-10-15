@@ -813,21 +813,31 @@ carries the switch for the web app; `threads.ranked` itself answers either way.
 
 ## Home page
 
-The home page has five tabs: Latest, Hot, Following (members only), Forums (the forum list) and
-Media (the newest pictures attached to posts and wall posts, limited to what the viewer may open).
-Every tab has an address that names it (`/?tab=forums`); `/forums` always shows the forum list.
-The bar shows three tabs and puts the rest in a "More" menu: the visitor's default tab, then the
-first tabs of the order above; the tab that is open is always on the bar.
+The home page has five tabs, in this fixed order: Latest, Hot, Following (members only), Forums (the
+forum list) and Media (the newest pictures attached to posts and wall posts, limited to what the
+viewer may open). Every tab has an address that names it (`/?tab=forums`); `/forums` always shows
+the forum list. The wall composer and the featured threads are drawn on the first three tabs only.
+
+The bar shows three tabs and puts the rest in a "More" menu. It holds the visitor's default tab and
+then the first tabs of the order above that are not it, up to three, drawn in the fixed order (a
+default of Media gives Latest, Hot, Media). The tab that is open is always on the bar: when it is
+not one of those, it takes the place of the last of them that is not the default. A guest has no
+Following tab. The menu's entries are links only once it is opened (a browser without JavaScript
+cannot reach them from the bar).
 
 A visitor opens the tab their address names. With no tab in the address, a member opens the tab
 they chose in their preferences (`homeTab`, null for the site default); otherwise the `homeTab`
 setting decides (`PATCH /settings`, admin panel: Settings, Home page): an ordered list of
 `{ rule, tab }` entries, where the first rule the visitor meets wins, and a fallback tab. Rules are
-the shared criteria rules, cheap criteria only (they are checked on every page view); guests are
-decided by the same rules (`is_guest` and the criteria that need no account apply to them; a guest is in no group). Following needs an
-account, so a rule a guest can meet, and the fallback, cannot pick it, and a guest who asks for it
-gets Latest. `GET /site/home-tab` (`site.homeTab`) answers the tab the caller opens on;
-`GET /media` (`media.list`) is the Media tab.
+the shared criteria rules, cheap criteria only (they are checked on every page view). Guests are
+decided by the same rules (`is_guest` and the criteria that need no account apply to them; a guest
+is in no group). Following needs an account, so a rule a guest can meet, and the fallback, cannot
+pick it, and a guest who asks for it gets Latest.
+
+`auth.me` carries both the member's choice (`user.homeTab`) and the tab decided for them
+(`user.openHomeTab`), so the home page makes no extra request for a member. `GET /site/home-tab`
+(`site.homeTab`) answers the same for any caller, guests included; `GET /media` (`media.list`) is
+the Media tab.
 
 ## Notifications
 

@@ -34,6 +34,11 @@ export const SelfUser = z
     keyboardShortcuts: z.boolean(),
     /** The home page tab the member chose; null when they made no choice (the site default applies). */
     homeTab: z.enum(HOME_TABS).nullable(),
+    /**
+     * The tab the home page opens on for this member when the address names none: their choice
+     * (`homeTab`), else the site's home tab rules decided for them, else the site's fallback.
+     */
+    openHomeTab: z.enum(HOME_TABS),
   })
   .meta({ id: "SelfUser" });
 

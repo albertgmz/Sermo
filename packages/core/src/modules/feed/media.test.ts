@@ -184,6 +184,56 @@ describe("media.list", () => {
     expect(ids(await w.call("media.list", GUEST, {}))).toEqual([keptImage]);
   });
 
+  test("a deleted wall post, or one by an ignored member, is not listed", async () => {
+    const w = world();
+    const gone = await w.wall(w.bob, w.carolUser.id, "removed");
+    const ignored = await w.wall(w.bob, w.carolUser.id, "by bob");
+    const fine = await w.wall(w.alice, w.carolUser.id, "by alice");
+    attach(w, "profile_post", gone.id);
+    const byBob = attach(w, "profile_post", ignored.id);
+    const byAlice = attach(w, "profile_post", fine.id);
+    w.ctx.sqlite.prepare("UPDATE profile_posts SET state = 'deleted' WHERE id = ?1").run(gone.id);
+    for (const viewer of [w.carol, w.admin])
+      expect(ids(await w.call("media.list", viewer, {}))).toEqual([byAlice, byBob]);
+    await w.call("users.ignore", w.carol, { userId: w.bobUser.id });
+    expect(ids(await w.call("media.list", w.carol, {}))).toEqual([byAlice]);
+  });
+
+  test("a viewer without profile.view sees no wall pictures, and keeps the forum ones", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Photos");
+    const wall = await w.wall(w.bob, w.carolUser.id, "for carol");
+    const post = attach(w, "post", t.post.id);
+    const onWall = attach(w, "profile_post", wall.id);
+    expect(ids(await w.call("media.list", w.alice, {}))).toEqual([onWall, post]);
+    const definition = w.ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "SELECT id FROM permission_definitions WHERE key = 'profile.view'",
+      )
+      .get()!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, 1, 0, -1), (?1, 0, 2, 0, -1) ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = -1",
+      )
+      .run(definition);
+    invalidate(w.ctx, "permissions");
+    for (const viewer of [GUEST, w.alice])
+      expect(ids(await w.call("media.list", viewer, {}))).toEqual([post]);
+  });
+
+  test("a post awaiting approval is not listed, for its author either", async () => {
+    const w = world();
+    w.ctx.sqlite
+      .prepare("UPDATE nodes SET require_reply_approval = 1 WHERE id = ?1")
+      .run(w.open.id);
+    const t = await w.thread(w.alice, w.open.id, "Held");
+    const reply = await w.reply(w.carol, t.thread.id, "waiting");
+    expect(reply.state).toBe("moderated");
+    attach(w, "post", reply.id);
+    for (const viewer of [w.carol, w.alice, GUEST])
+      expect(ids(await w.call("media.list", viewer, {}))).toEqual([]);
+  });
+
   test("pages by attachment, newest first, with no repeats and no gaps", async () => {
     const w = world();
     const t = await w.thread(w.alice, w.open.id, "Many");

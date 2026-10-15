@@ -52,6 +52,7 @@ const member = {
     language: null,
     keyboardShortcuts: true,
     homeTab: null,
+    openHomeTab: "latest",
   },
 };
 
