@@ -7,7 +7,6 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -51,9 +50,6 @@ export function PictureViewer({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<PictureEntry[]>([]);
   const current = parseRef(useSearchParams().get(PICTURE_PARAM));
   const [history] = useState(() => pictureHistory(BROWSER));
-  useEffect(() => {
-    if (!current) history.left();
-  }, [current, history]);
 
   const register = useCallback(
     (added: PictureEntry[]) => setEntries((held) => mergeEntries(held, added)),

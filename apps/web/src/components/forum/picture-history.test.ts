@@ -2,20 +2,26 @@ import { expect, test } from "bun:test";
 import { pictureHistory } from "./picture-history";
 import { arrowStep, closeAnswer, SWIPE_PX, swipeStep } from "./picture-input";
 
-// A browser's history reduced to what the viewer uses: a stack of addresses and a place in it.
+// A browser's history reduced to what the viewer uses: a stack of entries (address and state) and a
+// place in it. Like a browser, each entry keeps its own state.
 function browser(start: string) {
-  const stack = [start];
+  const stack: { url: string; state: unknown }[] = [
+    { url: start, state: null },
+  ];
   let at = 0;
   const log: string[] = [];
   const history = pictureHistory({
     history: () => ({
-      pushState: (_s, _t, url) => {
-        stack.splice(at + 1, stack.length, String(url));
+      get state() {
+        return stack[at].state;
+      },
+      pushState: (state, _t, url) => {
+        stack.splice(at + 1, stack.length, { url: String(url), state });
         at += 1;
         log.push("push");
       },
-      replaceState: (_s, _t, url) => {
-        stack[at] = String(url);
+      replaceState: (state, _t, url) => {
+        stack[at] = { url: String(url), state };
         log.push("replace");
       },
       back: () => {
@@ -23,15 +29,25 @@ function browser(start: string) {
         log.push("back");
       },
     }),
-    here: () => stack[at],
+    here: () => stack[at].url,
   });
   return {
     history,
     log,
-    address: () => stack[at],
+    address: () => stack[at].url,
     // What the browser does on its own Back button.
     back: () => {
       at = Math.max(0, at - 1);
+    },
+    // A navigation to another page (the "where" link): a new entry with no mark.
+    visit: (url: string) => {
+      stack.splice(at + 1, stack.length, { url, state: null });
+      at += 1;
+    },
+    // What the router does to an entry when it rewrites the address (the list's `pages`): the state
+    // is not kept.
+    rewrite: (url: string) => {
+      stack[at] = { url, state: null };
     },
     entries: () => stack.length,
   };
@@ -75,13 +91,33 @@ test("closing a viewer a link opened takes the picture out in place", () => {
   expect(b.entries()).toBe(1);
 });
 
-test("after Back closed it the next close is not a Back", () => {
+test("opening the post from the viewer and coming Back still closes without a second entry", () => {
   const b = browser("/?tab=media");
   b.history.open(ref(5));
+  b.visit("/threads/7#post-31");
   b.back();
-  b.history.left();
+  expect(b.address()).toBe("/?tab=media&picture=post-5-7");
+  b.history.close();
+  expect(b.log.at(-1)).toBe("back");
+  expect(b.address()).toBe("/?tab=media");
+});
+
+test("an entry that lost its mark is closed in place, which is the safe way", () => {
+  const b = browser("/?tab=media");
+  b.history.open(ref(5));
+  b.rewrite("/?tab=media&picture=post-5-7&pages=2");
   b.history.close();
   expect(b.log.at(-1)).toBe("replace");
+  expect(b.address()).toBe("/?tab=media&pages=2");
+});
+
+test("stepping keeps the mark, so a close after it still goes back", () => {
+  const b = browser("/?tab=media");
+  b.history.open(ref(5));
+  b.history.change(ref(6));
+  b.history.change(ref(7));
+  b.history.close();
+  expect(b.log.at(-1)).toBe("back");
 });
 
 test("arrow keys step, unless a modifier is down or a field has the key", () => {
