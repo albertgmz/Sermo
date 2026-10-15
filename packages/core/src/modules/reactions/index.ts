@@ -14,9 +14,13 @@ import type { ReactionContentType } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
+import type { Language } from "../../i18n";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import { can, getNodeTree, requirePermission } from "../../permissions";
+import { actorFacts, assertRule, evaluate, parseRule, type Rule } from "../../shared/criteria";
+import { lockHint } from "../../shared/criteria/hint";
+import { viewerLanguage } from "../../shared/language";
 import { parseReactionCounts, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
@@ -38,6 +42,9 @@ type TypeRow = {
   frame_width: number | null;
   frame_height: number | null;
   frame_count: number;
+  rule: string;
+  forum_ids: string;
+  hide_when_locked: number;
 };
 type ReactionRow = {
   id: number;
@@ -64,7 +71,7 @@ export const listSql =
   "SELECT id, user_id, reaction_type_id, score, created_at FROM reactions WHERE content_type = ?1 AND content_id = ?2 AND user_id > ?3 ORDER BY user_id LIMIT ?4";
 
 const typeColumns =
-  "id, title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count";
+  "id, title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count, rule, forum_ids, hide_when_locked";
 
 function fileRow(ctx: Ctx, fileId: number) {
   return prepared(ctx, "reactions.fileSize", () =>
@@ -78,6 +85,7 @@ function fileSize(ctx: Ctx, fileId: number) {
   if (!file?.width || !file.height) throw new ValidationError("The picture could not be measured.");
   return { width: file.width, height: file.height };
 }
+/** A type as every viewer sees it; the viewer's own standing is added by `forViewer`. */
 function typeValue(ctx: Ctx, r: TypeRow) {
   // A public read: a picture whose file is gone is left out, the emoji stays.
   const file = r.image_file_id === null ? undefined : fileRow(ctx, r.image_file_id);
@@ -100,7 +108,48 @@ function typeValue(ctx: Ctx, r: TypeRow) {
     isActive: !!r.is_active,
     image: publicPicture(ctx, imageFileId),
     frames,
+    forumIds: JSON.parse(r.forum_ids) as number[],
+    hideWhenLocked: !!r.hide_when_locked,
   };
+}
+type TypeValue = ReturnType<typeof typeValue>;
+/** A type with the rule it is given by, as kept in the cache. */
+type Listed = { value: TypeValue; rule: Rule };
+const listed = (ctx: Ctx, row: TypeRow): Listed => ({
+  value: typeValue(ctx, row),
+  rule: parseRule(row.rule),
+});
+
+/**
+ * The types as one viewer sees them: each active type with its rule decided for the viewer
+ * (`open`, `locked` or `hidden`) and, for a locked one, the hint. The viewer's facts are loaded
+ * once for all the rules (one query per kind of fact the rules read, none for a guest or when no
+ * type has a rule); the rest is in memory. The rule itself is shown to administrators only.
+ */
+function forViewer(ctx: Ctx, actor: Actor, types: readonly Listed[], asked?: Language) {
+  const ruled = types.filter((type) => type.value.isActive && type.rule.conditions.length > 0);
+  const facts =
+    ruled.length > 0
+      ? actorFacts(
+          ctx,
+          actor,
+          ruled.map((type) => type.rule),
+        )
+      : null;
+  const administrator = can(ctx, actor, "admin.reactionTypes");
+  let language = asked;
+  return types.map(({ value, rule }) => {
+    const ruledHere = value.isActive && rule.conditions.length > 0;
+    const open = !ruledHere || evaluate(rule, facts!);
+    const locked = !open && !value.hideWhenLocked;
+    if (locked) language ??= viewerLanguage(ctx, actor);
+    return {
+      ...value,
+      rule: administrator ? rule : null,
+      access: open ? ("open" as const) : locked ? ("locked" as const) : ("hidden" as const),
+      lockHint: locked ? lockHint(ctx, language!, rule) : null,
+    };
+  });
 }
 /**
  * The frame fields a type ends up with, checked against the measured picture: both sizes or
@@ -179,6 +228,51 @@ function adjustCounts(json: string, oldType: number | null, newType: number | nu
   }
   return JSON.stringify(counts);
 }
+/**
+ * The rule and forum list a type is saved with, as stored. The rule may hold only `cheap`
+ * criteria (it is decided on every reaction) and the forums must be forums, not categories.
+ */
+function checkedAccess(ctx: Ctx, rule: Rule, forumIds: readonly number[]) {
+  assertRule(ctx, rule, "cheap");
+  const ids = [...new Set(forumIds)];
+  const tree = getNodeTree(ctx);
+  if (ids.some((id) => tree.get(id)?.type !== "forum"))
+    throw new ValidationError("forumIds must be existing forums.");
+  return { rule: JSON.stringify(rule), forumIds: JSON.stringify(ids) };
+}
+/** The forum the item is in; null for content that is not in a forum. */
+function forumOf(ctx: Ctx, contentType: ReactionContentType, contentId: number): number | null {
+  if (contentType !== "post") return null;
+  return (
+    prepared(ctx, "reactions.postForum", () =>
+      ctx.sqlite.prepare<{ node_id: number }, [number]>(
+        "SELECT t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+      ),
+    ).get(contentId)?.node_id ?? null
+  );
+}
+/**
+ * Refuses a reaction type the actor may not give on this item: it is limited to forums the item
+ * is not in (content outside forums counts as elsewhere), or its rule does not hold for the
+ * actor. Giving a type again, or taking a reaction back, is never refused here.
+ */
+function requireUsable(
+  ctx: Ctx,
+  actor: Actor,
+  type: TypeRow,
+  contentType: ReactionContentType,
+  contentId: number,
+) {
+  const forums = JSON.parse(type.forum_ids) as number[];
+  if (forums.length > 0) {
+    const forum = forumOf(ctx, contentType, contentId);
+    if (forum === null || !forums.includes(forum))
+      throw new ForbiddenError("This reaction cannot be given here.");
+  }
+  const rule = parseRule(type.rule);
+  if (rule.conditions.length > 0 && !evaluate(rule, actorFacts(ctx, actor, [rule])))
+    throw new ForbiddenError("This reaction is not available to you.");
+}
 function requireReactPermission(ctx: Ctx, actor: Actor) {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "reaction.react");
@@ -187,15 +281,20 @@ function requireReactPermission(ctx: Ctx, actor: Actor) {
 
 export const reactionTypesListOp = implement(
   reactionTypesList,
-  (ctx) => ({
-    items: cached(ctx, "reaction_types", () =>
-      prepared(ctx, "reactions.types", () =>
-        ctx.sqlite.prepare<TypeRow, []>(
-          `SELECT ${typeColumns} FROM reaction_types ORDER BY position, id`,
-        ),
-      )
-        .all()
-        .map((row) => typeValue(ctx, row)),
+  (ctx, actor, input) => ({
+    items: forViewer(
+      ctx,
+      actor,
+      cached(ctx, "reaction_types", () =>
+        prepared(ctx, "reactions.types", () =>
+          ctx.sqlite.prepare<TypeRow, []>(
+            `SELECT ${typeColumns} FROM reaction_types ORDER BY position, id`,
+          ),
+        )
+          .all()
+          .map((row) => listed(ctx, row)),
+      ),
+      input.language,
     ),
   }),
   { public: "Reaction types are visible to everyone." },
@@ -213,6 +312,7 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
       input.frameHeight ?? null,
       input.frameCount,
     );
+    const access = checkedAccess(ctx, input.rule, input.forumIds);
     const row = ctx.sqlite
       .prepare<
         TypeRow,
@@ -226,9 +326,12 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
           number | null,
           number | null,
           number,
+          string,
+          string,
+          number,
         ]
       >(
-        `INSERT INTO reaction_types (title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) RETURNING ${typeColumns}`,
+        `INSERT INTO reaction_types (title, emoji, score, position, is_active, image_file_id, frame_width, frame_height, frame_count, rule, forum_ids, hide_when_locked) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12) RETURNING ${typeColumns}`,
       )
       .get(
         input.title,
@@ -240,10 +343,13 @@ export const reactionTypesCreateOp = implement(reactionTypesCreate, (ctx, actor,
         frames.width,
         frames.height,
         frames.count,
+        access.rule,
+        access.forumIds,
+        Number(input.hideWhenLocked),
       )!;
     invalidate(ctx, "reaction_types");
     appendModeratorLog(ctx, actor, "reaction_type.create", "reaction_type", row.id);
-    return typeValue(ctx, row);
+    return forViewer(ctx, actor, [listed(ctx, row)])[0]!;
   });
 });
 export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor, input) => {
@@ -269,6 +375,11 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
             height,
             input.frameCount ?? (width === null && height === null ? 1 : old.frame_count),
           );
+    const access = checkedAccess(
+      ctx,
+      input.rule ?? parseRule(old.rule),
+      input.forumIds ?? (JSON.parse(old.forum_ids) as number[]),
+    );
     const row = ctx.sqlite
       .prepare<
         TypeRow,
@@ -282,10 +393,13 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
           number | null,
           number | null,
           number,
+          string,
+          string,
+          number,
           number,
         ]
       >(
-        `UPDATE reaction_types SET title = ?1, emoji = ?2, score = ?3, position = ?4, is_active = ?5, image_file_id = ?6, frame_width = ?7, frame_height = ?8, frame_count = ?9 WHERE id = ?10 RETURNING ${typeColumns}`,
+        `UPDATE reaction_types SET title = ?1, emoji = ?2, score = ?3, position = ?4, is_active = ?5, image_file_id = ?6, frame_width = ?7, frame_height = ?8, frame_count = ?9, rule = ?10, forum_ids = ?11, hide_when_locked = ?12 WHERE id = ?13 RETURNING ${typeColumns}`,
       )
       .get(
         input.title ?? old.title,
@@ -297,12 +411,15 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
         frames.width,
         frames.height,
         frames.count,
+        access.rule,
+        access.forumIds,
+        Number(input.hideWhenLocked ?? !!old.hide_when_locked),
         old.id,
       )!;
     if (replaced && old.image_file_id !== null) releaseFile(ctx, old.image_file_id);
     invalidate(ctx, "reaction_types");
     appendModeratorLog(ctx, actor, "reaction_type.update", "reaction_type", row.id);
-    return typeValue(ctx, row);
+    return forViewer(ctx, actor, [listed(ctx, row)])[0]!;
   });
 });
 export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
@@ -315,6 +432,7 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
     const previous = existing(ctx, input.contentType, input.contentId, user.userId);
     const json = countsRow(ctx, input.contentType, input.contentId);
     if (previous?.reaction_type_id === type.id) return reactionSummary(json, type.id);
+    requireUsable(ctx, actor, type, input.contentType, input.contentId);
     if (previous) {
       prepared(ctx, "reactions.change", () =>
         ctx.sqlite.prepare<unknown, [number, number, number]>(

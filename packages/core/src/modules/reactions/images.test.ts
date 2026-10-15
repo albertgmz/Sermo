@@ -68,7 +68,8 @@ describe("reaction type pictures", () => {
     expect(type.image).toEqual({ fileId, url: `/api/v1/files/${fileId}` });
     expect(type.frames).toBeNull();
     expect(fileState(f.ctx, fileId)).toBe("public");
-    expect(await listed(f, type.id)).toEqual(type);
+    // The public list leaves the rule out; it is the administrator's.
+    expect(await listed(f, type.id)).toEqual({ ...type, rule: null });
   });
 
   test("a sprite sheet reports its frame size, count and columns", async () => {

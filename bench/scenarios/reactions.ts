@@ -5,6 +5,8 @@ let posts: { id: number; actor: Actor; reactionTypeId: number }[] = [];
 let removePosts: { id: number; actor: Actor }[] = [];
 let messages: { id: number; actor: Actor; reactionTypeId: number }[] = [];
 let popularPosts: number[] = [];
+let ruledPosts: { id: number; actor: Actor }[] = [];
+let ruledType = 0;
 let ready = false;
 
 function prepare(env: BenchEnv) {
@@ -66,6 +68,41 @@ function prepare(env: BenchEnv) {
   ready = true;
 }
 
+// A reaction type given by members who meet a rule of two cheap criteria, in the forums of
+// the posts below: the rule and the forum list are both decided on every reaction.
+async function prepareRuled(env: BenchEnv) {
+  prepare(env);
+  const forumOf = env.ctx.sqlite.prepare<{ id: number; node_id: number }, [string]>(
+    "SELECT p.id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id IN (SELECT value FROM json_each(?1))",
+  );
+  const nodes = new Map(
+    forumOf.all(JSON.stringify(posts.map((row) => row.id))).map((r) => [r.id, r.node_id]),
+  );
+  const forumIds = [...new Set(nodes.values())].slice(0, 100);
+  ruledPosts = posts.filter((row) => forumIds.includes(nodes.get(row.id)!));
+  if (ruledPosts.length < 120) throw new Error("Reaction benchmark fixtures are missing.");
+  const existing = (
+    (await env.call("reactionTypes.list", env.actors.admin, {})) as {
+      items: { id: number; title: string }[];
+    }
+  ).items.find((item) => item.title === "Bench rule");
+  ruledType = (
+    existing ??
+    ((await env.call("reactionTypes.create", env.actors.admin, {
+      title: "Bench rule",
+      emoji: "R",
+      rule: {
+        match: "all",
+        conditions: [
+          { criterion: "post_count", value: 0 },
+          { criterion: "days_registered", value: 0 },
+        ],
+      },
+      forumIds,
+    })) as { id: number })
+  ).id;
+}
+
 export const scenarios: Scenario[] = [
   {
     name: "reactionTypes.list",
@@ -84,6 +121,32 @@ export const scenarios: Scenario[] = [
         reactionTypeId: row.reactionTypeId,
       });
     },
+  },
+  {
+    name: "reactions.set posts with a rule and forums",
+    kind: "write",
+    setup: prepareRuled,
+    run(env, i) {
+      const row = ruledPosts[i % ruledPosts.length]!;
+      // The toggle reads the current state: a member who holds the ruled type moves to the first
+      // one, so each request gives the ruled type and is judged against the rule and forums.
+      const current = env.ctx.sqlite
+        .prepare<{ reaction_type_id: number }, [number, number]>(
+          "SELECT reaction_type_id FROM reactions WHERE content_type = 'post' AND content_id = ?1 AND user_id = ?2",
+        )
+        .get(row.id, (row.actor as { userId: number }).userId)?.reaction_type_id;
+      return env.call("reactions.set", row.actor, {
+        contentType: "post",
+        contentId: row.id,
+        reactionTypeId: current === ruledType ? 1 : ruledType,
+      });
+    },
+  },
+  {
+    name: "reactionTypes.list member with rules",
+    kind: "read",
+    setup: prepareRuled,
+    run: (env, i) => env.call("reactionTypes.list", env.actors.member(i), {}),
   },
   {
     name: "reactions.remove posts",

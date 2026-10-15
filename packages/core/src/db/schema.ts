@@ -919,6 +919,12 @@ export const reactionTypes = sqliteTable("reaction_types", {
   frameHeight: integer("frame_height"),
   /** Frames of the picture, read left to right, then top to bottom; 1 for a plain image. */
   frameCount: integer("frame_count").notNull().default(1),
+  /** JSON rule `{ match, conditions }` for who may give it; only `cheap` criteria. Empty = everyone. */
+  rule: text("rule").notNull().default(EMPTY_RULE),
+  /** JSON array of forum ids it may be given in; `[]` = everywhere. Elsewhere only when empty. */
+  forumIds: text("forum_ids").notNull().default("[]"),
+  /** A member the rule excludes does not see the type, instead of seeing it locked. */
+  hideWhenLocked: bool("hide_when_locked").notNull().default(false),
 });
 
 export const reactions = sqliteTable(
