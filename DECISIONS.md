@@ -2179,3 +2179,16 @@ hidden by its rule reads as not available, and the rule is shown only to shop ma
 rules only to award managers). Announcements keep their own audience for now. A notice with an
 unknown audience value migrates as inactive. OpenAPI schema names changed (`CriteriaRule`,
 `CriterionDefinition`).
+
+**Cookie consent is opt-in, decided on the server.** `vanilla-cookieconsent` 3.1.0 draws the banner
+(Accept all, Reject all and Choose with equal weight, nothing pre-ticked, no wall; English and
+Spanish). One typed inventory (`lib/consent/inventory.ts`) feeds the banner, the `/cookies` page
+and a test that scans every source file for cookie and storage writers, so a new one fails until it
+is listed. The server reads the consent cookie (`forum_consent`, six months, carrying the policy
+version) and leaves the analytics tag and embedded players out of the first HTML until consent;
+players are drawn as a placeholder (Load, Always load embedded content, Open the original) that the
+client rebuilds against the same host list as the backend. Withdrawing deletes the category's
+cookies on every parent domain; withdrawing analytics or embeds reloads the page. "Always load"
+pressed before choosing records a choice with only embeds on. The referral cookie is `forum_ref`
+(30 days). The policy version comes from an optional `cookiePolicyVersion` on the site (1 until the
+backend sends it). Policy text and lifetimes are drafts. Not checked in a browser yet.
