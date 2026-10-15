@@ -1,5 +1,4 @@
 import { LogIn, Search } from "lucide-react";
-import { io } from "next/cache";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
@@ -8,13 +7,9 @@ import { LoadingRegion } from "@/components/forum/skeletons";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { Container } from "@/components/layout/container";
 import { GuestMenu } from "@/components/layout/guest-menu";
-import { getCounters, getViewerCard } from "@/components/layout/header-data";
+import { getViewerCard } from "@/components/layout/header-data";
 import { headerIconClass } from "@/components/layout/header-icon-class";
-import {
-  AlertsPanel,
-  MessagesPanel,
-  SearchPanel,
-} from "@/components/layout/header-panels";
+import { SearchPanel } from "@/components/layout/header-panels";
 import { Logo } from "@/components/layout/logo";
 import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav-server";
@@ -124,27 +119,7 @@ async function AccountTools() {
   return (
     <>
       {viewer.user && card ? (
-        <>
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("loadingMessages")}>
-                <Skeleton className="size-10" />
-              </LoadingRegion>
-            }
-          >
-            <MessageTools />
-          </Suspense>
-          <Suspense
-            fallback={
-              <LoadingRegion label={t("loadingAlerts")}>
-                <Skeleton className="size-10" />
-              </LoadingRegion>
-            }
-          >
-            <AlertTools />
-          </Suspense>
-          <AccountMenu />
-        </>
+        <AccountMenu />
       ) : (
         <>
           <GuestMenu lite={await getLiteState()} />
@@ -168,18 +143,4 @@ async function AccountTools() {
       )}
     </>
   );
-}
-
-// Messages and alerts open as panels at every width; the bottom bar of a phone links to their
-// full pages.
-async function MessageTools() {
-  await io();
-  const unread = await getCounters();
-  return <MessagesPanel unread={unread.conversations} />;
-}
-
-async function AlertTools() {
-  await io();
-  const unread = await getCounters();
-  return <AlertsPanel unread={unread.notifications} />;
 }

@@ -30,24 +30,18 @@
     "loadingMenu": "Cargando menú…",
     "loadingNavigation": "Cargando navegación…",
     "loadingAccount": "Cargando tu menú…",
-    "loadingMessages": "Cargando mensajes…",
-    "loadingAlerts": "Cargando notificaciones…",
     "search": "Buscar",
     "login": "Iniciar sesión",
     "register": "Crear cuenta"
   },
   "headerPanels": {
     "messages": {
-      "label": "Conversaciones",
-      "title": "Mensajes",
       "empty": "Aún no hay conversaciones",
       "viewAll": "Ver todas",
       "new": "Nueva conversación",
       "loading": "Cargando conversaciones…"
     },
     "alerts": {
-      "label": "Notificaciones",
-      "title": "Notificaciones",
       "empty": "No hay notificaciones nuevas",
       "viewAll": "Ver todas",
       "markAllRead": "Marcar todo como leído",
@@ -66,7 +60,7 @@
         "search": "Buscar"
       }
     },
-    "failed": "No se pudo cargar. Cierra el panel y ábrelo de nuevo."
+    "failed": "No se pudo cargar. Cierra el menú y ábrelo de nuevo."
   },
   "themeControl": {
     "label": "Tema",
@@ -75,10 +69,33 @@
     "dark": "Oscuro"
   },
   "userMenu": {
-    "bookmarks": "Marcadores",
     "logout": "Cerrar sesión",
+    "edit": "Editar",
+    "editPicture": "Editar tu imagen y tu perfil",
+    "theme": "Tema",
+    "tabUnread": "{label}, {count} sin leer",
+    "tabs": {
+      "alerts": "Notificaciones",
+      "conversations": "Conversaciones",
+      "account": "Cuenta",
+      "bookmarks": "Marcadores"
+    },
+    "bookmarks": {
+      "empty": "Aún no hay marcadores",
+      "viewAll": "Ver todos",
+      "loading": "Cargando marcadores…"
+    },
+    "status": {
+      "label": "Actualiza tu estado",
+      "placeholder": "Actualiza tu estado...",
+      "submit": "Publicar estado",
+      "posted": "Tu estado se publicó.",
+      "view": "Ver tu muro"
+    },
     "aria": {
-      "account": "Menú de la cuenta"
+      "account": "Menú de la cuenta",
+      "accountUnread": "Menú de la cuenta, {count} sin leer",
+      "tabs": "Secciones del menú de la cuenta"
     }
   },
   "guestMenu": {

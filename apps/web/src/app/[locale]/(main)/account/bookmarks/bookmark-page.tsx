@@ -10,7 +10,10 @@ import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { membersFor } from "@/lib/sermo/members";
 
-type Item = z.output<typeof bookmarksList.output>["items"][number];
+export type BookmarkItem = z.output<
+  typeof bookmarksList.output
+>["items"][number];
+type Item = BookmarkItem;
 
 // Where a bookmark leads: a post by its place in the thread, a thread, a conversation.
 export function bookmarkHref(item: Item) {

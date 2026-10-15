@@ -7,11 +7,15 @@ import { LOCALE_DIRS, MESSAGES } from "./locales";
 // A menu opens in a portal the server never renders, and there is no DOM here: the menus are
 // pinned by what their source holds.
 const ENTRY = /<DataSaverMenuItem\b/g;
+const LINK = /<DataSaverLink\b/g;
 
 test("a member's menu and a guest's menu each hold one Data saver entry, to the page of their own", () => {
-  const member = read("src/components/layout/user-menu.tsx");
-  expect(member.match(ENTRY)).toHaveLength(1);
-  expect(member).toContain('href="/account/data-saver"');
+  const member = read("src/components/layout/user-menu-body.tsx");
+  expect(member.match(LINK)).toHaveLength(1);
+  expect(member).toContain("href={DATA_SAVER_HREF}");
+  expect(read("src/app/[locale]/(main)/account/links.ts")).toContain(
+    'DATA_SAVER_HREF = "/account/data-saver"',
+  );
   const guest = read("src/components/layout/guest-menu.tsx");
   expect(guest.match(ENTRY)).toHaveLength(1);
   expect(guest).toContain('href="/data-saver"');

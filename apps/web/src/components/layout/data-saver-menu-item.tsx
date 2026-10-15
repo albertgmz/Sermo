@@ -30,3 +30,24 @@ export function DataSaverMenuItem({
     </DropdownMenuItem>
   );
 }
+
+// The same entry as a plain link, for the Account tab of the avatar menu.
+export function DataSaverLink({
+  state,
+  href,
+  className,
+}: {
+  state: LiteState;
+  href: "/account/data-saver" | "/data-saver";
+  className?: string;
+}) {
+  const t = useTranslations("lite.menuItem");
+  return (
+    <Link href={href} className={className}>
+      <span className="truncate">{t("label")}</span>
+      <span className="ml-auto text-xs text-muted-foreground">
+        <LiteStatus state={state} />
+      </span>
+    </Link>
+  );
+}

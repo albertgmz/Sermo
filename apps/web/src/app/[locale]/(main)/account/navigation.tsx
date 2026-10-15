@@ -3,40 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  ACCOUNT_GROUPS,
+  accountLinks,
+} from "@/app/[locale]/(main)/account/links";
 import { SettingsGroup, SettingsLinkRow } from "@/components/forum/settings";
-
-const GROUPS = [
-  {
-    title: "accountHeading",
-    links: [
-      { label: "profile", href: "/account" },
-      { label: "bookmarks", href: "/account/bookmarks" },
-    ],
-  },
-  {
-    title: "settingsHeading",
-    links: [
-      { label: "privacy", href: "/account/privacy" },
-      { label: "notifications", href: "/account/notifications" },
-      { label: "preferences", href: "/account/preferences" },
-      { label: "perks", href: "/account/permissions" },
-      // Labelled from the LITE messages.
-      { label: null, href: "/account/data-saver" },
-      { label: "security", href: "/account/security" },
-    ],
-  },
-] as const;
 
 // The same links as rows, for the settings screen: every screen the navigation lists except the
 // settings screen itself.
-type AccountLink = (typeof GROUPS)[number]["links"][number];
-
 export function AccountLinks() {
   const t = useTranslations("account.navigation");
   const lite = useTranslations("lite.navigation");
-  const links = GROUPS.flatMap((group): AccountLink[] => [
-    ...group.links,
-  ]).filter(({ href }) => href !== "/account");
+  const links = accountLinks().filter(({ href }) => href !== "/account");
   return (
     <SettingsGroup
       id="more"
@@ -61,7 +39,7 @@ export function AccountNavigation() {
       aria-label={t("aria.label")}
       className="relative flex overflow-x-auto rounded-lg border bg-card lg:block lg:overflow-visible"
     >
-      {GROUPS.map(({ title, links }) => (
+      {ACCOUNT_GROUPS.map(({ title, links }) => (
         <section
           key={title}
           className="shrink-0 border-r last:border-r-0 lg:border-r-0 lg:not-first:border-t"

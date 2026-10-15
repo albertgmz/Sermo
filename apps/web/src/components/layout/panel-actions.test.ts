@@ -12,9 +12,12 @@ mock.module("next/headers", () => ({
 mock.module("@/components/layout/panel-rows", () => ({
   MessageRows: () => null,
   AlertRows: () => null,
+  BookmarkRows: () => null,
 }));
 
-const { loadAlerts, loadConversations } = await import("./panel-actions");
+const { loadAlerts, loadBookmarks, loadConversations } = await import(
+  "./panel-actions"
+);
 
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -84,6 +87,31 @@ test("opening the messages panel hands the listed conversations to its rows", as
   expect(rows.props.conversations).toHaveLength(1);
 });
 
+test("opening the bookmarks tab hands the listed bookmarks to its rows", async () => {
+  backend(
+    Response.json({
+      items: [
+        {
+          id: 3,
+          contentType: "thread",
+          contentId: 8,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          title: "Seed swap",
+          threadId: 8,
+          postPosition: null,
+          author: { id: 1, username: "ann" },
+          excerpt: "",
+        },
+      ],
+      nextCursor: null,
+    }),
+  );
+  const rows = (await loadBookmarks()) as ReactElement<{
+    bookmarks: unknown[];
+  }>;
+  expect(rows.props.bookmarks).toHaveLength(1);
+});
+
 test("a refused list leaves the panel empty instead of failing", async () => {
   backend(
     Response.json(
@@ -99,4 +127,8 @@ test("a refused list leaves the panel empty instead of failing", async () => {
     notifications: unknown[];
   }>;
   expect(alerts.props.notifications).toEqual([]);
+  const bookmarks = (await loadBookmarks()) as ReactElement<{
+    bookmarks: unknown[];
+  }>;
+  expect(bookmarks.props.bookmarks).toEqual([]);
 });

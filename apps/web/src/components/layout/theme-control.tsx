@@ -10,10 +10,6 @@ import {
   THEMES,
   type Theme,
 } from "@/components/layout/theme";
-import {
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
 const ICONS = { system: Monitor, light: Sun, dark: Moon } as const;
@@ -85,32 +81,5 @@ export function ThemeControl({
       labelled={labelled}
       className={className}
     />
-  );
-}
-
-// The same choice inside the account menu: radio items, so the menu keeps its keyboard use.
-export function ThemeMenuItems() {
-  const t = useTranslations("layout.themeControl");
-  return (
-    <DropdownMenuRadioGroup
-      value={useTheme()}
-      onValueChange={(value) => setTheme(value as Theme)}
-      aria-label={t("label")}
-    >
-      {THEMES.map((theme) => {
-        const Icon = ICONS[theme];
-        return (
-          <DropdownMenuRadioItem
-            key={theme}
-            value={theme}
-            closeOnClick={false}
-            className="min-h-10 md:min-h-8"
-          >
-            <Icon aria-hidden="true" />
-            {t(theme)}
-          </DropdownMenuRadioItem>
-        );
-      })}
-    </DropdownMenuRadioGroup>
   );
 }

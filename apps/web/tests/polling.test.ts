@@ -95,7 +95,7 @@ test("the feed asks for new entries on the tabs that can have them, and the badg
     /tab === "hot"\s*\?\s*undefined/,
   );
   for (const file of [
-    "components/layout/loaded-panel.tsx",
+    "components/layout/user-menu.tsx",
     "components/layout/mobile-nav.tsx",
   ]) {
     expect(source(file), file).toContain("useCounter(");

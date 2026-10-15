@@ -30,24 +30,18 @@
     "loadingMenu": "Loading menu…",
     "loadingNavigation": "Loading navigation…",
     "loadingAccount": "Loading your menu…",
-    "loadingMessages": "Loading messages…",
-    "loadingAlerts": "Loading alerts…",
     "search": "Search",
     "login": "Log in",
     "register": "Create Account"
   },
   "headerPanels": {
     "messages": {
-      "label": "Conversations",
-      "title": "Messages",
       "empty": "No conversations yet",
       "viewAll": "View all",
       "new": "New conversation",
       "loading": "Loading conversations…"
     },
     "alerts": {
-      "label": "Notifications",
-      "title": "Alerts",
       "empty": "No new alerts",
       "viewAll": "View all",
       "markAllRead": "Mark all as read",
@@ -66,7 +60,7 @@
         "search": "Search"
       }
     },
-    "failed": "This could not be loaded. Close the panel and open it again."
+    "failed": "This could not be loaded. Close the menu and open it again."
   },
   "themeControl": {
     "label": "Theme",
@@ -75,10 +69,33 @@
     "dark": "Dark"
   },
   "userMenu": {
-    "bookmarks": "Bookmarks",
     "logout": "Log out",
+    "edit": "Edit",
+    "editPicture": "Edit your picture and profile",
+    "theme": "Theme",
+    "tabUnread": "{label}, {count} unread",
+    "tabs": {
+      "alerts": "Alerts",
+      "conversations": "Conversations",
+      "account": "Account",
+      "bookmarks": "Bookmarks"
+    },
+    "bookmarks": {
+      "empty": "No bookmarks yet",
+      "viewAll": "View all",
+      "loading": "Loading bookmarks…"
+    },
+    "status": {
+      "label": "Update your status",
+      "placeholder": "Update your status...",
+      "submit": "Post status",
+      "posted": "Your status was posted.",
+      "view": "View your wall"
+    },
     "aria": {
-      "account": "Account menu"
+      "account": "Account menu",
+      "accountUnread": "Account menu, {count} unread",
+      "tabs": "Account menu sections"
     }
   },
   "guestMenu": {

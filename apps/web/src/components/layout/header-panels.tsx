@@ -1,14 +1,9 @@
-import { Bell, CheckCheck, Inbox, Search } from "lucide-react";
+import { CheckCheck, Search } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { MarkAllReadForm } from "@/app/[locale]/(main)/notifications/mark-all-read";
 import { headerIconClass } from "@/components/layout/header-icon-class";
 import { HeaderPanel } from "@/components/layout/header-panel";
-import { LoadedPanel } from "@/components/layout/loaded-panel";
-import {
-  loadAlerts,
-  loadConversations,
-} from "@/components/layout/panel-actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -20,73 +15,50 @@ const footerClass = "flex items-center justify-between gap-2 border-t p-2";
 const footerLinkClass =
   "inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground";
 
-export function MessagesPanel({
-  unread,
-  className,
-}: {
-  unread: number;
-  className?: string;
-}) {
+// The foot of each list in the avatar menu. Drawn on the server and handed to the menu as elements,
+// so the unread count a button reads is the one the page drew.
+export function ConversationsFooter() {
   const t = useTranslations("layout.headerPanels.messages");
   return (
-    <LoadedPanel
-      label={t("label")}
-      title={t("title")}
-      unread={unread}
-      counter="conversations"
-      icon={<Inbox />}
-      className={cn(headerIconClass, className)}
-      loadingLabel={t("loading")}
-      load={loadConversations}
-      footer={
-        <div className={footerClass}>
-          <Link href="/conversations" className={footerLinkClass}>
-            {t("viewAll")}
-          </Link>
-          <Link href="/conversations/new" className={footerLinkClass}>
-            {t("new")}
-          </Link>
-        </div>
-      }
-    />
+    <div className={footerClass}>
+      <Link href="/conversations" className={footerLinkClass}>
+        {t("viewAll")}
+      </Link>
+      <Link href="/conversations/new" className={footerLinkClass}>
+        {t("new")}
+      </Link>
+    </div>
   );
 }
 
-export function AlertsPanel({
-  unread,
-  className,
-}: {
-  unread: number;
-  className?: string;
-}) {
+export function AlertsFooter({ unread }: { unread: number }) {
   const t = useTranslations("layout.headerPanels.alerts");
   return (
-    <LoadedPanel
-      label={t("label")}
-      title={t("title")}
-      unread={unread}
-      counter="notifications"
-      icon={<Bell />}
-      className={cn(headerIconClass, className)}
-      loadingLabel={t("loading")}
-      load={loadAlerts}
-      footer={
-        <div className={footerClass}>
-          <Link href="/notifications" className={footerLinkClass}>
-            {t("viewAll")}
-          </Link>
-          <MarkAllReadForm
-            variant="ghost"
-            size="sm"
-            unread={unread}
-            className="h-8 text-xs text-muted-foreground"
-          >
-            <CheckCheck />
-            {t("markAllRead")}
-          </MarkAllReadForm>
-        </div>
-      }
-    />
+    <div className={footerClass}>
+      <Link href="/notifications" className={footerLinkClass}>
+        {t("viewAll")}
+      </Link>
+      <MarkAllReadForm
+        variant="ghost"
+        size="sm"
+        unread={unread}
+        className="h-8 text-xs text-muted-foreground"
+      >
+        <CheckCheck />
+        {t("markAllRead")}
+      </MarkAllReadForm>
+    </div>
+  );
+}
+
+export function BookmarksFooter() {
+  const t = useTranslations("layout.userMenu.bookmarks");
+  return (
+    <div className={footerClass}>
+      <Link href="/account/bookmarks" className={footerLinkClass}>
+        {t("viewAll")}
+      </Link>
+    </div>
   );
 }
 

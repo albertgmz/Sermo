@@ -3,6 +3,7 @@ import "server-only";
 import {
   appearanceGet,
   authCounters,
+  bookmarksList,
   conversationsList,
   notificationsList,
 } from "@sermo/core/contracts";
@@ -31,9 +32,10 @@ const NONE: Counters = {
   pendingApprovals: { count: 0, more: false },
 };
 
-// How many rows the header panels list: a short first page of the pages' own operations.
+// How many rows the avatar menu lists: a short first page of the pages' own operations.
 const CONVERSATIONS_SHOWN = 5;
 const NOTIFICATIONS_SHOWN = 6;
+const BOOKMARKS_SHOWN = 5;
 
 // The header is on every page, so a refusal here (a group without the right to see its
 // notifications, a backend that cannot be reached) leaves its piece empty instead of failing the
@@ -103,5 +105,12 @@ export const getRecentNotifications = cache(() =>
       limit: NOTIFICATIONS_SHOWN,
     });
     return notificationEntries(items);
+  }),
+);
+
+export const getRecentBookmarks = cache(() =>
+  orElse({ items: [] }, async () => {
+    const { items } = await call(bookmarksList, { limit: BOOKMARKS_SHOWN });
+    return { items };
   }),
 );

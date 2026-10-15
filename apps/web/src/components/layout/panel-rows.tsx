@@ -1,15 +1,21 @@
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import {
+  type BookmarkItem,
+  bookmarkHref,
+} from "@/app/[locale]/(main)/account/bookmarks/bookmark-page";
 import type { NotificationEntry } from "@/app/[locale]/(main)/notifications/entries";
 import {
   type ConversationItem,
   ConversationPreview,
 } from "@/components/forum/conversation-preview";
 import { NotificationRow } from "@/components/forum/notification-row";
+import { RelativeTime } from "@/components/forum/relative-time";
 import type { MemberView } from "@/lib/sermo/views";
 
 const emptyClass = "px-4 py-8 text-center text-sm text-muted-foreground";
 
-const listClass = "max-h-96 divide-y divide-border overflow-y-auto";
+const listClass = "max-h-72 divide-y divide-border overflow-y-auto";
 
 // The rows of the messages panel, drawn on the server once the visitor has opened it.
 export function MessageRows({
@@ -60,6 +66,33 @@ export function AlertRows({
             reaction={reaction}
             member={member}
           />
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <p className={emptyClass}>{t("empty")}</p>
+  );
+}
+
+// The rows of the bookmarks tab, drawn on the server once the visitor has opened it.
+export function BookmarkRows({ bookmarks }: { bookmarks: BookmarkItem[] }) {
+  const t = useTranslations("layout.userMenu.bookmarks");
+  const types = useTranslations("account.bookmarks.types");
+  return bookmarks.length > 0 ? (
+    <ul className={listClass}>
+      {bookmarks.map((item) => (
+        <li key={item.id}>
+          <Link
+            href={bookmarkHref(item)}
+            className="flex min-h-14 flex-col justify-center px-4 py-2 transition-colors hover:bg-muted/50"
+          >
+            <span className="truncate text-sm font-medium">{item.title}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {types(item.contentType)}
+              {" · "}
+              <RelativeTime date={item.createdAt} />
+            </span>
+          </Link>
         </li>
       ))}
     </ul>
