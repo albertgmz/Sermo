@@ -26,10 +26,9 @@ export const viewerSql = {
 export const visibleNodes = markPublic(
   "Resolves the node.view permission for the viewer.",
   function visibleNodes(ctx: Ctx, actor: Actor): Set<number> {
-    const nodes = viewableNodeIds(ctx, actor);
-    // A viewer who sees no forum (a banned member) has nothing for the site rule to hide.
-    if (nodes.length > 0) requireSiteView(ctx, actor);
-    return new Set(nodes);
+    // Whatever forums the viewer sees: the wall posts in the feed need the site open as well.
+    requireSiteView(ctx, actor);
+    return new Set(viewableNodeIds(ctx, actor));
   },
 );
 

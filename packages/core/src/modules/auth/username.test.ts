@@ -8,6 +8,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { moveCredits } from "../../shared/credits";
 import { getAuth } from "./index";
+import { renameStanding } from "./rename-limit";
 import { asUsernameChange } from "./rename-marker";
 
 const contexts: ReturnType<typeof createTestContext>[] = [];
@@ -376,7 +377,7 @@ describe("username change permissions", () => {
     await expect(w.rename("Fourth One")).rejects.toThrow(ForbiddenError);
   });
 
-  test("a failed rename is not counted, and 0 or -1 for the window counts every change", async () => {
+  test("a failed rename is not counted, and 0 or -1 for the window counts every change; -1 limit is none", async () => {
     const w = await world();
     await w.buyUnits(5);
     entry(w, "profile.renameLimit", 1);
@@ -389,10 +390,43 @@ describe("username change permissions", () => {
     const error = await w.rename("Later Name").catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ForbiddenError);
     expect((error as Error).message).toContain("all the username changes");
-    // No limit: 0 and -1 both mean none.
-    for (const none of [0, -1]) {
-      entry(w, "profile.renameLimit", none);
-      await w.rename(`Name ${none === 0 ? "A" : "B"}`);
-    }
+    // -1 is unlimited; 0 allows none.
+    entry(w, "profile.renameLimit", -1);
+    await w.rename("Name B");
+    entry(w, "profile.renameLimit", 0);
+    await expect(w.rename("Name C")).rejects.toThrow(ForbiddenError);
+  });
+
+  test("of a member's groups the highest limit wins, and a banned member can change nothing", async () => {
+    const w = await world();
+    await w.buyUnits(5);
+    w.ctx.sqlite.prepare("INSERT INTO groups (id, title, rank) VALUES (91, 'Other', 10)").run();
+    w.ctx.sqlite
+      .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 91, 0)")
+      .run(w.memberRow.id);
+    const second = (key: string, value: number) => {
+      w.ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, 91, 0, ?1 FROM permission_definitions WHERE key = ?2 ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+        )
+        .run(value, key);
+      w.ctx.sqlite
+        .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+        .run();
+    };
+    entry(w, "profile.renameLimit", 0);
+    second("profile.renameLimit", 0);
+    await expect(w.rename("One")).rejects.toThrow(ForbiddenError);
+    second("profile.renameLimit", 1);
+    entry(w, "profile.renameWindowDays", 30);
+    await w.rename("One");
+    await expect(w.rename("Two")).rejects.toThrow(ForbiddenError);
+    second("profile.renameLimit", -1);
+    await w.rename("Two");
+    await w.rename("Three");
+    w.ctx.sqlite
+      .prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1")
+      .run(w.memberRow.id);
+    expect(renameStanding(w.ctx, w.member, w.memberRow.id).reason).toBe("limit");
   });
 });

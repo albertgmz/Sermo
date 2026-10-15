@@ -1,6 +1,7 @@
 import { GUEST } from "../../actor";
 import type { Ctx } from "../../context";
 import { getNodeTree, viewableNodeIds } from "../../permissions";
+import { requireSiteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
 import { canonicalUrl, requireBaseURL } from "./paths";
 
@@ -29,6 +30,7 @@ function note(value: string): string {
  */
 export function llmsTxt(ctx: Ctx, baseURL: string): string {
   const origin = requireBaseURL(baseURL);
+  requireSiteOpenToGuests(ctx);
   const settings = readSiteSettings(ctx);
   const siteName = plain(settings.siteName) || "Forum";
   const description = plain(settings.siteDescription);

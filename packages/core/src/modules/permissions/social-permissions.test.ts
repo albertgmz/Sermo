@@ -50,6 +50,7 @@ function customMember(ctx: Ctx, grants: string[]) {
     .get()!.id;
   for (const key of grants) setEntry(ctx, groupId, key, 1);
   setEntry(ctx, groupId, "attachment.storageQuota", 100_000_000);
+  setEntry(ctx, groupId, "attachment.maxFileSize", -1);
   const row = insertUser(ctx, { groupId });
   return { groupId, row, actor: userActor(row) };
 }

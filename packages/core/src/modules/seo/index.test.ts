@@ -64,6 +64,7 @@ test("SEO uses node, profile, and state-specific thread permissions", async () =
       "INSERT INTO groups (title,rank) VALUES ('SEO reviewers',10) RETURNING id",
     )
     .get()!.id;
+  setPermission(ctx, groupId, "site.view", 1);
   const viewer = userActor(insertUser(ctx, { groupId }));
   const threadInput = { threadId: made.thread.id };
   await expect(

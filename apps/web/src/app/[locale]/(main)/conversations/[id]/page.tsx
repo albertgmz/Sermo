@@ -146,7 +146,7 @@ export default async function ConversationPage({
         <Header
           conversation={conversation}
           member={member}
-          bookmarked={bookmarks ? bookmarks.has(conversation.id) : null}
+          bookmarked={bookmarks ? bookmarks.toggle(conversation.id) : null}
         />
         <div className="mt-4">
           <Suspense

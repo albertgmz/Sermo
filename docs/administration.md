@@ -73,24 +73,24 @@ Registered needs the ones it uses.
 
 | Permission | Type | Built-in default |
 | --- | --- | --- |
-| `site.view`: open forums, threads, the feed, search, profiles and the member list. A guest without it is asked to sign in. | flag | everyone |
-| `member.viewList`: the member list (also the rankings, which are lists of members). | flag | everyone |
+| `site.view`: open forums, threads, the feed, search, profiles, the member list and its pages, spoilers, bookmarks and the files of content. When the Guest group lacks it, the public surfaces serve nothing too: Atom feeds, sitemaps, `llms.txt`, the SEO operations and the IndexNow announcements. A guest without it is asked to sign in; a member's own card and avatar files stay. Writes are not gated. | flag | everyone |
+| `member.viewList`: the member list and the pages of `/members` (staff, birthdays, the monthly race and winners), and the rankings, which are lists of members. | flag | everyone |
 | `profile.uploadAvatar`, `profile.uploadCover`: upload or set the picture. Taking it off needs nothing. | flags | members |
 | `bookmark.create`: adding a bookmark. Removing one needs nothing. | flag | members |
 | `profile.renameNeedsApproval`: the member cannot change their own username and is told to ask staff, who can rename them. There is no request queue. | flag | nobody; Administrator `never` |
-| `profile.renameLimit` with `profile.renameWindowDays`: at most that many own username changes within that many days (0 or -1: no limit; 0 or -1 days: counted over all time). Free and bought changes both count. | integers | -1 |
+| `profile.renameLimit` with `profile.renameWindowDays`: at most that many own username changes within that many days. For the limit -1 is unlimited and 0 allows none, and the highest of a member's groups wins; for the days -1 or 0 counts every change ever, and when groups differ the longest window applies, so give the groups of one member the same window. Free and bought changes both count. | integers | -1 |
 | `profilePost.postOwn`, `profilePost.post`: post on one's own profile, and on other members' profiles. | flags | posters |
 | `profilePost.react`, `conversation.react`: react to wall posts and comments, and to conversation messages, as well as `reaction.react`. | flags | posters |
 | `profilePost.view`: read wall posts and their comments, including in the feed. | flag | everyone |
 | `reaction.viewList`: open the list of who reacted. The counts stay visible. | flag | everyone |
-| `member.viewFollowing`: open the list of members another member follows. Members always read their own. | flag | everyone |
+| `member.viewFollowing`: open the list of members another member follows. Members always read their own. `users.listFollowers` has no such permission, so the lists can be rebuilt one member at a time. | flag | everyone |
 | `conversation.receive`: be added to a conversation. | flag | members |
 | `conversation.attach`: attach files to conversation messages. | flag | members |
 | `conversation.editOwnTimeLimit`: minutes within which a member edits their own messages (-1 unlimited). | integer | -1 |
 | `conversation.alwaysInvite`: start a conversation with, or add, members who have ignored the holder. An ignore is the only privacy setting conversations have. | flag | Moderator, Administrator |
-| `content.editSilently`: an edit leaves no "edited" note on posts, wall posts, comments and messages; the earlier text is still kept where revisions are kept. | flag | Administrator |
-| `forum.viewOwnHistory`: read the edit history of one's own posts (per forum). | flag | members |
-| `attachment.maxFileSize`: largest single file in bytes, under the site's own upload limit (0 or -1: only the site's limit). Covers attachments, avatars and covers. | integer | -1 |
+| `content.editSilently`: an edit leaves no "edited" note on posts, wall posts, comments and messages; the earlier text is still kept where revisions are kept, and staff who read a post's history still see the edit. | flag | Administrator |
+| `forum.viewOwnHistory`: read the edit history of one's own posts (per forum), only while the post is visible to the author and only the edits they made themselves. | flag | members |
+| `attachment.maxFileSize`: largest single file in bytes (-1: only the site's own upload limit; 0: no file). It can only lower the site's limit, never raise it for a trusted group. Covers attachments, avatars and covers. | integer | -1 |
 
 ### Values
 

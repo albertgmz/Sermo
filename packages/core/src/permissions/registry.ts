@@ -318,8 +318,8 @@ export const PERMISSIONS = {
     requiresAccount: true,
   },
   /**
-   * Most username changes a member may make within `profile.renameWindowDays` (-1 or 0: no
-   * limit). Every change counts, free or bought.
+   * Most username changes a member may make within `profile.renameWindowDays` (-1 unlimited, 0
+   * none). Every change counts, free or bought.
    */
   "profile.renameLimit": {
     scope: "global",
@@ -328,7 +328,10 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: MEMBERS_UNLIMITED,
   },
-  /** The days `profile.renameLimit` counts back over (-1 or 0: every change ever made). */
+  /**
+   * The days `profile.renameLimit` counts back over (-1 or 0: every change ever made). A window
+   * is not a quantity of permission, so when a member's groups differ the longest applies.
+   */
   "profile.renameWindowDays": {
     scope: "global",
     category: "profile",
@@ -357,8 +360,9 @@ export const PERMISSIONS = {
     defaults: EVERYONE,
   },
   /**
-   * The largest single file the member may upload, in bytes, under the site's own limit (-1 or
-   * 0: only the site's limit applies). Covers attachments, avatars and covers.
+   * The largest single file the member may upload, in bytes (-1: only the site's own limit
+   * applies; 0: no file). It can only lower the site's limit, never raise it. Covers attachments,
+   * avatars and covers.
    */
   "attachment.maxFileSize": {
     scope: "global",

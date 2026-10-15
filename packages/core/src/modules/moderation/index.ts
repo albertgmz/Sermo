@@ -1448,23 +1448,32 @@ export function listPostRevisions(
   input: { cursor?: string | null; limit?: number } = {},
 ) {
   const post = targetRow(ctx, { type: "post", id: postId });
-  // Authors with forum.viewOwnHistory read their own post's history; the rest need a moderator's.
-  if (
-    !(
-      post.node_id !== null &&
-      can(ctx, actor, "forum.viewOwnHistory", { nodeId: post.node_id, ownerId: post.user_id })
-    )
-  )
-    requireContentModerator(ctx, actor, { type: "post", id: postId }, "history", post);
+  // A moderator reads the whole history. An author with forum.viewOwnHistory, who is not one,
+  // reads their own post's history under the post's ordinary visibility, and only the edits they
+  // made themselves: a revision a moderator made (silently or not) shows nothing of it.
+  const moderates =
+    post.node_id !== null && can(ctx, actor, "forum.viewHistory", { nodeId: post.node_id });
+  const authorOnly =
+    !moderates &&
+    post.node_id !== null &&
+    can(ctx, actor, "forum.viewOwnHistory", { nodeId: post.node_id, ownerId: post.user_id });
+  if (authorOnly) visibleTarget(ctx, actor, { type: "post", id: postId });
+  else requireContentModerator(ctx, actor, { type: "post", id: postId }, "history", post);
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
     : Number.MAX_SAFE_INTEGER;
-  const rows = query<{ id: number }>(
-    ctx,
-    "revisions",
-    "SELECT * FROM post_revisions WHERE post_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
-  ).all(postId, cursor, limit + 1);
+  const rows = authorOnly
+    ? query<{ id: number }>(
+        ctx,
+        "ownRevisions",
+        "SELECT * FROM post_revisions WHERE post_id = ?1 AND id < ?2 AND editor_id = ?4 ORDER BY id DESC LIMIT ?3",
+      ).all(postId, cursor, limit + 1, post.user_id)
+    : query<{ id: number }>(
+        ctx,
+        "revisions",
+        "SELECT * FROM post_revisions WHERE post_id = ?1 AND id < ?2 ORDER BY id DESC LIMIT ?3",
+      ).all(postId, cursor, limit + 1);
   return {
     items: rows.slice(0, limit),
     nextCursor: rows.length > limit ? encodeCursor([rows[limit - 1]!.id]) : null,

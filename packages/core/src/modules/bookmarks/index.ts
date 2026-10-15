@@ -6,7 +6,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { requirePermission } from "../../permissions";
+import { can, requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import {
@@ -244,6 +244,8 @@ export const bookmarksListOp = implement(
   bookmarksList,
   (ctx, actor, input) => {
     const { userId } = requireAuthenticated(actor);
+    // A viewer who may not open the site reads none of its content, their bookmarks included.
+    if (!can(ctx, actor, "site.view")) return { items: [], nextCursor: null };
     let cursor = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]
       : Number.MAX_SAFE_INTEGER;

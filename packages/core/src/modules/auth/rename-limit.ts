@@ -15,13 +15,15 @@ export interface RenameStanding {
  * Whether a member may change their own username now, by the permissions alone (a shop unit or
  * `profile.renameFree` is a separate matter): `profile.renameNeedsApproval` refuses outright, and
  * `profile.renameLimit` changes within the last `profile.renameWindowDays` days (0 or -1: ever)
- * refuse once used up. Reads at most `profile.renameLimit` rows of the member's own changes.
+ * refuse once used up. For the limit -1 is unlimited and 0 allows none, so the most permissive of
+ * a member's groups wins; a banned member resolves to 0. Reads at most `profile.renameLimit` rows of the member's own changes.
  */
 export function renameStanding(ctx: Ctx, actor: Actor, userId: number): RenameStanding {
   if (can(ctx, actor, "profile.renameNeedsApproval"))
     return { reason: "approval", availableAt: null };
   const limit = permissionValue(ctx, actor, "profile.renameLimit");
-  if (limit <= 0) return { reason: null, availableAt: null };
+  if (limit === -1) return { reason: null, availableAt: null };
+  if (limit === 0) return { reason: "limit", availableAt: null };
   const days = permissionValue(ctx, actor, "profile.renameWindowDays");
   const since = days > 0 ? ctx.now() - days * DAY : 0;
   const recent = prepared(ctx, "auth.recentRenames", () =>

@@ -133,6 +133,11 @@ describe("storage", () => {
           "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1000)",
         )
         .run(definition, group);
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, ?1, 0, -1 FROM permission_definitions WHERE key = 'attachment.maxFileSize'",
+        )
+        .run(group);
       const member = insertUser(ctx, { groupId: group });
       const actor = userActor(member);
       const storage = createStorage(ctx, { driver: localDriver(join(dir, "files")), tempDir: dir });
@@ -189,6 +194,11 @@ describe("storage", () => {
           "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES ((SELECT id FROM permission_definitions WHERE key = 'attachment.storageQuota'), 0, ?1, 0, ?2)",
         )
         .run(group, storage.get(reference, sample.id).byte_size);
+      ctx.sqlite
+        .prepare(
+          "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, ?1, 0, -1 FROM permission_definitions WHERE key = 'attachment.maxFileSize'",
+        )
+        .run(group);
       const actor = userActor(insertUser(ctx, { groupId: group }));
       await expect(storage.upload(actor, stream(png), "image/png")).rejects.toThrow(
         "Upload quota exceeded.",

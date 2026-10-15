@@ -8,6 +8,7 @@ import { implement } from "../../operation";
 import { can } from "../../permissions";
 import { activeConversation } from "../conversations";
 import { requirePost } from "../forums";
+import { requireSiteView } from "../members/site-access";
 import { requireComment, requirePost as requireProfilePost } from "../profiles/shared";
 
 /**
@@ -89,6 +90,7 @@ function requireVisible(ctx: Ctx, actor: Actor, type: SpoilerContentType, id: nu
 export const spoilersGetOp = implement(
   spoilersGet,
   (ctx, actor, input) => {
+    requireSiteView(ctx, actor);
     requireVisible(ctx, actor, input.contentType, input.contentId);
     const row = prepared(ctx, "spoilers.get", () =>
       ctx.sqlite.prepare<{ html: string }, [string, number, number]>(

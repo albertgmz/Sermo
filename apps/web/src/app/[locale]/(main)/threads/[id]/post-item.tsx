@@ -223,7 +223,7 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
         isFirst={false}
         selecting={false}
         canQuote={context.canQuote}
-        bookmarked={bookmarks ? bookmarks.has(post.id) : null}
+        bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
       />
     ),
   }));

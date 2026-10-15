@@ -20,6 +20,7 @@ import { enqueueJob, registerJobHandler } from "../jobs/queue";
 import { readSiteSettings } from "../settings";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
+import { requireSiteView } from "./site-access";
 
 /** Rows one slice of the recomputation reads before it yields to the event loop. */
 const SLICE = 2000;
@@ -414,7 +415,9 @@ const shownIn =
   };
 
 export const standingsMonthOp = implement(standingsMonth, (ctx, actor, input) => {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+  requirePermission(ctx, actor, "member.viewList");
   const now = ctx.now();
   const shownAmong = shownIn(ctx, actor, now);
   const excluder = excluderFor(ctx, requestVersions(ctx, actor));
@@ -487,7 +490,9 @@ interface WinnerRow extends EntryRow {
 }
 
 export const standingsWinnersOp = implement(standingsWinners, (ctx, actor, input) => {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+  requirePermission(ctx, actor, "member.viewList");
   const now = ctx.now();
   const shown = shownIn(ctx, actor, now);
   const current = monthOf(now);

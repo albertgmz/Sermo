@@ -264,6 +264,9 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
     if (record.visibility === "unattached") return actorUserId(actor) === record.uploader_id;
     return record.visibility === "public";
   }
+  // Files of content are the site's content: closed to anyone who may not open the site. Avatars
+  // and covers (public files with no link) stay as they are.
+  if (!can(ctx, actor, "site.view")) return false;
   try {
     if (link.content_type === "post") {
       reactablePost(ctx, actor, link.content_id);
@@ -366,10 +369,10 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
       )
         throw new ValidationError("File type is not allowed.");
-      // The member's own largest file (0 or -1: none) can only lower the site's limit.
+      // The member's own largest file (-1: none; 0: no file at all) can only lower the site's limit.
       const memberLimit = catalog ? -1 : permissionValue(ctx, actor, "attachment.maxFileSize");
       const siteLimit = uploadLimit(purpose, maxBytes);
-      const groupBinds = memberLimit > 0 && memberLimit < siteLimit;
+      const groupBinds = memberLimit !== -1 && memberLimit < siteLimit;
       const effectiveLimit = groupBinds ? memberLimit : siteLimit;
       await mkdir(tempDir, { recursive: true });
       const tempPath = join(tempDir, `sermo-${randomUUID()}`);

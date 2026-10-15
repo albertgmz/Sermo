@@ -155,7 +155,7 @@ export default async function ThreadPage({
         <ThreadTools
           thread={thread}
           watching={watching}
-          bookmarked={bookmarks ? bookmarks.has(thread.id) : null}
+          bookmarked={bookmarks ? bookmarks.toggle(thread.id) : null}
           canWatch={permissions.canWatch}
           may={may}
           mayRemoveCover={mayRemoveCover}
@@ -370,7 +370,7 @@ async function ThreadPosts({
             isFirst={post.id === thread.firstPostId}
             selecting={selecting}
             canQuote={canQuote}
-            bookmarked={bookmarks ? bookmarks.has(post.id) : null}
+            bookmarked={bookmarks ? bookmarks.toggle(post.id) : null}
           />
         ))}
         {goesOn && (

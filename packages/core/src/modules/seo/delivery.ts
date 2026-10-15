@@ -5,6 +5,7 @@ import { writeTx } from "../../db/tx";
 import { consumeEvents, type DomainEvent } from "../../events";
 import { permissionsOf } from "../../permissions";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { siteOpenToGuests } from "../members/site-access";
 import { readSiteSettings } from "../settings";
 import { indexNowBatches, sendIndexNow } from "./indexnow";
 import { canonicalUrl } from "./paths";
@@ -15,6 +16,8 @@ type EventRow = { state: string; thread_id: number; profile_user_id: number };
 
 function publicUrl(ctx: Ctx, event: DomainEvent, baseURL: string): string | null {
   if (event.type === "content.deleted" && event.payload.previousState !== "visible") return null;
+  // Nothing is announced for a site that guests may not open.
+  if (!siteOpenToGuests(ctx)) return null;
   const guest = permissionsOf(ctx, GUEST);
   if (event.targetType === "node") {
     const node = prepared(ctx, "seo.eventNode", () =>

@@ -187,7 +187,9 @@ export function staffMembership(ctx: Ctx) {
 }
 
 export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+  requirePermission(ctx, actor, "member.viewList");
   const { groups, staffGroupsOf } = staffMembership(ctx);
   if (groups.length === 0) return { items: [] };
   const byId = new Map(groups.map((group) => [group.id, group]));
@@ -222,7 +224,9 @@ export const usersStaffOp = implement(usersStaff, (ctx, actor) => {
 export const birthdaySql = `SELECT id, banned_until, banned_permanently FROM users WHERE birthday_md = ?1 AND id > ?2 ORDER BY id LIMIT ?3`;
 
 export const usersBirthdaysOp = implement(usersBirthdays, (ctx, actor) => {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+  requirePermission(ctx, actor, "member.viewList");
   const now = ctx.now();
   const today = new Date(now);
   const day = `${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;

@@ -2,6 +2,7 @@ import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { NotFoundError } from "../../errors";
 import { can, getNodeTree, viewableNodeIds } from "../../permissions";
+import { requireSiteOpenToGuests } from "../members/site-access";
 import { canonicalPath, canonicalUrl, requireBaseURL } from "./paths";
 
 const xml = (value: string) =>
@@ -30,6 +31,7 @@ export function atomFeed(
 ): string {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100)
     throw new RangeError("Invalid feed limit");
+  requireSiteOpenToGuests(ctx);
   const node = nodeId == null ? undefined : getNodeTree(ctx).get(nodeId);
   if (nodeId != null && (!node || !can(ctx, GUEST, "node.view", { nodeId })))
     throw new NotFoundError();

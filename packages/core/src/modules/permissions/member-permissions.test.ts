@@ -51,7 +51,10 @@ function customMember(ctx: Ctx, grants: string[], storage = true) {
     )
     .get()!.id;
   for (const key of grants) setEntry(ctx, groupId, key, 1);
-  if (storage) setEntry(ctx, groupId, "attachment.storageQuota", 100_000_000);
+  if (storage) {
+    setEntry(ctx, groupId, "attachment.storageQuota", 100_000_000);
+    setEntry(ctx, groupId, "attachment.maxFileSize", -1);
+  }
   const row = insertUser(ctx, { groupId });
   return { groupId, row, actor: userActor(row) };
 }
@@ -238,7 +241,7 @@ describe("avatar and cover", () => {
 });
 
 describe("attachment.maxFileSize", () => {
-  test("a member's own limit can only lower the site's, and 0 or -1 leaves the site's", async () => {
+  test("a member's own limit can only lower the site's; -1 leaves the site's and 0 allows no file", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sermo-file-size-"));
     const w = world();
     try {
@@ -266,10 +269,59 @@ describe("attachment.maxFileSize", () => {
       await expect(storage.upload(limited.actor, text(1_000_001), "text/plain")).rejects.toThrow(
         "File exceeds upload limit.",
       );
-      for (const none of [0, -1]) {
-        setEntry(w.ctx, limited.groupId, "attachment.maxFileSize", none);
-        await storage.upload(limited.actor, text(2000), "text/plain");
-      }
+      setEntry(w.ctx, limited.groupId, "attachment.maxFileSize", -1);
+      await storage.upload(limited.actor, text(2000), "text/plain");
+      setEntry(w.ctx, limited.groupId, "attachment.maxFileSize", 0);
+      await expect(storage.upload(limited.actor, text(1), "text/plain")).rejects.toThrow(
+        "File exceeds your upload limit of 0 bytes.",
+      );
+      // A banned member resolves to 0 too.
+      w.ctx.sqlite
+        .prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1")
+        .run(limited.row.id);
+      setEntry(w.ctx, limited.groupId, "attachment.maxFileSize", -1);
+      await expect(storage.upload(limited.actor, text(1), "text/plain")).rejects.toThrow();
+    } finally {
+      w.ctx.sqlite.close(true);
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  });
+});
+
+describe("integer permissions across groups", () => {
+  test("the most permissive group wins: -1 beats any number, a larger number beats a smaller, 0 is least", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "sermo-file-merge-"));
+    const w = world();
+    try {
+      const storage = createStorage(w.ctx, {
+        driver: localDriver(join(dir, "files")),
+        tempDir: dir,
+        maxBytes: 1_000_000,
+      });
+      const text = (bytes: number) =>
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("a".repeat(bytes)));
+            controller.close();
+          },
+        });
+      const first = customMember(w.ctx, []);
+      const second = customMember(w.ctx, []);
+      setEntry(w.ctx, first.groupId, "attachment.maxFileSize", 1000);
+      setEntry(w.ctx, second.groupId, "attachment.maxFileSize", 0);
+      const join_ = (groupId: number) =>
+        w.ctx.sqlite
+          .prepare("INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, 0)")
+          .run(first.row.id, groupId);
+      join_(second.groupId);
+      await storage.upload(first.actor, text(1000), "text/plain");
+      await expect(storage.upload(first.actor, text(1001), "text/plain")).rejects.toThrow(
+        "File exceeds your upload limit of 1000 bytes.",
+      );
+      setEntry(w.ctx, second.groupId, "attachment.maxFileSize", 2000);
+      await storage.upload(first.actor, text(2000), "text/plain");
+      setEntry(w.ctx, second.groupId, "attachment.maxFileSize", -1);
+      await storage.upload(first.actor, text(5000), "text/plain");
     } finally {
       w.ctx.sqlite.close(true);
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
@@ -403,5 +455,35 @@ describe("content.editSilently and forum.viewOwnHistory", () => {
     expect(() => history(GUEST)).toThrow();
     const holderGroupMember = customMember(w.ctx, ["node.view", "site.view"]);
     expect(() => history(holderGroupMember.actor)).toThrow(NotFoundError);
+  });
+
+  test("the author sees only their own edits, and only while the post is visible to them", async () => {
+    const w = world();
+    const made = await execute(w.ctx, threadsCreateOp, w.memberActor, {
+      nodeId: w.node.id,
+      title: "T",
+      body: "first",
+    });
+    await execute(w.ctx, postsUpdateOp, w.memberActor, { postId: made.post.id, body: "second" });
+    // An administrator edits it silently: that revision is staff's to see.
+    await execute(w.ctx, postsUpdateOp, w.adminActor, { postId: made.post.id, body: "moderated" });
+    const editors = (actor: Parameters<typeof listPostRevisions>[1]) =>
+      listPostRevisions(w.ctx, actor, made.post.id).items.map(
+        (item) => (item as unknown as { editor_id: number }).editor_id,
+      );
+    expect(editors(w.memberActor)).toEqual([w.member.id]);
+    expect(editors(w.adminActor)).toHaveLength(2);
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1").run(made.post.id);
+    expect(() => listPostRevisions(w.ctx, w.memberActor, made.post.id)).toThrow(NotFoundError);
+    expect(editors(w.adminActor)).toHaveLength(2);
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'visible' WHERE id = ?1").run(made.post.id);
+    // Moved to a forum the author cannot open.
+    const hidden = insertNode(w.ctx, {});
+    invalidate(w.ctx, "node_tree");
+    setEntry(w.ctx, 2, "node.view", -1);
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET node_id = ?1 WHERE id = ?2")
+      .run(hidden.id, made.thread.id);
+    expect(() => listPostRevisions(w.ctx, w.memberActor, made.post.id)).toThrow(NotFoundError);
   });
 });

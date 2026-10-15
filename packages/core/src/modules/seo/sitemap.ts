@@ -1,6 +1,7 @@
 import { GUEST } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { permissionsOf } from "../../permissions";
+import { siteOpenToGuests } from "../members/site-access";
 import { canonicalUrl, requireBaseURL } from "./paths";
 
 export type SitemapKind = "node" | "thread" | "profile";
@@ -23,6 +24,8 @@ export function* sitemapEntries(
   kind: SitemapKind,
 ): Generator<SitemapEntry> {
   requireBaseURL(baseURL);
+  // A site closed to guests has no public pages to list.
+  if (!siteOpenToGuests(ctx)) return;
   let after = 0;
   const guest = permissionsOf(ctx, GUEST);
   if (kind === "node") {

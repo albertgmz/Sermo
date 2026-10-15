@@ -379,6 +379,11 @@ describe("storage quota", () => {
         "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, ?1, 0, 100 FROM permission_definitions WHERE key = 'attachment.storageQuota'",
       )
       .run(group);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, ?1, 0, -1 FROM permission_definitions WHERE key = 'attachment.maxFileSize'",
+      )
+      .run(group);
     const curatorRow = insertUser(ctx, { groupId: group });
     const curator = userActor(curatorRow);
     const text = (n: number) => stream(Buffer.from("x".repeat(n)));
