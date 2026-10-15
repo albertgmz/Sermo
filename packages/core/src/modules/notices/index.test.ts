@@ -24,7 +24,7 @@ const inGroup = (id: number) => rule({ criterion: "in_group", ids: [id] });
 
 const FIELDS = {
   title: "Notice",
-  body: "Hello **there**",
+  body: "Hello [B]there[/B]",
   rule: rule(),
   dismissible: true,
   active: true,

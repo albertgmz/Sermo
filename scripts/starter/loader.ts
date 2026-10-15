@@ -643,14 +643,16 @@ export async function loadStarter(options: StarterOptions): Promise<StarterLine[
   const pages = new Set<string>();
   const pageList = await read<{ items: { slug: string }[] }>("page", "pages.list", {});
   for (const page of pageList?.items ?? []) pages.add(page.slug);
-  const files = (await readdir(join(root, "pages"))).filter((name) => name.endsWith(".md")).sort();
+  const files = (await readdir(join(root, "pages")))
+    .filter((name) => name.endsWith(".bbcode"))
+    .sort();
   for (const file of files) {
-    const slug = file.slice(0, -".md".length);
+    const slug = file.slice(0, -".bbcode".length);
     await step("page", slug, async () => {
       if (!pageList) throw unread("the pages");
       if (pages.has(slug)) return "exists";
       const text = new TextDecoder().decode(await readFile(join(root, "pages", file)));
-      const heading = text.match(/^# (.+)\r?\n/);
+      const heading = text.match(/^\[HEADING=1\](.+)\[\/HEADING\]\r?\n/);
       if (!heading) throw new Error("the file has no first-level heading to use as the title");
       await call("pages.save", {
         slug,

@@ -62,7 +62,7 @@ describe("reports.list and approvals.list describe their rows", () => {
   test("a reported reply has a plain excerpt of at most 200 characters and its thread", async () => {
     const w = world();
     const topic = await w.thread("Garden talk", "First post");
-    const long = `**Bold** [a link](https://example.test/x) <script>alert(1)</script> ${"word ".repeat(100)}`;
+    const long = `[B]Bold[/B] [URL=https://example.test/x]a link[/URL] [SPOILER]hidden[/SPOILER] ${"word ".repeat(100)}`;
     const postId = await w.reply(long, topic.id);
     await w.report("post", postId);
     await w.report("post", postId);
@@ -75,8 +75,8 @@ describe("reports.list and approvals.list describe their rows", () => {
     });
     expect(row!.excerpt.length).toBeLessThanOrEqual(200);
     expect(row!.excerpt.endsWith("…")).toBe(true);
-    expect(row!.excerpt).toStartWith("Bold a link");
-    expect(row!.excerpt).not.toMatch(/[<>*[\]]/);
+    expect(row!.excerpt).toStartWith("Bold a link [spoiler] word");
+    expect(row!.excerpt).not.toMatch(/hidden|\[B\]|\[URL/);
   });
 
   test("profile content and a reported member say whose profile it is", async () => {
@@ -84,7 +84,7 @@ describe("reports.list and approvals.list describe their rows", () => {
     const owner = insertUser(w.ctx);
     const wall = w.ctx.sqlite
       .prepare<{ id: number }, [number, number]>(
-        "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'Wall *words*', '<p>Wall</p>') RETURNING id",
+        "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'Wall [B]words[/B]', '<p>Wall</p>') RETURNING id",
       )
       .get(owner.id, w.author.id)!.id;
     const comment = w.ctx.sqlite
@@ -161,7 +161,7 @@ describe("reports.list and approvals.list describe their rows", () => {
   test("approvals describe moderated replies and threads", async () => {
     const w = world();
     const topic = await w.thread("Open topic", "First post");
-    const held = await w.thread("Held topic", "Held *first* post");
+    const held = await w.thread("Held topic", "Held [B]first[/B] post");
     const postId = await w.reply("A held reply", topic.id);
     w.ctx.sqlite.prepare("UPDATE posts SET state = 'moderated' WHERE id = ?1").run(postId);
     w.ctx.sqlite.prepare("UPDATE threads SET state = 'moderated' WHERE id = ?1").run(held.id);

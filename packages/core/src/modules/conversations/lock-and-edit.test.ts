@@ -274,7 +274,7 @@ describe("editing a message", () => {
     const sent = await s.reply(s.b, "mine");
     expect(sent.editedAt).toBeNull();
     s.ctx.now = () => Date.parse("2030-01-01T00:00:00Z");
-    const edited = await s.edit(s.b, sent.id, "**changed**");
+    const edited = await s.edit(s.b, sent.id, "[B]changed[/B]");
     expect(edited.bodyHtml).toContain("<strong>changed</strong>");
     expect(edited.editedAt).toBe("2030-01-01T00:00:00.000Z");
     const listed = (await s.list(s.b)).items.find((m) => m.id === sent.id)!;
@@ -482,9 +482,9 @@ describe("reading a message's source for editing", () => {
 
   test("the author gets the message with its source and abilities", async () => {
     const s = await setup();
-    const mine = await s.reply(s.b, "**mine**");
+    const mine = await s.reply(s.b, "[B]mine[/B]");
     const got = await source(s, s.b, mine.id);
-    expect(got.bodySource).toBe("**mine**");
+    expect(got.bodySource).toBe("[B]mine[/B]");
     expect([got.id, got.conversationId, got.canEdit]).toEqual([mine.id, s.id, true]);
     expect(got.bodyHtml).toContain("<strong>mine</strong>");
   });

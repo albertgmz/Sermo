@@ -62,20 +62,14 @@ describe("attachments", () => {
         attachmentIds: [image, image],
       }),
     ).rejects.toThrow(ValidationError);
-    await expect(
-      execute(ctx, postsCreateOp, owner, {
-        threadId: initial.thread.id,
-        body: `![wrong](/api/v1/files/${image})`,
-      }),
-    ).rejects.toThrow(ValidationError);
     const post = await execute(ctx, postsCreateOp, owner, {
       threadId: initial.thread.id,
-      body: `![photo](/api/v1/files/${image})`,
+      body: `[ATTACH]${image}[/ATTACH]`,
       attachmentIds: [image],
     });
     expect(post.attachmentCount).toBe(1);
     expect(post.attachments[0]?.fileId).toBe(image);
-    expect(post.bodyHtml).toContain(`/api/v1/files/${image}`);
+    expect(post.bodyHtml).toContain(`data-attach-id="${image}"`);
     expect(
       (await execute(ctx, postsListOp, GUEST, { threadId: initial.thread.id, limit: 20 })).items.at(
         -1,

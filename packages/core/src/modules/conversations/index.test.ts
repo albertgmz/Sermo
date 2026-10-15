@@ -57,7 +57,7 @@ function fixture() {
 const start = (recipientIds: number[]) => ({
   title: "Private thread",
   recipientIds,
-  body: "**hello**",
+  body: "[B]hello[/B]",
 });
 
 function setGroupPermission(

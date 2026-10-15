@@ -158,7 +158,7 @@ describe("announcements.list", () => {
     const other = insertUser(w.ctx, { groupId: 4, username: "Other Admin" });
     await w.run("announcements.create", userActor(w.founder), {
       title: "One",
-      body: "First **post**",
+      body: "First [B]post[/B]",
     });
     w.ctx.clock.advance(1000);
     await w.run("announcements.create", userActor(other), { title: "Two", body: "Second" });

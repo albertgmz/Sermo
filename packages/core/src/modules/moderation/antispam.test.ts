@@ -505,12 +505,11 @@ describe("links rule", () => {
     const f = fixture();
     configure(f.ctx, { linksRule: rule });
     for (const body of [
-      "![x](https://img.example.com/a.png)",
       "[IMG]https://img.example.com/a.png[/IMG]",
       "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
       "[URL=https://z.example.com]zed[/URL]",
-      "[x](http://a.example.com/b)",
-      ":::spoiler\nhttps://hidden.example.com\n:::",
+      "see http://a.example.com/b",
+      "[SPOILER]https://hidden.example.com[/SPOILER]",
     ])
       await rejects(post(f, body), ForbiddenError);
   });
@@ -518,9 +517,11 @@ describe("links rule", () => {
   test("code, the site's own addresses and plain text are not links to another site", async () => {
     const f = fixture();
     configure(f.ctx, { linksRule: rule });
-    await post(f, "`https://code.example.com` and example.com");
+    await post(f, "[ICODE]https://code.example.com[/ICODE] and example.com");
+    await post(f, "[CODE]https://code.example.com[/CODE]");
+    await post(f, "[PLAIN]https://plain.example.com[/PLAIN]");
     await post(f, "my own: http://localhost:3000/threads/4");
-    await post(f, "![mine](http://localhost:3000/files/a.png)");
+    await post(f, "[IMG]http://localhost:3000/files/a.png[/IMG]");
   });
 
   test("also applies to wall posts and messages, and to an edit that adds a link", async () => {
@@ -741,8 +742,8 @@ describe("approval rule", () => {
 
 describe("outside pictures and media", () => {
   const body =
-    "![alt text](https://img.example.com/a.png?x=1&y=2) [MEDIA=youtube]dQw4w9WgXcQ[/MEDIA] " +
-    "![mine](http://localhost:3000/files/a.png)\n\n:::spoiler\n![inside](https://img.example.com/s.png)\n:::";
+    "[IMG]https://img.example.com/a.png?x=1&y=2[/IMG] [MEDIA=youtube]dQw4w9WgXcQ[/MEDIA] " +
+    "[IMG]http://localhost:3000/files/a.png[/IMG]\n\n[SPOILER][IMG]https://img.example.com/s.png[/IMG][/SPOILER]";
 
   async function wall(f: ReturnType<typeof fixture>) {
     return execute(f.ctx, profilePostsCreateOp, f.actor, {
@@ -766,7 +767,7 @@ describe("outside pictures and media", () => {
     expect(made.bodyHtml).not.toContain('img.example.com/a.png?x=1&amp;y=2" alt');
     expect(made.bodyHtml).not.toContain("<iframe");
     expect(made.bodyHtml).toContain(
-      '<a href="https://img.example.com/a.png?x=1&amp;y=2" rel="nofollow ugc noopener">alt text</a>',
+      '<a href="https://img.example.com/a.png?x=1&amp;y=2" rel="nofollow ugc noopener">https://img.example.com/a.png?x=1&amp;y=2</a>',
     );
     expect(made.bodyHtml).toContain(
       '<a class="bb-media-link" href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" rel="nofollow ugc noopener">https://www.youtube.com/watch?v=dQw4w9WgXcQ</a>',
@@ -796,7 +797,7 @@ describe("outside media when staff edit someone else's text", () => {
     setEntry(f.ctx, held === "author" ? 2 : 3, "antispam.externalMediaAsLinks", 1);
     const edited = await execute(f.ctx, profilePostsUpdateOp, f.moderatorActor, {
       profilePostId: made.id,
-      body: "![x](https://img.example.com/a.png)",
+      body: "[IMG]https://img.example.com/a.png[/IMG]",
       attachmentIds: [],
       reason: "",
       notify: false,

@@ -62,7 +62,7 @@ describe("users.adminUpdateProfile", () => {
       location: "Madrid",
       website: "https://example.org",
       customTitle: "  The   Boss ",
-      signature: "My *signature*",
+      signature: "My [I]signature[/I]",
       reason: "Cleanup",
     });
     expect(view.card.username).toBe("Target");
@@ -71,7 +71,7 @@ describe("users.adminUpdateProfile", () => {
       location: "Madrid",
       website: "https://example.org",
       custom_title: "The Boss",
-      signature_source: "My *signature*",
+      signature_source: "My [I]signature[/I]",
     });
     expect(String(w.stored().signature_html)).toContain("<em>signature</em>");
     // The member does not hold the permissions to show them: stored all the same.
@@ -110,7 +110,9 @@ describe("users.adminUpdateProfile", () => {
     await expect(w.edit({ website: "javascript:alert(1)" })).rejects.toBeInstanceOf(
       ValidationError,
     );
-    await expect(w.edit({ signature: "# heading" })).rejects.toBeInstanceOf(ValidationError);
+    await expect(w.edit({ signature: "[HEADING=1]heading[/HEADING]" })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
     await expect(w.edit({ customTitle: "x".repeat(100) })).rejects.toBeInstanceOf(ValidationError);
     expect(w.stored()).toMatchObject({ website: "", custom_title: null });
     expect(w.logOf(w.target.id)).toEqual([]);

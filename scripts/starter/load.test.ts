@@ -125,7 +125,7 @@ const forumCount = forums.categories.reduce(
     total + category.forums.reduce((sum, forum) => sum + 1 + forum.subforums.length, 0),
   0,
 );
-const pageFiles = readdirSync(join(root, "pages")).filter((name) => name.endsWith(".md"));
+const pageFiles = readdirSync(join(root, "pages")).filter((name) => name.endsWith(".bbcode"));
 const TIMEOUT = 240_000;
 
 const first = boot();
@@ -167,7 +167,7 @@ describe("starter content", () => {
       expect(state.awards.every((award) => award.image)).toBe(true);
       expect(state.rules).toHaveLength(settings.creditRules.length);
       expect(state.pages.map((page) => page.slug).sort()).toEqual(
-        pageFiles.map((name) => name.replace(/\.md$/, "")).sort(),
+        pageFiles.map((name) => name.replace(/\.bbcode$/, "")).sort(),
       );
       expect(state.settings.logoFileId).not.toBeNull();
       expect(state.settings.iconFileId).not.toBeNull();

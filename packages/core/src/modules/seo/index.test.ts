@@ -145,7 +145,7 @@ test("accented slugs are cosmetic and detail responses include complete structur
   const made = await execute(ctx, threadsCreateOp, author, {
     nodeId: node.id,
     title: "¿Qué tal, mañana?",
-    body: "**Resumen** con enlace [uno](https://example.test)",
+    body: "[B]Resumen[/B] con enlace [URL=https://example.test]uno[/URL]",
   });
   await execute(ctx, postsCreateOp, author, {
     threadId: made.thread.id,
@@ -449,15 +449,15 @@ test("masking for the guest thread page works on a bounded part of each post", a
   expect(boundSource(long, 3000).text).toHaveLength(3000);
   expect(boundSource("short", 3000)).toEqual({ text: "short", truncated: false });
   expect(maskMarkupForExcerpt(long, 3000).length).toBeLessThanOrEqual(3000);
-  // A spoiler the cut leaves open hides the rest, in BB code and in the inline marker.
+  // A spoiler the cut leaves open hides the rest, block or inline.
   const cut = `${"x".repeat(2_990)}[SPOILER]secret that goes on and on [/SPOILER]`;
   const masked = maskMarkupForExcerpt(cut, 3000);
   expect(masked).not.toContain("secret");
   expect(masked).toContain("[spoiler]");
   expect(
-    maskMarkupForExcerpt(`${"x".repeat(2_990)} >!secret goes on and on!<`, 3000),
+    maskMarkupForExcerpt(`${"x".repeat(2_990)} [ISPOILER]secret goes on and on[/ISPOILER]`, 3000),
   ).not.toContain("secret");
-  expect(maskMarkupForExcerpt(`${"x".repeat(2_000)}:::spoiler\nsecret\n:::`, 2_010)).not.toContain(
-    "secret",
-  );
+  expect(
+    maskMarkupForExcerpt(`${"x".repeat(2_000)}[SPOILER]secret[/SPOILER]`, 2_010),
+  ).not.toContain("secret");
 });

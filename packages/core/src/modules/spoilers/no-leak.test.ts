@@ -10,10 +10,10 @@ import { profilePostsCreateOp } from "../profiles";
 import { searchQueryOp } from "../search";
 import { atomFeed } from "../seo";
 
-// Every form: BB code block and inline, the Markdown container and the inline marker.
+// Every form: BB code block and inline, with and without a title, and one inside a quote.
 const BODY =
   "needle visible [SPOILER=Why]secret one[/SPOILER] [ISPOILER]secret two[/ISPOILER]\n" +
-  ":::spoiler\nsecret three\n:::\n>!secret four!<";
+  "[SPOILER]secret three[/SPOILER]\n[QUOTE=a][ISPOILER]secret four[/ISPOILER][/QUOTE]";
 
 // biome-ignore lint/suspicious/noExplicitAny: tests read the output of any operation
 const call = (ctx: any, name: string, actor: object, input: object = {}): Promise<any> =>

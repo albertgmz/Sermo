@@ -21,7 +21,7 @@ import {
 import { spoilersGetOp } from "./index";
 
 const BODY =
-  "before [SPOILER=Title]secret **block**[/SPOILER] and [ISPOILER]secret inline[/ISPOILER]";
+  "before [SPOILER=Title]secret [B]block[/B][/SPOILER] and [ISPOILER]secret inline[/ISPOILER]";
 
 async function world() {
   const ctx = createTestContext();
@@ -86,12 +86,12 @@ describe("spoilers.get: forum posts", () => {
 
     const reply = await execute(w.ctx, postsCreateOp, w.other, {
       threadId: thread.thread.id,
-      body: ">!reply secret!<",
+      body: "[ISPOILER]reply secret[/ISPOILER]",
     });
     expect(w.rows("post", reply.id).map((row) => row.html)).toEqual(["reply secret"]);
     await execute(w.ctx, postsUpdateOp, w.other, {
       postId: reply.id,
-      body: "[SPOILER]one[/SPOILER] [ISPOILER]two[/ISPOILER] :::quote x",
+      body: "[SPOILER]one[/SPOILER] [ISPOILER]two[/ISPOILER] [QUOTE]x[/QUOTE]",
     });
     expect(w.rows("post", reply.id).map((row) => row.html)).toEqual(["one", "two"]);
     await execute(w.ctx, postsUpdateOp, w.other, { postId: reply.id, body: "none left" });
@@ -171,7 +171,7 @@ describe("spoilers.get: conversation messages", () => {
     });
     const reply = await execute(w.ctx, conversationsReplyOp, w.other, {
       conversationId: made.conversation.id,
-      body: ">!reply secret!<",
+      body: "[ISPOILER]reply secret[/ISPOILER]",
     });
     return { ...w, third, made, reply };
   }
@@ -218,7 +218,7 @@ describe("spoilers.get: conversation messages", () => {
     await expect(
       w.get(w.other, "conversation_message", w.made.message.id, 1),
     ).rejects.toBeInstanceOf(NotFoundError);
-    await edit("[SPOILER=New]added **later**[/SPOILER] and >!more!<");
+    await edit("[SPOILER=New]added [B]later[/B][/SPOILER] and [ISPOILER]more[/ISPOILER]");
     expect((await w.get(w.other, "conversation_message", w.made.message.id, 0)).html).toBe(
       "added <strong>later</strong>",
     );
@@ -285,7 +285,7 @@ describe("spoilers.get: conversation messages", () => {
     for (let i = 0; i < 8; i++) {
       const next = await execute(w.ctx, conversationsReplyOp, i % 2 ? w.author : w.other, {
         conversationId: w.made.conversation.id,
-        body: `>!secret ${i}!<`,
+        body: `[ISPOILER]secret ${i}[/ISPOILER]`,
       });
       ids.push(next.id);
     }
@@ -377,7 +377,7 @@ describe("spoilers.get: profile posts and comments", () => {
     });
     const comment = await execute(w.ctx, profileCommentsCreateOp, w.other, {
       profilePostId: post.id,
-      body: ">!comment secret!<",
+      body: "[ISPOILER]comment secret[/ISPOILER]",
     });
     return { ...w, owner, post, comment };
   }

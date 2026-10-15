@@ -481,7 +481,7 @@ describe("profiles", () => {
     for (let i = 0; i < 5; i++) {
       const post = await execute(f.ctx, profilePostsCreateOp, f.authorActor, {
         userId: f.wall.id,
-        body: `**post ${i}**`,
+        body: `[B]post ${i}[/B]`,
       });
       ids.push(post.id);
       expect(post.canEdit).toBe(true);

@@ -75,7 +75,7 @@ is already in use, apart from the re-creations described above.
 | 17 awards with tier, XP, criteria where one exists, and picture | `data/awards.json`, `assets/awards` |
 | Logo and icon | `assets/site` |
 | Level titles and step, signature and title limits, standing weights, 4 credit rules, reaction types | `data/settings.json` |
-| Static pages (terms, privacy, legal, contact, upgrade-faq) | `pages/*.md`: the file name is the slug, the first heading the title |
+| Static pages (terms, privacy, legal, contact, upgrade-faq) | `pages/*.bbcode`: BB code, the file name is the slug, the first `[HEADING=1]` line the title |
 
 Vector pictures (awards, shop, logo, icon) are drawn once to a 512 px PNG with a transparent
 background before they are uploaded, because uploads are raster only. A frame is uploaded as it

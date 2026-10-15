@@ -29,25 +29,33 @@ function setup() {
     run(ctx, "pages.save", actor, {
       slug,
       title: `Title ${slug}`,
-      body: "Hello **world**",
+      body: "Hello [B]world[/B]",
       ...extra,
     });
   return { ctx, admin, moderator, member, token, save };
 }
 
 describe("pages", () => {
-  test("save creates then replaces by slug, rendering the Markdown", async () => {
+  test("save creates then replaces by slug, rendering the BB code", async () => {
     const { ctx, admin, save } = setup();
     const created = await save("terms");
     expect(created).toMatchObject({
       slug: "terms",
       title: "Title terms",
-      bodySource: "Hello **world**",
+      bodySource: "Hello [B]world[/B]",
       isPublished: true,
     });
     expect(created.bodyHtml).toContain("<strong>world</strong>");
-    const replaced = await save("terms", { title: "New", body: "# Heading", isPublished: false });
-    expect(replaced).toMatchObject({ title: "New", bodySource: "# Heading", isPublished: false });
+    const replaced = await save("terms", {
+      title: "New",
+      body: "[HEADING=1]Heading[/HEADING]",
+      isPublished: false,
+    });
+    expect(replaced).toMatchObject({
+      title: "New",
+      bodySource: "[HEADING=1]Heading[/HEADING]",
+      isPublished: false,
+    });
     expect(replaced.bodyHtml).toContain("<h1>Heading</h1>");
     expect((await run(ctx, "pages.list", admin)).items).toHaveLength(1);
   });
@@ -112,7 +120,7 @@ describe("pages", () => {
   test("list returns every page without its text, ordered by slug", async () => {
     const { ctx, admin, save } = setup();
     await save("zeta");
-    await save("alpha", { isPublished: false, body: "*src*" });
+    await save("alpha", { isPublished: false, body: "[I]src[/I]" });
     const { items } = await run(ctx, "pages.list", admin);
     expect(items.map((page: { slug: string }) => page.slug)).toEqual(["alpha", "zeta"]);
     expect(Object.keys(items[0]).sort()).toEqual([
@@ -127,17 +135,17 @@ describe("pages", () => {
 
   test("getSource returns one page with its source, published or not", async () => {
     const { ctx, admin, save } = setup();
-    await save("draft", { isPublished: false, body: "*src*" });
+    await save("draft", { isPublished: false, body: "[I]src[/I]" });
     await save("live");
     expect(await run(ctx, "pages.getSource", admin, { slug: "draft" })).toMatchObject({
       slug: "draft",
       title: "Title draft",
-      bodySource: "*src*",
+      bodySource: "[I]src[/I]",
       bodyHtml: "<p><em>src</em></p>",
       isPublished: false,
     });
     expect((await run(ctx, "pages.getSource", admin, { slug: "live" })).bodySource).toBe(
-      "Hello **world**",
+      "Hello [B]world[/B]",
     );
   });
 
@@ -183,12 +191,14 @@ describe("pages", () => {
 
   test("the worst case for the renderer, a body of the limit made of emphasis runs, renders in bounded time", async () => {
     const { save } = setup();
-    const body = "_a ".repeat(Math.ceil(PAGE_BODY_LENGTH / 3)).slice(0, PAGE_BODY_LENGTH);
+    const body = "[B][I]a ".repeat(Math.ceil(PAGE_BODY_LENGTH / 8)).slice(0, PAGE_BODY_LENGTH);
     expect(body).toHaveLength(PAGE_BODY_LENGTH);
     const started = performance.now();
     await save("worst", { body });
     const elapsed = performance.now() - started;
-    console.log(`pages.save of ${PAGE_BODY_LENGTH} characters of "_a ": ${Math.round(elapsed)} ms`);
+    console.log(
+      `pages.save of ${PAGE_BODY_LENGTH} characters of unclosed tags: ${Math.round(elapsed)} ms`,
+    );
     expect(elapsed).toBeLessThan(10_000);
   });
 
@@ -196,11 +206,11 @@ describe("pages", () => {
     const { ctx, save } = setup();
     insertUser(ctx, { username: "Alice" });
     const page = await save("html", {
-      body: "<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n[x](javascript:alert(1))\n\nHi @Alice",
+      body: "<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n[URL=javascript:alert(1)]x[/URL]\n\nHi @Alice",
     });
     expect(page.bodyHtml).not.toContain("<script");
     expect(page.bodyHtml).not.toContain("<img");
-    expect(page.bodyHtml).not.toContain("javascript:");
+    expect(page.bodyHtml).not.toContain("<a ");
     expect(page.bodyHtml).not.toContain("data-user-id");
     expect(page.bodySource).toContain("<script>");
     expect(
@@ -210,9 +220,9 @@ describe("pages", () => {
 
   test("a failed render stores nothing", async () => {
     const { ctx, save } = setup();
-    await expect(save("deep", { body: `${"> ".repeat(12)}too deep` })).rejects.toBeInstanceOf(
-      ValidationError,
-    );
+    await expect(
+      save("deep", { body: `${"[QUOTE]".repeat(12)}too deep${"[/QUOTE]".repeat(12)}` }),
+    ).rejects.toBeInstanceOf(ValidationError);
     expect(
       ctx.sqlite.prepare<{ n: number }, []>("SELECT COUNT(*) AS n FROM static_pages").get()!.n,
     ).toBe(0);

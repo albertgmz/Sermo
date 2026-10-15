@@ -167,7 +167,11 @@ describe("bookmarks.set and bookmarks.status", () => {
 describe("bookmarks.list", () => {
   test("lists every type newest first with title, author, position and excerpt", async () => {
     const f = fixture();
-    const made = await thread(f, f.forum.id, "Opening **words** with >!a secret!< inside");
+    const made = await thread(
+      f,
+      f.forum.id,
+      "Opening [B]words[/B] with [ISPOILER]a secret[/ISPOILER] inside",
+    );
     const reply = await execute(f.ctx, postsCreateOp, f.other, {
       threadId: made.thread.id,
       body: "Reply [spoiler]hidden[/spoiler] visible text",

@@ -23,7 +23,7 @@ function setup() {
   const send = async (input: Record<string, unknown>, sender = admin) => {
     const result = await execute(ctx, announcementsCreateOp, userActor(sender), {
       title: "Maintenance",
-      body: "Tonight at **ten**",
+      body: "Tonight at [B]ten[/B]",
       ...input,
     });
     await dispatchEvents(ctx);
@@ -93,7 +93,7 @@ describe("announcements", () => {
 
   test("the alert shows the text with spoilers masked and opens the link when there is one", async () => {
     const f = setup();
-    await f.send({ body: "Visible >!hidden!< text", url: "/pages/rules" });
+    await f.send({ body: "Visible [ISPOILER]hidden[/ISPOILER] text", url: "/pages/rules" });
     await f.send({ url: "https://example.org/news" });
     await f.send({});
     const [fallback, outside, inside] = await f.got(f.member);

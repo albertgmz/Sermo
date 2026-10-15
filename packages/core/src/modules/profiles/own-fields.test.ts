@@ -16,17 +16,15 @@ const cardTitle = async (w: World, id: number) =>
 
 describe("a signature is one small block", () => {
   const refused: [string, string][] = [
-    ["an image", "![pic](http://example.test/p.png)"],
-    ["a heading", "# Heading"],
-    ["a list", "- one\n- two"],
-    ["a quote", "> quoted"],
-    ["a table", "|a|b|\n|-|-|\n|1|2|"],
-    ["a fenced code block", "```\ncode\n```"],
-    ["a rule", "---"],
+    ["an image", "[IMG]http://example.test/p.png[/IMG]"],
+    ["a heading", "[HEADING=1]Heading[/HEADING]"],
+    ["a list", "[LIST][*]one[*]two[/LIST]"],
+    ["a quote", "[QUOTE]quoted[/QUOTE]"],
+    ["a table", "[TABLE][TR][TD]a[/TD][/TR][/TABLE]"],
+    ["a code block", "[CODE]code[/CODE]"],
+    ["a rule", "[HR]"],
     ["two paragraphs", "one\n\ntwo"],
-    ["raw html inside text", "text <b>bold</b>"],
-    ["a raw html block", "<div>block</div>"],
-    ["a raw image tag", "<img src=x>"],
+    ["text and a block", "text [CENTER]block[/CENTER]"],
   ];
   for (const [name, signature] of refused)
     test(`${name} is refused and nothing is stored`, async () => {
@@ -39,12 +37,15 @@ describe("a signature is one small block", () => {
     });
 
   const accepted: [string, string, string][] = [
-    ["bold", "**bold**", "<strong>bold</strong>"],
-    ["italic", "*italic*", "<em>italic</em>"],
-    ["strikethrough", "~~gone~~", "<del>gone</del>"],
-    ["a link", "[site](https://example.test)", '<a href="https://example.test"'],
-    ["inline code", "use `code` here", "<code>code</code>"],
+    ["bold", "[B]bold[/B]", "<strong>bold</strong>"],
+    ["italic", "[I]italic[/I]", "<em>italic</em>"],
+    ["strikethrough", "[S]gone[/S]", "<del>gone</del>"],
+    ["a link", "[URL=https://example.test]site[/URL]", '<a href="https://example.test"'],
+    ["a bare link", "see https://example.test", '<a href="https://example.test"'],
+    ["inline code", "use [ICODE]code[/ICODE] here", "<code>code</code>"],
     ["a line break", "one\ntwo", "<br"],
+    ["typed Markdown, as text", "**not bold** and `not code`", "**not bold** and `not code`"],
+    ["typed HTML, as text", "text <b>bold</b>", "text &lt;b&gt;bold&lt;/b&gt;"],
   ];
   for (const [name, signature, html] of accepted)
     test(`${name} is accepted and stored`, async () => {

@@ -104,7 +104,7 @@ test("navigation is public, its administration is not, and PATCH null reaches th
 
 test("pages are read by slug, written with PUT and hidden while unpublished", async () => {
   const { request, admin, member } = await setup();
-  const body = { title: "Terms", body: "Be **kind**.", isPublished: false };
+  const body = { title: "Terms", body: "Be [B]kind[/B].", isPublished: false };
   expect((await request("/api/v1/pages/terms", json(member.cookie, "PUT", body))).status).toBe(403);
   const saved = await request("/api/v1/pages/terms", json(admin.cookie, "PUT", body));
   expect(saved.status).toBe(200);
@@ -119,7 +119,7 @@ test("pages are read by slug, written with PUT and hidden while unpublished", as
   expect(((await listed.json()) as { items: object[] }).items[0]).not.toHaveProperty("bodySource");
   const source = await request("/api/v1/pages/terms/source", json(admin.cookie, "GET"));
   expect(source.status).toBe(200);
-  expect(await source.json()).toMatchObject({ slug: "terms", bodySource: "Be **kind**." });
+  expect(await source.json()).toMatchObject({ slug: "terms", bodySource: "Be [B]kind[/B]." });
   expect((await request("/api/v1/pages/terms/source", json(member.cookie, "GET"))).status).toBe(
     403,
   );

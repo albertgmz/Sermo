@@ -80,7 +80,7 @@ describe("search.query", () => {
     const made = await execute(ctx, threadsCreateOp, author, {
       nodeId: forum.id,
       title: "Café guide",
-      body: "**Rainbow** needles near syntax",
+      body: "[B]Rainbow[/B] needles near syntax",
     });
     const reply = await execute(ctx, postsCreateOp, author, {
       threadId: made.thread.id,
@@ -271,12 +271,12 @@ describe("search.query", () => {
     expect(found).toEqual(ids.reverse());
     const decorated = await execute(ctx, postsCreateOp, author, {
       threadId: made.thread.id,
-      body: "needle <b>C#</b> snake_case 15! **bold** [link](https://example.test)",
+      body: "needle [B]C#[/B] snake_case 15! [URL=https://example.test]link[/URL]",
     });
     const excerpt = (await search(ctx, GUEST, "needle")).items.find(
       (item) => item.post.id === decorated.id,
     )?.post.excerpt;
-    expect(excerpt).toBe("needle C# snake_case 15! bold link");
+    expect(excerpt).toBe("needle C# snake_case 15! link");
     const long = await execute(ctx, postsCreateOp, author, {
       threadId: made.thread.id,
       body: `needle ${"a".repeat(192)}😀Z`,

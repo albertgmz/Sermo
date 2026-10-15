@@ -172,9 +172,9 @@ describe("profiles.update", () => {
 
     test("stores the source and the rendered html, and clears both", async () => {
       const w = world();
-      const profile = await update(w, w.moderatorActor, { signature: "**bold** line" });
+      const profile = await update(w, w.moderatorActor, { signature: "[B]bold[/B] line" });
       expect(profile.signatureHtml).toContain("<strong>bold</strong>");
-      expect(stored(w, w.moderator.id, "signature_source")).toBe("**bold** line");
+      expect(stored(w, w.moderator.id, "signature_source")).toBe("[B]bold[/B] line");
       expect(String(stored(w, w.moderator.id, "signature_html"))).toContain("<strong>");
       const cleared = await update(w, w.moderatorActor, { signature: "" });
       expect(cleared.signatureHtml).toBeNull();
