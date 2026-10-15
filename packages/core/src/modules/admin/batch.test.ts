@@ -508,7 +508,7 @@ describe("users.batchUpdate", () => {
     expect(w.stored(alpha!.id).username).toBe("Alpha");
     // Again: the half-done erasure is finished, not skipped as erased.
     expect(await run()).toMatchObject({ done: 1 });
-    expect(w.stored(alpha!.id).username).toBe("Deleted member " + alpha!.id);
+    expect(w.stored(alpha!.id).username).toBe(`Deleted member ${alpha!.id}`);
     const again = await run();
     expect(again).toMatchObject({ skipped: 1 });
     expect(w.entries(alpha!.id).filter((entry) => entry === "member.erase")).toHaveLength(1);
