@@ -69,6 +69,7 @@ export function SearchPanel({ className }: { className?: string }) {
       label={t("label")}
       title={t("title")}
       icon={<Search />}
+      shortcut="search"
       className={cn(headerIconClass, className)}
     >
       <search>

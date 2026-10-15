@@ -131,6 +131,7 @@ export default async function ForumPage({
   const newThread = isForum && node.permissions.canPost && (
     <Link
       href={`/forums/${node.id}/new`}
+      data-shortcut="create"
       className={cn(buttonVariants(), "h-10 px-3 md:h-8")}
     >
       <Plus />

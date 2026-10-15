@@ -72,6 +72,7 @@ export function PostFrame({
   return (
     <article
       id={id}
+      data-shortcut-item=""
       className={cn(
         "relative isolate grid scroll-mt-4 grid-cols-1 p-3 md:gap-x-4 md:p-4",
         POSTBIT_FRAME.grid,

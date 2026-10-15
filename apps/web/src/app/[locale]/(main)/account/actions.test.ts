@@ -340,6 +340,7 @@ const PREFERENCES = {
   language: null,
   profileViewPrivacy: "everyone",
   profilePostPrivacy: "members",
+  keyboardShortcuts: true,
 };
 const preferenceForm = (language: string) =>
   form({ watchOnCreate: "none", watchOnReply: "none", language });
@@ -380,4 +381,28 @@ test("a refused save leaves the language cookie alone", async () => {
   const state = await savePreferences(null as never, preferenceForm("xx"));
   expect(state).toEqual({ error: "Unsupported language." });
   expect(cookieWrites).toEqual([]);
+});
+
+test("the keyboard shortcuts choice is sent as a yes or a no, and left on when the field is missing", async () => {
+  const asked = backend(() => Response.json(PREFERENCES));
+  const send = (shortcuts?: string) =>
+    redirectedTo(() =>
+      savePreferences(
+        null as never,
+        form({
+          watchOnCreate: "none",
+          watchOnReply: "none",
+          language: "",
+          ...(shortcuts === undefined ? {} : { keyboardShortcuts: shortcuts }),
+        }),
+      ),
+    );
+  await send("off");
+  await send("on");
+  await send();
+  expect(asked.map((call) => call.body)).toMatchObject([
+    { keyboardShortcuts: false },
+    { keyboardShortcuts: true },
+    { keyboardShortcuts: true },
+  ]);
 });

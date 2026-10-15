@@ -12,6 +12,7 @@ import { mobileItems } from "@/components/layout/nav";
 import { toNavItems } from "@/components/layout/nav-server";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { SessionNotice } from "@/components/layout/session-notice";
+import { ShortcutsGate } from "@/components/layout/shortcuts-gate";
 import { ViewerAccent } from "@/components/layout/site-accent";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -84,6 +85,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
       </Suspense>
       <Suspense>
         <AnalyticsTag />
+      </Suspense>
+      <Suspense>
+        <ShortcutsGate />
       </Suspense>
       <SiteHeader />
       <Suspense>

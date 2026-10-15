@@ -317,8 +317,8 @@
     "metaTitle": "Preferencias",
     "heading": "Preferencias",
     "loading": "Cargando tus preferencias…",
-    "sectionHeading": "Seguimiento de temas e idioma",
-    "sectionDescription": "Qué ocurre cuando publicas y el idioma del foro para ti.",
+    "sectionHeading": "Seguimiento de temas, idioma y atajos",
+    "sectionDescription": "Qué ocurre cuando publicas, el idioma del foro para ti y si los atajos de teclado están activados.",
     "createLabel": "Temas que creas",
     "createHelp": "Si sigues los temas que creas.",
     "replyLabel": "Temas en los que respondes",
@@ -330,6 +330,12 @@
     },
     "languageLabel": "Idioma",
     "languageDefault": "Predeterminado del sitio",
+    "shortcutsLabel": "Atajos de teclado",
+    "shortcutsHelp": "Teclas como ? para la lista, / para buscar, j y k para moverte entre mensajes y g luego h para ir al inicio.",
+    "shortcuts": {
+      "on": "Activados",
+      "off": "Desactivados"
+    },
     "submit": "Guardar preferencias",
     "threadsHeading": "Temas que sigues",
     "threadsDescription": "Se te avisa cuando alguien responde en estos.",

@@ -36,7 +36,7 @@ export function ReplyComposer({
   });
   const [uploading, setUploading] = useState(false);
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} data-shortcut="reply" className="space-y-3">
       <Editor
         key={`editor-${generation}`}
         name="body"

@@ -289,6 +289,7 @@ export async function savePreferences(
       watchOnCreate: text(formData, "watchOnCreate") as "none",
       watchOnReply: text(formData, "watchOnReply") as "none",
       language,
+      keyboardShortcuts: text(formData, "keyboardShortcuts") !== "off",
     }),
   );
   if (!saved.ok) return { error: saved.error };

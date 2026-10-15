@@ -260,6 +260,18 @@
 }
 
 /*
+ * The post or card that `j` and `k` have moved to holds the focus, and the focus ring is the
+ * mark. Inside the item, so a neighbour does not cover it; `scroll-margin` leaves a little air
+ * above the item when it is scrolled to the top.
+ */
+[data-shortcut-item] {
+  scroll-margin-top: 1rem;
+}
+[data-shortcut-item]:focus-visible {
+  outline-offset: -2px;
+}
+
+/*
  * Everything derived from the accent. A site's accent sets --primary and --primary-foreground on
  * the root (ViewerAccent); the values above are what shows until the site's data is read.
  */

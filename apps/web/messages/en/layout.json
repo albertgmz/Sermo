@@ -176,5 +176,29 @@
     "throttledDescription": "You have asked for a lot of pages in a short time. Wait a moment and try again.",
     "retry": "Try again",
     "home": "Back to the home page"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "description": "These work anywhere except while you are typing in a field. You can turn them off in your preferences.",
+    "groups": {
+      "general": "Anywhere",
+      "lists": "Posts and lists",
+      "goTo": "Go to",
+      "editor": "In the editor"
+    },
+    "then": "then",
+    "actions": {
+      "help": "Show this list",
+      "search": "Search",
+      "escape": "Close a dialog or a menu",
+      "next": "Next post or card",
+      "previous": "Previous post or card",
+      "reply": "Reply to the thread",
+      "create": "Start a new thread",
+      "goHome": "Home",
+      "goAlerts": "Alerts",
+      "goConversations": "Conversations",
+      "removeFormatting": "Remove formatting (Cmd instead of Ctrl on a Mac)"
+    }
   }
 }

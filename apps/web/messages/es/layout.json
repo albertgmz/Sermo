@@ -176,5 +176,29 @@
     "throttledDescription": "Has pedido muchas páginas en poco tiempo. Espera un momento e inténtalo de nuevo.",
     "retry": "Reintentar",
     "home": "Volver al inicio"
+  },
+  "shortcuts": {
+    "title": "Atajos de teclado",
+    "description": "Funcionan en cualquier lugar salvo mientras escribes en un campo. Puedes desactivarlos en tus preferencias.",
+    "groups": {
+      "general": "En cualquier lugar",
+      "lists": "Mensajes y listas",
+      "goTo": "Ir a",
+      "editor": "En el editor"
+    },
+    "then": "luego",
+    "actions": {
+      "help": "Mostrar esta lista",
+      "search": "Buscar",
+      "escape": "Cerrar un diálogo o un menú",
+      "next": "Mensaje o tarjeta siguiente",
+      "previous": "Mensaje o tarjeta anterior",
+      "reply": "Responder al tema",
+      "create": "Crear un tema nuevo",
+      "goHome": "Inicio",
+      "goAlerts": "Avisos",
+      "goConversations": "Conversaciones",
+      "removeFormatting": "Quitar el formato (Cmd en lugar de Ctrl en un Mac)"
+    }
   }
 }

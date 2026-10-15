@@ -19,6 +19,7 @@ export function HeaderPanel({
   unread = 0,
   icon,
   className,
+  shortcut,
   onOpenChange,
   children,
 }: {
@@ -27,6 +28,8 @@ export function HeaderPanel({
   unread?: number;
   icon: React.ReactNode;
   className?: string;
+  // The name a keyboard shortcut finds this button by (`data-shortcut`).
+  shortcut?: string;
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
@@ -39,6 +42,7 @@ export function HeaderPanel({
   return (
     <Popover open={open} onOpenChange={change}>
       <PopoverTrigger
+        data-shortcut={shortcut}
         aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
         className={cn(
           "outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:text-foreground",

@@ -85,6 +85,21 @@ export async function PreferencesSection({
             ))}
           </select>
         </Row>
+        <Row label={t("shortcutsLabel")} htmlFor="pref-keyboardShortcuts">
+          <select
+            id="pref-keyboardShortcuts"
+            name="keyboardShortcuts"
+            defaultValue={preferences.keyboardShortcuts ? "on" : "off"}
+            className={selectClass}
+          >
+            {(["on", "off"] as const).map((state) => (
+              <option key={state} value={state}>
+                {t(`shortcuts.${state}`)}
+              </option>
+            ))}
+          </select>
+          <Help>{t("shortcutsHelp")}</Help>
+        </Row>
       </ActionForm>
     </Section>
   );

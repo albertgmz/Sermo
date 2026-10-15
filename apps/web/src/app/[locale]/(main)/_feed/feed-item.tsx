@@ -117,6 +117,7 @@ function Card({
   return (
     <article
       id={id}
+      data-shortcut-item=""
       className={cn(
         "relative isolate scroll-mt-4 overflow-hidden rounded-lg border bg-card",
         highlighted &&
