@@ -21,7 +21,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { auth_user } from "./auth-schema";
+import { auth_session, auth_user } from "./auth-schema";
 
 /**
  * The rule column default: `{ match, conditions }` (shared/criteria.ts) with no conditions, which
@@ -416,12 +416,24 @@ export const ipLog = sqliteTable(
     brand: text("brand"),
     model: text("model"),
     isBot: bool("is_bot").notNull().default(false),
+    // Where the request came from, as coarse as the source gives it: the ISO country code, the
+    // region and the city. From the proxy's location headers when they are trusted, else from
+    // the optional MaxMind database; null when neither is available.
+    country: text("country"),
+    region: text("region"),
+    city: text("city"),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
     // members.ips: one member's addresses with counts and first/last seen, from the index alone;
     // it also serves the erase, so it holds every row of the member
     index("ip_log_member_ip").on(t.userId, t.ip, t.createdAt, t.action),
+    // auth.signInHistory and the new-device check: one member's sign-ins, successful and failed
+    index("ip_log_member_sign_in")
+      .on(t.userId, t.id)
+      .where(sql`action IN ('sign_in', 'sign_in_failed')`),
+    // the retention job: the oldest rows first
+    index("ip_log_created_at").on(t.createdAt),
     // ips.members: who used an address (or an IPv6 /64), from the index alone
     index("ip_log_net_member")
       .on(t.ipNet, t.userId, t.createdAt, t.action)
@@ -430,6 +442,22 @@ export const ipLog = sqliteTable(
     index("ip_log_content").on(t.contentType, t.contentId).where(sql`content_id IS NOT NULL`),
   ],
 );
+
+/**
+ * What the session list shows beyond Better Auth's own session row (which this table never
+ * touches): when the session was last used and where it was opened. One row per session, written
+ * when it is opened; `last_active_at` is moved forward at most once every few minutes per session
+ * (never per request) by a scheduled flush. Deleted with its session.
+ */
+export const sessionActivity = sqliteTable("session_activity", {
+  sessionId: integer("session_id")
+    .primaryKey()
+    .references(() => auth_session.id, { onDelete: "cascade" }),
+  lastActiveAt: integer("last_active_at").notNull(),
+  country: text("country"),
+  region: text("region"),
+  city: text("city"),
+});
 
 /** Secondary groups assigned by hand. */
 export const userGroups = sqliteTable(
