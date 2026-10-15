@@ -6,6 +6,7 @@ import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentAccount } from "@/lib/sermo/auth";
 import { getViewer } from "@/lib/sermo/session";
+import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,6 +59,10 @@ export default async function VerifyEmailPage({
       </AuthShell>
     );
   }
+  // A signed-in member asking for their own mail is not a guest and is not asked.
+  const resendKey = viewer.user
+    ? null
+    : await turnstileKeyFor("resendConfirmation");
   const message = error
     ? t(
         `errors.${ERRORS[error as keyof typeof ERRORS] ?? "generic"}` as "errors.generic",
@@ -72,7 +77,11 @@ export default async function VerifyEmailPage({
         >
           {resent ? t("resent") : message}
         </p>
-        <ResendForm from="verify" email={viewer.user?.email} />
+        <ResendForm
+          from="verify"
+          email={viewer.user?.email}
+          turnstileKey={resendKey}
+        />
       </div>
     </AuthShell>
   );

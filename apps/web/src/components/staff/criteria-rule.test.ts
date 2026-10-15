@@ -49,6 +49,7 @@ test("notices and the shop are offered every cheap criterion and no background o
     "shopItem",
     "postLinks",
     "postApproval",
+    "signature",
   ] as const) {
     expect(PLACES[place].cheapOnly).toBe(true);
     expect(ids(place)).toEqual(cheap);
@@ -114,6 +115,7 @@ test("an empty rule means everyone, manual only for an award, and is refused for
     "shopItem",
     "postLinks",
     "postApproval",
+    "signature",
   ] as const)
     expect(PLACES[place].empty).toBe("everyone");
 });

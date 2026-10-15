@@ -7,6 +7,7 @@ import { register } from "@/app/[locale]/(auth)/actions";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { PasswordStrength } from "@/app/[locale]/(auth)/password-strength";
 import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
+import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +18,13 @@ function Required({ children }: { children: React.ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
-export function RegisterForm({ referrer }: { referrer?: string }) {
+export function RegisterForm({
+  referrer,
+  turnstileKey,
+}: {
+  referrer?: string;
+  turnstileKey: string | null;
+}) {
   const t = useTranslations("auth.registerForm");
   const [state, action, pending] = useActionState(register, {
     error: "",
@@ -71,6 +78,7 @@ export function RegisterForm({ referrer }: { referrer?: string }) {
         />
         <PasswordStrength password={password} />
       </div>
+      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
       {state.error && <FormError>{state.error}</FormError>}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}

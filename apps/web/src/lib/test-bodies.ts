@@ -35,6 +35,7 @@ export function siteBody(over: Record<string, unknown> = {}) {
     cookiePolicyVersion: 1,
     matomoCookieless: false,
     cookieBannerOutsideEu: true,
+    turnstile: null,
     defaultLanguage: "en",
     palette: { accents: [], nameColors: [], prefixColors: [] },
     ...over,

@@ -75,11 +75,6 @@ export async function LevelsForm() {
       ))}
       <Subheading heading={t("limits")} />
       <NumberRow
-        name="signatureMaxLength"
-        value={settings.signatureMaxLength}
-      />
-      <NumberRow name="signatureMaxLines" value={settings.signatureMaxLines} />
-      <NumberRow
         name="customTitleMaxLength"
         value={settings.customTitleMaxLength}
       />

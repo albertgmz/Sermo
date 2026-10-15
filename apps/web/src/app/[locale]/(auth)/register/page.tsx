@@ -5,6 +5,7 @@ import { RegisterForm } from "@/app/[locale]/(auth)/register/register-form";
 import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { referrerOf } from "@/lib/referral/link";
+import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.register");
@@ -16,9 +17,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RegisterPage({
   searchParams,
 }: PageProps<"/[locale]/register">) {
-  const [t, { ref }] = await Promise.all([
+  const [t, { ref }, turnstileKey] = await Promise.all([
     getTranslations("auth.register"),
     searchParams,
+    turnstileKeyFor("register"),
   ]);
   return (
     <main className="relative isolate flex min-h-dvh flex-1 items-center justify-center px-4 py-8">
@@ -44,7 +46,10 @@ export default async function RegisterPage({
             <p className="mt-1 mb-6 text-center text-sm text-muted-foreground">
               {t("description")}
             </p>
-            <RegisterForm referrer={referrerOf(ref)?.toString()} />
+            <RegisterForm
+              referrer={referrerOf(ref)?.toString()}
+              turnstileKey={turnstileKey}
+            />
           </div>
         </div>
       </div>

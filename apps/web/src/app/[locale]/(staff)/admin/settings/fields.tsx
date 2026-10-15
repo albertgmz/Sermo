@@ -84,6 +84,85 @@ export function SwitchRow({ name, value }: { name: FieldKey; value: boolean }) {
   );
 }
 
+// A row of ticked kinds (the formatting a signature may use, the forms Turnstile guards). The
+// ticked ones are posted under the row's name; `options` pairs each kind with its label.
+export async function ChecklistRow({
+  name,
+  options,
+  value,
+}: {
+  name: "signatureFormats" | "turnstileForms";
+  options: { kind: string; label: string }[];
+  value: readonly string[];
+}) {
+  const t = await getTranslations("adminSetup.fields");
+  return (
+    <FieldRow name={name} label={t(`${name}.label`)} help={t(`${name}.help`)}>
+      <Shown name={name} />
+      <fieldset className="grid min-w-0 gap-x-4 sm:grid-cols-2">
+        <legend className="sr-only">{t(`${name}.label`)}</legend>
+        {options.map(({ kind, label }) => (
+          <label
+            key={kind}
+            className="flex min-h-10 items-center gap-3 text-sm"
+          >
+            <input
+              type="checkbox"
+              name={name}
+              value={kind}
+              defaultChecked={value.includes(kind)}
+              className="size-5"
+            />
+            {label}
+          </label>
+        ))}
+      </fieldset>
+    </FieldRow>
+  );
+}
+
+// The write-only secret of a service: never shown, so the row says whether one is stored. Typing
+// replaces it, the box removes it, leaving both alone keeps it.
+export async function SecretRow({
+  name,
+  stored,
+}: {
+  name: "turnstileSecret";
+  stored: boolean;
+}) {
+  const t = await getTranslations("adminSetup.fields");
+  const id = `field-${name}`;
+  return (
+    <FieldRow
+      name={name}
+      label={t(`${name}.label`)}
+      htmlFor={id}
+      help={t(`${name}.help`)}
+    >
+      <Shown name={name} />
+      <Input
+        id={id}
+        name={name}
+        type="password"
+        autoComplete="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        placeholder={stored ? t(`${name}.placeholderStored`) : undefined}
+        aria-describedby={`${id}-help`}
+      />
+      <p role="status" className="text-xs font-medium">
+        {stored ? t(`${name}.stored`) : t(`${name}.notStored`)}
+      </p>
+      {stored && (
+        <label className="flex min-h-10 items-center gap-3 text-sm">
+          <input type="checkbox" name={`${name}Remove`} className="size-5" />
+          {t(`${name}.remove`)}
+        </label>
+      )}
+    </FieldRow>
+  );
+}
+
 export function TextRow({
   name,
   value,

@@ -56,8 +56,13 @@
     "antispam": {
       "metaTitle": "Antispam",
       "heading": "Antispam",
-      "subtitle": "Con qué rapidez puede escribir un miembro y quién puede publicar enlaces o publicar sin revisión. Los límites diarios, la restricción que muestra como enlaces las imágenes y los medios externos (un grupo con Nunca queda exento) y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
-      "formHeading": "Límites de publicación"
+      "subtitle": "Con qué rapidez puede escribir un miembro, quién puede publicar enlaces o publicar sin revisión, qué puede contener una firma y la comprobación de Cloudflare Turnstile en los formularios para invitados. Los límites diarios, la restricción que muestra como enlaces las imágenes y los medios externos (un grupo con Nunca queda exento) y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
+      "formHeading": "Límites de publicación",
+      "posting": "Publicación",
+      "signatures": "Firmas",
+      "signaturesNote": "Se comprueban cuando un miembro guarda su firma y se miden sobre lo que muestra, así que el Markdown y el BB code que dibujan lo mismo cuentan igual. En los recuentos y en el tamaño del texto, 0 y -1 significan sin límite; para prohibir enlaces o imágenes, déjalos fuera del formato permitido. Nunca se permiten citas, tablas, bloques de código, spoilers, medios ni más de un párrafo. Las firmas ya guardadas no se vuelven a comprobar hasta que su dueño las guarde.",
+      "turnstile": "Cloudflare Turnstile",
+      "turnstileNote": "Los visitantes sin cuenta resuelven una comprobación antes de enviar los formularios de abajo; los miembros con sesión nunca la ven. El backend verifica cada respuesta con Cloudflare y falla cerrado: si no se puede contactar con Cloudflare, los formularios protegidos se rechazan hasta que se pueda, así que mientras tanto nadie puede registrarse, iniciar sesión ni pedir un correo. Crea un widget en el panel de Cloudflare y pega aquí sus claves. Figura en la política de cookies como estrictamente necesario para la seguridad."
     },
     "cookies": {
       "metaTitle": "Cookies y privacidad",
@@ -225,6 +230,51 @@
       "help": "Máximo de líneas en una firma.",
       "unit": "líneas"
     },
+    "signatureMaxLinks": {
+      "label": "Enlaces de la firma",
+      "help": "Máximo de enlaces en una firma, vayan a donde vayan. 0 o -1: sin límite. Requiere los enlaces entre el formato permitido.",
+      "unit": "enlaces"
+    },
+    "signatureMaxImages": {
+      "label": "Imágenes de la firma",
+      "help": "Máximo de imágenes en una firma. 0 o -1: sin límite. Requiere las imágenes entre el formato permitido.",
+      "unit": "imágenes"
+    },
+    "signatureMaxSmilies": {
+      "label": "Emoticonos de la firma",
+      "help": "Máximo de emoji en una firma. El foro no tiene emoticonos de texto, así que :) es texto normal. 0 o -1: sin límite.",
+      "unit": "emoji"
+    },
+    "signatureMaxTextSize": {
+      "label": "Tamaño del texto de la firma",
+      "help": "El mayor tamaño que puede usar una firma, de 1 a 7 como en [SIZE=n]. Un encabezado cuenta como 8 menos su nivel: uno de nivel 1 es tamaño 7. 0 o -1: sin límite.",
+      "unit": "tamaño"
+    },
+    "signatureFormats": {
+      "label": "Formato permitido",
+      "help": "Los tipos de formato que puede usar una firma. Uno sin marcar se rechaza al guardar la firma; nunca se quita en silencio."
+    },
+    "turnstileEnabled": {
+      "label": "Turnstile",
+      "help": "Necesita una clave del sitio y un secreto. No se puede activar sin ellos, ni quitarlos mientras esté activo.",
+      "switch": "Comprobar a los visitantes en los formularios de abajo"
+    },
+    "turnstileSiteKey": {
+      "label": "Clave del sitio",
+      "help": "La clave pública del widget. Se envía al navegador de todos los visitantes."
+    },
+    "turnstileSecret": {
+      "label": "Clave secreta",
+      "help": "Se guarda en el servidor y no se vuelve a mostrar. Escribe una nueva para reemplazarla; déjalo vacío para conservar la guardada.",
+      "placeholderStored": "Guardada. Escribe para reemplazarla.",
+      "stored": "Hay un secreto guardado.",
+      "notStored": "No hay ningún secreto guardado.",
+      "remove": "Quitar el secreto guardado"
+    },
+    "turnstileForms": {
+      "label": "Formularios protegidos",
+      "help": "Solo formularios para visitantes sin cuenta. Cambiar la contraseña, responder y cualquier otro formulario exigen un miembro con sesión, al que nunca se le pide. Tampoco se le pide a un miembro con sesión que pide el correo de confirmación de su propia dirección."
+    },
     "customTitleMaxLength": {
       "label": "Longitud del título personalizado",
       "help": "El título personalizado más largo que puede tener un miembro.",
@@ -291,6 +341,27 @@
         "help": "Empieza por G-, por ejemplo G-ABC123XYZ."
       }
     }
+  },
+  "signatureFormats": {
+    "bold": "Negrita",
+    "italic": "Cursiva",
+    "underline": "Subrayado",
+    "strikethrough": "Tachado",
+    "code": "Código en línea",
+    "color": "Color del texto",
+    "font": "Fuentes",
+    "size": "Tamaños de texto",
+    "heading": "Encabezados",
+    "link": "Enlaces",
+    "image": "Imágenes",
+    "list": "Listas",
+    "align": "Alineación"
+  },
+  "turnstileForms": {
+    "register": "Registro",
+    "login": "Inicio de sesión",
+    "passwordReset": "Solicitud de restablecer la contraseña",
+    "resendConfirmation": "Reenviar el correo de confirmación"
   },
   "purposes": {
     "attachment": "Adjuntos",

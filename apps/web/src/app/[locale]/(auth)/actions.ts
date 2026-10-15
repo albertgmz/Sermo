@@ -17,6 +17,7 @@ import {
   signUp,
 } from "@/lib/sermo/auth";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { tokenOf } from "@/lib/turnstile/field";
 
 // `assign`: go to this address with a full page load (see `useHardNavigation`).
 export type AuthState = { error: string; username: string; assign?: string };
@@ -42,6 +43,9 @@ const ERRORS: Record<string, string> = {
   RESET_PASSWORD_DISABLED: "mailOff",
   VERIFICATION_EMAIL_NOT_ENABLED: "mailOff",
   INVALID_TOKEN: "invalidToken",
+  TURNSTILE_REQUIRED: "turnstileRequired",
+  TURNSTILE_FAILED: "turnstileFailed",
+  TURNSTILE_UNAVAILABLE: "turnstileUnavailable",
 };
 
 async function describe(code: string | undefined) {
@@ -65,8 +69,8 @@ export async function login(
   }
   const remember = formData.get("remember") !== null;
   const result = username.includes("@")
-    ? await signInWithEmail(username, password, remember)
-    : await signInWithUsername(username, password, remember);
+    ? await signInWithEmail(username, password, remember, tokenOf(formData))
+    : await signInWithUsername(username, password, remember, tokenOf(formData));
   if (!result.ok) return failure(result, username);
   const adopted =
     result.signedIn && (await syncConsentAfterSignIn(result.cookie));
@@ -99,12 +103,15 @@ export async function register(
   const referrer =
     (accepted ? referrerOf(store.get(REFERRAL_COOKIE)?.value) : null) ??
     referrerOf(String(formData.get("ref") ?? ""));
-  const result = await signUp({
-    username,
-    email,
-    password,
-    ...(referrer === null ? {} : { ref: referrer }),
-  });
+  const result = await signUp(
+    {
+      username,
+      email,
+      password,
+      ...(referrer === null ? {} : { ref: referrer }),
+    },
+    tokenOf(formData),
+  );
   if (!result.ok) return failure(result, username);
   if (store.has(REFERRAL_COOKIE)) store.delete(REFERRAL_COOKIE);
   const adopted =
@@ -133,7 +140,7 @@ export async function forgotPassword(
   const t = await getTranslations("auth.forgotPassword");
   const email = String(formData.get("email") ?? "").trim();
   if (!email) return { error: t("errors.required") };
-  const result = await requestPasswordReset(email);
+  const result = await requestPasswordReset(email, tokenOf(formData));
   if (!result.ok) return emailFailure(result.code);
   redirect("/forgot-password?sent=1");
 }
@@ -171,7 +178,7 @@ export async function resendVerification(
   const email = String(formData.get("email") ?? "").trim();
   const from = formData.get("from") === "verify" ? "/verify-email" : "/login";
   if (!email) return { error: t("invalidEmail") };
-  const result = await sendVerificationEmail(email);
+  const result = await sendVerificationEmail(email, tokenOf(formData));
   if (!result.ok && !(result.code && NEUTRAL.includes(result.code))) {
     return emailFailure(result.code);
   }

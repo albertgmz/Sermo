@@ -150,6 +150,11 @@
       "purpose": "Recuerda el enlace de invitación de qué miembro te trajo aquí, para acreditarle si te registras.",
       "lifetime": "30 días."
     },
+    "turnstile": {
+      "title": "Comprobación de seguridad",
+      "purpose": "Los formularios para visitantes sin sesión (registro, inicio de sesión, restablecer la contraseña) pueden llevar una comprobación de Cloudflare Turnstile que distingue a las personas del abuso automatizado. Es estrictamente necesaria para la seguridad, así que no requiere consentimiento y tus elecciones no la desactivan. Su script se carga desde Cloudflare solo en esas páginas y solo mientras el sitio tenga la comprobación activada; Cloudflare recibe tu dirección y datos del navegador para juzgarla. Consulta la política de Cloudflare.",
+      "lifetime": "Este sitio no guarda nada. Lo que se guarde lo fija el proveedor mientras se ejecuta la comprobación."
+    },
     "embeds": {
       "title": "Contenido incrustado",
       "purpose": "Un reproductor de vídeo o música de otro sitio solo se carga después de pulsar «Cargar» o de aceptar esta categoría. Una vez cargado, ese sitio puede poner sus propias cookies; este sitio no puede verlas ni borrarlas. Consulta la política de cada proveedor.",

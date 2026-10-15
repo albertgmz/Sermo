@@ -111,7 +111,30 @@
     "notShown": "Lo tienes guardado, pero ahora no se muestra.",
     "remove": "Quitar",
     "titleLocked": "Un título personalizado requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
-    "signatureLocked": "Una firma requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>"
+    "signatureLocked": "Una firma requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",
+    "signatureNeeds": "Todavía no puedes poner una firma. Necesitas {needs}.",
+    "signaturePlain": "Solo texto sin formato.",
+    "signatureAllowed": "Formato permitido: {formats}.",
+    "signatureBounds": "Límites: {bounds}.",
+    "signatureLinks": "hasta {count, plural, one {# enlace} other {# enlaces}}",
+    "signaturePictures": "hasta {count, plural, one {# imagen} other {# imágenes}}",
+    "signatureEmoji": "hasta {count} emoji",
+    "signatureSize": "texto hasta el tamaño {size}",
+    "signatureKinds": {
+      "bold": "negrita",
+      "italic": "cursiva",
+      "underline": "subrayado",
+      "strikethrough": "tachado",
+      "code": "código en línea",
+      "color": "color del texto",
+      "font": "fuentes",
+      "size": "tamaños de texto",
+      "heading": "encabezados",
+      "link": "enlaces",
+      "image": "imágenes",
+      "list": "listas",
+      "align": "alineación"
+    }
   },
   "referral": {
     "heading": "Invitar miembros",

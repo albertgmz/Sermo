@@ -139,6 +139,15 @@ export const INVENTORY: readonly InventoryItem[] = [
     party: "first",
   },
   {
+    // Cloudflare's widget on the guest forms, loaded only where the site has it on. It is a
+    // security measure, so it stays out of the consent categories.
+    id: "turnstile",
+    category: "necessary",
+    storage: "cookie",
+    names: [],
+    party: "Cloudflare",
+  },
+  {
     id: "embeds",
     category: "embeds",
     storage: "cookie",

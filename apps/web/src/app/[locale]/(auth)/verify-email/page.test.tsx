@@ -1,7 +1,13 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { messages } from "@/i18n/messages";
+import { siteBody } from "@/lib/test-bodies";
+
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
 
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
@@ -15,6 +21,13 @@ mock.module("next-intl/server", () => ({
   },
 }));
 mock.module("server-only", () => ({}));
+// The page asks the site whether the resend form is guarded; these match the site test's mocks.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("@/app/[locale]/(auth)/auth-shell", () => ({
   AuthShell: ({
     heading,
@@ -26,7 +39,8 @@ mock.module("@/app/[locale]/(auth)/auth-shell", () => ({
     createElement("main", null, createElement("h1", null, heading), children),
 }));
 mock.module("@/app/[locale]/(auth)/resend-form", () => ({
-  ResendForm: () => null,
+  ResendForm: ({ turnstileKey }: { turnstileKey: string | null }) =>
+    createElement("i", { "data-key": String(turnstileKey) }),
 }));
 let viewer: { user: { email: string } | null } = { user: null };
 mock.module("@/lib/sermo/session", () => ({ getViewer: async () => viewer }));
@@ -48,6 +62,23 @@ async function html(search: Record<string, string>) {
     } as never),
   );
 }
+
+function guarded() {
+  globalThis.fetch = (async () =>
+    Response.json(
+      siteBody({
+        turnstile: { siteKey: "0x4AAA-site", forms: ["resendConfirmation"] },
+      }),
+    )) as unknown as typeof fetch;
+}
+
+test("a guest who asks for a new confirmation mail gets the Turnstile key, a signed-in member none", async () => {
+  guarded();
+  viewer = { user: null };
+  expect(await html({})).toContain('data-key="0x4AAA-site"');
+  viewer = { user: { email: "ann@example.test" } };
+  expect(await html({})).toContain('data-key="null"');
+});
 
 test("anyone who types ?done=1 is not told their address is confirmed", async () => {
   viewer = { user: null };

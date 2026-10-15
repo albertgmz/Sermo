@@ -192,6 +192,7 @@
       "reactionType": "Quién puede usarla",
       "postLinks": "Pueden publicar enlaces",
       "postApproval": "Publican sin revisión",
+      "signature": "Pueden poner una firma",
       "homeTab": "Abren el inicio en"
     },
     "help": {
@@ -203,6 +204,7 @@
       "reactionType": "Los miembros que no cumplan las condiciones no pueden dar esta reacción; la que dieron antes se mantiene y sigue contando. Solo se ofrecen condiciones que se pueden comprobar en cada reacción.",
       "postLinks": "Un miembro debe cumplir esto para publicar enlaces, imágenes o medios de otros sitios. Déjalo vacío para permitirlo a todos. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "postApproval": "Los hilos y respuestas nuevos de quienes no cumplan esto esperan a un moderador, además del número de primeros mensajes y de los interruptores de aprobación de cada foro. Déjalo vacío para no retener a nadie. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
+      "signature": "Un miembro debe cumplir esto para poner una firma, además del permiso. Una firma guardada por un miembro que ya no lo cumple sigue guardada pero no se muestra. Déjalo vacío para que pueda cualquiera con el permiso. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
       "homeTab": "Los visitantes que cumplan esto abren el inicio en la pestaña elegida abajo, salvo que hayan elegido la suya. Los invitados son los visitantes que no han iniciado sesión. Solo se ofrecen condiciones que se pueden comprobar en cada página."
     },
     "match": {

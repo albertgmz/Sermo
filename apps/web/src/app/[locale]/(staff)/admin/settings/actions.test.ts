@@ -77,6 +77,12 @@ const SETTINGS = {
   levelTitles: [{ level: 1, title: "New member" }],
   signatureMaxLength: 300,
   signatureMaxLines: 4,
+  signatureMaxLinks: 3,
+  signatureMaxImages: 1,
+  signatureMaxSmilies: 5,
+  signatureMaxTextSize: 4,
+  signatureFormats: ["bold", "link"],
+  signatureRule: { match: "all", conditions: [] },
   customTitleMaxLength: 40,
   standingPostPoints: 1,
   standingReactionsPerPoint: 10,
@@ -85,6 +91,10 @@ const SETTINGS = {
   logoFileId: null,
   iconFileId: null,
   backdropFileId: null,
+  turnstileEnabled: false,
+  turnstileSiteKey: "",
+  turnstileForms: ["register", "login"],
+  turnstileSecretSet: false,
 };
 const read = () => Response.json(SETTINGS);
 
@@ -104,8 +114,6 @@ const sent = () =>
 
 const LEVEL_FIELDS: [string, string][] = [
   ["levelStep", "250"],
-  ["signatureMaxLength", "200"],
-  ["signatureMaxLines", "3"],
   ["customTitleMaxLength", "30"],
   ["standingPostPoints", "2"],
   ["standingReactionsPerPoint", "5"],
@@ -223,6 +231,172 @@ test("the anti-spam form sends the flood interval and both rules whole", async (
     approvalRule: { match: "any", conditions: [] },
   });
   expect(digest).toContain("/admin/settings/antispam?notice=saved");
+});
+
+const SIGNATURE_FIELDS: [string, string][] = [
+  ["signatureMaxLength", "200"],
+  ["signatureMaxLines", "3"],
+  ["signatureMaxLinks", "2"],
+  ["signatureMaxImages", "0"],
+  ["signatureMaxSmilies", "-1"],
+  ["signatureMaxTextSize", "5"],
+];
+
+test("the anti-spam form sends the signature limits, the ticked kinds and the signature rule", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const digest = await redirectedTo(() =>
+    saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "0"],
+        ...SIGNATURE_FIELDS,
+        // Ticked in the form's order or not, the list goes in the contract's order.
+        ["signatureFormats", "link"],
+        ["signatureFormats", "bold"],
+        ["signatureRule", JSON.stringify(POST_COUNT_RULE)],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    signatureMaxLength: 200,
+    signatureMaxLines: 3,
+    signatureMaxLinks: 2,
+    signatureMaxImages: 0,
+    signatureMaxSmilies: -1,
+    signatureMaxTextSize: 5,
+    signatureFormats: ["bold", "link"],
+    signatureRule: POST_COUNT_RULE,
+  });
+  expect(digest).toContain("/admin/settings/antispam?notice=saved");
+});
+
+test("a list with nothing ticked is sent empty, and one the form did not show is not sent", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveAntispam(
+      null,
+      form([["floodSeconds", "0"]], "signatureFormats", "turnstileForms"),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    signatureFormats: [],
+    turnstileForms: [],
+  });
+  const data = form([["floodSeconds", "0"]]);
+  data.append("signatureFormats", "bold");
+  await redirectedTo(() => saveAntispam(null, data));
+  expect(sent()?.[1]?.body).toEqual({ floodSeconds: 0 });
+});
+
+test("a kind the contract does not know is never sent", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "0"],
+        ["signatureFormats", "bold"],
+        ["signatureFormats", "script"],
+        ["turnstileForms", "register"],
+        ["turnstileForms", "everything"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    signatureFormats: ["bold"],
+    turnstileForms: ["register"],
+  });
+});
+
+test("the Turnstile settings are sent, and the public site is told to renew its identity", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "0"],
+        ["turnstileEnabled", "on"],
+        ["turnstileSiteKey", "0x4AAA-site"],
+        ["turnstileForms", "register"],
+        ["turnstileForms", "passwordReset"],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    turnstileEnabled: true,
+    turnstileSiteKey: "0x4AAA-site",
+    turnstileForms: ["register", "passwordReset"],
+  });
+  expect(expired).toContain("site");
+});
+
+test("the Turnstile secret: typing replaces it, the box removes it, neither leaves it alone", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const save = (fields: [string, string][], ...unticked: string[]) =>
+    redirectedTo(() =>
+      saveAntispam(null, form([["floodSeconds", "0"], ...fields], ...unticked)),
+    );
+  await save([["turnstileSecret", "  0x4AAA-secret  "]]);
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    turnstileSecret: "0x4AAA-secret",
+  });
+  // Typing wins over the box.
+  await save([
+    ["turnstileSecret", "new"],
+    ["turnstileSecretRemove", "on"],
+  ]);
+  expect(sent()?.[1]?.body).toMatchObject({ turnstileSecret: "new" });
+  await save([
+    ["turnstileSecret", ""],
+    ["turnstileSecretRemove", "on"],
+  ]);
+  expect(sent()?.[2]?.body).toMatchObject({ turnstileSecret: null });
+  await save([["turnstileSecret", "   "]]);
+  expect(sent()?.[3]?.body).toEqual({ floodSeconds: 0 });
+  // A request that never showed the row cannot touch the secret.
+  const data = form([["floodSeconds", "0"]]);
+  data.append("turnstileSecret", "sneaked");
+  await redirectedTo(() => saveAntispam(null, data));
+  expect(sent()?.[4]?.body).toEqual({ floodSeconds: 0 });
+});
+
+test("the backend's refusal to turn Turnstile on is shown under its switch", async () => {
+  backend = fakeBackend({
+    "settings.update": () =>
+      Response.json(
+        {
+          error: {
+            code: "validation",
+            message: "Turnstile needs a site key and a secret.",
+            issues: [
+              {
+                path: ["turnstileEnabled"],
+                message: "Turnstile needs a site key and a secret.",
+              },
+            ],
+          },
+        },
+        { status: 422 },
+      ),
+  });
+  expect(
+    await saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "0"],
+        ["turnstileEnabled", "on"],
+        ["turnstileSiteKey", ""],
+      ]),
+    ),
+  ).toEqual({
+    error: undefined,
+    fields: { turnstileEnabled: "Turnstile needs a site key and a secret." },
+  });
 });
 
 test("a rule the anti-spam form did not show is not sent", async () => {
@@ -387,8 +561,6 @@ test("the levels form sends its keys and the whole list of titles, dropping empt
   );
   expect(sent()?.[0]?.body).toEqual({
     levelStep: 250,
-    signatureMaxLength: 200,
-    signatureMaxLines: 3,
     customTitleMaxLength: 30,
     standingPostPoints: 2,
     standingReactionsPerPoint: 5,

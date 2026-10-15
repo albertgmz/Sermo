@@ -11,7 +11,13 @@ export const LOCATION_HEADERS = [
   "cf-ipcity",
 ] as const;
 
+// The header the backend reads the Turnstile token of a guest form from.
+export const TURNSTILE_HEADER = "x-sermo-turnstile";
+
 export type Forward = {
+  // The token the visitor's Turnstile widget produced, for the one sign-in or account mail
+  // request that needs it.
+  turnstile?: string;
   cookie?: string;
   userAgent?: string;
   clientIp?: string;
@@ -59,6 +65,7 @@ export function forwardHeaders(forward: Forward, hasBody: boolean): Headers {
   const cookie = sermoCookies(forward.cookie);
   if (cookie) headers.set("cookie", cookie);
   if (hasBody) headers.set("content-type", "application/json");
+  if (forward.turnstile) headers.set(TURNSTILE_HEADER, forward.turnstile);
   if (forward.userAgent) headers.set("user-agent", forward.userAgent);
   if (forward.clientIp) headers.set("x-forwarded-for", forward.clientIp);
   for (const name of LOCATION_HEADERS) {

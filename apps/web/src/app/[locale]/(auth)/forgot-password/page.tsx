@@ -7,6 +7,7 @@ import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { ForgotForm } from "@/app/[locale]/(auth)/forgot-password/forgot-form";
 import { ForgotSkeleton } from "@/app/[locale]/(auth)/forgot-password/forgot-skeleton";
 import { mailAvailable } from "@/lib/sermo/auth";
+import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.forgotPassword");
@@ -23,10 +24,11 @@ async function ForgotBody({
 }) {
   // What the backend can do is asked at request time, never baked into the prerendered page.
   await connection();
-  const [t, { sent }, mail] = await Promise.all([
+  const [t, { sent }, mail, turnstileKey] = await Promise.all([
     getTranslations("auth.forgotPassword"),
     searchParams,
     mailAvailable(),
+    turnstileKeyFor("passwordReset"),
   ]);
   const message = !mail ? t("unavailable") : sent ? t("sent") : null;
   if (message) {
@@ -46,7 +48,7 @@ async function ForgotBody({
       <p className="mb-4 text-center text-sm text-muted-foreground">
         {t("description")}
       </p>
-      <ForgotForm />
+      <ForgotForm turnstileKey={turnstileKey} />
       <p className="mt-4 text-center text-sm">
         <Link href="/login" className={linkClass}>
           {t("backToLogin")}

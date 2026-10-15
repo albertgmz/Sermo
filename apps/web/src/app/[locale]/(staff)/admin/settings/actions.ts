@@ -1,6 +1,11 @@
 "use server";
 
-import { settingsGet, usersSearch } from "@sermo/core/contracts";
+import {
+  SIGNATURE_FORMATS,
+  settingsGet,
+  TURNSTILE_FORMS,
+  usersSearch,
+} from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
@@ -101,10 +106,27 @@ export async function saveMembers(
   });
 }
 
-const ANTISPAM: Spec = { floodSeconds: "int" };
-const ANTISPAM_RULES = ["linksRule", "approvalRule"];
+const ANTISPAM: Spec = {
+  floodSeconds: "int",
+  signatureMaxLength: "int",
+  signatureMaxLines: "int",
+  signatureMaxLinks: "int",
+  signatureMaxImages: "int",
+  signatureMaxSmilies: "int",
+  signatureMaxTextSize: "int",
+  turnstileEnabled: "bool",
+  turnstileSiteKey: "text",
+};
+const ANTISPAM_RULES = ["linksRule", "approvalRule", "signatureRule"];
+// Lists of kinds ticked in the form: replaced whole, so each is read only when the form showed it.
+const ANTISPAM_LISTS = {
+  signatureFormats: SIGNATURE_FORMATS,
+  turnstileForms: TURNSTILE_FORMS,
+} as const;
 
-// The two rules are replaced whole, so each is read only when the form showed it.
+// The rules and the lists are replaced whole, so each is read only when the form showed it. The
+// Turnstile secret is write-only: typing one replaces it, the box removes it, and a form that does
+// neither leaves it alone.
 export async function saveAntispam(
   _previous: StaffFormState,
   formData: FormData,
@@ -112,6 +134,17 @@ export async function saveAntispam(
   const parsed = await scalars(ANTISPAM, formData);
   if (parsed.refused) return { error: await invalidArgument() };
   const shown = shownKeys(formData);
+  for (const [name, kinds] of Object.entries(ANTISPAM_LISTS)) {
+    if (!shown.has(name)) continue;
+    const ticked = new Set(formData.getAll(name));
+    parsed.body[name] = kinds.filter((kind) => ticked.has(kind));
+  }
+  if (shown.has("turnstileSecret")) {
+    const typed = text(formData, "turnstileSecret").trim();
+    if (typed !== "") parsed.body.turnstileSecret = typed;
+    else if (formData.get("turnstileSecretRemove") !== null)
+      parsed.body.turnstileSecret = null;
+  }
   for (const name of ANTISPAM_RULES) {
     if (!shown.has(name)) continue;
     const rule = ruleOf(formData, name);
@@ -121,7 +154,13 @@ export async function saveAntispam(
   }
   return saveSettings(parsed, {
     back: "/admin/settings/antispam",
-    known: (name) => name in ANTISPAM || ANTISPAM_RULES.includes(name),
+    known: (name) =>
+      name in ANTISPAM ||
+      name in ANTISPAM_LISTS ||
+      ANTISPAM_RULES.includes(name) ||
+      name === "turnstileSecret",
+    // The public site shows the widget of the forms it guards.
+    site: true,
   });
 }
 
@@ -205,8 +244,6 @@ export async function saveUploads(
 
 const LEVELS: Spec = {
   levelStep: "int",
-  signatureMaxLength: "int",
-  signatureMaxLines: "int",
   customTitleMaxLength: "int",
   standingPostPoints: "int",
   standingReactionsPerPoint: "int",

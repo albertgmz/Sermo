@@ -6,6 +6,7 @@ import {
   type FormState,
   resendVerification,
 } from "@/app/[locale]/(auth)/actions";
+import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +15,11 @@ import { Label } from "@/components/ui/label";
 export function ResendForm({
   from,
   email,
+  turnstileKey,
 }: {
   from: "login" | "verify";
   email?: string;
+  turnstileKey: string | null;
 }) {
   const t = useTranslations("auth.resendForm");
   const [state, action, pending] = useActionState<FormState, FormData>(
@@ -42,6 +45,7 @@ export function ResendForm({
           <FormError id={`resend-error-${from}`}>{state.error}</FormError>
         )}
       </div>
+      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
       <Button
         type="submit"
         variant="outline"

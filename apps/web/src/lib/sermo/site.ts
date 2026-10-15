@@ -1,6 +1,10 @@
 import "server-only";
 
-import { type Analytics, siteGet } from "@sermo/core/contracts";
+import {
+  type Analytics,
+  siteGet,
+  type TurnstileForm,
+} from "@sermo/core/contracts";
 import { cacheLife, cacheTag } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
@@ -27,6 +31,9 @@ export type SiteIdentity = {
   forumStatsEnabled: boolean;
   // The analytics tag public pages carry; provider "none" when unset or the site could not be read.
   analytics: z.output<typeof Analytics>;
+  // Cloudflare Turnstile on the guest forms: the public site key and the forms it guards; null
+  // when it is off, not fully set up, or the site could not be read.
+  turnstile: { siteKey: string; forms: TurnstileForm[] } | null;
   // The version of the cookie policy visitors consent to (an administrator raises it to ask
   // everyone again); the first version while the site cannot be read.
   cookiePolicyVersion: number;
@@ -65,6 +72,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       cookiePolicyVersion,
       matomoCookieless,
       cookieBannerOutsideEu,
+      turnstile,
       palette,
     } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
@@ -83,6 +91,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       cookiePolicyVersion,
       matomoCookieless,
       cookieBannerOutsideEu,
+      turnstile,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -106,6 +115,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes: null,
       forumStatsEnabled: false,
       analytics: { provider: "none" },
+      turnstile: null,
       cookiePolicyVersion: POLICY_VERSION,
       matomoCookieless: false,
       cookieBannerOutsideEu: true,

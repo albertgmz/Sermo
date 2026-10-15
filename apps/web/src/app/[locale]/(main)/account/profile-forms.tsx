@@ -18,6 +18,7 @@ import {
   type SearchParams,
 } from "@/app/[locale]/(main)/account/notice";
 import { PictureRow } from "@/app/[locale]/(main)/account/picture-row";
+import { signatureAllowance } from "@/app/[locale]/(main)/account/signature-allowance";
 import { UsernameForm } from "@/app/[locale]/(main)/account/username-form";
 import { Art } from "@/components/forum/art";
 import { AutosaveForm } from "@/components/forum/autosave";
@@ -306,11 +307,12 @@ function Held({
 }
 
 export async function TitleSection() {
-  const [t, self] = await Promise.all([
+  const [t, self, locale] = await Promise.all([
     getTranslations("account.title"),
     getSelf(),
+    getLocale(),
   ]);
-  const { may, limits, customTitle, signatureSource } = self;
+  const { may, limits, customTitle, signatureSource, signatureNeeds } = self;
   const shop = (chunks: React.ReactNode) => (
     <Link href={shopHref} className={linkClass}>
       {chunks}
@@ -348,10 +350,10 @@ export async function TitleSection() {
           id="signature"
           action={saveProfile.bind(null, "signature")}
           title={t("signatureLabel")}
-          description={t("signatureHelp", {
+          description={`${t("signatureHelp", {
             count: limits.signatureMaxLength,
             lines: limits.signatureMaxLines,
-          })}
+          })} ${signatureAllowance(t, locale, limits)}`}
           htmlFor="profile-signature"
         >
           <Textarea
@@ -367,7 +369,11 @@ export async function TitleSection() {
           title={t("signatureLabel")}
           value={signatureSource}
           notShown={t("notShown")}
-          locked={t.rich("signatureLocked", { shop })}
+          locked={
+            signatureNeeds === null
+              ? t.rich("signatureLocked", { shop })
+              : t("signatureNeeds", { needs: signatureNeeds })
+          }
           remove={clearSignature}
           removeLabel={t("remove")}
           multiline

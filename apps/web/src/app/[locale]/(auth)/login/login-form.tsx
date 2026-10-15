@@ -6,13 +6,20 @@ import { useActionState } from "react";
 import { login } from "@/app/[locale]/(auth)/actions";
 import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { useHardNavigation } from "@/app/[locale]/(auth)/use-hard-navigation";
+import { TurnstileField } from "@/app/[locale]/(auth)/turnstile-field";
 import { FormError } from "@/components/forum/form-error";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({
+  next,
+  turnstileKey,
+}: {
+  next: string;
+  turnstileKey: string | null;
+}) {
   const t = useTranslations("auth.loginForm");
   const [state, action, pending] = useActionState(login, {
     error: "",
@@ -52,6 +59,7 @@ export function LoginForm({ next }: { next: string }) {
           {t("rememberLabel")}
         </Label>
       </div>
+      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}
       </Button>

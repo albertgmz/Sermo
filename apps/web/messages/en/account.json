@@ -111,7 +111,30 @@
     "notShown": "You have this saved, but it is not shown at the moment.",
     "remove": "Remove",
     "titleLocked": "A custom title needs a perk. <shop>See what the shop offers</shop>",
-    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>"
+    "signatureLocked": "A signature needs a perk. <shop>See what the shop offers</shop>",
+    "signatureNeeds": "You cannot set a signature yet. You need {needs}.",
+    "signaturePlain": "Plain text only.",
+    "signatureAllowed": "Allowed formatting: {formats}.",
+    "signatureBounds": "Limits: {bounds}.",
+    "signatureLinks": "up to {count, plural, one {# link} other {# links}}",
+    "signaturePictures": "up to {count, plural, one {# picture} other {# pictures}}",
+    "signatureEmoji": "up to {count} emoji",
+    "signatureSize": "text up to size {size}",
+    "signatureKinds": {
+      "bold": "bold",
+      "italic": "italic",
+      "underline": "underline",
+      "strikethrough": "strikethrough",
+      "code": "inline code",
+      "color": "text colour",
+      "font": "fonts",
+      "size": "text sizes",
+      "heading": "headings",
+      "link": "links",
+      "image": "pictures",
+      "list": "lists",
+      "align": "alignment"
+    }
   },
   "referral": {
     "heading": "Invite members",

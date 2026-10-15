@@ -5,6 +5,7 @@ import { AuthShell } from "@/app/[locale]/(auth)/auth-shell";
 import { LoginForm } from "@/app/[locale]/(auth)/login/login-form";
 import { ResendForm } from "@/app/[locale]/(auth)/resend-form";
 import { safeReturnPath } from "@/lib/sermo/return-path";
+import { turnstileKeyFor } from "@/lib/sermo/turnstile";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.login");
@@ -19,6 +20,10 @@ export default async function LoginPage({
   const t = await getTranslations("auth.login");
   const resend = await getTranslations("auth.resendForm");
   const { next, registered, reset, resent, notMe } = await searchParams;
+  const [loginKey, resendKey] = await Promise.all([
+    turnstileKeyFor("login"),
+    registered ? turnstileKeyFor("resendConfirmation") : null,
+  ]);
   return (
     <AuthShell heading={t("heading")}>
       {(registered || reset || resent || notMe) && (
@@ -35,7 +40,7 @@ export default async function LoginPage({
                 : t("registeredNotice")}
         </p>
       )}
-      <LoginForm next={safeReturnPath(next)} />
+      <LoginForm next={safeReturnPath(next)} turnstileKey={loginKey} />
       <p className="mt-4 text-center text-sm text-muted-foreground">
         {t.rich("createAccount", {
           link: (chunks) => (
@@ -53,7 +58,7 @@ export default async function LoginPage({
           <h2 className="text-center text-sm font-semibold">
             {resend("heading")}
           </h2>
-          <ResendForm from="login" />
+          <ResendForm from="login" turnstileKey={resendKey} />
         </div>
       )}
     </AuthShell>

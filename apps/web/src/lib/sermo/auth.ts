@@ -30,11 +30,12 @@ async function exchange(
   path: string,
   body?: unknown,
   deliver = true,
+  turnstile?: string,
 ): Promise<Exchange> {
   const response = await send(
     method,
     `/api/auth/${path}`,
-    await forwardFromRequest(),
+    { ...(await forwardFromRequest()), turnstile },
     body === undefined ? undefined : JSON.stringify(body),
   );
   // Every cookie is delivered, also on a failed attempt.
@@ -71,38 +72,52 @@ async function exchange(
   };
 }
 
-async function post(path: string, body?: unknown): Promise<AuthResult> {
-  return (await exchange("POST", path, body)).result;
+// `turnstile` is the token of the Turnstile widget on the guest forms that carry one.
+async function post(
+  path: string,
+  body?: unknown,
+  turnstile?: string,
+): Promise<AuthResult> {
+  return (await exchange("POST", path, body, true, turnstile)).result;
 }
 
 export const signInWithUsername = (
   username: string,
   password: string,
   rememberMe: boolean,
-) => post("sign-in/username", { username, password, rememberMe });
+  turnstile?: string,
+) => post("sign-in/username", { username, password, rememberMe }, turnstile);
 
 export const signInWithEmail = (
   email: string,
   password: string,
   rememberMe: boolean,
-) => post("sign-in/email", { email, password, rememberMe });
+  turnstile?: string,
+) => post("sign-in/email", { email, password, rememberMe }, turnstile);
 
 // Where the links in the account emails come back to: this site, on the address the browser sees.
 // Better Auth appends `error=<code>` to it when a link does not work.
 const landing = (path: string) => `${new URL(publicUrl()).origin}${path}`;
 
 // `ref` is the member whose link brought the visitor; the backend records it with the sign-up.
-export const signUp = (input: {
-  username: string;
-  email: string;
-  password: string;
-  ref?: number;
-}) =>
-  post("sign-up/email", {
-    ...input,
-    name: input.username,
-    callbackURL: landing("/verify-email?done=1"),
-  });
+export const signUp = (
+  input: {
+    username: string;
+    email: string;
+    password: string;
+    ref?: number;
+  },
+  turnstile?: string,
+) =>
+  post(
+    "sign-up/email",
+    {
+      ...input,
+      name: input.username,
+      callbackURL: landing("/verify-email?done=1"),
+    },
+    turnstile,
+  );
 
 export const signOut = () => post("sign-out");
 
@@ -204,17 +219,25 @@ export const requestEmailChange = (newEmail: string) =>
     callbackURL: landing("/verify-email?done=1"),
   });
 
-export const sendVerificationEmail = (email: string) =>
-  post("send-verification-email", {
-    email,
-    callbackURL: landing("/verify-email?done=1"),
-  });
+export const sendVerificationEmail = (email: string, turnstile?: string) =>
+  post(
+    "send-verification-email",
+    {
+      email,
+      callbackURL: landing("/verify-email?done=1"),
+    },
+    turnstile,
+  );
 
-export const requestPasswordReset = (email: string) =>
-  post("request-password-reset", {
-    email,
-    redirectTo: landing("/reset-password"),
-  });
+export const requestPasswordReset = (email: string, turnstile?: string) =>
+  post(
+    "request-password-reset",
+    {
+      email,
+      redirectTo: landing("/reset-password"),
+    },
+    turnstile,
+  );
 
 export const resetPassword = (token: string, newPassword: string) =>
   post("reset-password", { token, newPassword });

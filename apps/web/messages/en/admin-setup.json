@@ -56,8 +56,13 @@
     "antispam": {
       "metaTitle": "Anti-spam",
       "heading": "Anti-spam",
-      "subtitle": "How fast a member may write and who may post links or go live without review. Daily limits, the restriction that shows outside pictures and media as links (a group given Never on it is exempt), and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
-      "formHeading": "Posting limits"
+      "subtitle": "How fast a member may write, who may post links or go live without review, what a signature may hold, and the Cloudflare Turnstile check on the guest forms. Daily limits, the restriction that shows outside pictures and media as links (a group given Never on it is exempt), and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
+      "formHeading": "Posting limits",
+      "posting": "Posting",
+      "signatures": "Signatures",
+      "signaturesNote": "Checked when a member saves a signature and measured on what it shows, so Markdown and BB code that draw the same thing count the same. For the counts and the text size, 0 and -1 both mean no limit; to forbid links or pictures, leave them out of the allowed formatting. Quotes, tables, code blocks, spoilers, media and more than one paragraph are never allowed. Signatures already saved are not checked again until their owner saves them.",
+      "turnstile": "Cloudflare Turnstile",
+      "turnstileNote": "Visitors without an account solve a check before the forms below are sent; signed-in members never see it. The backend verifies every answer with Cloudflare and fails closed: if Cloudflare cannot be reached the guarded forms are refused until it can, so nobody can register, sign in or ask for an email in the meantime. Create a widget in the Cloudflare dashboard and paste its keys here. It is listed in the cookie policy as strictly necessary for security."
     },
     "cookies": {
       "metaTitle": "Cookies and privacy",
@@ -225,6 +230,51 @@
       "help": "Most lines in a signature.",
       "unit": "lines"
     },
+    "signatureMaxLinks": {
+      "label": "Signature links",
+      "help": "Most links in a signature, whatever they point to. 0 or -1: no limit. Needs links among the allowed formatting.",
+      "unit": "links"
+    },
+    "signatureMaxImages": {
+      "label": "Signature pictures",
+      "help": "Most pictures in a signature. 0 or -1: no limit. Needs pictures among the allowed formatting.",
+      "unit": "pictures"
+    },
+    "signatureMaxSmilies": {
+      "label": "Signature smilies",
+      "help": "Most emoji in a signature. The forum has no text smilies, so :) is plain text. 0 or -1: no limit.",
+      "unit": "emoji"
+    },
+    "signatureMaxTextSize": {
+      "label": "Signature text size",
+      "help": "The largest size a signature may use, from 1 to 7 as in [SIZE=n]. A heading counts as 8 minus its level: a level 1 heading is size 7. 0 or -1: no limit.",
+      "unit": "size"
+    },
+    "signatureFormats": {
+      "label": "Allowed formatting",
+      "help": "The kinds of formatting a signature may use. One that is not ticked is refused when the signature is saved, never stripped silently."
+    },
+    "turnstileEnabled": {
+      "label": "Turnstile",
+      "help": "Needs a site key and a secret. It cannot be turned on without them, and neither can be removed while it is on.",
+      "switch": "Check visitors on the forms below"
+    },
+    "turnstileSiteKey": {
+      "label": "Site key",
+      "help": "The public key of the widget. It is sent to every visitor's browser."
+    },
+    "turnstileSecret": {
+      "label": "Secret key",
+      "help": "Kept on the server and never shown again. Type a new one to replace it; leave this empty to keep the stored one.",
+      "placeholderStored": "Stored. Type to replace it.",
+      "stored": "A secret is stored.",
+      "notStored": "No secret is stored.",
+      "remove": "Remove the stored secret"
+    },
+    "turnstileForms": {
+      "label": "Guarded forms",
+      "help": "Only forms for visitors without an account. Password change, replying and every other form need a signed-in member, who is never asked. A signed-in member asking for their own confirmation email is not asked either."
+    },
     "customTitleMaxLength": {
       "label": "Custom title length",
       "help": "Longest custom title a member may have.",
@@ -291,6 +341,27 @@
         "help": "Starts with G-, for example G-ABC123XYZ."
       }
     }
+  },
+  "signatureFormats": {
+    "bold": "Bold",
+    "italic": "Italic",
+    "underline": "Underline",
+    "strikethrough": "Strikethrough",
+    "code": "Inline code",
+    "color": "Text colour",
+    "font": "Fonts",
+    "size": "Text sizes",
+    "heading": "Headings",
+    "link": "Links",
+    "image": "Pictures",
+    "list": "Lists",
+    "align": "Alignment"
+  },
+  "turnstileForms": {
+    "register": "Registration",
+    "login": "Sign-in",
+    "passwordReset": "Password reset request",
+    "resendConfirmation": "Resend the confirmation email"
   },
   "purposes": {
     "attachment": "Attachments",
