@@ -85,7 +85,8 @@ async function signedInFrom(
   contexts.push(ctx);
   const app = createApp(ctx, options);
   // A fresh address per case: Better Auth limits sign-in attempts per address.
-  const address = `198.51.100.${(nextAddress += 1)}`;
+  nextAddress += 1;
+  const address = `198.51.100.${nextAddress}`;
   const env = { requestIP: () => ({ address, family: "IPv4" as const, port: 1 }) };
   const post = (path: string, body: object, extra: Record<string, string> = {}) =>
     app.request(
