@@ -330,6 +330,13 @@
       "when": 1792071100659,
       "tag": "0046_pending_referrer",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1792071959624,
+      "tag": "0047_username_changes",
+      "breakpoints": true
     }
   ]
 }

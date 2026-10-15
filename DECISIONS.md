@@ -2527,3 +2527,25 @@ lost whenever mail confirmation was on. Known limits: without consent only `/reg
 the referrer (a `?ref=` on another page is lost at the Register click); accepting the banner on a
 `?ref=` page sets the cookie on the next `?ref=` load; the proxy reads consent against the web's
 policy version constant until the site carries one (7e-record).
+
+**Permissions, part 1 (item 4a).** New permissions are plain allow flags with built-in defaults; a
+hand-made group holds none until set. `site.view` closes every read of the site: forums, threads,
+feed, search, profiles, the member pages and awards, spoilers, bookmarks, who reacted, the follow
+lists and the files of posts and wall posts. When the Guest group lacks it, the public surfaces
+serve nothing either (Atom feeds, sitemaps, `llms.txt`, SEO, IndexNow). A closed-out member keeps
+their own card, their conversations and the files in them, and the account pages; writes are not
+gated. `member.viewList` covers the member list, the pages of `/members`, the rankings and the
+holders of an award (the web leaves those blocks out instead of failing), not every query that
+returns members. Integer permissions use -1 as the only unlimited value, so the most permissive
+group wins; the rename window is the exception (longest wins, 0 is unset). Own username changes
+are recorded in `username_changes` (migration `0047`) in the transaction that takes the unit;
+`profile.renameNeedsApproval` refuses with a message to ask staff (no queue). `profilePost.postOwn`
+and `profilePost.post` are the own wall and other members' walls; `auth.me` `canPostProfile` is
+the own wall. `content.editSilently` leaves `edited_at` alone; revisions are kept, staff see them,
+and an author with `forum.viewOwnHistory` sees only their own edits of a post they may still open.
+`conversation.alwaysInvite` bypasses the recipient's ignore, not `conversation.receive`.
+`attachment.maxFileSize` (bytes) only lowers the site's limit. Known limits: avatar and cover files
+stay public; `users.search` stays open (mentions, recipient picker); `watches.list*`, `pages.get`
+and `notifications.list` are not gated; email and push still reach closed-out members; spoilers and
+who reacted inside a closed-out member's own conversations are refused; admin award pages fail for
+a staff group without `member.viewList`; the web does not hide the uploader for a limit of 0.
