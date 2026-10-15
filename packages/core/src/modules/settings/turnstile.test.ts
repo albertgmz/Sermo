@@ -368,6 +368,31 @@ describe("registration", () => {
     expect((await s.signUp("Carol", { token: "t" })).status).toBe(200);
   });
 
+  test("a trusted origin with a wildcard takes its sub-domains, not the bare domain, and www. is not folded", async () => {
+    const s = site();
+    await s.enable();
+    Object.assign(s.ctx.config.auth!, {
+      baseURL: "https://example.test",
+      trustedOrigins: ["https://*.forum.example.test"],
+    });
+    for (const [hostname, status] of [
+      ["example.test", 200],
+      ["a.forum.example.test", 200],
+      ["B.Forum.Example.Test", 200],
+      ["x.y.forum.example.test", 200],
+      ["forum.example.test", 400],
+      ["www.example.test", 400],
+      ["evilforum.example.test", 400],
+      ["a.forum.example.test.evil.example", 400],
+    ] as const) {
+      cloudflare({ success: true, action: "register", hostname });
+      const response = await s.signUp(`User${Math.random().toString(36).slice(2, 8)}`, {
+        token: "t",
+      });
+      expect(response.status, hostname).toBe(status);
+    }
+  });
+
   test("the secret is read with a prepared statement", async () => {
     const s = site();
     await s.enable();

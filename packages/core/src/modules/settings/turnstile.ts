@@ -65,23 +65,30 @@ export class TurnstileRefusal extends Error {
 
 /**
  * The host names the site is served on: the public origin, the site's base address and the
- * trusted origins of the configuration. Cloudflare reports the host the widget ran on; when the
- * deployment names no host at all (nothing to compare with) the check is skipped.
+ * trusted origins of the configuration. A trusted origin may start its host with `*.`, which
+ * stands for any sub-domain (`*.example.com` takes `forum.example.com`, not `example.com`).
+ * `www.` is not folded: each host is taken as written. Cloudflare reports the host the widget
+ * ran on; when no host is configured at all (tests and embedded use: a server always has its
+ * public origin) the check is skipped.
  */
-function siteHosts(ctx: Ctx): Set<string> {
+function siteHosts(ctx: Ctx): { hosts: Set<string>; suffixes: string[] } {
   const hosts = new Set<string>();
+  const suffixes: string[] = [];
   for (const origin of [
     ctx.config.auth?.baseURL,
     ctx.config.siteBaseURL,
     ...(ctx.config.auth?.trustedOrigins ?? []),
   ]) {
     try {
-      if (origin) hosts.add(new URL(origin).hostname.toLowerCase());
+      if (!origin) continue;
+      const host = new URL(origin).hostname.toLowerCase();
+      if (host.startsWith("*.")) suffixes.push(host.slice(1));
+      else hosts.add(host);
     } catch {
       // An origin that is not an address names no host.
     }
   }
-  return hosts;
+  return { hosts, suffixes };
 }
 
 const required = () =>
@@ -93,7 +100,7 @@ const required = () =>
 const failed = () =>
   new TurnstileRefusal(
     "TURNSTILE_FAILED",
-    "The security check was not accepted. Try it again.",
+    "The security check was not accepted. Reload the page and try it again.",
     400,
   );
 const unavailable = () =>
@@ -158,14 +165,18 @@ export async function checkTurnstile(
     // The widget names its form as the action, so a token solved for one form is not accepted on
     // another; and it was solved on one of the site's own hosts.
     if (result.action !== form) throw failed();
-    const hosts = siteHosts(ctx);
+    const { hosts, suffixes } = siteHosts(ctx);
+    const reported = typeof result.hostname === "string" ? result.hostname.toLowerCase() : null;
     if (
-      hosts.size > 0 &&
-      !(typeof result.hostname === "string" && hosts.has(result.hostname.toLowerCase()))
+      hosts.size + suffixes.length > 0 &&
+      !(
+        reported !== null &&
+        (hosts.has(reported) || suffixes.some((tail) => reported.endsWith(tail)))
+      )
     ) {
       console.warn("[turnstile] a token was solved on a host that is not the site's", {
         hostname: typeof result.hostname === "string" ? result.hostname : null,
-        expected: [...hosts],
+        expected: [...hosts, ...suffixes.map((tail) => `*${tail}`)],
       });
       throw failed();
     }

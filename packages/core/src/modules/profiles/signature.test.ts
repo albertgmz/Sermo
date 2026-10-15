@@ -115,16 +115,72 @@ describe("signature limits, measured on the rendered html", () => {
     await sign(w, tones.slice(0, 2).join(""));
   });
 
+  test("text-default characters count as emoji only with the emoji selector", async () => {
+    const w = world();
+    await settings(w, { signatureMaxSmilies: 2, signatureMaxLength: 2000 });
+    const VS = "\uFE0F";
+    for (const glyph of ["\u00A9", "\u00AE", "\u2122", "\u203C", "\u2049", "\u2139"]) {
+      const emoji = glyph + VS;
+      expect(await refusal(w, `${emoji} ${emoji} ${emoji}`), glyph).toContain("this one has 3");
+      expect(await refusal(w, emoji.repeat(10)), glyph).toContain("this one has 10");
+      await sign(w, `${emoji} ${emoji}`);
+      // Bare, they are text however many there are.
+      await sign(w, `${glyph} ${glyph} ${glyph} ${glyph} ${glyph}`);
+    }
+    await sign(w, "(c) (r) (tm) \u00A9 \u00AE \u2122 2026");
+    // The text selector says text, also for the symbols above U+2190.
+    const text = "\u2764\uFE0E";
+    await sign(w, text.repeat(10));
+    expect(await refusal(w, "\u2764".repeat(3))).toContain("this one has 3");
+  });
+
+  test("a lone skin-tone modifier is drawn, so it counts", async () => {
+    const w = world();
+    await settings(w, { signatureMaxSmilies: 2 });
+    expect(await refusal(w, "\u{1F3FB}\u{1F3FC}\u{1F3FD}")).toContain("this one has 3");
+    // On its base it adds nothing.
+    await sign(w, "\u{1F44D}\u{1F3FB}\u{1F44D}\u{1F3FF}");
+  });
+
+  test("symbols from U+2190 up count even bare, a known strictness", async () => {
+    const w = world();
+    await settings(w, { signatureMaxSmilies: 2 });
+    for (const symbol of ["\u2194", "\u2660", "\u2600", "\u2714"])
+      expect(await refusal(w, symbol.repeat(3)), symbol).toContain("this one has 3");
+    // Maths and punctuation do not.
+    await sign(w, "\u00D7\u00F7\u00B1\u2022\u2013\u2014 1 + 1");
+  });
+
   test("a signature of nothing but invisible characters is refused like an empty one", async () => {
     const w = world();
-    for (const source of ["​​", "‍﻿⁠", " ​  ", "**​**", "[B]​[/B]"])
+    for (const source of [
+      "\u200B\u200B",
+      "\u200D\uFEFF\u2060",
+      "\u00A0\u200B \u00A0",
+      "**\u200B**",
+      "[B]\u200B[/B]",
+      // Marks and fillers that draw nothing, however unusual.
+      "\u200E\u200F",
+      "\u00AD",
+      "\u034F",
+      "\u3164\uFFA0",
+      "\u2800\u2800",
+      "\uFE0F",
+      "\u2062\u2063",
+      "\u{E0020}",
+      "\u202E",
+      "\u180E",
+      "\u0001\u007F",
+    ])
       expect(await refusal(w, source), JSON.stringify(source)).toBe(
         "A signature must have something to show.",
       );
     // Whitespace alone is simply no signature, as before.
-    expect((await sign(w, "    ")).signatureHtml).toBeNull();
+    expect((await sign(w, "\u3000 \u2009\u00A0")).signatureHtml).toBeNull();
     // Invisible characters next to text, or a picture alone, are fine.
-    await sign(w, "hi​");
+    await sign(w, "hi\u200B");
+    await sign(w, "hello\u00A0");
+    await sign(w, "\u200Ehello \u202Eworld");
     await settings(w, { signatureFormats: ["image"] });
     await sign(w, "![x](https://i.test/a.png)");
   });

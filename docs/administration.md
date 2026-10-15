@@ -644,7 +644,8 @@ Integers take the highest value across a member's groups and `-1` beats every nu
 Checked when a member saves a signature, on what it renders to, so Markdown and BB code that draw
 the same thing count the same (Settings, Anti-spam). Characters and lines count the source. Links,
 pictures, emoji (each pictograph on its own, also inside a joined sequence; a flag or a keycap
-once) and the largest text size (`[size]` 1 to 7; a heading counts as 8 minus its level) are
+once; the copyright and trade mark signs and the like only with the emoji selector; arrows, card
+suits and similar symbols count, a strictness on purpose) and the largest text size (`[size]` 1 to 7; a heading counts as 8 minus its level) are
 counts where `0` and `-1` both mean no limit; to forbid links or pictures leave them out of the
 allowed formatting (`signatureFormats`). A kind that is not allowed is refused, never stripped.
 Quotes, tables, code blocks, spoilers, media and more than one block are never allowed, and a
@@ -659,7 +660,11 @@ Settings, Anti-spam. A visitor without an account solves a check before registra
 a password reset request or a request for a new confirmation email (the guest forms you tick);
 signed-in members never see it. The backend verifies every token with Cloudflare (the client
 address as `remoteip`, a 5 second limit) and requires the action to be the form's own and the
-host to be one of the site's (`BETTER_AUTH_URL`, `SERMO_SITE_URL` and `SERMO_TRUSTED_ORIGINS`; with none configured the host is not compared). It fails
+host to be one of the site's: `BETTER_AUTH_URL`, `SERMO_SITE_URL` and `SERMO_TRUSTED_ORIGINS`. Each
+host is taken as written (`www.` is not folded into the bare domain), and a trusted origin written
+with a wildcard (`https://*.example.com`) takes any sub-domain but not the bare domain. A server
+always has its public origin, so the host is compared in practice. Cloudflare's always-pass test
+keys report the host `example.com`: add it as a trusted origin to try them. It fails
 closed: when Cloudflare cannot be reached, or the secret is wrong, the guarded forms are
 refused. Sign-in is not ticked by default so that you can still sign in to correct a wrong secret;
 if you are locked out, delete the `turnstile_secret` row of `site_settings` or turn Turnstile off
