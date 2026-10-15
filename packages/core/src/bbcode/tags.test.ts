@@ -65,6 +65,15 @@ describe("BB code tags", () => {
     );
   });
 
+  test("a link to a page of the site takes a path from the root", () => {
+    expect(md("[URL=/contact]contact[/URL]")).toBe(
+      '<p><a href="/contact" rel="nofollow ugc noopener">contact</a></p>',
+    );
+    expect(md("[URL=/members/3?tab=posts]x[/URL]")).toContain('href="/members/3?tab=posts"');
+    for (const bad of ["//evil.example", "/\\evil.example", "contact", "./x", "/a b"])
+      expect(md(`[URL=${bad}]x[/URL]`)).not.toContain("<a ");
+  });
+
   test("unsafe link and image addresses stay text", () => {
     for (const source of [
       "[URL=javascript:alert(1)]x[/URL]",

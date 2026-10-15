@@ -124,6 +124,8 @@ export const FONT_CLASS = new Map(
   FONTS.map((font) => [font.toLowerCase(), font.toLowerCase().replace(/ /g, "-")]),
 );
 export const URL_PATTERN = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
+/** A link to a page of the site itself: a path from the root, never `//host`. */
+const SITE_PATH = /^\/(?!\/)[^\s<>"'`\\]{0,2000}$/;
 const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
 /** Longest content a literal tag is checked against; anything longer cannot be valid. */
 const MAX_LITERAL_CONTENT = 2_100;
@@ -143,7 +145,7 @@ function optionAllowed(name: string, option: string | undefined): boolean {
     case "SIZE":
       return option !== undefined && /^[1-7]$/.test(option);
     case "URL":
-      return option !== undefined && URL_PATTERN.test(option);
+      return option !== undefined && (URL_PATTERN.test(option) || SITE_PATH.test(option));
     case "EMAIL":
       return option !== undefined && EMAIL_PATTERN.test(option);
     case "ICODE":
