@@ -12,7 +12,7 @@ import { isSuperAdminRow } from "./super-admin";
 function refuseSuperAdmin(ctx: Ctx, userId: number): void {
   if (isSuperAdminRow(ctx, userId))
     throw new ConflictError(
-      "A super admin cannot delete their own account. Another super admin must remove the flag first.",
+      "A super admin cannot delete their own account. Hand the flag on to another super admin first.",
     );
 }
 

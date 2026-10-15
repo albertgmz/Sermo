@@ -88,6 +88,8 @@
   "permission.profile.view.description": "Ver perfiles.",
   "permission.profile.editOwn": "Editar el propio perfil",
   "permission.profile.editOwn.description": "Editar el propio perfil.",
+  "permission.profile.deleteAccount": "Eliminar la propia cuenta",
+  "permission.profile.deleteAccount.description": "Permite a un miembro cerrar su propia cuenta desde las páginas de la cuenta, con su contraseña.",
   "permission.search.use": "Usar la búsqueda",
   "permission.search.use.description": "Usar la búsqueda.",
   "permission.reaction.react": "Reaccionar al contenido",

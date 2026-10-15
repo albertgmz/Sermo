@@ -1160,8 +1160,10 @@ accepted-terms record, logged addresses, follows and referral links are removed.
 wrote stays under the name `Deleted member <id>`, and the ledger, warnings and moderator log keep
 their entries (the log's `member.erase` entry names the member as the actor). The member types
 their username and their password to confirm, and an API key is refused. A super admin cannot
-delete their own account (another super admin removes the flag first) and neither can the last
-administrator.
+delete their own account (the flag is handed on first) and neither can the last
+administrator. If a deletion is interrupted part way, the account stays closed (erased and banned)
+but some details may remain: an administrator finishes it by running the erasure again from the
+member's page.
 
 ## Cookie banner and consent
 

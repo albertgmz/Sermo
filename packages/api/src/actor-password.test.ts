@@ -299,5 +299,5 @@ test("a member deletes their own account with a session and their password, neve
   expect(right.status).toBe(200);
   expect(erased()).toBe(1);
   // The session that did it is over.
-  expect((await asSession("GET", "/me/counters")).status).toBeGreaterThanOrEqual(401);
+  expect((await asSession("GET", "/me/counters")).status).toBe(403);
 });

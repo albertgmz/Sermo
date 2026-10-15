@@ -118,7 +118,7 @@ export const PERMISSIONS = {
     scope: "global",
     category: "profile",
     type: "flag",
-    defaults: POSTERS,
+    defaults: MEMBERS,
     requiresAccount: true,
   },
   /** Choose a profile cover from the gallery. */

@@ -243,20 +243,20 @@ describe("users.deleteOwnAccount", () => {
 
   test("an API key is refused, with the right password", async () => {
     const w = await world();
-    await expect(w.deleteAccount({}, { actor: tokenActor(w.leaver) })).rejects.toBeInstanceOf(
-      ForbiddenError,
-    );
+    const refused = w.deleteAccount({}, { actor: tokenActor(w.leaver) });
+    await expect(refused).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(refused).rejects.toThrow(/API key/);
     expectUntouched(w);
   });
 
-  test("a guest is told to sign in, and an unconfirmed member may not", async () => {
+  test("a guest is told to sign in, and a member who has not confirmed their address may leave", async () => {
     const w = await world();
     const unconfirmed = await w.register("Fresh", 5);
     await expect(w.deleteAccount({}, { actor: GUEST })).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
-    await expect(w.deleteAccount({}, unconfirmed)).rejects.toBeInstanceOf(ForbiddenError);
-    expect(w.user(unconfirmed.id)).toMatchObject({ erased_at: null });
+    expect(await w.deleteAccount({}, unconfirmed)).toEqual({ ok: true });
+    expect(w.user(unconfirmed.id).erased_at).not.toBeNull();
   });
 
   test("an administrator can turn it off for a group and back on", async () => {
@@ -268,10 +268,11 @@ describe("users.deleteOwnAccount", () => {
       groupId: 2,
       entries: [{ permission: "profile.deleteAccount", value: "never" }],
     });
-    // Denied before the password is looked at.
+    // Denied before the password is looked at: a wrong one is not counted as a guess.
     await expect(w.deleteAccount({ password: "wrong-wrong-1" })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
+    expect(w.count("SELECT count(*) AS n FROM admin_password_failures")).toBe(0);
     expectUntouched(w);
     expect(await holds()).toBe(false);
     await w.run("permissions.set", w.founder.actor, {

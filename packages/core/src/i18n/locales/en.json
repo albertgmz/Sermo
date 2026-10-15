@@ -88,6 +88,8 @@
   "permission.profile.view.description": "Allows profile view.",
   "permission.profile.editOwn": "profile edit own",
   "permission.profile.editOwn.description": "Allows profile edit own.",
+  "permission.profile.deleteAccount": "Delete own account",
+  "permission.profile.deleteAccount.description": "Let a member close their own account from the account pages, with their password.",
   "permission.search.use": "search use",
   "permission.search.use.description": "Allows search use.",
   "permission.reaction.react": "reaction react",
