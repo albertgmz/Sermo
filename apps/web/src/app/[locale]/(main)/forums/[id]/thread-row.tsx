@@ -18,10 +18,13 @@ export function ThreadRow({
   thread,
   member,
   highlighted,
+  showForum = false,
 }: {
   thread: ApiThread;
   member: Awaited<ReturnType<typeof membersFor>>;
   highlighted: boolean;
+  // Threads of several forums share the list (a tag's page): the forum is named.
+  showForum?: boolean;
 }) {
   const locale = useLocale();
   const t = useTranslations("forums.forum");
@@ -91,7 +94,15 @@ export function ThreadRow({
           </span>
         </ThreadHoverCard>
         <p className="truncate text-xs text-muted-foreground">
-          {t.rich("created", {
+          {t.rich(showForum ? "createdIn" : "created", {
+            forum: () => (
+              <Link
+                href={`/forums/${thread.node.id}`}
+                className="relative z-10 hover:underline"
+              >
+                {thread.node.title}
+              </Link>
+            ),
             author: () => (
               <UserLink user={card.author.member} className="relative z-10" />
             ),

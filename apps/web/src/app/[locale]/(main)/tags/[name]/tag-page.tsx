@@ -27,6 +27,7 @@ export async function tagThreadsPage(
             thread.highlightedUntil !== null &&
             Date.parse(thread.highlightedUntil) > now
           }
+          showForum
         />
       ),
     })),

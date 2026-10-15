@@ -6,11 +6,12 @@ const TAG_CHARS = "\\p{L}\\p{M}\\p{N}_";
 
 /**
  * A hashtag inside the text between tags: `#` and 1-50 tag characters, not preceded by a letter,
- * number or `&` or `/` (so `a#b`, `&#123;` and the fragment of an address are not tags) and not
+ * number, `&`, `/` or `=` (so `a#b`, `&#123;`, the fragment of an address and the colour of an
+ * unclosed `[COLOR=#ff0000]` are not tags) and not
  * followed by one more tag character (a longer word is not a tag). Whether it holds a letter is
  * checked by `normalizeTag`. Spliced into the inline-marks expression of the tree builder.
  */
-export const HASHTAG_SOURCE = `(?<![\\p{L}\\p{M}\\p{N}&/])#([${TAG_CHARS}]{1,${MAX_TAG_LENGTH}})(?![${TAG_CHARS}])`;
+export const HASHTAG_SOURCE = `(?<![\\p{L}\\p{M}\\p{N}&/=])#([${TAG_CHARS}]{1,${MAX_TAG_LENGTH}})(?![${TAG_CHARS}])`;
 
 const TAG_NAME = new RegExp(`^[${TAG_CHARS}]+$`, "u");
 const HAS_LETTER = /\p{L}/u;

@@ -134,6 +134,8 @@ test("the page names the tag and lists its threads as a forum does, asking by th
   expect(html).toContain("Coffee on a budget");
   expect(html).toContain("Roasting at home");
   expect(html).toContain('href="/threads/8"');
+  // The threads come from several forums, so each names its own.
+  expect(html).toContain('href="/forums/2"');
   expect(html.indexOf("Coffee on a budget")).toBeLessThan(
     html.indexOf("Roasting at home"),
   );

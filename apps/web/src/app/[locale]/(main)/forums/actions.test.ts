@@ -133,12 +133,8 @@ test("the tags field is sent as a list of names, without the # and without repea
     {},
     form({ title: "T", body: "B", tags: "#Rust, tutorial  #rust;café" }),
   );
-  assert.deepEqual((asked.at(-1)?.body as { tags: string[] }).tags, [
-    "Rust",
-    "tutorial",
-    "rust",
-    "café",
-  ]);
+  const sent = asked[asked.length - 1]?.body as { tags: string[] };
+  assert.deepEqual(sent.tags, ["Rust", "tutorial", "rust", "café"]);
 });
 
 const forumAnswer = (uploads: boolean) => ({

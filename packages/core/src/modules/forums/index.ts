@@ -60,6 +60,7 @@ import { hashtagRules, mayTag, requireTagCreate } from "../tags/policy";
 import {
   addThreadTags,
   manualTagCount,
+  moveThreadTags,
   replaceThreadTags,
   syncPostTags,
   tagKeys,
@@ -1088,7 +1089,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
-    tags: threadTagNames(ctx, row.id),
+    tags: threadTagNames(ctx, row.id, readGates(ctx, actor).reads(row.node_id, row.user_id)),
     featured: featureKinds(ctx, [row.id], ctx.now()).get(row.id) ?? null,
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },
@@ -1690,7 +1691,10 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
       targetId: row.id,
       payload: moderationPayload(actor, row.user_id, input),
     });
-    if (can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }))
+    if (
+      can(ctx, moderator, "forum.editAny", { nodeId: current.node_id }) ||
+      (wantedTags && row.user_id !== actorUserId(actor))
+    )
       appendModeratorLog(
         ctx,
         actor,
@@ -1796,11 +1800,12 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       .run(refs.source, html, bbCodeText(refs.source), post.id);
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     storeSpoilers(ctx, "post", post.id, refs.spoilers);
-    if (tagsFollowPost && mayTag(ctx, moderator, now.thread.row))
+    // An edit held for approval puts no tag on the thread; the text of the post is not yet public.
+    if (tagsFollowPost && !decision.moderated && mayTag(ctx, moderator, now.thread.row))
       syncPostTags(
         ctx,
         now.thread.row.id,
-        actorUserId(actor)!,
+        post.user_id,
         refs.hashtags,
         can(ctx, moderator, "tag.create"),
       );
@@ -3177,6 +3182,7 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
           "UPDATE threads SET state = 'deleted', merged_into_id = ?1, content_updated_at = ?2 WHERE id = ?3",
         )
         .run(target.id, ctx.now(), source.id);
+      moveThreadTags(ctx, source.id, target.id);
       if (sourceVisible) {
         forumDb(ctx)
           .prepare(

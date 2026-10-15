@@ -437,7 +437,7 @@ describe("the tag page", () => {
     expectNoTableScan(
       w.ctx,
       hubSql(),
-      [1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, "[1]", "[]", "[]", "[]", 5, 21],
+      [1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, "[1]", "[]", "[]", "[]", 5, 21, "[1]"],
       { allowTempBTree: false },
     );
   });
@@ -695,9 +695,139 @@ describe("the statements read indexes", () => {
     expectNoTableScan(w.ctx, tagSql.idByName, ["a"]);
     expectNoTableScan(w.ctx, tagSql.idByAlias, ["a"]);
     expectNoTableScan(w.ctx, tagSql.rows, [1]);
-    expectNoTableScan(w.ctx, tagSql.names, [1], { allowTempBTree: true });
+    expectNoTableScan(w.ctx, tagSql.names, [1, 1], { allowTempBTree: true });
     expectNoTableScan(w.ctx, adminTagSql.list, ["", "", "\u{10FFFF}", 21]);
     expectNoTableScan(w.ctx, adminTagSql.aliases, ["[1]"], { allowTempBTree: true });
     expectNoTableScan(w.ctx, tagSql.dropUnused, ["[1]"]);
   });
 });
+
+describe("what the opening post's own text keeps from viewers who may not read it", () => {
+  test("a tag its hashtags put on the thread is not shown where the text is closed", async () => {
+    const w = world();
+    const created = await tagged(w, w.bob, "Plan", ["listed"], "The secret plan #classified");
+    for (const group of [GUESTS, MEMBERS])
+      setEntry(w.ctx, group, "forum.viewContent", -1, w.open.id);
+    // The thread and the tag set by hand are open; the hashtag of the text is not.
+    expect(await tagsOf(w, created.thread.id, w.alice)).toEqual(["listed"]);
+    await expect(w.call("tags.threads", w.alice, { name: "classified" })).rejects.toThrow(
+      NotFoundError,
+    );
+    await expect(w.call("tags.get", GUEST, { name: "classified" })).rejects.toThrow(NotFoundError);
+    expect((await w.call("tags.threads", w.alice, { name: "listed" })).items).toHaveLength(1);
+    // The author, and staff who read every text, see both.
+    expect(await tagsOf(w, created.thread.id, w.bob)).toEqual(["classified", "listed"]);
+    expect(await tagsOf(w, created.thread.id, w.mod)).toEqual(["classified", "listed"]);
+    expect((await w.call("tags.threads", w.bob, { name: "classified" })).items).toHaveLength(1);
+    expect((await w.call("tags.threads", w.mod, { name: "classified" })).items).toHaveLength(1);
+  });
+});
+
+describe("thread merges", () => {
+  test("the tags of the thread merged away go to the thread that took its place", async () => {
+    const w = world();
+    const target = await tagged(w, w.alice, "Target", ["shared"]);
+    const source = await tagged(w, w.bob, "Source", ["shared", "extra"], "About #only");
+    await w.call("threads.merge", w.mod, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+    expect(await tagsOf(w, target.thread.id)).toEqual(["extra", "only", "shared"]);
+    expect(titles((await w.call("tags.threads", w.carol, { name: "only" })).items)).toEqual([
+      "Target",
+    ]);
+    // The counters follow: one row for each tag the merged thread brought, none left behind.
+    expect(tagRows(w)).toEqual([
+      { name: "extra", thread_count: 1 },
+      { name: "only", thread_count: 1 },
+      { name: "shared", thread_count: 1 },
+    ]);
+    // Tags the merged thread brought stay when the opening post of the target changes.
+    await w.call("posts.update", w.alice, { postId: target.post.id, body: "Nothing" });
+    expect(await tagsOf(w, target.thread.id)).toEqual(["extra", "only", "shared"]);
+  });
+
+  test("a merge never takes the target past ten tags", async () => {
+    const w = world();
+    const ten = Array.from({ length: 9 }, (_, i) => `t${i}`);
+    const target = await tagged(w, w.alice, "Target", ten);
+    const source = await tagged(w, w.bob, "Source", ["x1", "x2", "x3"]);
+    await w.call("threads.merge", w.mod, {
+      threadId: target.thread.id,
+      sourceThreadIds: [source.thread.id],
+    });
+    expect(await tagsOf(w, target.thread.id)).toHaveLength(10);
+    expect(tagRows(w).reduce((sum, row) => sum + row.thread_count, 0)).toBe(10);
+  });
+});
+
+describe("accounting for edits", () => {
+  test("staff who edit an opening post do not take the tags its hashtags add", async () => {
+    const w = world();
+    const created = await tagged(w, w.bob, "T", []);
+    await w.call("posts.update", w.mod, { postId: created.post.id, body: "Staff added #modtag" });
+    expect(await tagsOf(w, created.thread.id)).toEqual(["modtag"]);
+    expect(tagCount(w, w.bobUser.id)).toBe(1);
+    expect(tagCount(w, actorUserId(w.mod)!)).toBe(0);
+  });
+
+  test("an edit held for approval puts no tag on the thread", async () => {
+    const w = world();
+    await w.call("wordFilters.upsert", w.admin, {
+      term: "heck",
+      action: "moderate",
+      replacement: null,
+      isActive: true,
+    });
+    const created = await tagged(w, w.alice, "T", [], "Fine #first");
+    await w.call("posts.update", w.alice, {
+      postId: created.post.id,
+      body: "What the heck #second",
+    });
+    expect(await tagsOf(w, created.thread.id, w.mod)).toEqual(["first"]);
+  });
+
+  test("saving the tags again without a change does not pin the ones the post names", async () => {
+    const w = world();
+    const created = await tagged(w, w.alice, "T", ["manual"], "Text #fromtext");
+    await w.call("threads.update", w.alice, {
+      threadId: created.thread.id,
+      tags: ["fromtext", "manual"],
+    });
+    await w.call("posts.update", w.alice, { postId: created.post.id, body: "No hashtag now" });
+    expect(await tagsOf(w, created.thread.id)).toEqual(["manual"]);
+  });
+
+  test("staff who may only manage tags are logged when they change another member's thread", async () => {
+    const w = world();
+    const created = await tagged(w, w.alice, "T", ["a"]);
+    const manager = customMember(w.ctx, ["tag.manage", "tag.create", "site.view", "node.view"]);
+    await w.call("threads.update", manager.actor, { threadId: created.thread.id, tags: ["b"] });
+    const logged = w.ctx.sqlite
+      .prepare<{ action: string; actor_id: number }, []>(
+        "SELECT action, actor_id FROM moderator_log ORDER BY id DESC LIMIT 1",
+      )
+      .get()!;
+    expect(logged).toEqual({ action: "thread.update", actor_id: actorUserId(manager.actor)! });
+    // The author's own change is not a moderator action.
+    await w.call("threads.update", w.alice, { threadId: created.thread.id, tags: ["c"] });
+    expect(
+      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM moderator_log").get()!.n,
+    ).toBe(1);
+  });
+});
+
+describe("guests and the index", () => {
+  test("threads whose text is closed to guests do not make a tag page indexable or listed", async () => {
+    const w = world();
+    await threadsOf(w, 3, "topic");
+    for (const group of [GUESTS]) setEntry(w.ctx, group, "forum.viewContent", -1, w.open.id);
+    const robots = (await w.call("tags.get", w.alice, { name: "topic" })).seo.robots;
+    expect(robots).toBe("noindex,follow");
+    expect([...sitemapEntries(w.ctx, BASE, "tag")]).toEqual([]);
+  });
+});
+
+async function threadsOf(w: World, count: number, tag: string) {
+  for (let i = 0; i < count; i++) await tagged(w, w.alice, `Thread ${i}`, [tag]);
+}

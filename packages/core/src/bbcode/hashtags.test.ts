@@ -174,3 +174,15 @@ describe("rendering a hashtag", () => {
     expect(performance.now() - started).toBeLessThan(500);
   });
 });
+
+describe("an attribute that looks like a hashtag is not one", () => {
+  test("a tag with an option that is never closed keeps its colour as text", () => {
+    expect(found("[COLOR=#ff0000]red text")).toEqual([]);
+    expect(found("[URL=#frag]x[/URL]")).toEqual([]);
+    expect(found("[FONT=#a]x")).toEqual([]);
+    expect(found("[SIZE=#abc]x")).toEqual([]);
+    expect(found("a=#b")).toEqual([]);
+    // The same text with the tag closed is a colour, and a hashtag beside it is a hashtag.
+    expect(found("[COLOR=#ff0000]red[/COLOR] #real")).toEqual(["real"]);
+  });
+});

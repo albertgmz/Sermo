@@ -9,7 +9,7 @@ import { MAX_THREAD_TAGS } from "../../limits";
  * (tags.thread_count, users.tag_count) and thread_tags.sort_at are kept by triggers.
  */
 
-type Params = (string | number)[];
+type Params = (string | number | null)[];
 
 export const tagSql = {
   /** typed -> name, for names that are a tag's name or one of its aliases (`?1` a JSON list). */
@@ -23,14 +23,14 @@ export const tagSql = {
   insertThreadTag:
     "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, created_at) " +
     "SELECT ?1, ?2, ?3, ?4, t.sort_at, ?5 FROM threads t WHERE t.id = ?1 " +
-    "ON CONFLICT (thread_id, tag_id) DO UPDATE SET from_post = from_post AND excluded.from_post",
+    "ON CONFLICT (thread_id, tag_id) DO NOTHING",
   rows: "SELECT tt.tag_id, tt.from_post, t.name FROM thread_tags tt JOIN tags t ON t.id = tt.tag_id WHERE tt.thread_id = ?1",
   removeRows:
     "DELETE FROM thread_tags WHERE thread_id = ?1 AND tag_id IN (SELECT value FROM json_each(?2))",
   dropUnused:
     "DELETE FROM tags WHERE thread_count <= 0 AND id IN (SELECT value FROM json_each(?1))",
   names:
-    "SELECT t.name FROM thread_tags tt JOIN tags t ON t.id = tt.tag_id WHERE tt.thread_id = ?1 ORDER BY t.name",
+    "SELECT t.name FROM thread_tags tt JOIN tags t ON t.id = tt.tag_id WHERE tt.thread_id = ?1 AND (?2 = 1 OR tt.from_post = 0) ORDER BY t.name",
 };
 
 /**
@@ -78,12 +78,15 @@ export function tagKeys(typed: readonly string[]): string[] {
   return keys;
 }
 
-/** The tags of a thread, alphabetically. */
-export function threadTagNames(ctx: Ctx, threadId: number): string[] {
+/**
+ * The tags of a thread, alphabetically. The ones its opening post's hashtags put there are that
+ * post's text: a viewer who may not read it (`withPostTags` false) gets only the others.
+ */
+export function threadTagNames(ctx: Ctx, threadId: number, withPostTags: boolean): string[] {
   return prepared(ctx, "tags.names", () =>
-    ctx.sqlite.prepare<{ name: string }, [number]>(tagSql.names),
+    ctx.sqlite.prepare<{ name: string }, [number, number]>(tagSql.names),
   )
-    .all(threadId)
+    .all(threadId, Number(withPostTags))
     .map((row) => row.name);
 }
 
@@ -138,7 +141,8 @@ export function removeThreadTags(ctx: Ctx, threadId: number, tagIds: number[]): 
 }
 
 /**
- * Puts tags on a thread. A tag put by hand stays when the opening post stops naming it. A name
+ * Puts tags on a thread; one it already carries stays as it is (put by hand, it stays when the
+ * opening post stops naming it; put by the post, it goes with its hashtag). A name
  * that is no tag yet is created when `create` says so, otherwise the write is retried (the tag
  * was there when the text was read). Run inside the write transaction.
  */
@@ -210,6 +214,37 @@ export function syncPostTags(
     userId,
     names.map((name) => ({ name, fromPost: true })),
     create,
+  );
+}
+
+/**
+ * A merge: the tags of the thread merged away go to the thread that took its place, by hand as
+ * far as the cap leaves room (the merged opening post is a reply now, and its hashtags no longer
+ * come from the opening post). Run inside the write transaction.
+ */
+export function moveThreadTags(ctx: Ctx, fromThreadId: number, toThreadId: number): void {
+  const rows = prepared(ctx, "tags.movable", () =>
+    ctx.sqlite.prepare<{ tag_id: number; added_by: number | null }, [number]>(
+      "SELECT tag_id, added_by FROM thread_tags WHERE thread_id = ?1 ORDER BY created_at, tag_id",
+    ),
+  ).all(fromThreadId);
+  for (const row of rows) {
+    if (
+      prepared(ctx, "tags.rowCount", () =>
+        ctx.sqlite.prepare<{ n: number }, [number]>(
+          "SELECT count(*) AS n FROM thread_tags WHERE thread_id = ?1",
+        ),
+      ).get(toThreadId)!.n >= MAX_THREAD_TAGS
+    )
+      break;
+    prepared(ctx, "tags.insertThreadTag", () =>
+      ctx.sqlite.prepare<unknown, Params>(tagSql.insertThreadTag),
+    ).run(toThreadId, row.tag_id, row.added_by, 0, ctx.now());
+  }
+  removeThreadTags(
+    ctx,
+    fromThreadId,
+    rows.map((row) => row.tag_id),
   );
 }
 

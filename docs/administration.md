@@ -1411,7 +1411,7 @@ Quotes and spoilers can be nested inside each other up to 10 levels deep each, a
 ## Tags
 
 A hashtag is `#` and 1 to 50 letters, numbers and `_` with at least one letter (accents work),
-not preceded by a letter, number, `&` or `/`; `a#b`, `&#123;` and the fragment of an address are
+not preceded by a letter, number, `&`, `/` or `=`; `a#b`, `&#123;` and the fragment of an address are
 not tags. Code, plain text, links, addresses and the attribution of a quote hold none. A name is
 compared in NFC and lowercase. In posts, thread opening posts and conversation messages a
 hashtag that names a tag links to `/tags/<name>`; wall posts, comments, signatures and pages
@@ -1423,12 +1423,16 @@ show it as typed.
   `tag.manage`) may set them, with `tag.apply`; a thread holds at most 10. Editing the opening
   post takes off the tags its earlier hashtags put there; tags set by hand stay. Hashtags in
   replies only link, and an unknown one stays plain text; so do those in conversations, which
-  never create a tag or tag a thread.
+  never create a tag or tag a thread. A tag the opening post's hashtags put on a thread is that
+  post's text: a viewer who may not read it (`forum.viewContent`) does not see the tag on the
+  thread or on the tag page. Merging threads moves the tags of the thread merged away to the
+  other one (never past 10).
 - **The tag page** (`tags.get`, `tags.threads`, `/tags/<name>` in the web app) lists the threads
   carrying the tag, newest activity first, under the rules of a forum's thread list (forums the
   viewer cannot open, `forum.viewOthers`, moderated and deleted threads, merged threads out).
   A tag with nothing the viewer may open does not exist for them. It is indexed, and listed in
-  the sitemap (`tag-<n>.xml`), only with at least 3 threads open to guests.
+  the sitemap (`tag-<n>.xml`), only with at least 3 threads whose titles and text are open to
+  guests.
 - **Managing.** Renaming or merging keeps the old name as an alias, so links and hashtags already
   written keep working; deleting a tag leaves them as links to a page that no longer exists. A tag
   that no thread carries any more goes away by itself. The screen is `/admin/tags`.

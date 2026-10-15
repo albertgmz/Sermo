@@ -23,7 +23,7 @@ export function ThreadTags({
         <li key={tag} className="min-w-0">
           <Link
             href={tagHref(tag)}
-            className="inline-flex min-h-8 max-w-full items-center rounded-full border bg-card px-2.5 text-xs font-medium text-primary-ink [overflow-wrap:anywhere] hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="inline-flex min-h-10 max-w-full items-center rounded-full border bg-card px-3 md:min-h-8 md:px-2.5 text-xs font-medium text-primary-ink [overflow-wrap:anywhere] hover:border-ring focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             #{tag}
           </Link>

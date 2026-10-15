@@ -46,6 +46,7 @@
   "forum": {
     "allThreads": "Todos los temas",
     "created": "<author></author> · {time}",
+    "createdIn": "<forum></forum> · <author></author> · {time}",
     "lastPost": "{time} · <author></author>",
     "newThread": "Nuevo tema",
     "home": "Inicio",

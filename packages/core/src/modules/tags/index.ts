@@ -13,7 +13,7 @@ import { threadValuesFor } from "../forums";
 import { requireSiteView, siteOpenToGuests } from "../members/site-access";
 import { appendModeratorLog } from "../moderation";
 import { seoForTag, TAG_INDEX_MIN_THREADS } from "../seo";
-import { hubThreads } from "./hub";
+import { hubReach, hubThreads } from "./hub";
 import { tagKeys } from "./store";
 
 type TagRow = { id: number; name: string; thread_count: number; created_at: number };
@@ -79,9 +79,17 @@ const tagsGetOp = implement(contracts.tagsGet, (ctx, actor, input) => {
   const tag = pageTag(ctx, input.name);
   // A tag is not shown to a viewer who can open none of its threads: it would name a thread or
   // a forum they cannot see.
-  if (hubThreads(ctx, actor, tag.id, null, 1).length === 0) throw new NotFoundError();
+  if (hubThreads(ctx, hubReach(ctx, actor), tag.id, null, 1).length === 0)
+    throw new NotFoundError();
+  // The page is indexed for the threads a search engine could index: guests open them and their text.
   const publicThreads = siteOpenToGuests(ctx)
-    ? hubThreads(ctx, GUEST, tag.id, null, TAG_INDEX_MIN_THREADS).length
+    ? hubThreads(
+        ctx,
+        hubReach(ctx, GUEST, { indexable: true }),
+        tag.id,
+        null,
+        TAG_INDEX_MIN_THREADS,
+      ).length
     : 0;
   const seo = seoForTag(ctx, tag.name, input.requestedPath, publicThreads);
   const typed = normalizeTag(input.name);
@@ -94,7 +102,7 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int(), z.number().int()]))
     : null;
-  const rows = hubThreads(ctx, actor, tag.id, cursor, input.limit + 1);
+  const rows = hubThreads(ctx, hubReach(ctx, actor), tag.id, cursor, input.limit + 1);
   const page = rows.slice(0, input.limit);
   // The first page of a tag with nothing to show is a missing page, as in tags.get.
   if (page.length === 0 && !cursor) throw new NotFoundError();
