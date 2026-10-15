@@ -337,6 +337,13 @@
       "when": 1792071959624,
       "tag": "0047_username_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "6",
+      "when": 1792074657996,
+      "tag": "0048_consent_records",
+      "breakpoints": true
     }
   ]
 }

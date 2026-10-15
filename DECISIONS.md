@@ -2570,3 +2570,31 @@ and answers per thread (one transaction, a savepoint each), with the permission 
 action in each thread's forum; delete, restore and move stop at 250,000 visible posts per batch,
 counting only threads that changed. A member's own delete stays a soft delete that moderators can
 see and restore; it is not logged (the moderator log counts as moderator actions in the criteria).
+
+**Cookie choice saved on the account, policy version and banner settings (item 7e, part 2).**
+The cookie policy version is a site setting (`cookiePolicyVersion`, on `site.get`) that only
+"Ask everyone again" (`consent.askAgain`) raises, by one; `settings.update` ignores it. Every
+consumer reads it from the site: the banner, `/cookies`, the register action, and the proxy
+through the one-minute site facts it already keeps (no request per page; a bump reaches it within
+about a minute). A signed-in member's choice (optional categories, policy version, the time of
+the choice as the banner recorded it, client-reported and capped at the server's clock) is saved
+in `consent_records` (migration `0048`), one row per member, the latest choice, deleted with the
+member; `consent.save` refuses a version other than the current. At sign-in, or a registration
+that signs in, the account wins: a browser with no current choice, or a different one, takes the
+account's (written for the host, marked as coming from the account, followed by a full page load
+so the banner reads it), and a browser's choice goes to the account only when the account has
+none for the current version. No clock decides. A cookie carrying the account mark is never saved
+onto an account: another member's gives way to the member's own record, or is removed so they
+are asked. Signing out removes a cookie written from the account. Staff with `admin.members`
+over the member see the record read only (`users.consent`). Settings (own screen): Matomo
+cookieless (`disableCookies`, not held back for consent, no statistics choice in the banner) and
+"banner outside Europe" (default on; off asks only the EU, EEA, UK, Switzerland and unknown
+countries, from the trusted proxy country only, so the guest actor carries `clientLocation`). The
+site is silent only toward a guest who never answered the banner under any version (they count
+as having accepted until they choose); anyone who answered an earlier version, and every
+signed-in member, is asked, and nothing optional runs until they answer, so a version bump never
+turns a refusal into an acceptance. The prose of `/cookies` is the static page with slug
+`cookies`; the inventory table stays generated. Known limits: latest choice only (no history);
+withdrawal is not pushed to other devices; sessions opened by the confirmation link do not sync
+until the next choice or sign-in; the adopted cookie outlives session expiry, "sign out
+everywhere" and account deletion until the next sign-in on that browser.
