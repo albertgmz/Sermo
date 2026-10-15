@@ -260,5 +260,10 @@
   },
   "editedMark": {
     "label": "Editado <time></time>"
+  },
+  "infiniteList": {
+    "loading": "Cargando más…",
+    "failed": "No se pudo cargar la página siguiente.",
+    "retry": "Reintentar"
   }
 }

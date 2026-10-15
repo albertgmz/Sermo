@@ -7,6 +7,7 @@ import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { EmbedLoader } from "@/components/layout/embed-loader";
 import { widthScript } from "@/components/layout/narrow-width";
+import { QueryProvider } from "@/components/layout/query-provider";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { themeScript } from "@/components/layout/theme";
 import { isLocale, LOCALES } from "@/i18n/locales";
@@ -71,7 +72,7 @@ export default async function RootLayout({
         <EmbedLoader />
         <NextIntlClientProvider>
           <UploadLimitProvider bytes={maxUploadBytes}>
-            {children}
+            <QueryProvider>{children}</QueryProvider>
           </UploadLimitProvider>
         </NextIntlClientProvider>
       </body>

@@ -22,6 +22,8 @@
     "@lexical/selection": "0.52.0",
     "@sermo/api": "workspace:*",
     "@sermo/core": "workspace:*",
+    "@tanstack/react-query": "5.104.2",
+    "@tanstack/react-virtual": "3.14.19",
     "class-variance-authority": "0.7.1",
     "cn": "0.4.0",
     "lexical": "0.52.0",
