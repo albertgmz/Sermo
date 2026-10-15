@@ -569,6 +569,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | Permission | What it allows | Default |
 | --- | --- | --- |
 | `forum.manageReports`, `forum.approve`, `forum.deleteAny`, `forum.undelete`, `forum.editAny`, `forum.viewModerated`, `forum.viewDeleted`, `forum.viewHistory`, `forum.lock`, `forum.replyLocked`, `forum.stick`, `forum.feature`, `forum.move`, `forum.merge`, `forum.split`, `forum.threadBan`, `forum.bypassNodeRules`, `forum.viewLog` | Moderation inside a node (and the nodes beneath it) | Moderator, Administrator |
+| `forum.hardDelete`, `profilePost.hardDelete` | Deleting soft-deleted threads, posts and profile posts for good (see Changing content state) | Administrator |
 | `profilePost.approve`, `profilePost.deleteAny`, `profilePost.undelete`, `profilePost.editAny`, `profilePost.viewModerated`, `profilePost.viewDeleted` | Moderating profile posts and comments | Moderator, Administrator |
 | `report.manageProfiles` | Handling reports on profile content and on members | Moderator, Administrator |
 | `member.warn`, `member.restrict`, `warning.view` | Warnings and restrictions; reading anyone's warnings and restrictions | Moderator, Administrator |
@@ -684,8 +685,28 @@ the queue; edited content sent back to the queue notifies nobody.
 - `GET /posts/{postId}/revisions` (`postRevisions.list`, `forum.viewHistory`) shows earlier bodies
   of an edited post.
 
-Nothing is removed for good: deleted content stays visible to those with the view-deleted
-permission and can be restored.
+- `POST /threads/batch` (`threads.batchUpdate`): one change for up to 100 threads (`move`, `lock`,
+  `unlock`, `stick`, `unstick`, `delete`, `restore`, `feature`, `unfeature`, `setPrefix`). Unlike
+  `moderation.bulk` it judges each thread on its own, with the permission of the single action in
+  that thread's forum, and answers per thread (`changed`, or the `error` that refused it); a
+  refused thread changes nothing and the others are applied, in one transaction. Every thread is
+  logged as the single action is. The forum's thread list offers it to staff as ticks and a bar.
+
+A member's own delete (a reply, a wall post or a comment) is a soft delete too: it is logged as
+"deleted by author" and moderators can see and restore it. Only staff delete for good, and only
+content that is already soft-deleted:
+
+- `POST /threads/{threadId}/hard-delete` (`threads.hardDelete`, `forum.hardDelete` in the
+  thread's forum), `POST /posts/{postId}/hard-delete` (`posts.hardDelete`, not the opening post)
+  and `POST /profile-posts/{profilePostId}/hard-delete` (`profilePosts.hardDelete`,
+  `profilePost.hardDelete`). They erase the content with its reactions, attachments, alerts,
+  bookmarks, reports and the credits it paid. A thread goes 500 posts per call (a wall post 500
+  comments), newest first, and stays deleted until a call answers `completed: true`. The
+  moderator log keeps the entry, with the title and author. Post positions are not renumbered, so a
+  thread has a gap where a post was. The permissions are Administrator by default and can be
+  granted per forum.
+
+Everything else stays visible to those with the view-deleted permission and can be restored.
 
 ### Moderator log
 

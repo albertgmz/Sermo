@@ -335,6 +335,28 @@ export const scenarios: Scenario[] = [
     },
   },
   {
+    // One request that locks or unlocks 25 typical threads (the toggle follows the first one's
+    // state, so every measured iteration is one request); the threads end unlocked.
+    name: "threads.batchUpdate 25 lock/unlock",
+    kind: "write",
+    setup: prepare,
+    teardown(env) {
+      env.ctx.sqlite
+        .prepare("UPDATE threads SET is_locked = 0 WHERE id IN (SELECT value FROM json_each(?1))")
+        .run(JSON.stringify(typical.slice(10, 35)));
+    },
+    run(env) {
+      const batch = typical.slice(10, 35);
+      const locked = env.ctx.sqlite
+        .prepare<{ is_locked: number }, [number]>("SELECT is_locked FROM threads WHERE id = ?1")
+        .get(batch[0]!)!.is_locked;
+      return env.call("threads.batchUpdate", env.actors.moderator(0), {
+        threadIds: batch,
+        update: { action: locked ? "unlock" : "lock" },
+      });
+    },
+  },
+  {
     name: "threads.delete/restore huge",
     kind: "write",
     setup: prepare,
