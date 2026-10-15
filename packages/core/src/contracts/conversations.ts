@@ -109,11 +109,16 @@ export const conversationsListMessages = defineContract({
     "forwards; `newest` lists from the latest message backwards, so a client can open a long " +
     "conversation at its end, and its `nextCursor` continues towards older messages. A cursor " +
     "belongs to the order it was issued for; one sent with the other order simply continues " +
-    "from its message in that order's direction.",
+    "from its message in that order's direction. `afterMessageId` (the newest message the " +
+    "client holds) starts the walk at the messages above that id, oldest first, whatever the " +
+    "`order`, so a client can poll for replies: the answer is empty when there is nothing " +
+    "new. A `cursor` takes precedence over it. A message approved after newer ones were " +
+    "posted keeps its old id and is not returned this way.",
   kind: "read",
   input: z.object({
     conversationId: Id,
     order: z.enum(["oldest", "newest"]).default("oldest"),
+    afterMessageId: Id.optional(),
     ...pageInput,
   }),
   output: Page(Message),

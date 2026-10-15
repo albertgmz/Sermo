@@ -1167,7 +1167,11 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
   const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: row.node_id }));
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: row.node_id }));
   const cursor = input.cursor ? decodeCursor(input.cursor, postCursor) : null;
-  const start = cursor?.[0] ?? ((input.page ?? 1) - 1) * input.limit;
+  const start =
+    cursor?.[0] ??
+    (input.afterPosition === undefined
+      ? ((input.page ?? 1) - 1) * input.limit
+      : input.afterPosition + 1);
   const end = start + input.limit - 1;
   const viewer = actorUserId(actor) ?? -1;
   const { rows, beyond } =

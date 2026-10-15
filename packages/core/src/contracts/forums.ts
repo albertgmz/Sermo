@@ -487,9 +487,17 @@ export const postsList = defineContract({
     "`cursor` (from the previous page) takes precedence over `page`. Posts the viewer may not " +
     "see are left out, so a page can hold fewer than `limit` posts (moderators see every " +
     "state; authors also see their own unapproved posts). `nextCursor` is null after the last " +
-    "page.",
+    "page. `afterPosition` (the highest position the client holds) starts the page at the " +
+    "position after it, so a client can poll for replies: the answer is empty when there is " +
+    "nothing new. A `cursor` takes precedence over it, and it over `page`. A merge or split " +
+    "renumbers positions: a client that sees the thread change that way reloads it.",
   kind: "read",
-  input: z.object({ threadId: Id, page: z.number().int().min(1).optional(), ...pageInput }),
+  input: z.object({
+    threadId: Id,
+    page: z.number().int().min(1).optional(),
+    afterPosition: z.number().int().nonnegative().optional(),
+    ...pageInput,
+  }),
   output: Page(Post),
 });
 

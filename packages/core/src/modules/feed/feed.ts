@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { type FeedItem, feedList } from "../../contracts/feed";
+import { type FeedItem, feedList, feedNewCount } from "../../contracts/feed";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
@@ -92,9 +92,21 @@ function source<Row extends { created_at: number }, Key>(
   options: Pick<Source<Row, Key>, "rank" | "fetch" | "accept" | "keyOf" | "from" | "end"> & {
     before: Key;
     disabled?: boolean;
+    /** Merge time (epoch ms) a row must exceed: the walk ends at the first row that does not. */
+    since?: number;
   },
 ): Source<Row, Key> {
-  const { before, disabled = false, ...walk } = options;
+  const { before, disabled = false, since, ...walk } = options;
+  if (since !== undefined) {
+    const fetchAll = walk.fetch;
+    // Rows come newest first, so what follows the first old row is old too; a short answer also
+    // marks the walk exhausted.
+    walk.fetch = (from, count) => {
+      const rows = fetchAll(from, count);
+      const old = rows.findIndex((row) => row.created_at <= since);
+      return old < 0 ? rows : rows.slice(0, old);
+    };
+  }
   const done = disabled || JSON.stringify(before) === JSON.stringify(walk.end);
   return {
     ...walk,
@@ -312,6 +324,106 @@ function build(ctx: Ctx, actor: Actor, picked: Picked[], threads: Map<number, Th
   });
 }
 
+/**
+ * The two sides of `latest`, walked from `cursor`: every visible thread by activity (its newest
+ * visible post) and the wall posts. With `since`, a walk stops at the first row not newer.
+ */
+function latestSources(
+  ctx: Ctx,
+  actor: Actor,
+  nodes: Set<number>,
+  threads: Map<number, ThreadRow>,
+  cursor: z.infer<typeof cursorSchema.latest>,
+  since?: number,
+) {
+  const [lastPostBefore, threadBefore, wallBefore] = cursor;
+  const latestThreads = prepared(ctx, "feed.latestPosts", () =>
+    ctx.sqlite.prepare<ThreadRow, [number, number, number]>(rankingSql.latestPosts),
+  );
+  const latestWall = prepared(ctx, "feed.wall", () =>
+    ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
+  );
+  // Each visible thread, newest activity first, is one candidate: its newest visible post.
+  const posts = source<PostCandidate, ThreadKey>({
+    rank: 0,
+    before: [lastPostBefore, threadBefore],
+    since,
+    fetch: ([lastPostAt, threadId], count) =>
+      latestThreads.all(lastPostAt, threadId, count).map((thread) => {
+        threads.set(thread.id, thread);
+        return {
+          id: thread.last_post_id ?? 0,
+          thread_id: thread.id,
+          user_id: thread.last_poster_id,
+          state: "visible",
+          created_at: thread.last_post_at,
+        };
+      }),
+    accept: acceptPosts(ctx, actor, nodes, threads, "newest"),
+    keyOf: (row) => [row.created_at, row.thread_id],
+    from: ([lastPostAt, threadId]) => [lastPostAt, threadId + 1],
+    end: [0, 0],
+  });
+  const walls = source<WallCandidate, number>({
+    rank: 1,
+    before: wallBefore,
+    since,
+    fetch: (before, count) => latestWall.all(before, count),
+    accept: acceptWall(ctx, actor),
+    ...byId,
+    disabled: !can(ctx, actor, "profile.view"),
+  });
+  return { posts, walls };
+}
+
+/**
+ * The two sides of `following`, walked from `cursor`: the posts and the wall posts of the
+ * members the viewer follows. With `since`, a walk stops at the first row not newer.
+ */
+function followingSources(
+  ctx: Ctx,
+  actor: Actor,
+  nodes: Set<number>,
+  threads: Map<number, ThreadRow>,
+  cursor: z.infer<typeof cursorSchema.following>,
+  since?: number,
+) {
+  const [postBefore, wallBefore] = cursor;
+  const authors = followedAuthors(ctx, actor);
+  const authorsJson = JSON.stringify(authors);
+  const followedPosts = prepared(ctx, "feed.followedPosts", () =>
+    ctx.sqlite.prepare<PostCandidate, [string, number, number]>(feedSql.followedPosts),
+  );
+  const followedWall = prepared(ctx, "feed.followedWall", () =>
+    ctx.sqlite.prepare<WallCandidate, [string, number, number]>(feedSql.followedWall),
+  );
+  // Several authors: each walks its own newest rows, and the overall newest `count` are kept,
+  // which is exactly the newest `count` of the union (no author can contribute more).
+  const newest = <Row extends { id: number }>(rows: Row[], count: number) =>
+    rows.sort((x, y) => y.id - x.id).slice(0, count);
+
+  const posts = source<PostCandidate, number>({
+    rank: 0,
+    before: postBefore,
+    since,
+    fetch: (before, count) =>
+      authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count),
+    accept: acceptPosts(ctx, actor, nodes, threads, "perAnswer"),
+    ...byId,
+  });
+  const walls = source<WallCandidate, number>({
+    rank: 1,
+    before: wallBefore,
+    since,
+    fetch: (before, count) =>
+      authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count),
+    accept: acceptWall(ctx, actor),
+    ...byId,
+    disabled: !can(ctx, actor, "profile.view"),
+  });
+  return { posts, walls };
+}
+
 export const feedListOp = implement(feedList, (ctx, actor, input) => {
   const scope = input.scope;
   if (scope === "following") requireAuthenticated(actor);
@@ -340,46 +452,17 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
   }
 
   const batch = Math.max(input.limit, MIN_BATCH);
-  const mayOpenProfiles = can(ctx, actor, "profile.view");
 
   if (scope === "latest") {
-    const [lastPostBefore, threadBefore, wallBefore] = input.cursor
-      ? decodeCursor(input.cursor, cursorSchema.latest)
-      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-    const latestThreads = prepared(ctx, "feed.latestPosts", () =>
-      ctx.sqlite.prepare<ThreadRow, [number, number, number]>(rankingSql.latestPosts),
+    const { posts, walls } = latestSources(
+      ctx,
+      actor,
+      nodes,
+      threads,
+      input.cursor
+        ? decodeCursor(input.cursor, cursorSchema.latest)
+        : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
     );
-    const latestWall = prepared(ctx, "feed.wall", () =>
-      ctx.sqlite.prepare<WallCandidate, [number, number]>(feedSql.wall),
-    );
-    // Each visible thread, newest activity first, is one candidate: its newest visible post.
-    const posts = source<PostCandidate, ThreadKey>({
-      rank: 0,
-      before: [lastPostBefore, threadBefore],
-      fetch: ([lastPostAt, threadId], count) =>
-        latestThreads.all(lastPostAt, threadId, count).map((thread) => {
-          threads.set(thread.id, thread);
-          return {
-            id: thread.last_post_id ?? 0,
-            thread_id: thread.id,
-            user_id: thread.last_poster_id,
-            state: "visible",
-            created_at: thread.last_post_at,
-          };
-        }),
-      accept: acceptPosts(ctx, actor, nodes, threads, "newest"),
-      keyOf: (row) => [row.created_at, row.thread_id],
-      from: ([lastPostAt, threadId]) => [lastPostAt, threadId + 1],
-      end: [0, 0],
-    });
-    const walls = source<WallCandidate, number>({
-      rank: 1,
-      before: wallBefore,
-      fetch: (before, count) => latestWall.all(before, count),
-      accept: acceptWall(ctx, actor),
-      ...byId,
-      disabled: !mayOpenProfiles,
-    });
     const items = build(ctx, actor, merge(posts, walls, input.limit, batch), threads);
     return {
       items,
@@ -388,43 +471,42 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
     };
   }
 
-  const [postBefore, wallBefore] = input.cursor
-    ? decodeCursor(input.cursor, cursorSchema.following)
-    : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const authors = followedAuthors(ctx, actor);
-  const authorsJson = JSON.stringify(authors);
-  const followedPosts = prepared(ctx, "feed.followedPosts", () =>
-    ctx.sqlite.prepare<PostCandidate, [string, number, number]>(feedSql.followedPosts),
+  const { posts, walls } = followingSources(
+    ctx,
+    actor,
+    nodes,
+    threads,
+    input.cursor
+      ? decodeCursor(input.cursor, cursorSchema.following)
+      : [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
   );
-  const followedWall = prepared(ctx, "feed.followedWall", () =>
-    ctx.sqlite.prepare<WallCandidate, [string, number, number]>(feedSql.followedWall),
-  );
-  // Several authors: each walks its own newest rows, and the overall newest `count` are kept,
-  // which is exactly the newest `count` of the union (no author can contribute more).
-  const newest = <Row extends { id: number }>(rows: Row[], count: number) =>
-    rows.sort((x, y) => y.id - x.id).slice(0, count);
-
-  const posts = source<PostCandidate, number>({
-    rank: 0,
-    before: postBefore,
-    fetch: (before, count) =>
-      authors.length === 0 ? [] : newest(followedPosts.all(authorsJson, before, count), count),
-    accept: acceptPosts(ctx, actor, nodes, threads, "perAnswer"),
-    ...byId,
-  });
-  const walls = source<WallCandidate, number>({
-    rank: 1,
-    before: wallBefore,
-    fetch: (before, count) =>
-      authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count),
-    accept: acceptWall(ctx, actor),
-    ...byId,
-    disabled: !mayOpenProfiles,
-  });
   const items = build(ctx, actor, merge(posts, walls, input.limit, batch), threads);
   return {
     items,
     nextCursor:
       finished(posts) && finished(walls) ? null : encodeCursor([resume(posts), resume(walls)]),
   };
+});
+
+/** The most new entries `feed.newCount` reports. */
+export const NEW_COUNT_CAP = 99;
+
+/** Entries a pair of walks yields, at most one more than the cap. */
+const countNew = <PostKey, WallKey>(sources: {
+  posts: Source<PostCandidate, PostKey>;
+  walls: Source<WallCandidate, WallKey>;
+}) => merge(sources.posts, sources.walls, NEW_COUNT_CAP + 1, MIN_BATCH).length;
+
+export const feedNewCountOp = implement(feedNewCount, (ctx, actor, input) => {
+  if (input.scope === "following") requireAuthenticated(actor);
+  const since = Date.parse(input.since);
+  const nodes = visibleNodes(ctx, actor);
+  const threads = new Map<number, ThreadRow>();
+  const top = Number.MAX_SAFE_INTEGER;
+  // The same walks and filters as the list, from its top, stopping at what the client holds.
+  const found =
+    input.scope === "latest"
+      ? countNew(latestSources(ctx, actor, nodes, threads, [top, top, top], since))
+      : countNew(followingSources(ctx, actor, nodes, threads, [top, top], since));
+  return { count: Math.min(found, NEW_COUNT_CAP), more: found > NEW_COUNT_CAP };
 });

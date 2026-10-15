@@ -551,12 +551,15 @@ export const conversationsListMessagesOp = implement(
   conversationsListMessages,
   (ctx, actor, input) => {
     const conversation = activeConversation(ctx, actor, input.conversationId);
-    const newest = input.order === "newest";
+    const polling = input.cursor === undefined && input.afterMessageId !== undefined;
+    const newest = input.order === "newest" && !polling;
     const id = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
-      : newest
-        ? Number.MAX_SAFE_INTEGER
-        : 0;
+      : polling
+        ? input.afterMessageId!
+        : newest
+          ? Number.MAX_SAFE_INTEGER
+          : 0;
     const rows = prepared(
       ctx,
       newest ? "conversations.messagesNewest" : "conversations.messages",
