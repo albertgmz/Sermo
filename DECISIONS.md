@@ -2235,3 +2235,19 @@ are exported by the contract and shown inline. Member, group and shop-item picki
 refused by name until its chip is removed. Known limits: the shop-item picker lists the first 100
 items per category (no shop-wide item search yet); new-record forms on list pages keep the last
 draft, like their other fields.
+
+**Long lists scroll on one infinite list.** The feed, forum thread lists, conversations, search,
+profile posts and threads, bookmarks and notifications draw through `components/forum/infinite-list`
+(TanStack Query 5.104.2 and TanStack Virtual 3.14.19, one query provider in the root layout). The
+server draws the first page as plain markup and hands it to the query, so nothing is fetched on
+mount; later pages come from server actions that use the same page function. The address keeps
+`?pages=N`, so Back and a reload return to the same list (the server redraws at most 8 pages, 2 for
+search, and stops at the first page it is refused); without script, the "load more" control is a
+plain `?cursor=` link. Rows far off screen are unmounted, except one holding focus or typed text;
+a player restarts when scrolled back to. A stale cursor or an ended session ends the list quietly.
+Replying from the feed returns to the same address (a same-origin path from the Referer, else `/`).
+Known cost: a reaction, bookmark or follow refreshes the route, which redraws every restored page:
+about 15-18 backend reads per click before, about 31-40 with 8 pages loaded (8-10 such clicks a
+minute against the 300-read limit), and a row beyond the 8 redrawn pages shows its old state until
+reload. Item 20c replaces the refresh with in-place updates. The members directory, profile wall,
+award holders, credits and staff lists still use the older load-more button.
