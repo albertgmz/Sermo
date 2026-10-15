@@ -80,3 +80,10 @@ test("the in-place sends are actions that answer with a row and never redirect o
     expect(code, file).toContain("Rows(");
   }
 });
+
+test("the follow button of the feed's suggestions is the in-place one", () => {
+  const code = source("app/[locale]/(main)/_feed/feed-sidebar.tsx");
+  expect(code).toContain("<MemberFollowButton");
+  expect(code).not.toMatch(/<FollowButton\b/);
+  expect(code).not.toContain("wall-buttons");
+});

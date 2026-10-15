@@ -78,7 +78,7 @@ export function AlertsPanel({
           <MarkAllReadForm
             variant="ghost"
             size="sm"
-            disabled={unread === 0}
+            unread={unread}
             className="h-8 text-xs text-muted-foreground"
           >
             <CheckCheck />

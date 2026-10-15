@@ -3,8 +3,9 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { FollowButton } from "@/app/[locale]/(main)/members/wall-buttons";
+import { followFromPage } from "@/app/[locale]/(main)/actions";
 import { ForumIcon } from "@/components/forum/forum-icon";
+import { MemberFollowButton } from "@/components/forum/member-follow-button";
 import { MemberRow } from "@/components/forum/member-row";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
@@ -210,10 +211,11 @@ async function SuggestedMembers() {
       {suggestions.map(({ card }) => (
         <MemberRow key={card.id} user={card} badgeLimit={1}>
           {user && (
-            <FollowButton
-              user={{ id: card.id, username: card.username }}
+            <MemberFollowButton
+              userId={card.id}
+              username={card.username}
               following={relation(card.id)?.following ?? false}
-              returnTo="/"
+              action={followFromPage.bind(null, card.id)}
               className="h-10 md:h-8"
             />
           )}

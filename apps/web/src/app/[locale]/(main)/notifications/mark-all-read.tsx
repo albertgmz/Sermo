@@ -9,22 +9,28 @@ import {
 import { markAllThenRefresh } from "@/app/[locale]/(main)/notifications/mark-all";
 import { FormError } from "@/components/forum/form-error";
 import { PendingButton } from "@/components/forum/pending-button";
+import { useCounter } from "@/lib/counters";
 
 // Marks every notification read. The backend's reason is shown if it refuses.
 export function MarkAllReadForm({
   disabled,
+  unread,
   variant,
   size,
   className,
   children,
 }: {
-  disabled: boolean;
+  disabled?: boolean;
+  // Instead of `disabled`: the unread count the page drew; the button is off while the count as
+  // the polls find it is none.
+  unread?: number;
   variant: "outline" | "ghost";
   size?: "sm";
   className?: string;
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const liveUnread = useCounter("notifications", unread ?? 0);
   const [state, action] = useActionState<MarkAllState>(
     (previous) =>
       markAllThenRefresh(markAllRead, () => router.refresh(), previous),
@@ -35,7 +41,7 @@ export function MarkAllReadForm({
       <PendingButton
         variant={variant}
         size={size}
-        disabled={disabled}
+        disabled={disabled ?? (unread !== undefined && liveUnread === 0)}
         className={className}
       >
         {children}
