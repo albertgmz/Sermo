@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { consentCookieValue } from "@/lib/consent/account";
 import { parseChoice } from "@/lib/consent/state";
 import { siteBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
@@ -9,7 +10,7 @@ const realFetch = globalThis.fetch;
 const written: Record<string, unknown>[] = [];
 // The cookies the visitor came with, and the names an action removed.
 const jar = new Map<string, string>();
-const removed: string[] = [];
+const removed: unknown[] = [];
 const bodies: Record<string, unknown>[] = [];
 const ACCEPTED = encodeURIComponent(
   JSON.stringify({ categories: ["necessary", "referrals"], revision: 1 }),
@@ -35,7 +36,7 @@ mock.module("next/headers", () => ({
     get: (name: string) =>
       jar.has(name) ? { name, value: jar.get(name) } : undefined,
     has: (name: string) => jar.has(name),
-    delete: (name: string) => removed.push(name),
+    delete: (name: unknown) => removed.push(name),
     toString: () => "",
   }),
 }));
@@ -509,4 +510,55 @@ test("a refusal from an earlier policy version is not used as acceptance when re
   } finally {
     europeOnly = false;
   }
+});
+
+// A cookie written from another member's account (it carries the mark) and left in the browser.
+const memberACookie = () =>
+  onTheWire({
+    name: "forum_consent",
+    value: consentCookieValue(
+      {
+        categories: ["analytics", "embeds"],
+        policyVersion: 1,
+        decidedAt: "2026-10-01T10:00:00.000Z",
+      },
+      "en",
+      "id-a",
+    ),
+  }).raw;
+
+test("another member's adopted choice is never saved onto this member's account: with no record of their own it is removed and they are asked", async () => {
+  jar.set("forum_consent", memberACookie());
+  backend(SIGNED_UP);
+  const state = await login(
+    { error: "", username: "" },
+    form({ username: "ann", password: "right" }),
+  );
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  expect(removed).toEqual([{ name: "forum_consent", path: "/" }]);
+  // The cookie the running banner holds is gone: the next page is a full load.
+  expect(state).toMatchObject({ assign: "/" });
+});
+
+test("another member's adopted choice gives way to this member's own record", async () => {
+  jar.set("forum_consent", memberACookie());
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "referrals");
+  backend(SIGNED_UP);
+  const state = await login(
+    { error: "", username: "" },
+    form({ username: "ann", password: "right" }),
+  );
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  expect(
+    parseChoice(onTheWire(consentCookieWritten() as never).raw, 1)?.accepted,
+  ).toEqual(["referrals"]);
+  expect(state).toMatchObject({ assign: "/" });
+});
+
+test("a cookie the banner wrote in this browser is still the visitor's own choice and is saved", async () => {
+  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+  backend(SIGNED_UP);
+  await signIn();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET", "PUT"]);
+  expect(removed).toEqual([]);
 });

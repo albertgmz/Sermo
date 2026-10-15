@@ -19,9 +19,15 @@ import { parseChoice } from "./state";
 // (`sessionCookie` is the Cookie header of the session the answer opened). The sign-in is the
 // moment a choice made as a guest can first be saved on the account, and the moment a device the
 // member has not used before can take the choice they saved elsewhere, so the banner does not ask
-// again. It never fails the sign-in: whatever goes wrong here is left for the next choice. True
-// when the browser took the account's choice: the banner already running in this page knows
-// nothing of it, so the caller must make the next page a full load.
+// again. It never fails the sign-in: whatever goes wrong here is left for the next choice.
+//
+// A cookie that was written from an account (it carries the mark) is not this browser's choice and
+// never goes to another member's account: it counts as no choice here, the member's own record
+// replaces it, and with no record it is removed so the member is asked.
+//
+// True when the cookie the browser holds changed (the account's choice was adopted, or another
+// member's was removed): the banner already running in this page knows nothing of it, so the
+// caller must make the next page a full load.
 export async function syncConsentAfterSignIn(
   sessionCookie: string,
 ): Promise<boolean> {
@@ -34,7 +40,9 @@ export async function syncConsentAfterSignIn(
     const version = site.cookiePolicyVersion;
     const as = { ...forward, cookie: sessionCookie };
     const { record } = await callWith(as, consentMine, {});
-    const device = parseChoice(store.get(CONSENT_COOKIE)?.value, version);
+    const held = store.get(CONSENT_COOKIE)?.value;
+    const foreign = cameFromAccount(held);
+    const device = foreign ? null : parseChoice(held, version);
     const step = reconcile(device, record, version);
     if (step === "save" && device) {
       await callWith(as, consentSave, {
@@ -63,6 +71,9 @@ export async function syncConsentAfterSignIn(
         secure: publicUrl().startsWith("https:"),
       });
       return true;
+    } else if (foreign) {
+      dropConsentCookie(store);
+      return true;
     }
   } catch (error) {
     console.error("The cookie choice could not be brought up to date", error);
@@ -74,7 +85,12 @@ export async function syncConsentAfterSignIn(
 // next person on a shared browser is asked. A choice made in this browser stays.
 export async function forgetAdoptedConsent() {
   const store = await cookies();
-  if (!cameFromAccount(store.get(CONSENT_COOKIE)?.value)) return;
+  if (cameFromAccount(store.get(CONSENT_COOKIE)?.value))
+    dropConsentCookie(store);
+}
+
+// Takes the consent cookie off the browser, for the host it was written for.
+function dropConsentCookie(store: Awaited<ReturnType<typeof cookies>>) {
   const host = new URL(publicUrl()).hostname;
   store.delete({
     name: CONSENT_COOKIE,

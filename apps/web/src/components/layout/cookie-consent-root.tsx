@@ -7,7 +7,7 @@ import {
   startConsent,
 } from "@/components/layout/consent-library";
 import { saveConsentChoice } from "@/lib/consent/actions";
-import { consentCallbacks } from "@/lib/consent/callbacks";
+import { consentCallbacks, mustReloadForQuiet } from "@/lib/consent/callbacks";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
 import type { OptionalCategory } from "@/lib/consent/inventory";
 
@@ -63,5 +63,13 @@ export function CookieConsentRoot({
   useEffect(() => {
     consentLibrary()?.then((library) => library?.setLanguage(locale));
   }, [locale]);
+  // The page the banner was started for can become one the visitor must be asked on (a guest
+  // outside Europe signs in without a full load). The library cannot be started again, so the page
+  // is loaded again, which starts it as the server now says.
+  const wasQuiet = useRef(quiet);
+  useEffect(() => {
+    if (mustReloadForQuiet(wasQuiet.current, quiet)) window.location.reload();
+    wasQuiet.current = quiet;
+  }, [quiet]);
   return null;
 }

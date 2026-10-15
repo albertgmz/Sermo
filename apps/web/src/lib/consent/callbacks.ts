@@ -2,6 +2,11 @@ import type { CookieConsentConfig } from "vanilla-cookieconsent";
 import { effectOf, firstChoiceEffect } from "./effects";
 import type { OptionalCategory } from "./inventory";
 
+// Whether the page must be loaded again because the visitor went from "not asked" to "asked" (a
+// guest outside Europe signed in by a soft navigation): the running banner started in opt-out mode,
+// never shows itself and has every category on, so only a fresh start asks the member.
+export const mustReloadForQuiet = (was: boolean, now: boolean) => was && !now;
+
 type Library = { getUserPreferences(): { acceptedCategories: string[] } };
 
 // What the banner does when the visitor chooses: send the choice to be saved on the account, then

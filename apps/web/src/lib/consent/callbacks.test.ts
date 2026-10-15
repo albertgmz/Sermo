@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { consentCallbacks } from "./callbacks";
+import { consentCallbacks, mustReloadForQuiet } from "./callbacks";
 
 // The banner library as the callbacks see it, and what the page is told to do.
 function setup(quiet: boolean, accepted: string[] | null, omit: string[] = []) {
@@ -86,4 +86,13 @@ test("without the library the choice is still sent and nothing else happens", as
   await w.first();
   await w.change("analytics");
   expect(w.done).toEqual(["save", "save"]);
+});
+
+test("a page started for a visitor who was not asked is loaded again once they are one who is", () => {
+  // A guest outside Europe signs in by a soft navigation: the server now says "asked".
+  expect(mustReloadForQuiet(true, false)).toBe(true);
+  expect(mustReloadForQuiet(true, true)).toBe(false);
+  expect(mustReloadForQuiet(false, false)).toBe(false);
+  // The other way needs nothing: a started banner already asks.
+  expect(mustReloadForQuiet(false, true)).toBe(false);
 });
