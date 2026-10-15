@@ -17,12 +17,14 @@ import {
   $createParagraphNode,
   $createRangeSelection,
   $createTextNode,
+  $findMatchingParent,
   $getRoot,
   $getSelection,
   $isElementNode,
   $isLineBreakNode,
   $isParagraphNode,
   $isRangeSelection,
+  $isRootNode,
   $isTextNode,
   COMMAND_PRIORITY_LOW,
   type ElementNode,
@@ -30,6 +32,7 @@ import {
   KEY_DOWN_COMMAND,
   type LexicalEditor,
   type LexicalNode,
+  type PointType,
   type TextNode,
 } from "lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
@@ -150,8 +153,22 @@ function listItemsOf(list: ListNode): ListItemNode[] {
   });
 }
 
+// The number each item of a numbered list shows, nested lists numbering on their own. An item that
+// only holds a nested list takes no number.
+function numbersOf(list: ListNode, numbers = new Map<string, number>()) {
+  let number = list.getStart();
+  for (const child of list.getChildren()) {
+    if (!$isListItemNode(child)) continue;
+    const inner = child.getFirstChild();
+    if ($isListNode(inner)) numbersOf(inner, numbers);
+    else numbers.set(child.getKey(), number++);
+  }
+  return numbers;
+}
+
 // Takes the lines of a quote that `touched` says were selected out of it, as paragraphs. The lines
-// before and after stay in a quote each. Lines are what the line breaks in the quote separate.
+// before and after stay in a quote each (with the quote's alignment and indent). Lines are what the
+// line breaks in the quote separate.
 function $unquoteLines(
   quote: QuoteNode,
   touched: (node: LexicalNode) => boolean,
@@ -170,6 +187,7 @@ function $unquoteLines(
   // A line with nothing in it is selected when the selection runs through the break after it.
   const picked = lines.map((line, index) => {
     if (line.length) return line.some(touched);
+    if (!breaks.length) return touched(quote);
     const next = breaks[index] ?? breaks[index - 1];
     return next ? touched(next) : false;
   });
@@ -177,7 +195,11 @@ function $unquoteLines(
   for (let from = 0; from < lines.length; ) {
     let to = from;
     while (to + 1 < lines.length && picked[to + 1] === picked[from]) to++;
-    const group = picked[from] ? $createParagraphNode() : $createQuoteNode();
+    const group = picked[from]
+      ? $createParagraphNode()
+      : $createQuoteNode()
+          .setFormat(quote.getFormatType())
+          .setIndent(quote.getIndent());
     for (let line = from; line <= to; line++) {
       if (line > from) group.append($createLineBreakNode());
       group.append(...(lines[line] ?? []));
@@ -203,13 +225,64 @@ function $plainBlock(
     $unquoteLines(block, touched ?? (() => true));
   } else if ($isListNode(block)) {
     // Replacing an item moves it out of any nested list and splits the list around it.
+    const numbers =
+      block.getListType() === "number" ? numbersOf(block) : undefined;
+    const made: ElementNode[] = [];
     for (const item of listItemsOf(block)) {
-      if (!touched || touched(item)) item.replace($createParagraphNode(), true);
+      if (!touched || touched(item)) {
+        made.push(item.replace($createParagraphNode(), true));
+      }
+    }
+    // The lists left take their first item's place: a split copies the start of the original, and
+    // an item that is now first must not be a bare nested list (it would export indented).
+    const lists = [
+      block,
+      ...made.map((paragraph) => paragraph.getNextSibling()),
+    ];
+    for (const list of lists) {
+      if (!$isListNode(list) || !list.isAttached()) continue;
+      for (let first = list.getFirstChild(); $isListItemNode(first); ) {
+        const inner = first.getFirstChild();
+        if (!$isListNode(inner)) break;
+        for (const item of inner.getChildren()) first.insertBefore(item);
+        first.remove();
+        first = list.getFirstChild();
+      }
+      const first = list.getFirstChild();
+      const number = first ? numbers?.get(first.getKey()) : undefined;
+      if (number !== undefined) list.setStart(number);
     }
   } else if ($isParagraphNode(block)) {
     if (block.getFormatType()) block.setFormat("");
     if (block.getIndent()) block.setIndent(0);
   }
+}
+
+// What a selection's end is in: a list item, else the top-level block.
+function $unitOf(node: LexicalNode) {
+  const unit = $findMatchingParent(
+    node,
+    (parent) => $isListItemNode(parent) || $isRootNode(parent.getParent()),
+  );
+  return $isElementNode(unit) ? unit : null;
+}
+
+// Whether the point is at the very start or end of `unit`. An empty element counts as all of it.
+function $isAtEdge(point: PointType, unit: ElementNode, edge: "start" | "end") {
+  let node: LexicalNode | null = point.getNode();
+  const size = $isElementNode(node)
+    ? node.getChildrenSize()
+    : $isTextNode(node)
+      ? node.getTextContentSize()
+      : -1;
+  if (size < 1 || point.offset !== (edge === "start" ? 0 : size)) return false;
+  while (node && !node.is(unit)) {
+    if (edge === "start" ? node.getPreviousSibling() : node.getNextSibling()) {
+      return false;
+    }
+    node = node.getParent();
+  }
+  return node !== null;
 }
 
 // Takes the formatting off the selected text, or off the whole message when nothing is selected:
@@ -222,9 +295,26 @@ export function $removeFormatting() {
   const selection = $getSelection();
   const range =
     $isRangeSelection(selection) && !selection.isCollapsed() ? selection : null;
+  // A selection that ends at the very start of the next block (a triple click does) holds none of
+  // that block, nor does one that starts at the very end of a block: they are left alone, as
+  // `$setBlocksType` does.
+  const skipped: ElementNode[] = [];
+  if (range) {
+    const [first, last] = range.isBackward()
+      ? [range.focus, range.anchor]
+      : [range.anchor, range.focus];
+    const firstUnit = $unitOf(first.getNode());
+    const lastUnit = $unitOf(last.getNode());
+    if (firstUnit && lastUnit && !firstUnit.is(lastUnit)) {
+      if ($isAtEdge(last, lastUnit, "start")) skipped.push(lastUnit);
+      if ($isAtEdge(first, firstUnit, "end")) skipped.push(firstUnit);
+    }
+  }
   // Split at the ends of the selection first, so that only the selected text is touched.
   const root = $getRoot();
-  const nodes = range ? range.extract() : root.getAllTextNodes();
+  const nodes = (range ? range.extract() : root.getAllTextNodes()).filter(
+    (node) => !skipped.some((unit) => unit.is(node) || unit.isParentOf(node)),
+  );
   const selected = new Set(nodes.map((node) => node.getKey()));
   const touched = (node: LexicalNode): boolean =>
     selected.has(node.getKey()) ||
@@ -303,7 +393,7 @@ export function $removeFormatting() {
   }
 }
 
-// Ctrl+\\ (Cmd+\\ on a Mac as well) takes the formatting off. AltGr+\\ on some layouts reports Alt
+// Ctrl+\ (Cmd+\ on a Mac as well) takes the formatting off. AltGr+\ on some layouts reports Alt
 // too, and types a backslash instead.
 export function registerRemoveFormattingShortcut(editor: LexicalEditor) {
   return editor.registerCommand(

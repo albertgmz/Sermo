@@ -684,3 +684,278 @@ test("other keys, Shift or Alt with the backslash, and no Ctrl do nothing", () =
   });
   expect(updates).toHaveLength(0);
 });
+
+// A selection from `from` to `to`, each a text node and an offset.
+function selectBetween(
+  from: [TextNode, number],
+  to: [TextNode, number],
+  backward = false,
+) {
+  const [head, tail] = backward ? [to, from] : [from, to];
+  const selection = head[0].select(head[1], head[1]);
+  selection.focus.set(tail[0].getKey(), tail[1], "text");
+}
+
+test("a selection that ends at the start of the next heading leaves it alone", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("A");
+    const b = $createTextNode("B");
+    $getRoot().append(
+      $createHeadingNode("h1").append(a),
+      $createHeadingNode("h2").append(b),
+    );
+    selectBetween([a, 0], [b, 0]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:A", "heading:B"]);
+});
+
+test("the same, selected backwards from the start of the next heading", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("A");
+    const b = $createTextNode("B");
+    $getRoot().append(
+      $createHeadingNode("h1").append(a),
+      $createHeadingNode("h2").append(b),
+    );
+    selectBetween([a, 0], [b, 0], true);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:A", "heading:B"]);
+});
+
+test("a selection that starts at the end of a heading leaves it alone", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("A");
+    const b = $createTextNode("BB");
+    $getRoot().append(
+      $createHeadingNode("h1").append(a),
+      $createHeadingNode("h2").append(b),
+    );
+    selectBetween([a, 1], [b, 2]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["heading:A", "paragraph:BB"]);
+});
+
+test("a selection that ends at the start of the next list item leaves it in the list", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("a");
+    const b = $createTextNode("b");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append(a),
+        $createListItemNode().append(b),
+        $createListItemNode().append($createTextNode("c")),
+      ),
+    );
+    selectBetween([a, 0], [b, 0]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:a", "list:b|c"]);
+});
+
+test("a selection that ends at the start of the next quote leaves it a quote", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("a");
+    const b = $createTextNode("b");
+    $getRoot().append($createHeadingNode("h2").append(a), quoteOf(b, "more"));
+    selectBetween([a, 0], [b, 0]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:a", "quote:b\nmore"]);
+});
+
+test("the text of the block the selection only reaches keeps its format", () => {
+  const editor = richEditor(() => {
+    const a = formatted("A", "bold");
+    const b = formatted("B", "bold");
+    $getRoot().append(
+      $createParagraphNode().append(a),
+      $createParagraphNode().append(b),
+    );
+    selectBetween([a, 0], [b, 0]);
+  });
+  run(editor, () => $removeFormatting());
+  editor.read(() => {
+    const [a, b] = $getRoot().getAllTextNodes();
+    expect(a?.getFormat()).toBe(0);
+    expect(b?.getFormat()).not.toBe(0);
+  });
+});
+
+test("a selection that really enters the next block cleans it too", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("A");
+    const b = $createTextNode("BB");
+    $getRoot().append(
+      $createHeadingNode("h1").append(a),
+      $createHeadingNode("h2").append(b),
+    );
+    selectBetween([a, 0], [b, 1]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:A", "paragraph:BB"]);
+});
+
+function numbered(start: number, ...items: string[]) {
+  const list = $createListNode("number", start);
+  const texts = items.map((item) => $createTextNode(item));
+  list.append(...texts.map((text) => $createListItemNode().append(text)));
+  return { list, texts };
+}
+
+test("after a split the tail of a numbered list keeps its numbers", () => {
+  const editor = richEditor(() => {
+    const { list, texts } = numbered(1, "a", "b", "c", "d");
+    $getRoot().append(list);
+    texts[1]?.select(0, 1);
+  });
+  run(editor, () => $removeFormatting());
+  expect(markdownOf(editor)).toBe("1. a\n\nb\n\n3. c\n4. d");
+});
+
+test("a numbered list that starts at 5 keeps the numbers of both parts", () => {
+  const editor = richEditor(() => {
+    const { list, texts } = numbered(5, "a", "b", "c");
+    $getRoot().append(list);
+    texts[1]?.select(0, 1);
+  });
+  run(editor, () => $removeFormatting());
+  expect(markdownOf(editor)).toBe("5. a\n\nb\n\n7. c");
+});
+
+test("taking the first item out of a numbered list renumbers nothing", () => {
+  const editor = richEditor(() => {
+    const { list, texts } = numbered(5, "a", "b", "c");
+    $getRoot().append(list);
+    texts[0]?.select(0, 1);
+  });
+  run(editor, () => $removeFormatting());
+  expect(markdownOf(editor)).toBe("a\n\n6. b\n7. c");
+});
+
+test("an empty quote becomes a paragraph, with nothing selected and inside a selection", () => {
+  const editor = richEditor(() => {
+    $getRoot().append($createQuoteNode());
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:"]);
+
+  const inside = richEditor(() => {
+    const x = $createTextNode("x");
+    const y = $createTextNode("y");
+    $getRoot().append(
+      $createParagraphNode().append(x),
+      $createQuoteNode(),
+      $createParagraphNode().append(y),
+    );
+    selectBetween([x, 0], [y, 1]);
+  });
+  run(inside, () => $removeFormatting());
+  expect(outline(inside)).toEqual(["paragraph:x", "paragraph:", "paragraph:y"]);
+});
+
+test("the quote halves left behind keep the quote's alignment and indent", () => {
+  const editor = richEditor(() => {
+    const two = $createTextNode("two");
+    const quote = quoteOf("one", two, "three").setFormat("center").setIndent(1);
+    $getRoot().append(quote);
+    two.select(0, 3);
+  });
+  run(editor, () => $removeFormatting());
+  editor.read(() => {
+    const [before, middle, after] = $getRoot().getChildren() as ElementNode[];
+    expect(before?.getType()).toBe("quote");
+    expect(before?.getFormatType()).toBe("center");
+    expect(before?.getIndent()).toBe(1);
+    expect(middle?.getType()).toBe("paragraph");
+    expect(middle?.getFormatType()).toBe("");
+    expect(after?.getFormatType()).toBe("center");
+    expect(after?.getIndent()).toBe(1);
+  });
+});
+
+test("a nested list left without its parent item does not export indented", () => {
+  const editor = richEditor(() => {
+    const top = $createTextNode("top");
+    const kid = $createTextNode("kid");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append(top),
+        $createListItemNode().append(
+          $createListNode("bullet").append(
+            $createListItemNode().append(kid),
+            $createListItemNode().append($createTextNode("kid2")),
+          ),
+        ),
+      ),
+    );
+    selectBetween([top, 0], [kid, 3]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    "paragraph:top",
+    "paragraph:kid",
+    "list:kid2",
+  ]);
+  expect(markdownOf(editor)).toBe("top\n\nkid\n\n- kid2");
+});
+
+test("an empty list item in the selection becomes a paragraph too", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("a");
+    const c = $createTextNode("c");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append(a),
+        $createListItemNode(),
+        $createListItemNode().append(c),
+        $createListItemNode().append($createTextNode("d")),
+      ),
+    );
+    selectBetween([a, 0], [c, 1]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    "paragraph:a",
+    "paragraph:",
+    "paragraph:c",
+    "list:d",
+  ]);
+});
+
+test("a selection over a list, a paragraph and a quote cleans exactly what it touches", () => {
+  const editor = richEditor(() => {
+    const b = $createTextNode("b");
+    const lineTwo = $createTextNode("two");
+    $getRoot().append(
+      $createListNode("bullet").append(
+        $createListItemNode().append($createTextNode("a")),
+        $createListItemNode().append(b),
+      ),
+      $createParagraphNode().setFormat("center").append($createTextNode("p")),
+      quoteOf("one", lineTwo, "three"),
+    );
+    selectBetween([b, 0], [lineTwo, 2]);
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual([
+    "list:a",
+    "paragraph:b",
+    "paragraph:p",
+    "paragraph:one\ntwo",
+    "quote:three",
+  ]);
+});
+
+test("an element-type point at the start of the next heading counts as its start", () => {
+  const editor = richEditor(() => {
+    const a = $createTextNode("A");
+    const second = $createHeadingNode("h2").append($createTextNode("B"));
+    $getRoot().append($createHeadingNode("h1").append(a), second);
+    a.select(0, 0).focus.set(second.getKey(), 0, "element");
+  });
+  run(editor, () => $removeFormatting());
+  expect(outline(editor)).toEqual(["paragraph:A", "heading:B"]);
+});
