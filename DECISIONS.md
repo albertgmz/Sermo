@@ -1176,9 +1176,8 @@ stored. Signature and title limits and the member-of-the-month weights are setti
 recomputed every ten minutes for the month in progress from bounded id ranges; when a month ends
 its winner is written once to `month_winners` and never rewritten.
 
-**Referrals: a member names their referrer once, in their first seven days**
-(`users.setReferrer`). The frontend counted referrals in leaderboards and standings but had no
-way to create one; this is the smallest real behaviour behind those numbers. **Owner review.**
+**Referrals come from referral links** (item 2, below; it replaced naming a referrer after
+signing up).
 
 **Reputation and vouches are not built.** The frontend displayed both and nothing could ever
 change them (new members got 0; only the demo data had values). Reputation is shown as the
@@ -1294,8 +1293,7 @@ replaced, because afterwards the old address is unknown and a rerun could not fi
 `push_subscriptions`, `auth_user.image` (through Better Auth), every account email job of the member
 that is not running (finished ones hold the address too), and the referral links: their own
 `referred_by`/`referred_at` end and the referrer's `referral_count` drops by one; members they
-referred lose their `referred_by`/`referred_at` (a referred member can then name a referrer again
-inside the first seven days) and the erased member's own count becomes 0. The month standings keep
+referred lose their `referred_by`/`referred_at` and the erased member's own count becomes 0. The month standings keep
 what they already counted. What stays: what the member wrote (under the new name), their ledger,
 warnings and every log entry. **Owner review:** `@name` mentions and quotation attributions
 inside other members' posts keep the old name; rewriting other people's posts is not done, so the
@@ -1416,7 +1414,7 @@ something away stays open: `threadBans.lift`, `bans.lift` (refused for its own r
 `restrictions.lift`, `users.unfollow`, `users.unignore`. A spam cleanup already running when the
 member is erased finishes: only the start is refused, the job continues the same function.
 Actions between members (following, ignoring, messaging, profile
-posts, naming a referrer) are not covered: they are the members' own, and an erased account is
+posts) are not covered: they are the members' own, and an erased account is
 permanently banned, which the referrer rule already treats as absent.
 
 **Group names are readable by those who must pick a group.** `groups.list` and `groups.get`
@@ -2511,3 +2509,21 @@ examined per request (a page can be short and still carry a cursor), with the fe
 checks plus `forum.viewAttachments`; conversation attachments are never listed. Thumbnails load
 lazily behind the LITE gate (`LazyArt`); a file with no thumbnail shows an icon. Migration `0045`:
 `users.home_tab` and the index. Known gaps: the static LITE category scan does not know `LazyArt`.
+
+**Referral links replace "name your referrer" (item 2).** `users.setReferrer` and any way to name a
+referrer after registering are gone. A signed-in member's Share/Copy link carries `?ref=<id>` (one
+helper in `ShareButton`). The proxy sets `forum_ref` (HttpOnly, Lax, 30 days, first referrer wins)
+on a guest's page load with a valid `?ref=` only when the cookie banner's referrals category is
+accepted, and removes it when it no longer is. Pages that state a canonical address take it from
+the backend, which never carries `ref`. The register action sends the cookie's referrer, else the
+form's `?ref=`, in the sign-up body. The backend records it at registration when mail confirmation
+is off; with it on, it holds it in `users.pending_referrer` and records it only once the address is
+confirmed (the confirmation link, or the next sign-in of a member confirmed another way), within 7
+days of registering: signing in with an unconfirmed address records nothing, so made-up addresses
+cannot farm referrals. Self, missing, banned, erased and unconfirmed referrers are dropped without
+blocking the sign-up or sign-in; a referrer still unconfirmed when the newcomer registers is
+dropped for good. Reason: the old call was refused for Unconfirmed members, so the referral was
+lost whenever mail confirmation was on. Known limits: without consent only `/register?ref=` credits
+the referrer (a `?ref=` on another page is lost at the Register click); accepting the banner on a
+`?ref=` page sets the cookie on the next `?ref=` load; the proxy reads consent against the web's
+policy version constant until the site carries one (7e-record).
