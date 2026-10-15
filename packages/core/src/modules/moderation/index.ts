@@ -1801,6 +1801,12 @@ export function removeWarning(
       target: principalMember(ctx, row.user_id),
     });
     requireNotErased(ctx, row.user_id);
+    // As with lifting a ban: a warning a member of higher rank gave is not undone from below.
+    if (
+      memberStanding(ctx, principalMember(ctx, row.moderator_id)).maxRank >
+      memberStanding(ctx, current).maxRank
+    )
+      throw new ForbiddenError("This warning was given by a member of higher rank.");
     const now = ctx.now();
     if (how === "delete") exec(ctx, "warningDelete", "DELETE FROM warnings WHERE id = ?1", row.id);
     else {

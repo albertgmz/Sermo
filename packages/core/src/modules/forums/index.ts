@@ -178,7 +178,7 @@ export const forumSql = {
   newestLock:
     "SELECT json_extract(payload, '$.isLocked') AS locked, json_extract(payload, '$.actorId') AS actor_id FROM domain_events WHERE target_type = 'thread' AND target_id = ?1 AND type = 'content.edited' AND json_extract(payload, '$.isLocked') IS NOT NULL ORDER BY id DESC LIMIT 1",
   warnedAbout:
-    "SELECT 1 AS n FROM moderator_log WHERE target_type = 'user' AND target_id = ?1 AND action = 'warning.add' AND json_extract(details, '$.postId') IN (SELECT value FROM json_each(?2)) LIMIT 1",
+    "SELECT 1 AS n FROM moderator_log WHERE target_type = 'user' AND target_id = ?1 AND action = 'warning.add' AND json_extract(details, '$.postId') IN (SELECT value FROM json_each(?2)) AND EXISTS (SELECT 1 FROM warnings w WHERE w.id = json_extract(details, '$.warningId')) LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",

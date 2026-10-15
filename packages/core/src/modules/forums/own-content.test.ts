@@ -441,6 +441,21 @@ describe("what an author keeps from staff, second round", () => {
     await w.call("threads.hardDelete", w.bob, { threadId: other.thread.id });
   });
 
+  test("a deleted warning no longer holds its post", async () => {
+    const w = world();
+    grant(w, "forum.hardDeleteOwn");
+    const t = await w.thread(w.bob, w.open.id, "Warned");
+    const reply = await w.reply(w.bob, t.thread.id, "Rude");
+    const warning = await w.call("warnings.create", w.mod, {
+      userId: w.bobUser.id,
+      postId: reply.id,
+      points: 1,
+      reason: "Rude",
+    });
+    await w.call("warnings.delete", w.mod, { warningId: warning.id });
+    await w.call("posts.hardDelete", w.bob, { postId: reply.id });
+  });
+
   test("the warned-about lookup is an index seek on the member's log entries", () => {
     const w = world();
     expectNoTableScan(w.ctx, forumSql.warnedAbout, [1, "[1,2]"]);

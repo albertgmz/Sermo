@@ -279,6 +279,16 @@ describe("warning.delete", () => {
     expect(JSON.parse(log[0]!.details)).toMatchObject({ warningId: first!.id, points: 4 });
   });
 
+  test("a warning an administrator gave is not deleted or ended by a moderator", async () => {
+    const w = world();
+    const given = await w.warn(w.admin, { points: 1 });
+    for (const name of ["warnings.delete", "warnings.expire"])
+      await expect(run(w.ctx, name, w.moderator, { warningId: given.id })).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+    await run(w.ctx, "warnings.expire", w.admin, { warningId: given.id });
+  });
+
   test("expiring ends the warning but keeps it in the list, and twice is a conflict", async () => {
     const w = world();
     const warning = await w.warn(w.moderator, { points: 3 });
@@ -325,8 +335,8 @@ describe("warning.delete", () => {
       ForbiddenError,
     );
     expect(w.warnings()).toHaveLength(2);
-    // The group that holds it, with the permission alone, may.
-    const holder = customMember(w.ctx, ["warning.delete"], 20);
+    // The group that holds it, with the permission alone and the giver's rank, may.
+    const holder = customMember(w.ctx, ["warning.delete"], 50);
     await run(w.ctx, "warnings.delete", holder.actor, input);
   });
 
