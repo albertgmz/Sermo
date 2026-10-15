@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { type Ctx, getAuth, schema } from "@sermo/core";
 import * as z from "zod";
 import { routeOperations } from "./routes";
@@ -22,7 +23,51 @@ function relocateRefs(value: unknown, schemas: Record<string, unknown>): unknown
         ? item.replace(/^#\/\$defs\//, "#/components/schemas/")
         : relocateRefs(item, schemas);
   }
+  // A record keyed by an enum lists its keys as `required` without declaring them as properties.
+  const keys = (object.propertyNames as { enum?: string[] } | undefined)?.enum;
+  if (keys && object.additionalProperties && !object.properties) {
+    result.properties = Object.fromEntries(keys.map((key) => [key, result.additionalProperties]));
+    delete result.propertyNames;
+    delete result.additionalProperties;
+  }
   return result;
+}
+
+/** Better Auth writes OpenAPI 3.0 `nullable`; this document is 3.1, where null is a type. */
+function nullableToType(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(nullableToType);
+  if (!value || typeof value !== "object") return value;
+  const result: JsonObject = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (key !== "nullable") result[key] = nullableToType(item);
+  }
+  if ((value as JsonObject).nullable === true) {
+    if (typeof result.type === "string") result.type = [result.type, "null"];
+    if (Array.isArray(result.enum)) result.enum = [...result.enum, null];
+  }
+  return result;
+}
+
+function errorResponse(description: string): JsonObject {
+  return {
+    description,
+    content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+  };
+}
+
+/** Every `$ref` to a component schema reachable from `value`. */
+function collectSchemaRefs(value: unknown, found: Set<string>, schemas: Record<string, unknown>) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectSchemaRefs(item, found, schemas);
+  } else if (value && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      const name = typeof item === "string" ? /^#\/components\/schemas\/(.+)$/.exec(item)?.[1] : "";
+      if (key === "$ref" && name && !found.has(name)) {
+        found.add(name);
+        collectSchemaRefs(schemas[name], found, schemas);
+      } else collectSchemaRefs(item, found, schemas);
+    }
+  }
 }
 
 const credentialSchemes = [
@@ -70,7 +115,7 @@ const errorSchema = {
 };
 
 export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
-  const auth = await getAuth(ctx).api.generateOpenAPISchema();
+  const auth = nullableToType(await getAuth(ctx).api.generateOpenAPISchema());
   const authDocument = auth as unknown as {
     paths: Record<string, JsonObject>;
     components?: { schemas?: Record<string, unknown>; securitySchemes?: Record<string, unknown> };
@@ -86,6 +131,8 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       const operation = endpoint as JsonObject;
       prefixed[method] = {
         ...operation,
+        summary:
+          operation.summary ?? operation.description ?? `${method.toUpperCase()} /api/auth${path}`,
         operationId:
           operation.operationId ?? `auth.${method}.${path.replace(/[^a-zA-Z0-9]+/g, ".")}`,
       };
@@ -104,10 +151,15 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     const bodyRequired: string[] = [];
     for (const [name, schema] of Object.entries(properties)) {
       if (pathFields.includes(name) || route.method === "GET") {
+        const inPath = pathFields.includes(name);
         parameters.push({
           name,
-          in: pathFields.includes(name) ? "path" : "query",
-          required: pathFields.includes(name) || required.includes(name),
+          in: inPath ? "path" : "query",
+          required: inPath || required.includes(name),
+          // The server collects a repeated name (`?id=1&id=2`) into the array.
+          ...(!inPath && (schema as JsonObject).type === "array"
+            ? { style: "form", explode: true }
+            : {}),
           schema,
         });
       } else {
@@ -122,10 +174,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     };
     const responses: Record<string, unknown> = { [route.status]: response };
     for (const status of [400, 401, 403, 404, 409, 415, 429, 500]) {
-      responses[status] = {
-        description: "Error",
-        content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
-      };
+      responses[status] = errorResponse("Error");
     }
     const endpoint: JsonObject = {
       summary: op.summary,
@@ -161,12 +210,14 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     if (!paths[path]) paths[path] = {};
     paths[path][route.method.toLowerCase()] = endpoint;
   }
+  const guestOrMember = [...credentialSchemes, {}];
+  const binary = { schema: { type: "string", format: "binary" } };
   paths["/api/v1/files"] = {
     post: {
       operationId: "files.upload",
       summary: "Upload one file as multipart form data.",
       tags: ["files"],
-      security: [{ sessionCookie: [] }, { secureSessionCookie: [] }, { bearerApiKey: [] }],
+      security: credentialSchemes,
       parameters: [
         {
           name: "purpose",
@@ -190,11 +241,28 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
         },
       },
       responses: {
-        201: { description: "Uploaded file metadata" },
-        400: { description: "Invalid upload" },
-        401: { description: "Authentication required" },
-        403: { description: "Origin rejected" },
-        415: { description: "Not multipart/form-data" },
+        201: {
+          description: "Uploaded file metadata",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["id", "url", "visibility"],
+                properties: {
+                  id: { type: "integer", minimum: 1 },
+                  url: { type: "string" },
+                  visibility: { type: "string", enum: [...schema.FILE_VISIBILITIES] },
+                },
+              },
+            },
+          },
+        },
+        400: errorResponse("Invalid upload"),
+        401: errorResponse("Authentication required"),
+        403: errorResponse("Origin rejected"),
+        415: errorResponse("Not multipart/form-data"),
+        429: errorResponse("Too many requests"),
+        503: errorResponse("File storage is unavailable"),
       },
     },
   };
@@ -203,44 +271,74 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       operationId: "files.download",
       summary: "Serve a file after checking the attached content's visibility.",
       tags: ["files"],
+      security: guestOrMember,
       parameters: [
         { name: "fileId", in: "path", required: true, schema: { type: "integer", minimum: 1 } },
       ],
-      responses: { 200: { description: "File bytes" }, 404: { description: "File not visible" } },
+      responses: {
+        200: {
+          description:
+            "File bytes. The four web image types are served with their own type; every other " +
+            "file is served as application/octet-stream.",
+          content: {
+            "application/octet-stream": binary,
+            "image/png": binary,
+            "image/jpeg": binary,
+            "image/gif": binary,
+            "image/webp": binary,
+          },
+        },
+        400: errorResponse("Invalid file ID"),
+        404: errorResponse("File not visible"),
+        429: errorResponse("Too many requests"),
+        503: errorResponse("File storage is unavailable"),
+      },
     },
   };
-  for (const [path, operationId, mime] of [
-    ["/robots.txt", "seo.robots", "text/plain"],
-    ["/sitemap.xml", "seo.sitemapIndex", "application/xml"],
-    ["/sitemaps/{name}", "seo.sitemapShard", "application/xml"],
-    ["/feed.atom", "seo.siteFeed", "application/atom+xml"],
-    ["/forums/{nodeId}/feed.atom", "seo.nodeFeed", "application/atom+xml"],
-    ["/{key}.txt", "seo.indexNowKey", "text/plain"],
+  // The text and XML documents search engines fetch. Their errors are the JSON error body.
+  const nodeFeedId = { type: "string", pattern: "^[0-9]+(-[^/]+)?$" };
+  for (const [path, operationId, summary, mime, parameter, errors] of [
+    ["/robots.txt", "seo.robots", "The robots.txt file.", "text/plain", null, []],
+    ["/sitemap.xml", "seo.sitemapIndex", "The sitemap index.", "application/xml", null, []],
+    [
+      "/sitemaps/{name}",
+      "seo.sitemapShard",
+      "One sitemap shard, named `node-<n>.xml`, `thread-<n>.xml` or `profile-<n>.xml`.",
+      "application/xml",
+      { name: "name", schema: { type: "string", pattern: "^(node|thread|profile)-[0-9]+.xml$" } },
+      [400, 404],
+    ],
+    ["/feed.atom", "seo.siteFeed", "The Atom feed of the site.", "application/atom+xml", null, []],
+    [
+      "/forums/{nodeId}/feed.atom",
+      "seo.nodeFeed",
+      "The Atom feed of one forum; the id may be followed by a slug (`12-general`).",
+      "application/atom+xml",
+      { name: "nodeId", schema: nodeFeedId },
+      [400],
+    ],
+    [
+      "/{key}.txt",
+      "seo.indexNowKey",
+      "The IndexNow key file; answers only for the configured key.",
+      "text/plain",
+      { name: "key", schema: { type: "string" } },
+      [404],
+    ],
   ] as const) {
     paths[path] = {
       get: {
         operationId,
+        summary,
         tags: ["seo"],
-        parameters: path.includes("{name}")
-          ? [{ name: "name", in: "path", required: true, schema: { type: "string" } }]
-          : path.includes("{key}")
-            ? [{ name: "key", in: "path", required: true, schema: { type: "string" } }]
-            : path.includes("{nodeId}")
-              ? [
-                  {
-                    name: "nodeId",
-                    in: "path",
-                    required: true,
-                    schema: { type: "integer", minimum: 1 },
-                  },
-                ]
-              : [],
+        security: [],
+        parameters: parameter ? [{ ...parameter, in: "path", required: true }] : [],
         responses: {
           200: {
             description: "Public SEO document",
             content: { [mime]: { schema: { type: "string" } } },
           },
-          404: { description: "Not found" },
+          ...Object.fromEntries(errors.map((status) => [status, errorResponse("Error")])),
         },
       },
     };
@@ -248,31 +346,82 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
   paths["/api/v1/openapi.json"] = {
     get: {
       operationId: "getOpenApiDocument",
-      responses: { 200: { description: "OpenAPI document" } },
+      summary: "This OpenAPI document.",
+      security: [],
+      responses: {
+        200: {
+          description: "OpenAPI document",
+          content: { "application/json": { schema: { type: "object" } } },
+        },
+        429: errorResponse("Too many requests"),
+      },
     },
   };
   paths["/health"] = {
     get: {
       operationId: "getHealth",
-      responses: { 200: { description: "Healthy" }, 503: { description: "Unavailable" } },
-    },
-  };
-  return {
-    openapi: "3.1.0",
-    info: { title: "Sermo API", version: "1.0.0" },
-    paths,
-    components: {
-      schemas,
-      securitySchemes: {
-        ...authDocument.components?.securitySchemes,
-        sessionCookie: { type: "apiKey", in: "cookie", name: "sermo.session_token" },
-        secureSessionCookie: {
-          type: "apiKey",
-          in: "cookie",
-          name: "__Secure-sermo.session_token",
+      summary: "Whether the database answers.",
+      security: [],
+      responses: {
+        200: {
+          description: "Healthy",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: { status: { type: "string", enum: ["ok"] } },
+              },
+            },
+          },
         },
-        bearerApiKey: { type: "http", scheme: "bearer" },
+        503: {
+          description: "Unavailable",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: { status: { type: "string", enum: ["unavailable"] } },
+              },
+            },
+          },
+        },
       },
     },
+  };
+  const securitySchemes: Record<string, unknown> = {
+    ...authDocument.components?.securitySchemes,
+    sessionCookie: { type: "apiKey", in: "cookie", name: "sermo.session_token" },
+    secureSessionCookie: {
+      type: "apiKey",
+      in: "cookie",
+      name: "__Secure-sermo.session_token",
+    },
+    bearerApiKey: { type: "http", scheme: "bearer" },
+  };
+  // Better Auth lists schemas and schemes that no operation here uses; drop them.
+  const usedSchemas = new Set<string>();
+  collectSchemaRefs(paths, usedSchemas, schemas);
+  for (const name of Object.keys(schemas)) if (!usedSchemas.has(name)) delete schemas[name];
+  const usedSchemes = new Set<string>();
+  for (const methods of Object.values(paths))
+    for (const endpoint of Object.values(methods))
+      for (const requirement of ((endpoint as JsonObject).security ?? []) as JsonObject[])
+        for (const name of Object.keys(requirement)) usedSchemes.add(name);
+  for (const name of Object.keys(securitySchemes))
+    if (!usedSchemes.has(name)) delete securitySchemes[name];
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Sermo API",
+      version: readFileSync(new URL("../../../VERSION", import.meta.url), "utf8").trim(),
+      license: { name: "MIT", identifier: "MIT" },
+    },
+    // Every path above already starts with its own prefix (`/api/v1`, `/api/auth`, or none), so
+    // the server is the origin the document was fetched from.
+    servers: [{ url: "/" }],
+    paths,
+    components: { schemas, securitySchemes },
   };
 }

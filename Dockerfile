@@ -22,7 +22,7 @@ COPY --from=dependencies --chown=bun:bun /app/packages/mcp/node_modules packages
 # The starter loader (scripts/) imports core by its package name, which only a link at the root
 # resolves from there.
 RUN mkdir -p node_modules/@sermo && ln -s ../../packages/core node_modules/@sermo/core
-COPY --chown=bun:bun package.json bun.lock ./
+COPY --chown=bun:bun package.json bun.lock VERSION ./
 COPY --chown=bun:bun packages/core/package.json packages/core/package.json
 COPY --chown=bun:bun packages/api/package.json packages/api/package.json
 COPY --chown=bun:bun packages/mcp/package.json packages/mcp/package.json
