@@ -20,8 +20,10 @@ export const drawn = (definitions: readonly Definition[]) =>
     isDrawn(definition),
   );
 
-// The conditions of a rule that the forms do not draw. They travel with the form and are saved
-// back as they were, so editing a rule never drops them.
+// A form draws one switch per criterion: the first condition of each drawn criterion that takes a
+// number (the one `valueOf` reads). Every other condition travels with the form and is saved back
+// as it was: those of criteria it does not draw, a second condition of a drawn criterion, and any
+// that is not a plain number condition. So editing a rule never drops or changes one.
 export function undrawn(
   rule: Rule | undefined,
   definitions: readonly { id: string; kind?: CriterionKind }[],
@@ -29,5 +31,25 @@ export function undrawn(
   const ids = new Set(
     definitions.filter(isDrawn).map((definition) => definition.id),
   );
-  return rule?.conditions.filter((entry) => !ids.has(entry.criterion)) ?? [];
+  const seen = new Set<string>();
+  return (
+    rule?.conditions.filter((entry) => {
+      if (!ids.has(entry.criterion) || !isDrawnCondition(entry)) return true;
+      if (seen.has(entry.criterion)) return true;
+      seen.add(entry.criterion);
+      return false;
+    }) ?? []
+  );
+}
+
+const isDrawnCondition = (entry: Rule["conditions"][number]) =>
+  entry.value !== undefined && entry.ids === undefined;
+
+// The value each drawn criterion shows: that of its first plain number condition.
+export function drawnValues(rule: Rule | undefined) {
+  const values = new Map<string, number>();
+  for (const entry of rule?.conditions ?? [])
+    if (isDrawnCondition(entry) && !values.has(entry.criterion))
+      values.set(entry.criterion, entry.value as number);
+  return values;
 }

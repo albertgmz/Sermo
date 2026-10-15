@@ -174,8 +174,8 @@ everywhere. A rule is `{ "match": "all" | "any", "conditions": [...] }`: `all` n
 | Criterion | Takes | Holds when |
 | --- | --- | --- |
 | `is_guest` | `value` 1 or 0 | 1: the visitor is signed out; 0: signed in |
-| `in_group` | `ids` (groups) | the member is in one of the groups, as primary group or one assigned by hand |
-| `not_in_group` | `ids` (groups) | the member is in none of them (a guest is in none) |
+| `in_group` | `ids` (groups) | the member is in one of the groups, however obtained: primary group, assigned by hand, granted by a promotion or bought |
+| `not_in_group` | `ids` (groups) | the member is in none of them, however obtained (a guest is in none) |
 | `is_member` | `ids` (members) | the member is one of the listed members |
 
 Each criterion is `cheap` (read from the member's own row or one indexed lookup) or `background`
@@ -186,7 +186,7 @@ criterion. Guests satisfy only the audience criteria.
 
 Notices (`rule`) are shown to the members the rule holds for. Shop categories and items (`rule`)
 are listed to, and may be bought by, only the members the rule holds for; an administrator with
-`admin.shop` sees them all. No conditions means everyone.
+`admin.shop` sees them all. A gift also needs the recipient to match, and the refusal is the same as for a missing item. No conditions means everyone. The rules of shop items and awards are returned only to those who manage them (`admin.shop`, `admin.awards`); everyone else sees an empty rule. A promotion's rule may not read a group the promotion grants.
 
 A promotion needs a rule with at least one condition. Members are evaluated right after relevant activity (a new
 post, thread, profile post or comment, a received reaction, a warning, a profile change such as a

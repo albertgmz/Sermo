@@ -10,6 +10,7 @@ import {
   evaluate,
   everyone,
   type Facts,
+  groupsReadBy,
   guestFacts,
   loadFacts,
   type Rule,
@@ -301,7 +302,7 @@ describe("loadFacts", () => {
     });
   });
 
-  test("groups are the primary group and the groups assigned by hand", () => {
+  test("groups are every group the member holds, however obtained", () => {
     const ctx = createTestContext();
     const [a, b, c] = [insertUser(ctx), insertUser(ctx), insertUser(ctx, { groupId: 3 })];
     ctx.sqlite
@@ -309,10 +310,49 @@ describe("loadFacts", () => {
         "INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, 3, 0), (?1, 4, 0)",
       )
       .run(a.id);
+    const promotion = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO promotions (title, group_ids, created_at, updated_at) VALUES ('P', '[]', 0, 0) RETURNING id",
+      )
+      .get()!.id;
+    const custom = ctx.sqlite
+      .prepare<{ id: number }, [number]>(
+        "INSERT INTO groups (title, rank) VALUES ('Custom', ?1) RETURNING id",
+      )
+      .get(5)!.id;
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO user_group_grants (user_id, promotion_id, group_id, created_at) VALUES (?1, ?2, ?3, 0)",
+      )
+      .run(b.id, promotion, custom);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, 1, 5, 0)",
+      )
+      .run(c.id);
     const loaded = loadFacts(ctx, [a.id, b.id, c.id], [all({ criterion: "in_group", ids: [3] })]);
     expect([...loaded.get(a.id)!.groupIds].sort()).toEqual([2, 3, 4]);
-    expect([...loaded.get(b.id)!.groupIds]).toEqual([2]);
-    expect([...loaded.get(c.id)!.groupIds]).toEqual([3]);
+    expect([...loaded.get(b.id)!.groupIds].sort()).toEqual([2, custom].sort());
+    expect([...loaded.get(c.id)!.groupIds].sort()).toEqual([3, 5]);
+    // A rule sees them all: in the group a promotion granted, or one a purchase added.
+    expect(evaluate(all({ criterion: "in_group", ids: [custom] }), loaded.get(b.id)!)).toBe(true);
+    expect(evaluate(all({ criterion: "in_group", ids: [5] }), loaded.get(c.id)!)).toBe(true);
+    expect(evaluate(all({ criterion: "not_in_group", ids: [5] }), loaded.get(c.id)!)).toBe(false);
+  });
+
+  test("groupsReadBy lists the groups a rule reads and no other ids", () => {
+    expect(
+      groupsReadBy(
+        all(
+          { criterion: "in_group", ids: [3, 4] },
+          { criterion: "not_in_group", ids: [5] },
+          { criterion: "is_member", ids: [9] },
+          { criterion: "post_count", value: 9 },
+          { criterion: "made_up", ids: [8] },
+        ),
+      ),
+    ).toEqual([3, 4, 5]);
+    expect(groupsReadBy(everyone())).toEqual([]);
   });
 
   test("warning points are the unexpired ones, summed per member", () => {
@@ -413,7 +453,7 @@ describe("loadFacts", () => {
     );
     expectNoTableScan(
       ctx,
-      "SELECT id AS user_id, group_id FROM users WHERE id IN (SELECT value FROM json_each(?1)) UNION SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1))",
+      "SELECT id AS user_id, group_id FROM users WHERE id IN (SELECT value FROM json_each(?1)) UNION ALL SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1)) UNION ALL SELECT user_id, group_id FROM user_group_grants WHERE user_id IN (SELECT value FROM json_each(?1)) UNION ALL SELECT user_id, group_id FROM shop_group_grants WHERE user_id IN (SELECT value FROM json_each(?1))",
       ["[1,2]"],
     );
     expectNoTableScan(ctx, "SELECT id FROM groups WHERE id IN (SELECT value FROM json_each(?1))", [

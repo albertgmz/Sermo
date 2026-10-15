@@ -28,7 +28,7 @@ export const Award = z
     /**
      * Granted automatically, once per member, when the rule holds; no conditions = by hand only.
      * An award the rule granted is never taken back when it stops holding, and never granted
-     * again by it after it was revoked.
+     * again by it after it was revoked. Only shown with admin.awards, empty otherwise.
      */
     rule: CriteriaRule,
     /** Grants currently held, over all members. */

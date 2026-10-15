@@ -1,7 +1,12 @@
 import type { awardsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
-import { drawn, type Rule, undrawn } from "@/components/staff/criteria-rule";
+import {
+  drawn,
+  drawnValues,
+  type Rule,
+  undrawn,
+} from "@/components/staff/criteria-rule";
 import { FieldRow } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Input } from "@/components/ui/input";
@@ -34,13 +39,7 @@ export async function CriteriaFields({
   showHelp: boolean;
 }) {
   const t = await getTranslations(namespace);
-  const values = new Map(
-    rule?.conditions.flatMap((entry) =>
-      entry.value === undefined
-        ? []
-        : [[entry.criterion, entry.value] as const],
-    ),
-  );
+  const values = drawnValues(rule);
   const kinds = {
     atLeast: t("kinds.atLeast"),
     atMost: t("kinds.atMost"),

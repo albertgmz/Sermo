@@ -488,3 +488,37 @@ describe("award permissions", () => {
       ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe("the rule of an award", () => {
+  test("only those who manage awards read it; everyone else gets an empty rule", async () => {
+    const { ctx, member, call } = setup();
+    const other = insertUser(ctx);
+    const rule = {
+      match: "any",
+      conditions: [
+        { criterion: "is_member", ids: [other.id] },
+        { criterion: "in_group", ids: [3] },
+      ],
+    };
+    const empty = { match: "all", conditions: [] };
+    const award = await call("create", { name: "Secret", tier: "gold", rule });
+    expect(award.rule).toEqual(rule);
+    const asMember = (name: string, input: unknown = {}) =>
+      execute(ctx, getOperation(`awards.${name}`), userActor(member), input);
+    const asGuest = (name: string, input: unknown = {}) =>
+      execute(ctx, getOperation(`awards.${name}`), GUEST, input);
+    expect((await call("get", { awardId: award.id })).rule).toEqual(rule);
+    expect((await call("list")).items[0].rule).toEqual(rule);
+    expect((await call("update", { awardId: award.id, name: "Secret 2" })).rule).toEqual(rule);
+    expect((await asMember("get", { awardId: award.id })).rule).toEqual(empty);
+    expect((await asMember("list")).items[0].rule).toEqual(empty);
+    expect((await asGuest("get", { awardId: award.id })).rule).toEqual(empty);
+    // Held awards, holders and grants carry the award too: none shows the rule.
+    const grant = await call("grant", { userId: other.id, awardId: award.id });
+    expect(grant.award.rule).toEqual(empty);
+    expect((await asMember("holders", { awardId: award.id })).items[0].award.rule).toEqual(empty);
+    expect((await asMember("member", { userId: other.id })).items[0].award.rule).toEqual(empty);
+    // The stored rule is untouched by all of that.
+    expect((await call("get", { awardId: award.id })).rule).toEqual(rule);
+  });
+});

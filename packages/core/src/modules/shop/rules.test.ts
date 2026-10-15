@@ -25,6 +25,7 @@ function fixture() {
   const admin = userActor(insertUser(ctx, { groupId: 4 }));
   const rich = insertUser(ctx);
   const poor = insertUser(ctx);
+  const richTwo = insertUser(ctx);
   const frameId = insertCatalogImage(ctx, "frame");
   const call = (name: string, input: unknown, as: Actor) => {
     const op: AnyOperation = operations.find((op) => op.name === name)!;
@@ -34,6 +35,7 @@ function fixture() {
     moveCredits(ctx, [
       { userId: rich.id, amount: 100, type: "adjustment" },
       { userId: poor.id, amount: 100, type: "adjustment" },
+      { userId: richTwo.id, amount: 100, type: "adjustment" },
     ]),
   );
   ctx.sqlite.prepare("UPDATE users SET credits = 10 WHERE id = ?1").run(poor.id);
@@ -57,6 +59,8 @@ function fixture() {
     rich: userActor(rich),
     poor: userActor(poor),
     richId: rich.id,
+    poorId: poor.id,
+    richTwoId: richTwo.id,
     moderator: userActor(insertUser(ctx, { groupId: 3 })),
   };
 }
@@ -161,6 +165,31 @@ describe("shop rules: who can see and buy", () => {
     expect(state()).toEqual(before);
     const bought = await f.call("shop.buy", { itemId: item.id }, f.rich);
     expect(bought.purchase.item.id).toBe(item.id);
+  });
+
+  test("a gift must also meet the rule of the item and of its category, recipient included", async () => {
+    const f = fixture();
+    const category = await f.category();
+    const item = await f.item(category.id, { rule: RICH, isGiftable: true });
+    const staffCategory = await f.category({ name: "Staff", rule: MODERATORS });
+    const staffItem = await f.item(staffCategory.id, { isGiftable: true });
+    const state = () => [
+      f.ctx.sqlite.prepare("SELECT id FROM shop_purchases").all(),
+      f.ctx.sqlite.prepare("SELECT credits FROM users ORDER BY id").all(),
+    ];
+    const before = state();
+    // The buyer matches, the recipient does not: refused like a missing item.
+    await expect(
+      f.call("shop.buy", { itemId: item.id, recipientId: f.poorId }, f.rich),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    // The item is open but its category is for moderators and the recipient is not one.
+    await expect(
+      f.call("shop.buy", { itemId: staffItem.id, recipientId: f.richId }, f.moderator),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(state()).toEqual(before);
+    // A recipient who matches receives it.
+    const sent = await f.call("shop.buy", { itemId: item.id, recipientId: f.richTwoId }, f.rich);
+    expect(sent.purchase.recipient.id).toBe(f.richTwoId);
   });
 
   test("the rule is read when the member buys: spending below the threshold closes it", async () => {

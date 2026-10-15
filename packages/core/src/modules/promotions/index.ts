@@ -25,6 +25,7 @@ import {
   assertRule,
   criterionDefinitions,
   type Facts,
+  groupsReadBy,
   loadFacts,
   parseRule,
   type Rule,
@@ -156,10 +157,8 @@ function target(ctx: Ctx, id: number): Actor {
 function validate(ctx: Ctx, actor: Actor, rule: Rule, ids: number[]): void {
   assertRule(ctx, rule, "background");
   // A rule that reads a group the promotion grants would undo or hold itself.
-  const granted = new Set(ids);
-  for (const condition of rule.conditions)
-    if (condition.ids?.some((id) => granted.has(id)) && condition.criterion.endsWith("in_group"))
-      throw new ValidationError("A promotion's rule cannot depend on a group it grants.");
+  if (groupsReadBy(rule).some((id) => ids.includes(id)))
+    throw new ValidationError("A promotion's rule cannot depend on a group it grants.");
   assertGrantRanks(ctx, actor, ids);
   if (grantsAdministration(ctx, ids))
     throw new ValidationError("A promotion cannot grant a group that decides admin.permissions.");

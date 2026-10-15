@@ -180,9 +180,9 @@ export const itemsList = implement(
     if (!parent || (!admin && !parent.is_active)) return { items: [], nextCursor: null };
     if (!admin && allowedBy(ctx, actor, [parent]).length === 0)
       return { items: [], nextCursor: null };
-    // Rows the viewer's rule hides are skipped, so keep reading, in larger batches, until the page
-    // is full.
-    const size = Math.max(input.limit + 1, 100);
+    // Rows the viewer's rule hides are skipped, so keep reading until the page is full: a page's worth
+    // first, then growing batches when many rows were hidden.
+    let size = input.limit + 1;
     const rows: ItemRow[] = [];
     let after = cursor;
     for (;;) {
@@ -196,6 +196,7 @@ export const itemsList = implement(
       const last = batch.at(-1);
       if (batch.length < size || rows.length > input.limit || !last) break;
       after = [last.position, last.id];
+      size = Math.min(size * 4, 400);
     }
     const page = rows.slice(0, input.limit);
     const last = page.at(-1);

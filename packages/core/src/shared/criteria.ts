@@ -44,7 +44,7 @@ export interface Facts {
   warningPoints: number;
   /** Of the shop items some condition asks about, the ones the member bought. */
   purchasedItemIds: ReadonlySet<number>;
-  /** The member's primary group and the groups assigned by hand. */
+  /** Every group the member holds: primary, assigned by hand, granted by a promotion or bought. */
   groupIds: ReadonlySet<number>;
 }
 
@@ -202,6 +202,13 @@ export function evaluate(rule: Rule, facts: Facts): boolean {
   return rule.match === "all" ? rule.conditions.every(holds) : rule.conditions.some(holds);
 }
 
+/** The groups a rule reads (`in_group`, `not_in_group`), for consumers that must not depend on them. */
+export function groupsReadBy(rule: Rule): number[] {
+  return rule.conditions.flatMap((condition) =>
+    byId.get(condition.criterion)?.kind === "groups" ? (condition.ids ?? []) : [],
+  );
+}
+
 export const parseRule = (json: string): Rule => JSON.parse(json) as Rule;
 
 /**
@@ -340,7 +347,9 @@ export function loadFacts(
     for (const row of prepared(ctx, "shared.criteriaGroupIds", () =>
       ctx.sqlite.prepare<{ user_id: number; group_id: number }, [string]>(
         "SELECT id AS user_id, group_id FROM users WHERE id IN (SELECT value FROM json_each(?1)) " +
-          "UNION SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1))",
+          "UNION ALL SELECT user_id, group_id FROM user_groups WHERE user_id IN (SELECT value FROM json_each(?1)) " +
+          "UNION ALL SELECT user_id, group_id FROM user_group_grants WHERE user_id IN (SELECT value FROM json_each(?1)) " +
+          "UNION ALL SELECT user_id, group_id FROM shop_group_grants WHERE user_id IN (SELECT value FROM json_each(?1))",
       ),
     ).all(ids)) {
       const memberGroups = groups.get(row.user_id) ?? new Set<number>();

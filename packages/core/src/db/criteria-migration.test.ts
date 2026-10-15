@@ -87,6 +87,8 @@ test("migration 0036 turns notice audiences into rules and keeps who sees what",
   insert.run("Moderators", "group", 3, adminUser.id);
   // A group notice that lost its group was shown to nobody.
   insert.run("Nobody", "group", null, adminUser.id);
+  // An audience the old code never wrote was shown to nobody too.
+  insert.run("Strange", "staff", null, adminUser.id);
   applyMigrations(ctx, 36, 36);
 
   const stored = ctx.sqlite
@@ -101,6 +103,7 @@ test("migration 0036 turns notice audiences into rules and keeps who sees what",
     ["Members", { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] }, 1],
     ["Moderators", { match: "all", conditions: [{ criterion: "in_group", ids: [3] }] }, 1],
     ["Nobody", { match: "all", conditions: [] }, 0],
+    ["Strange", { match: "all", conditions: [] }, 0],
   ]);
   expect(
     ctx.sqlite

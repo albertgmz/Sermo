@@ -87,3 +87,49 @@ test("how the rule matches and the conditions the form does not draw are kept", 
     conditions: [],
   });
 });
+
+test("a rule made through the API goes through the form and comes back unchanged", async () => {
+  const { drawnValues, undrawn } = await import(
+    "@/components/staff/criteria-rule"
+  );
+  const definitions = [
+    { id: "post_count", kind: "atLeast" as const },
+    { id: "has_avatar", kind: "boolean" as const },
+    { id: "in_group", kind: "groups" as const },
+  ];
+  const rules = [
+    {
+      match: "any" as const,
+      conditions: [
+        { criterion: "post_count", value: 5 },
+        { criterion: "post_count", value: 100 },
+        { criterion: "in_group", ids: [3] },
+        { criterion: "made_up", value: 1 },
+        { criterion: "has_avatar", value: 0 },
+      ],
+    },
+    {
+      match: "all" as const,
+      conditions: [
+        { criterion: "post_count", ids: [1] },
+        { criterion: "post_count", value: 7 },
+      ],
+    },
+  ];
+  for (const rule of rules) {
+    // What the form puts in its fields for this rule, as a browser would send them back.
+    const sent: [string, string][] = [
+      ["rule:match", rule.match],
+      ["rule:kept", JSON.stringify(undrawn(rule, definitions))],
+    ];
+    for (const [id, value] of drawnValues(rule)) {
+      sent.push([`use:${id}`, "on"], [`value:${id}`, String(value)]);
+    }
+    const saved = ruleOf(definitions, form(sent));
+    expect(saved?.match).toBe(rule.match);
+    const key = (entry: object) => JSON.stringify(entry);
+    expect(saved?.conditions.map(key).sort()).toEqual(
+      rule.conditions.map(key).sort(),
+    );
+  }
+});

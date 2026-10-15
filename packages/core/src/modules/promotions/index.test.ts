@@ -59,6 +59,27 @@ describe("promotions", () => {
       rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
       groupIds: [id],
     })) as { id: number };
+    // Changing the rule, or the groups, so that the rule reads a group the promotion grants is refused.
+    const other = group(ctx);
+    for (const criterion of ["in_group", "not_in_group"]) {
+      await expect(
+        execute(ctx, op("update"), admin, {
+          promotionId: p.id,
+          rule: { match: "all", conditions: [{ criterion, ids: [id] }] },
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    }
+    await execute(ctx, op("update"), admin, {
+      promotionId: p.id,
+      rule: { match: "all", conditions: [{ criterion: "in_group", ids: [other] }] },
+    });
+    await expect(
+      execute(ctx, op("update"), admin, { promotionId: p.id, groupIds: [other] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await execute(ctx, op("update"), admin, {
+      promotionId: p.id,
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
+    });
     expect(sweepChunk(ctx)).toBeGreaterThan(0);
     expect(ctx.sqlite.prepare("SELECT id FROM promotion_log").all()).toHaveLength(0);
     ctx.sqlite.prepare("UPDATE users SET post_count = 1 WHERE id = ?1").run(member.id);

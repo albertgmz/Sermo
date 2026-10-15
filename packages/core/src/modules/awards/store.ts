@@ -3,7 +3,7 @@ import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import type { Award } from "../../contracts/awards";
 import { NotFoundError } from "../../errors";
-import { parseRule, type Rule } from "../../shared/criteria";
+import { everyone, parseRule, type Rule } from "../../shared/criteria";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { publicPicture } from "../storage/url";
@@ -79,7 +79,8 @@ export function memberXp(ctx: Ctx, id: number): number {
   return row.award_xp;
 }
 export const ruleOf = (row: AwardRow): Rule => parseRule(row.rule);
-export const awardValue = (ctx: Ctx, row: AwardRow): z.infer<typeof Award> => ({
+/** The rule is shown only to those who manage awards (`withRule`); everyone else gets an empty one. */
+export const awardValue = (ctx: Ctx, row: AwardRow, withRule = false): z.infer<typeof Award> => ({
   id: row.id,
   name: row.name,
   description: row.description,
@@ -90,7 +91,7 @@ export const awardValue = (ctx: Ctx, row: AwardRow): z.infer<typeof Award> => ({
   credits: row.credits,
   isStackable: !!row.is_stackable,
   isActive: !!row.is_active,
-  rule: ruleOf(row),
+  rule: withRule ? ruleOf(row) : everyone(),
   grantCount: row.grant_count,
   createdAt: iso(row.created_at),
   updatedAt: iso(row.updated_at),

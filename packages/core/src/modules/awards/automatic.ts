@@ -15,12 +15,15 @@ export const evaluationSql = {
   totals: "SELECT * FROM member_award_totals WHERE user_id IN (SELECT value FROM json_each(?1))",
 };
 
-function evaluate(ctx: Ctx, members: MemberRow[]): number {
-  const plans = all<AwardRow>(ctx, "catalog", awardSql.catalog)
+/** The active awards with conditions: one with none is granted by hand only, whatever an empty rule means elsewhere. */
+function activePlans(ctx: Ctx) {
+  return all<AwardRow>(ctx, "catalog", awardSql.catalog)
     .filter((award) => award.is_active)
     .map((award) => ({ award, rule: ruleOf(award) }))
-    // An award with no conditions is granted by hand only, whatever an empty rule means elsewhere.
     .filter((plan) => plan.rule.conditions.length > 0);
+}
+
+function evaluate(ctx: Ctx, members: MemberRow[], plans = activePlans(ctx)): number {
   if (plans.length === 0 || members.length === 0) return 0;
   const facts = loadFacts(
     ctx,
@@ -53,8 +56,11 @@ function evaluate(ctx: Ctx, members: MemberRow[]): number {
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
   return writeTx(ctx, () => {
+    // With no automatic award there is nothing to look up (this runs after most activity).
+    const plans = activePlans(ctx);
+    if (plans.length === 0) return 0;
     const member = one<MemberRow>(ctx, "evaluationMember", evaluationSql.member, userId);
-    return member ? evaluate(ctx, [member]) : 0;
+    return member ? evaluate(ctx, [member], plans) : 0;
   });
 }
 

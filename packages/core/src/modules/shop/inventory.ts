@@ -25,7 +25,7 @@ import {
 import { moveCredits } from "../../shared/credits";
 import { requireNotErased } from "../admin/erased";
 import { catalogImageById } from "../appearance";
-import { allowedBy } from "./audience";
+import { allAllowFor, allowedBy } from "./audience";
 import {
   category,
   type InventoryRow,
@@ -121,6 +121,9 @@ function purchase(
     if (!value.isGiftable) throw new ForbiddenError("This gift cannot be sent.");
     if (!statement(ctx, shopSql.recipient).get(recipientId)) throw new NotFoundError();
     requireNotErased(ctx, recipientId);
+    // The recipient must meet the item's rule and its category's too. The refusal is the one the
+    // buyer would get for an item they cannot see, so it does not say why (or that a rule exists).
+    if (!allAllowFor(ctx, recipientId, [parent, row])) throw new NotFoundError();
     if (
       can(ctx, current, "member.ignorable") &&
       statement(ctx, shopSql.ignored).get(recipientId, buyer.userId)

@@ -73,12 +73,12 @@ export const operations = [
     return {
       items: all<AwardRow>(ctx, "catalog", awardSql.catalog)
         .filter((row) => admin || row.is_active)
-        .map((row) => awardValue(ctx, row))
+        .map((row) => awardValue(ctx, row, admin))
         .sort(compareAwards),
     };
   }),
   implement(contracts.awardsGet, (ctx, actor, input) =>
-    awardValue(ctx, visibleAward(ctx, actor, input.awardId)),
+    awardValue(ctx, visibleAward(ctx, actor, input.awardId), can(ctx, actor, "admin.awards")),
   ),
   implement(contracts.awardsHolders, (ctx, actor, input) => {
     visibleAward(ctx, actor, input.awardId);
@@ -110,7 +110,7 @@ export const operations = [
           ctx.now(),
         ).lastInsertRowid,
       );
-      return awardValue(ctx, awardRow(ctx, id));
+      return awardValue(ctx, awardRow(ctx, id), true);
     });
   }),
   implement(contracts.awardsUpdate, (ctx, actor, input) => {
@@ -137,7 +137,7 @@ export const operations = [
         ctx.now(),
         award.id,
       );
-      return awardValue(ctx, awardRow(ctx, award.id));
+      return awardValue(ctx, awardRow(ctx, award.id), true);
     });
   }),
   implement(contracts.awardsDelete, (ctx, actor, input) => {
