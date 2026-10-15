@@ -1028,6 +1028,43 @@ limited to five per hour per client IP.
 While email is enabled, sessions are checked against the database on every request (Better Auth's
 five-minute cookie cache is off), so a password reset signs other devices out at once.
 
+## Referrals
+
+A member brings others to the forum through their links. A referral is recorded once, on the
+referred member (`referred_by`, `referred_at`), and counted on the referrer (`referralCount`); the
+`referrals_at_least`, `referrals_this_month` and `was_referred` criteria, the referrals ranking and
+the member of the month points read it. Members cannot name a referrer after registering: the
+operation `users.setReferrer` and the profile fields `referrerId` and `canSetReferrer` are gone.
+
+**The link.** In the web app, a signed-in member's Share and Copy link buttons add `?ref=<their member
+id>` to the address (after any query and before any `#`). A guest's copy is the plain address, and
+so is a link copied from the browser's address bar. The member's own link, `/register?ref=<id>`, is
+under Invite members in their account settings.
+
+**Arriving.** A visitor who opens any page with a valid `?ref=` (a positive whole number) and has
+accepted the Referrals cookies in the cookie banner gets the `forum_ref` cookie: HttpOnly, SameSite
+Lax, Secure when the site is served over https, 30 days. The first referrer wins; a later link never
+replaces it. A visitor who has not accepted it gets no cookie, and a cookie that is no longer
+accepted is removed on their next visit. Pages reached through a `?ref=` link name the address
+without it as their canonical address (a `Link` header), so they are not indexed twice. Without the cookie, a visitor who registers straight from a
+`/register?ref=<id>` link is still credited, because the register form carries the `ref` of the page.
+
+**Registering.** The web app sends the referrer (the cookie's, else the form's) with the sign-up
+as `ref`; the Better Auth sign-up body accepts it, as a number or as plain decimal text. The
+cookie is deleted once the account exists.
+
+- On a site without account email, the referrer is recorded at registration.
+- On a site that asks members to confirm their address, the registration only holds the referrer
+  (`users.pending_referrer`). It is recorded when the address is confirmed, or at the member's
+  next sign-in if that comes first, so an address nobody confirmed brings no referral at once.
+- A referrer is accepted only within seven days of the registration, and never when it is the
+  member themselves, a member who is banned or erased, a member the new member already referred, or
+  when the member already has a referrer. A refused referrer is dropped without a message: it never
+  blocks the registration or the sign-in. A held referrer is tried once.
+
+Erasing a member ends their links as before: the referrer's count drops by one and the members
+they referred lose their referrer.
+
 ## Web Push
 
 Web Push is off until all three VAPID settings are set:
