@@ -43,7 +43,7 @@ export const pagesGet = defineContract({
   name: "pages.get",
   summary:
     "One published page by its slug. Open to everyone. A page that is not published is not " +
-    "found, except for holders of admin.settings.",
+    "found, except for holders of admin.pages.",
   kind: "read",
   input: z.object({ slug: PageSlug }),
   output: StaticPage,
@@ -53,7 +53,7 @@ export const pagesList = defineContract({
   name: "pages.list",
   summary:
     "Every page, published or not, without its text, ordered by slug (at most 100 exist). " +
-    "Requires admin.settings.",
+    "Requires admin.pages.",
   kind: "read",
   input: Empty,
   output: z.object({
@@ -71,7 +71,7 @@ export const pagesList = defineContract({
 
 export const pagesGetSource = defineContract({
   name: "pages.getSource",
-  summary: "One page with its BB code source, published or not. Requires admin.settings.",
+  summary: "One page with its BB code source, published or not. Requires admin.pages.",
   kind: "read",
   input: z.object({ slug: PageSlug }),
   output: StaticPageDetail,
@@ -84,7 +84,7 @@ export const pagesSave = defineContract({
     "page starts at version 1; `newVersion` raises the version by one, which for the `terms` " +
     "and `rules` pages makes every member accept it again before they can post, react or " +
     "message (`newVersion` on a page that does not exist yet changes nothing). Fixing a typo " +
-    "leaves it false. Requires admin.settings.",
+    "leaves it false. Requires admin.pages.",
   kind: "write",
   input: z.object({
     slug: PageSlug,
@@ -99,7 +99,7 @@ export const pagesSave = defineContract({
 export const pagesDelete = defineContract({
   name: "pages.delete",
   summary:
-    "Delete a page. Navigation entries that point at it are left alone. Requires admin.settings.",
+    "Delete a page. Navigation entries that point at it are left alone. Requires admin.pages.",
   kind: "write",
   input: z.object({ slug: PageSlug }),
   output: Ok,

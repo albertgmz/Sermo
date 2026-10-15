@@ -104,7 +104,7 @@ export const navigationList = defineContract({
   name: "navigation.list",
   summary:
     "Every navigation entry, enabled or not, ordered by location, then parents before their " +
-    "children, then position and id. Requires admin.settings.",
+    "children, then position and id. Requires admin.navigation.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(NavigationEntry) }),
@@ -116,7 +116,7 @@ export const navigationCreate = defineContract({
     "Add a navigation entry (at most 200 in all). A child's parent must be a top-level entry of " +
     "the same location. `icon` is a key of the site's icon set (null for none), drawn before or " +
     "after the title. `audience: permission` needs the id of a registered global permission " +
-    "in `permission`; any other audience takes none. Requires admin.settings.",
+    "in `permission`; any other audience takes none. Requires admin.navigation.",
   kind: "write",
   input: z.object({
     location: NavigationLocation,
@@ -138,7 +138,7 @@ export const navigationUpdate = defineContract({
   summary:
     "Change a navigation entry. A built-in entry keeps its location, parent and target: only " +
     "its title, icon, icon position, position, audience and whether it is enabled can change. An entry that has " +
-    "children cannot be moved under another entry. Requires admin.settings.",
+    "children cannot be moved under another entry. Requires admin.navigation.",
   kind: "write",
   input: z.object({
     entryId: Id,
@@ -160,7 +160,7 @@ export const navigationDelete = defineContract({
   name: "navigation.delete",
   summary:
     "Delete a navigation entry an administrator created, together with its children. A " +
-    "built-in entry cannot be deleted (a conflict): disable it instead. Requires admin.settings.",
+    "built-in entry cannot be deleted (a conflict): disable it instead. Requires admin.navigation.",
   kind: "write",
   input: z.object({ entryId: Id }),
   output: Ok,

@@ -168,7 +168,7 @@ export const SECTIONS = [
       {
         key: "setupNavigation",
         path: "/admin/settings/navigation",
-        access: ["admin.settings"],
+        access: ["admin.navigation"],
         built: true,
       },
     ],
@@ -185,7 +185,7 @@ export const SECTIONS = [
       {
         key: "forumsPrefixes",
         path: "/admin/forums/prefixes",
-        access: ["admin.nodes"],
+        access: ["admin.prefixes"],
         built: true,
       },
       {
@@ -222,13 +222,13 @@ export const SECTIONS = [
       {
         key: "contentPages",
         path: "/admin/pages",
-        access: ["admin.settings"],
+        access: ["admin.pages"],
         built: true,
       },
       {
         key: "contentPageEdit",
         path: "/admin/pages/[slug]",
-        access: ["admin.settings"],
+        access: ["admin.pages"],
         built: true,
         listed: false,
       },

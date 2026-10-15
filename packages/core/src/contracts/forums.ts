@@ -304,7 +304,7 @@ export const threadPrefixesList = defineContract({
   name: "threadPrefixes.list",
   summary:
     "Thread prefixes in display order (position, then id). Open to everyone; inactive ones " +
-    "only with admin.nodes.",
+    "only with admin.prefixes.",
   kind: "read",
   input: Empty,
   output: z.object({ items: z.array(ThreadPrefix) }),
@@ -312,7 +312,7 @@ export const threadPrefixesList = defineContract({
 
 export const threadPrefixesCreate = defineContract({
   name: "threadPrefixes.create",
-  summary: "Add a thread prefix (at most 100). Requires admin.nodes.",
+  summary: "Add a thread prefix (at most 100). Requires admin.prefixes.",
   kind: "write",
   input: z.object({
     ...PrefixInput,
@@ -326,7 +326,7 @@ export const threadPrefixesCreate = defineContract({
 export const threadPrefixesUpdate = defineContract({
   name: "threadPrefixes.update",
   summary:
-    "Change a thread prefix; threads that carry it show the change at once. Requires admin.nodes.",
+    "Change a thread prefix; threads that carry it show the change at once. Requires admin.prefixes.",
   kind: "write",
   input: z.object({
     prefixId: Id,
@@ -344,7 +344,7 @@ export const threadPrefixesDelete = defineContract({
   summary:
     "Remove a thread prefix. While a thread carries it, it is deactivated instead " +
     "(`deactivated: true`): those threads keep it and no thread can newly take it. Requires " +
-    "admin.nodes.",
+    "admin.prefixes.",
   kind: "write",
   input: z.object({ prefixId: Id }),
   output: z.object({ ok: z.literal(true), deactivated: z.boolean() }),

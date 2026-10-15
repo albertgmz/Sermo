@@ -711,6 +711,12 @@ export const PERMISSIONS = {
 
   // Administration ----------------------------------------------------------------------
   "admin.nodes": globalAdmin("admin"),
+  /** Manage thread prefixes (the labels members put on threads). */
+  "admin.prefixes": globalAdmin("admin"),
+  /** Manage the navigation entries of the header, footer and menus. */
+  "admin.navigation": globalAdmin("admin"),
+  /** Manage static pages (terms, rules, about). */
+  "admin.pages": globalAdmin("admin"),
   "admin.groups": globalAdmin("admin"),
   "admin.members": { ...globalAdmin("admin"), hierarchy: true },
   "admin.permissions": globalAdmin("admin"),

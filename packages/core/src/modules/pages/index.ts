@@ -56,15 +56,15 @@ const get = implement(
   pagesGet,
   (ctx, actor, input) => {
     const row = bySlug(ctx, input.slug);
-    if (!row || (!row.is_published && !can(ctx, actor, "admin.settings")))
+    if (!row || (!row.is_published && !can(ctx, actor, "admin.pages")))
       throw new NotFoundError();
     return pageValue(row);
   },
-  { public: "Published pages are read by everyone; unpublished ones need admin.settings." },
+  { public: "Published pages are read by everyone; unpublished ones need admin.pages." },
 );
 
 const list = implement(pagesList, (ctx, actor) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.pages");
   return {
     items: ctx.sqlite
       .prepare<Pick<PageRow, "slug" | "title" | "is_published" | "version" | "updated_at">, []>(
@@ -82,14 +82,14 @@ const list = implement(pagesList, (ctx, actor) => {
 });
 
 const getSource = implement(pagesGetSource, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.pages");
   const row = bySlug(ctx, input.slug);
   if (!row) throw new NotFoundError();
   return detailValue(row);
 });
 
 const save = implement(pagesSave, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.pages");
   // Rendered before the transaction and without an actor: a page resolves no mentions or quotes.
   const html = renderBbCode(input.body, { maxLength: PAGE_BODY_LENGTH });
   return writeTx(ctx, () => {
@@ -125,7 +125,7 @@ const save = implement(pagesSave, (ctx, actor, input) => {
 });
 
 const remove = implement(pagesDelete, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.pages");
   return writeTx(ctx, () => {
     const row = bySlug(ctx, input.slug);
     if (!row) throw new NotFoundError();

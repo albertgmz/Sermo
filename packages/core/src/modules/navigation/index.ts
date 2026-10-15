@@ -200,12 +200,12 @@ const get = implement(
 );
 
 const list = implement(navigationList, (ctx, actor) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.navigation");
   return { items: snapshot(ctx).rows.map(entryValue) };
 });
 
 const create = implement(navigationCreate, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
     if (ctx.sqlite.prepare<{ n: number }, []>(navigationSql.count).get()!.n >= NAVIGATION_LIMIT)
       throw new ConflictError(`The site holds at most ${NAVIGATION_LIMIT} navigation entries.`);
@@ -237,7 +237,7 @@ const create = implement(navigationCreate, (ctx, actor, input) => {
 });
 
 const update = implement(navigationUpdate, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
     const row = entryRow(ctx, input.entryId);
     const location = input.location ?? row.location;
@@ -295,7 +295,7 @@ const update = implement(navigationUpdate, (ctx, actor, input) => {
 });
 
 const remove = implement(navigationDelete, (ctx, actor, input) => {
-  requirePermission(ctx, actor, "admin.settings");
+  requirePermission(ctx, actor, "admin.navigation");
   return writeTx(ctx, () => {
     const row = entryRow(ctx, input.entryId);
     if (row.builtin !== null) throw new ConflictError("A built-in entry cannot be deleted.");

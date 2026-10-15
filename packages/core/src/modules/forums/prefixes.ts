@@ -46,19 +46,19 @@ function prefixRow(ctx: Ctx, id: number): PrefixRow {
 const threadPrefixesListOp = implement(
   contracts.threadPrefixesList,
   (ctx, actor) => {
-    const all = can(ctx, actor, "admin.nodes");
+    const all = can(ctx, actor, "admin.prefixes");
     return {
       items: prefixRows(ctx)
         .filter((row) => all || row.is_active)
         .map((row) => prefixValue(ctx, row)),
     };
   },
-  { public: "Anyone can list the active prefixes; inactive ones need admin.nodes." },
+  { public: "Anyone can list the active prefixes; inactive ones need admin.prefixes." },
 );
 
 const threadPrefixesCreateOp = implement(contracts.threadPrefixesCreate, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.nodes");
+  requirePermission(ctx, actor, "admin.prefixes");
   const id = writeTx(ctx, () => {
     if (ctx.sqlite.prepare<{ n: number }, []>(prefixSql.count).get()!.n >= PREFIX_LIMIT)
       throw new ConflictError(`The site holds at most ${PREFIX_LIMIT} thread prefixes.`);
@@ -84,7 +84,7 @@ const threadPrefixesCreateOp = implement(contracts.threadPrefixesCreate, (ctx, a
 
 const threadPrefixesUpdateOp = implement(contracts.threadPrefixesUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.nodes");
+  requirePermission(ctx, actor, "admin.prefixes");
   writeTx(ctx, () => {
     const row = prefixRow(ctx, input.prefixId);
     // A colour is checked when it is chosen, and again when the prefix comes back into use.
@@ -114,7 +114,7 @@ const threadPrefixesUpdateOp = implement(contracts.threadPrefixesUpdate, (ctx, a
 
 const threadPrefixesDeleteOp = implement(contracts.threadPrefixesDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.nodes");
+  requirePermission(ctx, actor, "admin.prefixes");
   return writeTx(ctx, () => {
     const row = prefixRow(ctx, input.prefixId);
     const deactivated = !!ctx.sqlite.prepare(prefixSql.carried).get(row.id);
