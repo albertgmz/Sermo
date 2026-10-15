@@ -18,7 +18,7 @@ async function MarkdownImage({ alt, ...props }: React.ComponentProps<"img">) {
     return <LitePlaceholder className="inline-flex min-h-10 w-full" />;
   }
   // biome-ignore lint/performance/noImgElement: Markdown can contain arbitrary image URLs.
-  return <img alt={alt ?? ""} {...props} />;
+  return <img alt={alt ?? ""} loading="lazy" decoding="async" {...props} />;
 }
 
 const images: Pick<Components, "img"> = {

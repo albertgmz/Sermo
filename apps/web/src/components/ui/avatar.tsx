@@ -28,6 +28,8 @@ function AvatarImage({ className, ...props }: React.ComponentProps<"img">) {
   return (
     <img
       data-slot="avatar-image"
+      loading="lazy"
+      decoding="async"
       className={cn(
         "aspect-square size-full rounded-full object-cover",
         className,
