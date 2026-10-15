@@ -54,6 +54,7 @@ export { registerPromotionJobs } from "./modules/promotions";
 export { configurePush, registerPushJobs, validatePushVapid } from "./modules/push";
 export {
   atomFeed,
+  llmsTxt,
   queueSeoEvents,
   registerSeoJobs,
   robotsTxt,

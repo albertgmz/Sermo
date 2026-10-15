@@ -7,6 +7,7 @@ import {
   execute,
   GUEST,
   getAuth,
+  llmsTxt,
   readSiteSettings,
   resolveActor,
   robotsTxt,
@@ -292,6 +293,9 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   const siteURL = ctx.config.siteBaseURL ?? ctx.config.auth?.baseURL ?? "http://localhost:3000";
   app.get("/robots.txt", (c) =>
     c.text(robotsTxt(siteURL), 200, { "content-type": "text/plain; charset=utf-8" }),
+  );
+  app.get("/llms.txt", (c) =>
+    c.text(llmsTxt(ctx, siteURL), 200, { "content-type": "text/plain; charset=utf-8" }),
   );
   app.get("/sitemap.xml", (c) =>
     c.text(sitemapIndex(ctx, siteURL), 200, { "content-type": "application/xml; charset=utf-8" }),

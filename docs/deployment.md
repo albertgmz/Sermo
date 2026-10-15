@@ -4,7 +4,7 @@ One host runs three containers behind one public origin:
 
 ```
 browser --> ingress (Caddy, the only published port, 8080)
-              |-- /api/*, /mcp, /health, /robots.txt, /sitemap.xml, /sitemaps/*,
+              |-- /api/*, /mcp, /health, /robots.txt, /llms.txt, /sitemap.xml, /sitemaps/*,
               |   /feed.atom, /forums/*/feed.atom, /nodes/*/feed.atom, /<key>.txt  --> sermo (backend, port 3000)
               `-- everything else                               --> web (Next.js, port 3000)
                                                                      |

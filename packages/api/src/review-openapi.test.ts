@@ -141,6 +141,7 @@ test("the file and SEO answers have response schemas", async () => {
   );
   const seoMime = {
     "seo.robots": "text/plain",
+    "seo.llms": "text/plain",
     "seo.sitemapIndex": "application/xml",
     "seo.sitemapShard": "application/xml",
     "seo.siteFeed": "application/atom+xml",

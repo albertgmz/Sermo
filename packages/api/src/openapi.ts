@@ -306,6 +306,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
   const nodeFeedId = { type: "string", pattern: "^[0-9]+(-[^/]+)?$" };
   for (const [path, operationId, summary, mime, parameter, errors] of [
     ["/robots.txt", "seo.robots", "The robots.txt file.", "text/plain", null, []],
+    ["/llms.txt", "seo.llms", "The llms.txt summary of the site.", "text/plain", null, []],
     ["/sitemap.xml", "seo.sitemapIndex", "The sitemap index.", "application/xml", null, []],
     [
       "/sitemaps/{name}",

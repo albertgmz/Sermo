@@ -2,6 +2,7 @@ export { queueSeoEvents, registerSeoJobs } from "./delivery";
 export { excerptFromMarkdown } from "./excerpt";
 export { atomFeed } from "./feeds";
 export { indexNowBatches, sendIndexNow } from "./indexnow";
+export { LLMS_FORUM_CAP, llmsTxt } from "./llms";
 export type { SeoPage, SeoTemplates } from "./pages";
 export { nodeSeo, profileSeo, searchSeo, threadSeo } from "./pages";
 export { canonicalPath, canonicalUrl, requireBaseURL, resolveCanonical } from "./paths";

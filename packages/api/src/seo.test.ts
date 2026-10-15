@@ -45,3 +45,29 @@ test("public SEO routes serve XML, Atom, robots and only the configured IndexNow
   expect(await (await app.request("/feed.atom")).text()).toContain("<title>Acme Talk</title>");
   expect((await app.request("/different-key.txt")).status).toBe(404);
 });
+
+test("/llms.txt is served as plain text at the root, from the site settings and the guest-visible forums", async () => {
+  const ctx = createTestContext();
+  ctx.config.siteBaseURL = "https://forum.example.test";
+  const open = insertNode(ctx, { title: "Open forum" });
+  const hidden = insertNode(ctx, { title: "Closed forum" });
+  invalidate(ctx, "node_tree");
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO permission_entries (permission_id,node_id,group_id,user_id,value) VALUES ((SELECT id FROM permission_definitions WHERE key='node.view'),?1,1,0,-1)",
+    )
+    .run(hidden.id);
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  updateSiteSettings(ctx, admin, { siteName: "Acme Talk", siteDescription: "Acme users talk." });
+  const app = createApp(ctx, { trustedProxyHeader: null });
+  const response = await app.request("/llms.txt");
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
+  const body = await response.text();
+  expect(body.startsWith("# Acme Talk\n\n> Acme users talk.\n")).toBe(true);
+  expect(body).toContain(`(https://forum.example.test/forums/${open.id}-open-forum)`);
+  expect(body).not.toContain("Closed forum");
+  expect(body).toContain("(https://forum.example.test/api/v1/openapi.json)");
+  expect(body).toContain("(https://forum.example.test/mcp)");
+  expect((await app.request("/llms.txt", { method: "POST" })).status).not.toBe(200);
+});

@@ -1,0 +1,60 @@
+import { GUEST } from "../../actor";
+import type { Ctx } from "../../context";
+import { getNodeTree, viewableNodeIds } from "../../permissions";
+import { readSiteSettings } from "../settings";
+import { canonicalUrl, requireBaseURL } from "./paths";
+
+/** The most forums /llms.txt lists; the sitemap has the rest. */
+export const LLMS_FORUM_CAP = 200;
+
+const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
+const linkText = (value: string) => oneLine(value).replace(/[[\]]/g, "\\$&");
+
+/**
+ * The llms.txt summary of the site (llmstxt.org format): the site's name and description, the
+ * forums a guest can see grouped by category, and the machine-readable interfaces. Hidden or
+ * permission-restricted forums are never listed.
+ */
+export function llmsTxt(ctx: Ctx, baseURL: string): string {
+  const origin = requireBaseURL(baseURL);
+  const settings = readSiteSettings(ctx);
+  const siteName = oneLine(settings.siteName) || "Forum";
+  const description = oneLine(settings.siteDescription);
+  const at = (path: string) => new URL(path, origin).href;
+
+  const tree = getNodeTree(ctx);
+  const visible = new Set(viewableNodeIds(ctx, GUEST));
+  const groups = new Map<number | null, string[]>();
+  const titles = new Map<number | null, string>([[null, "Forums"]]);
+  let listed = 0;
+  let truncated = false;
+  for (const entry of tree.entries) {
+    if (entry.type !== "forum" || !visible.has(entry.id)) continue;
+    if (listed >= LLMS_FORUM_CAP) {
+      truncated = true;
+      break;
+    }
+    listed++;
+    const category = tree.ancestors(entry.id).findLast((parent) => parent.type === "category");
+    const key = category?.id ?? null;
+    if (category) titles.set(key, oneLine(category.title));
+    const note = oneLine(entry.description);
+    const line = `- [${linkText(entry.title)}](${canonicalUrl(baseURL, "node", entry.id, entry.title)})${note ? `: ${note}` : ""}`;
+    const lines = groups.get(key);
+    if (lines) lines.push(line);
+    else groups.set(key, [line]);
+  }
+
+  const parts = [`# ${siteName}`, `> ${description || `${siteName} is a discussion forum.`}`];
+  parts.push(
+    `Public forums, threads and member profiles are readable without an account.${truncated ? ` Only the first ${LLMS_FORUM_CAP} forums are listed here; the sitemap lists every public page.` : ""}`,
+  );
+  for (const [key, lines] of groups) parts.push(`## ${titles.get(key)}\n\n${lines.join("\n")}`);
+  parts.push(
+    `## Interfaces\n\n- [OpenAPI description](${at("/api/v1/openapi.json")}): every REST operation and its permissions, as JSON\n- [MCP server](${at("/mcp")}): the same operations as tools over streamable HTTP; send an API key as a Bearer token`,
+  );
+  parts.push(
+    `## Optional\n\n- [Atom feed](${at("/feed.atom")}): the newest public threads\n- [Sitemap](${at("/sitemap.xml")}): every public forum, thread and member page`,
+  );
+  return `${parts.join("\n\n")}\n`;
+}
