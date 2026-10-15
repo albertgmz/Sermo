@@ -1,17 +1,18 @@
 import {
   closerFinder,
-  isCodeLanguage,
   isLinkAddress,
-  isWebAddress,
-  optionFits,
+  isOtherTag,
+  literalContentOk,
+  readsLiterally,
   TAG_SOURCE,
+  tagOf,
 } from "@/components/forum/bb-scan";
 
 // BB code read into what the rich editor can hold. The editor shows bold, italic, underline,
 // strikethrough, inline code, links, headings, quotes, lists and code blocks as formatting; every
 // other tag (colour, size, alignment, spoilers, tables, media, attachments, quotes of a post...)
 // and every tag that is unpaired or in the wrong place stays in the text as typed, so that
-// writing it back gives the same source. Nothing is ever dropped.
+// writing it back gives the same source. No text is ever dropped.
 //
 // The reading follows the backend's (packages/core/src/bbcode): a closing tag pairs with the
 // nearest open tag of its name and leaves the tags opened after it as text, an unclosed tag is
@@ -42,7 +43,7 @@ type Tree =
   | { k: "text"; s: string }
   | { k: "icode"; s: string; raw: string }
   | { k: "code"; s: string; raw: string; language?: string }
-  | { k: "link"; href: string; raw: string }
+  | { k: "link"; href: string; label: string; raw: string }
   | {
       k: "el";
       name: string;
@@ -52,6 +53,11 @@ type Tree =
       close: string;
       // Holds a block (a heading, quote, list or code block) somewhere inside.
       holdsBlock: boolean;
+      // Holds a tag that is text in the editor, and a line break, a blank line or a link. A format
+      // written in pieces around those would end in the middle of the text tags it surrounds, and
+      // the renderer would read them differently.
+      holdsTags: boolean;
+      cutsText: boolean;
     };
 
 type El = Extract<Tree, { k: "el" }>;
@@ -77,43 +83,36 @@ const BLOCKS = new Set(["HEADING", "QUOTE", "LIST"]);
 const isBlock = (kid: Tree): boolean =>
   kid.k === "code" ||
   (kid.k === "el" && (BLOCKS.has(kid.name) || kid.holdsBlock));
-// Tags whose content is text up to the closer.
-const RAW = new Set(["PLAIN", "IMG", "MEDIA", "ATTACH"]);
-const RAW_WITHOUT_OPTION = new Set(["EMAIL", "USER"]);
+// The tags that can be inside a line, where an item of a list may begin.
+const INLINE_TAGS = new Set([
+  "B",
+  "I",
+  "U",
+  "S",
+  "URL",
+  "COLOR",
+  "FONT",
+  "SIZE",
+  "EMAIL",
+  "ISPOILER",
+]);
+const TAG_LIKE = /\[\/?[A-Za-z*]/;
 
-// The tags the renderer pairs that the editor shows as text. They still take part in the pairing:
-// a closing tag leaves the tags opened after its opener as text, so the editor must not pair them.
-// The option checks are the renderer's in short (colour and font names are not listed here).
-function opaqueOption(name: string, option: string | undefined): boolean {
-  switch (name) {
-    case "COLOR":
-      return (
-        option !== undefined &&
-        /^(?:#[0-9a-f]{3}(?:[0-9a-f]{3})?|[a-z]{3,12})$/i.test(option)
-      );
-    case "FONT":
-      return option !== undefined && /^[a-z ]{4,20}$/i.test(option);
-    case "SIZE":
-      return option !== undefined && /^[1-7]$/.test(option);
-    case "EMAIL":
-      return option?.includes("@") === true;
-    case "SPOILER":
-    case "QUOTE":
-      return true;
-    case "INDENT":
-      return option === undefined || /^[1-5]$/.test(option);
-    case "ISPOILER":
-    case "LEFT":
-    case "CENTER":
-    case "RIGHT":
-    case "TABLE":
-    case "TR":
-    case "TH":
-    case "TD":
-      return option === undefined;
-  }
-  return false;
-}
+// Whether the editor writes something between the pieces of text around this: a break, a blank
+// line or a link.
+const cutsText = (kid: Tree): boolean =>
+  kid.k === "text"
+    ? kid.s.includes("\n")
+    : kid.k === "icode"
+      ? kid.s.includes("\n")
+      : kid.k === "link" ||
+        (kid.k === "el" && (kid.name === "URL" || kid.kids.some(cutsText)));
+const hasTagText = (kid: Tree): boolean =>
+  kid.k === "text"
+    ? TAG_LIKE.test(kid.s)
+    : kid.k === "icode"
+      ? kid.s.includes("\n")
+      : kid.k === "el" && kid.kids.some(hasTagText);
 
 function parseTree(source: string): Tree[] {
   const find = closerFinder(source);
@@ -133,9 +132,17 @@ function parseTree(source: string): Tree[] {
       else top().kids.push(kid);
     }
   };
-  const finish = (close: string): El => {
+  const finish = (close: string) => {
     const frame = stack.pop() as Frame;
-    const el: El = {
+    // A format or a link around nothing is nothing: what it holds (spaces) stays.
+    if (
+      (frame.name in MARK_OF || frame.name === "URL") &&
+      frame.kids.every((kid) => kid.k === "text" && !kid.s.trim())
+    ) {
+      addAll(frame.kids);
+      return;
+    }
+    top().kids.push({
       k: "el",
       name: frame.name,
       option: frame.option,
@@ -143,9 +150,9 @@ function parseTree(source: string): Tree[] {
       open: frame.open,
       close,
       holdsBlock: frame.kids.some(isBlock),
-    };
-    top().kids.push(el);
-    return el;
+      holdsTags: frame.kids.some(hasTagText),
+      cutsText: frame.kids.some(cutsText),
+    });
   };
   const literalize = () => {
     const frame = stack.pop() as Frame;
@@ -156,17 +163,17 @@ function parseTree(source: string): Tree[] {
   const re = new RegExp(TAG_SOURCE, "g");
   let pos = 0;
   for (let m = re.exec(source); m; m = re.exec(source)) {
+    const tag = tagOf(m);
+    if (!tag) {
+      // Not a tag: the renderer goes on from the next character.
+      re.lastIndex = m.index + 1;
+      continue;
+    }
     addText(source.slice(pos, m.index));
     const head = m[0];
     const end = m.index + head.length;
     pos = end;
-    const closing = m[1] !== undefined;
-    const name = m[2].toUpperCase();
-    const option = (m[3] ?? m[4])?.trim();
-    if (!optionFits(name, option)) {
-      addText(head);
-      continue;
-    }
+    const { closing, name, option } = tag;
 
     if (closing) {
       const at = stack.findLastIndex((frame) => frame.name === name);
@@ -195,17 +202,9 @@ function parseTree(source: string): Tree[] {
 
     // Tags that read their content as text. Rich code reads the tags it holds as formatting, which
     // the editor does not show: it is text up to its closer like the rest.
-    const rich = option?.toLowerCase() === "rich";
-    const wantsCloser =
-      name === "ICODE"
-        ? option === undefined || rich
-        : name === "CODE"
-          ? option === undefined || rich || isCodeLanguage(option)
-          : name === "URL"
-            ? option === undefined
-            : RAW.has(name) ||
-              (RAW_WITHOUT_OPTION.has(name) && option === undefined);
-    if (wantsCloser) {
+    const rich =
+      (name === "CODE" || name === "ICODE") && option?.toLowerCase() === "rich";
+    if (rich || readsLiterally(name, option)) {
       const closer = find(name, end);
       if (closer < 0) {
         addText(head);
@@ -214,26 +213,27 @@ function parseTree(source: string): Tree[] {
       const closeEnd = closer + name.length + 3;
       const inner = source.slice(end, closer);
       const raw = source.slice(m.index, closeEnd);
+      if (!rich && !literalContentOk(name, inner)) {
+        // Not what the tag takes: it is text and what is inside is read as usual.
+        addText(head);
+        continue;
+      }
       if (rich) {
         addText(raw);
       } else if (name === "CODE") {
-        top().kids.push({ k: "code", s: inner, raw, language: option });
+        // Nothing to show: an empty block (its language is text) stays as it is.
+        if (inner.trim()) {
+          top().kids.push({ k: "code", s: inner, raw, language: option });
+        } else {
+          addText(raw);
+        }
       } else if (name === "ICODE") {
         top().kids.push({ k: "icode", s: inner, raw });
-      } else if (
-        (name === "IMG" && !isWebAddress(inner.trim())) ||
-        (name === "ATTACH" && !/^[1-9]\d{0,11}$/.test(inner.trim()))
-      ) {
-        // Not a picture or an attachment: the tag is text and what is inside is read as usual.
-        addText(head);
-        continue;
       } else if (name === "URL") {
-        const href = inner.trim();
-        if (inner.length > 2100 || !isWebAddress(href)) {
-          addText(head);
-          continue;
-        }
-        top().kids.push({ k: "link", href, raw });
+        // A bare address is a link to https://, as the renderer takes it.
+        const label = inner.trim();
+        const href = /^www\./i.test(label) ? `https://${label}` : label;
+        top().kids.push({ k: "link", href, label, raw });
       } else {
         addText(raw);
       }
@@ -243,14 +243,17 @@ function parseTree(source: string): Tree[] {
     }
 
     if (name === "*") {
-      if (top().name === "*" && stack[stack.length - 2].name === "LIST") {
-        finish("");
-        stack.push({ name, open: head, kids: [] });
-      } else if (top().name === "LIST") {
-        stack.push({ name, open: head, kids: [] });
-      } else {
+      // An item begins in a list, or in an item, past the formats of the line it ends.
+      let holder = stack.length - 1;
+      while (holder > 0 && INLINE_TAGS.has(stack[holder].name)) holder--;
+      const list = stack[holder].name;
+      if (holder < 1 || (list !== "LIST" && list !== "*")) {
         addText(head);
+        continue;
       }
+      while (stack.length - 1 > holder) literalize();
+      if (list === "*") finish("");
+      stack.push({ name, open: head, kids: [] });
       continue;
     }
 
@@ -267,7 +270,7 @@ function parseTree(source: string): Tree[] {
               : name === "QUOTE" && option === undefined);
     if (supported) {
       stack.push({ name, option, open: head, kids: [] });
-    } else if (stack.length <= MAX_DEPTH && opaqueOption(name, option)) {
+    } else if (stack.length <= MAX_DEPTH && isOtherTag(name, option)) {
       stack.push({ name, option, open: head, kids: [], opaque: true });
     } else {
       addText(head);
@@ -280,7 +283,7 @@ function parseTree(source: string): Tree[] {
 
 // Where the blocks and the paragraph being written go; `blocks` is null where only inline content
 // can be held (a heading, a quote, a link, a list item).
-type Sink = { blocks: Block[] | null; line: Inline[] };
+type Sink = { blocks: Block[] | null; line: Inline[]; keepEdges?: true };
 
 const BLANK_RUN = /\n[ \t\u00a0]*\n\s*/g;
 const isBlank = (kid: Tree) => kid.k === "text" && !kid.s.trim();
@@ -323,7 +326,7 @@ function trimLine(line: Inline[]): Inline[] {
 }
 
 function endParagraph(sink: Sink) {
-  const kids = trimLine(sink.line);
+  const kids = sink.keepEdges ? sink.line : trimLine(sink.line);
   sink.line = [];
   if (kids.length) sink.blocks?.push({ t: "p", kids });
 }
@@ -409,7 +412,7 @@ function walk(kids: Tree[], sink: Sink, marks: Mark[], link: boolean) {
           sink.line.push({
             t: "link",
             url: kid.href,
-            kids: [{ t: "text", text: kid.href, marks }],
+            kids: [{ t: "text", text: kid.label, marks }],
           });
         }
         break;
@@ -435,8 +438,14 @@ function walk(kids: Tree[], sink: Sink, marks: Mark[], link: boolean) {
 function element(el: El, sink: Sink, marks: Mark[], link: boolean) {
   const mark = MARK_OF[el.name];
   if (mark) {
-    if (el.holdsBlock) asText(el, sink, marks, link);
-    else
+    // A format nested in itself is written once, which would leave the tags it closed over to
+    // pair with others.
+    if (
+      el.holdsBlock ||
+      (el.holdsTags && (el.cutsText || marks.includes(mark)))
+    ) {
+      asText(el, sink, marks, link);
+    } else
       walk(
         el.kids,
         sink,
@@ -492,10 +501,14 @@ function element(el: El, sink: Sink, marks: Mark[], link: boolean) {
 
 // The blocks BB code holds. With `literal` the text is taken as typed: no tag is read, only the
 // blank lines and line breaks.
-export function parseBb(source: string, literal = false): Block[] {
+export function parseBb(
+  source: string,
+  literal = false,
+  keepEdges = false,
+): Block[] {
   const text = source.replace(/\r\n?/g, "\n");
   const blocks: Block[] = [];
-  const sink: Sink = { blocks, line: [] };
+  const sink: Sink = { blocks, line: [], ...(keepEdges && { keepEdges }) };
   walk(literal ? [{ k: "text", s: text }] : parseTree(text), sink, [], false);
   endParagraph(sink);
   return blocks;

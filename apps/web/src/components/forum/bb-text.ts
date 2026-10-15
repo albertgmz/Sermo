@@ -1,4 +1,10 @@
-import { closerFinder, TAG_SOURCE } from "@/components/forum/bb-scan";
+import {
+  closerFinder,
+  literalContentOk,
+  readsLiterally,
+  TAG_SOURCE,
+  tagOf,
+} from "@/components/forum/bb-scan";
 
 // The BB code the web app writes itself, built in this one place: a mention and a quote of a post.
 
@@ -6,12 +12,6 @@ import { closerFinder, TAG_SOURCE } from "@/components/forum/bb-scan";
 const PLAIN_NAME = /^[\p{L}\p{N}_][\p{L}\p{N}._-]{1,30}[\p{L}\p{N}_]$/u;
 export const mentionOf = (username: string) =>
   PLAIN_NAME.test(username) ? `@${username}` : `@"${username}"`;
-
-// The tags whose content is read as it is, up to a closing tag found anywhere after them: a
-// QUOTE tag inside is no tag, and one with no closing tag of its own would take the closing tag of
-// a later tag as its own. (A link, an address and a member's name are such tags without an option.)
-const LITERAL = new Set(["CODE", "ICODE", "PLAIN", "IMG", "MEDIA", "ATTACH"]);
-const LITERAL_WITHOUT_OPTION = new Set(["URL", "EMAIL", "USER"]);
 
 // A tag is made plain text by putting it between PLAIN tags.
 const plain = (tag: string) => `[PLAIN]${tag}[/PLAIN]`;
@@ -21,38 +21,42 @@ type Range = { start: number; end: number };
 // The text with the tags that would reach outside the quote made plain text: the QUOTE tags that
 // have no partner, so that a quoted body can neither end its own quote early (a closing tag with no
 // opener) nor swallow the closing tag of the quote around it (an opener never closed), and the
-// tags that read their content as it is and have no closing tag in the body, which would find one
-// in what is written after the quote. Balanced quotes inside the body stay quotes.
+// tags that read their content as it is (code, plain text, a picture, a link...) and have no
+// closing tag in the body, which would find one in what is written after the quote. What such a
+// tag holds is not read, so a QUOTE tag in it is left alone. Balanced quotes stay quotes.
 function balanced(source: string) {
   const find = closerFinder(source);
   const re = new RegExp(TAG_SOURCE, "g");
   const open: Range[] = [];
   const edits: Range[] = [];
   for (let m = re.exec(source); m; m = re.exec(source)) {
-    const name = m[2].toUpperCase();
-    const tag = { start: m.index, end: m.index + m[0].length };
-    const option = m[3] ?? m[4];
-    if (
-      m[1] === undefined &&
-      (LITERAL.has(name) ||
-        (LITERAL_WITHOUT_OPTION.has(name) && option === undefined))
-    ) {
-      const closer = find(name, tag.end);
-      if (closer >= 0) re.lastIndex = closer + name.length + 3;
-      else edits.push(tag);
-    } else if (name === "QUOTE") {
-      if (m[1] === undefined) open.push(tag);
+    const tag = tagOf(m);
+    if (!tag) {
+      re.lastIndex = m.index + 1;
+      continue;
+    }
+    const range = { start: m.index, end: m.index + m[0].length };
+    if (!tag.closing && readsLiterally(tag.name, tag.option)) {
+      const closer = find(tag.name, range.end);
+      if (closer < 0) {
+        edits.push(range);
+      } else if (literalContentOk(tag.name, source.slice(range.end, closer))) {
+        re.lastIndex = closer + tag.name.length + 3;
+      }
+    } else if (tag.name === "QUOTE") {
+      if (!tag.closing) open.push(range);
       else if (open.length) open.pop();
-      else edits.push(tag);
+      else edits.push(range);
     }
   }
-  let out = source;
-  for (const { start, end } of [...edits, ...open].sort(
-    (x, y) => y.start - x.start,
-  )) {
-    out = out.slice(0, start) + plain(out.slice(start, end)) + out.slice(end);
+  const wrapped = [...edits, ...open].sort((x, y) => x.start - y.start);
+  let out = "";
+  let at = 0;
+  for (const { start, end } of wrapped) {
+    out += source.slice(at, start) + plain(source.slice(start, end));
+    at = end;
   }
-  return out;
+  return out + source.slice(at);
 }
 
 // A post quoted as the renderer reads it: the author's name, the post and the member, in the form

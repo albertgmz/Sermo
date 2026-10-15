@@ -1,12 +1,16 @@
 import { parseEntities } from "parse-entities";
-import { closerFinder, TAG_SOURCE } from "@/components/forum/bb-scan";
+import {
+  closerFinder,
+  literalContentOk,
+  readsLiterally,
+  TAG_SOURCE,
+  tagOf,
+} from "@/components/forum/bb-scan";
 import { blocksContentImage } from "./lite-images";
 import { blocks, type LiteState } from "./lite-preferences";
 
 const ALL: LiteState = { master: true, blocked: [] };
 type Edit = { start: number; end: number; text: string };
-// The tags whose content is read as it is: a picture tag inside code is text.
-const LITERAL = new Set(["CODE", "ICODE", "PLAIN", "IMG"]);
 // The English label, for a caller that does not know the visitor's language.
 const LABEL = "DATA SAVER";
 
@@ -155,16 +159,25 @@ export function stripBbCodeImages(
   const tags = new RegExp(TAG_SOURCE, "g");
   const edits: Edit[] = [];
   for (let m = tags.exec(source); m; m = tags.exec(source)) {
-    const name = m[2].toUpperCase();
-    // Rich code draws the pictures it holds: it is not text.
-    const rich = (m[3] ?? m[4])?.trim().toLowerCase() === "rich";
-    if (m[1] !== undefined || !LITERAL.has(name) || rich) continue;
-    const closer = find(name, m.index + m[0].length);
-    if (closer < 0) continue;
-    const end = closer + name.length + 3;
+    const tag = tagOf(m);
+    if (!tag) {
+      tags.lastIndex = m.index + 1;
+      continue;
+    }
+    // Code, plain text and a picture read what is inside as it is (rich code reads the pictures
+    // in it, so it is not one of them).
+    if (tag.closing || !readsLiterally(tag.name, tag.option)) continue;
+    const from = m.index + m[0].length;
+    const closer = find(tag.name, from);
+    if (closer < 0 || !literalContentOk(tag.name, source.slice(from, closer))) {
+      continue;
+    }
+    const end = closer + tag.name.length + 3;
     tags.lastIndex = end;
-    const address = source.slice(m.index + m[0].length, closer).trim();
-    if (name === "IMG" && blocksContentImage(state, address, origin)) {
+    if (
+      tag.name === "IMG" &&
+      blocksContentImage(state, source.slice(from, closer).trim(), origin)
+    ) {
       edits.push({ start: m.index, end, text: label });
     }
   }

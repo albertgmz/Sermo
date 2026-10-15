@@ -69,6 +69,12 @@ const SAME = [
   // Text after a break is not in the tags before it.
   "[ICODE]x[/ICODE]\ny",
   "[B]x[/B]\ny",
+  "[B]x\ny[/B]",
+  "[B][COLOR=red]x\ny[/COLOR][/B]",
+  "[B][ICODE]a\nb[/ICODE][/B]",
+  "[B]x [PLAIN]a\n\nb[/PLAIN] y[/B]",
+  "[LIST]\n[*][B]a\n[*]b[/B]\n[/LIST]",
+  "[URL]www.c.test[/URL]",
   // Capital letters of other alphabets do not shift what is found after them.
   "İİİ [ICODE]abc[/ICODE] tail",
   // The space around a link's text stays where it is.
@@ -98,7 +104,6 @@ const NORMALISED: [string, string][] = [
   ["a\n\n\n\nb", "a\n\nb"],
   ["  padded  \n\n  \n\nnext", "padded\n\nnext"],
   ["[URL=https://a.test]https://a.test[/URL]", "[URL]https://a.test[/URL]"],
-  ["[B]a\nb[/B]", "[B]a[/B]\n[B]b[/B]"],
   [
     "İstanbul [CODE]\nlet a;\n[/CODE] end",
     "İstanbul\n\n[CODE]\nlet a;\n[/CODE]\n\nend",

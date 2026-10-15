@@ -139,7 +139,8 @@ export function $appendBb(source: string) {
 // taken as typed: no tag is read into formatting. In a code block everything is text, so it is
 // `plain` (what the BB code was made from, when that is not it) that goes in, lines and all.
 export function $insertBb(source: string, literal = false, plain = source) {
-  const blocks = parseBb(source, literal);
+  // The space at the edges of what is put in belongs to it: it is not a document.
+  const blocks = parseBb(source, literal, true);
   if (!blocks.length) return;
   let selection = $getSelection();
   if (!$isRangeSelection(selection)) {
@@ -172,40 +173,79 @@ const MARKS: [Mark, string][] = [
 // The text of a run of nodes with its formatting as tags that nest properly: a tag is closed
 // together with every tag opened after it, and opened again where its format goes on. Inline code
 // is always the innermost, as nothing is read inside it.
+// The tags a text node's format is written as, outermost first.
+function tagsOf(node: LexicalNode | undefined): string[] {
+  if (!node || !$isTextNode(node)) return [];
+  const text = node.getTextContent();
+  return MARKS.filter(
+    ([mark]) =>
+      node.hasFormat(mark) && !(mark === "code" && /\[\/icode\]/i.test(text)),
+  ).map(([, tag]) => tag);
+}
+
 function inlineBb(parent: ElementNode): string {
+  const kids = parent.getChildren();
+  // What follows each node, past the line breaks and the space between words: a format goes on
+  // over a break, or over a space, when it goes on in the text after it.
+  const after: (LexicalNode | undefined)[] = [];
+  let next: LexicalNode | undefined;
+  for (let i = kids.length - 1; i >= 0; i--) {
+    after[i] = next;
+    const kid = kids[i];
+    if (
+      !$isLineBreakNode(kid) &&
+      !($isTextNode(kid) && !kid.getTextContent().trim())
+    ) {
+      next = kid;
+    }
+  }
   let out = "";
   const open: string[] = [];
   const close = (to: number) => {
     while (open.length > to) out += `[/${open.pop()}]`;
   };
-  for (const node of parent.getChildren()) {
+  // Closes the tags that do not go on in `want`.
+  const keepOnly = (want: string[]) => {
+    let keep = 0;
+    while (keep < open.length && open[keep] === want[keep]) keep++;
+    close(keep);
+  };
+  kids.forEach((node, index) => {
     if ($isLinkNode(node)) {
       close(0);
       const inner = inlineBb(node);
       const url = node.getURL();
       if (!isLinkAddress(url)) out += inner;
-      else if (inner === url && /^https?:/i.test(url))
-        out += `[URL]${url}[/URL]`;
+      // A link whose text is its address is written as an address: with www. the renderer adds
+      // https:// itself.
+      else if (
+        /^https?:/i.test(url) &&
+        (inner === url || inner === /^https:\/\/(www\..*)$/i.exec(url)?.[1])
+      )
+        out += `[URL]${inner}[/URL]`;
       else out += `[URL=${url}]${inner}[/URL]`;
     } else if ($isTextNode(node)) {
       const text = node.getTextContent();
-      const want = MARKS.filter(
-        ([mark]) =>
-          node.hasFormat(mark) &&
-          !(mark === "code" && /\[\/icode\]/i.test(text)),
-      ).map(([, tag]) => tag);
-      let keep = 0;
-      while (keep < open.length && open[keep] === want[keep]) keep++;
-      close(keep);
-      for (const tag of want.slice(keep)) {
+      let want = tagsOf(node);
+      if (!text.trim()) {
+        // Space between words takes no format of its own: it only goes on in the formats that go
+        // on after it (a format around nothing is nothing).
+        const onward = tagsOf(after[index]);
+        let keep = 0;
+        while (keep < open.length && open[keep] === onward[keep]) keep++;
+        want = open.slice(0, keep);
+      }
+      keepOnly(want);
+      for (const tag of want.slice(open.length)) {
         out += `[${tag}]`;
         open.push(tag);
       }
       out += text;
     } else if ($isLineBreakNode(node)) {
-      // Closed before the break and opened again after it: inline code cannot hold a break, and
-      // the break belongs to the text around the tags.
-      close(0);
+      // Formats go on over a break unless inline code, which cannot hold one.
+      keepOnly(tagsOf(after[index]));
+      const code = open.indexOf("ICODE");
+      if (code >= 0) close(code);
       out += "\n";
     } else if ($isListNode(node)) {
       close(0);
@@ -216,7 +256,7 @@ function inlineBb(parent: ElementNode): string {
       close(0);
       out += node.getTextContent();
     }
-  }
+  });
   close(0);
   return out;
 }

@@ -83,7 +83,8 @@ export function MessageBody({
   className?: string;
 }) {
   const text = children.replace(/<[^>]*>/g, " ");
-  const blocks = children.match(/<\/(?:p|li|h\d|blockquote)>|<br>/g) ?? [];
+  const blocks =
+    children.match(/<\/(?:p|li|h\d|blockquote)>|<br\s*\/?>/g) ?? [];
   const long = clamp && (text.length > 280 || blocks.length > 6);
   return (
     <HtmlContent

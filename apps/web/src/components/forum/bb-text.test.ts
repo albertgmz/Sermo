@@ -52,7 +52,7 @@ test("a tag that reads its content as it is and never closes no longer takes a l
     "[MEDIA=youtube]",
     "[ATTACH]",
     "[EMAIL]",
-    "[USER]",
+    "[USER=5]",
   ]) {
     const out = quoted(`use the ${open} tag`);
     expect(out, open).toContain(`[PLAIN]${open}[/PLAIN]`);
@@ -80,4 +80,13 @@ test("a body of unclosed code tags is read in linear time", () => {
 test("a mention is plain when the name can be, else quoted", () => {
   expect(mentionOf("wren")).toBe("@wren");
   expect(mentionOf("two words")).toBe('@"two words"');
+});
+
+test("a body of many unpaired quote tags is read in a short time", () => {
+  const start = performance.now();
+  const out = quoted("[QUOTE]".repeat(40000));
+  expect(performance.now() - start).toBeLessThan(1000);
+  expect(
+    out.startsWith('[QUOTE="ember, post: 5, member: 9"][PLAIN][QUOTE][/PLAIN]'),
+  ).toBe(true);
 });

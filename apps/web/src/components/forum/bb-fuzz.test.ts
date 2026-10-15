@@ -1,19 +1,23 @@
 import { expect, test } from "bun:test";
 import { createEditor } from "lexical";
+import { renderBbCode } from "../../../../../packages/core/src/render";
 import { $exportBb, $replaceWithBb, BB_NODES } from "./bb-lexical";
 
+// Texts made of random tags, options, breaks and words, read by the editor and written back.
 const TOKENS = [
   "[B]",
   "[/B]",
-  "[I]",
+  "[i]",
   "[/I]",
   "[U]",
   "[/U]",
   "[S]",
   "[/S]",
   "[URL=https://a.test]",
+  '[URL="https://a.test/x"]',
   "[/URL]",
   "[URL]https://b.test[/URL]",
+  "[URL]www.c.test[/URL]",
   "[HEADING=2]",
   "[/HEADING]",
   "[QUOTE]",
@@ -24,34 +28,45 @@ const TOKENS = [
   "[/LIST]",
   "[*]",
   "[CODE]",
+  "[CODE=ts]",
   "[/CODE]",
+  "[CODE=rich]",
   "[ICODE]",
   "[/ICODE]",
   "[SPOILER]",
   "[/SPOILER]",
   "[COLOR=red]",
   "[/COLOR]",
+  "[SIZE=5]",
+  "[/SIZE]",
   "[PLAIN]",
   "[/PLAIN]",
-  "[CODE=rich]",
-  "[/CODE]",
+  "[IMG]https://x.test/a.png[/IMG]",
+  "[IMG]",
+  "[/IMG]",
+  "[MEDIA=youtube]kQ0Eo1UccEE[/MEDIA]",
+  "[ATTACH]12[/ATTACH]",
   "word",
   "other",
+  "text",
   " ",
   " ",
+  "\n",
   "\n",
   "\n\n",
   "İ",
   "[",
   "]",
-  "[IMG]https://x.test/a.png[/IMG]",
 ];
 
-function rnd(seed: number) {
-  let x = seed;
+// A generator that does not repeat within the run.
+function mulberry(seed: number) {
+  let a = seed;
   return () => {
-    x = (x * 1103515245 + 12345) & 0x7fffffff;
-    return x / 0x7fffffff;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -73,25 +88,53 @@ function trip(source: string) {
   return out;
 }
 
-test("a text made of random tags is read to the same text twice and loses no word", () => {
-  const random = rnd(42);
-  let unstable = 0;
-  let lost = 0;
-  for (let i = 0; i < 4000; i++) {
+// The words a text shows, in order, whatever the tags and spacing around them.
+const shown = (source: string) =>
+  renderBbCode(source)
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, "");
+
+function sources(count: number, seed: number) {
+  const random = mulberry(seed);
+  return Array.from({ length: count }, () => {
     let source = "";
-    const length = 1 + Math.floor(random() * 14);
-    for (let k = 0; k < length; k++)
+    const length = 1 + Math.floor(random() * 16);
+    for (let k = 0; k < length; k++) {
       source += TOKENS[Math.floor(random() * TOKENS.length)];
-    const once = trip(source);
-    const twice = trip(once);
-    if (twice !== once) {
-      unstable++;
     }
-    const words = (text: string) => (text.match(/word|other|İ/g) ?? []).length;
-    if (words(once) !== words(source)) {
-      lost++;
+    return source;
+  });
+}
+
+test("a text made of random tags is read to the same text twice and loses no word", () => {
+  const bad: string[] = [];
+  for (const source of sources(6000, 42)) {
+    const once = trip(source);
+    const words = (text: string) =>
+      (text.match(/word|other|text|İ/g) ?? []).length;
+    if (trip(once) !== once || words(once) !== words(source)) {
+      bad.push(`${JSON.stringify(source)} -> ${JSON.stringify(once)}`);
     }
   }
-  expect(unstable).toBe(0);
-  expect(lost).toBe(0);
+  expect(bad.slice(0, 5)).toEqual([]);
+});
+
+test("what the page shows for a text is what it shows for the text the editor writes back", () => {
+  const bad: string[] = [];
+  for (const source of sources(3000, 7)) {
+    const once = trip(source);
+    let before: string;
+    let after: string;
+    try {
+      before = shown(source);
+      after = shown(once);
+    } catch {
+      // A text the renderer refuses (too complex or too deep) has no page.
+      continue;
+    }
+    if (before !== after) {
+      bad.push(`${JSON.stringify(source)} -> ${JSON.stringify(once)}`);
+    }
+  }
+  expect(bad.slice(0, 5)).toEqual([]);
 });

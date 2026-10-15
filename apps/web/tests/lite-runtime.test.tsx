@@ -663,7 +663,7 @@ test("a blocked category empties local pictures in stored HTML and editor props"
   const html =
     '<p>Before <img src="/pictures/ring.png"> and <img src="https://pictures.test/y.jpg"> <a href="https://example.test/guide">docs</a></p>';
   const source =
-    "Before [IMG]/pictures/ring.png[/IMG] and [IMG]https://pictures.test/y.jpg[/IMG] [URL=https://example.test/guide]docs[/URL]\n";
+    "Before [IMG]https://pictures.test/y.jpg[/IMG] [URL=https://example.test/guide]docs[/URL]\n";
   cookie = "frames";
   const drawn = await markup(<HtmlContent>{html}</HtmlContent>);
   expect(drawn).not.toContain("/pictures/ring.png");

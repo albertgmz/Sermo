@@ -301,3 +301,34 @@ test("a mark said by many nested elements is written once, and deep nesting stay
   );
   expect(htmlToBb(root(mixed))).toBe("[B]y [I]z[/I][/B]");
 });
+
+test("a list, heading, quote or code block inside a format is not wrapped in it", () => {
+  const dom = root(
+    h("b", {}, h("ul", {}, h("li", {}, "x"))),
+    h("i", {}, h("h2", {}, "head")),
+    h("b", {}, h("pre", {}, "code")),
+  );
+  expect(htmlToBb(dom)).toBe(
+    "[LIST]\n[*]x\n[/LIST]\n\n[HEADING=2]head[/HEADING]\n\n[CODE]\ncode\n[/CODE]",
+  );
+});
+
+test("text that would open a tag which reads what follows it as text stays text", () => {
+  const dom = root(
+    h("p", {}, "use [code] tags"),
+    h("pre", {}, "x = 1"),
+    h("ul", {}, h("li", {}, "a [*] b")),
+  );
+  expect(htmlToBb(dom)).toBe(
+    "[PLAIN]use [code] tags[/PLAIN]\n\n[CODE]\nx = 1\n[/CODE]\n\n[LIST]\n[*][PLAIN]a [*] b[/PLAIN]\n[/LIST]",
+  );
+});
+
+test("a style that says important is read, and long runs of odd spaces are read in a short time", () => {
+  expect(
+    htmlToBb(root(h("span", { style: "font-weight: bold !important" }, "x"))),
+  ).toBe("[B]x[/B]");
+  const start = performance.now();
+  htmlToBb(root(h("b", {}, `a${"　".repeat(20000)}b`)));
+  expect(performance.now() - start).toBeLessThan(100);
+});

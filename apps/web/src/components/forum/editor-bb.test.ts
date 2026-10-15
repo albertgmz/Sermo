@@ -249,3 +249,12 @@ test("pasting into a code block puts in the text as it was copied, not formattin
   );
   expect(bbOf(editor)).toBe("[CODE]\nlet a;bold\n\nx\n[/CODE]");
 });
+
+test("what is pasted keeps the space at its edges", () => {
+  const editor = editorWith("hello", 5, 5);
+  run(editor, () => $insertBb(" world", true));
+  expect(bbOf(editor)).toBe("hello world");
+  const spaced = editorWith("ab", 1, 1);
+  run(spaced, () => $insertBb(" ", true));
+  expect(bbOf(spaced)).toBe("a b");
+});

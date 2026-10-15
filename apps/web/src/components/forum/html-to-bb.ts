@@ -84,7 +84,9 @@ type Style = {
 
 // The formatting a style attribute says (word processors write bold as a style of a span).
 function styleOf(node: DomNode): Style {
-  const css = (node.getAttribute?.("style") ?? "").toLowerCase();
+  const css = (node.getAttribute?.("style") ?? "")
+    .toLowerCase()
+    .replace(/\s*!important/g, "");
   if (!css) return {};
   const value = (property: string) =>
     new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`).exec(css)?.[1]?.trim();
@@ -119,21 +121,26 @@ function wrap(tag: string, inner: string): string {
     .split(BOUNDARY)
     .map((part, index) => {
       if (index % 2 === 1) return part;
-      const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(part) as RegExpExecArray;
-      return match[2]
-        ? `${match[1]}[${tag}]${match[2]}[/${tag}]${match[3]}`
-        : part;
+      const text = part.trim();
+      // A block (a list, a heading, a quote, a code block) is not formatted text.
+      if (!text || BLOCK_START.test(text)) return part;
+      const start = part.length - part.trimStart().length;
+      const end = part.length - part.trimEnd().length;
+      return `${part.slice(0, start)}[${tag}]${text}[/${tag}]${part.slice(part.length - end)}`;
     })
     .join("");
 }
 
-const CLOSING_TAG = /\[\/[A-Za-z]{1,10}\]/;
+const BLOCK_START = /^\[(?:LIST|HEADING|QUOTE|CODE)\b/;
+// Text that holds a closing tag, or the opening of a tag that reads what follows it as text, or
+// the start of a list item, would be read as BB code.
+const TAG_TEXT =
+  /\[\/[A-Za-z]{1,10}\]|\[(?:code|icode|plain|img|url|email|media|user|attach)\b[^\]]*\]|\[\*\]/i;
 
-// Text that holds a closing tag would be read as BB code: it is put between PLAIN tags to stay
-// text. Between those tags a closing PLAIN tag cannot be written, so it is broken by an invisible
-// character.
+// Such text is put between PLAIN tags to stay text. Between those tags a closing PLAIN tag cannot
+// be written, so it is broken by an invisible character.
 function literal(text: string): string {
-  if (!CLOSING_TAG.test(text)) return text;
+  if (!TAG_TEXT.test(text)) return text;
   return `[PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/​$1]")}[/PLAIN]`;
 }
 
@@ -240,7 +247,7 @@ function walk(node: DomNode, context: Context): string {
       .replace(/\r\n?/g, "\n")
       .replace(/^\n+|\n+$/g, "");
     if (!text.trim()) return "";
-    if (CLOSING_TAG.test(text) && /\[\/code\]/i.test(text)) {
+    if (/\[\/code\]/i.test(text)) {
       return `${HARD}${literal(text)}${HARD}`;
     }
     return `${HARD}[CODE]\n${text}\n[/CODE]${HARD}`;
