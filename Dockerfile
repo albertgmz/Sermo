@@ -22,7 +22,7 @@ COPY --from=dependencies --chown=bun:bun /app/packages/mcp/node_modules packages
 # The starter loader (scripts/) imports core by its package name, which only a link at the root
 # resolves from there.
 RUN mkdir -p node_modules/@sermo && ln -s ../../packages/core node_modules/@sermo/core
-COPY --chown=bun:bun package.json bun.lock VERSION ./
+COPY --chown=bun:bun package.json bun.lock ./
 COPY --chown=bun:bun packages/core/package.json packages/core/package.json
 COPY --chown=bun:bun packages/api/package.json packages/api/package.json
 COPY --chown=bun:bun packages/mcp/package.json packages/mcp/package.json
@@ -31,6 +31,8 @@ COPY --chown=bun:bun packages/core/drizzle packages/core/drizzle
 COPY --chown=bun:bun packages/api/src packages/api/src
 COPY --chown=bun:bun packages/mcp/src packages/mcp/src
 COPY --chown=bun:bun scripts scripts
+# Last, so a version-only change rebuilds nothing above. The OpenAPI document reads it.
+COPY --chown=bun:bun VERSION ./
 RUN mkdir -p /data/files && chown -R bun:bun /data
 
 USER bun

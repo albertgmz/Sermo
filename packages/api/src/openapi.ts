@@ -3,6 +3,10 @@ import { type Ctx, getAuth, schema } from "@sermo/core";
 import * as z from "zod";
 import { routeOperations } from "./routes";
 
+// Read at load so a missing file stops the server at boot. The repository root is three levels
+// up from here, in a checkout and in the image.
+const VERSION = readFileSync(new URL("../../../VERSION", import.meta.url), "utf8").trim();
+
 type JsonObject = Record<string, unknown>;
 
 function relocateRefs(value: unknown, schemas: Record<string, unknown>): unknown {
@@ -27,8 +31,8 @@ function relocateRefs(value: unknown, schemas: Record<string, unknown>): unknown
   const keys = (object.propertyNames as { enum?: string[] } | undefined)?.enum;
   if (keys && object.additionalProperties && !object.properties) {
     result.properties = Object.fromEntries(keys.map((key) => [key, result.additionalProperties]));
+    result.additionalProperties = false;
     delete result.propertyNames;
-    delete result.additionalProperties;
   }
   return result;
 }
@@ -247,11 +251,12 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
             "application/json": {
               schema: {
                 type: "object",
-                required: ["id", "url", "visibility"],
+                required: ["id", "url", "byteSize", "contentType"],
                 properties: {
                   id: { type: "integer", minimum: 1 },
                   url: { type: "string" },
-                  visibility: { type: "string", enum: [...schema.FILE_VISIBILITIES] },
+                  byteSize: { type: "integer", minimum: 0 },
+                  contentType: { type: "string" },
                 },
               },
             },
@@ -289,6 +294,8 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
           },
         },
         400: errorResponse("Invalid file ID"),
+        401: errorResponse("Credentials refused"),
+        403: errorResponse("Member banned"),
         404: errorResponse("File not visible"),
         429: errorResponse("Too many requests"),
         503: errorResponse("File storage is unavailable"),
@@ -305,7 +312,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       "seo.sitemapShard",
       "One sitemap shard, named `node-<n>.xml`, `thread-<n>.xml` or `profile-<n>.xml`.",
       "application/xml",
-      { name: "name", schema: { type: "string", pattern: "^(node|thread|profile)-[0-9]+.xml$" } },
+      { name: "name", schema: { type: "string", pattern: "^(node|thread|profile)-[0-9]+\\.xml$" } },
       [400, 404],
     ],
     ["/feed.atom", "seo.siteFeed", "The Atom feed of the site.", "application/atom+xml", null, []],
@@ -315,7 +322,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
       "The Atom feed of one forum; the id may be followed by a slug (`12-general`).",
       "application/atom+xml",
       { name: "nodeId", schema: nodeFeedId },
-      [400],
+      [400, 404],
     ],
     [
       "/{key}.txt",
@@ -347,12 +354,14 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     get: {
       operationId: "getOpenApiDocument",
       summary: "This OpenAPI document.",
-      security: [],
+      security: guestOrMember,
       responses: {
         200: {
           description: "OpenAPI document",
           content: { "application/json": { schema: { type: "object" } } },
         },
+        401: errorResponse("Credentials refused"),
+        403: errorResponse("Member banned"),
         429: errorResponse("Too many requests"),
       },
     },
@@ -404,6 +413,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
   const usedSchemas = new Set<string>();
   collectSchemaRefs(paths, usedSchemas, schemas);
   for (const name of Object.keys(schemas)) if (!usedSchemas.has(name)) delete schemas[name];
+  // Only operation-level `security` is read: the document has no global or path-level entry.
   const usedSchemes = new Set<string>();
   for (const methods of Object.values(paths))
     for (const endpoint of Object.values(methods))
@@ -415,7 +425,7 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     openapi: "3.1.0",
     info: {
       title: "Sermo API",
-      version: readFileSync(new URL("../../../VERSION", import.meta.url), "utf8").trim(),
+      version: VERSION,
       license: { name: "MIT", identifier: "MIT" },
     },
     // Every path above already starts with its own prefix (`/api/v1`, `/api/auth`, or none), so

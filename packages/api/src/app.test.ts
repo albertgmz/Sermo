@@ -395,6 +395,46 @@ test("cross-site multipart upload with a session cookie is rejected", async () =
   expect(sameSite.status).not.toBe(415);
 });
 
+/** The 201 body of an upload must have exactly the fields the OpenAPI document lists, of those types. */
+async function expectDocumentedUploadAnswer(
+  request: ReturnType<typeof setup>["request"],
+  answer: object,
+) {
+  const document = (await (await request("/api/v1/openapi.json")).json()) as {
+    paths: Record<string, Record<string, unknown>>;
+  };
+  const documented = (
+    document.paths["/api/v1/files"]!.post as {
+      responses: Record<
+        string,
+        {
+          content: {
+            "application/json": {
+              schema: {
+                required: string[];
+                properties: Record<string, { type: string; minimum?: number }>;
+              };
+            };
+          };
+        }
+      >;
+    }
+  ).responses["201"]!.content["application/json"].schema;
+  const fields = Object.entries(answer);
+  expect(fields.map(([name]) => name).sort()).toEqual(Object.keys(documented.properties).sort());
+  expect([...documented.required].sort()).toEqual(Object.keys(documented.properties).sort());
+  for (const [name, value] of fields) {
+    const property = documented.properties[name]!;
+    if (property.type === "integer") {
+      expect(Number.isInteger(value), name).toBe(true);
+      expect(value as number, name).toBeGreaterThanOrEqual(property.minimum ?? -Infinity);
+    } else {
+      expect(property.type, name).toBe("string");
+      expect(typeof value, name).toBe("string");
+    }
+  }
+}
+
 test("multipart upload streams through the API and serves with nosniff", async () => {
   const dir = await mkdtemp(join(tmpdir(), "sermo-api-files-"));
   uploadDirs.push(dir);
@@ -413,6 +453,7 @@ test("multipart upload streams through the API and serves with nosniff", async (
   expect(upload.status).toBe(201);
   const file = (await upload.json()) as { id: number; url: string };
   expect(file.url).toBe(`/api/v1/files/${file.id}`);
+  await expectDocumentedUploadAnswer(request, file);
   const hidden = await request(file.url);
   expect(hidden.status).toBe(404);
   const served = await request(file.url, { headers: { cookie } });
@@ -434,6 +475,7 @@ test("multipart upload streams through the API and serves with nosniff", async (
   });
   expect(avatarUpload.status).toBe(201);
   const avatar = (await avatarUpload.json()) as { id: number };
+  await expectDocumentedUploadAnswer(request, avatar);
   const set = await request("/api/v1/profile/avatar", {
     method: "PUT",
     headers: { cookie, origin: "http://localhost:3000", "content-type": "application/json" },
