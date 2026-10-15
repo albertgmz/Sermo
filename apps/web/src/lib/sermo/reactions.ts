@@ -6,6 +6,7 @@ import { cache } from "react";
 import type * as z from "zod";
 import type { ReactionType } from "@/components/forum/reaction-button";
 import type { ReactionPictureData } from "@/components/forum/reaction-picture";
+import type { ReactionsData } from "@/components/forum/reactions-view";
 import { liteBlocks } from "@/lib/lite-mode";
 import { liteCategoryOfPurpose } from "@/lib/lite-preferences";
 import { read } from "./client";
@@ -114,5 +115,27 @@ export function reactionsView(summary: ApiSummary, types: ApiReactionType[]) {
     total: summary.total,
     byType: byType.toSorted((a, b) => b.count - a.count),
     viewerTypeId: summary.mine,
+  };
+}
+
+// Everything the reaction control of one item draws, shaped on the server: the page's `Reactions`
+// and the picture viewer's details both send this. The viewer's own reaction stays in the button
+// even when its type is no longer offered.
+export function reactionsData(
+  item: Pick<ReactionsData, "target" | "id" | "authorId">,
+  reactions: ApiSummary,
+  picker: ReactionType[],
+  types: ApiReactionType[],
+  viewList: boolean,
+): ReactionsData {
+  const held = heldType(picker, reactions.mine, types);
+  return {
+    ...item,
+    total: reactions.total,
+    mine: reactions.mine,
+    view: reactionsView(reactions, types),
+    picker,
+    offered: held ? [...picker, held] : picker,
+    viewList,
   };
 }

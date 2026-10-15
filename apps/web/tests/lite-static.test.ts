@@ -31,6 +31,8 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks brand before emitting the site backdrop picture.",
   "src/components/forum/reaction-picture.tsx":
     "Draws the reaction picture that src/lib/sermo/reactions.ts left in the data: the address is dropped there when the reactions category is blocked, so there is nothing to emit.",
+  "src/components/forum/picture-image.tsx":
+    "Draws the picture of the media viewer that src/lib/sermo/media-pictures.ts left in the data: the address is dropped there when post pictures are blocked, so there is nothing to emit.",
   "src/components/ui/avatar.tsx":
     "Low-level image primitive, used only by the reviewed UserAvatar gate.",
 };

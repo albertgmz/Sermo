@@ -1,18 +1,8 @@
-import { type ReactionTarget, react } from "@/app/[locale]/(main)/actions";
+import type { ReactionTarget } from "@/app/[locale]/(main)/actions";
 import type { ReactionType } from "@/components/forum/reaction-button";
-import { canReact, ReactionControl } from "@/components/forum/reaction-control";
-import { ReactionSummaryLive } from "@/components/forum/reaction-summary-live";
-import { loadReactionUsers } from "@/components/forum/reaction-users-action";
+import { ReactionsView } from "@/components/forum/reactions-view";
 import type { getReactionTypes } from "@/lib/sermo/reactions";
-import { heldType, reactionsView } from "@/lib/sermo/reactions";
-
-// The backend's name of what each target reacts to, as the list of who reacted asks for it.
-const CONTENT_TYPE = {
-  post: "post",
-  profilePost: "profile_post",
-  profileComment: "profile_post_comment",
-  message: "conversation_message",
-} as const satisfies Record<ReactionTarget, string>;
+import { reactionsData } from "@/lib/sermo/reactions";
 
 // The reactions of one item, the same wherever an item can be reacted to: put it first in the
 // item's row of actions. It draws nothing when the viewer has nothing to press and nobody reacted.
@@ -48,39 +38,16 @@ export function Reactions({
   // Whether the viewer may open the list of who reacted (`reaction.viewList`).
   viewList?: boolean;
 }) {
-  const view = reactionsView(reactions, reactionTypes);
-  const stateKey = `reaction:${target}:${id}`;
-  // The viewer's own reaction stays in the button even when its type is no longer offered.
-  const held = heldType(picker, reactions.mine, reactionTypes);
-  const offered = held ? [...picker, held] : picker;
-  const pressable = canReact(viewerId, authorId, offered);
   return (
-    <ReactionControl
-      stateKey={stateKey}
-      action={react.bind(null, target, id)}
-      total={reactions.total}
-      viewerTypeId={reactions.mine}
-      picker={offered}
+    <ReactionsView
+      data={reactionsData(
+        { target, id, authorId },
+        reactions,
+        picker,
+        reactionTypes,
+        viewList,
+      )}
       viewerId={viewerId}
-      authorId={authorId}
-      // Where the viewer can react, the summary may gain its first reaction in place.
-      summary={
-        (view.total > 0 || pressable) && (
-          <ReactionSummaryLive
-            stateKey={stateKey}
-            summary={view}
-            drawnMine={view.viewerTypeId}
-            offered={picker}
-            loadUsers={
-              viewList
-                ? loadReactionUsers.bind(null, CONTENT_TYPE[target], id)
-                : undefined
-            }
-            size={size}
-            showTotal={!pressable}
-          />
-        )
-      }
       size={size}
       part={part}
       className={className}

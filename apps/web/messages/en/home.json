@@ -31,7 +31,27 @@
   },
   "media": {
     "inThread": "Picture in {title}",
-    "onProfile": "Picture on a profile"
+    "onProfile": "Picture on a profile",
+    "wallPost": "Wall post"
+  },
+  "pictureViewer": {
+    "title": "Picture viewer",
+    "picture": "Picture",
+    "close": "Close",
+    "previous": "Previous picture",
+    "next": "Next picture",
+    "blocked": "Pictures are off (LITE mode).",
+    "loading": "Loading the picture details…",
+    "gone": "This picture is no longer available.",
+    "failed": "Could not load the details of this picture.",
+    "retry": "Try again",
+    "inThread": "In {title}",
+    "onWall": "On a profile wall",
+    "replyPlaceholder": "Reply to this thread…",
+    "replySubmit": "Reply",
+    "commentPlaceholder": "Write a comment…",
+    "commentSubmit": "Comment",
+    "signIn": "Sign in to react or comment"
   },
   "layout": {
     "loadingNavigation": "Loading navigation…"

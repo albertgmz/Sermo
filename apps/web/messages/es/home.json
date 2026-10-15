@@ -31,7 +31,27 @@
   },
   "media": {
     "inThread": "Imagen en {title}",
-    "onProfile": "Imagen en un perfil"
+    "onProfile": "Imagen en un perfil",
+    "wallPost": "Publicación del muro"
+  },
+  "pictureViewer": {
+    "title": "Visor de imágenes",
+    "picture": "Imagen",
+    "close": "Cerrar",
+    "previous": "Imagen anterior",
+    "next": "Imagen siguiente",
+    "blocked": "Las imágenes están desactivadas (modo LITE).",
+    "loading": "Cargando los detalles de la imagen…",
+    "gone": "Esta imagen ya no está disponible.",
+    "failed": "No se pudieron cargar los detalles de esta imagen.",
+    "retry": "Reintentar",
+    "inThread": "En {title}",
+    "onWall": "En el muro de un perfil",
+    "replyPlaceholder": "Responde a este hilo…",
+    "replySubmit": "Responder",
+    "commentPlaceholder": "Escribe un comentario…",
+    "commentSubmit": "Comentar",
+    "signIn": "Inicia sesión para reaccionar o comentar"
   },
   "layout": {
     "loadingNavigation": "Cargando navegación…"

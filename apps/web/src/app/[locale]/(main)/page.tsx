@@ -26,6 +26,7 @@ import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
 import { PagedList } from "@/components/forum/paged-list";
+import { PictureViewer } from "@/components/forum/picture-viewer";
 import {
   FeedSkeleton,
   LoadingRegion,
@@ -281,16 +282,18 @@ async function HomeMedia({ params }: { params: Params }) {
       className="rounded-lg border bg-card"
     />
   ) : (
-    <PagedList
-      first={first}
-      more={moreMedia}
-      pages={pagesParam(params.pages)}
-      start={cursor}
-      listKey={["media"]}
-      hrefBase={homeHref("media")}
-      moreLabel={t("loadMore")}
-      estimateSize={720}
-      spacing="spaced"
-    />
+    <PictureViewer>
+      <PagedList
+        first={first}
+        more={moreMedia}
+        pages={pagesParam(params.pages)}
+        start={cursor}
+        listKey={["media"]}
+        hrefBase={homeHref("media")}
+        moreLabel={t("loadMore")}
+        estimateSize={720}
+        spacing="spaced"
+      />
+    </PictureViewer>
   );
 }

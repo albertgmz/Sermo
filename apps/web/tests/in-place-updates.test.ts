@@ -53,7 +53,7 @@ test("every follow button of a member and every control of an item shares one ke
   expect(source("components/forum/bookmark-button.tsx")).toContain(
     "`bookmark:",
   );
-  expect(source("components/forum/reactions.tsx")).toContain("`reaction:");
+  expect(source("components/forum/reactions-view.tsx")).toContain("`reaction:");
 });
 
 test("the reply forms show the text at once through the tail and keep a refused one", () => {
