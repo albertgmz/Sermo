@@ -89,3 +89,11 @@ test("a caret inside code is inside its text", () => {
   expect(placed(code, at)?.before).toBe("let b");
   expect(charsBefore(code, at)).toBe("textleta=1;letb".length);
 });
+
+test("an emoticon or a bracket that starts no tag does not pull the caret back", () => {
+  const text = "I am sad :[ but more text";
+  expect(charsBefore(text, text.length)).toBe(text.replace(/\s/g, "").length);
+  expect(charsBefore("a[0 b", 5)).toBe(4);
+  // A tag being typed still does.
+  expect(charsBefore("ab [/I", 6)).toBe(2);
+});

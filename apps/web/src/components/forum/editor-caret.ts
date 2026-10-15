@@ -30,7 +30,13 @@ export function charsBefore(source: string, offset: number): number {
   // Not in the middle of a tag.
   let end = Math.min(offset, source.length);
   const open = source.lastIndexOf("[", end - 1);
-  if (open >= 0 && !source.slice(open, end).includes("]")) end = open;
+  // Only a tag's start counts (`[B`, `[/I`, `[*`): an emoticon `:[`, `[1` or `a[0` is text.
+  if (
+    open >= 0 &&
+    /^\[\/?[A-Za-z*]/.test(source.slice(open, end)) &&
+    !source.slice(open, end).includes("]")
+  )
+    end = open;
   // Inside code or a bare address, whose content is text: what is before it is read as usual and
   // its content counts as it is.
   const find = closerFinder(source);

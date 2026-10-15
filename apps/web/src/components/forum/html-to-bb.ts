@@ -144,21 +144,24 @@ const SIBLINGS = 400;
 
 // Such text is put between PLAIN tags to stay text. Between those tags a closing PLAIN tag cannot
 // be written, so it is broken by an invisible character. A tag that begins in this text and ends
-// in what follows it is found too.
-function literal(text: string, after: () => string): string {
+// in what follows it is found too; when what follows could not be read far enough (`null`), the
+// text is kept as text all the same.
+function literal(text: string, after: () => string | null): string {
   const open = text.lastIndexOf("[");
   const dangling =
     open >= 0 && text.length - open <= REACH && !text.includes("]", open);
-  const found = TAG_TEXT.exec(dangling ? text + after() : text);
-  if (!found || found.index >= text.length) return text;
+  const rest = dangling ? after() : "";
+  const found = rest === null ? null : TAG_TEXT.exec(text + rest);
+  if (rest !== null && (!found || found.index >= text.length)) return text;
   return `[PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/\u200b$1]")}[/PLAIN]`;
 }
 
 type Context = {
   link: boolean;
   marks: ReadonlySet<string>;
-  // The text of what comes after the node being read.
-  after: () => string;
+  // The text of what comes after the node being read; null when it was not read as far as a tag
+  // can reach.
+  after: () => string | null;
 };
 
 function kidsOf(node: DomNode, context: Context): string {
@@ -168,15 +171,15 @@ function kidsOf(node: DomNode, context: Context): string {
     // What follows a child: its next siblings, then what follows its parent.
     const after = () => {
       let text = "";
+      let k = i + 1;
       // As far as a tag can reach, in characters and in siblings (empty ones add no text).
-      for (
-        let k = i + 1;
-        k < kids.length && k - i <= SIBLINGS && text.length < REACH;
-        k++
-      ) {
+      for (; k < kids.length && k - i <= SIBLINGS && text.length < REACH; k++) {
         text += (kids[k].textContent ?? "").slice(0, REACH);
       }
-      return text.length < REACH ? text + context.after() : text;
+      if (text.length >= REACH) return text;
+      if (k < kids.length) return null;
+      const rest = context.after();
+      return rest === null ? null : text + rest;
     };
     out += walk(kids[i], { ...context, after });
   }

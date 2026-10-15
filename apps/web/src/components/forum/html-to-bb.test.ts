@@ -380,3 +380,12 @@ test("text that opens tags over and over is read in a short time", () => {
     expect(performance.now() - start, unit).toBeLessThan(400);
   }
 });
+
+test("a tag split past the look-ahead's reach stays text", () => {
+  const empty: Kid[] = [];
+  for (let k = 0; k < 500; k++) empty.push(h("i", {}));
+  const out = htmlToBb(
+    root(h("p", {}, h("span", {}, "[/"), ...empty, h("span", {}, "B]"))),
+  );
+  expect(out).toBe("[PLAIN][/[/PLAIN]B]");
+});
