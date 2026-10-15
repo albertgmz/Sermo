@@ -21,6 +21,7 @@ export * from "./profiles";
 export * from "./promotions";
 export * from "./reactions";
 export * from "./search";
+export * from "./security";
 export * from "./seo";
 export * from "./settings";
 export * from "./shop";

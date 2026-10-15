@@ -42,6 +42,7 @@ async function Details({
   const readOnly = isReadOnly(member);
   const sanctions = hrefFor(viewer, "usersSanctions");
   const sessions = hrefFor(viewer, "usersSessions");
+  const addresses = hrefFor(viewer, "moderationIps");
   const pictures = [
     { which: "avatar", set: member.card.avatar !== null },
     { which: "cover", set: profile ? profile.cover !== null : null },
@@ -112,6 +113,11 @@ async function Details({
               className={link}
             >
               {t("signOutEverywhere")}
+            </Link>
+          )}
+          {addresses && (
+            <Link href={`${addresses}?member=${userId}`} className={link}>
+              {t("ipAddresses")}
             </Link>
           )}
         </div>

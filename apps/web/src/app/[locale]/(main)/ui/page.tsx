@@ -31,7 +31,7 @@ import { StaffDemos } from "@/app/[locale]/(main)/ui/staff-demos";
 import { Art } from "@/components/forum/art";
 import { AttachmentField } from "@/components/forum/attachment-field";
 import { AwardIcon, AwardRow } from "@/components/forum/award-icon";
-import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
+import { ClientIcons } from "@/components/forum/client-icons";
 import { CollapsiblePanel } from "@/components/forum/collapsible-panel";
 import { CompactComposer } from "@/components/forum/compact-composer";
 import { ContentActions } from "@/components/forum/content-actions";
@@ -121,7 +121,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import type { Browser, Os } from "@/lib/client";
 import {
   formatCompact,
   formatDate,
@@ -250,16 +249,14 @@ const LEADERBOARD_KINDS = [
   "referrals",
 ] as const;
 
-const BROWSERS: Browser[] = [
-  "chrome",
-  "firefox",
-  "safari",
-  "edge",
-  "opera",
-  "other",
+const CLIENTS = [
+  { browser: "Chrome", os: "Windows" },
+  { browser: "Firefox", os: "Mac" },
+  { browser: "Mobile Safari", os: "iOS" },
+  { browser: "Microsoft Edge", os: "Android" },
+  { browser: "Opera", os: "GNU/Linux" },
+  { browser: null, os: null },
 ];
-
-const SYSTEMS: Os[] = ["windows", "macos", "linux", "android", "ios", "other"];
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg", "xl", "2xl"] as const;
 
@@ -1072,17 +1069,18 @@ export default async function StyleguidePage() {
 
         <Section title="Client icons">
           <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-6">
-            {BROWSERS.map((browser, index) => {
-              const client = { browser, os: SYSTEMS[index] };
-              return (
-                <li key={browser} className="flex items-center gap-2">
-                  <ClientIcons client={client} />
-                  <span className="truncate text-muted-foreground">
-                    {clientLabel(client)}
-                  </span>
-                </li>
-              );
-            })}
+            {CLIENTS.map((client) => (
+              <li
+                key={client.browser ?? "unknown"}
+                className="flex items-center gap-2"
+              >
+                <ClientIcons client={client} />
+                <span className="truncate text-muted-foreground">
+                  {client.browser ?? "Unknown browser"} on{" "}
+                  {client.os ?? "unknown system"}
+                </span>
+              </li>
+            ))}
           </ul>
         </Section>
 

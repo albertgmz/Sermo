@@ -11,6 +11,8 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { getAuth, markSessionsRevoked, revokeApiKeys } from "../auth";
 import { appendModeratorLog } from "../moderation";
+import { parseAddress } from "../security/address";
+import { deviceOf } from "../security/device";
 import { requireHeld, requireNotErased, requireTakeoverRights, targetMember } from "./shared";
 
 const SESSION_LIMIT = 100;
@@ -43,8 +45,9 @@ export const usersAdminSessionsOp = implement(usersAdminSessions, (ctx, actor, i
         id: row.id,
         createdAt: iso(row.created_at),
         expiresAt: iso(row.expires_at),
-        ipAddress: row.ip_address,
+        ipAddress: row.ip_address ? (parseAddress(row.ip_address)?.ip ?? row.ip_address) : null,
         userAgent: row.user_agent,
+        device: deviceOf(row.user_agent),
       })),
   };
 });

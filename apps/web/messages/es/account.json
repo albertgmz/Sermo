@@ -395,7 +395,6 @@
     "logoutHeading": "Cerrar sesión",
     "logoutDescription": "Termina tu sesión en este navegador.",
     "logout": "Cerrar sesión",
-    "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Navegador desconocido}} en {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {sistema desconocido}}",
     "currentDevice": "Este dispositivo",
     "sessionDates": "Sesión iniciada <createdTime>{created}</createdTime><separator> · </separator>Caduca <expiresTime>{expires}</expiresTime>",
     "sessionIp": "Dirección IP {ip}",

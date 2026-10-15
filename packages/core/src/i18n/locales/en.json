@@ -210,6 +210,8 @@
   "permission.wordFilter.manage.description": "Allows word filter manage.",
   "permission.moderatorLog.view": "moderator log view",
   "permission.moderatorLog.view.description": "Allows moderator log view.",
+  "permission.member.viewIps": "View IPs",
+  "permission.member.viewIps.description": "See the IP addresses members signed in, registered and posted from, and which members share an address.",
   "permission.credits.adjust": "Adjust credits",
   "permission.credits.adjust.description": "Allows giving or taking credits with a reason and queuing a balance repair.",
   "permission.credits.viewAny": "View all credit histories",

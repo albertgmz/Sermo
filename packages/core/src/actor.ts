@@ -36,7 +36,12 @@ export interface PermissionVersions {
  * load it from the database.
  */
 export type Actor =
-  | { readonly kind: "guest"; readonly versions?: PermissionVersions }
+  | {
+      readonly kind: "guest";
+      readonly versions?: PermissionVersions;
+      /** The request's user agent, supplied by the HTTP actor resolver when available. */
+      readonly userAgent?: string;
+    }
   | {
       readonly kind: "user";
       readonly userId: number;
@@ -45,6 +50,7 @@ export type Actor =
       readonly sessionId: number;
       /** Trusted client IP supplied by the HTTP actor resolver when available. */
       readonly clientIp?: string;
+      readonly userAgent?: string;
       readonly principal?: Principal;
       /**
        * Set only by the HTTP layer on an actor it resolved from a browser session cookie. An
@@ -59,6 +65,7 @@ export type Actor =
       readonly groupId: number;
       readonly tokenId: number;
       readonly clientIp?: string;
+      readonly userAgent?: string;
       readonly principal?: Principal;
     };
 

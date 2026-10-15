@@ -24,6 +24,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { logIp } from "../security/log";
 import {
   COMMENTS_SQL,
   type CommentRow,
@@ -111,6 +112,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
           ),
         ).run(row.created_at, post.id);
       if (row.state === "visible") touchProfile(ctx, post.profile_user_id);
+      logIp(ctx, actor, "profile_post_comment", { type: "profile_post_comment", id: row.id });
       publishEvent(ctx, {
         type: "content.created",
         targetType: "profile_post_comment",

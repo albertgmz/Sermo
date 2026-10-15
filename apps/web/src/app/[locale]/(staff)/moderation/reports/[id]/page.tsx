@@ -7,6 +7,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ContentIp } from "@/components/staff/content-ip";
 import { Notice } from "@/components/staff/notice";
 import { Help, linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +164,7 @@ async function Case({
           <p className="text-xs">
             <Where where={detail.where} name={name} />
           </p>
+          <ContentIp from={detail.ipFrom} />
         </div>
       </Section>
       <Section heading={t("reportsHeading")}>

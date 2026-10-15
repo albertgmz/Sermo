@@ -566,6 +566,12 @@ export const SECTIONS = [
         built: true,
         listed: false,
       },
+      {
+        key: "moderationIps",
+        path: "/moderation/ips",
+        access: ["member.viewIps"],
+        built: true,
+      },
     ],
   },
   {

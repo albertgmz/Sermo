@@ -8,6 +8,7 @@ import {
   ReportTarget,
   threadsGet,
 } from "@sermo/core/contracts";
+import type { ContentRef } from "@/components/staff/content-ip";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 
@@ -36,6 +37,8 @@ export type Described = {
     title?: string;
   } | null;
   createdAt: string | null;
+  // What the IP log knows the content by (a thread by its first post), for "View IPs".
+  ipFrom: ContentRef | null;
 };
 
 const EXCERPT = 140;
@@ -84,6 +87,7 @@ const nothing: Described = {
   href: null,
   where: null,
   createdAt: null,
+  ipFrom: null,
 };
 
 // The detail pages' read of a target. The queues' rows carry their own excerpt and place.
@@ -109,6 +113,7 @@ export async function describe(
         title: thread?.thread.title,
       },
       createdAt: post.createdAt,
+      ipFrom: { type: "post", id: post.id },
     };
   }
   if (type === "thread") {
@@ -128,6 +133,7 @@ export async function describe(
       href: `/threads/${thread.id}`,
       where: { kind: "forum", id: thread.node.id, title: thread.node.title },
       createdAt: thread.createdAt,
+      ipFrom: { type: "post", id: thread.firstPostId },
     };
   }
   if (type === "profile_post") {
@@ -143,6 +149,7 @@ export async function describe(
       href: `/members/${post.profileUserId}#profile-post-${post.id}`,
       where: { kind: "wall", id: post.profileUserId },
       createdAt: post.createdAt,
+      ipFrom: { type: "profile_post", id: post.id },
     };
   }
   if (type === "profile_post_comment") {
@@ -163,6 +170,7 @@ export async function describe(
         : null,
       where: post ? { kind: "wall", id: post.profileUserId } : null,
       createdAt: comment.createdAt,
+      ipFrom: { type: "profile_post_comment", id: comment.id },
     };
   }
   return nothing;

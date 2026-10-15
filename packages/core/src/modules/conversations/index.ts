@@ -35,6 +35,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { logIp } from "../security/log";
 
 interface ConversationRow {
   id: number;
@@ -402,6 +403,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       insert.run(conversationId, starter.userId, now, messageId);
       for (const id of ids)
         insert.run(conversationId, id, now, decision.moderated || spam ? messageId : 0);
+      logIp(ctx, actor, "conversation_message", { type: "conversation_message", id: messageId });
       publishEvent(ctx, {
         type: "conversation.participants_added",
         targetType: "conversation",
@@ -497,6 +499,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       storeSpoilers(ctx, "conversation_message", id, refs.spoilers);
       setAttachments(ctx, user.userId, "conversation_message", id, input.attachmentIds ?? []);
       validateEmbeddedAttachments(ctx, "conversation_message", id, html);
+      logIp(ctx, actor, "conversation_message", { type: "conversation_message", id });
       if (!decision.moderated && !spam) {
         prepared(ctx, "conversations.updateLastMessage", () =>
           ctx.sqlite.prepare(

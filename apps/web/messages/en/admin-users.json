@@ -122,7 +122,8 @@
     "accountHeading": "Account state",
     "erasedOn": "Erased on {date, date, medium}.",
     "sanctions": "Sanctions",
-    "signOutEverywhere": "Sign out everywhere"
+    "signOutEverywhere": "Sign out everywhere",
+    "ipAddresses": "IP addresses"
   },
   "erase": {
     "heading": "Delete member",

@@ -23,6 +23,7 @@ import { operations as promotions } from "./modules/promotions";
 import { operations as push } from "./modules/push";
 import { operations as reactions } from "./modules/reactions";
 import { operations as search } from "./modules/search";
+import { operations as security } from "./modules/security";
 import { operations as seo } from "./modules/seo";
 import { operations as settings } from "./modules/settings";
 import { operations as shop } from "./modules/shop";
@@ -45,6 +46,7 @@ export const operations: readonly AnyOperation[] = [
   ...email,
   ...reactions,
   ...search,
+  ...security,
   ...bookmarks,
   ...jobs,
   ...settings,

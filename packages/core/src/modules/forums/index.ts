@@ -45,6 +45,8 @@ import {
   recordPostRevision,
   withSpamCheck,
 } from "../moderation";
+import { deviceOf } from "../security/device";
+import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
@@ -981,7 +983,9 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
     targetId = next;
   }
   const { row, node } = requireThread(ctx, actor, targetId);
-  if (input.countView) ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
+  // Crawlers read threads too: their visits are not views.
+  if (input.countView && !deviceOf(actor.userAgent).isBot)
+    ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
   const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
@@ -1407,6 +1411,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
           .run(user.userId);
       }
       markRead(ctx, user.userId, thread.id, post.id, 0);
+      logIp(ctx, actor, "thread", { type: "post", id: post.id });
       publishEvent(ctx, { type: "content.created", targetType: "thread", targetId: thread.id });
       publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
       return { threadId: thread.id, postId: post.id };
@@ -1485,6 +1490,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
           .run(user.userId);
       }
       markRead(ctx, user.userId, row.id, post.id, position);
+      logIp(ctx, actor, "post", { type: "post", id: post.id });
       publishEvent(ctx, { type: "content.created", targetType: "post", targetId: post.id });
       return post.id;
     });

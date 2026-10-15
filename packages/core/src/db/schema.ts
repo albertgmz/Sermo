@@ -361,6 +361,72 @@ export const signInFailures = sqliteTable(
   (t) => [index("sign_in_failures_key").on(t.key, t.at), index("sign_in_failures_at").on(t.at)],
 );
 
+export const IP_ACTIONS = [
+  "sign_in",
+  "sign_in_failed",
+  "register",
+  "post",
+  "thread",
+  "conversation_message",
+  "profile_post",
+  "profile_post_comment",
+  "report",
+] as const;
+export type IpAction = (typeof IP_ACTIONS)[number];
+/** What an `ip_log` row's content reference points at (a thread's row points at its first post). */
+export const IP_CONTENT_TYPES = [
+  "post",
+  "conversation_message",
+  "profile_post",
+  "profile_post_comment",
+  "report",
+] as const;
+export type IpContentType = (typeof IP_CONTENT_TYPES)[number];
+
+/**
+ * One row per sign-in (failed ones too), registration, post, thread, conversation message,
+ * profile post, comment and report: who, from which address, doing what, and the device the
+ * request came from. `ip` is normalised (an IPv4-mapped IPv6 address is stored as IPv4) and
+ * `ip_net` is the address for IPv4 and its /64 network for IPv6 (`2001:db8:1:2::/64`), so
+ * members behind one connection group together. The raw user agent is never stored. Rows are
+ * written in the transaction of the action; erasing a member deletes theirs. Failed sign-ins
+ * are never shown by the staff views (they filter on `action`, which the indexes carry, and
+ * the network index leaves them out), so a stranger guessing at an account does not tie their
+ * address to it.
+ */
+export const ipLog = sqliteTable(
+  "ip_log",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ip: text("ip").notNull(),
+    ipNet: text("ip_net").notNull(),
+    action: text("action", { enum: IP_ACTIONS }).notNull(),
+    contentType: text("content_type", { enum: IP_CONTENT_TYPES }),
+    contentId: integer("content_id"),
+    browser: text("browser"),
+    os: text("os"),
+    deviceType: text("device_type"),
+    brand: text("brand"),
+    model: text("model"),
+    isBot: bool("is_bot").notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    // members.ips: one member's addresses with counts and first/last seen, from the index alone;
+    // it also serves the erase, so it holds every row of the member
+    index("ip_log_member_ip").on(t.userId, t.ip, t.createdAt, t.action),
+    // ips.members: who used an address (or an IPv6 /64), from the index alone
+    index("ip_log_net_member")
+      .on(t.ipNet, t.userId, t.createdAt, t.action)
+      .where(sql`action <> 'sign_in_failed'`),
+    // ips.content: the address a piece of content was made from
+    index("ip_log_content").on(t.contentType, t.contentId).where(sql`content_id IS NOT NULL`),
+  ],
+);
+
 /** Secondary groups assigned by hand. */
 export const userGroups = sqliteTable(
   "user_groups",

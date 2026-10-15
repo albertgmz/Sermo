@@ -419,6 +419,8 @@ export const PERMISSIONS = {
   "wordFilter.view": globalModerator("moderation"),
   "wordFilter.manage": globalAdmin("moderation"),
   "moderatorLog.view": globalAdmin("moderation"),
+  /** See the addresses members signed in, registered and posted from, and who shares them. */
+  "member.viewIps": globalAdmin("moderation"),
 
   // Economy (global) --------------------------------------------------------------------
   /** Give or take credits by hand, with a reason. */

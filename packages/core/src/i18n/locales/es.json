@@ -210,6 +210,8 @@
   "permission.wordFilter.manage.description": "Gestionar el filtro de palabras.",
   "permission.moderatorLog.view": "Ver el registro de moderación",
   "permission.moderatorLog.view.description": "Ver el registro de moderación.",
+  "permission.member.viewIps": "Ver IP",
+  "permission.member.viewIps.description": "Ver las direcciones IP desde las que los miembros iniciaron sesión, se registraron y publicaron, y qué miembros comparten una dirección.",
   "permission.credits.adjust": "Ajustar créditos",
   "permission.credits.adjust.description": "Permite añadir o quitar créditos indicando un motivo y poner en cola una reparación de saldos.",
   "permission.credits.viewAny": "Ver todos los historiales de créditos",

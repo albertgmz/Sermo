@@ -2,11 +2,11 @@ import { usersAdminSessions } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
 import { getFormatter, getTranslations } from "next-intl/server";
+import { ClientIcons } from "@/components/forum/client-icons";
 import { EmptyState } from "@/components/forum/empty-state";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import { Notice } from "@/components/staff/notice";
 import { Help, Section } from "@/components/staff/rows";
-import { shortAddress } from "@/lib/ip-address";
 import { read } from "@/lib/sermo/client";
 import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../../data";
 import { TabPage } from "../../tab-page";
@@ -77,12 +77,11 @@ async function Sessions({
                   </dd>
                   <dt className="text-muted-foreground">{t("address")}</dt>
                   <dd className="[overflow-wrap:anywhere]">
-                    {session.ipAddress
-                      ? shortAddress(session.ipAddress)
-                      : t("unknown")}
+                    {session.ipAddress ?? t("unknown")}
                   </dd>
                   <dt className="text-muted-foreground">{t("userAgent")}</dt>
-                  <dd className="[overflow-wrap:anywhere]">
+                  <dd className="flex flex-wrap items-center gap-x-2 [overflow-wrap:anywhere]">
+                    <ClientIcons client={session.device} />
                     {session.userAgent ?? t("unknown")}
                   </dd>
                 </dl>

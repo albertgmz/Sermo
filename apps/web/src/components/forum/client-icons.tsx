@@ -1,12 +1,42 @@
+import type { Device } from "@sermo/core/contracts";
 import { useTranslations } from "next-intl";
+import type * as z from "zod";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { Browser, ClientInfo, Os } from "@/lib/client";
 import { cn } from "@/lib/utils";
-import messages from "../../../messages/en/forum.json";
+
+// What the backend parsed from a user agent and stored: only its names are shown. The icons are
+// picked from the names (a "Chrome Mobile" or "Microsoft Edge" is still Chrome or Edge).
+type Client = Pick<z.output<typeof Device>, "browser" | "os">;
+type Browser = "chrome" | "firefox" | "safari" | "edge" | "opera" | "other";
+type Os = "windows" | "macos" | "linux" | "android" | "ios" | "other";
+
+const BROWSER_NAMES: [Browser, RegExp][] = [
+  ["edge", /edge/i],
+  ["opera", /opera/i],
+  ["firefox", /firefox/i],
+  ["chrome", /chrom/i],
+  ["safari", /safari/i],
+];
+
+const SYSTEM_NAMES: [Os, RegExp][] = [
+  ["android", /android/i],
+  ["ios", /^i(?:pad)?os$/i],
+  ["windows", /windows/i],
+  ["macos", /^mac/i],
+  ["linux", /linux|ubuntu|debian|fedora|chrome os/i],
+];
+
+const browserOf = (client: Client): Browser =>
+  BROWSER_NAMES.find(([, pattern]) =>
+    pattern.test(client.browser ?? ""),
+  )?.[0] ?? "other";
+const systemOf = (client: Client): Os =>
+  SYSTEM_NAMES.find(([, pattern]) => pattern.test(client.os ?? ""))?.[0] ??
+  "other";
 
 const FILLED = {
   fill: "currentColor",
@@ -21,12 +51,8 @@ const APPLE = (
   />
 );
 
-const BROWSERS: Record<
-  Browser,
-  { label: string | null; glyph: React.ReactNode }
-> = {
+const BROWSERS: Record<Browser, { glyph: React.ReactNode }> = {
   chrome: {
-    label: "Chrome",
     glyph: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -36,7 +62,6 @@ const BROWSERS: Record<
     ),
   },
   firefox: {
-    label: "Firefox",
     glyph: (
       <path
         {...FILLED}
@@ -45,7 +70,6 @@ const BROWSERS: Record<
     ),
   },
   safari: {
-    label: "Safari",
     glyph: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -57,7 +81,6 @@ const BROWSERS: Record<
     ),
   },
   edge: {
-    label: "Edge",
     glyph: (
       <path
         {...FILLED}
@@ -66,7 +89,6 @@ const BROWSERS: Record<
     ),
   },
   opera: {
-    label: "Opera",
     glyph: (
       <path
         {...FILLED}
@@ -75,7 +97,6 @@ const BROWSERS: Record<
     ),
   },
   other: {
-    label: null,
     glyph: (
       <>
         <circle cx="12" cy="12" r="10" />
@@ -86,9 +107,8 @@ const BROWSERS: Record<
   },
 };
 
-const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
+const SYSTEMS: Record<Os, { glyph: React.ReactNode }> = {
   windows: {
-    label: "Windows",
     glyph: (
       <path
         {...FILLED}
@@ -96,9 +116,8 @@ const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
       />
     ),
   },
-  macos: { label: "macOS", glyph: APPLE },
+  macos: { glyph: APPLE },
   linux: {
-    label: "Linux",
     glyph: (
       <path
         {...FILLED}
@@ -107,7 +126,6 @@ const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
     ),
   },
   android: {
-    label: "Android",
     glyph: (
       <path
         {...FILLED}
@@ -115,9 +133,8 @@ const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
       />
     ),
   },
-  ios: { label: "iOS", glyph: APPLE },
+  ios: { glyph: APPLE },
   other: {
-    label: null,
     glyph: (
       <>
         <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -129,22 +146,12 @@ const SYSTEMS: Record<Os, { label: string | null; glyph: React.ReactNode }> = {
 
 type Translate = ReturnType<typeof useTranslations<"forum.clientIcons">>;
 
-function label(client: ClientInfo, t: Translate): string {
+// "Chrome on Windows", with a stand-in for a name the backend could not parse.
+export function clientLabel(client: Client, t: Translate): string {
   return t("label", {
-    browser: BROWSERS[client.browser].label ?? t("unknownBrowser"),
-    system: SYSTEMS[client.os].label ?? t("unknownSystem"),
+    browser: client.browser ?? t("unknownBrowser"),
+    system: client.os ?? t("unknownSystem"),
   });
-}
-
-// Plain-text label for callers that cannot use the hook (the styleguide).
-export function clientLabel(client: ClientInfo): string {
-  const { clientIcons } = messages;
-  return clientIcons.label
-    .replace(
-      "{browser}",
-      BROWSERS[client.browser].label ?? clientIcons.unknownBrowser,
-    )
-    .replace("{system}", SYSTEMS[client.os].label ?? clientIcons.unknownSystem);
 }
 
 function Glyph({ children }: { children: React.ReactNode }) {
@@ -168,11 +175,11 @@ export function ClientIcons({
   client,
   className,
 }: {
-  client: ClientInfo;
+  client: Client;
   className?: string;
 }) {
   const t = useTranslations("forum.clientIcons");
-  const text = label(client, t);
+  const text = clientLabel(client, t);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -187,8 +194,8 @@ export function ClientIcons({
           />
         }
       >
-        <Glyph>{BROWSERS[client.browser].glyph}</Glyph>
-        <Glyph>{SYSTEMS[client.os].glyph}</Glyph>
+        <Glyph>{BROWSERS[browserOf(client)].glyph}</Glyph>
+        <Glyph>{SYSTEMS[systemOf(client)].glyph}</Glyph>
       </TooltipTrigger>
       <TooltipContent>{text}</TooltipContent>
     </Tooltip>

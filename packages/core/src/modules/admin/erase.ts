@@ -10,6 +10,7 @@ import { deletePendingTokens, getAuth, markSessionsRevoked, revokeUserCredential
 import { renameThroughAuth } from "../auth/username";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog, insertAuthorizedBan } from "../moderation";
+import { ipLogSql } from "../security/log";
 import { endMemberFollows } from "../social";
 import { requireTakeoverRights, targetMember, verifyActorPassword } from "./shared";
 import { assertOtherSuperAdmin, isSuperAdminRow } from "./super-admin";
@@ -137,6 +138,7 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
     prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(input.userId);
     ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, "");
     ctx.sqlite.prepare(eraseSql.pushDevices).run(input.userId);
+    ctx.sqlite.prepare(ipLogSql.erase).run(input.userId);
     ctx.sqlite.prepare(eraseSql.uncountReferral).run(input.userId);
     ctx.sqlite.prepare(eraseSql.endReferrals).run(input.userId);
   });

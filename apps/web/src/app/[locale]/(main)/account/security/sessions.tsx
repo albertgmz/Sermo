@@ -1,3 +1,4 @@
+import { authSessionDevices } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
@@ -8,13 +9,13 @@ import {
   Notice,
   noticeOf,
 } from "@/app/[locale]/(main)/account/security/notice";
-import { ClientIcons } from "@/components/forum/client-icons";
+import { ClientIcons, clientLabel } from "@/components/forum/client-icons";
 import { PendingButton } from "@/components/forum/pending-button";
 import { Badge } from "@/components/ui/badge";
-import { parseUserAgent } from "@/lib/client";
 import { formatDateTime } from "@/lib/format";
-import { shortAddress } from "@/lib/ip-address";
 import { getCurrentAccount, listSessions } from "@/lib/sermo/auth";
+import { call } from "@/lib/sermo/client";
+import { SermoError } from "@/lib/sermo/errors";
 
 export async function Sessions({
   searchParams,
@@ -22,22 +23,32 @@ export async function Sessions({
   searchParams: Promise<{ notice?: string | string[] }>;
 }) {
   const locale = await getLocale();
-  const [t, listing, account, notice] = await Promise.all([
+  const [t, icons, listing, account, devices, notice] = await Promise.all([
     getTranslations("account.security"),
+    getTranslations("forum.clientIcons"),
     listSessions(),
     getCurrentAccount(),
+    // The device and address the backend stored for each session; a session without them is
+    // shown as an unknown device.
+    call(authSessionDevices, {}).catch((error) => {
+      if (error instanceof SermoError) return { items: [] };
+      throw error;
+    }),
     noticeOf(searchParams, ["revoked", "others", "revokeFailed"]),
   ]);
+  const known = new Map(
+    devices.items.map((item) => [String(item.sessionId), item]),
+  );
   if (!account || listing.code === "UNAUTHORIZED") redirect("/login");
   // Only what is shown reaches the page: the token of a session stays on the server.
   const sessions = listing.sessions
     .map((session) => ({
       id: session.id,
       current: session.id === account.sessionId,
-      client: parseUserAgent(session.userAgent ?? ""),
+      client: known.get(session.id)?.device ?? { browser: null, os: null },
       createdAt: session.createdAt,
       expiresAt: session.expiresAt,
-      ipAddress: session.ipAddress,
+      ipAddress: known.get(session.id)?.ipAddress ?? session.ipAddress,
     }))
     .sort((a, b) => Number(b.current) - Number(a.current));
   const failure = listing.ok
@@ -62,10 +73,7 @@ export async function Sessions({
       ) : sessions.length ? (
         <ul className="divide-y">
           {sessions.map((session) => {
-            const device = t("deviceLabel", {
-              browser: session.client.browser,
-              os: session.client.os,
-            });
+            const device = clientLabel(session.client, icons);
             return (
               <li
                 key={session.id}
@@ -96,7 +104,7 @@ export async function Sessions({
                   </p>
                   {session.ipAddress && (
                     <p className="text-xs break-all text-muted-foreground">
-                      {t("sessionIp", { ip: shortAddress(session.ipAddress) })}
+                      {t("sessionIp", { ip: session.ipAddress })}
                     </p>
                   )}
                 </div>

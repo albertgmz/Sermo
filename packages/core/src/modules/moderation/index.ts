@@ -31,6 +31,7 @@ import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from ".
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
+import { logIp } from "../security/log";
 import { readSiteSettings } from "../settings";
 import { reportsViewConversationMessageOp } from "./conversation-reports";
 import { type Notice, noticeForOther } from "./notify";
@@ -391,6 +392,7 @@ export function createReport(ctx: Ctx, actor: Actor, target: Target, reason: str
       "UPDATE report_groups SET report_count = report_count + 1 WHERE id = ?1",
       group.id,
     );
+    logIp(ctx, actor, "report", { type: "report", id });
     publishEvent(ctx, {
       type: "report.created",
       targetType: "report_group",

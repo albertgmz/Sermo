@@ -169,5 +169,29 @@
     "rejectDescription": "Deletes the content. Everyone but those who may see deleted content stops seeing it.",
     "rejectSubmit": "Reject and delete",
     "loading": "Loading the item…"
+  },
+  "ips": {
+    "metaTitle": "IP addresses",
+    "heading": "IP addresses",
+    "subtitle": "Find the members who used an address, or see every address one member used. IPv6 addresses are grouped by their /64 network.",
+    "loading": "Loading the addresses…",
+    "filters": "Look up an address",
+    "address": "Address",
+    "addressHelp": "An IPv4 or IPv6 address, or an IPv6 network written like 2001:db8:1:2::/64.",
+    "lookup": "Look up",
+    "reset": "Reset",
+    "invalid": "That is not an IPv4 or IPv6 address.",
+    "membersHeading": "Members who used {network}",
+    "membersEmptyTitle": "No members used this address",
+    "membersEmptyDescription": "Failed sign-ins are not counted, and nothing is logged for actions from before the log began.",
+    "memberHeading": "Addresses used by {name}",
+    "memberEmptyTitle": "No addresses logged",
+    "memberEmptyDescription": "Nothing has been logged for this member yet.",
+    "times": "{count, plural, one {# time} other {# times}}",
+    "network": "network {network}",
+    "firstSeen": "First seen",
+    "lastSeen": "Last seen",
+    "allAddresses": "All addresses",
+    "madeFrom": "Made from"
   }
 }

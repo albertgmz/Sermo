@@ -41,6 +41,7 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { noticeForOther } from "../moderation/notify";
+import { logIp } from "../security/log";
 import { profileSeo } from "../seo/pages";
 import { readSiteSettings } from "../settings";
 import { resolvedFileUrl } from "../storage/url";
@@ -335,6 +336,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
       validateEmbeddedAttachments(ctx, "profile_post", post.id, html);
       post.attachment_count = input.attachmentIds?.length ?? 0;
       if (post.state === "visible") touchProfile(ctx, input.userId);
+      logIp(ctx, actor, "profile_post", { type: "profile_post", id: post.id });
       publishEvent(ctx, { type: "content.created", targetType: "profile_post", targetId: post.id });
       return post;
     });

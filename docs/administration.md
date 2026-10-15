@@ -549,6 +549,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `member.ban`, `member.spamCleanup` | Global bans and spam cleanup | Administrator |
 | `conversation.moderate`, `conversation.viewHidden` | Moderating private conversation messages and their reports; seeing hidden messages there | Administrator |
 | `wordFilter.manage`, `moderatorLog.view` | Managing word filters; reading the whole moderator log | Administrator |
+| `member.viewIps` | "View IPs": the addresses members signed in, registered and posted from, and who shares them | Administrator |
 | `member.immuneToAutoBan` | Held by the warned member: reaching the warning threshold does not ban them | Administrator |
 
 Most moderation calls accept `notify` (default `true`) and an optional `message` (up to 1,000
@@ -640,6 +641,25 @@ removed; moving a thread updates the node its entries are filed under, so they f
 `moderatorLog.view`, and otherwise the entries of nodes where the reader has `forum.viewLog`;
 `nodeId` limits it to one node. Ban and restriction entries carry the ban or restriction id in
 `details`.
+
+### IP addresses
+
+Every sign-in (failed ones too), registration, post, thread, conversation message, profile post,
+comment and report writes one row to the IP log, in the transaction of the action: the member, the
+address, what was done, the content it made, the time, and the device parsed from the user agent
+(browser, system, device type, brand, model, and whether it is a bot; the user agent itself is not
+kept). The address is the client address the HTTP adapter trusts (the socket, or the single
+trusted proxy header), written normalised: an IPv4-mapped IPv6 address is stored as IPv4, and an
+IPv6 address is also kept with its /64 network, so members behind one connection group together.
+Nothing is logged for an action without a usable address (loaders, scripts).
+
+`member.viewIps` opens three reads and the **IP addresses** screen of the moderation panel
+(`/moderation/ips`): `ips.content` (the address a post or other content was made from; a thread's
+is its first post's), `users.ips` (every address a member used, with counts and first and last
+seen) and `ips.members` (the members who used an address, or an IPv6 /64). Failed sign-ins are
+logged but never shown in these views, so someone guessing at an account does not tie their address
+to it. Erasing a member deletes their rows. Crawlers (recognised by user agent) do not count as
+thread views.
 
 ### Warnings
 

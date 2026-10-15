@@ -98,6 +98,7 @@
       "moderationReportMessage": "Mensaje denunciado",
       "moderationApprovals": "Cola de aprobación",
       "moderationApprovalReview": "Revisión del elemento",
+      "moderationIps": "Direcciones IP",
       "toolsMaintenance": "Mantenimiento",
       "toolsModeratorLog": "Registro de moderación",
       "toolsPromotionLog": "Registro de promociones",

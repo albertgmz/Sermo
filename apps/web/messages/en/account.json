@@ -395,7 +395,6 @@
     "logoutHeading": "Log out",
     "logoutDescription": "End your session in this browser.",
     "logout": "Log out",
-    "deviceLabel": "{browser, select, chrome {Chrome} firefox {Firefox} safari {Safari} edge {Edge} opera {Opera} other {Unknown browser}} on {os, select, windows {Windows} macos {macOS} linux {Linux} android {Android} ios {iOS} other {unknown system}}",
     "currentDevice": "This device",
     "sessionDates": "Signed in <createdTime>{created}</createdTime><separator> · </separator>Expires <expiresTime>{expires}</expiresTime>",
     "sessionIp": "IP address {ip}",

@@ -122,7 +122,8 @@
     "accountHeading": "Estado de la cuenta",
     "erasedOn": "Borrada el {date, date, medium}.",
     "sanctions": "Sanciones",
-    "signOutEverywhere": "Cerrar sesión en todas partes"
+    "signOutEverywhere": "Cerrar sesión en todas partes",
+    "ipAddresses": "Direcciones IP"
   },
   "erase": {
     "heading": "Eliminar miembro",

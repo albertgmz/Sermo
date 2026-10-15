@@ -4,6 +4,7 @@ import { Empty, Id, Ok, Page, pageInput, Timestamp, UserSummary } from "./common
 import { MemberCard } from "./members";
 import { AnnouncementAudience } from "./notifications";
 import { BirthdayInput, Handle } from "./profiles";
+import { Device } from "./security";
 
 /*
  * What the administration panel needs beyond the operations each feature already has: who the
@@ -263,6 +264,7 @@ export const AdminSession = z
     expiresAt: Timestamp,
     ipAddress: z.string().nullable(),
     userAgent: z.string().nullable(),
+    device: Device,
   })
   .meta({ id: "AdminSession" });
 
@@ -270,8 +272,8 @@ export const usersAdminSessions = defineContract({
   name: "users.adminSessions",
   summary:
     "A member's active sessions, newest first (at most 100): when each was created and " +
-    "expires, its address and user agent. Never its token. Requires admin.members over the " +
-    "member.",
+    "expires, its address (normalised), user agent and the device parsed from it. Never its " +
+    "token. Requires admin.members over the member.",
   kind: "read",
   input: z.object({ userId: Id }),
   output: z.object({ items: z.array(AdminSession) }),

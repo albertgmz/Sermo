@@ -6,6 +6,7 @@ import { getFormatter, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LoadingRegion } from "@/components/forum/skeletons";
+import { ContentIp } from "@/components/staff/content-ip";
 import { linkClass, Section } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
 import { parseId } from "@/lib/sermo/ids";
@@ -131,6 +132,7 @@ async function Review({ params }: { params: Props["params"] }) {
                 </Link>
               )}
             </p>
+            <ContentIp from={detail.ipFrom} />
             {detail.state !== "moderated" && (
               <p className="text-xs text-muted-foreground">{t("notWaiting")}</p>
             )}

@@ -45,6 +45,8 @@ import {
 } from "../admin/password-guesses";
 import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { queueCounts } from "../moderation";
+import { logMemberIp } from "../security/log";
+import { logFailedSignIn } from "../security/sign-in";
 import { usernameChange } from "./rename-marker";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
@@ -671,6 +673,18 @@ function buildAuth(ctx: Ctx) {
             String((returned.body as { code?: unknown } | undefined)?.code),
           );
         if (typeof signIn === "number" && !wrongSignIn) forgiveSignInGuess(ctx, signIn);
+        if (wrongSignIn && (hook.path === "/sign-in/email" || hook.path === "/sign-in/username")) {
+          const email = hook.path === "/sign-in/email";
+          const tried: unknown = email ? hook.body?.email : hook.body?.username;
+          const headers = hook.headers ?? hook.request?.headers;
+          if (typeof tried === "string")
+            logFailedSignIn(
+              ctx,
+              { kind: email ? "email" : "username", value: tried },
+              headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+              headers?.get("user-agent"),
+            );
+        }
         // A new password also ends the member's API keys: they are credentials too.
         if (!failed && (hook.path === "/change-password" || hook.path === "/reset-password")) {
           const holder = Reflect.get(hook.context, RESET_HOLDER) ?? hook.context.session?.user.id;
@@ -708,6 +722,25 @@ function buildAuth(ctx: Ctx) {
         create: {
           before: async (session) => {
             if (isClosed(ctx, Number(session.userId))) throw accountBanned();
+          },
+          // A session is a sign-in: its address and user agent are the ones Better Auth read.
+          // Registration logs its own row, so the session it opens is not a second one. A log
+          // that cannot be written never fails the sign-in.
+          after: async (session, hookContext) => {
+            if ((hookContext as { path?: string } | null)?.path === "/sign-up/email") return;
+            try {
+              writeTx(ctx, () =>
+                logMemberIp(
+                  ctx,
+                  Number(session.userId),
+                  session.ipAddress,
+                  session.userAgent,
+                  "sign_in",
+                ),
+              );
+            } catch (error) {
+              console.error("The sign-in could not be logged", error);
+            }
           },
         },
       },
@@ -758,7 +791,7 @@ function buildAuth(ctx: Ctx) {
                 });
             }
           },
-          after: async (user) => {
+          after: async (user, hookContext) => {
             const normalized = typeof user.username === "string" ? user.username : null;
             const display =
               typeof user.displayUsername === "string" ? user.displayUsername : normalized;
@@ -780,6 +813,14 @@ function buildAuth(ctx: Ctx) {
                     mailEnabled ? GROUP_IDS.unconfirmed : GROUP_IDS.member,
                     ctx.now(),
                   );
+                const headers = (hookContext as { headers?: Headers } | undefined)?.headers;
+                logMemberIp(
+                  ctx,
+                  Number(user.id),
+                  headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+                  headers?.get("user-agent"),
+                  "register",
+                );
                 publishEvent(ctx, {
                   type: "member.registered",
                   targetType: "user",
@@ -1032,6 +1073,7 @@ export async function resolveActor(
   if (authorization !== null && !bearer) throw new UnauthenticatedError();
   const key = bearer ?? headers.get("x-api-key");
   const clientIp = headers.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip") ?? undefined;
+  const userAgent = headers.get("user-agent") ?? undefined;
   if (key !== null && key !== undefined) {
     const hash = await defaultKeyHasher(key);
     const row = prepared(ctx, "auth.apiKey", () =>
@@ -1054,13 +1096,14 @@ export async function resolveActor(
         tokenId: row.id,
         principal,
         ...(clientIp ? { clientIp } : {}),
+        ...(userAgent ? { userAgent } : {}),
       },
       setCookies: [],
     };
   }
   const cookie = headers.get("cookie");
   if (!cookie || !/(?:^|;\s*)(?:__Secure-)?sermo\.session_token=/.test(cookie))
-    return { actor: GUEST, setCookies: [] };
+    return { actor: userAgent ? { kind: "guest", userAgent } : GUEST, setCookies: [] };
   const result = await getAuth(ctx).api.getSession({ headers, returnHeaders: true });
   const session = result.response;
   if (!session) throw new UnauthenticatedError();
@@ -1089,6 +1132,7 @@ export async function resolveActor(
       sessionId,
       principal,
       ...(clientIp ? { clientIp } : {}),
+      ...(userAgent ? { userAgent } : {}),
     },
     setCookies: result.headers.getSetCookie(),
   };
