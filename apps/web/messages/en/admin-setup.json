@@ -26,6 +26,26 @@
       "analyticsHeading": "Analytics",
       "analyticsDescription": "A visitor analytics tag added to every public page. The staff panel never carries it."
     },
+    "home": {
+      "metaTitle": "Home page",
+      "heading": "Home page",
+      "subtitle": "Which tab the home page opens on for visitors who have not picked their own. The first rule a visitor meets decides; the fallback is for everyone else. Members can still pick their own tab in their preferences, and every tab is one click away.",
+      "formHeading": "Opening tab",
+      "ruleRow": "Rule {n}",
+      "tabLabel": "Opens on",
+      "noRule": "No rule (leave this one out)",
+      "positionLabel": "Position",
+      "positionHelp": "Rules are tried from the lowest position. Equal positions keep the order shown.",
+      "fallbackLabel": "Everyone else opens on",
+      "fallbackHelp": "Following needs an account, so a rule that guests can meet cannot open on it, and neither can the fallback.",
+      "tabs": {
+        "latest": "Latest",
+        "hot": "Hot",
+        "following": "Following",
+        "forums": "Forums",
+        "media": "Media"
+      }
+    },
     "members": {
       "metaTitle": "New members",
       "heading": "New members",

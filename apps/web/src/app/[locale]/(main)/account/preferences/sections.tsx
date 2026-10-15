@@ -1,4 +1,5 @@
 import {
+  HOME_TABS,
   MemberPreferences,
   preferencesGet,
   SUPPORTED_LANGUAGES,
@@ -84,6 +85,22 @@ export async function PreferencesSection({
               </option>
             ))}
           </select>
+        </Row>
+        <Row label={t("homeTabLabel")} htmlFor="pref-homeTab">
+          <select
+            id="pref-homeTab"
+            name="homeTab"
+            defaultValue={preferences.homeTab ?? ""}
+            className={selectClass}
+          >
+            <option value="">{t("homeTabDefault")}</option>
+            {HOME_TABS.map((tab) => (
+              <option key={tab} value={tab}>
+                {t(`homeTabs.${tab}`)}
+              </option>
+            ))}
+          </select>
+          <Help>{t("homeTabHelp")}</Help>
         </Row>
         <Row label={t("shortcutsLabel")} htmlFor="pref-keyboardShortcuts">
           <select

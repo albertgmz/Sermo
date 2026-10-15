@@ -1,4 +1,4 @@
-import { PenLine, Rss, Users } from "lucide-react";
+import { Images, PenLine, Rss } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -7,15 +7,17 @@ import { Suspense } from "react";
 import { FeaturedThreads } from "@/app/[locale]/(main)/_feed/featured-threads";
 import {
   moreFeed,
+  moreMedia,
   newFeedCount,
 } from "@/app/[locale]/(main)/_feed/feed-actions";
-import {
-  feedHref,
-  feedPage,
-  TABS,
-  tabOf,
-} from "@/app/[locale]/(main)/_feed/feed-page";
+import { feedPage, type Tab } from "@/app/[locale]/(main)/_feed/feed-page";
 import { FeedSidebar } from "@/app/[locale]/(main)/_feed/feed-sidebar";
+import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
+import { ForumList } from "@/app/[locale]/(main)/forums/forum-list";
+import {
+  STATS_TABS,
+  type StatsTab,
+} from "@/app/[locale]/(main)/forums/forum-stats";
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
@@ -30,8 +32,16 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  barOf,
+  type HomeTab,
+  homeHref,
+  openTab,
+  tabParam,
+} from "@/lib/home-tabs";
 import { pagesParam } from "@/lib/list-pages";
 import { POLL_MS } from "@/lib/poll-intervals";
+import { getDefaultTab } from "@/lib/sermo/home-tab";
 import { membersFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { cn } from "@/lib/utils";
@@ -78,7 +88,7 @@ export default function HomePage(props: PageProps<"/[locale]">) {
           </LoadingRegion>
         }
       >
-        <HomeFeed {...props} />
+        <HomeTabs {...props} />
       </Suspense>
     </PageLayout>
   );
@@ -123,72 +133,121 @@ async function HomeComposer() {
   );
 }
 
-async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
+// The address of the Forums tab with a section and a statistics tab: the list is the one of
+// `/forums`, whose own links stay on that page.
+function forumsTabHref(section: string | null, stats: StatsTab) {
+  const params = new URLSearchParams({ tab: "forums" });
+  if (section !== null) params.set("section", section);
+  if (stats !== STATS_TABS[0].value) params.set("stats", stats);
+  return `/?${params.toString()}`;
+}
+
+async function HomeTabs({ searchParams }: PageProps<"/[locale]">) {
   const [params, viewer, t] = await Promise.all([
     searchParams,
     getViewer(),
     getTranslations("home.page"),
   ]);
-  const tab = tabOf(params.tab);
-  const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
-  const needsLogin = tab === "following" && !viewer.user;
-  const first = needsLogin ? null : await feedPage(tab, cursor);
+  const signedIn = viewer.user !== null;
+  // The member's own choice comes with the session; only a visitor with none asks the site.
+  const home = viewer.user?.homeTab ?? (await getDefaultTab(signedIn));
+  const tab = openTab({ named: tabParam(params.tab), home, signedIn });
+  const { bar, more } = barOf({ active: tab, fallback: home, signedIn });
+  const link = (value: HomeTab) => ({
+    value,
+    label: t(`tabs.${value}`),
+    href: homeHref(value),
+  });
 
   return (
     <>
       <TabLinks
-        tabs={TABS.map((value) => ({
-          value,
-          label: t(`tabs.${value}`),
-          href: feedHref(value),
-        }))}
+        tabs={bar.map(link)}
+        more={more.map(link)}
+        moreLabel={t("tabs.more")}
         active={tab}
         label={t("aria.feed")}
         variant="segmented"
       />
-
-      {first === null ? (
-        <EmptyState
-          icon={Users}
-          title={t("loginTitle")}
-          description={t("loginDescription")}
-          className="rounded-lg border bg-card"
-        >
-          <Link
-            href={`/login?next=${encodeURIComponent("/?tab=following")}`}
-            className={cn(buttonVariants(), "h-10 px-4")}
-          >
-            {t("login")}
-          </Link>
-        </EmptyState>
-      ) : first.rows.length === 0 && !first.nextCursor ? (
-        <EmptyState
-          icon={Rss}
-          title={t("emptyTitle")}
-          description={t(`empty.${tab}`)}
-          className="rounded-lg border bg-card"
-        />
-      ) : (
-        <PagedList
-          first={first}
-          more={moreFeed.bind(null, tab)}
-          pages={pagesParam(params.pages)}
-          start={cursor}
-          listKey={["feed", tab]}
-          hrefBase={feedHref(tab)}
-          moreLabel={t("loadMore")}
-          estimateSize={320}
-          spacing="spaced"
-          fresh={
-            tab === "hot"
-              ? undefined
-              : {
-                  check: newFeedCount.bind(null, tab),
-                  intervalMs: POLL_MS.feed,
-                }
+      {tab === "forums" ? (
+        <ForumList
+          section={typeof params.section === "string" ? params.section : null}
+          stats={
+            STATS_TABS.find((entry) => entry.value === params.stats)?.value ??
+            STATS_TABS[0].value
           }
+          hrefFor={forumsTabHref}
         />
+      ) : tab === "media" ? (
+        <HomeMedia params={params} />
+      ) : (
+        <HomeFeed tab={tab} params={params} />
       )}
     </>
+  );
+}
+
+type Params = Awaited<PageProps<"/[locale]">["searchParams"]>;
+
+async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
+  const t = await getTranslations("home.page");
+  const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
+  const first = await feedPage(tab, cursor);
+
+  return first.rows.length === 0 && !first.nextCursor ? (
+    <EmptyState
+      icon={Rss}
+      title={t("emptyTitle")}
+      description={t(`empty.${tab}`)}
+      className="rounded-lg border bg-card"
+    />
+  ) : (
+    <PagedList
+      first={first}
+      more={moreFeed.bind(null, tab)}
+      pages={pagesParam(params.pages)}
+      start={cursor}
+      listKey={["feed", tab]}
+      hrefBase={homeHref(tab)}
+      moreLabel={t("loadMore")}
+      estimateSize={320}
+      spacing="spaced"
+      fresh={
+        tab === "hot"
+          ? undefined
+          : {
+              check: newFeedCount.bind(null, tab),
+              intervalMs: POLL_MS.feed,
+            }
+      }
+    />
+  );
+}
+
+// The newest pictures on content the visitor can see.
+async function HomeMedia({ params }: { params: Params }) {
+  const t = await getTranslations("home.page");
+  const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
+  const first = await mediaPage(cursor);
+
+  return first.rows.length === 0 && !first.nextCursor ? (
+    <EmptyState
+      icon={Images}
+      title={t("emptyTitle")}
+      description={t("empty.media")}
+      className="rounded-lg border bg-card"
+    />
+  ) : (
+    <PagedList
+      first={first}
+      more={moreMedia}
+      pages={pagesParam(params.pages)}
+      start={cursor}
+      listKey={["media"]}
+      hrefBase={homeHref("media")}
+      moreLabel={t("loadMore")}
+      estimateSize={720}
+      spacing="spaced"
+    />
   );
 }

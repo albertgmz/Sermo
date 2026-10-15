@@ -24,6 +24,7 @@ import type { FormState } from "@/app/[locale]/(main)/account/action-form";
 import { failedPath } from "@/app/[locale]/(main)/account/notice";
 import { LOCALE_COOKIE, LOCALE_COOKIE_OPTIONS } from "@/i18n/locale-cookie";
 import type { SaveResult } from "@/lib/autosave";
+import type { HomeTab } from "@/lib/home-tabs";
 import { call } from "@/lib/sermo/client";
 import { isRecordId, parseId } from "@/lib/sermo/ids";
 import { attempt, invalidArgument } from "@/lib/sermo/outcome";
@@ -290,6 +291,7 @@ export async function savePreferences(
       watchOnReply: text(formData, "watchOnReply") as "none",
       language,
       keyboardShortcuts: text(formData, "keyboardShortcuts") !== "off",
+      homeTab: (text(formData, "homeTab") || null) as HomeTab | null,
     }),
   );
   if (!saved.ok) return { error: saved.error };

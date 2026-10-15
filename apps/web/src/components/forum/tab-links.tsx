@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TabMore } from "@/components/forum/tab-more";
 import { cn } from "@/lib/utils";
 
 export type TabLink = {
@@ -24,18 +25,29 @@ const VARIANTS = {
   },
 };
 
+// A tab's look, the same for a link of the bar and the menu button at its end.
+const TAB_CLASS =
+  "inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground";
+
+// Props
+//   tabs   The tabs of the bar.
+//   more   Tabs that do not fit the bar: a menu at its end, named `moreLabel`, holds them.
 export function TabLinks({
   tabs,
   active,
   label,
   variant = "underline",
   className,
+  more,
+  moreLabel,
 }: {
   tabs: TabLink[];
   active: string;
   label: string;
   variant?: keyof typeof VARIANTS;
   className?: string;
+  more?: TabLink[];
+  moreLabel?: string;
 }) {
   return (
     <nav
@@ -48,10 +60,7 @@ export function TabLinks({
           href={tab.href}
           scroll={false}
           aria-current={tab.value === active ? "page" : undefined}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground",
-            VARIANTS[variant].link,
-          )}
+          className={cn(TAB_CLASS, VARIANTS[variant].link)}
         >
           {tab.icon}
           {tab.label}
@@ -62,6 +71,13 @@ export function TabLinks({
           )}
         </Link>
       ))}
+      {more && more.length > 0 && moreLabel && (
+        <TabMore
+          tabs={more}
+          label={moreLabel}
+          className={cn(TAB_CLASS, VARIANTS[variant].link)}
+        />
+      )}
     </nav>
   );
 }

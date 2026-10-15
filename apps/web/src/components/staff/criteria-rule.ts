@@ -36,6 +36,8 @@ export const PLACES = {
   reactionType: { cheapOnly: true, noMeasured: true, empty: "everyone" },
   postLinks: { cheapOnly: true, noMeasured: false, empty: "everyone" },
   postApproval: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  // Decided on every home page view of a visitor who chose no tab.
+  homeTab: { cheapOnly: true, noMeasured: false, empty: "everyone" },
 } as const;
 export type Place = keyof typeof PLACES;
 

@@ -7,23 +7,14 @@ import { getReactionTypes, pickerTypes } from "@/lib/sermo/reactions";
 import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
 
-export const TABS = ["latest", "following", "hot"] as const;
+// The tabs of the home page that are the feed; the others (the forum list, the pictures) have
+// their own screens.
+export const TABS = ["latest", "hot", "following"] as const;
 
 export type Tab = (typeof TABS)[number];
 
-// `top` is the former name of `hot`: old links and bookmarks keep working.
 export function tabOf(value: unknown): Tab {
-  return (
-    TABS.find((tab) => tab === (value === "top" ? "hot" : value)) ?? "latest"
-  );
-}
-
-export function feedHref(tab: Tab, cursor?: string) {
-  const params = new URLSearchParams();
-  if (tab !== "latest") params.set("tab", tab);
-  if (cursor) params.set("cursor", cursor);
-  const query = params.toString();
-  return query ? `/?${query}` : "/";
+  return TABS.find((tab) => tab === value) ?? "latest";
 }
 
 // One page of the feed, drawn: the home page's first page and each page the browser asks for.

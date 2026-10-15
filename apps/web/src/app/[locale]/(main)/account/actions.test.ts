@@ -341,6 +341,7 @@ const PREFERENCES = {
   profileViewPrivacy: "everyone",
   profilePostPrivacy: "members",
   keyboardShortcuts: true,
+  homeTab: null,
 };
 const preferenceForm = (language: string) =>
   form({ watchOnCreate: "none", watchOnReply: "none", language });
@@ -404,5 +405,27 @@ test("the keyboard shortcuts choice is sent as a yes or a no, and left on when t
     { keyboardShortcuts: false },
     { keyboardShortcuts: true },
     { keyboardShortcuts: true },
+  ]);
+});
+
+test("the home tab choice is sent as a tab, and the site default as null", async () => {
+  const asked = backend(() => Response.json(PREFERENCES));
+  const send = (homeTab: string) =>
+    redirectedTo(() =>
+      savePreferences(
+        null as never,
+        form({
+          watchOnCreate: "none",
+          watchOnReply: "none",
+          language: "",
+          homeTab,
+        }),
+      ),
+    );
+  await send("media");
+  await send("");
+  expect(asked.map((call) => call.body)).toMatchObject([
+    { homeTab: "media" },
+    { homeTab: null },
   ]);
 });

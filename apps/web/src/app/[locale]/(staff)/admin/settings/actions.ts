@@ -296,3 +296,66 @@ export async function saveLevels(
         : path,
   });
 }
+
+// The rules of the home tab, in the order of the form's rows and then by the position typed in
+// each (equal positions keep the order of the rows). A row with no tab chosen is dropped; `rows`
+// remembers which form row each sent rule came from, for the backend's per-rule messages. The
+// rules and the fallback are replaced as a whole, so only by a form that showed them.
+export async function saveHomeTab(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const t = await getTranslations("adminSetup.errors");
+  const parsed: Parsed = { body: {}, fields: {} };
+  if (!shownKeys(formData).has("homeTab"))
+    return { error: await invalidArgument() };
+  const indexes = [
+    ...new Set(
+      [...formData.keys()]
+        .map((name) => /^homeTab\.rules\.(\d{1,2})\./.exec(name)?.[1])
+        .filter((index): index is string => index !== undefined)
+        .map(Number),
+    ),
+  ].sort((a, b) => a - b);
+  const entries: {
+    rule: NonNullable<ReturnType<typeof ruleOf>>;
+    tab: string;
+    position: number;
+    row: number;
+  }[] = [];
+  for (const row of indexes) {
+    const tab = text(formData, `homeTab.rules.${row}.tab`);
+    if (tab === "") continue;
+    const name = `homeTab.rules.${row}.rule`;
+    const rule = ruleOf(formData, name);
+    if (rule === null) {
+      Object.assign(parsed.fields, (await ruleRefusal(formData, name)).fields);
+      continue;
+    }
+    const typed = text(formData, `homeTab.rules.${row}.position`);
+    const position = whole(typed);
+    if (typed.trim() !== "" && position === null)
+      parsed.fields[`homeTab.rules.${row}.tab`] = t("number");
+    entries.push({ rule, tab, position: position ?? row + 1, row });
+  }
+  entries.sort((a, b) => a.position - b.position || a.row - b.row);
+  const rows = entries.map((entry) => entry.row);
+  parsed.body.homeTab = {
+    rules: entries.map(({ rule, tab }) => ({ rule, tab })),
+    fallback: text(formData, "homeTab.fallback"),
+  };
+  return saveSettings(parsed, {
+    back: "/admin/settings/home",
+    known: (name) =>
+      name === "homeTab.fallback" ||
+      /^homeTab\.rules\.\d+\.(rule|tab)$/.test(name),
+    rename: (path) =>
+      path[0] === "homeTab" &&
+      path[1] === "rules" &&
+      typeof path[2] === "number"
+        ? ["homeTab", "rules", rows[path[2]] ?? path[2], ...path.slice(3)]
+        : path,
+    // Guests open the home page on the default the site shares, cached with the site.
+    site: true,
+  });
+}

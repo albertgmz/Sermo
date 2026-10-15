@@ -14,18 +14,23 @@
     "tabs": {
       "latest": "Recientes",
       "following": "Siguiendo",
-      "hot": "En tendencia"
+      "hot": "En tendencia",
+      "forums": "Foros",
+      "media": "Multimedia",
+      "more": "Más"
     },
     "empty": {
+      "media": "Aquí aparecerán las imágenes adjuntas a las publicaciones.",
       "latest": "Aquí aparecerán los temas nuevos, las respuestas y las publicaciones de perfil.",
       "following": "Aquí aparecerán las publicaciones de los miembros a quienes sigues.",
       "hot": "Nada está en tendencia ahora mismo. Los hilos con algunas respuestas o reacciones aparecerán aquí."
     },
-    "loginTitle": "Sigue a miembros para crear tu actividad",
-    "loginDescription": "Inicia sesión para ver las publicaciones de los miembros a quienes sigues.",
-    "login": "Iniciar sesión",
     "emptyTitle": "Aún no hay nada aquí",
     "loadMore": "Cargar más"
+  },
+  "media": {
+    "inThread": "Imagen en {title}",
+    "onProfile": "Imagen en un perfil"
   },
   "layout": {
     "loadingNavigation": "Cargando navegación…"

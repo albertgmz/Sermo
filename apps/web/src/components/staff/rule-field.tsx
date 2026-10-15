@@ -89,16 +89,22 @@ const limits: RuleLimits = {
 //          starts again from that record's rule instead of posting the draft of the last one.
 //   rule   The rule being edited; none starts empty.
 //   name   The field the rule is sent in, for a form that holds more than one. Default "rule".
+//   label  The row's label, for a form that holds several rules of one place. Default: the place's.
+//   help   The line under the builder; null leaves it out. Default: the place's.
 export async function RuleField({
   place,
   owner,
   rule = everyone(),
   name = "rule",
+  label,
+  help,
 }: {
   place: Place;
   owner?: number | undefined;
   rule?: Rule | undefined;
   name?: string;
+  label?: string;
+  help?: string | null;
 }) {
   const [t, kit, shop] = await Promise.all([
     getTranslations("admin.ruleBuilder"),
@@ -137,7 +143,11 @@ export async function RuleField({
     reactionTypes: reactionTypes.map(titled),
   };
   return (
-    <FieldRow name={name} label={t(`label.${place}`)} help={t(`help.${place}`)}>
+    <FieldRow
+      name={name}
+      label={label ?? t(`label.${place}`)}
+      help={help === undefined ? t(`help.${place}`) : help}
+    >
       <RuleBuilder
         key={`${name}:${place}:${owner ?? "new"}:${JSON.stringify(rule)}`}
         name={name}

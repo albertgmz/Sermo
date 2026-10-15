@@ -2,6 +2,7 @@
 
 import { feedNewCount } from "@sermo/core/contracts";
 import { feedPage, tabOf } from "@/app/[locale]/(main)/_feed/feed-page";
+import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
 import { call, callForPoll } from "@/lib/sermo/client";
 import { endQuietly } from "@/lib/sermo/list-actions";
 import { type PollStop, pollQuietly } from "@/lib/sermo/poll-actions";
@@ -22,4 +23,9 @@ export async function newFeedCount(
   const scope = tab === "following" ? "following" : "latest";
   if (tab !== scope) return { stop: true };
   return pollQuietly(() => callForPoll(feedNewCount, { scope, since }));
+}
+
+// A page of the media tab after the first, drawn on the server like the feed's.
+export async function moreMedia(cursor: string | null) {
+  return endQuietly(() => mediaPage(cursor ?? undefined, call));
 }

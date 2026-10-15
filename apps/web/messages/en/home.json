@@ -14,18 +14,23 @@
     "tabs": {
       "latest": "Latest",
       "following": "Following",
-      "hot": "Hot"
+      "hot": "Hot",
+      "forums": "Forums",
+      "media": "Media",
+      "more": "More"
     },
     "empty": {
+      "media": "Pictures attached to posts will show up here.",
       "latest": "New threads, replies and profile posts will show up here.",
       "following": "Posts from the members you follow will show up here.",
       "hot": "Nothing is hot right now. Threads with a few replies or reactions will show up here."
     },
-    "loginTitle": "Follow members to build your feed",
-    "loginDescription": "Log in to see posts from the members you follow.",
-    "login": "Log in",
     "emptyTitle": "Nothing here yet",
     "loadMore": "Load more"
+  },
+  "media": {
+    "inThread": "Picture in {title}",
+    "onProfile": "Picture on a profile"
   },
   "layout": {
     "loadingNavigation": "Loading navigation…"

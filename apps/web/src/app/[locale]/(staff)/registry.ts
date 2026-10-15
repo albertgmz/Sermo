@@ -112,6 +112,12 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "setupHome",
+        path: "/admin/settings/home",
+        access: ["admin.settings"],
+        built: true,
+      },
+      {
         key: "setupMembers",
         path: "/admin/settings/members",
         access: ["admin.settings"],

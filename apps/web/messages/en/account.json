@@ -317,8 +317,8 @@
     "metaTitle": "Preferences",
     "heading": "Preferences",
     "loading": "Loading your preferences…",
-    "sectionHeading": "Thread following, language and shortcuts",
-    "sectionDescription": "What happens when you post, the language of the forum for you and whether the keyboard shortcuts are on.",
+    "sectionHeading": "Thread following, language, home page and shortcuts",
+    "sectionDescription": "What happens when you post, the language of the forum for you, the tab the home page opens on and whether the keyboard shortcuts are on.",
     "createLabel": "Threads you start",
     "createHelp": "Whether you follow the threads you start.",
     "replyLabel": "Threads you reply to",
@@ -330,6 +330,16 @@
     },
     "languageLabel": "Language",
     "languageDefault": "Site default",
+    "homeTabLabel": "Home page opens on",
+    "homeTabHelp": "The tab you land on at the home page. Every tab is one click away whichever you pick.",
+    "homeTabDefault": "Site default",
+    "homeTabs": {
+      "latest": "Latest",
+      "hot": "Hot",
+      "following": "Following",
+      "forums": "Forums",
+      "media": "Media"
+    },
     "shortcutsLabel": "Keyboard shortcuts",
     "shortcutsHelp": "Keys such as ? for the list, / to search, j and k to move between posts and g then h to go home.",
     "shortcuts": {

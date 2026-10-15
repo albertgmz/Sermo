@@ -11,6 +11,7 @@ export function viewerBody(signedIn: boolean) {
           displayGroup: null,
           language: null,
           keyboardShortcuts: true,
+          homeTab: null,
         }
       : null,
     permissions: {

@@ -76,6 +76,7 @@ const me = {
     displayGroup: null,
     language: null,
     keyboardShortcuts: true,
+    homeTab: null,
   },
   permissions: {
     isAdmin: false,

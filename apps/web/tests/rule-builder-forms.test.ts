@@ -26,6 +26,7 @@ const FORMS = {
   reactionType: ["reactions/access-fields.tsx", "reactions/actions.ts"],
   postLinks: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
   postApproval: ["settings/antispam/antispam-form.tsx", "settings/actions.ts"],
+  homeTab: ["settings/home/home-form.tsx", "settings/actions.ts"],
 } as const;
 
 test("there is a form for every place a rule is edited", () => {

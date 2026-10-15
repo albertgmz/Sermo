@@ -31,6 +31,7 @@ const {
   saveSeo,
   saveUploads,
   saveLevels,
+  saveHomeTab,
 } = await import("./actions");
 
 let backend: ReturnType<typeof fakeBackend> | undefined;
@@ -694,4 +695,150 @@ test("names shown in the textarea, one per line, are read back to the same ids",
     ),
   );
   expect(sent()?.[0]?.body).toMatchObject({ standingExcludedUserIds: [7, 9] });
+});
+
+const everyone = JSON.stringify({ match: "all", conditions: [] });
+const members = JSON.stringify({
+  match: "all",
+  conditions: [{ criterion: "is_guest", value: 0 }],
+});
+
+test("the home tab form sends its rules ordered by position, leaves out rows with no tab, and expires the site cache", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const digest = await redirectedTo(() =>
+    saveHomeTab(
+      null,
+      form(
+        [
+          ["homeTab.rules.0.rule", members],
+          ["homeTab.rules.0.tab", "forums"],
+          ["homeTab.rules.0.position", "3"],
+          ["homeTab.rules.1.rule", everyone],
+          ["homeTab.rules.1.tab", ""],
+          ["homeTab.rules.1.position", "2"],
+          ["homeTab.rules.2.rule", everyone],
+          ["homeTab.rules.2.tab", "media"],
+          ["homeTab.rules.2.position", "1"],
+          ["homeTab.fallback", "hot"],
+        ],
+        "homeTab",
+      ),
+    ),
+  );
+  expect(digest).toContain("/admin/settings/home?notice=saved");
+  expect(sent()).toHaveLength(1);
+  expect(sent()?.[0]?.body).toEqual({
+    homeTab: {
+      rules: [
+        { rule: { match: "all", conditions: [] }, tab: "media" },
+        {
+          rule: {
+            match: "all",
+            conditions: [{ criterion: "is_guest", value: 0 }],
+          },
+          tab: "forums",
+        },
+      ],
+      fallback: "hot",
+    },
+  });
+  expect(expired).toEqual(["site"]);
+});
+
+test("equal positions keep the order of the rows, and a blank position is the row's place", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  await redirectedTo(() =>
+    saveHomeTab(
+      null,
+      form(
+        [
+          ["homeTab.rules.0.rule", everyone],
+          ["homeTab.rules.0.tab", "hot"],
+          ["homeTab.rules.0.position", "2"],
+          ["homeTab.rules.1.rule", members],
+          ["homeTab.rules.1.tab", "forums"],
+          ["homeTab.rules.1.position", "2"],
+          ["homeTab.rules.2.rule", everyone],
+          ["homeTab.rules.2.tab", "media"],
+          ["homeTab.rules.2.position", ""],
+          ["homeTab.fallback", "latest"],
+        ],
+        "homeTab",
+      ),
+    ),
+  );
+  const body = sent()?.[0]?.body as {
+    homeTab: { rules: { tab: string }[] };
+  };
+  const { rules } = body.homeTab;
+  expect(rules.map((rule) => rule.tab)).toEqual(["hot", "forums", "media"]);
+});
+
+test("a form that did not show the home tab setting writes nothing", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const state = await saveHomeTab(null, form([["homeTab.fallback", "hot"]]));
+  expect(state?.error).toBeDefined();
+  expect(sent()).toHaveLength(0);
+});
+
+test("a rule the form cannot read is shown on its row and nothing is sent", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const state = await saveHomeTab(
+    null,
+    form(
+      [
+        ["homeTab.rules.0.rule", "not json"],
+        ["homeTab.rules.0.tab", "hot"],
+        ["homeTab.fallback", "latest"],
+      ],
+      "homeTab",
+    ),
+  );
+  expect(Object.keys(state?.fields ?? {})).toEqual(["homeTab.rules.0.rule"]);
+  expect(sent()).toHaveLength(0);
+});
+
+test("a refusal naming a rule is shown on the row it came from, whatever the order sent", async () => {
+  backend = fakeBackend({
+    "settings.update": () =>
+      Response.json(
+        {
+          error: {
+            code: "validation",
+            message: "Invalid input",
+            issues: [
+              {
+                path: ["homeTab", "rules", 0, "tab"],
+                message: "Guests have no Following tab.",
+              },
+              {
+                path: ["homeTab", "fallback"],
+                message: "Also for guests.",
+              },
+            ],
+          },
+        },
+        { status: 422 },
+      ),
+  });
+  const state = await saveHomeTab(
+    null,
+    form(
+      [
+        ["homeTab.rules.0.rule", everyone],
+        ["homeTab.rules.0.tab", "hot"],
+        ["homeTab.rules.0.position", "2"],
+        ["homeTab.rules.1.rule", everyone],
+        ["homeTab.rules.1.tab", "following"],
+        ["homeTab.rules.1.position", "1"],
+        ["homeTab.fallback", "following"],
+      ],
+      "homeTab",
+    ),
+  );
+  expect(state?.fields).toEqual({
+    "homeTab.rules.1.tab": "Guests have no Following tab.",
+    "homeTab.fallback": "Also for guests.",
+  });
+  expect(expired).toEqual([]);
 });

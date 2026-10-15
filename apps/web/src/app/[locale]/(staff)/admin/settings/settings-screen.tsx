@@ -5,6 +5,7 @@ import { FormSkeleton } from "../groups/skeletons";
 
 export type Screen =
   | "general"
+  | "home"
   | "members"
   | "antispam"
   | "warnings"

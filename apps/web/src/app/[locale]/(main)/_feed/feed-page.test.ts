@@ -5,17 +5,16 @@ mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),
 }));
-const { TABS, feedHref, tabOf } = await import("./feed-page");
+const { TABS, tabOf } = await import("./feed-page");
 
-test("the feed tabs are latest, following and hot", () => {
-  expect([...TABS]).toEqual(["latest", "following", "hot"]);
+test("the feed tabs are latest, hot and following", () => {
+  expect([...TABS]).toEqual(["latest", "hot", "following"]);
 });
 
-test("a link to the former top tab opens hot, and every link is written with the new name", () => {
-  expect(tabOf("top")).toBe("hot");
+test("a tab that is not a feed tab opens latest, and the former name top is not one", () => {
   expect(tabOf("hot")).toBe("hot");
   expect(tabOf("following")).toBe("following");
+  expect(tabOf("top")).toBe("latest");
   expect(tabOf("nonsense")).toBe("latest");
   expect(tabOf(undefined)).toBe("latest");
-  expect(feedHref(tabOf("top"))).toBe("/?tab=hot");
 });

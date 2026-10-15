@@ -33,6 +33,7 @@ const member = {
     displayGroup: null,
     language: null,
     keyboardShortcuts: true,
+    homeTab: null,
   },
   permissions: {
     isAdmin: false,

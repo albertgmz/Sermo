@@ -26,6 +26,26 @@
       "analyticsHeading": "Analítica",
       "analyticsDescription": "Una etiqueta de analítica de visitas que se añade a todas las páginas públicas. El panel del personal nunca la lleva."
     },
+    "home": {
+      "metaTitle": "Página de inicio",
+      "heading": "Página de inicio",
+      "subtitle": "Con qué pestaña se abre el inicio para los visitantes que no han elegido la suya. Decide la primera regla que cumpla el visitante; la pestaña de reserva es para todos los demás. Los miembros pueden elegir la suya en sus preferencias, y todas las pestañas están a un clic.",
+      "formHeading": "Pestaña de apertura",
+      "ruleRow": "Regla {n}",
+      "tabLabel": "Se abre en",
+      "noRule": "Sin regla (dejar esta fuera)",
+      "positionLabel": "Posición",
+      "positionHelp": "Las reglas se prueban desde la posición más baja. Con posiciones iguales se mantiene el orden mostrado.",
+      "fallbackLabel": "Todos los demás se abren en",
+      "fallbackHelp": "Siguiendo necesita una cuenta, así que una regla que pueden cumplir los invitados no puede abrir en ella, ni tampoco la pestaña de reserva.",
+      "tabs": {
+        "latest": "Recientes",
+        "hot": "En tendencia",
+        "following": "Siguiendo",
+        "forums": "Foros",
+        "media": "Multimedia"
+      }
+    },
     "members": {
       "metaTitle": "Miembros nuevos",
       "heading": "Miembros nuevos",
