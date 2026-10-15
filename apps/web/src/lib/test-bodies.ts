@@ -128,6 +128,7 @@ export function postBody(over: Record<string, unknown> = {}) {
     reactions: { counts: {}, total: 0, mine: null },
     canEdit: true,
     canDelete: true,
+    canHardDelete: false,
     canReport: true,
     bodySource: "",
     ...over,

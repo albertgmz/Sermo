@@ -137,23 +137,20 @@ test("a moderator sees approve on a post waiting for approval, inside the bar", 
   );
 });
 
-test("a deleted reply offers deleting it for good only to who holds the permission", () => {
+test("deleting a reply for good follows the backend's flag: a deleted one for staff, a live one for its author", () => {
   const deleted = {
     state: "deleted",
     canEdit: false,
     canDelete: false,
     canReport: false,
   };
-  const withIt = { may: { ...may, hardDelete: true }, noteState: true };
-  expect(draw({ ...deleted, position: 3 }, withIt)).toContain(
-    "Delete permanently",
-  );
-  expect(draw({ ...deleted, position: 3 }, { noteState: true })).not.toContain(
-    "Delete permanently",
-  );
-  // A live post is deleted first, and the opening post goes with its thread.
-  expect(draw({ position: 3 }, withIt)).not.toContain("Delete permanently");
-  expect(draw({ ...deleted, position: 0 }, withIt)).not.toContain(
-    "Delete permanently",
-  );
+  expect(
+    draw({ ...deleted, canHardDelete: true }, { noteState: true }),
+  ).toContain("Delete permanently");
+  expect(
+    draw({ ...deleted, canHardDelete: false }, { noteState: true }),
+  ).not.toContain("Delete permanently");
+  // The author's own live reply carries no note, and still offers it.
+  expect(draw({ canHardDelete: true })).toContain("Delete permanently");
+  expect(draw({ canHardDelete: false })).not.toContain("Delete permanently");
 });

@@ -188,7 +188,7 @@ export async function postRows(posts: ApiPost[]): Promise<TailRow[]> {
   ]);
   const context = {
     threadAuthorId: found.thread.author.id,
-    may: threadMay(found.resolvedPermissions),
+    may: threadMay(found.resolvedPermissions, found.permissions),
     canQuote: found.permissions.canReply,
   };
   const [author, bookmarks] = await Promise.all([

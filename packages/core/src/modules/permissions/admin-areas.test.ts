@@ -122,9 +122,9 @@ describe("admin.pages", () => {
     expect((await run(w.ctx, "pages.get", holder.actor, { slug: "about" })).title).toBe("About");
     // Anyone else gets a draft as missing, even with the settings permission.
     const settings = customMember(w.ctx, ["admin.settings"]);
-    await expect(
-      run(w.ctx, "pages.get", settings.actor, { slug: "about" }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(run(w.ctx, "pages.get", settings.actor, { slug: "about" })).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
     await run(w.ctx, "pages.delete", holder.actor, { slug: "about" });
   });
 });

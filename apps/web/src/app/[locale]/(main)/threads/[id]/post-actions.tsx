@@ -99,7 +99,7 @@ export function PostActions({
           : undefined
       }
       moderation={
-        noteState && (
+        (noteState || post.canHardDelete) && (
           <>
             {mayRestore(may, post.state) && (
               <ActionForm
@@ -109,22 +109,16 @@ export function PostActions({
                 }
               />
             )}
-            {may.hardDelete &&
-              post.state === "deleted" &&
-              post.position > 0 && (
-                <DeleteControl
-                  action={hardDeletePostAction.bind(
-                    null,
-                    post.threadId,
-                    post.id,
-                  )}
-                  label={actions("hardDelete")}
-                  confirm={actions("hardDeleteConfirm")}
-                  cancel={actions("cancel")}
-                  reasonLabel={actions("deleteReason")}
-                  warning={actions("hardDeletePostWarning")}
-                />
-              )}
+            {post.canHardDelete && (
+              <DeleteControl
+                action={hardDeletePostAction.bind(null, post.threadId, post.id)}
+                label={actions("hardDelete")}
+                confirm={actions("hardDeleteConfirm")}
+                cancel={actions("cancel")}
+                reasonLabel={actions("deleteReason")}
+                warning={actions("hardDeletePostWarning")}
+              />
+            )}
           </>
         )
       }

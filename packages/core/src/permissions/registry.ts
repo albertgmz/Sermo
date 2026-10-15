@@ -441,11 +441,42 @@ export const PERMISSIONS = {
     requiresAccount: true,
     own: true,
   },
+  /** Hide one's own posts (soft delete: staff can restore them). The opening post goes with its thread. */
   "forum.deleteOwn": {
     scope: "node",
     category: "forum",
     type: "flag",
     defaults: MEMBERS,
+    requiresAccount: true,
+    own: true,
+  },
+  /** Hide one's own thread (soft delete: staff can restore it). */
+  "forum.deleteOwnThread": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+    own: true,
+  },
+  /**
+   * Delete one's own posts and threads for good, in one step. Staff keep whatever they hid: it
+   * reaches only content the author can still open.
+   */
+  "forum.hardDeleteOwn": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+    own: true,
+  },
+  /** Lock one's own thread, and unlock it again when the author locked it. */
+  "forum.lockOwn": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: ADMINS,
     requiresAccount: true,
     own: true,
   },

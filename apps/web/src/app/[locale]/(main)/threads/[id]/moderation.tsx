@@ -202,7 +202,7 @@ export async function ModerationMenu({
                 reasonLabel={t("reason")}
               />
             )}
-            {may.hardDelete && thread.state === "deleted" && (
+            {may.hardDelete && (
               <DeleteControl
                 action={hardDeleteThreadAction.bind(null, id)}
                 label={t("hardDelete")}

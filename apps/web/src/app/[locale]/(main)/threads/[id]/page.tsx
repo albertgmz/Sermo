@@ -107,7 +107,7 @@ export default async function ThreadPage({
   ]);
   const page = pageNumber(pageParam);
   const seo = await getSeo(id, page, cursor !== undefined);
-  const may = threadMay(resolvedPermissions);
+  const may = threadMay(resolvedPermissions, permissions);
   const mayRemoveCover = thread.cover !== null && permissions.canRemoveCover;
   const selecting = select === "1" && may.split;
   const prefix = prefixView(thread.prefix);

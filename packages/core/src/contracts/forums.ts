@@ -175,6 +175,8 @@ export const Post = z
     reactions: ReactionSummary,
     canEdit: z.boolean(),
     canDelete: z.boolean(),
+    /** posts.hardDelete would accept it: staff on a deleted post, or its author on their own live one. */
+    canHardDelete: z.boolean(),
     /** The viewer may report it (reports.create would accept it). */
     canReport: z.boolean(),
   })
@@ -382,6 +384,12 @@ export const threadsGet = defineContract({
       canReply: z.boolean(),
       canEditTitle: z.boolean(),
       canModerate: z.boolean(),
+      /** threads.delete would accept it. */
+      canDelete: z.boolean(),
+      /** threads.setLocked would accept the opposite of its current lock. */
+      canLock: z.boolean(),
+      /** threads.hardDelete would accept it. */
+      canHardDelete: z.boolean(),
       /** The viewer may report the thread (its first post). */
       canReport: z.boolean(),
       /** The viewer may remove the thread's cover (threads.removeCover would accept it). */
@@ -449,7 +457,10 @@ export const threadsSetFeatured = defineContract({
 
 export const threadsSetLocked = defineContract({
   name: "threads.setLocked",
-  summary: "Lock or unlock a thread. Moderators only.",
+  summary:
+    "Lock or unlock a thread. Requires forum.lock in its forum, or forum.lockOwn for the author " +
+    "of the thread; an author unlocks only a lock they put on themselves (staff's stays), and " +
+    "locking a thread that is already locked changes nothing for them.",
   kind: "write",
   input: z.object({ ...moderationNotice, threadId: Id, isLocked: z.boolean() }),
   output: Thread,
@@ -465,7 +476,9 @@ export const threadsMove = defineContract({
 
 export const threadsDelete = defineContract({
   name: "threads.delete",
-  summary: "Soft-delete a thread. Moderators only.",
+  summary:
+    "Soft-delete (hide) a thread. Requires forum.deleteAny in its forum, or forum.deleteOwnThread " +
+    "for the author of a thread that is not locked. Staff restore it.",
   kind: "write",
   input: z.object({ ...moderationNotice, threadId: Id }),
   output: Thread,
@@ -488,7 +501,9 @@ export const threadsHardDelete = defineContract({
     "watches, reads, bans, features and the credits it paid, and the thread itself. Only a " +
     "soft-deleted thread can be deleted for good (a conflict otherwise), and one with a merge or " +
     "split pending is refused. Requires forum.hardDelete in the thread's forum (administrators " +
-    "by default) and the right to see deleted threads there. At most 500 posts go in one call, " +
+    "by default) and the right to see deleted threads there. An author with forum.hardDeleteOwn " +
+    "deletes their own thread in one step instead, without hiding it first, when it is not " +
+    "locked, holds only their own posts and fits one call. At most 500 posts go in one call, " +
     "newest first and the opening post last: the thread stays (deleted) until a call returns " +
     "`completed: true`, so a large thread takes several calls. Each call is one transaction and " +
     "is logged as `thread.hardDelete` (`details.removedPosts`, `details.completed`, and the " +
@@ -532,7 +547,8 @@ export const threadsBatchUpdate = defineContract({
     "Apply one change to up to 100 threads: move, lock, unlock, stick, unstick, delete (soft), " +
     "restore, feature, unfeature, or set (or clear, with `prefixId: null`) the prefix. Every " +
     "thread is judged on its own, with the permission of the single action in the thread's own " +
-    "forum (`forum.move` in both forums, `forum.lock`, `forum.stick`, `forum.deleteAny`, " +
+    "forum (`forum.move` in both forums, `forum.lock` or `forum.lockOwn`, `forum.stick`, " +
+    "`forum.deleteAny` or `forum.deleteOwnThread`, " +
     "`forum.undelete` or `forum.approve`, `forum.feature`; a prefix follows `threads.update`) and " +
     "the same rules (a transfer pending, a thread that cannot be featured). The answer lists " +
     "every thread in the order given: `changed` says whether it differed, `error` says why a " +
@@ -646,8 +662,9 @@ export const postsUpdate = defineContract({
 export const postsDelete = defineContract({
   name: "posts.delete",
   summary:
-    "Soft-delete a post. Author (while unlocked) or moderator. The first post cannot be " +
-    "deleted on its own; delete the thread instead.",
+    "Soft-delete (hide) a post. Requires forum.deleteAny, or forum.deleteOwn for its author while " +
+    "the thread is unlocked. The first post cannot be deleted on its own; delete the thread " +
+    "instead.",
   kind: "write",
   input: z.object({ ...moderationNotice, postId: Id }),
   output: Post,
@@ -667,7 +684,9 @@ export const postsHardDelete = defineContract({
     "Delete a post for good, with its revisions, reactions, attachments, alerts, bookmarks and " +
     "reports. Only a soft-deleted post can be deleted for good (a conflict otherwise); the " +
     "first post goes with its thread (`threads.hardDelete`). Requires forum.hardDelete in the " +
-    "thread's forum and the right to see deleted posts there. Other posts keep their positions, " +
+    "thread's forum and the right to see deleted posts there; an author with forum.hardDeleteOwn " +
+    "deletes their own post in one step instead, without hiding it first, unless the thread is " +
+    "locked or staff hid the post. Other posts keep their positions, " +
     "so the thread's numbering has a gap where the post was. Logged as `post.hardDelete` " +
     "with the post's thread and author.",
   kind: "write",

@@ -77,11 +77,14 @@ test("Feature is offered on a visible thread, Unfeature on a pick, and neither F
   expect(hidden).not.toContain("Unfeature");
 });
 
-test("Delete permanently is offered on a deleted thread to who holds the permission, and nowhere else", async () => {
+test("Delete permanently follows the backend's flag: a deleted thread for staff, a live one for its author", async () => {
   const may = { hardDelete: true, delete: true };
   expect(await menu("deleted", false, may)).toContain("Delete permanently");
-  expect(await menu("visible", false, may)).not.toContain("Delete permanently");
+  expect(await menu("visible", false, may)).toContain("Delete permanently");
   expect(await menu("deleted", false, { delete: true })).not.toContain(
+    "Delete permanently",
+  );
+  expect(await menu("visible", false, { delete: true })).not.toContain(
     "Delete permanently",
   );
 });

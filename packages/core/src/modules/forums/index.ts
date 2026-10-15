@@ -166,6 +166,9 @@ export const forumSql = {
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
   threadBansAmong:
     "SELECT thread_id FROM thread_bans WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2)) AND (expires_at IS NULL OR expires_at > ?3)",
+  /** The newest lock or unlock of a thread: who did it, and whether it locked (index seek on the log's target). */
+  newestLock:
+    "SELECT actor_id, json_extract(details, '$.isLocked') AS locked FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action = 'thread.lock' ORDER BY id DESC LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
@@ -434,6 +437,20 @@ function mayDelete(
   );
 }
 /**
+ * Hiding a thread: whoever may delete any, or its author where they may hide their own threads
+ * and the thread is not locked.
+ */
+function mayDeleteThread(
+  permissions: ReturnType<typeof permissionsOf>,
+  row: Pick<ThreadRow, "node_id" | "user_id" | "is_locked">,
+): boolean {
+  return (
+    permissions.can("forum.deleteAny", { nodeId: row.node_id }) ||
+    (!row.is_locked &&
+      permissions.can("forum.deleteOwnThread", { nodeId: row.node_id, ownerId: row.user_id }))
+  );
+}
+/**
  * Whether `posts.create` takes a reply to the thread from the viewer, before it looks at the
  * reply itself: `threads.get` and the feed answer with it. `settings` is the thread's forum.
  */
@@ -625,6 +642,11 @@ export function postValuesMixed(
       row.id !== firstPostId &&
       row.state !== "deleted" &&
       mayDelete(permissions, nodeId, row.user_id, locked),
+    canHardDelete:
+      row.id !== firstPostId &&
+      (row.state === "deleted"
+        ? permissions.can("forum.hardDelete", { nodeId })
+        : !locked && permissions.can("forum.hardDeleteOwn", { nodeId, ownerId: row.user_id })),
     canReport: permissions.can("report.create"),
     ...(detail ? { bodySource: row.body_source } : {}),
   }));
@@ -1025,6 +1047,13 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
       ),
       canEditTitle: mayEditTitle(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
+      canDelete: row.state !== "deleted" && mayDeleteThread(permissionsOf(ctx, actor), row),
+      canLock: mayLockThread(ctx, actor, row, !row.is_locked),
+      canHardDelete:
+        row.state === "deleted"
+          ? can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id })
+          : !row.is_locked &&
+            can(ctx, actor, "forum.hardDeleteOwn", { nodeId: row.node_id, ownerId: row.user_id }),
       // Reporting targets the first post, and watching needs a visible thread: both are open to
       // a signed-in viewer who got this far; reporting also needs the permission (createReport).
       canReport: can(ctx, actor, "report.create"),
@@ -1766,9 +1795,36 @@ export const threadsSetFeaturedOp = implement(contracts.threadsSetFeatured, (ctx
   });
   return threadValue(ctx, actor, row.id);
 });
+/**
+ * Who locks a thread: whoever holds forum.lock there, or its author with forum.lockOwn. The
+ * author unlocks only a lock they put on themselves: the newest lock entry of the thread's log
+ * is theirs (a lock staff set, or one that left no entry, stays).
+ */
+function mayLockThread(
+  ctx: Ctx,
+  actor: Actor,
+  row: Pick<ThreadRow, "id" | "node_id" | "user_id">,
+  isLocked: boolean,
+): boolean {
+  if (can(ctx, actor, "forum.lock", { nodeId: row.node_id })) return true;
+  if (!can(ctx, actor, "forum.lockOwn", { nodeId: row.node_id, ownerId: row.user_id }))
+    return false;
+  if (isLocked) return true;
+  const newest = forumDb(ctx)
+    .prepare<{ actor_id: number; locked: number | null }, [number]>(forumSql.newestLock)
+    .get(row.id);
+  return newest?.actor_id === row.user_id && newest.locked === 1;
+}
 function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, notice: Notice) {
   const current = requireThread(ctx, moderator, id).row;
-  requirePermission(ctx, moderator, "forum.lock", { nodeId: current.node_id });
+  if (!mayLockThread(ctx, moderator, current, isLocked)) throw new ForbiddenError();
+  // An author who does not hold forum.lock changes nothing and leaves nothing in the log when the
+  // thread is already in the state asked for: a lock staff set must not become theirs by a repeat.
+  if (
+    !!current.is_locked === isLocked &&
+    !can(ctx, moderator, "forum.lock", { nodeId: current.node_id })
+  )
+    return false;
   forumDb(ctx).prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2").run(Number(isLocked), id);
   if (!!current.is_locked !== isLocked)
     publishEvent(ctx, {
@@ -1794,7 +1850,7 @@ function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, n
 export const threadsSetLockedOp = implement(contracts.threadsSetLocked, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
-  requirePermission(ctx, actor, "forum.lock", { nodeId: row.node_id });
+  if (!mayLockThread(ctx, actor, row, input.isLocked)) throw new ForbiddenError();
   writeTx(ctx, () => {
     lockThread(ctx, currentActor(ctx, actor), row.id, input.isLocked, input);
   });
@@ -1891,7 +1947,7 @@ export const threadsMoveOp = implement(contracts.threadsMove, (ctx, actor, input
 function deleteThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
   assertTransferIdle(ctx, id);
   const current = requireThread(ctx, moderator, id).row;
-  requirePermission(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id });
+  if (!mayDeleteThread(permissionsOf(ctx, moderator), current)) throw new ForbiddenError();
   const changed = changeThreadState(ctx, id, "deleted");
   if (changed)
     publishEvent(ctx, {
@@ -1904,23 +1960,25 @@ function deleteThread(ctx: Ctx, moderator: Actor, id: number, notice: Notice) {
         ...moderationPayload(moderator, current.user_id, notice),
       },
     });
-  appendModeratorLog(
-    ctx,
-    moderator,
-    "thread.delete",
-    "thread",
-    id,
-    notice.reason,
-    {},
-    current.node_id,
-  );
+  // A member hiding their own thread is not a moderator's action: no log entry, as with posts.
+  if (can(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id }))
+    appendModeratorLog(
+      ctx,
+      moderator,
+      "thread.delete",
+      "thread",
+      id,
+      notice.reason,
+      {},
+      current.node_id,
+    );
   return changed;
 }
 export const threadsDeleteOp = implement(contracts.threadsDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
-  requirePermission(ctx, actor, "forum.deleteAny", { nodeId: row.node_id });
+  if (!mayDeleteThread(permissionsOf(ctx, actor), row)) throw new ForbiddenError();
   writeTx(ctx, () => {
     deleteThread(ctx, currentActor(ctx, actor), row.id, input);
   });
@@ -3178,27 +3236,63 @@ function settleThreadAfterPurge(ctx: Ctx, threadId: number, firstPostId: number 
     .run(newest, threadId);
 }
 
+/**
+ * How a member deletes content for good: staff with forum.hardDelete take content that is
+ * already soft-deleted; an author with forum.hardDeleteOwn takes their own content in one step
+ * (it is hidden here, then removed), never in a locked thread and never what staff hid.
+ */
+function hardDeletePath(
+  ctx: Ctx,
+  actor: Actor,
+  row: Pick<ThreadRow, "node_id" | "is_locked">,
+  ownerId: number,
+  state: State,
+): "staff" | "own" {
+  const staff = can(ctx, actor, "forum.hardDelete", { nodeId: row.node_id });
+  if (staff && state === "deleted") return "staff";
+  if (!row.is_locked && can(ctx, actor, "forum.hardDeleteOwn", { nodeId: row.node_id, ownerId })) {
+    if (state === "deleted")
+      throw new ConflictError("Content that was hidden by staff cannot be deleted by its author.");
+    return "own";
+  }
+  if (staff) return "staff";
+  throw new ForbiddenError();
+}
+
 export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
   const { row } = requireThread(ctx, actor, input.threadId);
-  requirePermission(ctx, actor, "forum.hardDelete", { nodeId: row.node_id });
+  hardDeletePath(ctx, actor, row, row.user_id, row.state);
   return writeTx(ctx, () => {
     assertTransferIdle(ctx, row.id);
     const moderator = currentActor(ctx, actor);
     const current = requireThread(ctx, moderator, row.id).row;
-    requirePermission(ctx, moderator, "forum.hardDelete", { nodeId: current.node_id });
-    if (current.state !== "deleted")
+    const path = hardDeletePath(ctx, moderator, current, current.user_id, current.state);
+    if (path === "staff" && current.state !== "deleted")
       throw new ConflictError(
         "Delete the thread first; only a deleted thread can be removed for good.",
       );
+    if (path === "own") changeThreadState(ctx, current.id, "deleted");
     // Newest posts first, the opening post with the last of them.
     const found = forumDb(ctx)
-      .prepare<{ id: number; state: State }, [number, number, number]>(
-        "SELECT id, state FROM posts WHERE thread_id = ?1 AND id != ?2 ORDER BY position DESC, id DESC LIMIT ?3",
+      .prepare<{ id: number; state: State; user_id: number }, [number, number, number]>(
+        "SELECT id, state, user_id FROM posts WHERE thread_id = ?1 AND id != ?2 ORDER BY position DESC, id DESC LIMIT ?3",
       )
       .all(current.id, current.first_post_id ?? 0, PURGE_CHUNK + 1);
     const more = found.length > PURGE_CHUNK;
+    if (path === "own") {
+      // An author takes back their own thread, not other members' words, and only what one call
+      // can finish: the pieces of a long thread would need the thread to stay open to them.
+      if (found.some((post) => post.user_id !== current.user_id))
+        throw new ConflictError(
+          "This thread holds other members' posts. Hide it, or ask staff to delete it.",
+        );
+      if (more)
+        throw new ConflictError(
+          "This thread is too long to delete in one step. Hide it, or ask staff to delete it.",
+        );
+    }
     const chunk = found.slice(0, PURGE_CHUNK);
     const ids = chunk.map((post) => post.id);
     if (!more && current.first_post_id) ids.push(current.first_post_id);
@@ -3236,18 +3330,25 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
   requireAuthenticated(actor);
   const { post, thread } = requirePost(ctx, actor, input.postId);
   assertTransferIdle(ctx, thread.row.id);
-  requirePermission(ctx, actor, "forum.hardDelete", { nodeId: thread.row.node_id });
+  hardDeletePath(ctx, actor, thread.row, post.user_id, post.state);
   return writeTx(ctx, () => {
     assertTransferIdle(ctx, thread.row.id);
     const moderator = currentActor(ctx, actor);
     const current = requirePost(ctx, moderator, post.id);
-    requirePermission(ctx, moderator, "forum.hardDelete", { nodeId: current.thread.row.node_id });
+    const path = hardDeletePath(
+      ctx,
+      moderator,
+      current.thread.row,
+      current.post.user_id,
+      current.post.state,
+    );
     if (current.post.id === current.thread.row.first_post_id)
       throw new ValidationError("Delete the thread instead.");
-    if (current.post.state !== "deleted")
+    if (path === "staff" && current.post.state !== "deleted")
       throw new ConflictError(
         "Delete the post first; only a deleted post can be removed for good.",
       );
+    if (path === "own") changePostState(ctx, current.post.id, "deleted");
     purgeContent(ctx, "post", [post.id]);
     settleThreadAfterPurge(ctx, current.thread.row.id, current.thread.row.first_post_id);
     appendModeratorLog(

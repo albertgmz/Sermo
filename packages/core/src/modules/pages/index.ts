@@ -56,8 +56,7 @@ const get = implement(
   pagesGet,
   (ctx, actor, input) => {
     const row = bySlug(ctx, input.slug);
-    if (!row || (!row.is_published && !can(ctx, actor, "admin.pages")))
-      throw new NotFoundError();
+    if (!row || (!row.is_published && !can(ctx, actor, "admin.pages"))) throw new NotFoundError();
     return pageValue(row);
   },
   { public: "Published pages are read by everyone; unpublished ones need admin.pages." },
