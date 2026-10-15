@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Ctx } from "../context";
 import { ValidationError } from "../errors";
+import { traceStatements } from "../modules/statement-trace";
 import { createTestContext, expectNoTableScan, insertUser, userActor } from "../testing";
 import {
   actorFacts,
@@ -326,7 +327,9 @@ const table: Record<string, Case[]> = {
       measured("days_since_last_post", {}, NOW - 7 * DAY + 1),
       false,
     ],
-    ["never posted", { value: 7 }, facts(), true],
+    // No post to be long ago: a new account does not hold it.
+    ["never posted", { value: 7 }, facts(), false],
+    ["never posted, none asked", { value: 0 }, facts(), false],
   ],
   was_referred: yesNo("wasReferred"),
   referrals_at_least: [
@@ -531,21 +534,6 @@ describe("assertRule", () => {
   });
 });
 
-function stampStatements(ctx: Ctx) {
-  const statements: string[] = [];
-  const original = ctx.sqlite.prepare.bind(ctx.sqlite);
-  (ctx.sqlite as { prepare: unknown }).prepare = (sql: string) => {
-    statements.push(sql);
-    return original(sql);
-  };
-  return {
-    statements,
-    restore: () => {
-      (ctx.sqlite as { prepare: unknown }).prepare = original;
-    },
-  };
-}
-
 function shopItem(ctx: Ctx, name: string): number {
   const category = ctx.sqlite
     .prepare<{ id: number }, []>(
@@ -691,17 +679,14 @@ describe("loadFacts", () => {
 
   test("a page of members costs one query per kind of fact the rules ask for, and nothing else", () => {
     const reads = (rules: (item: number) => Rule[]) => {
-      // A fresh context each time: prepared statements are cached per context.
+      // Statements run, not statements prepared: a loader that ran one per member would show.
       const ctx = createTestContext();
+      const trace = traceStatements(ctx);
       const members = Array.from({ length: 20 }, () => insertUser(ctx).id);
       const item = shopItem(ctx, "Item");
-      const spy = stampStatements(ctx);
-      try {
-        loadFacts(ctx, members, rules(item));
-        return spy.statements.length;
-      } finally {
-        spy.restore();
-      }
+      const before = trace.sql.length;
+      loadFacts(ctx, members, rules(item));
+      return trace.sql.length - before;
     };
     expect(reads(() => [everyone()])).toBe(0);
     expect(

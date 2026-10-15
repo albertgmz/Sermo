@@ -150,6 +150,34 @@ test("the awards, credit rules and shop categories a rule names are shown by nam
   expect(promotion).toContain('<option value="credits_from_rule"');
 });
 
+test("the award being edited is not offered to itself", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: [],
+        awards: [
+          { id: 4, title: "Veteran" },
+          { id: 5, title: "Elder" },
+        ],
+        creditRules: [],
+      }),
+    "shopCategories.list": () => Response.json({ items: [] }),
+  });
+  const rule: Rule = { match: "all", conditions: [] };
+  const offered = async (place: "award" | "promotion", owner?: number) => {
+    const row = (await RuleField({ place, owner, rule })) as {
+      props: { children: { props: { choices: { awards: { id: number }[] } } } };
+    };
+    return row.props.children.props.choices.awards.map((award) => award.id);
+  };
+  expect(await offered("award", 4)).toEqual([5]);
+  expect(await offered("award")).toEqual([4, 5]);
+  // Only awards read awards of their own kind: another place offers all of them.
+  expect(await offered("promotion", 4)).toEqual([4, 5]);
+});
+
 test("the threads a rule names are shown by title, one the viewer cannot see by its number", async () => {
   backend = fakeBackend({
     "auth.me": () => Response.json(viewerBody(true)),

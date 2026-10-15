@@ -54,7 +54,8 @@ export const economySpecs: readonly Spec[] = [
     },
     { modes: ["one", "each"], cost: "cheap", refresh: onPurchase },
   ),
-  // Paid for anything in the category, for themselves or as a gift.
+  // Paid for anything in the category, for themselves or as a gift. One seek per item of the
+  // category for a member who bought nothing in it: cheap while categories hold dozens of items.
   listed(
     "bought_in_category",
     "shopCategories",
@@ -85,7 +86,9 @@ export const economySpecs: readonly Spec[] = [
         "WHERE user_id IN (SELECT value FROM json_each(?1)) AND created_at >= ?3 " +
         "AND type IN ('event', 'event_reversal', 'award', 'award_revoked') GROUP BY user_id",
     },
-    { window: true },
+    // Reads the member's whole ledger (see Needs: an index on `created_at`), and a member who earns
+    // credits per reaction would read it again for each one: the sweep only, until it has one.
+    { window: true, sweepOnly: true },
   ),
   listed(
     "credits_from_rule",

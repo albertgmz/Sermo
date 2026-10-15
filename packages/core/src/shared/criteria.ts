@@ -161,10 +161,11 @@ export const awardsReadBy = (rule: Rule): number[] => idsReadBy(rule, "awards");
 export const parseRule = (json: string): Rule => JSON.parse(json) as Rule;
 
 /** The tables whose rows an id list names, and how an unknown id is called. Members are not checked. */
-const idTables: Record<IdKind, { table: string; noun: string } | null> = {
+const idTables: Record<IdKind, { table: string; noun: string; where?: string } | null> = {
   groups: { table: "groups", noun: "group" },
   members: null,
-  threads: { table: "threads", noun: "thread" },
+  // A thread merged into another keeps its row but its posts moved: it would count nothing.
+  threads: { table: "threads", noun: "thread", where: "merged_into_id IS NULL" },
   awards: { table: "awards", noun: "award" },
   shopItems: { table: "shop_items", noun: "shop item" },
   shopCategories: { table: "shop_categories", noun: "shop category" },
@@ -218,7 +219,7 @@ export function assertRule(ctx: Ctx, rule: Rule, allowed: CostClass): void {
     const known = new Set(
       prepared(ctx, `shared.criteriaIds.${kind}`, () =>
         ctx.sqlite.prepare<{ id: number }, [string]>(
-          `SELECT id FROM ${names.table} WHERE id IN (SELECT value FROM json_each(?1))`,
+          `SELECT id FROM ${names.table} WHERE id IN (SELECT value FROM json_each(?1))${names.where ? ` AND ${names.where}` : ""}`,
         ),
       )
         .all(JSON.stringify([...ids]))
@@ -459,6 +460,10 @@ export function afterAwardGrant(
       measure.set(award.id, (measure.get(award.id) ?? 0) + 1);
   }
 }
+
+/** Whether a rule holds a criterion too heavy to load on every event; the sweep decides those. */
+export const needsSweep = (rule: Rule): boolean =>
+  rule.conditions.some((condition) => byId.get(condition.criterion)?.sweepOnly === true);
 
 /** The facts of whoever makes a request: a guest's, or the signed-in member's loaded for `rules`. */
 export function actorFacts(ctx: Ctx, actor: Actor, rules: Iterable<Rule>): Facts {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Ctx } from "../../context";
 import { ValidationError } from "../../errors";
+import { traceStatements } from "../../modules/statement-trace";
 import { createTestContext, expectNoTableScan, insertNode, insertUser } from "../../testing";
 import {
   assertRule,
@@ -59,10 +60,12 @@ function post(ctx: Ctx, threadId: number, userId: number, state = "visible") {
 
 function world() {
   const ctx = createTestContext();
+  // Installed first, so every statement the context runs from here on is seen.
+  const trace = traceStatements(ctx);
   const member = insertUser(ctx).id;
   const other = insertUser(ctx).id;
   const node = insertNode(ctx, {}).id;
-  return { ctx, member, other, node };
+  return { ctx, trace, member, other, node };
 }
 
 describe("content criteria", () => {
@@ -477,9 +480,49 @@ describe("engagement criteria", () => {
     at(other, t, 2);
     const asks = (value: number) =>
       holdsFor(ctx, [member, other, third], { criterion: "days_since_last_post", value });
-    expect(asks(10)).toEqual([true, false, true]);
-    expect(asks(11)).toEqual([false, false, true]);
-    expect(asks(2)).toEqual([true, true, true]);
+    expect(asks(10)).toEqual([true, false, false]);
+    expect(asks(11)).toEqual([false, false, false]);
+    expect(asks(2)).toEqual([true, true, false]);
+    // Never posting is not a long time since the last post.
+    expect(asks(0)).toEqual([true, true, false]);
+  });
+
+  test("posts in a deleted or moderated thread count for nothing, as in post_count", () => {
+    const { ctx, member, other, node } = world();
+    const hidden = thread(ctx, other, node, 0, "deleted");
+    const waiting = thread(ctx, other, node, 0, "moderated");
+    const shown = thread(ctx, other, node);
+    // A hidden thread leaves its posts visible: the thread decides.
+    post(ctx, hidden, member);
+    post(ctx, waiting, member);
+    // Another member's post in the hidden thread that mentions the member.
+    const spam = post(ctx, hidden, other);
+    const mention = (id: number) =>
+      insertRow(
+        ctx,
+        "INSERT INTO content_mentions (content_type, content_id, user_id, created_at) VALUES ('post', ?1, ?2, 1)",
+        id,
+        member,
+      );
+    mention(spam);
+    const inThreads = (ids: number[], mode: "one" | "each") =>
+      holdsFor(ctx, [member], { criterion: "posts_in_threads", ids, value: 1, mode });
+    expect(inThreads([hidden], "one")).toEqual([false]);
+    expect(inThreads([waiting], "one")).toEqual([false]);
+    expect(holdsFor(ctx, [member], { criterion: "days_since_last_post", value: 0 })).toEqual([
+      false,
+    ]);
+    expect(holdsFor(ctx, [member], { criterion: "mentioned_by_others", value: 1 })).toEqual([
+      false,
+    ]);
+    // Once the thread is visible again they count.
+    ctx.sqlite.prepare("UPDATE threads SET state = 'visible' WHERE id = ?1").run(hidden);
+    expect(inThreads([hidden], "one")).toEqual([true]);
+    expect(holdsFor(ctx, [member], { criterion: "days_since_last_post", value: 0 })).toEqual([
+      true,
+    ]);
+    expect(holdsFor(ctx, [member], { criterion: "mentioned_by_others", value: 1 })).toEqual([true]);
+    expect(inThreads([shown], "one")).toEqual([false]);
   });
 
   test("mentioned_by_others counts mentions in other members' visible content", () => {
@@ -771,29 +814,24 @@ describe("measured criteria", () => {
     }
   });
 
-  test("a page of members costs one query per measured condition, not one per member", () => {
-    const statements = (members: number) => {
-      const ctx = createTestContext();
+  test("a page of members costs one statement per measured condition, not one per member", () => {
+    const executions = (members: number) => {
+      const { ctx, trace } = world();
       const ids = Array.from({ length: members }, () => insertUser(ctx).id);
-      const seen: string[] = [];
-      const original = ctx.sqlite.prepare.bind(ctx.sqlite);
-      (ctx.sqlite as { prepare: unknown }).prepare = (sql: string) => {
-        seen.push(sql);
-        return original(sql);
-      };
+      const before = trace.sql.length;
       loadFacts(ctx, ids, [
         rule(
           { criterion: "posts_in_threads", ids: [1, 2], value: 1 },
           { criterion: "replies_received", value: 1 },
           { criterion: "bookmarks_at_least", value: 1 },
-          // The same measurement under another threshold shares its query.
+          // The same measurement under another threshold shares its statement.
           { criterion: "replies_received", value: 9 },
         ),
       ]);
-      return seen.length;
+      return trace.sql.length - before;
     };
-    expect(statements(1)).toBe(3);
-    expect(statements(40)).toBe(3);
+    expect(executions(1)).toBe(3);
+    expect(executions(40)).toBe(3);
   });
 });
 
@@ -888,30 +926,22 @@ describe("every criterion", () => {
   });
 
   test("loads a page of members in as many statements as it has for one", () => {
-    const { ctx, member, node } = world();
+    const { ctx, trace, member, node } = world();
     const named = seedIds(ctx, member, node);
     const page = [member, ...Array.from({ length: 39 }, () => insertUser(ctx).id)];
-    const statements = (members: number[], condition: Condition) => {
-      // Prepared statements are cached per context; forget them so each load prepares its own.
-      ctx.statements.clear();
-      const seen: string[] = [];
-      const original = ctx.sqlite.prepare.bind(ctx.sqlite);
-      (ctx.sqlite as { prepare: unknown }).prepare = (sql: string) => {
-        seen.push(sql);
-        return original(sql);
-      };
-      try {
-        loadFacts(ctx, members, [rule(condition)]);
-      } finally {
-        (ctx.sqlite as { prepare: unknown }).prepare = original;
-      }
-      return seen.length;
+    // Statements run, not prepared: one that ran once per member would show whatever is cached.
+    const executions = (members: number[], condition: Condition) => {
+      const before = trace.sql.length;
+      loadFacts(ctx, members, [rule(condition)]);
+      return trace.sql.length - before;
     };
     for (const definition of criterionDefinitions) {
       const condition = conditionOf(definition, named);
-      const one = statements([member], condition);
+      const one = executions([member], condition);
       expect(one, definition.id).toBeLessThanOrEqual(1);
-      expect(statements(page, condition), definition.id).toBe(one);
+      expect(executions(page, condition), definition.id).toBe(one);
+      // And again with the statement already cached.
+      expect(executions(page, condition), definition.id).toBe(one);
     }
   });
 });
@@ -947,6 +977,21 @@ describe("assertRule: the new criteria", () => {
         "background",
       ),
     ).toThrow(/Unknown thread: 9999/);
+  });
+
+  test("a thread merged into another cannot be named: its posts moved", () => {
+    const { ctx, member, node } = world();
+    const kept = thread(ctx, member, node);
+    const merged = thread(ctx, member, node, 0, "deleted");
+    ctx.sqlite.prepare("UPDATE threads SET merged_into_id = ?1 WHERE id = ?2").run(kept, merged);
+    assertRule(ctx, rule({ criterion: "posts_in_threads", ids: [kept], value: 1 }), "background");
+    expect(() =>
+      assertRule(
+        ctx,
+        rule({ criterion: "posts_in_threads", ids: [merged], value: 1 }),
+        "background",
+      ),
+    ).toThrow(/Unknown thread/);
   });
 
   test("every definition says what its condition takes", () => {

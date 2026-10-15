@@ -127,13 +127,20 @@ test("a list condition draws its chosen names, a number, the mode and the window
     '<option value="each" selected="">Each of them</option>',
   );
   // A criterion with no mode to choose draws no mode select.
-  expect(html.split('aria-label="How the list is read"').length - 1).toBe(4);
-  // A window: its number, only where the criterion takes one.
-  expect(html).toContain('aria-label="Look back this many days"');
-  expect(html).toMatch(/aria-label="Look back this many days"[^>]*value="30"/);
-  expect(html.split('aria-label="Look back this many days"').length - 1).toBe(
-    2,
+  expect(html.split(': How the list is read"').length - 1).toBe(4);
+  // Each says which condition it belongs to, so two list conditions can be told apart.
+  expect(html).toContain(
+    'aria-label="Title of posts_in_threads: How the list is read"',
   );
+  expect(html).toContain(
+    'aria-label="Title of holds_awards: How the list is read"',
+  );
+  // A window: its number, only where the criterion takes one.
+  expect(html).toContain(
+    'aria-label="Title of credits_earned: Look back this many days"',
+  );
+  expect(html).toMatch(/: Look back this many days"[^>]*value="30"/);
+  expect(html.split(': Look back this many days"').length - 1).toBe(2);
   expect(html).toContain(`max="${LIMITS.days}"`);
 });
 

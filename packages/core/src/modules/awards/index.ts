@@ -8,7 +8,13 @@ import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, requirePermission } from "../../permissions";
-import { assertRule, awardsReadBy, criterionDefinitions, type Rule } from "../../shared/criteria";
+import {
+  assertRule,
+  awardsReadBy,
+  criterionDefinitions,
+  parseRule,
+  type Rule,
+} from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
@@ -74,6 +80,32 @@ function assertNoAwardLoop(ctx: Ctx, awardId: number, rule: Rule): void {
     pending.push(...(reads.get(id) ?? []));
   }
 }
+/**
+ * The stored rules that name an award, in words for a refusal. An award that is deleted while a
+ * rule names it would leave that rule counting nothing, and the next award to take its id would
+ * inherit the rule.
+ */
+function readersOf(ctx: Ctx, awardId: number): string[] {
+  const readers: string[] = [];
+  const check = (kind: string, name: string, rule: string) => {
+    if (awardsReadBy(parseRule(rule)).includes(awardId)) readers.push(`${kind} "${name}"`);
+  };
+  for (const row of all<AwardRow>(ctx, "catalog", awardSql.catalog))
+    if (row.id !== awardId) check("award", row.name, row.rule);
+  for (const [kind, table, column] of [
+    ["promotion", "promotions", "title"],
+    ["notice", "notices", "title"],
+    ["shop category", "shop_categories", "name"],
+    ["shop item", "shop_items", "name"],
+  ] as const)
+    for (const row of all<{ name: string; rule: string }>(
+      ctx,
+      `readers.${table}`,
+      `SELECT ${column} AS name, rule FROM ${table}`,
+    ))
+      check(kind, row.name, row.rule);
+  return readers;
+}
 function grantsPage(
   ctx: Ctx,
   kind: "holders" | "grants",
@@ -135,6 +167,7 @@ export const operations = [
           ctx.now(),
         ).lastInsertRowid,
       );
+      assertNoAwardLoop(ctx, id, input.rule);
       return awardValue(ctx, awardRow(ctx, id), true);
     });
   }),
@@ -173,6 +206,11 @@ export const operations = [
       const award = awardRow(ctx, input.awardId);
       if (one(ctx, "everGranted", awardSql.everGranted, input.awardId))
         throw new ConflictError("An award that was granted can only be deactivated.");
+      const readers = readersOf(ctx, award.id);
+      if (readers.length > 0)
+        throw new ConflictError(
+          `The rule of ${readers.join(", ")} names this award; take it out of there first.`,
+        );
       run(ctx, "delete", "DELETE FROM awards WHERE id = ?1", input.awardId);
       if (award.image_file_id !== null) releaseFile(ctx, award.image_file_id);
       return { ok: true };

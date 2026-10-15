@@ -125,7 +125,10 @@ export async function RuleField({
     items: shop.items,
     members: memberIds.map((id) => ({ id, label: names(id) })),
     threads,
-    awards: awards.map(titled),
+    // An award cannot require itself, so the one being edited is not offered.
+    awards: awards
+      .filter(({ id }) => place !== "award" || id !== owner)
+      .map(titled),
     shopCategories: shop.categories,
     creditRules: creditRules.map(titled),
   };

@@ -30,6 +30,7 @@ import {
   isRefreshedBy,
   loadFacts,
   membersAffected,
+  needsSweep,
   parseRule,
   type Rule,
   evaluate as ruleHolds,
@@ -366,11 +367,24 @@ function evaluate(
     state: current,
   });
 }
+/**
+ * The facts a pass reads from history take as long as that history is, so they are loaded before
+ * the write begins and the transaction only reads what it changes. A promotion edited since (its
+ * rule is another string) is left for the next pass: its facts were not the ones its rule needs.
+ */
+const unchanged = (seen: Map<number, string>) => (p: PromotionRow) => seen.get(p.id) === p.rule;
 export function evaluateMember(ctx: Ctx, userId: number): number {
+  const first = one<MemberRow>(ctx, "member", memberSql, userId);
+  if (!first) return 0;
+  // A rule that is too heavy for every event waits for the sweep (`needsSweep`).
+  const seenRows = evaluationRows(ctx).filter((p) => !needsSweep(planFor(p).rule));
+  const facts = withFacts(ctx, [first], seenRows)[0]!.facts;
+  const seen = new Map(seenRows.map((p) => [p.id, p.rule]));
   return writeTx(ctx, () => {
     const row = one<MemberRow>(ctx, "member", memberSql, userId);
     if (!row) return 0;
-    const m = withFacts(ctx, [row], evaluationRows(ctx))[0]!;
+    const m: Member = { ...row, facts };
+    const active = evaluationRows(ctx).filter(unchanged(seen));
     const states = all<StateRow>(
       ctx,
       "memberStates",
@@ -391,7 +405,7 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
       grantMap.set(row.promotion_id, list);
     }
     let changes = 0;
-    for (const p of evaluationRows(ctx)) {
+    for (const p of active) {
       const current = stateMap.get(p.id) ?? null;
       const old = grantMap.get(p.id) ?? [];
       if (evaluate(ctx, m, p, { old, state: current })) changes++;
@@ -431,11 +445,12 @@ export const operations = [
             "SELECT id, title FROM groups ORDER BY rank DESC, id",
           ),
         ).all(),
+        // An inactive award is hidden from everyone but those who manage awards.
         awards: prepared(ctx, "promotions.ruleAwards", () =>
-          ctx.sqlite.prepare<{ id: number; title: string }, []>(
-            "SELECT id, name AS title FROM awards ORDER BY id",
+          ctx.sqlite.prepare<{ id: number; title: string }, [number]>(
+            "SELECT id, name AS title FROM awards WHERE is_active = 1 OR ?1 = 1 ORDER BY id",
           ),
-        ).all(),
+        ).all(Number(can(ctx, current, "admin.awards"))),
         creditRules: prepared(ctx, "promotions.ruleCreditRules", () =>
           ctx.sqlite.prepare<{ id: number; title: string }, []>(
             "SELECT id, title FROM credit_rules ORDER BY id",
@@ -640,14 +655,20 @@ export const operations = [
 ];
 
 export function sweepChunk(ctx: Ctx, after = 0): number {
-  return writeTx(ctx, () => {
-    const members = all<MemberRow>(
+  const page = () =>
+    all<MemberRow>(
       ctx,
       "sweepPage",
       "SELECT id, group_id FROM users WHERE id > ?1 ORDER BY id LIMIT ?2",
       after,
       CHUNK,
     );
+  // The history facts of a page are read before the write begins (see `unchanged`).
+  const seenRows = evaluationRows(ctx);
+  const loaded = new Map(withFacts(ctx, page(), seenRows).map((m) => [m.id, m.facts]));
+  const seen = new Map(seenRows.map((p) => [p.id, p.rule]));
+  return writeTx(ctx, () => {
+    const members = page();
     const ids = JSON.stringify(members.map((m) => m.id));
     const states = all<StateRow>(
       ctx,
@@ -684,9 +705,14 @@ export function sweepChunk(ctx: Ctx, after = 0): number {
     for (const m of members) countGroup(m.id, m.group_id, 1);
     for (const row of handGroups) countGroup(row.user_id, row.group_id, 1);
     for (const row of grantRows) countGroup(row.user_id, row.group_id, 1);
-    const active = evaluationRows(ctx);
+    const active = evaluationRows(ctx).filter(unchanged(seen));
     const now = ctx.now();
-    for (const m of withFacts(ctx, members, active)) {
+    // A member who joined after the facts were read waits for the next sweep.
+    const judged = members.flatMap((row) => {
+      const facts = loaded.get(row.id);
+      return facts ? [{ ...row, facts }] : [];
+    });
+    for (const m of judged) {
       for (const p of active) {
         const key = `${m.id}:${p.id}`;
         const oldState = stateMap.get(key) ?? null;

@@ -376,7 +376,7 @@ function Control({
       )}
       {accepts.modes.length > 1 && (
         <select
-          aria-label={t("modes.label")}
+          aria-label={`${criterion.title}: ${t("modes.label")}`}
           value={condition.mode ?? accepts.modes[0]}
           onChange={(event) => onChange({ mode: event.target.value as Mode })}
           className={selectClass}
@@ -399,7 +399,7 @@ function Control({
             min={1}
             max={limits.days}
             placeholder={t("window.ever")}
-            aria-label={t("window.label")}
+            aria-label={`${criterion.title}: ${t("window.label")}`}
             defaultValue={condition.days}
             onChange={(event) => {
               const days = numberOf(event.target.value, limits.days);

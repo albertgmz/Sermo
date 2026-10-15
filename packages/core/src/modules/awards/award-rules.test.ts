@@ -76,6 +76,58 @@ describe("an award that needs other awards", () => {
     await call("update", { awardId: b, name: "B again" });
   });
 
+  test("is checked for a loop when it is created, whatever id it takes", async () => {
+    const { ctx, call, create, requires } = setup();
+    const a = await create("A", { match: "all", conditions: [] });
+    // A rule that names the id the next award will take (a stale id left in a rule).
+    ctx.sqlite
+      .prepare("UPDATE awards SET rule = ?1 WHERE id = ?2")
+      .run(JSON.stringify(requires(a + 1)), a);
+    await expect(
+      call("create", { name: "C", tier: "bronze", rule: requires(a) }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // Refused whole: nothing was created.
+    expect(ctx.sqlite.prepare("SELECT count(*) AS n FROM awards").get()).toEqual({ n: 1 });
+    // An award that closes no loop is created.
+    await call("create", { name: "D", tier: "bronze", rule: { match: "all", conditions: [] } });
+    expect(ctx.sqlite.prepare("SELECT count(*) AS n FROM awards").get()).toEqual({ n: 2 });
+  });
+
+  test("cannot be deleted while a rule names it, and the refusal says whose", async () => {
+    const { ctx, call, create, requires } = setup();
+    const [a, b] = [
+      await create("A", { match: "all", conditions: [] }),
+      await create("B", { match: "all", conditions: [] }),
+    ];
+    await call("update", { awardId: a, rule: requires(b) });
+    await expect(call("delete", { awardId: b })).rejects.toThrow(/award "A"/);
+    // Promotions, notices and the shop name awards too.
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO promotions (title, group_ids, rule, created_at, updated_at) VALUES ('P', '[]', ?1, 0, 0)",
+      )
+      .run(JSON.stringify(requires(b)));
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO shop_categories (name, rule, created_at, updated_at) VALUES ('Shelf', ?1, 0, 0)",
+      )
+      .run(JSON.stringify(requires(b)));
+    await expect(call("delete", { awardId: b })).rejects.toThrow(
+      /award "A", promotion "P", shop category "Shelf"/,
+    );
+    expect(ctx.sqlite.prepare("SELECT count(*) AS n FROM awards WHERE id = ?1").get(b)).toEqual({
+      n: 1,
+    });
+    // Once nothing names it, it goes; the id it leaves is taken by an award with no rule of its own.
+    await call("update", { awardId: a, rule: { match: "all", conditions: [] } });
+    ctx.sqlite.prepare("DELETE FROM promotions").run();
+    ctx.sqlite.prepare("DELETE FROM shop_categories").run();
+    await call("delete", { awardId: b });
+    const reused = await create("C", { match: "all", conditions: [] });
+    expect(reused).toBe(b);
+    expect((await call("get", { awardId: a })).rule.conditions).toEqual([]);
+  });
+
   test("has to name awards that exist", async () => {
     const { call } = setup();
     await expect(

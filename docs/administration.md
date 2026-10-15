@@ -197,15 +197,15 @@ mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in no
 
 | Area | Criterion | Takes | Holds when | Cost |
 | --- | --- | --- | --- | --- |
-| Content | `posts_in_threads` | `ids` (threads), `n`, `mode` (each, one, all) | visible posts in the threads reach `n` | background |
-| | `replies_received` | `n` | visible replies in the member's visible threads add up to `n` (their own replies included) | background |
+| Content | `posts_in_threads` | `ids` (threads), `n`, `mode` (each, one, all) | visible posts in the visible threads reach `n` (a thread merged into another cannot be named) | background |
+| | `replies_received` | `n` | visible replies in the member's visible threads add up to `n`, their own replies included | background |
 | | `busiest_thread_replies` | `n` | the member's thread with most replies has `n` | background |
 | | `profile_posts_written`, `profile_comments_written`, `attachments_uploaded` | `n` | the member wrote or uploaded `n` (visible, attached) | background |
 | | `bookmarks_at_least`, `watching_forums_at_least`, `watching_threads_at_least` | `n` | the member has `n` | background |
 | Economy | `owns_item`, `wears_item` | `ids` (shop items), `mode` (one, each) | the member holds the item now, or holds it and has the frame, name color or name icon it gives in use | cheap |
 | | `bought_in_category` | `ids` (shop categories), `mode` (one, each) | the member bought something in the category, gifts included | cheap |
 | | `gifted_items` | `n` | the member paid for `n` units that went to others | background |
-| | `credits_earned` | `n`, optional `days` | credits from rules and awards, net of reversals, reach `n` | background |
+| | `credits_earned` | `n`, optional `days` | credits from rules and awards, net of reversals, reach `n`; read from the member's whole ledger, so only the daily sweep checks it | background |
 | | `credits_from_rule` | `ids` (credit rules), `n`, optional `days`, `mode` (all, one, each) | the rules paid `n` | background |
 | Awards | `awards_held_at_least`, `award_xp_at_most` | `n` | awards held (each grant counts) or their XP | cheap |
 | | `holds_awards` | `ids` (awards), `mode` (one, none, each) | the member holds one, none or each of the awards | cheap |
@@ -215,8 +215,8 @@ mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in no
 | Moderation | `restricted_posting`, `restricted_conversations`, `restricted_profile_posts` | `value` 1 or 0 | an active restriction of that kind | cheap |
 | | `thread_banned`, `banned_before` | `value` 1 or 0 | banned from a thread with the ban in force; any ban on record | cheap |
 | | `reports_resolved`, `moderator_actions` | `n` | reports the member filed that were resolved; entries under their name in the moderator log | background |
-| Engagement | `days_since_last_post` | `n` | no visible post for `n` days (never posting counts) | background |
-| | `mentioned_by_others` | `n` | mentioned `n` times in other members' visible posts, profile posts and comments | background |
+| Engagement | `days_since_last_post` | `n` | the last visible post in a visible thread is `n` days old or more; a member who never posted does not hold it | background |
+| | `mentioned_by_others` | `n` | mentioned `n` times in other members' visible posts (in visible threads), profile posts and comments | background |
 | Referrals | `referrals_at_least`, `referrals_this_month` | `n` | members referred, in total or since the first of the month (UTC) | cheap, background |
 | | `was_referred` | `value` 1 or 0 | the member has a referrer | cheap |
 
@@ -225,7 +225,7 @@ a used item, a mention, a restriction, ban or thread ban, a resolved report, an 
 away); the facts no event tells of (bookmarks, watches, referrals, moderator actions, a restriction
 running out) wait for the daily sweep. An award's rule may read other awards, and giving or taking one
 away checks the member's other awards again, so an award cannot require itself, directly or through
-other awards: saving one that does is refused.
+other awards: saving one that does is refused (creating included). An award that another award, a promotion, a notice or a shop rule names cannot be deleted until it is taken out of there. `criteria.list` names inactive awards only to those who hold `admin.awards`. Sweeps count history before they open their write transaction, so a long ledger or post history never holds the database for writing.
 
 Notices (`rule`) are shown to the members the rule holds for. Shop categories and items (`rule`)
 are listed to, and may be bought by, only the members the rule holds for; an administrator with

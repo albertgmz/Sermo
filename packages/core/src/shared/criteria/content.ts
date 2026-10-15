@@ -25,15 +25,18 @@ export const contentSpecs: readonly Spec[] = [
     "threads",
     {
       shape: "perId",
-      // posts_user (user_id, state, thread_id) answers it without reading a post.
+      // posts_user (user_id, state, thread_id) answers it without reading a post. Posts keep
+      // their own state when their thread is hidden, so the thread's is checked once per listed
+      // thread, as `users.post_count` counts only posts of visible threads.
       sql:
         "SELECT p.user_id AS user_id, p.thread_id AS id, count(*) AS n FROM posts p " +
         "WHERE p.user_id IN (SELECT value FROM json_each(?1)) AND p.state = 'visible' " +
-        "AND p.thread_id IN (SELECT value FROM json_each(?2)) GROUP BY p.user_id, p.thread_id",
+        "AND p.thread_id IN (SELECT id FROM threads WHERE state = 'visible' AND id IN (SELECT value FROM json_each(?2))) " +
+        "GROUP BY p.user_id, p.thread_id",
     },
     { modes: ["each", "one", "all"], value: true },
   ),
-  // Every visible reply in their threads, their own replies included.
+  // Every visible reply in their visible threads, their own replies included (the title says so).
   counted(
     "replies_received",
     {

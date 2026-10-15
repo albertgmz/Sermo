@@ -3,9 +3,11 @@ import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
 import {
   afterAwardGrant,
+  type Facts,
   isRefreshedBy,
   loadFacts,
   membersAffected,
+  needsSweep,
   evaluate as ruleHolds,
 } from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
@@ -29,13 +31,30 @@ function activePlans(ctx: Ctx) {
     .filter((plan) => plan.rule.conditions.length > 0);
 }
 
-function evaluate(ctx: Ctx, members: MemberRow[], plans = activePlans(ctx)): number {
+type Plans = ReturnType<typeof activePlans>;
+
+/**
+ * The facts a pass reads from history take as long as that history is, so they are loaded before
+ * the write begins; the transaction then reads what it changes (the awards, what each member
+ * holds) and grants. An award edited since (another rule string, or no longer active) is left for
+ * the next pass: the facts loaded were not the ones its rule needs.
+ */
+function readFacts(ctx: Ctx, memberIds: number[], seen: Plans) {
+  return seen.length === 0 || memberIds.length === 0
+    ? new Map<number, Facts>()
+    : loadFacts(
+        ctx,
+        memberIds,
+        seen.map((plan) => plan.rule),
+      );
+}
+function confirmed(ctx: Ctx, seen: Plans): Plans {
+  const rules = new Map(seen.map((plan) => [plan.award.id, plan.award.rule]));
+  return activePlans(ctx).filter((plan) => rules.get(plan.award.id) === plan.award.rule);
+}
+
+function evaluate(ctx: Ctx, members: MemberRow[], plans: Plans, facts: Map<number, Facts>): number {
   if (plans.length === 0 || members.length === 0) return 0;
-  const facts = loadFacts(
-    ctx,
-    members.map((m) => m.id),
-    plans.map((plan) => plan.rule),
-  );
   const totals = all<TotalRow>(
     ctx,
     "evaluationTotals",
@@ -45,7 +64,9 @@ function evaluate(ctx: Ctx, members: MemberRow[], plans = activePlans(ctx)): num
   const byMember = new Map(totals.map((row) => [`${row.user_id}:${row.award_id}`, row]));
   let granted = 0;
   for (const member of members) {
-    const memberFacts = facts.get(member.id)!;
+    // A member who joined after the facts were read waits for the next pass.
+    const memberFacts = facts.get(member.id);
+    if (!memberFacts) continue;
     for (const { award, rule } of plans) {
       const total = byMember.get(`${member.id}:${award.id}`);
       if (total?.auto_granted || (!award.is_stackable && (total?.count ?? 0) > 0)) continue;
@@ -61,12 +82,14 @@ function evaluate(ctx: Ctx, members: MemberRow[], plans = activePlans(ctx)): num
 }
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
+  // With no automatic award there is nothing to look up (this runs after most activity).
+  // A rule that is too heavy for every event waits for the sweep (`needsSweep`).
+  const seen = activePlans(ctx).filter((plan) => !needsSweep(plan.rule));
+  if (seen.length === 0) return 0;
+  const facts = readFacts(ctx, [userId], seen);
   return writeTx(ctx, () => {
-    // With no automatic award there is nothing to look up (this runs after most activity).
-    const plans = activePlans(ctx);
-    if (plans.length === 0) return 0;
     const member = one<MemberRow>(ctx, "evaluationMember", evaluationSql.member, userId);
-    return member ? evaluate(ctx, [member], plans) : 0;
+    return member ? evaluate(ctx, [member], confirmed(ctx, seen), facts) : 0;
   });
 }
 
@@ -77,16 +100,18 @@ export function evaluateMember(ctx: Ctx, userId: number): number {
 export function sweepChunk(ctx: Ctx, after = 0, job?: ClaimedJob): number {
   if (!Number.isSafeInteger(after) || after < 0)
     throw new TypeError("Invalid award sweep progress.");
+  const page = () =>
+    all<MemberRow>(ctx, "evaluationMembers", evaluationSql.members, after, SWEEP_CHUNK);
+  const seen = activePlans(ctx);
+  const facts = readFacts(
+    ctx,
+    page().map((m) => m.id),
+    seen,
+  );
   return writeTx(ctx, () => {
     if (job && !completeRunningJob(ctx, job)) return 0;
-    const members = all<MemberRow>(
-      ctx,
-      "evaluationMembers",
-      evaluationSql.members,
-      after,
-      SWEEP_CHUNK,
-    );
-    evaluate(ctx, members);
+    const members = page();
+    evaluate(ctx, members, confirmed(ctx, seen), facts);
     if (members.length === SWEEP_CHUNK) {
       enqueueJob(ctx, "awards.sweep", { after: members.at(-1)!.id }, { uniqueKey: "awards.sweep" });
     }

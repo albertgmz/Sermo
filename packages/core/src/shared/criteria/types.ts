@@ -96,6 +96,11 @@ export interface Spec {
   source: Source;
   /** Whether a guest can satisfy it; every other criterion is false for a guest. */
   guests: boolean;
+  /**
+   * Too heavy to load on every event (it reads the member's whole history until an index
+   * exists), so a rule that holds one is left to the sweep.
+   */
+  sweepOnly?: boolean;
   /** Set where `source` is `measure`. */
   measure?: Measurer;
   /**

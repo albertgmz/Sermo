@@ -50,11 +50,14 @@ describe("criteria.list", () => {
 
   test("the awards and credit rules a rule may name come with the criteria, by id and title", async () => {
     const { ctx, manager } = await managerOf("admin.announcements");
-    const award = ctx.sqlite
-      .prepare<{ id: number }, []>(
-        "INSERT INTO awards (name, tier, created_at, updated_at, is_active) VALUES ('Veteran', 'gold', 0, 0, 0) RETURNING id",
-      )
-      .get()!.id;
+    const award = (name: string, active: number) =>
+      ctx.sqlite
+        .prepare<{ id: number }, [string, number]>(
+          "INSERT INTO awards (name, tier, created_at, updated_at, is_active) VALUES (?1, 'gold', 0, 0, ?2) RETURNING id",
+        )
+        .get(name, active)!.id;
+    const open = award("Veteran", 1);
+    const hidden = award("Staff secret", 0);
     const creditRule = ctx.sqlite
       .prepare<{ id: number }, []>(
         "INSERT INTO credit_rules (title, trigger, amount, created_at, updated_at) VALUES ('Daily', 'daily_activity', 1, 0, 0) RETURNING id",
@@ -64,8 +67,20 @@ describe("criteria.list", () => {
       awards: object[];
       creditRules: object[];
     };
-    expect(list.awards).toEqual([{ id: award, title: "Veteran" }]);
+    // An inactive award is not named to someone who does not manage awards.
+    expect(list.awards).toEqual([{ id: open, title: "Veteran" }]);
     expect(list.creditRules).toEqual([{ id: creditRule, title: "Daily" }]);
+    const { ctx: managed, manager: awardManager } = await managerOf("admin.awards");
+    managed.sqlite
+      .prepare(
+        "INSERT INTO awards (name, tier, created_at, updated_at, is_active) VALUES ('Staff secret', 'gold', 0, 0, 0)",
+      )
+      .run();
+    const seen = (await execute(managed, op("criteria.list"), awardManager, {})) as {
+      awards: { title: string }[];
+    };
+    expect(seen.awards.map((entry) => entry.title)).toEqual(["Staff secret"]);
+    expect(hidden).toBeGreaterThan(0);
   });
 
   test("guests, members and moderators are refused", async () => {
