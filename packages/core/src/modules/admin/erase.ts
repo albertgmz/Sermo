@@ -111,48 +111,59 @@ export async function eraseMember(
     if (own?.banned_permanently !== 1)
       insertAuthorizedBan(ctx, actor, userId, reason, null, { notify: false });
   });
-  // 2. Sessions and API keys, then the links and queued mail that could still reach the account.
-  await revokeUserCredentials(ctx, userId);
-  await deletePendingTokens(ctx, userId);
-  // 3. Identity, through Better Auth.
-  const authContext = await getAuth(ctx).$context;
-  const id = String(userId);
-  const placeholder = `erased-${userId}@invalid`;
-  const now = readMember(ctx, userId);
-  if (now && now.email !== placeholder)
-    // The old address leaves the delivery records before it is replaced; afterwards it is unknown.
-    writeTx(ctx, () => {
-      ctx.sqlite.prepare(eraseSql.rejectedAddress).run(now.email);
-      ctx.sqlite.prepare(eraseSql.failedMail).run(userId, now.email);
+  let step = "credentials";
+  try {
+    // 2. Sessions and API keys, then the links and queued mail that could still reach the account.
+    await revokeUserCredentials(ctx, userId);
+    await deletePendingTokens(ctx, userId);
+    step = "identity";
+    // 3. Identity, through Better Auth.
+    const authContext = await getAuth(ctx).$context;
+    const id = String(userId);
+    const placeholder = `erased-${userId}@invalid`;
+    const now = readMember(ctx, userId);
+    if (now && now.email !== placeholder)
+      // The old address leaves the delivery records before it is replaced; afterwards it is unknown.
+      writeTx(ctx, () => {
+        ctx.sqlite.prepare(eraseSql.rejectedAddress).run(now.email);
+        ctx.sqlite.prepare(eraseSql.failedMail).run(userId, now.email);
+      });
+    await authContext.internalAdapter.updateUser(id, {
+      ...(now && now.email !== placeholder ? { email: placeholder, emailVerified: false } : {}),
+      image: null,
     });
-  await authContext.internalAdapter.updateUser(id, {
-    ...(now && now.email !== placeholder ? { email: placeholder, emailVerified: false } : {}),
-    image: null,
-  });
-  await authContext.internalAdapter.deleteAccounts(id);
-  // 4. The forum side: follows, then the profile, the pictures and the queued mail.
-  endMemberFollows(ctx, userId);
-  writeTx(ctx, () => {
-    ctx.sqlite.prepare(eraseSql.clear).run(userId, ctx.now());
-    clearMemberPicture(ctx, userId, "avatar");
-    clearMemberPicture(ctx, userId, "cover");
-    prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(userId);
-    ctx.sqlite.prepare(eraseSql.failedMail).run(userId, "");
-    ctx.sqlite.prepare(eraseSql.pushDevices).run(userId);
-    ctx.sqlite.prepare(ipLogSql.erase).run(userId);
-    deleteConsentRecord(ctx, userId);
-    ctx.sqlite.prepare(acceptanceSql.erase).run(userId);
-    ctx.sqlite.prepare(eraseSql.uncountReferral).run(userId);
-    ctx.sqlite.prepare(eraseSql.endReferrals).run(userId);
-  });
-  // 5. The name, last. Credentials created since step 2 would go too.
-  await renameErased(ctx, userId);
-  await revokeUserCredentials(ctx, userId);
-  writeTx(ctx, () => {
-    ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), userId);
-    markSessionsRevoked(ctx, userId);
-    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
-  });
+    await authContext.internalAdapter.deleteAccounts(id);
+    step = "profile";
+    // 4. The forum side: follows, then the profile, the pictures and the queued mail.
+    endMemberFollows(ctx, userId);
+    writeTx(ctx, () => {
+      ctx.sqlite.prepare(eraseSql.clear).run(userId, ctx.now());
+      clearMemberPicture(ctx, userId, "avatar");
+      clearMemberPicture(ctx, userId, "cover");
+      prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(userId);
+      ctx.sqlite.prepare(eraseSql.failedMail).run(userId, "");
+      ctx.sqlite.prepare(eraseSql.pushDevices).run(userId);
+      ctx.sqlite.prepare(ipLogSql.erase).run(userId);
+      deleteConsentRecord(ctx, userId);
+      ctx.sqlite.prepare(acceptanceSql.erase).run(userId);
+      ctx.sqlite.prepare(eraseSql.uncountReferral).run(userId);
+      ctx.sqlite.prepare(eraseSql.endReferrals).run(userId);
+    });
+    step = "name";
+    // 5. The name, last. Credentials created since step 2 would go too.
+    await renameErased(ctx, userId);
+    await revokeUserCredentials(ctx, userId);
+    writeTx(ctx, () => {
+      ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), userId);
+      markSessionsRevoked(ctx, userId);
+      publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
+    });
+  } catch (error) {
+    // The account is already erased and banned, so the member cannot run it again: an
+    // administrator finishes it with `users.adminErase`, and this line says whose and where.
+    console.error("[users.eraseInterrupted]", { userId, step }, error);
+    throw error;
+  }
 }
 
 export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {

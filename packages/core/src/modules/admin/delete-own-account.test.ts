@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { insertNode, tokenActor } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
@@ -311,6 +311,42 @@ describe("users.deleteOwnAccount", () => {
     await w.register("Second", 4);
     expect(await w.deleteAccount({}, w.founder)).toEqual({ ok: true });
     expect(w.user(w.founder.id)).toMatchObject({ banned_permanently: 1 });
+  });
+});
+
+describe("users.deleteOwnAccount interrupted", () => {
+  test("a failure after the first transaction leaves the account closed and logs whose and where", async () => {
+    const w = await world();
+    const authContext = await getAuth(w.ctx).$context;
+    const original = authContext.internalAdapter.deleteAccounts;
+    authContext.internalAdapter.deleteAccounts = async () => {
+      throw new Error("injected");
+    };
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(w.deleteAccount()).rejects.toThrow("injected");
+      expect(logged).toHaveBeenCalledWith(
+        "[users.eraseInterrupted]",
+        { userId: w.leaver.id, step: "identity" },
+        expect.any(Error),
+      );
+    } finally {
+      logged.mockRestore();
+      authContext.internalAdapter.deleteAccounts = original;
+    }
+    expect(w.user()).toMatchObject({ banned_permanently: 1 });
+    expect(w.user().erased_at).not.toBeNull();
+    // The member cannot run it again; an administrator finishes it, with no second log entry.
+    await expect(w.deleteAccount()).rejects.toBeInstanceOf(ForbiddenError);
+    await w.run("users.adminErase", w.founder.actor, {
+      userId: w.leaver.id,
+      actorPassword: PASSWORD,
+      reason: "Finish",
+    });
+    expect(w.count("SELECT count(*) AS n FROM auth_account WHERE user_id = ?1", w.leaver.id)).toBe(
+      0,
+    );
+    expect(w.logOf(w.leaver.id).filter((entry) => entry.action === "member.erase")).toHaveLength(1);
   });
 });
 

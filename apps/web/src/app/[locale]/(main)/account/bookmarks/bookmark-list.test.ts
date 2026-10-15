@@ -27,6 +27,14 @@ const navigation = await import("next/navigation");
 mock.module("next/navigation", () => ({
   ...navigation,
   usePathname: () => "/account/bookmarks",
+  useRouter: () => ({
+    refresh() {},
+    push() {},
+    replace() {},
+    back() {},
+    forward() {},
+    prefetch() {},
+  }),
   useSearchParams: () => new URLSearchParams(),
 }));
 // Another suite replaces the translator with one that fills no placeholders: use the real one.

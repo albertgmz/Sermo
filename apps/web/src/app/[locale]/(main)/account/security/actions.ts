@@ -146,6 +146,8 @@ export async function deleteAccount(
     const password = state?.fields?.password;
     return password ? { ...state, fields: { actorPassword: password } } : state;
   }
+  // The session is already gone, so the backend answers this sign-out with a 401; its answer
+  // still clears the browser's cookies, which is all it is for. Its result is not checked.
   await signOut();
   await forgetAdoptedConsent();
   redirect("/?notice=accountDeleted");

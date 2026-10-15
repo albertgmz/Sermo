@@ -371,8 +371,11 @@ export const usersDeleteOwnAccount = defineContract({
     "member as the actor and banned permanently like any erased account. The member's own " +
     "password is required (five wrong answers in fifteen minutes from one session, twenty from " +
     "all their sessions, block further attempts). It cannot be undone. Requires " +
-    "profile.deleteAccount; refused for a super admin (the flag is handed on first) and for the last member holding admin.permissions; session actors only, never an API " +
-    "key. Every session of the member ends, the current one included.",
+    "profile.deleteAccount; refused for a super admin (the flag is handed on first) and for " +
+    "the last member holding admin.permissions; session actors only, never an API key. Every " +
+    "session of the member ends, the current one included. If a step after the first fails, " +
+    "the account stays erased and banned and an administrator finishes it with " +
+    "`users.adminErase`.",
   kind: "write",
   input: z.object({ password: ActorPassword }),
   output: Ok,

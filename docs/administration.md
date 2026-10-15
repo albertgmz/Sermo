@@ -75,7 +75,7 @@ Registered needs the ones it uses.
 | --- | --- | --- |
 | `site.view`: open forums, threads, the feed, search, profiles, the member list and its pages, spoilers, bookmarks and the files of posts and wall posts (conversation files stay). When the Guest group lacks it, the public surfaces serve nothing too: Atom feeds, sitemaps, `llms.txt`, the SEO operations and the IndexNow announcements. A guest without it is asked to sign in; a member's own card and avatar files stay. Writes are not gated, and the email and push alerts of posts a closed-out member subscribed to are still sent. | flag | everyone |
 | `member.viewList`: the member list and the pages of `/members` (staff, birthdays, the monthly race and winners), the rankings, and the holders of an award. It covers those lists, not every query that returns members: the prefix search for mentions and recipients stays open. | flag | everyone |
-| `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. | flag | posters |
+| `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. A member under a temporary ban holds no permissions, so cannot use it. | flag | members |
 | `profile.uploadAvatar`, `profile.uploadCover`: upload or set the picture. Taking it off needs nothing. | flags | members |
 | `bookmark.create`: adding a bookmark. Removing one needs nothing. | flag | members |
 | `profile.renameNeedsApproval`: the member cannot change their own username and is told to ask staff, who can rename them. There is no request queue. | flag | nobody; Administrator `never` |
@@ -1162,8 +1162,10 @@ their entries (the log's `member.erase` entry names the member as the actor). Th
 their username and their password to confirm, and an API key is refused. A super admin cannot
 delete their own account (the flag is handed on first) and neither can the last
 administrator. If a deletion is interrupted part way, the account stays closed (erased and banned)
-but some details may remain: an administrator finishes it by running the erasure again from the
-member's page.
+but some details may remain, and the member cannot run it again. The server logs
+`[users.eraseInterrupted]` with the member's id and the step; an administrator finishes it
+through the API (`users.adminErase`), because the member's page in the panel draws no erase form
+for an erased member.
 
 ## Cookie banner and consent
 

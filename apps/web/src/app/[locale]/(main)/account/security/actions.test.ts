@@ -4,6 +4,7 @@ import { translator } from "@/lib/test-intl";
 import { viewerBody } from "@/lib/test-viewer";
 
 const realFetch = globalThis.fetch;
+const stored: { name: string; value: string; maxAge?: number }[] = [];
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
@@ -13,7 +14,12 @@ mock.module("next-intl/server", () => ({
 }));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ set: () => {}, get: () => undefined }),
+  cookies: async () => ({
+    set: (cookie: { name: string; value: string; maxAge?: number }) => {
+      stored.push(cookie);
+    },
+    get: () => undefined,
+  }),
 }));
 
 const { deleteAccount, revokeOtherDevices, updatePassword } = await import(
@@ -179,4 +185,25 @@ test("a deleted account signs the browser out and lands on the home page with a 
     ["/api/v1/me/delete-account", { password: "right-password" }],
     ["/api/auth/sign-out", null],
   ]);
+});
+
+test("the sign-out that follows is a 401 and still clears the browser's cookies", async () => {
+  stored.length = 0;
+  backendOf({
+    "/api/v1/me": member,
+    "/api/v1/me/delete-account": () => Response.json({ ok: true }),
+    "/api/auth/sign-out": () => {
+      const response = Response.json({ code: "UNAUTHORIZED" }, { status: 401 });
+      response.headers.append(
+        "set-cookie",
+        "sermo.session_token=; Max-Age=0; Path=/; HttpOnly",
+      );
+      return response;
+    },
+  });
+  const digest = await redirectedTo(() => deleteAccount(null, form(deletion)));
+  expect(digest).toMatch(/^NEXT_REDIRECT;[a-z]+;\/\?notice=accountDeleted;/);
+  expect(
+    stored.map(({ name, value, maxAge }) => [name, value, maxAge]),
+  ).toEqual([["sermo.session_token", "", 0]]);
 });
