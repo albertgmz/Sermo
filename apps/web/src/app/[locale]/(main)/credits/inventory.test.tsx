@@ -63,3 +63,27 @@ test("the form offers to take it off only while that item's icon is worn", async
   expect((await control(31)).props.worn).toBe(true);
   expect((await control(32)).props.worn).toBe(false);
 });
+
+test("a promotion is used on one of the member's threads, through the use form", async () => {
+  const { UseForm } = await import("./use-form");
+  const threads = [{ value: "7", label: "My thread" }];
+  const node = (await Control({
+    entry: entry({ type: "promote" }),
+    appearance: appearance(null),
+    threads,
+    returnTo: "/credits",
+  })) as { type: unknown; props: Record<string, unknown> };
+  expect(node.type).toBe(UseForm);
+  expect(node.props).toMatchObject({ inventoryId: 1, threads });
+});
+
+test("a promotion with no thread to promote says so instead of offering a form", async () => {
+  const { UseForm } = await import("./use-form");
+  const node = (await Control({
+    entry: entry({ type: "promote" }),
+    appearance: appearance(null),
+    threads: [],
+    returnTo: "/credits",
+  })) as { type: unknown };
+  expect(node.type).not.toBe(UseForm);
+});

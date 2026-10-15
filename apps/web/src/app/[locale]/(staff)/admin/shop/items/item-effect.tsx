@@ -26,6 +26,7 @@ export type EffectType =
   | "threadCover"
   | "highlight"
   | "bump"
+  | "promote"
   | "usernameChange";
 
 export type Initial = {
@@ -120,7 +121,7 @@ export function ItemEffect({
   const [consumable, setConsumable] = useState(initialConsumable);
   const [permission, setPermission] = useState(initial?.permission ?? "");
 
-  const forced = type === "usernameChange";
+  const forced = type === "usernameChange" || type === "promote";
   const barred = type === "group";
   const isConsumable = forced ? true : barred ? false : consumable;
   const selected = choices.permissions?.find(

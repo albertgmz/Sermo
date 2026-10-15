@@ -44,6 +44,8 @@
   },
   "feedItem": {
     "highlighted": "Highlighted",
+    "featured": "Featured",
+    "promoted": "Promoted",
     "comments": "{count, plural, one {{value} comment} other {{value} comments}}",
     "replies": "{count, plural, one {{value} reply} other {{value} replies}}",
     "views": "{value}<label>{count, plural, other { views}}</label>",
@@ -52,6 +54,11 @@
     "replyContext": "replied to a thread in <forum>{title}</forum>",
     "replyPlaceholder": "Write a reply…",
     "replySubmit": "Post reply"
+  },
+  "featured": {
+    "title": "Featured",
+    "featured": "Featured",
+    "promoted": "Promoted"
   },
   "feedSidebar": {
     "loadingTrending": "Loading trending…",

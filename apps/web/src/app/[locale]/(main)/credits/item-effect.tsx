@@ -58,6 +58,8 @@ export function ItemEffect({
       return t("highlight", { days: effect.days });
     case "bump":
       return t("bump");
+    case "promote":
+      return t("promote");
     case "usernameChange":
       return t("usernameChange");
     case "permission": {

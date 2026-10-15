@@ -44,6 +44,8 @@
   },
   "feedItem": {
     "highlighted": "Destacado",
+    "featured": "Recomendado",
+    "promoted": "Promocionado",
     "comments": "{count, plural, one {{value} comentario} other {{value} comentarios}}",
     "replies": "{count, plural, one {{value} respuesta} other {{value} respuestas}}",
     "views": "{value}<label>{count, plural, other { vistas}}</label>",
@@ -52,6 +54,11 @@
     "replyContext": "respondió a un tema en <forum>{title}</forum>",
     "replyPlaceholder": "Escribe una respuesta…",
     "replySubmit": "Publicar respuesta"
+  },
+  "featured": {
+    "title": "Recomendados",
+    "featured": "Recomendado",
+    "promoted": "Promocionado"
   },
   "feedSidebar": {
     "loadingTrending": "Cargando tendencias…",

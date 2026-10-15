@@ -254,6 +254,7 @@ test("sticking, locking and watching go back to the thread", async () => {
       : undefined;
   for (const run of [
     () => actions.setStickyAction(7, true, {}),
+    () => actions.setFeaturedAction(7, true, {}),
     () => actions.setLockedAction(7, false, {}),
     () => actions.watchThreadAction(7, {}, form({ email: "on" })),
     () => actions.unwatchThreadAction(7, {}),
@@ -263,9 +264,11 @@ test("sticking, locking and watching go back to the thread", async () => {
   ]) {
     assert.match((await redirectedTo(run)) ?? "", /;\/threads\/7;/);
   }
-  assert.equal(asked.length, 7);
+  assert.equal(asked.length, 8);
   assert.equal((asked[0].body as { isSticky: boolean }).isSticky, true);
-  assert.equal((asked[2].body as { email: boolean }).email, true);
+  assert.equal(asked[1].url, `${ROOT}/threads/7/feature`);
+  assert.equal((asked[1].body as { isFeatured: boolean }).isFeatured, true);
+  assert.equal((asked[3].body as { email: boolean }).email, true);
 });
 
 test("moving needs a forum, and sends its id", async () => {
@@ -318,6 +321,7 @@ test("the first step of a merge reads the target without counting a view and cha
         jsonLd: [],
       },
       watching: null,
+      featured: null,
       permissions: {
         canReply: true,
         canEditTitle: false,

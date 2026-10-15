@@ -301,6 +301,7 @@
         "threadCover": "A thread cover",
         "highlight": "Highlight a thread",
         "bump": "Bump a thread",
+        "promote": "Promote a thread for 24 hours",
         "usernameChange": "A username change"
       },
       "words": {
@@ -313,6 +314,7 @@
         "threadCover": "Gives a thread the cover “{name}”",
         "highlight": "Highlights a thread for {days, plural, one {# day} other {# days}}",
         "bump": "Bumps a thread to the top",
+        "promote": "Promotes a thread for 24 hours",
         "usernameChange": "Pays for one username change"
       }
     },
@@ -339,6 +341,7 @@
         "threadCover": "Used on a thread the member started: gives it the chosen cover.",
         "highlight": "Used on a thread the member started: lists show it highlighted for some days.",
         "bump": "Used on a thread the member started: it sorts as if it had a new post.",
+        "promote": "Used on a thread the member started: it is featured for 24 hours, listed in Hot and shown on the home page. Sold in units; nothing is refunded if the thread is deleted later.",
         "usernameChange": "One unit pays for one change of username."
       },
       "frame": "Frame",
@@ -369,7 +372,7 @@
       "consumable": "Consumable",
       "consumableLabel": "Sold in units, used up one at a time",
       "consumableHelp": "Unticked, the item is bought once and held (for a duration if you set one).",
-      "consumableForced": "A username change is sold in units, so the item must be a consumable.",
+      "consumableForced": "A username change or a promotion is sold in units, so the item must be a consumable.",
       "consumableBarred": "A group item is never a consumable: it applies while held.",
       "duration": "Duration",
       "durationHelp": "How long the item lasts from purchase. Leave empty for permanent.",

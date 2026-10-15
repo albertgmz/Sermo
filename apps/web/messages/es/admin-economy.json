@@ -301,6 +301,7 @@
         "threadCover": "Una portada de tema",
         "highlight": "Destacar un tema",
         "bump": "Subir un tema",
+        "promote": "Promocionar un tema durante 24 horas",
         "usernameChange": "Un cambio de nombre de usuario"
       },
       "words": {
@@ -313,6 +314,7 @@
         "threadCover": "Da a un tema la portada «{name}»",
         "highlight": "Destaca un tema durante {days, plural, one {un día} other {# días}}",
         "bump": "Sube un tema al primer lugar",
+        "promote": "Promociona un tema durante 24 horas",
         "usernameChange": "Paga un cambio de nombre de usuario"
       }
     },
@@ -339,6 +341,7 @@
         "threadCover": "Se usa en un tema que el miembro creó: le da la portada elegida.",
         "highlight": "Se usa en un tema que el miembro creó: las listas lo muestran destacado durante unos días.",
         "bump": "Se usa en un tema que el miembro creó: se ordena como si tuviera un mensaje nuevo.",
+        "promote": "Se usa en un tema que el miembro creó: se recomienda durante 24 horas, aparece en En tendencia y se muestra en el inicio. Se vende por unidades; no se devuelve nada si el tema se elimina después.",
         "usernameChange": "Una unidad paga un cambio de nombre de usuario."
       },
       "frame": "Marco",
@@ -369,7 +372,7 @@
       "consumable": "Consumible",
       "consumableLabel": "Se vende por unidades y se gasta de una en una",
       "consumableHelp": "Sin marcar, el artículo se compra una vez y se conserva (durante un tiempo, si lo indicas).",
-      "consumableForced": "Un cambio de nombre de usuario se vende por unidades, así que el artículo debe ser consumible.",
+      "consumableForced": "Un cambio de nombre de usuario o una promoción se venden por unidades, así que el artículo debe ser consumible.",
       "consumableBarred": "Un artículo de grupo nunca es consumible: se aplica mientras se tiene.",
       "duration": "Duración",
       "durationHelp": "Cuánto dura el artículo desde la compra. Déjalo vacío para que sea permanente.",

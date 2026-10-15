@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { ThreadTitle } from "@/app/[locale]/(main)/_feed/thread-title";
 import { followFromPage } from "@/app/[locale]/(main)/actions";
 import { ForumIcon } from "@/components/forum/forum-icon";
 import { MemberFollowButton } from "@/components/forum/member-follow-button";
 import { MemberRow } from "@/components/forum/member-row";
-import { PrefixTag } from "@/components/forum/prefix-tag";
 import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import {
@@ -15,14 +15,13 @@ import {
   LoadingRegion,
   MemberListSkeleton,
 } from "@/components/forum/skeletons";
-import { ThreadHoverCard } from "@/components/forum/thread-hover-card";
 import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
 import { read } from "@/lib/sermo/client";
 import { membersFor, relationsFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
-import { type ApiThread, threadCard, threadMembers } from "@/lib/sermo/threads";
+import { threadMembers } from "@/lib/sermo/threads";
 
 const LIST_SIZE = 5;
 const SUGGESTIONS = 4;
@@ -31,30 +30,6 @@ const CANDIDATES = 12;
 
 const viewAllClass =
   "relative text-xs font-medium text-muted-foreground transition-colors after:absolute after:-inset-x-2 after:-inset-y-3.5 hover:text-foreground";
-
-function ThreadTitle({
-  thread,
-  member,
-}: {
-  thread: ApiThread;
-  member: Awaited<ReturnType<typeof membersFor>>;
-}) {
-  const card = threadCard(thread, member);
-  return (
-    <ThreadHoverCard
-      thread={card}
-      className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere] hover:underline"
-    >
-      {card.prefix && (
-        <PrefixTag
-          prefix={card.prefix}
-          className="mr-1.5 align-(--prefix-offset)"
-        />
-      )}
-      {card.title}
-    </ThreadHoverCard>
-  );
-}
 
 export function FeedSidebar() {
   const t = useTranslations("home.feedSidebar");

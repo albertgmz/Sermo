@@ -55,6 +55,8 @@
     "menu": "Moderate",
     "stick": "Stick",
     "unstick": "Unstick",
+    "feature": "Feature",
+    "unfeature": "Unfeature",
     "lock": "Lock",
     "unlock": "Unlock",
     "removeCover": "Remove cover",

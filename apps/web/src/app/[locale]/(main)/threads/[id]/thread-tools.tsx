@@ -24,6 +24,7 @@ export async function ThreadTools({
   canWatch,
   may,
   mayRemoveCover,
+  staffPick,
   selecting,
 }: {
   thread: Thread;
@@ -33,6 +34,8 @@ export async function ThreadTools({
   canWatch: boolean;
   may: ThreadMay;
   mayRemoveCover: boolean;
+  // A moderator has picked the thread: the menu offers to end the pick.
+  staffPick: boolean;
   selecting: boolean;
 }) {
   const t = await getTranslations("threads.tools");
@@ -84,6 +87,7 @@ export async function ThreadTools({
           thread={thread}
           may={may}
           mayRemoveCover={mayRemoveCover}
+          staffPick={staffPick}
           selecting={selecting}
         />
       )}

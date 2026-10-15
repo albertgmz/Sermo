@@ -55,6 +55,8 @@
     "menu": "Moderar",
     "stick": "Fijar",
     "unstick": "Dejar de fijar",
+    "feature": "Recomendar",
+    "unfeature": "Dejar de recomendar",
     "lock": "Cerrar",
     "unlock": "Abrir",
     "removeCover": "Quitar portada",

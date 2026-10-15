@@ -1,5 +1,5 @@
 import type { feedList } from "@sermo/core/contracts";
-import { Eye, MessageCircle, Sparkles } from "lucide-react";
+import { Eye, Megaphone, MessageCircle, Sparkles, Star } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
@@ -77,6 +77,7 @@ function Card({
   createdAt,
   context,
   highlighted = false,
+  featured = null,
   cover,
   reaction,
   href,
@@ -92,6 +93,8 @@ function Card({
   createdAt: string;
   context: React.ReactNode;
   highlighted?: boolean;
+  // Why the thread is featured: a moderator picked it, or its author paid for a promotion.
+  featured?: "staff" | "paid" | null;
   cover?: PictureView | null;
   reaction: React.ReactNode;
   href: string;
@@ -141,11 +144,25 @@ function Card({
             <RelativeTime date={createdAt} className="whitespace-nowrap" />
           </p>
         </div>
-        {highlighted && (
-          <span className="inline-flex shrink-0 items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
-            <Sparkles aria-hidden="true" className="size-3" />
-            {t("highlighted")}
-          </span>
+        {(highlighted || featured) && (
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {featured && (
+              <span className="inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
+                {featured === "paid" ? (
+                  <Megaphone aria-hidden="true" className="size-3" />
+                ) : (
+                  <Star aria-hidden="true" className="size-3" />
+                )}
+                {t(featured === "paid" ? "promoted" : "featured")}
+              </span>
+            )}
+            {highlighted && (
+              <span className="inline-flex items-center gap-1 text-(length:--text-caption) font-medium text-primary-ink">
+                <Sparkles aria-hidden="true" className="size-3" />
+                {t("highlighted")}
+              </span>
+            )}
+          </div>
         )}
       </header>
       <div className="px-4 pt-3">{children}</div>
@@ -303,6 +320,7 @@ export function FeedItem({
         thread.highlightedUntil !== null &&
         Date.parse(thread.highlightedUntil) > now
       }
+      featured={item.featured}
       cover={isThread ? card.coverPicture : null}
       reaction={
         <Reactions

@@ -38,7 +38,7 @@ export function inventoryHref(cursors: Cursors) {
 }
 
 // The effects that are used on a thread of the member.
-const ON_THREADS = ["threadCover", "highlight", "bump"];
+const ON_THREADS = ["threadCover", "highlight", "bump", "promote"];
 
 function Held({ label }: { label: string }) {
   return <p className="text-xs font-medium text-success">{label}</p>;
@@ -94,6 +94,7 @@ export async function Control({
     case "threadCover":
     case "highlight":
     case "bump":
+    case "promote":
       if (threads.length === 0) {
         return (
           <p className="basis-full text-sm text-muted-foreground">

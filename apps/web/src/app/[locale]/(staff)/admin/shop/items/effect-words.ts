@@ -52,6 +52,8 @@ export function effectWords(effect: Effect, lookups: Lookups, say: Say) {
       return say("words.highlight", { days: effect.days });
     case "bump":
       return say("words.bump");
+    case "promote":
+      return say("words.promote");
     case "usernameChange":
       return say("words.usernameChange");
   }

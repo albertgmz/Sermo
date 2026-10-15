@@ -88,6 +88,7 @@ function effectOf(formData: FormData): Effect | null {
       return days === null ? null : { type, days };
     }
     case "bump":
+    case "promote":
     case "usernameChange":
       return { type };
     default:

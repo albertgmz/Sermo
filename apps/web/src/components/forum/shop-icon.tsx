@@ -7,6 +7,7 @@ import {
   Image,
   KeyRound,
   type LucideIcon,
+  Megaphone,
   Palette,
   Smile,
   UserPen,
@@ -28,6 +29,7 @@ export const SHOP_EFFECT_TYPES = [
   "threadCover",
   "highlight",
   "bump",
+  "promote",
   "usernameChange",
 ] as const satisfies readonly ShopEffectType[];
 
@@ -40,6 +42,7 @@ const ICONS: Record<ShopEffectType, LucideIcon> = {
   threadCover: Image,
   highlight: Highlighter,
   bump: ArrowUpToLine,
+  promote: Megaphone,
   usernameChange: UserPen,
 };
 

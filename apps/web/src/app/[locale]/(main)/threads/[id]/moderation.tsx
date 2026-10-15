@@ -15,6 +15,7 @@ import {
   previewMergeAction,
   removeCoverAction,
   restoreThreadAction,
+  setFeaturedAction,
   setLockedAction,
   setStickyAction,
   splitThreadAction,
@@ -70,11 +71,13 @@ export async function ModerationMenu({
   thread,
   may,
   mayRemoveCover,
+  staffPick,
   selecting,
 }: {
   thread: Thread;
   may: ThreadMay;
   mayRemoveCover: boolean;
+  staffPick: boolean;
   selecting: boolean;
 }) {
   const [t, forums] = await Promise.all([
@@ -98,12 +101,18 @@ export async function ModerationMenu({
         />
       </summary>
       <div className="mt-2 space-y-4 rounded-lg border bg-card p-3">
-        {(may.stick || may.lock || mayRemoveCover) && (
+        {(may.stick || may.feature || may.lock || mayRemoveCover) && (
           <div className="flex flex-wrap gap-2">
             {may.stick && (
               <ActionForm
                 action={setStickyAction.bind(null, id, !thread.isSticky)}
                 submit={thread.isSticky ? t("unstick") : t("stick")}
+              />
+            )}
+            {may.feature && (
+              <ActionForm
+                action={setFeaturedAction.bind(null, id, !staffPick)}
+                submit={staffPick ? t("unfeature") : t("feature")}
               />
             )}
             {may.lock && (

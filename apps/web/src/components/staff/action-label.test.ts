@@ -83,6 +83,7 @@ const IDS = [
   "thread.restore",
   "thread.lock",
   "thread.sticky",
+  "thread.feature",
   "thread.move",
   "thread.merge",
   "thread.split",

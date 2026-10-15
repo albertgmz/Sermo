@@ -12,6 +12,7 @@ import {
   threadsMove,
   threadsRemoveCover,
   threadsRestore,
+  threadsSetFeatured,
   threadsSetLocked,
   threadsSetSticky,
   threadsSplit,
@@ -166,6 +167,19 @@ export async function setStickyAction(
   requireIds(threadId);
   const done = await attempt(`/threads/${threadId}`, () =>
     call(threadsSetSticky, { threadId, isSticky }),
+  );
+  if (!done.ok) return { error: done.error };
+  backToThread(threadId);
+}
+
+export async function setFeaturedAction(
+  threadId: number,
+  isFeatured: boolean,
+  _previous: FormState,
+): Promise<FormState> {
+  requireIds(threadId);
+  const done = await attempt(`/threads/${threadId}`, () =>
+    call(threadsSetFeatured, { threadId, isFeatured }),
   );
   if (!done.ok) return { error: done.error };
   backToThread(threadId);

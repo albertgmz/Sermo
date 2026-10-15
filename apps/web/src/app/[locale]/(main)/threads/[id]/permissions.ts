@@ -5,6 +5,7 @@ type Resolved = Record<string, boolean | number>;
 
 export type ThreadMay = {
   stick: boolean;
+  feature: boolean;
   lock: boolean;
   move: boolean;
   merge: boolean;
@@ -22,6 +23,7 @@ export function threadMay(resolved: Resolved): ThreadMay {
   const flag = (key: string) => resolved[key] === true;
   const may = {
     stick: flag("forum.stick"),
+    feature: flag("forum.feature"),
     lock: flag("forum.lock"),
     move: flag("forum.move"),
     merge: flag("forum.merge"),
@@ -35,6 +37,7 @@ export function threadMay(resolved: Resolved): ThreadMay {
     ...may,
     any:
       may.stick ||
+      may.feature ||
       may.lock ||
       may.move ||
       may.merge ||

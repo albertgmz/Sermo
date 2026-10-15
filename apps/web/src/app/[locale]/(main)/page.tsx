@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { FeaturedThreads } from "@/app/[locale]/(main)/_feed/featured-threads";
 import {
   moreFeed,
   newFeedCount,
@@ -64,6 +65,10 @@ export default function HomePage(props: PageProps<"/[locale]">) {
           feed. */}
       <Suspense fallback={null}>
         <HomeComposer />
+      </Suspense>
+      {/* No fallback: the block is drawn only when something is featured. */}
+      <Suspense fallback={null}>
+        <FeaturedThreads />
       </Suspense>
       <Suspense
         fallback={

@@ -106,6 +106,7 @@ const THREAD_ANSWER = {
   },
   node: { id: 2, title: "Forum" },
   watching: null,
+  featured: null,
   permissions: {
     canReply: false,
     canEditTitle: false,

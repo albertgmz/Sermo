@@ -340,6 +340,7 @@
       "spam_cleanup_queued": "Spam clean-up queued",
       "spam_cleanup_skipped": "Spam clean-up batch skipped",
       "thread_delete": "Thread deleted",
+      "thread_feature": "Thread featured or unfeatured",
       "thread_lock": "Thread lock changed",
       "thread_merge": "Threads merged",
       "thread_move": "Thread moved",

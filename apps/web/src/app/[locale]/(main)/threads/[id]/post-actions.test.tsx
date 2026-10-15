@@ -32,6 +32,7 @@ const { PostActions } = await import("./post-actions");
 type Props = Parameters<typeof PostActions>[0];
 const may = {
   stick: false,
+  feature: false,
   lock: false,
   move: false,
   merge: false,

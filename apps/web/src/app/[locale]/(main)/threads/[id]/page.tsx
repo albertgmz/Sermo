@@ -92,7 +92,7 @@ export default async function ThreadPage({
   ]);
   const id = threadIdOf(raw);
   const [
-    { thread, node, permissions, resolvedPermissions, watching },
+    { thread, node, permissions, resolvedPermissions, watching, featured },
     { user },
     bookmarks,
     t,
@@ -159,6 +159,7 @@ export default async function ThreadPage({
           canWatch={permissions.canWatch}
           may={may}
           mayRemoveCover={mayRemoveCover}
+          staffPick={featured === "staff"}
           selecting={selecting}
         />
       )}

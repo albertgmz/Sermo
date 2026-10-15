@@ -340,6 +340,7 @@
       "spam_cleanup_queued": "Limpieza de spam en cola",
       "spam_cleanup_skipped": "Lote de limpieza de spam omitido",
       "thread_delete": "Tema eliminado",
+      "thread_feature": "Tema recomendado o dejado de recomendar",
       "thread_lock": "Cierre del tema cambiado",
       "thread_merge": "Temas fusionados",
       "thread_move": "Tema movido",

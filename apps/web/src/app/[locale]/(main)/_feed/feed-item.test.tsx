@@ -115,12 +115,17 @@ const wallItem = (over: Record<string, unknown> = {}) =>
     },
   }) as unknown as Item;
 
-const threadItem = (type: "thread" | "post", canReply: boolean) =>
+const threadItem = (
+  type: "thread" | "post",
+  canReply: boolean,
+  featured: "staff" | "paid" | null = null,
+) =>
   ({
     type,
     createdAt: "2026-01-01T00:00:00.000Z",
     following: false,
     canReply,
+    featured,
     thread: {
       id: 7,
       nodeId: 2,
@@ -239,6 +244,18 @@ test("a thread card has a reply box when the viewer may reply, for a new thread 
       `href="#feed-post-${postId}-comment"`,
     );
   }
+});
+
+test("a featured thread is marked Featured, a promoted one Promoted, and others not at all", async () => {
+  const staff = await render(threadItem("thread", true, "staff"), MEMBER);
+  expect(staff).toContain("Featured");
+  expect(staff).not.toContain("Promoted");
+  const paid = await render(threadItem("thread", true, "paid"), MEMBER);
+  expect(paid).toContain("Promoted");
+  expect(paid).not.toContain("Featured");
+  const plain = await render(threadItem("thread", true), MEMBER);
+  expect(plain).not.toContain("Featured");
+  expect(plain).not.toContain("Promoted");
 });
 
 test("a thread card without the right to reply has no reply box; the count leads to the thread, for a guest too", async () => {
