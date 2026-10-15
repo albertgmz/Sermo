@@ -158,7 +158,13 @@ function readerOf(w: Awaited<ReturnType<typeof world>>) {
       "INSERT INTO groups (title, rank) VALUES ('IP readers', 20) RETURNING id",
     )
     .get()!.id;
-  for (const key of ["member.viewIps", "node.view", "profile.view"]) {
+  for (const key of [
+    "member.viewIps",
+    "node.view",
+    "forum.viewOthers",
+    "forum.viewContent",
+    "profile.view",
+  ]) {
     const definition = w.ctx.sqlite
       .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
       .get(key)!.id;

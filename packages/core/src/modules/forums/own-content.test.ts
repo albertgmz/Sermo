@@ -275,3 +275,61 @@ describe("forum.hardDeleteOwn", () => {
     ).rejects.toThrow(ForbiddenError);
   });
 });
+
+describe("what an author's one-step delete leaves alone", () => {
+  test("a thread with a post staff hid, or a reported one, is not erased by its author", async () => {
+    const w = world();
+    grant(w, "forum.hardDeleteOwn");
+    const hidden = await w.thread(w.alice, w.open.id, "Hidden part");
+    const reply = await w.reply(w.alice, hidden.thread.id, "Abusive");
+    await w.call("posts.delete", w.mod, { postId: reply.id });
+    await expect(
+      w.call("threads.hardDelete", w.alice, { threadId: hidden.thread.id }),
+    ).rejects.toThrow(ConflictError);
+    expect(threadRow(w, hidden.thread.id)!.state).toBe("visible");
+    expect(postState(w, reply.id)).toBe("deleted");
+
+    const reported = await w.thread(w.alice, w.open.id, "Reported");
+    await w.call("reports.create", w.bob, {
+      target: { type: "post", id: reported.post.id },
+      reason: "spam",
+    });
+    await expect(
+      w.call("threads.hardDelete", w.alice, { threadId: reported.thread.id }),
+    ).rejects.toThrow(ConflictError);
+    const mine = await w.thread(w.alice, w.open.id, "Reply reported");
+    const other = await w.reply(w.alice, mine.thread.id, "Mine");
+    await w.call("reports.create", w.bob, {
+      target: { type: "post", id: other.id },
+      reason: "spam",
+    });
+    await expect(w.call("posts.hardDelete", w.alice, { postId: other.id })).rejects.toThrow(
+      ConflictError,
+    );
+    expect(postState(w, other.id)).toBe("visible");
+  });
+
+  test("the opening post never offers deleting it alone", async () => {
+    const w = world();
+    grant(w, "forum.hardDeleteOwn");
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const posts = await w.call("posts.list", w.alice, { threadId: t.thread.id });
+    expect(posts.items[0].canHardDelete).toBe(false);
+  });
+});
+
+describe("forum.lockOwn and the bulk tool", () => {
+  test("a lock staff set through the bulk tool, after the author's own, is staff's", async () => {
+    const w = world();
+    grant(w, "forum.lockOwn");
+    const mine = await w.thread(w.alice, w.open.id, "Mine");
+    await w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: true });
+    const target = { type: "thread", id: mine.thread.id };
+    await w.call("moderation.bulk", w.mod, { targets: [target], action: "unlock" });
+    await w.call("moderation.bulk", w.mod, { targets: [target], action: "lock" });
+    expect(threadRow(w, mine.thread.id)!.is_locked).toBe(1);
+    await expect(
+      w.call("threads.setLocked", w.alice, { threadId: mine.thread.id, isLocked: false }),
+    ).rejects.toThrow(ForbiddenError);
+  });
+});

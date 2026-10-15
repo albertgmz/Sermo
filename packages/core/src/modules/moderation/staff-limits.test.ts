@@ -179,7 +179,13 @@ describe("forum.warn", () => {
     const inB = await w.post(w.forumB.id);
     const forumModerator = customMember(
       w.ctx,
-      ["node.view", ["warning.maxPoints", -1], ["warning.perDay", -1]],
+      [
+        "node.view",
+        "forum.viewOthers",
+        "forum.viewContent",
+        ["warning.maxPoints", -1],
+        ["warning.perDay", -1],
+      ],
       20,
     );
     setEntry(w.ctx, forumModerator.groupId, "forum.warn", 1, w.forumA.id);

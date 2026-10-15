@@ -119,7 +119,8 @@ function mayView(
     else reactableProfileComment(ctx, actor, id);
     return true;
   } catch (error) {
-    if (error instanceof NotFoundError) return false;
+    // Not found, or a forum whose posts are closed to the actor: either way, not shown.
+    if (error instanceof NotFoundError || error instanceof ForbiddenError) return false;
     throw error;
   }
 }

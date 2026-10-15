@@ -13,6 +13,8 @@ const op = (name: string) => getOperation(name);
 /** What lets a moderator see content. Losing only these hides it. */
 const VIEW = [
   "node.view",
+  "forum.viewOthers",
+  "forum.viewContent",
   "forum.viewDeleted",
   "forum.viewModerated",
   "profile.view",

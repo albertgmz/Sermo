@@ -4,7 +4,7 @@ import { GUEST } from "../../actor";
 import { ForbiddenError, NotFoundError } from "../../errors";
 import { PERMISSIONS } from "../../permissions";
 import { fillPosts, type World, world } from "../feed/fixtures.test";
-import { ownThreadSql } from "../forums";
+import { forumSql, ownThreadSql } from "../forums";
 import { atomFeed, seoForThread, sitemapEntries } from "../seo";
 import { setEntry } from "./group-fixture";
 
@@ -291,5 +291,42 @@ describe("forum.react", () => {
         "forum.react"
       ],
     ).toBe(false);
+  });
+});
+
+describe("the other doors", () => {
+  test("a post of a thread the viewer cannot open cannot be reported or warned about by them", async () => {
+    const w = world();
+    const theirs = await w.thread(w.bob, w.open.id, "Theirs", "Bob text");
+    close(w, "forum.viewOthers");
+    await expect(
+      w.call("reports.create", w.alice, {
+        target: { type: "post", id: theirs.post.id },
+        reason: "spam",
+      }),
+    ).rejects.toThrow(NotFoundError);
+    // Staff keep reading and reporting, and warning needs the post to be visible to the warner.
+    await w.call("reports.create", w.mod, {
+      target: { type: "post", id: theirs.post.id },
+      reason: "spam",
+    });
+    setEntry(w.ctx, 3, "forum.viewOthers", -1, w.open.id);
+    await expect(
+      w.call("warnings.create", w.mod, {
+        userId: w.bobUser.id,
+        postId: theirs.post.id,
+        points: 1,
+        reason: "x",
+      }),
+    ).rejects.toThrow(NotFoundError);
+  });
+
+  test("the own-threads statements really carry the author filter", () => {
+    expect(ownThreadSql.threadPage).toContain("threads_user_id");
+    expect(ownThreadSql.sticky).toContain("user_id = ?4");
+    expect(ownThreadSql.stickyByPrefix).toContain("user_id = ?4");
+    expect(ownThreadSql.threadPageByPrefix).toContain("user_id = ?7");
+    for (const key of ["sticky", "stickyByPrefix", "threadPage", "threadPageByPrefix"] as const)
+      expect(ownThreadSql[key]).not.toBe(forumSql[key]);
   });
 });

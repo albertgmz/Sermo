@@ -36,7 +36,13 @@ import { requireNotErased } from "../admin/erased";
 import { revokeUserCredentials } from "../auth";
 import { moderationOf } from "../auth/staff";
 import { scanKeyset } from "../feed/scan";
-import { assertThreadTransferIdle, forumSql, registerForumTransferJobs } from "../forums";
+import {
+  assertThreadTransferIdle,
+  forumSql,
+  readGates,
+  registerForumTransferJobs,
+  requirePost,
+} from "../forums";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
 import { assertAdministrator } from "../permissions";
 import { mayViewProfile } from "../profiles/shared";
@@ -258,7 +264,9 @@ function visibleTarget(ctx: Ctx, actor: Actor, target: Target): Row {
     if (
       !grants.can("node.view", { nodeId: row.node_id! }) ||
       !thread ||
-      !visible(thread.state, thread.user_id)
+      !visible(thread.state, thread.user_id) ||
+      // A thread other members started may be closed to the viewer in this forum.
+      !readGates(ctx, actor).opens(row.node_id!, thread.user_id)
     )
       throw new NotFoundError();
     if (!visible(row.state, row.user_id)) throw new NotFoundError();
@@ -1521,15 +1529,10 @@ function requireWarner(ctx: Ctx, actor: Actor, userId: number, postId: number | 
     requirePermission(ctx, actor, "member.warn", { target });
     return;
   }
-  const post = read<{ user_id: number; node_id: number }>(
-    ctx,
-    "warnedPost",
-    "SELECT p.user_id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
-    postId,
-  );
-  if (!post || !can(ctx, actor, "node.view", { nodeId: post.node_id })) throw new NotFoundError();
+  // The post as the actor's own read of it would return it: unseen is not found.
+  const { post, thread } = requirePost(ctx, actor, postId);
   if (post.user_id !== userId) throw new ValidationError("That post is not by this member.");
-  requirePermission(ctx, actor, "forum.warn", { nodeId: post.node_id, target });
+  requirePermission(ctx, actor, "forum.warn", { nodeId: thread.row.node_id, target });
 }
 
 /** Where a moderator's warnings of the last 24 hours are counted: the log keeps deleted ones. */

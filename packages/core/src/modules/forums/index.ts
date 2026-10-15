@@ -169,9 +169,13 @@ export const forumSql = {
   threadDetail: `SELECT ${threadDetailColumns}, x.role AS transfer_role, x.failed_at AS transfer_failed_at, EXISTS(SELECT 1 FROM thread_bans WHERE thread_id = t.id AND user_id = ?2 AND (expires_at IS NULL OR expires_at > ?3)) AS thread_banned FROM threads t LEFT JOIN thread_transfers x ON x.thread_id = t.id WHERE t.id = ?1`,
   threadBansAmong:
     "SELECT thread_id FROM thread_bans WHERE user_id = ?1 AND thread_id IN (SELECT value FROM json_each(?2)) AND (expires_at IS NULL OR expires_at > ?3)",
-  /** The newest lock or unlock of a thread: who did it, and whether it locked (index seek on the log's target). */
+  /**
+   * The newest lock or unlock of a thread, by the single tool or the bulk one: who did it, and
+   * whether it locked (index seek on the log's target). A bulk entry that changed nothing counts
+   * for nothing.
+   */
   newestLock:
-    "SELECT actor_id, json_extract(details, '$.isLocked') AS locked FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action = 'thread.lock' ORDER BY id DESC LIMIT 1",
+    "SELECT actor_id, CASE action WHEN 'bulk.lock' THEN 1 WHEN 'bulk.unlock' THEN 0 ELSE json_extract(details, '$.isLocked') END AS locked FROM moderator_log WHERE target_type = 'thread' AND target_id = ?1 AND action IN ('thread.lock', 'bulk.lock', 'bulk.unlock') AND coalesce(json_extract(details, '$.changed'), 1) != 0 ORDER BY id DESC LIMIT 1",
   threadsByIds: `SELECT ${threadColumns} FROM threads WHERE id IN (SELECT value FROM json_each(?1))`,
   postsByIds: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.id IN (SELECT value FROM json_each(?1))`,
   maxPostPosition: "SELECT position FROM posts WHERE thread_id = ?1 ORDER BY position DESC LIMIT 1",
@@ -595,7 +599,7 @@ function threadValues(ctx: Ctx, actor: Actor, rows: ThreadRow[]) {
       prefix: present.prefix(row.prefix_id),
       // Where only titles are open to the viewer, the start of the opening post is not.
       excerpt: gates.reads(row.node_id, row.user_id) ? row.excerpt : "",
-      cover: present.cover(row.cover_id),
+      cover: gates.reads(row.node_id, row.user_id) ? present.cover(row.cover_id) : null,
       highlightedUntil: isoOrNull(row.highlighted_until),
       bumpedAt: isoOrNull(row.bumped_at),
       author: users(row.user_id),
@@ -3308,6 +3312,17 @@ function hardDeletePath(
   throw new ForbiddenError();
 }
 
+/** Reports on content are staff's to settle: their author does not delete the content under them. */
+function requireNotReported(ctx: Ctx, postIds: number[], threadId?: number): void {
+  const reported = forumDb(ctx)
+    .prepare<{ n: number }, [string, number]>(
+      "SELECT 1 AS n FROM report_groups WHERE (target_type = 'post' AND target_id IN (SELECT value FROM json_each(?1))) OR (target_type = 'thread' AND target_id = ?2) LIMIT 1",
+    )
+    .get(JSON.stringify(postIds), threadId ?? 0);
+  if (reported)
+    throw new ConflictError("This has been reported. Hide it, or ask staff to delete it.");
+}
+
 export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
@@ -3341,6 +3356,25 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
         throw new ConflictError(
           "This thread is too long to delete in one step. Hide it, or ask staff to delete it.",
         );
+      // What staff hid, and what has been reported, is evidence: the author does not remove it.
+      if (
+        forumDb(ctx)
+          .prepare<{ n: number }, [number]>(
+            "SELECT 1 AS n FROM posts WHERE thread_id = ?1 AND state = 'deleted' LIMIT 1",
+          )
+          .get(current.id)
+      )
+        throw new ConflictError(
+          "Staff hid part of this thread. Hide the thread, or ask staff to delete it.",
+        );
+      requireNotReported(
+        ctx,
+        [
+          ...found.map((post) => post.id),
+          ...(current.first_post_id ? [current.first_post_id] : []),
+        ],
+        current.id,
+      );
     }
     const chunk = found.slice(0, PURGE_CHUNK);
     const ids = chunk.map((post) => post.id);
@@ -3397,7 +3431,10 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
       throw new ConflictError(
         "Delete the post first; only a deleted post can be removed for good.",
       );
-    if (path === "own") changePostState(ctx, current.post.id, "deleted");
+    if (path === "own") {
+      requireNotReported(ctx, [current.post.id]);
+      changePostState(ctx, current.post.id, "deleted");
+    }
     purgeContent(ctx, "post", [post.id]);
     settleThreadAfterPurge(ctx, current.thread.row.id, current.thread.row.first_post_id);
     appendModeratorLog(

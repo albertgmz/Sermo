@@ -480,7 +480,7 @@ export const PERMISSIONS = {
     requiresAccount: true,
     own: true,
   },
-  /** React to posts and threads in the forum (as well as `reaction.react`). */
+  /** React to posts in the forum (as well as `reaction.react`). */
   "forum.react": {
     scope: "node",
     category: "forum",
