@@ -9,6 +9,7 @@ import { ThreadComposer } from "@/components/forum/thread-composer";
 import { PageLayout } from "@/components/layout/page-layout";
 import { read } from "@/lib/sermo/client";
 import { parsePageId } from "@/lib/sermo/ids";
+import { getViewer } from "@/lib/sermo/session";
 import { prefixView } from "@/lib/sermo/threads";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -86,6 +87,7 @@ async function ThreadForm({
       forums={forums}
       prefixes={prefixes}
       canAttach={canAttach}
+      memberId={(await getViewer()).user?.id ?? null}
     />
   );
 }

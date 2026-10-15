@@ -29,19 +29,35 @@ import { cn } from "@/lib/utils";
 
 const CLOSE = "size-10";
 
-// A phone's keyboard covers the bottom of the screen without making the page any shorter, so the
-// full-screen sheet takes the height that is really in view to keep its bar above it.
-function useVisibleHeight(active: boolean) {
-  const [height, setHeight] = useState<number>();
+// A phone's keyboard covers the bottom of the screen without making the page any shorter. What is
+// really in view is the visual viewport: `height` is its height, `inset` how far the keyboard
+// reaches up from the bottom (0 when there is none; the small differences of a browser's own bars
+// are not a keyboard).
+const KEYBOARD_MIN = 100;
+
+function useVisualViewport(active: boolean) {
+  const [view, setView] = useState<{ height?: number; inset: number }>({
+    inset: 0,
+  });
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!active || !viewport) return;
-    const fit = () => setHeight(viewport.height);
+    const fit = () => {
+      const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+      setView({
+        height: viewport.height,
+        inset: covered > KEYBOARD_MIN ? covered : 0,
+      });
+    };
     fit();
     viewport.addEventListener("resize", fit);
-    return () => viewport.removeEventListener("resize", fit);
+    viewport.addEventListener("scroll", fit);
+    return () => {
+      viewport.removeEventListener("resize", fit);
+      viewport.removeEventListener("scroll", fit);
+    };
   }, [active]);
-  return height;
+  return view;
 }
 
 export function ComposerSheet({
@@ -53,7 +69,7 @@ export function ComposerSheet({
   formRef: RefObject<HTMLFormElement | null>;
   children: React.ReactNode;
 }) {
-  const visibleHeight = useVisibleHeight(open);
+  const { height: visibleHeight } = useVisualViewport(open);
   return (
     <DialogContent
       keepMounted
@@ -137,6 +153,8 @@ export function ComposerForm({
   const t = useTranslations("forum.composer");
   const [uploading, setUploading] = useState(false);
   const [bar, setBar] = useState<HTMLDivElement | null>(null);
+  // On a page the bar follows the keyboard up; the sheet is as tall as what is in view already.
+  const { inset } = useVisualViewport(frame.kind === "page");
   return (
     <form
       ref={formRef}
@@ -197,11 +215,16 @@ export function ComposerForm({
           {error && <FormError className="px-3 pb-3">{error}</FormError>}
         </div>
         <div
+          style={
+            frame.kind === "page" && inset > 0 ? { bottom: inset } : undefined
+          }
           className={cn(
-            "flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1",
-            // On a page the bar stays in view above the phone's bottom navigation.
-            frame.kind === "page" &&
-              "sticky bottom-(--spacing-mobile-nav) z-10 bg-card md:bottom-0",
+            "flex flex-wrap items-center gap-x-1 gap-y-2 border-t px-1.5 pt-1",
+            frame.kind === "dialog"
+              ? "pb-[calc(0.25rem+env(safe-area-inset-bottom))] md:pb-1"
+              : // On a page the bar stays in view: above the phone's bottom navigation, which
+                // already counts the safe area, and above the keyboard when there is one.
+                "sticky bottom-(--spacing-mobile-nav) z-10 bg-card pb-1 md:bottom-0",
           )}
         >
           <AttachmentField

@@ -20,6 +20,13 @@ export const withoutAttachTag = (text: string, id: number) =>
     "",
   );
 
+// The text without any attachment tag.
+export const withoutAttachTags = (text: string) =>
+  text.replace(
+    /\[ATTACH(?:=(?:"\s*(?:full|thumb)\s*"|\s*(?:full|thumb)\s*))?\]\s*\d+\s*\[\/ATTACH\]/gi,
+    "",
+  );
+
 export function requestOnComposer(
   form: HTMLFormElement | null | undefined,
   request: ComposerRequest,

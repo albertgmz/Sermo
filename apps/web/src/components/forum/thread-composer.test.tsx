@@ -60,6 +60,7 @@ test("a thread starts out unsendable: Post is disabled, beside the forum chip, t
         forums={[...FORUMS]}
         prefixes={PREFIXES}
         canAttach
+        memberId={1}
       />,
     ),
   );
@@ -84,6 +85,7 @@ test("a forum without prefixes draws no prefix chips", () => {
         forums={[...FORUMS]}
         prefixes={[]}
         canAttach={false}
+        memberId={1}
       />,
     ),
   );
@@ -197,17 +199,26 @@ test("a submit while the forum choice is open is stopped and sends nothing", () 
   expect(sent).toBe(1);
 });
 
-test("the closed composer's draft is kept, restored once the page is drawn, and cleared on send", () => {
+test("the draft is written from what the member changes, never from a send finishing", () => {
   const src = source("components/forum/thread-composer.tsx");
-  expect(src).toContain("readThreadDraft()");
-  expect(src).toContain("writeThreadDraft(");
-  expect(src).toContain("clearThreadDraft()");
-  // Storage is read in an effect, never while drawing; sending clears it, a refusal writes it again.
+  // Restored in an effect once the page is drawn, never while drawing.
   expect(src).toMatch(
-    /useEffect\(\(\) => \{\s*const draft = readThreadDraft\(\)/,
+    /useEffect\(\(\) => \{\s*const kept = readThreadDraft\(memberId\)/,
   );
-  expect(src).toMatch(
-    /if \(pending\) clearThreadDraft\(\);\s*else writeThreadDraft/,
+  // Written by the handlers of the title, the text and the prefix, through one function.
+  expect(src).toContain("keep({ title: event.target.value })");
+  expect(src).toContain("keep({ body: text })");
+  expect(src).toContain("keep({ prefixId: next })");
+  // Nothing written is tied to a send finishing: no effect reads `pending`, and the one write
+  // outside the handlers answers a refusal.
+  expect(src).not.toMatch(/\[[^\]]*\bpending\b[^\]]*\]\);/);
+  expect(src).toContain(
+    "if (state.error) writeThreadDraft(memberId, draft.current)",
+  );
+  // Sending forgets the draft, and changes made while it is on its way are not written.
+  expect(src).toMatch(/clearThreadDraft\(memberId\);\s*send\(event\)/);
+  expect(src).toContain(
+    "if (!sending.current) writeThreadDraft(memberId, draft.current)",
   );
 });
 
@@ -232,5 +243,12 @@ test("the composer pins its bar on a page and never hides the attachment list", 
   const src = source("components/forum/composer.tsx");
   expect(src).toContain("allowed={attach}");
   expect(src).not.toMatch(/attach \? "contents" : "hidden"/);
-  expect(src).toMatch(/frame\.kind === "page" &&\s*"sticky/);
+  expect(src).toMatch(/"sticky bottom-\(--spacing-mobile-nav\)/);
+  // It follows the keyboard up on a page, with the same visual viewport the sheet uses.
+  expect(src).toContain('useVisualViewport(frame.kind === "page")');
+  expect(src).toContain("{ bottom: inset }");
+  // The safe area is counted once: by the sheet's bar at the screen's edge, not by the page's.
+  expect(src).toMatch(
+    /frame\.kind === "dialog"\s*\?\s*"pb-\[calc\(0\.25rem\+env\(safe-area-inset-bottom\)\)\]/,
+  );
 });

@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import {
   createThreadAction,
@@ -15,6 +15,7 @@ import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
   clearThreadDraft,
   readThreadDraft,
+  type ThreadDraft,
   writeThreadDraft,
 } from "@/components/forum/thread-draft";
 import { useKeptForm } from "@/components/forum/use-kept-form";
@@ -53,12 +54,15 @@ export function ThreadComposer({
   forums,
   prefixes,
   canAttach,
+  memberId,
 }: {
   forumId: number;
   // The forums the member may start a thread in, under the categories that hold them.
   forums: ForumChoice[];
   prefixes: PrefixView[];
   canAttach: boolean;
+  // Whose draft is kept in the tab; none is kept without one.
+  memberId: number | null;
 }) {
   const t = useTranslations("forum.threadComposer");
   const [forum, setForum] = useState(forumId);
@@ -67,7 +71,6 @@ export function ThreadComposer({
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [prefixId, setPrefixId] = useState("");
-  const [restored, setRestored] = useState(false);
   // A kept prefix that has since been removed is not one.
   const prefix = prefixes.some((item) => String(item.id) === prefixId)
     ? prefixId
@@ -86,30 +89,47 @@ export function ThreadComposer({
     createThreadAction(target.current, previous, data),
   );
 
+  // What is kept in the tab, written from what the member changes and from nothing else: a
+  // thread that was sent can never come back as a draft because the page was shown again. While
+  // one is on its way changes are not written, and a refusal writes the draft again.
+  const draft = useRef<ThreadDraft>({ title: "", body: "", prefixId: "" });
+  const sending = useRef(false);
+  sending.current = pending;
+  const keep = useCallback(
+    (change: Partial<ThreadDraft>) => {
+      draft.current = { ...draft.current, ...change };
+      if (!sending.current) writeThreadDraft(memberId, draft.current);
+    },
+    [memberId],
+  );
+  const changeBody = useCallback(
+    (text: string) => {
+      setBody(text);
+      keep({ body: text });
+    },
+    [keep],
+  );
+
   // The draft kept by an earlier visit comes back once the page is on the screen: storage is not
   // read while drawing, which would differ from what the server drew. The text goes into the plain
   // field the composer starts with, which the editor takes it from when it is entered.
   useEffect(() => {
-    const draft = readThreadDraft();
-    if (draft) {
-      setTitle(draft.title);
-      setPrefixId(draft.prefixId);
-      setBody(draft.body);
+    const kept = readThreadDraft(memberId);
+    if (kept) {
+      draft.current = kept;
+      setTitle(kept.title);
+      setPrefixId(kept.prefixId);
+      setBody(kept.body);
       const box = form.current?.querySelector<HTMLTextAreaElement>(
         'textarea[name="body"]',
       );
-      if (box) box.value = draft.body;
+      if (box) box.value = kept.body;
     }
-    setRestored(true);
-  }, []);
+  }, [memberId]);
 
-  // While a thread is on its way nothing is kept; if it is refused the draft is kept again, and
-  // when it is taken the page is left with nothing behind.
   useEffect(() => {
-    if (!restored) return;
-    if (pending) clearThreadDraft();
-    else writeThreadDraft({ title, body, prefixId: prefix });
-  }, [restored, pending, title, body, prefix]);
+    if (state.error) writeThreadDraft(memberId, draft.current);
+  }, [state, memberId]);
 
   // The choice of forum takes the screen; the chip that opened it gets the focus back.
   useEffect(() => {
@@ -118,7 +138,10 @@ export function ThreadComposer({
   }, [picking]);
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (event) =>
-    sendUnlessPicking(picking, event, () => send(event));
+    sendUnlessPicking(picking, event, () => {
+      clearThreadDraft(memberId);
+      send(event);
+    });
 
   function choose(id: number) {
     setPicking(false);
@@ -156,7 +179,10 @@ export function ThreadComposer({
       <input
         name="title"
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        onChange={(event) => {
+          setTitle(event.target.value);
+          keep({ title: event.target.value });
+        }}
         onKeyDown={(event) => {
           // Enter ends the title and goes on to the text; it does not send the thread.
           if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
@@ -181,7 +207,11 @@ export function ThreadComposer({
                 key={item.id}
                 type="button"
                 aria-pressed={chosen}
-                onClick={() => setPrefixId(chosen ? "" : String(item.id))}
+                onClick={() => {
+                  const next = chosen ? "" : String(item.id);
+                  setPrefixId(next);
+                  keep({ prefixId: next });
+                }}
                 className={cn(
                   "inline-flex min-h-10 items-center rounded-full px-1 outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-8",
                   chosen
@@ -211,7 +241,7 @@ export function ThreadComposer({
         placeholder={t("bodyPlaceholder")}
         minHeight={200}
         findMembers={findRecipients}
-        onBodyChange={setBody}
+        onBodyChange={changeBody}
         error={state.error}
         attach={attach}
         attachNodeId={forum}
