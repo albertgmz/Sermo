@@ -22,11 +22,7 @@ import {
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { liteBlocks } from "@/lib/lite-mode";
 import type { AuthorView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -94,29 +90,21 @@ export async function AwardIcon({
   const [box, glyph] = SIZES[size];
   const blocked = await liteBlocks("awards");
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            role="img"
-            aria-label={award.name}
-            className={cn(
-              "inline-flex shrink-0 items-center justify-center rounded-full border",
-              TIERS[award.tier],
-              box,
-              className,
-            )}
-          />
-        }
-      >
-        {blocked ? (
-          <LitePlaceholder compact className={cn("rounded-full", glyph)} />
-        ) : (
-          <Icon aria-hidden="true" className={glyph} />
-        )}
-      </TooltipTrigger>
-      <TooltipContent>{award.name}</TooltipContent>
-    </Tooltip>
+    <LazyTooltip
+      label={award.name}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center rounded-full border",
+        TIERS[award.tier],
+        box,
+        className,
+      )}
+    >
+      {blocked ? (
+        <LitePlaceholder compact className={cn("rounded-full", glyph)} />
+      ) : (
+        <Icon aria-hidden="true" className={glyph} />
+      )}
+    </LazyTooltip>
   );
 }
 

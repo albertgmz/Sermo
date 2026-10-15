@@ -3,8 +3,8 @@ import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberCardTrigger } from "@/components/forum/member-card-trigger";
 import { MemberFollowButton } from "@/components/forum/member-follow-button";
 import { Avatar } from "@/components/ui/avatar";
+import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { Progress } from "@/components/ui/progress";
-import { Tooltip } from "@/components/ui/tooltip";
 
 // The client components the server-rendered member card holds. `loadMemberCard` is a server
 // action that returns the card as UI. React can only serialise a reference to a client component
@@ -24,6 +24,6 @@ export const CARD_CLIENT_PARTS = Object.freeze([
   MemberCardScope,
   MemberCardTrigger,
   MemberFollowButton,
+  LazyTooltip,
   Progress,
-  Tooltip,
 ]);

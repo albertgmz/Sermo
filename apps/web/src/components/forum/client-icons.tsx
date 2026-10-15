@@ -1,11 +1,7 @@
 import type { Device } from "@sermo/core/contracts";
 import { useTranslations } from "next-intl";
 import type * as z from "zod";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import { cn } from "@/lib/utils";
 
 // What the backend parsed from a user agent and stored: only its names are shown. The icons are
@@ -181,23 +177,15 @@ export function ClientIcons({
   const t = useTranslations("forum.clientIcons");
   const text = clientLabel(client, t);
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            role="img"
-            aria-label={text}
-            className={cn(
-              "inline-flex shrink-0 items-center gap-1.5 align-middle text-muted-foreground",
-              className,
-            )}
-          />
-        }
-      >
-        <Glyph>{BROWSERS[browserOf(client)].glyph}</Glyph>
-        <Glyph>{SYSTEMS[systemOf(client)].glyph}</Glyph>
-      </TooltipTrigger>
-      <TooltipContent>{text}</TooltipContent>
-    </Tooltip>
+    <LazyTooltip
+      label={text}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 align-middle text-muted-foreground",
+        className,
+      )}
+    >
+      <Glyph>{BROWSERS[browserOf(client)].glyph}</Glyph>
+      <Glyph>{SYSTEMS[systemOf(client)].glyph}</Glyph>
+    </LazyTooltip>
   );
 }

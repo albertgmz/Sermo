@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createOpener, fetchCode, loadedCode } from "./lazy-popup-gate";
 import { hovers, isPlainClick, opensFromKey } from "./lazy-popup-intent";
 import { LazyPopup } from "./lazy-popup";
+import { LazyTooltip } from "./lazy-tooltip";
 
 const click = {
   button: 0,
@@ -201,5 +202,25 @@ test("a member's name and a mention reach the card only through the import made 
     expect(source, file).not.toMatch(HEAVY);
     expect(source, file).not.toMatch(CARD);
     expect(source, file).toContain(`import("@/components/forum/${loaded}")`);
+  }
+});
+
+test("the postbit's tooltips are plain spans until the pointer comes, and keep their words as the label", () => {
+  const html = renderToStaticMarkup(
+    <LazyTooltip label="Chrome on Windows" className="x">
+      <i />
+    </LazyTooltip>,
+  );
+  expect(html).toBe(
+    '<span role="img" aria-label="Chrome on Windows" class="x"><i></i></span>',
+  );
+  for (const file of [
+    "award-icon.tsx",
+    "client-icons.tsx",
+    "user-badges.tsx",
+  ]) {
+    expect(readFileSync(join(FORUM, file), "utf8"), file).not.toContain(
+      "@/components/ui/tooltip",
+    );
   }
 });

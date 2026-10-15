@@ -1,11 +1,7 @@
 import { Heart } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { LazyTooltip } from "@/components/ui/lazy-tooltip";
 import type { MemberView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
 
@@ -86,25 +82,17 @@ function OutlineBadge({ badge, className }: BadgeProps) {
 
 function HeartBadge({ badge, className }: BadgeProps) {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <span
-            role="img"
-            aria-label={badge.label}
-            style={colorVar(badge.color)}
-            className={cn(
-              "inline-flex size-4 shrink-0 items-center justify-center",
-              badge.color ? "ink" : "text-muted-foreground",
-              className,
-            )}
-          />
-        }
-      >
-        <Heart aria-hidden="true" className="size-3 fill-current" />
-      </TooltipTrigger>
-      <TooltipContent>{badge.label}</TooltipContent>
-    </Tooltip>
+    <LazyTooltip
+      label={badge.label}
+      style={colorVar(badge.color)}
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center",
+        badge.color ? "ink" : "text-muted-foreground",
+        className,
+      )}
+    >
+      <Heart aria-hidden="true" className="size-3 fill-current" />
+    </LazyTooltip>
   );
 }
 
