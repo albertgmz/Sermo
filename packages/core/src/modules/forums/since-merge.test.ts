@@ -116,6 +116,28 @@ async function setup(sourceStartsAfterTarget: boolean) {
   return { ctx, moderator, member, target: target.thread.id, source: source.thread.id, held };
 }
 
+const phasesOf = async (w: Awaited<ReturnType<typeof setup>>) => {
+  const run = async () => ({
+    member: (await poll(w.ctx, w.member, w.target)).afterPostId,
+    moderator: (await poll(w.ctx, w.moderator, w.target)).afterPostId,
+  });
+  const seen = [await run()];
+  await execute(w.ctx, threadsMergeOp, w.moderator, {
+    threadId: w.target,
+    sourceThreadIds: [w.source],
+  });
+  seen.push(await run());
+  await runUntilPhase(w.ctx, "streams");
+  await runDueJobs(w.ctx, { limit: 2 });
+  seen.push(await run());
+  await runUntilPhase(w.ctx, "flip");
+  await runDueJobs(w.ctx, { limit: 1 });
+  seen.push(await run());
+  await runDueJobs(w.ctx);
+  seen.push(await run());
+  return seen;
+};
+
 const uniqueAndAscending = (items: { id: number; position: number }[]) => {
   expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
   expect(items.every((item, i) => i === 0 || item.position > items[i - 1]!.position)).toBe(true);
@@ -181,6 +203,12 @@ describe("posts.list afterPosition around a merge into the thread", () => {
     expect(seen[2]).toEqual(seen[0]!);
   });
 
+  test("a held post that is hidden from the viewer gives null in every phase of a merge, and its id to a moderator", async () => {
+    const w = await setup(true);
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1").run(w.held);
+    for (const seen of await phasesOf(w)) expect(seen).toEqual({ member: null, moderator: w.held });
+  });
+
   test("posts that leave the thread (as a split moves them) change the signal; an ordinary reply does not", async () => {
     const w = await setup(true);
     await execute(w.ctx, threadsMergeOp, w.moderator, {
@@ -190,6 +218,12 @@ describe("posts.list afterPosition around a merge into the thread", () => {
     await runDueJobs(w.ctx);
     expect((await poll(w.ctx, w.member, w.target)).afterPostId).toBe(w.held);
     addPosts(w.ctx, w.target, 1, 1, w.ctx.now() + 50_000);
+    expect((await poll(w.ctx, w.member, w.target)).afterPostId).toBe(w.held);
+    // A held post in the middle that is split out is not seen by the poll: the posts that stay
+    // keep their positions, so the post at the held position is the same.
+    w.ctx.sqlite
+      .prepare("UPDATE posts SET thread_id = ?2 WHERE thread_id = ?1 AND position = 60")
+      .run(w.target, w.source);
     expect((await poll(w.ctx, w.member, w.target)).afterPostId).toBe(w.held);
     // Positions at and above 50 leave the thread: nothing sits at 100 any more.
     w.ctx.sqlite

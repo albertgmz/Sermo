@@ -133,8 +133,10 @@ const threadDetailColumns = threadColumns
 /** A merge stores position p as -(p + 1) while it renumbers; reads return the real position. */
 const storedPosition = (column: string) =>
   `CASE WHEN ${column} < 0 THEN -${column} - 1 ELSE ${column} END`;
-const postVisible =
-  "(p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1))";
+/** What the viewer may see of a post: the parameters hold view-moderated, view-deleted and the viewer. */
+const postVisibleBy = (moderated: number, deleted: number, viewer: number) =>
+  `(p.state = 'visible' OR (p.state = 'moderated' AND (?${moderated} = 1 OR p.user_id = ?${viewer})) OR (p.state = 'deleted' AND ?${deleted} = 1))`;
+const postVisible = postVisibleBy(4, 5, 6);
 const postColumns = `p.id, p.thread_id, p.user_id, ${storedPosition("p.position")} AS position, p.state, p.created_at, p.edited_at, p.reaction_counts, p.attachment_count`;
 const nodeColumns =
   "id, icon_file_id, icon_key, cover_file_id, thread_count, post_count, last_post_at, last_post_id, last_thread_id, last_thread_title, last_poster_id, require_thread_approval, require_reply_approval, is_read_only, min_account_age_days, min_post_count";
@@ -147,8 +149,9 @@ export const forumSql = {
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
   // A merge's target while its posts are renumbered: positions are stored as -(p + 1) or as p.
   decodedPostPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position BETWEEN ?2 AND ?3 OR p.position BETWEEN -?3 - 1 AND -?2 - 1) AND ${postVisible} ORDER BY ${storedPosition("p.position")}`,
-  postAt: "SELECT id FROM posts WHERE thread_id = ?1 AND position = ?2",
-  decodedPostAt: "SELECT id FROM posts WHERE thread_id = ?1 AND position IN (?2, -?2 - 1)",
+  /** The post a poller holds at a position, if the viewer may see it: ?3 view-moderated, ?4 view-deleted, ?5 viewer. */
+  postAt: `SELECT p.id FROM posts p WHERE p.thread_id = ?1 AND p.position = ?2 AND ${postVisibleBy(3, 4, 5)}`,
+  decodedPostAt: `SELECT p.id FROM posts p WHERE p.thread_id = ?1 AND p.position IN (?2, -?2 - 1) AND ${postVisibleBy(3, 4, 5)}`,
   decodedPostBeyond: `SELECT p.id FROM posts p WHERE p.thread_id = ?1 AND (p.position > ?3 OR p.position < -?3 - 1) AND ${postVisible} LIMIT 1`,
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
@@ -1131,11 +1134,11 @@ function mergingPostPage(
           anchor:
             anchorAt === undefined
               ? undefined
-              : (statement<{ id: number }, [number, number]>(
+              : (statement<{ id: number }, [number, number, number, number, number]>(
                   ctx,
                   "decodedPostAt",
                   forumSql.decodedPostAt,
-                ).get(threadId, anchorAt)?.id ?? null),
+                ).get(threadId, anchorAt, viewModerated, viewDeleted, viewer)?.id ?? null),
           rows: statement<PostRow, [number, number, number, number, number, number]>(
             ctx,
             "decodedPostPage",
@@ -1168,7 +1171,7 @@ function mergingPostPage(
         anchor:
           anchorAt === undefined
             ? undefined
-            : (rows.find((row) => slots.get(row.id) === anchorAt)?.id ?? null),
+            : (shown.find((row) => row.slot === anchorAt)?.id ?? null),
         rows: page.map((entry) => ({ ...byId.get(entry.id)!, position: entry.slot })),
         beyond: shown.some((row) => row.slot > end) ? { id: 0 } : undefined,
       };
@@ -1204,10 +1207,11 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
           anchor:
             anchorAt === undefined
               ? undefined
-              : (statement<{ id: number }, [number, number]>(ctx, "postAt", forumSql.postAt).get(
-                  input.threadId,
-                  anchorAt,
-                )?.id ?? null),
+              : (statement<{ id: number }, [number, number, number, number, number]>(
+                  ctx,
+                  "postAt",
+                  forumSql.postAt,
+                ).get(input.threadId, anchorAt, viewModerated, viewDeleted, viewer)?.id ?? null),
           rows: statement<PostRow, [number, number, number, number, number, number]>(
             ctx,
             "postPage",

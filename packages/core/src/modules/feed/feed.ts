@@ -100,7 +100,9 @@ function source<Row extends { created_at: number }, Key>(
   if (since !== undefined) {
     const fetchAll = walk.fetch;
     // Rows come newest first, so what follows the first old row is old too; a short answer also
-    // marks the walk exhausted.
+    // marks the walk exhausted. This assumes `created_at` grows with the walk key (ids, or last
+    // activity), which holds for rows written through the API; a row with a backdated time, from
+    // an import, ends the walk early and the count comes out low.
     walk.fetch = (from, count) => {
       const rows = fetchAll(from, count);
       const old = rows.findIndex((row) => row.created_at <= since);

@@ -105,6 +105,48 @@ describe("posts.list afterPosition", () => {
     expect(bodies(await after(w, w.alice, id, 1))).toEqual(["last"]);
     expect(bodies(await after(w, w.alice, id, 3))).toEqual(["last"]);
     expect(bodies(await after(w, w.alice, id, 4))).toEqual([]);
+    // The id at a polled position follows the same rule as the items: a post the viewer may not
+    // see gives null, so the answer never names a hidden post.
+    const anchor = async (actor: Parameters<World["call"]>[1], position: number) =>
+      (await after(w, actor, id, position)).afterPostId;
+    expect(await anchor(w.alice, 2)).toBeNull();
+    expect(await anchor(GUEST, 2)).toBeNull();
+    expect(await anchor(w.carol, 2)).toBe(waiting.id);
+    expect(await anchor(w.mod, 2)).toBe(waiting.id);
+    for (const viewer of [w.alice, w.carol, w.bob, GUEST])
+      expect(await anchor(viewer, 3)).toBeNull();
+    expect(await anchor(w.mod, 3)).toBe(doomed.id);
+  });
+
+  test("a small merge, done in one step, shows in afterPostId when posts land below the held one", async () => {
+    const merge = (w: World, threadId: number, sourceId: number) =>
+      w.call("threads.merge", w.mod, {
+        threadId,
+        sourceThreadIds: [sourceId],
+        reason: "x",
+        notify: false,
+      });
+    // The source's opening post falls between the target's two posts: the held one moves up.
+    const interleaved = world();
+    const target = await interleaved.thread(interleaved.alice, interleaved.open.id, "Target");
+    const source = await interleaved.thread(interleaved.bob, interleaved.open.id, "Source");
+    const late = await interleaved.reply(interleaved.alice, target.thread.id, "late");
+    const held = (await after(interleaved, interleaved.carol, target.thread.id, 0)).items[0]!;
+    expect(held.id).toBe(late.id);
+    const done = await merge(interleaved, target.thread.id, source.thread.id);
+    expect(done.completed).toBe(true);
+    const polled = await after(interleaved, interleaved.carol, target.thread.id, held.position);
+    expect(polled.afterPostId).not.toBe(held.id);
+
+    // The source is entirely newer: the held post stays where it was and the new ones follow.
+    const appended = world();
+    const first = await appended.thread(appended.alice, appended.open.id, "Target");
+    const reply = await appended.reply(appended.alice, first.thread.id, "held");
+    const newer = await appended.thread(appended.bob, appended.open.id, "Source");
+    expect((await merge(appended, first.thread.id, newer.thread.id)).completed).toBe(true);
+    const next = await after(appended, appended.carol, first.thread.id, 1);
+    expect(next.afterPostId).toBe(reply.id);
+    expect(bodies(next)).toEqual(["Source body"]);
   });
 
   test("a thread the viewer cannot open is not found, a hidden one included", async () => {
@@ -152,7 +194,7 @@ describe("posts.list afterPosition", () => {
     const w = world();
     expectNoTableScan(w.ctx, forumSql.postPage, [1, 5, 24, 0, 0, 1]);
     expectNoTableScan(w.ctx, forumSql.postBeyond, [1, 24, 0, 0, 1]);
-    expectNoTableScan(w.ctx, forumSql.postAt, [1, 5]);
-    expectNoTableScan(w.ctx, forumSql.decodedPostAt, [1, 5]);
+    expectNoTableScan(w.ctx, forumSql.postAt, [1, 5, 0, 0, 1]);
+    expectNoTableScan(w.ctx, forumSql.decodedPostAt, [1, 5, 0, 0, 1]);
   });
 });
