@@ -2860,3 +2860,33 @@ edit pages the first focus carries the caret and selection of the plain box to t
 in characters of the text the editor shows (the editor's own reading of the text before the caret,
 so the tags it shows as text count). The `editor` first-load group fell from 375.3 KB to 270.5 KB
 (ceiling 286000). Known limit: a numbered list always starts at 1.
+
+**Hashtags and tags (item 9).** `#tag` in posts, thread opening posts and conversation messages
+(text runs only, recognised by the BB code tree builder like mentions) is a tag: letters, marks,
+numbers and `_`, starting with a letter, number or `_`, one letter that draws something, up to 50,
+not after a letter, number, `&`, `/`, `=` or `#`. A name is one key for everyone (`foldTagText`,
+shared by the backend and the web): NFC and lowercase, a Greek final sigma folded, characters that
+draw nothing taken out, so look-alikes are one tag. A thread's tags are the ones its author or staff
+list (`tags` on `threads.create` and `threads.update`, at most 10) plus the hashtags of its opening
+post outside spoilers and quotes (an edit re-syncs only those); replies and conversations only link
+to tags that are known and never create or attach. Putting tags on needs `tag.apply` (or
+`tag.manage` without a posting restriction); taking them off needs only authorship or staff, so a
+muted author or moderator can still remove; a posting restriction takes `tag.apply` and `tag.create`
+away. A tag is known to a writer only if it has a visible thread they can read or own (deleted, held
+and unreadable threads do not count), so neither a link nor a refusal tells them about content they
+cannot see. `tag.create` makes a tag nobody used, `tag.manage` renames, merges and deletes
+(`/admin/tags`, checked again in the transaction); a rename or merge keeps the old name as an alias,
+and a tag with aliases is kept when it loses its last thread; its empty page is shown only to
+holders of `tag.manage` (to others it is a 404, since its names may come from a closed forum whose
+threads are gone). The tag page (`tags.threads`, `/tags/<name>`) lists threads by activity from
+index runs that separate visible, held, deleted and own held threads (2,048 entries per run per
+request, then it resumes), is a 404 only when every run was read to its end without a thread for the
+viewer, does not show a tag the opening post's text gave to a viewer who may not read that text, and
+merging threads moves their tags. It is indexable, and in the sitemap, only with 3 or more threads
+whose title and text are open to guests. The criterion `tags_added_at_least` reads
+`users.tag_count`, which counts tags of visible threads, kept by triggers on `thread_tags` and
+`threads` (as are `tags.thread_count` and the copies `sort_at`, `vis`, `node_id`; migration `0053`).
+Known limits: posts written before the item stay as they were until edited; a held edit tags nothing
+and its new hashtags stay dead links until the next edit; ignored members' threads are listed on the
+tag page as in the forum list; past 2,048 closed entries a run is best effort (the page may be empty
+with a link to go on, the sitemap and SEO count see nothing past it).

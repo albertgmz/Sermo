@@ -372,6 +372,13 @@
       "when": 1792093086509,
       "tag": "0052_moderators_ban",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1792102846069,
+      "tag": "0053_hashtags",
+      "breakpoints": true
     }
   ]
 }
