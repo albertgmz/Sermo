@@ -39,15 +39,7 @@ type Detail = {
 };
 
 function excerpt(source: string): string {
-  const plain = maskMarkupForExcerpt(source)
-    .replace(/<\/?[A-Za-z][^>]*>/g, " ")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/^\s{0,3}(?:#{1,6}\s+|>\s*|[-*+]\s+|\d+\.\s+)/gm, "")
-    .replace(/(?<!\w)(`+)(.+?)\1(?!\w)/g, "$2")
-    .replace(/(?<!\w)(\*{1,3}|_{1,3}|~~)(?=\S)(.+?)(?<=\S)\1(?!\w)/g, "$2")
-    .replace(/\s+/g, " ")
-    .trim();
+  const plain = maskMarkupForExcerpt(source).replace(/\s+/g, " ").trim();
   return Array.from(plain).slice(0, 200).join("");
 }
 

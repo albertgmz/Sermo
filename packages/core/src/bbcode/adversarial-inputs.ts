@@ -96,6 +96,13 @@ export const ADVERSARIAL_INPUTS: AdversarialInput[] = [
   { name: "many code blocks", source: fill("[CODE]x[/CODE]") },
   { name: "many highlighted blocks", source: fill("[CODE=js]var a;[/CODE]") },
   { name: "highlight limit x4", source: fill(`[CODE=js]${"var a = 1;\n".repeat(180)}[/CODE]`) },
+  { name: "java code, one long line", source: `[CODE=java]${"0_".repeat(990)}[/CODE]` },
+  { name: "java code, 1__ line", source: `[CODE=java]${"1__".repeat(660)}[/CODE]` },
+  {
+    name: "java code, two long lines",
+    source: `[CODE=java]${"0_".repeat(490)}\n${"0_".repeat(490)}[/CODE]`,
+  },
+  { name: "unclosed table pieces", source: fill("[TABLE][TR][TD]x[/TD]") },
   { name: "unclosed [CODE] x1666", source: fill("[CODE]") },
   { name: "unclosed [PLAIN] x1666", source: fill("[PLAIN]") },
   { name: "[CODE] pairs with stray closers", source: fill("[CODE]x[/CODE][/CODE]") },

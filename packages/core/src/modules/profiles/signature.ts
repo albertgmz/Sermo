@@ -65,7 +65,9 @@ const TAG_KIND: Record<string, Kind> = {
 function kindOf(tag: string, attribs: Record<string, string>): Kind {
   const known = TAG_KIND[tag];
   if (known)
-    return tag === "a" && /(?:^|\s)mention(?:\s|$)/.test(attribs.class ?? "") ? "other" : known;
+    return tag === "a" && /(?:^|\s)(?:mention|bb-media-link)(?:\s|$)/.test(attribs.class ?? "")
+      ? "other"
+      : known;
   if (/^h[1-6]$/.test(tag)) return "heading";
   const classes = attribs.class ?? "";
   if (tag === "span") {

@@ -321,6 +321,7 @@ describe("allowed formatting", () => {
       "[TABLE][TR][TD]x[/TD][/TR][/TABLE]",
       "[INDENT]x[/INDENT]",
       "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA]",
+      "[MEDIA=twitter]1234567890123[/MEDIA]",
       "[HR]",
       "[PLAIN]a\n\nb[/PLAIN]",
       "two\n\nparagraphs",

@@ -237,6 +237,14 @@ describe("BB code tags", () => {
     expect(md("[URL=https://x.example]https://a.example[/URL]").match(/<a /g)).toHaveLength(1);
   });
 
+  test("an option named rich changes nothing outside CODE and ICODE", () => {
+    for (const tag of ["QUOTE", "SPOILER"]) {
+      const html = md(`[${tag}=Rich][LIST][*]a[/LIST] https://a.example[/${tag}]`);
+      expect(html).toContain("<ul><li>a</li></ul>");
+      expect(html).toContain('<a href="https://a.example"');
+    }
+  });
+
   test("QUOTE keeps the author as data, not as words", () => {
     expect(md("[QUOTE]Quoted text[/QUOTE]")).toBe(
       '<blockquote class="bb-quote">Quoted text</blockquote>',
@@ -268,9 +276,28 @@ describe("BB code tags", () => {
     expect(md("[TABLE]just text[/TABLE]")).toBe("<p>[TABLE]just text[/TABLE]</p>");
     // Cells outside a row are text; text between cells is dropped.
     expect(md("[TD]x[/TD]")).toBe("<p>[TD]x[/TD]</p>");
-    expect(md("[TABLE][TR]stray[TD]a[/TD]stray[/TR][/TABLE]")).toBe(
-      '<table class="bb-table"><tbody><tr><td>a</td></tr></tbody></table>',
+    expect(md("[TABLE][TR]stray[TD]a[/TD]more[/TR][/TABLE]")).toBe(
+      '<p>straymore</p><table class="bb-table"><tbody><tr><td>a</td></tr></tbody></table>',
     );
+  });
+
+  test("a table, row or cell that is not closed leaves all its text", () => {
+    for (const source of [
+      "[TABLE][TR][TD]secret text[/TD]",
+      "[TABLE][TR][TD]a[/TD][/TR]",
+      "[TABLE][TR][TD]a[/TD][/TABLE]",
+      "[TABLE][TR][TD]a[/TD][TD]b[/TD][/TR]",
+      "[TR][TD]a[/TD][/TR][/TABLE]",
+    ]) {
+      const html = md(source);
+      expect(html, source).not.toMatch(/<table|<td|<tr/);
+      expect(html.replace(/<\/?p>/g, ""), source).toBe(source);
+    }
+  });
+
+  test("text of a cell that is not closed is shown, not dropped", () => {
+    const html = md("[TABLE][TR][TD]a[/TR][/TABLE]");
+    expect(html).toContain("[TD]a");
   });
 
   test("PLAIN is literal, also across blank lines", () => {
@@ -374,6 +401,16 @@ describe("BB code code", () => {
       '<div class="bb-code"><div class="bb-code-header bb-code-named"><span class="bb-code-lang">klingon</span></div><pre><code>&lt;b&gt;qapla&lt;/b&gt;</code></pre></div>',
     );
     expect(md('[CODE="><script>alert(1)</script>]x[/CODE]')).not.toContain("<script");
+  });
+
+  test("code with a very long line is not highlighted", () => {
+    const line = "0_".repeat(995);
+    const started = performance.now();
+    const html = md(`[CODE=java]${line}[/CODE]`);
+    expect(performance.now() - started).toBeLessThan(40);
+    expect(html).not.toContain("hljs");
+    expect(html).toContain(line);
+    expect(md(`[CODE=java]${"int a = 1;\n".repeat(100)}[/CODE]`)).toContain("hljs");
   });
 
   test("highlighted output holds only hljs classes and escaped text", () => {

@@ -4,8 +4,13 @@ import { highlightCode } from "./highlight";
 import { colorValue, FONT_CLASS, type Tok } from "./scan";
 import { type El, isBlock, type MentionNode, type Node } from "./tree";
 
-/** Longer code is shown as a plain block: highlighting cost grows with its length. */
+/**
+ * Longer code, and code with a line longer than `HIGHLIGHT_LINE`, is shown as a plain block:
+ * highlighting cost grows steeply with the length of a line (a line of 2,000 characters can take
+ * over 100 ms), and little with the number of lines.
+ */
 const HIGHLIGHT_LIMIT = 2_000;
+const HIGHLIGHT_LINE = 200;
 /** Characters and blocks one message may have highlighted in all; later code blocks are plain. */
 const HIGHLIGHT_TOTAL = 4_000;
 const HIGHLIGHT_BLOCKS = 20;
@@ -163,6 +168,16 @@ function spoiler(
   return `<div class="bb-spoiler" data-spoiler="${position}"${label}></div>`;
 }
 
+function longestLine(text: string): number {
+  let longest = 0;
+  let start = 0;
+  for (let end = text.indexOf("\n"); end >= 0; end = text.indexOf("\n", start)) {
+    longest = Math.max(longest, end - start);
+    start = end + 1;
+  }
+  return Math.max(longest, text.length - start);
+}
+
 function codeBlock(tok: Tok, env: Env): string {
   const content = trimNewlines(tok.text!);
   const language = tok.language;
@@ -171,6 +186,7 @@ function codeBlock(tok: Tok, env: Env): string {
   if (language !== undefined) {
     const highlighted =
       content.length <= HIGHLIGHT_LIMIT &&
+      longestLine(content) <= HIGHLIGHT_LINE &&
       env.highlighted + content.length <= HIGHLIGHT_TOTAL &&
       env.highlightedBlocks < HIGHLIGHT_BLOCKS
         ? highlightCode(content, language)
@@ -224,8 +240,12 @@ const WRAP: Record<string, string> = { B: "strong", I: "em", U: "u", S: "del" };
 function quote(el: El, env: Env, inLink: boolean): string {
   const body = blocks(el.kids, env, inLink, "tight");
   const data = el.quote!;
-  if (data.resolvedAuthor && data.postId)
-    return `<blockquote class="quote" data-post-id="${data.postId}"><cite><a href="/posts/${data.postId}">${escapeHtml(data.resolvedAuthor)}</a> wrote:</cite>${body}</blockquote>`;
+  if (data.resolvedAuthor && data.postId) {
+    const name = escapeHtml(data.resolvedAuthor);
+    // No link inside a link: the author is only named.
+    const author = inLink ? name : `<a href="/posts/${data.postId}">${name}</a>`;
+    return `<blockquote class="quote" data-post-id="${data.postId}"><cite>${author} wrote:</cite>${body}</blockquote>`;
+  }
   const author = data.author
     ? `<cite class="bb-quote-author">${escapeHtml(data.author)}</cite>`
     : "";
@@ -246,12 +266,21 @@ function list(el: El, env: Env, inLink: boolean): string {
   return `<${tag}>${content}</${tag}>`;
 }
 
+const isCell = (node: Node): node is El =>
+  node.t === "el" && (node.name === "TH" || node.name === "TD");
+const isRow = (node: Node): node is El => node.t === "el" && node.name === "TR";
+
+/** The rows of a table; text between its tags, which no cell holds, is shown before it. */
 function table(el: El, env: Env, inLink: boolean): string {
-  const rows = el.kids
-    .filter((row): row is El => row.t === "el" && row.name === "TR")
+  const rows = el.kids.filter(isRow);
+  const strays = [
+    ...el.kids.filter((kid) => !isRow(kid)),
+    ...rows.flatMap((row) => row.kids.filter((kid) => !isCell(kid))),
+  ];
+  const body = rows
     .map((row) => {
       const cells = row.kids
-        .filter((cell): cell is El => cell.t === "el" && (cell.name === "TH" || cell.name === "TD"))
+        .filter(isCell)
         .map((cell) => {
           const tag = cell.name === "TH" ? "th" : "td";
           return `<${tag}>${blocks(cell.kids, env, inLink, "tight")}</${tag}>`;
@@ -260,7 +289,7 @@ function table(el: El, env: Env, inLink: boolean): string {
       return `<tr>${cells}</tr>`;
     })
     .join("");
-  return `<table class="bb-table"><tbody>${rows}</tbody></table>`;
+  return `${blocks(strays, env, inLink, "root")}<table class="bb-table"><tbody>${body}</tbody></table>`;
 }
 
 /** Rich code shows its text as typed, with the tags drawn. */

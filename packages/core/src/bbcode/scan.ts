@@ -9,7 +9,7 @@ import { mediaHtml, resolveMedia } from "./media";
  * paired stays literal text; nothing between the tags is looked at here.
  */
 
-export const MAX_OPTION_LENGTH = 200;
+const MAX_OPTION_LENGTH = 200;
 
 /** One tag of the source (text between tags is not a token: it is the gap between two). */
 export interface Tok {
@@ -22,8 +22,6 @@ export interface Tok {
   option?: string;
   /** Open and close tokens: part of a pair. Atoms are always live. */
   live: boolean;
-  /** The partner of a live open or close token. */
-  match: number;
   /** Atoms: what the tag holds, already validated. */
   text?: string;
   href?: string;
@@ -63,7 +61,7 @@ const CONTAINERS = new Set([
 ]);
 
 /** Tags that stay inside a line; everything else a container can be is a block. */
-export const INLINE_NAMES = new Set([
+const INLINE_NAMES = new Set([
   "B",
   "I",
   "U",
@@ -123,7 +121,7 @@ const FONTS = [
 export const FONT_CLASS = new Map(
   FONTS.map((font) => [font.toLowerCase(), font.toLowerCase().replace(/ /g, "-")]),
 );
-export const URL_PATTERN = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
+const URL_PATTERN = /^https?:\/\/[^\s<>"'`\\]{1,2000}$/i;
 /** A link to a page of the site itself: a path from the root, never `//host`. */
 const SITE_PATH = /^\/(?!\/)[^\s<>"'`\\]{0,2000}$/;
 const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,200}\.[A-Za-z]{2,24}$/;
@@ -154,7 +152,7 @@ function optionAllowed(name: string, option: string | undefined): boolean {
       return option !== undefined && /^[A-Za-z0-9+#._-]{1,20}$/.test(option);
     case "QUOTE":
     case "SPOILER":
-      return option === undefined || option.length <= 300;
+      return true;
     case "INDENT":
       return option === undefined || /^[1-5]$/.test(option);
     case "LIST":
@@ -305,7 +303,7 @@ function isLiteralHead(head: Head): boolean {
 }
 
 function token(kind: Tok["kind"], head: Head, at: number, live: boolean): Tok {
-  return { kind, start: at, end: head.end, name: head.name, option: head.option, live, match: -1 };
+  return { kind, start: at, end: head.end, name: head.name, option: head.option, live };
 }
 
 /** Reads every tag of the source. Open and close tokens are not paired yet. */
@@ -351,15 +349,22 @@ interface Entry {
   name: string;
   /** Inline entries at the top of the stack down to and including this one. */
   run: number;
-  /** A LIST: its `[*]` tokens, which become live with it. */
-  items?: number[];
+  /**
+   * A LIST, TABLE or TR: the tokens of what it holds that become live only with it (its `[*]`
+   * items, its rows and cells), so a cell of a table that never closes stays literal.
+   */
+  deferred?: number[];
 }
+
+const HOLDS = new Set(["LIST", "TABLE", "TR"]);
+const isRich = (tok: Tok): boolean =>
+  (tok.name === "CODE" || tok.name === "ICODE") && tok.option?.toLowerCase() === "rich";
 
 /**
  * Pairs openers with closers. A closer pairs with the nearest open tag of its name; tags opened
  * after it that are still open are left literal. `[*]` pairs with its list, `[TR]` with its table
- * and `[TD]`/`[TH]` with their row, and each is a literal when it is not directly there. In rich
- * code only inline tags pair.
+ * and `[TD]`/`[TH]` with their row, and each is a literal when it is not directly there or when
+ * what holds it is not paired. In rich code only inline tags pair.
  */
 export function pair(toks: Tok[], deadline: Deadline): void {
   const stack: Entry[] = [];
@@ -369,13 +374,14 @@ export function pair(toks: Tok[], deadline: Deadline): void {
   const drop = (): void => {
     const entry = stack.pop()!;
     if (entry.name !== "*") open.set(entry.name, open.get(entry.name)! - 1);
-    if (toks[entry.tok]!.option?.toLowerCase() === "rich") rich--;
+    if (isRich(toks[entry.tok]!)) rich--;
   };
-  const push = (index: number, name: string, items?: number[]): void => {
+  const push = (index: number, name: string): void => {
     const below = stack.length ? stack[stack.length - 1]!.run : 0;
-    stack.push({ tok: index, name, run: INLINE_NAMES.has(name) ? below + 1 : 0, items });
+    const deferred = HOLDS.has(name) ? [] : undefined;
+    stack.push({ tok: index, name, run: INLINE_NAMES.has(name) ? below + 1 : 0, deferred });
     if (name !== "*") open.set(name, (open.get(name) ?? 0) + 1);
-    if (toks[index]!.option?.toLowerCase() === "rich") rich++;
+    if (isRich(toks[index]!)) rich++;
   };
 
   for (let index = 0; index < toks.length; index++) {
@@ -393,23 +399,27 @@ export function pair(toks: Tok[], deadline: Deadline): void {
         while (stack.length - 1 > holder) drop();
         const list = entry.name === "*" ? stack[holder - 1]! : entry;
         if (entry.name === "*") drop();
-        list.items!.push(index);
+        list.deferred!.push(index);
         push(index, "*");
         continue;
       }
       if (tok.name === "TR" && top?.name !== "TABLE") continue;
       if ((tok.name === "TD" || tok.name === "TH") && top?.name !== "TR") continue;
-      push(index, tok.name, tok.name === "LIST" ? [] : undefined);
+      push(index, tok.name);
       continue;
     }
     if (!open.get(tok.name)) continue;
     while (stack[stack.length - 1]!.name !== tok.name) drop();
     const entry = stack[stack.length - 1]!;
-    const opener = toks[entry.tok]!;
-    opener.live = tok.live = true;
-    opener.match = index;
-    tok.match = entry.tok;
-    for (const item of entry.items ?? []) toks[item]!.live = true;
+    if (tok.name === "TR" || tok.name === "TD" || tok.name === "TH") {
+      // Live when the row or table holding it is.
+      const holder = stack[stack.length - 2]!.deferred!;
+      holder.push(entry.tok, index);
+      for (const held of entry.deferred ?? []) holder.push(held);
+    } else {
+      toks[entry.tok]!.live = tok.live = true;
+      for (const held of entry.deferred ?? []) toks[held]!.live = true;
+    }
     drop();
   }
 }

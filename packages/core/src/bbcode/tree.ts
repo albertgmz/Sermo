@@ -2,10 +2,10 @@ import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
 import type { Tok } from "./scan";
 
-export const MAX_QUOTE_DEPTH = 10;
-export const MAX_SPOILER_DEPTH = 10;
+const MAX_QUOTE_DEPTH = 10;
+const MAX_SPOILER_DEPTH = 10;
 /** Containers inside containers, of any kind. */
-export const MAX_NESTING = 30;
+const MAX_NESTING = 30;
 
 /** A quote's data; a `post` reference is resolved against the database by the caller. */
 export interface Quote {
@@ -76,12 +76,9 @@ export function isBlock(node: Node): boolean {
   );
 }
 
-const tooDeep = () =>
+const tooDeep = (limit: number) =>
   new ValidationError("Containers are nested too deeply.", [
-    {
-      path: ["body"],
-      message: `Containers may be nested at most ${MAX_QUOTE_DEPTH} levels deep.`,
-    },
+    { path: ["body"], message: `Containers may be nested at most ${limit} levels deep.` },
   ]);
 
 /**
@@ -205,8 +202,9 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
     const spoiler = tok.name === "SPOILER" || tok.name === "ISPOILER";
     const quoteDepth = parent.quotes + Number(quote);
     const spoilerDepth = parent.spoilers + Number(spoiler);
-    if (depth > MAX_NESTING || quoteDepth > MAX_QUOTE_DEPTH || spoilerDepth > MAX_SPOILER_DEPTH)
-      throw tooDeep();
+    if (depth > MAX_NESTING) throw tooDeep(MAX_NESTING);
+    if (quoteDepth > MAX_QUOTE_DEPTH || spoilerDepth > MAX_SPOILER_DEPTH)
+      throw tooDeep(MAX_QUOTE_DEPTH);
     const el: El = {
       t: "el",
       name: tok.name,
@@ -231,7 +229,9 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
       quotes: quoteDepth,
       spoilers: spoilerDepth,
       inLink: parent.inLink || tok.name === "URL" || tok.name === "EMAIL",
-      rich: parent.rich || tok.option?.toLowerCase() === "rich",
+      rich:
+        parent.rich ||
+        ((tok.name === "CODE" || tok.name === "ICODE") && tok.option?.toLowerCase() === "rich"),
       pending: "",
     });
   };
