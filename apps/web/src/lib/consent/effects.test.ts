@@ -42,3 +42,11 @@ test("a visitor who was not asked had everything on, so what they leave off is a
     "none",
   );
 });
+
+test("a category the banner does not offer is not a withdrawal when the visitor leaves it off", () => {
+  // Statistics without cookies take no choice, so "accept all" cannot have it among the accepted.
+  const offered = ["necessary", "referrals", "embeds"];
+  expect(firstChoiceEffect(true, offered, ["analytics"])).toBe("none");
+  expect(firstChoiceEffect(true, ["necessary"], ["analytics"])).toBe("reload");
+  expect(firstChoiceEffect(true, offered)).toBe("reload");
+});

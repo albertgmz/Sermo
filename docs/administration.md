@@ -1135,7 +1135,7 @@ Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.setti
   location headers of a trusted proxy (`SERMO_TRUST_LOCATION_HEADERS=true`, see
   `docs/deployment.md`); nothing a browser sends counts, and without a trusted country every visitor
   is asked. A visitor who is not asked and has not chosen is treated as having accepted every
-  category until they choose in **Cookie settings** (footer); a choice they make is kept as any other.
+  category until they choose in **Cookie settings** (footer); a choice they make is kept as any other. Raising the policy version resets such a visitor too: a choice from before counts as none, and they are not asked, so they are treated as accepting again until they choose.
 - **Matomo without cookies** (`matomoCookieless`, off by default). The Matomo tag then runs with
   `disableCookies` and is loaded without consent; the banner has no statistics choice and the cookie
   policy page says the statistics need none. It does nothing for Google Analytics. Whether

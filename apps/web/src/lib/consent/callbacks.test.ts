@@ -1,0 +1,89 @@
+import { expect, test } from "bun:test";
+import { consentCallbacks } from "./callbacks";
+
+// The banner library as the callbacks see it, and what the page is told to do.
+function setup(quiet: boolean, accepted: string[] | null, omit: string[] = []) {
+  const done: string[] = [];
+  const timers: (() => void)[] = [];
+  const callbacks = consentCallbacks({
+    quiet,
+    omit: omit as never,
+    library: async () =>
+      accepted === null
+        ? null
+        : { getUserPreferences: () => ({ acceptedCategories: accepted }) },
+    save: () => done.push("save"),
+    reload: () => done.push("reload"),
+    refresh: () => done.push("refresh"),
+    later: (run) => timers.push(run),
+  });
+  const first = () => callbacks.onFirstConsent?.({} as never);
+  const change = (...changedCategories: string[]) =>
+    callbacks.onChange?.({ changedCategories } as never);
+  return { done, timers, first, change };
+}
+
+test("every choice is sent to be saved on the account, the first and the later ones", async () => {
+  const w = setup(false, ["necessary", "embeds"]);
+  await w.first();
+  await w.change("embeds");
+  expect(w.done.filter((step) => step === "save")).toHaveLength(2);
+});
+
+test("a first choice that accepts something refreshes the page; one that accepts nothing leaves it", async () => {
+  const some = setup(false, ["necessary", "embeds"]);
+  await some.first();
+  expect(some.done).toEqual(["save", "refresh"]);
+  const none = setup(false, ["necessary"]);
+  await none.first();
+  expect(none.done).toEqual(["save"]);
+});
+
+test("a later change reloads for a withdrawal of the tag or the players, refreshes for an acceptance", async () => {
+  const withdrawn = setup(false, ["necessary"]);
+  await withdrawn.change("analytics");
+  expect(withdrawn.done).toEqual(["save", "reload"]);
+  const accepted = setup(false, ["necessary", "analytics"]);
+  await accepted.change("analytics");
+  expect(accepted.done).toEqual(["save", "refresh"]);
+});
+
+test("a visitor who was not asked: the first choice is the only event even when the library reports a change too", async () => {
+  // In opt-out mode the library calls both, in the same turn, when something differs.
+  const w = setup(true, ["necessary", "embeds"]);
+  await Promise.all([w.first(), w.change("analytics", "referrals")]);
+  expect(w.done).toEqual(["save", "reload"]);
+  // Once the turn is over a real change counts again.
+  for (const run of w.timers) run();
+  await w.change("embeds");
+  expect(w.done.filter((step) => step === "save")).toHaveLength(2);
+});
+
+test("outside the quiet mode a change after the first choice is never swallowed", async () => {
+  const w = setup(false, ["necessary", "embeds"]);
+  await Promise.all([w.first(), w.change("embeds")]);
+  expect(w.done.filter((step) => step === "save")).toHaveLength(2);
+});
+
+test("a visitor who was not asked and keeps everything on needs no new page; turning the tag off reloads", async () => {
+  const keeps = setup(true, ["necessary", "analytics", "referrals", "embeds"]);
+  await keeps.first();
+  expect(keeps.done).toEqual(["save"]);
+  const offers = setup(
+    true,
+    ["necessary", "referrals", "embeds"],
+    ["analytics"],
+  );
+  await offers.first();
+  expect(offers.done).toEqual(["save"]);
+  const off = setup(true, ["necessary", "referrals", "embeds"]);
+  await off.first();
+  expect(off.done).toEqual(["save", "reload"]);
+});
+
+test("without the library the choice is still sent and nothing else happens", async () => {
+  const w = setup(false, null);
+  await w.first();
+  await w.change("analytics");
+  expect(w.done).toEqual(["save", "save"]);
+});

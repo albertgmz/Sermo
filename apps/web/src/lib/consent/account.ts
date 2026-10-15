@@ -41,24 +41,23 @@ export function reconcile(
 // How long the banner library keeps its cookie.
 export const CONSENT_COOKIE_DAYS = 182;
 
-// The value of the library's cookie for a choice made elsewhere, in the shape the library reads
-// back (`categories`, `revision`, a consent id and the times); it reads it as its own.
+// The text of the library's cookie for a choice made elsewhere, in the shape the library reads back
+// (`categories`, `revision`, a consent id and the times). It is the JSON itself: setting the cookie
+// URL-encodes it, as the library does when it writes its own.
 export function consentCookieValue(
   record: AccountRecord,
   language: string,
   consentId: string,
 ): string {
   const categories = ["necessary", ...record.categories];
-  return encodeURIComponent(
-    JSON.stringify({
-      categories,
-      revision: record.policyVersion,
-      data: null,
-      consentTimestamp: record.decidedAt,
-      consentId,
-      services: Object.fromEntries(CATEGORIES.map((name) => [name, []])),
-      languageCode: language,
-      lastConsentTimestamp: record.decidedAt,
-    }),
-  );
+  return JSON.stringify({
+    categories,
+    revision: record.policyVersion,
+    data: null,
+    consentTimestamp: record.decidedAt,
+    consentId,
+    services: Object.fromEntries(CATEGORIES.map((name) => [name, []])),
+    languageCode: language,
+    lastConsentTimestamp: record.decidedAt,
+  });
 }

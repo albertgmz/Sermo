@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { CONSENT_COOKIE } from "@/lib/consent/inventory";
+import { forgetBanner } from "@/lib/sermo/banner";
 import { siteBody } from "@/lib/test-bodies";
 
 mock.module("server-only", () => ({}));
@@ -31,6 +32,7 @@ let site: Record<string, unknown> = {};
 let banner: "shown" | "hidden" | "fails" = "shown";
 let bannerAsked: Headers[] = [];
 beforeEach(() => {
+  forgetBanner();
   consent = undefined;
   site = {};
   banner = "shown";
@@ -72,12 +74,13 @@ test("a Europe-only site: a visitor it does not ask counts as accepting, one it 
   expect(await getConsent()).toEqual({
     decided: false,
     accepted: ["analytics", "referrals", "embeds"],
-    implied: true,
   });
   banner = "shown";
+  forgetBanner();
   expect(await getConsent()).toEqual({ decided: false, accepted: [] });
   // The backend cannot say: the visitor is asked.
   banner = "fails";
+  forgetBanner();
   expect(await getConsent()).toEqual({ decided: false, accepted: [] });
 });
 

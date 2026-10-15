@@ -125,7 +125,6 @@ test("a visitor the banner is not shown to counts as accepting, until they choos
   expect(withoutBanner(NO_CONSENT)).toEqual({
     decided: false,
     accepted: ["analytics", "referrals", "embeds"],
-    implied: true,
   });
   const chosen = parseConsent(
     cookie({ categories: ["necessary"], revision: 1 }),
@@ -158,9 +157,9 @@ test("the backend is asked whether the banner applies only to a visitor who has 
   expect(await consentOf(undefined, europeOnly, shown(true))).toEqual(
     NO_CONSENT,
   );
-  expect((await consentOf(undefined, europeOnly, shown(false))).implied).toBe(
-    true,
-  );
+  expect(
+    (await consentOf(undefined, europeOnly, shown(false))).accepted,
+  ).toEqual(["analytics", "referrals", "embeds"]);
   expect(
     (
       await consentOf(

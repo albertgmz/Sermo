@@ -43,7 +43,7 @@ import {
   LEGACY_FORUM_PREFIX,
   toBackendPath,
 } from "@/lib/sermo/addresses";
-import { bannerApplies } from "@/lib/sermo/banner";
+import { bannerAppliesOrUnknown } from "@/lib/sermo/banner";
 import { publicUrl } from "@/lib/sermo/config";
 import {
   siteConsentFacts,
@@ -255,17 +255,26 @@ function localePrefixRedirect(request: NextRequest) {
 
 // Whether the visitor accepts referrals under the cookie policy version the site has now, which
 // the proxy learns from the site facts it keeps for a minute (no request of its own per page); null
-// while the site has not been read. A visitor the banner is not shown to counts as accepting, and
-// the backend is asked about that only for a request that carries a referral or a referral cookie.
+// while the site has not been read, or while the backend cannot say whether the banner applies. A
+// visitor the banner is not shown to counts as accepting; the backend is asked about that only for
+// a request that carries a referral or a referral cookie, and its answer is kept a minute per
+// country (see `bannerAppliesOrUnknown`), so no request waits on it each time.
 async function referralsAccepted(request: NextRequest) {
   const { cookiePolicyVersion, bannerOutsideEu } = await siteConsentFacts();
   if (cookiePolicyVersion === null) return null;
+  let unknown = false;
   const consent = await consentOf(
     request.cookies.get(CONSENT_COOKIE)?.value,
     { version: cookiePolicyVersion, bannerOutsideEu },
-    () => bannerApplies(forwardFromHeaders(request.headers)),
+    async () => {
+      const shown = await bannerAppliesOrUnknown(
+        forwardFromHeaders(request.headers),
+      );
+      unknown = shown === null;
+      return shown ?? true;
+    },
   );
-  return mayStoreReferral(consent);
+  return unknown ? null : mayStoreReferral(consent);
 }
 
 // What a request does to the referral cookie (see `referralStep`). The canonical address of a

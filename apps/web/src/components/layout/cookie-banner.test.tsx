@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { forgetBanner } from "@/lib/sermo/banner";
 import { siteBody } from "@/lib/test-bodies";
 
 mock.module("server-only", () => ({}));
@@ -23,6 +24,7 @@ let site: Record<string, unknown> = {};
 let banner = true;
 let bannerAsked = 0;
 beforeEach(() => {
+  forgetBanner();
   site = {};
   banner = true;
   bannerAsked = 0;
@@ -60,6 +62,7 @@ test("a Europe-only site has the backend say whether this visitor is asked", asy
   banner = false;
   expect((await propsOf()).quiet).toBe(true);
   banner = true;
+  forgetBanner();
   expect((await propsOf()).quiet).toBe(false);
   expect(bannerAsked).toBe(2);
 });

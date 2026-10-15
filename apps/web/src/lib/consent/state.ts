@@ -4,12 +4,10 @@ import { analyticsSnippets } from "@/components/layout/analytics-snippets";
 import { OPTIONAL_CATEGORIES, type OptionalCategory } from "./inventory";
 
 // What a visitor has chosen. `decided` is false until a choice is recorded against the current
-// policy version; an older choice counts as none, so the banner asks again. `implied` marks a
-// visitor the banner is not shown to (see `withoutBanner`).
+// policy version; an older choice counts as none, so the banner asks again.
 export type Consent = {
   decided: boolean;
   accepted: readonly OptionalCategory[];
-  implied?: true;
 };
 
 export const NO_CONSENT: Consent = { decided: false, accepted: [] };
@@ -22,9 +20,7 @@ export type SiteConsent = { version: number; bannerOutsideEu: boolean };
 // chosen nothing is treated as having accepted every category, until they choose in the settings.
 // Anyone who did choose keeps their choice.
 export function withoutBanner(own: Consent): Consent {
-  return own.decided
-    ? own
-    : { decided: false, accepted: OPTIONAL_CATEGORIES, implied: true };
+  return own.decided ? own : { decided: false, accepted: OPTIONAL_CATEGORIES };
 }
 
 export const allows = (consent: Consent, category: OptionalCategory) =>

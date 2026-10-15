@@ -297,4 +297,21 @@ describe("erasing a member", () => {
       .map((row) => row.user_id);
     expect(left).toEqual([other.id]);
   });
+
+  test("a request resolved before the erasure cannot bring the record back", async () => {
+    const w = await accounts();
+    const founder = await w.register("Founder", 4);
+    const target = await w.register("Target");
+    await w.run("users.adminErase", founder.actor, {
+      userId: target.id,
+      actorPassword: PASSWORD,
+      reason: "Right to be forgotten",
+    });
+    await expect(
+      w.run("consent.save", target.actor, { categories: ["analytics"], policyVersion: 1 }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(w.ctx.sqlite.prepare("SELECT count(*) AS n FROM consent_records").get()).toEqual({
+      n: 0,
+    });
+  });
 });

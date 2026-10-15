@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
+import { forgetBanner } from "@/lib/sermo/banner";
 
 // The pages asked for here (the home page, the forum list, the register page) need no record, and
 // what the proxy knows of the site is faked: its default language and what its cookie policy says.
@@ -225,6 +226,7 @@ async function withBannerFor(
   shown: boolean | "fails",
   run: (asked: () => number) => Promise<void>,
 ) {
+  forgetBanner();
   const realFetch = globalThis.fetch;
   let asked = 0;
   globalThis.fetch = (async () => {
@@ -272,5 +274,22 @@ test("a request without a referral does not ask the backend anything", async () 
     await ask("/forums");
     await ask("/");
     expect(asked()).toBe(0);
+  });
+});
+
+test("a held cookie of a visitor who is not asked costs one question a minute, not one a request", async () => {
+  await withBannerFor(false, async (asked) => {
+    for (let page = 0; page < 5; page += 1) {
+      const response = await ask("/forums", "forum_ref=7");
+      expect(referralCookie(response)).toBeUndefined();
+    }
+    expect(asked()).toBe(1);
+  });
+});
+
+test("when the backend cannot say, a cookie already held stays, and nothing new is set", async () => {
+  await withBannerFor("fails", async () => {
+    expect(referralCookie(await ask("/", "forum_ref=7"))).toBeUndefined();
+    expect(referralCookie(await ask("/?ref=12"))).toBeUndefined();
   });
 });

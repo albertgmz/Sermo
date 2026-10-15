@@ -27,15 +27,19 @@ export function effectOf(
 }
 
 // What the page must do after the visitor's first choice. A visitor the banner is not shown to had
-// every category on, so what they now leave off is a withdrawal; any other first choice only needs
-// the page drawn again if it accepts something.
+// every category on, so what they now leave off (of the categories offered) is a withdrawal; any
+// other first choice only needs the page drawn again if it accepts something.
 export function firstChoiceEffect(
   quiet: boolean,
   accepted: readonly string[],
+  omit: readonly string[] = [],
 ): Effect {
+  // A category the banner does not offer cannot be turned off by the visitor.
   if (quiet)
     return effectOf(
-      OPTIONAL_CATEGORIES.filter((category) => !accepted.includes(category)),
+      OPTIONAL_CATEGORIES.filter(
+        (category) => !omit.includes(category) && !accepted.includes(category),
+      ),
       accepted,
     );
   return OPTIONAL_CATEGORIES.some((category) => accepted.includes(category))

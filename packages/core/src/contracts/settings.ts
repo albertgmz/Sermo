@@ -8,6 +8,7 @@ export const SUPPORTED_LANGUAGES = ["en", "es"] as const;
 
 import { defineContract } from "../operation";
 import { Empty, Id } from "./common";
+import { MAX_COOKIE_POLICY_VERSION } from "./consent";
 import { CriteriaRule } from "./criteria";
 
 const Mime = z
@@ -181,7 +182,7 @@ export const SiteSettings = z
      * The version of the cookie policy; raised only by `consent.askAgain`, which makes everyone
      * choose again. Not changed by `settings.update`.
      */
-    cookiePolicyVersion: z.number().int().min(1).max(1_000_000).default(1),
+    cookiePolicyVersion: z.number().int().min(1).max(MAX_COOKIE_POLICY_VERSION).default(1),
     /**
      * The site's own pictures: an unattached file the actor uploaded with the purpose
      * `site_logo`, `site_icon` or `site_backdrop`. Setting one replaces (and deletes) the

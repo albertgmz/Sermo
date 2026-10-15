@@ -3,6 +3,7 @@ import { messages } from "@/i18n/messages";
 import { parseChoice } from "@/lib/consent/state";
 import { siteBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
+import { onTheWire } from "../../../../tests/wire-cookies";
 
 const realFetch = globalThis.fetch;
 const written: Record<string, unknown>[] = [];
@@ -300,12 +301,34 @@ test("a device with no choice takes the account's current choice: the consent co
   const cookie = consentCookieWritten();
   expect(cookie).toMatchObject({ path: "/", sameSite: "lax" });
   // The banner library reads it as its own: current version, the record's categories and time.
-  expect(parseChoice(String(cookie?.value), 1)).toEqual({
+  // As the browser receives it, which is what the library and the server read back.
+  const { raw } = onTheWire(cookie as never);
+  expect(parseChoice(raw, 1)).toEqual({
     accepted: ["analytics", "referrals"],
     at: Date.parse("2026-10-02T10:00:00.000Z"),
   });
+  expect(JSON.parse(decodeURIComponent(raw))).toMatchObject({
+    categories: ["necessary", "analytics", "referrals"],
+    revision: 1,
+  });
   // Not the 3rd or any other version.
-  expect(parseChoice(String(cookie?.value), 2)).toBeNull();
+  expect(parseChoice(raw, 2)).toBeNull();
+});
+
+test("on a site with a host name the cookie is written for that host, as the library writes its own, and Secure over https", async () => {
+  const before = process.env.SERMO_PUBLIC_URL;
+  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
+  try {
+    record = accountChoice(1, "2026-10-02T10:00:00.000Z", "embeds");
+    backend(SIGNED_UP);
+    await signIn();
+    const { header } = onTheWire(consentCookieWritten() as never);
+    expect(header).toContain("Domain=forum.example.test");
+    expect(header).toContain("Secure");
+  } finally {
+    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
+    else process.env.SERMO_PUBLIC_URL = before;
+  }
 });
 
 test("a record of an older policy version is no choice: nothing is adopted, and the device's choice replaces it", async () => {
@@ -330,7 +353,7 @@ test("when both hold a choice and they differ, the later one wins", async () => 
   backend(SIGNED_UP);
   await signIn();
   expect(
-    parseChoice(String(consentCookieWritten()?.value), 1)?.accepted,
+    parseChoice(onTheWire(consentCookieWritten() as never).raw, 1)?.accepted,
   ).toEqual(["analytics"]);
   expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
   consentCalls.length = 0;

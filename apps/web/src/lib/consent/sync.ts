@@ -33,6 +33,7 @@ export async function syncConsentAfterSignIn(sessionCookie: string) {
         policyVersion: version,
       });
     } else if (step === "adopt" && record) {
+      const host = new URL(publicUrl()).hostname;
       store.set({
         name: CONSENT_COOKIE,
         value: consentCookieValue(
@@ -41,6 +42,9 @@ export async function syncConsentAfterSignIn(sessionCookie: string) {
           crypto.randomUUID(),
         ),
         path: "/",
+        // The library writes its cookie for the host it runs on whenever the host has a dot; a
+        // host-only copy would sit beside it as a second cookie of the same name.
+        ...(host.includes(".") ? { domain: host } : {}),
         maxAge: CONSENT_COOKIE_DAYS * 24 * 60 * 60,
         sameSite: "lax",
         secure: publicUrl().startsWith("https:"),

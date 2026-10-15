@@ -16,8 +16,11 @@ import { getCookiePolicyText } from "@/lib/sermo/cookie-policy";
 import { getSite } from "@/lib/sermo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("cookies.policy");
-  return { title: t("metaTitle") };
+  const [t, written] = await Promise.all([
+    getTranslations("cookies.policy"),
+    getCookiePolicyText(),
+  ]);
+  return { title: written?.title ?? t("metaTitle") };
 }
 
 // The one place the policy's words and the inventory meet: every cookie, storage key and provider

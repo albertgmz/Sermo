@@ -3,6 +3,7 @@ import { HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { PaletteColor } from "./appearance";
 import { Empty } from "./common";
+import { MAX_COOKIE_POLICY_VERSION } from "./consent";
 import { ImageReference } from "./images";
 import { Analytics, SUPPORTED_LANGUAGES } from "./settings";
 
@@ -38,7 +39,7 @@ export const Site = z
      * The version of the cookie policy visitors answer in the cookie banner. A saved choice of
      * another version counts as none, so raising it (`consent.askAgain`) asks everyone again.
      */
-    cookiePolicyVersion: z.number().int().min(1),
+    cookiePolicyVersion: z.number().int().min(1).max(MAX_COOKIE_POLICY_VERSION),
     /**
      * Whether Matomo runs without cookies and without asking for consent (the site setting).
      * Meaningful only when `analytics` is Matomo.

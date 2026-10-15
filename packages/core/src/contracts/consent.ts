@@ -10,8 +10,11 @@ export const CONSENT_CATEGORIES = ["analytics", "referrals", "embeds"] as const;
 
 export const ConsentCategory = z.enum(CONSENT_CATEGORIES);
 
+/** The highest cookie policy version: `consent.askAgain` stops there. */
+export const MAX_COOKIE_POLICY_VERSION = 1_000_000;
+
 /** The version of the cookie policy a choice answers: a positive whole number. */
-const PolicyVersion = z.number().int().min(1).max(1_000_000);
+const PolicyVersion = z.number().int().min(1).max(MAX_COOKIE_POLICY_VERSION);
 
 export const ConsentRecord = z
   .object({

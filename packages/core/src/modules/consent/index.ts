@@ -6,10 +6,11 @@ import {
   consentBanner,
   consentMine,
   consentSave,
+  MAX_COOKIE_POLICY_VERSION,
   usersConsent,
 } from "../../contracts/consent";
 import { writeTx } from "../../db/tx";
-import { ConflictError } from "../../errors";
+import { ConflictError, ForbiddenError } from "../../errors";
 import { implement } from "../../operation";
 import { currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
@@ -28,10 +29,8 @@ export const consentSql = {
   read: "SELECT categories, policy_version, decided_at FROM consent_records WHERE user_id = ?1",
   save: "INSERT INTO consent_records (user_id, categories, policy_version, decided_at) VALUES (?1, ?2, ?3, ?4) ON CONFLICT (user_id) DO UPDATE SET categories = excluded.categories, policy_version = excluded.policy_version, decided_at = excluded.decided_at",
   erase: "DELETE FROM consent_records WHERE user_id = ?1",
+  erased: "SELECT erased_at FROM users WHERE id = ?1",
 };
-
-/** The most the policy version can reach: the settings contract refuses a larger number. */
-const MAX_POLICY_VERSION = 1_000_000;
 
 function recordOf(row: RecordRow) {
   const stored = JSON.parse(row.categories) as string[];
@@ -69,6 +68,14 @@ export const operations = [
       return writeTx(ctx, () => {
         // A choice answers the text the member saw; one made under a version since replaced would
         // put a version on record that never asked them.
+        // An erased account keeps no record: a request resolved before the erasure ran must not
+        // bring one back.
+        if (
+          prepared(ctx, "consent.erased", () =>
+            ctx.sqlite.prepare<{ erased_at: number | null }, [number]>(consentSql.erased),
+          ).get(userId)?.erased_at
+        )
+          throw new ForbiddenError("This account is closed.");
         const { cookiePolicyVersion } = readSiteSettings(ctx);
         if (input.policyVersion !== cookiePolicyVersion)
           throw new ConflictError("The cookie policy changed. Choose again.");
@@ -107,7 +114,7 @@ export const operations = [
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.settings");
       const current = readSiteSettings(ctx);
-      if (current.cookiePolicyVersion >= MAX_POLICY_VERSION)
+      if (current.cookiePolicyVersion >= MAX_COOKIE_POLICY_VERSION)
         throw new ConflictError("The cookie policy version cannot be raised any further.");
       const policyVersion = current.cookiePolicyVersion + 1;
       storeSiteSettings(ctx, { ...current, cookiePolicyVersion: policyVersion });

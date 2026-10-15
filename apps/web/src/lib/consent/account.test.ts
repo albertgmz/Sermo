@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { CONSENT_CATEGORIES } from "@sermo/core/contracts";
+import { onTheWire } from "../../../tests/wire-cookies";
 import { type AccountRecord, consentCookieValue, reconcile } from "./account";
 import { OPTIONAL_CATEGORIES } from "./inventory";
 import { parseChoice, parseConsent } from "./state";
@@ -66,12 +67,15 @@ test("the cookie written from a record is read back as that record, and only for
     "es",
     "00000000-0000-4000-8000-000000000000",
   );
-  expect(parseChoice(value, 4)).toEqual({
+  // The way the cookie reaches the browser is Next's own: the value is encoded once on the wire,
+  // and the library decodes it once and parses the JSON.
+  const { raw } = onTheWire({ name: "forum_consent", value, path: "/" });
+  const cookie = JSON.parse(decodeURIComponent(raw));
+  expect(parseChoice(raw, 4)).toEqual({
     accepted: ["referrals", "embeds"],
     at: Date.parse(LATE),
   });
-  expect(parseConsent(value, 3)).toEqual({ decided: false, accepted: [] });
-  const cookie = JSON.parse(decodeURIComponent(value));
+  expect(parseConsent(raw, 3)).toEqual({ decided: false, accepted: [] });
   // What the banner library needs to take the cookie as its own.
   expect(cookie).toMatchObject({
     categories: ["necessary", "referrals", "embeds"],
