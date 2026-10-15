@@ -48,7 +48,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@serwist/turbopack": "9.5.12",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/mdast": "4.0.4",
     "@types/node": "20.19.43",
