@@ -952,18 +952,23 @@ listed an administering group. It needs SQLite 3.44, like 0016.
 **Writes that depend on the actor's standing decide inside the transaction** with `currentActor`:
 permissions, groups, promotions, bans, warnings, thread bans, spam cleanup (including its queued
 run), restrictions, credit adjustments, and the shop (catalog, buy, use). The administrative
-reads of permissions and promotions go through `readWithCurrentActor`. Known limit: reports,
-`moderation.setState` and `moderation.bulk`, word filters, settings, awards and the forum
-moderation writes (lock, move, merge, split, delete) still decide with the actor resolved for the
-request; the window is one request. A moderator who lost sight of the node gets NotFound from the
+reads of permissions and promotions go through `readWithCurrentActor`. Reports, `moderation.setState`
+and `moderation.bulk`, word filters, settings, awards, the forum moderation writes (lock, sticky,
+move, merge, split, delete, restore, moderator edits) and profile post and comment moderation also
+re-check with `currentActor` inside their transaction (October 2026 round). Known limit: the admin
+catalog writes (prefixes, navigation, notices, pages, storage) still decide with the actor resolved
+for the request; the window is one request. A moderator who lost sight of the node gets NotFound from the
 thread-ban operations, as before the transaction.
 
 **Positions returned while a merge renumbers are decoded.** A merge stores a final position `p`
 as `-(p+1)` until it flips; `thread.lastPost.position`, `posts.get`, the post listings and search
-return the decoded value. Known limit: `posts.list` still pages on the stored column, so posts
-already renumbered are missing from its pages until the merge ends (or is retried after a
-failure), `threads.markRead` looks up by the stored value, and during the streams phase a post
-not yet processed shows its position from before the merge.
+return the decoded value. `posts.list` on a merge target pages on each post's final
+position (renumbered posts decode theirs, the rest are placed by creation time the way the
+renumbering will place them), so a job step between two page requests duplicates or drops nothing.
+Before the flip step this reads every post of the target and its sources per page (about 45 ms at
+100k posts, 2 ms at 5k); from the flip step it is an indexed range. Known limit: `threads.markRead`
+looks up by the stored value, and during the streams phase `posts.get` and search show a post not
+yet processed at its position from before the merge.
 
 **The permission-coverage analyzer counts a check inside a callback only when the callback is
 invoked**: passed to a collection method (`map`, `flatMap`, `filter`, `forEach`, `some`, `every`,
@@ -2142,3 +2147,9 @@ Not yet checked on real phones; a second finger during a slide can still double 
 writes are confirmed with the password" above. The benchmark's guarded scenarios (permission,
 group, moderator and promotion writes) now call the operation in-process, so their timings leave
 out HTTP and key checks and are not comparable with runs before 0.1.35.
+
+**Moderation writes re-check the moderator inside the write.** Every moderation write named above
+reads the actor again inside its transaction and re-runs the lookup it made before (thread, post,
+profile post or comment, as now committed), so losing sight of the content gives NotFound, losing
+the action permission gives Forbidden, and a ban stops the write. Each has a test where another
+connection revokes the permission between the request and the write.
