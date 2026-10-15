@@ -2270,11 +2270,10 @@ only in visible threads, like `post_count`; a member who never posted does not h
 last post". An award's rule may read awards: giving or taking one checks the member's other awards,
 `awards.create` and `update` refuse a rule that makes an award require itself directly or through
 others, and `awards.delete` is refused while any stored rule names the award (automatic grants are
-final, so `none` and `at most` decide only at grant time). `credits_earned` reads the member's whole
-ledger until it has an index, so it is decided by the daily sweep only (an `any` rule holding it
-waits up to a day). "Replies on their threads" includes the author's own. Not built: reactions given
-and received by type, quoted by others and most-reacted post (each needs an index or counter
-column), ranking criteria (rankings are not built), polls and tags (items 9 and 10).
+final, so `none` and `at most` decide only at grant time). `credits_earned` reads a covering index on
+(member, date, type, amount), so a rule that holds it is decided on events like any other.
+"Replies on their threads" includes the author's own. Not built: ranking criteria (rankings are
+not built), polls and tags (items 9 and 10).
 
 **Reactions, bookmarks, follows and sends update in place; the open screens poll.** A reaction,
 bookmark or follow shows at once and is put back if the backend refuses, if the call fails (with a
@@ -2442,3 +2441,20 @@ are stored as links at save time, spoilers included; a staff edit follows the au
 `criteria.list` is open to `admin.settings`. Known limits: a thread split inserts a thread with a
 high id and an old date, so `threadsPerDay` can be briefly off; a measured criterion in either rule
 runs inside the write lock.
+
+**Criteria that needed an index (item 3m).** Migration `0043` adds:
+- `posts.reaction_total`, the sum of `reaction_counts`, backfilled from the stored counts and kept
+  in the same transaction that changes the counts (the rebuild job repairs it);
+- indexes for reactions given and received by type, for quotes of a member, for a member's
+  most-reacted post (partial, posts with reactions), for the credits ledger by member and date, and
+  for referrals by referrer and date.
+
+Four criteria use them. Reactions given and received by type take a list of reaction types (modes
+all, one, each). The most-reacted post counts every reaction on the post, negative types included,
+as the spec sums the counts. Quoted by others counts posts, profile posts and comments, never the
+member's own quotes, and only posts in visible threads. All four are refused in reaction rules (10b
+refuses measured criteria). The giver of a reaction is re-checked on `reaction.added`. A reaction
+now writes three more index entries, two on `reactions` and one on `posts` when the total is above
+zero. Folding `reactions_recipient` into the new `(content_user_id, reaction_type_id)` index is
+left for the benchmark to justify. Each reaction re-counts the giver's and receiver's reactions of
+the listed types for the rules that use them, which grows with a member's reactions.
