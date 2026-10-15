@@ -96,6 +96,46 @@ test("merging looks the other tag up by name, then merges by id", async () => {
   expect(backend.asked[1]?.body).toEqual({ intoTagId: 9 });
 });
 
+test("merging reads the name as the backend does: final sigma, case and invisible characters", async () => {
+  for (const typed of ["ας", "ΑΣ", "#Ασ", "ασ️"]) {
+    backend = fakeBackend({
+      "tags.list": () =>
+        Response.json({ items: [tag(9, "ασ")], nextCursor: null }),
+      "tags.merge": () => Response.json(tag(9, "ασ")),
+    });
+    const digest = await redirectedTo(() =>
+      mergeTag(
+        null,
+        form([
+          ["id", "3"],
+          ["into", typed],
+        ]),
+      ),
+    );
+    expect(digest, typed).toMatch(/;\/admin\/tags\?notice=merged;/);
+    expect(backend.asked.map((call) => call.operation)).toEqual([
+      "tags.list",
+      "tags.merge",
+    ]);
+    expect(backend.asked[1]?.body).toEqual({ intoTagId: 9 });
+    backend.restore();
+  }
+  // Text that is no tag name is refused without a call.
+  backend = fakeBackend({});
+  expect(
+    await mergeTag(
+      null,
+      form([
+        ["id", "3"],
+        ["into", "two words"],
+      ]),
+    ),
+  ).toEqual({
+    fields: { into: messages.adminContent.errors.tag },
+  });
+  expect(backend.asked).toEqual([]);
+});
+
 test("merging into a name no tag has says so and merges nothing", async () => {
   backend = fakeBackend({
     // The first tag that starts with the name is another one.

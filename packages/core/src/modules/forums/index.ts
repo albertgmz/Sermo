@@ -56,7 +56,13 @@ import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
-import { hashtagRules, mayTag, requireTagCreate } from "../tags/policy";
+import {
+  hashtagRules,
+  mayTag,
+  requireTagChange,
+  requireTagCreate,
+  tagRights,
+} from "../tags/policy";
 import {
   addThreadTags,
   manualTagCount,
@@ -1114,7 +1120,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
         nodeRows(ctx, node.id).get(node.id),
       ),
       canEditTitle: mayEditTitle(ctx, actor, row),
-      canEditTags: mayTag(ctx, actor, row),
+      canEditTags: tagRights(ctx, actor, row).remove,
       canModerate: canModerate(ctx, actor, node.id),
       canDelete: row.state !== "deleted" && mayDeleteThread(permissionsOf(ctx, actor), row),
       canLock: mayLockThread(ctx, actor, row, !row.is_locked),
@@ -1655,17 +1661,14 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
   const editsThread = input.title !== undefined || input.prefixId !== undefined;
   const wantedTags = input.tags === undefined ? undefined : tagKeys(input.tags);
   if (editsThread && !mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
-  if (wantedTags) {
-    if (!mayTag(ctx, actor, row)) throw new ForbiddenError();
-    requireTagCreate(ctx, actor, wantedTags);
-  }
+  if (wantedTags) requireTagChange(ctx, actor, row, wantedTags);
   requireTermsAccepted(ctx, actor);
   writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
     const current = requireThread(ctx, moderator, row.id).row;
     if (editsThread && !mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
     if (wantedTags) {
-      if (!mayTag(ctx, moderator, current)) throw new ForbiddenError();
+      requireTagChange(ctx, moderator, current, wantedTags);
       replaceThreadTags(
         ctx,
         row.id,

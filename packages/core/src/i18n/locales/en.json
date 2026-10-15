@@ -99,7 +99,7 @@
   "permission.mention.maxPerItem": "mention max per item",
   "permission.mention.maxPerItem.description": "Allows mention max per item.",
   "permission.tag.apply": "Put tags on threads",
-  "permission.tag.apply.description": "Put tags on a thread: its author, and staff on any thread (managing tags is not enough on its own). Only tags that already exist unless the group may also create tags. A posting restriction takes it away.",
+  "permission.tag.apply.description": "Put tags on a thread: its author, and staff on any thread. Only tags that already exist unless the group may also create tags. A posting restriction takes it away; taking a tag off stays possible. A group that manages tags may put tags on any thread without it.",
   "permission.tag.create": "Create tags",
   "permission.tag.create.description": "Make a tag nobody used before, by listing it on a thread or by typing a new #hashtag in an opening post. Without it, a #word that is not a tag stays plain text.",
   "permission.tag.manage": "Manage tags",

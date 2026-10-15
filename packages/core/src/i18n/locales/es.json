@@ -99,7 +99,7 @@
   "permission.mention.maxPerItem": "Límite de menciones por elemento",
   "permission.mention.maxPerItem.description": "Límite de menciones por elemento.",
   "permission.tag.apply": "Poner etiquetas a los hilos",
-  "permission.tag.apply.description": "Poner etiquetas a un hilo: su autor, y el personal en cualquier hilo (administrar etiquetas no basta por sí solo). Solo etiquetas que ya existen, salvo que el grupo también pueda crear etiquetas. Una restricción de publicación lo quita.",
+  "permission.tag.apply.description": "Poner etiquetas a un hilo: su autor, y el personal en cualquier hilo. Solo etiquetas que ya existen, salvo que el grupo también pueda crear etiquetas. Una restricción de publicación lo quita; quitar una etiqueta sigue siendo posible. Un grupo que administra etiquetas puede ponerlas en cualquier hilo sin este permiso.",
   "permission.tag.create": "Crear etiquetas",
   "permission.tag.create.description": "Crear una etiqueta que nadie había usado, al ponerla en un hilo o al escribir un #hashtag nuevo en un mensaje inicial. Sin este permiso, una #palabra que no es etiqueta queda como texto.",
   "permission.tag.manage": "Administrar etiquetas",

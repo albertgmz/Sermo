@@ -1413,21 +1413,24 @@ Quotes and spoilers can be nested inside each other up to 10 levels deep each, a
 A hashtag is `#` and 1 to 50 letters, numbers and `_` with at least one letter (accents work),
 not preceded by a letter, number, `&`, `/`, `=` or `#`; `a#b`, `##x`, `&#123;` and the fragment of an address are
 not tags. Code, plain text, links, addresses and the attribution of a quote hold none. A name is
-compared in NFC and lowercase (a Greek final sigma is folded to `σ`), and needs a letter that draws something (the Hangul filler letters do not count). In posts, thread opening posts and conversation messages a
+compared in NFC and lowercase (a Greek final sigma is folded to `σ`), with the characters that draw nothing (variation selectors, joiners, the Hangul fillers: Unicode's default-ignorable characters) taken out, so `a` and `a` with a variation selector are one tag; a combining mark that composes with its letter is that letter after NFC, one that does not stays. A name needs a letter that draws something. In posts, thread opening posts and conversation messages a
 hashtag that names a tag links to `/tags/<name>`; wall posts, comments, signatures and pages
 show it as typed.
 
 - **A thread's tags** are the ones set when it is started (`tags` of `threads.create`) or later
   (`tags` of `threads.update`, which replaces the list), and the hashtags of its opening post.
   Only the thread's author (while it is unlocked) and staff (`forum.editAny` in the forum, or
-  `tag.manage`) may set them, and each needs `tag.apply` (a posting restriction takes `tag.apply` and
-  `tag.create` away); a thread holds at most 10. Editing the opening
+  `tag.manage`) may change them. Taking tags off needs nothing more; putting tags on needs `tag.apply`
+  (a posting restriction takes `tag.apply` and `tag.create` away, leaving the removal) or, for a
+  group that holds `tag.manage` and is not restricted, nothing else; a thread holds at most 10. Editing the opening
   post takes off the tags its earlier hashtags put there; tags set by hand stay. Hashtags in
   replies only link, and an unknown one stays plain text; so do those in conversations, which
   never create a tag or tag a thread. A hashtag inside a `[SPOILER]`, `[ISPOILER]` or `[QUOTE]` of
   the opening post links where it stands when the tag is known, and never tags the thread or makes
-  a tag. A tag counts as known to a writer only if it is used in a forum they can open (so a link,
-  or a refusal to list it, never tells them about forums they cannot see). A moderator who saves
+  a tag. A tag counts as known to a writer only if one of its visible threads is one they can read (a
+  forum whose threads are open to them, and the opening post's text for the tags its hashtags put
+  there) or is their own: tags of deleted, held or unreadable threads are not known, so a link, or
+  a refusal to list it, never tells them about them. A moderator who saves
   a tag list without being able to read the opening post keeps the tags its hashtags put there.
   A tag the opening post's hashtags put on a thread is that
   post's text: a viewer who may not read it (`forum.viewContent`) does not see the tag on the
@@ -1436,8 +1439,10 @@ show it as typed.
 - **The tag page** (`tags.get`, `tags.threads`, `/tags/<name>` in the web app) lists the threads
   carrying the tag, newest activity first, under the rules of a forum's thread list (forums the
   viewer cannot open, `forum.viewOthers`, moderated and deleted threads, merged threads out).
-  A tag with nothing the viewer may open does not exist for them (a tag whose 2,048 newest threads
-  are all closed to the viewer is not found either; the page goes on from where it stopped). It is
+  A tag with nothing the viewer may open does not exist for them: it is a 404 only once every list
+  was read to its end without finding one (each list is walked at most 2,048 entries per request;
+  past that the page is shown, possibly empty, with a link to go on from where it stopped). A tag
+  kept only for its old names shows an empty page. It is
   indexed, and listed in
   the sitemap (`tag-<n>.xml`), only with at least 3 threads whose titles and text are open to
   guests.

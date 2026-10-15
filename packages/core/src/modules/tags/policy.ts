@@ -3,25 +3,66 @@ import type { Ctx } from "../../context";
 import { ForbiddenError } from "../../errors";
 import { can } from "../../permissions";
 import type { HashtagRules } from "../../render";
-import { knownTagNames } from "./store";
+import { knownTagNames, newTagKeys } from "./store";
+
+type TagThread = { id: number; node_id: number; user_id: number; is_locked: number };
+
+/** Whether a posting restriction is on the member now (read from the row, as a request's actor may predate it). */
+function postingRestricted(ctx: Ctx, actor: Actor): boolean {
+  const userId = actorUserId(actor);
+  if (userId === null) return false;
+  const until = ctx.sqlite
+    .prepare<{ until: number | null }, [number]>(
+      "SELECT restricted_posting_until AS until FROM users WHERE id = ?1",
+    )
+    .get(userId)?.until;
+  return until != null && until > ctx.now();
+}
 
 /**
- * Who may set the tags of a thread: the thread's author while it is unlocked, and staff (whoever
- * may edit any thread of the forum, or manage tags), each also holding tag.apply (which a posting
- * restriction takes away). It does not depend on the title-edit time limit or on the forum being
- * read-only.
+ * What a member may do to the tags of a thread. Who may touch them at all: the thread's author
+ * while it is unlocked, and staff (whoever may edit any thread of the forum, or manage tags). That
+ * is the right to `remove`; it needs no tag.apply, so a muted author or moderator can still take a
+ * tag off. `add` also needs tag.apply (which a posting restriction takes away), or tag.manage
+ * without a restriction: a curator may fix the tags of any thread. None of it depends on the
+ * title-edit time limit or on the forum being read-only.
  */
+export function tagRights(
+  ctx: Ctx,
+  actor: Actor,
+  thread: Pick<TagThread, "node_id" | "user_id" | "is_locked">,
+): { add: boolean; remove: boolean } {
+  const manages = can(ctx, actor, "tag.manage");
+  const remove =
+    manages ||
+    can(ctx, actor, "forum.editAny", { nodeId: thread.node_id }) ||
+    (!thread.is_locked && thread.user_id === actorUserId(actor));
+  const add =
+    remove && (can(ctx, actor, "tag.apply") || (manages && !postingRestricted(ctx, actor)));
+  return { add, remove };
+}
+
+/** Whether tags may be added to a thread by this member (the opening post's hashtags, a new list). */
 export function mayTag(
   ctx: Ctx,
   actor: Actor,
-  thread: { node_id: number; user_id: number; is_locked: number },
+  thread: Pick<TagThread, "node_id" | "user_id" | "is_locked">,
 ): boolean {
-  if (!can(ctx, actor, "tag.apply")) return false;
-  return (
-    can(ctx, actor, "tag.manage") ||
-    can(ctx, actor, "forum.editAny", { nodeId: thread.node_id }) ||
-    (!thread.is_locked && thread.user_id === actorUserId(actor))
-  );
+  return tagRights(ctx, actor, thread).add;
+}
+
+/**
+ * A new list of tags for a thread: taking tags off needs the right to remove; any tag the thread
+ * does not carry yet needs the right to add, and the right to create a tag nobody can see used.
+ */
+export function requireTagChange(ctx: Ctx, actor: Actor, thread: TagThread, keys: string[]): void {
+  const rights = tagRights(ctx, actor, thread);
+  if (!rights.remove) throw new ForbiddenError();
+  const added = newTagKeys(ctx, thread.id, keys);
+  if (added.length === 0) return;
+  if (!rights.add)
+    throw new ForbiddenError("You may take tags off this thread but not put new ones on it.");
+  requireTagCreate(ctx, actor, added);
 }
 
 /**

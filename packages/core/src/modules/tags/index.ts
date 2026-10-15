@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { GUEST } from "../../actor";
-import { normalizeTag } from "../../bbcode/hashtag";
+import { foldTagText, normalizeTag } from "../../bbcode/hashtag";
 import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/tags";
 import { writeTx } from "../../db/tx";
@@ -58,11 +58,12 @@ function adminValues(ctx: Ctx, rows: TagRow[]) {
 }
 
 /** The tag a page's name reaches, and the name it is called now. */
-function pageTag(ctx: Ctx, name: string): { id: number; name: string } {
+function pageTag(ctx: Ctx, name: string): { id: number; name: string; threads: number } {
   const key = normalizeTag(name);
   const id = key === null ? null : tagIdOfName(ctx, key);
   if (id === null) throw new NotFoundError();
-  return { id, name: tagRow(ctx, id).name };
+  const row = tagRow(ctx, id);
+  return { id, name: row.name, threads: row.thread_count };
 }
 
 function tagIdOfName(ctx: Ctx, key: string): number | null {
@@ -78,9 +79,12 @@ const tagsGetOp = implement(contracts.tagsGet, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
   const tag = pageTag(ctx, input.name);
   // A tag is not shown to a viewer who can open none of its threads: it would name a thread or
-  // a forum they cannot see.
-  if (hubThreads(ctx, hubReach(ctx, actor), tag.id, null, 1).length === 0)
-    throw new NotFoundError();
+  // a forum they cannot see. Not found only when every stream has been read to its end and none
+  // held a thread for them; a walk that stopped at its budget (hidden or closed rows ahead of the
+  // visible ones) leaves it undecided, and the tag is shown. A tag with no thread at all is one
+  // staff keep for its old names: its page is the empty one.
+  const seen = hubPage(ctx, hubReach(ctx, actor), tag.id, null, 1);
+  if (seen.rows.length === 0 && seen.resume === null && tag.threads > 0) throw new NotFoundError();
   // The page is indexed for the threads a search engine could index: guests open them and their text.
   const publicThreads = siteOpenToGuests(ctx)
     ? hubThreads(
@@ -104,8 +108,9 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
     : null;
   const { rows, resume } = hubPage(ctx, hubReach(ctx, actor), tag.id, cursor, input.limit + 1);
   const page = rows.slice(0, input.limit);
-  // The first page of a tag with nothing to show is a missing page, as in tags.get.
-  if (page.length === 0 && !cursor) throw new NotFoundError();
+  // The first page of a tag with nothing to show is a missing page, as in tags.get; one that
+  // stopped at its budget goes on from `resume` instead.
+  if (page.length === 0 && !cursor && resume === null && tag.threads > 0) throw new NotFoundError();
   const last = page.at(-1);
   return {
     items: threadValuesFor(ctx, actor, page),
@@ -122,11 +127,7 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
 const tagsListOp = implement(contracts.tagsList, (ctx, actor, input) => {
   requirePermission(ctx, actor, "tag.manage");
   const cursor = input.cursor ? decodeCursor(input.cursor, cursorShape)[0] : "";
-  const prefix = (input.query ?? "")
-    .replace(/^#/, "")
-    .normalize("NFC")
-    .toLowerCase()
-    .replaceAll("ς", "σ");
+  const prefix = foldTagText((input.query ?? "").replace(/^#/, ""));
   const rows = prepared(ctx, "tags.list", () =>
     ctx.sqlite.prepare<TagRow, [string, string, string, number]>(adminTagSql.list),
   ).all(cursor, prefix, prefix + AFTER_ALL, input.limit + 1);
@@ -173,8 +174,8 @@ const tagsMergeOp = implement(contracts.tagsMerge, (ctx, actor, input) => {
     // Inserts and deletes, not an update of tag_id: the triggers keep the counters.
     ctx.sqlite
       .prepare(
-        "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, live, node_id, author_id, created_at) " +
-          "SELECT thread_id, ?2, added_by, from_post, sort_at, live, node_id, author_id, created_at FROM thread_tags WHERE tag_id = ?1 " +
+        "INSERT INTO thread_tags (thread_id, tag_id, added_by, from_post, sort_at, vis, node_id, author_id, created_at) " +
+          "SELECT thread_id, ?2, added_by, from_post, sort_at, vis, node_id, author_id, created_at FROM thread_tags WHERE tag_id = ?1 " +
           "ON CONFLICT (thread_id, tag_id) DO UPDATE SET from_post = from_post AND excluded.from_post",
       )
       .run(from.id, into.id);

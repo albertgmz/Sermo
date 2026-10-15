@@ -441,22 +441,20 @@ describe("the tag page", () => {
   test("the page's query reads the tag's index, not the table", () => {
     const w = world();
     const from = [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-    // Each stream seeks its own index and sorts nothing: the live threads, the hidden ones, the
-    // viewer's own. A pile of deleted threads is never in the way of the live ones.
-    expectNoTableScan(w.ctx, hubSql.byLive, [1, 1, ...from, 21]);
-    expectNoTableScan(w.ctx, hubSql.byLive, [1, 0, ...from, 21]);
-    expectNoTableScan(w.ctx, hubSql.byAuthor, [1, 5, ...from, 21]);
+    // Each stream seeks its own run of an index and sorts nothing: the visible threads, the held
+    // ones, the deleted ones, the viewer's own held ones. A pile of deleted threads is never in the
+    // way of the visible ones, nor a pile of held ones.
+    for (const vis of [1, 2, 3]) expectNoTableScan(w.ctx, hubSql.byVis, [1, vis, ...from, 21]);
+    expectNoTableScan(w.ctx, hubSql.byAuthor, [1, 5, 2, ...from, 21]);
     const plan = (sql: string, ...params: number[]) =>
       w.ctx.sqlite
         .prepare<{ detail: string }, number[]>(`EXPLAIN QUERY PLAN ${sql}`)
         .all(...params)
         .map((row) => row.detail)
         .join("\n");
-    expect(plan(hubSql.byLive, 1, 1, ...from, 21)).toContain(
-      "thread_tags_hub (tag_id=? AND live=?",
-    );
-    expect(plan(hubSql.byAuthor, 1, 5, ...from, 21)).toContain(
-      "thread_tags_author (tag_id=? AND author_id=?",
+    expect(plan(hubSql.byVis, 1, 1, ...from, 21)).toContain("thread_tags_hub (tag_id=? AND vis=?");
+    expect(plan(hubSql.byAuthor, 1, 5, 2, ...from, 21)).toContain(
+      "thread_tags_author (tag_id=? AND author_id=? AND vis=?",
     );
   });
 });
@@ -710,7 +708,7 @@ describe("the statements read indexes", () => {
   test("names, aliases, a thread's tags and the admin list", () => {
     const w = world();
     expectNoTableScan(w.ctx, tagSql.resolve, ['["a","b"]']);
-    expectNoTableScan(w.ctx, tagSql.known, ['["a","b"]', "[1,2,3]"]);
+    expectNoTableScan(w.ctx, tagSql.known, ['["a","b"]', "[1,2]", "[3]", 5, "[1,2,3]"]);
     expectNoTableScan(w.ctx, tagSql.idByName, ["a"]);
     expectNoTableScan(w.ctx, tagSql.idByAlias, ["a"]);
     expectNoTableScan(w.ctx, tagSql.rows, [1]);

@@ -18,16 +18,29 @@ const TAG_NAME = new RegExp(`^[${TAG_CHARS}]+$`, "u");
 const HAS_LETTER = /(?![\u115F\u1160\u3164\uFFA0])\p{L}/u;
 
 /**
- * The key of a tag, or null when the text is not a tag name: NFC and lowercase (a Greek final
- * sigma is folded to `σ`, so a name has one spelling), only tag characters, at least one letter
- * that draws something, at most 50 characters. A leading `#` is accepted.
+ * The text of a name as a key is spelled: NFC and lowercase, a Greek final sigma folded to `σ`,
+ * and the characters that draw nothing (variation selectors, joiners, the combining grapheme
+ * joiner, the Hangul fillers: the Default_Ignorable_Code_Point property) taken out, so `a` and
+ * `a` with a variation selector are one tag. A combining mark that composes with its letter is
+ * the single letter after NFC; one that does not stays. The one place a name is folded: the
+ * recognition, the lookup of a typed name, the admin screens and the web all call it.
  */
-export function normalizeTag(raw: string): string | null {
-  const name = (raw.startsWith("#") ? raw.slice(1) : raw)
+export function foldTagText(raw: string): string {
+  return raw
     .normalize("NFC")
     .toLowerCase()
     .replaceAll("ς", "σ")
+    .replace(/\p{Default_Ignorable_Code_Point}/gu, "")
     .normalize("NFC");
+}
+
+/**
+ * The key of a tag, or null when the text is not a tag name: folded by `foldTagText`, only tag
+ * characters, at least one letter that draws something, at most 50 characters. A leading `#`
+ * is accepted.
+ */
+export function normalizeTag(raw: string): string | null {
+  const name = foldTagText(raw.startsWith("#") ? raw.slice(1) : raw);
   if (!TAG_NAME.test(name) || !HAS_LETTER.test(name)) return null;
   return [...name].length <= MAX_TAG_LENGTH ? name : null;
 }

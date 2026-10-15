@@ -1,86 +1,39 @@
-import { type Actor, actorUserId } from "../../actor";
 import { type Ctx, prepared } from "../../context";
-import { markPublic } from "../../operation";
-import { permissionsOf, viewableNodeIds } from "../../permissions";
 import { type ThreadRow, threadRowsByIds } from "../forums";
-import { readGates } from "../forums/read-gates";
+import type { HubReach } from "./reach";
+
+export { type HubReach, hubReach } from "./reach";
 
 /**
  * The candidates of a tag page, newest activity first, read from indexes that already separate
- * what is hidden from nearly everyone: `thread_tags_hub` (tag, live, sort_at, thread) holds the
- * threads that are visible and not merged away apart from the others, so a pile of deleted or
- * held threads is never walked by a viewer who cannot see them; `thread_tags_author` (tag, author)
- * finds the viewer's own threads of any state. Columns of the thread are copied into
- * thread_tags by triggers; who may see what is decided on the thread itself.
+ * what is hidden from nearly everyone. `thread_tags.vis` is the state of the thread: 1 visible,
+ * 2 held for approval, 3 deleted or merged away. `thread_tags_hub` (tag, vis, sort_at, thread)
+ * gives each state its own run, so a pile of deleted threads is never walked by a viewer who may
+ * not see deleted ones, nor a pile of held ones by a viewer who may not see held ones;
+ * `thread_tags_author` (tag, author, vis) finds the viewer's own held threads. Columns of the
+ * thread are copied into thread_tags by triggers; who may see what is decided on the thread.
  */
 export const hubSql = {
-  byLive:
-    "SELECT thread_id, sort_at, from_post, live FROM thread_tags INDEXED BY thread_tags_hub " +
-    "WHERE tag_id = ?1 AND live = ?2 AND (sort_at, thread_id) < (?3, ?4) " +
+  byVis:
+    "SELECT thread_id, sort_at, from_post FROM thread_tags INDEXED BY thread_tags_hub " +
+    "WHERE tag_id = ?1 AND vis = ?2 AND (sort_at, thread_id) < (?3, ?4) " +
     "ORDER BY sort_at DESC, thread_id DESC LIMIT ?5",
   byAuthor:
-    "SELECT thread_id, sort_at, from_post, live FROM thread_tags INDEXED BY thread_tags_author " +
-    "WHERE tag_id = ?1 AND author_id = ?2 AND (sort_at, thread_id) < (?3, ?4) " +
-    "ORDER BY sort_at DESC, thread_id DESC LIMIT ?5",
+    "SELECT thread_id, sort_at, from_post FROM thread_tags INDEXED BY thread_tags_author " +
+    "WHERE tag_id = ?1 AND author_id = ?2 AND vis = ?3 AND (sort_at, thread_id) < (?4, ?5) " +
+    "ORDER BY sort_at DESC, thread_id DESC LIMIT ?6",
 };
 
-type Candidate = { thread_id: number; sort_at: number; from_post: number; live: number };
+export const VIS_VISIBLE = 1;
+export const VIS_HELD = 2;
+export const VIS_HIDDEN = 3;
+
+type Candidate = { thread_id: number; sort_at: number; from_post: number };
 type Key = readonly [number, number];
 
 /** Candidates read in one batch, and the most one request examines in each stream. */
 const BATCH = 256;
 const BUDGET = 2048;
-
-/** What a viewer reaches, worked out once: forum sets and the viewer. */
-export interface HubReach {
-  /** Forums whose other-member threads the viewer may open. */
-  open: ReadonlySet<number>;
-  /** Forums where only their own threads are open to them. */
-  own: ReadonlySet<number>;
-  /** Forums where they may see moderated threads, and where deleted ones. */
-  moderated: ReadonlySet<number>;
-  deleted: ReadonlySet<number>;
-  /** Forums where they may read other members' text: a tag the opening post's hashtags put on a thread is that text. */
-  readable: ReadonlySet<number>;
-  /** The viewer's member id, -1 for a guest. */
-  viewer: number;
-}
-
-/**
- * The reach of a viewer. With `indexable`, only what a search engine could index: visible
- * threads in forums whose threads and text are both open to the viewer (use it with the guest).
- */
-export const hubReach = markPublic(
-  "Applies the viewer's own reach: viewable forums, read gates, hidden states.",
-  function hubReach(ctx: Ctx, actor: Actor, options: { indexable?: boolean } = {}): HubReach {
-    const permissions = permissionsOf(ctx, actor);
-    const gates = readGates(ctx, actor);
-    const open = new Set<number>();
-    const own = new Set<number>();
-    const moderated = new Set<number>();
-    const deleted = new Set<number>();
-    const readable = new Set<number>();
-    for (const nodeId of viewableNodeIds(ctx, actor)) {
-      const reads = gates.readsOthers(nodeId);
-      if (options.indexable) {
-        if (gates.opensOthers(nodeId) && reads) open.add(nodeId);
-        continue;
-      }
-      (gates.opensOthers(nodeId) ? open : own).add(nodeId);
-      if (reads) readable.add(nodeId);
-      if (permissions.can("forum.viewModerated", { nodeId })) moderated.add(nodeId);
-      if (permissions.can("forum.viewDeleted", { nodeId })) deleted.add(nodeId);
-    }
-    return {
-      open,
-      own,
-      moderated,
-      deleted,
-      readable: options.indexable ? open : readable,
-      viewer: actorUserId(actor) ?? -1,
-    };
-  },
-);
 
 /** A candidate's thread passes the reach: its forum and gates, and its state for who may see it. */
 function sees(reach: HubReach, thread: ThreadRow, fromPost: boolean): boolean {
@@ -135,10 +88,11 @@ function walk(
 /**
  * Up to `limit` threads carrying the tag within the reach, after `cursor` (`[sort_at, thread
  * id]` of the last row of the page before), newest first. A viewer's threads come from up to
- * three streams, each seeking its own index: the live ones, the hidden ones in forums where they
- * may see hidden threads, and their own. When a stream spends its budget before it has enough,
- * `resume` is the key to continue from and nothing older than it is returned; the page may be
- * short. Callers check the site is open.
+ * four streams, each seeking its own run of an index: the visible ones, the held ones and the
+ * deleted ones where they may see such threads in some forum, and their own held ones. When a
+ * stream spends its budget before it has enough, `resume` is the key to continue from and
+ * nothing older than it is returned; the page may be short, even empty. Callers check the site
+ * is open.
  */
 export function hubPage(
   ctx: Ctx,
@@ -148,41 +102,27 @@ export function hubPage(
   limit: number,
 ): { rows: ThreadRow[]; resume: Key | null } {
   const start: Key = cursor ?? [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER];
-  const byLive = (live: number) => (after: Key, size: number) =>
-    prepared(ctx, "tags.hubLive", () =>
-      ctx.sqlite.prepare<Candidate, [number, number, number, number, number]>(hubSql.byLive),
-    ).all(tagId, live, after[0], after[1], size);
-  const streams: Stream[] = [
-    walk(
-      ctx,
-      byLive(1),
-      (candidate, thread) => sees(reach, thread, candidate.from_post === 1),
-      start,
-      limit,
-    ),
-  ];
-  if (reach.moderated.size > 0 || reach.deleted.size > 0)
-    streams.push(
-      walk(
-        ctx,
-        byLive(0),
-        (candidate, thread) => sees(reach, thread, candidate.from_post === 1),
-        start,
-        limit,
-      ),
-    );
+  const accept = (candidate: Candidate, thread: ThreadRow) =>
+    sees(reach, thread, candidate.from_post === 1);
+  const byVis = (vis: number) => (after: Key, size: number) =>
+    prepared(ctx, "tags.hubVis", () =>
+      ctx.sqlite.prepare<Candidate, [number, number, number, number, number]>(hubSql.byVis),
+    ).all(tagId, vis, after[0], after[1], size);
+  const streams: Stream[] = [walk(ctx, byVis(VIS_VISIBLE), accept, start, limit)];
+  if (reach.moderated.size > 0) streams.push(walk(ctx, byVis(VIS_HELD), accept, start, limit));
+  if (reach.deleted.size > 0) streams.push(walk(ctx, byVis(VIS_HIDDEN), accept, start, limit));
+  // Their own held threads, found by author, never by walking the others': the fetch is of those.
   if (reach.viewer >= 0)
     streams.push(
       walk(
         ctx,
         (after, size) =>
           prepared(ctx, "tags.hubAuthor", () =>
-            ctx.sqlite.prepare<Candidate, [number, number, number, number, number]>(
+            ctx.sqlite.prepare<Candidate, [number, number, number, number, number, number]>(
               hubSql.byAuthor,
             ),
-          ).all(tagId, reach.viewer, after[0], after[1], size),
-        (candidate, thread) =>
-          candidate.live === 0 && sees(reach, thread, candidate.from_post === 1),
+          ).all(tagId, reach.viewer, VIS_HELD, after[0], after[1], size),
+        accept,
         start,
         limit,
       ),

@@ -1,3 +1,4 @@
+export { foldTagText, normalizeTag } from "../bbcode/hashtag";
 export * from "./admin";
 export * from "./appearance";
 export * from "./auth";

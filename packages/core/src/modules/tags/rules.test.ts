@@ -7,7 +7,7 @@ import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { resolvedActor, sharedDatabase } from "../../permissions/test-contexts";
 import { evaluate, loadFacts } from "../../shared/criteria";
-import { fillThreads, type World, world } from "../feed/fixtures.test";
+import { countStatements, fillThreads, type World, world } from "../feed/fixtures.test";
 import { customMember, setEntry } from "../permissions/group-fixture";
 import { hubPage, hubReach } from "./hub";
 
@@ -49,9 +49,6 @@ describe("a posting restriction", () => {
     await expect(
       w.call("threads.update", alice, { threadId: mine.thread.id, tags: ["kept", "fresh"] }),
     ).rejects.toThrow(ForbiddenError);
-    await expect(
-      w.call("threads.update", alice, { threadId: mine.thread.id, tags: [] }),
-    ).rejects.toThrow(ForbiddenError);
     // The opening post may still be edited, but its new hashtags tag nothing.
     await w.call("posts.update", alice, { postId: mine.post.id, body: "Opening #second" });
     expect(await tagsOf(w, mine.thread.id)).toEqual(["first", "kept"]);
@@ -59,9 +56,15 @@ describe("a posting restriction", () => {
       { name: "first" },
       { name: "kept" },
     ]);
+    // Taking a tag off is still theirs to do: the editor is offered, adding is what is refused.
     expect(
       (await w.call("threads.get", alice, { threadId: mine.thread.id })).permissions.canEditTags,
-    ).toBe(false);
+    ).toBe(true);
+    await w.call("threads.update", alice, { threadId: mine.thread.id, tags: [] });
+    expect(await tagsOf(w, mine.thread.id)).toEqual([]);
+    await expect(
+      w.call("threads.update", alice, { threadId: mine.thread.id, tags: ["kept"] }),
+    ).rejects.toThrow(ForbiddenError);
   });
 
   test("takes away starting a thread with tags; the thread itself is a posting refusal first", async () => {
@@ -138,8 +141,15 @@ describe("aliases outlive the threads of their tag", () => {
       { name: "javascript", thread_count: 0 },
     ]);
     expect(rows(w, "SELECT name FROM tag_aliases")).toEqual([{ name: "js" }]);
-    // No thread, so no page; the staff list still shows it with its old name.
-    await expect(w.call("tags.get", w.alice, { name: "js" })).rejects.toThrow(NotFoundError);
+    // No thread, so an empty page, not a 404: the old name still reaches the tag staff keep.
+    const page = await w.call("tags.get", w.alice, { name: "js" });
+    expect(page).toMatchObject({ name: "javascript", redirect: true });
+    expect(page.seo.robots).toBe("noindex,follow");
+    expect((await w.call("tags.get", GUEST, { name: "javascript" })).redirect).toBe(false);
+    expect(await w.call("tags.threads", w.alice, { name: "js" })).toEqual({
+      items: [],
+      nextCursor: null,
+    });
     const listed = await w.call("tags.list", w.mod, {});
     expect(listed.items).toMatchObject([{ name: "javascript", threadCount: 0, aliases: ["js"] }]);
     // Someone who types the old name later reaches the same tag, not a new unrelated one.
@@ -202,13 +212,64 @@ describe("a tag the writer cannot see in use", () => {
     ]);
   });
 
-  test("a tag used in a forum the writer can open is known to them, whatever the thread's state", async () => {
+  test("a tag with a visible thread the writer can read is known to them", async () => {
     const w = world();
-    const created = await tagged(w, w.bob, "Seed", ["shared"]);
-    await w.call("threads.delete", w.mod, { threadId: created.thread.id });
+    await tagged(w, w.bob, "Seed", ["shared"], "Text #intext");
     setEntry(w.ctx, MEMBERS, "tag.create", -1);
-    const reply = await tagged(w, w.alice, "Mine", [], "#shared");
+    const reply = await tagged(w, w.alice, "Mine", [], "#shared #intext");
     expect(reply.post.bodyHtml).toContain('href="/tags/shared"');
+    expect(reply.post.bodyHtml).toContain('href="/tags/intext"');
+  });
+
+  /** What a writer without tag.create is told about a tag: linked in a post, accepted in a list. */
+  async function told(w: World, name: string) {
+    const reply = await tagged(w, w.alice, "Probe", [], `#${name}`);
+    const linked = reply.post.bodyHtml.includes(`/tags/${name}`);
+    let listed = true;
+    try {
+      await tagged(w, w.alice, "Probe", [name]);
+    } catch (error) {
+      if (!(error instanceof ForbiddenError)) throw error;
+      listed = false;
+    }
+    return { linked, listed };
+  }
+
+  test("a tag only on deleted or held threads, or on threads and text the writer cannot read, is not known", async () => {
+    const w = world();
+    const deleted = await tagged(w, w.bob, "Deleted", ["delonly"]);
+    await w.call("threads.delete", w.mod, { threadId: deleted.thread.id });
+    const held = await tagged(w, w.bob, "Held", ["heldonly"]);
+    w.ctx.sqlite
+      .prepare("UPDATE threads SET state = 'moderated' WHERE id = ?1")
+      .run(held.thread.id);
+    await tagged(w, w.bob, "Closed text", [], "Text #textonly");
+    await tagged(w, w.bob, "Shared", ["shared"]);
+    setEntry(w.ctx, MEMBERS, "tag.create", -1);
+    expect(await told(w, "shared")).toEqual({ linked: true, listed: true });
+    for (const name of ["delonly", "heldonly", "neverused"])
+      expect(await told(w, name), name).toEqual({ linked: false, listed: false });
+    // The opening post's hashtags are its text: not known where the writer cannot read it.
+    for (const group of [MEMBERS]) setEntry(w.ctx, group, "forum.viewContent", -1, w.open.id);
+    expect(await told(w, "textonly")).toEqual({ linked: false, listed: false });
+    expect(await told(w, "shared")).toEqual({ linked: true, listed: true });
+  });
+
+  test("a tag only on threads of others in a forum where others' threads are closed is not known", async () => {
+    const w = world();
+    await tagged(w, w.bob, "Bob's", ["bobs"]);
+    await tagged(w, w.alice, "Alice's", ["hers"]);
+    setEntry(w.ctx, MEMBERS, "tag.create", -1);
+    for (const group of [MEMBERS, 1]) setEntry(w.ctx, group, "forum.viewOthers", -1, w.open.id);
+    expect(await told(w, "bobs")).toEqual({ linked: false, listed: false });
+    // A writer knows the tags of their own visible threads.
+    expect(await told(w, "hers")).toEqual({ linked: true, listed: true });
+    // Staff, who open every thread, know them all.
+    const staff = await w.call("posts.create", w.mod, {
+      threadId: (await tagged(w, w.mod, "Staff thread", [])).thread.id,
+      body: "#bobs",
+    });
+    expect(staff.bodyHtml).toContain("/tags/bobs");
   });
 });
 
@@ -228,7 +289,7 @@ describe("the tag page does not walk what is hidden", () => {
       .run(state, JSON.stringify(ids));
     w.ctx.sqlite
       .prepare(
-        "INSERT INTO thread_tags (thread_id, tag_id, added_by, sort_at, live, node_id, author_id, created_at) SELECT t.id, ?1, t.user_id, t.sort_at, t.state = 'visible', t.node_id, t.user_id, 1 FROM threads t WHERE t.id IN (SELECT value FROM json_each(?2))",
+        "INSERT INTO thread_tags (thread_id, tag_id, added_by, sort_at, vis, node_id, author_id, created_at) SELECT t.id, ?1, t.user_id, t.sort_at, CASE t.state WHEN 'visible' THEN 1 WHEN 'moderated' THEN 2 ELSE 3 END, t.node_id, t.user_id, 1 FROM threads t WHERE t.id IN (SELECT value FROM json_each(?2))",
       )
       .run(tagId, JSON.stringify(ids));
     return ids;
@@ -295,6 +356,58 @@ describe("the tag page does not walk what is hidden", () => {
       cursor: Buffer.from(JSON.stringify(first.resume)).toString("base64url"),
     });
     expect(resumed.items).toHaveLength(2);
+    // A tag that has visible threads is never a 404 for the closed rows ahead of them: the first
+    // page is empty and says where to go on, and tags.get shows the page.
+    expect((await w.call("tags.get", GUEST, { name: "busy" })).name).toBe("busy");
+    const empty = await w.call("tags.threads", GUEST, { name: "busy" });
+    expect(empty.items).toEqual([]);
+    expect(empty.nextCursor).not.toBeNull();
+    const onward = await w.call("tags.threads", GUEST, { name: "busy", cursor: empty.nextCursor });
+    expect(onward.items).toHaveLength(2);
+    expect(onward.nextCursor).toBeNull();
+  });
+
+  test("a tag whose rows were all read and none is visible is the 404, and so is one with a single closed thread", async () => {
+    const w = world();
+    const id = tag(w, "closedonly");
+    bulk(w, id, w.secret.id, 40, 1_000_000);
+    await expect(w.call("tags.get", GUEST, { name: "closedonly" })).rejects.toThrow(NotFoundError);
+    await expect(w.call("tags.threads", GUEST, { name: "closedonly" })).rejects.toThrow(
+      NotFoundError,
+    );
+    // Staff who can open the forum see it.
+    expect((await w.call("tags.get", w.admin, { name: "closedonly" })).name).toBe("closedonly");
+  });
+
+  test("a viewer who may see held threads but not deleted ones does not walk the deleted pile", async () => {
+    const w = world();
+    const id = tag(w, "pile");
+    bulk(w, id, w.open.id, 2600, 1_000_000, "deleted");
+    const visible = bulk(w, id, w.open.id, 30, 1);
+    setEntry(w.ctx, MEMBERS, "forum.viewModerated", 1, w.open.id);
+    const page = hubPage(w.ctx, hubReach(w.ctx, w.alice), id, null, 51);
+    expect(page.rows.map((row) => row.id).sort()).toEqual([...visible].sort());
+    expect(page.resume).toBeNull();
+    expect((await w.call("tags.get", w.alice, { name: "pile" })).name).toBe("pile");
+    expect((await w.call("tags.threads", w.alice, { name: "pile", limit: 50 })).items).toHaveLength(
+      30,
+    );
+  });
+
+  test("an author's own visible threads are not fetched again by the stream for their own held ones", async () => {
+    const w = world();
+    const id = tag(w, "prolific");
+    bulk(w, id, w.open.id, 3000, 1_000_000);
+    const strangerCount = await countStatements(w.ctx, async () => {
+      hubPage(w.ctx, hubReach(w.ctx, w.carol), id, null, 21);
+    });
+    w.ctx.sqlite.prepare("UPDATE threads SET user_id = ?1").run(w.aliceUser.id);
+    w.ctx.sqlite.prepare("UPDATE thread_tags SET author_id = ?1").run(w.aliceUser.id);
+    const authorCount = await countStatements(w.ctx, async () => {
+      hubPage(w.ctx, hubReach(w.ctx, w.alice), id, null, 21);
+    });
+    // One more candidate read for their held ones, and nothing of the thousands they wrote.
+    expect(authorCount).toBeLessThanOrEqual(strangerCount + 2);
   });
 
   test("a viewer's own held thread is found through their own index, among a pile of others", async () => {
@@ -373,17 +486,58 @@ describe("a moderator who cannot read the text saves a tag list", () => {
     expect(await tagsOf(w, created.thread.id)).toEqual([]);
   });
 
-  test("tag.manage alone is not enough to set tags: tag.apply is needed as well", async () => {
+  test("tag.manage without tag.apply edits the tags of any thread; a posting restriction takes the adding away", async () => {
     const w = world();
     const created = await tagged(w, w.bob, "T", ["a"]);
-    const manager = customMember(w.ctx, ["tag.manage", "site.view", "node.view"]);
-    await expect(
-      w.call("threads.update", manager.actor, { threadId: created.thread.id, tags: ["b"] }),
-    ).rejects.toThrow(ForbiddenError);
+    const manager = customMember(w.ctx, ["tag.manage", "tag.create", "site.view", "node.view"]);
     expect(
       (await w.call("threads.get", manager.actor, { threadId: created.thread.id })).permissions
         .canEditTags,
+    ).toBe(true);
+    await w.call("threads.update", manager.actor, {
+      threadId: created.thread.id,
+      tags: ["a", "b"],
+    });
+    expect(await tagsOf(w, created.thread.id)).toEqual(["a", "b"]);
+    await w.call("restrictions.create", w.admin, {
+      userId: manager.row.id,
+      kind: "posting",
+      reason: "Muted",
+      expiresAt: null,
+      notify: false,
+    });
+    const muted = resolvedActor(w.ctx, manager.row.id);
+    await expect(
+      w.call("threads.update", muted, { threadId: created.thread.id, tags: ["a", "b", "c"] }),
+    ).rejects.toThrow(ForbiddenError);
+    // They may still take an abusive tag off.
+    await w.call("threads.update", muted, { threadId: created.thread.id, tags: ["a"] });
+    expect(await tagsOf(w, created.thread.id)).toEqual(["a"]);
+  });
+
+  test("a group that holds none of tag.manage, editing or authorship cannot touch tags, not even to remove", async () => {
+    const w = world();
+    const created = await tagged(w, w.bob, "T", ["a"]);
+    const stranger = customMember(w.ctx, ["tag.apply", "site.view", "node.view"]);
+    await expect(
+      w.call("threads.update", stranger.actor, { threadId: created.thread.id, tags: [] }),
+    ).rejects.toThrow(ForbiddenError);
+    expect(
+      (await w.call("threads.get", stranger.actor, { threadId: created.thread.id })).permissions
+        .canEditTags,
     ).toBe(false);
+  });
+
+  test("saving the list with a tag the moderator could not make does not ask them to create it", async () => {
+    const w = world();
+    const created = await tagged(w, w.bob, "T", ["a", "b"]);
+    const editor = customMember(w.ctx, ["forum.editAny", "tag.apply", "site.view", "node.view"]);
+    // No tag.create: the tags already there are kept, a new one is refused.
+    await w.call("threads.update", editor.actor, { threadId: created.thread.id, tags: ["a"] });
+    expect(await tagsOf(w, created.thread.id)).toEqual(["a"]);
+    await expect(
+      w.call("threads.update", editor.actor, { threadId: created.thread.id, tags: ["a", "zzz"] }),
+    ).rejects.toThrow(ForbiddenError);
   });
 });
 
@@ -444,7 +598,7 @@ describe("what tags_added_at_least counts", () => {
         .get(user)!.n;
       expect(tagCount(w, user)).toBe(recount);
     }
-    const live = rows(w, "SELECT count(*) AS n FROM thread_tags WHERE live = 1")[0];
+    const live = rows(w, "SELECT count(*) AS n FROM thread_tags WHERE vis = 1")[0];
     const visible = rows(
       w,
       "SELECT count(*) AS n FROM thread_tags tt JOIN threads t ON t.id = tt.thread_id WHERE t.state = 'visible' AND t.merged_into_id IS NULL",

@@ -176,7 +176,24 @@ test("a page past the last one says there is nothing, not an error", async () =>
   backend = fakeBackend(found([]));
   const { html, errors } = await page("caf%C3%A9", { cursor: "abc" });
   expect(errors).toEqual([]);
-  expect(html).toContain(messages.forums.tagPage.emptyTitle);
+  expect(html).toContain(messages.forums.tagPage.noMoreTitle);
+});
+
+test("an empty page that says where to go on is still the list, with its button", async () => {
+  backend = fakeBackend(found([], "next-key"));
+  const { html, errors } = await page();
+  expect(errors).toEqual([]);
+  expect(html).toContain(messages.forums.tagPage.nextPage);
+  expect(html).not.toContain(messages.forums.tagPage.emptyTitle);
+});
+
+test("a link into the list that lands past its end says so and leads back to the start", async () => {
+  backend = fakeBackend(found([]));
+  const { html } = await page("caf%C3%A9", { cursor: "abc" });
+  expect(html).toContain(messages.forums.tagPage.noMoreTitle);
+  expect(html).toContain(messages.forums.tagPage.backToStart);
+  expect(html).toContain('href="/tags/caf%C3%A9"');
+  expect(html).not.toContain(messages.forums.tagPage.emptyTitle);
 });
 
 test("the head comes from the backend, with a description in the visitor's language", async () => {

@@ -2315,9 +2315,9 @@ export const tagAliases = sqliteTable(
  * The tags of a thread. `from_post` marks the ones the opening post's hashtags put there (an
  * edit of that post takes them off again). Copies of the thread's own columns, kept by triggers,
  * let the tag page seek what a viewer may see without reading every thread: `sort_at`
- * (threads.sort_at), `live` (the thread is visible and not merged away), `node_id` and
- * `author_id`. Triggers also keep tags.thread_count and users.tag_count (which counts only the
- * rows of live threads).
+ * (threads.sort_at), `vis` (the thread's state: 1 visible, 2 held for approval, 3 deleted or
+ * merged away), `node_id` and `author_id`. Triggers also keep tags.thread_count and
+ * users.tag_count (which counts only the rows of visible threads).
  */
 export const threadTags = sqliteTable(
   "thread_tags",
@@ -2332,19 +2332,19 @@ export const threadTags = sqliteTable(
     addedBy: integer("added_by"),
     fromPost: bool("from_post").notNull().default(false),
     sortAt: integer("sort_at").notNull(),
-    live: bool("live").notNull().default(true),
+    vis: integer("vis").notNull().default(1),
     nodeId: integer("node_id").notNull(),
     authorId: integer("author_id").notNull(),
     createdAt: integer("created_at").notNull(),
   },
   (t) => [
     uniqueIndex("thread_tags_thread_tag").on(t.threadId, t.tagId),
-    // The tag page: WHERE tag_id = ? AND live = ? ORDER BY sort_at DESC, thread_id DESC.
-    index("thread_tags_hub").on(t.tagId, t.live, t.sortAt, t.threadId),
-    // The author's own threads of a tag, whatever their state.
-    index("thread_tags_author").on(t.tagId, t.authorId, t.sortAt, t.threadId),
-    // Is the tag used in a forum the writer can see?
-    index("thread_tags_node").on(t.tagId, t.nodeId),
+    // The tag page: WHERE tag_id = ? AND vis = ? ORDER BY sort_at DESC, thread_id DESC.
+    index("thread_tags_hub").on(t.tagId, t.vis, t.sortAt, t.threadId),
+    // The author's own threads of a tag in a state (their held ones; the ones they may read).
+    index("thread_tags_author").on(t.tagId, t.authorId, t.vis, t.sortAt, t.threadId),
+    // Does the tag have a visible thread in these forums (with or without the opening post's tags)?
+    index("thread_tags_node").on(t.tagId, t.vis, t.nodeId, t.fromPost),
   ],
 );
 

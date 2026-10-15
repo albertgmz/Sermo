@@ -113,7 +113,7 @@ describe("rendering a hashtag", () => {
     const [thread] = fillThreads(ctx, nodeId, user.id, 1);
     ctx.sqlite
       .prepare(
-        "INSERT INTO thread_tags (thread_id, tag_id, added_by, sort_at, live, node_id, author_id, created_at) SELECT ?1, id, ?2, 1, 1, ?3, ?2, 1 FROM tags WHERE name = ?4",
+        "INSERT INTO thread_tags (thread_id, tag_id, added_by, sort_at, vis, node_id, author_id, created_at) SELECT ?1, id, ?2, 1, 1, ?3, ?2, 1 FROM tags WHERE name = ?4",
       )
       .run(thread!, user.id, nodeId, name);
   };
@@ -228,6 +228,24 @@ describe("rendering a hashtag", () => {
   });
 });
 
+describe("look-alike names", () => {
+  test("variation selectors and other characters that draw nothing are not part of a name", () => {
+    expect(normalizeTag("a\uFE0F")).toBe("a");
+    expect(normalizeTag("a\u{E0100}")).toBe("a");
+    expect(normalizeTag("a\u034F")).toBe("a");
+    expect(normalizeTag("a\u180B")).toBe("a");
+    expect(normalizeTag("a\u200Db")).toBe("ab");
+    expect(found("#a #a\uFE0F #A\uFE0F")).toEqual(["a", "a", "a"]);
+  });
+
+  test("a combining mark that composes is the letter, one that does not composes stays", () => {
+    expect(normalizeTag("e\u0301")).toBe("\u00E9");
+    expect(normalizeTag("e\u0301")).toBe(normalizeTag("\u00E9"));
+    expect(normalizeTag("x\u0301")).toBe("x\u0301");
+    expect(normalizeTag("a")).not.toBe(normalizeTag("a\u0301"));
+  });
+});
+
 describe("what a name is", () => {
   test("a run of # is no hashtag", () => {
     expect(found("##x")).toEqual([]);
@@ -247,7 +265,8 @@ describe("what a name is", () => {
     expect(found("#\u3164 #\u115F\u1160")).toEqual([]);
     // Combining marks and digits do not make a name either; a real letter does.
     expect(normalizeTag("\u0301")).toBeNull();
-    expect(normalizeTag("\u3164a")).toBe("\u3164a");
+    // A filler beside a real letter is dropped with the other characters that draw nothing.
+    expect(normalizeTag("\u3164a")).toBe("a");
   });
 });
 

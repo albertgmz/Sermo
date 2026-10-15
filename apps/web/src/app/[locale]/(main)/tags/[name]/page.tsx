@@ -1,6 +1,7 @@
 import { tagsGet } from "@sermo/core/contracts";
 import { Tag } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { cache, Suspense } from "react";
@@ -11,10 +12,12 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PagedList } from "@/components/forum/paged-list";
 import { LoadingRegion, ThreadRowSkeleton } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
+import { buttonVariants } from "@/components/ui/button";
 import { pagesParam } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { copyOf, seoMetadata } from "@/lib/sermo/seo";
 import { tagHref } from "@/lib/sermo/tags";
+import { cn } from "@/lib/utils";
 
 // A tag is addressed by its name: letters, numbers and `_` never need percent-encoding to mean
 // themselves, but the router may hand over the encoded form of an accented one.
@@ -112,14 +115,29 @@ async function TagThreads({
     tagThreadsPage(name, cursor),
     getTranslations("forums.tagPage"),
   ]);
-  if (first.rows.length === 0) {
+  // Nothing here and nowhere to go on: a tag with no thread yet, or a link into the list that
+  // lands past its end (with a way back to the start). An empty page that says where to go on
+  // (the walk stopped at hidden rows) is still the list, with its button.
+  if (first.rows.length === 0 && first.nextCursor === null) {
     return (
       <div className="mt-4 overflow-hidden rounded-lg border bg-card">
         <EmptyState
           icon={Tag}
-          title={t("emptyTitle")}
-          description={t("emptyDescription")}
-        />
+          title={cursor ? t("noMoreTitle") : t("emptyTitle")}
+          description={cursor ? t("noMoreDescription") : t("emptyDescription")}
+        >
+          {cursor && (
+            <Link
+              href={tagHref(name)}
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "h-10 px-4",
+              )}
+            >
+              {t("backToStart")}
+            </Link>
+          )}
+        </EmptyState>
       </div>
     );
   }

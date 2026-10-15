@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  normalizeTag,
   tagsDelete,
   tagsList,
   tagsMerge,
@@ -38,11 +39,12 @@ export async function mergeTag(
   const t = await getTranslations("adminContent.errors");
   const tagId = parseId(text(formData, "id"));
   if (tagId === null) return { error: t("id") };
-  const into = text(formData, "into").trim().replace(/^#/, "");
+  // The name is read as the backend reads one (the same function), so `ας` is the tag `ασ`.
+  const into = normalizeTag(text(formData, "into").trim());
+  if (into === null) return { fields: { into: t("tag") } };
   try {
     const [found] = (await call(tagsList, { query: into, limit: 1 })).items;
-    if (!found || found.name !== into.normalize("NFC").toLowerCase())
-      return { fields: { into: t("tag") } };
+    if (!found || found.name !== into) return { fields: { into: t("tag") } };
     await call(tagsMerge, { tagId, intoTagId: found.id });
   } catch (error) {
     return formFailure(error, []);

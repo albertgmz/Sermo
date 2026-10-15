@@ -104,6 +104,9 @@
     "metaDescription": "Hilos con la etiqueta #{name}",
     "emptyTitle": "Sin hilos",
     "emptyDescription": "Todavía no hay nada con esta etiqueta.",
+    "noMoreTitle": "No hay más hilos",
+    "noMoreDescription": "No hay nada más allá de este punto de la lista.",
+    "backToStart": "Volver al principio",
     "nextPage": "Página siguiente",
     "aria": {
       "loading": "Cargando hilos…"

@@ -104,6 +104,9 @@
     "metaDescription": "Threads tagged #{name}",
     "emptyTitle": "No threads",
     "emptyDescription": "There is nothing tagged with this yet.",
+    "noMoreTitle": "No more threads",
+    "noMoreDescription": "There is nothing past this point in the list.",
+    "backToStart": "Back to the start",
     "nextPage": "Next page",
     "aria": {
       "loading": "Loading threads…"
