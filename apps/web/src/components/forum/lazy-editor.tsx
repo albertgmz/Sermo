@@ -9,6 +9,7 @@ import {
   withoutAttachTag,
 } from "@/components/forum/composer-insert";
 import type { Editor, EditorProps } from "@/components/forum/editor";
+import { quoteInbox } from "@/components/forum/lazy-quotes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -79,22 +80,14 @@ export function LazyEditor({
       }
     });
   }, []);
-  const quotes = useRef<string[]>([]);
+  const inbox = useRef<ReturnType<typeof quoteInbox>>(undefined);
   const editorReady = useCallback(() => {
     ready.current = true;
     for (const request of queue.current.splice(0)) {
       requestOnComposer(form.current, request);
     }
-    // The editor listens for the event from an effect that runs just after this call.
-    const held = quotes.current.splice(0);
-    if (insertEvent && held.length > 0) {
-      setTimeout(() => {
-        for (const detail of held) {
-          window.dispatchEvent(new CustomEvent(insertEvent, { detail }));
-        }
-      }, 0);
-    }
-  }, [insertEvent]);
+    inbox.current?.ready();
+  }, []);
 
   const load = useCallback(() => {
     if (asked.current) return;
@@ -119,23 +112,15 @@ export function LazyEditor({
   // editor, and the editor is asked for so that it is there for what comes next.
   useEffect(() => {
     if (!insertEvent) return;
-    const listener = (event: Event) => {
-      if (ready.current) return;
-      const markdown = String((event as CustomEvent<string>).detail ?? "");
-      const box = field.current;
-      if (!box) {
-        quotes.current.push(markdown);
-        return;
-      }
-      const current = box.value.trimEnd();
-      box.value = `${current ? `${current}\n\n` : ""}${markdown}\n\n`;
-      box.setSelectionRange(box.value.length, box.value.length);
-      box.focus();
-      changed.current?.(box.value);
-      load();
-    };
-    window.addEventListener(insertEvent, listener);
-    return () => window.removeEventListener(insertEvent, listener);
+    const quotes = quoteInbox({
+      event: insertEvent,
+      target: window,
+      field: () => field.current,
+      onFilled: (text) => changed.current?.(text),
+      load,
+    });
+    inbox.current = quotes;
+    return quotes.detach;
   }, [insertEvent, load]);
 
   if (loaded) {
