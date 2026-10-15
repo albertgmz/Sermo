@@ -18,7 +18,7 @@ import {
 import { UserLink } from "@/components/forum/user-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompact } from "@/lib/format";
-import { read } from "@/lib/sermo/client";
+import { read, readIfAllowed } from "@/lib/sermo/client";
 import { membersFor, relationsFor } from "@/lib/sermo/members";
 import { getViewer } from "@/lib/sermo/session";
 import { threadMembers } from "@/lib/sermo/threads";
@@ -165,14 +165,15 @@ async function LatestThreads() {
 }
 
 // The most reacted-to members, without the viewer. The members they follow already are not left
-// out: the button says "Following" for them.
+// out: the button says "Following" for them. Nothing for a viewer who may not list members.
 async function SuggestedMembers() {
   const { user } = await getViewer();
-  const { items } = await read(usersList, {
+  const list = await readIfAllowed(usersList, {
     sort: "reactions",
     limit: CANDIDATES,
   });
-  const suggestions = items
+  if (!list) return null;
+  const suggestions = list.items
     .filter(({ card }) => card.id !== user?.id)
     .slice(0, SUGGESTIONS);
   const t = await getTranslations("home.feedSidebar");

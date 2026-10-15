@@ -48,7 +48,7 @@ export async function generateMetadata({
   return { title: t("metaTitle", { name: award.name }) };
 }
 
-// The award's holders, newest grant first.
+// The award's holders, newest grant first; not drawn for a viewer who may not list members.
 async function Holders({
   awardId,
   cursor,
@@ -58,6 +58,8 @@ async function Holders({
   cursor?: string;
   pages: number;
 }) {
+  const viewer = await getViewer();
+  if (viewer.resolvedPermissions["member.viewList"] === false) return null;
   const [t, first] = await Promise.all([
     getTranslations("awards.award"),
     holdersPage(awardId, cursor),
