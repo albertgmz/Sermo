@@ -5,7 +5,7 @@ import { publishEvent } from "../../events";
 import { enqueueJob } from "../jobs";
 import { fileUrl } from "../storage/url";
 
-export type AttachmentTarget = "post" | "profile_post" | "conversation_message";
+export type AttachmentTarget = "post" | "profile_post" | "conversation_message" | "poll";
 
 interface AttachmentRow {
   content_id: number;
@@ -63,8 +63,15 @@ export function setAttachments(
 ) {
   if (ids === undefined) return;
   if (new Set(ids).size !== ids.length) throw new ValidationError("Duplicate attachment ID.");
+  // A poll holds the pictures of its questions and answers; it keeps no count of them.
   const table =
-    type === "post" ? "posts" : type === "profile_post" ? "profile_posts" : "conversation_messages";
+    type === "post"
+      ? "posts"
+      : type === "profile_post"
+        ? "profile_posts"
+        : type === "poll"
+          ? null
+          : "conversation_messages";
   const old = ctx.sqlite
     .prepare<{ file_id: number }, [AttachmentTarget, number]>(
       "SELECT file_id FROM attachments WHERE content_type = ?1 AND content_id = ?2 ORDER BY position",
@@ -115,9 +122,10 @@ export function setAttachments(
   ids.forEach((id, position) => {
     reorder.run(position, id);
   });
-  ctx.sqlite
-    .prepare(`UPDATE ${table} SET attachment_count = ?1 WHERE id = ?2`)
-    .run(ids.length, contentId);
+  if (table)
+    ctx.sqlite
+      .prepare(`UPDATE ${table} SET attachment_count = ?1 WHERE id = ?2`)
+      .run(ids.length, contentId);
 }
 
 /** Prevent a Sermo image embed from pointing at another content item's file. */

@@ -63,6 +63,8 @@ export interface Facts {
   awardXp: number;
   /** Tags the member has put on threads that still carry them. */
   tagCount: number;
+  /** Polls and quizzes the member has taken part in. */
+  pollVoteCount: number;
   /** The measures of the conditions the loader was asked about, by `measureKey`. */
   measures: Map<string, Measure>;
 }

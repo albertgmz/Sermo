@@ -22,6 +22,7 @@ import {
   UserSummary,
 } from "./common";
 import { ImageReference } from "./images";
+import { PollInput } from "./polls";
 import { SeoMetadata } from "./seo";
 
 export const NodeType = z.enum(NODE_TYPES);
@@ -417,7 +418,8 @@ export const threadsCreate = defineContract({
     "thread's tags are those, plus the hashtags of the opening post (replies' hashtags only " +
     "link). Putting tags on a thread needs tag.apply; a tag nobody used before needs " +
     "tag.create (without it a typed `#word` that is no tag stays plain text, and a listed one " +
-    "is refused). Tags beyond 10 are refused.",
+    "is refused). Tags beyond 10 are refused. `poll` writes a poll or a quiz with the thread " +
+    "(poll.create; see polls.create); its text goes through the word filter with the post.",
   kind: "write",
   input: z.object({
     nodeId: Id,
@@ -426,6 +428,7 @@ export const threadsCreate = defineContract({
     attachmentIds: AttachmentIds,
     prefixId: Id.nullable().default(null),
     tags: z.array(TagInput).max(MAX_THREAD_TAGS).default([]),
+    poll: PollInput.optional(),
   }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });

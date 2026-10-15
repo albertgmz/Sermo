@@ -49,6 +49,8 @@ export type ContentEventType = (typeof CONTENT_EVENT_TYPES)[number];
  *   credits, actorId } (actorId null for an automatic grant) plus `reason`.
  * - `shop.purchased`: target the purchase (targetType "shop_purchase"); payload { itemId,
  *   buyerId, recipientId, quantity, price, inventoryId }.
+ * - `poll.voted`: target the poll (targetType "poll"); payload { userId }. Published when a member
+ *   takes part in a poll or quiz for the first time (their first vote or answer).
  * - `shop.item_used`: target the inventory row (targetType "shop_inventory"); payload { userId,
  *   itemId, effect, threadId?, quantityLeft }. The effect on a thread (cover, highlight, bump) is
  *   already applied by `shop.use` in the transaction that publishes this; the event reports the
@@ -79,6 +81,7 @@ export const EVENT_TYPES = [
   "award.revoked",
   "shop.purchased",
   "shop.item_used",
+  "poll.voted",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];

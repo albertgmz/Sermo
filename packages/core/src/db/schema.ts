@@ -72,7 +72,12 @@ export const FILE_PURPOSES = [...UPLOAD_SETTING_PURPOSES, ...CATALOG_FILE_PURPOS
 export const CATALOG_IMAGE_KINDS = ["frame", "profile_cover", "thread_cover"] as const;
 /** Colour catalogs: site accents, member name colours, thread prefix colours. */
 export const PALETTE_KINDS = ["accent", "name", "prefix"] as const;
-export const ATTACHMENT_CONTENT_TYPES = ["post", "profile_post", "conversation_message"] as const;
+export const ATTACHMENT_CONTENT_TYPES = [
+  "post",
+  "profile_post",
+  "conversation_message",
+  "poll",
+] as const;
 export const REPORT_TARGET_TYPES = [
   "post",
   "profile_post",
@@ -313,6 +318,8 @@ export const users = sqliteTable(
     awardCount: counter("award_count"),
     /** Tags the member has put on threads that still carry them (kept by triggers on thread_tags). */
     tagCount: counter("tag_count"),
+    /** Polls and quizzes the member took part in (kept by triggers on poll_ballots). */
+    pollVoteCount: counter("poll_vote_count"),
     /**
      * A super admin may act on any member, administrators included, and is the only one who can
      * grant or remove this flag. There is always at least one.
@@ -2365,6 +2372,140 @@ export const threadTags = sqliteTable(
     // Does the tag have a visible thread in these forums (with or without the opening post's tags)?
     index("thread_tags_node").on(t.tagId, t.vis, t.nodeId, t.fromPost),
   ],
+);
+
+export const POLL_KINDS = ["poll", "quiz"] as const;
+export type PollKind = (typeof POLL_KINDS)[number];
+/** When the results are shown: at all times, once the viewer has voted, or once the poll is closed. */
+export const POLL_RESULTS = ["always", "after_vote", "after_close"] as const;
+export type PollResultsMode = (typeof POLL_RESULTS)[number];
+
+/**
+ * A poll (one question) or a quiz (a series of questions) of a thread; a thread has at most one.
+ * Open until `closed_at` (closed by hand) or `closes_at` (the close date) has passed. Whether
+ * voters are public (`anonymous`) is fixed when the poll is made. `ballot_count` is the number of
+ * members who took part (rows of poll_ballots) and `search_text` the question text the search
+ * index reads with the thread's opening post; triggers keep both.
+ */
+export const polls = sqliteTable(
+  "polls",
+  {
+    id: integer("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    /** Who made it: the thread's author, or staff who added it later. */
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind", { enum: POLL_KINDS }).notNull().default("poll"),
+    anonymous: bool("anonymous").notNull().default(false),
+    /** Answers one vote may pick (a quiz answers one per question). */
+    maxChoices: integer("max_choices").notNull().default(1),
+    allowCustom: bool("allow_custom").notNull().default(false),
+    allowChange: bool("allow_change").notNull().default(true),
+    results: text("results", { enum: POLL_RESULTS }).notNull().default("always"),
+    closesAt: integer("closes_at"),
+    closedAt: integer("closed_at"),
+    ballotCount: counter("ballot_count"),
+    searchText: text("search_text").notNull().default(""),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("polls_thread").on(t.threadId)],
+);
+
+/** A question of a poll or quiz, with an optional picture (a file attached to the poll). */
+export const pollQuestions = sqliteTable(
+  "poll_questions",
+  {
+    id: integer("id").primaryKey(),
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => polls.id),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    /** Shown after a quiz question is answered. */
+    explanation: text("explanation").notNull().default(""),
+    imageFileId: integer("image_file_id"),
+  },
+  (t) => [index("poll_questions_poll").on(t.pollId, t.position, t.id)],
+);
+
+/**
+ * An answer a voter can pick. `vote_count` is kept by triggers on poll_votes; `is_correct` is a
+ * quiz's right answer (one per question) and is never sent before the viewer answers; `added_by`
+ * is the member who added a custom answer.
+ */
+export const pollAnswers = sqliteTable(
+  "poll_answers",
+  {
+    id: integer("id").primaryKey(),
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => polls.id),
+    questionId: integer("question_id")
+      .notNull()
+      .references(() => pollQuestions.id),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+    imageFileId: integer("image_file_id"),
+    isCorrect: bool("is_correct").notNull().default(false),
+    voteCount: counter("vote_count"),
+    addedBy: integer("added_by"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [index("poll_answers_poll").on(t.pollId, t.questionId, t.position, t.id)],
+);
+
+/**
+ * One row per (answer, member): a poll voter's choices, a quiz taker's answers. Anonymous polls
+ * keep the rows (a vote needs its voter to be changed or refused twice) and never return them.
+ */
+export const pollVotes = sqliteTable(
+  "poll_votes",
+  {
+    id: integer("id").primaryKey(),
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => polls.id),
+    questionId: integer("question_id").notNull(),
+    answerId: integer("answer_id")
+      .notNull()
+      .references(() => pollAnswers.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("poll_votes_answer_member").on(t.answerId, t.userId),
+    // The viewer's own choices in the polls of a page.
+    index("poll_votes_member").on(t.pollId, t.userId),
+  ],
+);
+
+/**
+ * One row per member who took part in a poll or quiz: the single place that says whether they
+ * did (`polls.ballot_count` and `users.poll_vote_count` are kept by triggers on it). For a quiz
+ * `answered` and `score` are the member's result and `completed_at` is set with the last answer.
+ */
+export const pollBallots = sqliteTable(
+  "poll_ballots",
+  {
+    id: integer("id").primaryKey(),
+    pollId: integer("poll_id")
+      .notNull()
+      .references(() => polls.id),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id),
+    answered: counter("answered"),
+    score: counter("score"),
+    createdAt: integer("created_at").notNull(),
+    completedAt: integer("completed_at"),
+  },
+  (t) => [uniqueIndex("poll_ballots_member").on(t.pollId, t.userId)],
 );
 
 export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "hot"] as const;

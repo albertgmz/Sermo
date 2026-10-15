@@ -561,6 +561,52 @@ export const PERMISSIONS = {
     defaults: MEMBERS,
     requiresAccount: true,
   },
+  // Polls and quizzes (node scope: the forum of the thread). Reading a poll follows the thread's
+  // read gates; poll.manage edits and deletes any poll, poll.closeAny closes any.
+  "poll.create": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+    restriction: "posting",
+  },
+  "poll.vote": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Add an answer of one's own to a poll that allows it. A posting restriction takes it away. */
+  "poll.addAnswer": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+    restriction: "posting",
+  },
+  /** Close and reopen the polls one made. */
+  "poll.closeOwn": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+    own: true,
+  },
+  "poll.closeAny": nodeModerator(),
+  /** See who voted for what in a poll that is not anonymous. */
+  "poll.viewVoters": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Edit and delete any poll or quiz of the forum, and add one to any thread. */
+  "poll.manage": nodeModerator(),
   "forum.viewModerated": nodeModerator(),
   "forum.viewDeleted": nodeModerator(),
   "forum.editAny": nodeModerator(),

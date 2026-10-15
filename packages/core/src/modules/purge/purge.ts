@@ -18,6 +18,8 @@ import { purgeThreadTags } from "../tags/store";
  *   bookmarks, reports and report groups, and the credit applications it caused. Credits the
  *   applications still hold are taken back first, with a ledger row each: a soft delete does this
  *   in a job after the commit, and a reply of a deleted thread keeps its credits until now.
+ * - Polls and quizzes of a thread go with it (votes, ballots, answers, questions, pictures); so
+ *   does one left on a thread merged away.
  * - Kept, with the reference nulled: `ip_log` rows. The address history of a member is a
  *   security record, so the row stays and only its pointer to the content goes.
  * - Kept as they are: `moderator_log` (append-only; it names the content by id),
@@ -96,7 +98,7 @@ function removeAlerts(ctx: Ctx, key: string, where: string, ...params: SQLQueryB
 const aboutContent = "n.content_type = ?1 AND n.content_id IN (SELECT value FROM json_each(?2))";
 
 /** The pictures and files of the content: unlinked now, deleted from storage by a job. */
-function removeAttachments(ctx: Ctx, type: PurgeType, json: string): void {
+function removeAttachments(ctx: Ctx, type: PurgeType | "poll", json: string): void {
   const files = statement<{ file_id: number }>(
     ctx,
     "attachmentFiles",
@@ -121,6 +123,29 @@ function removeAttachments(ctx: Ctx, type: PurgeType, json: string): void {
       { id: file_id },
       { uniqueKey: `storage.deletePermanent.${file_id}` },
     );
+}
+
+/**
+ * Deletes polls with everything they hold: votes, ballots (the triggers lower the counters of
+ * the polls and of the members who took part), answers, questions, and the pictures (unlinked
+ * now, deleted from storage by a job). Callers authorize.
+ */
+export function purgePolls(ctx: Ctx, pollIds: number[]): void {
+  if (!pollIds.length) return;
+  const json = JSON.stringify(pollIds);
+  for (const [key, sql] of [
+    ["votes", "DELETE FROM poll_votes WHERE poll_id IN (SELECT value FROM json_each(?1))"],
+    ["ballots", "DELETE FROM poll_ballots WHERE poll_id IN (SELECT value FROM json_each(?1))"],
+    ["answers", "DELETE FROM poll_answers WHERE poll_id IN (SELECT value FROM json_each(?1))"],
+    ["questions", "DELETE FROM poll_questions WHERE poll_id IN (SELECT value FROM json_each(?1))"],
+  ] as const)
+    statement(ctx, `polls.${key}`, sql).run(json);
+  removeAttachments(ctx, "poll", json);
+  statement(
+    ctx,
+    "polls.rows",
+    "DELETE FROM polls WHERE id IN (SELECT value FROM json_each(?1))",
+  ).run(json);
 }
 
 /** Removes the reports about the content, whatever their state. */
@@ -264,6 +289,12 @@ function purgeThreadRows(ctx: Ctx, threadId: number): void {
   removeAlerts(ctx, "thread", aboutContent, "thread", json);
   removeAlerts(ctx, "inThread", "n.thread_id = ?1", threadId);
   purgeThreadTags(ctx, threadId);
+  purgePolls(
+    ctx,
+    statement<{ id: number }>(ctx, "thread.polls", "SELECT id FROM polls WHERE thread_id = ?1")
+      .all(threadId)
+      .map((row) => row.id),
+  );
   for (const [key, sql] of [
     ["features", "DELETE FROM thread_features WHERE thread_id = ?1"],
     ["reads", "DELETE FROM thread_reads WHERE thread_id = ?1"],

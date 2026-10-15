@@ -38,6 +38,12 @@ function taggers(ctx: Ctx, event: DomainEvent): number[] {
     .map((row) => row.added_by);
 }
 
+/** The member who just took part in a poll or quiz. */
+function voters(_ctx: Ctx, event: DomainEvent): number[] {
+  const userId = Number(event.payload.userId);
+  return event.type === "poll.voted" && userId > 0 ? [userId] : [];
+}
+
 /**
  * What a member has written, kept and followed. All of these count rows of the member's
  * history, so they only run in background checks.
@@ -109,6 +115,14 @@ export const contentSpecs: readonly Spec[] = [
     withValue("tags_added_at_least", "atLeast", "count", "member", (f, v) => f.tagCount >= v),
     ["content.created", "content.edited", "content.state_changed", "content.deleted"],
     taggers,
+  ),
+  // The polls and quizzes the member took part in: a counter on the member's row that triggers on
+  // poll_ballots keep, read like the tags added, never counted. A voted poll that is deleted for
+  // good takes its ballots, and the count, with it.
+  refreshing(
+    withValue("polls_voted_at_least", "atLeast", "count", "member", (f, v) => f.pollVoteCount >= v),
+    ["poll.voted"],
+    voters,
   ),
   counted("bookmarks_at_least", countOf("bookmarks", "user_id", "bookmarks_user")),
   counted("watching_forums_at_least", countOf("node_watches", "user_id", "node_watches_user")),

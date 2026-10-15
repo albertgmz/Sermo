@@ -50,6 +50,8 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
+import { insertPoll, movePoll } from "../polls/store";
+import { cleanPoll } from "../polls/text";
 import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
 import { isBotAgent } from "../security/device";
 import { logIp } from "../security/log";
@@ -438,7 +440,7 @@ function requireNode(ctx: Ctx, actor: Actor, id: number) {
   requirePermission(ctx, actor, "node.view", { nodeId: id }, { notFound: true });
   return { node };
 }
-function requireThread(ctx: Ctx, actor: Actor, id: number) {
+export function requireThread(ctx: Ctx, actor: Actor, id: number) {
   const row = threadRow(ctx, id, actorUserId(actor) ?? 0);
   if (!row || row.merged_into_id != null) throw new NotFoundError();
   const { node } = requireNode(ctx, actor, row.node_id);
@@ -1480,6 +1482,19 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
     requireTagCreate(ctx, actor, listedTags);
   }
   const mayCreateTags = can(ctx, actor, "tag.create");
+  // A poll or quiz written with the thread: its texts are read and filtered like the post's, and
+  // a text a word filter holds for approval holds the thread.
+  const poll = input.poll;
+  if (poll) {
+    requirePermission(ctx, actor, "poll.create", { nodeId: input.nodeId });
+    if (
+      poll.questions.some(
+        (q) => q.imageFileId !== null || q.answers.some((a) => a.imageFileId !== null),
+      )
+    )
+      requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
+  }
+  const cleanedPoll = poll ? cleanPoll(ctx, actor, poll) : null;
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
     permissionValue(ctx, actor, "mention.maxPerItem");
@@ -1498,8 +1513,11 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       const settings = checkNodePostingRules(ctx, actor, input.nodeId);
       requireWriteRoom(ctx, actor, "thread", decision.floodSeconds);
       if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId);
+      if (poll && JSON.stringify(cleanPoll(ctx, actor, poll)) !== JSON.stringify(cleanedPoll))
+        throw new ConflictError("Moderation rules changed; retry.");
       const state =
         decision.moderated ||
+        cleanedPoll?.moderated ||
         spam ||
         (settings.require_thread_approval &&
           !can(ctx, actor, "forum.bypassNodeRules", { nodeId: input.nodeId }))
@@ -1546,6 +1564,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
         ],
         mayCreateTags,
       );
+      if (cleanedPoll) insertPoll(ctx, user.userId, thread.id, cleanedPoll);
       if (state === "visible") {
         forumDb(ctx)
           .prepare(
@@ -3189,6 +3208,7 @@ export const threadsMergeOp = implement(contracts.threadsMerge, (ctx, actor, inp
         )
         .run(target.id, ctx.now(), source.id);
       moveThreadTags(ctx, source.id, target.id);
+      movePoll(ctx, source.id, target.id);
       if (sourceVisible) {
         forumDb(ctx)
           .prepare(

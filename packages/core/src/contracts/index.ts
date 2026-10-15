@@ -20,6 +20,7 @@ export * from "./notices";
 export * from "./notifications";
 export * from "./pages";
 export * from "./permissions";
+export * from "./polls";
 export * from "./profiles";
 export * from "./promotions";
 export * from "./reactions";

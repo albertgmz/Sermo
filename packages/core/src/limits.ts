@@ -9,3 +9,12 @@ export const MAX_MEDIA_EMBEDS = 50;
 
 /** Tags one thread can carry. */
 export const MAX_THREAD_TAGS = 10;
+
+/** Polls and quizzes: sizes of what a creator writes. */
+export const POLL_QUESTION_LENGTH = 200;
+export const POLL_ANSWER_LENGTH = 100;
+export const POLL_EXPLANATION_LENGTH = 500;
+/** Answers of a poll (one question) and of one question of a quiz. */
+export const MAX_POLL_ANSWERS = 20;
+export const MAX_QUIZ_ANSWERS = 8;
+export const MAX_QUIZ_QUESTIONS = 20;

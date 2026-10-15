@@ -28,6 +28,7 @@ import { reactablePost } from "../forums";
 import { measureFrameOpening } from "../images/frame-geometry";
 import { processImage } from "../images/process";
 import { enqueueJob, registerJobHandler } from "../jobs/queue";
+import { pollPicturesReadable } from "../polls/readable";
 import { requirePost as requireProfilePost } from "../profiles/shared";
 import { fileUrl, resolvedFileUrl } from "./url";
 
@@ -116,7 +117,7 @@ export const storageSql = {
   stalePage:
     "SELECT id, created_at FROM files WHERE visibility = 'unattached' AND parent_file_id IS NULL AND created_at < ?1 AND deleted_at IS NULL AND (created_at > ?2 OR (created_at = ?2 AND id > ?3)) ORDER BY created_at, id LIMIT 1000",
   attachment:
-    "SELECT a.content_type, a.content_id, t.node_id FROM attachments a LEFT JOIN posts p ON a.content_type = 'post' AND p.id = a.content_id LEFT JOIN threads t ON t.id = p.thread_id WHERE a.file_id = ?1",
+    "SELECT a.content_type, a.content_id, t.node_id FROM attachments a LEFT JOIN posts p ON a.content_type = 'post' AND p.id = a.content_id LEFT JOIN polls pl ON a.content_type = 'poll' AND pl.id = a.content_id LEFT JOIN threads t ON t.id = coalesce(p.thread_id, pl.thread_id) WHERE a.file_id = ?1",
 } as const;
 
 const safeInline = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -274,6 +275,14 @@ function canRead(ctx: Ctx, actor: Actor, record: FileRecord): boolean {
       reactablePost(ctx, actor, link.content_id);
       if (
         link.node_id === null ||
+        !can(ctx, actor, "forum.viewAttachments", { nodeId: link.node_id })
+      )
+        return false;
+    } else if (link.content_type === "poll") {
+      // The pictures of a poll are the thread's content: the thread must be open and its text readable.
+      if (
+        link.node_id === null ||
+        !pollPicturesReadable(ctx, actor, link.content_id) ||
         !can(ctx, actor, "forum.viewAttachments", { nodeId: link.node_id })
       )
         return false;

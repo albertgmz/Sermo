@@ -19,6 +19,7 @@ import { operations as notices } from "./modules/notices";
 import { operations as notifications } from "./modules/notifications";
 import { operations as pages } from "./modules/pages";
 import { operations as permissions } from "./modules/permissions";
+import { operations as polls } from "./modules/polls";
 import { operations as profiles } from "./modules/profiles";
 import { operations as promotions } from "./modules/promotions";
 import { operations as push } from "./modules/push";
@@ -69,6 +70,7 @@ export const operations: readonly AnyOperation[] = [
   ...pages,
   ...spoilers,
   ...tags,
+  ...polls,
   ...admin,
 ];
 

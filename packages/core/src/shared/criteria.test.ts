@@ -50,6 +50,7 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   awardCount: 0,
   awardXp: 0,
   tagCount: 0,
+  pollVoteCount: 0,
   measures: new Map(),
   ...overrides,
 });
@@ -369,6 +370,12 @@ const table: Record<string, Case[]> = {
     ["edge", { value: 3 }, facts({ tagCount: 3 }), true],
     ["below", { value: 3 }, facts({ tagCount: 2 }), false],
     ["none added, none asked", { value: 0 }, facts(), true],
+  ],
+  polls_voted_at_least: [
+    ["above", { value: 3 }, facts({ pollVoteCount: 4 }), true],
+    ["edge", { value: 3 }, facts({ pollVoteCount: 3 }), true],
+    ["below", { value: 3 }, facts({ pollVoteCount: 2 }), false],
+    ["none voted, none asked", { value: 0 }, facts(), true],
   ],
   award_xp_at_most: [
     ["below", { value: 100 }, facts({ awardXp: 99 }), true],
