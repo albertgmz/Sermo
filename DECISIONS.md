@@ -2890,3 +2890,40 @@ Known limits: posts written before the item stay as they were until edited; a he
 and its new hashtags stay dead links until the next edit; ignored members' threads are listed on the
 tag page as in the forum list; past 2,048 closed entries a run is best effort (the page may be empty
 with a link to go on, the sitemap and SEO count see nothing past it).
+
+**Sign-up approval queue and batch update members (item 7h).** Migration (`signup_queue`):
+`users.signup_review` (`pending` or `flagged`, set at sign-up while `approveSignups` is on); a
+partial index `users_signup_review` on `id WHERE signup_review IS NOT NULL AND group_id <> 5` (the
+same text as `AWAITING_SQL`); and a partial index `notifications_signup_alert` on `id WHERE type =
+'moderator.signup' AND read_at IS NULL`, through which the standing alert is cleared. An account
+awaits approval once it is marked and has left Unconfirmed, so confirmation comes first. A waiting
+account is one flag on the principal: the permission engine resolves it as a Guest whatever groups
+it holds (promotions and hand-given groups cannot widen it, and a target that waits is ranked by the
+groups it really holds), a permission that needs an account is refused with `forbidden` and issue
+path `approval`, and `execute()` refuses every write that is not `public` (a test runs them all, so
+a new write operation is covered by default); the upload route is guarded the same way. The one
+thing it keeps is leaving: `profile.deleteAccount` and `users.deleteOwnAccount` work for it. Waiting
+accounts are left out of search, member lists and others' profile pages (privacy `self`).
+Spam-flagged sign-ups, refused while the queue is off, wait marked and are never approved by
+themselves. `member.approveRegistrations` (Moderator, Administrator) opens `signups.list` (email
+masked unless `admin.members` over the account) and `signups.decide`: approve; reject by **ban**
+(the default; the actor's own ban: `member.ban`, length bounded by `member.banMaxDays` like
+`bans.create`; for good closes the account, for a time keeps it held and out of the queue until it
+ends, when a job returns it with an alert) or by **erasure** (a choice: `admin.members` over the
+account, the `users.adminErase` erasure, the actor's password); a ban keeps the sign-up address and
+terms record the queue uses against spam waves. An erasure that stops part way leaves the account in
+the queue, marked, refuses approval and ban, and is finished by deciding again by erasure; the
+rejection mail is queued once, by the transaction that marks the account, and the job drops the
+address on every way out; a second decider on an account being erased gets a conflict. One
+`signup.approve` or `signup.reject` log entry each; en/es mail in the language stored at sign-up. A
+bounded `pendingSignups` counter, and one standing `moderator.signup` alert per staff member that
+lists the newest newcomers and follows the queue: events at every place membership changes
+(decision, ban, lift, erasure, self-deletion) and one job per timed ban rather than a sweep. Batch
+update members is two steps: `users.batchPreview` chooses by a criteria rule (the one engine, only
+criteria cheap to check in a request, at most 10,000 members looked at, resumable) or a list and
+returns ids; `users.batchUpdate` acts on exactly those ids (group, title, avatar, signature, ban,
+lift, erase, up to 100), each through the single action's helper, transaction and log entry, so
+ranks, permissions, ban length and stale actors are the single action's; members the actor may not
+touch, super admins and the actor are skipped and reported; an unfinished erasure is finished by
+erasing again. Known limits: credits for registering and referrals are paid before approval; the
+erasure lock is per process.
