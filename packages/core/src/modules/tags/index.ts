@@ -7,7 +7,7 @@ import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { currentActor, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { iso } from "../../time";
 import { threadValuesFor } from "../forums";
 import { requireSiteView, siteOpenToGuests } from "../members/site-access";
@@ -75,16 +75,22 @@ function tagIdOfName(ctx: Ctx, key: string): number | null {
   return row?.id ?? null;
 }
 
+/** Whether a tag with nothing to show is an empty page (a tag with no thread, to tag managers). */
+const emptyShown = (ctx: Ctx, actor: Parameters<typeof can>[1], threads: number) =>
+  threads === 0 && can(ctx, actor, "tag.manage");
+
 const tagsGetOp = implement(contracts.tagsGet, (ctx, actor, input) => {
   requireSiteView(ctx, actor);
   const tag = pageTag(ctx, input.name);
   // A tag is not shown to a viewer who can open none of its threads: it would name a thread or
   // a forum they cannot see. Not found only when every stream has been read to its end and none
   // held a thread for them; a walk that stopped at its budget (hidden or closed rows ahead of the
-  // visible ones) leaves it undecided, and the tag is shown. A tag with no thread at all is one
-  // staff keep for its old names: its page is the empty one.
+  // visible ones) leaves it undecided, and the tag is shown. A tag with no thread at all, kept
+  // for its old names, is shown to staff who manage tags only: its names may come from a closed
+  // forum whose threads are gone.
   const seen = hubPage(ctx, hubReach(ctx, actor), tag.id, null, 1);
-  if (seen.rows.length === 0 && seen.resume === null && tag.threads > 0) throw new NotFoundError();
+  if (seen.rows.length === 0 && seen.resume === null && !emptyShown(ctx, actor, tag.threads))
+    throw new NotFoundError();
   // The page is indexed for the threads a search engine could index: guests open them and their text.
   const publicThreads = siteOpenToGuests(ctx)
     ? hubThreads(
@@ -110,7 +116,8 @@ const tagsThreadsOp = implement(contracts.tagsThreads, (ctx, actor, input) => {
   const page = rows.slice(0, input.limit);
   // The first page of a tag with nothing to show is a missing page, as in tags.get; one that
   // stopped at its budget goes on from `resume` instead.
-  if (page.length === 0 && !cursor && resume === null && tag.threads > 0) throw new NotFoundError();
+  if (page.length === 0 && !cursor && resume === null && !emptyShown(ctx, actor, tag.threads))
+    throw new NotFoundError();
   const last = page.at(-1);
   return {
     items: threadValuesFor(ctx, actor, page),

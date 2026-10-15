@@ -18,7 +18,7 @@ type Params = (string | number | null)[];
 const readable = (id: string) =>
   `(EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.tag_id = ${id} AND tt.vis = 1 AND tt.node_id IN (SELECT value FROM json_each(?2))) ` +
   `OR EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.tag_id = ${id} AND tt.vis = 1 AND tt.from_post = 0 AND tt.node_id IN (SELECT value FROM json_each(?3))) ` +
-  `OR EXISTS (SELECT 1 FROM thread_tags tt WHERE tt.tag_id = ${id} AND tt.author_id = ?4 AND tt.vis = 1 AND tt.node_id IN (SELECT value FROM json_each(?5))))`;
+  `OR EXISTS (SELECT 1 FROM thread_tags tt INDEXED BY thread_tags_author WHERE tt.tag_id = ${id} AND tt.author_id = ?4 AND tt.vis = 1 AND tt.node_id IN (SELECT value FROM json_each(?5))))`;
 
 export const tagSql = {
   /** typed -> name, for names that are a tag's name or one of its aliases (`?1` a JSON list). */

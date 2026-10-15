@@ -141,15 +141,23 @@ describe("aliases outlive the threads of their tag", () => {
       { name: "javascript", thread_count: 0 },
     ]);
     expect(rows(w, "SELECT name FROM tag_aliases")).toEqual([{ name: "js" }]);
-    // No thread, so an empty page, not a 404: the old name still reaches the tag staff keep.
-    const page = await w.call("tags.get", w.alice, { name: "js" });
+    // No thread: staff who manage tags reach it by its old name and see the empty page; everyone
+    // else gets a 404, since its names may come from a closed forum whose threads are gone.
+    const page = await w.call("tags.get", w.mod, { name: "js" });
     expect(page).toMatchObject({ name: "javascript", redirect: true });
     expect(page.seo.robots).toBe("noindex,follow");
-    expect((await w.call("tags.get", GUEST, { name: "javascript" })).redirect).toBe(false);
-    expect(await w.call("tags.threads", w.alice, { name: "js" })).toEqual({
+    expect(await w.call("tags.threads", w.mod, { name: "js" })).toEqual({
       items: [],
       nextCursor: null,
     });
+    for (const viewer of [w.alice, GUEST]) {
+      await expect(w.call("tags.get", viewer, { name: "javascript" })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+      await expect(w.call("tags.threads", viewer, { name: "js" })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+    }
     const listed = await w.call("tags.list", w.mod, {});
     expect(listed.items).toMatchObject([{ name: "javascript", threadCount: 0, aliases: ["js"] }]);
     // Someone who types the old name later reaches the same tag, not a new unrelated one.

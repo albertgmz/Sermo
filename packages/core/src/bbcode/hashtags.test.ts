@@ -58,6 +58,9 @@ describe("which text is a hashtag", () => {
     expect(normalizeTag("")).toBeNull();
     expect(normalizeTag("two words")).toBeNull();
     expect(normalizeTag("#")).toBeNull();
+    // A leading combining mark would draw on the `#`: no tag, in a name or in text.
+    expect(normalizeTag("́a")).toBeNull();
+    expect(found("x #́a y")).toEqual([]);
   });
 
   test("not after a letter, a number, & or /", () => {

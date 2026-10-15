@@ -11,9 +11,10 @@ const TAG_CHARS = "\\p{L}\\p{M}\\p{N}_";
  * followed by one more tag character (a longer word is not a tag). Whether it holds a letter is
  * checked by `normalizeTag`. Spliced into the inline-marks expression of the tree builder.
  */
-export const HASHTAG_SOURCE = `(?<![\\p{L}\\p{M}\\p{N}&/=#])#([${TAG_CHARS}]{1,${MAX_TAG_LENGTH}})(?![${TAG_CHARS}])`;
+export const HASHTAG_SOURCE = `(?<![\\p{L}\\p{M}\\p{N}&/=#])#([\\p{L}\\p{N}_][${TAG_CHARS}]{0,${MAX_TAG_LENGTH - 1}})(?![${TAG_CHARS}])`;
 
-const TAG_NAME = new RegExp(`^[${TAG_CHARS}]+$`, "u");
+// A name starts with a letter, a number or `_`: a leading combining mark would draw on the `#`.
+const TAG_NAME = new RegExp(`^[\\p{L}\\p{N}_][${TAG_CHARS}]*$`, "u");
 // A letter that shows: the fillers (Hangul fillers) are letters of category Lo that draw nothing.
 const HAS_LETTER = /(?![\u115F\u1160\u3164\uFFA0])\p{L}/u;
 
