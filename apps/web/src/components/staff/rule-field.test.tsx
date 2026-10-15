@@ -81,6 +81,7 @@ test("a form with two rules names each field and offers the cheap criteria only"
         groups: GROUPS,
         awards: [],
         creditRules: [],
+        reactionTypes: [],
       }),
     "shopCategories.list": () => Response.json({ items: [CATEGORY] }),
     "shopItems.list": () => Response.json({ items: [ITEM], nextCursor: null }),
