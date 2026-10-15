@@ -1,14 +1,13 @@
 import type { awardsGet } from "@sermo/core/contracts";
-import { awardsCreate, awardsCriteria } from "@sermo/core/contracts";
+import { awardsCreate } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { Art } from "@/components/forum/art";
-import { CriteriaFields } from "@/components/staff/criteria-fields";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
+import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
-import { read } from "@/lib/sermo/client";
 import { saveAward } from "./actions";
 
 export type Award = z.output<typeof awardsGet.output>;
@@ -16,13 +15,10 @@ export type Award = z.output<typeof awardsGet.output>;
 const TIERS = awardsCreate.input.shape.tier.options;
 const checkbox = "size-5";
 
-// The award form, for a new award (no `award`) or one being edited. The automatic criteria are
-// whatever `awards.criteria` lists; none ticked means the award is given by hand only.
+// The award form, for a new award (no `award`) or one being edited. A rule with no conditions
+// means the award is given by hand only.
 export async function AwardForm({ award }: { award?: Award }) {
-  const [t, { items: criteria }] = await Promise.all([
-    getTranslations("adminEconomy.awards.form"),
-    read(awardsCriteria, {}),
-  ]);
+  const t = await getTranslations("adminEconomy.awards.form");
   const key = `award-${award?.id ?? "new"}`;
   return (
     <FormRows
@@ -155,12 +151,7 @@ export async function AwardForm({ award }: { award?: Award }) {
           {t("activeHelp")}
         </label>
       </FieldRow>
-      <CriteriaFields
-        namespace="adminEconomy.awards.form"
-        criteria={criteria}
-        rule={award?.rule}
-        showHelp={false}
-      />
+      <RuleField place="award" rule={award?.rule} />
     </FormRows>
   );
 }

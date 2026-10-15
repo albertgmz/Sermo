@@ -172,30 +172,14 @@
       "stackable": "Stackable",
       "stackableHelp": "The same member may be granted it any number of times. Otherwise once.",
       "active": "Active",
-      "activeHelp": "An inactive award cannot be granted and is hidden from members.",
-      "criteria": "Given automatically when",
-      "criteriaHelp": "Tick the conditions a member must all meet to be given the award by the system. Tick none for an award given by hand only. An award given automatically is never taken back, and never given again after a revoke.",
-      "use": "use this condition",
-      "holds": "must hold",
-      "notHold": "must not hold",
-      "kinds": {
-        "atLeast": "At least",
-        "atMost": "At most",
-        "below": "Below",
-        "item": "Shop item id"
-      },
-      "units": {
-        "count": "",
-        "days": "days",
-        "points": "points"
-      }
+      "activeHelp": "An inactive award cannot be granted and is hidden from members."
     },
     "errors": {
       "id": "That is not a valid award.",
       "tier": "Choose one of the tiers offered.",
       "number": "Enter a whole number.",
       "file": "That is not a valid uploaded file.",
-      "criterionValue": "Enter a whole number for every condition you ticked."
+      "rule": "The rule could not be read. Reload the page and try again."
     }
   },
   "grants": {
@@ -275,7 +259,8 @@
     },
     "errors": {
       "id": "That is not a valid category.",
-      "whole": "Enter a whole number."
+      "whole": "Enter a whole number.",
+      "rule": "The rule could not be read. Reload the page and try again."
     }
   },
   "items": {
@@ -412,7 +397,8 @@
       "category": "Choose a category.",
       "number": "Enter a whole number.",
       "effect": "Complete the effect: choose what it needs.",
-      "file": "That is not a valid uploaded file."
+      "file": "That is not a valid uploaded file.",
+      "rule": "The rule could not be read. Reload the page and try again."
     }
   },
   "member": {

@@ -109,23 +109,6 @@ export function permissionDefinitionBody(
   };
 }
 
-export function criterionBody(
-  id: string,
-  kind: "atLeast" | "boolean",
-  unit: "count" | "boolean",
-) {
-  return {
-    id,
-    label: `criterion.${id}`,
-    description: `criterion.${id}.description`,
-    title: `Title of ${id}`,
-    help: `Help for ${id}`,
-    kind,
-    unit,
-    cost: "cheap",
-  };
-}
-
 export function postBody(over: Record<string, unknown> = {}) {
   return {
     id: 31,

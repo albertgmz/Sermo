@@ -2,7 +2,6 @@
 
 import {
   promotionsCreate,
-  promotionsCriteria,
   promotionsDelete,
   promotionsRun,
   promotionsUpdate,
@@ -40,15 +39,8 @@ export async function savePromotion(
   if (raw !== "" && promotionId === null) return { error: t("id") };
   const groupIds = groupIdsOf(formData);
   if (groupIds === null) return { fields: { groupIds: t("groupIds") } };
-  let rule: ReturnType<typeof ruleOf>;
-  try {
-    rule = ruleOf((await call(promotionsCriteria, {})).items, formData);
-  } catch (error) {
-    return formFailure(error, []);
-  }
-  if (rule === null) {
-    return { fields: { rule: t("criterionValue") } };
-  }
+  const rule = ruleOf(formData);
+  if (rule === null) return { fields: { rule: t("rule") } };
   const fields = {
     title: text(formData, "title"),
     isActive: formData.get("isActive") !== null,

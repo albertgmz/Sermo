@@ -1,6 +1,5 @@
 import { afterAll, afterEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
-import { criterionBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 import {
   fakeBackend,
@@ -30,12 +29,15 @@ afterAll(() => {
   mock.module("next-intl/server", () => intl);
 });
 
-const CRITERIA = {
-  items: [
-    criterionBody("post_count", "atLeast", "count"),
-    criterionBody("email_verified", "boolean", "boolean"),
+const RULE = {
+  match: "any",
+  conditions: [
+    { criterion: "post_count", value: 50 },
+    { criterion: "post_count", value: 500 },
+    { criterion: "in_group", ids: [3, 4] },
   ],
 };
+const rule = JSON.stringify(RULE);
 
 const PROMOTION = {
   id: 5,
@@ -63,9 +65,8 @@ async function redirectedTo(run: () => Promise<unknown>) {
   return undefined;
 }
 
-test("only the criteria the backend lists and the form ticked are sent", async () => {
+test("the rule the builder wrote is sent as it is, with the ticked groups", async () => {
   backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.create": () => Response.json(PROMOTION),
   });
   const digest = await redirectedTo(() =>
@@ -74,11 +75,7 @@ test("only the criteria the backend lists and the form ticked are sent", async (
       form([
         ["title", "Regulars"],
         ["isActive", "on"],
-        ["use:post_count", "on"],
-        ["value:post_count", "50"],
-        ["value:email_verified", "1"],
-        ["use:invented", "on"],
-        ["value:invented", "3"],
+        ["rule", rule],
         ["groupIds", "7"],
         ["groupIds", "8"],
       ]),
@@ -91,10 +88,7 @@ test("only the criteria the backend lists and the form ticked are sent", async (
       actorPassword: "secret",
       title: "Regulars",
       isActive: true,
-      rule: {
-        match: "all",
-        conditions: [{ criterion: "post_count", value: 50 }],
-      },
+      rule: RULE,
       groupIds: [7, 8],
     },
   });
@@ -102,7 +96,6 @@ test("only the criteria the backend lists and the form ticked are sent", async (
 
 test("an edited promotion goes to its own address with the ticked groups", async () => {
   backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => Response.json(PROMOTION),
   });
   await redirectedTo(() =>
@@ -111,6 +104,7 @@ test("an edited promotion goes to its own address with the ticked groups", async
       form([
         ["id", "5"],
         ["title", "Regulars"],
+        ["rule", rule],
         ["groupIds", "7"],
         ["groupIds", "9"],
         ["groupIds", "7"],
@@ -120,28 +114,30 @@ test("an edited promotion goes to its own address with the ticked groups", async
   expect(backend.asked.at(-1)?.path).toBe("/api/v1/promotions/5");
   expect(backend.asked.at(-1)?.body).toMatchObject({
     isActive: false,
-    rule: { match: "all", conditions: [] },
+    rule: RULE,
     groupIds: [7, 9],
   });
 });
 
-test("a criterion value that is not a number is refused before saving", async () => {
-  backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
-  });
-  expect(
-    await savePromotion(
-      null,
-      form([
-        ["title", "R"],
-        ["use:post_count", "on"],
-        ["value:post_count", "many"],
-        ["groupIds", "7"],
-      ]),
-    ),
-  ).toEqual({
-    fields: { rule: messages.adminGroups.errors.criterionValue },
-  });
+test("a rule that is not one is refused before saving", async () => {
+  backend = fakeBackend({});
+  for (const bad of [
+    undefined,
+    "{broken",
+    "[]",
+    '{"match":"all","conditions":[{"value":3}]}',
+  ])
+    expect(
+      await savePromotion(
+        null,
+        form([
+          ["title", "R"],
+          ...(bad === undefined ? [] : ([["rule", bad]] as [string, string][])),
+          ["groupIds", "7"],
+        ]),
+      ),
+    ).toEqual({ fields: { rule: messages.adminGroups.errors.rule } });
+  expect(backend.asked).toEqual([]);
 });
 
 test("group ids that are not ids are refused", async () => {
@@ -160,7 +156,6 @@ test("group ids that are not ids are refused", async () => {
 
 test("the refusal of a group is shown at the top", async () => {
   backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.create": () =>
       refusal(403, "forbidden", "The guest group cannot be granted."),
   });
@@ -169,6 +164,7 @@ test("the refusal of a group is shown at the top", async () => {
       null,
       form([
         ["title", "R"],
+        ["rule", rule],
         ["groupIds", "1"],
       ]),
     ),
@@ -193,21 +189,18 @@ test("a promotion is not written when the password is missing or wrong", async (
   const fields: [string, string][] = [
     ["id", "5"],
     ["title", "Regulars"],
+    ["rule", rule],
     ["groupIds", "7"],
   ];
   backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => Response.json(PROMOTION),
   });
   expect(await savePromotion(null, form(fields, null))).toEqual({
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
-  expect(backend.asked.map((call) => call.operation)).toEqual([
-    "promotions.criteria",
-  ]);
+  expect(backend.asked).toEqual([]);
   backend.restore();
   backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
     "promotions.update": () => wrongPassword(),
   });
   expect(await savePromotion(null, form(fields, "wrong"))).toEqual({
@@ -215,10 +208,9 @@ test("a promotion is not written when the password is missing or wrong", async (
   });
   // The password goes with the write itself: no call of its own before it.
   expect(backend.asked.map((call) => call.operation)).toEqual([
-    "promotions.criteria",
     "promotions.update",
   ]);
-  expect(backend.asked[1].body).toMatchObject({ actorPassword: "wrong" });
+  expect(backend.asked[0].body).toMatchObject({ actorPassword: "wrong" });
 });
 
 test("a promotion is deleted with the password in the write, and a refused one shows on the field", async () => {
@@ -246,32 +238,4 @@ test("a promotion is deleted with the password in the write, and a refused one s
     fields: { actorPassword: messages.adminGroups.errors.password },
   });
   expect(backend.asked).toEqual([]);
-});
-
-test("an edit keeps how the rule matches and the conditions the form does not draw", async () => {
-  backend = fakeBackend({
-    "promotions.criteria": () => Response.json(CRITERIA),
-    "promotions.update": () => Response.json(PROMOTION),
-  });
-  const kept = [{ criterion: "in_group", ids: [3] }];
-  await redirectedTo(() =>
-    savePromotion(
-      null,
-      form([
-        ["id", "5"],
-        ["title", "Regulars"],
-        ["rule:match", "any"],
-        ["rule:kept", JSON.stringify(kept)],
-        ["use:post_count", "on"],
-        ["value:post_count", "50"],
-        ["groupIds", "7"],
-      ]),
-    ),
-  );
-  expect(backend.asked.at(-1)?.body).toMatchObject({
-    rule: {
-      match: "any",
-      conditions: [{ criterion: "post_count", value: 50 }, ...kept],
-    },
-  });
 });

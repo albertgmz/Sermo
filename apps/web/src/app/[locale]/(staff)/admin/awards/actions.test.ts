@@ -47,30 +47,6 @@ async function redirectedTo(run: () => Promise<unknown>) {
 
 const { saveAward, deleteAward, runAwards } = await import("./actions");
 
-const CRITERIA = {
-  items: [
-    {
-      id: "post_count",
-      label: "l",
-      description: "d",
-      title: "t",
-      help: "h",
-      kind: "atLeast",
-      unit: "count",
-      cost: "cheap",
-    },
-    {
-      id: "has_avatar",
-      label: "l",
-      description: "d",
-      title: "t",
-      help: "h",
-      kind: "boolean",
-      unit: "boolean",
-      cost: "cheap",
-    },
-  ],
-};
 const base = {
   name: "Hero",
   description: "",
@@ -80,9 +56,17 @@ const base = {
   credits: "0",
 };
 
-test("an award sends the criteria ticked, ignores unknown ones, and attaches its picture", async () => {
+const RULE = {
+  match: "any",
+  conditions: [
+    { criterion: "post_count", value: 10 },
+    { criterion: "post_count", value: 100 },
+    { criterion: "in_group", ids: [3] },
+  ],
+};
+
+test("an award sends the rule as the builder wrote it, duplicates and all, and attaches its picture", async () => {
   backend = fakeBackend({
-    "awards.criteria": () => Response.json(CRITERIA),
     "awards.create": () => Response.json(AWARD),
     "images.setAwardImage": () => Response.json(null),
   });
@@ -92,18 +76,13 @@ test("an award sends the criteria ticked, ignores unknown ones, and attaches its
       form({
         ...base,
         fileId: "9",
-        "use:post_count": "on",
-        "value:post_count": "10",
-        "use:invented": "on",
-        "value:invented": "1",
-        "value:has_avatar": "1",
+        rule: JSON.stringify(RULE),
         isStackable: "on",
       }),
     ),
   );
   expect(digest).toMatch(/;\/admin\/awards\?notice=created;/);
   expect(backend.asked.map((call) => [call.operation, call.body])).toEqual([
-    ["awards.criteria", undefined],
     [
       "awards.create",
       {
@@ -115,19 +94,15 @@ test("an award sends the criteria ticked, ignores unknown ones, and attaches its
         credits: 0,
         isStackable: true,
         isActive: false,
-        rule: {
-          match: "all",
-          conditions: [{ criterion: "post_count", value: 10 }],
-        },
+        rule: RULE,
       },
     ],
     ["images.setAwardImage", { fileId: 9 }],
   ]);
 });
 
-test("a bad tier, number or criterion value is refused; the backend answer is shown", async () => {
+test("a bad tier, number or rule is refused; the backend answer is shown", async () => {
   backend = fakeBackend({
-    "awards.criteria": () => Response.json(CRITERIA),
     "awards.update": () => refusal(409, "conflict", "Held more than once."),
   });
   const e = messages.adminEconomy.awards.errors;
@@ -137,15 +112,16 @@ test("a bad tier, number or criterion value is refused; the backend answer is sh
   expect(await saveAward(null, form({ ...base, xp: "x" }))).toEqual({
     fields: { xp: e.number },
   });
-  expect(
-    await saveAward(
-      null,
-      form({ ...base, "use:post_count": "on", "value:post_count": "" }),
-    ),
-  ).toEqual({ fields: { rule: e.criterionValue } });
-  expect(await saveAward(null, form({ ...base, id: "7" }))).toEqual({
-    error: "Held more than once.",
-  });
+  for (const rule of ["", "{broken", '{"match":"some","conditions":[]}'])
+    expect(await saveAward(null, form({ ...base, rule }))).toEqual({
+      fields: { rule: e.rule },
+    });
+  const none = JSON.stringify({ match: "all", conditions: [] });
+  expect(await saveAward(null, form({ ...base, id: "7", rule: none }))).toEqual(
+    {
+      error: "Held more than once.",
+    },
+  );
 });
 
 test("delete shows the backend refusal and the sweep shows its answer", async () => {

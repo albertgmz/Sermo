@@ -171,6 +171,58 @@
     "save": "Guardar cambios",
     "saving": "Guardando…"
   },
+  "ruleBuilder": {
+    "label": {
+      "promotion": "Se aplica a",
+      "award": "Se concede automáticamente cuando",
+      "notice": "Se muestra a",
+      "shopCategory": "Disponible para",
+      "shopItem": "Disponible para"
+    },
+    "help": {
+      "promotion": "Los grupos de abajo se añaden mientras se cumplen las condiciones y se quitan cuando dejan de cumplirse.",
+      "award": "Déjalo vacío para un trofeo que solo se concede a mano. Un trofeo concedido automáticamente nunca se retira, y no se vuelve a conceder tras una revocación.",
+      "notice": "Los invitados son los visitantes que no han iniciado sesión; los miembros son todos los demás. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
+      "shopCategory": "Quién ve esta categoría y sus artículos. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
+      "shopItem": "Quién ve y puede comprar este artículo, además del público de su categoría. Solo se ofrecen condiciones que se pueden comprobar en cada página."
+    },
+    "match": {
+      "legend": "Cómo se combinan las condiciones",
+      "all": "Todas estas",
+      "any": "Alguna de estas"
+    },
+    "empty": {
+      "everyone": "Todos. Añade una condición para acotarlo.",
+      "manual": "Solo a mano: nadie lo recibe automáticamente. Añade una condición para concederlo automáticamente.",
+      "required": "Una promoción necesita al menos una condición. Añade una abajo."
+    },
+    "remove": "Quitar {title}",
+    "kept": "No se edita aquí, se guarda tal cual: {detail}",
+    "add": {
+      "label": "Añadir una condición",
+      "choose": "Añadir una condición…",
+      "button": "Añadir"
+    },
+    "holds": "Debe cumplirse",
+    "notHold": "No debe cumplirse",
+    "kinds": {
+      "atLeast": "Al menos",
+      "atMost": "Como máximo",
+      "below": "Por debajo de"
+    },
+    "units": {
+      "count": "",
+      "days": "días",
+      "points": "puntos"
+    },
+    "picker": {
+      "placeholder": "Escribe para buscar",
+      "search": "buscar",
+      "remove": "Quitar {name}",
+      "noMatch": "Sin resultados."
+    },
+    "unreadable": "La lista de condiciones no está abierta para ti, así que la regla se guarda tal cual."
+  },
   "ordering": {
     "none": "No se guardó nada. Se rechazó «{title}»: {message}",
     "partial": "Se guardaron {saved} de {total}. Se rechazó «{title}»: {message}"

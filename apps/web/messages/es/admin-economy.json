@@ -172,30 +172,14 @@
       "stackable": "Acumulable",
       "stackableHelp": "El mismo miembro puede recibirlo cualquier número de veces. Si no, solo una.",
       "active": "Activo",
-      "activeHelp": "Un trofeo inactivo no se puede conceder y se oculta a los miembros.",
-      "criteria": "Se concede automáticamente cuando",
-      "criteriaHelp": "Marca las condiciones que un miembro debe cumplir todas para que el sistema le conceda el trofeo. No marques ninguna para un trofeo que solo se concede a mano. Un trofeo concedido automáticamente nunca se retira, y no se vuelve a conceder tras una revocación.",
-      "use": "usar esta condición",
-      "holds": "debe tenerlo",
-      "notHold": "no debe tenerlo",
-      "kinds": {
-        "atLeast": "Al menos",
-        "atMost": "Como máximo",
-        "below": "Menos de",
-        "item": "ID del artículo de la tienda"
-      },
-      "units": {
-        "count": "",
-        "days": "días",
-        "points": "puntos"
-      }
+      "activeHelp": "Un trofeo inactivo no se puede conceder y se oculta a los miembros."
     },
     "errors": {
       "id": "Ese trofeo no es válido.",
       "tier": "Elige uno de los niveles ofrecidos.",
       "number": "Escribe un número entero.",
       "file": "Ese archivo subido no es válido.",
-      "criterionValue": "Escribe un número entero para cada condición que marcaste."
+      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
     }
   },
   "grants": {
@@ -275,7 +259,8 @@
     },
     "errors": {
       "id": "Esa categoría no es válida.",
-      "whole": "Escribe un número entero."
+      "whole": "Escribe un número entero.",
+      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
     }
   },
   "items": {
@@ -412,7 +397,8 @@
       "category": "Elige una categoría.",
       "number": "Escribe un número entero.",
       "effect": "Completa el efecto: elige lo que necesita.",
-      "file": "Ese archivo subido no es válido."
+      "file": "Ese archivo subido no es válido.",
+      "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
     }
   },
   "member": {

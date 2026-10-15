@@ -6,6 +6,7 @@ import { CheckRow, InputRow } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { PictureField } from "@/components/staff/picture-field";
 import { selectClass } from "@/components/staff/rows";
+import { RuleField } from "@/components/staff/rule-field";
 import { saveItem } from "./actions";
 import { type EffectType, type Initial, ItemEffect } from "./item-effect";
 import type { Lookups } from "./lookups";
@@ -231,6 +232,7 @@ export async function ItemForm({
         text={t("activeHelp")}
         defaultChecked={item ? item.isActive : true}
       />
+      <RuleField place="shopItem" rule={item?.rule} />
     </FormRows>
   );
 }

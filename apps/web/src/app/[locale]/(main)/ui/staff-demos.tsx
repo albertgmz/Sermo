@@ -4,6 +4,7 @@ import type { NavSection } from "@/app/[locale]/(staff)/navigation-data";
 import { UserLink } from "@/components/forum/user-link";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
 import { ConfirmStep } from "@/components/staff/confirm-step";
+import type { Criterion } from "@/components/staff/criteria-rule";
 import { CursorList } from "@/components/staff/cursor-list";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { LogTable } from "@/components/staff/log-table";
@@ -13,8 +14,52 @@ import {
   PermissionMatrix,
 } from "@/components/staff/permission-matrix";
 import { PictureField } from "@/components/staff/picture-field";
+import { RuleBuilder } from "@/components/staff/rule-builder";
 import { Input } from "@/components/ui/input";
 import { plainMember } from "@/lib/sermo/members";
+
+const CRITERIA: Criterion[] = [
+  {
+    id: "post_count",
+    title: "Posts",
+    help: "How many posts the member has written.",
+    kind: "atLeast",
+    unit: "count",
+    cost: "cheap",
+  },
+  {
+    id: "has_avatar",
+    title: "Has a picture",
+    help: "",
+    kind: "boolean",
+    unit: "boolean",
+    cost: "cheap",
+  },
+  {
+    id: "warning_points_below",
+    title: "Warning points",
+    help: "Unexpired points, summed in the background.",
+    kind: "below",
+    unit: "points",
+    cost: "background",
+  },
+  {
+    id: "in_group",
+    title: "In one of these groups",
+    help: "",
+    kind: "groups",
+    unit: "groups",
+    cost: "cheap",
+  },
+  {
+    id: "is_member",
+    title: "Is one of these members",
+    help: "",
+    kind: "members",
+    unit: "members",
+    cost: "cheap",
+  },
+];
 
 const MATRIX: MatrixPermission[] = [
   {
@@ -267,6 +312,45 @@ export function StaffDemos() {
               </span>
             }
           />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold">Rule builder</h3>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          The one editor of a rule (who something applies to), for promotions,
+          awards, notices and the shop. The place decides which criteria are
+          offered (the shop and notices only take the cheap ones, so the
+          background one is missing from the second) and what an empty rule
+          says. The rule travels in one JSON field named <code>rule</code>.
+        </p>
+        <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+          {(["award", "notice"] as const).map((place) => (
+            <div key={place} className="rounded-lg border bg-card p-4">
+              <h4 className="mb-3 text-xs font-semibold text-muted-foreground">
+                {place}
+              </h4>
+              <RuleBuilder
+                place={place}
+                criteria={CRITERIA}
+                rule={{
+                  match: "any",
+                  conditions: [
+                    { criterion: "post_count", value: 100 },
+                    { criterion: "has_avatar", value: 1 },
+                  ],
+                }}
+                choices={{
+                  groups: [
+                    { id: 3, label: "Moderators" },
+                    { id: 4, label: "Veterans" },
+                  ],
+                  items: [],
+                  members: [],
+                }}
+              />
+            </div>
+          ))}
         </div>
       </div>
 

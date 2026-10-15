@@ -8,6 +8,7 @@ import { CheckRow, InputRow } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { Notice } from "@/components/staff/notice";
 import { Section } from "@/components/staff/rows";
+import { RuleField } from "@/components/staff/rule-field";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { read } from "@/lib/sermo/client";
@@ -59,6 +60,7 @@ async function CategoryForm({ category }: { category?: Category }) {
         text={t("activeHelp")}
         defaultChecked={category ? category.isActive : true}
       />
+      <RuleField place="shopCategory" rule={category?.rule} />
     </FormRows>
   );
 }

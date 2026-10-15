@@ -12,8 +12,8 @@
     "target": "Ese no es un grupo ni un miembro que se pueda cambiar.",
     "password": "Introduce tu contraseña para confirmar el cambio.",
     "value": "Introduce un número entero para {title}.",
-    "criterionValue": "Introduce un número entero para cada criterio que uses.",
-    "groupIds": "Elige los grupos de la lista."
+    "groupIds": "Elige los grupos de la lista.",
+    "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
   },
   "colourPicker": {
     "legend": "Color del nombre",
@@ -97,24 +97,8 @@
     "title": "Título",
     "isActive": "Activa",
     "isActiveHelp": "Evaluar a los miembros con esta promoción.",
-    "criteria": "Criterios",
-    "criteriaHelp": "Marca los criterios que quieras usar, con su valor. Deben cumplirse todos los criterios marcados.",
     "groups": "Grupos añadidos",
-    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios.",
-    "holds": "Debe cumplirse",
-    "notHold": "No debe cumplirse",
-    "use": "usar este criterio",
-    "kinds": {
-      "atLeast": "Al menos",
-      "atMost": "Como máximo",
-      "below": "Por debajo de",
-      "item": "ID del artículo de la tienda"
-    },
-    "units": {
-      "count": "cantidad",
-      "days": "días",
-      "points": "puntos"
-    }
+    "groupsHelp": "Los grupos secundarios que la promoción añade mientras se cumplen sus criterios."
   },
   "promotionEdit": {
     "metaTitle": "Promoción de grupo",

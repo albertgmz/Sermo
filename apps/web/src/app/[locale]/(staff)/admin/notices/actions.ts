@@ -11,11 +11,10 @@ import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text } from "../groups/form-errors";
-import { AUDIENCES, ruleOfAudience } from "./audience";
+import { formFailure, ruleOf, text } from "../groups/form-errors";
 import { dateValue } from "./dates";
 
-const FIELDS = ["title", "body", "audience", "groupId", "startsAt", "endsAt"];
+const FIELDS = ["title", "body", "rule", "startsAt", "endsAt"];
 
 type Parsed = z.input<typeof noticesCreate.input>;
 
@@ -24,22 +23,8 @@ async function fields(
   formData: FormData,
 ): Promise<Parsed | { fields: Record<string, string> }> {
   const t = await getTranslations("adminCommunication.errors");
-  const chosen = text(formData, "audience");
-  const audience = AUDIENCES.find((name) => name === chosen);
-  if (!audience && chosen !== "custom")
-    return { fields: { audience: t("choice") } };
-  const groupId = parseId(text(formData, "groupId"));
-  if (audience === "group" && groupId === null)
-    return { fields: { groupId: t("group") } };
-  // A rule the form cannot draw travels in a hidden field and is saved as it was.
-  let rule: Parsed["rule"];
-  if (audience) rule = ruleOfAudience(audience, groupId);
-  else
-    try {
-      rule = JSON.parse(text(formData, "rule"));
-    } catch {
-      return { fields: { audience: t("choice") } };
-    }
+  const rule = ruleOf(formData);
+  if (rule === null) return { fields: { rule: t("rule") } };
   const startsAt = dateValue(text(formData, "startsAt"));
   if (startsAt === undefined) return { fields: { startsAt: t("date") } };
   const endsAt = dateValue(text(formData, "endsAt"));

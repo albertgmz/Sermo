@@ -47,12 +47,21 @@ async function redirectedTo(run: () => Promise<unknown>) {
 
 const { saveItem, deleteItem } = await import("./actions");
 
+const RULE = {
+  match: "any",
+  conditions: [
+    { criterion: "purchased_item", value: 8 },
+    { criterion: "in_group", ids: [3] },
+    { criterion: "in_group", ids: [4] },
+  ],
+};
 const base = {
   categoryId: "1",
   name: "Item",
   price: "10",
   position: "0",
   isActive: "on",
+  rule: JSON.stringify(RULE),
 };
 
 test("each effect type sends exactly the fields it needs", async () => {
@@ -102,6 +111,19 @@ test("each effect type sends exactly the fields it needs", async () => {
   expect(
     backend.asked.map((call) => (call.body as { effect: unknown }).effect),
   ).toEqual(effects.map(([, effect]) => effect));
+});
+
+test("the rule the builder wrote is sent with the item, and a missing one is refused", async () => {
+  backend = fakeBackend({ "shopItems.create": () => Response.json(ITEM) });
+  await redirectedTo(() =>
+    saveItem(null, form({ ...base, effectType: "bump" })),
+  );
+  expect(backend.asked[0]?.body).toMatchObject({ rule: RULE });
+  const { rule: _rule, ...without } = base;
+  expect(
+    await saveItem(null, form({ ...without, effectType: "bump" })),
+  ).toEqual({ fields: { rule: messages.adminEconomy.items.errors.rule } });
+  expect(backend.asked).toHaveLength(1);
 });
 
 test("a consumable item sends no duration, any other its duration in seconds", async () => {

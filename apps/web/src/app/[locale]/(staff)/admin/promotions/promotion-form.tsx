@@ -1,12 +1,10 @@
 import type { promotionsGet } from "@sermo/core/contracts";
-import { promotionsCriteria } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
 import { ConfirmPassword } from "@/components/staff/confirm-password";
-import { CriteriaFields } from "@/components/staff/criteria-fields";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
+import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
-import { read } from "@/lib/sermo/client";
 import { getGroups } from "../groups/data";
 import { savePromotion } from "./actions";
 
@@ -14,12 +12,11 @@ type Promotion = z.output<typeof promotionsGet.output>;
 
 const checkbox = "size-5";
 
-// The promotion form, for a new rule (no `promotion`) or one being edited. The criteria are
-// whatever `promotions.criteria` lists; the target groups are every group.
+// The promotion form, for a new rule (no `promotion`) or one being edited. The target groups are
+// every group.
 export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
-  const [t, { items: criteria }, groups] = await Promise.all([
+  const [t, groups] = await Promise.all([
     getTranslations("adminGroups.promotionForm"),
-    read(promotionsCriteria, {}),
     getGroups(),
   ]);
   const chosen = new Set(promotion?.groupIds);
@@ -56,12 +53,7 @@ export async function PromotionForm({ promotion }: { promotion?: Promotion }) {
           {t("isActiveHelp")}
         </label>
       </FieldRow>
-      <CriteriaFields
-        namespace="adminGroups.promotionForm"
-        criteria={criteria}
-        rule={promotion?.rule}
-        showHelp
-      />
+      <RuleField place="promotion" rule={promotion?.rule} />
       <FieldRow name="groupIds" label={t("groups")} help={t("groupsHelp")}>
         <fieldset className="grid gap-1 sm:grid-cols-2">
           <legend className="sr-only">{t("groups")}</legend>

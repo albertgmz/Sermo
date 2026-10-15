@@ -2,11 +2,11 @@
   "errors": {
     "confirm": "Tick the confirmation to send the announcement.",
     "number": "Enter a whole number.",
-    "choice": "Choose one of the options.",
     "group": "Choose a group.",
     "usernames": "Type at least one username.",
     "date": "Enter a valid date and time.",
-    "id": "That notice cannot be identified."
+    "id": "That notice cannot be identified.",
+    "rule": "The rule could not be read. Reload the page and try again."
   },
   "announcements": {
     "metaTitle": "Send alert",
@@ -132,16 +132,10 @@
       "title": "Title",
       "body": "Text",
       "bodyHelp": "Markdown.",
-      "audience": "Shown to",
-      "audienceHelp": "Guests are visitors who are not signed in; members are everyone who is.",
       "everyone": "Everyone",
       "guests": "Guests",
       "members": "Members",
-      "group": "A group",
-      "custom": "A custom rule (kept as it is)",
-      "groupLabel": "Group",
-      "groupHelp": "Used when shown to a group: its primary and secondary members.",
-      "groupNone": "Choose a group",
+      "custom": "A custom rule",
       "dismissible": "Dismiss",
       "dismissibleSwitch": "Visitors can dismiss it",
       "active": "Active",

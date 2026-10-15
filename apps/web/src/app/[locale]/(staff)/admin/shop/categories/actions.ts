@@ -13,12 +13,13 @@ import { parseId } from "@/lib/sermo/ids";
 import {
   formFailure,
   type OrderChange,
+  ruleOf,
   saveInOrder,
   text,
   whole,
 } from "../../groups/form-errors";
 
-const FIELDS = ["name", "description", "position", "isActive"];
+const FIELDS = ["name", "description", "position", "isActive", "rule"];
 const PATH = "/admin/shop/categories";
 
 // A new category (no id) or a change of one. A new category takes its place from `position`
@@ -35,10 +36,13 @@ export async function saveCategory(
   const typed = text(formData, "position").trim();
   const position = typed === "" ? undefined : whole(typed);
   if (position === null) return { fields: { position: t("whole") } };
+  const rule = ruleOf(formData);
+  if (rule === null) return { fields: { rule: t("rule") } };
   const fields = {
     name: text(formData, "name"),
     description: text(formData, "description"),
     isActive: formData.get("isActive") !== null,
+    rule,
   };
   try {
     if (categoryId === null) {

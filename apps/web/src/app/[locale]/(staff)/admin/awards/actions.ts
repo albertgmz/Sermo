@@ -2,7 +2,6 @@
 
 import {
   awardsCreate,
-  awardsCriteria,
   awardsDelete,
   awardsRun,
   awardsUpdate,
@@ -50,13 +49,8 @@ export async function saveAward(
   if (fileId === null) return { error: t("file") };
   const removePicture = text(formData, "fileIdRemove") === "1";
 
-  let rule: ReturnType<typeof ruleOf>;
-  try {
-    rule = ruleOf((await call(awardsCriteria, {})).items, formData);
-  } catch (error) {
-    return formFailure(error, []);
-  }
-  if (rule === null) return { fields: { rule: t("criterionValue") } };
+  const rule = ruleOf(formData);
+  if (rule === null) return { fields: { rule: t("rule") } };
 
   const fields = {
     name: text(formData, "name"),

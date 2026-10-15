@@ -1,10 +1,8 @@
 import type { Rule } from "@/components/staff/criteria-rule";
 
-export const AUDIENCES = ["everyone", "guests", "members", "group"] as const;
-export type Audience = (typeof AUDIENCES)[number] | "custom";
+export type Audience = "everyone" | "guests" | "members" | "group" | "custom";
 
-// What the notice form offers is four simple audiences; each is one rule. A rule that is none of
-// them (made through the API) is shown as `custom` and saved back as it was.
+// The notice list names four simple audiences, each one rule. Any other rule is `custom`.
 export function audienceOf(rule: Rule): {
   audience: Audience;
   groupId: number | null;
@@ -27,18 +25,4 @@ export function audienceOf(rule: Rule): {
   )
     return { audience: "group", groupId: only.ids[0] ?? null };
   return { audience: "custom", groupId: null };
-}
-
-export function ruleOfAudience(
-  audience: (typeof AUDIENCES)[number],
-  groupId: number | null,
-): Rule {
-  const conditions: Rule["conditions"] = [];
-  if (audience === "guests")
-    conditions.push({ criterion: "is_guest", value: 1 });
-  if (audience === "members")
-    conditions.push({ criterion: "is_guest", value: 0 });
-  if (audience === "group" && groupId !== null)
-    conditions.push({ criterion: "in_group", ids: [groupId] });
-  return { match: "all", conditions };
 }

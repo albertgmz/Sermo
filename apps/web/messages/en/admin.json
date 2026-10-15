@@ -171,6 +171,58 @@
     "save": "Save changes",
     "saving": "Saving…"
   },
+  "ruleBuilder": {
+    "label": {
+      "promotion": "Applies to",
+      "award": "Given automatically when",
+      "notice": "Shown to",
+      "shopCategory": "Available to",
+      "shopItem": "Available to"
+    },
+    "help": {
+      "promotion": "The groups below are added while the conditions hold and removed when they stop holding.",
+      "award": "Leave it empty for an award given by hand only. An award given automatically is never taken back, and never given again after a revoke.",
+      "notice": "Guests are visitors who are not signed in; members are everyone who is. Only conditions that can be checked on every page are offered.",
+      "shopCategory": "Who sees this category and the items in it. Only conditions that can be checked on every page are offered.",
+      "shopItem": "Who sees and can buy this item, on top of the audience of its category. Only conditions that can be checked on every page are offered."
+    },
+    "match": {
+      "legend": "How the conditions combine",
+      "all": "All of these",
+      "any": "Any of these"
+    },
+    "empty": {
+      "everyone": "Everyone. Add a condition to narrow it down.",
+      "manual": "Manual only: nobody is given it automatically. Add a condition to give it automatically.",
+      "required": "A promotion needs at least one condition. Add one below."
+    },
+    "remove": "Remove {title}",
+    "kept": "Not edited here, saved as it is: {detail}",
+    "add": {
+      "label": "Add a condition",
+      "choose": "Add a condition…",
+      "button": "Add"
+    },
+    "holds": "Must hold",
+    "notHold": "Must not hold",
+    "kinds": {
+      "atLeast": "At least",
+      "atMost": "At most",
+      "below": "Below"
+    },
+    "units": {
+      "count": "",
+      "days": "days",
+      "points": "points"
+    },
+    "picker": {
+      "placeholder": "Type to search",
+      "search": "search",
+      "remove": "Remove {name}",
+      "noMatch": "No match."
+    },
+    "unreadable": "The list of conditions is not open to you, so the rule is saved as it is."
+  },
   "ordering": {
     "none": "Nothing was saved. “{title}” was refused: {message}",
     "partial": "Saved {saved} of {total}. “{title}” was refused: {message}"

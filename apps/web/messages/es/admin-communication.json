@@ -2,11 +2,11 @@
   "errors": {
     "confirm": "Marca la confirmación para enviar el anuncio.",
     "number": "Escribe un número entero.",
-    "choice": "Elige una de las opciones.",
     "group": "Elige un grupo.",
     "usernames": "Escribe al menos un nombre de usuario.",
     "date": "Escribe una fecha y hora válidas.",
-    "id": "No se puede identificar ese aviso."
+    "id": "No se puede identificar ese aviso.",
+    "rule": "No se pudo leer la regla. Recarga la página e inténtalo de nuevo."
   },
   "announcements": {
     "metaTitle": "Enviar alerta",
@@ -132,16 +132,10 @@
       "title": "Título",
       "body": "Texto",
       "bodyHelp": "Markdown.",
-      "audience": "Se muestra a",
-      "audienceHelp": "Los invitados son los visitantes sin sesión; los miembros son todos los que la tienen.",
       "everyone": "Todos",
       "guests": "Invitados",
       "members": "Miembros",
-      "group": "Un grupo",
-      "custom": "Una regla personalizada (se conserva tal cual)",
-      "groupLabel": "Grupo",
-      "groupHelp": "Se usa cuando se muestra a un grupo: sus miembros principales y secundarios.",
-      "groupNone": "Elige un grupo",
+      "custom": "Una regla personalizada",
       "dismissible": "Descartar",
       "dismissibleSwitch": "Los visitantes pueden descartarlo",
       "active": "Activo",

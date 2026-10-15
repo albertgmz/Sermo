@@ -12,8 +12,8 @@
     "target": "That is not a group or member to change.",
     "password": "Enter your password to confirm the change.",
     "value": "Enter a whole number for {title}.",
-    "criterionValue": "Enter a whole number for every criterion you use.",
-    "groupIds": "Choose the groups from the list."
+    "groupIds": "Choose the groups from the list.",
+    "rule": "The rule could not be read. Reload the page and try again."
   },
   "colourPicker": {
     "legend": "Name colour",
@@ -97,24 +97,8 @@
     "title": "Title",
     "isActive": "Active",
     "isActiveHelp": "Evaluate members against this promotion.",
-    "criteria": "Criteria",
-    "criteriaHelp": "Tick the criteria to use, with their value. All of the ticked criteria must hold.",
     "groups": "Groups added",
-    "groupsHelp": "The secondary groups the promotion adds while its criteria hold.",
-    "holds": "Must hold",
-    "notHold": "Must not hold",
-    "use": "use this criterion",
-    "kinds": {
-      "atLeast": "At least",
-      "atMost": "At most",
-      "below": "Below",
-      "item": "Shop item id"
-    },
-    "units": {
-      "count": "count",
-      "days": "days",
-      "points": "points"
-    }
+    "groupsHelp": "The secondary groups the promotion adds while its criteria hold."
   },
   "promotionEdit": {
     "metaTitle": "Group promotion",

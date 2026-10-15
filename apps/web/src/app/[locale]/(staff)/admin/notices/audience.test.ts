@@ -1,30 +1,22 @@
 import { expect, test } from "bun:test";
-import { audienceOf, ruleOfAudience } from "./audience";
+import { audienceOf } from "./audience";
 
-test("each simple audience is one rule and reads back as itself", () => {
-  expect(ruleOfAudience("everyone", null)).toEqual({
-    match: "all",
-    conditions: [],
+test("the four simple audiences read as themselves", () => {
+  const read = (conditions: object[]) =>
+    audienceOf({ match: "all", conditions: conditions as never });
+  expect(read([])).toEqual({ audience: "everyone", groupId: null });
+  expect(read([{ criterion: "is_guest", value: 1 }])).toEqual({
+    audience: "guests",
+    groupId: null,
   });
-  expect(ruleOfAudience("guests", null).conditions).toEqual([
-    { criterion: "is_guest", value: 1 },
-  ]);
-  expect(ruleOfAudience("members", null).conditions).toEqual([
-    { criterion: "is_guest", value: 0 },
-  ]);
-  expect(ruleOfAudience("group", 7).conditions).toEqual([
-    { criterion: "in_group", ids: [7] },
-  ]);
-  for (const [audience, groupId] of [
-    ["everyone", null],
-    ["guests", null],
-    ["members", null],
-    ["group", 7],
-  ] as const)
-    expect(audienceOf(ruleOfAudience(audience, groupId))).toEqual({
-      audience,
-      groupId,
-    });
+  expect(read([{ criterion: "is_guest", value: 0 }])).toEqual({
+    audience: "members",
+    groupId: null,
+  });
+  expect(read([{ criterion: "in_group", ids: [7] }])).toEqual({
+    audience: "group",
+    groupId: 7,
+  });
 });
 
 test("any other rule is custom", () => {

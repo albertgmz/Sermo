@@ -13,7 +13,7 @@ import type * as z from "zod";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
-import { formFailure, text, whole } from "../../groups/form-errors";
+import { formFailure, ruleOf, text, whole } from "../../groups/form-errors";
 
 const FIELDS = [
   "categoryId",
@@ -27,6 +27,7 @@ const FIELDS = [
   "effect",
   "position",
   "isActive",
+  "rule",
 ];
 const PATH = "/admin/shop/items";
 
@@ -111,6 +112,8 @@ export async function saveItem(
   }
   const effect = effectOf(formData);
   if (effect === null) return { fields: { effect: t("effect") } };
+  const rule = ruleOf(formData);
+  if (rule === null) return { fields: { rule: t("rule") } };
   const typedFile = text(formData, "fileId");
   const fileId = typedFile === "" ? undefined : parseId(typedFile);
   if (fileId === null) return { error: t("file") };
@@ -147,6 +150,7 @@ export async function saveItem(
     ...(itemId !== null && unchangedDuration ? {} : { durationSeconds }),
     effect,
     position,
+    rule,
   };
   let saved: number;
   try {

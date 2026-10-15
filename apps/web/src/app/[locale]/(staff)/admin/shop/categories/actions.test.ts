@@ -49,21 +49,33 @@ const { saveCategory, saveCategoryOrder, deleteCategory } = await import(
   "./actions"
 );
 
+const RULE = {
+  match: "all",
+  conditions: [{ criterion: "is_guest", value: 0 }],
+};
+const rule = JSON.stringify(RULE);
+
 test("a new category may name its place; an edit never sends a position", async () => {
   backend = fakeBackend({
     "shopCategories.create": () => Response.json(CATEGORY),
     "shopCategories.update": () => Response.json(CATEGORY),
   });
   await redirectedTo(() =>
-    saveCategory(null, form({ name: "A", position: "3", isActive: "on" })),
+    saveCategory(
+      null,
+      form({ name: "A", position: "3", isActive: "on", rule }),
+    ),
   );
   await redirectedTo(() =>
-    saveCategory(null, form({ id: "2", name: "A", position: "9" })),
+    saveCategory(null, form({ id: "2", name: "A", position: "9", rule })),
   );
   expect(backend.asked.map((call) => call.body)).toEqual([
-    { name: "A", description: "", isActive: true, position: 3 },
-    { name: "A", description: "", isActive: false },
+    { name: "A", description: "", isActive: true, rule: RULE, position: 3 },
+    { name: "A", description: "", isActive: false, rule: RULE },
   ]);
+  expect(await saveCategory(null, form({ name: "A" }))).toEqual({
+    fields: { rule: messages.adminEconomy.categories.errors.rule },
+  });
 });
 
 test("save order sends only the numbers that changed", async () => {

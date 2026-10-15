@@ -42,7 +42,7 @@ const fields = (extra: [string, string][] = []): [string, string][] => [
     [
       ["title", "Maintenance"],
       ["body", "Tonight.\r\nLate."],
-      ["audience", "everyone"],
+      ["rule", JSON.stringify(NOTICE.rule)],
       ["dismissible", "on"],
       ["active", "on"],
     ] as [string, string][]
@@ -75,69 +75,47 @@ test("a new notice is sent with its rule, switches and dates in UTC", async () =
   });
 });
 
-test("unticked switches are sent off, and a group is kept only for the group audience", async () => {
+test("unticked switches are sent off, and the rule goes as the builder wrote it", async () => {
   backend = fakeBackend({ "notices.create": () => Response.json(NOTICE) });
+  const rule = {
+    match: "any",
+    conditions: [
+      { criterion: "is_guest", value: 0 },
+      { criterion: "in_group", ids: [3] },
+      { criterion: "in_group", ids: [4, 5] },
+    ],
+  };
   await redirectedTo(() =>
     createNotice(
       null,
       form([
         ["title", "T"],
         ["body", "B"],
-        ["audience", "members"],
-        ["groupId", "3"],
+        ["rule", JSON.stringify(rule)],
       ]),
     ),
   );
   expect(backend.asked[0]?.body).toMatchObject({
-    rule: { match: "all", conditions: [{ criterion: "is_guest", value: 0 }] },
+    rule,
     dismissible: false,
     active: false,
   });
-  await redirectedTo(() =>
-    createNotice(
-      null,
-      form([
-        ["title", "T"],
-        ["body", "B"],
-        ["audience", "group"],
-        ["groupId", "3"],
-      ]),
-    ),
-  );
-  expect(backend.asked[1]?.body).toMatchObject({
-    rule: { match: "all", conditions: [{ criterion: "in_group", ids: [3] }] },
-  });
-  await redirectedTo(() =>
-    createNotice(
-      null,
-      form([
-        ["title", "T"],
-        ["body", "B"],
-        ["audience", "guests"],
-      ]),
-    ),
-  );
-  expect(backend.asked[2]?.body).toMatchObject({
-    rule: { match: "all", conditions: [{ criterion: "is_guest", value: 1 }] },
-  });
 });
 
-test("an audience that is not offered, a missing group or a bad date is refused before sending", async () => {
+test("a missing or damaged rule or a bad date is refused before sending", async () => {
   backend = fakeBackend({});
   const errors = messages.adminCommunication.errors;
-  expect(await createNotice(null, form(fields([["audience", "all"]])))).toEqual(
-    { fields: { audience: errors.choice } },
-  );
-  expect(
-    await createNotice(
-      null,
-      form([
-        ["title", "T"],
-        ["body", "B"],
-        ["audience", "group"],
-      ]),
-    ),
-  ).toEqual({ fields: { groupId: errors.group } });
+  for (const rule of [
+    undefined,
+    "{broken",
+    '{"match":"none","conditions":[]}',
+  ]) {
+    const sent = fields().filter(([name]) => name !== "rule");
+    if (rule !== undefined) sent.push(["rule", rule]);
+    expect(await createNotice(null, form(sent))).toEqual({
+      fields: { rule: errors.rule },
+    });
+  }
   expect(
     await createNotice(null, form(fields([["startsAt", "soon"]]))),
   ).toEqual({ fields: { startsAt: errors.date } });
@@ -181,39 +159,4 @@ test("deleting sends the id and returns to the list; a refusal is shown", async 
   expect(await removeNotice(null, form([["id", "3"]]))).toEqual({
     error: "Not found.",
   });
-});
-
-test("a custom rule is sent back as it was read, and a damaged one is refused before sending", async () => {
-  backend = fakeBackend({ "notices.update": () => Response.json(NOTICE) });
-  const rule = {
-    match: "any",
-    conditions: [{ criterion: "is_member", ids: [4, 5] }],
-  };
-  await redirectedTo(() =>
-    saveNotice(
-      null,
-      form([
-        ["id", "3"],
-        ...fields([
-          ["audience", "custom"],
-          ["rule", JSON.stringify(rule)],
-        ]),
-      ]),
-    ),
-  );
-  expect(backend.asked[0]?.body).toMatchObject({ rule });
-  const errors = messages.adminCommunication.errors;
-  expect(
-    await saveNotice(
-      null,
-      form([
-        ["id", "3"],
-        ...fields([
-          ["audience", "custom"],
-          ["rule", "{broken"],
-        ]),
-      ]),
-    ),
-  ).toEqual({ fields: { audience: errors.choice } });
-  expect(backend.asked).toHaveLength(1);
 });
