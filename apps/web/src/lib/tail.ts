@@ -61,17 +61,30 @@ export function newestHeld(
 
 const tails = createKeyedStore<Tail>();
 
+// What the tails hold outlives the component that shows them: a list that is hidden for a moment
+// (a boundary above it waits for something) is shown again with its rows, and only the page
+// drawn newer than a row takes it away (`LiveTail`).
 export const useTail = (key: string) => tails.use(key);
-// Whether a tail is on the screen under that key: a form that finds none sends the old way, with a
-// redirect, to a page that has it.
-export const tailIsShown = (key: string) => tails.get(key) !== undefined;
 export const readTail = (key: string) => tails.get(key);
 export const writeTail = (key: string, tail: Tail | undefined) =>
   tails.set(key, tail);
 export function updateTail(key: string, change: (tail: Tail) => Tail) {
-  const tail = tails.get(key);
-  if (tail) tails.set(key, change(tail));
+  tails.set(key, change(tails.get(key) ?? EMPTY_TAIL));
 }
+
+// Which tails are on the screen now: a form that finds none under its key sends the old way, with
+// a redirect, to a page that has it. A tail says so while it is shown, and takes it back when it
+// is not.
+const shown = new Map<string, number>();
+export function markTailShown(key: string) {
+  shown.set(key, (shown.get(key) ?? 0) + 1);
+  return () => {
+    const left = (shown.get(key) ?? 1) - 1;
+    if (left > 0) shown.set(key, left);
+    else shown.delete(key);
+  };
+}
+export const tailIsShown = (key: string) => (shown.get(key) ?? 0) > 0;
 
 let nextPending = 1;
 

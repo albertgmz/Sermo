@@ -42,14 +42,14 @@ export function ReplyComposer({
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <Editor
-        key={generation}
+        key={`editor-${generation}`}
         name="body"
         findMembers={findRecipients}
         insertEvent={QUOTE_EVENT}
       />
       {attachIn !== null && (
         <AttachmentField
-          key={generation}
+          key={`files-${generation}`}
           nodeId={attachIn}
           onBusy={setUploading}
         />

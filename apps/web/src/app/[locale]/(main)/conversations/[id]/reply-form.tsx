@@ -66,12 +66,12 @@ export function ReplyForm({
       className="space-y-3 rounded-lg border bg-card p-3 md:p-4"
     >
       <LazyEditor
-        key={generation}
+        key={`editor-${generation}`}
         name="body"
         placeholder={placeholder}
         minHeight={96}
       />
-      <AttachmentField key={generation} onBusy={setUploading} />
+      <AttachmentField key={`files-${generation}`} onBusy={setUploading} />
       {state.error && <FormError>{state.error}</FormError>}
       <div className="flex justify-end">
         <Button

@@ -5,6 +5,7 @@ import {
   createContext,
   Fragment,
   type ReactNode,
+  Suspense,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -14,12 +15,12 @@ import { usePolling } from "@/lib/polling";
 import {
   appendRows,
   EMPTY_TAIL,
+  markTailShown,
   newestHeld,
   readTail,
   type TailPoll,
   updateTail,
   useTail,
-  writeTail,
 } from "@/lib/tail";
 
 const PendingText = createContext("");
@@ -70,10 +71,7 @@ export function LiveTail({
   const Row = as ?? Fragment;
   const atEnd = useRef(false);
 
-  useEffect(() => {
-    writeTail(tailKey, readTail(tailKey) ?? EMPTY_TAIL);
-    return () => writeTail(tailKey, undefined);
-  }, [tailKey]);
+  useEffect(() => markTailShown(tailKey), [tailKey]);
 
   useEffect(() => {
     updateTail(tailKey, (held) =>
@@ -128,7 +126,10 @@ export function LiveTail({
   return (
     <>
       {tail.rows.map((row) => (
-        <Row key={row.key}>{row.node}</Row>
+        // A row the server is still drawing waits on its own, not the whole list.
+        <Row key={row.key}>
+          <Suspense fallback={null}>{row.node}</Suspense>
+        </Row>
       ))}
       {tail.pending.map(({ id, text }) => (
         <Row key={`pending-${id}`}>
@@ -137,7 +138,9 @@ export function LiveTail({
             aria-busy="true"
             className="opacity-60"
           >
-            <PendingText value={text}>{pendingRow}</PendingText>
+            <PendingText value={text}>
+              <Suspense fallback={null}>{pendingRow}</Suspense>
+            </PendingText>
           </div>
         </Row>
       ))}

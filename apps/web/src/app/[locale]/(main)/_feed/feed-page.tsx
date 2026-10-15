@@ -49,7 +49,15 @@ export async function feedPage(
   return {
     nextCursor: feed.nextCursor,
     rows: feed.items.map((item) => {
-      const key = `${item.type}-${item.type === "profilePost" ? item.profilePost.id : item.post.id}`;
+      // `latest` lists a thread once, at its newest post: a thread that moved up is the same row,
+      // so the entries put in front of a list in the browser replace it. The other tabs list a
+      // post each.
+      const key =
+        item.type === "profilePost"
+          ? `profilePost-${item.profilePost.id}`
+          : tab === "latest"
+            ? `thread-${item.thread.id}`
+            : `${item.type}-${item.post.id}`;
       return {
         key,
         at: item.createdAt,

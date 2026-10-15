@@ -3,12 +3,14 @@ import {
   addPending,
   appendRows,
   EMPTY_TAIL,
+  markTailShown,
   newestHeld,
   readTail,
   sendIntoTail,
   settlePending,
   type TailRow,
   tailIsShown,
+  updateTail,
   writeTail,
 } from "@/lib/tail";
 
@@ -113,8 +115,19 @@ test("text with nothing in it is not shown as waiting", async () => {
 
 test("a tail is shown only while something has registered it", () => {
   expect(tailIsShown("c:1")).toBe(false);
-  writeTail("c:1", EMPTY_TAIL);
+  const first = markTailShown("c:1");
+  const second = markTailShown("c:1");
   expect(tailIsShown("c:1")).toBe(true);
-  writeTail("c:1", undefined);
+  first();
+  expect(tailIsShown("c:1")).toBe(true);
+  second();
   expect(tailIsShown("c:1")).toBe(false);
+});
+
+test("what a tail holds stays when it goes off the screen, and a tail not yet written is empty", () => {
+  const off = markTailShown("c:1");
+  updateTail("c:1", (tail) => appendRows(tail, [row(3)]));
+  off();
+  expect(tailIsShown("c:1")).toBe(false);
+  expect(readTail("c:1")?.rows.map((r) => r.id)).toEqual([3]);
 });
