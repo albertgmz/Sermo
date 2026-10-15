@@ -412,6 +412,73 @@ describe("economy criteria", () => {
   });
 });
 
+describe("profile criteria", () => {
+  const set = (ctx: Ctx, userId: number, columns: string) =>
+    ctx.sqlite.prepare(`UPDATE users SET ${columns} WHERE id = ?1`).run(userId);
+
+  test("a cover is an uploaded one or one from the gallery", () => {
+    const { ctx, member, other } = world();
+    const third = insertUser(ctx).id;
+    set(ctx, member, "cover_preset_id = 4");
+    set(ctx, other, "cover_file_id = 9");
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other, third], { criterion: "has_cover", value });
+    expect(asks(1)).toEqual([true, true, false]);
+    expect(asks(0)).toEqual([false, false, true]);
+  });
+
+  test("a name colour, an accent colour and a frame are each their own setting", () => {
+    const { ctx, member, other } = world();
+    set(ctx, member, "name_color_id = 1");
+    set(ctx, other, "accent_color_id = 1, frame_id = 2");
+    const asks = (criterion: string) => holdsFor(ctx, [member, other], { criterion, value: 1 });
+    expect(asks("has_name_color")).toEqual([true, false]);
+    expect(asks("has_accent_color")).toEqual([false, true]);
+    expect(asks("has_frame")).toEqual([false, true]);
+  });
+
+  test("social links count the filled handles of Discord, Telegram and X", () => {
+    const { ctx, member, other } = world();
+    set(ctx, member, "social_discord = 'a#1', social_x = '@a'");
+    set(ctx, other, "social_telegram = ''");
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "social_links_at_least", value });
+    expect(asks(2)).toEqual([true, false]);
+    expect(asks(3)).toEqual([false, false]);
+    expect(asks(0)).toEqual([true, true]);
+  });
+
+  test("a complete profile has an avatar, an about text, a location and a birthday", () => {
+    const { ctx, member, other } = world();
+    const complete =
+      "avatar_file_id = 5, about = 'Hello', location = 'Madrid', birthday_md = '03-14'";
+    set(ctx, member, complete);
+    set(ctx, other, "avatar_file_id = 5, about = 'Hello', location = 'Madrid'");
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "profile_complete", value });
+    expect(asks(1)).toEqual([true, false]);
+    for (const missing of [
+      "avatar_file_id = NULL",
+      "about = ''",
+      "location = ''",
+      "birthday_md = NULL",
+    ]) {
+      set(ctx, member, missing);
+      expect(asks(1)).toEqual([false, false]);
+      set(ctx, member, complete);
+    }
+  });
+
+  test("a recent username change is read from the member's row", () => {
+    const { ctx, member, other } = world();
+    set(ctx, member, `username_changed_at = ${ctx.now() - 2 * 86_400_000}`);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "username_changed_within_days", value });
+    expect(asks(2)).toEqual([true, false]);
+    expect(asks(1)).toEqual([false, false]);
+  });
+});
+
 describe("award criteria", () => {
   test("holds_awards holds for an award the member holds, however many times, not a revoked one", () => {
     const { ctx, member, other } = world();

@@ -34,6 +34,13 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  hasCover: false,
+  hasNameColor: false,
+  hasAccentColor: false,
+  hasFrame: false,
+  socialLinkCount: 0,
+  profileComplete: false,
+  usernameChangedAt: null,
   awardCount: 0,
   awardXp: 0,
   measures: new Map(),
@@ -46,6 +53,13 @@ const measured = (
   measure: Measure,
 ): Facts => facts({ measures: new Map([[measureKey({ criterion, ...condition }), measure]]) });
 const counts = (...pairs: [number, number][]) => new Map(pairs);
+/** The cases of a yes/no criterion read from one flag of the member's facts. */
+const yesNo = (flag: keyof Facts): Case[] => [
+  ["has it, must", { value: 1 }, facts({ [flag]: true }), true],
+  ["lacks it, must", { value: 1 }, facts({ [flag]: false }), false],
+  ["lacks it, must not", { value: 0 }, facts({ [flag]: false }), true],
+  ["has it, must not", { value: 0 }, facts({ [flag]: true }), false],
+];
 /** The cases of a criterion that holds items, categories or the like: one of them, or each. */
 const ownCases = (criterion: string): Case[] => [
   ["one of several", { ids: [1, 2] }, measured(criterion, { ids: [1, 2] }, counts([2, 1])), true],
@@ -265,6 +279,23 @@ const table: Record<string, Case[]> = {
       false,
     ],
     ["nothing earned", { value: 1 }, facts(), false],
+  ],
+  has_cover: yesNo("hasCover"),
+  has_name_color: yesNo("hasNameColor"),
+  has_accent_color: yesNo("hasAccentColor"),
+  has_frame: yesNo("hasFrame"),
+  profile_complete: yesNo("profileComplete"),
+  social_links_at_least: [
+    ["all three", { value: 3 }, facts({ socialLinkCount: 3 }), true],
+    ["edge", { value: 2 }, facts({ socialLinkCount: 2 }), true],
+    ["one short", { value: 2 }, facts({ socialLinkCount: 1 }), false],
+    ["none, none asked", { value: 0 }, facts(), true],
+  ],
+  username_changed_within_days: [
+    ["changed recently", { value: 30 }, facts({ usernameChangedAt: NOW - 3 * DAY }), true],
+    ["edge", { value: 30 }, facts({ usernameChangedAt: NOW - 30 * DAY }), true],
+    ["too long ago", { value: 30 }, facts({ usernameChangedAt: NOW - 30 * DAY - 1 }), false],
+    ["never changed", { value: 30 }, facts({ usernameChangedAt: null }), false],
   ],
   awards_held_at_least: [
     ["above", { value: 3 }, facts({ awardCount: 4 }), true],

@@ -43,6 +43,16 @@ export interface Facts {
   purchasedItemIds: ReadonlySet<number>;
   /** Every group the member holds: primary, assigned by hand, granted by a promotion or bought. */
   groupIds: ReadonlySet<number>;
+  hasCover: boolean;
+  hasNameColor: boolean;
+  hasAccentColor: boolean;
+  hasFrame: boolean;
+  /** Of Discord, Telegram and X, how many handles are filled in. */
+  socialLinkCount: number;
+  /** Avatar, about text, location and birthday are all set. */
+  profileComplete: boolean;
+  /** When the username last changed; null if never. */
+  usernameChangedAt: number | null;
   /** Awards held, each grant counting, and the XP of those grants. */
   awardCount: number;
   awardXp: number;

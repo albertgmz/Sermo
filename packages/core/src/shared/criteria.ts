@@ -7,6 +7,7 @@ import { awardSpecs } from "./criteria/awards";
 import { withIds, withValue, yes } from "./criteria/build";
 import { contentSpecs } from "./criteria/content";
 import { economySpecs } from "./criteria/economy";
+import { profileSpecs } from "./criteria/profile";
 import {
   type Condition,
   type CostClass,
@@ -106,6 +107,7 @@ const specs: readonly Spec[] = [
   ...contentSpecs,
   ...economySpecs,
   ...awardSpecs,
+  ...profileSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
 
@@ -236,6 +238,13 @@ const noFacts = (memberId: number | null, now: number): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  hasCover: false,
+  hasNameColor: false,
+  hasAccentColor: false,
+  hasFrame: false,
+  socialLinkCount: 0,
+  profileComplete: false,
+  usernameChangedAt: null,
   awardCount: 0,
   awardXp: 0,
   measures: new Map(),
@@ -256,11 +265,18 @@ type MemberRow = {
   email_verified: number;
   award_count: number;
   award_xp: number;
+  has_cover: number;
+  has_name_color: number;
+  has_accent_color: number;
+  has_frame: number;
+  social_links: number;
+  profile_complete: number;
+  username_changed_at: number | null;
 };
 
 /** The statement of the facts on the member's own row, for tests that check its plan. */
 export const memberFactsSql =
-  "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, u.award_count, u.award_xp FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))";
+  "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, u.award_count, u.award_xp, (u.cover_file_id IS NOT NULL OR u.cover_preset_id IS NOT NULL) AS has_cover, (u.name_color_id IS NOT NULL) AS has_name_color, (u.accent_color_id IS NOT NULL) AS has_accent_color, (u.frame_id IS NOT NULL) AS has_frame, ((u.social_discord != '') + (u.social_telegram != '') + (u.social_x != '')) AS social_links, (u.avatar_file_id IS NOT NULL AND u.about != '' AND u.location != '' AND u.birthday_md IS NOT NULL) AS profile_complete, u.username_changed_at FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))";
 
 type MeasureRow = { user_id: number; id: number | null; n: number | null };
 
@@ -320,6 +336,13 @@ export function loadFacts(
         purchaseCount: row.shop_purchase_count,
         awardCount: row.award_count,
         awardXp: row.award_xp,
+        hasCover: row.has_cover !== 0,
+        hasNameColor: row.has_name_color !== 0,
+        hasAccentColor: row.has_accent_color !== 0,
+        hasFrame: row.has_frame !== 0,
+        socialLinkCount: row.social_links,
+        profileComplete: row.profile_complete !== 0,
+        usernameChangedAt: row.username_changed_at,
       });
   if (sources.has("warnings"))
     for (const row of prepared(ctx, "shared.criteriaWarnings", () =>
