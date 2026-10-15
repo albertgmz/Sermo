@@ -6,8 +6,9 @@ import { type El, isBlock, type MentionNode, type Node } from "./tree";
 
 /** Longer code is shown as a plain block: highlighting cost grows with its length. */
 const HIGHLIGHT_LIMIT = 2_000;
-/** Characters one message may have highlighted in all; later code blocks are plain. */
-const HIGHLIGHT_TOTAL = 6_000;
+/** Characters and blocks one message may have highlighted in all; later code blocks are plain. */
+const HIGHLIGHT_TOTAL = 4_000;
+const HIGHLIGHT_BLOCKS = 20;
 
 /**
  * Where the spoilers of content with an actor go. Their HTML leaves the body: each spoiler becomes a
@@ -23,6 +24,7 @@ interface Env {
   sink?: SpoilerSink;
   deadline: Deadline;
   highlighted: number;
+  highlightedBlocks: number;
 }
 
 function trimNewlines(text: string, leading = true, trailing = true): string {
@@ -168,10 +170,15 @@ function codeBlock(tok: Tok, env: Env): string {
   let pre = `<pre><code>${escapeHtml(content)}</code></pre>`;
   if (language !== undefined) {
     const highlighted =
-      content.length <= HIGHLIGHT_LIMIT && env.highlighted + content.length <= HIGHLIGHT_TOTAL
+      content.length <= HIGHLIGHT_LIMIT &&
+      env.highlighted + content.length <= HIGHLIGHT_TOTAL &&
+      env.highlightedBlocks < HIGHLIGHT_BLOCKS
         ? highlightCode(content, language)
         : null;
-    if (highlighted) env.highlighted += content.length;
+    if (highlighted) {
+      env.highlighted += content.length;
+      env.highlightedBlocks++;
+    }
     header = `<div class="bb-code-header bb-code-named"><span class="bb-code-lang">${escapeHtml(highlighted ? highlighted.name : language)}</span></div>`;
     if (highlighted)
       pre = `<pre class="hljs language-${highlighted.id}"><code>${highlighted.html}</code></pre>`;
@@ -341,7 +348,7 @@ function node(kid: Node, env: Env, inLink: boolean, pre: boolean): string {
 
 /** The HTML of a tree (unsanitized: the caller passes it through the sanitizer). */
 export function renderTree(kids: Node[], deadline: Deadline, sink?: SpoilerSink): string {
-  return blocks(kids, { sink, deadline, highlighted: 0 }, false, "root");
+  return blocks(kids, { sink, deadline, highlighted: 0, highlightedBlocks: 0 }, false, "root");
 }
 
 /** How many paragraphs and blocks the top level of a tree holds. */
