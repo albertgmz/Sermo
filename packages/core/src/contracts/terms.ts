@@ -57,7 +57,7 @@ export const MemberAcceptance = z
 export const usersAdminAcceptances = defineContract({
   name: "users.adminAcceptances",
   summary:
-    "The versions of the terms and the rules a member accepted, newest first (at most 100): " +
+    "The versions of the terms and the rules a member accepted, newest first (at most 50 of each page; the latest of each is always listed): " +
     "kind, version, when, and the address recorded (null when none was recorded, when it was " +
     "dropped at the log retention age, or when the reader lacks member.viewIps over the " +
     "member), together with the versions the site publishes now (`current`, null for a page " +

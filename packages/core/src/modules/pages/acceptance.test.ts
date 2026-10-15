@@ -416,6 +416,25 @@ describe("enforcement", () => {
   });
 });
 
+describe("profile text", () => {
+  test("a title and a signature wait for the acceptance too, whatever the permission", async () => {
+    const w = await world();
+    await w.publish("terms");
+    for (const input of [{ customTitle: "Title" }, { signature: "Signed" }]) {
+      const error = await outcome(w.run("profiles.update", w.poster.actor, input));
+      expect(isAcceptanceRefusal(error), JSON.stringify(input)).toBe(true);
+    }
+    // Clearing them sends no text.
+    await w.run("profiles.update", w.poster.actor, { customTitle: null, signature: null });
+    await w.accept(w.poster.actor);
+    for (const input of [{ customTitle: "Title" }, { signature: "Signed" }]) {
+      // The member lacks the permission to set them: refused for that reason, not for acceptance.
+      const error = await outcome(w.run("profiles.update", w.poster.actor, input));
+      expect(isAcceptanceRefusal(error)).toBe(false);
+    }
+  });
+});
+
 describe("terms.accept", () => {
   test("repeats change nothing; a version that moved on or a page not published is a conflict", async () => {
     const w = await world();
@@ -589,24 +608,25 @@ describe("page saves", () => {
   });
 });
 
-describe("staff list order", () => {
-  test("newest first, so the latest acceptance of each kind is always listed", async () => {
+describe("staff list", () => {
+  test("lists the newest of each page, and the latest of every page whatever the other holds", async () => {
     const w = await world();
     await w.publish("terms");
     await w.publish("rules");
     const insert = w.ctx.sqlite.prepare(
       "INSERT INTO terms_acceptances (user_id, kind, version, ip, accepted_at) VALUES (?1, ?2, ?3, NULL, ?4)",
     );
-    // 120 old versions of the terms, then one acceptance of the rules, then the current terms.
-    for (let version = 1; version <= 120; version++)
-      insert.run(w.poster.id, "terms", version, version);
+    // The rules once, long ago; then 120 versions of the terms.
     insert.run(w.poster.id, "rules", 1, 1000);
-    insert.run(w.poster.id, "terms", 121, 2000);
+    for (let version = 1; version <= 120; version++)
+      insert.run(w.poster.id, "terms", version, 2000 + version);
     const view = await w.run("users.adminAcceptances", w.admin.actor, { userId: w.poster.id });
-    expect(view.items).toHaveLength(100);
-    expect(view.items[0]).toMatchObject({ kind: "terms", version: 121 });
-    expect(view.items[1]).toMatchObject({ kind: "rules", version: 1 });
-    expect(view.items.at(-1)).toMatchObject({ kind: "terms", version: 23 });
+    const terms = view.items.filter((item: { kind: string }) => item.kind === "terms");
+    expect(terms).toHaveLength(50);
+    expect(view.items[0]).toMatchObject({ kind: "terms", version: 120 });
+    expect(terms.at(-1)).toMatchObject({ version: 71 });
+    expect(view.items.at(-1)).toMatchObject({ kind: "rules", version: 1 });
+    expect(view.items).toHaveLength(51);
   });
 });
 
@@ -651,7 +671,13 @@ describe("address retention", () => {
     for (let version = 1; version <= IP_LOG_PURGE_BATCH * 2 + 5; version++)
       insert.run(w.poster.id, version, old);
     insert.run(w.poster.id, 9999, w.ctx.now());
+    const trace = traceStatements(w.ctx);
     expect(await purgeAcceptanceAddresses(w.ctx)).toBe(IP_LOG_PURGE_BATCH * 2 + 5);
+    const scans = () => trace.count(/FROM terms_acceptances WHERE id >/);
+    expect(scans()).toBe(3);
+    // The next day's run has nothing left to clear and does not walk the cleared rows again.
+    expect(await purgeAcceptanceAddresses(w.ctx)).toBe(0);
+    expect(scans()).toBe(4);
     expect(
       w.ctx.sqlite
         .prepare<{ n: number }, []>(
@@ -667,8 +693,7 @@ describe("queries", () => {
     const w = await world();
     expectNoTableScan(w.ctx, acceptanceSql.published, []);
     expectNoTableScan(w.ctx, acceptanceSql.newest, [w.poster.id]);
-    // A handful of rows of one member, sorted newest first.
-    expectNoTableScan(w.ctx, acceptanceSql.member, [w.poster.id], { allowTempBTree: true });
+    expectNoTableScan(w.ctx, acceptanceSql.memberKind, [w.poster.id, "terms", 50]);
     expectNoTableScan(w.ctx, `SELECT ${acceptanceSql.newestColumns} FROM users u WHERE u.id = ?1`, [
       w.poster.id,
     ]);

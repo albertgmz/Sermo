@@ -13,6 +13,9 @@ import { parseAddress } from "../security/address";
  * `terms_acceptances`.
  */
 
+/** The most acceptances of one kind the staff view lists (the newest). */
+export const ACCEPTANCES_PER_KIND = 50;
+
 export type PublishedVersions = Record<AcceptanceKind, number | null>;
 
 export const acceptanceSql = {
@@ -22,9 +25,10 @@ export const acceptanceSql = {
     "SELECT kind, MAX(version) AS version FROM terms_acceptances WHERE user_id = ?1 GROUP BY kind",
   insert:
     "INSERT OR IGNORE INTO terms_acceptances (user_id, kind, version, ip, accepted_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-  // Newest first, so the latest acceptance of each kind is always among the rows read.
-  member:
-    "SELECT kind, version, ip, accepted_at FROM terms_acceptances WHERE user_id = ?1 ORDER BY accepted_at DESC, version DESC LIMIT 100",
+  // One kind of one member, newest version first, from the unique index (no sort): read once for
+  // each kind, so the latest acceptance of every kind is listed whatever the other kind holds.
+  memberKind:
+    "SELECT kind, version, ip, accepted_at FROM terms_acceptances WHERE user_id = ?1 AND kind = ?2 ORDER BY version DESC LIMIT ?3",
   highest: "SELECT COALESCE(MAX(version), 0) AS version FROM terms_acceptances WHERE kind = ?1",
   erase: "DELETE FROM terms_acceptances WHERE user_id = ?1",
   /** The two newest-version columns the actor lookup adds to its member row. */

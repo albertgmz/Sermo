@@ -15,11 +15,11 @@ export const retentionSql = {
 };
 
 export const acceptanceRetentionSql = {
-  // In primary-key order, which is also the order of time: the walk stops at the first row newer
-  // than the cutoff.
-  scan: "SELECT id, accepted_at, ip IS NOT NULL AS has_ip FROM terms_acceptances WHERE id > ?1 ORDER BY id LIMIT ?2",
-  clear:
-    "UPDATE terms_acceptances SET ip = NULL WHERE ip IS NOT NULL AND id IN (SELECT value FROM json_each(?1))",
+  // Only rows that still hold an address, in primary-key order. Ids grow with time, so the walk
+  // stops at the first row newer than the cutoff; a clock set back can leave an older row behind
+  // a newer one until that one ages out (a bound, not an exact cutoff).
+  scan: "SELECT id, accepted_at FROM terms_acceptances WHERE id > ?1 AND ip IS NOT NULL ORDER BY id LIMIT ?2",
+  clear: "UPDATE terms_acceptances SET ip = NULL WHERE id IN (SELECT value FROM json_each(?1))",
 };
 
 const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -57,12 +57,12 @@ export async function purgeAcceptanceAddresses(ctx: Ctx): Promise<number> {
   let after = 0;
   while (true) {
     const rows = prepared(ctx, "security.acceptanceScan", () =>
-      ctx.sqlite.prepare<{ id: number; accepted_at: number; has_ip: number }, [number, number]>(
+      ctx.sqlite.prepare<{ id: number; accepted_at: number }, [number, number]>(
         acceptanceRetentionSql.scan,
       ),
     ).all(after, IP_LOG_PURGE_BATCH);
     const old = rows.filter((row) => row.accepted_at < cutoff);
-    const ids = old.filter((row) => row.has_ip === 1).map((row) => row.id);
+    const ids = old.map((row) => row.id);
     if (ids.length > 0)
       cleared += writeTx(
         ctx,

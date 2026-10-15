@@ -1,4 +1,3 @@
-import { pagesGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -6,26 +5,14 @@ import { RegisterForm } from "@/app/[locale]/(auth)/register/register-form";
 import { Logo } from "@/components/layout/logo";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { referrerOf } from "@/lib/referral/link";
+import { isPublished } from "@/lib/sermo/pages";
 import { turnstileKeyFor } from "@/lib/sermo/turnstile";
-import { call } from "@/lib/sermo/client";
-import { SermoError } from "@/lib/sermo/errors";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.register");
   return {
     title: t("metaTitle"),
   };
-}
-
-// Whether the site publishes a page: the form names and links only the pages that exist.
-async function published(slug: "terms" | "rules") {
-  try {
-    await call(pagesGet, { slug });
-    return true;
-  } catch (error) {
-    if (!(error instanceof SermoError)) throw error;
-    return false;
-  }
 }
 
 export default async function RegisterPage({
@@ -35,16 +22,18 @@ export default async function RegisterPage({
     getTranslations("auth.register"),
     searchParams,
     turnstileKeyFor("register"),
-    published("terms"),
-    published("rules"),
+    isPublished("terms"),
+    isPublished("rules"),
   ]);
-  const pages = hasTerms
-    ? hasRules
+  // What the checkbox names: only the pages the site publishes.
+  const pages =
+    hasTerms && hasRules
       ? "both"
-      : "terms"
-    : hasRules
-      ? "rules"
-      : "none";
+      : hasTerms
+        ? "terms"
+        : hasRules
+          ? "rules"
+          : "none";
   return (
     <main className="relative isolate flex min-h-dvh flex-1 items-center justify-center px-4 py-8">
       <PageBackdrop />
