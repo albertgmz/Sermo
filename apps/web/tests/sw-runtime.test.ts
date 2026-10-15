@@ -390,3 +390,10 @@ test("the retiring worker does not wait forever for a database that is blocked o
     expect(worker.scope.unregistered, answer).toBe(true);
   }
 });
+
+test("the retiring worker unregisters even when its cleanup fails", async () => {
+  const worker = boot(await bundleWorker(dir, true));
+  worker.caches.keys = () => Promise.reject(new Error("storage unavailable"));
+  await worker.dispatch("activate").catch(() => {});
+  expect(worker.scope.unregistered).toBe(true);
+});

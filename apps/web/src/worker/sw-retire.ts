@@ -25,14 +25,18 @@ self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      // The caches this site's worker made: its own (`sermo-`) and Serwist's (`serwist-`).
-      const names = (await caches.keys()).filter(
-        (name) =>
-          name.startsWith(`${CACHE_PREFIX}-`) || name.startsWith("serwist-"),
-      );
-      await Promise.all(names.map((name) => caches.delete(name)));
-      await deleteDatabase("serwist-expiration");
-      await self.registration.unregister();
+      try {
+        // The caches this site's worker made: its own (`sermo-`) and Serwist's (`serwist-`).
+        const names = (await caches.keys()).filter(
+          (name) =>
+            name.startsWith(`${CACHE_PREFIX}-`) || name.startsWith("serwist-"),
+        );
+        await Promise.all(names.map((name) => caches.delete(name)));
+        await deleteDatabase("serwist-expiration");
+      } finally {
+        // A cleanup that fails still leaves: what it kept is only public files.
+        await self.registration.unregister();
+      }
     })(),
   );
 });
