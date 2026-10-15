@@ -3,6 +3,7 @@ import { CONSENT_COOKIE } from "@/lib/consent/inventory";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
 import { siteBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
+import { blocksInParagraphs } from "@/lib/test-paragraphs";
 
 // Only the request and the network are stood in for; the client, the LITE filter and the contract
 // are the real ones.
@@ -127,7 +128,7 @@ test("a player inside a spoiler is a placeholder until the embeds category is ac
   // The same backend answers the spoiler and the site (asked for the policy version).
   globalThis.fetch = (async (input: RequestInfo | URL) =>
     String(input).includes("/spoilers?")
-      ? Response.json({ html: `<p>secret</p>${voteFrame}` })
+      ? Response.json({ html: `<p>secret</p><p>${voteFrame}</p>` })
       : Response.json(siteBody())) as unknown as typeof fetch;
   for (const value of [
     undefined,
@@ -139,6 +140,7 @@ test("a player inside a spoiler is a placeholder until the embeds category is ac
     expect(hidden?.html).not.toContain("<iframe");
     expect(hidden?.html).toContain("data-embed-load");
     expect(hidden?.html).toContain("<p>secret</p>");
+    expect(blocksInParagraphs(hidden?.html ?? ""), hidden?.html).toEqual([]);
   }
   consent = choice("necessary", "embeds");
   const shown = await revealSpoiler("post", 5, 1);

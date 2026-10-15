@@ -62,6 +62,8 @@ const SHAPES = new Set(["bb-media", "bb-media-video", "bb-media-audio"]);
 const escapeText = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+// The renderer puts every player inside a paragraph, so the placeholder is phrasing content only
+// (spans, buttons, a link; `globals.css` gives the spans their layout): a block would split it.
 // `html` with every player replaced by its placeholder, unless embeds are accepted. A player whose
 // address is not one of ours is dropped, and so is any iframe tag the pattern does not recognise
 // (it fails closed). The attribute values are the sanitiser's, already escaped.
@@ -90,12 +92,12 @@ export function gateEmbeds(
         ? `<a class="bb-embed-link" href="${escapeText(original)}" target="_blank" rel="nofollow ugc noopener">${escapeText(labels.original)}</a>`
         : "";
     return (
-      `<div class="bb-embed" data-embed-src="${escapeText(src)}" data-embed-shape="${shape}">` +
-      `<p class="bb-embed-text">${escapeText(labels.hosted(provider))}</p>` +
-      `<div class="bb-embed-actions">` +
+      `<span class="bb-embed" data-embed-src="${escapeText(src)}" data-embed-shape="${shape}">` +
+      `<span class="bb-embed-text">${escapeText(labels.hosted(provider))}</span>` +
+      `<span class="bb-embed-actions">` +
       `<button type="button" class="bb-embed-button" data-embed-load>${escapeText(labels.load)}</button>` +
       `<button type="button" class="bb-embed-button bb-embed-always" data-embed-always>${escapeText(labels.always)}</button>` +
-      `${link}</div></div>`
+      `${link}</span></span>`
     );
   });
   return placeholders.replace(LEFTOVER, "");

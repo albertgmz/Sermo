@@ -3,6 +3,7 @@ import { renderToReadableStream } from "react-dom/server";
 import { CONSENT_COOKIE } from "@/lib/consent/inventory";
 import { LITE_COOKIE } from "@/lib/lite-preferences";
 import { siteBody } from "@/lib/test-bodies";
+import { blocksInParagraphs } from "@/lib/test-paragraphs";
 import {
   mediaHtml,
   resolveMedia,
@@ -98,7 +99,7 @@ const player = (() => {
 })();
 
 test("a player is a placeholder until the embeds category is accepted", async () => {
-  const body = `<p>Watch</p>${player}`;
+  const body = `<p>${player}</p><p>text ${player} inline</p>`;
   for (const value of [
     undefined,
     choice("necessary"),
@@ -109,6 +110,9 @@ test("a player is a placeholder until the embeds category is accepted", async ()
     expect(out).not.toContain("<iframe");
     expect(out).toContain("data-embed-load");
     expect(out).toContain("embedHosted");
+    // The placeholder sits inside the paragraph the renderer put the player in.
+    expect(blocksInParagraphs(out), out).toEqual([]);
+    expect(out).toContain(" inline</p>");
   }
   // A choice made under another policy version counts for nothing.
   consent = encodeURIComponent(
@@ -119,7 +123,7 @@ test("a player is a placeholder until the embeds category is accepted", async ()
 
 test("the player is drawn once embeds are accepted", async () => {
   consent = choice("necessary", "embeds");
-  const out = await render(`<p>Watch</p>${player}`);
+  const out = await render(`<p>${player}</p>`);
   expect(out).toContain("<iframe");
   expect(out).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
   expect(out).not.toContain("data-embed-load");

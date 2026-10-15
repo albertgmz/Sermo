@@ -6,6 +6,7 @@ import {
   mediaHtml,
   resolveMedia,
 } from "../../../../../packages/core/src/markdown/media";
+import { blocksInParagraphs } from "../test-paragraphs";
 import {
   EMBED_ALLOW,
   EMBED_HOSTS,
@@ -35,7 +36,8 @@ test("the copied hosts, sandbox and permissions are the renderer's", () => {
 });
 
 test("no player is emitted before the embeds category is accepted", () => {
-  const html = `<p>Watch</p>${youtube}<p>and listen</p>${soundcloud}`;
+  // The renderer wraps a player in a paragraph, alone or among words.
+  const html = `<p>Watch</p><p>${youtube}</p><p>and listen ${soundcloud} inline</p>`;
   expect(html).toContain("<iframe");
   const gated = gateEmbeds(html, false, labels);
   expect(gated).not.toMatch(/<iframe/i);
@@ -49,6 +51,25 @@ test("no player is emitted before the embeds category is accepted", () => {
   expect(gated).toContain("data-embed-load");
   expect(gated).toContain("data-embed-always");
   expect(gated.match(/class="bb-embed"/g)?.length).toBe(2);
+});
+
+test("a placeholder is phrasing content: no block ends up inside the paragraph that held the player", () => {
+  for (const html of [
+    `<p>${youtube}</p>`,
+    `<p>text ${youtube} inline</p>`,
+    `<p>${soundcloud} and ${youtube} twice</p>`,
+  ]) {
+    const gated = gateEmbeds(html, false, labels);
+    expect(gated, html).toContain("bb-embed");
+    expect(blocksInParagraphs(gated), gated).toEqual([]);
+    expect(gated.startsWith("<p>") && gated.endsWith("</p>"), gated).toBe(true);
+    expect(gated.match(/<p>/g)?.length).toBe(1);
+  }
+  // The check does catch a block in a paragraph.
+  expect(blocksInParagraphs('<p>a<div class="x">b</div></p>')).toHaveLength(1);
+  expect(
+    blocksInParagraphs("<p>a <span>b</span> <button>c</button></p>"),
+  ).toEqual([]);
 });
 
 test("an accepted category leaves the players as they are, and withdrawing brings the placeholders back", () => {

@@ -203,6 +203,39 @@ test("a name that is not in the inventory fails the scan, in any file", () => {
   ).toHaveLength(1);
 });
 
+test("a cookie written through another receiver, a header or a storage property is found too", () => {
+  const scan = (source: string) =>
+    scanSource("src/components/new.tsx", source, globals).problems;
+  // Known by the shape of the call, whatever the variable is called.
+  expect(
+    scan(
+      `const jar = await cookies(); jar.set("tracker", "1", { path: "/" });`,
+    ),
+  ).toHaveLength(1);
+  expect(scan(`jar.set("tracker", "1", { maxAge: 5 });`)).toHaveLength(1);
+  expect(scan(`jar.set({ name: "tracker", value: "1" });`)).toHaveLength(1);
+  expect(
+    scan(`jar.set(LITE_COOKIE, "1", { httpOnly: false, path: "/" });`),
+  ).toEqual([]);
+  // A map or a set is not a cookie.
+  expect(
+    scan(`refs.set(id, { id, username: "x" }); seen.set("tracker", 1);`),
+  ).toEqual([]);
+  // A Set-Cookie header, appended or set, is a write of the cookie it names.
+  expect(
+    scan(`res.headers.append("set-cookie", "tracker=1; Path=/");`),
+  ).toHaveLength(1);
+  expect(scan(`headers.set("Set-Cookie", "tracker=1");`)).toHaveLength(1);
+  expect(
+    scan(`headers.append("Set-Cookie", "forum_locale=en; Path=/");`),
+  ).toEqual([]);
+  expect(scan(`headers.append("Set-Cookie", value);`)).toHaveLength(1);
+  // Storage written as a property.
+  expect(scan(`localStorage.tracker = "1";`)).toHaveLength(1);
+  expect(scan(`window.localStorage["tracker"] = "1";`)).toHaveLength(1);
+  expect(scan(`localStorage["sermo-theme"] = "dark";`)).toEqual([]);
+});
+
 test("the consent cookie is listed as strictly necessary", () => {
   expect(ownedBy("necessary", CONSENT_COOKIE)).toBe(true);
   expect(ownedBy("analytics", CONSENT_COOKIE)).toBe(false);

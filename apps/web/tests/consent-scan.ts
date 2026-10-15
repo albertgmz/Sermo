@@ -148,11 +148,25 @@ export function scanSource(
         .replace(/\?$/, "");
       const method = node.expression.name.text;
       const [first] = node.arguments;
-      if (method === "set" && COOKIE_STORE.test(receiver) && first) {
+      // A cookie write is known by its receiver, or by its shape whatever the receiver is
+      // (`jar.set(name, value, { path })`, `jar.set({ name, value })`).
+      if (
+        method === "set" &&
+        first &&
+        (COOKIE_STORE.test(receiver) || hasCookieShape(node.arguments))
+      ) {
         const name = ts.isObjectLiteralExpression(first)
           ? objectName(first, evaluate)
           : evaluate(first, false);
         check(node, name, "cookie");
+      }
+      if (
+        (method === "append" || method === "set") &&
+        first &&
+        literalText(first as ts.Expression)?.toLowerCase() === "set-cookie"
+      ) {
+        const header = node.arguments[1] && evaluate(node.arguments[1], true);
+        check(node, header?.split("=")[0]?.trim(), "cookie");
       }
       const storage = STORAGE.exec(receiver)?.[1] as Storage | undefined;
       if (method === "setItem" && storage && first)
@@ -165,6 +179,26 @@ export function scanSource(
     ) {
       const value = evaluate(node.right, true);
       check(node, value?.split("=")[0]?.trim(), "cookie");
+    }
+    // `localStorage.key = value` and `localStorage["key"] = value`.
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ) {
+      const { left } = node;
+      const target =
+        ts.isPropertyAccessExpression(left) ||
+        ts.isElementAccessExpression(left)
+          ? left
+          : undefined;
+      const storage =
+        target && STORAGE.exec(target.expression.getText(file))?.[1];
+      if (target && storage) {
+        const name = ts.isPropertyAccessExpression(target)
+          ? target.name.text
+          : evaluate(target.argumentExpression, true);
+        check(node, name, storage as Storage);
+      }
     }
     if (
       ts.isJsxAttribute(node) &&
@@ -180,6 +214,30 @@ export function scanSource(
     }
   });
   return { checked, problems };
+}
+
+const COOKIE_OPTIONS = new Set([
+  "path",
+  "maxAge",
+  "httpOnly",
+  "sameSite",
+  "secure",
+  "expires",
+  "domain",
+]);
+
+// Whether the arguments of a `.set(` look like a cookie write: `(name, value, { path | maxAge | ... })`
+// or `({ name, value, ... })`.
+function hasCookieShape(args: ts.NodeArray<ts.Expression>) {
+  const keys = (node: ts.Expression | undefined) =>
+    node && ts.isObjectLiteralExpression(node)
+      ? node.properties.flatMap((property) =>
+          property.name ? [property.name.getText()] : [],
+        )
+      : [];
+  if (keys(args[2]).some((key) => COOKIE_OPTIONS.has(key))) return true;
+  const own = keys(args[0]);
+  return own.includes("name") && own.includes("value");
 }
 
 function objectName(
