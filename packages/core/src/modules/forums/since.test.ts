@@ -5,7 +5,11 @@ import { NotFoundError, ValidationError } from "../../errors";
 import { type World, world } from "../feed/fixtures.test";
 import { forumSql } from "./index";
 
-type Listed = { items: { position: number; bodyHtml: string }[]; nextCursor: string | null };
+type Listed = {
+  items: { id: number; position: number; bodyHtml: string }[];
+  nextCursor: string | null;
+  afterPostId?: number | null;
+};
 const plain = (html: string) => html.replace(/<[^>]+>/g, "").trim();
 const bodies = (page: Listed) => page.items.map((post) => plain(post.bodyHtml));
 
@@ -27,13 +31,27 @@ describe("posts.list afterPosition", () => {
   test("lists the posts above the position, and nothing when there is nothing new", async () => {
     const w = world();
     const id = await thread(w, ["one", "two", "three"]);
+    const posts = (await w.call("posts.list", w.alice, { threadId: id })).items.map(
+      (post: { id: number }) => post.id,
+    );
+    expect((await w.call("posts.list", w.alice, { threadId: id })).afterPostId).toBeUndefined();
     for (const actor of [w.carol, GUEST, w.alice, tokenActor(w.carolUser)]) {
       const page = await after(w, actor, id, 1);
       expect(bodies(page)).toEqual(["two", "three"]);
       expect(page.items.map((post) => post.position)).toEqual([2, 3]);
       expect(page.nextCursor).toBeNull();
-      expect(await after(w, actor, id, 3)).toEqual({ items: [], nextCursor: null });
-      expect(await after(w, actor, id, 40)).toEqual({ items: [], nextCursor: null });
+      // The answer names the post now at the position held, so a poller can tell a renumbering.
+      expect(page.afterPostId).toBe(posts[1]);
+      expect(await after(w, actor, id, 3)).toEqual({
+        items: [],
+        nextCursor: null,
+        afterPostId: posts[3],
+      });
+      expect(await after(w, actor, id, 40)).toEqual({
+        items: [],
+        nextCursor: null,
+        afterPostId: null,
+      });
     }
     // A reply after the poll shows up on the next one.
     await w.reply(w.alice, id, "four");
@@ -134,5 +152,7 @@ describe("posts.list afterPosition", () => {
     const w = world();
     expectNoTableScan(w.ctx, forumSql.postPage, [1, 5, 24, 0, 0, 1]);
     expectNoTableScan(w.ctx, forumSql.postBeyond, [1, 24, 0, 0, 1]);
+    expectNoTableScan(w.ctx, forumSql.postAt, [1, 5]);
+    expectNoTableScan(w.ctx, forumSql.decodedPostAt, [1, 5]);
   });
 });

@@ -113,7 +113,8 @@ export const conversationsListMessages = defineContract({
     "client holds) starts the walk at the messages above that id, oldest first, whatever the " +
     "`order`, so a client can poll for replies: the answer is empty when there is nothing " +
     "new. A `cursor` takes precedence over it. A message approved after newer ones were " +
-    "posted keeps its old id and is not returned this way.",
+    "posted keeps its old id and is not returned this way, and edits or removals of messages " +
+    "the client already holds are not shown by it: they need a reload.",
   kind: "read",
   input: z.object({
     conversationId: Id,

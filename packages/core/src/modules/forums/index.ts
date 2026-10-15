@@ -147,6 +147,8 @@ export const forumSql = {
   postPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND p.position BETWEEN ?2 AND ?3 AND (p.state = 'visible' OR (p.state = 'moderated' AND (?4 = 1 OR p.user_id = ?6)) OR (p.state = 'deleted' AND ?5 = 1)) ORDER BY p.position`,
   // A merge's target while its posts are renumbered: positions are stored as -(p + 1) or as p.
   decodedPostPage: `SELECT ${postColumns}, b.body_html FROM posts p JOIN post_bodies b ON b.post_id = p.id WHERE p.thread_id = ?1 AND (p.position BETWEEN ?2 AND ?3 OR p.position BETWEEN -?3 - 1 AND -?2 - 1) AND ${postVisible} ORDER BY ${storedPosition("p.position")}`,
+  postAt: "SELECT id FROM posts WHERE thread_id = ?1 AND position = ?2",
+  decodedPostAt: "SELECT id FROM posts WHERE thread_id = ?1 AND position IN (?2, -?2 - 1)",
   decodedPostBeyond: `SELECT p.id FROM posts p WHERE p.thread_id = ?1 AND (p.position > ?3 OR p.position < -?3 - 1) AND ${postVisible} LIMIT 1`,
   postBeyond:
     "SELECT id FROM posts WHERE thread_id = ?1 AND position > ?2 AND (state = 'visible' OR (state = 'moderated' AND (?3 = 1 OR user_id = ?5)) OR (state = 'deleted' AND ?4 = 1)) ORDER BY position LIMIT 1",
@@ -1119,12 +1121,21 @@ function mergingPostPage(
   start: number,
   end: number,
   [viewModerated, viewDeleted, viewer]: [number, number, number],
+  anchorAt?: number,
 ) {
   return ctx.db.transaction(
     () => {
       const state = mergeStateOf(ctx, threadId);
       if (!state || state.phase !== undefined)
         return {
+          anchor:
+            anchorAt === undefined
+              ? undefined
+              : (statement<{ id: number }, [number, number]>(
+                  ctx,
+                  "decodedPostAt",
+                  forumSql.decodedPostAt,
+                ).get(threadId, anchorAt)?.id ?? null),
           rows: statement<PostRow, [number, number, number, number, number, number]>(
             ctx,
             "decodedPostPage",
@@ -1154,6 +1165,10 @@ function mergingPostPage(
           .map((row) => [row.id, row]),
       );
       return {
+        anchor:
+          anchorAt === undefined
+            ? undefined
+            : (rows.find((row) => slots.get(row.id) === anchorAt)?.id ?? null),
         rows: page.map((entry) => ({ ...byId.get(entry.id)!, position: entry.slot })),
         beyond: shown.some((row) => row.slot > end) ? { id: 0 } : undefined,
       };
@@ -1174,10 +1189,25 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
       : input.afterPosition + 1);
   const end = start + input.limit - 1;
   const viewer = actorUserId(actor) ?? -1;
-  const { rows, beyond } =
+  const anchorAt = input.afterPosition;
+  const { rows, beyond, anchor } =
     row.transfer_role === "merge_target"
-      ? mergingPostPage(ctx, input.threadId, start, end, [viewModerated, viewDeleted, viewer])
+      ? mergingPostPage(
+          ctx,
+          input.threadId,
+          start,
+          end,
+          [viewModerated, viewDeleted, viewer],
+          anchorAt,
+        )
       : {
+          anchor:
+            anchorAt === undefined
+              ? undefined
+              : (statement<{ id: number }, [number, number]>(ctx, "postAt", forumSql.postAt).get(
+                  input.threadId,
+                  anchorAt,
+                )?.id ?? null),
           rows: statement<PostRow, [number, number, number, number, number, number]>(
             ctx,
             "postPage",
@@ -1192,6 +1222,7 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
   return {
     items: postValues(ctx, actor, rows, row.is_locked, row.node_id, row.first_post_id),
     nextCursor: beyond ? encodeCursor([end + 1]) : null,
+    ...(anchor === undefined ? {} : { afterPostId: anchor }),
   };
 });
 export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {

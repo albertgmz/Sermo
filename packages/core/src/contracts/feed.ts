@@ -89,7 +89,8 @@ export const feedNewCount = defineContract({
     "above `since` for this viewer, with the same filters (forums the viewer may open, wall " +
     "posts they may see, ignored members), counted through the same walks but never built: a " +
     "thread that gets a reply counts again, as it moves to the top, and the viewer's own posts " +
-    "count too. `count` is at most 99 and `more` is true when there are more than that. A " +
+    "count too. A post approved after newer ones were posted keeps its old time and is not " +
+    "counted, nor is an entry made in the very millisecond of `since`. `count` is at most 99 and `more` is true when there are more than that. A " +
     "hundred hidden entries in a row may make the count too low.",
   kind: "read",
   input: z.object({ scope: z.enum(["latest", "following"]).default("latest"), since: Timestamp }),

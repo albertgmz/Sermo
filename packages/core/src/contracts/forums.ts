@@ -489,8 +489,18 @@ export const postsList = defineContract({
     "state; authors also see their own unapproved posts). `nextCursor` is null after the last " +
     "page. `afterPosition` (the highest position the client holds) starts the page at the " +
     "position after it, so a client can poll for replies: the answer is empty when there is " +
-    "nothing new. A `cursor` takes precedence over it, and it over `page`. A merge or split " +
-    "renumbers positions: a client that sees the thread change that way reloads it.",
+    "nothing new. A `cursor` takes precedence over it, and it over `page`. With " +
+    "`afterPosition` the answer also carries `afterPostId`, the id of the post now at that " +
+    "position (null when there is none). Merging threads into this one and splitting posts out " +
+    "of it renumber positions, so the rule for a poller is: when `afterPostId` is not the id " +
+    "of the newest post it holds, drop what it holds and reload the thread from the start, " +
+    "ignoring the items of that answer; otherwise append the items. The check is exact: " +
+    "posts merged in below the held ones, or posts split out, change the id at that position, " +
+    "while posts merged in above it, replies, and moderation of held posts do not. A poll " +
+    "does not show edits or removals of posts the client already holds, nor a post approved " +
+    "after newer ones were posted (it keeps its old position). While a merge into the thread " +
+    "is running, each answer costs a pass over the posts of the thread and its sources " +
+    "instead of an index read.",
   kind: "read",
   input: z.object({
     threadId: Id,
@@ -498,7 +508,10 @@ export const postsList = defineContract({
     afterPosition: z.number().int().nonnegative().optional(),
     ...pageInput,
   }),
-  output: Page(Post),
+  output: Page(Post).extend({
+    /** Only with `afterPosition`: the id of the post at that position now, or null. */
+    afterPostId: Id.nullable().optional(),
+  }),
 });
 
 export const postsGet = defineContract({

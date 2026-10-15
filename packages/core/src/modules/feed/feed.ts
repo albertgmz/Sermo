@@ -489,7 +489,7 @@ export const feedListOp = implement(feedList, (ctx, actor, input) => {
 });
 
 /** The most new entries `feed.newCount` reports. */
-export const NEW_COUNT_CAP = 99;
+const NEW_COUNT_CAP = 99;
 
 /** Entries a pair of walks yields, at most one more than the cap. */
 const countNew = <PostKey, WallKey>(sources: {
