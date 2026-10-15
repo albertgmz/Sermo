@@ -392,7 +392,12 @@
       "post_hardDelete": "Post deleted permanently",
       "profile_post_hardDelete": "Profile post deleted permanently",
       "signup_approve": "Sign-up approved",
-      "signup_reject": "Sign-up rejected"
+      "signup_reject": "Sign-up rejected",
+      "poll_create": "Poll or quiz added",
+      "poll_update": "Poll or quiz edited",
+      "poll_close": "Poll or quiz closed",
+      "poll_reopen": "Poll or quiz reopened",
+      "poll_delete": "Poll or quiz deleted"
     }
   },
   "memberOutcomes": {

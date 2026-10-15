@@ -50,7 +50,8 @@ import {
   withSpamCheck,
 } from "../moderation";
 import { requireTermsAccepted } from "../pages/acceptance";
-import { insertPoll, movePoll } from "../polls/store";
+import { mayAddPoll } from "../polls/policy";
+import { insertPoll, movePoll, pollOfThread } from "../polls/store";
 import { cleanPoll } from "../polls/text";
 import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent, purgeThread } from "../purge/purge";
 import { isBotAgent } from "../security/device";
@@ -1077,6 +1078,12 @@ export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input
     rows.length > input.limit ? encodeCursor([page.at(-1)!.sort_at, page.at(-1)!.id]) : null;
   return { sticky: values.slice(0, sticky.length), items: values.slice(sticky.length), nextCursor };
 });
+/** Whether the viewer may read a poll of the thread, and whether they may add one. */
+function threadPollFacts(ctx: Ctx, actor: Actor, row: ThreadRow): { exists: boolean; canAdd: boolean } {
+  if (!readGates(ctx, actor).reads(row.node_id, row.user_id)) return { exists: false, canAdd: false };
+  if (pollOfThread(ctx, row.id)) return { exists: true, canAdd: false };
+  return { exists: false, canAdd: mayAddPoll(permissionsOf(ctx, actor), actor, row) };
+}
 export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) => {
   let targetId = input.threadId;
   const mergedTarget = statement<{ merged_into_id: number | null }, [number]>(
@@ -1098,6 +1105,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   return {
     thread: threadValue(ctx, actor, row.id),
     tags: threadTagNames(ctx, row.id, readGates(ctx, actor).reads(row.node_id, row.user_id)),
+    poll: threadPollFacts(ctx, actor, row),
     featured: featureKinds(ctx, [row.id], ctx.now()).get(row.id) ?? null,
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },

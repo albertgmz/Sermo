@@ -41,6 +41,7 @@ export default async function NewThreadPage({
           id={node.id}
           canPost={node.permissions.canPost}
           canAttach={resolvedPermissions["forum.uploadAttachments"] === true}
+          canPoll={resolvedPermissions["poll.create"] === true}
         />
       </Suspense>
     </PageLayout>
@@ -51,10 +52,12 @@ async function ThreadForm({
   id,
   canPost,
   canAttach,
+  canPoll,
 }: {
   id: number;
   canPost: boolean;
   canAttach: boolean;
+  canPoll: boolean;
 }) {
   const t = await getTranslations("forums.new");
   if (!canPost) {
@@ -89,6 +92,7 @@ async function ThreadForm({
       prefixes={prefixes}
       canAttach={canAttach}
       canTag={viewer.resolvedPermissions["tag.apply"] === true}
+      canPoll={canPoll}
       memberId={viewer.user?.id ?? null}
     />
   );

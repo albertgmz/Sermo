@@ -281,3 +281,34 @@ test("a refusal of the whole batch is what the bar shows", async () => {
     error: "Not for you.",
   });
 });
+
+test("a poll written with the thread travels with it, and a form without one sends none", async () => {
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "No." } },
+  };
+  const poll = {
+    kind: "poll",
+    questions: [{ text: "Q?", answers: [{ text: "A" }, { text: "B" }] }],
+  };
+  await actions.createThreadAction(
+    4,
+    {},
+    form({ title: "T", body: "B", poll: JSON.stringify(poll) }),
+  );
+  assert.deepEqual((asked[0].body as { poll: unknown }).poll, poll);
+  asked.length = 0;
+  await actions.createThreadAction(
+    4,
+    {},
+    form({ title: "T", body: "B", poll: "" }),
+  );
+  assert.equal("poll" in (asked[0].body as object), false);
+  asked.length = 0;
+  await actions.createThreadAction(
+    4,
+    {},
+    form({ title: "T", body: "B", poll: "not json" }),
+  );
+  assert.equal("poll" in (asked[0].body as object), false);
+});

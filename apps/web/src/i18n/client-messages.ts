@@ -57,6 +57,7 @@ export const CLIENT_NAMESPACES = [
   "forum.memberCard",
   "forum.memberCardTrigger",
   "forum.mentionMenu",
+  "forum.poll",
   "forum.reactionButton",
   "forum.reactionSummary",
   "forum.shareButton",

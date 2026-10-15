@@ -61,6 +61,7 @@ test("a thread starts out unsendable: Post is disabled, beside the forum chip, t
         prefixes={PREFIXES}
         canAttach
         canTag
+        canPoll={false}
         memberId={1}
       />,
     ),
@@ -87,6 +88,7 @@ test("a forum without prefixes draws no prefix chips", () => {
         prefixes={[]}
         canAttach={false}
         canTag={false}
+        canPoll={false}
         memberId={1}
       />,
     ),
@@ -105,6 +107,7 @@ test("the field for tags is part of the form of a member who may tag threads", (
         prefixes={[]}
         canAttach={false}
         canTag
+        canPoll={false}
         memberId={1}
       />,
     ),

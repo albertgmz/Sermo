@@ -14,6 +14,7 @@ import {
 } from "@/app/[locale]/(main)/threads/[id]/permissions";
 import { PostItem } from "@/app/[locale]/(main)/threads/[id]/post-item";
 import { ReplyComposer } from "@/app/[locale]/(main)/threads/[id]/reply-composer";
+import { ThreadPoll } from "@/app/[locale]/(main)/threads/[id]/thread-poll";
 import { ThreadTools } from "@/app/[locale]/(main)/threads/[id]/thread-tools";
 import { pollPosts } from "@/app/[locale]/(main)/threads/poll-posts";
 import { Art } from "@/components/forum/art";
@@ -21,6 +22,7 @@ import { EmptyState } from "@/components/forum/empty-state";
 import { JsonLd } from "@/components/forum/json-ld";
 import { LiveTail, PendingBody } from "@/components/forum/live-tail";
 import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
+import { PollAdder } from "@/components/forum/poll-adder";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
@@ -97,6 +99,7 @@ export default async function ThreadPage({
     {
       thread,
       tags,
+      poll,
       node,
       permissions,
       resolvedPermissions,
@@ -173,6 +176,15 @@ export default async function ThreadPage({
         </div>
       )}
 
+      {contentOpen && poll.canAdd && (
+        <div className="mt-2">
+          <PollAdder
+            threadId={thread.id}
+            attachIn={may.attach ? node.id : null}
+          />
+        </div>
+      )}
+
       {user && (
         <ThreadTools
           thread={thread}
@@ -196,6 +208,16 @@ export default async function ThreadPage({
       )}
       {thread.state === "deleted" && (
         <PostNote icon={Trash2}>{t("threadDeleted")}</PostNote>
+      )}
+
+      {contentOpen && poll.exists && page === 1 && (
+        <Suspense fallback={<Skeleton className="mt-4 h-48 w-full" />}>
+          <ThreadPoll
+            threadId={thread.id}
+            signedIn={user !== null}
+            attachIn={may.attach ? node.id : null}
+          />
+        </Suspense>
       )}
 
       {!contentOpen && <PostNote icon={Lock}>{t("contentClosed")}</PostNote>}

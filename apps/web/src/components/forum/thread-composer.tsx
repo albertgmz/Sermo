@@ -11,6 +11,7 @@ import {
 import { ComposerForm, ComposerPage } from "@/components/forum/composer";
 import { ForumChoicePanel } from "@/components/forum/forum-choice-panel";
 import { type ForumChoice, forumTitle } from "@/components/forum/forum-choices";
+import { PollField } from "@/components/forum/poll-field";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import {
   clearThreadDraft,
@@ -56,6 +57,7 @@ export function ThreadComposer({
   prefixes,
   canAttach,
   canTag,
+  canPoll,
   memberId,
 }: {
   forumId: number;
@@ -65,6 +67,8 @@ export function ThreadComposer({
   canAttach: boolean;
   // The member may put tags on a thread (tag.apply): the field for them is shown.
   canTag: boolean;
+  // The member may start a poll or quiz with the thread (poll.create in the forum): the section is shown.
+  canPoll: boolean;
   // Whose draft is kept in the tab; none is kept without one.
   memberId: number | null;
 }) {
@@ -230,6 +234,7 @@ export function ThreadComposer({
         </fieldset>
       )}
       {canTag && <ThreadTagsField />}
+      {canPoll && <PollField attachIn={attach ? forum : null} />}
     </div>
   );
 

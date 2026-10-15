@@ -392,7 +392,12 @@
       "post_hardDelete": "Mensaje eliminado para siempre",
       "profile_post_hardDelete": "Publicación de perfil eliminada para siempre",
       "signup_approve": "Alta aprobada",
-      "signup_reject": "Alta rechazada"
+      "signup_reject": "Alta rechazada",
+      "poll_create": "Encuesta o cuestionario añadido",
+      "poll_update": "Encuesta o cuestionario editado",
+      "poll_close": "Encuesta o cuestionario cerrado",
+      "poll_reopen": "Encuesta o cuestionario reabierto",
+      "poll_delete": "Encuesta o cuestionario eliminado"
     }
   },
   "memberOutcomes": {

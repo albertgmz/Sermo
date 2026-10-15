@@ -62,6 +62,7 @@ const threadBody = {
   node: { id: 2, title: "Garden" },
   watching: null,
   tags: [],
+  poll: { exists: false, canAdd: false },
   featured: null,
   permissions: {
     canReply: true,

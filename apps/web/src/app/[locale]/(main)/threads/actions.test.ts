@@ -322,6 +322,7 @@ test("the first step of a merge reads the target without counting a view and cha
       },
       watching: null,
       tags: [],
+      poll: { exists: false, canAdd: false },
       featured: null,
       permissions: {
         canReply: true,
@@ -433,6 +434,7 @@ const readable = {
   },
   watching: null,
   tags: [],
+  poll: { exists: false, canAdd: false },
   featured: null,
   permissions: {
     canReply: false,

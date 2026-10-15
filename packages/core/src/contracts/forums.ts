@@ -383,6 +383,11 @@ export const threadsGet = defineContract({
     thread: Thread,
     /** The thread's tags (their names), alphabetically. */
     tags: z.array(z.string()),
+    /**
+     * Whether the thread has a poll or quiz the viewer may read (`polls.get` returns it), and
+     * whether they may add one (its author while unlocked, or staff who manage polls).
+     */
+    poll: z.object({ exists: z.boolean(), canAdd: z.boolean() }),
     featured: FeatureKind.nullable(),
     seo: SeoMetadata,
     node: z.object({ id: Id, title: z.string() }),

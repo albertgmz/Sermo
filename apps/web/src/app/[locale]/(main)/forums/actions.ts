@@ -19,6 +19,7 @@ import {
 import { call } from "@/lib/sermo/client";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
+import { pollFromJson } from "@/lib/sermo/polls";
 import { tagsFromText } from "@/lib/sermo/tags";
 
 export type NewThreadState = {
@@ -50,6 +51,7 @@ export async function createThreadAction(
       attachmentIds: attachmentIds as number[],
       prefixId: prefixId ? (parseId(prefixId) as number) : null,
       tags: tagsFromText(String(formData.get("tags") ?? "")),
+      poll: pollFromJson(String(formData.get("poll") ?? "")) ?? undefined,
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };
