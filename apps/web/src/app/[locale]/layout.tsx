@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 import { Suspense } from "react";
 import { UploadLimitProvider } from "@/components/forum/upload-limit";
 import { CookieBanner } from "@/components/layout/cookie-banner";
@@ -10,6 +11,7 @@ import { widthScript } from "@/components/layout/narrow-width";
 import { QueryProvider } from "@/components/layout/query-provider";
 import { SiteIcon } from "@/components/layout/site-icon";
 import { themeScript } from "@/components/layout/theme";
+import { pickClientMessages } from "@/i18n/client-messages";
 import { isLocale, LOCALES } from "@/i18n/locales";
 import { getSite } from "@/lib/sermo/site";
 import "../globals.css";
@@ -49,7 +51,10 @@ export default async function RootLayout({
 }: LayoutProps<"/[locale]">) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const { maxUploadBytes } = await getSite();
+  const [{ maxUploadBytes }, messages] = await Promise.all([
+    getSite(),
+    getMessages(),
+  ]);
   return (
     <html
       lang={locale}
@@ -70,7 +75,12 @@ export default async function RootLayout({
           <CookieBanner locale={locale} />
         </Suspense>
         <EmbedLoader />
-        <NextIntlClientProvider>
+        {/* Only what client components read goes to the browser (see client-messages.ts). */}
+        <NextIntlClientProvider
+          messages={pickClientMessages(
+            messages as Parameters<typeof pickClientMessages>[0],
+          )}
+        >
           <UploadLimitProvider bytes={maxUploadBytes}>
             <QueryProvider>{children}</QueryProvider>
           </UploadLimitProvider>
