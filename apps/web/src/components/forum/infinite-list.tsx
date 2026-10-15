@@ -112,6 +112,13 @@ export function watchSentinel(
 
 const subscribeNever = () => () => {};
 
+// The heights the rows of a list were drawn at, kept when its screen goes away, so that coming
+// back (the Back button) lays the list out as it was and the scroll position lands where it was.
+const drawnHeights = new Map<
+  string,
+  ReturnType<typeof useWindowVirtualizer>["itemSizeCache"]
+>();
+
 export function InfiniteList({
   listKey,
   stamp,
@@ -170,9 +177,11 @@ export function InfiniteList({
     observer.observe(document.documentElement);
     return () => observer.disconnect();
   }, []);
+  const memory = [...listKey, start ?? ""].join("/");
+  const [remembered] = useState(() => drawnHeights.get(memory));
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: () => estimateSize,
+    estimateSize: (index) => remembered?.get(rows[index].key) ?? estimateSize,
     overscan: 5,
     scrollMargin,
     getItemKey: (index) => rows[index].key,
@@ -181,6 +190,13 @@ export function InfiniteList({
     initialOffset: 0,
   });
   const items = virtualizer.getVirtualItems();
+
+  useEffect(
+    () => () => {
+      drawnHeights.set(memory, new Map(virtualizer.itemSizeCache));
+    },
+    [memory, virtualizer],
+  );
 
   // The address keeps the place: the number of pages loaded.
   const count = loaded.length;
