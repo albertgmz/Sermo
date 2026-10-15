@@ -93,7 +93,7 @@ test("the follow button of the feed's suggestions is the in-place one", () => {
 // that builds one on each of its own renders would make it look drawn just now.
 test("a client component that creates a change button keeps the element between its renders", () => {
   const buttons =
-    /<(BookmarkButton|ReactionButton|MemberFollowButton|ReactionSummaryLive)[\s/>]/;
+    /<(BookmarkButton|ReactionButton|ReactionsView|MemberFollowButton|ReactionSummaryLive)[\s/>]/;
   let seen = 0;
   const walk = (dir: string) => {
     for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {

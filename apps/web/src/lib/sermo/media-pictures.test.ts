@@ -40,7 +40,7 @@ const file = (id: number, over: Record<string, unknown> = {}) => ({
   thumbnailUrl: `/api/v1/files/${id + 1000}`,
   ...over,
 });
-const thread = (canReply: boolean) => ({
+const thread = (canReply: boolean, state = "visible") => ({
   thread: {
     id: 7,
     nodeId: 2,
@@ -52,7 +52,7 @@ const thread = (canReply: boolean) => ({
     highlightedUntil: null,
     bumpedAt: null,
     author: user,
-    state: "visible",
+    state,
     isSticky: false,
     isLocked: false,
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -115,6 +115,7 @@ type Backend = {
   wall?: Response;
   canReply?: boolean;
   signedIn?: boolean;
+  threadState?: string;
 };
 
 // The reads a viewer's details make, answered by path; everything asked is kept.
@@ -123,6 +124,7 @@ function backend({
   wall,
   canReply = true,
   signedIn = true,
+  threadState = "visible",
 }: Backend = {}) {
   const asked: string[] = [];
   globalThis.fetch = (async (url: string) => {
@@ -139,7 +141,7 @@ function backend({
     if (pathname === "/api/v1/profile-posts/12")
       return (wall ?? notFound()).clone();
     if (pathname === "/api/v1/threads/7")
-      return Response.json(thread(canReply));
+      return Response.json(thread(canReply, threadState));
     return notFound();
   }) as unknown as typeof fetch;
   return asked;
@@ -265,6 +267,11 @@ test("a post that is hidden, or a file that is not one of its pictures, is gone"
       postBody({ attachments: [file(7, { contentType: "application/pdf" })] }),
     ),
   });
+  expect(await pictureDetails("post", 31, 7)).toEqual({ status: "gone" });
+});
+
+test("a visible post in a thread that is deleted is gone", async () => {
+  backend({ post: visiblePost(), threadState: "deleted" });
   expect(await pictureDetails("post", 31, 7)).toEqual({ status: "gone" });
 });
 

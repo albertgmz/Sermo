@@ -291,7 +291,8 @@ async function HomeMedia({ params }: { params: Params }) {
         listKey={["media"]}
         hrefBase={homeHref("media")}
         moreLabel={t("loadMore")}
-        estimateSize={720}
+        // One row is a page of large cards: about 6000 px in one column, 2000 in three.
+        estimateSize={3000}
         spacing="spaced"
       />
     </PictureViewer>

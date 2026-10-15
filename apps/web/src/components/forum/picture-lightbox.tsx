@@ -88,7 +88,9 @@ export default function PictureLightbox({
     typeof result === "object" && result.status === "ready"
       ? result.details
       : undefined;
-  const picture = entry ?? details?.picture;
+  // A picture the details call gone (deleted since the list was drawn) is not kept on screen.
+  const gone = typeof result === "object" && result.status === "gone";
+  const picture = gone ? undefined : (entry ?? details?.picture);
   const finger = useRef<{ x: number; y: number } | null>(null);
 
   const step = (to: PictureEntry | null) => {
@@ -96,11 +98,30 @@ export default function PictureLightbox({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open
+      onOpenChange={(open, details) => {
+        if (open) return;
+        // Esc belongs to what is open on top of the viewer first (the mention list, the reaction
+        // picker, who reacted): that closes, the viewer stays.
+        if (
+          details.reason === "escape-key" &&
+          (details.event.defaultPrevented ||
+            document.querySelector('[data-slot="popover-content"][data-open]'))
+        ) {
+          details.cancel();
+          return;
+        }
+        onClose();
+      }}
+    >
       <DialogPrimitive.Portal>
         <DialogPrimitive.Popup
           className="fixed inset-0 z-50 flex flex-col bg-background text-foreground outline-none md:flex-row"
           onKeyDown={(event) => {
+            // Keys pressed in a popup drawn outside the viewer (the reaction picker) bubble
+            // through React but are not the viewer's.
+            if (!event.currentTarget.contains(event.target as Node)) return;
             const to = arrowStep(
               event.key,
               event.metaKey || event.ctrlKey || event.altKey,
@@ -140,9 +161,9 @@ export default function PictureLightbox({
                 blocked={t("blocked")}
                 className="size-full"
               />
-            ) : (
+            ) : result === "loading" ? (
               <Skeleton className="size-full rounded-none" />
-            )}
+            ) : null}
             {previous && (
               <Button
                 type="button"
@@ -261,7 +282,7 @@ function Details({ details }: { details: PictureDetails }) {
       <div className="flex flex-wrap items-baseline gap-x-2">
         <Link
           href={`/members/${author.id}`}
-          className="font-medium underline-offset-4 hover:underline"
+          className="inline-flex min-h-10 items-center font-medium underline-offset-4 hover:underline"
         >
           {author.username}
         </Link>

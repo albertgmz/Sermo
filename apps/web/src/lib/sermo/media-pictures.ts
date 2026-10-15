@@ -115,7 +115,8 @@ async function postDetails(
     picturesBlocked(),
   ]);
   const picture = pictureOf(post.attachments, fileId, blocked);
-  if (post.state !== "visible" || !picture) return { status: "gone" };
+  if (post.state !== "visible" || thread.thread.state !== "visible" || !picture)
+    return { status: "gone" };
   const picker =
     post.canReact && viewer.permissions.canReact
       ? pickerTypes(types, thread.thread.node.id)

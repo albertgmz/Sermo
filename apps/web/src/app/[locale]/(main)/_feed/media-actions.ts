@@ -1,6 +1,7 @@
 "use server";
 
 import type { PictureResult } from "@/components/forum/picture-types";
+import { isRecordId } from "@/lib/sermo/ids";
 import { pictureDetails } from "@/lib/sermo/media-pictures";
 
 // What the picture viewer shows beside a picture, asked for when it opens one: who posted it and
@@ -12,5 +13,6 @@ export async function loadPicture(
   fileId: number,
 ): Promise<PictureResult> {
   if (kind !== "post" && kind !== "wall") return { status: "gone" };
+  if (!isRecordId(contentId) || !isRecordId(fileId)) return { status: "gone" };
   return pictureDetails(kind, contentId, fileId);
 }
