@@ -116,6 +116,58 @@ test("starting a thread names the attached files and refuses them when they are 
   await assert.rejects(() => actions.createThreadAction(4, {}, bad));
 });
 
+const forumAnswer = (uploads: boolean) => ({
+  node: {
+    id: 4,
+    parentId: null,
+    type: "forum",
+    title: "Help",
+    description: "",
+    icon: null,
+    iconKey: null,
+    cover: null,
+    position: 0,
+    tabId: null,
+    depth: 0,
+    threadCount: 0,
+    postCount: 0,
+    lastPost: null,
+    permissions: { canPost: true, canModerate: false },
+    settings: {
+      requireThreadApproval: false,
+      requireReplyApproval: false,
+      isReadOnly: false,
+      minAccountAgeDays: 0,
+      minPostCount: 0,
+    },
+  },
+  watching: null,
+  seo: {
+    title: "Help",
+    description: "",
+    canonical: "http://localhost/forums/4",
+    robots: "index,follow",
+    redirect: false,
+    jsonLd: [],
+  },
+  breadcrumbs: [],
+  resolvedPermissions: { "forum.uploadAttachments": uploads },
+});
+
+test("a forum says whether files may be attached to a thread there", async () => {
+  answer = { status: 200, body: forumAnswer(true) };
+  assert.equal(await actions.forumAttachAllowedAction(4), true);
+  assert.equal(asked[0].url, `${ROOT}/nodes/4`);
+  answer = { status: 200, body: forumAnswer(false) };
+  assert.equal(await actions.forumAttachAllowedAction(4), false);
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "No." } },
+  };
+  assert.equal(await actions.forumAttachAllowedAction(4), false);
+  await assert.rejects(() => actions.forumAttachAllowedAction(0));
+});
+
 test("an id that is not a record id never becomes a path", async () => {
   for (const id of [".." as unknown as number, 0, -3, Number.NaN]) {
     await assert.rejects(() => actions.watchForumAction(id, {}, form({})));

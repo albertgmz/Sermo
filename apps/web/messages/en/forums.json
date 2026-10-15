@@ -1,18 +1,12 @@
 {
   "new": {
     "metaTitle": "New thread",
-    "home": "Home",
     "heading": "New thread",
     "aria": {
       "loading": "Loading thread form…"
     },
     "cannotPostTitle": "You cannot start a thread here",
     "cannotPostDescription": "This forum is closed to new threads for your account."
-  },
-  "newThreadForm": {
-    "placeholder": "What is this thread about?",
-    "cancel": "Cancel",
-    "submit": "Post thread"
   },
   "loading": {
     "heading": "New thread",

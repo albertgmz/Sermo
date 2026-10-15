@@ -1,6 +1,11 @@
 "use server";
 
-import { nodesUnwatch, nodesWatch, threadsCreate } from "@sermo/core/contracts";
+import {
+  nodesGet,
+  nodesUnwatch,
+  nodesWatch,
+  threadsCreate,
+} from "@sermo/core/contracts";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/app/[locale]/(main)/threads/actions";
@@ -41,6 +46,21 @@ export async function createThreadAction(
   if (!created.ok) return { error: created.error, title, prefixId };
   // A thread that waits for approval is opened all the same: its author can see it there.
   redirect(`/threads/${created.value.thread.id}`);
+}
+
+// Whether the member may attach files to a thread in this forum, for a composer whose forum was
+// changed after the page was drawn. A forum that cannot be read says no.
+export async function forumAttachAllowedAction(
+  nodeId: number,
+): Promise<boolean> {
+  requireIds(nodeId);
+  const read = await attempt(`/forums/${nodeId}/new`, () =>
+    call(nodesGet, { nodeId }),
+  );
+  return (
+    read.ok &&
+    read.value.resolvedPermissions["forum.uploadAttachments"] === true
+  );
 }
 
 export async function watchForumAction(

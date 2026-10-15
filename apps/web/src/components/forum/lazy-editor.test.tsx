@@ -24,6 +24,7 @@ test("the one-line composers reach the editor's code only through the import mad
   expect(lazy).toContain('import("@/components/forum/editor")');
   for (const path of [
     "components/forum/lazy-editor.tsx",
+    "components/forum/composer.tsx",
     "components/forum/attachment-field.tsx",
     "components/forum/line-composer.tsx",
     "app/[locale]/(main)/members/post-composer.tsx",

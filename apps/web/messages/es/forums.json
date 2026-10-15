@@ -1,18 +1,12 @@
 {
   "new": {
     "metaTitle": "Nuevo tema",
-    "home": "Inicio",
     "heading": "Nuevo tema",
     "aria": {
       "loading": "Cargando el formulario del tema…"
     },
     "cannotPostTitle": "No puedes iniciar un tema aquí",
     "cannotPostDescription": "Este foro está cerrado a temas nuevos para tu cuenta."
-  },
-  "newThreadForm": {
-    "placeholder": "¿De qué trata este tema?",
-    "cancel": "Cancelar",
-    "submit": "Publicar tema"
   },
   "loading": {
     "heading": "Nuevo tema",

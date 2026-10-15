@@ -192,6 +192,29 @@
       "members": "Members"
     }
   },
+  "composer": {
+    "aria": { "close": "Close" }
+  },
+  "threadComposer": {
+    "post": "Post",
+    "postingIn": "Posting in",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Thread title",
+    "prefixLabel": "Prefix",
+    "bodyPlaceholder": "Write the first post…"
+  },
+  "forumChoicePanel": {
+    "heading": "Choose a forum",
+    "searchLabel": "Search forums",
+    "searchPlaceholder": "Search forums…",
+    "noMatches": "No forum matches that.",
+    "noForums": "There is no forum you can post in.",
+    "aria": {
+      "back": "Back",
+      "collapse": "Collapse {title}",
+      "expand": "Expand {title}"
+    }
+  },
   "threadFields": {
     "noPrefix": "No prefix",
     "prefixLabel": "Prefix",

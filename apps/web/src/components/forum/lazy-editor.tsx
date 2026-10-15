@@ -25,6 +25,7 @@ export function LazyEditor({
   minHeight = 40,
   toolbarContainer,
   findMembers,
+  onChange,
   className,
 }: {
   name: string;
@@ -37,6 +38,8 @@ export function LazyEditor({
   // above the text.
   toolbarContainer?: HTMLElement | null;
   findMembers?: EditorProps["findMembers"];
+  // The text as it is written, in the plain field and in the editor alike.
+  onChange?: (text: string) => void;
   className?: string;
 }) {
   const field = useRef<HTMLTextAreaElement>(null);
@@ -102,6 +105,7 @@ export function LazyEditor({
         defaultValue={loaded.text}
         minHeight={minHeight}
         findMembers={findMembers}
+        onChange={onChange}
         onInsertReady={editorReady}
         className={className}
       />
@@ -128,7 +132,10 @@ export function LazyEditor({
         placeholder={placeholder}
         aria-label={placeholder}
         onFocus={load}
-        onInput={load}
+        onInput={(event) => {
+          load();
+          onChange?.(event.currentTarget.value);
+        }}
         style={{ minHeight }}
         className="block field-sizing-content w-full resize-none bg-transparent px-3 py-2 text-base leading-relaxed outline-none placeholder:text-muted-foreground md:text-sm"
       />

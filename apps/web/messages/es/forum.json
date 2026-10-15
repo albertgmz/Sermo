@@ -192,6 +192,29 @@
       "members": "Miembros"
     }
   },
+  "composer": {
+    "aria": { "close": "Cerrar" }
+  },
+  "threadComposer": {
+    "post": "Publicar",
+    "postingIn": "Publicando en",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Título del tema",
+    "prefixLabel": "Prefijo",
+    "bodyPlaceholder": "Escribe el primer mensaje…"
+  },
+  "forumChoicePanel": {
+    "heading": "Elige un foro",
+    "searchLabel": "Buscar foros",
+    "searchPlaceholder": "Buscar foros…",
+    "noMatches": "Ningún foro coincide.",
+    "noForums": "No hay ningún foro en el que puedas publicar.",
+    "aria": {
+      "back": "Volver",
+      "collapse": "Contraer {title}",
+      "expand": "Expandir {title}"
+    }
+  },
   "threadFields": {
     "noPrefix": "Sin prefijo",
     "prefixLabel": "Prefijo",

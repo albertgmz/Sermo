@@ -153,7 +153,6 @@
     "title": "Nueva publicación",
     "post": "Publicar",
     "aria": {
-      "close": "Cerrar",
       "attach": "Añadir una imagen o un archivo"
     }
   },
