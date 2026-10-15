@@ -3,6 +3,7 @@ import type { Ctx } from "../context";
 import { prepared } from "../context";
 import { ValidationError } from "../errors";
 import type { DomainEvent } from "../events";
+import { awardSpecs } from "./criteria/awards";
 import { withIds, withValue, yes } from "./criteria/build";
 import { contentSpecs } from "./criteria/content";
 import { economySpecs } from "./criteria/economy";
@@ -104,6 +105,7 @@ const specs: readonly Spec[] = [
   ),
   ...contentSpecs,
   ...economySpecs,
+  ...awardSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
 
@@ -144,6 +146,9 @@ function idsReadBy(rule: Rule, kind: IdKind): number[] {
 
 /** The groups a rule reads (`in_group`, `not_in_group`), for consumers that must not depend on them. */
 export const groupsReadBy = (rule: Rule): number[] => idsReadBy(rule, "groups");
+
+/** The awards a rule reads (`holds_awards`), for the award that must not depend on itself. */
+export const awardsReadBy = (rule: Rule): number[] => idsReadBy(rule, "awards");
 
 export const parseRule = (json: string): Rule => JSON.parse(json) as Rule;
 
@@ -231,6 +236,8 @@ const noFacts = (memberId: number | null, now: number): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  awardCount: 0,
+  awardXp: 0,
   measures: new Map(),
 });
 
@@ -247,7 +254,13 @@ type MemberRow = {
   credits: number;
   shop_purchase_count: number;
   email_verified: number;
+  award_count: number;
+  award_xp: number;
 };
+
+/** The statement of the facts on the member's own row, for tests that check its plan. */
+export const memberFactsSql =
+  "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified, u.award_count, u.award_xp FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))";
 
 type MeasureRow = { user_id: number; id: number | null; n: number | null };
 
@@ -294,9 +307,7 @@ export function loadFacts(
   const set = (id: number, change: Partial<Facts>) => Object.assign(facts.get(id)!, change);
   if (sources.has("member"))
     for (const row of prepared(ctx, "shared.criteriaMembers", () =>
-      ctx.sqlite.prepare<MemberRow, [string]>(
-        "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))",
-      ),
+      ctx.sqlite.prepare<MemberRow, [string]>(memberFactsSql),
     ).all(ids))
       set(row.id, {
         postCount: row.post_count,
@@ -307,6 +318,8 @@ export function loadFacts(
         lastActivityAt: row.last_activity_at,
         credits: row.credits,
         purchaseCount: row.shop_purchase_count,
+        awardCount: row.award_count,
+        awardXp: row.award_xp,
       });
   if (sources.has("warnings"))
     for (const row of prepared(ctx, "shared.criteriaWarnings", () =>
@@ -382,6 +395,25 @@ export function membersAffected(ctx: Ctx, event: DomainEvent, rules: Iterable<Ru
 /** Whether any criterion wants this kind of event; a consumer asks before it loads its rules. */
 export const isRefreshedBy = (event: DomainEvent): boolean =>
   specs.some((spec) => spec.refresh?.on.includes(event.type));
+
+/**
+ * Records an award just granted in the facts a pass of automatic awards is judging, so the
+ * awards after it in the same pass see it (its credits, XP, and the award itself).
+ */
+export function afterAwardGrant(
+  facts: Facts,
+  award: { id: number; xp: number; credits: number },
+): void {
+  facts.credits += award.credits;
+  facts.awardXp += award.xp;
+  facts.awardCount += 1;
+  for (const [key, measure] of facts.measures) {
+    const [criterion, ids] = key.split("|");
+    if (criterion !== "holds_awards" || !(measure instanceof Map)) continue;
+    if (ids?.split(",").includes(String(award.id)))
+      measure.set(award.id, (measure.get(award.id) ?? 0) + 1);
+  }
+}
 
 /** The facts of whoever makes a request: a guest's, or the signed-in member's loaded for `rules`. */
 export function actorFacts(ctx: Ctx, actor: Actor, rules: Iterable<Rule>): Facts {

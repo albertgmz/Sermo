@@ -13,6 +13,7 @@ import {
   groupsReadBy,
   guestFacts,
   loadFacts,
+  memberFactsSql,
   type Rule,
 } from "./criteria";
 import { type Measure, measureKey } from "./criteria/types";
@@ -33,6 +34,8 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  awardCount: 0,
+  awardXp: 0,
   measures: new Map(),
   ...overrides,
 });
@@ -263,6 +266,52 @@ const table: Record<string, Case[]> = {
     ],
     ["nothing earned", { value: 1 }, facts(), false],
   ],
+  awards_held_at_least: [
+    ["above", { value: 3 }, facts({ awardCount: 4 }), true],
+    ["edge", { value: 3 }, facts({ awardCount: 3 }), true],
+    ["below", { value: 3 }, facts({ awardCount: 2 }), false],
+    ["none held, none asked", { value: 0 }, facts(), true],
+  ],
+  award_xp_at_most: [
+    ["below", { value: 100 }, facts({ awardXp: 99 }), true],
+    ["edge", { value: 100 }, facts({ awardXp: 100 }), true],
+    ["above", { value: 100 }, facts({ awardXp: 101 }), false],
+    ["no award at all", { value: 0 }, facts(), true],
+  ],
+  holds_awards: [
+    [
+      "one: holds one of them",
+      { ids: [1, 2], mode: "one" },
+      measured("holds_awards", { ids: [1, 2] }, counts([2, 1])),
+      true,
+    ],
+    [
+      "one is the default",
+      { ids: [1, 2] },
+      measured("holds_awards", { ids: [1, 2] }, counts([1, 2])),
+      true,
+    ],
+    ["one: holds none of them", { ids: [1, 2], mode: "one" }, facts(), false],
+    ["none: holds none of them", { ids: [1, 2], mode: "none" }, facts(), true],
+    [
+      "none: holds one of them",
+      { ids: [1, 2], mode: "none" },
+      measured("holds_awards", { ids: [1, 2] }, counts([2, 1])),
+      false,
+    ],
+    [
+      "each: holds all of them",
+      { ids: [1, 2], mode: "each" },
+      measured("holds_awards", { ids: [1, 2] }, counts([1, 1], [2, 3])),
+      true,
+    ],
+    [
+      "each: misses one",
+      { ids: [1, 2], mode: "each" },
+      measured("holds_awards", { ids: [1, 2] }, counts([1, 1])),
+      false,
+    ],
+  ],
   credits_from_rule: [
     [
       "all combined reach it",
@@ -453,7 +502,7 @@ describe("loadFacts", () => {
     const user = insertUser(ctx);
     ctx.sqlite
       .prepare(
-        "UPDATE users SET post_count = 12, reaction_score = 4, credits = -7, shop_purchase_count = 3, last_activity_at = 555, created_at = 99, avatar_file_id = NULL WHERE id = ?1",
+        "UPDATE users SET post_count = 12, reaction_score = 4, credits = -7, shop_purchase_count = 3, last_activity_at = 555, created_at = 99, avatar_file_id = NULL, award_count = 4, award_xp = 70 WHERE id = ?1",
       )
       .run(user.id);
     ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(user.id);
@@ -471,6 +520,8 @@ describe("loadFacts", () => {
       createdAt: 99,
       hasAvatar: false,
       emailVerified: true,
+      awardCount: 4,
+      awardXp: 70,
     });
   });
 
@@ -608,11 +659,7 @@ describe("loadFacts", () => {
 
   test("its queries use indexes", () => {
     const ctx = createTestContext();
-    expectNoTableScan(
-      ctx,
-      "SELECT u.id, u.post_count, u.created_at, u.reaction_score, u.avatar_file_id, u.last_activity_at, u.credits, u.shop_purchase_count, a.email_verified FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id IN (SELECT value FROM json_each(?1))",
-      ["[1,2]"],
-    );
+    expectNoTableScan(ctx, memberFactsSql, ["[1,2]"]);
     expectNoTableScan(
       ctx,
       "SELECT user_id, sum(points) AS points FROM warnings WHERE user_id IN (SELECT value FROM json_each(?1)) AND (expires_at IS NULL OR expires_at > ?2) GROUP BY user_id",

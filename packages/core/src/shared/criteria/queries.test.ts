@@ -412,6 +412,51 @@ describe("economy criteria", () => {
   });
 });
 
+describe("award criteria", () => {
+  test("holds_awards holds for an award the member holds, however many times, not a revoked one", () => {
+    const { ctx, member, other } = world();
+    const award = (name: string) =>
+      insertRow(
+        ctx,
+        "INSERT INTO awards (name, tier, created_at, updated_at) VALUES (?1, 'bronze', 0, 0)",
+        name,
+      );
+    const [a, b, c] = [award("A"), award("B"), award("C")];
+    const total = (userId: number, awardId: number, count: number) =>
+      insertRow(
+        ctx,
+        "INSERT INTO member_award_totals (user_id, award_id, count) VALUES (?1, ?2, ?3)",
+        userId,
+        awardId,
+        count,
+      );
+    total(member, a, 1);
+    total(member, b, 3);
+    total(member, c, 0);
+    total(other, c, 1);
+    const asks = (ids: number[], mode: "one" | "none" | "each") =>
+      holdsFor(ctx, [member, other], { criterion: "holds_awards", ids, mode });
+    expect(asks([a], "one")).toEqual([true, false]);
+    expect(asks([b], "one")).toEqual([true, false]);
+    expect(asks([c], "one")).toEqual([false, true]);
+    expect(asks([a, b], "each")).toEqual([true, false]);
+    expect(asks([a, c], "each")).toEqual([false, false]);
+    expect(asks([a, c], "none")).toEqual([false, false]);
+    expect(asks([c], "none")).toEqual([true, false]);
+  });
+
+  test("awards held and award XP are read from the member row", () => {
+    const { ctx, member, other } = world();
+    ctx.sqlite.prepare("UPDATE users SET award_count = 3, award_xp = 50 WHERE id = ?1").run(member);
+    const asks = (criterion: string, value: number) =>
+      holdsFor(ctx, [member, other], { criterion, value });
+    expect(asks("awards_held_at_least", 3)).toEqual([true, false]);
+    expect(asks("awards_held_at_least", 4)).toEqual([false, false]);
+    expect(asks("award_xp_at_most", 50)).toEqual([true, true]);
+    expect(asks("award_xp_at_most", 49)).toEqual([false, true]);
+  });
+});
+
 describe("measured criteria", () => {
   test("every measured criterion's statement is answered from indexes", () => {
     const ctx = createTestContext();

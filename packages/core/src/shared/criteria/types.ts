@@ -43,6 +43,9 @@ export interface Facts {
   purchasedItemIds: ReadonlySet<number>;
   /** Every group the member holds: primary, assigned by hand, granted by a promotion or bought. */
   groupIds: ReadonlySet<number>;
+  /** Awards held, each grant counting, and the XP of those grants. */
+  awardCount: number;
+  awardXp: number;
   /** The measures of the conditions the loader was asked about, by `measureKey`. */
   measures: Map<string, Measure>;
 }

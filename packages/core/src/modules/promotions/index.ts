@@ -431,6 +431,16 @@ export const operations = [
             "SELECT id, title FROM groups ORDER BY rank DESC, id",
           ),
         ).all(),
+        awards: prepared(ctx, "promotions.ruleAwards", () =>
+          ctx.sqlite.prepare<{ id: number; title: string }, []>(
+            "SELECT id, name AS title FROM awards ORDER BY id",
+          ),
+        ).all(),
+        creditRules: prepared(ctx, "promotions.ruleCreditRules", () =>
+          ctx.sqlite.prepare<{ id: number; title: string }, []>(
+            "SELECT id, title FROM credit_rules ORDER BY id",
+          ),
+        ).all(),
       };
     }),
   ),

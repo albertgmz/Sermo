@@ -48,6 +48,26 @@ describe("criteria.list", () => {
       expect(list.groups.length).toBe(6);
     });
 
+  test("the awards and credit rules a rule may name come with the criteria, by id and title", async () => {
+    const { ctx, manager } = await managerOf("admin.announcements");
+    const award = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO awards (name, tier, created_at, updated_at, is_active) VALUES ('Veteran', 'gold', 0, 0, 0) RETURNING id",
+      )
+      .get()!.id;
+    const creditRule = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO credit_rules (title, trigger, amount, created_at, updated_at) VALUES ('Daily', 'daily_activity', 1, 0, 0) RETURNING id",
+      )
+      .get()!.id;
+    const list = (await execute(ctx, op("criteria.list"), manager, {})) as {
+      awards: object[];
+      creditRules: object[];
+    };
+    expect(list.awards).toEqual([{ id: award, title: "Veteran" }]);
+    expect(list.creditRules).toEqual([{ id: creditRule, title: "Daily" }]);
+  });
+
   test("guests, members and moderators are refused", async () => {
     const { ctx } = await managerOf("admin.shop");
     const member = userActor(insertUser(ctx));

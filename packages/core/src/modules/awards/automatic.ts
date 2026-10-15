@@ -2,6 +2,7 @@ import type { Ctx } from "../../context";
 import { writeTx } from "../../db/tx";
 import { type DomainEvent, registerEventSubscriber } from "../../events";
 import {
+  afterAwardGrant,
   isRefreshedBy,
   loadFacts,
   membersAffected,
@@ -51,8 +52,8 @@ function evaluate(ctx: Ctx, members: MemberRow[], plans = activePlans(ctx)): num
       if (!ruleHolds(rule, memberFacts)) continue;
       if (grantAward(ctx, award, member.id, null, "")) {
         granted++;
-        // Later criteria in this transaction see the credits just paid.
-        memberFacts.credits += award.credits;
+        // Later criteria in this transaction see the credits just paid and the award itself.
+        afterAwardGrant(memberFacts, award);
       }
     }
   }

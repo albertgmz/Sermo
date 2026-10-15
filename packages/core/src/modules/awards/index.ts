@@ -4,11 +4,11 @@ import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import * as contracts from "../../contracts/awards";
 import { writeTx } from "../../db/tx";
-import { ConflictError, NotFoundError } from "../../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can, currentActor, requirePermission } from "../../permissions";
-import { assertRule, criterionDefinitions, type Rule } from "../../shared/criteria";
+import { assertRule, awardsReadBy, criterionDefinitions, type Rule } from "../../shared/criteria";
 import { viewerLanguage, withTitles } from "../../shared/language";
 import { iso } from "../../time";
 import { requireNotErased } from "../admin/erased";
@@ -48,6 +48,31 @@ function visibleMember(ctx: Ctx, actor: Actor, id: number): void {
 }
 function validate(ctx: Ctx, rule: Rule): void {
   assertRule(ctx, rule, "background");
+}
+/**
+ * An award's rule may read other awards, and giving or taking one away checks the member's other
+ * awards again. To keep that from ever looping, an award cannot require itself, directly or
+ * through other awards (the same rule that keeps promotions from depending on one another).
+ */
+function assertNoAwardLoop(ctx: Ctx, awardId: number, rule: Rule): void {
+  const reads = new Map(
+    all<AwardRow>(ctx, "catalog", awardSql.catalog).map((row) => [
+      row.id,
+      awardsReadBy(ruleOf(row)),
+    ]),
+  );
+  reads.set(awardId, awardsReadBy(rule));
+  const seen = new Set<number>();
+  const pending = [...reads.get(awardId)!];
+  for (let id = pending.pop(); id !== undefined; id = pending.pop()) {
+    if (id === awardId)
+      throw new ValidationError(
+        "An award cannot require itself, directly or through other awards.",
+      );
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pending.push(...(reads.get(id) ?? []));
+  }
 }
 function grantsPage(
   ctx: Ctx,
@@ -119,6 +144,7 @@ export const operations = [
     return writeTx(ctx, () => {
       requirePermission(ctx, currentActor(ctx, actor), "admin.awards");
       const award = awardRow(ctx, input.awardId);
+      if (input.rule) assertNoAwardLoop(ctx, award.id, input.rule);
       if (input.isStackable === false && one(ctx, "stacked", awardSql.stacked, award.id))
         throw new ConflictError("A member holds this award more than once.");
       run(

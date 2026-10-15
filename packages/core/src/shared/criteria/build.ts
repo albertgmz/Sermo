@@ -63,6 +63,13 @@ export function withIds(
   };
 }
 
+/** A criterion that its consumers check again when one of these events names a member. */
+export const refreshing = (
+  spec: Spec,
+  on: NonNullable<Spec["refresh"]>["on"],
+  members: NonNullable<Spec["refresh"]>["members"],
+): Spec => ({ ...spec, refresh: { on, members } });
+
 export const yes = (holds: boolean, value: number) => Number(holds) === value;
 
 /** A yes/no criterion on the member's own row: 1 when the property must hold, 0 when it must not. */
