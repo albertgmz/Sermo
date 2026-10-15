@@ -3,7 +3,7 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
-import { stripMarkdownImages } from "@/lib/lite-markdown";
+import { stripBbCodeImages } from "@/lib/lite-content";
 import {
   blocks,
   type LiteCategory,
@@ -35,11 +35,11 @@ export const getLiteOrigin = cache(async () => {
   return host ? `${protocol}://${host}` : undefined;
 });
 
-export async function filterLiteMarkdown(markdown: string): Promise<string> {
+export async function filterLiteBbCode(source: string): Promise<string> {
   const [state, origin, label] = await Promise.all([
     getLiteState(),
     getLiteOrigin(),
     getLiteLabel(),
   ]);
-  return stripMarkdownImages(markdown, state, origin, label);
+  return stripBbCodeImages(source, state, origin, label);
 }

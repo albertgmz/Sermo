@@ -1,14 +1,7 @@
 "use client";
 
-import {
-  $convertFromMarkdownString,
-  $convertToMarkdownString,
-  TRANSFORMERS,
-} from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
-  $createParagraphNode,
-  $getRoot,
   $getSelection,
   $isRangeSelection,
   $isTextNode,
@@ -22,9 +15,18 @@ import {
   mergeRegister,
 } from "lexical";
 import { useTranslations } from "next-intl";
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  createContext,
+  type RefObject,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { $appendBb } from "@/components/forum/bb-lexical";
+import { mentionOf } from "@/components/forum/bb-text";
 import { $insertMention } from "@/components/forum/editor-commands";
-import { mentionOf } from "@/components/forum/mention-text";
 import { cn } from "@/lib/utils";
 
 export type MemberHit = { id: number; username: string };
@@ -35,24 +37,40 @@ const CLOSED = { prefix: "", hits: NONE };
 // The text typed after an "@" that starts a word, up to the caret.
 const TYPING = /(?:^|[\s(])@([\p{L}\p{N}._-]{1,32})$/u;
 
-// Adds Markdown at the end of the editor when the page asks for it with a window event whose
-// detail is the Markdown (the quote button of a post does).
+// The BB code source field the editor shows in place of its rich text. `active` says whether it is
+// shown; the rest is for what the rest of the composer asks of the text (a quote, an attachment's
+// tag), which goes to the field while it is the one showing.
+export type SourceMode = {
+  active: boolean;
+  field: RefObject<HTMLTextAreaElement | null>;
+  // The text of the field changed.
+  commit: (text: string) => void;
+  toggle: () => void;
+};
+
+export const SourceContext = createContext<SourceMode | null>(null);
+
+// Adds BB code at the end of the editor when the page asks for it with a window event whose
+// detail is the BB code (the quote button of a post does).
 export function InsertPlugin({ event }: { event: string }) {
   const [editor] = useLexicalComposerContext();
+  const source = useContext(SourceContext);
+  const mode = useRef(source);
+  mode.current = source;
   useEffect(() => {
     const insert = (occurred: Event) => {
-      const markdown = String((occurred as CustomEvent<string>).detail ?? "");
-      editor.update(() => {
-        const current = $convertToMarkdownString(TRANSFORMERS).trimEnd();
-        $convertFromMarkdownString(
-          `${current ? `${current}\n\n` : ""}${markdown}\n\n`,
-          TRANSFORMERS,
-        );
-        // The caret goes on a paragraph of its own, below the quote.
-        const below = $createParagraphNode();
-        $getRoot().append(below);
-        below.select();
-      });
+      const bb = String((occurred as CustomEvent<string>).detail ?? "");
+      const shown = mode.current;
+      const box = shown?.active ? shown.field.current : null;
+      if (box) {
+        const current = box.value.trimEnd();
+        box.value = `${current ? `${current}\n\n` : ""}${bb}\n\n`;
+        box.setSelectionRange(box.value.length, box.value.length);
+        box.focus();
+        shown?.commit(box.value);
+        return;
+      }
+      editor.update(() => $appendBb(`${bb}\n\n`));
       editor.focus();
     };
     window.addEventListener(event, insert);

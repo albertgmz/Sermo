@@ -1,4 +1,4 @@
-import { $isCodeNode } from "@lexical/code";
+import { $createCodeNode, $isCodeNode } from "@lexical/code";
 import { $createLinkNode, $toggleLink } from "@lexical/link";
 import {
   $isListItemNode,
@@ -7,11 +7,13 @@ import {
   type ListNode,
 } from "@lexical/list";
 import {
+  $createHeadingNode,
   $createQuoteNode,
   $isHeadingNode,
   $isQuoteNode,
   type QuoteNode,
 } from "@lexical/rich-text";
+import { $setBlocksType } from "@lexical/selection";
 import {
   $createLineBreakNode,
   $createParagraphNode,
@@ -36,6 +38,32 @@ import {
   type TextNode,
 } from "lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
+
+export type BlockKind =
+  | "paragraph"
+  | "heading"
+  | "quote"
+  | "code"
+  | "bullet"
+  | "number";
+
+// Makes the selected blocks a heading, a quote or a code block, or plain paragraphs again when
+// they already are one (`current` is the block the caret is in).
+export function $setBlock(
+  current: BlockKind,
+  block: "heading" | "quote" | "code",
+) {
+  const selection = $getSelection();
+  if (current === block) {
+    $setBlocksType(selection, () => $createParagraphNode());
+  } else if (block === "heading") {
+    $setBlocksType(selection, () => $createHeadingNode("h2"));
+  } else if (block === "code") {
+    $setBlocksType(selection, () => $createCodeNode());
+  } else {
+    $setBlocksType(selection, () => $createQuoteNode());
+  }
+}
 
 // Replaces the "@" and what follows it, up to the caret, with the mention. A space goes after it
 // unless the text already goes on with one.
@@ -153,19 +181,6 @@ function listItemsOf(list: ListNode): ListItemNode[] {
   });
 }
 
-// The number each item of a numbered list shows, nested lists numbering on their own. An item that
-// only holds a nested list takes no number.
-function numbersOf(list: ListNode, numbers = new Map<string, number>()) {
-  let number = list.getStart();
-  for (const child of list.getChildren()) {
-    if (!$isListItemNode(child)) continue;
-    const inner = child.getFirstChild();
-    if ($isListNode(inner)) numbersOf(inner, numbers);
-    else numbers.set(child.getKey(), number++);
-  }
-  return numbers;
-}
-
 // Takes the lines of a quote that `touched` says were selected out of it, as paragraphs. The lines
 // before and after stay in a quote each (with the quote's alignment and indent). Lines are what the
 // line breaks in the quote separate.
@@ -225,16 +240,14 @@ function $plainBlock(
     $unquoteLines(block, touched ?? (() => true));
   } else if ($isListNode(block)) {
     // Replacing an item moves it out of any nested list and splits the list around it.
-    const numbers =
-      block.getListType() === "number" ? numbersOf(block) : undefined;
     const made: ElementNode[] = [];
     for (const item of listItemsOf(block)) {
       if (!touched || touched(item)) {
         made.push(item.replace($createParagraphNode(), true));
       }
     }
-    // The lists left take their first item's place: a split copies the start of the original, and
-    // an item that is now first must not be a bare nested list (it would export indented).
+    // The lists left take their first item's place: an item that is now first must not be a bare
+    // nested list (it would export indented).
     const lists = [
       block,
       ...made.map((paragraph) => paragraph.getNextSibling()),
@@ -248,9 +261,8 @@ function $plainBlock(
         first.remove();
         first = list.getFirstChild();
       }
-      const first = list.getFirstChild();
-      const number = first ? numbers?.get(first.getKey()) : undefined;
-      if (number !== undefined) list.setStart(number);
+      // BB code numbers a list from 1 only, so each part starts there.
+      if (list.getListType() === "number") list.setStart(1);
     }
   } else if ($isParagraphNode(block)) {
     if (block.getFormatType()) block.setFormat("");

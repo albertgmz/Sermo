@@ -5,8 +5,8 @@ import { useState } from "react";
 import { startConversation } from "@/app/[locale]/(main)/conversations/actions";
 import { RecipientPicker } from "@/app/[locale]/(main)/conversations/new/recipient-picker";
 import { AttachmentField } from "@/components/forum/attachment-field";
-import { Editor } from "@/components/forum/editor";
 import { FormError } from "@/components/forum/form-error";
+import { LazyEditor } from "@/components/forum/lazy-editor";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,11 @@ export function NewConversationForm({
       </div>
       <div className="space-y-2">
         <p className="text-sm leading-none font-medium">{t("messageLabel")}</p>
-        <Editor name="body" placeholder={t("messagePlaceholder")} />
+        <LazyEditor
+          name="body"
+          compact={false}
+          placeholder={t("messagePlaceholder")}
+        />
       </div>
       {canAttach && <AttachmentField onBusy={setUploading} />}
       {state.error && <FormError>{state.error}</FormError>}

@@ -52,7 +52,6 @@ import {
 import { LevelBadge, XpBar } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
 import { LitePlaceholder } from "@/components/forum/lite-placeholder";
-import { Markdown } from "@/components/forum/markdown";
 import { MemberCard } from "@/components/forum/member-card";
 import { MemberCardScope } from "@/components/forum/member-card-scope";
 import { MemberRow } from "@/components/forum/member-row";
@@ -77,7 +76,7 @@ import { RelativeTime } from "@/components/forum/relative-time";
 import { SectionCard } from "@/components/forum/section-card";
 import { ShareButton } from "@/components/forum/share-button";
 import { SHOP_EFFECT_TYPES, ShopIcon } from "@/components/forum/shop-icon";
-import { Signature } from "@/components/forum/signature";
+import { SignatureHtml } from "@/components/forum/signature-html";
 import { SocialIcon } from "@/components/forum/social-icon";
 import {
   MonthHero,
@@ -258,25 +257,40 @@ const CLIENTS = [
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg", "xl", "2xl"] as const;
 
-const SAMPLE = `## Markdown sample
+// What a member types, and the HTML the backend stores for it.
+const SAMPLE_BB = [
+  "[HEADING=2]BB code sample[/HEADING]",
+  "",
+  "A paragraph with [B]bold[/B], [I]italic[/I], [U]underline[/U], [S]strikethrough[/S], [ICODE]inline code[/ICODE] and [URL=/ui]a link[/URL].",
+  "",
+  "[LIST]",
+  "[*]First item",
+  "[*]Second item",
+  "[LIST]",
+  "[*]Nested item",
+  "[/LIST]",
+  "[/LIST]",
+  "",
+  "[LIST=1]",
+  "[*]Step one",
+  "[*]Step two",
+  "[/LIST]",
+  "",
+  "[QUOTE]If everything glows, nothing does.[/QUOTE]",
+  "",
+  "[CODE=ts]",
+  "export function greet(name: string) {",
+  '  return "Hello, " + name;',
+  "}",
+  "[/CODE]",
+].join("\n");
 
-A paragraph with **bold**, *italic*, ~~strikethrough~~, \`inline code\` and a [link](/ui).
-
-- First item
-- Second item
-  - Nested item
-
-1. Step one
-2. Step two
-
-> If everything glows, nothing does.
-
-\`\`\`ts
-export function greet(name: string) {
-  return \`Hello, \${name}\`;
-}
-\`\`\`
-`;
+const SAMPLE_HTML =
+  '<h2>BB code sample</h2><p>A paragraph with <strong>bold</strong>, <em>italic</em>, <u>underline</u>, <del>strikethrough</del>, <code>inline code</code> and <a href="/ui">a link</a>.</p>' +
+  "<ul><li>First item</li><li>Second item<ul><li>Nested item</li></ul></li></ul>" +
+  "<ol><li>Step one</li><li>Step two</li></ol>" +
+  '<blockquote class="bb-quote">If everything glows, nothing does.</blockquote>' +
+  '<div class="bb-code"><div class="bb-code-header bb-code-named"><span class="bb-code-lang">ts</span></div><pre><code>export function greet(name: string) {\n  return "Hello, " + name;\n}</code></pre></div>';
 
 function Section({
   title,
@@ -1464,14 +1478,17 @@ export default async function StyleguidePage() {
           </div>
         </Section>
 
-        <Section title="Markdown">
+        <Section title="BB code">
+          <p className="max-w-prose text-sm text-muted-foreground">
+            The HTML the backend stores for the source in the editor below.
+          </p>
           <div className="rounded-lg border bg-card p-4">
-            <Markdown>{SAMPLE}</Markdown>
+            <HtmlContent>{SAMPLE_HTML}</HtmlContent>
           </div>
         </Section>
 
         <Section title="Editor">
-          <EditorDemo defaultValue={SAMPLE} />
+          <EditorDemo defaultValue={SAMPLE_BB} />
         </Section>
 
         <Section title="Compact composer">
@@ -1576,7 +1593,7 @@ export default async function StyleguidePage() {
                     time={<RelativeTime date={SAMPLE_DATE} />}
                   >
                     <MessageBody className="text-[0.8125rem]">
-                      A compact row, used for comments.
+                      {"<p>A compact row, used for comments.</p>"}
                     </MessageBody>
                   </MessageRow>
                   <CompactComposer
@@ -1588,14 +1605,16 @@ export default async function StyleguidePage() {
               }
             >
               <MessageBody>
-                The horizontal row used by the feed, profile walls and comments.
+                {
+                  "<p>The horizontal row used by the feed, profile walls and comments.</p>"
+                }
               </MessageBody>
             </MessageRow>
             <MessageRow
               author={MEMBER}
               time={<RelativeTime date={SAMPLE_DATE} />}
             >
-              <MessageBody clamp>{SAMPLE}</MessageBody>
+              <MessageBody clamp>{SAMPLE_HTML}</MessageBody>
             </MessageRow>
           </div>
         </Section>
@@ -1835,11 +1854,11 @@ export default async function StyleguidePage() {
           </p>
           <div className="max-w-xl rounded-lg border bg-card p-4">
             <p className="text-sm">Thanks, that fixed it for me.</p>
-            <Signature className="mt-3 border-t pt-2">
+            <SignatureHtml className="mt-3 border-t pt-2">
               {
-                "*Measure twice, cut once.*\nCommissions are open: [see my threads](/forums)."
+                '<p><em>Measure twice, cut once.</em><br>Commissions are open: <a href="/forums">see my threads</a>.</p>'
               }
-            </Signature>
+            </SignatureHtml>
           </div>
         </Section>
 

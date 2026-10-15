@@ -1,6 +1,4 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AvatarImage } from "../src/components/ui/avatar";
 
@@ -16,12 +14,4 @@ test("a caller can still ask for an avatar picture at once", () => {
   );
   expect(html).toContain('loading="eager"');
   expect(html).not.toContain('loading="lazy"');
-});
-
-test("the pictures a post's Markdown holds load lazily", () => {
-  const source = readFileSync(
-    join(import.meta.dir, "../src/components/forum/markdown.tsx"),
-    "utf8",
-  );
-  expect(source).toContain('loading="lazy"');
 });

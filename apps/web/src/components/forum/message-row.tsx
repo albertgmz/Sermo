@@ -1,4 +1,4 @@
-import { Markdown } from "@/components/forum/markdown";
+import { HtmlContent } from "@/components/forum/html-content";
 import { type AvatarUser, UserAvatar } from "@/components/forum/user-avatar";
 import { type LinkUser, UserLink } from "@/components/forum/user-link";
 import { cn } from "@/lib/utils";
@@ -71,6 +71,8 @@ export function MessageRow({
   );
 }
 
+// The body of a row: HTML the backend rendered from its BB code. A long one is cut short when
+// `clamp` is set.
 export function MessageBody({
   children,
   clamp = false,
@@ -80,10 +82,11 @@ export function MessageBody({
   clamp?: boolean;
   className?: string;
 }) {
-  const long =
-    clamp && (children.length > 280 || children.split("\n").length > 6);
+  const text = children.replace(/<[^>]*>/g, " ");
+  const blocks = children.match(/<\/(?:p|li|h\d|blockquote)>|<br>/g) ?? [];
+  const long = clamp && (text.length > 280 || blocks.length > 6);
   return (
-    <Markdown
+    <HtmlContent
       className={cn(
         long &&
           "max-h-28 overflow-hidden [mask-image:linear-gradient(to_bottom,black_55%,transparent)]",
@@ -91,7 +94,7 @@ export function MessageBody({
       )}
     >
       {children}
-    </Markdown>
+    </HtmlContent>
   );
 }
 

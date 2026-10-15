@@ -8,7 +8,7 @@ import {
 } from "@/components/forum/spoiler-reveal";
 import { placeAttachments, type TaggedAttachment } from "@/lib/attachment-tags";
 import { withEmbedGate } from "@/lib/consent/embed-gate";
-import { stripHtmlMedia } from "@/lib/lite-markdown";
+import { stripHtmlMedia } from "@/lib/lite-content";
 import {
   getLiteLabel,
   getLiteOrigin,
@@ -18,8 +18,8 @@ import {
 import { withSpoilerButtons } from "@/lib/spoiler-buttons";
 import { cn } from "@/lib/utils";
 
-// The same look as the Markdown component, for elements that arrive as HTML. Each rule repeats a
-// class of `prose` on the elements below the root. What BB code adds (alignment, code blocks,
+// The look of the editor's text (`prose`), for the elements of the HTML the backend stored. Each
+// rule repeats a class of `prose` on the elements below the root. What BB code adds (alignment, code blocks,
 // spoilers, tables, highlighting) is styled in `globals.css` under `.bb-content`.
 const elements = cn(
   "[&_h1]:text-xl [&_h1]:leading-snug [&_h1]:font-semibold [&_h1]:tracking-tight",

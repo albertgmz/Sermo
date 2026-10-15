@@ -382,12 +382,12 @@ export async function unwatchThreadAction(
   backToThread(threadId);
 }
 
-// The Markdown source of a post, for the quote button: the list only carries rendered HTML.
+// The BB code source of a post, for the quote button: the list only carries rendered HTML.
 export async function quoteSource(postId: number) {
   requireIds(postId);
   try {
     const { author, bodySource } = await call(postsGet, { postId });
-    return { author: author.username, source: bodySource };
+    return { author: author.username, authorId: author.id, source: bodySource };
   } catch (error) {
     if (!(error instanceof SermoError)) throw error;
     return null;

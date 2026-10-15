@@ -2,13 +2,13 @@
 
 import { Send } from "lucide-react";
 import { useActionState } from "react";
-import { discard, echoMarkdown } from "@/app/[locale]/(main)/ui/actions";
+import { discard, echoBbCode } from "@/app/[locale]/(main)/ui/actions";
 import { Editor } from "@/components/forum/editor";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
 export function EditorDemoClient({ defaultValue }: { defaultValue: string }) {
-  const [preview, action, pending] = useActionState(echoMarkdown, null);
+  const [preview, action, pending] = useActionState(echoBbCode, null);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <form action={action} className="min-w-0 space-y-3">
@@ -16,8 +16,9 @@ export function EditorDemoClient({ defaultValue }: { defaultValue: string }) {
           Prefilled, required editor
         </Label>
         <p id="sg-editor-help" className="text-xs text-muted-foreground">
-          A real post supplies the initial Markdown. Edit it and submit to
-          preview the result without saving a post.
+          A real post supplies the initial BB code. Edit it, switch to the BB
+          code source with the [ ] button, and submit to see what is sent
+          without saving a post.
         </p>
         <Editor
           id="sg-editor"
@@ -36,14 +37,14 @@ export function EditorDemoClient({ defaultValue }: { defaultValue: string }) {
       </form>
       <div className="min-w-0 rounded-lg border bg-card p-4">
         <p className="mb-3 text-xs font-semibold text-muted-foreground">
-          Submitted Markdown
+          Submitted BB code
         </p>
         {preview ? (
           preview
         ) : (
           <p className="text-sm text-muted-foreground">
-            Submit the form to see the rendered result. The editor clears itself
-            afterwards.
+            Submit the form to see the BB code the editor sends. The editor
+            clears itself afterwards.
           </p>
         )}
       </div>

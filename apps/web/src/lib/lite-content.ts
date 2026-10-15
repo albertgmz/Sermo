@@ -1,14 +1,12 @@
-import type { Root, RootContent } from "mdast";
 import { parseEntities } from "parse-entities";
-import remarkGfm from "remark-gfm";
-import remarkParse from "remark-parse";
-import { unified } from "unified";
+import { closerFinder, TAG_SOURCE } from "@/components/forum/bb-scan";
 import { blocksContentImage } from "./lite-images";
 import { blocks, type LiteState } from "./lite-preferences";
 
-const parser = unified().use(remarkParse).use(remarkGfm);
 const ALL: LiteState = { master: true, blocked: [] };
 type Edit = { start: number; end: number; text: string };
+// The tags whose content is read as it is: a picture tag inside code is text.
+const LITERAL = new Set(["CODE", "ICODE", "PLAIN", "IMG"]);
 // The English label, for a caller that does not know the visitor's language.
 const LABEL = "DATA SAVER";
 
@@ -74,7 +72,7 @@ function htmlEdits(
   }
   for (const node of nodes) {
     const offset = node.offset;
-    // Tokenize only Markdown HTML nodes. Inline, fenced and indented code are exempt.
+    // Tokenize the HTML tags of each chunk.
     const tags = /<\/?([a-z][\w:-]*)(?=\s|\/?>)(?:"[^"]*"|'[^']*'|[^'">])*>/gi;
     for (const match of node.value.matchAll(tags)) {
       const tag = match[1].toLowerCase();
@@ -141,90 +139,34 @@ function htmlEdits(
   return edits;
 }
 
-export function stripMarkdownHtml(
-  markdown: string,
-  state: LiteState,
-  origin?: string,
-  label = LABEL,
-): string {
-  return filterMarkdown(markdown, state, origin, false, label);
-}
-
-// Edit source ranges so links and the rest of the member's formatting survive.
-// `label` is what stands in for a removed picture; an empty one drops it.
-export function stripMarkdownImages(
-  markdown: string,
+// Takes the pictures out of BB code as it is written: each [IMG] tag whose picture is blocked
+// becomes `label` (an empty one drops it), and nothing else changes, so a link around a picture
+// stays a link and the rest of the text is as it was typed. Code and PLAIN text show tags as text
+// and are left as they are. For text that goes back into an editor, never for text a member
+// could save: the backend's HTML has its own filter, `stripHtmlMedia`.
+export function stripBbCodeImages(
+  source: string,
   state: LiteState = ALL,
   origin?: string,
   label = LABEL,
 ): string {
-  return filterMarkdown(markdown, state, origin, true, label);
-}
-
-function filterMarkdown(
-  markdown: string,
-  state: LiteState,
-  origin: string | undefined,
-  images: boolean,
-  label: string,
-): string {
-  if (!state.master && state.blocked.length === 0) return markdown;
-  const tree = parser.parse(markdown);
-  const links = new Set<string>();
-  const removedReferences = new Set<string>();
-  const definitions = new Map<
-    string,
-    Extract<RootContent, { type: "definition" }>
-  >();
-  const html: RootContent[] = [];
+  if (!state.master && state.blocked.length === 0) return source;
+  const find = closerFinder(source);
+  const tags = new RegExp(TAG_SOURCE, "g");
   const edits: Edit[] = [];
-
-  function collect(node: Root | RootContent) {
-    if (node.type === "definition" && !definitions.has(node.identifier))
-      definitions.set(node.identifier, node);
-    if (node.type === "html") html.push(node);
-    if ("children" in node) node.children.forEach(collect);
-  }
-  collect(tree);
-
-  function replace(node: RootContent, text: string) {
-    const start = node.position?.start.offset;
-    const end = node.position?.end.offset;
-    if (start !== undefined && end !== undefined)
-      edits.push({ start, end, text });
-  }
-
-  function visit(node: Root | RootContent) {
-    if (
-      images &&
-      node.type === "image" &&
-      blocksContentImage(state, node.url, origin)
-    ) {
-      replace(node, label);
-    } else if (images && node.type === "imageReference") {
-      const definition = definitions.get(node.identifier);
-      if (definition && blocksContentImage(state, definition.url, origin)) {
-        replace(node, label);
-        removedReferences.add(node.identifier);
-      }
-    } else if (node.type === "linkReference") {
-      links.add(node.identifier);
+  for (let m = tags.exec(source); m; m = tags.exec(source)) {
+    const name = m[2].toUpperCase();
+    if (m[1] !== undefined || !LITERAL.has(name)) continue;
+    const closer = find(name, m.index + m[0].length);
+    if (closer < 0) continue;
+    const end = closer + name.length + 3;
+    tags.lastIndex = end;
+    const address = source.slice(m.index + m[0].length, closer).trim();
+    if (name === "IMG" && blocksContentImage(state, address, origin)) {
+      edits.push({ start: m.index, end, text: label });
     }
-    if ("children" in node) node.children.forEach(visit);
   }
-
-  visit(tree);
-  for (const node of definitions.values()) {
-    if (removedReferences.has(node.identifier) && !links.has(node.identifier))
-      replace(node, "");
-  }
-  const chunks = html.flatMap((node) =>
-    node.type === "html" && node.position?.start.offset !== undefined
-      ? [{ value: node.value, offset: node.position.start.offset }]
-      : [],
-  );
-  edits.push(...htmlEdits(chunks, state, label, origin));
-  return applyEdits(markdown, edits);
+  return applyEdits(source, edits);
 }
 
 function applyEdits(text: string, edits: Edit[]): string {
@@ -242,8 +184,7 @@ function applyEdits(text: string, edits: Edit[]): string {
   return text;
 }
 
-// For HTML the backend rendered and sanitised: the same rules as for HTML inside Markdown, applied
-// to the whole text. A blocked picture is replaced by the label; nothing else is added or changed.
+// For HTML the backend rendered and sanitised, taken as a whole. A blocked picture is replaced by the label; nothing else is added or changed.
 export function stripHtmlMedia(
   html: string,
   state: LiteState,

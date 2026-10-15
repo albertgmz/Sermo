@@ -41,7 +41,7 @@ test("every demo action refuses a caller who may not open the styleguide", async
     await expect(actions.discardForm()).rejects.toThrow();
     await expect(actions.discardQuote()).rejects.toThrow();
     await expect(
-      actions.echoMarkdown(null, form({ body: "x" })),
+      actions.echoBbCode(null, form({ body: "x" })),
     ).rejects.toThrow();
     await expect(
       actions.saveSample(STATE, form({ title: "x" })),

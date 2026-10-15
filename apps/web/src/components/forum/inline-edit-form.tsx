@@ -13,7 +13,7 @@ import { LazyEditor } from "@/components/forum/lazy-editor";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Edits an item where it is read: it asks for the Markdown the item was written in when it opens
+// Edits an item where it is read: it asks for the BB code the item was written in when it opens
 // (the lists only carry the rendered text) and shows the editor on it. A saved edit reports
 // `done`: the panel closes and the refreshed page shows the item anew.
 export function InlineEditForm({

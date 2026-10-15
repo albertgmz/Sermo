@@ -69,7 +69,7 @@ export type WallItemKind = "post" | "comment";
 const isKind = (kind: string): kind is WallItemKind =>
   kind === "post" || kind === "comment";
 
-// The Markdown a wall post or comment was written in, for editing it in place: the lists only carry
+// The BB code a wall post or comment was written in, for editing it in place: the lists only carry
 // rendered text. Nothing when the backend refuses, and the form says so.
 export async function wallItemSource(
   kind: WallItemKind,

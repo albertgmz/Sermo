@@ -57,7 +57,7 @@ test("structured data without pictures has no picture property and no picture ad
     "@type": "DiscussionForumPosting",
     image: "http://site.example/api/v1/files/9",
     author: { name: "wren", image: { url: "/api/v1/files/3" } },
-    text: 'Look ![a cat](/api/v1/files/12) and <img src="/api/v1/files/13"> and http://site.example/api/v1/files/14 here',
+    text: 'Look [IMG]/api/v1/files/12[/IMG] and <img src="/api/v1/files/13"> and http://site.example/api/v1/files/14 here',
     comment: [{ text: "see /api/v1/files/15 ok", thumbnailUrl: "x" }],
   };
   const out = JSON.stringify(withoutPictures(input));

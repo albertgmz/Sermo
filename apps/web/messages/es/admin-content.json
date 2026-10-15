@@ -162,7 +162,7 @@
     "fields": {
       "title": "Título",
       "body": "Texto",
-      "bodyHelp": "Markdown. El sitio lo procesa al guardar, y el texto se conserva exactamente como lo escribes aquí.",
+      "bodyHelp": "Código BB: [B]negrita[/B], [I]cursiva[/I], [U]subrayado[/U], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST], [CODE]código[/CODE]. El sitio lo procesa al guardar, y el texto se conserva exactamente como lo escribes aquí.",
       "published": "Publicada",
       "publishedHelp": "Una página no publicada solo la ven los administradores.",
       "publishedSwitch": "Mostrar esta página a todos",
@@ -174,7 +174,7 @@
   "pageEdit": {
     "metaTitle": "Editar página",
     "heading": "Editar página",
-    "subtitle": "El código Markdown de una página. Guarda y abre la página pública para verla procesada.",
+    "subtitle": "El código BB de una página. Guarda y abre la página pública para verla procesada.",
     "loading": "Cargando la página…",
     "notices": {
       "created": "Página creada.",

@@ -10,6 +10,8 @@ export const prose = {
   blockquote: "border-l-2 border-primary pl-3 text-muted-foreground",
   a: "font-medium text-primary-ink underline underline-offset-4 hover:no-underline",
   strong: "font-semibold",
+  u: "underline underline-offset-2",
+  uDel: "[text-decoration-line:underline_line-through]",
   em: "italic",
   del: "text-muted-foreground line-through",
   code: "rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.85em]",

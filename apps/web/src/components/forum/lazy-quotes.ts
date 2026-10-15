@@ -1,6 +1,6 @@
 // What `LazyEditor` does with the text the page adds to its writing box by a window event (the
 // quote button of a post) while the editor is not there yet. In the editor, `InsertPlugin` adds
-// the Markdown at the end and puts the caret in a new paragraph below it; this does the same for
+// the BB code at the end and puts the caret in a new paragraph below it; this does the same for
 // the plain field and hands the rest over once the editor listens.
 
 type Field = {
@@ -41,14 +41,14 @@ export function quoteInbox({
   const listener = (occurred: Event) => {
     // From here the editor's own listener takes the event.
     if (ready) return;
-    const markdown = String((occurred as CustomEvent<string>).detail ?? "");
+    const bb = String((occurred as CustomEvent<string>).detail ?? "");
     const box = field();
     if (!box) {
-      held.push(markdown);
+      held.push(bb);
       return;
     }
     const current = box.value.trimEnd();
-    box.value = `${current ? `${current}\n\n` : ""}${markdown}\n\n`;
+    box.value = `${current ? `${current}\n\n` : ""}${bb}\n\n`;
     box.setSelectionRange(box.value.length, box.value.length);
     box.focus();
     quoted = true;

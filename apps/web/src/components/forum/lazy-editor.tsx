@@ -44,7 +44,7 @@ export function LazyEditor({
   // above the text.
   toolbarContainer?: HTMLElement | null;
   findMembers?: EditorProps["findMembers"];
-  // The name of a window event whose detail is Markdown to add at the end (the quote button of a
+  // The name of a window event whose detail is BB code to add at the end (the quote button of a
   // post). The plain field takes it until the editor does.
   insertEvent?: string;
   // The text as it is written, in the plain field and in the editor alike.

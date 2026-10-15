@@ -2,7 +2,7 @@
 
 import { spoilersGet } from "@sermo/core/contracts";
 import { withEmbedGate } from "@/lib/consent/embed-gate";
-import { stripHtmlMedia } from "@/lib/lite-markdown";
+import { stripHtmlMedia } from "@/lib/lite-content";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";

@@ -4,7 +4,6 @@ import { createElement, type ReactNode } from "react";
 import { requireStyleguide } from "@/app/[locale]/(main)/ui/guard";
 import type { ActionFormState } from "@/components/forum/action-form";
 import type { LineComposerState } from "@/components/forum/line-composer";
-import { Markdown } from "@/components/forum/markdown";
 import type { StaffFormState } from "@/components/staff/form-rows";
 import type { SaveResult } from "@/lib/autosave";
 
@@ -36,10 +35,17 @@ export async function discardQuote(): Promise<null> {
   return null;
 }
 
-export async function echoMarkdown(_previous: ReactNode, formData: FormData) {
+// The styleguide's editor form: shows the BB code the editor sent, as text.
+export async function echoBbCode(_previous: ReactNode, formData: FormData) {
   await requireStyleguide();
   const body = String(formData.get("body") ?? "");
-  return body ? createElement(Markdown, null, body) : null;
+  return body
+    ? createElement(
+        "pre",
+        { className: "overflow-x-auto font-mono text-xs whitespace-pre-wrap" },
+        body,
+      )
+    : null;
 }
 
 // The styleguide's form rows: refuses an empty title by field, otherwise confirms and stores

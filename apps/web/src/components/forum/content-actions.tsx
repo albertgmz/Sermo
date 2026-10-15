@@ -96,7 +96,7 @@ export function ContentActions({
     event: string;
     load: (
       postId: number,
-    ) => Promise<{ author: string; source: string } | null>;
+    ) => Promise<{ author: string; authorId: number; source: string } | null>;
   };
   reply?: { href: string };
   share?: string;

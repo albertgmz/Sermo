@@ -2,6 +2,7 @@
   "editor": {
     "boldLabel": "Negrita",
     "italicLabel": "Cursiva",
+    "underlineLabel": "Subrayado",
     "strikethroughLabel": "Tachado",
     "inlineCodeLabel": "Código en línea",
     "removeFormattingLabel": "Quitar formato",
@@ -23,7 +24,9 @@
     "spoilerLabel": "Spoiler",
     "codeBlockLabel": "Bloque de código",
     "mediaLabel": "Multimedia",
+    "sourceLabel": "Código BB",
     "mediaPrompt": "Dirección del vídeo, la canción o la publicación",
+    "linkUnsupported": "Eso no es una dirección web. Empieza por http:// o https://.",
     "mediaUnsupported": "Esa dirección no es de un sitio que se pueda insertar."
   }
 }

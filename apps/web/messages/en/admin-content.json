@@ -162,7 +162,7 @@
     "fields": {
       "title": "Title",
       "body": "Text",
-      "bodyHelp": "Markdown. It is rendered by the site when you save, and the text is kept exactly as written here.",
+      "bodyHelp": "BB code: [B]bold[/B], [I]italic[/I], [U]underline[/U], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST], [CODE]code[/CODE]. It is rendered by the site when you save, and the text is kept exactly as written here.",
       "published": "Published",
       "publishedHelp": "A page that is not published is visible to administrators only.",
       "publishedSwitch": "Show this page to everyone",
@@ -174,7 +174,7 @@
   "pageEdit": {
     "metaTitle": "Edit page",
     "heading": "Edit page",
-    "subtitle": "The Markdown source of a page. Save, then open the public page to see it rendered.",
+    "subtitle": "The BB code source of a page. Save, then open the public page to see it rendered.",
     "loading": "Loading the page…",
     "notices": {
       "created": "Page created.",

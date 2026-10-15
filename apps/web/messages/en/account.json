@@ -107,7 +107,7 @@
     "titleLabel": "Custom title",
     "titleHelp": "Up to {count, plural, one {# character} other {# characters}}. Leave it empty to use the title that comes with your group or level.",
     "signatureLabel": "Signature",
-    "signatureHelp": "Written in Markdown. Up to {count, plural, one {# character} other {# characters}} and {lines, plural, one {# line} other {# lines}}. Leave it empty to remove it.",
+    "signatureHelp": "Written in BB code, for example [B]bold[/B], [I]italic[/I] or [URL=https://example.com]a link[/URL]. Up to {count, plural, one {# character} other {# characters}} and {lines, plural, one {# line} other {# lines}}. Leave it empty to remove it.",
     "notShown": "You have this saved, but it is not shown at the moment.",
     "remove": "Remove",
     "titleLocked": "A custom title needs a perk. <shop>See what the shop offers</shop>",

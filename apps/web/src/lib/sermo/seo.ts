@@ -40,10 +40,10 @@ const PICTURE_KEYS = new Set([
   "associatedMedia",
 ]);
 
-// Pictures inside a text: Markdown images, any HTML tag (an image among them) and any address of
+// Pictures inside a text: BB code images, any HTML tag (an image among them) and any address of
 // a stored file.
 const PICTURE_IN_TEXT: RegExp[] = [
-  /!\[[^\]]*\]\([^)]*\)/g,
+  /\[IMG\][^[]*\[\/IMG\]/gi,
   /<[a-z][^>]*>/gi,
   /(?:https?:\/\/[^\s"'<>)\]]*)?\/api\/v1\/files\/[^\s"'<>)\]]*/g,
 ];

@@ -19,8 +19,6 @@ const EMISSION_GATES: Record<string, string> = {
     "Checks the caller's category before emitting a background URL.",
   "src/components/forum/user-avatar.tsx":
     "Checks avatars and frames independently before passing src to AvatarImage.",
-  "src/components/forum/markdown.tsx":
-    "Checks postImages on the server before emitting Markdown images.",
   "src/lib/attachment-tags.ts":
     "Draws the attachments a text places inline only when HtmlContent found postImages allowed (liteImages); a blocked picture becomes the placeholder and its address is never written.",
   "src/components/layout/site-icon.tsx":
@@ -48,8 +46,8 @@ const PATH_ONLY: Record<string, string> = {
 
 // Filters that name picture attributes in order to remove them from member text.
 const FILTER_ONLY: Record<string, string> = {
-  "src/lib/lite-markdown.ts":
-    "Removes picture attributes from Markdown HTML; emits none.",
+  "src/lib/lite-content.ts":
+    "Removes picture tags and attributes from BB code and stored HTML; emits none.",
 };
 
 const INLINE_ART: Record<string, { category: string; reason: string }> = {

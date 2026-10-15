@@ -13,7 +13,6 @@ import {
   ListItemNode,
   ListNode,
 } from "@lexical/list";
-import { $convertToMarkdownString, TRANSFORMERS } from "@lexical/markdown";
 import {
   $createHeadingNode,
   $createQuoteNode,
@@ -38,6 +37,7 @@ import {
   type TextFormatType,
   type TextNode,
 } from "lexical";
+import { $exportBb } from "./bb-lexical";
 import {
   $applyLink,
   $insertMention,
@@ -130,10 +130,10 @@ test("a link on selected text wraps only that text", () => {
 });
 
 // What the editor writes for what it holds, as the form sends it.
-function markdownOf(editor: ReturnType<typeof createEditor>) {
+function bbOf(editor: ReturnType<typeof createEditor>) {
   let out = "";
   editor.read(() => {
-    out = $convertToMarkdownString(TRANSFORMERS);
+    out = $exportBb();
   });
   return out;
 }
@@ -145,13 +145,13 @@ const caretAt =
 test("an attachment tag goes in at the caret and the export keeps its brackets", () => {
   const editor = editorWith("before after", caretAt(7));
   run(editor, () => $insertText("[ATTACH=full]12[/ATTACH]"));
-  expect(markdownOf(editor)).toBe("before [ATTACH=full]12[/ATTACH]after");
+  expect(bbOf(editor)).toBe("before [ATTACH=full]12[/ATTACH]after");
 });
 
 test("a tag replaces the selected text", () => {
   const editor = editorWith("one two three", (node) => node.select(4, 7));
   run(editor, () => $insertText("[ATTACH]3[/ATTACH]"));
-  expect(markdownOf(editor)).toBe("one [ATTACH]3[/ATTACH] three");
+  expect(bbOf(editor)).toBe("one [ATTACH]3[/ATTACH] three");
 });
 
 test("an editor that never had the focus takes the tag at its end", () => {
@@ -160,13 +160,13 @@ test("an editor that never had the focus takes the tag at its end", () => {
     $setSelection(null);
     $insertText("[ATTACH]5[/ATTACH]");
   });
-  expect(markdownOf(editor)).toBe("text[ATTACH]5[/ATTACH]");
+  expect(bbOf(editor)).toBe("text[ATTACH]5[/ATTACH]");
 });
 
 test("the spoiler wraps the selection", () => {
   const editor = editorWith("see the end", (node) => node.select(4, 7));
   run(editor, () => $wrapSelection("[SPOILER]", "[/SPOILER]"));
-  expect(markdownOf(editor)).toBe("see [SPOILER]the[/SPOILER] end");
+  expect(bbOf(editor)).toBe("see [SPOILER]the[/SPOILER] end");
 });
 
 test("the spoiler on a backwards selection wraps the same text", () => {
@@ -176,7 +176,7 @@ test("the spoiler on a backwards selection wraps the same text", () => {
     selection.focus.set(node.getKey(), 4, "text");
   });
   run(editor, () => $wrapSelection("[SPOILER]", "[/SPOILER]"));
-  expect(markdownOf(editor)).toBe("see [SPOILER]the[/SPOILER] end");
+  expect(bbOf(editor)).toBe("see [SPOILER]the[/SPOILER] end");
 });
 
 test("the spoiler with nothing selected leaves the caret between its tags", () => {
@@ -185,7 +185,7 @@ test("the spoiler with nothing selected leaves the caret between its tags", () =
     $wrapSelection("[SPOILER]", "[/SPOILER]");
     $insertText("x");
   });
-  expect(markdownOf(editor)).toBe("a[SPOILER]x[/SPOILER]b");
+  expect(bbOf(editor)).toBe("a[SPOILER]x[/SPOILER]b");
 });
 
 test("a media tag and a spoiler with a title survive the export without escapes", () => {
@@ -195,7 +195,7 @@ test("a media tag and a spoiler with a title survive the export without escapes"
       "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA] [SPOILER=Title]hid[/SPOILER]",
     ),
   );
-  expect(markdownOf(editor)).toBe(
+  expect(bbOf(editor)).toBe(
     "[MEDIA=youtube]dQw4w9WgXcQ[/MEDIA] [SPOILER=Title]hid[/SPOILER]",
   );
 });
@@ -206,7 +206,7 @@ test("removing an attachment takes its tags out of the editor, whichever the siz
     () => {},
   );
   run(editor, () => $removeAttachTags(4));
-  expect(markdownOf(editor)).toBe("a  b  c [ATTACH]5[/ATTACH]");
+  expect(bbOf(editor)).toBe("a  b  c [ATTACH]5[/ATTACH]");
 });
 
 test("removing an attachment leaves its tags in code as written", () => {
@@ -277,7 +277,7 @@ test("remove formatting on a selection cleans only the selected text", () => {
     node.select(5, 8);
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("***bold*** and ***italic***");
+  expect(bbOf(editor)).toBe("[B][I]bold [/I][/B]and[B][I] italic[/I][/B]");
 });
 
 test("remove formatting takes every inline format and any style off", () => {
@@ -300,7 +300,7 @@ test("remove formatting takes every inline format and any style off", () => {
     expect(node?.getFormat()).toBe(0);
     expect(node?.getStyle()).toBe("");
   });
-  expect(markdownOf(editor)).toBe("all");
+  expect(bbOf(editor)).toBe("all");
 });
 
 test("with nothing selected the whole message is cleaned", () => {
@@ -312,7 +312,7 @@ test("with nothing selected the whole message is cleaned", () => {
     $getRoot().selectEnd();
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("one\n\ntwo");
+  expect(bbOf(editor)).toBe("one\n\ntwo");
 });
 
 test("headings, quotes, lists and alignment become plain paragraphs", () => {
@@ -332,9 +332,7 @@ test("headings, quotes, lists and alignment become plain paragraphs", () => {
     );
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe(
-    "title\n\nsaid\n\nitem a\n\nitem b\n\ncentred",
-  );
+  expect(bbOf(editor)).toBe("title\n\nsaid\n\nitem a\n\nitem b\n\ncentred");
   editor.read(() => {
     for (const block of $getRoot().getChildren()) {
       expect($isParagraphNode(block)).toBe(true);
@@ -356,7 +354,7 @@ test("a selection cleans only the blocks it touches", () => {
     first.select(1, 2);
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("first\n\n> second");
+  expect(bbOf(editor)).toBe("first\n\n[QUOTE]second[/QUOTE]");
 });
 
 test("BB code tags typed as text are stripped to their inner text", () => {
@@ -370,7 +368,7 @@ test("BB code tags typed as text are stripped to their inner text", () => {
     );
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("one two three four");
+  expect(bbOf(editor)).toBe("one two three four");
 });
 
 test("a tag split across runs of different format is stripped too", () => {
@@ -384,7 +382,7 @@ test("a tag split across runs of different format is stripped too", () => {
     );
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("some");
+  expect(bbOf(editor)).toBe("some");
 });
 
 test("tags on a selection are stripped only inside it", () => {
@@ -447,7 +445,7 @@ test("the clean is one update, and the state before it holds everything", () => 
       $createQuoteNode().append(formatted("q", "italic")),
     );
   });
-  const before = markdownOf(editor);
+  const before = bbOf(editor);
   const previous: EditorState[] = [];
   editor.registerUpdateListener(({ prevEditorState }) =>
     previous.push(prevEditorState),
@@ -457,9 +455,9 @@ test("the clean is one update, and the state before it holds everything", () => 
   // Undo step. This checks that the clean is one update and that the state before it is whole; the
   // plugin itself is not driven here (@lexical/history is not a dependency of this app).
   expect(previous).toHaveLength(1);
-  expect(markdownOf(editor)).not.toBe(before);
+  expect(bbOf(editor)).not.toBe(before);
   editor.setEditorState(previous[0] as EditorState);
-  expect(markdownOf(editor)).toBe(before);
+  expect(bbOf(editor)).toBe(before);
 });
 
 // The top-level blocks as "type:text", with the items of a list joined by "|".
@@ -805,34 +803,38 @@ function numbered(start: number, ...items: string[]) {
   return { list, texts };
 }
 
-test("after a split the tail of a numbered list keeps its numbers", () => {
+test("after a split the tail of a numbered list is a list of its own", () => {
   const editor = richEditor(() => {
     const { list, texts } = numbered(1, "a", "b", "c", "d");
     $getRoot().append(list);
     texts[1]?.select(0, 1);
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("1. a\n\nb\n\n3. c\n4. d");
+  expect(bbOf(editor)).toBe(
+    "[LIST=1]\n[*]a\n[/LIST]\n\nb\n\n[LIST=1]\n[*]c\n[*]d\n[/LIST]",
+  );
 });
 
-test("a numbered list that starts at 5 keeps the numbers of both parts", () => {
+test("both parts of a numbered list that starts at 5 start at 1, as BB code numbers from 1", () => {
   const editor = richEditor(() => {
     const { list, texts } = numbered(5, "a", "b", "c");
     $getRoot().append(list);
     texts[1]?.select(0, 1);
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("5. a\n\nb\n\n7. c");
+  expect(bbOf(editor)).toBe(
+    "[LIST=1]\n[*]a\n[/LIST]\n\nb\n\n[LIST=1]\n[*]c\n[/LIST]",
+  );
 });
 
-test("taking the first item out of a numbered list renumbers nothing", () => {
+test("taking the first item out of a numbered list leaves the rest a list from 1", () => {
   const editor = richEditor(() => {
     const { list, texts } = numbered(5, "a", "b", "c");
     $getRoot().append(list);
     texts[0]?.select(0, 1);
   });
   run(editor, () => $removeFormatting());
-  expect(markdownOf(editor)).toBe("a\n\n6. b\n7. c");
+  expect(bbOf(editor)).toBe("a\n\n[LIST=1]\n[*]b\n[*]c\n[/LIST]");
 });
 
 test("an empty quote becomes a paragraph, with nothing selected and inside a selection", () => {
@@ -899,7 +901,7 @@ test("a nested list left without its parent item does not export indented", () =
     "paragraph:kid",
     "list:kid2",
   ]);
-  expect(markdownOf(editor)).toBe("top\n\nkid\n\n- kid2");
+  expect(bbOf(editor)).toBe("top\n\nkid\n\n[LIST]\n[*]kid2\n[/LIST]");
 });
 
 test("an empty list item in the selection becomes a paragraph too", () => {

@@ -35,7 +35,7 @@
       "description": "Members see the title and the start of the text in their notifications.",
       "title": "Title",
       "body": "Text",
-      "bodyHelp": "Markdown.",
+      "bodyHelp": "BB code: [B]bold[/B], [I]italic[/I], [U]underline[/U], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST], [CODE]code[/CODE].",
       "url": "Link",
       "urlHelp": "Optional. A path on this site (starting with /) or an http(s) address that the alert opens. Without one it opens the notifications list.",
       "audience": "Send to",
@@ -130,7 +130,7 @@
     "fields": {
       "title": "Title",
       "body": "Text",
-      "bodyHelp": "Markdown.",
+      "bodyHelp": "BB code: [B]bold[/B], [I]italic[/I], [U]underline[/U], [URL=https://example.com]link[/URL], [QUOTE]quote[/QUOTE], [LIST][*]item[/LIST], [CODE]code[/CODE].",
       "everyone": "Everyone",
       "guests": "Guests",
       "members": "Members",

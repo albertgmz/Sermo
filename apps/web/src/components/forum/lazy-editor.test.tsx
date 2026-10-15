@@ -50,3 +50,36 @@ test("the roomy plain field keeps the editor's padding and height, so the page d
   expect(compact).toContain("px-3 py-2");
   expect(compact).toContain("min-height:40px");
 });
+
+// The edit pages and the new conversation page used to carry the whole editor in their first load.
+// They show a plain box that becomes the editor when the member goes to write in it.
+test("the edit pages and the new conversation page load the editor only on entering", () => {
+  const source = (path: string) =>
+    readFileSync(join(import.meta.dir, "../..", path), "utf8");
+  for (const path of [
+    "app/[locale]/(main)/threads/[id]/edit/[postId]/edit-post-form.tsx",
+    "app/[locale]/(main)/conversations/[id]/edit/[messageId]/edit-message-form.tsx",
+    "app/[locale]/(main)/conversations/new/new-conversation-form.tsx",
+  ]) {
+    const text = source(path);
+    expect(text, path).toContain("<LazyEditor");
+    const imports = text.match(/^import (?!type )[^;]*;/gm) ?? [];
+    for (const line of imports) {
+      expect(line, path).not.toMatch(/forum\/editor"|lexical/);
+    }
+  }
+});
+
+test("a box that edits what was written holds the source and sends it as it is until it is changed", () => {
+  const html = renderToStaticMarkup(
+    <LazyEditor
+      name="body"
+      placeholder="Write"
+      compact={false}
+      defaultValue={"[B]kept[/B]\n\n\n\nas written"}
+    />,
+  );
+  expect(html).toContain("<textarea");
+  expect(html).toContain("[B]kept[/B]");
+  expect(html).toContain('name="body"');
+});

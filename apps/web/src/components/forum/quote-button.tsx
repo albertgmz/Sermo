@@ -1,14 +1,14 @@
 "use client";
 
 import { Quote } from "lucide-react";
+import { quoteOf } from "@/components/forum/bb-text";
 import {
   actionLabelClass,
   messageActionClass,
 } from "@/components/forum/message-action";
-import { quoteOf } from "@/components/forum/quote-text";
 
 // Puts a post, quoted, at the end of the reply editor (which listens for `event`) and takes the
-// member there. The Markdown source comes from the backend, never from the rendered post.
+// member there. The BB code source comes from the backend, never from the rendered post.
 export function QuoteButton({
   postId,
   event,
@@ -17,7 +17,9 @@ export function QuoteButton({
 }: {
   postId: number;
   event: string;
-  load: (postId: number) => Promise<{ author: string; source: string } | null>;
+  load: (
+    postId: number,
+  ) => Promise<{ author: string; authorId: number; source: string } | null>;
   label: string;
 }) {
   return (
@@ -30,7 +32,7 @@ export function QuoteButton({
         if (!post) return;
         window.dispatchEvent(
           new CustomEvent(event, {
-            detail: quoteOf(postId, post.author, post.source),
+            detail: quoteOf(postId, post.author, post.authorId, post.source),
           }),
         );
         document.getElementById("reply")?.scrollIntoView({ block: "start" });

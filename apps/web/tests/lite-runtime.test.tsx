@@ -11,7 +11,7 @@ import { IMAGE_EXTENSIONS, read } from "./lite-scan";
 // parser, server LITE helpers, proxy, gates and React renderer run unchanged.
 let cookie: string | undefined;
 const storedSignature =
-  "Shop: ![logo](https://pictures.test/l.png) <video> demo below\nline two";
+  "Shop: [IMG]https://pictures.test/l.png[/IMG] <video> demo below\nline two";
 mock.module("server-only", () => ({}));
 mock.module("next/headers", () => ({
   cookies: async () => ({
@@ -154,12 +154,13 @@ const { Art } = await import("../src/components/forum/art");
 const { UserAvatar } = await import("../src/components/forum/user-avatar");
 const { AwardIcon } = await import("../src/components/forum/award-icon");
 const { ShopIcon } = await import("../src/components/forum/shop-icon");
-const { Markdown } = await import("../src/components/forum/markdown");
 const { HtmlContent } = await import("../src/components/forum/html-content");
 const { SiteIcon } = await import("../src/components/layout/site-icon");
 const { LogoMark } = await import("../src/components/layout/logo");
 const { PageBackdrop } = await import("../src/components/layout/page-backdrop");
-const { Signature } = await import("../src/components/forum/signature");
+const { SignatureHtml } = await import(
+  "../src/components/forum/signature-html"
+);
 const { TitleSection } = await import(
   "../src/app/[locale]/(main)/account/profile-forms"
 );
@@ -612,10 +613,11 @@ test("backend identity pictures are absent from the page when brand is blocked",
   }
 });
 
-test("Markdown rendering gates external images while preserving links and its root box", async () => {
-  const source =
-    "Before [![image](https://pictures.test/photo.jpg)](/destination) after.";
-  const render = () => markup(<Markdown className="w-full">{source}</Markdown>);
+test("stored HTML gates external images while preserving links and its root box", async () => {
+  const body =
+    '<p>Before <a href="/destination"><img src="https://pictures.test/photo.jpg" alt="image"></a> after.</p>';
+  const render = () =>
+    markup(<HtmlContent className="w-full">{body}</HtmlContent>);
   cookie = undefined;
   const visible = await render();
   expect(visible).toContain("pictures.test/photo.jpg");
@@ -657,52 +659,57 @@ test("backend HTML drops its pictures when post images are blocked and gains not
   expect(await render()).toContain("pictures.test/photo.jpg");
 });
 
-test("a blocked category empties local pictures in Markdown and editor props", async () => {
+test("a blocked category empties local pictures in stored HTML and editor props", async () => {
+  const html =
+    '<p>Before <img src="/pictures/ring.png"> and <img src="https://pictures.test/y.jpg"> <a href="https://example.test/guide">docs</a></p>';
   const source =
-    "Before ![x](/pictures/ring.png) and ![y](https://pictures.test/y.jpg) [docs][d]\n\n[d]: https://example.test/guide\n";
+    "Before [IMG]/pictures/ring.png[/IMG] and [IMG]https://pictures.test/y.jpg[/IMG] [URL=https://example.test/guide]docs[/URL]\n";
   cookie = "frames";
-  const html = await markup(<Markdown>{source}</Markdown>);
-  expect(html).not.toContain("/pictures/ring.png");
-  expect(html).toContain("pictures.test/y.jpg");
+  const drawn = await markup(<HtmlContent>{html}</HtmlContent>);
+  expect(drawn).not.toContain("/pictures/ring.png");
+  expect(drawn).toContain("pictures.test/y.jpg");
   const { value } = await editorValue(source);
   expect(value).not.toContain("/pictures/ring.png");
   expect(value).toContain("pictures.test/y.jpg");
-  expect(value).toContain("[d]: https://example.test/guide");
+  expect(value).toContain("[URL=https://example.test/guide]docs[/URL]");
 });
 
-test("media HTML typed as text never reaches the page or editor props", async () => {
+test("media HTML typed as text is text: the backend escapes it, and the editor gets it as typed", async () => {
   const source =
     'Hi <img src="https://pictures.test/x.png"> <svg><path d="M0 0h9"/></svg> end\n';
+  const escaped =
+    "<p>Hi &lt;img src=&quot;x.png&quot;&gt; &lt;svg&gt;&lt;path/&gt;&lt;/svg&gt; end</p>";
   cookie = "postImages";
-  const html = await markup(<Markdown>{source}</Markdown>);
-  expect(html).not.toMatch(/pictures\.test|M0 0h9/);
+  const html = await markup(<HtmlContent>{escaped}</HtmlContent>);
+  expect(html).not.toMatch(/<img|<svg|<path/);
   expect(html).toContain("Hi");
   expect(html).toContain("end");
+  // Typed HTML is no picture, so nothing in the source is filtered.
   const { value } = await editorValue(source);
-  expect(value).not.toMatch(/pictures\.test|M0 0h9/);
-  expect(value.startsWith("Hi ")).toBe(true);
-  expect(value.endsWith(" end\n")).toBe(true);
+  expect(value).toBe(source);
 });
 
-test("the server filters Markdown before passing editor props to the client", async () => {
+test("the server filters BB code before passing editor props to the client", async () => {
   const source =
-    "Before ![inline](https://pictures.test/inline.jpg) [![nested][pic]](/destination) ![pic][] ![pic]\n\n[pic]: https://pictures.test/reference.jpg\n";
+    "Before [IMG]https://pictures.test/inline.jpg[/IMG] [URL=/destination][IMG]https://pictures.test/nested.png[/IMG][/URL] [CODE]\n[IMG]https://pictures.test/code.png[/IMG]\n[/CODE]\n";
   for (const mode of [undefined, "avatars", "postImages", "all"]) {
     cookie = mode;
     const element = await EditorDemo({ defaultValue: source });
     const value = element.props.defaultValue;
     if (mode === "postImages" || mode === "all") {
-      expect(value).not.toContain("pictures.test");
-      expect(value).not.toContain("![");
-      expect(value).toContain("[DATA SAVER](/destination)");
+      expect(value).not.toContain("inline.jpg");
+      expect(value).not.toContain("nested.png");
+      expect(value).toContain("[URL=/destination]DATA SAVER[/URL]");
+      // Code shows a tag as text and is a picture to nobody.
+      expect(value).toContain("[IMG]https://pictures.test/code.png[/IMG]");
     } else expect(value).toBe(source);
   }
 });
 
-const unclosed: [source: string, tail: string][] = [
+const tagLooking: [source: string, tail: string][] = [
   [
-    "Use the <video> tag for clips.\n\nSecond paragraph stays?\n\n- item",
-    "item",
+    "Use the <video> tag for clips.\n\nSecond paragraph stays?\n\n[LIST]\n[*]item\n[/LIST]",
+    "[/LIST]",
   ],
   ["Array<object> and Map<string, embed> end", "end"],
   ["I export <svg> files from Figma.\n\nNext para", "Next para"],
@@ -710,35 +717,32 @@ const unclosed: [source: string, tail: string][] = [
 
 test("tag-looking text never costs the reader the text after it", async () => {
   cookie = "postImages";
-  for (const [source, tail] of unclosed) {
-    const html = await markup(<Markdown>{source}</Markdown>);
-    expect(html, source).toContain(tail);
+  for (const [source, tail] of tagLooking) {
     const { value } = await editorValue(source);
     expect(value.trimEnd().endsWith(tail), source).toBe(true);
+    const escaped = source
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const html = await markup(<HtmlContent>{`<p>${escaped}</p>`}</HtmlContent>);
+    expect(html, source).toContain(escaped);
   }
 });
 
-test("a signature never shows its pictures or the LITE label, whatever the visitor chose", async () => {
-  const source = [
-    "Hello ![banner](https://pictures.test/b.png) world",
-    "![full][ref] after the reference",
-    "Use the <video> tag, Array<object> and <svg> files here",
-    "",
-    "[ref]: /pictures/ring.png",
-  ].join("\n");
-  for (const mode of [undefined, "avatars", "postImages", "all"]) {
+test("a signature kept as HTML follows LITE like any text, and keeps its words", async () => {
+  const body =
+    '<p>Hello <img src="https://pictures.test/b.png"> world</p><p>Use the &lt;video&gt; tag, Array&lt;object&gt; and &lt;svg&gt; files here</p>';
+  for (const mode of [undefined, "avatars"]) {
     cookie = mode;
-    const html = await markup(<Signature>{source}</Signature>);
-    expect(html, String(mode)).not.toMatch(
-      /DATA SAVER|pictures\.test|\/pictures\/|<img/,
+    expect(await markup(<SignatureHtml>{body}</SignatureHtml>)).toContain(
+      "pictures.test/b.png",
     );
-    for (const text of [
-      "Hello",
-      "world",
-      "after the reference",
-      "tag,",
-      "files here",
-    ])
+  }
+  for (const mode of ["postImages", "all"]) {
+    cookie = mode;
+    const html = await markup(<SignatureHtml>{body}</SignatureHtml>);
+    expect(html, mode).not.toMatch(/pictures\.test|<img/);
+    for (const text of ["Hello", "world", "tag,", "files here"])
       expect(html, `${mode}: ${text}`).toContain(text);
   }
 });

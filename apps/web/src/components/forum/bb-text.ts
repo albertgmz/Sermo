@@ -1,80 +1,55 @@
-const TAGS = [
-  "B",
-  "I",
-  "U",
-  "S",
-  "COLOR",
-  "FONT",
-  "SIZE",
-  "URL",
-  "EMAIL",
-  "USER",
-  "IMG",
-  "MEDIA",
-  "ICODE",
-  "PLAIN",
-  "ATTACH",
-  "ISPOILER",
-  "LEFT",
-  "CENTER",
-  "RIGHT",
-  "QUOTE",
-  "SPOILER",
-  "CODE",
-  "INDENT",
-  "LIST",
-  "TABLE",
-  "HEADING",
-  "TR",
-  "TH",
-  "TD",
-].join("|");
+import { closerFinder, TAG_SOURCE } from "@/components/forum/bb-scan";
 
-// A tag as the editor writes it back, with a backslash before any punctuation mark: `[\*]`,
-// `[URL=https://a.com/x\_y]`, `\[B\]`. The renderer reads tags from the source as typed.
-const TAG = new RegExp(
-  String.raw`\\?\[(\\?/)?(${TAGS}|\\?\*)((?:=[^\]\n]*?)?)\\?\]`,
-  "gi",
-);
-// Tags whose content is read as is (an address, an id, text): an escape there would stay in it.
-const RAW =
-  /\[(URL|EMAIL|USER|IMG|MEDIA|ICODE|PLAIN|ATTACH)(=[^\]\n]*)?\]([^\n]*?)\[\/\1\]/gi;
-const ESCAPE = /\\([!-/:-@[-`{-~])/g;
-const dropEscapes = (text: string) => text.replace(ESCAPE, "$1");
+// The BB code the web app writes itself, built in this one place: a mention and a quote of a post.
 
-// Fenced code blocks and inline code spans, which the editor writes as the text is and which read
-// back as it is: a backslash in them is part of the code. A closing fence may be longer than the
-// opening one, and an escaped backtick opens nothing.
-const CODE =
-  /^((\x60|~)\2{2,})[^\n]*\n[\s\S]*?(?:^\1\2*[ \t]*$|(?![\s\S]))|(?<!\\)(\x60+)(?!\x60)[^\n]*?[^\x60\n]\3(?!\x60)/gm;
+// The name of a member as the renderer reads a mention: plain when it can be, else quoted.
+const PLAIN_NAME = /^[\p{L}\p{N}_][\p{L}\p{N}._-]{1,30}[\p{L}\p{N}_]$/u;
+export const mentionOf = (username: string) =>
+  PLAIN_NAME.test(username) ? `@${username}` : `@"${username}"`;
 
-function restore(text: string) {
-  return text
-    .replace(
-      TAG,
-      (_, close: string | undefined, name: string, option: string) =>
-        `[${close ? "/" : ""}${dropEscapes(name)}${dropEscapes(option)}]`,
-    )
-    .replace(
-      RAW,
-      (whole, name: string, option: string | undefined, text: string) =>
-        // The text of [URL=...] and [ICODE=...] is formatted: its escapes mean something.
-        option && /^(URL|ICODE)$/i.test(name)
-          ? whole
-          : whole.replace(text, () => dropEscapes(text)),
-    );
+// The tags whose content is read as it is: a QUOTE tag inside them is no tag.
+const LITERAL = new Set(["CODE", "ICODE", "PLAIN"]);
+
+// A tag is made plain text by putting it between PLAIN tags.
+const plain = (tag: string) => `[PLAIN]${tag}[/PLAIN]`;
+
+// The text with the QUOTE tags that have no partner made plain text, so that a quoted body can
+// neither end its own quote early (a closing tag with no opener) nor swallow the closing tag of
+// the quote around it (an opener never closed). Balanced quotes inside it stay quotes.
+function balanced(source: string) {
+  const find = closerFinder(source);
+  const re = new RegExp(TAG_SOURCE, "g");
+  const open: { start: number; end: number }[] = [];
+  const stray: { start: number; end: number }[] = [];
+  for (let m = re.exec(source); m; m = re.exec(source)) {
+    const name = m[2].toUpperCase();
+    const end = m.index + m[0].length;
+    if (m[1] === undefined && LITERAL.has(name)) {
+      const closer = find(name, end);
+      if (closer >= 0) re.lastIndex = closer + name.length + 3;
+    } else if (name === "QUOTE") {
+      if (m[1] === undefined) open.push({ start: m.index, end });
+      else if (open.length) open.pop();
+      else stray.push({ start: m.index, end });
+    }
+  }
+  const edits = [...stray, ...open].sort((a, b) => b.start - a.start);
+  let out = source;
+  for (const { start, end } of edits) {
+    out = out.slice(0, start) + plain(out.slice(start, end)) + out.slice(end);
+  }
+  return out;
 }
 
-// The editor writes Markdown, which escapes "*", "_" and brackets. BB code is sent as typed, so the
-// escapes inside a tag, and inside the content of the tags that take it as is, are taken out. Code
-// is left as the editor wrote it.
-export function unescapeBbCode(markdown: string) {
-  if (!markdown.includes("\\")) return markdown;
-  let out = "";
-  let from = 0;
-  for (const code of markdown.matchAll(CODE)) {
-    out += restore(markdown.slice(from, code.index)) + code[0];
-    from = code.index + code[0].length;
-  }
-  return out + restore(markdown.slice(from));
+// A post quoted as the renderer reads it: the author's name, the post and the member, in the form
+// the renderer itself writes back when it saves. It fills in the name from the member, so a name
+// the tag cannot hold costs nothing.
+export function quoteOf(
+  postId: number,
+  author: string,
+  authorId: number,
+  source: string,
+) {
+  const name = author.replace(/["[\],\s]+/g, " ").trim() || "member";
+  return `[QUOTE="${name}, post: ${postId}, member: ${authorId}"]${balanced(source.trim())}[/QUOTE]`;
 }

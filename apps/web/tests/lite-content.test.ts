@@ -1,48 +1,32 @@
 import { expect, test } from "bun:test";
-import { stripHtmlMedia, stripMarkdownImages } from "../src/lib/lite-markdown";
+import { stripBbCodeImages, stripHtmlMedia } from "../src/lib/lite-content";
 
-export const PICTURE_MARKDOWN = [
-  'Before ![inline](https://pictures.test/a_(b).jpg "caption") after.',
-  "[![linked](https://pictures.test/linked.png)](/thread/42)",
-  "![full][photo] ![photo][] ![photo]",
-  "[linked reference][destination] and [ordinary](https://example.test/page).",
-  "",
-  "[photo]: <https://pictures.test/reference.png>",
-  '  "Photo title"',
-  "[destination]: /destination",
+export const PICTURE_BB_CODE = [
+  "Before [IMG]https://pictures.test/a_(b).jpg[/IMG] after.",
+  "[URL=/thread/42][IMG]https://pictures.test/linked.png[/IMG][/URL]",
+  "[IMG]https://pictures.test/one.png[/IMG] [img]https://pictures.test/two.png[/img]",
+  "[URL=https://example.test/page]ordinary[/URL] and [B]bold[/B].",
 ].join("\n");
 
-test("Markdown filtering strips inline, reference, collapsed, shortcut and linked pictures", () => {
-  const output = stripMarkdownImages(PICTURE_MARKDOWN);
+test("BB code filtering strips plain, linked and repeated pictures", () => {
+  const output = stripBbCodeImages(PICTURE_BB_CODE);
   expect(output).not.toContain("pictures.test");
-  expect(output).not.toContain("Photo title");
-  expect(output).not.toContain("![");
+  expect(output).not.toContain("[IMG]");
   expect(output).toContain("Before DATA SAVER after.");
-  expect(output).toContain("[DATA SAVER](/thread/42)");
-  expect(output).toContain("[linked reference][destination]");
-  expect(output).toContain("[destination]: /destination");
-  expect(output).toContain("[ordinary](https://example.test/page)");
+  expect(output).toContain("[URL=/thread/42]DATA SAVER[/URL]");
+  expect(output).toContain("[URL=https://example.test/page]ordinary[/URL]");
+  expect(output).toContain("[B]bold[/B]");
 });
 
-test("ordinary text, image-looking links and code samples retain their source formatting", () => {
+test("ordinary text, links to picture files and code samples retain their source formatting", () => {
   const input =
-    "**Text**  \n\n[download](https://example.test/file.jpg)\n\n`![code](sample.png)`\n\n```md\n![code](sample.png)\n```\n";
-  expect(stripMarkdownImages(input)).toBe(input);
-  const shared =
-    "![picture][shared] [visit][shared]\n\n[shared]: https://example.test/page";
-  expect(stripMarkdownImages(shared)).toBe(
-    "DATA SAVER [visit][shared]\n\n[shared]: https://example.test/page",
-  );
-  expect(stripMarkdownImages("")).toBe("");
+    "[B]Text[/B]\n\n[URL=https://example.test/file.jpg]download[/URL]\n\n[ICODE][IMG]sample.png[/IMG][/ICODE]\n\n[CODE=bbcode]\n[IMG]https://pictures.test/a.png[/IMG]\n[/CODE]\n";
+  expect(stripBbCodeImages(input)).toBe(input);
+  expect(stripBbCodeImages("")).toBe("");
 });
 
 test("a picture can be dropped without a label, as signatures do", () => {
-  const output = stripMarkdownImages(
-    PICTURE_MARKDOWN,
-    undefined,
-    undefined,
-    "",
-  );
+  const output = stripBbCodeImages(PICTURE_BB_CODE, undefined, undefined, "");
   expect(output).not.toContain("DATA SAVER");
   expect(output).not.toContain("pictures.test");
   expect(output).toContain("Before  after.");

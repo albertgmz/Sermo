@@ -107,7 +107,7 @@
     "titleLabel": "Título personalizado",
     "titleHelp": "Hasta {count, plural, one {# carácter} other {# caracteres}}. Déjalo vacío para usar el título que viene con tu grupo o nivel.",
     "signatureLabel": "Firma",
-    "signatureHelp": "Escrita en Markdown. Hasta {count, plural, one {# carácter} other {# caracteres}} y {lines, plural, one {# línea} other {# líneas}}. Déjala vacía para quitarla.",
+    "signatureHelp": "Escrita en código BB, por ejemplo [B]negrita[/B], [I]cursiva[/I] o [URL=https://ejemplo.com]un enlace[/URL]. Hasta {count, plural, one {# carácter} other {# caracteres}} y {lines, plural, one {# línea} other {# líneas}}. Déjala vacía para quitarla.",
     "notShown": "Lo tienes guardado, pero ahora no se muestra.",
     "remove": "Quitar",
     "titleLocked": "Un título personalizado requiere una ventaja. <shop>Mira qué ofrece la tienda</shop>",

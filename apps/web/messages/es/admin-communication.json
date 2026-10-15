@@ -35,7 +35,7 @@
       "description": "Los miembros ven el título y el comienzo del texto en sus notificaciones.",
       "title": "Título",
       "body": "Texto",
-      "bodyHelp": "Markdown.",
+      "bodyHelp": "Código BB: [B]negrita[/B], [I]cursiva[/I], [U]subrayado[/U], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST], [CODE]código[/CODE].",
       "url": "Enlace",
       "urlHelp": "Opcional. Una ruta de este sitio (que empiece por /) o una dirección http(s) que abre la alerta. Sin enlace abre la lista de notificaciones.",
       "audience": "Enviar a",
@@ -130,7 +130,7 @@
     "fields": {
       "title": "Título",
       "body": "Texto",
-      "bodyHelp": "Markdown.",
+      "bodyHelp": "Código BB: [B]negrita[/B], [I]cursiva[/I], [U]subrayado[/U], [URL=https://ejemplo.com]enlace[/URL], [QUOTE]cita[/QUOTE], [LIST][*]elemento[/LIST], [CODE]código[/CODE].",
       "everyone": "Todos",
       "guests": "Invitados",
       "members": "Miembros",
