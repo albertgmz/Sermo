@@ -55,11 +55,11 @@
   },
   "logged": {
     "heading": "Qué registra el servidor",
-    "intro": "Además de las cookies anteriores, el servidor del sitio guarda un registro por seguridad y moderación. Solo se registran las acciones de los miembros con sesión iniciada; las de los visitantes sin cuenta no.",
+    "intro": "Además de las cookies anteriores, el servidor del sitio guarda un registro por seguridad y moderación. Solo se registran las acciones ligadas a una cuenta: inicios de sesión (también los fallidos), el registro y lo que escriben los miembros; la navegación sin cuenta no.",
     "items": {
       "signIns": {
         "title": "Inicios de sesión y registro",
-        "text": "Por cada inicio de sesión, cada intento fallido en tu cuenta y tu registro: la hora, la dirección desde la que te conectaste, tu navegador, sistema y tipo de dispositivo, y el lugar aproximado, como país, región y ciudad. El registro conserva el navegador, el sistema y el tipo de dispositivo que se leyeron del texto de identificación que envía tu navegador, no el texto en sí. Permite que revises tu propio historial de inicios de sesión, que te avisemos por correo de un inicio de sesión desde un navegador o país nuevo y que el personal investigue abusos."
+        "text": "Por cada inicio de sesión, cada intento fallido en tu cuenta y tu registro: la hora, la dirección desde la que te conectaste, tu navegador, sistema, tipo de dispositivo, marca y modelo, y el lugar aproximado, como país, región y ciudad. El registro conserva el navegador, el sistema, el tipo de dispositivo, la marca y el modelo que se leyeron del texto de identificación que envía tu navegador, no el texto en sí. Permite que revises tu propio historial de inicios de sesión, que te avisemos por correo de un inicio de sesión desde un navegador o país nuevo y que el personal investigue abusos."
       },
       "content": {
         "title": "Publicaciones",

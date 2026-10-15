@@ -700,8 +700,9 @@ privacy and cookie pages state that age. Members see their own recent sign-ins, 
 failed, with device and place, in **Sign-in history** on `/account/security` (`auth.signInHistory`),
 and each session there shows when it was last used (written at most once every five minutes per
 session, by the five-second flush). A sign-in from a browser (browser and system) or country not
-seen in the member's retained sign-ins sends a security mail with a "This wasn't me" link; the first
-sign-in, crawlers and unknown browsers or places never do. The link (valid a week, works once)
+seen in the member's retained sign-ins sends a security mail with a "This wasn't me" link; a crawler,
+empty or unreadable browser counts as one browser, "unknown", and alerts the first time like any
+other. The first sign-in never alerts, and a country is only compared when the sign-in has one. The link (valid a week, works once)
 signs the member out everywhere and sends them to log in and change their password.
 
 ### Warnings

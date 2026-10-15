@@ -328,7 +328,7 @@ export const authNotMeOp = implement(
         ctx.sqlite.prepare<{ n: number }, [number, number]>(sessionSql.count),
       ).get(claim.userId, ctx.now())!.n;
     });
-    // The order of `usersAdminRevokeSessions`. The keys go first, so a failure there leaves the
+    // The keys go first (unlike `usersAdminRevokeSessions`), so a failure there leaves the
     // sessions and the link as they were and the member can try again. Then the link is spent and
     // the cut is marked in one transaction, with no await before it: from here a cached session
     // cookie is refused too. Two requests with the same link can both pass the keys; only one
@@ -340,8 +340,10 @@ export const authNotMeOp = implement(
     });
     const authContext = await getAuth(ctx).$context;
     await authContext.internalAdapter.deleteUserSessions(String(claim.userId));
-    // A session that began between the mark and the delete is cut too.
+    // A session that began between the mark and the delete is cut too, and a key a live session
+    // made before the cut is revoked as well.
     writeTx(ctx, () => markSessionsRevoked(ctx, claim.userId));
+    await revokeApiKeys(ctx, claim.userId);
     return { revoked };
   },
   { public: "The signed, expiring, single-use token from the member's mail authorizes this." },

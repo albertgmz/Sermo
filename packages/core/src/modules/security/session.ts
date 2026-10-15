@@ -24,8 +24,8 @@ export function deviceKey(device: Device): string {
 
 export const sessionActivitySql = {
   // What the member's earlier successful sign-ins (retained ones) tell about this one, as four
-  // EXISTS checks that each stop at the first row that answers them (newest first, through the
-  // partial index: the `action IN (...)` term repeats its condition). A match is found at once
+  // EXISTS checks that each stop at the first row that answers them (through the partial
+  // index: the `action IN (...)` term repeats its condition). A match is found at once
   // for a browser or country the member uses; a scan to the end of their retained sign-ins (at
   // most the retention age) happens only when nothing matches, which is when an alert follows.
   // ?2 is the device key (`deviceKey`); ?3 a country or null (null skips both country checks).

@@ -55,11 +55,11 @@
   },
   "logged": {
     "heading": "What the server records",
-    "intro": "Besides the cookies above, the site's server keeps a log for security and moderation. Only the actions of signed-in members are logged; visitors without an account are not.",
+    "intro": "Besides the cookies above, the site's server keeps a log for security and moderation. Only actions tied to an account are logged: sign-ins (failed ones included), registration and what members write; browsing without an account is not.",
     "items": {
       "signIns": {
         "title": "Sign-ins and registration",
-        "text": "For every sign-in, every failed sign-in on your account and your registration: the time, the address you connected from, your browser, system and device type, and the approximate place, as country, region and city. The log keeps the browser, system and device type that were read from the identification text your browser sends, not the text itself. It lets you review your own sign-in history, lets us warn you by email about a sign-in from a new browser or country, and lets staff investigate abuse."
+        "text": "For every sign-in, every failed sign-in on your account and your registration: the time, the address you connected from, your browser, system, device type, brand and model, and the approximate place, as country, region and city. The log keeps the browser, system, device type, brand and model that were read from the identification text your browser sends, not the text itself. It lets you review your own sign-in history, lets us warn you by email about a sign-in from a new browser or country, and lets staff investigate abuse."
       },
       "content": {
         "title": "Posting",
