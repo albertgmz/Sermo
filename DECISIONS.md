@@ -2251,3 +2251,27 @@ about 15-18 backend reads per click before, about 31-40 with 8 pages loaded (8-1
 minute against the 300-read limit), and a row beyond the 8 redrawn pages shows its old state until
 reload. Item 20c replaces the refresh with in-place updates. The members directory, profile wall,
 award holders, credits and staff lists still use the older load-more button.
+
+**More member criteria.** A rule's condition carries what its criterion declares: a number
+(`value`), a list of ids (`ids`: groups, members, threads, awards, shop items and categories,
+credit rules), a look-back window (`days`) and how a list is read (`mode`: one, all combined, each,
+none). `criteria.list` gives each criterion's `idKind`, `window` and `modes` (inactive awards only to
+award managers); `assertRule` refuses anything else, and ids that do not exist. Criteria live one
+area per file under `shared/criteria/`. Facts on the member's row come with the one member query;
+the rest are measures, one statement per distinct condition for a page of members, never one per
+member, each naming its index and checked with EXPLAIN in a test. `cheap` is the member's row or
+one seek per listed id; counts and sums over history are `background`, so notices and the shop
+never run them. A criterion names the events that change its fact; promotions and awards check the
+affected member at once and otherwise wait for the daily sweep. A pass (sweep or member check)
+loads its facts before opening its write transaction, which re-reads what it changes, so the write
+lock does not grow with history (bench seed: 1-5 ms for an award chunk, 16-28 ms for a promotion
+chunk); a promotion or award edited meanwhile waits for the next pass. Counted criteria count posts
+only in visible threads, like `post_count`; a member who never posted does not hold "days since
+last post". An award's rule may read awards: giving or taking one checks the member's other awards,
+`awards.create` and `update` refuse a rule that makes an award require itself directly or through
+others, and `awards.delete` is refused while any stored rule names the award (automatic grants are
+final, so `none` and `at most` decide only at grant time). `credits_earned` reads the member's whole
+ledger until it has an index, so it is decided by the daily sweep only (an `any` rule holding it
+waits up to a day). "Replies on their threads" includes the author's own. Not built: reactions given
+and received by type, quoted by others and most-reacted post (each needs an index or counter
+column), ranking criteria (rankings are not built), polls and tags (items 9 and 10).
