@@ -101,7 +101,7 @@ export const criteriaList = defineContract({
     "Everything a rule editor needs: every criterion a rule can use (the same list as " +
     "promotions.criteria and awards.criteria) and the groups, awards and credit rules a rule may " +
     "name, by id and title. " +
-    "Requires any of admin.promotions, admin.awards, admin.shop, admin.announcements or " +
+    "Requires any of admin.promotions, admin.awards, admin.shop, admin.announcements, " +
     "admin.reactionTypes or admin.settings, the permissions of the places that hold a rule.",
   kind: "read",
   input: Empty,

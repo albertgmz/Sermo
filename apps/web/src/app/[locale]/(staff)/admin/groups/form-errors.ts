@@ -103,9 +103,9 @@ export const whole = (raw: string) =>
 
 // The rule the rule builder sent (one JSON field, `rule`), read with the shared schema, or null when
 // the field is absent or is not a rule. The backend decides what a valid rule is.
-export function ruleOf(formData: FormData): Rule | null {
+export function ruleOf(formData: FormData, name = "rule"): Rule | null {
   try {
-    const parsed = CriteriaRule.safeParse(JSON.parse(text(formData, "rule")));
+    const parsed = CriteriaRule.safeParse(JSON.parse(text(formData, name)));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -117,22 +117,23 @@ export function ruleOf(formData: FormData): Rule | null {
 // text that is not a rule means the page and the form disagree, and asks for a reload.
 export async function ruleRefusal(
   formData: FormData,
+  name = "rule",
 ): Promise<{ fields: Record<string, string> }> {
   const t = await getTranslations("adminGroups.errors");
   let sent: unknown;
   try {
-    sent = JSON.parse(text(formData, "rule"));
+    sent = JSON.parse(text(formData, name));
   } catch {
-    return { fields: { rule: t("rule") } };
+    return { fields: { [name]: t("rule") } };
   }
   const shaped =
     typeof sent === "object" &&
     sent !== null &&
     Array.isArray((sent as { conditions?: unknown }).conditions);
-  if (!shaped) return { fields: { rule: t("rule") } };
+  if (!shaped) return { fields: { [name]: t("rule") } };
   return {
     fields: {
-      rule: t("ruleLimits", {
+      [name]: t("ruleLimits", {
         conditions: MAX_RULE_CONDITIONS,
         value: MAX_CONDITION_VALUE,
         ids: MAX_CONDITION_IDS,

@@ -34,6 +34,8 @@ export const PLACES = {
   // Decided on every reaction and for every picker: no criterion that measures the member's
   // history either (the backend refuses them).
   reactionType: { cheapOnly: true, noMeasured: true, empty: "everyone" },
+  postLinks: { cheapOnly: true, noMeasured: false, empty: "everyone" },
+  postApproval: { cheapOnly: true, noMeasured: false, empty: "everyone" },
 } as const;
 export type Place = keyof typeof PLACES;
 

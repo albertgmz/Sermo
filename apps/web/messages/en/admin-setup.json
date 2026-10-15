@@ -32,6 +32,12 @@
       "subtitle": "How long a member counts as new and what is held back from them.",
       "formHeading": "New-member rules"
     },
+    "antispam": {
+      "metaTitle": "Anti-spam",
+      "heading": "Anti-spam",
+      "subtitle": "How fast a member may write and who may post links or go live without review. Daily limits, the permission to embed outside pictures and media, and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
+      "formHeading": "Posting limits"
+    },
     "warnings": {
       "metaTitle": "Warnings and automatic bans",
       "heading": "Warnings and automatic bans",
@@ -115,6 +121,11 @@
       "label": "Links from new members",
       "help": "On: posts by new members that contain links wait for a moderator.",
       "switch": "Hold posts with links from new members"
+    },
+    "floodSeconds": {
+      "label": "Flood interval",
+      "help": "Seconds a member must wait between two posts. Threads, replies, wall posts, wall comments and conversation messages share one clock. 0 turns it off. Groups with the flood bypass permission are exempt.",
+      "unit": "seconds"
     },
     "newMemberMentionLimit": {
       "label": "Mentions per item",

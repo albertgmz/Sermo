@@ -6,7 +6,7 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { parseId } from "@/lib/sermo/ids";
 import { invalidArgument } from "@/lib/sermo/outcome";
-import { text, whole } from "../groups/form-errors";
+import { ruleOf, ruleRefusal, text, whole } from "../groups/form-errors";
 import {
   type Parsed,
   type Spec,
@@ -98,6 +98,30 @@ export async function saveMembers(
   return saveSettings(await scalars(MEMBERS, formData), {
     back: "/admin/settings/members",
     known: knownIn(MEMBERS),
+  });
+}
+
+const ANTISPAM: Spec = { floodSeconds: "int" };
+const ANTISPAM_RULES = ["linksRule", "approvalRule"];
+
+// The two rules are replaced whole, so each is read only when the form showed it.
+export async function saveAntispam(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  const parsed = await scalars(ANTISPAM, formData);
+  if (parsed.refused) return { error: await invalidArgument() };
+  const shown = shownKeys(formData);
+  for (const name of ANTISPAM_RULES) {
+    if (!shown.has(name)) continue;
+    const rule = ruleOf(formData, name);
+    if (rule === null)
+      Object.assign(parsed.fields, (await ruleRefusal(formData, name)).fields);
+    else parsed.body[name] = rule;
+  }
+  return saveSettings(parsed, {
+    back: "/admin/settings/antispam",
+    known: (name) => name in ANTISPAM || ANTISPAM_RULES.includes(name),
   });
 }
 

@@ -42,7 +42,13 @@ test("notices and the shop are offered every cheap criterion and no background o
   expect(cheap).toContain("has_cover");
   expect(cheap).not.toContain("warning_points_below");
   expect(cheap.length + background.length).toBe(CRITERIA.length);
-  for (const place of ["notice", "shopCategory", "shopItem"] as const) {
+  for (const place of [
+    "notice",
+    "shopCategory",
+    "shopItem",
+    "postLinks",
+    "postApproval",
+  ] as const) {
     expect(PLACES[place].cheapOnly).toBe(true);
     expect(ids(place)).toEqual(cheap);
   }
@@ -84,7 +90,13 @@ test("a criterion that needs something to choose is not offered when there is no
 test("an empty rule means everyone, manual only for an award, and is refused for a promotion", () => {
   expect(PLACES.promotion.empty).toBe("required");
   expect(PLACES.award.empty).toBe("manual");
-  for (const place of ["notice", "shopCategory", "shopItem"] as const)
+  for (const place of [
+    "notice",
+    "shopCategory",
+    "shopItem",
+    "postLinks",
+    "postApproval",
+  ] as const)
     expect(PLACES[place].empty).toBe("everyone");
 });
 

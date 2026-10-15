@@ -32,6 +32,12 @@
       "subtitle": "Cuánto tiempo se considera nuevo a un miembro y qué se le restringe.",
       "formHeading": "Reglas para miembros nuevos"
     },
+    "antispam": {
+      "metaTitle": "Antispam",
+      "heading": "Antispam",
+      "subtitle": "Con qué rapidez puede escribir un miembro y quién puede publicar enlaces o publicar sin revisión. Los límites diarios, el permiso para insertar imágenes y medios externos y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
+      "formHeading": "Límites de publicación"
+    },
     "warnings": {
       "metaTitle": "Advertencias y expulsiones automáticas",
       "heading": "Advertencias y expulsiones automáticas",
@@ -115,6 +121,11 @@
       "label": "Enlaces de miembros nuevos",
       "help": "Activado: los mensajes de miembros nuevos que contienen enlaces esperan a un moderador.",
       "switch": "Retener los mensajes con enlaces de miembros nuevos"
+    },
+    "floodSeconds": {
+      "label": "Intervalo anti-flood",
+      "help": "Segundos que un miembro debe esperar entre dos mensajes. Hilos, respuestas, publicaciones y comentarios del muro y mensajes de conversación comparten un mismo reloj. 0 lo desactiva. Los grupos con el permiso de omitir el intervalo quedan exentos.",
+      "unit": "segundos"
     },
     "newMemberMentionLimit": {
       "label": "Menciones por elemento",

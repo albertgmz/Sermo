@@ -35,6 +35,7 @@
       "home": "Home",
       "setupGeneral": "General",
       "setupMembers": "New members",
+      "setupAntispam": "Anti-spam",
       "setupWarnings": "Warnings and automatic bans",
       "setupUploads": "Uploads",
       "setupSeo": "Search engines",
@@ -186,7 +187,9 @@
       "notice": "Shown to",
       "shopCategory": "Available to",
       "shopItem": "Available to",
-      "reactionType": "Who can use it"
+      "reactionType": "Who can use it",
+      "postLinks": "May post links",
+      "postApproval": "Posts go live without review for"
     },
     "help": {
       "promotion": "The groups below are added while the conditions hold and removed when they stop holding.",
@@ -194,7 +197,9 @@
       "notice": "Guests are visitors who are not signed in; members are everyone who is. Only conditions that can be checked on every page are offered.",
       "shopCategory": "Who sees this category and the items in it. Only conditions that can be checked on every page are offered.",
       "shopItem": "Who sees and can buy this item, on top of the audience of its category. Only conditions that can be checked on every page are offered.",
-      "reactionType": "Members who do not meet the conditions cannot give this reaction; one they gave before stays and still counts. Only conditions that can be checked on every reaction are offered."
+      "reactionType": "Members who do not meet the conditions cannot give this reaction; one they gave before stays and still counts. Only conditions that can be checked on every reaction are offered.",
+      "postLinks": "A member must meet this to post links, pictures or media from other sites. Leave it empty to let everyone. Only conditions that can be checked on every post are offered.",
+      "postApproval": "New threads and replies by members who do not meet this wait for a moderator, on top of the first-posts count and each forum's own approval switches. Leave it empty to hold nobody. Only conditions that can be checked on every post are offered."
     },
     "match": {
       "legend": "How the conditions combine",

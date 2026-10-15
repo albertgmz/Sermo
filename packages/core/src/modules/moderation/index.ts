@@ -1290,6 +1290,8 @@ export const prepareModeratedContent = markPublic(
       source: filtered.source,
       /** Whether the member may embed pictures and media from other sites. */
       externalMedia: can(ctx, actor, "antispam.embedExternalMedia"),
+      /** The site's links rule as it stood when the content was prepared. */
+      linksRule: settings.linksRule,
       moderated:
         filtered.moderated ||
         firstPosts ||
@@ -1317,9 +1319,8 @@ export const renderModeratedContent = markPublic(
     options?: Parameters<typeof renderContent>[3],
   ) {
     const refs = renderContent(ctx, actor, content.source, options);
-    const settings = readSiteSettings(ctx);
     const ruled =
-      settings.linksRule.conditions.length > 0 &&
+      content.linksRule.conditions.length > 0 &&
       !(options?.edit && options.edit.authorId !== actorUserId(actor));
     if (!ruled && content.externalMedia) return refs;
     const own = ownHosts([
@@ -1328,7 +1329,7 @@ export const renderModeratedContent = markPublic(
       ctx.config.publicFileBaseURL,
     ]);
     if (ruled && hasExternalLinks([refs.html, ...refs.spoilers], own)) {
-      const shortfall = ruleShortfall(ctx, actor, settings.linksRule);
+      const shortfall = ruleShortfall(ctx, actor, content.linksRule);
       if (shortfall) {
         const message = `You cannot post links, pictures or media from other sites yet. You need ${shortfall.needs}.`;
         throw new ForbiddenError(message, [{ path: ["body"], message }]);

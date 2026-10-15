@@ -71,6 +71,39 @@ test("the rule is edited with what criteria.list gives, and the shop's items", a
     expect(operations()).not.toContain(old);
 });
 
+test("a form with two rules names each field and offers the cheap criteria only", async () => {
+  backend = fakeBackend({
+    "auth.me": () => Response.json(viewerBody(true)),
+    "criteria.list": () =>
+      Response.json({
+        items: CRITERIA_BODY,
+        groups: GROUPS,
+        awards: [],
+        creditRules: [],
+      }),
+    "shopCategories.list": () => Response.json({ items: [CATEGORY] }),
+    "shopItems.list": () => Response.json({ items: [ITEM], nextCursor: null }),
+  });
+  const rule: Rule = {
+    match: "all",
+    conditions: [{ criterion: "in_group", ids: [7] }],
+  };
+  const html = renderToStaticMarkup(
+    withIntl(
+      <>
+        {await RuleField({ place: "postLinks", name: "linksRule", rule })}
+        {await RuleField({ place: "postApproval", name: "approvalRule" })}
+      </>,
+    ),
+  );
+  expect(html).toContain('name="linksRule"');
+  expect(html).toContain('name="approvalRule"');
+  expect(html).not.toContain('name="rule"');
+  expect(html).toContain("May post links");
+  expect(html).toContain("Posts go live without review for");
+  expect(html).not.toContain("Title of warning_points_below");
+});
+
 const when = "2026-01-01T00:00:00.000Z";
 const someone = { id: 3, username: "ember" };
 const THREAD_ANSWER = {

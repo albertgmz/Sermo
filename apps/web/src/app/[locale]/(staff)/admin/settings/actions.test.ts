@@ -25,6 +25,7 @@ mock.module("next/headers", () => ({
 
 const {
   saveGeneral,
+  saveAntispam,
   saveMembers,
   saveWarnings,
   saveSeo,
@@ -195,6 +196,94 @@ test("the warnings form sends exactly its two keys", async () => {
   expect(sent()?.[0]?.body).toEqual({
     warningBanThreshold: 10,
     warningBanDays: 3,
+  });
+});
+
+const POST_COUNT_RULE = {
+  match: "all",
+  conditions: [{ criterion: "post_count", value: 5 }],
+};
+
+test("the anti-spam form sends the flood interval and both rules whole", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const digest = await redirectedTo(() =>
+    saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "20"],
+        ["linksRule", JSON.stringify(POST_COUNT_RULE)],
+        ["approvalRule", JSON.stringify({ match: "any", conditions: [] })],
+      ]),
+    ),
+  );
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 20,
+    linksRule: POST_COUNT_RULE,
+    approvalRule: { match: "any", conditions: [] },
+  });
+  expect(digest).toContain("/admin/settings/antispam?notice=saved");
+});
+
+test("a rule the anti-spam form did not show is not sent", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const data = form([
+    ["floodSeconds", "0"],
+    ["approvalRule", JSON.stringify(POST_COUNT_RULE)],
+  ]);
+  // A links rule posted without its marker is not read.
+  data.append("linksRule", JSON.stringify(POST_COUNT_RULE));
+  await redirectedTo(() => saveAntispam(null, data));
+  expect(sent()?.[0]?.body).toEqual({
+    floodSeconds: 0,
+    approvalRule: POST_COUNT_RULE,
+  });
+});
+
+test("a rule that is not a rule is refused under its own row and nothing is sent", async () => {
+  backend = fakeBackend({});
+  expect(
+    await saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "0"],
+        ["linksRule", "not json"],
+        ["approvalRule", JSON.stringify({ match: "all", conditions: [] })],
+      ]),
+    ),
+  ).toEqual({ fields: { linksRule: messages.adminGroups.errors.rule } });
+  expect(backend.asked).toEqual([]);
+});
+
+test("the backend's refusal of a rule is shown under that rule", async () => {
+  backend = fakeBackend({
+    "settings.update": () =>
+      Response.json(
+        {
+          error: {
+            code: "validation",
+            message: "The criterion warning_points_below is too heavy.",
+            issues: [
+              {
+                path: ["linksRule"],
+                message: "The criterion warning_points_below is too heavy.",
+              },
+            ],
+          },
+        },
+        { status: 422 },
+      ),
+  });
+  expect(
+    await saveAntispam(
+      null,
+      form([
+        ["floodSeconds", "5"],
+        ["linksRule", JSON.stringify(POST_COUNT_RULE)],
+      ]),
+    ),
+  ).toEqual({
+    error: undefined,
+    fields: { linksRule: "The criterion warning_points_below is too heavy." },
   });
 });
 

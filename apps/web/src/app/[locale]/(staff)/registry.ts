@@ -118,6 +118,12 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "setupAntispam",
+        path: "/admin/settings/antispam",
+        access: ["admin.settings"],
+        built: true,
+      },
+      {
         key: "setupWarnings",
         path: "/admin/settings/warnings",
         access: ["admin.settings"],

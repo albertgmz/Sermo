@@ -88,14 +88,17 @@ const limits: RuleLimits = {
 //          keys the builder, so a form that stays on the page while another record is chosen
 //          starts again from that record's rule instead of posting the draft of the last one.
 //   rule   The rule being edited; none starts empty.
+//   name   The field the rule is sent in, for a form that holds more than one. Default "rule".
 export async function RuleField({
   place,
   owner,
   rule = everyone(),
+  name = "rule",
 }: {
   place: Place;
   owner?: number | undefined;
   rule?: Rule | undefined;
+  name?: string;
 }) {
   const [t, kit, shop] = await Promise.all([
     getTranslations("admin.ruleBuilder"),
@@ -133,9 +136,10 @@ export async function RuleField({
     creditRules: creditRules.map(titled),
   };
   return (
-    <FieldRow name="rule" label={t(`label.${place}`)} help={t(`help.${place}`)}>
+    <FieldRow name={name} label={t(`label.${place}`)} help={t(`help.${place}`)}>
       <RuleBuilder
-        key={`${place}:${owner ?? "new"}:${JSON.stringify(rule)}`}
+        key={`${name}:${place}:${owner ?? "new"}:${JSON.stringify(rule)}`}
+        name={name}
         place={place}
         criteria={criteria.map(
           ({

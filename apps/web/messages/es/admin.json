@@ -35,6 +35,7 @@
       "home": "Inicio",
       "setupGeneral": "General",
       "setupMembers": "Nuevos miembros",
+      "setupAntispam": "Antispam",
       "setupWarnings": "Advertencias y expulsiones automáticas",
       "setupUploads": "Subidas",
       "setupSeo": "Buscadores",
@@ -186,7 +187,9 @@
       "notice": "Se muestra a",
       "shopCategory": "Disponible para",
       "shopItem": "Disponible para",
-      "reactionType": "Quién puede usarla"
+      "reactionType": "Quién puede usarla",
+      "postLinks": "Pueden publicar enlaces",
+      "postApproval": "Publican sin revisión"
     },
     "help": {
       "promotion": "Los grupos de abajo se añaden mientras se cumplen las condiciones y se quitan cuando dejan de cumplirse.",
@@ -194,7 +197,9 @@
       "notice": "Los invitados son los visitantes que no han iniciado sesión; los miembros son todos los demás. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "shopCategory": "Quién ve esta categoría y sus artículos. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
       "shopItem": "Quién ve y puede comprar este artículo, además del público de su categoría. Solo se ofrecen condiciones que se pueden comprobar en cada página.",
-      "reactionType": "Los miembros que no cumplan las condiciones no pueden dar esta reacción; la que dieron antes se mantiene y sigue contando. Solo se ofrecen condiciones que se pueden comprobar en cada reacción."
+      "reactionType": "Los miembros que no cumplan las condiciones no pueden dar esta reacción; la que dieron antes se mantiene y sigue contando. Solo se ofrecen condiciones que se pueden comprobar en cada reacción.",
+      "postLinks": "Un miembro debe cumplir esto para publicar enlaces, imágenes o medios de otros sitios. Déjalo vacío para permitirlo a todos. Solo se ofrecen condiciones que se pueden comprobar en cada publicación.",
+      "postApproval": "Los hilos y respuestas nuevos de quienes no cumplan esto esperan a un moderador, además del número de primeros mensajes y de los interruptores de aprobación de cada foro. Déjalo vacío para no retener a nadie. Solo se ofrecen condiciones que se pueden comprobar en cada publicación."
     },
     "match": {
       "legend": "Cómo se combinan las condiciones",
