@@ -102,7 +102,10 @@ export function WallItemActions({
       }
       remove={
         item.canDelete && live
-          ? { action: deleteWallItem.bind(null, kind, item.id) }
+          ? {
+              action: deleteWallItem.bind(null, kind, item.id),
+              warning: t("deleteWarning"),
+            }
           : undefined
       }
       moderation={

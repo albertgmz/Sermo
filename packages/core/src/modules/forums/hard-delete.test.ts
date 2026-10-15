@@ -155,11 +155,6 @@ function leftovers(w: World, threadId: number, postIds: number[]) {
       "SELECT count(*) AS n FROM search_fts WHERE rowid IN (SELECT value FROM json_each(?1))",
       posts,
     ),
-    events: one(
-      "SELECT count(*) AS n FROM domain_events WHERE (target_type = 'thread' AND target_id = ?1) OR (target_type = 'post' AND target_id IN (SELECT value FROM json_each(?2)))",
-      threadId,
-      posts,
-    ),
   };
 }
 
@@ -172,7 +167,6 @@ describe("threads.hardDelete", () => {
     const before = leftovers(w, threadId, [first, reply]);
     expect(before.threads).toBe(1);
     expect(before.reactions).toBe(3);
-    expect(before.events).toBeGreaterThan(0);
     expect(before.search).toBe(2);
     await w.call("threads.delete", w.mod, { threadId });
     const soft = {
@@ -304,18 +298,26 @@ describe("threads.hardDelete", () => {
     });
   });
 
-  test("waits while the credits the thread paid are still being taken back", async () => {
+  test("takes back the credits a reply still holds, with a ledger row, before it goes", async () => {
     const w = world();
     const { threadId, reply } = await furnished(w);
     await w.call("threads.delete", w.mod, { threadId });
     w.ctx.sqlite.prepare("UPDATE credit_rule_applications SET state = 'applied'").run();
-    await expect(w.call("threads.hardDelete", w.admin, { threadId })).rejects.toBeInstanceOf(
-      ConflictError,
-    );
-    // Nothing was removed by the refused call.
-    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM posts WHERE id = ?1", reply)).toBe(1);
-    w.ctx.sqlite.prepare("UPDATE credit_rule_applications SET state = 'reverted'").run();
-    expect((await w.call("threads.hardDelete", w.admin, { threadId })).completed).toBe(true);
+    w.ctx.sqlite.prepare("UPDATE users SET credits = 5 WHERE id = ?1").run(w.bobUser.id);
+    await w.call("threads.hardDelete", w.admin, { threadId });
+    expect(
+      w.ctx.sqlite
+        .prepare<{ credits: number }, [number]>("SELECT credits FROM users WHERE id = ?1")
+        .get(w.bobUser.id)!.credits,
+    ).toBe(0);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ type: string; amount: number; source_type: string }, []>(
+          "SELECT type, amount, source_type FROM credit_transactions",
+        )
+        .all(),
+    ).toEqual([{ type: "event_reversal", amount: -5, source_type: "credit_rule" }]);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM posts WHERE id = ?1", reply)).toBe(0);
   });
 
   test("a large thread goes in chunks of 500 posts, newest first, and stays until the last", async () => {
@@ -388,13 +390,6 @@ describe("posts.hardDelete", () => {
     const { threadId, first, reply } = await furnished(w);
     const later = await w.reply(w.carol, threadId, "Later");
     await w.call("posts.delete", w.bob, { postId: reply });
-    // A member's own delete leaves its trace in the log, as the author's.
-    const traced = await w.call("moderatorLog.list", w.admin, { action: "post.delete" });
-    expect(traced.items[0]).toMatchObject({
-      targetId: reply,
-      reason: "deleted by author",
-      details: { byAuthor: true },
-    });
     const soft = {
       thread: w.ctx.sqlite
         .prepare<{ reply_count: number }, [number]>("SELECT reply_count FROM threads WHERE id = ?1")
@@ -542,24 +537,10 @@ describe("profilePosts.hardDelete", () => {
     });
     expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM profile_posts")).toBe(0);
   });
-
-  test("the wall owner's delete is logged as theirs, and an author's as the author's", async () => {
-    const w = world();
-    const mine = await w.wall(w.alice, w.bobUser.id, "Mine");
-    const hers = await w.wall(w.carol, w.bobUser.id, "Hers");
-    await w.call("profilePosts.delete", w.carol, { profilePostId: hers.id });
-    await w.call("profilePosts.delete", w.bob, { profilePostId: mine.id });
-    const log = (await w.call("moderatorLog.list", w.admin, { action: "profile_post.delete" }))
-      .items;
-    expect(log.map((e: { reason: string }) => e.reason).sort()).toEqual([
-      "deleted by author",
-      "deleted by wall owner",
-    ]);
-  });
 });
 
 describe("hard delete and credits, through the real event pipeline", () => {
-  test("a post is deleted for good only after its credits were taken back, and the ledger stays", async () => {
+  const paid = async () => {
     const w = world();
     await w.call("creditRules.create", w.admin, {
       title: "Reply",
@@ -570,24 +551,123 @@ describe("hard delete and credits, through the real event pipeline", () => {
     const t = await w.thread(w.alice, w.open.id, "Paid");
     const reply = await w.reply(w.bob, t.thread.id, "Worth ten");
     await dispatchEvents(w.ctx);
-    const credits = () =>
+    const credits = (userId: number) =>
       w.ctx.sqlite
         .prepare<{ credits: number }, [number]>("SELECT credits FROM users WHERE id = ?1")
-        .get(w.bobUser.id)!.credits;
-    expect(credits()).toBe(10);
+        .get(userId)!.credits;
+    expect(credits(w.bobUser.id)).toBe(10);
+    return { w, t, reply, credits };
+  };
+
+  test("a deleted post goes at once, even before the soft delete event was handled", async () => {
+    const { w, reply, credits } = await paid();
     await w.call("posts.delete", w.bob, { postId: reply.id });
-    // The soft delete's event has not been handled yet: the credits are still out.
-    await expect(w.call("posts.hardDelete", w.admin, { postId: reply.id })).rejects.toBeInstanceOf(
-      ConflictError,
-    );
-    await dispatchEvents(w.ctx);
-    expect(credits()).toBe(0);
     await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    // The hard delete took the credits back itself, with a ledger row.
+    expect(credits(w.bobUser.id)).toBe(0);
     expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM credit_rule_applications")).toBe(0);
     expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM credit_transactions")).toBe(2);
-    // Events still queued for other content are handled without trouble.
-    await w.reply(w.carol, t.thread.id, "Later");
+    // The queued events find the content gone and change nothing.
     await dispatchEvents(w.ctx);
-    expect(credits()).toBe(0);
+    expect(credits(w.bobUser.id)).toBe(0);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM credit_transactions")).toBe(2);
+  });
+
+  test("a deleted thread goes although its replies kept their credits", async () => {
+    const { w, t, credits } = await paid();
+    await w.call("threads.delete", w.mod, { threadId: t.thread.id });
+    await dispatchEvents(w.ctx);
+    // Deleting the thread reverts what the thread paid; its reply still holds its credits.
+    expect(credits(w.bobUser.id)).toBe(10);
+    await w.call("threads.hardDelete", w.admin, { threadId: t.thread.id });
+    expect(credits(w.bobUser.id)).toBe(0);
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM credit_rule_applications")).toBe(0);
+    await dispatchEvents(w.ctx);
+    expect(credits(w.bobUser.id)).toBe(0);
+  });
+
+  test("the events of purged content stay, so a later event is still delivered", async () => {
+    const { w, t, reply, credits } = await paid();
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    await dispatchEvents(w.ctx);
+    const newest = () => count(w.ctx.sqlite, "SELECT max(id) AS n FROM domain_events");
+    const before = newest();
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    expect(newest()).toBeGreaterThanOrEqual(before);
+    await w.reply(w.carol, t.thread.id, "After");
+    await dispatchEvents(w.ctx);
+    expect(credits(w.carolUser.id)).toBe(10);
+  });
+});
+
+describe("what a purge must not leave behind", () => {
+  test("the alerts about a post's reports go with the reports, and unread counters follow", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const reply = await w.reply(w.bob, t.thread.id, "R");
+    await w.call("reports.create", w.carol, {
+      target: { type: "post", id: reply.id },
+      reason: "spam",
+    });
+    const group = w.ctx.sqlite
+      .prepare<{ id: number }, []>("SELECT id FROM report_groups")
+      .get()!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO notifications (user_id, epoch, type, content_type, content_id, created_at, updated_at) VALUES (?1, 0, 'moderator.report', 'report_group', ?2, 1, 1)",
+      )
+      .run(w.aliceUser.id, group);
+    w.ctx.sqlite
+      .prepare("UPDATE users SET unread_notification_count = 1 WHERE id = ?1")
+      .run(w.aliceUser.id);
+    const report = w.ctx.sqlite.prepare<{ id: number }, []>("SELECT id FROM reports").get()!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO ip_log (user_id, ip, ip_net, action, content_type, content_id, created_at) VALUES (?1, '1.1.1.1', '1.1.1.1', 'report', 'report', ?2, 1)",
+      )
+      .run(w.carolUser.id, report);
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    expect(count(w.ctx.sqlite, "SELECT count(*) AS n FROM notifications")).toBe(0);
+    expect(user(w, w.aliceUser.id).unread_notification_count).toBe(0);
+    expect(
+      w.ctx.sqlite
+        .prepare<{ content_type: string | null }, []>("SELECT content_type FROM ip_log")
+        .get(),
+    ).toEqual({ content_type: null });
+  });
+
+  test("a read marker cannot point past what is left, so a reused id is not read already", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "T");
+    const reply = await w.reply(w.bob, t.thread.id, "R");
+    await w.call("threads.markRead", w.carol, { threadId: t.thread.id, position: 1 });
+    expect(
+      count(
+        w.ctx.sqlite,
+        "SELECT last_read_post_id AS n FROM thread_reads WHERE user_id = ?1",
+        w.carolUser.id,
+      ),
+    ).toBe(reply.id);
+    await w.call("posts.delete", w.bob, { postId: reply.id });
+    await w.call("posts.hardDelete", w.admin, { postId: reply.id });
+    expect(
+      count(
+        w.ctx.sqlite,
+        "SELECT last_read_post_id AS n FROM thread_reads WHERE user_id = ?1",
+        w.carolUser.id,
+      ),
+    ).toBe(t.post.id);
+    const next = await w.reply(w.carol, t.thread.id, "Next");
+    // SQLite gave the removed post's id to the new one; the reader's marker is still below it.
+    expect(next.id).toBe(reply.id);
+    expect(
+      count(
+        w.ctx.sqlite,
+        "SELECT count(*) AS n FROM thread_reads WHERE user_id = ?2 AND last_read_post_id < ?1",
+        next.id,
+        w.bobUser.id,
+      ),
+    ).toBe(1);
   });
 });

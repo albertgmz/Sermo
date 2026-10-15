@@ -1,6 +1,6 @@
 import type { SQLQueryBindings } from "bun:sqlite";
 import { type Ctx, prepared } from "../../context";
-import { ConflictError } from "../../errors";
+import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs";
 
 /**
@@ -12,16 +12,21 @@ import { enqueueJob } from "../jobs";
  * - Deleted with the content: bodies, revisions, reactions (the author's `reaction_score` gives
  *   back what they brought, because a soft delete keeps it), attachments (the files are queued
  *   for deletion), spoilers, mentions, the quotes the content made and the rows that record who
- *   quoted it, alerts about it (the members' unread counters go down), bookmarks, reports and
- *   report groups, the credit applications it caused, and its domain events.
+ *   quoted it, alerts about it and about its reports (the members' unread counters go down),
+ *   bookmarks, reports and report groups, and the credit applications it caused. Credits the
+ *   applications still hold are taken back first, with a ledger row each: a soft delete does this
+ *   in a job after the commit, and a reply of a deleted thread keeps its credits until now.
  * - Kept, with the reference nulled: `ip_log` rows. The address history of a member is a
  *   security record, so the row stays and only its pointer to the content goes.
  * - Kept as they are: `moderator_log` and `credit_transactions` (append-only ledgers that name
- *   the content by id) and the sealed-off `domain_events` cursor positions of subscribers.
+ *   the content by id) and `domain_events`. Events are never deleted: ids are not reused only
+ *   while no row is removed from the end of the table, and a subscriber's cursor would skip the
+ *   events that took the freed ids. A subscriber finds the content gone and does nothing.
  *
- * SQLite hands the id of a deleted newest row to the next insert, so nothing may be left that
- * names the old id: that is why the quotes, events and credit applications are deleted rather
- * than kept.
+ * SQLite hands the id of a deleted newest row to the next insert, so what names the old id and
+ * would then attach to the new row (quotes, credit applications, alerts, bookmarks, reports) is
+ * deleted rather than kept. What cannot be reached (read markers, the ledgers) is listed in the
+ * task notes.
  */
 export type PurgeType = "post" | "profile_post" | "profile_post_comment";
 
@@ -39,18 +44,26 @@ function statement<Row = unknown>(ctx: Ctx, key: string, sql: string) {
 }
 
 /**
- * A soft delete takes back the credits the content paid in a job that runs after the commit. A
- * purge before that job ran would strand them, so it waits: the same call succeeds a moment later.
+ * Takes back what the content's credit applications still hold, in the caller's transaction
+ * (`moveCredits` writes the ledger rows), before they are deleted. The applications a soft
+ * delete already reverted hold nothing.
  */
-export function assertCreditsSettled(ctx: Ctx, type: PurgeType | "thread", ids: number[]): void {
-  if (!ids.length) return;
-  const open = statement(
+function takeBackCredits(ctx: Ctx, type: PurgeType | "thread", json: string): void {
+  const held = statement<{ rule_id: number; user_id: number; amount: number }>(
     ctx,
-    "creditsOpen",
-    "SELECT 1 AS found FROM credit_rule_applications INDEXED BY credit_rule_applications_source WHERE source_type = ?1 AND source_id IN (SELECT value FROM json_each(?2)) AND state = 'applied' LIMIT 1",
-  ).get(type, JSON.stringify(ids));
-  if (open)
-    throw new ConflictError("The credits it paid are still being taken back. Try again shortly.");
+    "creditsHeld",
+    "SELECT rule_id, user_id, amount FROM credit_rule_applications INDEXED BY credit_rule_applications_source WHERE source_type = ?1 AND source_id IN (SELECT value FROM json_each(?2)) AND state = 'applied' ORDER BY id",
+  ).all(type, json);
+  for (let at = 0; at < held.length; at += 500)
+    moveCredits(
+      ctx,
+      held.slice(at, at + 500).map((row) => ({
+        userId: row.user_id,
+        amount: -row.amount,
+        type: "event_reversal" as const,
+        source: { type: "credit_rule", id: row.rule_id },
+      })),
+    );
 }
 
 /**
@@ -114,6 +127,13 @@ function removeReports(ctx: Ctx, type: PurgeType, json: string): void {
   ).all(type, json);
   if (!groups.length) return;
   const ids = JSON.stringify(groups.map((group) => group.id));
+  // The alerts moderators got about the report, and the address rows of the people who filed it.
+  removeAlerts(ctx, "reportGroup", aboutContent, "report_group", ids);
+  statement(
+    ctx,
+    "reportsIp",
+    "UPDATE ip_log SET content_type = NULL, content_id = NULL WHERE content_type = 'report' AND content_id IS NOT NULL AND content_id IN (SELECT id FROM reports WHERE group_id IN (SELECT value FROM json_each(?1)))",
+  ).run(ids);
   statement(
     ctx,
     "reportsDelete",
@@ -134,10 +154,6 @@ const bySource = [
   [
     "credits",
     "DELETE FROM credit_rule_applications WHERE source_type = ?1 AND source_id IN (SELECT value FROM json_each(?2))",
-  ],
-  [
-    "events",
-    "DELETE FROM domain_events WHERE target_type = ?1 AND target_id IN (SELECT value FROM json_each(?2))",
   ],
 ] as const;
 /** What only a post, a profile post or a comment has. */
@@ -175,7 +191,7 @@ const ofContent = [
 export function purgeContent(ctx: Ctx, type: PurgeType, ids: number[]): void {
   if (!ids.length) return;
   const json = JSON.stringify(ids);
-  assertCreditsSettled(ctx, type, ids);
+  takeBackCredits(ctx, type, json);
   for (const [key, sql] of ofContent) statement(ctx, key, sql).run(type, json);
   for (const [key, sql] of bySource) statement(ctx, key, sql).run(type, json);
   // Posts quoted by other content: their rows are the record that the quote was announced.
@@ -210,7 +226,7 @@ export function purgeContent(ctx: Ctx, type: PurgeType, ids: number[]): void {
 /** What hangs off a thread itself (its posts are purged separately), then the thread. */
 export function purgeThread(ctx: Ctx, threadId: number): void {
   const json = JSON.stringify([threadId]);
-  assertCreditsSettled(ctx, "thread", [threadId]);
+  takeBackCredits(ctx, "thread", json);
   for (const [key, sql] of bySource) statement(ctx, key, sql).run("thread", json);
   removeAlerts(ctx, "thread", aboutContent, "thread", json);
   removeAlerts(ctx, "inThread", "n.thread_id = ?1", threadId);

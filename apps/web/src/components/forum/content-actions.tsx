@@ -69,7 +69,7 @@ function PanelButton({
 //   share       The permalink of the item.
 //   bookmark    The item and whether the viewer bookmarked it; only for signed-in viewers.
 //   edit        Either a page to edit on, or a `panel` that opens under the bar.
-//   remove      Deleting: the action, and whether to ask for a reason.
+//   remove      Deleting: the action, whether to ask for a reason, and a line saying what it does.
 //   report      Reporting: the action that files it.
 //   moderation  Moderator tools that exist for the item (approve, restore), after the rest.
 //   compact     The smaller bar of a comment.
@@ -102,7 +102,7 @@ export function ContentActions({
   share?: string;
   bookmark?: { contentType: "post"; contentId: number; bookmarked: boolean };
   edit?: { href: string } | { panel: React.ReactNode };
-  remove?: { action: FormAction; withReason?: boolean };
+  remove?: { action: FormAction; withReason?: boolean; warning?: string };
   report?: { action: FormAction };
   moderation?: React.ReactNode;
   compact?: boolean;
@@ -224,7 +224,7 @@ export function ContentActions({
             confirm={t("confirmDelete")}
             cancel={t("cancel")}
             reasonLabel={remove.withReason ? t("deleteReason") : undefined}
-            warning={t("deleteWarning")}
+            warning={remove.warning}
           />
         </div>
       )}

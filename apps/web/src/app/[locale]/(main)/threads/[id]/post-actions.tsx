@@ -89,6 +89,7 @@ export function PostActions({
           ? {
               action: deletePostAction.bind(null, post.threadId, post.id),
               withReason: true,
+              warning: actions("deleteWarning"),
             }
           : undefined
       }

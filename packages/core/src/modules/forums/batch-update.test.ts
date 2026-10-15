@@ -322,3 +322,20 @@ test("a moderator revoked in another process is refused thread by thread, and no
     database.close();
   }
 });
+
+test("repeating a lock or a pin notifies nobody: no event for a thread that did not change", async () => {
+  const { w, a1 } = await setup();
+  const events = () =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, []>(
+        "SELECT count(*) AS n FROM domain_events WHERE type = 'content.edited'",
+      )
+      .get()!.n;
+  await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "lock" } });
+  const afterFirst = events();
+  expect(afterFirst).toBeGreaterThan(0);
+  await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "lock" } });
+  await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "stick" } });
+  await w.call("threads.batchUpdate", w.mod, { threadIds: [a1], update: { action: "stick" } });
+  expect(events()).toBe(afterFirst + 1);
+});

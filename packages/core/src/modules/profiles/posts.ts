@@ -417,16 +417,6 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
     if (result.changes && now.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
-    else if (result.changes)
-      appendModeratorLog(
-        ctx,
-        actor,
-        "profile_post.delete",
-        "profile_post",
-        row.id,
-        actorUserId(actor) === row.user_id ? "deleted by author" : "deleted by wall owner",
-        { byAuthor: actorUserId(actor) === row.user_id },
-      );
   });
   return postValue(ctx, actor, { ...row, state: "deleted" });
 });

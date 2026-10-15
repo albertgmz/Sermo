@@ -1678,12 +1678,13 @@ function stickThread(ctx: Ctx, moderator: Actor, id: number, isSticky: boolean, 
   const current = requireThread(ctx, moderator, id).row;
   requirePermission(ctx, moderator, "forum.stick", { nodeId: current.node_id });
   forumDb(ctx).prepare("UPDATE threads SET is_sticky = ?1 WHERE id = ?2").run(Number(isSticky), id);
-  publishEvent(ctx, {
-    type: "content.edited",
-    targetType: "thread",
-    targetId: id,
-    payload: moderationPayload(moderator, current.user_id, notice),
-  });
+  if (!!current.is_sticky !== isSticky)
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: "thread",
+      targetId: id,
+      payload: moderationPayload(moderator, current.user_id, notice),
+    });
   appendModeratorLog(
     ctx,
     moderator,
@@ -1758,12 +1759,13 @@ function lockThread(ctx: Ctx, moderator: Actor, id: number, isLocked: boolean, n
   const current = requireThread(ctx, moderator, id).row;
   requirePermission(ctx, moderator, "forum.lock", { nodeId: current.node_id });
   forumDb(ctx).prepare("UPDATE threads SET is_locked = ?1 WHERE id = ?2").run(Number(isLocked), id);
-  publishEvent(ctx, {
-    type: "content.edited",
-    targetType: "thread",
-    targetId: id,
-    payload: moderationPayload(moderator, current.user_id, notice),
-  });
+  if (!!current.is_locked !== isLocked)
+    publishEvent(ctx, {
+      type: "content.edited",
+      targetType: "thread",
+      targetId: id,
+      payload: moderationPayload(moderator, current.user_id, notice),
+    });
   appendModeratorLog(
     ctx,
     moderator,
@@ -2003,8 +2005,6 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
           ...moderationPayload(actor, post.user_id, input),
         },
       });
-    // A moderator's delete is logged with their reason; a member's own is logged as the author's,
-    // so staff can tell the two apart and still restore it.
     if (can(ctx, moderator, "forum.deleteAny", { nodeId: current.node_id }))
       appendModeratorLog(
         ctx,
@@ -2014,17 +2014,6 @@ export const postsDeleteOp = implement(contracts.postsDelete, (ctx, actor, input
         post.id,
         input.reason,
         {},
-        current.node_id,
-      );
-    else
-      appendModeratorLog(
-        ctx,
-        actor,
-        "post.delete",
-        "post",
-        post.id,
-        "deleted by author",
-        { byAuthor: true },
         current.node_id,
       );
   });
@@ -3051,7 +3040,8 @@ function setThreadPrefix(
 ) {
   const current = requireThread(ctx, moderator, id).row;
   if (!mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
-  if (prefixId !== null && prefixId !== current.prefix_id) requireActivePrefix(ctx, prefixId);
+  if (prefixId === current.prefix_id) return false;
+  if (prefixId !== null) requireActivePrefix(ctx, prefixId);
   forumDb(ctx)
     .prepare("UPDATE threads SET prefix_id = ?1, content_updated_at = ?2 WHERE id = ?3")
     .run(prefixId, ctx.now(), id);
@@ -3072,7 +3062,7 @@ function setThreadPrefix(
       { prefixId },
       current.node_id,
     );
-  return prefixId !== current.prefix_id;
+  return true;
 }
 function batchItem(
   ctx: Ctx,
@@ -3124,6 +3114,35 @@ export const threadsBatchUpdateOp = implement(contracts.threadsBatchUpdate, (ctx
 
 // Deleting for good ---------------------------------------------------------------------------
 
+/**
+ * After posts of a thread were removed: a read marker may not point past the thread's last
+ * visible post (SQLite can give the id of a removed newest post to the next insert, which would
+ * then count as read), and the thread's last-post pointer must name a post that exists.
+ */
+function settleThreadAfterPurge(ctx: Ctx, threadId: number, firstPostId: number | null) {
+  const last = forumDb(ctx)
+    .prepare<{ id: number; user_id: number; created_at: number }, [number]>(forumSql.threadLast)
+    .get(threadId);
+  if (last)
+    forumDb(ctx)
+      .prepare(
+        "UPDATE threads SET last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
+      )
+      .run(last.created_at, last.id, last.user_id, threadId);
+  const newest = last?.id ?? firstPostId ?? 0;
+  if (!last && firstPostId)
+    forumDb(ctx)
+      .prepare(
+        "UPDATE threads SET last_post_id = ?1, last_post_at = created_at, last_poster_id = user_id WHERE id = ?2",
+      )
+      .run(firstPostId, threadId);
+  forumDb(ctx)
+    .prepare(
+      "UPDATE thread_reads SET last_read_post_id = ?1 WHERE thread_id = ?2 AND last_read_post_id > ?1",
+    )
+    .run(newest, threadId);
+}
+
 export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, actor, input) => {
   requireAuthenticated(actor);
   assertTransferIdle(ctx, input.threadId);
@@ -3155,15 +3174,7 @@ export const threadsHardDeleteOp = implement(contracts.threadsHardDelete, (ctx, 
       forumDb(ctx)
         .prepare("UPDATE threads SET reply_count = max(0, reply_count - ?1) WHERE id = ?2")
         .run(visibleGone, current.id);
-      const last = forumDb(ctx)
-        .prepare<{ id: number; user_id: number; created_at: number }, [number]>(forumSql.threadLast)
-        .get(current.id);
-      if (last)
-        forumDb(ctx)
-          .prepare(
-            "UPDATE threads SET last_post_at = ?1, last_post_id = ?2, last_poster_id = ?3 WHERE id = ?4",
-          )
-          .run(last.created_at, last.id, last.user_id, current.id);
+      settleThreadAfterPurge(ctx, current.id, current.first_post_id);
     } else {
       purgeThread(ctx, current.id);
     }
@@ -3203,6 +3214,7 @@ export const postsHardDeleteOp = implement(contracts.postsHardDelete, (ctx, acto
         "Delete the post first; only a deleted post can be removed for good.",
       );
     purgeContent(ctx, "post", [post.id]);
+    settleThreadAfterPurge(ctx, current.thread.row.id, current.thread.row.first_post_id);
     appendModeratorLog(
       ctx,
       actor,
