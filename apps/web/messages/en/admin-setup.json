@@ -35,7 +35,7 @@
     "antispam": {
       "metaTitle": "Anti-spam",
       "heading": "Anti-spam",
-      "subtitle": "How fast a member may write and who may post links or go live without review. Daily limits, the permission to embed outside pictures and media, and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
+      "subtitle": "How fast a member may write and who may post links or go live without review. Daily limits, the restriction that shows outside pictures and media as links (a group given Never on it is exempt), and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
       "formHeading": "Posting limits"
     },
     "warnings": {

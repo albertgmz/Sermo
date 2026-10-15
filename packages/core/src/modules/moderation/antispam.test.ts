@@ -6,6 +6,7 @@ import { ForbiddenError, RateLimitedError, ValidationError } from "../../errors"
 import { phrase } from "../../i18n";
 import { execute } from "../../operation";
 import { PERMISSION_IDS } from "../../permissions/registry";
+import { lockHint } from "../../shared/criteria/hint";
 import { conversationsCreateOp, conversationsReplyOp } from "../conversations";
 import { postsCreateOp, postsUpdateOp, threadsCreateOp } from "../forums";
 import { refreshStandings } from "../members/standings";
@@ -581,9 +582,31 @@ describe("links rule", () => {
       },
     });
     const refused = await rejects(post(f, "https://example.com"), ForbiddenError);
-    expect(refused.message).toContain("You need one of: Post count: 10 or more; Days registered: 7 or more.");
+    expect(refused.message).toContain(
+      "You need one of: Post count: 10 or more; Days registered: 7 or more.",
+    );
     f.ctx.clock.advance(7 * DAY);
     await post(f, "https://example.com");
+  });
+
+  test("a yes/no condition that must not hold keeps its negation, in the refusal and the lock hint", async () => {
+    const f = fixture();
+    const negated: Rule = {
+      match: "all",
+      conditions: [
+        { criterion: "email_verified", value: 0 },
+        { criterion: "has_avatar", value: 1 },
+      ],
+    };
+    configure(f.ctx, { linksRule: negated });
+    f.ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(f.member.id);
+    const refused = await rejects(post(f, "https://example.com"), ForbiddenError);
+    expect(refused.message).toContain("You need Not: Verified email; Has an avatar");
+    // The reaction lock hint cannot phrase it and says so, rather than dropping the negation.
+    expect(lockHint("en", negated)).toBe("Locked");
+    expect(phrase("es", "reaction.lock.not", { criterion: "Correo verificado" })).toBe(
+      "No: Correo verificado",
+    );
   });
 
   test("a rule can read groups, so staff can be let through", async () => {

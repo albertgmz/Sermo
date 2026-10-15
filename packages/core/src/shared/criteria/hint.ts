@@ -64,7 +64,11 @@ function requirement(language: Language, condition: Condition): string {
   const title = definition
     ? titleFor(language, definition.label, definition.id)
     : condition.criterion;
-  const text = conditionPhrase(language, condition) ?? title;
+  // A yes/no condition that must NOT hold ("value": 0) keeps its negation.
+  const text =
+    definition?.kind === "boolean" && condition.value === 0
+      ? phrase(language, "reaction.lock.not", { criterion: title })
+      : (conditionPhrase(language, condition) ?? title);
   return condition.days === undefined ? text : `${text} (in the last ${condition.days} days)`;
 }
 

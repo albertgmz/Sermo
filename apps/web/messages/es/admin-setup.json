@@ -35,7 +35,7 @@
     "antispam": {
       "metaTitle": "Antispam",
       "heading": "Antispam",
-      "subtitle": "Con qué rapidez puede escribir un miembro y quién puede publicar enlaces o publicar sin revisión. Los límites diarios, el permiso para insertar imágenes y medios externos y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
+      "subtitle": "Con qué rapidez puede escribir un miembro y quién puede publicar enlaces o publicar sin revisión. Los límites diarios, la restricción que muestra como enlaces las imágenes y los medios externos (un grupo con Nunca queda exento) y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
       "formHeading": "Límites de publicación"
     },
     "warnings": {
