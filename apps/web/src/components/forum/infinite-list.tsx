@@ -77,21 +77,27 @@ export function mergeRefreshed(
   };
 }
 
-// The list with the page of the newest entries put in front of what it holds. When little is
-// new the page reaches the row the list began with: a row that is on both is shown once, where
-// the newer page has it (`flattenRows` keeps the first), which is how a thread that moved to the
-// top is not shown twice, and the pages the visitor loaded stay. When more is new than one page
-// holds, the page does not reach it and some of the new entries would be missing between the two:
-// the list then begins again from the newest page (the sentinel goes on from there).
+// The list with the page of the newest entries put in front of what it holds. The page is
+// complete when it runs into what the list holds (its last row is a row held) or when it is the
+// end of the feed: everything newer than that row is then in the page. A row that is on both is
+// shown once, where the newer page has it (`flattenRows` keeps the first), which is how a thread
+// that moved to the top is not shown twice, and the pages the visitor loaded stay. When more is
+// new than one page holds, its last row is new too, and some of the new entries would be missing
+// between the two (also when the list's first row moved to the top of the page, which says
+// nothing of the rows below it): the list then begins again from the newest page (the sentinel
+// goes on from there).
 export function prependFresh(
   held: InfiniteData<ListPage, unknown>,
   fresh: ListPage,
   start: string | null,
 ): InfiniteData<ListPage, unknown> {
-  const top = held.pages[0]?.rows[0]?.key;
-  const reaches =
-    top !== undefined && fresh.rows.some((row) => row.key === top);
-  if (top !== undefined && !reaches && fresh.nextCursor !== null) {
+  const heldKeys = new Set(
+    held.pages.flatMap((page) => page.rows.map((row) => row.key)),
+  );
+  const last = fresh.rows.at(-1)?.key;
+  const complete =
+    fresh.nextCursor === null || (last !== undefined && heldKeys.has(last));
+  if (heldKeys.size > 0 && !complete) {
     return { pages: [fresh], pageParams: [start] };
   }
   return {

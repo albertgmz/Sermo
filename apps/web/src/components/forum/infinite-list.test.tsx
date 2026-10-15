@@ -386,6 +386,36 @@ test("more new entries than a page holds begin the list again from the newest pa
   expect(flattenRows(next.pages).map((r) => r.key)).toEqual(keys);
 });
 
+test("a held first row that was bumped does not make a page complete: the entries below it may be missing", () => {
+  const held = {
+    pages: [page(["T1", "T2", "T3"], "c1")],
+    pageParams: [null],
+  };
+  // T1 got a reply and is first again, but thirty entries are new and the page holds five.
+  const next = prependFresh(
+    held,
+    page(["T1", "n1", "n2", "n3", "n4"], "c9"),
+    null,
+  );
+  expect(next.pages).toHaveLength(1);
+  expect(flattenRows(next.pages).map((r) => r.key)).toEqual([
+    "T1",
+    "n1",
+    "n2",
+    "n3",
+    "n4",
+  ]);
+  // The same bump with a page that runs into the held rows is complete and prepended.
+  const small = prependFresh(held, page(["T1", "n1", "T2", "T3"], "c9"), null);
+  expect(flattenRows(small.pages).map((r) => r.key)).toEqual([
+    "T1",
+    "n1",
+    "T2",
+    "T3",
+  ]);
+  expect(small.pages).toHaveLength(2);
+});
+
 test("a short feed that is all new is put in front as it is", () => {
   const held = { pages: [page(["c"], null)], pageParams: [null] };
   const next = prependFresh(held, page(["a", "b"], null), null);

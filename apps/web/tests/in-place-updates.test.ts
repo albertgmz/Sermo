@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const source = (path: string) =>
-  readFileSync(join(import.meta.dir, "..", "src", path), "utf8");
+const root = join(import.meta.dir, "..", "src");
+const source = (path: string) => readFileSync(join(root, path), "utf8");
 
 // The body of an exported async function of a module.
 function bodyOf(code: string, name: string) {
@@ -87,6 +87,30 @@ test("the follow button of the feed's suggestions is the in-place one", () => {
   expect(code).toContain("<MemberFollowButton");
   expect(code).not.toMatch(/<FollowButton\b/);
   expect(code).not.toContain("wall-buttons");
+});
+
+// A button is told how old its markup is by its props object (`lib/item-state`). A client component
+// that builds one on each of its own renders would make it look drawn just now.
+test("a client component that creates a change button keeps the element between its renders", () => {
+  const buttons =
+    /<(BookmarkButton|ReactionButton|MemberFollowButton|ReactionSummaryLive)[\s/>]/;
+  let seen = 0;
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (/\.tsx$/.test(entry.name) && !entry.name.includes(".test.")) {
+        const code = source(path);
+        if (code.startsWith('"use client"') && buttons.test(code)) {
+          seen += 1;
+          expect(code, path).toContain("useMemo(");
+        }
+      }
+    }
+  };
+  walk("components");
+  walk("app");
+  expect(seen).toBeGreaterThan(0);
 });
 
 test("what drawing an added post needs is read on the server, never taken from the browser", () => {

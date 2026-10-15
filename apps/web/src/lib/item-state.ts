@@ -20,7 +20,10 @@ registerStore(changes);
 // When the markup a component was drawn from reached the browser. A component's props are the
 // server's: a screen drawn again sends new ones, while a row drawn again from the markup a list
 // keeps (it scrolled away and back) has the same ones, so the first time an object of props is
-// seen stands for when the server drew it.
+// seen stands for when the server drew it. That holds only while the props are the server's own
+// element: a client component that builds a button again on its own re-render (as the props of a
+// spread) makes new props that look drawn just now. Such a parent keeps the element (`useMemo` on
+// what the server sent); a source scan holds the places that create these buttons to it.
 const delivered = new WeakMap<object, number>();
 function deliveredAt(props: object) {
   let at = delivered.get(props);

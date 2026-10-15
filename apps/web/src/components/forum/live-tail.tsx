@@ -13,6 +13,7 @@ import {
 } from "react";
 import { usePolling } from "@/lib/polling";
 import {
+  dropForReload,
   EMPTY_TAIL,
   markTailShown,
   pollFound,
@@ -110,7 +111,10 @@ export function LiveTail({
       );
       if ("stop" in answer) return "stop";
       // The thread changed under the page (a merge moved posts): draw it again.
-      if ("reload" in answer) return router.refresh();
+      if ("reload" in answer) {
+        updateTail(tailKey, dropForReload);
+        return router.refresh();
+      }
       if (answer.rows.length > 0) {
         updateTail(tailKey, (now) => pollFound(now, answer.rows));
       }

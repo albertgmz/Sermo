@@ -3,6 +3,7 @@ import { enterViewer } from "@/lib/session-epoch";
 import {
   addPending,
   appendRows,
+  dropForReload,
   EMPTY_TAIL,
   markTailShown,
   pollFound,
@@ -84,6 +85,18 @@ test("a member's row that arrived just before the visitor's send is still fetche
   tail = pollFound(tail, [row(11), row(12)]);
   expect(tail.rows.map((r) => r.id)).toEqual([11, 12]);
   expect(pollFrom(tail, drawn)).toEqual({ id: 12, mark: 12 });
+});
+
+test("a thread drawn again after a move drops the rows and where it polled from, not the texts being sent", () => {
+  const tail = addPending(pollFound(EMPTY_TAIL, [row(11), row(12)]), {
+    id: 1,
+    text: "mine",
+  });
+  const after = dropForReload(tail);
+  expect(after.rows).toEqual([]);
+  expect(after.polled).toBeNull();
+  expect(after.pending).toEqual([{ id: 1, text: "mine" }]);
+  expect(pollFrom(after, { id: 5, mark: 5 })).toEqual({ id: 5, mark: 5 });
 });
 
 test("a poll that found nothing leaves where the next one starts", () => {

@@ -13,6 +13,12 @@ export async function replyInPlace(
 ): Promise<{ error?: string; row?: TailRow }> {
   const sent = await sendMessage(conversationId, formData);
   if (!sent.ok) return { error: sent.error };
-  const [row] = await messageRows([sent.value]);
-  return { row };
+  // The message is saved. If drawing the answer fails the form must not keep the text, or a second
+  // press would send it twice: it counts as sent, with no row, and the next poll finds the message.
+  try {
+    const [row] = await messageRows([sent.value]);
+    return { row };
+  } catch {
+    return {};
+  }
 }

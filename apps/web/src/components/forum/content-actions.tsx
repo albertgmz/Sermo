@@ -3,7 +3,7 @@
 import { Flag, Pencil, Reply, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { createContext, useState } from "react";
+import { createContext, useMemo, useState } from "react";
 import type { ActionFormState } from "@/components/forum/action-form";
 import { BookmarkButton } from "@/components/forum/bookmark-button";
 import { DeleteControl } from "@/components/forum/delete-control";
@@ -113,6 +113,22 @@ export function ContentActions({
   const toggle = (panel: Panel) =>
     setOpen((current) => (current === panel ? null : panel));
   const close = () => setOpen(null);
+  // The bookmark button is told how old its markup is by its props object (`lib/item-state`), which
+  // must therefore be the server's: this bar re-renders whenever a panel opens or closes, and a
+  // button element built again each time would look like markup drawn just now and show the
+  // server's old value in place of the member's bookmark. Built again only when the server sends
+  // a new `bookmark`.
+  const bookmarkButton = useMemo(
+    () =>
+      bookmark && (
+        <BookmarkButton
+          {...bookmark}
+          className={messageActionClass}
+          labelClassName={actionLabelClass}
+        />
+      ),
+    [bookmark],
+  );
 
   return (
     <div
@@ -148,13 +164,7 @@ export function ContentActions({
           {start}
         </div>
         <div className="ml-auto flex flex-wrap items-center">
-          {bookmark && (
-            <BookmarkButton
-              {...bookmark}
-              className={messageActionClass}
-              labelClassName={actionLabelClass}
-            />
-          )}
+          {bookmarkButton}
           {share && (
             <ShareButton
               href={share}

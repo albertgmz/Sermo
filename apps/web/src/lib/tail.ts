@@ -67,6 +67,12 @@ export function pollFound(tail: Tail, rows: TailRow[]): Tail {
   return { ...joined, polled: { id: last.id, mark: last.mark } };
 }
 
+// The thread changed under the tail (posts were moved or merged): what the tail held and where it
+// polled from no longer describes the thread, which is drawn again. Texts being sent stay.
+export function dropForReload(tail: Tail): Tail {
+  return { ...tail, rows: [], polled: null };
+}
+
 // Where the next poll starts: after the newest row a poll returned, or what the page was drawn
 // with when that is newer.
 export function pollFrom(
