@@ -2201,3 +2201,13 @@ that gets a different id (or null) reloads the thread, which makes merges exact;
 removals and late approvals are not seen by a poll and show on the next reload. Every new query is
 one index seek (no migration). One tab's polling (about 29 requests a minute) stays well inside the
 read rate limit.
+
+**New threads are written in the wall composer.** One shared composer (`components/forum/composer`)
+serves wall posts and new threads: close and Post at the top (Post waits for title and text), a
+"Posting in" chip that opens a searchable list of the forums the member can post in, the title as a
+borderless line, prefix chips, the shared editor and bottom bar, which stays above the phone
+keyboard. Changing forum keeps the draft and replaces the address. `/forums/<id>/new` draws the
+composer as a page. The thread draft (title, text, prefix; attachments are dropped) is kept per
+member in the tab's session storage and cleared at send; a failed request or a sign-in redirect
+during the send loses it. Posting a new thread without JavaScript did not work before and still
+does not.
