@@ -4,6 +4,7 @@
     "italicLabel": "Italic",
     "strikethroughLabel": "Strikethrough",
     "inlineCodeLabel": "Inline code",
+    "removeFormattingLabel": "Remove formatting",
     "headingLabel": "Heading",
     "bulletListLabel": "Bullet list",
     "numberedListLabel": "Numbered list",

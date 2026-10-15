@@ -11,6 +11,7 @@ test("the bar has the spoiler, code block and media buttons beside the others", 
   for (const label of [
     text.boldLabel,
     text.italicLabel,
+    text.removeFormattingLabel,
     text.linkLabel,
     text.quoteLabel,
     text.bulletListLabel,

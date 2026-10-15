@@ -4,6 +4,7 @@
     "italicLabel": "Cursiva",
     "strikethroughLabel": "Tachado",
     "inlineCodeLabel": "Código en línea",
+    "removeFormattingLabel": "Quitar formato",
     "headingLabel": "Encabezado",
     "bulletListLabel": "Lista con viñetas",
     "numberedListLabel": "Lista numerada",

@@ -64,6 +64,8 @@ import {
   type EditorState,
   type ElementNode,
   FORMAT_TEXT_COMMAND,
+  IS_APPLE,
+  KEY_DOWN_COMMAND,
   type LexicalEditor,
   mergeRegister,
   PASTE_COMMAND,
@@ -79,6 +81,7 @@ import {
   Bold,
   Clapperboard,
   Code,
+  Eraser,
   EyeOff,
   Heading,
   Italic,
@@ -101,6 +104,7 @@ import {
   $applyLink,
   $insertText,
   $removeAttachTags,
+  $removeFormatting,
   $wrapSelection,
 } from "@/components/forum/editor-commands";
 import {
@@ -215,6 +219,35 @@ function initialEditorState(markdown: string): string | undefined {
   const state = scratch.getEditorState();
   unregister();
   return state.isEmpty() ? undefined : JSON.stringify(state);
+}
+
+// Ctrl+\ (Cmd+\ on a Mac, where Lexical maps its other shortcuts the same way) takes the
+// formatting off, in editors with the bar and without it.
+function RemoveFormattingShortcut() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(
+    () =>
+      editor.registerCommand(
+        KEY_DOWN_COMMAND,
+        (event) => {
+          const modifier = IS_APPLE ? event.metaKey : event.ctrlKey;
+          if (
+            event.key !== "\\" ||
+            !modifier ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return false;
+          }
+          event.preventDefault();
+          editor.update(() => $removeFormatting());
+          return true;
+        },
+        COMMAND_PRIORITY_LOW,
+      ),
+    [editor],
+  );
+  return null;
 }
 
 type Block = "paragraph" | "heading" | "quote" | "code" | "bullet" | "number";
@@ -389,6 +422,11 @@ function Toolbar({ className }: { className?: string }) {
             onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, format)}
           />
         ))}
+        <ToolbarButton
+          label={t("removeFormattingLabel")}
+          icon={Eraser}
+          onClick={() => editor.update(() => $removeFormatting())}
+        />
         <Divider />
         <ToolbarButton
           label={t("headingLabel")}
@@ -701,6 +739,7 @@ export function Editor({
       </div>
       {invalid && <FormError id={errorId}>{t("errors.required")}</FormError>}
       <HistoryPlugin />
+      <RemoveFormattingShortcut />
       <ListPlugin />
       <LinkPlugin />
       <MarkdownShortcutPlugin transformers={TRANSFORMERS} />

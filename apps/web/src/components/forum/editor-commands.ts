@@ -1,12 +1,24 @@
 import { $isCodeNode } from "@lexical/code";
 import { $createLinkNode, $toggleLink } from "@lexical/link";
 import {
+  $isListItemNode,
+  $isListNode,
+  type ListItemNode,
+  type ListNode,
+} from "@lexical/list";
+import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text";
+import {
+  $createParagraphNode,
   $createRangeSelection,
   $createTextNode,
   $getRoot,
   $getSelection,
+  $isElementNode,
+  $isParagraphNode,
   $isRangeSelection,
   $isTextNode,
+  type ElementNode,
+  type TextNode,
 } from "lexical";
 import { withoutAttachTag } from "@/components/forum/composer-insert";
 
@@ -91,5 +103,120 @@ export function $removeAttachTags(id: number) {
     const text = node.getTextContent();
     const kept = withoutAttachTag(text, id);
     if (kept !== text) node.setTextContent(kept);
+  }
+}
+
+// The tags that only format their text: formatting that Remove formatting takes off. The others
+// (links, mentions, attachments, media, spoilers, code, quotes) carry content and stay.
+const FORMATTING_TAG =
+  /\[(B|I|U|S|COLOR|FONT|SIZE|LEFT|CENTER|RIGHT|INDENT|ICODE|HEADING)(?:=[^\]\n]*)?\]([\s\S]*?)\[\/\1\]/gi;
+
+function withoutFormattingTags(text: string) {
+  let out = text;
+  for (let next = out.replace(FORMATTING_TAG, "$2"); next !== out; ) {
+    out = next;
+    next = out.replace(FORMATTING_TAG, "$2");
+  }
+  return out;
+}
+
+// The items of a list in reading order, those of nested lists included.
+function listItemsOf(list: ListNode): ListItemNode[] {
+  return list.getChildren().flatMap((child) => {
+    if (!$isListItemNode(child)) return [];
+    const inner = child.getFirstChild();
+    return $isListNode(inner) ? listItemsOf(inner) : [child];
+  });
+}
+
+// A heading, quote or list becomes plain paragraphs; a paragraph loses its alignment and indent.
+// Code blocks and anything else stay as they are.
+function $plainBlock(block: ElementNode) {
+  if ($isHeadingNode(block) || $isQuoteNode(block)) {
+    block.replace($createParagraphNode(), true);
+  } else if ($isListNode(block)) {
+    let after: ElementNode = block;
+    for (const item of listItemsOf(block)) {
+      const paragraph = $createParagraphNode().append(...item.getChildren());
+      after.insertAfter(paragraph);
+      after = paragraph;
+    }
+    block.remove();
+  } else if ($isParagraphNode(block)) {
+    if (block.getFormatType()) block.setFormat("");
+    if (block.getIndent()) block.setIndent(0);
+  }
+}
+
+// Takes the formatting off the selected text, or off the whole message when nothing is selected:
+// bold, italic, underline, strikethrough, inline code, sub- and superscript, any style, headings,
+// quotes, lists and alignment, and the formatting BB code tags typed as text. Links, mentions,
+// attachments, spoilers and code blocks stay. Call it inside one `editor.update` so that one Undo
+// puts everything back.
+export function $removeFormatting() {
+  const selection = $getSelection();
+  const range =
+    $isRangeSelection(selection) && !selection.isCollapsed() ? selection : null;
+  // Split at the ends of the selection first, so that only the selected text is touched.
+  const root = $getRoot();
+  const nodes = range ? range.extract() : root.getAllTextNodes();
+  const texts = nodes.filter($isTextNode);
+  const blocks = new Set<ElementNode>(
+    range
+      ? nodes.map((node) => node.getTopLevelElement()).filter($isElementNode)
+      : root.getChildren().filter($isElementNode),
+  );
+
+  // Text in a code block is code, not text to clean. What was inline code is plain text now, but
+  // its tags are shown as written.
+  const cleaned: TextNode[] = [];
+  const written = new Set<string>();
+  for (const node of texts) {
+    if ($isCodeNode(node.getTopLevelElement())) continue;
+    if (node.hasFormat("code")) written.add(node.getKey());
+    node.setFormat(0);
+    if (node.getStyle()) node.setStyle("");
+    cleaned.push(node);
+  }
+  // A tag can be split between two runs of text that differed in format; join those that now match.
+  const alive: TextNode[] = [];
+  for (const node of cleaned) {
+    const before = alive[alive.length - 1];
+    if (
+      before?.isAttached() &&
+      before.getNextSibling()?.is(node) &&
+      before.isSimpleText() &&
+      node.isSimpleText() &&
+      written.has(before.getKey()) === written.has(node.getKey())
+    ) {
+      before.getLatest().mergeWithSibling(node.getLatest());
+    } else {
+      alive.push(node);
+    }
+  }
+  for (const node of alive) {
+    if (written.has(node.getKey())) continue;
+    const text = node.getTextContent();
+    const kept = withoutFormattingTags(text);
+    if (kept === text) continue;
+    if (kept) {
+      node.setTextContent(kept);
+      for (const point of $isRangeSelection(selection)
+        ? [selection.anchor, selection.focus]
+        : []) {
+        if (point.key === node.getKey() && point.offset > kept.length) {
+          point.set(point.key, kept.length, point.type);
+        }
+      }
+    } else {
+      node.remove();
+    }
+  }
+  for (const block of blocks) {
+    if (block.isAttached()) $plainBlock(block);
+  }
+  if ($isRangeSelection(selection)) {
+    selection.setFormat(0);
+    selection.setStyle("");
   }
 }
