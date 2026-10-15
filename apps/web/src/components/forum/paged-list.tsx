@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { InfiniteList } from "@/components/forum/infinite-list";
-import { type ListPage, restorePages } from "@/lib/list-pages";
+import { type ListPage, listId, restorePages } from "@/lib/list-pages";
 
 // A list on a screen the server draws: the first page, as the screen read it, and as many more as
 // the address asks for (`pages`, see `restorePages`), handed to the infinite list as its data. The
@@ -24,6 +24,7 @@ export async function PagedList({
 >) {
   return (
     <InfiniteList
+      key={listId(list.listKey, start ?? null)}
       {...list}
       start={start ?? null}
       pages={await restorePages(first, more, pages)}

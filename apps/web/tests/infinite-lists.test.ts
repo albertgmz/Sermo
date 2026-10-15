@@ -76,6 +76,12 @@ test("the shared list keeps the place in the address and takes its first page fr
   expect(list).toContain("measureElement");
 });
 
+// The forum page reads its prefix filter from the address with this pattern.
+test("the forum page takes a prefix id of any length from the address", () => {
+  const code = source("app/[locale]/(main)/forums/[id]/page.tsx");
+  expect(code).toContain("/^[1-9]\\d*$/.test(prefix");
+});
+
 test("the query client is set up once, in the root layout", () => {
   expect(source("app/[locale]/layout.tsx")).toContain("<QueryProvider>");
   const uses = ["components/forum/infinite-list.tsx"];

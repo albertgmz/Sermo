@@ -13,10 +13,18 @@ export const MAX_RESTORED_PAGES = 8;
 
 export const PAGES_PARAM = "pages";
 
+// What a list is called in the browser's memory: the query of the list and the cursor it began at.
+export function listId(
+  listKey: readonly (string | number)[],
+  start: string | null,
+) {
+  return [...listKey, start ?? ""].join("/");
+}
+
 // How many pages the address asks for, from the `pages` search param.
 export function pagesParam(value: string | string[] | undefined) {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !/^\d{1,3}$/.test(raw)) return 1;
+  if (!raw || !/^\d+$/.test(raw)) return 1;
   return Math.min(Math.max(Number(raw), 1), MAX_RESTORED_PAGES);
 }
 
@@ -30,6 +38,8 @@ export function cursorHref(base: string, cursor: string) {
 // The address (path, search and hash) with `pages` set to `count`, or removed for one page.
 export function placeHref(href: string, count: number) {
   const url = new URL(href, "http://list.invalid");
+  // Nothing to say and nothing to take away: the address stays as it is, byte for byte.
+  if (count <= 1 && !url.searchParams.has(PAGES_PARAM)) return href;
   if (count > 1) {
     url.searchParams.set(
       PAGES_PARAM,

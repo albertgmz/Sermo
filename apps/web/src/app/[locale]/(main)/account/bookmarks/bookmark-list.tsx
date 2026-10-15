@@ -23,9 +23,8 @@ export async function BookmarkList({
     getTranslations("account.bookmarks"),
     bookmarksPage(cursor),
   ]);
-  const listed = first.rows.length > 0;
 
-  if (!listed && !first.nextCursor) {
+  if (first.rows.length === 0 && !first.nextCursor) {
     return (
       <EmptyState
         icon={Bookmark}
@@ -45,12 +44,8 @@ export async function BookmarkList({
       hrefBase="/account/bookmarks"
       moreLabel={t("loadMore")}
       estimateSize={104}
-      className={
-        listed ? "overflow-hidden rounded-lg border bg-card" : undefined
-      }
-      header={
-        listed ? <SectionHeader title={t("sectionHeading")} /> : undefined
-      }
+      className="overflow-hidden rounded-lg border bg-card"
+      header={<SectionHeader title={t("sectionHeading")} />}
     />
   );
 }

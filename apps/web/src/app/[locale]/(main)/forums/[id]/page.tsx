@@ -249,7 +249,7 @@ async function ForumThreads({
   newThread: React.ReactNode;
   signedIn: boolean;
 }) {
-  const prefixId = /^[1-9]d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
+  const prefixId = /^[1-9]\d*$/.test(prefix ?? "") ? Number(prefix) : undefined;
   const [first, { items: allPrefixes }, t] = await Promise.all([
     threadsPage(nodeId, prefixId, cursor),
     read(threadPrefixesList, {}),

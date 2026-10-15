@@ -23,7 +23,7 @@ test("the pages the address asks for are one by default, and never more than the
   expect(pagesParam("3")).toBe(3);
   expect(pagesParam(["4", "2"])).toBe(4);
   expect(pagesParam("999")).toBe(MAX_RESTORED_PAGES);
-  expect(pagesParam("99999")).toBe(1);
+  expect(pagesParam("99999")).toBe(MAX_RESTORED_PAGES);
 });
 
 test("the link to the next page adds the cursor to the screen's address", () => {
@@ -39,6 +39,8 @@ test("the address keeps the number of pages and nothing else of it changes", () 
   expect(placeHref("/?pages=3", 1)).toBe("/");
   expect(placeHref("/?tab=top&pages=3", 1)).toBe("/?tab=top");
   expect(placeHref("/", 1)).toBe("/");
+  // An address that has nothing to change is handed back as it was.
+  expect(placeHref("/search?q=a%20b&x=~", 1)).toBe("/search?q=a%20b&x=~");
   expect(placeHref("/", 40)).toBe(`/?pages=${MAX_RESTORED_PAGES}`);
 });
 

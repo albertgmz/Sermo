@@ -145,6 +145,29 @@ test("the server's markup holds the first page's rows, in a list, and the link t
   expect(loadPage.calls).toHaveLength(0);
 });
 
+test("before the browser takes over, an address that asks for more pages still draws the first page and the link to the second", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      withQuery(
+        <InfiniteList
+          listKey={["test"]}
+          stamp={1}
+          start={null}
+          pages={[page(["a", "b", "c"], "c1"), page(["d", "e"], "c2")]}
+          loadPage={async () => page([], null)}
+          hrefBase="/"
+          moreLabel="More"
+          estimateSize={72}
+        />,
+      ),
+    ),
+  );
+  for (const key of ["a", "b", "c"]) expect(html).toContain(`row ${key}`);
+  expect(html).not.toContain("row d");
+  expect(html).toContain('href="/?cursor=c1"');
+  expect(html).not.toContain("cursor=c2");
+});
+
 test("a list at its end draws no link", () => {
   const html = renderToStaticMarkup(
     withIntl(

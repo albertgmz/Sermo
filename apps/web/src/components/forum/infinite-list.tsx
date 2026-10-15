@@ -18,6 +18,7 @@ import {
   cursorHref,
   type ListPage,
   type ListRow,
+  listId,
   placeHref,
 } from "@/lib/list-pages";
 import { cn } from "@/lib/utils";
@@ -114,6 +115,7 @@ const subscribeNever = () => () => {};
 
 // The heights the rows of a list were drawn at, kept when its screen goes away, so that coming
 // back (the Back button) lays the list out as it was and the scroll position lands where it was.
+const REMEMBERED_LISTS = 20;
 const drawnHeights = new Map<
   string,
   ReturnType<typeof useWindowVirtualizer>["itemSizeCache"]
@@ -152,16 +154,17 @@ export function InfiniteList({
     listQueryOptions({ listKey, stamp, start, pages, loadPage }),
   );
   const loaded = query.data.pages;
-  const rows = useMemo(() => flattenRows(loaded), [loaded]);
-  const nextCursor = loaded[loaded.length - 1]?.nextCursor ?? null;
-
   // The server draws the rows of the first page as plain markup; the list switches to windowed
-  // layout once it is in the browser, over the same elements.
+  // layout once it is in the browser, over the same elements. Until then it is that page and the
+  // link to the one after it, even when the address asked for more pages.
   const live = useSyncExternalStore(
     subscribeNever,
     () => true,
     () => false,
   );
+  const shown = live ? loaded : loaded.slice(0, 1);
+  const rows = useMemo(() => flattenRows(shown), [shown]);
+  const nextCursor = shown[shown.length - 1]?.nextCursor ?? null;
   const box = useRef<HTMLDivElement>(null);
   const [scrollMargin, setScrollMargin] = useState(0);
   useLayoutEffect(() => {
@@ -177,7 +180,7 @@ export function InfiniteList({
     observer.observe(document.documentElement);
     return () => observer.disconnect();
   }, []);
-  const memory = [...listKey, start ?? ""].join("/");
+  const memory = listId(listKey, start);
   const [remembered] = useState(() => drawnHeights.get(memory));
   const virtualizer = useWindowVirtualizer({
     count: rows.length,
@@ -193,7 +196,13 @@ export function InfiniteList({
 
   useEffect(
     () => () => {
+      drawnHeights.delete(memory);
       drawnHeights.set(memory, new Map(virtualizer.itemSizeCache));
+      // Only the lists visited last are remembered.
+      for (const old of drawnHeights.keys()) {
+        if (drawnHeights.size <= REMEMBERED_LISTS) break;
+        drawnHeights.delete(old);
+      }
     },
     [memory, virtualizer],
   );

@@ -148,10 +148,8 @@ export async function Results({
           hrefBase={searchHref(filters)}
           moreLabel={t("loadMore")}
           estimateSize={120}
-          className={listed ? card : undefined}
-          header={
-            listed ? <SectionHeader title={t("postsHeading")} /> : undefined
-          }
+          className={card}
+          header={<SectionHeader title={t("postsHeading")} />}
         />
       )}
     </>
