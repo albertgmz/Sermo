@@ -67,7 +67,7 @@ function prepareTransfers(env: BenchEnv) {
     );
     env.ctx.sqlite
       .prepare(
-        "INSERT INTO posts (thread_id, user_id, position, state, created_at, edited_at, reaction_counts, attachment_count) SELECT ?1, user_id, position, state, created_at, edited_at, reaction_counts, attachment_count FROM posts WHERE thread_id = ?2 ORDER BY position",
+        "INSERT INTO posts (thread_id, user_id, position, state, created_at, edited_at, reaction_counts, reaction_total, attachment_count) SELECT ?1, user_id, position, state, created_at, edited_at, reaction_counts, reaction_total, attachment_count FROM posts WHERE thread_id = ?2 ORDER BY position",
       )
       .run(cloneId, sourceId);
     env.ctx.sqlite

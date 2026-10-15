@@ -479,6 +479,10 @@ async function generate(path: string): Promise<SeedMeta> {
       insertBody.run(id, body.source, body.html);
     });
   }
+  // The total the most-reacted-post criterion reads, as the reactions module keeps it.
+  db.run(
+    "UPDATE posts SET reaction_total = (SELECT coalesce(sum(value), 0) FROM json_each(reaction_counts)) WHERE reaction_counts != '{}'",
+  );
   log("posts and post reactions", started);
 
   // Profile posts and comments -------------------------------------------------
