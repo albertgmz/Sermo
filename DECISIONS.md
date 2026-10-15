@@ -2679,3 +2679,32 @@ and step and can only be finished by an administrator through the API with `user
 member's sessions are gone and the panel draws no erase form for an erased member); the web cannot
 tell a super admin or the last administrator beforehand, so it shows the panel and relays the
 refusal.
+
+**Warning types and automatic actions (item 7f).** Migration `0050`. Warning types (managed with
+admin.settings; a name in en and es, default points, expiry in days or never, default reason, a lock
+on points and expiry) replace the single threshold-ban settings
+(`warningBanThreshold`/`warningBanDays` are gone). Automatic actions (ban, add a secondary group, or
+an existing restriction, for N days or permanently) fire in the warning's transaction when active
+points reach their threshold, once per crossing (`warning_action_fires`); they re-arm when points
+fall below it, noticed at the next warning and by an hourly sweep. Falling below, or the end of the
+time, takes back only timed group memberships the action itself added; bans, restrictions, permanent
+memberships and ones the member already had stay. A refused action (last administrator, a group that
+came to decide admin.permissions) refuses the warning; `member.immuneToAutoBan` skips all actions. A
+group an action adds is refused by `groups.delete` and by an `admin.permissions` entry. Deleting a
+type keeps its warnings as custom ones. A locked type refuses a different points value or any expiry
+from the moderator; the reason stays free. Configuring an action that adds a group needs what
+`users.setGroups` needs (admin.members, the actor's own password, session only) on top of
+admin.settings, and a rank above the group's, also to change or delete it; ban and restriction
+actions need only admin.settings. Rank is enforced at configuration time only: when an action fires
+the system acts, whoever warns, and the `permissions.set` / `groups.delete` guards keep the group
+from gaining admin permissions. A warning given with `notify: false` adds and removes the group
+silently. `users.setGroups` keeps the rows of the groups that stay, so a timed group survives an
+unrelated edit. System removals of a group leave no moderator-log entry (the log needs an acting
+member); the event names the action, and no "removed" event is published for a group the member
+still holds another way. Deleting an action or type marks it gone in one transaction (it stops
+firing, listing and being picked) and a job does the member-facing cleanup in bounded batches,
+resumable from the rows; an action with nothing to take back is deleted at once with its fires by
+cascade. An unrelated `users.setGroups` save keeps a timed action group timed; ticking it again does
+not make it permanent (remove, save, add, save does).  Known limits: a cleanup job that fails five
+times leaves a hidden row marked gone (its group cannot be deleted until the job is queued again by
+hand); the production batch sizes are not pinned by a test.

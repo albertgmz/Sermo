@@ -351,6 +351,13 @@
       "when": 1792078509073,
       "tag": "0049_terms_acceptance",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "6",
+      "when": 1792083465713,
+      "tag": "0050_warning_types",
+      "breakpoints": true
     }
   ]
 }
