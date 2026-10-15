@@ -2113,3 +2113,14 @@ proxy's placeholder picture). The internal names stay (`lite-*` files, the `foru
 308 to the new address with the query kept. The avatar menu holds one entry that shows On, Off or
 Custom and opens the page; the quick switch is gone. Guests reach the same page from a small
 settings menu in the header, which replaces "a guest has no link to the Data saver page".
+
+**Remove formatting in the editor.** An eraser button and `Ctrl+\` (also `Cmd+\` on a Mac) clean
+the selection, or the whole message when nothing is selected, in one Undo step. It takes off inline
+formats, colour, size and font, and turns headings, quotes, lists and alignment back into
+paragraphs; with a selection only the touched list items and quote lines leave their list or quote
+(a split numbered list keeps its numbers), and a block the selection only reaches at its edge is
+left alone. Typed BB code tags are stripped to their text, `[QUOTE]` and `[LIST]` included; links,
+mentions, attachments, media, spoilers, images, e-mail, tables, `[PLAIN]` and code blocks stay. The
+command is written by hand (Lexical has none). Known limits: a tag pair split by a line break is
+left, typed `[CODE]` blocks lose the formatting tags written inside them, and `Ctrl+\` cannot be
+typed on layouts where `\` needs AltGr (the button still works).
