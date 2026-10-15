@@ -98,6 +98,9 @@ export const PERMISSION_SCOPES = ["global", "node"] as const;
 export const PERMISSION_VALUE_TYPES = ["flag", "integer"] as const;
 export const USER_PROMOTION_STATES = ["auto", "manual", "exempt"] as const;
 export const PROMOTION_LOG_ACTIONS = ["promote", "demote", "exempt", "reset"] as const;
+/** The tabs of the home page, in the fixed order they fill the bar after the default tab. */
+export const HOME_TABS = ["latest", "hot", "following", "forums", "media"] as const;
+export type HomeTab = (typeof HOME_TABS)[number];
 export const AUTO_WATCH_MODES = ["none", "watch", "watch_email"] as const;
 export const PROFILE_VIEW_PRIVACY = ["everyone", "members", "followed", "self"] as const;
 export const PROFILE_POST_PRIVACY = ["members", "followed", "self"] as const;
@@ -239,6 +242,8 @@ export const users = sqliteTable(
       .default("members"),
     /** Whether the keyboard shortcuts of the web interface are on for this member. */
     keyboardShortcuts: bool("keyboard_shortcuts").notNull().default(true),
+    /** The tab of the home page the member opens on; null follows the site default. */
+    homeTab: text("home_tab", { enum: HOME_TABS }),
     /** Active restriction expiry per kind; null = none, RESTRICTION_PERMANENT = no expiry. */
     restrictedPostingUntil: integer("restricted_posting_until"),
     restrictedConversationsUntil: integer("restricted_conversations_until"),
@@ -1207,6 +1212,7 @@ export const attachments = sqliteTable(
   (t) => [
     uniqueIndex("attachments_file").on(t.fileId),
     index("attachments_content").on(t.contentType, t.contentId, t.position),
+    index("attachments_type_id").on(t.contentType, t.id),
   ],
 );
 

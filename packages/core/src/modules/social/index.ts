@@ -3,6 +3,7 @@ import { actorUserId, type PermissionVersions, requireAuthenticated } from "../.
 import { type Ctx, prepared } from "../../context";
 import { SUPPORTED_LANGUAGES } from "../../contracts/settings";
 import * as contracts from "../../contracts/social";
+import type { HomeTab } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type DomainEvent, publishEvent, registerEventSubscriber } from "../../events";
@@ -52,6 +53,7 @@ type Preferences = {
   profile_view_privacy: "everyone" | "members" | "followed" | "self";
   profile_post_privacy: "members" | "followed" | "self";
   keyboard_shortcuts: number;
+  home_tab: HomeTab | null;
 };
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const cursorId = (cursor?: string) =>
@@ -489,7 +491,7 @@ function readPreferences(ctx: Ctx, userId: number) {
   const row = query<Preferences, [number]>(
     ctx,
     "preferences",
-    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts FROM users WHERE id = ?1",
+    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts, home_tab FROM users WHERE id = ?1",
   ).get(userId)!;
   return {
     watchOnCreate: row.watch_on_create,
@@ -498,6 +500,7 @@ function readPreferences(ctx: Ctx, userId: number) {
     profileViewPrivacy: row.profile_view_privacy,
     profilePostPrivacy: row.profile_post_privacy,
     keyboardShortcuts: row.keyboard_shortcuts === 1,
+    homeTab: row.home_tab,
   };
 }
 export const preferencesGetOp = implement(contracts.preferencesGet, (ctx, actor) => {
@@ -518,7 +521,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
     query(
       ctx,
       "updatePreferences",
-      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6 WHERE id = ?7",
+      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6, home_tab = ?7 WHERE id = ?8",
     ).run(
       input.watchOnCreate ?? current.watchOnCreate,
       input.watchOnReply ?? current.watchOnReply,
@@ -526,6 +529,7 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
       input.profileViewPrivacy ?? current.profileViewPrivacy,
       input.profilePostPrivacy ?? current.profilePostPrivacy,
       (input.keyboardShortcuts ?? current.keyboardShortcuts) ? 1 : 0,
+      input.homeTab === undefined ? current.homeTab : input.homeTab,
       user.userId,
     );
   });

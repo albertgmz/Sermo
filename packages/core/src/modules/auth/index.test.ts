@@ -657,6 +657,15 @@ test("auth.me carries the keyboard shortcuts preference: on by default, off once
   expect((await execute(ctx, authMeOp, actor, {})).user?.keyboardShortcuts).toBe(false);
 });
 
+test("auth.me carries the home tab the member chose: null until they choose", async () => {
+  const ctx = createTestContext();
+  const user = insertUser(ctx, {});
+  const actor = userActor(user);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBeNull();
+  ctx.sqlite.prepare("UPDATE users SET home_tab = 'forums' WHERE id = ?1").run(user.id);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.homeTab).toBe("forums");
+});
+
 test("auth.me summary follows specific permission entries", async () => {
   const ctx = createTestContext();
   const adminPermission = ctx.sqlite

@@ -221,6 +221,22 @@ describe("social", () => {
     ).toBe(true);
   });
 
+  test("the home tab preference is empty by default, changes alone and can be cleared", async () => {
+    const f = fixture();
+    const actor = userActor(f.owner);
+    const before = await call(f.ctx, preferencesGetOp, actor, {});
+    expect(before.homeTab).toBeNull();
+    const media = await call(f.ctx, preferencesUpdateOp, actor, { homeTab: "media" });
+    expect(media).toEqual({ ...before, homeTab: "media" });
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { language: "es" })).homeTab).toBe(
+      "media",
+    );
+    expect((await call(f.ctx, preferencesUpdateOp, actor, { homeTab: null })).homeTab).toBeNull();
+    await expect(
+      call(f.ctx, preferencesUpdateOp, actor, { homeTab: "top" } as never),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
   test("a hidden watch leaves a short page with a cursor to the next visible watch", async () => {
     const f = fixture();
     const actor = userActor(f.owner);

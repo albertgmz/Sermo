@@ -811,6 +811,24 @@ threads, most replied, most reacted, most viewed) is shown only while the site s
 `forumStatsEnabled` is on (default off; General settings in the panel). `GET /site` (`site.get`)
 carries the switch for the web app; `threads.ranked` itself answers either way.
 
+## Home page
+
+The home page has five tabs: Latest, Hot, Following (members only), Forums (the forum list) and
+Media (the newest pictures attached to posts and wall posts, limited to what the viewer may open).
+Every tab has an address that names it (`/?tab=forums`); `/forums` always shows the forum list.
+The bar shows three tabs and puts the rest in a "More" menu: the visitor's default tab, then the
+first tabs of the order above; the tab that is open is always on the bar.
+
+A visitor opens the tab their address names. With no tab in the address, a member opens the tab
+they chose in their preferences (`homeTab`, null for the site default); otherwise the `homeTab`
+setting decides (`PATCH /settings`, admin panel: Settings, Home page): an ordered list of
+`{ rule, tab }` entries, where the first rule the visitor meets wins, and a fallback tab. Rules are
+the shared criteria rules, cheap criteria only (they are checked on every page view); guests are
+decided by the same rules (`is_guest` and the criteria that need no account apply to them; a guest is in no group). Following needs an
+account, so a rule a guest can meet, and the fallback, cannot pick it, and a guest who asks for it
+gets Latest. `GET /site/home-tab` (`site.homeTab`) answers the tab the caller opens on;
+`GET /media` (`media.list`) is the Media tab.
+
 ## Notifications
 
 Members read notifications with `GET /notifications` (`notifications.list`, optionally

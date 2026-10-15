@@ -1,6 +1,7 @@
 import * as z from "zod";
 import {
   AUTO_WATCH_MODES,
+  HOME_TABS,
   NODE_WATCH_MODES,
   PROFILE_POST_PRIVACY,
   PROFILE_VIEW_PRIVACY,
@@ -202,6 +203,8 @@ export const MemberPreferences = z
     profilePostPrivacy: z.enum(PROFILE_POST_PRIVACY),
     /** Whether the keyboard shortcuts of the web interface are on. */
     keyboardShortcuts: z.boolean(),
+    /** The tab of the home page you open on; null follows the site default. */
+    homeTab: z.enum(HOME_TABS).nullable(),
   })
   .meta({ id: "MemberPreferences" });
 

@@ -1,5 +1,7 @@
 import * as z from "zod";
-import { UPLOAD_SETTING_PURPOSES } from "../db/schema";
+import { HOME_TABS, UPLOAD_SETTING_PURPOSES } from "../db/schema";
+
+export { HOME_TABS };
 
 /** Languages with complete phrase catalogs. */
 export const SUPPORTED_LANGUAGES = ["en", "es"] as const;
@@ -46,6 +48,23 @@ export const Analytics = z
   ])
   .meta({ id: "Analytics" });
 
+/** The most rules the site's home tab setting holds. */
+export const MAX_HOME_TAB_RULES = 10;
+
+/**
+ * Which tab of the home page a visitor who chose none opens on: the tab of the first rule they
+ * meet (cheap criteria only), else `fallback`. Guests are decided by the same rules, and a tab
+ * `following` (it needs an account) cannot be picked by a rule a guest meets, nor as the fallback.
+ */
+export const HomeTabSetting = z
+  .object({
+    rules: z
+      .array(z.object({ rule: CriteriaRule, tab: z.enum(HOME_TABS) }))
+      .max(MAX_HOME_TAB_RULES),
+    fallback: z.enum(HOME_TABS),
+  })
+  .meta({ id: "HomeTabSetting" });
+
 export const SiteSettings = z
   .object({
     maxUploadBytes: z.number().int().min(1).max(1_073_741_824),
@@ -72,6 +91,8 @@ export const SiteSettings = z
      * means nobody is held back.
      */
     approvalRule: CriteriaRule.default({ match: "all", conditions: [] }),
+    /** The home page tab of members who chose none, and of guests. */
+    homeTab: HomeTabSetting.default({ rules: [], fallback: "latest" }),
     warningBanThreshold: z.number().int().min(0).max(1000),
     warningBanDays: z.number().int().min(1).max(3650),
     threadTitleTemplate: z.string().min(1).max(200),

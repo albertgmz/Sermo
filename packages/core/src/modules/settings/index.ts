@@ -10,6 +10,7 @@ import { currentActor, requirePermission } from "../../permissions";
 import { assertRule } from "../../shared/criteria";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
+import { assertHomeTab } from "./home-tab";
 
 export type SiteSettingsValue = z.infer<typeof SiteSettings>;
 type StoredSiteSettingsValue = Omit<SiteSettingsValue, "groupUploadLimitBytes">;
@@ -37,6 +38,7 @@ const defaults: StoredSiteSettingsValue = {
   floodSeconds: 0,
   linksRule: { match: "all", conditions: [] },
   approvalRule: { match: "all", conditions: [] },
+  homeTab: { rules: [], fallback: "latest" },
   warningBanThreshold: 0,
   warningBanDays: 7,
   threadTitleTemplate: "{title} | {site}",
@@ -143,6 +145,7 @@ export function updateSiteSettings(
       const rule = changes[key];
       if (rule) assertCheapRule(ctx, key, rule);
     }
+    if (changes.homeTab) assertHomeTab(ctx, changes.homeTab);
     const next = SiteSettings.parse({
       ...current,
       groupUploadLimitBytes: quotaView(rows),

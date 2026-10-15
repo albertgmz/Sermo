@@ -616,13 +616,10 @@ describe("feed.list hot", () => {
     expect(await hotIds(w, GUEST)).toEqual([t.thread.id]);
   });
 
-  test("top is accepted as the former name of hot", async () => {
+  test("top, the former name of hot, is refused", async () => {
     const w = world();
-    const a = addHot(w, w.open.id, w.aliceUser.id, [4, 7]);
-    refreshRankings(w.ctx);
-    expect(await hotIds(w, GUEST, "top")).toEqual([a[1]!.id, a[0]!.id]);
-    expect(await w.call("feed.list", GUEST, { scope: "top" })).toEqual(
-      await w.call("feed.list", GUEST, { scope: "hot" }),
+    await expect(w.call("feed.list", GUEST, { scope: "top" })).rejects.toBeInstanceOf(
+      ValidationError,
     );
   });
 

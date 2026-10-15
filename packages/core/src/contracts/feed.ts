@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
+import { Attachment } from "./attachments";
 import { Id, Page, pageInput, Timestamp } from "./common";
 import { FeatureKind, Post, Thread } from "./forums";
 import { ProfilePost } from "./profiles";
@@ -81,11 +82,10 @@ export const feedList = defineContract({
     "`threads.featured`) come first, newest feature first, whatever their activity, then the " +
     "ranked threads without them, all within the same 50; they follow the same visibility rules. " +
     "A featured thread beyond the 10 is listed only where it ranks. Threads of ignored " +
-    "members are left out. `top` is the former name of `hot` and is accepted as an alias for " +
-    "one release. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
+    "members are left out. A thread entry says whether the viewer may reply to it (`canReply`) and why " +
     "it is featured, if it is (`featured`; `latest` and `following` mark features too).",
   kind: "read",
-  input: z.object({ scope: z.enum([...FEED_SCOPES, "top"]).default("latest"), ...pageInput }),
+  input: z.object({ scope: z.enum(FEED_SCOPES).default("latest"), ...pageInput }),
   output: Page(FeedItem),
 });
 
@@ -173,4 +173,47 @@ export const postsByAuthor = defineContract({
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(PostInThread),
+});
+
+/**
+ * One picture of the media listing: an image attached to a post (`type: "post"`, in the thread
+ * `threadId`, at `position`) or to a wall post (`type: "profilePost"`, on the wall of
+ * `profileUserId`). `createdAt` is when the picture was attached.
+ */
+export const MediaItem = z
+  .discriminatedUnion("type", [
+    z.object({
+      type: z.literal("post"),
+      id: Id,
+      createdAt: Timestamp,
+      file: Attachment,
+      postId: Id,
+      position: z.number().int().nonnegative(),
+      threadId: Id,
+      threadTitle: z.string(),
+    }),
+    z.object({
+      type: z.literal("profilePost"),
+      id: Id,
+      createdAt: Timestamp,
+      file: Attachment,
+      profilePostId: Id,
+      profileUserId: Id,
+    }),
+  ])
+  .meta({ id: "MediaItem" });
+
+export const mediaList = defineContract({
+  name: "media.list",
+  summary:
+    "The newest pictures attached to posts and wall posts, newest attachment first, limited to " +
+    "content the viewer may open: visible posts in visible threads of forums the viewer can " +
+    "view, wall posts of profiles the viewer may see (which needs profile.view), and nothing " +
+    "by members the viewer ignores. Only images count (JPEG, PNG, WebP, GIF); files attached " +
+    "to conversation messages are never listed. Open to everyone. The walk is bounded: one " +
+    "request examines at most 400 attachments, so a page can hold fewer than `limit` items " +
+    "while `nextCursor` is still non-null; keep paging to continue.",
+  kind: "read",
+  input: z.object({ ...pageInput }),
+  output: Page(MediaItem),
 });

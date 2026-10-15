@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { PaletteColor } from "./appearance";
 import { Empty } from "./common";
@@ -55,4 +56,17 @@ export const siteGet = defineContract({
   kind: "read",
   input: Empty,
   output: Site,
+});
+
+export const siteHomeTab = defineContract({
+  name: "site.homeTab",
+  summary:
+    "The tab of the home page the viewer opens on when the address names none: the tab the " +
+    "member chose, else the tab of the first of the site's home tab rules (an administrator's " +
+    "setting, cheap criteria only, guests included) that the viewer meets, else the site's " +
+    "fallback. `following` needs an account, so a guest is never answered it (they get " +
+    "`latest`). Open to everyone.",
+  kind: "read",
+  input: Empty,
+  output: z.object({ tab: z.enum(HOME_TABS) }),
 });

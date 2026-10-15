@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { HOME_TABS } from "../db/schema";
 import { defineContract } from "../operation";
 import { DisplayGroup, Empty, Id, ResolvedPermissions, Timestamp } from "./common";
 
@@ -31,6 +32,8 @@ export const SelfUser = z
     language: z.string().nullable(),
     /** Whether the member keeps the web interface's keyboard shortcuts on (their preference). */
     keyboardShortcuts: z.boolean(),
+    /** The home page tab the member chose; null when they made no choice (the site default applies). */
+    homeTab: z.enum(HOME_TABS).nullable(),
   })
   .meta({ id: "SelfUser" });
 

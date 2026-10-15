@@ -140,7 +140,7 @@ describe("feed.newCount latest", () => {
     expect((await count(w, tokenActor(w.carolUser), since)).count).toBe(1);
   });
 
-  test("a time that is not an ISO timestamp, or the hot scope (or its old name), is refused", async () => {
+  test("a time that is not an ISO timestamp, or any scope but latest and following, is refused", async () => {
     const w = world();
     for (const input of [
       { since: "yesterday" },

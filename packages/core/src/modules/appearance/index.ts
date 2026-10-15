@@ -12,7 +12,7 @@ import {
   paletteColorsList,
   paletteColorsUpdate,
 } from "../../contracts/appearance";
-import { siteGet } from "../../contracts/site";
+import { siteGet, siteHomeTab } from "../../contracts/site";
 import { writeTx } from "../../db/tx";
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
 import { implement } from "../../operation";
@@ -21,6 +21,7 @@ import { attachUploadedFile, releaseFile } from "../images/attach";
 import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
 import { appendModeratorLog } from "../moderation";
 import { readSiteSettings } from "../settings";
+import { resolveHomeTab } from "../settings/home-tab";
 import { publicPicture } from "../storage/url";
 import {
   CATALOG_LIMIT,
@@ -328,6 +329,15 @@ export const operations = [
       };
     },
     { public: "The site's name, pictures and palette are what every visitor sees." },
+  ),
+
+  implement(
+    siteHomeTab,
+    (ctx, actor) => ({ tab: resolveHomeTab(ctx, actor, readSiteSettings(ctx).homeTab) }),
+    {
+      public:
+        "The home tab is the site's setting, decided by the visitor's own facts; nothing private.",
+    },
   ),
 
   ...wearingOperations,

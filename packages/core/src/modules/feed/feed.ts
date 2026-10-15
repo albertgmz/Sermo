@@ -3,7 +3,7 @@ import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { type FeedItem, feedList, feedNewCount } from "../../contracts/feed";
 import type { FeatureKind } from "../../db/schema";
-import { implement } from "../../operation";
+import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import { can } from "../../permissions";
 import { iso } from "../../time";
@@ -31,14 +31,14 @@ import { followedAmong, followedAuthors, ignoredAmong, visibleNodes } from "./vi
 const FEED_EXAMINE_CAP = SCAN_CAP;
 const MIN_BATCH = 10;
 
-type PostCandidate = {
+export type PostCandidate = {
   id: number;
   thread_id: number;
   user_id: number;
   state: "visible" | "moderated" | "deleted";
   created_at: number;
 };
-type WallCandidate = {
+export type WallCandidate = {
   id: number;
   profile_user_id: number;
   user_id: number;
@@ -219,69 +219,75 @@ function merge<PostKey, WallKey>(
  * walk of threads by activity hands in, one candidate per thread); `perAnswer` keeps the first
  * post of a thread this request accepts and drops the older ones.
  */
-function acceptPosts(
-  ctx: Ctx,
-  actor: Actor,
-  nodes: Set<number>,
-  threads: Map<number, ThreadRow>,
-  once?: "newest" | "perAnswer",
-) {
-  const taken = new Set<number>();
-  const first = (threadId: number) => {
-    if (taken.has(threadId)) return false;
-    taken.add(threadId);
-    return true;
-  };
-  return (rows: PostCandidate[]) => {
-    loadThreads(ctx, rows, threads);
-    const ignored = ignoredAmong(
-      ctx,
-      actor,
-      rows.map((row) => row.user_id),
-    );
-    return new Set(
-      rows.filter((row) => {
-        const thread = threads.get(row.thread_id);
-        return (
-          row.state === "visible" &&
-          thread !== undefined &&
-          thread.state === "visible" &&
-          thread.merged_into_id === null &&
-          nodes.has(thread.node_id) &&
-          !ignored.has(row.user_id) &&
-          (once !== "newest" || row.id === thread.last_post_id) &&
-          (once !== "perAnswer" || first(thread.id))
-        );
-      }),
-    );
-  };
-}
+export const acceptPosts = markPublic(
+  "Filters a batch of posts to what the viewer may see; the viewer's forums are passed in.",
+  function acceptPosts(
+    ctx: Ctx,
+    actor: Actor,
+    nodes: Set<number>,
+    threads: Map<number, ThreadRow>,
+    once?: "newest" | "perAnswer",
+  ) {
+    const taken = new Set<number>();
+    const first = (threadId: number) => {
+      if (taken.has(threadId)) return false;
+      taken.add(threadId);
+      return true;
+    };
+    return (rows: PostCandidate[]) => {
+      loadThreads(ctx, rows, threads);
+      const ignored = ignoredAmong(
+        ctx,
+        actor,
+        rows.map((row) => row.user_id),
+      );
+      return new Set(
+        rows.filter((row) => {
+          const thread = threads.get(row.thread_id);
+          return (
+            row.state === "visible" &&
+            thread !== undefined &&
+            thread.state === "visible" &&
+            thread.merged_into_id === null &&
+            nodes.has(thread.node_id) &&
+            !ignored.has(row.user_id) &&
+            (once !== "newest" || row.id === thread.last_post_id) &&
+            (once !== "perAnswer" || first(thread.id))
+          );
+        }),
+      );
+    };
+  },
+);
 
-function acceptWall(ctx: Ctx, actor: Actor) {
-  return (rows: WallCandidate[]) => {
-    const access = profileAccessMany(
-      ctx,
-      actor,
-      rows.map((row) => row.profile_user_id),
-    );
-    const ignored = ignoredAmong(
-      ctx,
-      actor,
-      rows.map((row) => row.user_id),
-    );
-    return new Set(
-      rows.filter((row) => {
-        const owner = access.get(row.profile_user_id);
-        return (
-          row.state === "visible" &&
-          owner !== undefined &&
-          mayViewProfile(ctx, actor, row.profile_user_id, owner) &&
-          !ignored.has(row.user_id)
-        );
-      }),
-    );
-  };
-}
+export const acceptWall = markPublic(
+  "Filters a batch of wall posts to what the viewer may see.",
+  function acceptWall(ctx: Ctx, actor: Actor) {
+    return (rows: WallCandidate[]) => {
+      const access = profileAccessMany(
+        ctx,
+        actor,
+        rows.map((row) => row.profile_user_id),
+      );
+      const ignored = ignoredAmong(
+        ctx,
+        actor,
+        rows.map((row) => row.user_id),
+      );
+      return new Set(
+        rows.filter((row) => {
+          const owner = access.get(row.profile_user_id);
+          return (
+            row.state === "visible" &&
+            owner !== undefined &&
+            mayViewProfile(ctx, actor, row.profile_user_id, owner) &&
+            !ignored.has(row.user_id)
+          );
+        }),
+      );
+    };
+  },
+);
 
 /**
  * Builds the feed entries of the picked posts and wall posts, each reader loading once.
@@ -453,8 +459,7 @@ function followingSources(
 }
 
 export const feedListOp = implement(feedList, (ctx, actor, input) => {
-  // `top` is the former name of `hot`.
-  const scope = input.scope === "top" ? "hot" : input.scope;
+  const { scope } = input;
   if (scope === "following") requireAuthenticated(actor);
   const nodes = visibleNodes(ctx, actor);
   const threads = new Map<number, ThreadRow>();
