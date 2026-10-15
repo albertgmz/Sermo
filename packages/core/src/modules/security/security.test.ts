@@ -108,6 +108,13 @@ describe("device detection", () => {
     expect(isBotAgent(undefined)).toBe(false);
     expect(deviceOf(GOOGLEBOT).isBot).toBe(true);
     expect(deviceOf(CHROME).isBot).toBe(false);
+    // The crawler check alone fills only its own cache: the full parse of the same string is
+    // still to be done, which is what keeps it off the hot path of a view.
+    clearDeviceCache();
+    expect(isBotAgent(CHROME)).toBe(false);
+    const cheap = deviceParseCount();
+    deviceOf(CHROME);
+    expect(deviceParseCount()).toBe(cheap + 1);
     // A user agent whose device is cached needs no second parse.
     const parsed = deviceParseCount();
     expect(isBotAgent(CHROME)).toBe(false);
@@ -143,21 +150,24 @@ describe("device detection", () => {
   });
 });
 
-// A member of a new group of rank 20 (above members, below moderators) that holds View IPs.
+// A member of a new group of rank 20 (above members, below moderators) that holds View IPs and
+// may view forums, as members do.
 function readerOf(w: Awaited<ReturnType<typeof world>>) {
   const group = w.ctx.sqlite
     .prepare<{ id: number }, []>(
       "INSERT INTO groups (title, rank) VALUES ('IP readers', 20) RETURNING id",
     )
     .get()!.id;
-  const definition = w.ctx.sqlite
-    .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
-    .get("member.viewIps")!.id;
-  w.ctx.sqlite
-    .prepare(
-      "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
-    )
-    .run(definition, group);
+  for (const key of ["member.viewIps", "node.view", "profile.view"]) {
+    const definition = w.ctx.sqlite
+      .prepare<{ id: number }, [string]>("SELECT id FROM permission_definitions WHERE key = ?1")
+      .get(key)!.id;
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
+      )
+      .run(definition, group);
+  }
   return insertUser(w.ctx, { groupId: group });
 }
 
@@ -328,6 +338,7 @@ describe("thread views", () => {
       body: "a",
     });
     const views = () => w.ctx.views.get(created.thread.id) ?? 0;
+    clearDeviceCache();
     await w.call(
       "threads.get",
       { ...GUEST, userAgent: GOOGLEBOT },
@@ -342,6 +353,10 @@ describe("thread views", () => {
     expect(views()).toBe(1);
     await w.call("threads.get", GUEST, { threadId: created.thread.id });
     expect(views()).toBe(2);
+    // Counting a view takes the cheap crawler check only: no device was parsed on the way.
+    const parsed = deviceParseCount();
+    deviceOf(CHROME);
+    expect(deviceParseCount()).toBe(parsed + 1);
   });
 });
 
@@ -499,6 +514,18 @@ describe("the staff views", () => {
     await expect(
       w.call("users.ips", tokenActor(w.other), { userId: w.member.id }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  test("ips.content shows no address for content the holder cannot see", async () => {
+    const w = await filled();
+    const reader = w.at(readerOf(w));
+    const ask = (actor: object) =>
+      w.call("ips.content", actor, { contentType: "post", contentId: w.first.post.id });
+    expect((await ask(reader)).entry).toMatchObject({ ip: "203.0.113.7" });
+    w.ctx.sqlite.prepare("UPDATE posts SET state = 'deleted' WHERE id = ?1").run(w.first.post.id);
+    expect((await ask(reader)).entry).toBeNull();
+    // Those who may see deleted content still get it.
+    expect((await ask(w.at(w.admin))).entry).toMatchObject({ ip: "203.0.113.7" });
   });
 
   test("a holder reads only the addresses of members they outrank", async () => {

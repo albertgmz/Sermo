@@ -183,7 +183,7 @@
     "invalid": "Eso no es una dirección IPv4 ni IPv6.",
     "membersHeading": "Miembros que usaron {network}",
     "membersEmptyTitle": "Ningún miembro usó esta dirección",
-    "membersEmptyDescription": "Los inicios de sesión fallidos no cuentan, y no hay registro de las acciones anteriores al registro.",
+    "membersEmptyDescription": "Los inicios de sesión fallidos no cuentan, y no hay registro de las acciones anteriores a que se empezara a guardar este historial.",
     "memberHeading": "Direcciones usadas por {name}",
     "memberRefused": "No puedes ver las direcciones de este miembro: tiene un rango igual o superior al tuyo, o no existe.",
     "memberEmptyTitle": "Sin direcciones registradas",

@@ -2,7 +2,7 @@ import * as z from "zod";
 import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { authSessionDevices, ipsContent, ipsMembers, usersIps } from "../../contracts/security";
-import { ForbiddenError, ValidationError } from "../../errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../errors";
 import { type AnyOperation, implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
@@ -17,6 +17,8 @@ import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { sessionSql } from "../admin/sessions";
 import { requireHeld, targetMember } from "../admin/shared";
+import { reactablePost } from "../forums";
+import { reactableProfileComment, reactableProfilePost } from "../profiles/shared";
 import { parseAddress, parseNetwork } from "./address";
 import { deviceOf } from "./device";
 
@@ -78,12 +80,33 @@ function readableMembers(ctx: Ctx, actor: Actor, ids: number[]): Set<number> {
   );
 }
 
+/** Whether the actor may see the content, by the same checks the content's own reads make. */
+function mayView(
+  ctx: Ctx,
+  actor: Actor,
+  type: "post" | "profile_post" | "profile_post_comment",
+  id: number,
+): boolean {
+  try {
+    if (type === "post") reactablePost(ctx, actor, id);
+    else if (type === "profile_post") reactableProfilePost(ctx, actor, id);
+    else reactableProfileComment(ctx, actor, id);
+    return true;
+  } catch (error) {
+    if (error instanceof NotFoundError) return false;
+    throw error;
+  }
+}
+
 export const ipsContentOp = implement(ipsContent, (ctx, actor, input) => {
   requireHeld(ctx, actor, "member.viewIps");
-  const found = prepared(ctx, "security.content", () =>
-    ctx.sqlite.prepare<ContentRow, [string, number]>(securitySql.content),
-  ).get(input.contentType, input.contentId);
-  // The address of a member the actor does not outrank is not shown, as if none were logged.
+  const found = mayView(ctx, actor, input.contentType, input.contentId)
+    ? prepared(ctx, "security.content", () =>
+        ctx.sqlite.prepare<ContentRow, [string, number]>(securitySql.content),
+      ).get(input.contentType, input.contentId)
+    : undefined;
+  // Content the actor cannot see, and the address of a member the actor does not outrank, are
+  // not shown: as if none were logged.
   const row =
     found && readableMembers(ctx, actor, [found.user_id]).has(found.user_id) ? found : null;
   return {

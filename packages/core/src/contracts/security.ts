@@ -31,8 +31,9 @@ export const ipsContent = defineContract({
   summary:
     "The address a piece of content was made from, with the device and the member: `entry` is " +
     "null when the log holds none (content from before the log, or made by an internal " +
-    "caller). A thread's address is its first post's. Private messages are not offered. " +
-    "Requires member.viewIps.",
+    "caller), when the content is not visible to the caller, or when its author ranks at or " +
+    "above the caller (a super admin is bound by neither). A thread's address is its first " +
+    "post's. Private messages are not offered. Requires member.viewIps.",
   kind: "read",
   // Private messages are read only through the audited report view, so they are not here.
   input: z.object({
@@ -47,7 +48,8 @@ export const usersIps = defineContract({
   summary:
     "Every address a member has used (signed in, registered, posted, reported), most recently " +
     "used first, with how many times and when it was first and last seen. Failed sign-ins are " +
-    "not counted. Requires member.viewIps.",
+    "not counted. Requires member.viewIps over the member: refused for a member of equal or " +
+    "higher rank (a super admin is bound by none).",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(
@@ -67,7 +69,9 @@ export const ipsMembers = defineContract({
     "The members who used an address, most recently active first, with how many times and when " +
     "each was first and last seen there. An IPv6 address is matched by its /64 network (the " +
     "network is returned, and a `/64` written out is accepted); an IPv4 address matches itself. " +
-    "A value that is not an address is a validation error. Requires member.viewIps.",
+    "Members of equal or higher rank than the caller are left out (a super admin sees all), " +
+    "so a page can hold fewer items than `limit` while `nextCursor` is set. A value that is " +
+    "not an address is a validation error. Requires member.viewIps.",
   kind: "read",
   input: z.object({ ip: z.string().trim().min(1).max(64), ...pageInput }),
   output: z.object({
