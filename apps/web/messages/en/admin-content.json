@@ -139,12 +139,13 @@
       "edit": "Edit"
     },
     "wellKnown": {
-      "terms": "The registration form links to this page as its terms.",
+      "terms": "The registration form links to this page as its terms. Members accept it when its version changes.",
       "privacy": "Has its own address on the site.",
       "legal": "Has its own address on the site.",
       "contact": "Has its own address on the site.",
       "cookies": "The words of the cookie policy page. The table of cookies under it is built by the site.",
-      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+      "upgrade-faq": "Shown on the upgrade page as its questions and answers.",
+      "rules": "The registration form links to this page as the rules. Members accept it when its version changes."
     },
     "suggestions": {
       "heading": "Pages the site expects",
@@ -164,7 +165,10 @@
       "bodyHelp": "Markdown. It is rendered by the site when you save, and the text is kept exactly as written here.",
       "published": "Published",
       "publishedHelp": "A page that is not published is visible to administrators only.",
-      "publishedSwitch": "Show this page to everyone"
+      "publishedSwitch": "Show this page to everyone",
+      "newVersion": "New version",
+      "newVersionHelp": "Leave this off for a corrected typo. Switch it on when the text changes in a way members must accept again.",
+      "newVersionSwitch": "Publish as a new version: everyone must accept it again before they can post, react or message"
     }
   },
   "pageEdit": {
@@ -179,12 +183,13 @@
     "published": "Published",
     "draft": "Not published",
     "wellKnown": {
-      "terms": "The registration form links to this page as its terms.",
+      "terms": "The registration form links to this page as its terms. Members accept it when its version changes.",
       "privacy": "Has its own address on the site.",
       "legal": "Has its own address on the site.",
       "contact": "Has its own address on the site.",
       "cookies": "The words of the cookie policy page. The table of cookies under it is built by the site.",
-      "upgrade-faq": "Shown on the upgrade page as its questions and answers."
+      "upgrade-faq": "Shown on the upgrade page as its questions and answers.",
+      "rules": "The registration form links to this page as the rules. Members accept it when its version changes."
     },
     "public": {
       "heading": "On the site",
@@ -203,6 +208,7 @@
       "summary": "Delete this page",
       "warning": "The page is deleted and its address stops working. Navigation entries that point at it are left alone.",
       "submit": "Delete page"
-    }
+    },
+    "version": "Version {version}."
   }
 }

@@ -53,6 +53,7 @@ const member = {
     keyboardShortcuts: true,
     homeTab: null,
     openHomeTab: "latest",
+    pendingAcceptance: [],
   },
 };
 

@@ -146,6 +146,7 @@ test("signedIn needs a non-empty session token cookie", async () => {
     username: "u",
     email: "a@example.test",
     password: "pw",
+    acceptTerms: true,
   });
   assert.equal(registered.signedIn, false);
 });
@@ -432,11 +433,17 @@ test("the email calls ask for the link to come back to this site", async () => {
     redirectTo: "http://localhost:3000/reset-password",
   });
   seen = backend(answer([], { body: { status: true } }));
-  await signUp({ username: "ann", email: "ann@example.test", password: "pw" });
+  await signUp({
+    username: "ann",
+    email: "ann@example.test",
+    password: "pw",
+    acceptTerms: true,
+  });
   assert.equal(
     JSON.parse(String(seen[0].body)).callbackURL,
     "http://localhost:3000/verify-email?done=1",
   );
+  assert.equal(JSON.parse(String(seen[0].body)).acceptTerms, true);
 });
 
 test("the reset sends the token with the new password", async () => {

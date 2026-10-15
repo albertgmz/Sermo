@@ -62,7 +62,8 @@
     "newMember": "Miembro nuevo"
   },
   "errors": {
-    "generic": "Algo salió mal. Inténtalo de nuevo."
+    "generic": "Algo salió mal. Inténtalo de nuevo.",
+    "acceptanceRequired": "Primero debes aceptar los términos y las reglas vigentes. El aviso de la parte superior de la página tiene el botón."
   },
   "format": {
     "recent": "ahora mismo"

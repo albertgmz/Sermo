@@ -4,11 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 // The rows a page is written with. `page` is what the backend returned for an existing page;
-// without it the rows are empty (published by default).
+// without it the rows are empty (published by default). `versioned`: members accept this page
+// (the terms and the rules), so saving can publish it as a new version.
 export async function PageFields({
   page,
+  versioned = false,
 }: {
   page?: { title: string; bodySource: string; isPublished: boolean };
+  versioned?: boolean;
 }) {
   const t = await getTranslations("adminContent.pages.fields");
   return (
@@ -55,6 +58,24 @@ export async function PageFields({
           {t("publishedSwitch")}
         </label>
       </FieldRow>
+      {versioned && page && (
+        <FieldRow
+          name="newVersion"
+          label={t("newVersion")}
+          htmlFor="page-new-version"
+          help={t("newVersionHelp")}
+        >
+          <label className="flex min-h-10 items-center gap-3 text-sm">
+            <input
+              id="page-new-version"
+              type="checkbox"
+              name="newVersion"
+              className="size-5"
+            />
+            {t("newVersionSwitch")}
+          </label>
+        </FieldRow>
+      )}
     </>
   );
 }

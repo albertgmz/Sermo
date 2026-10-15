@@ -178,6 +178,23 @@ async function signUp(fields: Record<string, string> = {}) {
   return digest;
 }
 
+test("the sign-up says the terms and rules were accepted; without the box nothing is sent", async () => {
+  backend(SIGNED_UP);
+  await signUp();
+  expect(bodies[0]).toMatchObject({ acceptTerms: true });
+  bodies.length = 0;
+  const state = await register(
+    { error: "", username: "" },
+    form({
+      username: "ann",
+      email: "ann@example.test",
+      password: "right-password",
+    }),
+  );
+  expect(state.error).toBe(messages.auth.actions.errors.termsRequired);
+  expect(bodies).toEqual([]);
+});
+
 test("registering from a ?ref= link sends the referrer with the sign-up", async () => {
   backend(SIGNED_UP);
   expect(await signUp({ ref: "12" })).toMatch(/^NEXT_REDIRECT;[a-z]+;\/;/);

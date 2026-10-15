@@ -139,12 +139,13 @@
       "edit": "Editar"
     },
     "wellKnown": {
-      "terms": "El formulario de registro enlaza a esta página como sus condiciones.",
+      "terms": "El formulario de registro enlaza esta página como sus términos. Los miembros la aceptan cuando cambia su versión.",
       "privacy": "Tiene su propia dirección en el sitio.",
       "legal": "Tiene su propia dirección en el sitio.",
       "contact": "Tiene su propia dirección en el sitio.",
       "cookies": "Los textos de la página de la política de cookies. La tabla de cookies que hay debajo la construye el sitio.",
-      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas."
+      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas.",
+      "rules": "El formulario de registro enlaza esta página como las reglas. Los miembros la aceptan cuando cambia su versión."
     },
     "suggestions": {
       "heading": "Páginas que el sitio espera",
@@ -164,7 +165,10 @@
       "bodyHelp": "Markdown. El sitio lo procesa al guardar, y el texto se conserva exactamente como lo escribes aquí.",
       "published": "Publicada",
       "publishedHelp": "Una página no publicada solo la ven los administradores.",
-      "publishedSwitch": "Mostrar esta página a todos"
+      "publishedSwitch": "Mostrar esta página a todos",
+      "newVersion": "Nueva versión",
+      "newVersionHelp": "Déjalo apagado para corregir una errata. Enciéndelo cuando el texto cambie de modo que los miembros deban aceptarlo de nuevo.",
+      "newVersionSwitch": "Publicar como nueva versión: todos deben aceptarla de nuevo antes de poder publicar, reaccionar o enviar mensajes"
     }
   },
   "pageEdit": {
@@ -179,12 +183,13 @@
     "published": "Publicada",
     "draft": "No publicada",
     "wellKnown": {
-      "terms": "El formulario de registro enlaza a esta página como sus condiciones.",
+      "terms": "El formulario de registro enlaza esta página como sus términos. Los miembros la aceptan cuando cambia su versión.",
       "privacy": "Tiene su propia dirección en el sitio.",
       "legal": "Tiene su propia dirección en el sitio.",
       "contact": "Tiene su propia dirección en el sitio.",
       "cookies": "Los textos de la página de la política de cookies. La tabla de cookies que hay debajo la construye el sitio.",
-      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas."
+      "upgrade-faq": "Se muestra en la página de mejora como sus preguntas y respuestas.",
+      "rules": "El formulario de registro enlaza esta página como las reglas. Los miembros la aceptan cuando cambia su versión."
     },
     "public": {
       "heading": "En el sitio",
@@ -203,6 +208,7 @@
       "summary": "Eliminar esta página",
       "warning": "La página se elimina y su dirección deja de funcionar. Las entradas de navegación que apuntan a ella no se tocan.",
       "submit": "Eliminar página"
-    }
+    },
+    "version": "Versión {version}."
   }
 }

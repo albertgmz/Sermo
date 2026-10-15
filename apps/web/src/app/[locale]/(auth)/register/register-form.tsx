@@ -101,6 +101,11 @@ export function RegisterForm({
                 {chunks}
               </Link>
             ),
+            rules: (chunks) => (
+              <Link href="/rules" className="font-medium text-foreground">
+                {chunks}
+              </Link>
+            ),
             privacy: (chunks) => (
               <Link href="/privacy" className="font-medium text-foreground">
                 {chunks}

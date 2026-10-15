@@ -171,6 +171,7 @@ const PAGE = {
   title: "Terms",
   bodyHtml: "<p>Terms</p>",
   isPublished: true,
+  version: 1,
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
@@ -862,8 +863,12 @@ test("the backend is asked as the visitor", async () => {
 });
 
 test("the static pages are a 404 while the backend does not have them", async () => {
-  backend({ "/api/v1/pages/terms": Response.json(PAGE) });
+  backend({
+    "/api/v1/pages/terms": Response.json(PAGE),
+    "/api/v1/pages/rules": Response.json({ ...PAGE, slug: "rules" }),
+  });
   passes(await ask("/terms"));
+  passes(await ask("/rules"));
   isNotFound(await ask("/privacy"));
   isNotFound(await ask("/legal"));
   isNotFound(await ask("/contact"));

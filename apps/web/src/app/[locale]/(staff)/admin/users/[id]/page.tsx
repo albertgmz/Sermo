@@ -14,6 +14,7 @@ import { hrefFor } from "../../../registry";
 import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../data";
 import { MemberState } from "../member-state";
 import { TabPage } from "../tab-page";
+import { Acceptances } from "./acceptances";
 import { removePicture } from "./actions";
 import { ConsentSection } from "./consent-section";
 import { EraseForm } from "./erase-form";
@@ -124,6 +125,7 @@ async function Details({
         </div>
       </Section>
       <ConsentSection userId={userId} />
+      <Acceptances userId={userId} />
       {!readOnly && <EraseForm member={member} />}
     </>
   );

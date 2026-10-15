@@ -62,7 +62,8 @@
     "newMember": "New member"
   },
   "errors": {
-    "generic": "Something went wrong. Try again."
+    "generic": "Something went wrong. Try again.",
+    "acceptanceRequired": "You need to accept the current terms and rules first. The notice at the top of the page has the button."
   },
   "format": {
     "recent": "just now"

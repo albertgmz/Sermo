@@ -78,6 +78,7 @@ const me = {
     keyboardShortcuts: true,
     homeTab: null,
     openHomeTab: "latest",
+    pendingAcceptance: [],
   },
   permissions: {
     isAdmin: false,

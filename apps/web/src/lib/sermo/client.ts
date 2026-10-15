@@ -1,6 +1,6 @@
 import "server-only";
 
-import { authMe } from "@sermo/core/contracts";
+import { ACCEPTANCE_REQUIRED_PATH, authMe } from "@sermo/core/contracts";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -180,6 +180,18 @@ export async function read<I extends z.ZodType, O extends z.ZodType>(
   }
 }
 
+// The backend refuses a post, reaction or message because the member has not accepted the current
+// terms and rules: a refusal (forbidden) that names the `acceptance` issue.
+export function isAcceptanceRefusal(error: SermoError): boolean {
+  return (
+    error.code === "forbidden" &&
+    (error.issues ?? []).some(
+      (issue) =>
+        Array.isArray(issue.path) && issue.path[0] === ACCEPTANCE_REQUIRED_PATH,
+    )
+  );
+}
+
 // For actions: what a form can show for a failed call. Only the backend's own refusals carry a
 // message meant for visitors; an error raised on our side (code "internal": the API could not be
 // reached, its answer made no sense) is logged and replaced by a generic line.
@@ -188,6 +200,9 @@ export async function errorMessage(error: unknown): Promise<string> {
   if (error.code === "internal") {
     console.error("A call to the API failed", error);
     return (await getTranslations("lib.errors"))("generic");
+  }
+  if (isAcceptanceRefusal(error)) {
+    return (await getTranslations("lib.errors"))("acceptanceRequired");
   }
   if (error.code === "validation" && error.issues?.length) {
     return error.issues

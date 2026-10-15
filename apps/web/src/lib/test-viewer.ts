@@ -13,6 +13,7 @@ export function viewerBody(signedIn: boolean) {
           keyboardShortcuts: true,
           homeTab: null,
           openHomeTab: "latest",
+          pendingAcceptance: [],
         }
       : null,
     permissions: {

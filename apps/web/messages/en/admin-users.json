@@ -378,5 +378,19 @@
     "noReason": "No reason given",
     "permanent": "Permanent",
     "lift": "Lift the ban"
+  },
+  "acceptances": {
+    "heading": "Terms and rules accepted",
+    "description": "The versions this member accepted, when, and from which address. Read-only.",
+    "terms": "Terms",
+    "rules": "Rules",
+    "version": "Version {version}",
+    "current": "The site now asks for version {version}.",
+    "notPublished": "Not published, so nothing is asked.",
+    "neverAccepted": "Never accepted.",
+    "outOfDate": "Not accepted at the current version.",
+    "upToDate": "Accepted at the current version.",
+    "address": "Address",
+    "noAddress": "Not recorded"
   }
 }

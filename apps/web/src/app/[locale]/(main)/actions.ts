@@ -3,10 +3,12 @@
 import {
   bookmarksSet,
   noticesDismiss,
+  PendingAcceptance,
   postsCreate,
   reactionsRemove,
   reactionsSet,
   reportsCreate,
+  termsAccept,
   usersFollow,
   usersUnfollow,
 } from "@sermo/core/contracts";
@@ -31,7 +33,7 @@ import {
 import { signOut } from "@/lib/sermo/auth";
 import { call } from "@/lib/sermo/client";
 import { requireIds } from "@/lib/sermo/ids";
-import { attempt, attemptInPlace } from "@/lib/sermo/outcome";
+import { attempt, attemptInPlace, invalidArgument } from "@/lib/sermo/outcome";
 import { pageOfRequest } from "@/lib/sermo/request-page";
 import { safeReturnPath } from "@/lib/sermo/return-path";
 import { getViewer } from "@/lib/sermo/session";
@@ -92,6 +94,31 @@ export async function dismissNotice(noticeId: number) {
     );
   }
   refresh();
+}
+
+// Accepts the terms and rules the prompt showed, at the versions it showed (`kind:version` in each
+// `accept` field). A version that moved on since is refused by the backend, and the page is drawn
+// again with the new prompt.
+export async function acceptTerms(
+  _previous: { error?: string },
+  formData: FormData,
+): Promise<{ error?: string }> {
+  const accept = formData.getAll("accept").map((value) => {
+    const [kind, version] = String(value).split(":");
+    return PendingAcceptance.safeParse({ kind, version: Number(version) });
+  });
+  if (accept.length === 0 || accept.some((item) => !item.success)) {
+    return { error: await invalidArgument() };
+  }
+  const done = await attempt("/", () =>
+    call(termsAccept, {
+      accept: accept.flatMap((item) => (item.success ? [item.data] : [])),
+    }),
+  );
+  // Either way the page is drawn again: without the prompt once accepted, with the pages as they
+  // are now when the version moved on.
+  refresh();
+  return done.ok ? {} : { error: done.error };
 }
 
 export async function logout() {

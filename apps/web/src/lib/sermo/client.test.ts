@@ -230,3 +230,18 @@ test("a block beside a page still fails on a failure that is not about the visit
     (error) => error instanceof SermoError && error.code === "internal",
   );
 });
+
+test("a refusal for a missing acceptance is told apart and worded by the web app", async () => {
+  const missing = new SermoError("forbidden", 403, "backend wording", [
+    { path: ["acceptance"], message: "terms,rules" },
+  ]);
+  assert.equal(await errorMessage(missing), lib.errors.acceptanceRequired);
+  assert.equal(
+    await errorMessage(
+      new SermoError("forbidden", 403, "You may not do that.", [
+        { path: ["other"], message: "x" },
+      ]),
+    ),
+    "You may not do that.",
+  );
+});

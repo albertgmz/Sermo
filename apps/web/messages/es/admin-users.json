@@ -378,5 +378,19 @@
     "noReason": "Sin motivo indicado",
     "permanent": "Permanente",
     "lift": "Levantar la expulsión"
+  },
+  "acceptances": {
+    "heading": "Términos y reglas aceptados",
+    "description": "Las versiones que este miembro aceptó, cuándo y desde qué dirección. Solo lectura.",
+    "terms": "Términos",
+    "rules": "Reglas",
+    "version": "Versión {version}",
+    "current": "El sitio pide ahora la versión {version}.",
+    "notPublished": "No está publicada, así que no se pide nada.",
+    "neverAccepted": "Nunca aceptó.",
+    "outOfDate": "No aceptó la versión vigente.",
+    "upToDate": "Aceptó la versión vigente.",
+    "address": "Dirección",
+    "noAddress": "Sin registrar"
   }
 }

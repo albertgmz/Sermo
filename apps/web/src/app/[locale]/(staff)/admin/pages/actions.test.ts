@@ -29,6 +29,7 @@ const PAGE = {
   bodyHtml: "",
   bodySource: "",
   isPublished: true,
+  version: 1,
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
@@ -50,6 +51,7 @@ test("a new page is saved with the slug typed and opens its editor", async () =>
     title: "Terms",
     body: "# Terms",
     isPublished: true,
+    newVersion: false,
   });
 });
 
@@ -69,6 +71,29 @@ test("the line breaks a browser posts as CRLF are saved as LF", async () => {
     title: "Terms",
     body: "# Terms\n\n- one\n- two",
     isPublished: false,
+    newVersion: false,
+  });
+});
+
+test("a save can publish the page as a new version", async () => {
+  backend = fakeBackend({ "pages.save": () => Response.json(PAGE) });
+  await redirectedTo(() =>
+    savePage(
+      null,
+      form([
+        ["slug", "rules"],
+        ["title", "Rules"],
+        ["body", "# Rules"],
+        ["isPublished", "on"],
+        ["newVersion", "on"],
+      ]),
+    ),
+  );
+  expect(backend.asked[0]?.body).toEqual({
+    title: "Rules",
+    body: "# Rules",
+    isPublished: true,
+    newVersion: true,
   });
 });
 

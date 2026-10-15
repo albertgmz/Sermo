@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Suspense } from "react";
+import { AcceptancePrompt } from "@/components/forum/acceptance-prompt";
 import { NoticeBanner } from "@/components/forum/notice-banner";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { AnalyticsTag } from "@/components/layout/analytics-tag";
@@ -92,6 +93,9 @@ export default function MainLayout({ children }: LayoutProps<"/[locale]">) {
       <SiteHeader />
       <Suspense>
         <NoticeBanner />
+      </Suspense>
+      <Suspense>
+        <AcceptancePrompt />
       </Suspense>
       <Suspense
         fallback={

@@ -100,11 +100,14 @@ export const signInWithEmail = (
 const landing = (path: string) => `${new URL(publicUrl()).origin}${path}`;
 
 // `ref` is the member whose link brought the visitor; the backend records it with the sign-up.
+// `acceptTerms` says the visitor ticked the box for the terms and rules; the backend records the
+// versions published at that moment.
 export const signUp = (
   input: {
     username: string;
     email: string;
     password: string;
+    acceptTerms: true;
     ref?: number;
   },
   turnstile?: string,

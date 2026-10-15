@@ -163,7 +163,7 @@ const CONTENT: Record<string, Finder> = {
   ),
 };
 
-const STATIC_PAGES = ["terms", "privacy", "legal", "contact"];
+const STATIC_PAGES = ["terms", "rules", "privacy", "legal", "contact"];
 
 // The slug of the static page this path asks for, if it is one.
 function staticSlug(section: string, id: string | undefined, action?: string) {

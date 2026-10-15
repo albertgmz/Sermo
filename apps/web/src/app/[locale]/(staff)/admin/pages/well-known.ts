@@ -3,6 +3,7 @@
 //   address  Where the public site serves it besides /pages/<slug>.
 export const WELL_KNOWN = [
   { slug: "terms", address: "/terms" },
+  { slug: "rules", address: "/rules" },
   { slug: "privacy", address: "/privacy" },
   { slug: "legal", address: "/legal" },
   { slug: "contact", address: "/contact" },

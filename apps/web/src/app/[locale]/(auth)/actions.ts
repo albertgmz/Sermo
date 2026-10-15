@@ -108,6 +108,7 @@ export async function register(
       username,
       email,
       password,
+      acceptTerms: true,
       ...(referrer === null ? {} : { ref: referrer }),
     },
     tokenOf(formData),

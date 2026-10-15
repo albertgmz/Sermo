@@ -35,6 +35,7 @@ const member = {
     keyboardShortcuts: true,
     homeTab: null,
     openHomeTab: "latest",
+    pendingAcceptance: [],
   },
   permissions: {
     isAdmin: false,

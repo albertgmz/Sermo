@@ -7,7 +7,7 @@ import type { StaffFormState } from "@/components/staff/form-rows";
 import { call } from "@/lib/sermo/client";
 import { formFailure, text } from "../groups/form-errors";
 
-const FIELDS = ["slug", "title", "body", "isPublished"];
+const FIELDS = ["slug", "title", "body", "isPublished", "newVersion"];
 
 // A browser sends the line breaks of a text area as CRLF; the source is kept with LF, so what is
 // saved reads back as the same text however it was posted.
@@ -20,6 +20,7 @@ async function save(formData: FormData): Promise<StaffFormState | string> {
       title: text(formData, "title"),
       body: source(text(formData, "body")),
       isPublished: formData.get("isPublished") !== null,
+      newVersion: formData.get("newVersion") !== null,
     });
     return page.slug;
   } catch (error) {

@@ -1,4 +1,8 @@
-import { PageSlug, pagesGetSource } from "@sermo/core/contracts";
+import {
+  AcceptanceKind,
+  PageSlug,
+  pagesGetSource,
+} from "@sermo/core/contracts";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -39,6 +43,8 @@ async function Editor({
   ]);
   const known = wellKnown(slug);
   const address = `/pages/${slug}`;
+  // The pages members have to accept carry a version an administrator raises on purpose.
+  const versioned = AcceptanceKind.safeParse(slug).success;
   return (
     <>
       <Notice
@@ -84,6 +90,11 @@ async function Editor({
           <p className="text-xs text-muted-foreground">
             {page.isPublished ? t("public.preview") : t("public.hidden")}
           </p>
+          {versioned && (
+            <p className="text-xs text-muted-foreground">
+              {t("version", { version: page.version })}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             {t("public.updated", {
               date: format.dateTime(new Date(page.updatedAt), {
@@ -101,7 +112,7 @@ async function Editor({
         description={t("form.description")}
       >
         <input type="hidden" name="slug" value={slug} />
-        <PageFields page={page} />
+        <PageFields page={page} versioned={versioned} />
       </FormRows>
       <Section heading={t("delete.heading")} className="border-destructive/30">
         <div className="px-4">

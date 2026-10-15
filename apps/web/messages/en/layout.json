@@ -200,5 +200,15 @@
       "goConversations": "Conversations",
       "removeFormatting": "Remove formatting (Cmd instead of Ctrl on a Mac)"
     }
+  },
+  "acceptancePrompt": {
+    "label": "Terms and rules",
+    "title": "Please accept the terms and rules",
+    "body": "You can keep reading. To post, react or send messages, read and accept:",
+    "terms": "Terms",
+    "rules": "Rules",
+    "accept": "I accept",
+    "accepting": "Saving…",
+    "failed": "Your answer could not be saved. Try again."
   }
 }
