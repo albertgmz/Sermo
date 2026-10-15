@@ -2549,3 +2549,24 @@ stay public; `users.search` stays open (mentions, recipient picker); `watches.li
 and `notifications.list` are not gated; email and push still reach closed-out members; spoilers and
 who reacted inside a closed-out member's own conversations are refused; admin award pages fail for
 a staff group without `member.viewList`; the web does not hide the uploader for a limit of 0.
+
+**Hard delete and batch updates (item 7a).** Deleting for good is a second step after a soft
+delete, for administrators (`forum.hardDelete` per forum, `profilePost.hardDelete`): only content
+whose own state is `deleted`, 500 posts or comments per call. A thread or wall post stays
+`deleted` until a call answers `completed`, and meanwhile cannot be restored or merged (the newest
+hard-delete log entry of the target says `completed: false` and no later one says `true`; no
+dates are compared). It removes the content with its reactions (the author's reaction score gives
+them back), attachments, alerts and the alerts of its reports, bookmarks, reports, quotes and
+mentions, and takes back, with ledger rows, the credits its applications still hold; read markers
+are clamped to what is left. It keeps the moderator log (title and author included),
+`credit_transactions`, `domain_events` (removing the newest events would let later ones take ids
+below the subscribers' cursors) and the `ip_log` rows (their pointer is nulled). A purged thread
+takes its merge tombstones with it, found through the moderator log. SQLite gives the id of a
+deleted newest row to the next insert, so what names the old id is deleted, and readers of kept
+rows look only at the row's own life (`created_at`): credit rules (not for a split thread created
+held, which carries an old date) and report alerts do. `AUTOINCREMENT` on the content tables is an
+owner item and would close the rest. `threads.batchUpdate` applies one change to up to 100 threads
+and answers per thread (one transaction, a savepoint each), with the permission of the single
+action in each thread's forum; delete, restore and move stop at 250,000 visible posts per batch,
+counting only threads that changed. A member's own delete stays a soft delete that moderators can
+see and restore; it is not logged (the moderator log counts as moderator actions in the criteria).
