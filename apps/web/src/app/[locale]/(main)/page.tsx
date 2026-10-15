@@ -175,7 +175,7 @@ async function HomeFeed({ searchParams }: PageProps<"/[locale]">) {
           estimateSize={320}
           spacing="spaced"
           fresh={
-            tab === "top"
+            tab === "hot"
               ? undefined
               : {
                   check: newFeedCount.bind(null, tab),
