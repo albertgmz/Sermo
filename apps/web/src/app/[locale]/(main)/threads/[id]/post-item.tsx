@@ -40,7 +40,6 @@ export function PostItem({
   reactionTypes,
   may,
   isFirst,
-  eagerAvatar = false,
   selecting,
   canQuote,
   bookmarked,
@@ -59,8 +58,6 @@ export function PostItem({
   may: ThreadMay;
   // The opening post cannot be deleted or split off on its own.
   isFirst: boolean;
-  // The first post drawn on the page: its author's avatar is fetched at once.
-  eagerAvatar?: boolean;
   // The posts carry a tick for the split form.
   selecting: boolean;
   canQuote: boolean;
@@ -75,7 +72,6 @@ export function PostItem({
       id={`post-${post.id}`}
       author={author}
       createdAt={post.createdAt}
-      eagerAvatar={eagerAvatar}
       highlighted={highlighted}
       edited={post.editedAt && <EditedMark date={post.editedAt} />}
       trailing={

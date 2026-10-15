@@ -256,3 +256,20 @@ test("a name without an icon wraps as plain text in the column and truncates in 
   const compact = await html(<Postbit author={author} layout="compact" />);
   expect(compact).toContain('<span class="min-w-0 truncate">ember</span>');
 });
+
+test("the avatars of a postbit stay lazy: the responsive layout holds two and one is hidden", async () => {
+  const withPicture = {
+    ...author,
+    member: {
+      ...author.member,
+      avatar: { fileId: 1, url: "/big.webp", smallUrl: "/small.webp" },
+    },
+  } as unknown as AuthorView;
+  const out = await html(<Postbit author={withPicture} layout="responsive" />);
+  const pictures = out.match(/<img[^>]*>/g) ?? [];
+  expect(pictures.length).toBe(2);
+  for (const picture of pictures) {
+    expect(picture).toContain('loading="lazy"');
+    expect(picture).not.toContain('loading="eager"');
+  }
+});

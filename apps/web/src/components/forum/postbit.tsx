@@ -33,14 +33,11 @@ export function Postbit({
   author,
   layout = "responsive",
   actions,
-  eagerAvatar = false,
   className,
 }: {
   author: AuthorView;
   layout?: PostbitLayout;
   actions?: React.ReactNode;
-  // The avatar is in the first screen: fetched at once.
-  eagerAvatar?: boolean;
   className?: string;
 }) {
   const locale = useLocale();
@@ -81,9 +78,6 @@ export function Postbit({
         <UserAvatar
           user={member}
           size="lg"
-          // In the responsive layout one of the two avatars is hidden by CSS, and an eager picture
-          // is fetched even then: only the large one (a different file) is asked for at once.
-          eager={eagerAvatar && !responsive}
           className={cn("self-start", responsive && "md:hidden")}
         />
       )}
@@ -91,7 +85,6 @@ export function Postbit({
         <UserAvatar
           user={member}
           size="xl"
-          eager={eagerAvatar}
           className={responsive ? "hidden md:block" : undefined}
         />
       )}

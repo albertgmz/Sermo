@@ -32,7 +32,7 @@ export async function UserAvatar({
   user: AvatarUser;
   size?: UserAvatarSize;
   link?: boolean;
-  // A picture in the first screen (the account menu, the profile hero, the opening post):
+  // A picture in the first screen (the account menu, the profile hero, the account heading):
   // fetched at once, where every other avatar waits until it is near the viewport.
   eager?: boolean;
   className?: string;

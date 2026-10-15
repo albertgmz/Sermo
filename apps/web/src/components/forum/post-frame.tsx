@@ -45,7 +45,6 @@ export function PostFrame({
   edited,
   trailing,
   postbitActions,
-  eagerAvatar = false,
   actions,
   signed = false,
   children,
@@ -62,8 +61,6 @@ export function PostFrame({
   trailing?: React.ReactNode;
   // What the viewer can do about the author, drawn in the postbit.
   postbitActions?: React.ReactNode;
-  // The author's avatar is in the first screen: fetched at once.
-  eagerAvatar?: boolean;
   // The footer under the content: a `ContentActions`, which parts itself from the body.
   actions: React.ReactNode;
   // Whether the author's signature closes the frame.
@@ -93,7 +90,6 @@ export function PostFrame({
       <Postbit
         author={author}
         actions={postbitActions}
-        eagerAvatar={eagerAvatar}
         className="max-md:mb-2 md:border-r md:pr-4"
       />
 
