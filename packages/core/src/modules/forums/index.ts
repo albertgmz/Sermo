@@ -1013,6 +1013,37 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   };
 });
 
+/**
+ * Takes up to `limit` posts from streams that are each in their own order, always the oldest
+ * head (then the lowest id, then the first stream). The one rule of the order a merge gives its
+ * target: the renumbering writes it and `posts.list` predicts it, so both use this.
+ */
+function mergeInOrder<T extends { id: number; created_at: number }>(
+  streams: T[][],
+  limit: number,
+  take: (post: T) => void,
+): number {
+  const heads = streams.map(() => 0);
+  let count = 0;
+  while (count < limit) {
+    let best = -1;
+    for (let i = 0; i < streams.length; i++) {
+      const row = streams[i]![heads[i]!];
+      const chosen = best < 0 ? undefined : streams[best]![heads[best]!];
+      if (
+        row &&
+        (!chosen ||
+          row.created_at < chosen.created_at ||
+          (row.created_at === chosen.created_at && row.id < chosen.id))
+      )
+        best = i;
+    }
+    if (best < 0) break;
+    take(streams[best]![heads[best]!++]!);
+    count++;
+  }
+  return count;
+}
 type MergeState = { sourceIds: number[]; streamStarts: number[]; phase?: string };
 type MergeRow = {
   id: number;
@@ -1045,7 +1076,9 @@ function mergeStateOf(ctx: Ctx, targetId: number): MergeState | null {
  * up in. The streams (the target's own posts and each source's, in their provisional order) are
  * merged by creation time, exactly as the renumbering does, so a post's slot is the same before,
  * during and after its renumbering and paging is not disturbed by the chunks running between
- * two requests. Posts that have not moved yet are counted where they will land.
+ * two requests. Posts that have not moved yet are counted where they will land. Linear in the
+ * posts of the target and its sources (about 45 ms per request at 100,000 posts); only merge
+ * targets before the flip step pay it.
  */
 function mergeSlots(ctx: Ctx, targetId: number, state: MergeState) {
   const rows = statement<MergeRow, [string]>(
@@ -1071,25 +1104,11 @@ function mergeSlots(ctx: Ctx, targetId: number, state: MergeState) {
       stream++;
     streams[stream]!.push({ row, at });
   }
-  for (const stream of streams) stream.sort((a, b) => a.at - b.at);
-  const heads = streams.map(() => 0);
-  for (;;) {
-    let best = -1;
-    for (let i = 0; i < streams.length; i++) {
-      const row = streams[i]![heads[i]!]?.row;
-      const chosen = best < 0 ? undefined : streams[best]![heads[best]!]!.row;
-      if (
-        row &&
-        (!chosen ||
-          row.created_at < chosen.created_at ||
-          (row.created_at === chosen.created_at && row.id < chosen.id))
-      )
-        best = i;
-    }
-    if (best < 0) break;
-    slots.set(streams[best]![heads[best]!]!.row.id, next++);
-    heads[best]!++;
-  }
+  mergeInOrder(
+    streams.map((stream) => stream.sort((a, b) => a.at - b.at).map((item) => item.row)),
+    Infinity,
+    (row) => slots.set(row.id, next++),
+  );
   return { rows, slots };
 }
 
@@ -2279,27 +2298,10 @@ function renumberMergeChunk(ctx: Ctx, state: MergeFinalizeState): MergeFinalizeS
         "SELECT id, position, user_id, state, created_at FROM posts WHERE thread_id = ?1 AND position >= ?2 AND position < ?3 ORDER BY position LIMIT 500",
       ).all(state.targetId, start, state.streamEnds[index]!),
     );
-    const indexes = streams.map(() => 0);
-    let count = 0;
-    while (count < 500) {
-      let best = -1;
-      for (let i = 0; i < streams.length; i++) {
-        const row = streams[i]![indexes[i]!];
-        const chosen = best < 0 ? undefined : streams[best]![indexes[best]!];
-        if (
-          row &&
-          (!chosen ||
-            row.created_at < chosen.created_at ||
-            (row.created_at === chosen.created_at && row.id < chosen.id))
-        )
-          best = i;
-      }
-      if (best < 0) break;
-      update.run(-next - 1, streams[best]![indexes[best]!]!.id);
-      indexes[best]!++;
+    const count = mergeInOrder(streams, 500, (post) => {
+      update.run(-next - 1, post.id);
       next++;
-      count++;
-    }
+    });
     return count ? state : { ...state, phase: "flip" };
   });
 }

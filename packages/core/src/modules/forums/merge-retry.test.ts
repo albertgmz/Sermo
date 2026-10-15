@@ -280,3 +280,107 @@ for (const [layout, targetStart, sourceStart] of [
       }
     }
   });
+
+test("posts.list gives members the visible posts of a merge of two sources, with gaps in positions", async () => {
+  const ctx = createTestContext();
+  const node = insertNode(ctx, {});
+  invalidate(ctx, "node_tree");
+  const author = insertUser(ctx);
+  const other = insertUser(ctx);
+  const viewer = insertUser(ctx);
+  const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+  registerModerationJobs(ctx);
+  const create = async (title: string) =>
+    (
+      await execute(ctx, threadsCreateOp, userActor(author), {
+        nodeId: node.id,
+        title,
+        body: "Body",
+      })
+    ).thread.id;
+  const targetId = await create("Target");
+  const firstSource = await create("First source");
+  const secondSource = await create("Second source");
+  const start = ctx.now() + 1000;
+  // Overlapping creation times, so that ties inside and across streams are decided by id.
+  addPosts(ctx, targetId, author.id, 120, start);
+  addPosts(ctx, firstSource, other.id, 300, start);
+  addPosts(ctx, secondSource, author.id, 300, start + 40);
+  for (const id of [targetId, firstSource, secondSource])
+    ctx.sqlite
+      .prepare("UPDATE posts SET position = position + 7 WHERE thread_id = ?1 AND position >= 60")
+      .run(id);
+  ctx.sqlite
+    .prepare(
+      "UPDATE posts SET created_at = ?2 + id % 5 WHERE thread_id IN (?1, ?3, ?4) AND position > 0",
+    )
+    .run(targetId, start, firstSource, secondSource);
+  ctx.sqlite
+    .prepare(
+      "UPDATE posts SET state = CASE WHEN id % 11 = 0 THEN 'deleted' ELSE 'moderated' END WHERE thread_id IN (?1, ?2, ?3) AND position > 0 AND (id % 7 = 0 OR id % 11 = 0)",
+    )
+    .run(targetId, firstSource, secondSource);
+  const universe = ctx.sqlite
+    .prepare<{ id: number; state: string; user_id: number }, [number, number, number]>(
+      "SELECT id, state, user_id FROM posts WHERE thread_id IN (?1, ?2, ?3)",
+    )
+    .all(targetId, firstSource, secondSource);
+  const visibleTo = (viewerId: number) =>
+    universe
+      .filter(
+        (post) =>
+          post.state === "visible" || (post.state === "moderated" && post.user_id === viewerId),
+      )
+      .map((post) => post.id)
+      .sort((a, b) => a - b);
+  expect(universe.some((post) => post.state === "moderated")).toBe(true);
+  expect(universe.some((post) => post.state === "deleted")).toBe(true);
+  await execute(ctx, threadsMergeOp, moderator, {
+    threadId: targetId,
+    sourceThreadIds: [firstSource, secondSource],
+  });
+  expect(nextJob(ctx)).not.toBeNull();
+
+  const viewers = [viewer, author, other];
+  const traverse = async (reader: (typeof viewers)[number]) => {
+    const seen: { id: number; position: number }[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await execute(ctx, postsListOp, userActor(reader), {
+        threadId: targetId,
+        limit: 23,
+        cursor,
+      });
+      seen.push(...page.items.map((post) => ({ id: post.id, position: post.position })));
+      cursor = page.nextCursor ?? undefined;
+      await runDueJobs(ctx, { limit: 1 });
+    } while (cursor);
+    return seen;
+  };
+  const traversals: {
+    reader: (typeof viewers)[number];
+    seen: { id: number; position: number }[];
+  }[] = [];
+  for (let i = 0; i < 12; i++)
+    for (const reader of viewers) traversals.push({ reader, seen: await traverse(reader) });
+  await runDueJobs(ctx);
+  expect(nextJob(ctx)).toBeNull();
+  for (const reader of viewers) traversals.push({ reader, seen: await traverse(reader) });
+
+  const final = new Map(
+    ctx.sqlite
+      .prepare<{ id: number; position: number }, [number]>(
+        "SELECT id, position FROM posts WHERE thread_id = ?1",
+      )
+      .all(targetId)
+      .map((post) => [post.id, post.position]),
+  );
+  expect(final.size).toBe(universe.length);
+  for (const { reader, seen } of traversals) {
+    expect(seen.map((post) => post.id).sort((a, b) => a - b)).toEqual(visibleTo(reader.id));
+    for (const [index, post] of seen.entries()) {
+      expect(post.position).toBe(final.get(post.id)!);
+      if (index > 0) expect(post.position).toBeGreaterThan(seen[index - 1]!.position);
+    }
+  }
+});

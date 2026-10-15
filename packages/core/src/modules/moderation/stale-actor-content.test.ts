@@ -287,6 +287,8 @@ const attempts: Record<
     lost: ErrorClass;
     banned: ErrorClass;
     sight?: ErrorClass;
+    /** Losing these permissions (view ones) hides the content, with this error. */
+    unseen?: { unset: string[]; error: ErrorClass }[];
   }
 > = {
   "reports.create": {
@@ -520,18 +522,24 @@ const attempts: Record<
       }),
     lost: F,
     banned: F,
+    unseen: [{ unset: ["profile.view"], error: F }],
   },
   "profilePosts.delete": {
     run: (ctx, actor, s) =>
       execute(ctx, op("profilePosts.delete"), actor, { profilePostId: s.wall.delete }),
     lost: F,
     banned: F,
+    unseen: [{ unset: ["profile.view"], error: F }],
   },
   "profilePosts.restore": {
     run: (ctx, actor, s) =>
       execute(ctx, op("profilePosts.restore"), actor, { profilePostId: s.wall.restore }),
     lost: F,
     banned: F,
+    unseen: [
+      { unset: ["profile.view"], error: F },
+      { unset: ["profilePost.viewDeleted"], error: N },
+    ],
   },
   "profileComments.update": {
     run: (ctx, actor, s) =>
@@ -541,18 +549,24 @@ const attempts: Record<
       }),
     lost: F,
     banned: F,
+    unseen: [{ unset: ["profile.view"], error: F }],
   },
   "profileComments.delete": {
     run: (ctx, actor, s) =>
       execute(ctx, op("profileComments.delete"), actor, { commentId: s.comments.delete }),
     lost: F,
     banned: F,
+    unseen: [{ unset: ["profile.view"], error: F }],
   },
   "profileComments.restore": {
     run: (ctx, actor, s) =>
       execute(ctx, op("profileComments.restore"), actor, { commentId: s.comments.restore }),
     lost: F,
     banned: F,
+    unseen: [
+      { unset: ["profile.view"], error: F },
+      { unset: ["profilePost.viewDeleted"], error: N },
+    ],
   },
 };
 
@@ -614,6 +628,19 @@ for (const [name, attempt] of Object.entries(attempts)) {
       s.database.close();
     }
   });
+  for (const { unset, error } of attempt.unseen ?? [])
+    test(`${name} is refused to a moderator who lost ${unset.join(" and ")} meanwhile`, async () => {
+      const s = await scenario();
+      try {
+        await execute(s.elsewhere, op("permissions.set"), s.founder, {
+          groupId: s.staffGroup.id,
+          entries: entries(unset, "unset"),
+        });
+        await expectRefused(s, attempt.run(s.here, s.actor, s), error);
+      } finally {
+        s.database.close();
+      }
+    });
   if (attempt.sight)
     test(`${name} answers not found to a moderator who lost sight of the forum meanwhile`, async () => {
       const s = await scenario();

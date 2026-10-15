@@ -135,6 +135,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
   const html = refs.html;
   writeTx(ctx, () => {
     const fresh = currentActor(ctx, actor);
+    const now = requireComment(ctx, fresh, comment.id).comment;
     if (!mayEditWallContent(ctx, fresh, comment.user_id)) throw new ForbiddenError();
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
@@ -153,7 +154,7 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     storeSpoilers(ctx, "profile_post_comment", comment.id, refs.spoilers);
     if (decision.moderated)
       moderateEditedContent(ctx, fresh, { type: "profile_post_comment", id: comment.id });
-    if (comment.state === "visible") touchProfile(ctx, post.profile_user_id);
+    if (now.state === "visible") touchProfile(ctx, post.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "profile_post_comment",
@@ -172,6 +173,7 @@ export const profileCommentsDeleteOp = implement(profileCommentsDelete, (ctx, ac
     throw new ForbiddenError();
   writeTx(ctx, () => {
     const fresh = currentActor(ctx, actor);
+    requireComment(ctx, fresh, comment.id);
     if (!mayDeleteWallContent(ctx, fresh, comment.user_id, post.profile_user_id))
       throw new ForbiddenError();
     const current = prepared(ctx, "profiles.commentState", () =>
@@ -207,12 +209,13 @@ export const profileCommentsRestoreOp = implement(profileCommentsRestore, (ctx, 
   requireAuthenticated(actor);
   const { comment, post } = requireComment(ctx, actor, input.commentId);
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    requireComment(ctx, fresh, comment.id);
     const current = prepared(ctx, "profiles.commentState", () =>
       ctx.sqlite.prepare<{ state: CommentRow["state"] }, [number]>(
         "SELECT state FROM profile_post_comments WHERE id = ?1",
       ),
     ).get(comment.id)!;
-    const fresh = currentActor(ctx, actor);
     if (current.state === "deleted") requirePermission(ctx, fresh, "profilePost.undelete");
     else requirePermission(ctx, fresh, "profilePost.approve");
     const result = prepared(ctx, "profiles.restoreComment", () =>

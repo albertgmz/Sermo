@@ -352,6 +352,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
   const html = refs.html;
   writeTx(ctx, () => {
     const fresh = currentActor(ctx, actor);
+    const now = requirePost(ctx, fresh, row.id);
     if (!mayEditWallContent(ctx, fresh, row.user_id)) throw new ForbiddenError();
     const decision = prepareModeratedContent(ctx, actor, input.body, false);
     if (decision.source !== content.source)
@@ -366,7 +367,7 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     const { newlyMentioned } = storeContentReferences(ctx, "profile_post", row.id, refs);
     storeSpoilers(ctx, "profile_post", row.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, fresh, { type: "profile_post", id: row.id });
-    if (row.state === "visible") touchProfile(ctx, row.profile_user_id);
+    if (now.state === "visible") touchProfile(ctx, row.profile_user_id);
     publishEvent(ctx, {
       type: "content.edited",
       targetType: "profile_post",
@@ -385,6 +386,7 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
     throw new ForbiddenError();
   writeTx(ctx, () => {
     const fresh = currentActor(ctx, actor);
+    const now = requirePost(ctx, fresh, row.id);
     if (!mayDeleteWallContent(ctx, fresh, row.user_id, row.profile_user_id))
       throw new ForbiddenError();
     const result = prepared(ctx, "profiles.deletePost", () =>
@@ -398,12 +400,12 @@ export const profilePostsDeleteOp = implement(profilePostsDelete, (ctx, actor, i
         targetType: "profile_post",
         targetId: row.id,
         payload: {
-          previousState: row.state,
+          previousState: now.state,
           state: "deleted",
           ...noticeForOther(actor, row.user_id, input),
         },
       });
-    if (result.changes && row.state === "visible") touchProfile(ctx, row.profile_user_id);
+    if (result.changes && now.state === "visible") touchProfile(ctx, row.profile_user_id);
     if (can(ctx, fresh, "profilePost.deleteAny"))
       appendModeratorLog(ctx, actor, "profile_post.delete", "profile_post", row.id);
   });
@@ -413,13 +415,14 @@ export const profilePostsRestoreOp = implement(profilePostsRestore, (ctx, actor,
   requireAuthenticated(actor);
   const row = requirePost(ctx, actor, input.profilePostId);
   writeTx(ctx, () => {
+    const fresh = currentActor(ctx, actor);
+    requirePost(ctx, fresh, row.id);
     const current = prepared(ctx, "profiles.postState", () =>
       ctx.sqlite.prepare<{ state: PostRow["state"] }, [number]>(
         "SELECT state FROM profile_posts WHERE id = ?1",
       ),
     ).get(row.id);
     if (!current) throw new NotFoundError();
-    const fresh = currentActor(ctx, actor);
     if (current.state === "deleted") requirePermission(ctx, fresh, "profilePost.undelete");
     else requirePermission(ctx, fresh, "profilePost.approve");
     const result = prepared(ctx, "profiles.restorePost", () =>
