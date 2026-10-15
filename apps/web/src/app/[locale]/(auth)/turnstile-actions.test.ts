@@ -1,11 +1,19 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { siteAnswer } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 
 const realFetch = globalThis.fetch;
 const asked: { url: string; headers: Headers; body: string }[] = [];
 
 mock.module("server-only", () => ({}));
+const nextCache = await import("next/cache");
+// Signing up reads the site through the cached site read.
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 const intl = await import("next-intl/server");
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -28,6 +36,7 @@ const { login, register, forgotPassword, resendVerification } = await import(
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next/cache", () => nextCache);
 });
 beforeEach(() => {
   asked.length = 0;
@@ -36,8 +45,11 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+// Signing up reads the site (for the consent it needs); only the auth requests are recorded.
 function backend(response: () => Response) {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const site = siteAnswer(url);
+    if (site) return site;
     asked.push({
       url,
       headers: new Headers(init?.headers),
