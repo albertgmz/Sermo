@@ -214,6 +214,15 @@ function countsRow(ctx: Ctx, contentType: ReactionContentType, contentId: number
   return row.reaction_counts;
 }
 function saveCounts(ctx: Ctx, contentType: ReactionContentType, contentId: number, json: string) {
+  // A post also keeps the total, which the index of a member's most-reacted post is ordered by.
+  if (contentType === "post") {
+    prepared(ctx, "reactions.saveCounts.postTotal", () =>
+      ctx.sqlite.prepare<unknown, [string, number, number]>(
+        "UPDATE posts SET reaction_counts = ?1, reaction_total = ?3 WHERE id = ?2",
+      ),
+    ).run(json, contentId, reactionSummary(json, undefined).total);
+    return;
+  }
   const table = tables[contentType];
   prepared(ctx, `reactions.saveCounts.${contentType}`, () =>
     ctx.sqlite.prepare<unknown, [string, number]>(

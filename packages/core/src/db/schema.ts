@@ -315,6 +315,10 @@ export const users = sqliteTable(
     index("users_group").on(t.groupId, t.id),
     // The month's referrals, for the standings job.
     index("users_referred_at").on(t.referredAt).where(sql`referred_at IS NOT NULL`),
+    // A member's referrals since a time (criterion referrals_this_month).
+    index("users_referrer_referred")
+      .on(t.referredBy, t.referredAt)
+      .where(sql`referred_by IS NOT NULL`),
     // users.adminList with state `banned`: the members with a ban column set, newest first.
     index("users_banned").on(t.id).where(sql`banned_permanently = 1 OR banned_until IS NOT NULL`),
     // users.adminList with state `erased`: the erased members, newest first.
@@ -819,6 +823,8 @@ export const posts = sqliteTable(
     createdAt: integer("created_at").notNull(),
     editedAt: integer("edited_at"),
     reactionCounts: reactionCounts(),
+    /** The sum of `reaction_counts`, kept equal to it in the same transaction. */
+    reactionTotal: counter("reaction_total"),
     attachmentCount: counter("attachment_count"),
   },
   (t) => [
@@ -828,6 +834,10 @@ export const posts = sqliteTable(
     index("posts_user").on(t.userId, t.state, t.threadId),
     index("posts_state_id").on(t.state, t.id),
     index("posts_user_id").on(t.userId, t.id),
+    // The most-reacted post of a member (criterion most_reacted_post): one seek, only posts with reactions.
+    index("posts_user_reactions")
+      .on(t.userId, desc(t.reactionTotal))
+      .where(sql`reaction_total > 0`),
   ],
 );
 
@@ -1064,6 +1074,9 @@ export const reactions = sqliteTable(
     // One reaction per user per item; also serves the viewer batch lookup and
     // reactions.list (ordered by user_id).
     uniqueIndex("reactions_content_user").on(t.contentType, t.contentId, t.userId),
+    // Reactions given and received, by type (criteria reactions_given_by_type / _received_by_type).
+    index("reactions_user_type").on(t.userId, t.reactionTypeId),
+    index("reactions_recipient_type").on(t.contentUserId, t.reactionTypeId),
     // Counter rebuild: the reaction score a user received, index-only.
     index("reactions_recipient").on(t.contentUserId, t.score),
     // Daily negative-reaction limit: negative reactions a member gave since a time. Partial, so
@@ -1414,6 +1427,8 @@ export const contentQuotes = sqliteTable(
     uniqueIndex("content_quotes_content_post").on(t.contentType, t.contentId, t.quotedPostId),
     index("content_quotes_content_user").on(t.contentType, t.contentId, t.quotedUserId),
     index("content_quotes_post").on(t.quotedPostId),
+    // Times a member was quoted (criterion quoted_by_others).
+    index("content_quotes_quoted_user").on(t.quotedUserId, t.contentType, t.contentId),
   ],
 );
 
@@ -1764,6 +1779,8 @@ export const creditTransactions = sqliteTable(
   // A member's history, newest first; the staff ledger of everyone walks the primary key.
   (t) => [
     index("credit_transactions_user").on(t.userId, t.id),
+    // Credits earned in a window (criterion credits_earned): covering, a range on created_at.
+    index("credit_transactions_user_created").on(t.userId, t.createdAt, t.type, t.amount),
     // admin.activity: the manual adjustments of the last days.
     index("credit_transactions_adjustment").on(t.createdAt).where(sql`type = 'adjustment'`),
   ],

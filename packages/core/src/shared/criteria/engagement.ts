@@ -17,6 +17,16 @@ const mentionsIn = (type: string, table: string, inThread = false) =>
   `WHERE m.content_type = '${type}' AND m.user_id IN (SELECT value FROM json_each(?1)) ` +
   `AND c.state = 'visible' ${inThread ? "AND t.state = 'visible' " : ""}AND c.user_id != m.user_id GROUP BY m.user_id`;
 
+/**
+ * One branch of the count of quotes, shaped like the mentions: the quoting content must be another
+ * member's, and visible (a post also in a visible thread).
+ */
+const quotesIn = (type: string, table: string, inThread = false) =>
+  `SELECT q.quoted_user_id AS user_id, NULL AS id, count(*) AS n FROM content_quotes q INDEXED BY content_quotes_quoted_user ` +
+  `JOIN ${table} c ON c.id = q.content_id ${inThread ? "JOIN threads t ON t.id = c.thread_id " : ""}` +
+  `WHERE q.content_type = '${type}' AND q.quoted_user_id IN (SELECT value FROM json_each(?1)) ` +
+  `AND c.state = 'visible' ${inThread ? "AND t.state = 'visible' " : ""}AND c.user_id != q.quoted_user_id GROUP BY q.quoted_user_id`;
+
 /** Whoever a new or edited piece of content mentions. */
 function mentionedIn(ctx: Ctx, event: DomainEvent): number[] {
   if (!MENTIONABLE.includes(event.targetType)) return [];
@@ -27,6 +37,18 @@ function mentionedIn(ctx: Ctx, event: DomainEvent): number[] {
   )
     .all(event.targetType, event.targetId)
     .map((row) => row.user_id);
+}
+
+/** The authors a new or edited piece of content quotes. */
+function quotedIn(ctx: Ctx, event: DomainEvent): number[] {
+  if (!MENTIONABLE.includes(event.targetType)) return [];
+  return prepared(ctx, "shared.criteriaQuoted", () =>
+    ctx.sqlite.prepare<{ quoted_user_id: number }, [string, number]>(
+      "SELECT quoted_user_id FROM content_quotes WHERE content_type = ?1 AND content_id = ?2",
+    ),
+  )
+    .all(event.targetType, event.targetId)
+    .map((row) => row.quoted_user_id);
 }
 
 /**
@@ -68,5 +90,19 @@ export const engagementSpecs: readonly Spec[] = [
       ].join(" UNION ALL "),
     },
     { refresh: { on: ["content.created", "content.edited"], members: mentionedIn } },
+  ),
+  // Times the member's posts were quoted in other members' visible posts, profile posts and
+  // profile comments (one for each quote; the quoting content may be about several posts).
+  counted(
+    "quoted_by_others",
+    {
+      shape: "scalar",
+      sql: [
+        quotesIn("post", "posts", true),
+        quotesIn("profile_post", "profile_posts"),
+        quotesIn("profile_post_comment", "profile_post_comments"),
+      ].join(" UNION ALL "),
+    },
+    { refresh: { on: ["content.created", "content.edited"], members: quotedIn } },
   ),
 ];

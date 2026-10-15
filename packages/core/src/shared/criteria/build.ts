@@ -99,11 +99,10 @@ export function lookup(id: string, measure: Measurer, refresh?: Spec["refresh"])
 export function counted(
   id: string,
   measure: Measurer,
-  options: { unit?: Unit; window?: boolean; sweepOnly?: boolean } & Refresh = {},
+  options: { unit?: Unit; window?: boolean } & Refresh = {},
 ): Spec {
   return {
     ...(options.refresh && { refresh: options.refresh }),
-    ...(options.sweepOnly && { sweepOnly: true }),
     id,
     kind: "atLeast",
     unit: options.unit ?? "count",

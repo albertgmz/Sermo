@@ -68,10 +68,17 @@ describe("criteria.list", () => {
     const list = (await execute(ctx, op("criteria.list"), manager, {})) as {
       awards: object[];
       creditRules: object[];
+      reactionTypes: object[];
     };
     // An inactive award is not named to someone who does not manage awards.
     expect(list.awards).toEqual([{ id: open, title: "Veteran" }]);
     expect(list.creditRules).toEqual([{ id: creditRule, title: "Daily" }]);
+    // The reaction types the migrations seed, in their order, by id and title only.
+    expect(list.reactionTypes.slice(0, 2)).toEqual([
+      { id: 1, title: "Like" },
+      { id: 2, title: "Love" },
+    ]);
+    expect(list.reactionTypes.length).toBe(6);
     const { ctx: managed, manager: awardManager } = await managerOf("admin.awards");
     managed.sqlite
       .prepare(

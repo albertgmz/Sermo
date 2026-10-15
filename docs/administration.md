@@ -205,7 +205,7 @@ mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in no
 | Economy | `owns_item`, `wears_item` | `ids` (shop items), `mode` (one, each) | the member holds the item now, or holds it and has the frame, name color or name icon it gives in use | cheap |
 | | `bought_in_category` | `ids` (shop categories), `mode` (one, each) | the member bought something in the category, gifts included | cheap |
 | | `gifted_items` | `n` | the member paid for `n` units that went to others | background |
-| | `credits_earned` | `n`, optional `days` | credits from rules and awards, net of reversals, reach `n`; read from the member's whole ledger, so only the daily sweep checks it | background |
+| | `credits_earned` | `n`, optional `days` | credits from rules and awards, net of reversals, reach `n`, in total or in the last `days` | background |
 | | `credits_from_rule` | `ids` (credit rules), `n`, optional `days`, `mode` (all, one, each) | the rules paid `n` | background |
 | Awards | `awards_held_at_least`, `award_xp_at_most` | `n` | awards held (each grant counts) or their XP | cheap |
 | | `holds_awards` | `ids` (awards), `mode` (one, none, each) | the member holds one, none or each of the awards | cheap |
@@ -217,11 +217,14 @@ mode is the default). Below, `n` is `value`; a cost of `cheap` can be used in no
 | | `reports_resolved`, `moderator_actions` | `n` | reports the member filed that were resolved; entries under their name in the moderator log | background |
 | Engagement | `days_since_last_post` | `n` | the last visible post in a visible thread is `n` days old or more; a member who never posted does not hold it | background |
 | | `mentioned_by_others` | `n` | mentioned `n` times in other members' visible posts (in visible threads), profile posts and comments | background |
+| | `quoted_by_others` | `n` | quoted `n` times (each quote counts) in other members' visible posts (in visible threads), profile posts and comments | background |
+| Reactions | `reactions_given_by_type`, `reactions_received_by_type` | `ids` (reaction types), `n`, `mode` (all, one, each) | the reactions the member gave, or their content received, of the chosen types reach `n` | background |
+| | `most_reacted_post` | `n` | the member's most-reacted visible post in a visible thread has `n` reactions | cheap |
 | Referrals | `referrals_at_least`, `referrals_this_month` | `n` | members referred, in total or since the first of the month (UTC) | cheap, background |
 | | `was_referred` | `value` 1 or 0 | the member has a referrer | cheap |
 
 Promotions and awards check a member again at once when an event changes the fact (a reply, a gift,
-a used item, a mention, a restriction, ban or thread ban, a resolved report, an award given or taken
+a used item, a mention or a quote, a reaction given, a restriction, ban or thread ban, a resolved report, an award given or taken
 away); the facts no event tells of (bookmarks, watches, referrals, moderator actions, a restriction
 running out) wait for the daily sweep. An award's rule may read other awards, and giving or taking one
 away checks the member's other awards again, so an award cannot require itself, directly or through

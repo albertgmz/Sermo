@@ -9,13 +9,12 @@ import type { Spec } from "./types";
 export const referralSpecs: readonly Spec[] = [
   withValue("referrals_at_least", "atLeast", "count", "member", (f, v) => f.referralCount >= v),
   flag("was_referred", (f) => f.wasReferred),
-  // Members brought in since the first of this month (UTC). The partial index on `referred_at`
-  // holds only the members who were referred, so the scan is of this month's referrals. One row
-  // per referral; the loader adds them up.
+  // Members brought in since the first of this month (UTC): a seek into (referrer, date) for
+  // each member, covering. One row per referral; the loader adds them up.
   counted("referrals_this_month", {
     shape: "scalar",
     sql:
-      "SELECT referred_by AS user_id, NULL AS id, 1 AS n FROM users INDEXED BY users_referred_at " +
-      "WHERE referred_at >= ?5 AND referred_by IN (SELECT value FROM json_each(?1))",
+      "SELECT referred_by AS user_id, NULL AS id, 1 AS n FROM users INDEXED BY users_referrer_referred " +
+      "WHERE referred_by IN (SELECT value FROM json_each(?1)) AND referred_at >= ?5",
   }),
 ];

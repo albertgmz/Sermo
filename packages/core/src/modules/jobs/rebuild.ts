@@ -1,6 +1,7 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import { writeTx } from "../../db/tx";
+import { reactionSummary } from "../../shared/reactions";
 import { type ClaimedJob, completeRunningJob, registerJobHandler } from "./queue";
 
 export const REBUILD_CHUNK_SIZES = {
@@ -22,7 +23,7 @@ const columns = {
   profile_posts: "id, comment_count, last_comment_at, reaction_counts",
   conversations:
     "id, created_at, user_id, message_count, participant_count, last_message_at, last_message_id, last_message_user_id",
-  posts: "id, reaction_counts",
+  posts: "id, reaction_counts, reaction_total",
   profile_post_comments: "id, reaction_counts",
   conversation_messages: "id, reaction_counts",
 } as const;
@@ -235,7 +236,11 @@ function expected(ctx: Ctx, stage: Stage, row: Row): Record<string, Value> {
       last_message_user_id: last?.user_id ?? row.user_id ?? 0,
     };
   }
-  return { reaction_counts: reactionCounts(ctx, reactionsFor[stage]!, id) };
+  const counts = reactionCounts(ctx, reactionsFor[stage]!, id);
+  // A post also keeps the total of its reactions.
+  return stage === "posts"
+    ? { reaction_counts: counts, reaction_total: reactionSummary(counts, undefined).total }
+    : { reaction_counts: counts };
 }
 
 /**

@@ -282,6 +282,7 @@ describe("job maintenance", () => {
       ["conversation_messages", message.id],
     ] as const)
       ctx.sqlite.prepare(`UPDATE ${table} SET reaction_counts = '{"99":9}' WHERE id = ?1`).run(id);
+    ctx.sqlite.prepare("UPDATE posts SET reaction_total = 99 WHERE id = ?1").run(reply.id);
     ctx.sqlite.exec(
       `CREATE TRIGGER untouched_user BEFORE UPDATE OF post_count, reaction_score ON users WHEN new.id = ${untouched.id} BEGIN SELECT RAISE(ABORT, 'correct row updated'); END`,
     );
@@ -379,6 +380,8 @@ describe("job maintenance", () => {
           )
           .get(id)?.reaction_counts,
       ).toBe('{"1":1}');
+    // The total a post's reactions add up to (what the most-reacted-post criterion reads).
+    expect(scalar("SELECT reaction_total AS n FROM posts WHERE id = ?1", reply.id)).toBe(1);
     expect(
       ctx.sqlite
         .prepare<{ n: number }, []>(

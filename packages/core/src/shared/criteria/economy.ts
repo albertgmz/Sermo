@@ -82,13 +82,12 @@ export const economySpecs: readonly Spec[] = [
     {
       shape: "scalar",
       sql:
-        "SELECT user_id, NULL AS id, sum(amount) AS n FROM credit_transactions INDEXED BY credit_transactions_user " +
+        "SELECT user_id, NULL AS id, sum(amount) AS n FROM credit_transactions INDEXED BY credit_transactions_user_created " +
         "WHERE user_id IN (SELECT value FROM json_each(?1)) AND created_at >= ?3 " +
         "AND type IN ('event', 'event_reversal', 'award', 'award_revoked') GROUP BY user_id",
     },
-    // Reads the member's whole ledger (see Needs: an index on `created_at`), and a member who earns
-    // credits per reaction would read it again for each one: the sweep only, until it has one.
-    { window: true, sweepOnly: true },
+    // A covering index on (member, date, type, amount): the window is a range seek.
+    { window: true },
   ),
   listed(
     "credits_from_rule",

@@ -564,6 +564,141 @@ describe("engagement criteria", () => {
     expect(asks(4)).toEqual([true, false]);
     expect(asks(5)).toEqual([false, false]);
   });
+
+  test("quoted_by_others counts quotes in other members' visible content, one for each quote", () => {
+    const { ctx, member, other, node } = world();
+    const t = thread(ctx, other, node);
+    const hidden = thread(ctx, other, node, 0, "deleted");
+    const own = thread(ctx, member, node);
+    const mine = post(ctx, own, member);
+    const quote = (type: string, id: number, by = member) =>
+      insertRow(
+        ctx,
+        "INSERT INTO content_quotes (content_type, content_id, quoted_post_id, quoted_user_id, created_at) VALUES (?1, ?2, ?3, ?4, 1)",
+        type,
+        id,
+        mine,
+        by,
+      );
+    // In another member's posts: one visible, one deleted, one in a deleted thread.
+    quote("post", post(ctx, t, other));
+    quote("post", post(ctx, t, other, "deleted"));
+    quote("post", post(ctx, hidden, other));
+    // In the member's own post: not by others.
+    quote("post", post(ctx, own, member));
+    // A post by another member that quotes two of the member's posts counts twice.
+    const twice = post(ctx, t, other);
+    quote("post", twice);
+    insertRow(
+      ctx,
+      "INSERT INTO content_quotes (content_type, content_id, quoted_post_id, quoted_user_id, created_at) VALUES ('post', ?1, ?2, ?3, 1)",
+      twice,
+      post(ctx, own, member),
+      member,
+    );
+    const wall = insertRow(
+      ctx,
+      "INSERT INTO profile_posts (profile_user_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'b', 'b')",
+      member,
+      other,
+    );
+    quote("profile_post", wall);
+    quote(
+      "profile_post_comment",
+      insertRow(
+        ctx,
+        "INSERT INTO profile_post_comments (profile_post_id, user_id, created_at, body_source, body_html) VALUES (?1, ?2, 1, 'b', 'b')",
+        wall,
+        other,
+      ),
+    );
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "quoted_by_others", value });
+    // Visible post, the two quotes of one post, profile post, comment.
+    expect(asks(5)).toEqual([true, false]);
+    expect(asks(6)).toEqual([false, false]);
+    // Once the thread is visible again its post counts.
+    ctx.sqlite.prepare("UPDATE threads SET state = 'visible' WHERE id = ?1").run(hidden);
+    expect(asks(6)).toEqual([true, false]);
+  });
+});
+
+describe("reaction criteria", () => {
+  /** A reaction of `typeId` by `from` on a post of `to`. */
+  const react = (ctx: Ctx, from: number, to: number, typeId: number, postId = 1) =>
+    insertRow(
+      ctx,
+      "INSERT INTO reactions (content_type, content_id, user_id, content_user_id, reaction_type_id, score, created_at) VALUES ('post', ?1, ?2, ?3, ?4, 1, 1)",
+      postId,
+      from,
+      to,
+      typeId,
+    );
+  const given = (
+    ctx: Ctx,
+    ids: number[],
+    value: number,
+    mode: "all" | "one" | "each",
+    who: number[],
+  ) => holdsFor(ctx, who, { criterion: "reactions_given_by_type", ids, value, mode });
+  const received = (
+    ctx: Ctx,
+    ids: number[],
+    value: number,
+    mode: "all" | "one" | "each",
+    who: number[],
+  ) => holdsFor(ctx, who, { criterion: "reactions_received_by_type", ids, value, mode });
+
+  test("reactions given and received are counted by type, in each, one and all mode", () => {
+    const { ctx, member, other } = world();
+    // The member gave 3 of type 1 and 1 of type 2; the other member gave 1 of type 1 to the member.
+    for (let n = 1; n <= 3; n++) react(ctx, member, other, 1, n);
+    react(ctx, member, other, 2, 4);
+    react(ctx, other, member, 1, 5);
+    const who = [member, other];
+    expect(given(ctx, [1, 2], 4, "all", who)).toEqual([true, false]);
+    expect(given(ctx, [1, 2], 5, "all", who)).toEqual([false, false]);
+    expect(given(ctx, [1, 2], 3, "one", who)).toEqual([true, false]);
+    expect(given(ctx, [1, 2], 4, "one", who)).toEqual([false, false]);
+    expect(given(ctx, [1, 2], 1, "each", who)).toEqual([true, false]);
+    expect(given(ctx, [1, 2], 2, "each", who)).toEqual([false, false]);
+    // A type nobody gave, and a type the member did not give.
+    expect(given(ctx, [3], 1, "one", who)).toEqual([false, false]);
+    expect(given(ctx, [2], 1, "one", [other])).toEqual([false]);
+    // Received is the other side of the same rows.
+    expect(received(ctx, [1, 2], 4, "all", who)).toEqual([false, true]);
+    expect(received(ctx, [1], 3, "one", who)).toEqual([false, true]);
+    expect(received(ctx, [1], 1, "one", who)).toEqual([true, true]);
+    expect(received(ctx, [1, 2], 1, "each", who)).toEqual([false, true]);
+    expect(received(ctx, [2], 1, "one", who)).toEqual([false, true]);
+  });
+
+  test("most_reacted_post reads the best visible post of a visible thread", () => {
+    const { ctx, member, other, node } = world();
+    const t = thread(ctx, other, node);
+    const hidden = thread(ctx, other, node, 0, "deleted");
+    const total = (postId: number, n: number) =>
+      ctx.sqlite.prepare("UPDATE posts SET reaction_total = ?2 WHERE id = ?1").run(postId, n);
+    total(post(ctx, t, member), 5);
+    total(post(ctx, t, member), 3);
+    // Posts that do not count: deleted, in a deleted thread.
+    total(post(ctx, t, member, "deleted"), 40);
+    total(post(ctx, hidden, member), 30);
+    total(post(ctx, t, other), 12);
+    const asks = (value: number) =>
+      holdsFor(ctx, [member, other], { criterion: "most_reacted_post", value });
+    expect(asks(5)).toEqual([true, true]);
+    expect(asks(6)).toEqual([false, true]);
+    expect(asks(13)).toEqual([false, false]);
+    // A member with posts but no reactions, and one with no posts, have none.
+    const quiet = insertUser(ctx).id;
+    post(ctx, t, quiet);
+    expect(holdsFor(ctx, [quiet], { criterion: "most_reacted_post", value: 1 })).toEqual([false]);
+    expect(holdsFor(ctx, [quiet], { criterion: "most_reacted_post", value: 0 })).toEqual([true]);
+    // Once the thread is visible again its post counts.
+    ctx.sqlite.prepare("UPDATE threads SET state = 'visible' WHERE id = ?1").run(hidden);
+    expect(asks(30)).toEqual([true, false]);
+  });
 });
 
 describe("moderation criteria", () => {

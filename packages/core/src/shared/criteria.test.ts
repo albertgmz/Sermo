@@ -104,6 +104,20 @@ const countCases = (criterion: string): Case[] => [
   ["nothing found", { value: 1 }, facts(), false],
   ["zero asked", { value: 0 }, facts(), true],
 ];
+/** The cases of a criterion that counts rows of each listed type, read in a mode (all added is the default). */
+const byTypeCases = (criterion: string): Case[] => {
+  const member = measured(criterion, { ids: [1, 2] }, counts([1, 10], [2, 20]));
+  return [
+    ["all added reach it", { ids: [1, 2], value: 30, mode: "all" }, member, true],
+    ["all added fall short", { ids: [1, 2], value: 31, mode: "all" }, member, false],
+    ["all added is the default", { ids: [1, 2], value: 30 }, member, true],
+    ["one type is enough", { ids: [1, 2], value: 20, mode: "one" }, member, true],
+    ["one type is not enough", { ids: [1, 2], value: 21, mode: "one" }, member, false],
+    ["each type must reach it", { ids: [1, 2], value: 20, mode: "each" }, member, false],
+    ["each type reaches it", { ids: [1, 2], value: 10, mode: "each" }, member, true],
+    ["none of that type", { ids: [1], value: 1, mode: "one" }, facts(), false],
+  ];
+};
 const all = (...conditions: Condition[]): Rule => ({ match: "all", conditions });
 const any = (...conditions: Condition[]): Rule => ({ match: "any", conditions });
 
@@ -318,6 +332,10 @@ const table: Record<string, Case[]> = {
   reports_resolved: countCases("reports_resolved"),
   moderator_actions: countCases("moderator_actions"),
   mentioned_by_others: countCases("mentioned_by_others"),
+  quoted_by_others: countCases("quoted_by_others"),
+  most_reacted_post: countCases("most_reacted_post"),
+  reactions_given_by_type: byTypeCases("reactions_given_by_type"),
+  reactions_received_by_type: byTypeCases("reactions_received_by_type"),
   days_since_last_post: [
     ["posted long ago", { value: 7 }, measured("days_since_last_post", {}, NOW - 8 * DAY), true],
     ["edge", { value: 7 }, measured("days_since_last_post", {}, NOW - 7 * DAY), true],

@@ -30,7 +30,6 @@ import {
   isRefreshedBy,
   loadFacts,
   membersAffected,
-  needsSweep,
   parseRule,
   type Rule,
   evaluate as ruleHolds,
@@ -376,8 +375,7 @@ const unchanged = (seen: Map<number, string>) => (p: PromotionRow) => seen.get(p
 export function evaluateMember(ctx: Ctx, userId: number): number {
   const first = one<MemberRow>(ctx, "member", memberSql, userId);
   if (!first) return 0;
-  // A rule that is too heavy for every event waits for the sweep (`needsSweep`).
-  const seenRows = evaluationRows(ctx).filter((p) => !needsSweep(planFor(p).rule));
+  const seenRows = evaluationRows(ctx);
   const facts = withFacts(ctx, [first], seenRows)[0]!.facts;
   const seen = new Map(seenRows.map((p) => [p.id, p.rule]));
   return writeTx(ctx, () => {
@@ -459,6 +457,11 @@ export const operations = [
         creditRules: prepared(ctx, "promotions.ruleCreditRules", () =>
           ctx.sqlite.prepare<{ id: number; title: string }, []>(
             "SELECT id, title FROM credit_rules ORDER BY id",
+          ),
+        ).all(),
+        reactionTypes: prepared(ctx, "promotions.ruleReactionTypes", () =>
+          ctx.sqlite.prepare<{ id: number; title: string }, []>(
+            "SELECT id, title FROM reaction_types ORDER BY position, id",
           ),
         ).all(),
       };

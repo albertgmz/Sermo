@@ -10,6 +10,7 @@ import { economySpecs } from "./criteria/economy";
 import { engagementSpecs } from "./criteria/engagement";
 import { moderationSpecs } from "./criteria/moderation";
 import { profileSpecs } from "./criteria/profile";
+import { reactionSpecs } from "./criteria/reactions";
 import { referralSpecs } from "./criteria/referrals";
 import {
   type Condition,
@@ -113,6 +114,7 @@ const specs: readonly Spec[] = [
   ...profileSpecs,
   ...moderationSpecs,
   ...engagementSpecs,
+  ...reactionSpecs,
   ...referralSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
@@ -171,6 +173,7 @@ const idTables: Record<IdKind, { table: string; noun: string; where?: string } |
   shopItems: { table: "shop_items", noun: "shop item" },
   shopCategories: { table: "shop_categories", noun: "shop category" },
   creditRules: { table: "credit_rules", noun: "credit rule" },
+  reactionTypes: { table: "reaction_types", noun: "reaction type" },
 };
 
 function takesText(spec: Spec): string {
@@ -461,10 +464,6 @@ export function afterAwardGrant(
       measure.set(award.id, (measure.get(award.id) ?? 0) + 1);
   }
 }
-
-/** Whether a rule holds a criterion too heavy to load on every event; the sweep decides those. */
-export const needsSweep = (rule: Rule): boolean =>
-  rule.conditions.some((condition) => byId.get(condition.criterion)?.sweepOnly === true);
 
 /**
  * The criteria in a rule that are answered by a measure: one statement for each such condition on

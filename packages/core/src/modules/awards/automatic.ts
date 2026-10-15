@@ -7,7 +7,6 @@ import {
   isRefreshedBy,
   loadFacts,
   membersAffected,
-  needsSweep,
   evaluate as ruleHolds,
 } from "../../shared/criteria";
 import { type ClaimedJob, completeRunningJob, enqueueJob, registerJobHandler } from "../jobs/queue";
@@ -83,8 +82,7 @@ function evaluate(ctx: Ctx, members: MemberRow[], plans: Plans, facts: Map<numbe
 
 export function evaluateMember(ctx: Ctx, userId: number): number {
   // With no automatic award there is nothing to look up (this runs after most activity).
-  // A rule that is too heavy for every event waits for the sweep (`needsSweep`).
-  const seen = activePlans(ctx).filter((plan) => !needsSweep(plan.rule));
+  const seen = activePlans(ctx);
   if (seen.length === 0) return 0;
   const facts = readFacts(ctx, [userId], seen);
   return writeTx(ctx, () => {

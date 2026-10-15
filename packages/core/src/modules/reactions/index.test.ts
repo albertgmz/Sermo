@@ -388,6 +388,37 @@ describe("reactions", () => {
       checkCounters(f, ref);
     });
   }
+  test("a post's reaction_total follows its reactions: added, changed, removed, by several members", async () => {
+    const f = fixture();
+    const [like, love] = [1, 2];
+    const total = () =>
+      f.ctx.sqlite
+        .prepare<{ reaction_total: number; reaction_counts: string }, [number]>(
+          "SELECT reaction_total, reaction_counts FROM posts WHERE id = ?1",
+        )
+        .get(f.post)!;
+    const target = { contentType: "post" as const, contentId: f.post };
+    const react = (user: ReturnType<typeof insertUser>, reactionTypeId: number) =>
+      execute(f.ctx, reactionsSetOp, userActor(user), { ...target, reactionTypeId });
+    expect(total().reaction_total).toBe(0);
+    await react(f.reactor, like);
+    await react(f.mod, love);
+    expect(total().reaction_total).toBe(2);
+    // Changing a reaction's type leaves the total as it is.
+    await react(f.reactor, love);
+    expect(total()).toEqual({ reaction_total: 2, reaction_counts: JSON.stringify({ [love]: 2 }) });
+    await execute(f.ctx, reactionsRemoveOp, userActor(f.mod), target);
+    expect(total().reaction_total).toBe(1);
+    await execute(f.ctx, reactionsRemoveOp, userActor(f.reactor), target);
+    expect(total()).toEqual({ reaction_total: 0, reaction_counts: "{}" });
+    // Other kinds of content have no total to keep.
+    await execute(f.ctx, reactionsSetOp, userActor(f.reactor), {
+      contentType: "profile_post",
+      contentId: f.profile,
+      reactionTypeId: like,
+    });
+    expect(total().reaction_total).toBe(0);
+  });
   test("rejects disabled groups and hidden content", async () => {
     const f = fixture();
     const type = await createType(f, 1);

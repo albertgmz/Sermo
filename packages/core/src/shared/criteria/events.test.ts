@@ -3,6 +3,7 @@ import { writeTx } from "../../db/tx";
 import { type DomainEvent, dispatchEvents, publishEvent } from "../../events";
 import { registerAwardJobs } from "../../modules/awards/automatic";
 import { registerPromotionJobs } from "../../modules/promotions";
+import { reactionsSetOp } from "../../modules/reactions";
 import { execute } from "../../operation";
 import { getOperation } from "../../operations";
 import { createTestContext, insertNode, insertUser, userActor } from "../../testing";
@@ -136,6 +137,73 @@ describe("events that change a criterion's fact", () => {
       replier.id,
     ]);
     expect(membersAffected(ctx, { ...created, targetType: "thread" }, [mentions])).toEqual([]);
+  });
+
+  test("new or edited content tells the authors it quotes", () => {
+    const { ctx, author, replier, post } = world();
+    const quoting = post(replier.id, 1);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO content_quotes (content_type, content_id, quoted_post_id, quoted_user_id, created_at) VALUES ('post', ?1, ?2, ?3, 1)",
+      )
+      .run(quoting, post(author.id, 2), author.id);
+    const created = {
+      id: 1,
+      type: "content.created",
+      targetType: "post",
+      targetId: quoting,
+      payload: {},
+      createdAt: 0,
+    } as const;
+    const quotes = rule({ criterion: "quoted_by_others", value: 1 });
+    expect(membersAffected(ctx, created, [quotes])).toEqual([author.id]);
+    expect(membersAffected(ctx, { ...created, type: "content.edited" }, [quotes])).toEqual([
+      author.id,
+    ]);
+    expect(membersAffected(ctx, { ...created, targetType: "thread" }, [quotes])).toEqual([]);
+    expect(
+      membersAffected(ctx, created, [rule({ criterion: "mentioned_by_others", value: 1 })]),
+    ).toEqual([]);
+  });
+
+  test("a reaction tells the member who gave it, for the reactions given", () => {
+    const { ctx, author, replier } = world();
+    const added = {
+      id: 1,
+      type: "reaction.added",
+      targetType: "post",
+      targetId: 1,
+      payload: { userId: replier.id, contentUserId: author.id, reactionTypeId: 1 },
+      createdAt: 0,
+    } as const;
+    const given = rule({ criterion: "reactions_given_by_type", ids: [1], value: 1 });
+    expect(membersAffected(ctx, added, [given])).toEqual([replier.id]);
+    // The receiver is followed by the consumers already; nothing to add for received or best post.
+    const received = rule({ criterion: "reactions_received_by_type", ids: [1], value: 1 });
+    expect(membersAffected(ctx, added, [received])).toEqual([]);
+    const best = rule({ criterion: "most_reacted_post", value: 1 });
+    expect(membersAffected(ctx, added, [best])).toEqual([]);
+  });
+
+  test("an award for reactions given is given to the member who reacted, at once", async () => {
+    const { ctx, admin, author, replier, post } = world();
+    const created = (await execute(ctx, getOperation("awards.create"), admin, {
+      name: "Reactor",
+      tier: "bronze",
+      rule: rule({ criterion: "reactions_given_by_type", ids: [1], value: 1, mode: "one" }),
+    })) as { id: number };
+    await execute(ctx, reactionsSetOp, userActor(replier), {
+      contentType: "post",
+      contentId: post(author.id, 1),
+      reactionTypeId: 1,
+    });
+    for (let i = 0; i < 5; i++) await dispatchEvents(ctx);
+    const holders = ctx.sqlite
+      .prepare<{ user_id: number }, [number]>(
+        "SELECT user_id FROM member_awards WHERE award_id = ?1 AND revoked_at IS NULL",
+      )
+      .all(created.id);
+    expect(holders.map((row) => row.user_id)).toEqual([replier.id]);
   });
 
   test("an award is given to the thread's author as soon as a reply makes the rule hold", async () => {

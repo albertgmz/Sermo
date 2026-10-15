@@ -201,7 +201,7 @@ describe("sweeps and member checks read history before they write", () => {
   });
 });
 
-describe("credits earned wait for the sweep", () => {
+describe("credits earned are decided by a member check", () => {
   const earned = rule({ criterion: "credits_earned", value: 5 });
   const ledger = (ctx: Ctx, userId: number) =>
     ctx.sqlite
@@ -210,38 +210,19 @@ describe("credits earned wait for the sweep", () => {
       )
       .run(userId);
 
-  test("an award on credits earned is given by the sweep, not by a member check", async () => {
+  test("an award on credits earned is given by a member check", async () => {
     const { ctx, member, award, holders } = world();
     await award("Earner", earned);
     ledger(ctx, member);
-    expect(awardMember(ctx, member)).toBe(0);
-    expect(holders()).toEqual([]);
-    sweepAwards(ctx, 0);
+    expect(awardMember(ctx, member)).toBe(1);
     expect(holders()).toEqual([member]);
   });
 
-  test("a promotion on credits earned is applied by the sweep, not by a member check", async () => {
+  test("a promotion on credits earned is applied by a member check", async () => {
     const { ctx, member, promotion, promoted } = world();
     await promotion("Earners", earned);
     ledger(ctx, member);
-    expect(promoteMember(ctx, member)).toBe(0);
-    expect(promoted()).toEqual([]);
-    sweepPromotions(ctx, 0);
+    expect(promoteMember(ctx, member)).toBe(1);
     expect(promoted()).toEqual([member]);
-  });
-
-  test("a rule that also holds other conditions is left to the sweep as a whole", async () => {
-    const { ctx, member, award, holders } = world();
-    await award("Mixed", {
-      match: "any",
-      conditions: [
-        { criterion: "credits_earned", value: 5 },
-        { criterion: "post_count", value: 0 },
-      ],
-    });
-    expect(awardMember(ctx, member)).toBe(0);
-    expect(holders()).toEqual([]);
-    sweepAwards(ctx, 0);
-    expect(holders()).toContain(member);
   });
 });
