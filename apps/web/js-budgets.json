@@ -58,7 +58,7 @@
     {
       "name": "developer",
       "match": "^/\\[locale\\]/\\(main\\)/developer$",
-      "maxBytes": 310000
+      "maxBytes": 231000
     },
     {
       "name": "other",

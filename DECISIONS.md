@@ -2737,3 +2737,21 @@ to 3% above them.  Known limits: finished-string props would not take the ICU pa
 layout, because the phone bar and the avatar button format live unread counts; visits that end
 before the page has loaded are not counted by the analytics provider; the swap and the replay have
 not been seen in a browser.
+
+**The public API reference (item 31).** `/developer` is a public, indexable page that draws the
+existing `/api/v1/openapi.json` with Swagger UI (`swagger-ui-dist`, exact pin), served from the
+site: a lazy chunk fetched after hydration on this page only (about 430 KB gzipped, against about
+1.4 MB for Scalar and 25 packages plus Vue), no CDN script or font, and no third-party request (the
+validator is off; Scalar names four hosts of its own). Swagger UI's built-in dark look follows the
+site's `dark` class; its palette is not the site's tokens. The whole spec is shown, staff operations
+included, marked by what they need and answering 401, 403 or 404 to others. "Try it out" sends real
+requests (the intro says so) and runs as the visitor (same origin, the session cookie the browser
+already holds) or with an API key pasted into Authorize, which the library keeps in memory only (no
+persistence, no address fragment). The page reads the spec without cookies, points the server at its
+own origin, hides the cookie schemes (a browser cannot set a cookie by hand) and adds the JSON
+content type to bodyless writes, which the API demands of cookie writes. The intro, in English and
+Spanish, says how to sign in, that a key is created with the sign-in service while signed in and
+needs the password, what a key cannot do (DECISIONS "API keys are credentials"), and how the API
+refuses; it states no limit numbers. The page's first load has its own budget group (231000 bytes;
+218.8 KiB measured). Known limits: Swagger UI's labels are English, the web has no API keys page to
+link from, and non-`/api` operations of the spec work only behind the ingress.
