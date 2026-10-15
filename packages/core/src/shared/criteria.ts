@@ -1,112 +1,42 @@
-import type * as z from "zod";
 import { type Actor, actorUserId } from "../actor";
 import type { Ctx } from "../context";
 import { prepared } from "../context";
-import type { CriteriaCondition, CriteriaRule } from "../contracts/criteria";
 import { ValidationError } from "../errors";
+import { withIds, withValue, yes } from "./criteria/build";
+import { contentSpecs } from "./criteria/content";
+import {
+  type Condition,
+  type CostClass,
+  DAY,
+  type Facts,
+  type IdKind,
+  measureKey,
+  type Rule,
+  type Source,
+  type Spec,
+} from "./criteria/types";
 
 /**
  * The one engine that answers "who does this apply to". A rule is `{ match, conditions }`; a
- * condition names a criterion of the registry below plus what it needs (`value` or `ids`).
- * `evaluate` is the only place a rule is decided; consumers store rules, load facts with
- * `loadFacts` (or `actorFacts` for the member making a request) and call it.
+ * condition names a criterion of the registry below plus what it needs (`value`, `ids`, a window
+ * of `days`, a `mode`). `evaluate` is the only place a rule is decided; consumers store rules,
+ * load facts with `loadFacts` (or `actorFacts` for the member making a request) and call it.
  *
- * Every criterion has a cost class. `cheap` ones read the member's own row or one indexed lookup
- * and may be checked while a request is served; `background` ones are heavier and only run where
- * the check is a background job (promotions, awards). A consumer states which it allows and
- * refuses the rest with `assertRule`.
+ * Every criterion has a cost class. `cheap` ones read the member's own row or answer from one
+ * indexed lookup and may be checked while a request is served; `background` ones count or sum the
+ * member's history and only run where the check is a background job (promotions, awards). A
+ * consumer states which it allows and refuses the rest with `assertRule`. The criteria of each
+ * area live in `criteria/`; the first ones, on the member's own row, are below.
  */
-export type Rule = z.infer<typeof CriteriaRule>;
-export type Condition = z.infer<typeof CriteriaCondition>;
-export type CostClass = "cheap" | "background";
+export type { Condition, CostClass, Facts, Rule };
 
 /** The rule that matches everyone. */
 export const everyone = (): Rule => ({ match: "all", conditions: [] });
 
-/** What a member's facts are loaded from: one query per source, only when a condition asks. */
-type Source = "none" | "member" | "warnings" | "purchases" | "groups";
-
-/** Everything the registry's criteria read about one member (or a guest). */
-export interface Facts {
-  /** Null for a guest, who has no row, groups or history. */
-  memberId: number | null;
-  /** Epoch ms the facts are judged at. */
-  now: number;
-  postCount: number;
-  createdAt: number;
-  reactionScore: number;
-  emailVerified: boolean;
-  hasAvatar: boolean;
-  lastActivityAt: number | null;
-  credits: number;
-  purchaseCount: number;
-  /** Unexpired warning points. */
-  warningPoints: number;
-  /** Of the shop items some condition asks about, the ones the member bought. */
-  purchasedItemIds: ReadonlySet<number>;
-  /** Every group the member holds: primary, assigned by hand, granted by a promotion or bought. */
-  groupIds: ReadonlySet<number>;
-}
-
-const DAY = 86_400_000;
-
-interface Spec {
-  id: string;
-  kind: "atLeast" | "atMost" | "below" | "boolean" | "item" | "groups" | "members";
-  unit: "count" | "days" | "points" | "boolean" | "item" | "groups" | "members";
-  /** Which of `value` (a number) or `ids` (a list) the condition carries. */
-  input: "value" | "ids";
-  cost: CostClass;
-  source: Source;
-  /** Whether a guest can satisfy it; every other criterion is false for a guest. */
-  guests: boolean;
-  holds(facts: Facts, condition: Condition): boolean;
-}
-
-function withValue(
-  id: string,
-  kind: Spec["kind"],
-  unit: Spec["unit"],
-  source: Source,
-  test: (facts: Facts, value: number) => boolean,
-  cost: CostClass = "cheap",
-  guests = false,
-): Spec {
-  return {
-    id,
-    kind,
-    unit,
-    input: "value",
-    cost,
-    source,
-    guests,
-    holds: (facts, condition) => condition.value !== undefined && test(facts, condition.value),
-  };
-}
-function withIds(
-  id: string,
-  kind: Spec["kind"],
-  unit: Spec["unit"],
-  source: Source,
-  test: (facts: Facts, ids: readonly number[]) => boolean,
-  guests = false,
-): Spec {
-  return {
-    id,
-    kind,
-    unit,
-    input: "ids",
-    cost: "cheap",
-    source,
-    guests,
-    holds: (facts, condition) => condition.ids !== undefined && test(facts, condition.ids),
-  };
-}
-const yes = (holds: boolean, value: number) => Number(holds) === value;
-
 /**
  * The registry. Boolean criteria take 1 when the property must hold and 0 when it must not;
- * `purchased_item` takes a shop item id. A new criterion is one entry here (and its phrases).
+ * `purchased_item` takes a shop item id. A new criterion is one entry here or in `criteria/` (and
+ * its phrases).
  */
 const specs: readonly Spec[] = [
   withValue("post_count", "atLeast", "count", "member", (f, v) => f.postCount >= v),
@@ -156,17 +86,9 @@ const specs: readonly Spec[] = [
     "cheap",
     true,
   ),
-  withIds(
-    "in_group",
-    "groups",
-    "groups",
-    "groups",
-    (f, ids) => ids.some((id) => f.groupIds.has(id)),
-    true,
-  ),
+  withIds("in_group", "groups", "groups", (f, ids) => ids.some((id) => f.groupIds.has(id)), true),
   withIds(
     "not_in_group",
-    "groups",
     "groups",
     "groups",
     (f, ids) => !ids.some((id) => f.groupIds.has(id)),
@@ -175,12 +97,17 @@ const specs: readonly Spec[] = [
   withIds(
     "is_member",
     "members",
-    "members",
     "none",
     (f, ids) => f.memberId !== null && ids.includes(f.memberId),
   ),
+  ...contentSpecs,
 ];
 const byId = new Map(specs.map((spec) => [spec.id, spec]));
+
+/** The statement of every measured criterion, for tests that check their plans. */
+export const criteriaMeasures = specs.flatMap((spec) =>
+  spec.measure ? [{ id: spec.id, sql: spec.measure.sql }] : [],
+);
 
 export const criterionDefinitions = specs.map((spec) => ({
   id: spec.id,
@@ -189,6 +116,9 @@ export const criterionDefinitions = specs.map((spec) => ({
   kind: spec.kind,
   unit: spec.unit,
   cost: spec.cost,
+  idKind: spec.takes.ids,
+  window: spec.takes.window,
+  modes: [...spec.takes.modes],
 }));
 
 /** The only place a rule is decided. A condition that names no known criterion never holds. */
@@ -202,22 +132,47 @@ export function evaluate(rule: Rule, facts: Facts): boolean {
   return rule.match === "all" ? rule.conditions.every(holds) : rule.conditions.some(holds);
 }
 
-/** The groups a rule reads (`in_group`, `not_in_group`), for consumers that must not depend on them. */
-export function groupsReadBy(rule: Rule): number[] {
+/** The ids of one kind that a rule reads. */
+function idsReadBy(rule: Rule, kind: IdKind): number[] {
   return rule.conditions.flatMap((condition) =>
-    byId.get(condition.criterion)?.kind === "groups" ? (condition.ids ?? []) : [],
+    byId.get(condition.criterion)?.takes.ids === kind ? (condition.ids ?? []) : [],
   );
 }
 
+/** The groups a rule reads (`in_group`, `not_in_group`), for consumers that must not depend on them. */
+export const groupsReadBy = (rule: Rule): number[] => idsReadBy(rule, "groups");
+
 export const parseRule = (json: string): Rule => JSON.parse(json) as Rule;
+
+/** The tables whose rows an id list names, and how an unknown id is called. Members are not checked. */
+const idTables: Record<IdKind, { table: string; noun: string } | null> = {
+  groups: { table: "groups", noun: "group" },
+  members: null,
+  threads: { table: "threads", noun: "thread" },
+  awards: { table: "awards", noun: "award" },
+  shopItems: { table: "shop_items", noun: "shop item" },
+  shopCategories: { table: "shop_categories", noun: "shop category" },
+  creditRules: { table: "credit_rules", noun: "credit rule" },
+};
+
+function takesText(spec: Spec): string {
+  const { takes } = spec;
+  const parts: string[] = [];
+  if (takes.value) parts.push("a number");
+  if (takes.ids) parts.push("a list of ids");
+  if (takes.window) parts.push("an optional window of days");
+  if (takes.modes.length > 0) parts.push(`an optional mode (${takes.modes.join(", ")})`);
+  return parts.length > 0 ? parts.join(", ") : "nothing";
+}
 
 /**
  * Refuses a rule a consumer may not store: an unknown criterion, a condition that lacks (or has
- * too much of) what its criterion takes, a group that does not exist, or, when `allowed` is
- * `cheap`, a `background` criterion. `background` allows every criterion.
+ * too much of) what its criterion takes, an id that does not exist (groups, threads, awards, shop
+ * items and categories, credit rules), or, when `allowed` is `cheap`, a `background` criterion.
+ * `background` allows every criterion.
  */
 export function assertRule(ctx: Ctx, rule: Rule, allowed: CostClass): void {
-  const groups = new Set<number>();
+  const named = new Map<IdKind, Set<number>>();
   for (const condition of rule.conditions) {
     const spec = byId.get(condition.criterion);
     if (!spec) throw new ValidationError(`Unknown criterion: ${condition.criterion}`);
@@ -225,29 +180,38 @@ export function assertRule(ctx: Ctx, rule: Rule, allowed: CostClass): void {
       throw new ValidationError(
         `The criterion ${spec.id} is too heavy to check while a request is served.`,
       );
-    if (spec.input === "value") {
-      if (condition.value === undefined || condition.ids !== undefined)
-        throw new ValidationError(`The criterion ${spec.id} takes a value.`);
-      if (spec.kind === "boolean" && condition.value > 1)
-        throw new ValidationError("Boolean criterion must be 0 or 1.");
-    } else {
-      if (condition.ids === undefined || condition.value !== undefined)
-        throw new ValidationError(`The criterion ${spec.id} takes a list of ids.`);
-      if (spec.kind === "groups") for (const id of condition.ids) groups.add(id);
+    const { takes } = spec;
+    if (
+      (takes.value ? condition.value === undefined : condition.value !== undefined) ||
+      (takes.ids ? condition.ids === undefined : condition.ids !== undefined) ||
+      (!takes.window && condition.days !== undefined) ||
+      (condition.mode !== undefined && !takes.modes.includes(condition.mode))
+    )
+      throw new ValidationError(`The criterion ${spec.id} takes ${takesText(spec)}.`);
+    if (spec.kind === "boolean" && condition.value! > 1)
+      throw new ValidationError("Boolean criterion must be 0 or 1.");
+    if (takes.ids && condition.ids) {
+      const ids = named.get(takes.ids) ?? new Set<number>();
+      for (const id of condition.ids) ids.add(id);
+      named.set(takes.ids, ids);
     }
   }
-  if (groups.size === 0) return;
-  const known = new Set(
-    prepared(ctx, "shared.criteriaGroups", () =>
-      ctx.sqlite.prepare<{ id: number }, [string]>(
-        "SELECT id FROM groups WHERE id IN (SELECT value FROM json_each(?1))",
-      ),
-    )
-      .all(JSON.stringify([...groups]))
-      .map((row) => row.id),
-  );
-  const missing = [...groups].filter((id) => !known.has(id));
-  if (missing.length > 0) throw new ValidationError(`Unknown group: ${missing.join(", ")}.`);
+  for (const [kind, ids] of named) {
+    const names = idTables[kind];
+    if (!names) continue;
+    const known = new Set(
+      prepared(ctx, `shared.criteriaIds.${kind}`, () =>
+        ctx.sqlite.prepare<{ id: number }, [string]>(
+          `SELECT id FROM ${names.table} WHERE id IN (SELECT value FROM json_each(?1))`,
+        ),
+      )
+        .all(JSON.stringify([...ids]))
+        .map((row) => row.id),
+    );
+    const missing = [...ids].filter((id) => !known.has(id));
+    if (missing.length > 0)
+      throw new ValidationError(`Unknown ${names.noun}: ${missing.join(", ")}.`);
+  }
 }
 
 const noFacts = (memberId: number | null, now: number): Facts => ({
@@ -264,6 +228,7 @@ const noFacts = (memberId: number | null, now: number): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  measures: new Map(),
 });
 
 /** The facts of a guest. */
@@ -281,9 +246,26 @@ type MemberRow = {
   email_verified: number;
 };
 
+type MeasureRow = { user_id: number; id: number | null; n: number | null };
+
+/** The values a measure's statement is given: members, ids, window start, now, month start. */
+export function measureSlots(condition: Condition, members: string, now: number, sql: string) {
+  const month = new Date(now);
+  const slots = [
+    members,
+    JSON.stringify([...new Set(condition.ids ?? [])]),
+    condition.days === undefined ? 0 : now - condition.days * DAY,
+    now,
+    Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1),
+  ];
+  const used = Math.max(...[...sql.matchAll(/\?(\d)/g)].map((match) => Number(match[1])));
+  return slots.slice(0, used);
+}
+
 /**
  * The facts of a page of members for the given rules: one query per kind of fact, and only for
- * the kinds some condition reads. Nothing is queried per member.
+ * the kinds some condition reads. Nothing is queried per member. A measured criterion costs one
+ * query for each distinct combination of criterion, ids and window that the rules name.
  */
 export function loadFacts(
   ctx: Ctx,
@@ -295,6 +277,7 @@ export function loadFacts(
   if (facts.size === 0) return facts;
   const sources = new Set<Source>();
   const itemIds = new Set<number>();
+  const measured = new Map<string, { spec: Spec; condition: Condition }>();
   for (const rule of rules)
     for (const condition of rule.conditions) {
       const spec = byId.get(condition.criterion);
@@ -302,6 +285,7 @@ export function loadFacts(
       sources.add(spec.source);
       if (spec.id === "purchased_item" && condition.value !== undefined)
         itemIds.add(condition.value);
+      if (spec.measure) measured.set(measureKey(condition), { spec, condition });
     }
   const ids = JSON.stringify([...facts.keys()]);
   const set = (id: number, change: Partial<Facts>) => Object.assign(facts.get(id)!, change);
@@ -357,6 +341,19 @@ export function loadFacts(
       groups.set(row.user_id, memberGroups);
     }
     for (const [id, memberGroups] of groups) set(id, { groupIds: memberGroups });
+  }
+  for (const [key, { spec, condition }] of measured) {
+    const { sql, shape } = spec.measure!;
+    const perId = shape === "perId";
+    if (perId) for (const memberFacts of facts.values()) memberFacts.measures.set(key, new Map());
+    for (const row of prepared(ctx, `shared.criteria.${spec.id}`, () =>
+      ctx.sqlite.prepare<MeasureRow, (string | number)[]>(sql),
+    ).all(...measureSlots(condition, ids, now, sql))) {
+      const memberFacts = facts.get(row.user_id);
+      if (!memberFacts || row.n === null) continue;
+      if (perId) (memberFacts.measures.get(key) as Map<number, number>).set(row.id!, row.n);
+      else memberFacts.measures.set(key, row.n);
+    }
   }
   return facts;
 }

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { Award } from "../contracts/awards";
 import { CriteriaRule, NonEmptyCriteriaRule } from "../contracts/criteria";
 import { NoticeDetail } from "../contracts/notices";
@@ -37,9 +37,9 @@ test("every consumer decides a rule only by calling the engine's evaluate", () =
 });
 
 test("nothing outside the engine reads a condition's criterion", () => {
-  const engine = join(src, "shared", "criteria.ts");
+  const engine = join(src, "shared", "criteria");
   const offenders = sources(src)
-    .filter((file) => file !== engine)
+    .filter((file) => file !== `${engine}.ts` && !file.startsWith(`${engine}${sep}`))
     .filter((file) =>
       /\.criterion\b|\bcriterion\s*===|case "post_count"/.test(readFileSync(file, "utf8")),
     )

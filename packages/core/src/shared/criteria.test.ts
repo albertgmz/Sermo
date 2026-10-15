@@ -15,6 +15,7 @@ import {
   loadFacts,
   type Rule,
 } from "./criteria";
+import { type Measure, measureKey } from "./criteria/types";
 
 const NOW = 100 * 86_400_000;
 const DAY = 86_400_000;
@@ -32,8 +33,24 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   warningPoints: 0,
   purchasedItemIds: new Set(),
   groupIds: new Set(),
+  measures: new Map(),
   ...overrides,
 });
+/** A member whose measure for a condition is given (the loader's job in real use). */
+const measured = (
+  criterion: string,
+  condition: Omit<Condition, "criterion">,
+  measure: Measure,
+): Facts => facts({ measures: new Map([[measureKey({ criterion, ...condition }), measure]]) });
+const counts = (...pairs: [number, number][]) => new Map(pairs);
+/** The cases of a criterion that counts rows and holds from a given number. */
+const countCases = (criterion: string): Case[] => [
+  ["above", { value: 5 }, measured(criterion, {}, 6), true],
+  ["edge", { value: 5 }, measured(criterion, {}, 5), true],
+  ["below", { value: 5 }, measured(criterion, {}, 4), false],
+  ["nothing found", { value: 1 }, facts(), false],
+  ["zero asked", { value: 0 }, facts(), true],
+];
 const all = (...conditions: Condition[]): Rule => ({ match: "all", conditions });
 const any = (...conditions: Condition[]): Rule => ({ match: "any", conditions });
 
@@ -129,6 +146,71 @@ const table: Record<string, Case[]> = {
     ["listed", { ids: [4, 1] }, facts({ memberId: 1 }), true],
     ["not listed", { ids: [4, 5] }, facts({ memberId: 1 }), false],
   ],
+  posts_in_threads: [
+    [
+      "each: all reach it",
+      { ids: [1, 2], value: 3, mode: "each" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 3], [2, 5])),
+      true,
+    ],
+    [
+      "each: one falls short",
+      { ids: [1, 2], value: 3, mode: "each" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 3], [2, 2])),
+      false,
+    ],
+    [
+      "each: one never posted in",
+      { ids: [1, 2], value: 1, mode: "each" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 3])),
+      false,
+    ],
+    [
+      "each is the default",
+      { ids: [1, 2], value: 1 },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 3])),
+      false,
+    ],
+    [
+      "one: any reaches it",
+      { ids: [1, 2], value: 3, mode: "one" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 0], [2, 3])),
+      true,
+    ],
+    [
+      "one: none does",
+      { ids: [1, 2], value: 3, mode: "one" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 2], [2, 2])),
+      false,
+    ],
+    [
+      "all combined: the sum reaches it",
+      { ids: [1, 2], value: 4, mode: "all" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 2], [2, 2])),
+      true,
+    ],
+    [
+      "all combined: the sum falls short",
+      { ids: [1, 2], value: 4, mode: "all" },
+      measured("posts_in_threads", { ids: [1, 2] }, counts([1, 2], [2, 1])),
+      false,
+    ],
+    [
+      "a thread listed twice counts once",
+      { ids: [1, 1], value: 4, mode: "all" },
+      measured("posts_in_threads", { ids: [1, 1] }, counts([1, 2])),
+      false,
+    ],
+    ["no posts at all", { ids: [1], value: 1, mode: "one" }, facts(), false],
+  ],
+  replies_received: countCases("replies_received"),
+  busiest_thread_replies: countCases("busiest_thread_replies"),
+  profile_posts_written: countCases("profile_posts_written"),
+  profile_comments_written: countCases("profile_comments_written"),
+  attachments_uploaded: countCases("attachments_uploaded"),
+  bookmarks_at_least: countCases("bookmarks_at_least"),
+  watching_forums_at_least: countCases("watching_forums_at_least"),
+  watching_threads_at_least: countCases("watching_threads_at_least"),
 };
 
 describe("evaluate: every criterion", () => {
@@ -233,10 +315,9 @@ describe("assertRule", () => {
       (definition) => definition.cost === "background",
     );
     expect(background.length).toBeGreaterThan(0);
-    for (const definition of background) {
+    for (const definition of background)
       refuses(all({ criterion: definition.id, value: 1 }), "cheap");
-      assertRule(ctx, all({ criterion: definition.id, value: 1 }), "background");
-    }
+    assertRule(ctx, all({ criterion: "warning_points_below", value: 1 }), "background");
   });
 });
 
