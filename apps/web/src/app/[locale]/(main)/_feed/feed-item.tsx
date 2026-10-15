@@ -12,6 +12,7 @@ import { PostAttachments } from "@/app/[locale]/(main)/threads/[id]/post-attachm
 import { Art } from "@/components/forum/art";
 import { CoverBackdrop } from "@/components/forum/cover-backdrop";
 import { FeatureMark } from "@/components/forum/feature-mark";
+import { HideForumButton } from "@/components/forum/hide-forum-button";
 import { HtmlContent } from "@/components/forum/html-content";
 import { LevelBadge } from "@/components/forum/level";
 import { LineComposer } from "@/components/forum/line-composer";
@@ -86,6 +87,7 @@ function Card({
   count,
   noun,
   views,
+  hideForum,
   answers,
   children,
 }: {
@@ -105,6 +107,8 @@ function Card({
   count: number;
   noun: "comments" | "replies";
   views?: number;
+  // The forum a member may keep out of their own feed from the card.
+  hideForum?: { id: number; title: string };
   // What sits under the card's actions: the comments, the composer.
   answers?: React.ReactNode;
   children: React.ReactNode;
@@ -185,6 +189,13 @@ function Card({
           </span>
         )}
         <ShareButton href={href} className={messageActionClass} />
+        {hideForum && (
+          <HideForumButton
+            nodeId={hideForum.id}
+            title={hideForum.title}
+            className={messageActionClass}
+          />
+        )}
       </footer>
       {answers && <div className="px-4 pb-4">{answers}</div>}
     </article>
@@ -341,6 +352,11 @@ export function FeedItem({
       count={thread.replyCount}
       noun="replies"
       views={isThread ? thread.viewCount : undefined}
+      hideForum={
+        viewerId === null
+          ? undefined
+          : { id: thread.node.id, title: thread.node.title }
+      }
       answers={
         item.canReply && (
           <div id={`${anchor}-comment`} className="scroll-mt-24">

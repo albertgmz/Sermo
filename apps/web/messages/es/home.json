@@ -27,6 +27,7 @@
       "hot": "Nada está en tendencia ahora mismo. Los hilos con algunas respuestas o reacciones aparecerán aquí."
     },
     "emptyTitle": "Aún no hay nada aquí",
+    "emptyFiltered": "Ningún tema coincide con estos filtros. Quita uno o quítalos todos.",
     "loadMore": "Cargar más"
   },
   "media": {

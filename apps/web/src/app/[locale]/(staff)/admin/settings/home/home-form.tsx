@@ -1,10 +1,16 @@
-import { HOME_TABS, MAX_HOME_TAB_RULES } from "@sermo/core/contracts";
+import {
+  HOME_TABS,
+  MAX_HOME_TAB_RULES,
+  nodesList,
+} from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { Fragment } from "react";
+import { ForumChecks } from "@/components/forum/forum-checks";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { RuleField } from "@/components/staff/rule-field";
 import { Input } from "@/components/ui/input";
+import { read } from "@/lib/sermo/client";
 import { saveHomeTab } from "../actions";
 import { getSettings } from "../data";
 import { Shown } from "../shown";
@@ -12,9 +18,10 @@ import { Shown } from "../shown";
 // The rules are rows of the form in the order they are stored, then one empty row to add a rule
 // (while there is room). A row with no tab chosen is left out when the form is saved.
 export async function HomeForm() {
-  const [t, settings] = await Promise.all([
+  const [t, settings, nodes] = await Promise.all([
     getTranslations("adminSetup.pages.home"),
     getSettings(),
+    read(nodesList, {}),
   ]);
   const { rules, fallback } = settings.homeTab;
   const rows = [...rules, ...(rules.length < MAX_HOME_TAB_RULES ? [null] : [])];
@@ -84,6 +91,20 @@ export async function HomeForm() {
         >
           {tabs}
         </select>
+      </FieldRow>
+      {/* The forums left out of the feed are one setting, replaced as a whole. */}
+      <Shown name="feedExcludedForumIds" />
+      <FieldRow
+        name="feedExcludedForumIds"
+        label={t("excludedLabel")}
+        help={t("excludedHelp")}
+      >
+        <ForumChecks
+          name="feedExcludedForumIds"
+          label={t("excludedLabel")}
+          forums={nodes.items}
+          checked={new Set(settings.feedExcludedForumIds)}
+        />
       </FieldRow>
     </FormRows>
   );

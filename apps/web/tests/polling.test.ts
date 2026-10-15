@@ -48,7 +48,7 @@ test("every poll is a server action that makes one backend call without settling
     expect(code, file).not.toMatch(/\bcall\(|\bread\(|getViewer\(/);
   }
   const feed = source("app/[locale]/(main)/_feed/feed-actions.ts");
-  expect(feed).toMatch(/pollQuietly\(\(\) => callForPoll\(feedNewCount/);
+  expect(feed).toMatch(/pollQuietly\(\(\) =>\s+callForPoll\(feedNewCount/);
 });
 
 test("the polling screens use the one hook, at their interval", () => {

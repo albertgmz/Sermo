@@ -201,3 +201,59 @@ test("the line a deleted account lands on is shown for that notice only", async 
   expect(await render()).not.toContain(line);
   expect(await render({ notice: "other" })).not.toContain(line);
 });
+
+test("a filter in the address narrows the feed and is shown as chips that take each field off", async () => {
+  backend({ member: true });
+  const html = await render({
+    tab: "latest",
+    forums: "3,4",
+    prefix: "2",
+    type: "sticky",
+    tag: "rust",
+    watched: "1",
+    unread: "1",
+  });
+  const feed = asked.find((entry) => entry.path === FEED);
+  expect(feed?.search.get("scope")).toBe("latest");
+  expect(feed?.search.getAll("forumIds")).toEqual(["3", "4"]);
+  expect(feed?.search.get("prefixId")).toBe("2");
+  expect(feed?.search.get("type")).toBe("sticky");
+  expect(feed?.search.get("tag")).toBe("rust");
+  expect(feed?.search.get("watched")).toBe("true");
+  expect(feed?.search.get("unread")).toBe("true");
+  // Forum and prefix names come from their own reads, made because the filter has them.
+  expect(paths()).toContain("/api/v1/thread-prefixes");
+  expect(html).toContain("Filters (7)");
+  // Each chip leads to the same view without its field.
+  expect(html).toContain(
+    'href="/?tab=latest&amp;forums=3%2C4&amp;prefix=2&amp;type=sticky&amp;watched=1&amp;unread=1"',
+  );
+  expect(html).toContain(
+    'href="/?tab=latest&amp;forums=4&amp;prefix=2&amp;type=sticky&amp;tag=rust&amp;watched=1&amp;unread=1"',
+  );
+  expect(html).toContain('href="/?tab=latest"');
+  expect(html).toContain("No threads match these filters");
+});
+
+test("without a filter the bar is a button only, and nothing more is read for it", async () => {
+  backend({ member: true });
+  const html = await render({ tab: "latest" });
+  expect(html).toContain(">Filters<");
+  expect(paths()).not.toContain("/api/v1/thread-prefixes");
+  expect(paths()).not.toContain("/api/v1/feed/options");
+  expect(html).not.toContain("Clear filters");
+  expect(
+    asked.find((entry) => entry.path === FEED)?.search.has("forumIds"),
+  ).toBe(false);
+});
+
+test("a filter that is malformed is dropped, and the other tabs have no filter bar", async () => {
+  backend({ member: true });
+  await render({ tab: "latest", forums: "x,y", type: "pinned", watched: "0" });
+  const feed = asked.find((entry) => entry.path === FEED);
+  expect([...(feed?.search.keys() ?? [])].sort()).toEqual(["scope"]);
+  for (const tab of ["forums", "media"]) {
+    backend({ member: true });
+    expect(await render({ tab, unread: "1" })).not.toContain("Feed filters");
+  }
+});

@@ -39,6 +39,8 @@
       "positionLabel": "Position",
       "positionHelp": "Rules are tried from the lowest position. Equal positions keep the order shown.",
       "fallbackLabel": "Everyone else opens on",
+      "excludedLabel": "Left out of the feed",
+      "excludedHelp": "Threads in the forums you tick (and the forums under them) are never listed in the home feed, for anyone, even when a filter names the forum. The forums themselves stay open everywhere else. A member can also hide forums from their own feed.",
       "fallbackHelp": "Following needs an account, so a rule that guests can meet cannot open on it, and neither can the fallback.",
       "tabs": {
         "latest": "Latest",

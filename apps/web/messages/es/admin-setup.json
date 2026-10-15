@@ -39,6 +39,8 @@
       "positionLabel": "Posición",
       "positionHelp": "Las reglas se prueban desde la posición más baja. Con posiciones iguales se mantiene el orden mostrado.",
       "fallbackLabel": "Todos los demás se abren en",
+      "excludedLabel": "Fuera del inicio",
+      "excludedHelp": "Los temas de los foros que marques (y de los foros que hay dentro) no se muestran nunca en el inicio, para nadie, ni siquiera cuando un filtro nombra el foro. Los foros siguen abiertos en todo lo demás. Cada miembro también puede ocultar foros de su propio inicio.",
       "fallbackHelp": "Siguiendo necesita una cuenta, así que una regla que pueden cumplir los invitados no puede abrir en ella, ni tampoco la pestaña de reserva.",
       "tabs": {
         "latest": "Recientes",

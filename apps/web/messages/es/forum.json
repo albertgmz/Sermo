@@ -9,6 +9,69 @@
     "failed": "No se guardó. Inténtalo de nuevo.",
     "busy": "Otro cambio se está guardando todavía. Espera un momento e inténtalo de nuevo."
   },
+  "feedFilters": {
+    "title": "Filtrar el inicio",
+    "description": "Muestra solo lo que quieres ver. Un foro que ocultas de tu inicio sigue fuera hasta que lo marques aquí.",
+    "button": "Filtros",
+    "buttonCount": "Filtros ({count})",
+    "loading": "Cargando los filtros…",
+    "loadError": "No se pudieron cargar o guardar los filtros. Cierra esto e inténtalo de nuevo.",
+    "followed": "Solo personas a las que sigo",
+    "followedHelp": "Abre la pestaña Siguiendo con estos filtros.",
+    "forumsLabel": "Foros",
+    "forumsHelp": "Temas de los foros que marques y de los foros que hay dentro. No marques ninguno para ver todos.",
+    "hideForum": "Ocultar {title} de mi inicio",
+    "showForum": "Volver a mostrar {title} en mi inicio",
+    "hiddenNote": "Un foro con el ojo tachado no aparece en tu inicio salvo que lo marques arriba. El sitio también puede dejar fuera algunos foros para todos.",
+    "prefixLabel": "Prefijo",
+    "anyPrefix": "Cualquier prefijo",
+    "typeLabel": "Tipo de tema",
+    "anyType": "Cualquier tema",
+    "types": {
+      "featured": "Recomendados (elegidos por el equipo y promocionados)",
+      "sticky": "Fijados",
+      "locked": "Cerrados"
+    },
+    "tagLabel": "Etiqueta",
+    "tagPlaceholder": "rust",
+    "watchedLabel": "Solo temas que sigo",
+    "watchedHelp": "Los 500 temas que seguiste más recientemente.",
+    "unreadLabel": "Solo sin leer",
+    "unreadHelp": "Temas con mensajes que no has leído, de los últimos 30 días.",
+    "signInNote": "Inicia sesión para filtrar por los temas y las personas que sigues, por lo que no has leído y para guardar filtros.",
+    "savedHeading": "Filtros guardados",
+    "savedEmpty": "Todavía no hay nada guardado. Ajusta los filtros de arriba, ponles nombre y guárdalos.",
+    "savedCount": "{count} de {limit} guardados",
+    "saveName": "Nombre",
+    "saveButton": "Guardar",
+    "saveHelp": "Guarda los filtros tal como están arriba. Un nombre que ya usaste se reemplaza.",
+    "deleteSaved": "Eliminar el filtro guardado {name}",
+    "apply": "Ver resultados",
+    "clear": "Quitar"
+  },
+  "hideForumButton": {
+    "label": "Ocultar {title} de mi inicio",
+    "failed": "No funcionó. Inténtalo de nuevo."
+  },
+  "feedFilterBar": {
+    "aria": {
+      "filters": "Filtros del inicio",
+      "remove": "Quitar el filtro {label}"
+    },
+    "forum": "Foro: {title}",
+    "forumUnknown": "Un foro",
+    "prefix": "Prefijo: {label}",
+    "prefixUnknown": "Un prefijo",
+    "types": {
+      "featured": "Recomendados",
+      "sticky": "Fijados",
+      "locked": "Cerrados"
+    },
+    "tag": "#{tag}",
+    "watched": "Temas que sigo",
+    "unread": "Sin leer",
+    "clear": "Quitar filtros"
+  },
   "featureMark": {
     "featured": "Recomendado",
     "promoted": "Promocionado"

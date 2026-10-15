@@ -278,3 +278,11 @@ test("a reply entry reads as its thread: the title, how it started, then the new
   expect(reply).toBeGreaterThan(opener);
   expect(html).toContain("replied to a thread in");
 });
+
+test("a signed-in member can hide the forum of a thread card from their feed; a guest and a wall post have no such button", async () => {
+  const label = /aria-label="Hide [^"]* from my feed"/;
+  for (const type of ["thread", "post"] as const)
+    expect(await render(threadItem(type, true), MEMBER)).toMatch(label);
+  expect(await render(threadItem("thread", true), null)).not.toMatch(label);
+  expect(await render(wallItem(), MEMBER)).not.toMatch(label);
+});

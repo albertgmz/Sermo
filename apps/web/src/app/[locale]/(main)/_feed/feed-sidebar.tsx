@@ -138,9 +138,11 @@ async function Trending() {
   );
 }
 
+// The newest threads by the date they were started: "latest" says what it sorts by (the home
+// feed's Latest tab is the one by activity).
 async function LatestThreads() {
   const { items } = await read(threadsRanked, {
-    by: "latestPosts",
+    by: "latestThreads",
     limit: LIST_SIZE,
   });
   const member = await membersFor(items.flatMap(threadMembers));
@@ -152,11 +154,8 @@ async function LatestThreads() {
         <div key={thread.id} className="px-4 py-2.5">
           <ThreadTitle thread={thread} member={member} />
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <UserLink
-              user={member(thread.lastPost.user.id)}
-              className="font-medium"
-            />{" "}
-            · <RelativeTime date={thread.lastPost.postedAt} />
+            <UserLink user={member(thread.author.id)} className="font-medium" />{" "}
+            · <RelativeTime date={thread.createdAt} />
           </p>
         </div>
       ))}

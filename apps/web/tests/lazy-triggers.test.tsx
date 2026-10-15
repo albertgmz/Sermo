@@ -24,6 +24,7 @@ const navigation = { ...(await import("next/navigation")) };
 mock.module("next/navigation", () => ({
   ...navigation,
   usePathname: () => "/",
+  useRouter: () => ({ push() {}, refresh() {} }),
 }));
 
 type Captured = {
@@ -55,6 +56,9 @@ const { MemberCardTrigger } = await import(
   "@/components/forum/member-card-trigger"
 );
 const { LazyTooltip } = await import("@/components/ui/lazy-tooltip");
+const { FeedFiltersButton } = await import(
+  "@/components/forum/feed-filters-button"
+);
 
 type Tag = { name: string; attributes: Record<string, string> };
 
@@ -178,6 +182,13 @@ const cases: [string, () => React.ReactNode, boolean][] = [
       <MemberCardTrigger id={3} href="/members/3" name="ember">
         ember
       </MemberCardTrigger>
+    ),
+    true,
+  ],
+  [
+    "the feed filters button",
+    () => (
+      <FeedFiltersButton tab="latest" filter={{ unread: true }} count={1} />
     ),
     true,
   ],

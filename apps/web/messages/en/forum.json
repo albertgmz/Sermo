@@ -9,6 +9,69 @@
     "failed": "That did not save. Try again.",
     "busy": "Another change is still saving. Wait a moment and try again."
   },
+  "feedFilters": {
+    "title": "Filter the feed",
+    "description": "Show only what you want to see. A forum you hide from your feed stays out until you tick it here.",
+    "button": "Filters",
+    "buttonCount": "Filters ({count})",
+    "loading": "Loading the filters…",
+    "loadError": "The filters could not be loaded or saved. Close this and try again.",
+    "followed": "Only people I follow",
+    "followedHelp": "Opens the Following tab with these filters.",
+    "forumsLabel": "Forums",
+    "forumsHelp": "Threads in the forums you tick and in the forums under them. Tick none for every forum.",
+    "hideForum": "Hide {title} from my feed",
+    "showForum": "Show {title} in my feed again",
+    "hiddenNote": "A forum with a crossed-out eye stays out of your feed unless you tick it above. The site may also leave some forums out for everyone.",
+    "prefixLabel": "Prefix",
+    "anyPrefix": "Any prefix",
+    "typeLabel": "Thread type",
+    "anyType": "Any thread",
+    "types": {
+      "featured": "Featured (staff picks and promoted)",
+      "sticky": "Pinned",
+      "locked": "Locked"
+    },
+    "tagLabel": "Hashtag",
+    "tagPlaceholder": "rust",
+    "watchedLabel": "Only threads I follow",
+    "watchedHelp": "The 500 threads you followed most recently.",
+    "unreadLabel": "Only unread",
+    "unreadHelp": "Threads with posts you have not read, from the last 30 days.",
+    "signInNote": "Sign in to filter by the threads and people you follow, by what you have not read, and to save filters.",
+    "savedHeading": "Saved filters",
+    "savedEmpty": "Nothing saved yet. Set the filters above, name them and save.",
+    "savedCount": "{count} of {limit} saved",
+    "saveName": "Name",
+    "saveButton": "Save",
+    "saveHelp": "Saves the filters as they are set above. A name you used before is replaced.",
+    "deleteSaved": "Delete the saved filter {name}",
+    "apply": "Show results",
+    "clear": "Clear"
+  },
+  "hideForumButton": {
+    "label": "Hide {title} from my feed",
+    "failed": "That did not work. Try again."
+  },
+  "feedFilterBar": {
+    "aria": {
+      "filters": "Feed filters",
+      "remove": "Remove the filter {label}"
+    },
+    "forum": "Forum: {title}",
+    "forumUnknown": "A forum",
+    "prefix": "Prefix: {label}",
+    "prefixUnknown": "A prefix",
+    "types": {
+      "featured": "Featured",
+      "sticky": "Pinned",
+      "locked": "Locked"
+    },
+    "tag": "#{tag}",
+    "watched": "Threads I follow",
+    "unread": "Unread",
+    "clear": "Clear filters"
+  },
   "featureMark": {
     "featured": "Featured",
     "promoted": "Promoted"

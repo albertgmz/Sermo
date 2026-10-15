@@ -27,6 +27,7 @@
       "hot": "Nothing is hot right now. Threads with a few replies or reactions will show up here."
     },
     "emptyTitle": "Nothing here yet",
+    "emptyFiltered": "No threads match these filters. Take one off, or clear them all.",
     "loadMore": "Load more"
   },
   "media": {

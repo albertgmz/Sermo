@@ -963,3 +963,46 @@ test("a refusal naming a rule is shown on the row it came from, whatever the ord
   });
   expect(expired).toEqual([]);
 });
+
+test("the forums left out of the feed are sent whole by the home screen, none ticked clears them, and a form that did not show them leaves them alone", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const rule = [
+    ["homeTab.rules.0.rule", everyone],
+    ["homeTab.rules.0.tab", "hot"],
+    ["homeTab.fallback", "latest"],
+  ] as [string, string][];
+  await redirectedTo(() =>
+    saveHomeTab(
+      null,
+      form(
+        [...rule, ["feedExcludedForumIds", "3"], ["feedExcludedForumIds", "5"]],
+        "homeTab",
+        "feedExcludedForumIds",
+      ),
+    ),
+  );
+  expect(sent()?.[0]?.body).toMatchObject({ feedExcludedForumIds: [3, 5] });
+  await redirectedTo(() =>
+    saveHomeTab(null, form(rule, "homeTab", "feedExcludedForumIds")),
+  );
+  expect(sent()?.[1]?.body).toMatchObject({ feedExcludedForumIds: [] });
+  await redirectedTo(() => saveHomeTab(null, form(rule, "homeTab")));
+  expect(sent()?.[2]?.body).not.toHaveProperty("feedExcludedForumIds");
+});
+
+test("a forum id that is not an id is refused before anything is sent", async () => {
+  backend = fakeBackend({ "settings.update": read });
+  const state = await saveHomeTab(
+    null,
+    form(
+      [
+        ["homeTab.fallback", "latest"],
+        ["feedExcludedForumIds", "3x"],
+      ],
+      "homeTab",
+      "feedExcludedForumIds",
+    ),
+  );
+  expect(state).toHaveProperty("error");
+  expect(sent()).toEqual([]);
+});

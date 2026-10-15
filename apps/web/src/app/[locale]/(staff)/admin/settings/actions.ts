@@ -326,7 +326,8 @@ export async function saveLevels(
 // The rules of the home tab, in the order of the form's rows and then by the position typed in
 // each (equal positions keep the order of the rows). A row with no tab chosen is dropped; `rows`
 // remembers which form row each sent rule came from, for the backend's per-rule messages. The
-// rules and the fallback are replaced as a whole, so only by a form that showed them.
+// rules and the fallback are replaced as a whole, so only by a form that showed them. The same
+// screen holds the forums the feed leaves out for everyone, a list replaced as a whole too.
 export async function saveHomeTab(
   _previous: StaffFormState,
   formData: FormData,
@@ -366,6 +367,14 @@ export async function saveHomeTab(
   }
   entries.sort((a, b) => a.position - b.position || a.row - b.row);
   const rows = entries.map((entry) => entry.row);
+  if (shownKeys(formData).has("feedExcludedForumIds")) {
+    const ids = formData
+      .getAll("feedExcludedForumIds")
+      .map((value) => parseId(String(value)));
+    if (ids.some((id) => id === null))
+      return { error: await invalidArgument() };
+    parsed.body.feedExcludedForumIds = ids;
+  }
   parsed.body.homeTab = {
     rules: entries.map(({ rule, tab }) => ({ rule, tab })),
     fallback: text(formData, "homeTab.fallback"),
@@ -374,6 +383,7 @@ export async function saveHomeTab(
     back: "/admin/settings/home",
     known: (name) =>
       name === "homeTab.fallback" ||
+      name === "feedExcludedForumIds" ||
       /^homeTab\.rules\.\d+\.(rule|tab)$/.test(name),
     rename: (path) =>
       path[0] === "homeTab" &&

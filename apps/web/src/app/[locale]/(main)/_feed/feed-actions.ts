@@ -3,14 +3,22 @@
 import { feedNewCount } from "@sermo/core/contracts";
 import { feedPage, tabOf } from "@/app/[locale]/(main)/_feed/feed-page";
 import { mediaPage } from "@/app/[locale]/(main)/_feed/media-page";
+import type { FeedFilterValue } from "@/lib/feed-filters";
 import { call, callForPoll } from "@/lib/sermo/client";
 import { endQuietly } from "@/lib/sermo/list-actions";
 import { type PollStop, pollQuietly } from "@/lib/sermo/poll-actions";
 
 // A page of the feed after the first, drawn on the server so the cards keep reading the session
-// and the LITE cookie. Called as the visitor scrolls; `null` is the first page (a refresh).
-export async function moreFeed(tab: string, cursor: string | null) {
-  return endQuietly(() => feedPage(tabOf(tab), cursor ?? undefined, call));
+// and the LITE cookie. Called as the visitor scrolls; `null` is the first page (a refresh). The
+// filter is the one the list was drawn with; the backend refuses what it does not accept.
+export async function moreFeed(
+  tab: string,
+  filter: FeedFilterValue,
+  cursor: string | null,
+) {
+  return endQuietly(() =>
+    feedPage(tabOf(tab), cursor ?? undefined, call, filter),
+  );
 }
 
 // How many entries are newer than `since`, the time of the newest one the visitor holds: usually
@@ -18,11 +26,14 @@ export async function moreFeed(tab: string, cursor: string | null) {
 // members' tab without an account) or a session that ended answers `stop`.
 export async function newFeedCount(
   tab: string,
+  filter: FeedFilterValue,
   since: string,
 ): Promise<{ count: number; more: boolean } | PollStop> {
   const scope = tab === "following" ? "following" : "latest";
   if (tab !== scope) return { stop: true };
-  return pollQuietly(() => callForPoll(feedNewCount, { scope, since }));
+  return pollQuietly(() =>
+    callForPoll(feedNewCount, { scope, since, ...filter }),
+  );
 }
 
 // A page of the media tab after the first, drawn on the server like the feed's.

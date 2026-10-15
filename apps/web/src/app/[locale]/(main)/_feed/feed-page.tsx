@@ -1,5 +1,6 @@
 import { feedList } from "@sermo/core/contracts";
 import { FeedItem } from "@/app/[locale]/(main)/_feed/feed-item";
+import type { FeedFilterValue } from "@/lib/feed-filters";
 import type { ListPage } from "@/lib/list-pages";
 import { read } from "@/lib/sermo/client";
 import { authorsFor } from "@/lib/sermo/members";
@@ -17,14 +18,16 @@ export function tabOf(value: unknown): Tab {
   return TABS.find((tab) => tab === value) ?? "latest";
 }
 
-// One page of the feed, drawn: the home page's first page and each page the browser asks for.
+// One page of the feed, drawn: the home page's first page and each page the browser asks for. The
+// filter narrows it; the backend decides what each field means and who may use it.
 export async function feedPage(
   tab: Tab,
   cursor?: string,
   reader: typeof read = read,
+  filter: FeedFilterValue = {},
 ): Promise<ListPage> {
   const [feed, viewer, reactionTypes] = await Promise.all([
-    reader(feedList, { scope: tab, cursor }),
+    reader(feedList, { scope: tab, cursor, ...filter }),
     getViewer(),
     getReactionTypes(),
   ]);

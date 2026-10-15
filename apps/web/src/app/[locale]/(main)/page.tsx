@@ -25,6 +25,7 @@ import {
 import { postToWall } from "@/app/[locale]/(main)/members/actions";
 import { PostComposer } from "@/app/[locale]/(main)/members/post-composer";
 import { EmptyState } from "@/components/forum/empty-state";
+import { FeedFilterBar } from "@/components/forum/feed-filter-bar";
 import { PagedList } from "@/components/forum/paged-list";
 import { PictureViewer } from "@/components/forum/picture-viewer";
 import {
@@ -37,6 +38,12 @@ import { TabLinks } from "@/components/forum/tab-links";
 import { UserAvatar } from "@/components/forum/user-avatar";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  feedHref,
+  filterFromParams,
+  filterKey,
+  isFiltered,
+} from "@/lib/feed-filters";
 import {
   barOf,
   type HomeTab,
@@ -225,7 +232,10 @@ async function HomeTabs({ searchParams }: PageProps<"/[locale]">) {
       ) : tab === "media" ? (
         <HomeMedia params={params} />
       ) : (
-        <HomeFeed tab={tab} params={params} />
+        <>
+          <FeedFilterBar tab={tab} filter={filterFromParams(params)} />
+          <HomeFeed tab={tab} params={params} />
+        </>
       )}
     </>
   );
@@ -236,23 +246,24 @@ type Params = Awaited<PageProps<"/[locale]">["searchParams"]>;
 async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
   const t = await getTranslations("home.page");
   const cursor = typeof params.cursor === "string" ? params.cursor : undefined;
-  const first = await feedPage(tab, cursor);
+  const filter = filterFromParams(params);
+  const first = await feedPage(tab, cursor, undefined, filter);
 
   return first.rows.length === 0 && !first.nextCursor ? (
     <EmptyState
       icon={Rss}
       title={t("emptyTitle")}
-      description={t(`empty.${tab}`)}
+      description={isFiltered(filter) ? t("emptyFiltered") : t(`empty.${tab}`)}
       className="rounded-lg border bg-card"
     />
   ) : (
     <PagedList
       first={first}
-      more={moreFeed.bind(null, tab)}
+      more={moreFeed.bind(null, tab, filter)}
       pages={pagesParam(params.pages)}
       start={cursor}
-      listKey={["feed", tab]}
-      hrefBase={homeHref(tab)}
+      listKey={["feed", tab, filterKey(filter)]}
+      hrefBase={feedHref(tab, filter)}
       moreLabel={t("loadMore")}
       estimateSize={320}
       spacing="spaced"
@@ -260,7 +271,7 @@ async function HomeFeed({ tab, params }: { tab: Tab; params: Params }) {
         tab === "hot"
           ? undefined
           : {
-              check: newFeedCount.bind(null, tab),
+              check: newFeedCount.bind(null, tab, filter),
               intervalMs: POLL_MS.feed,
             }
       }
