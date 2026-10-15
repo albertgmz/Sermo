@@ -93,7 +93,7 @@ export const profileCommentsCreateOp = implement(profileCommentsCreate, (ctx, ac
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
-      requireWriteRoom(ctx, actor, "comment");
+      requireWriteRoom(ctx, actor, "comment", decision.floodSeconds);
       const row = prepared(ctx, "profiles.insertComment", () =>
         ctx.sqlite.prepare<CommentRow, [number, number, string, number, string, string]>(
           "INSERT INTO profile_post_comments (profile_post_id, user_id, state, created_at, body_source, body_html) VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING *",

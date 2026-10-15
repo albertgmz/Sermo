@@ -199,12 +199,16 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: MEMBERS_UNLIMITED,
   },
-  /** Embed pictures and media from other sites; without it they are shown as links. */
-  "antispam.embedExternalMedia": {
+  /**
+   * Pictures and media from other sites in the member's text are shown as links. A restriction,
+   * not a grant, so that a group made before it existed keeps embedding; administrators never
+   * hold it.
+   */
+  "antispam.externalMediaAsLinks": {
     scope: "global",
     category: "general",
     type: "flag",
-    defaults: MEMBERS,
+    defaults: { admin: "never" },
     requiresAccount: true,
   },
   /** Write again sooner than the site's flood interval allows. */

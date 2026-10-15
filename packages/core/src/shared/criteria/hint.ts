@@ -1,7 +1,7 @@
 import { type Language, phrase } from "../../i18n";
-import { criterionDefinitions } from "../criteria";
+import { criterionDefinitions, evaluate } from "../criteria";
 import { titleFor } from "../language";
-import type { Condition, Rule } from "./types";
+import type { Condition, Facts, Rule } from "./types";
 
 type Definition = (typeof criterionDefinitions)[number];
 
@@ -56,4 +56,29 @@ export function lockHint(language: Language, rule: Rule): string {
   return phrase(language, "reaction.lock.hint", {
     requirements: joined(language, rule.match === "all" ? "and" : "or", parts),
   });
+}
+
+/** What one condition asks, as a member reads it: the phrase of `lockHint`, or just the criterion's title when it is too involved to phrase (a list, a mode). A window is added. */
+function requirement(language: Language, condition: Condition): string {
+  const definition = definitionOf.get(condition.criterion);
+  const title = definition
+    ? titleFor(language, definition.label, definition.id)
+    : condition.criterion;
+  const text = conditionPhrase(language, condition) ?? title;
+  return condition.days === undefined ? text : `${text} (in the last ${condition.days} days)`;
+}
+
+/**
+ * What a member who does not hold the rule is missing, in the criteria's own labels: the
+ * conditions that fail ("Post count: 3 or more; Email verified"), or "one of: ..." with every
+ * condition when any one would do. Null when the member holds the rule.
+ */
+export function unmetRequirements(language: Language, rule: Rule, facts: Facts): string | null {
+  if (evaluate(rule, facts)) return null;
+  if (rule.match === "any")
+    return `one of: ${rule.conditions.map((condition) => requirement(language, condition)).join("; ")}`;
+  return rule.conditions
+    .filter((condition) => !evaluate({ match: "all", conditions: [condition] }, facts))
+    .map((condition) => requirement(language, condition))
+    .join("; ");
 }

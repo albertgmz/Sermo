@@ -312,7 +312,7 @@ export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, i
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
-      requireWriteRoom(ctx, actor, "wall_post");
+      requireWriteRoom(ctx, actor, "wall_post", decision.floodSeconds);
       if (
         !prepared(ctx, "profiles.userExists", () =>
           ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),

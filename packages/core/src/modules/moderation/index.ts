@@ -1288,8 +1288,8 @@ export const prepareModeratedContent = markPublic(
       ).all(userId, settings.firstPostsToModerate).length < settings.firstPostsToModerate;
     return {
       source: filtered.source,
-      /** Whether the member may embed pictures and media from other sites. */
-      externalMedia: can(ctx, actor, "antispam.embedExternalMedia"),
+      /** The site's flood interval, for `requireWriteRoom`. */
+      floodSeconds: settings.floodSeconds,
       /** The site's links rule as it stood when the content was prepared. */
       linksRule: settings.linksRule,
       moderated:
@@ -1303,11 +1303,22 @@ export const prepareModeratedContent = markPublic(
   },
 );
 
+/** The author of text being edited, as an actor (the editor's own actor when they are the author). */
+function authorOf(ctx: Ctx, editor: Actor, authorId: number | undefined): Actor {
+  if (authorId === undefined || authorId === actorUserId(editor)) return editor;
+  const row = prepared(ctx, "moderation.editedAuthor", () =>
+    ctx.sqlite.prepare<PrincipalRow & { id: number; group_id: number }, [number]>(
+      `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id = ?1`,
+    ),
+  ).get(authorId);
+  return row ? memberActor(row.id, row.group_id, row, currentVersions(ctx)) : editor;
+}
+
 /**
  * Renders content that went through `prepareModeratedContent`, applying the rules about links:
  * a text with a link, or a picture or media from another site, is refused unless the member
- * holds the site's links rule (not when staff edit someone else's text), and without the
- * permission to embed outside media those pictures and players are shown as links. Decided here,
+ * holds the site's links rule (not when staff edit someone else's text), and for an author held
+ * to `antispam.externalMediaAsLinks` those pictures and players are shown as links. Decided here,
  * at write time, because the stored HTML is what every read serves.
  */
 export const renderModeratedContent = markPublic(
@@ -1322,7 +1333,13 @@ export const renderModeratedContent = markPublic(
     const ruled =
       content.linksRule.conditions.length > 0 &&
       !(options?.edit && options.edit.authorId !== actorUserId(actor));
-    if (!ruled && content.externalMedia) return refs;
+    // Whose pictures these are: the author's, when staff edit someone else's text.
+    const asLinks = can(
+      ctx,
+      authorOf(ctx, actor, options?.edit?.authorId),
+      "antispam.externalMediaAsLinks",
+    );
+    if (!ruled && !asLinks) return refs;
     const own = ownHosts([
       ctx.config.siteBaseURL,
       ctx.config.auth?.baseURL,
@@ -1335,7 +1352,7 @@ export const renderModeratedContent = markPublic(
         throw new ForbiddenError(message, [{ path: ["body"], message }]);
       }
     }
-    if (content.externalMedia) return refs;
+    if (!asLinks) return refs;
     return {
       ...refs,
       html: externalMediaAsLinks(refs.html, own),

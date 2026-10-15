@@ -357,7 +357,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
-      requireWriteRoom(ctx, actor, "conversation");
+      requireWriteRoom(ctx, actor, "conversation", decision.floodSeconds);
       const conversationId = Number(
         prepared(ctx, "conversations.insertConversation", () =>
           ctx.sqlite.prepare(
@@ -484,7 +484,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       const decision = prepareModeratedContent(ctx, actor, input.body, false);
       if (decision.source !== content.source || decision.moderated !== content.moderated)
         throw new ConflictError("Moderation rules changed; retry.");
-      requireWriteRoom(ctx, actor, "message");
+      requireWriteRoom(ctx, actor, "message", decision.floodSeconds);
       const id = Number(
         prepared(ctx, "conversations.insertMessage", () =>
           ctx.sqlite.prepare(

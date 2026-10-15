@@ -752,8 +752,6 @@ export const threads = sqliteTable(
     // threads.ranked latestThreads, per forum: WHERE node_id = ? AND state = ? ORDER BY id DESC
     index("threads_node_state_id").on(t.nodeId, t.state, t.id),
     index("threads_user_id").on(t.userId, t.id),
-    // Daily thread limit: threads a member started since a time, index-only.
-    index("threads_user_created").on(t.userId, t.createdAt),
     index("threads_cover").on(t.coverId).where(sql`cover_id IS NOT NULL`),
     // threads.list: WHERE node_id = ? AND is_sticky = ? ORDER BY sort_at DESC, id DESC
     index("threads_node_sort").on(t.nodeId, t.isSticky, t.sortAt, t.id),
@@ -830,8 +828,6 @@ export const posts = sqliteTable(
     index("posts_user").on(t.userId, t.state, t.threadId),
     index("posts_state_id").on(t.state, t.id),
     index("posts_user_id").on(t.userId, t.id),
-    // Daily post limit: posts a member made since a time, index-only.
-    index("posts_user_created").on(t.userId, t.createdAt),
   ],
 );
 
@@ -956,7 +952,7 @@ export const conversations = sqliteTable(
     isLocked: bool("is_locked").notNull().default(false),
   },
   (t) => [
-    // Daily conversation limit: conversations a member started since a time, index-only.
+    // Daily conversation limit: the date of the member's Nth newest conversation.
     index("conversations_user_created").on(t.userId, t.createdAt),
   ],
 );

@@ -1364,7 +1364,7 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       if (decision.source !== content.source)
         throw new ConflictError("Moderation rules changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, input.nodeId);
-      requireWriteRoom(ctx, actor, "thread");
+      requireWriteRoom(ctx, actor, "thread", decision.floodSeconds);
       if (input.prefixId !== null) requireActivePrefix(ctx, input.prefixId);
       const state =
         decision.moderated ||
@@ -1448,7 +1448,7 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
       if (current.node_id !== row.node_id || current.state !== row.state)
         throw new ConflictError("Thread changed; retry.");
       const settings = checkNodePostingRules(ctx, actor, current.node_id);
-      requireWriteRoom(ctx, actor, "reply");
+      requireWriteRoom(ctx, actor, "reply", decision.floodSeconds);
       const state =
         decision.moderated ||
         spam ||

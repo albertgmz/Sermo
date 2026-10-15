@@ -600,14 +600,14 @@ Every limit is checked on the backend, inside the write. Settings are changed wi
 | `antispam.negativeReactionsPerDay`: reactions whose type has a negative score, given in 24 hours. Turning a kind reaction into one counts as giving it then. | integer permission | -1 |
 | `linksRule`: a rule (the one rule builder, cheap criteria only) a member must hold to post a link, or a picture or media from another site; the refusal names what is missing. Links to the site itself and code are not links. Staff editing someone else's text are exempt. | setting | empty rule (everyone) |
 | `approvalRule`: new threads and replies by members who do not hold this rule wait for approval, in addition to `firstPostsToModerate` and each forum's switches. Not applied to edits, wall posts or messages. | setting | empty rule (nobody held) |
-| `antispam.embedExternalMedia`: without it, pictures and players from other sites are shown as links, fixed when the text is saved (the text the member wrote is kept). | flag permission | all built-in groups |
+| `antispam.externalMediaAsLinks`: a member held to it has pictures and players from other sites shown as links, fixed when the text is saved (the text the member wrote is kept; when staff edit someone else's text the author's setting applies). A restriction, so groups made before it existed keep embedding. | flag permission | nobody; Administrator `never` |
 | `antispam.bypassFlood` | flag permission | Moderator, Administrator |
 | `antispam.bypassWordFilter`, `antispam.bypassSpamCheck` | flag permissions | Administrator |
 
 Daily limits count the member's rows of the last 24 hours, whatever became of them (deleted and
 held ones count). For an integer, `-1` and `0` both mean no limit, so a group created before
 the limit existed is not shut out; to stop a group writing, take its posting permission away.
-Integers take the highest value across a member's groups, as everywhere.
+Integers take the highest value across a member's groups and `-1` beats every number, as everywhere: to limit new members, lower the Registered group and do not give `-1` to a group they also belong to. A member whose primary group is a custom one with no entry has no limit.
 
 ### Approval queue
 

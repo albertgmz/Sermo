@@ -456,13 +456,20 @@ export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
     // Giving a negative reaction (or turning a kind one into it) spends the daily budget.
     const negative = type.score < 0;
     if (negative && (previous?.score ?? 0) >= 0) requireNegativeReactionRoom(ctx, actor);
-    if (previous) {
-      // A reaction turned negative counts as given now, or it would keep its old date.
+    // A kind reaction turned negative is a new reaction: a new row, so that its id and date
+    // are the newest (ids grow with time; the standings bisect on them), and it spends the budget.
+    const turnedNegative = negative && previous != null && previous.score >= 0;
+    if (previous && turnedNegative) {
+      prepared(ctx, "reactions.remove", () =>
+        ctx.sqlite.prepare<unknown, [number]>("DELETE FROM reactions WHERE id = ?1"),
+      ).run(previous.id);
+    }
+    if (previous && !turnedNegative) {
       prepared(ctx, "reactions.change", () =>
-        ctx.sqlite.prepare<unknown, [number, number, number, number]>(
-          "UPDATE reactions SET reaction_type_id = ?1, score = ?2, created_at = CASE WHEN ?2 < 0 AND score >= 0 THEN ?4 ELSE created_at END WHERE id = ?3",
+        ctx.sqlite.prepare<unknown, [number, number, number]>(
+          "UPDATE reactions SET reaction_type_id = ?1, score = ?2 WHERE id = ?3",
         ),
-      ).run(type.id, type.score, previous.id, ctx.now());
+      ).run(type.id, type.score, previous.id);
     } else {
       prepared(ctx, "reactions.insert", () =>
         ctx.sqlite.prepare<unknown, [string, number, number, number, number, number, number]>(

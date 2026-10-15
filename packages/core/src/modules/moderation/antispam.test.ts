@@ -8,7 +8,8 @@ import { execute } from "../../operation";
 import { PERMISSION_IDS } from "../../permissions/registry";
 import { conversationsCreateOp, conversationsReplyOp } from "../conversations";
 import { postsCreateOp, postsUpdateOp, threadsCreateOp } from "../forums";
-import { profileCommentsCreateOp, profilePostsCreateOp } from "../profiles";
+import { refreshStandings } from "../members/standings";
+import { profileCommentsCreateOp, profilePostsCreateOp, profilePostsUpdateOp } from "../profiles";
 import { reactionsSetOp, reactionTypesCreateOp } from "../reactions";
 import { readSiteSettings, type SiteSettingsValue, updateSiteSettings } from "../settings";
 import { dailyLimits, floodClockSql } from "./limits";
@@ -313,18 +314,19 @@ describe("daily limits", () => {
   test("the daily counts are indexed range counts", () => {
     const f = fixture();
     const wanted = {
-      "antispam.postsPerDay": "posts_user_created",
-      "antispam.threadsPerDay": "threads_user_created",
+      "antispam.postsPerDay": "posts_user_id",
+      "antispam.threadsPerDay": "threads_user_id",
       "antispam.conversationsPerDay": "conversations_user_created",
       "antispam.negativeReactionsPerDay": "reactions_negative_given",
     } as const;
     for (const [permission, { sql }] of Object.entries(dailyLimits)) {
       const plan = f.ctx.sqlite
-        .prepare<{ detail: string }, [number, number, number]>(`EXPLAIN QUERY PLAN ${sql}`)
-        .all(1, 0, 10)
+        .prepare<{ detail: string }, [number, number]>(`EXPLAIN QUERY PLAN ${sql}`)
+        .all(1, 4)
         .map((row) => row.detail);
       const index = wanted[permission as keyof typeof wanted];
-      expect(plan.some((detail) => detail.includes(`SEARCH`) && detail.includes(index))).toBe(true);
+      expect(plan.some((detail) => detail.includes("SEARCH") && detail.includes(index))).toBe(true);
+      expect(plan.join(String.fromCharCode(10))).not.toContain("TEMP B-TREE");
       expect(
         plan.some((detail) => /\bSCAN (?!\()/.test(detail) && !detail.includes("SUBQUERY")),
       ).toBe(false);
@@ -406,6 +408,55 @@ describe("negative reactions per day", () => {
     await rejects(react(posts[1]!, bad), RateLimitedError);
   });
 
+  test("turning a kind reaction negative adds a newer row, so ids still grow with time", async () => {
+    const { f, kind, bad, posts, react } = await reactionFixture();
+    await react(posts[0]!, kind);
+    f.ctx.clock.advance(3 * DAY);
+    await react(posts[1]!, kind);
+    const rows = () =>
+      f.ctx.sqlite
+        .prepare<{ id: number; content_id: number; score: number; created_at: number }, []>(
+          "SELECT id, content_id, score, created_at FROM reactions ORDER BY id",
+        )
+        .all();
+    const oldMax = Math.max(...rows().map((row) => row.id));
+    f.ctx.clock.advance(3 * DAY);
+    const turned = f.ctx.clock.now();
+    await react(posts[0]!, bad);
+    const after = rows();
+    expect(after.length).toBe(2);
+    const row = after.find((r) => r.content_id === posts[0]!)!;
+    expect(row).toMatchObject({ score: -1, created_at: turned });
+    expect(row.id).toBeGreaterThan(oldMax);
+    // Dates never go down as ids go up: what the monthly standings bisect on.
+    for (let i = 1; i < after.length; i++)
+      expect(after[i]!.created_at).toBeGreaterThanOrEqual(after[i - 1]!.created_at);
+    // Counts and the author's score are those of a change.
+    const counts = f.ctx.sqlite
+      .prepare<{ reaction_counts: string }, [number]>(
+        "SELECT reaction_counts FROM posts WHERE id = ?1",
+      )
+      .get(posts[0]!)!.reaction_counts;
+    expect(JSON.parse(counts)).toEqual({ [String(bad)]: 1 });
+    expect(
+      f.ctx.sqlite
+        .prepare<{ reaction_score: number }, [number]>(
+          "SELECT reaction_score FROM users WHERE id = ?1",
+        )
+        .get(f.other.id)!.reaction_score,
+    ).toBe(0);
+    // The month's standings count both reactions of the month to the author.
+    f.ctx.clock.set(Date.UTC(2026, 1, 10));
+    refreshStandings(f.ctx);
+    expect(
+      f.ctx.sqlite
+        .prepare<{ reactions: number }, [number]>(
+          "SELECT reactions FROM member_month_stats WHERE month = 202601 AND user_id = ?1",
+        )
+        .get(f.other.id)?.reactions,
+    ).toBe(2);
+  });
+
   test("changing one negative reaction to another is not a new one", async () => {
     const { f, bad, posts, react } = await reactionFixture();
     const worse = (await execute(f.ctx, reactionTypesCreateOp, f.adminActor, {
@@ -440,7 +491,7 @@ describe("links rule", () => {
     configure(f.ctx, { linksRule: rule });
     const refused = await rejects(post(f, "see https://example.com/a"), ForbiddenError);
     expect(refused.message).toBe(
-      "You cannot post links, pictures or media from other sites yet. You need Post count: 3.",
+      "You cannot post links, pictures or media from other sites yet. You need Post count: 3 or more.",
     );
     expect((refused as ForbiddenError).issues?.[0]?.path).toEqual(["body"]);
     await post(f, "no link here");
@@ -530,7 +581,7 @@ describe("links rule", () => {
       },
     });
     const refused = await rejects(post(f, "https://example.com"), ForbiddenError);
-    expect(refused.message).toContain("You need one of: Post count: 10; Days registered: 7.");
+    expect(refused.message).toContain("You need one of: Post count: 10 or more; Days registered: 7 or more.");
     f.ctx.clock.advance(7 * DAY);
     await post(f, "https://example.com");
   });
@@ -678,7 +729,7 @@ describe("outside pictures and media", () => {
     });
   }
 
-  test("are embedded for a member who holds the permission", async () => {
+  test("are embedded unless the author is held to antispam.externalMediaAsLinks", async () => {
     const f = fixture();
     const made = await wall(f);
     expect(made.bodyHtml).toContain('<img src="https://img.example.com/a.png?x=1&amp;y=2"');
@@ -687,7 +738,7 @@ describe("outside pictures and media", () => {
 
   test("are shown as links without it, the site's own pictures excepted", async () => {
     const f = fixture();
-    removeEntry(f.ctx, 2, "antispam.embedExternalMedia");
+    setEntry(f.ctx, 2, "antispam.externalMediaAsLinks", 1);
     const made = await wall(f);
     expect(made.bodyHtml).not.toContain('img.example.com/a.png?x=1&amp;y=2" alt');
     expect(made.bodyHtml).not.toContain("<iframe");
@@ -708,6 +759,31 @@ describe("outside pictures and media", () => {
       .join("");
     expect(stored).toContain('<a href="https://img.example.com/s.png"');
     expect(stored).not.toContain("<img");
+  });
+});
+
+describe("outside media when staff edit someone else's text", () => {
+  async function editedWith(held: "author" | "editor") {
+    const f = fixture();
+    const made = await execute(f.ctx, profilePostsCreateOp, f.actor, {
+      userId: f.member.id,
+      body: "plain",
+      attachmentIds: [],
+    });
+    setEntry(f.ctx, held === "author" ? 2 : 3, "antispam.externalMediaAsLinks", 1);
+    const edited = await execute(f.ctx, profilePostsUpdateOp, f.moderatorActor, {
+      profilePostId: made.id,
+      body: "![x](https://img.example.com/a.png)",
+      attachmentIds: [],
+      reason: "",
+      notify: false,
+    });
+    return edited.bodyHtml;
+  }
+
+  test("the author's permission decides, not the editor's", async () => {
+    expect(await editedWith("author")).not.toContain("<img");
+    expect(await editedWith("editor")).toContain("<img");
   });
 });
 
@@ -801,7 +877,10 @@ describe("registry", () => {
       "antispam.negativeReactionsPerDay",
     ])
       for (const group of [2, 3, 4, 5]) expect(value(key, group)).toBe(-1);
-    for (const group of [2, 3, 4, 5]) expect(value("antispam.embedExternalMedia", group)).toBe(1);
+    // Nobody is held to showing outside media as links, and administrators never are.
+    for (const group of [2, 3, 5])
+      expect(value("antispam.externalMediaAsLinks", group)).toBeUndefined();
+    expect(value("antispam.externalMediaAsLinks", 4)).toBe(-1);
     expect(value("antispam.bypassFlood", 2)).toBeUndefined();
     expect(value("antispam.bypassFlood", 3)).toBe(1);
   });

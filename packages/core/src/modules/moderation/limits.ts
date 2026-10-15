@@ -4,13 +4,12 @@ import { type Ctx, prepared } from "../../context";
 import { RateLimitedError } from "../../errors";
 import { markPublic } from "../../operation";
 import { can, type IntegerPermissionId, permissionValue } from "../../permissions";
-import { readSiteSettings } from "../settings";
 
 /**
  * Limits on how fast a member writes, checked inside the write's own transaction so two requests
  * cannot both pass. Each check is one indexed lookup: the newest row of the member in each table
- * that holds what they write (the flood clock), or a count of the member's rows in the last 24
- * hours that stops at the limit.
+ * that holds what they write (the flood clock), or the row of the member that is `limit` places
+ * from the newest, which says whether `limit` rows were made in the last 24 hours.
  */
 export type WriteKind = "thread" | "reply" | "wall_post" | "comment" | "message" | "conversation";
 
@@ -24,23 +23,28 @@ export const floodClockSql = [
   "SELECT created_at FROM conversation_messages WHERE user_id = ?1 ORDER BY id DESC LIMIT 1",
 ] as const;
 
-/** What a daily limit counts, and the statement that counts it up to the limit (a test checks its plan). */
+/**
+ * What a daily limit counts, and the statement (a test checks its plan) that reads the date of the
+ * member's row `?2` places from the newest (0 is the newest): if that row is under 24 hours old,
+ * the member has made `?2 + 1` rows in that time. Posts and threads read the existing
+ * `(user_id, id)` indexes, as ids follow creation; the others have an index on the date.
+ */
 export const dailyLimits = {
   "antispam.postsPerDay": {
     noun: "posts",
-    sql: "SELECT count(*) AS n FROM (SELECT 1 FROM posts WHERE user_id = ?1 AND created_at >= ?2 LIMIT ?3)",
+    sql: "SELECT created_at FROM posts WHERE user_id = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2",
   },
   "antispam.threadsPerDay": {
     noun: "threads",
-    sql: "SELECT count(*) AS n FROM (SELECT 1 FROM threads WHERE user_id = ?1 AND created_at >= ?2 LIMIT ?3)",
+    sql: "SELECT created_at FROM threads WHERE user_id = ?1 ORDER BY id DESC LIMIT 1 OFFSET ?2",
   },
   "antispam.conversationsPerDay": {
     noun: "conversations",
-    sql: "SELECT count(*) AS n FROM (SELECT 1 FROM conversations WHERE user_id = ?1 AND created_at >= ?2 LIMIT ?3)",
+    sql: "SELECT created_at FROM conversations WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1 OFFSET ?2",
   },
   "antispam.negativeReactionsPerDay": {
     noun: "negative reactions",
-    sql: "SELECT count(*) AS n FROM (SELECT 1 FROM reactions WHERE user_id = ?1 AND score < 0 AND created_at >= ?2 LIMIT ?3)",
+    sql: "SELECT created_at FROM reactions WHERE user_id = ?1 AND score < 0 ORDER BY created_at DESC LIMIT 1 OFFSET ?2",
   },
 } as const satisfies Record<string, { noun: string; sql: string }>;
 
@@ -54,17 +58,16 @@ function requireDailyRoom(ctx: Ctx, actor: Actor, userId: number, permission: Da
   const limit = permissionValue(ctx, actor, permission as IntegerPermissionId);
   if (limit <= 0) return;
   const { noun, sql } = dailyLimits[permission];
-  const made = prepared(ctx, `moderation.${permission}`, () =>
-    ctx.sqlite.prepare<{ n: number }, [number, number, number]>(sql),
-  ).get(userId, ctx.now() - DAY, limit)!.n;
-  if (made >= limit)
+  const oldest = prepared(ctx, `moderation.${permission}`, () =>
+    ctx.sqlite.prepare<{ created_at: number }, [number, number]>(sql),
+  ).get(userId, limit - 1);
+  if (oldest && oldest.created_at >= ctx.now() - DAY)
     throw new RateLimitedError(
       `You have reached your limit of ${limit} ${noun} in 24 hours. Try again later.`,
     );
 }
 
-function requireFloodRoom(ctx: Ctx, actor: Actor, userId: number): void {
-  const seconds = readSiteSettings(ctx).floodSeconds;
+function requireFloodRoom(ctx: Ctx, actor: Actor, userId: number, seconds: number): void {
   if (seconds === 0 || can(ctx, actor, "antispam.bypassFlood")) return;
   let newest = 0;
   for (const [index, sql] of floodClockSql.entries()) {
@@ -74,23 +77,25 @@ function requireFloodRoom(ctx: Ctx, actor: Actor, userId: number): void {
     if (row && row.created_at > newest) newest = row.created_at;
   }
   const wait = newest + seconds * 1000 - ctx.now();
+  const left = Math.ceil(wait / 1000);
   if (wait > 0)
     throw new RateLimitedError(
-      `Please wait ${Math.ceil(wait / 1000)} seconds before posting again.`,
+      `Please wait ${left} second${left === 1 ? "" : "s"} before posting again.`,
     );
 }
 
 /**
  * Call inside the write transaction, before the insert: refuses with RateLimitedError when the
  * member writes again sooner than the site's flood interval, or has used up a daily limit that
- * applies to `kind`. A new thread also counts as a post.
+ * applies to `kind`. A new thread also counts as a post. `floodSeconds` is the site's setting as
+ * the write already read it (`prepareModeratedContent`), so the settings are parsed once.
  */
 export const requireWriteRoom = markPublic(
   "Callers authorize the write first; this only limits how fast a member makes it.",
-  function requireWriteRoom(ctx: Ctx, actor: Actor, kind: WriteKind): void {
+  function requireWriteRoom(ctx: Ctx, actor: Actor, kind: WriteKind, floodSeconds: number): void {
     const userId = actorUserId(actor);
     if (userId === null) return;
-    requireFloodRoom(ctx, actor, userId);
+    requireFloodRoom(ctx, actor, userId, floodSeconds);
     if (kind === "thread") requireDailyRoom(ctx, actor, userId, "antispam.threadsPerDay");
     if (kind === "thread" || kind === "reply")
       requireDailyRoom(ctx, actor, userId, "antispam.postsPerDay");
