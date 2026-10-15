@@ -179,8 +179,9 @@ everywhere. A rule is `{ "match": "all" | "any", "conditions": [...] }`: `all` n
 | `is_member` | `ids` (members) | the member is one of the listed members |
 
 Each criterion is `cheap` (read from the member's own row or one indexed lookup) or `background`
-(`warning_points_below`). `GET /promotions/criteria` and `GET /awards/criteria` list the class
-as `cost`. Promotions and awards are checked in the background and take every criterion. Notices
+(`warning_points_below`). `GET /criteria` (`criteria.list`; open to anyone with `admin.promotions`,
+`admin.awards`, `admin.shop` or `admin.announcements`, and also giving the groups a rule may name),
+`GET /promotions/criteria` and `GET /awards/criteria` list the class as `cost`. Promotions and awards are checked in the background and take every criterion. Notices
 and shop categories and items are checked while a request is served and refuse a `background`
 criterion. Guests satisfy only the audience criteria.
 

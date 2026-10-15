@@ -17,7 +17,7 @@ const entry = (
   help: `Help for ${id}`,
 });
 
-// The backend's registry as `awards.criteria` lists it: every criterion with its kind, unit and
+// The backend's registry as `criteria.list` gives it: every criterion with its kind, unit and
 // cost class (`warning_points_below` is the only one that is not cheap).
 export const CRITERIA: Criterion[] = [
   entry("post_count", "atLeast", "count"),

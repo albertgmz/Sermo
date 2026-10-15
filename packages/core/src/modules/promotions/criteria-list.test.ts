@@ -1,0 +1,69 @@
+import { describe, expect, test } from "bun:test";
+import { createTestContext, insertUser, userActor } from "@sermo/core/testing";
+import { GUEST } from "../../actor";
+import { ForbiddenError, UnauthenticatedError } from "../../errors";
+import { execute } from "../../operation";
+import { getOperation } from "../../operations";
+
+const op = (name: string) => getOperation(name);
+
+// A manager who holds exactly one permission, through a group of their own.
+async function managerOf(permission: string) {
+  const ctx = createTestContext();
+  const founder = userActor(insertUser(ctx, { groupId: 4 }));
+  const group = (await execute(ctx, op("groups.create"), founder, {
+    title: `Only ${permission}`,
+    rank: 40,
+  })) as { id: number };
+  await execute(ctx, op("permissions.set"), founder, {
+    groupId: group.id,
+    entries: [{ permission, value: "allow" }],
+  });
+  return { ctx, founder, manager: userActor(insertUser(ctx, { groupId: group.id })), group };
+}
+
+describe("criteria.list", () => {
+  for (const permission of [
+    "admin.promotions",
+    "admin.awards",
+    "admin.shop",
+    "admin.announcements",
+  ])
+    test(`a holder of only ${permission} gets the criteria and the groups`, async () => {
+      const { ctx, founder, manager, group } = await managerOf(permission);
+      const list = (await execute(ctx, op("criteria.list"), manager, {})) as {
+        items: { id: string; cost: string }[];
+        groups: object[];
+      };
+      // The same registry the two older reads publish.
+      const asAdmin = (await execute(ctx, op("awards.criteria"), founder, {})) as {
+        items: unknown[];
+      };
+      expect(list.items).toEqual(asAdmin.items as typeof list.items);
+      expect(list.items.map((item) => item.id)).toContain("in_group");
+      expect(list.items.some((item) => item.cost === "background")).toBe(true);
+      // Every group, by id and title only.
+      expect(list.groups).toContainEqual({ id: group.id, title: `Only ${permission}` });
+      for (const entry of list.groups) expect(Object.keys(entry).sort()).toEqual(["id", "title"]);
+      expect(list.groups.length).toBe(6);
+    });
+
+  test("guests, members and moderators are refused", async () => {
+    const { ctx } = await managerOf("admin.shop");
+    const member = userActor(insertUser(ctx));
+    const moderator = userActor(insertUser(ctx, { groupId: 3 }));
+    await expect(execute(ctx, op("criteria.list"), GUEST, {})).rejects.toBeInstanceOf(
+      UnauthenticatedError,
+    );
+    for (const actor of [member, moderator])
+      await expect(execute(ctx, op("criteria.list"), actor, {})).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+  });
+
+  test("the older reads keep their own permission", async () => {
+    const { ctx, manager } = await managerOf("admin.shop");
+    for (const name of ["promotions.criteria", "awards.criteria"])
+      await expect(execute(ctx, op(name), manager, {})).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});

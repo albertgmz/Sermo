@@ -22,6 +22,7 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/push/subscriptions", "push.unsubscribe"],
   ["GET", "/push/subscriptions", "push.list"],
   ["GET", "/push/public-key", "push.publicKey"],
+  ["GET", "/criteria", "criteria.list"],
   ["GET", "/promotions/criteria", "promotions.criteria"],
   ["GET", "/promotions/log", "promotions.log"],
   ["POST", "/promotions/run", "promotions.run", 201],

@@ -1,5 +1,6 @@
 import * as z from "zod";
-import { Id } from "./common";
+import { defineContract } from "../operation";
+import { Empty, Id } from "./common";
 
 /**
  * One condition of a rule. `criterion` is an id from the criteria registry; which of `value`
@@ -53,3 +54,18 @@ export const CriterionDefinition = z
     cost: z.enum(["cheap", "background"]),
   })
   .meta({ id: "CriterionDefinition" });
+
+export const criteriaList = defineContract({
+  name: "criteria.list",
+  summary:
+    "Everything a rule editor needs: every criterion a rule can use (the same list as " +
+    "promotions.criteria and awards.criteria) and the groups a rule may name, by id and title. " +
+    "Requires any of admin.promotions, admin.awards, admin.shop or admin.announcements, the " +
+    "permissions of the places that hold a rule.",
+  kind: "read",
+  input: Empty,
+  output: z.object({
+    items: z.array(CriterionDefinition),
+    groups: z.array(z.object({ id: Id, title: z.string() })),
+  }),
+});

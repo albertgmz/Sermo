@@ -3,6 +3,7 @@ import type { Actor } from "../../actor";
 import { requireAuthenticated } from "../../actor";
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
+import { criteriaList } from "../../contracts/criteria";
 import * as contracts from "../../contracts/promotions";
 import { writeTx } from "../../db/tx";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
@@ -406,7 +407,31 @@ function status(ctx: Ctx, m: Member, p: PromotionRow) {
   };
 }
 
+/** Whoever edits a rule: the permissions of promotions, awards, notices and the shop. */
+function requireRuleEditor(ctx: Ctx, actor: Actor) {
+  if (
+    can(ctx, actor, "admin.awards") ||
+    can(ctx, actor, "admin.shop") ||
+    can(ctx, actor, "admin.announcements")
+  )
+    return;
+  requirePermission(ctx, actor, "admin.promotions");
+}
+
 export const operations = [
+  implement(criteriaList, (ctx, actor) =>
+    readWithCurrentActor(ctx, actor, (current) => {
+      requireRuleEditor(ctx, current);
+      return {
+        items: withTitles(viewerLanguage(ctx, current), criterionDefinitions),
+        groups: prepared(ctx, "promotions.ruleGroups", () =>
+          ctx.sqlite.prepare<{ id: number; title: string }, []>(
+            "SELECT id, title FROM groups ORDER BY rank DESC, id",
+          ),
+        ).all(),
+      };
+    }),
+  ),
   implement(contracts.promotionsCriteria, (ctx, actor) =>
     readWithCurrentActor(ctx, actor, (current) => {
       requirePermission(ctx, current, "admin.promotions");

@@ -46,6 +46,12 @@ test("operations that need an account do not list anonymous access", async () =>
   }
 });
 
+test("the rule editors' list is documented next to the two older criteria reads, which stay", async () => {
+  const security = await documentedSecurity();
+  for (const id of ["criteria.list", "promotions.criteria", "awards.criteria"])
+    expect(security.has(id), id).toBe(true);
+});
+
 test("a DELETE describes its path parameters as parameters and its other fields as a JSON body", async () => {
   const ctx = createTestContext();
   contexts.push(ctx);

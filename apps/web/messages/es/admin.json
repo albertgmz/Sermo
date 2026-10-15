@@ -220,8 +220,7 @@
       "search": "buscar",
       "remove": "Quitar {name}",
       "noMatch": "Sin resultados."
-    },
-    "unreadable": "La lista de condiciones no está abierta para ti, así que la regla se guarda tal cual."
+    }
   },
   "ordering": {
     "none": "No se guardó nada. Se rechazó «{title}»: {message}",

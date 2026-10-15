@@ -27,9 +27,9 @@ import {
 import { type Choice, IdPicker } from "./id-picker";
 import { selectClass } from "./rows";
 
-// What a condition can name. `groups` is null when the viewer may not list them.
+// What a condition can name.
 export type RuleChoices = {
-  groups: Choice[] | null;
+  groups: Choice[];
   items: Choice[];
   members: Choice[];
 };
@@ -74,7 +74,7 @@ export function RuleBuilder({
   const [draft, setDraft] = useState<Draft>(() => draftOf(rule));
   const [adding, setAdding] = useState("");
   const available: Available = {
-    groups: (choices.groups?.length ?? 0) > 0,
+    groups: choices.groups.length > 0,
     items: choices.items.length > 0,
   };
   const offered = offeredCriteria(criteria, place, available);
@@ -257,8 +257,8 @@ function Control({
       return (
         <IdPicker
           ids={condition.ids ?? []}
-          known={choices.groups ?? []}
-          options={choices.groups ?? []}
+          known={choices.groups}
+          options={choices.groups}
           label={criterion.title}
           onChange={(ids) => onChange({ ids })}
         />

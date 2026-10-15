@@ -220,8 +220,7 @@
       "search": "search",
       "remove": "Remove {name}",
       "noMatch": "No match."
-    },
-    "unreadable": "The list of conditions is not open to you, so the rule is saved as it is."
+    }
   },
   "ordering": {
     "none": "Nothing was saved. “{title}” was refused: {message}",

@@ -67,7 +67,7 @@ test("every place offers each criterion it allows, and notices and the shop hide
 });
 
 test("without groups to choose from, the group criteria are not offered", () => {
-  const list = addable(draw("notice", nothing, { groups: null }));
+  const list = addable(draw("notice", nothing, { groups: [] }));
   expect(list).not.toContain("in_group");
   expect(list).not.toContain("not_in_group");
   expect(list).toContain("is_member");
