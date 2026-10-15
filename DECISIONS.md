@@ -2098,3 +2098,9 @@ public pictures load; every other route still answers 401, and an invalid API ke
 **The editor leaves BB code as typed.** The Markdown export escapes `*`, `_` and brackets; after it,
 escaped BB tags (`[*]`, `[SIZE=5]`, `[URL=…x_y]`) and the raw content of `URL`, `IMG`, `EMAIL`,
 `USER`, `MEDIA`, `ICODE`, `PLAIN` and `ATTACH` are restored, except inside code spans and fences.
+
+## October 2026 round
+
+**No stat tiles on the account screen.** `/account` no longer shows messages, reputation,
+followers and following; the member's public profile still does. Their skeleton and the four
+`account.profile.*Label` keys went with them.
