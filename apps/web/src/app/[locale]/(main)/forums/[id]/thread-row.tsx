@@ -31,7 +31,7 @@ export function ThreadRow({
     <div
       data-shortcut-item=""
       className={cn(
-        "relative isolate flex items-center gap-3 px-3 py-2.5 md:px-4",
+        "relative isolate flex scroll-mt-4 items-center gap-3 px-3 py-2.5 md:px-4",
         highlighted &&
           "bg-primary/5 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary",
       )}

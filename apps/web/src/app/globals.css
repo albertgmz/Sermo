@@ -261,12 +261,9 @@
 
 /*
  * The post or card that `j` and `k` have moved to holds the focus, and the focus ring is the
- * mark. Inside the item, so a neighbour does not cover it; `scroll-margin` leaves a little air
- * above the item when it is scrolled to the top.
+ * mark. Inside the item, so a neighbour does not cover it. Each item keeps a scroll margin of
+ * 1rem (`scroll-mt-4`), which `itemAtWindowTop` allows for.
  */
-[data-shortcut-item] {
-  scroll-margin-top: 1rem;
-}
 [data-shortcut-item]:focus-visible {
   outline-offset: -2px;
 }

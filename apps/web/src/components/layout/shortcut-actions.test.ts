@@ -26,6 +26,7 @@ function page() {
   const log: string[] = [];
   const doc = {
     activeElement: null as unknown,
+    documentElement: { clientHeight: 800 },
     lists: new Map<string, unknown[]>(),
     ids: new Map<string, unknown>(),
     querySelectorAll(selector: string) {
@@ -48,7 +49,7 @@ function page() {
       attributes,
       editable: null as unknown,
       getClientRects: () => (drawn ? [{}] : []),
-      getBoundingClientRect: () => ({ top }),
+      getBoundingClientRect: () => ({ top, bottom: top + 100 }),
       hasAttribute: (key: string) => attributes.has(key),
       setAttribute: (key: string, value: string) => attributes.set(key, value),
       focus: () => {
@@ -95,6 +96,43 @@ test("j and k move the focus through the items and scroll each to the top", () =
   expect(p.doc.activeElement).toBe(b);
   expect(p.log).toContain('scroll item1 {"block":"start"}');
   expect(b.attributes.get("tabindex")).toBe("-1");
+});
+
+test("a focused item far from the window is not the current one: the reader's place is", () => {
+  const p = page();
+  // A long list keeps the focused row mounted after the reader has scrolled away from it.
+  const [, b, , held] = items(p, [-100, 300, 700, 5000]);
+  p.doc.activeElement = held;
+  moveToItem(asDocument(p), 1);
+  expect(p.doc.activeElement).toBe(b);
+  const above = page();
+  const [heldAbove, x] = items(above, [-4000, -3000, -200, 100, 500]);
+  above.doc.activeElement = heldAbove;
+  moveToItem(asDocument(above), -1);
+  expect(above.doc.activeElement).toBe(x);
+});
+
+test("an item partly in the window is the current one when it holds the focus", () => {
+  const p = page();
+  const [, b, c] = items(p, [-500, -60, 300]);
+  p.doc.activeElement = b;
+  moveToItem(asDocument(p), 1);
+  expect(p.doc.activeElement).toBe(c);
+});
+
+test("every action says whether it did anything", () => {
+  const empty = page();
+  expect(moveToItem(asDocument(empty), 1)).toBe(false);
+  expect(openCreate(asDocument(empty))).toBe(false);
+  expect(focusReply(asDocument(empty))).toBe(false);
+  expect(openSearch(asDocument(empty), () => {})).toBe(true);
+  const full = page();
+  items(full, [0]);
+  full.doc.lists.set('[data-shortcut="create"]', [full.element("new")]);
+  full.doc.lists.set('[data-shortcut="reply"]', [full.element("form")]);
+  expect(moveToItem(asDocument(full), 1)).toBe(true);
+  expect(openCreate(asDocument(full))).toBe(true);
+  expect(focusReply(asDocument(full))).toBe(true);
 });
 
 test("the list does not wrap: the last item stays the last and the first stays the first", () => {

@@ -27,11 +27,11 @@ export const OPTIONS = {
   stopPropagation: false,
 } as const;
 
-export type Hotkeys = {
+type Hotkeys = {
   hotkey: RegisterableHotkey;
   callback: HotkeyCallback;
 }[];
-export type Sequences = {
+type Sequences = {
   sequence: HotkeySequence;
   callback: HotkeyCallback;
 }[];
@@ -48,26 +48,35 @@ export function createShortcuts({
   // The `c` that ends `g` then `c` is also a `c` of its own and must not start a thread.
   let lastG = Number.NEGATIVE_INFINITY;
 
-  // The keys do nothing while a dialog or a menu is open.
+  // The keys do nothing while a dialog or a menu is open, and nothing for a key something else
+  // has already handled (a closed select takes letters to find an option). The action says whether
+  // it did anything; the key is cancelled only then, so the browser keeps the keys of a page the
+  // shortcut has no use on. Cancelling after the action still stops the letter being typed into a
+  // field the action focused: the browser acts on the key once this handler has returned.
   const act =
-    (action: HotkeyCallback): HotkeyCallback =>
-    (event, context) => {
-      if (popupOpen(document)) return;
-      event.preventDefault();
-      action(event, context);
+    (action: (event: KeyboardEvent) => boolean): HotkeyCallback =>
+    (event) => {
+      if (event.defaultPrevented || popupOpen(document)) return;
+      if (action(event)) event.preventDefault();
     };
+  const did = (action: () => void) => () => {
+    action();
+    return true;
+  };
 
   const actions: Partial<Record<ShortcutId, HotkeyCallback>> = {
-    help: act(openHelp),
-    search: act(() => openSearch(document, go)),
+    help: act(did(openHelp)),
+    // The library also matches a key by its place on the keyboard: the minus key of a Spanish or
+    // German keyboard and the colon key of a French one sit where `/` is on a US one.
+    search: act((event) => event.key === "/" && openSearch(document, go)),
     next: act(() => moveToItem(document, 1)),
     previous: act(() => moveToItem(document, -1)),
     reply: act(() => focusReply(document)),
-    create: act((event) => {
+    create: (event, context) => {
       const endsSequence = event.timeStamp - lastG <= SEQUENCE_TIMEOUT;
       lastG = Number.NEGATIVE_INFINITY;
-      if (!endsSequence) openCreate(document);
-    }),
+      if (!endsSequence) act(() => openCreate(document))(event, context);
+    },
   };
 
   const registered = SHORTCUTS.filter((shortcut) => !shortcut.native);
@@ -88,7 +97,9 @@ export function createShortcuts({
       ? [
           {
             sequence: shortcut.keys.map(hotkeyOf),
-            callback: act(() => go(GO_TO[shortcut.id as keyof typeof GO_TO])),
+            callback: act(
+              did(() => go(GO_TO[shortcut.id as keyof typeof GO_TO])),
+            ),
           },
         ]
       : [],

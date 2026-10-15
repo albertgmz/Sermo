@@ -71,7 +71,7 @@ function item(name: string) {
     name,
     attributes: new Map<string, string>(),
     getClientRects: () => [{}],
-    getBoundingClientRect: () => ({ top: 0 }),
+    getBoundingClientRect: () => ({ top: 0, bottom: 100 }),
     hasAttribute: (key: string) => self.attributes.has(key),
     setAttribute: (key: string, value: string) =>
       self.attributes.set(key, value),
@@ -93,7 +93,7 @@ beforeEach(() => {
     listeners: new Map<string, ((event: unknown) => void)[]>(),
     lists: new Map<string, unknown[]>(),
     ids: new Map<string, unknown>(),
-    documentElement: {},
+    documentElement: { clientHeight: 800 },
     addEventListener(type: string, listener: (event: unknown) => void) {
       fake.listeners.set(type, [...(fake.listeners.get(type) ?? []), listener]);
     },
@@ -152,7 +152,12 @@ function register({ enabled = true } = {}) {
   return { go, helpOpened: () => help, hotkeys, sequences };
 }
 
-const CODES: Record<string, string> = { "/": "Slash", "?": "Slash" };
+const CODES: Record<string, string> = {
+  "/": "Slash",
+  "?": "Slash",
+  "-": "Slash",
+  ":": "Slash",
+};
 
 function press(
   key: string,
@@ -161,7 +166,14 @@ function press(
     shift = key === "?",
     ctrl = false,
     wait = 100,
-  }: { target?: unknown; shift?: boolean; ctrl?: boolean; wait?: number } = {},
+    beforeHandlers,
+  }: {
+    target?: unknown;
+    shift?: boolean;
+    ctrl?: boolean;
+    wait?: number;
+    beforeHandlers?: (event: { preventDefault: () => void }) => void;
+  } = {},
 ) {
   clock += wait;
   const event = {
@@ -186,6 +198,7 @@ function press(
     stopPropagation() {},
   };
   doc.activeElement = target;
+  beforeHandlers?.(event);
   for (const listener of doc.listeners.get("keydown") ?? []) listener(event);
   return event;
 }
@@ -226,15 +239,54 @@ test("/ opens the search, also where it needs shift", () => {
   expect(shortcuts.go).toEqual(["/search", "/search"]);
 });
 
-test("j and k move between the items", () => {
+test("a key that sits where / is on a US keyboard is not a search", () => {
+  const shortcuts = register();
+  // The minus key of a Spanish or German keyboard and the colon key of a French one.
+  for (const key of ["-", ":"]) {
+    expect(press(key, { shift: key === ":" }).defaultPrevented).toBe(false);
+  }
+  expect(shortcuts.go).toEqual([]);
+});
+
+test("j and k move between the items and cancel the key", () => {
   register();
   const [a, b] = [item("a"), item("b")];
   doc.lists.set(ITEM_SELECTOR, [a, b]);
   doc.activeElement = a;
-  press("j");
+  expect(press("j").defaultPrevented).toBe(true);
   press("k");
   press("j");
   expect(log).toEqual(["focus b", "focus a", "focus b"]);
+});
+
+test("a key is cancelled only when it did something", () => {
+  register();
+  // A page with no items, no reply form and no way to start a thread.
+  for (const key of ["j", "k", "r", "c"]) {
+    expect(press(key).defaultPrevented).toBe(false);
+  }
+  expect(log).toEqual([]);
+  // The same keys where the page has something for them.
+  createLink();
+  expect(press("c").defaultPrevented).toBe(true);
+  doc.lists.set('[data-shortcut="reply"]', [
+    {
+      getClientRects: () => [{}],
+      scrollIntoView: () => {},
+      querySelector: () => null,
+    },
+  ]);
+  expect(press("r").defaultPrevented).toBe(true);
+});
+
+test("a key something else has already handled is left alone", () => {
+  const shortcuts = register();
+  doc.lists.set(ITEM_SELECTOR, [item("a")]);
+  // A closed select that took the letter: the event arrives already cancelled.
+  const event = press("j", { beforeHandlers: (e) => e.preventDefault() });
+  expect(log).toEqual([]);
+  expect(event.defaultPrevented).toBe(true);
+  expect(shortcuts.helpOpened()).toBe(0);
 });
 
 test("c starts a thread where the page has the way to, g then c goes to the conversations and starts nothing", () => {

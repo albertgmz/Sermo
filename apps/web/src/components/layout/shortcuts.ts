@@ -17,9 +17,9 @@ export type ShortcutId =
   | "goConversations"
   | "removeFormatting";
 
-export type ShortcutGroup = "general" | "lists" | "goTo" | "editor";
+type ShortcutGroup = "general" | "lists" | "goTo" | "editor";
 
-export type Shortcut = {
+type Shortcut = {
   id: ShortcutId;
   group: ShortcutGroup;
   // As the help shows them, one key cap per entry. A registered shortcut with more than one is a
