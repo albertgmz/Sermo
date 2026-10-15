@@ -28,6 +28,7 @@ describe("criteria.list", () => {
     "admin.awards",
     "admin.shop",
     "admin.announcements",
+    "admin.reactionTypes",
   ])
     test(`a holder of only ${permission} gets the criteria and the groups`, async () => {
       const { ctx, founder, manager, group } = await managerOf(permission);
@@ -96,7 +97,7 @@ describe("criteria.list", () => {
       );
   });
 
-  // The other readers of groups.list are not rule editors: exactly the four permissions open it.
+  // The other readers of groups.list are not rule editors: exactly the five permissions open it.
   for (const permission of ["admin.groups", "admin.members", "admin.permissions"])
     test(`a holder of only ${permission} is refused`, async () => {
       const { ctx, manager } = await managerOf(permission);
