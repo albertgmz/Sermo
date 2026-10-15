@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { consentLibrary } from "@/components/layout/consent-library";
 import { EMBED_ALLOW, EMBED_SANDBOX, embedSource } from "@/lib/consent/embeds";
 
 // Puts the player in the place of a placeholder (`gateEmbeds`). The address is checked again
@@ -37,7 +38,12 @@ export function EmbedLoader() {
         load(placeholder);
         return;
       }
-      const library = await import("vanilla-cookieconsent");
+      // Without a running banner nothing can be recorded, so only this player is loaded.
+      const library = await consentLibrary();
+      if (!library) {
+        load(placeholder);
+        return;
+      }
       const accepted = library.getUserPreferences().acceptedCategories;
       library.acceptCategory([...new Set([...accepted, "embeds"])]);
       for (const other of document.querySelectorAll<HTMLElement>(".bb-embed"))

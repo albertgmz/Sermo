@@ -5,6 +5,8 @@ import { cacheLife, cacheTag } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import type * as z from "zod";
+import { POLICY_VERSION } from "@/lib/consent/inventory";
+import { policyVersion } from "@/lib/consent/state";
 import { callWith } from "./transport";
 
 export type SiteIdentity = {
@@ -26,6 +28,9 @@ export type SiteIdentity = {
   forumStatsEnabled: boolean;
   // The analytics tag public pages carry; provider "none" when unset or the site could not be read.
   analytics: z.output<typeof Analytics>;
+  // The version of the cookie policy visitors consent to: the backend's own number when `site.get`
+  // carries one, the constant of the web app until then.
+  cookiePolicyVersion: number;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
 };
@@ -69,6 +74,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes,
       forumStatsEnabled,
       analytics,
+      cookiePolicyVersion: policyVersion(site),
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -92,6 +98,7 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes: null,
       forumStatsEnabled: false,
       analytics: { provider: "none" },
+      cookiePolicyVersion: POLICY_VERSION,
       accents: [],
     };
   }

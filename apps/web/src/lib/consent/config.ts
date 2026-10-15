@@ -20,45 +20,58 @@ export type ConsentTexts = {
   savePreferences: string;
   closeLabel: string;
   revisionMessage: string;
-  alwaysOn: string;
-  moreInformation: string;
   categories: Record<Category, { title: string; description: string }>;
 };
 
 const literal = (text: string) => text.replace(/\W/g, String.raw`\$&`);
 
+// The domains a cookie may have been written for: this host and every parent with two or more
+// labels (a tracker writes to `.example.com` when asked from `forum.example.com`), each with and
+// without the leading dot. An address or a single label has no parent.
+export function cookieDomains(hostname: string): string[] {
+  const labels = hostname.split(".");
+  const isAddress = /^[\d.]+$/.test(hostname) || hostname.includes(":");
+  const hosts = [hostname];
+  if (!isAddress)
+    for (let at = 1; at < labels.length - 1; at += 1)
+      hosts.push(labels.slice(at).join("."));
+  return hosts.flatMap((host) => [host, `.${host}`]);
+}
+
 // The cookies a category owns, as the library clears them when the category is withdrawn (and on
-// each visit while it is off). A name ending in `*` in the inventory is a prefix.
-function cookiesOf(category: Category) {
+// each visit while it is off). A name ending in `*` in the inventory is a prefix. Each is cleared
+// where the library looks by default (this host) and on every domain of `cookieDomains`.
+function cookiesOf(category: Category, hostname: string) {
+  const domains = cookieDomains(hostname);
   return INVENTORY.filter(
     (item) => item.category === category && item.storage === "cookie",
   ).flatMap((item) =>
-    item.names.map((name) => ({
-      name: name.endsWith("*")
-        ? new RegExp(`^${literal(name.slice(0, -1))}`)
-        : name,
-    })),
+    item.names.flatMap((entry) => {
+      const name = entry.endsWith("*")
+        ? new RegExp(`^${literal(entry.slice(0, -1))}`)
+        : entry;
+      return [{ name }, ...domains.map((domain) => ({ name, domain }))];
+    }),
   );
 }
 
 // The library's configuration. Opt-in: nothing optional is on before a choice; the three buttons
 // weigh the same; the cookie carries the policy version as `revision`, so a new version asks
-// again. Analytics reloads the page when withdrawn, which stops a script already running.
+// again. `hostname` is where the page is served, for the domains cookies are cleared on.
 export function consentConfig(
   texts: Record<string, ConsentTexts>,
   locale: string,
   version: number,
+  hostname: string,
 ): CookieConsentConfig {
   const categories: NonNullable<CookieConsentConfig["categories"]> = {
     necessary: { enabled: true, readOnly: true },
   };
   for (const category of OPTIONAL_CATEGORIES) {
-    const cookies = cookiesOf(category);
+    const cookies = cookiesOf(category, hostname);
     categories[category] = {
       enabled: false,
-      ...(cookies.length > 0 && {
-        autoClear: { cookies, reloadPage: category === "analytics" },
-      }),
+      ...(cookies.length > 0 && { autoClear: { cookies } }),
     };
   }
   return {

@@ -1,10 +1,15 @@
 import { expect, test } from "bun:test";
 import en from "../../../messages/en/cookies.json";
 import es from "../../../messages/es/cookies.json";
-import { consentConfig } from "./config";
+import { consentConfig, cookieDomains } from "./config";
 import { CONSENT_COOKIE, INVENTORY, OPTIONAL_CATEGORIES } from "./inventory";
 
-const config = consentConfig({ en: en.banner, es: es.banner }, "es", 3);
+const config = consentConfig(
+  { en: en.banner, es: es.banner },
+  "es",
+  3,
+  "forum.example.com",
+);
 const cleared = (category: string) =>
   (
     config.categories as Record<
@@ -45,7 +50,9 @@ test("accept, reject and choose weigh the same, and the page stays usable", () =
 test("the choice is stored with the policy version, and a new version asks again", () => {
   expect(config.cookie?.name).toBe(CONSENT_COOKIE);
   expect(config.revision).toBe(3);
-  expect(consentConfig({ en: en.banner }, "en", 4).revision).toBe(4);
+  expect(consentConfig({ en: en.banner }, "en", 4, "localhost").revision).toBe(
+    4,
+  );
 });
 
 test("withdrawing a category clears every cookie the inventory lists for it", () => {
@@ -59,6 +66,53 @@ test("withdrawing a category clears every cookie the inventory lists for it", ()
   expect(clears("analytics", "forum_locale")).toBe(false);
   expect(clears("referrals", "forum_ref")).toBe(true);
   expect(clears("analytics", "forum_ref")).toBe(false);
-  // Stopping a running tracker needs a reload.
-  expect(config.categories?.analytics?.autoClear?.reloadPage).toBe(true);
+});
+
+test("the domains a tracker may have written to: this host and each parent, with and without the dot", () => {
+  expect(cookieDomains("forum.example.com")).toEqual([
+    "forum.example.com",
+    ".forum.example.com",
+    "example.com",
+    ".example.com",
+  ]);
+  expect(cookieDomains("a.b.example.org")).toEqual([
+    "a.b.example.org",
+    ".a.b.example.org",
+    "b.example.org",
+    ".b.example.org",
+    "example.org",
+    ".example.org",
+  ]);
+  expect(cookieDomains("example.com")).toEqual(["example.com", ".example.com"]);
+  expect(cookieDomains("localhost")).toEqual(["localhost", ".localhost"]);
+  expect(cookieDomains("192.168.0.4")).toEqual(["192.168.0.4", ".192.168.0.4"]);
+  expect(cookieDomains("[::1]")).toEqual(["[::1]", ".[::1]"]);
+});
+
+test("a withdrawn analytics category clears its cookies on the parent domain too", () => {
+  const entries = cleared("analytics") as {
+    name: string | RegExp;
+    domain?: string;
+  }[];
+  const on = (name: string, domain?: string) =>
+    entries.some(
+      (entry) =>
+        entry.domain === domain &&
+        (typeof entry.name === "string"
+          ? entry.name === name
+          : entry.name.test(name)),
+    );
+  for (const domain of [
+    undefined,
+    "forum.example.com",
+    ".forum.example.com",
+    "example.com",
+    ".example.com",
+  ]) {
+    expect(on("_ga", domain), String(domain)).toBe(true);
+    expect(on("_ga_ABC123", domain), String(domain)).toBe(true);
+    expect(on("_pk_id.4.ab12", domain), String(domain)).toBe(true);
+  }
+  expect(on("_ga", "com")).toBe(false);
+  expect(on("_ga", ".com")).toBe(false);
 });

@@ -7,7 +7,7 @@ import { mayEmbed } from "./state";
 // The HTML of a body for this visitor: its players, or placeholders while embeds are not accepted.
 // The words are in the visitor's language.
 export async function withEmbedGate(html: string): Promise<string> {
-  if (!/<iframe/i.test(html)) return html;
+  if (!/<\/?iframe/i.test(html)) return html;
   const [consent, t] = await Promise.all([
     getConsent(),
     getTranslations("forum.bbCode"),

@@ -11,8 +11,6 @@
     "savePreferences": "Save my choices",
     "closeLabel": "Close",
     "revisionMessage": "The cookie policy has changed since your last choice, so we are asking again.",
-    "alwaysOn": "Always on",
-    "moreInformation": "More information",
     "categories": {
       "necessary": {
         "title": "Strictly necessary",

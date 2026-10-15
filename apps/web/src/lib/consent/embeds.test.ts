@@ -89,3 +89,19 @@ test("only https players of the allowed hosts can be loaded", () => {
   expect(embedSource("javascript:alert(1)")).toBeNull();
   expect(embedSource(undefined)).toBeNull();
 });
+
+test("an iframe the pattern does not recognise is dropped, never passed through", () => {
+  const odd = [
+    `<iframe src="https://player.vimeo.com/video/1">`,
+    `a<IFRAME src="https://player.vimeo.com/video/1"></IFRAME>b`,
+    `<iframe/src="https://player.vimeo.com/video/1"></iframe>`,
+    `<iframe src="https://player.vimeo.com/video/1" `,
+    `x</iframe>y`,
+    `<iframe\nsrc="https://player.vimeo.com/video/1"\n></iframe\n>`,
+  ];
+  for (const html of odd) {
+    const gated = gateEmbeds(html, false, labels);
+    expect(gated, html).not.toMatch(/<\/?iframe/i);
+  }
+  expect(gateEmbeds(odd[1] as string, false, labels)).toContain("a");
+});

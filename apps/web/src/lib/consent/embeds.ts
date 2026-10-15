@@ -55,20 +55,23 @@ export function embedSource(value: string | undefined): string | null {
 
 const IFRAME = /<iframe(?=\s)((?:"[^"]*"|'[^']*'|[^'">])*)>\s*<\/iframe>/gi;
 const ATTRIBUTE = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+// An opening or closing iframe tag that is still there: up to its `>`, or the end of the text.
+const LEFTOVER = /<\/?iframe\b[^>]*(?:>|$)/gi;
 const SHAPES = new Set(["bb-media", "bb-media-video", "bb-media-audio"]);
 
 const escapeText = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 // `html` with every player replaced by its placeholder, unless embeds are accepted. A player whose
-// address is not one of ours is dropped. The attribute values are the sanitiser's, already escaped.
+// address is not one of ours is dropped, and so is any iframe tag the pattern does not recognise
+// (it fails closed). The attribute values are the sanitiser's, already escaped.
 export function gateEmbeds(
   html: string,
   allowed: boolean,
   labels: EmbedLabels,
 ): string {
-  if (allowed || !/<iframe/i.test(html)) return html;
-  return html.replace(IFRAME, (_, attributes: string) => {
+  if (allowed || !/<\/?iframe/i.test(html)) return html;
+  const placeholders = html.replace(IFRAME, (_, attributes: string) => {
     const values: Record<string, string> = {};
     for (const match of attributes.matchAll(ATTRIBUTE))
       values[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4];
@@ -95,4 +98,5 @@ export function gateEmbeds(
       `${link}</div></div>`
     );
   });
+  return placeholders.replace(LEFTOVER, "");
 }

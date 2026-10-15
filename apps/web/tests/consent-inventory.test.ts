@@ -9,24 +9,31 @@ import {
   ownedBy,
   type Storage,
 } from "../src/lib/consent/inventory";
+import { exportedStrings, scanSource } from "./consent-scan";
 import { sourceFiles } from "./lite-scan";
 
 // Every name the code writes into the browser must be in the inventory that the cookie policy page
-// and the banner are drawn from. A name the scan finds and the inventory lacks fails here; so
-// does a new file that writes to the browser at all, until its names are listed.
+// and the banner are drawn from. The scan (`consent-scan.ts`) reads every call that writes a
+// cookie or a storage key, in every file, and resolves its name; a name that is not listed, or
+// cannot be resolved, fails here.
 const ROOT = join(import.meta.dir, "..");
-const files = sourceFiles().filter(
-  (file) => !/\.test\.tsx?$/.test(file) && !file.includes("/lib/consent/"),
+const files = sourceFiles().filter((file) => /\.tsx?$/.test(file));
+const sources = Object.fromEntries(
+  files.map((file) => [file, readFileSync(join(ROOT, file), "utf8")]),
 );
-const source = (file: string) => readFileSync(join(ROOT, file), "utf8");
+const globals = exportedStrings(sources);
+// A hole of a template literal, written out in the source texts the scan is tried on.
+const hole = (name: string) => ["$", "{", name, "}"].join("");
+const tick = "`";
+const code = (...parts: string[]) => parts.join("");
 const inCategory = (name: string, storage: Storage) =>
   CATEGORIES.some((category) => ownedBy(category, name, storage));
 
 function found(pattern: RegExp) {
   return files.flatMap((file) =>
-    [...source(file).matchAll(pattern)].map((match) => ({
+    [...(sources[file] as string).matchAll(pattern)].map((match) => ({
       file,
-      name: match[1],
+      name: match[1] as string,
     })),
   );
 }
@@ -45,39 +52,155 @@ test("every session cookie name the code reads or writes is in the inventory", (
     expect(inCategory(name, "cookie"), `${name} (${file})`).toBe(true);
 });
 
-test("every storage key the code writes is in the inventory", () => {
-  const keys = [
-    ...found(/const \w*(?:WIDTH|THEME)_KEY\s*=\s*"([^"]+)"/g),
-    ...found(/storageKey="([^"]+)"/g),
-    ...found(/storageKey=\{`([^`$]+)/g),
-  ];
-  expect(keys.length).toBeGreaterThanOrEqual(4);
-  for (const { file, name } of keys)
-    expect(inCategory(name, "localStorage"), `${name} (${file})`).toBe(true);
-  expect(inCategory("forum_lite:reloads", "sessionStorage")).toBe(true);
+test("every name the code writes into the browser is in the inventory", () => {
+  const checked: string[] = [];
+  const problems: string[] = [];
+  for (const file of files) {
+    const scan = scanSource(file, sources[file] as string, globals);
+    checked.push(...scan.checked);
+    problems.push(...scan.problems);
+  }
+  expect(problems).toEqual([]);
+  // The scan must really see the writers: each of these is a known one.
+  for (const expected of [
+    "src/app/[locale]/(main)/actions.ts forum_lite",
+    "src/app/[locale]/(main)/actions.ts forum_locale",
+    "src/app/[locale]/(main)/actions.ts forum_notices_dismissed",
+    "src/app/[locale]/(main)/account/actions.ts forum_locale",
+    "src/proxy.ts forum_lite",
+    "src/components/layout/theme.ts sermo-theme",
+    "src/components/layout/narrow-width.ts sermo-width",
+    // The sessionStorage key is read from the source, not written out here.
+    "src/components/layout/lite-mode-sync.tsx forum_lite:reloads",
+    "src/app/[locale]/(main)/forums/forum-stats.tsx forum-stats-open",
+    "src/app/[locale]/(main)/forums/page.tsx forum-category-1-open",
+    "src/lib/sermo/auth.ts (passed through)",
+    "src/components/forum/collapsible-panel.tsx (passed through)",
+  ])
+    expect(checked, expected).toContain(expected);
 });
 
-test("only files whose names are in the inventory write to the browser", () => {
-  const writers = files
-    .filter((file) =>
-      /document\.cookie\s*=|(?:local|session)Storage\.setItem|(?:store\??|cookies|\))\.set\(/.test(
-        source(file),
+test("a name that is not in the inventory fails the scan, in any file", () => {
+  const scan = (path: string, source: string) =>
+    scanSource(path, source, globals).problems;
+  // Files that already write to the browser are held to the same rule.
+  for (const path of [
+    "src/proxy.ts",
+    "src/app/[locale]/(main)/actions.ts",
+    "src/lib/sermo/auth.ts",
+    "src/components/layout/lite-mode-sync.tsx",
+    "src/components/forum/collapsible-panel.tsx",
+    "src/components/new.tsx",
+  ]) {
+    expect(scan(path, `store.set("tracker", "1");`), path).toHaveLength(1);
+    expect(
+      scan(path, `response.cookies.set("tracker", "1", {});`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `(await cookies()).set("tracker", "1");`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `document.cookie = "tracker=1; path=/";`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `localStorage.setItem("tracker", "1");`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `window.sessionStorage.setItem("tracker", "1");`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(
+        path,
+        code(
+          "sessionStorage.setItem(",
+          tick,
+          hole("LITE_COOKIE"),
+          ":other",
+          tick,
+          ', "1");',
+        ),
       ),
-    )
-    .map((file) => file.replaceAll("\\", "/"))
-    .sort();
-  expect(writers).toEqual(
-    [
-      "src/app/[locale]/(main)/account/actions.ts",
-      "src/app/[locale]/(main)/actions.ts",
-      "src/components/forum/collapsible-panel.tsx",
-      "src/components/layout/lite-mode-sync.tsx",
-      "src/components/layout/narrow-width.ts",
-      "src/components/layout/theme.ts",
-      "src/lib/sermo/auth.ts",
-      "src/proxy.ts",
-    ].sort(),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `store.set({ name: "tracker", value: "1" });`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `const KEY = "tracker"; store.set(KEY, "1");`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(path, `const a = <Panel storageKey="tracker" />;`),
+      path,
+    ).toHaveLength(1);
+    expect(
+      scan(
+        path,
+        code(
+          "const a = <Panel storageKey={",
+          tick,
+          "tracker-",
+          hole("id"),
+          tick,
+          "} />;",
+        ),
+      ),
+      path,
+    ).toHaveLength(1);
+  }
+  // A name held in a variable the scan cannot resolve is a problem outside the two pass-through
+  // files, and a literal is a problem even inside them.
+  expect(scan("src/components/new.tsx", `store.set(name, "1");`)).toHaveLength(
+    1,
   );
+  expect(
+    scan("src/lib/sermo/auth.ts", `store?.set({ name: parsed.name, value });`),
+  ).toHaveLength(0);
+  expect(
+    scan("src/lib/sermo/auth.ts", `store.set("tracker", "1");`),
+  ).toHaveLength(1);
+  // Listed names pass, written as a literal, a constant or a template.
+  expect(
+    scan("src/components/new.tsx", `store.set(LITE_COOKIE, "1");`),
+  ).toEqual([]);
+  expect(
+    scan("src/components/new.tsx", `store.set("forum_locale", "1");`),
+  ).toEqual([]);
+  expect(
+    scan("src/components/new.tsx", `store.set(CONSENT_COOKIE, "1");`),
+  ).toEqual([]);
+  expect(
+    scan(
+      "src/components/new.tsx",
+      code(
+        "sessionStorage.setItem(",
+        tick,
+        hole("LITE_COOKIE"),
+        ":reloads",
+        tick,
+        ', "1");',
+      ),
+    ),
+  ).toEqual([]);
+  expect(
+    scan("src/components/new.tsx", `localStorage.setItem("sermo-theme", "1");`),
+  ).toEqual([]);
+  // A cookie name is not a storage key, and the other way round.
+  expect(
+    scan(
+      "src/components/new.tsx",
+      `localStorage.setItem("forum_locale", "1");`,
+    ),
+  ).toHaveLength(1);
+  expect(
+    scan("src/components/new.tsx", `store.set("sermo-theme", "1");`),
+  ).toHaveLength(1);
 });
 
 test("the consent cookie is listed as strictly necessary", () => {

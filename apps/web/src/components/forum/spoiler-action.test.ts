@@ -1,16 +1,29 @@
 import { afterEach, expect, mock, test } from "bun:test";
+import { CONSENT_COOKIE } from "@/lib/consent/inventory";
 import { serializeLiteCookie } from "@/lib/lite-preferences";
+import { siteBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 
 // Only the request and the network are stood in for; the client, the LITE filter and the contract
 // are the real ones.
 let cookie = "";
+let consent: string | undefined;
 mock.module("server-only", () => ({}));
+// Bun applies module mocks to the whole run, so this matches the one in the other suites.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({
     set: () => {},
-    get: () => undefined,
+    get: (name: string) =>
+      name === CONSENT_COOKIE && consent !== undefined
+        ? { name, value: consent }
+        : undefined,
     toString: () => cookie,
   }),
 }));
@@ -24,6 +37,8 @@ const realFetch = globalThis.fetch;
 const urls: string[] = [];
 function backend(response: () => Response) {
   globalThis.fetch = (async (input: RequestInfo | URL) => {
+    // The site is asked for too (the cookie policy version), when a player has to be gated.
+    if (String(input).includes("/site")) return Response.json(siteBody());
     urls.push(String(input));
     return response();
   }) as unknown as typeof fetch;
@@ -31,6 +46,7 @@ function backend(response: () => Response) {
 afterEach(() => {
   globalThis.fetch = realFetch;
   cookie = "";
+  consent = undefined;
   urls.length = 0;
 });
 
@@ -100,4 +116,32 @@ test("a refusal gives null and any other failure is raised", async () => {
   );
   // A transport failure is a SermoError too (the backend could not be reached): no spoiler.
   expect("error" in outcome ? outcome.error : outcome.value).toBeDefined();
+});
+
+const voteFrame =
+  '<iframe class="bb-media bb-media-video bb-media-vimeo" src="https://player.vimeo.com/video/1" data-media-url="https://vimeo.com/1"></iframe>';
+const choice = (...categories: string[]) =>
+  encodeURIComponent(JSON.stringify({ categories, revision: 1 }));
+
+test("a player inside a spoiler is a placeholder until the embeds category is accepted", async () => {
+  // The same backend answers the spoiler and the site (asked for the policy version).
+  globalThis.fetch = (async (input: RequestInfo | URL) =>
+    String(input).includes("/spoilers?")
+      ? Response.json({ html: `<p>secret</p>${voteFrame}` })
+      : Response.json(siteBody())) as unknown as typeof fetch;
+  for (const value of [
+    undefined,
+    choice("necessary"),
+    choice("necessary", "analytics"),
+  ]) {
+    consent = value;
+    const hidden = await revealSpoiler("post", 5, 1);
+    expect(hidden?.html).not.toContain("<iframe");
+    expect(hidden?.html).toContain("data-embed-load");
+    expect(hidden?.html).toContain("<p>secret</p>");
+  }
+  consent = choice("necessary", "embeds");
+  const shown = await revealSpoiler("post", 5, 1);
+  expect(shown?.html).toContain("<iframe");
+  expect(shown?.html).not.toContain("data-embed-load");
 });

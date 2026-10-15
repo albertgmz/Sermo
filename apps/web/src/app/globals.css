@@ -605,11 +605,11 @@
 /*
  * The cookie banner (components/layout/cookie-consent-root.tsx): the library's own sheet, drawn
  * with the site's tokens so it follows both themes. Accept, reject and choose are one look, so
- * none is easier to press than another. Above the bottom navigation (z-40) and below dialogs.
+ * none is easier to press than another. Above the bottom navigation (z-40), below dialogs and menus (z-50).
  */
 #cc-main {
   --cc-font-family: var(--font-inter), system-ui, sans-serif;
-  --cc-z-index: 60;
+  --cc-z-index: 45;
   --cc-modal-border-radius: var(--radius-md);
   --cc-btn-border-radius: var(--radius-md);
   --cc-bg: var(--popover);

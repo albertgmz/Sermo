@@ -2,15 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
+import {
+  consentLibrary,
+  startConsent,
+} from "@/components/layout/consent-library";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
+import { effectOf } from "@/lib/consent/effects";
 import { OPTIONAL_CATEGORIES } from "@/lib/consent/inventory";
 
-type Library = typeof import("vanilla-cookieconsent");
-
-// Starts the cookie banner once and keeps it in step with the page: a choice that changes what the
-// server draws (the analytics tag, the players) refreshes the page; withdrawing analytics reloads
-// it, because a tracker that is already running only stops with its page. Anything marked
-// `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
+// Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
+// marked `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
 // Renders nothing: the library draws its own dialogs.
 export function CookieConsentRoot({
   texts,
@@ -24,33 +25,27 @@ export function CookieConsentRoot({
   const router = useRouter();
   const refresh = useRef(router.refresh);
   refresh.current = router.refresh;
-  const ready = useRef<Promise<Library> | null>(null);
   const first = useRef({ texts, locale, version });
   useEffect(() => {
     const { texts, locale, version } = first.current;
-    ready.current ??= import("vanilla-cookieconsent").then(async (library) => {
-      await library.run({
-        ...consentConfig(texts, locale, version),
-        onFirstConsent: () => {
-          if (OPTIONAL_CATEGORIES.some((c) => library.acceptedCategory(c)))
-            refresh.current();
-        },
-        onChange: ({ changedCategories }) => {
-          if (
-            changedCategories.includes("analytics") &&
-            !library.acceptedCategory("analytics")
-          ) {
-            window.location.reload();
-          } else if (
-            changedCategories.some((c) =>
-              (OPTIONAL_CATEGORIES as readonly string[]).includes(c),
-            )
-          ) {
-            refresh.current();
-          }
-        },
-      });
-      return library;
+    startConsent({
+      ...consentConfig(texts, locale, version, window.location.hostname),
+      onFirstConsent: async () => {
+        const library = await consentLibrary();
+        if (
+          library &&
+          OPTIONAL_CATEGORIES.some((c) => library.acceptedCategory(c))
+        )
+          refresh.current();
+      },
+      onChange: async ({ changedCategories }) => {
+        const library = await consentLibrary();
+        if (!library) return;
+        const accepted = library.getUserPreferences().acceptedCategories;
+        const effect = effectOf(changedCategories, accepted);
+        if (effect === "reload") window.location.reload();
+        else if (effect === "refresh") refresh.current();
+      },
     });
     const open = (event: MouseEvent) => {
       if (
@@ -58,13 +53,13 @@ export function CookieConsentRoot({
       )
         return;
       event.preventDefault();
-      ready.current?.then((library) => library.showPreferences());
+      consentLibrary()?.then((library) => library?.showPreferences());
     };
     document.addEventListener("click", open);
     return () => document.removeEventListener("click", open);
   }, []);
   useEffect(() => {
-    ready.current?.then((library) => library.setLanguage(locale));
+    consentLibrary()?.then((library) => library?.setLanguage(locale));
   }, [locale]);
   return null;
 }

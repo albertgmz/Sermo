@@ -11,8 +11,6 @@
     "savePreferences": "Guardar mis opciones",
     "closeLabel": "Cerrar",
     "revisionMessage": "La política de cookies ha cambiado desde tu última elección, por eso volvemos a preguntarte.",
-    "alwaysOn": "Siempre activas",
-    "moreInformation": "Más información",
     "categories": {
       "necessary": {
         "title": "Estrictamente necesarias",

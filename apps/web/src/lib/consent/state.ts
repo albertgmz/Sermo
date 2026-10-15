@@ -19,8 +19,9 @@ export const NO_CONSENT: Consent = { decided: false, accepted: [] };
 export const allows = (consent: Consent, category: OptionalCategory) =>
   consent.accepted.includes(category);
 
-// The policy version in force. Part 2 of the cookie work lets the backend set it: `site.get` then
-// carries a positive whole number as `cookiePolicyVersion`, which wins; until then the constant.
+// The policy version in force: a positive whole number `cookiePolicyVersion` on the site wins,
+// else the constant. `getSite` fills it from the `site.get` answer once that contract names the
+// field (part 2); until then every site reads the constant.
 export function policyVersion(site: object): number {
   const version = (site as { cookiePolicyVersion?: unknown })
     .cookiePolicyVersion;
