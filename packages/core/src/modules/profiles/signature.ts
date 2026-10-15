@@ -98,7 +98,9 @@ function sizeOf(tag: string, attribs: Record<string, string>): number {
  * a lone skin-tone modifier. A pictograph takes its skin tone or emoji selector (U+FE0F) with it,
  * and the text-default characters that become emoji with that selector (the copyright and
  * registered signs, the trade mark, the double exclamation mark, the information source) count
- * then, not bare. A character followed by the text selector (U+FE0E) is text. A sequence joined
+ * then, not bare. A character followed by the text selector (U+FE0E) is text, unless it is an
+ * emoji by default (a face, a flame): many systems have no text form for those and draw them in
+ * colour anyway, so they count with any selector. A sequence joined
  * with zero-width joiners counts every pictograph in it, because a chain of joiners is not a
  * real sequence and draws separate glyphs. Strict on purpose: the symbols from U+2190 up that
  * some systems draw as colour (arrows, card suits, the sun, check marks) count even without a
@@ -108,7 +110,8 @@ const EMOJI = new RegExp(
   [
     String.raw`\p{Regional_Indicator}{2}`,
     String.raw`[0-9#*]\uFE0F?\u20E3`,
-    String.raw`\p{Extended_Pictographic}\uFE0F`,
+    String.raw`(?!\p{Emoji_Modifier})\p{Emoji_Presentation}[\uFE0E\uFE0F]?\p{Emoji_Modifier}?`,
+    String.raw`\p{Extended_Pictographic}\uFE0F\p{Emoji_Modifier}?`,
     String.raw`(?=[\u{2190}-\u{1FFFF}])\p{Extended_Pictographic}(?!\uFE0E)\p{Emoji_Modifier}?`,
     String.raw`\p{Emoji_Modifier}`,
   ].join("|"),

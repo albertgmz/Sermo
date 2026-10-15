@@ -132,6 +132,11 @@ describe("signature limits, measured on the rendered html", () => {
     const text = "\u2764\uFE0E";
     await sign(w, text.repeat(10));
     expect(await refusal(w, "\u2764".repeat(3))).toContain("this one has 3");
+    // An emoji by default stays one with the text selector: most systems draw it in colour.
+    expect(await refusal(w, "\u{1F600}\uFE0E".repeat(3))).toContain("this one has 3");
+    expect(await refusal(w, "\u{1F525}\uFE0E".repeat(100))).toContain("this one has 100");
+    // A pictograph with the emoji selector and a skin tone is one.
+    await sign(w, "\u{1F44D}\uFE0F\u{1F3FD}\u{1F44D}\uFE0F\u{1F3FD}");
   });
 
   test("a lone skin-tone modifier is drawn, so it counts", async () => {
