@@ -1,10 +1,17 @@
 import { expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
-// The backend is not involved in a referral: the pages asked for here (the home page, the forum
-// list, the register page) need no record, and the site's default language is faked.
+// The pages asked for here (the home page, the forum list, the register page) need no record, and
+// what the proxy knows of the site is faked: its default language and what its cookie policy says.
+// The only thing asked of the backend is whether the banner applies to a visitor (a site that
+// shows it in Europe only), which `fetch` answers below.
+const site = {
+  cookiePolicyVersion: 1 as number | null,
+  bannerOutsideEu: true,
+};
 mock.module("@/lib/sermo/default-language", () => ({
   siteDefaultLanguage: async () => "en",
+  siteConsentFacts: async () => site,
   forgetDefaultLanguage: () => {},
 }));
 mock.module("server-only", () => ({}));
@@ -174,4 +181,96 @@ test("a member who is signed in is not given the cookie, but a stale one is stil
 test("a page reached through ?ref= gets no canonical header of its own", async () => {
   const response = await ask("/forums?ref=9", ACCEPTED);
   expect(response?.headers.get("link")).toBeNull();
+});
+
+const choice = (revision: number, ...categories: string[]) =>
+  `forum_consent=${encodeURIComponent(
+    JSON.stringify({ categories: ["necessary", ...categories], revision }),
+  )}`;
+
+test("the policy version is the site's: a choice answers it, an older one is no choice", async () => {
+  site.cookiePolicyVersion = 3;
+  try {
+    expect(
+      referralCookie(await ask("/?ref=12", choice(3, "referrals"))),
+    ).toContain("forum_ref=12");
+    // Accepted under the version before the last "ask everyone again".
+    expect(
+      referralCookie(await ask("/?ref=12", choice(1, "referrals"))),
+    ).toBeUndefined();
+    // And a cookie held under that older choice is removed.
+    expect(
+      referralCookie(await ask("/", `${choice(2, "referrals")}; forum_ref=7`)),
+    ).toContain("forum_ref=;");
+  } finally {
+    site.cookiePolicyVersion = 1;
+  }
+});
+
+test("while the site has not been read nothing is set and nothing is removed", async () => {
+  site.cookiePolicyVersion = null;
+  try {
+    expect(referralCookie(await ask("/?ref=12", ACCEPTED))).toBeUndefined();
+    expect(
+      referralCookie(await ask("/", `${ACCEPTED}; forum_ref=7`)),
+    ).toBeUndefined();
+    expect(referralCookie(await ask("/", "forum_ref=7"))).toBeUndefined();
+  } finally {
+    site.cookiePolicyVersion = 1;
+  }
+});
+
+// A site whose banner is for Europe only: a visitor it does not ask counts as accepting.
+async function withBannerFor(
+  shown: boolean | "fails",
+  run: (asked: () => number) => Promise<void>,
+) {
+  const realFetch = globalThis.fetch;
+  let asked = 0;
+  globalThis.fetch = (async () => {
+    asked += 1;
+    if (shown === "fails") throw new TypeError("connection refused");
+    return Response.json({ show: shown });
+  }) as unknown as typeof fetch;
+  site.bannerOutsideEu = false;
+  try {
+    await run(() => asked);
+  } finally {
+    site.bannerOutsideEu = true;
+    globalThis.fetch = realFetch;
+  }
+}
+
+test("a visitor the banner is not shown to has the cookie set, a visitor who is asked has not", async () => {
+  await withBannerFor(false, async (asked) => {
+    expect(referralCookie(await ask("/?ref=12"))).toContain("forum_ref=12");
+    expect(asked()).toBe(1);
+  });
+  await withBannerFor(true, async () => {
+    expect(referralCookie(await ask("/?ref=12"))).toBeUndefined();
+  });
+});
+
+test("a choice made outside the banner's reach still counts, and the backend is not asked", async () => {
+  await withBannerFor(false, async (asked) => {
+    expect(referralCookie(await ask("/?ref=12", consentTo()))).toBeUndefined();
+    expect(referralCookie(await ask("/?ref=12", ACCEPTED))).toContain(
+      "forum_ref=12",
+    );
+    expect(asked()).toBe(0);
+  });
+});
+
+test("when the backend cannot say whether the banner applies, the visitor is asked: no cookie", async () => {
+  await withBannerFor("fails", async () => {
+    expect(referralCookie(await ask("/?ref=12"))).toBeUndefined();
+  });
+});
+
+test("a request without a referral does not ask the backend anything", async () => {
+  await withBannerFor(false, async (asked) => {
+    await ask("/forums");
+    await ask("/");
+    expect(asked()).toBe(0);
+  });
 });

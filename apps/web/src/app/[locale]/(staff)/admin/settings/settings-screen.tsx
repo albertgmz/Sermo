@@ -11,7 +11,8 @@ export type Screen =
   | "warnings"
   | "uploads"
   | "seo"
-  | "levels";
+  | "levels"
+  | "cookies";
 
 type Params = Promise<{ notice?: string | string[] }>;
 
@@ -21,7 +22,7 @@ export function SettingsNotice({ searchParams }: { searchParams: Params }) {
     <Notice
       namespace="adminSetup.notices"
       searchParams={searchParams}
-      shown={["saved", "added", "deleted"]}
+      shown={["saved", "added", "deleted", "asked"]}
     />
   );
 }

@@ -1,10 +1,12 @@
 import type { CookieConsentConfig } from "vanilla-cookieconsent";
+import { CONSENT_COOKIE_DAYS } from "./account";
 import {
   CATEGORIES,
   type Category,
   CONSENT_COOKIE,
   INVENTORY,
   OPTIONAL_CATEGORIES,
+  type OptionalCategory,
 } from "./inventory";
 
 // The words of the banner in one language: `messages/<locale>/cookies.json`, `banner` part.
@@ -55,6 +57,15 @@ function cookiesOf(category: Category, hostname: string) {
   );
 }
 
+export type ConsentOptions = {
+  // The banner is not shown to this visitor (the site asks in Europe only): the choices stay
+  // reachable from the settings link, which show every category already on, as the site treats
+  // a visitor who has chosen nothing.
+  quiet?: boolean;
+  // Categories left out: analytics when the site's only analytics runs without cookies.
+  omit?: readonly OptionalCategory[];
+};
+
 // The library's configuration. Opt-in: nothing optional is on before a choice; the three buttons
 // weigh the same; the cookie carries the policy version as `revision`, so a new version asks
 // again. `hostname` is where the page is served, for the domains cookies are cleared on.
@@ -63,23 +74,30 @@ export function consentConfig(
   locale: string,
   version: number,
   hostname: string,
+  { quiet = false, omit = [] }: ConsentOptions = {},
 ): CookieConsentConfig {
   const categories: NonNullable<CookieConsentConfig["categories"]> = {
     necessary: { enabled: true, readOnly: true },
   };
   for (const category of OPTIONAL_CATEGORIES) {
+    if (omit.includes(category)) continue;
     const cookies = cookiesOf(category, hostname);
     categories[category] = {
-      enabled: false,
+      enabled: quiet,
       ...(cookies.length > 0 && { autoClear: { cookies } }),
     };
   }
   return {
-    mode: "opt-in",
+    mode: quiet ? "opt-out" : "opt-in",
+    autoShow: !quiet,
     revision: version,
     disablePageInteraction: false,
     hideFromBots: false,
-    cookie: { name: CONSENT_COOKIE, expiresAfterDays: 182, sameSite: "Lax" },
+    cookie: {
+      name: CONSENT_COOKIE,
+      expiresAfterDays: CONSENT_COOKIE_DAYS,
+      sameSite: "Lax",
+    },
     guiOptions: {
       consentModal: {
         layout: "cloud inline",
@@ -97,13 +115,16 @@ export function consentConfig(
     language: {
       default: locale,
       translations: Object.fromEntries(
-        Object.entries(texts).map(([code, text]) => [code, translation(text)]),
+        Object.entries(texts).map(([code, text]) => [
+          code,
+          translation(text, omit),
+        ]),
       ),
     },
   };
 }
 
-function translation(text: ConsentTexts) {
+function translation(text: ConsentTexts, omit: readonly OptionalCategory[]) {
   return {
     consentModal: {
       title: text.title,
@@ -125,7 +146,9 @@ function translation(text: ConsentTexts) {
           title: text.preferencesTitle,
           description: `${text.preferencesIntro} <a href="/cookies">${text.policyLink}</a>`,
         },
-        ...CATEGORIES.map((category) => ({
+        ...CATEGORIES.filter(
+          (category) => !(omit as readonly Category[]).includes(category),
+        ).map((category) => ({
           title: text.categories[category].title,
           description: text.categories[category].description,
           linkedCategory: category,

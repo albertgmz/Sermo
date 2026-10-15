@@ -116,3 +116,34 @@ test("a withdrawn analytics category clears its cookies on the parent domain too
   expect(on("_ga", "com")).toBe(false);
   expect(on("_ga", ".com")).toBe(false);
 });
+
+test("a visitor the banner is not shown to has the choices on in the settings and no banner", () => {
+  const quiet = consentConfig({ en: en.banner }, "en", 3, "forum.example.com", {
+    quiet: true,
+  });
+  expect(quiet.autoShow).toBe(false);
+  expect(quiet.mode).toBe("opt-out");
+  for (const category of OPTIONAL_CATEGORIES)
+    expect(quiet.categories?.[category]?.enabled, category).toBe(true);
+  // The ordinary configuration shows the banner and starts with everything off.
+  expect(config.autoShow).toBe(true);
+  expect(config.mode).toBe("opt-in");
+});
+
+test("a category can be left out of the banner and of the settings", () => {
+  const without = consentConfig({ en: en.banner }, "en", 3, "localhost", {
+    omit: ["analytics"],
+  });
+  expect(without.categories).not.toHaveProperty("analytics");
+  expect(without.categories).toHaveProperty("referrals");
+  const translations = without.language?.translations as unknown as Record<
+    string,
+    { preferencesModal: { sections: { linkedCategory?: string }[] } }
+  >;
+  const sections = translations.en?.preferencesModal.sections.map(
+    (section) => section.linkedCategory,
+  );
+  expect(sections).not.toContain("analytics");
+  expect(sections).toContain("embeds");
+  expect(sections).toContain("necessary");
+});

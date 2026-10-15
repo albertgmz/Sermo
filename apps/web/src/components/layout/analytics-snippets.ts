@@ -10,7 +10,10 @@ const literal = (value: unknown) =>
   JSON.stringify(value).replace(/</g, String.raw`\u003c`);
 
 // The scripts a provider needs, in the order they run; none for `none`.
-export function analyticsSnippets(analytics: Provider): Snippet[] {
+export function analyticsSnippets(
+  analytics: Provider,
+  options: { cookieless?: boolean } = {},
+): Snippet[] {
   if (analytics.provider === "matomo") {
     const base = analytics.url.endsWith("/")
       ? analytics.url
@@ -20,6 +23,8 @@ export function analyticsSnippets(analytics: Provider): Snippet[] {
         id: "analytics-matomo",
         code:
           "var _paq=window._paq=window._paq||[];" +
+          // Before the first page view, so no cookie is ever set.
+          (options.cookieless ? "_paq.push(['disableCookies']);" : "") +
           `_paq.push(['setTrackerUrl',${literal(`${base}matomo.php`)}]);` +
           `_paq.push(['setSiteId',${literal(analytics.siteId)}]);` +
           "_paq.push(['trackPageView']);_paq.push(['enableLinkTracking']);",

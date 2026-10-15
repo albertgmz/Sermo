@@ -88,7 +88,13 @@ test("every cookie of the answer is written with its attributes", async () => {
     ]),
   );
   const result = await signInWithUsername("ann", "secret", true);
-  assert.deepEqual(result, { ok: true, code: undefined, signedIn: true });
+  // `cookie` is what a request made with the answer's cookies would carry.
+  assert.deepEqual(result, {
+    ok: true,
+    code: undefined,
+    signedIn: true,
+    cookie: "sermo.session_token=tok; sermo.session_data=data",
+  });
   assert.deepEqual(written, [
     {
       name: "sermo.session_token",
@@ -157,6 +163,7 @@ test("cookies of a failed answer are written too, with its error code", async ()
     ok: false,
     code: "INVALID_USERNAME_OR_PASSWORD",
     signedIn: false,
+    cookie: "sermo.captcha=1",
   });
   assert.equal(written.length, 1);
   assert.equal(written[0].name, "sermo.captcha");
@@ -181,6 +188,7 @@ test("a failure without a readable code has none", async () => {
     ok: false,
     code: undefined,
     signedIn: false,
+    cookie: "",
   });
 });
 
@@ -369,7 +377,12 @@ test("changing the password sends both passwords and delivers the new session co
     newPassword: "new-password",
     revokeOtherSessions: true,
   });
-  assert.deepEqual(result, { ok: true, code: undefined, signedIn: true });
+  assert.deepEqual(result, {
+    ok: true,
+    code: undefined,
+    signedIn: true,
+    cookie: "sermo.session_token=fresh",
+  });
   assert.equal(seen[0].url, "http://127.0.0.1:8787/api/auth/change-password");
   assert.deepEqual(JSON.parse(String(seen[0].body)), {
     currentPassword: "old-password",

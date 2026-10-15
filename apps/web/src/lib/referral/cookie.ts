@@ -1,5 +1,3 @@
-import { POLICY_VERSION } from "@/lib/consent/inventory";
-import { mayStoreReferral, parseConsent } from "@/lib/consent/state";
 import { REFERRAL_PARAM, referrerOf } from "./link";
 
 // How long the referral cookie lasts: thirty days from the visit that set it.
@@ -17,17 +15,17 @@ export type ReferralStep = {
 // accepted the referrals category, and never over a cookie already holding a valid referrer (the
 // first one wins). A signed-in member has no use for it: they are already registered. A cookie the
 // visitor has not accepted, or has since withdrawn, is removed here because it is HttpOnly and the
-// banner's script cannot reach it. The consent cookie is read against the policy version of the
-// web app: `site.get` does not carry another one yet.
+// banner's script cannot reach it. `accepted` is whether the visitor accepts referrals under the
+// policy version the site has now; null when that is not known (the site could not be read), and
+// then the cookie is neither written nor removed.
 export function referralStep(
   url: URL,
-  cookies: { referral?: string; consent?: string },
+  cookies: { referral?: string },
   pageLoad: boolean,
   signedIn: boolean,
+  accepted: boolean | null,
 ): ReferralStep {
-  const accepted = mayStoreReferral(
-    parseConsent(cookies.consent, POLICY_VERSION),
-  );
+  if (accepted === null) return { set: null, clear: false };
   const referrer = referrerOf(url.searchParams.getAll(REFERRAL_PARAM));
   const held = referrerOf(cookies.referral) !== null;
   return {

@@ -15,6 +15,9 @@ export type AuthResult = {
   code?: string;
   // A session cookie came back: the visitor is signed in.
   signedIn: boolean;
+  // The cookies the answer set, as the Cookie header a request made with them would carry: what
+  // an action needs to speak for the session it has just opened.
+  cookie: string;
 };
 
 type Exchange = { result: AuthResult; payload: unknown };
@@ -37,10 +40,13 @@ async function exchange(
   // Every cookie is delivered, also on a failed attempt.
   const store = deliver ? await cookies() : undefined;
   let signedIn = false;
+  const set: string[] = [];
   for (const header of response.headers.getSetCookie()) {
     const parsed = parseSetCookie(header);
     if (!parsed) continue;
     store?.set({ name: parsed.name, value: parsed.value, ...parsed.options });
+    if (parsed.value !== "" && parsed.options.maxAge !== 0)
+      set.push(header.split(";")[0].trim());
     if (
       /session_token$/.test(parsed.name) &&
       parsed.value !== "" &&
@@ -59,7 +65,10 @@ async function exchange(
     if (typeof error?.code === "string") code = error.code;
     if (response.status === 429) code = "RATE_LIMITED";
   }
-  return { result: { ok: response.ok, code, signedIn }, payload };
+  return {
+    result: { ok: response.ok, code, signedIn, cookie: set.join("; ") },
+    payload,
+  };
 }
 
 async function post(path: string, body?: unknown): Promise<AuthResult> {

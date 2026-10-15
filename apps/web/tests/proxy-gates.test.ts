@@ -58,6 +58,10 @@ mock.module("@/lib/sermo/default-language", () => ({
     state.defaultAsked += 1;
     return state.siteDefault;
   },
+  siteConsentFacts: async () => ({
+    cookiePolicyVersion: 1,
+    bannerOutsideEu: true,
+  }),
   forgetDefaultLanguage: () => {},
 }));
 mock.module("server-only", () => ({}));

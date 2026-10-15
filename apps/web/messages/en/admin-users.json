@@ -121,6 +121,13 @@
     },
     "accountHeading": "Account state",
     "erasedOn": "Erased on {date, date, medium}.",
+    "consent": {
+      "heading": "Cookie choice",
+      "none": "No cookie choice is saved on this account.",
+      "refusedAll": "Refused every optional category.",
+      "accepted": "Accepted: {categories}.",
+      "record": "Answered policy version {version} on {date, date, medium}."
+    },
     "sanctions": "Sanctions",
     "signOutEverywhere": "Sign out everywhere",
     "ipAddresses": "IP addresses"

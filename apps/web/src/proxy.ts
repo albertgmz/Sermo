@@ -23,6 +23,7 @@ import {
   negotiateLocale,
 } from "@/i18n/locales";
 import { CONSENT_COOKIE, REFERRAL_COOKIE } from "@/lib/consent/inventory";
+import { consentOf, mayStoreReferral } from "@/lib/consent/state";
 import {
   blocksImageRequest,
   isImageRequest,
@@ -35,14 +36,19 @@ import {
   serializeLiteCookie,
 } from "@/lib/lite-preferences";
 import { REFERRAL_MAX_AGE, referralStep } from "@/lib/referral/cookie";
+import { REFERRAL_PARAM } from "@/lib/referral/link";
 import {
   canonicalPathOf,
   FORUM_PREFIX,
   LEGACY_FORUM_PREFIX,
   toBackendPath,
 } from "@/lib/sermo/addresses";
+import { bannerApplies } from "@/lib/sermo/banner";
 import { publicUrl } from "@/lib/sermo/config";
-import { siteDefaultLanguage } from "@/lib/sermo/default-language";
+import {
+  siteConsentFacts,
+  siteDefaultLanguage,
+} from "@/lib/sermo/default-language";
 import { SermoError } from "@/lib/sermo/errors";
 import { parseId, parsePageId } from "@/lib/sermo/ids";
 import { POSTS_PER_PAGE } from "@/lib/sermo/page-sizes";
@@ -247,24 +253,44 @@ function localePrefixRedirect(request: NextRequest) {
   return undefined;
 }
 
+// Whether the visitor accepts referrals under the cookie policy version the site has now, which
+// the proxy learns from the site facts it keeps for a minute (no request of its own per page); null
+// while the site has not been read. A visitor the banner is not shown to counts as accepting, and
+// the backend is asked about that only for a request that carries a referral or a referral cookie.
+async function referralsAccepted(request: NextRequest) {
+  const { cookiePolicyVersion, bannerOutsideEu } = await siteConsentFacts();
+  if (cookiePolicyVersion === null) return null;
+  const consent = await consentOf(
+    request.cookies.get(CONSENT_COOKIE)?.value,
+    { version: cookiePolicyVersion, bannerOutsideEu },
+    () => bannerApplies(forwardFromHeaders(request.headers)),
+  );
+  return mayStoreReferral(consent);
+}
+
 // What a request does to the referral cookie (see `referralStep`). The canonical address of a
 // page reached through `?ref=` needs nothing here: the pages that have one take it from the
 // backend (`seoMetadata`), which never carries a query, and the others have none.
-function withReferral(
+async function withReferral(
   request: NextRequest,
   response: NextResponse | undefined,
 ) {
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/api/") || pathname.startsWith("/_next/"))
     return response;
+  const referral = request.cookies.get(REFERRAL_COOKIE)?.value;
+  // Nothing to set and nothing to remove: no need to know what the visitor accepts.
+  if (
+    referral === undefined &&
+    !request.nextUrl.searchParams.has(REFERRAL_PARAM)
+  )
+    return response;
   const step = referralStep(
     request.nextUrl,
-    {
-      referral: request.cookies.get(REFERRAL_COOKIE)?.value,
-      consent: request.cookies.get(CONSENT_COOKIE)?.value,
-    },
+    { referral },
     isDocumentRequest(request),
     SESSION_COOKIES.some((name) => request.cookies.has(name)),
+    await referralsAccepted(request),
   );
   if (step.set === null && !step.clear) return response;
   const answer = response ?? NextResponse.next();
@@ -283,7 +309,7 @@ function withReferral(
 }
 
 export async function proxy(request: NextRequest) {
-  const response = withReferral(request, await handleRequest(request));
+  const response = await withReferral(request, await handleRequest(request));
   // Old installations set an HttpOnly preference. Replace it so tab sync can
   // observe changes without treating an invisible legacy cookie as a mismatch.
   if (

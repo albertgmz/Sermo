@@ -6,39 +6,61 @@ import {
   consentLibrary,
   startConsent,
 } from "@/components/layout/consent-library";
+import { saveConsentChoice } from "@/lib/consent/actions";
 import { type ConsentTexts, consentConfig } from "@/lib/consent/config";
-import { effectOf } from "@/lib/consent/effects";
-import { OPTIONAL_CATEGORIES } from "@/lib/consent/inventory";
+import { effectOf, firstChoiceEffect } from "@/lib/consent/effects";
+import type { OptionalCategory } from "@/lib/consent/inventory";
 
 // Starts the cookie banner once and keeps it in step with the page (`effectOf` says how). Anything
 // marked `data-consent-settings` (the footer button, the cookie policy page) opens the settings.
-// Renders nothing: the library draws its own dialogs.
+// Every choice is also sent to be saved on the member's account (nothing happens for a guest).
+// `quiet`: the banner is not shown to this visitor. Renders nothing: the library draws its own
+// dialogs.
 export function CookieConsentRoot({
   texts,
   locale,
   version,
+  quiet,
+  omit,
 }: {
   texts: Record<string, ConsentTexts>;
   locale: string;
   version: number;
+  quiet: boolean;
+  omit: readonly OptionalCategory[];
 }) {
   const router = useRouter();
   const refresh = useRef(router.refresh);
   refresh.current = router.refresh;
-  const first = useRef({ texts, locale, version });
+  const first = useRef({ texts, locale, version, quiet, omit });
   useEffect(() => {
-    const { texts, locale, version } = first.current;
+    const { texts, locale, version, quiet, omit } = first.current;
+    // In the library's opt-out mode, which a quiet visitor is in, the first choice reports a
+    // change as well, in the same call: that one is the first choice again, not a second event.
+    let justChosen = false;
     startConsent({
-      ...consentConfig(texts, locale, version, window.location.hostname),
+      ...consentConfig(texts, locale, version, window.location.hostname, {
+        quiet,
+        omit,
+      }),
       onFirstConsent: async () => {
+        if (quiet) {
+          justChosen = true;
+          setTimeout(() => {
+            justChosen = false;
+          }, 0);
+        }
+        void saveConsentChoice();
         const library = await consentLibrary();
-        if (
-          library &&
-          OPTIONAL_CATEGORIES.some((c) => library.acceptedCategory(c))
-        )
-          refresh.current();
+        if (!library) return;
+        const accepted = library.getUserPreferences().acceptedCategories;
+        const effect = firstChoiceEffect(quiet, accepted);
+        if (effect === "reload") window.location.reload();
+        else if (effect === "refresh") refresh.current();
       },
       onChange: async ({ changedCategories }) => {
+        if (justChosen) return;
+        void saveConsentChoice();
         const library = await consentLibrary();
         if (!library) return;
         const accepted = library.getUserPreferences().acceptedCategories;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { HtmlContent } from "@/components/forum/html-content";
 import { LoggedData } from "@/components/forum/logged-data";
 import { PageLayout } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import {
   itemsOf,
   OPTIONAL_CATEGORIES,
 } from "@/lib/consent/inventory";
-import { policyVersion } from "@/lib/consent/state";
+import { isCookielessMatomo } from "@/lib/consent/state";
+import { getCookiePolicyText } from "@/lib/sermo/cookie-policy";
 import { getSite } from "@/lib/sermo/site";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -58,7 +60,15 @@ async function Item({ item }: { item: InventoryItem }) {
   );
 }
 
-async function Section({ category }: { category: Category }) {
+// `cookieless`: the site's statistics run without cookies, so there is nothing to list or to
+// consent to in this category.
+async function Section({
+  category,
+  cookieless = false,
+}: {
+  category: Category;
+  cookieless?: boolean;
+}) {
   const [t, policy] = await Promise.all([
     getTranslations(`cookies.banner.categories.${category}`),
     getTranslations("cookies.policy"),
@@ -70,32 +80,42 @@ async function Section({ category }: { category: Category }) {
       </h2>
       <p className="mt-1 text-muted-foreground">{t("description")}</p>
       {category !== "necessary" && (
-        <p className="mt-1 text-sm font-medium">{policy("optionalNote")}</p>
+        <p className="mt-1 text-sm font-medium">
+          {cookieless ? policy("cookielessNote") : policy("optionalNote")}
+        </p>
       )}
-      <div className="mt-3 grid gap-3">
-        {itemsOf(category).map((item) => (
-          <Item key={item.id} item={item} />
-        ))}
-      </div>
+      {!cookieless && (
+        <div className="mt-3 grid gap-3">
+          {itemsOf(category).map((item) => (
+            <Item key={item.id} item={item} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
 export default async function CookiePolicyPage() {
-  const [t, site] = await Promise.all([
+  const [t, site, written] = await Promise.all([
     getTranslations("cookies.policy"),
     getSite(),
+    getCookiePolicyText(),
   ]);
+  const cookieless = isCookielessMatomo(site.analytics, site.matomoCookieless);
   return (
     <PageLayout className="md:pt-8">
       <article className="max-w-prose">
         <h1 className="text-3xl font-bold tracking-tight text-balance">
-          {t("title")}
+          {written?.title ?? t("title")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t("version", { version: policyVersion(site) })}
+          {t("version", { version: site.cookiePolicyVersion })}
         </p>
-        <p className="mt-6">{t("intro")}</p>
+        {written ? (
+          <HtmlContent className="mt-6">{written.bodyHtml}</HtmlContent>
+        ) : (
+          <p className="mt-6">{t("intro")}</p>
+        )}
         <p className="mt-3">{t("yourChoice")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <Button data-consent-settings="" className="h-10 md:h-8">
@@ -110,7 +130,11 @@ export default async function CookiePolicyPage() {
         </div>
         <Section category="necessary" />
         {OPTIONAL_CATEGORIES.map((category) => (
-          <Section key={category} category={category} />
+          <Section
+            key={category}
+            category={category}
+            cookieless={cookieless && category === "analytics"}
+          />
         ))}
         <LoggedData />
       </article>

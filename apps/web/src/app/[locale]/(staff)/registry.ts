@@ -160,6 +160,12 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "setupCookies",
+        path: "/admin/settings/cookies",
+        access: ["admin.settings"],
+        built: true,
+      },
+      {
         key: "setupNavigation",
         path: "/admin/settings/navigation",
         access: ["admin.settings"],

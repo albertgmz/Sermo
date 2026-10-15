@@ -22,9 +22,9 @@ export const OPTIONAL_CATEGORIES = [
 ] as const;
 export type OptionalCategory = (typeof OPTIONAL_CATEGORIES)[number];
 
-// The policy version the consent is recorded against. A change in what is stored or why raises it
-// and every visitor is asked again. The backend's own number, when `site.get` carries one, wins
-// (see `policyVersion` in `./state`).
+// The first policy version, and the one assumed while the site cannot be read. The version in
+// force is the site's (`cookiePolicyVersion`, raised by an administrator when what is stored or
+// why changes, which asks every visitor again).
 export const POLICY_VERSION = 1;
 
 // The cookie that holds the choice: the categories accepted, the policy version and the date.

@@ -143,6 +143,7 @@
       "privacy": "Has its own address on the site.",
       "legal": "Has its own address on the site.",
       "contact": "Has its own address on the site.",
+      "cookies": "The words of the cookie policy page. The table of cookies under it is built by the site.",
       "upgrade-faq": "Shown on the upgrade page as its questions and answers."
     },
     "suggestions": {
@@ -182,6 +183,7 @@
       "privacy": "Has its own address on the site.",
       "legal": "Has its own address on the site.",
       "contact": "Has its own address on the site.",
+      "cookies": "The words of the cookie policy page. The table of cookies under it is built by the site.",
       "upgrade-faq": "Shown on the upgrade page as its questions and answers."
     },
     "public": {

@@ -5,7 +5,8 @@
   "notices": {
     "saved": "Guardado.",
     "added": "Entrada añadida.",
-    "deleted": "Entrada eliminada."
+    "deleted": "Entrada eliminada.",
+    "asked": "Se volverá a pedir a todos su elección de cookies."
   },
   "errors": {
     "number": "Escribe un número entero.",
@@ -57,6 +58,18 @@
       "heading": "Antispam",
       "subtitle": "Con qué rapidez puede escribir un miembro y quién puede publicar enlaces o publicar sin revisión. Los límites diarios, la restricción que muestra como enlaces las imágenes y los medios externos (un grupo con Nunca queda exento) y las excepciones al intervalo anti-flood, al filtro de palabras y a la comprobación de spam son permisos: se ajustan en la pantalla de permisos.",
       "formHeading": "Límites de publicación"
+    },
+    "cookies": {
+      "metaTitle": "Cookies y privacidad",
+      "heading": "Cookies y privacidad",
+      "subtitle": "A quién se muestra el aviso de cookies, cómo se cuentan las estadísticas y cuándo se vuelve a preguntar a todos. Los textos de la página de la política de cookies son una página que escribes en Páginas, con la dirección cookies.",
+      "formHeading": "Aviso de cookies",
+      "versionHeading": "Versión de la política de cookies",
+      "versionCurrent": "Versión actual: {version}.",
+      "versionHelp": "Visitantes y miembros responden al aviso para una versión de la política. Súbela cuando cambie lo que el sitio guarda en el navegador, o para qué: entonces cada elección guardada, en el navegador y en las cuentas de los miembros, deja de valer y el aviso vuelve a preguntar. No se puede bajar ni escribir a mano.",
+      "askAgain": "Volver a preguntar a todos",
+      "askAgainWarning": "Se volverá a pedir a todos los visitantes y miembros su elección de cookies, y no se carga nada opcional hasta que respondan.",
+      "askAgainSubmit": "Volver a preguntar a todos"
     },
     "warnings": {
       "metaTitle": "Advertencias y expulsiones automáticas",
@@ -156,6 +169,16 @@
       "label": "Expulsar con tantos puntos",
       "help": "Puntos de advertencia activos con los que se expulsa automáticamente a un miembro. 0 desactiva las expulsiones automáticas.",
       "unit": "puntos"
+    },
+    "cookieBannerOutsideEu": {
+      "label": "Aviso de cookies fuera de Europa",
+      "help": "Activado (por defecto): se pregunta a todos. Desactivado: solo se pregunta a los visitantes de la UE, del EEE, del Reino Unido y de Suiza, y a los de país desconocido. Al resto se le trata como si hubiera aceptado todas las categorías hasta que elija en la configuración de cookies, así que las estadísticas, las invitaciones y los contenidos incrustados funcionan para ellos sin aviso. El país se lee solo de la ubicación que informa un proxy de confianza (consulta la guía de despliegue); sin ella se pregunta a todos.",
+      "switch": "Mostrar el aviso a visitantes de fuera de Europa"
+    },
+    "matomoCookieless": {
+      "label": "Matomo sin cookies",
+      "help": "Ejecuta la etiqueta de Matomo en su modo sin cookies y la carga sin pedir consentimiento; el aviso deja de tener una opción de estadísticas y la página de la política de cookies lo dice. Solo se aplica cuando el proveedor de analítica de General es Matomo. Que las estadísticas sin cookies necesiten consentimiento varía según el país: comprueba las normas que te afectan.",
+      "switch": "Matomo funciona sin cookies y sin consentimiento"
     },
     "warningBanDays": {
       "label": "Duración de una expulsión automática",

@@ -51,6 +51,7 @@
       "sessionStorage": "Session storage"
     },
     "noNames": "Set by the provider, not by this site",
+    "cookielessNote": "This site measures visits with Matomo in its cookieless mode: it sets no cookie and does not need your consent. Whether that is allowed without consent varies by country.",
     "privacyLink": "Privacy policy"
   },
   "logged": {
@@ -73,6 +74,10 @@
     "sessions": {
       "title": "Signed-in browsers",
       "text": "For each browser you are signed in on: the address it connected from and the full identification text your browser sent, when the session began, when it was last used (to within a few minutes) and the approximate place it began from. This is shown to you on your security page and is kept until the session ends: you sign out, revoke it, or it expires."
+    },
+    "choice": {
+      "title": "Your cookie choice",
+      "text": "If you are signed in, the choice you make in the cookie banner (the categories, the policy version and the date) is also saved on your account, so it follows you to your other devices and we can show that you made it. Deleting your account deletes it."
     },
     "retention": {
       "title": "How long it is kept",

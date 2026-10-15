@@ -48,6 +48,8 @@ test("the site is read without the visitor and keeps only its identity", async (
     forumStatsEnabled: false,
     analytics: { provider: "none" },
     cookiePolicyVersion: 1,
+    matomoCookieless: false,
+    cookieBannerOutsideEu: true,
     accents: [],
   });
   assert.equal(seen[0].get("cookie"), null);
@@ -126,6 +128,8 @@ test("an unreachable backend gives the default name and is logged outside the bu
       forumStatsEnabled: false,
       analytics: { provider: "none" },
       cookiePolicyVersion: 1,
+      matomoCookieless: false,
+      cookieBannerOutsideEu: true,
       accents: [],
     });
     assert.equal(logged.mock.calls.length, 1);
@@ -140,19 +144,17 @@ test("an unreachable backend gives the default name and is logged outside the bu
   }
 });
 
-// `getSite` hands on `policyVersion(answer)`, but the answer is parsed by the `site.get` contract,
-// which drops a field it does not name. Until part 2 adds `cookiePolicyVersion` to the `Site`
-// contract the constant applies whatever the backend sends; when that field is added this test
-// fails and its expectation becomes 4.
-test("the cookie policy version is the constant while the contract does not name the field", async () => {
+test("the cookie policy version and the banner settings are the site's", async () => {
   globalThis.fetch = (async () =>
     Response.json(
-      siteBody({ cookiePolicyVersion: 4 }),
+      siteBody({
+        cookiePolicyVersion: 4,
+        matomoCookieless: true,
+        cookieBannerOutsideEu: false,
+      }),
     )) as unknown as typeof fetch;
-  assert.equal((await getSite()).cookiePolicyVersion, 1);
-  assert.ok(
-    readFileSync(new URL("./site.ts", import.meta.url), "utf8").includes(
-      "cookiePolicyVersion: policyVersion(site)",
-    ),
-  );
+  const site = await getSite();
+  assert.equal(site.cookiePolicyVersion, 4);
+  assert.equal(site.matomoCookieless, true);
+  assert.equal(site.cookieBannerOutsideEu, false);
 });

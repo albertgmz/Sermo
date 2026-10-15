@@ -71,3 +71,28 @@ test("the tag is drawn once analytics is accepted, and gone when it is withdrawn
   consent = choice(1, "necessary");
   expect(await tag()).toBe("null");
 });
+
+test("Matomo in its cookieless mode is drawn with no choice, with cookies disabled, and stays when a choice refuses analytics", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(
+      siteBody({ analytics: matomo, matomoCookieless: true }),
+    )) as unknown as typeof fetch;
+  for (const value of [undefined, choice(1, "necessary")]) {
+    consent = value;
+    const drawn = await tag();
+    expect(drawn, String(value)).toContain("analytics-matomo");
+    expect(drawn).toContain("disableCookies");
+  }
+});
+
+test("the cookieless setting does nothing for another provider", async () => {
+  globalThis.fetch = (async () =>
+    Response.json(
+      siteBody({
+        analytics: { provider: "google", measurementId: "G-ABCD1234" },
+        matomoCookieless: true,
+      }),
+    )) as unknown as typeof fetch;
+  consent = undefined;
+  expect(await tag()).toBe("null");
+});

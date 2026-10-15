@@ -50,6 +50,7 @@
       "localStorage": "Almacenamiento local",
       "sessionStorage": "Almacenamiento de sesión"
     },
+    "cookielessNote": "Este sitio mide las visitas con Matomo en su modo sin cookies: no guarda ninguna cookie y no necesita tu consentimiento. Que eso se permita sin consentimiento varía según el país.",
     "noNames": "La pone el proveedor, no este sitio",
     "privacyLink": "Política de privacidad"
   },
@@ -73,6 +74,10 @@
     "sessions": {
       "title": "Navegadores con sesión iniciada",
       "text": "Por cada navegador con sesión iniciada: la dirección desde la que se conectó y el texto de identificación completo que envió tu navegador, cuándo empezó la sesión, cuándo se usó por última vez (con un margen de pocos minutos) y el lugar aproximado desde el que empezó. Se te muestra en tu página de seguridad y se conserva hasta que la sesión termina: cierras la sesión, la revocas o caduca."
+    },
+    "choice": {
+      "title": "Tu elección de cookies",
+      "text": "Si has iniciado sesión, la elección que haces en el aviso de cookies (las categorías, la versión de la política y la fecha) también se guarda en tu cuenta, para que te siga a tus otros dispositivos y podamos demostrar que la hiciste. Al eliminar tu cuenta se elimina."
     },
     "retention": {
       "title": "Cuánto tiempo se conserva",

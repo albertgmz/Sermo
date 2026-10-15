@@ -3,9 +3,8 @@ import { siteBody } from "@/lib/test-bodies";
 
 // A private copy of the module: another suite may replace the real one for the proxy.
 const source = "./default-language.ts?real";
-const { siteDefaultLanguage, forgetDefaultLanguage } = (await import(
-  source
-)) as typeof import("./default-language");
+const { siteConsentFacts, siteDefaultLanguage, forgetDefaultLanguage } =
+  (await import(source)) as typeof import("./default-language");
 
 const realFetch = globalThis.fetch;
 let asked = 0;
@@ -65,4 +64,42 @@ test("a failed read keeps the last known value", async () => {
 test("a language the web app does not speak is ignored", async () => {
   answer = async () => Response.json({ ...siteBody(), defaultLanguage: "xx" });
   expect(await siteDefaultLanguage(1_000)).toBe("en");
+});
+
+test("the cookie policy version and the banner setting come from the same read, kept for a minute", async () => {
+  answer = async () =>
+    Response.json(
+      siteBody({ cookiePolicyVersion: 4, cookieBannerOutsideEu: false }),
+    );
+  expect(await siteConsentFacts(1_000)).toEqual({
+    cookiePolicyVersion: 4,
+    bannerOutsideEu: false,
+  });
+  expect(await siteDefaultLanguage(2_000)).toBe("en");
+  expect(asked).toBe(1);
+  // An "ask everyone again" reaches the proxy once the minute is over.
+  answer = async () => Response.json(siteBody({ cookiePolicyVersion: 5 }));
+  expect((await siteConsentFacts(30_000)).cookiePolicyVersion).toBe(4);
+  expect((await siteConsentFacts(62_000)).cookiePolicyVersion).toBe(4);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(await siteConsentFacts(62_001)).toEqual({
+    cookiePolicyVersion: 5,
+    bannerOutsideEu: true,
+  });
+});
+
+test("before the site has been read there is no version, and a failed read keeps the last one", async () => {
+  answer = async () => {
+    throw new TypeError("connection refused");
+  };
+  expect(await siteConsentFacts(1_000)).toEqual({
+    cookiePolicyVersion: null,
+    bannerOutsideEu: true,
+  });
+  answer = async () => Response.json(siteBody({ cookiePolicyVersion: 3 }));
+  expect((await siteConsentFacts(20_000)).cookiePolicyVersion).toBe(3);
+  answer = async () => new Response("down", { status: 503 });
+  await siteConsentFacts(90_000);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect((await siteConsentFacts(90_001)).cookiePolicyVersion).toBe(3);
 });

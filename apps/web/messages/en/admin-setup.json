@@ -5,7 +5,8 @@
   "notices": {
     "saved": "Saved.",
     "added": "Entry added.",
-    "deleted": "Entry deleted."
+    "deleted": "Entry deleted.",
+    "asked": "Everyone will be asked for their cookie choice again."
   },
   "errors": {
     "number": "Enter a whole number.",
@@ -57,6 +58,18 @@
       "heading": "Anti-spam",
       "subtitle": "How fast a member may write and who may post links or go live without review. Daily limits, the restriction that shows outside pictures and media as links (a group given Never on it is exempt), and the bypasses for the flood interval, the word filter and the spam check are permissions: set them on the permissions screen.",
       "formHeading": "Posting limits"
+    },
+    "cookies": {
+      "metaTitle": "Cookies and privacy",
+      "heading": "Cookies and privacy",
+      "subtitle": "Who the cookie banner is shown to, how the statistics are counted, and when everyone is asked again. The words of the cookie policy page are a page you write under Pages, with the address cookies.",
+      "formHeading": "Cookie banner",
+      "versionHeading": "Cookie policy version",
+      "versionCurrent": "Current version: {version}.",
+      "versionHelp": "Visitors and members answer the banner for one version of the policy. Raise it when what the site stores in the browser, or why, changes: every saved choice, in the browser and on member accounts, then stops counting and the banner asks again. It cannot be lowered or typed in.",
+      "askAgain": "Ask everyone again",
+      "askAgainWarning": "Every visitor and member will be asked for their cookie choice again, and nothing optional loads for them until they answer.",
+      "askAgainSubmit": "Ask everyone again"
     },
     "warnings": {
       "metaTitle": "Warnings and automatic bans",
@@ -156,6 +169,16 @@
       "label": "Ban at this many points",
       "help": "Active warning points at which a member is banned automatically. 0 turns automatic bans off.",
       "unit": "points"
+    },
+    "cookieBannerOutsideEu": {
+      "label": "Cookie banner outside Europe",
+      "help": "On (the default): everyone is asked. Off: only visitors in the EU, the EEA, the United Kingdom and Switzerland, and visitors whose country is not known, are asked. Everyone else is treated as having accepted every category until they choose in the cookie settings, so the statistics, referrals and embeds work for them without a banner. The country is read only from the location a trusted proxy reports (see the deployment guide); without one every visitor is asked.",
+      "switch": "Show the banner to visitors outside Europe"
+    },
+    "matomoCookieless": {
+      "label": "Matomo without cookies",
+      "help": "Runs the Matomo tag in its cookieless mode and loads it without asking for consent; the banner then has no statistics choice and the cookie policy page says so. It applies only when the analytics provider in General is Matomo. Whether consent is needed for cookieless statistics varies by country: check the rules that apply to you.",
+      "switch": "Matomo runs without cookies and without consent"
     },
     "warningBanDays": {
       "label": "Length of an automatic ban",

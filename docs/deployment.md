@@ -98,6 +98,9 @@ The place comes from one of two sources, in this order:
    start, so restart after replacing it. With no file configured nothing is looked up.
 
 Without either source the log has no place and the alert for a new country never fires.
+The cookie banner's "outside Europe" setting (Settings > Cookies and privacy) needs the country of
+every request, which only the first source gives; the MaxMind database is read at sign-in and is
+not used for it. Without Cloudflare's headers every visitor is asked.
 
 ## Upload limit
 

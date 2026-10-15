@@ -1091,7 +1091,7 @@ so is a link copied from the browser's address bar. The member's own link, `/reg
 under Invite members in their account settings.
 
 **Arriving.** A visitor who opens any page with a valid `?ref=` (a positive whole number) and has
-accepted the Referrals cookies in the cookie banner gets the `forum_ref` cookie: HttpOnly, SameSite
+accepted the Referrals cookies in the cookie banner (under the current policy version) gets the `forum_ref` cookie: HttpOnly, SameSite
 Lax, Secure when the site is served over https, 30 days. The first referrer wins; a later link never
 replaces it. A visitor who has not accepted it gets no cookie, and a cookie that is no longer
 accepted is removed on their next visit. A signed-in member is not given the cookie. Pages
@@ -1116,6 +1116,44 @@ cookie is deleted once the account exists.
 
 Erasing a member ends their links as before: the referrer's count drops by one and the members
 they referred lose their referrer.
+
+## Cookie banner and consent
+
+The web app asks visitors and members for their choice before it uses anything optional: visit
+statistics, the referral cookie and videos or music from other sites. The page `/cookies` lists
+everything the site stores in the browser and is built from the code, so it cannot drift from it.
+Settings are on **Cookies and privacy** (`/admin/settings/cookies`, `admin.settings`).
+
+- **The policy version** (`site.get` `cookiePolicyVersion`, starts at 1). A saved choice answers one
+  version; when the version changes it stops counting, in the browser and on member accounts, and
+  the banner asks again. It only goes up, by one, with **Ask everyone again** (`consent.askAgain`):
+  `settings.update` ignores it. The web app's proxy keeps the version for a minute, so a change
+  reaches the referral cookie within about a minute.
+- **The banner outside Europe** (`cookieBannerOutsideEu`, on by default: everyone is asked). Off, only
+  visitors in the EU, the EEA (Iceland, Liechtenstein, Norway), the United Kingdom and Switzerland, and
+  visitors whose country is not known, are asked (`consent.banner`). The country is read only from the
+  location headers of a trusted proxy (`SERMO_TRUST_LOCATION_HEADERS=true`, see
+  `docs/deployment.md`); nothing a browser sends counts, and without a trusted country every visitor
+  is asked. A visitor who is not asked and has not chosen is treated as having accepted every
+  category until they choose in **Cookie settings** (footer); a choice they make is kept as any other.
+- **Matomo without cookies** (`matomoCookieless`, off by default). The Matomo tag then runs with
+  `disableCookies` and is loaded without consent; the banner has no statistics choice and the cookie
+  policy page says the statistics need none. It does nothing for Google Analytics. Whether
+  cookieless statistics need consent differs between countries: check the rules that apply to you.
+- **The words of the cookie policy page.** Write a page with the slug `cookies` under **Pages**: its
+  title and text replace the draft that ships with the site; the list of cookies below it stays
+  generated. Delete the page to go back to the draft. The privacy page links to the cookie policy.
+
+**Saved on the account.** For a signed-in member the banner also saves the choice (the optional
+categories accepted, the policy version, the time) with `consent.save`, and it follows them: at
+sign-in or registration the browser's choice is saved if the account has none for the current
+version, and a browser that holds none takes the account's, so it is not asked again; if both hold a
+different choice, the later one wins. Changing the choice on any device updates the record.
+`consent.mine` reads it. A device keeps the cookie it has until its own next choice or sign-in, so
+a choice withdrawn on another device reaches it then. The record is one row per member (the latest
+choice, not a history) and is deleted when the member is erased. Staff who may view a member's details
+(`admin.members` over the member) see it read only on the member's details page
+(`users.consent`), to show a regulator.
 
 ## Web Push
 

@@ -1,5 +1,7 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
 import { messages } from "@/i18n/messages";
+import { parseChoice } from "@/lib/consent/state";
+import { siteBody } from "@/lib/test-bodies";
 import { translator } from "@/lib/test-intl";
 
 const realFetch = globalThis.fetch;
@@ -14,6 +16,13 @@ const ACCEPTED = encodeURIComponent(
 
 mock.module("server-only", () => ({}));
 const intl = await import("next-intl/server");
+// The consent reader asks for the site, which is cached in the app and not here.
+const nextCache = await import("next/cache");
+mock.module("next/cache", () => ({
+  ...nextCache,
+  cacheLife: () => {},
+  cacheTag: () => {},
+}));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
   getTranslations: async (namespace: string) => translator(namespace),
@@ -34,8 +43,12 @@ const { login, register } = await import("./actions");
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
+  mock.module("next/cache", () => nextCache);
 });
 beforeEach(() => {
+  record = null;
+  siteVersion = 1;
+  consentCalls.length = 0;
   written.length = 0;
   removed.length = 0;
   bodies.length = 0;
@@ -45,11 +58,29 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 
+// What the account says about the cookie choice (`consent.mine`), and the version the site is on.
+let record: Record<string, unknown> | null = null;
+let siteVersion = 1;
+// Every request the actions make besides the ones for the consent and the site, which are answered
+// from the variables above and counted apart.
+const consentCalls: { method: string; body: unknown }[] = [];
+
 function backend(response: () => Response) {
   const asked: string[] = [];
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    const body = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+    if (url.endsWith("/api/v1/site"))
+      return Response.json(siteBody({ cookiePolicyVersion: siteVersion }));
+    if (url.endsWith("/api/v1/consent")) {
+      consentCalls.push({ method: init?.method ?? "GET", body });
+      return init?.method === "PUT"
+        ? Response.json({
+            record: { ...body, decidedAt: new Date().toISOString() },
+          })
+        : Response.json({ record });
+    }
     asked.push(url);
-    bodies.push(typeof init?.body === "string" ? JSON.parse(init.body) : {});
+    bodies.push(body);
     return response();
   }) as unknown as typeof fetch;
   return asked;
@@ -213,4 +244,165 @@ test("a site that asks for email confirmation sends the referrer too", async () 
     /^NEXT_REDIRECT;[a-z]+;\/login\?registered=1;/,
   );
   expect(bodies[0]).toMatchObject({ ref: 12 });
+});
+
+// The choice kept on the account and the one in the browser come together at sign-in.
+const choiceCookie = (revision: number, at: string, ...categories: string[]) =>
+  encodeURIComponent(
+    JSON.stringify({
+      categories: ["necessary", ...categories],
+      revision,
+      consentTimestamp: at,
+      lastConsentTimestamp: at,
+    }),
+  );
+const accountChoice = (
+  policyVersion: number,
+  decidedAt: string,
+  ...categories: string[]
+) => ({ categories, policyVersion, decidedAt });
+const consentCookieWritten = () =>
+  written.find((cookie) => cookie.name === "forum_consent");
+
+async function signIn() {
+  try {
+    await login(
+      { error: "", username: "" },
+      form({ username: "ann", password: "right" }),
+    );
+  } catch (error) {
+    return String((error as { digest?: unknown }).digest);
+  }
+  return undefined;
+}
+
+test("a choice made as a guest is saved on the account at sign-in when the account has none", async () => {
+  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+  backend(SIGNED_UP);
+  expect(await signIn()).toMatch(/^NEXT_REDIRECT/);
+  expect(consentCalls).toEqual([
+    { method: "GET", body: {} },
+    { method: "PUT", body: { categories: ["embeds"], policyVersion: 1 } },
+  ]);
+  expect(consentCookieWritten()).toBeUndefined();
+});
+
+test("a device with no choice takes the account's current choice: the consent cookie is written from the record", async () => {
+  record = accountChoice(
+    1,
+    "2026-10-02T10:00:00.000Z",
+    "analytics",
+    "referrals",
+  );
+  backend(SIGNED_UP);
+  await signIn();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  const cookie = consentCookieWritten();
+  expect(cookie).toMatchObject({ path: "/", sameSite: "lax" });
+  // The banner library reads it as its own: current version, the record's categories and time.
+  expect(parseChoice(String(cookie?.value), 1)).toEqual({
+    accepted: ["analytics", "referrals"],
+    at: Date.parse("2026-10-02T10:00:00.000Z"),
+  });
+  // Not the 3rd or any other version.
+  expect(parseChoice(String(cookie?.value), 2)).toBeNull();
+});
+
+test("a record of an older policy version is no choice: nothing is adopted, and the device's choice replaces it", async () => {
+  siteVersion = 3;
+  record = accountChoice(2, "2026-10-02T10:00:00.000Z", "analytics");
+  backend(SIGNED_UP);
+  await signIn();
+  expect(consentCookieWritten()).toBeUndefined();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  consentCalls.length = 0;
+  jar.set("forum_consent", choiceCookie(3, "2026-10-03T10:00:00Z"));
+  await signIn();
+  expect(consentCalls).toEqual([
+    { method: "GET", body: {} },
+    { method: "PUT", body: { categories: [], policyVersion: 3 } },
+  ]);
+});
+
+test("when both hold a choice and they differ, the later one wins", async () => {
+  record = accountChoice(1, "2026-10-02T10:00:00.000Z", "analytics");
+  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+  backend(SIGNED_UP);
+  await signIn();
+  expect(
+    parseChoice(String(consentCookieWritten()?.value), 1)?.accepted,
+  ).toEqual(["analytics"]);
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+  consentCalls.length = 0;
+  written.length = 0;
+  jar.set("forum_consent", choiceCookie(1, "2026-10-05T10:00:00Z", "embeds"));
+  await signIn();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET", "PUT"]);
+  expect(consentCookieWritten()).toBeUndefined();
+  // Equal choices need nothing.
+  consentCalls.length = 0;
+  record = accountChoice(1, "2026-10-06T10:00:00.000Z", "embeds");
+  await signIn();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET"]);
+});
+
+test("a new member's choice as a guest is saved when the sign-up signs them in, not when it does not", async () => {
+  jar.set(
+    "forum_consent",
+    choiceCookie(1, "2026-10-01T10:00:00Z", "referrals"),
+  );
+  backend(SIGNED_UP);
+  await signUp();
+  expect(consentCalls.map((call) => call.method)).toEqual(["GET", "PUT"]);
+  consentCalls.length = 0;
+  // Mail confirmation: no session yet, so no account to save on.
+  backend(() => new Response("{}", { status: 200 }));
+  await signUp();
+  expect(consentCalls).toEqual([]);
+});
+
+test("a failed sign-in touches no consent", async () => {
+  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+  backend(() =>
+    Response.json({ code: "INVALID_USERNAME_OR_PASSWORD" }, { status: 401 }),
+  );
+  await login(
+    { error: "", username: "" },
+    form({ username: "ann", password: "wrong" }),
+  );
+  expect(consentCalls).toEqual([]);
+});
+
+test("a failure while bringing the choices together never costs the sign-in", async () => {
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+    backend(SIGNED_UP);
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) =>
+      String(url).endsWith("/api/v1/consent")
+        ? new Response("down", { status: 503 })
+        : realFetch(url, init)) as unknown as typeof fetch;
+    expect(await signIn()).toMatch(/^NEXT_REDIRECT/);
+    expect(
+      written.some((cookie) => cookie.name === "sermo.session_token"),
+    ).toBe(true);
+  } finally {
+    console.error = quiet;
+  }
+});
+
+test("the session that was just opened speaks for the member, not the cookies the visitor came with", async () => {
+  const seen: (string | null)[] = [];
+  jar.set("forum_consent", choiceCookie(1, "2026-10-01T10:00:00Z", "embeds"));
+  backend(SIGNED_UP);
+  const inner = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    if (String(url).endsWith("/api/v1/consent"))
+      seen.push(new Headers(init?.headers).get("cookie"));
+    return inner(url, init);
+  }) as unknown as typeof fetch;
+  await signIn();
+  expect(seen).toEqual(["sermo.session_token=tok", "sermo.session_token=tok"]);
 });

@@ -15,6 +15,7 @@ import { getMember, ifAllowed, isReadOnly, memberIdOf } from "../data";
 import { MemberState } from "../member-state";
 import { TabPage } from "../tab-page";
 import { removePicture } from "./actions";
+import { ConsentSection } from "./consent-section";
 import { EraseForm } from "./erase-form";
 import { IdentityForm } from "./identity-form";
 
@@ -122,6 +123,7 @@ async function Details({
           )}
         </div>
       </Section>
+      <ConsentSection userId={userId} />
       {!readOnly && <EraseForm member={member} />}
     </>
   );

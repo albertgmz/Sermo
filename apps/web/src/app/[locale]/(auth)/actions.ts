@@ -3,12 +3,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import {
-  CONSENT_COOKIE,
-  POLICY_VERSION,
-  REFERRAL_COOKIE,
-} from "@/lib/consent/inventory";
-import { mayStoreReferral, parseConsent } from "@/lib/consent/state";
+import { REFERRAL_COOKIE } from "@/lib/consent/inventory";
+import { getConsent } from "@/lib/consent/server";
+import { mayStoreReferral } from "@/lib/consent/state";
+import { syncConsentAfterSignIn } from "@/lib/consent/sync";
 import { referrerOf } from "@/lib/referral/link";
 import {
   requestPasswordReset,
@@ -69,6 +67,7 @@ export async function login(
     ? await signInWithEmail(username, password, remember)
     : await signInWithUsername(username, password, remember);
   if (!result.ok) return failure(result, username);
+  if (result.signedIn) await syncConsentAfterSignIn(result.cookie);
   redirect(safeReturnPath(formData.get("next")));
 }
 
@@ -90,9 +89,7 @@ export async function register(
   const store = await cookies();
   // The proxy removes a cookie that is no longer accepted on the next page load, which may come
   // after this request: consent is checked here too.
-  const accepted = mayStoreReferral(
-    parseConsent(store.get(CONSENT_COOKIE)?.value, POLICY_VERSION),
-  );
+  const accepted = mayStoreReferral(await getConsent());
   const referrer =
     (accepted ? referrerOf(store.get(REFERRAL_COOKIE)?.value) : null) ??
     referrerOf(String(formData.get("ref") ?? ""));
@@ -104,6 +101,7 @@ export async function register(
   });
   if (!result.ok) return failure(result, username);
   if (store.has(REFERRAL_COOKIE)) store.delete(REFERRAL_COOKIE);
+  if (result.signedIn) await syncConsentAfterSignIn(result.cookie);
   redirect(result.signedIn ? "/" : "/login?registered=1");
 }
 

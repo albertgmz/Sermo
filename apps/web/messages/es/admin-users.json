@@ -121,6 +121,13 @@
     },
     "accountHeading": "Estado de la cuenta",
     "erasedOn": "Borrada el {date, date, medium}.",
+    "consent": {
+      "heading": "Elección de cookies",
+      "none": "Esta cuenta no tiene guardada ninguna elección de cookies.",
+      "refusedAll": "Rechazó todas las categorías opcionales.",
+      "accepted": "Aceptó: {categories}.",
+      "record": "Respondió a la versión {version} de la política el {date, date, medium}."
+    },
     "sanctions": "Sanciones",
     "signOutEverywhere": "Cerrar sesión en todas partes",
     "ipAddresses": "Direcciones IP"

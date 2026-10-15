@@ -6,6 +6,7 @@ export const WELL_KNOWN = [
   { slug: "privacy", address: "/privacy" },
   { slug: "legal", address: "/legal" },
   { slug: "contact", address: "/contact" },
+  { slug: "cookies", address: "/cookies" },
   { slug: "upgrade-faq", address: null },
 ] as const;
 

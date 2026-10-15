@@ -6,7 +6,6 @@ import { getTranslations } from "next-intl/server";
 import { cache } from "react";
 import type * as z from "zod";
 import { POLICY_VERSION } from "@/lib/consent/inventory";
-import { policyVersion } from "@/lib/consent/state";
 import { callWith } from "./transport";
 
 export type SiteIdentity = {
@@ -28,9 +27,13 @@ export type SiteIdentity = {
   forumStatsEnabled: boolean;
   // The analytics tag public pages carry; provider "none" when unset or the site could not be read.
   analytics: z.output<typeof Analytics>;
-  // The version of the cookie policy visitors consent to: the backend's own number when `site.get`
-  // carries one, the constant of the web app until then.
+  // The version of the cookie policy visitors consent to (an administrator raises it to ask
+  // everyone again); the first version while the site cannot be read.
   cookiePolicyVersion: number;
+  // Matomo runs without cookies and is not held back for consent.
+  matomoCookieless: boolean;
+  // The cookie banner is shown to visitors outside Europe too.
+  cookieBannerOutsideEu: boolean;
   // The active accents of the palette in display order: the first is the site's own.
   accents: { id: number; color: string; foreground: string | null }[];
 };
@@ -59,6 +62,9 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes,
       forumStatsEnabled,
       analytics,
+      cookiePolicyVersion,
+      matomoCookieless,
+      cookieBannerOutsideEu,
       palette,
     } = site;
     // Fresh for a minute, so a change in the administration panel shows up without a deploy. The
@@ -74,7 +80,9 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       maxUploadBytes,
       forumStatsEnabled,
       analytics,
-      cookiePolicyVersion: policyVersion(site),
+      cookiePolicyVersion,
+      matomoCookieless,
+      cookieBannerOutsideEu,
       accents: palette.accents.map(({ id, color, foreground }) => ({
         id,
         color,
@@ -99,6 +107,8 @@ async function fetchSite(defaultName: string): Promise<SiteIdentity> {
       forumStatsEnabled: false,
       analytics: { provider: "none" },
       cookiePolicyVersion: POLICY_VERSION,
+      matomoCookieless: false,
+      cookieBannerOutsideEu: true,
       accents: [],
     };
   }

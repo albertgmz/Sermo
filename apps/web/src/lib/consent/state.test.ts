@@ -2,11 +2,14 @@ import { expect, test } from "bun:test";
 import {
   allows,
   analyticsFor,
+  consentOf,
+  isCookielessMatomo,
   mayEmbed,
   mayStoreReferral,
   NO_CONSENT,
+  parseChoice,
   parseConsent,
-  policyVersion,
+  withoutBanner,
 } from "./state";
 
 const cookie = (record: unknown) => encodeURIComponent(JSON.stringify(record));
@@ -89,10 +92,119 @@ test("the referral cookie and players need their own category", () => {
   ).toBe(true);
 });
 
-test("the policy version comes from the site once the backend sends one", () => {
-  expect(policyVersion({})).toBe(1);
-  expect(policyVersion({ cookiePolicyVersion: 4 })).toBe(4);
-  expect(policyVersion({ cookiePolicyVersion: 0 })).toBe(1);
-  expect(policyVersion({ cookiePolicyVersion: "4" })).toBe(1);
-  expect(policyVersion({ cookiePolicyVersion: 1.5 })).toBe(1);
+test("a choice carries the time of its latest change", () => {
+  const at = "2026-10-01T10:00:00.000Z";
+  expect(
+    parseChoice(
+      cookie({
+        categories: ["necessary", "embeds"],
+        revision: 3,
+        consentTimestamp: at,
+      }),
+      3,
+    ),
+  ).toEqual({ accepted: ["embeds"], at: Date.parse(at) });
+  const later = "2026-10-05T10:00:00.000Z";
+  expect(
+    parseChoice(
+      cookie({
+        categories: ["necessary"],
+        revision: 3,
+        consentTimestamp: at,
+        lastConsentTimestamp: later,
+      }),
+      3,
+    )?.at,
+  ).toBe(Date.parse(later));
+  // Without a usable time the choice still counts, as the oldest.
+  expect(parseChoice(cookie({ categories: [], revision: 3 }), 3)?.at).toBe(0);
+  expect(parseChoice(cookie({ categories: [], revision: 2 }), 3)).toBeNull();
+});
+
+test("a visitor the banner is not shown to counts as accepting, until they choose", () => {
+  expect(withoutBanner(NO_CONSENT)).toEqual({
+    decided: false,
+    accepted: ["analytics", "referrals", "embeds"],
+    implied: true,
+  });
+  const chosen = parseConsent(
+    cookie({ categories: ["necessary"], revision: 1 }),
+    1,
+  );
+  expect(withoutBanner(chosen)).toBe(chosen);
+});
+
+test("the backend is asked whether the banner applies only to a visitor who has chosen nothing on a Europe-only site", async () => {
+  let asked = 0;
+  const shown = (answer: boolean) => async () => {
+    asked += 1;
+    return answer;
+  };
+  const accepted = cookie({ categories: ["necessary", "embeds"], revision: 2 });
+  const everywhere = { version: 2, bannerOutsideEu: true };
+  const europeOnly = { version: 2, bannerOutsideEu: false };
+  // The banner is for everyone: nobody is asked about it.
+  expect(await consentOf(undefined, everywhere, shown(false))).toEqual(
+    NO_CONSENT,
+  );
+  // A choice under the current version stands wherever the visitor is.
+  expect(await consentOf(accepted, europeOnly, shown(false))).toEqual({
+    decided: true,
+    accepted: ["embeds"],
+  });
+  expect(asked).toBe(0);
+  // No choice (or one under another version): inside the banner's reach the answer is none,
+  // outside it everything is accepted.
+  expect(await consentOf(undefined, europeOnly, shown(true))).toEqual(
+    NO_CONSENT,
+  );
+  expect((await consentOf(undefined, europeOnly, shown(false))).implied).toBe(
+    true,
+  );
+  expect(
+    (
+      await consentOf(
+        cookie({ categories: ["analytics"], revision: 1 }),
+        europeOnly,
+        shown(false),
+      )
+    ).accepted,
+  ).toEqual(["analytics", "referrals", "embeds"]);
+});
+
+test("cookieless Matomo is emitted without any choice, with cookies disabled before the first page view", () => {
+  const withdrawn = parseConsent(
+    cookie({ categories: ["necessary"], revision: 1 }),
+    1,
+  );
+  for (const consent of [NO_CONSENT, withdrawn]) {
+    const snippets = analyticsFor(consent, matomo, true);
+    expect(snippets.length).toBeGreaterThan(0);
+    const code = snippets.map((s) => s.code ?? "").join("");
+    expect(code).toContain("'disableCookies'");
+    expect(code.indexOf("disableCookies")).toBeLessThan(
+      code.indexOf("trackPageView"),
+    );
+  }
+  // The flag does nothing for another provider, and off it is the ordinary tag behind consent.
+  expect(
+    isCookielessMatomo({ provider: "google", measurementId: "G-1" }, true),
+  ).toBe(false);
+  expect(
+    analyticsFor(
+      NO_CONSENT,
+      { provider: "google", measurementId: "G-1" },
+      true,
+    ),
+  ).toEqual([]);
+  expect(analyticsFor(NO_CONSENT, matomo, false)).toEqual([]);
+  const ordinary = parseConsent(
+    cookie({ categories: ["necessary", "analytics"], revision: 1 }),
+    1,
+  );
+  expect(
+    analyticsFor(ordinary, matomo, false)
+      .map((s) => s.code ?? "")
+      .join(""),
+  ).not.toContain("disableCookies");
 });

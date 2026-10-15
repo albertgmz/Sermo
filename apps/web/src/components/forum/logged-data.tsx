@@ -25,6 +25,10 @@ export async function LoggedData() {
           <p className="mt-1 text-sm">{t("sessions.text")}</p>
         </div>
         <div className="rounded-lg border p-4">
+          <h3 className="font-semibold">{t("choice.title")}</h3>
+          <p className="mt-1 text-sm">{t("choice.text")}</p>
+        </div>
+        <div className="rounded-lg border p-4">
           <h3 className="font-semibold">{t("retention.title")}</h3>
           <p className="mt-1 text-sm">
             {days === null
