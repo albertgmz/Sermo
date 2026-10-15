@@ -97,7 +97,7 @@ export function profileFieldChanges(
       throw new ValidationError(`A signature is at most ${settings.signatureMaxLines} lines long.`);
     // Rendered before the transaction opens.
     changes.signature_source = source === "" ? null : source;
-    changes.signature_html = source === "" ? null : renderSignature(source);
+    changes.signature_html = source === "" ? null : renderSignature(source, settings);
   }
   return { changes, settingTitle, settingSignature };
 }

@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { type Actor, GUEST, type Principal } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { authCounters, authMe } from "../../contracts/auth";
+import type { TurnstileForm } from "../../contracts/settings";
 import {
   authPlugins,
   authSchemaOptions,
@@ -57,6 +58,7 @@ import { noteSessionActive, recordSignIn } from "../security/session";
 import { logFailedSignIn } from "../security/sign-in";
 import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
+import { checkTurnstile, TurnstileRefusal } from "../settings/turnstile";
 import { usernameChange } from "./rename-marker";
 import { forgiveSignInGuess, takeSignInGuess } from "./sign-in-limit";
 import { staffAccess } from "./staff";
@@ -200,6 +202,18 @@ async function redirectFailedLink<T>(ctx: Ctx, hook: LinkHook, run: () => Promis
 function invalidToken(): APIError {
   return new APIError("UNAUTHORIZED", { message: "Invalid token", code: "INVALID_TOKEN" });
 }
+
+/** The guest form each Better Auth endpoint serves, for the Turnstile check. */
+const TURNSTILE_PATHS: Record<string, TurnstileForm> = {
+  "/sign-up/email": "register",
+  "/sign-in/email": "login",
+  "/sign-in/username": "login",
+  "/request-password-reset": "passwordReset",
+  "/send-verification-email": "resendConfirmation",
+};
+
+/** The header the web app sends the widget's token in. */
+export const TURNSTILE_HEADER = "x-sermo-turnstile";
 
 function accountBanned(): APIError {
   return new APIError("FORBIDDEN", { message: "This account is banned.", code: "ACCOUNT_BANNED" });
@@ -452,6 +466,31 @@ function buildAuth(ctx: Ctx) {
             isReservedUsername(hook.body.username)
           )
             return hook.json({ available: false });
+          // Guest forms only. Account mail is not Turnstile's business while the site sends none
+          // (the endpoint refuses by itself), and a signed-in member asking for their own
+          // confirmation mail is not a guest.
+          const form = TURNSTILE_PATHS[hook.path];
+          if (
+            form &&
+            (mailEnabled || (form !== "passwordReset" && form !== "resendConfirmation")) &&
+            !(form === "resendConfirmation" && hook.context.session)
+          ) {
+            const headers = hook.headers ?? hook.request?.headers;
+            try {
+              await checkTurnstile(
+                ctx,
+                form,
+                headers?.get(TURNSTILE_HEADER),
+                headers?.get(ctx.config.auth?.clientIpHeader ?? "x-sermo-client-ip"),
+              );
+            } catch (error) {
+              if (!(error instanceof TurnstileRefusal)) throw error;
+              throw new APIError(error.status === 503 ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST", {
+                code: error.code,
+                message: error.message,
+              });
+            }
+          }
           if (hook.path === "/change-password" && hook.context.session) {
             // The current password is asked here, so guessing it is held to the limit of the
             // administration checks: five wrong answers per session and twenty per member in

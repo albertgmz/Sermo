@@ -22,6 +22,7 @@ import { type FrameOpening, frameGeometry } from "../images/frame-geometry";
 import { appendModeratorLog } from "../moderation";
 import { readSiteSettings } from "../settings";
 import { resolveHomeTab } from "../settings/home-tab";
+import { publicTurnstile } from "../settings/turnstile";
 import { publicPicture } from "../storage/url";
 import {
   CATALOG_LIMIT,
@@ -324,6 +325,7 @@ export const operations = [
         matomoCookieless: settings.matomoCookieless,
         cookieBannerOutsideEu: settings.cookieBannerOutsideEu,
         defaultLanguage: settings.defaultLanguage,
+        turnstile: publicTurnstile(ctx),
         palette: {
           accents: lists.activeColors.accent,
           nameColors: lists.activeColors.name,

@@ -5,7 +5,7 @@ import { PaletteColor } from "./appearance";
 import { Empty } from "./common";
 import { MAX_COOKIE_POLICY_VERSION } from "./consent";
 import { ImageReference } from "./images";
-import { Analytics, SUPPORTED_LANGUAGES } from "./settings";
+import { Analytics, SUPPORTED_LANGUAGES, TURNSTILE_FORMS } from "./settings";
 
 /**
  * What every page needs to draw the site before it knows anything about the visitor: the name,
@@ -55,6 +55,14 @@ export const Site = z
      * the visitor's browser asks for no supported language.
      */
     defaultLanguage: z.enum(SUPPORTED_LANGUAGES),
+    /**
+     * Cloudflare Turnstile as the guest forms need it: the public site key and the forms the
+     * check guards. Null when it is off or not fully set up (a form then needs no token). The
+     * secret is never part of it.
+     */
+    turnstile: z
+      .object({ siteKey: z.string(), forms: z.array(z.enum(TURNSTILE_FORMS)) })
+      .nullable(),
     palette: z.object({
       accents: z.array(PaletteColor),
       nameColors: z.array(PaletteColor),

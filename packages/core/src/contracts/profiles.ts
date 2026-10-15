@@ -16,6 +16,7 @@ import {
 import { ImageReference } from "./images";
 import { MemberCard } from "./members";
 import { SeoMetadata } from "./seo";
+import { SIGNATURE_FORMATS } from "./settings";
 
 export const Profile = z
   .object({
@@ -36,7 +37,10 @@ export const Profile = z
     card: MemberCard,
     /** The member's own title while they may show one (profile.customTitle); else null. */
     customTitle: z.string().nullable(),
-    /** Rendered signature; null when there is none or the member may not show one. */
+    /**
+     * Rendered signature; null when there is none or the member may not show one (they lack
+     * profile.signature or no longer hold the site's signature rule).
+     */
     signatureHtml: z.string().nullable(),
     /** Plain text; clients must escape it. */
     location: z.string(),
@@ -137,11 +141,12 @@ export const profilesUpdate = defineContract({
   name: "profiles.update",
   summary:
     "Update the current user's own profile; only the fields sent change. Setting `customTitle` " +
-    "needs profile.customTitle and setting `signature` needs profile.signature, within the " +
-    "site's length and line limits; clearing either (null) is always allowed. A signature is " +
-    "one small block of Markdown: text, emphasis, inline code and links only, no pictures, " +
-    "headings, lists, quotes, tables or code blocks; it is rendered when saved. `website` is an " +
-    "http(s) URL or empty. `birthday: null` removes it.",
+    "needs profile.customTitle and setting `signature` needs profile.signature and the site's " +
+    "signature rule, within the site's limits (characters, lines, links, pictures, emoji and " +
+    "text size); clearing either (null) is always allowed. A signature is one small block of " +
+    "Markdown or BB code, rendered when saved: only the kinds of formatting the site allows, no " +
+    "quotes, tables, code blocks, spoilers or media; a refusal says what is over. `website` is " +
+    "an http(s) URL or empty. `birthday: null` removes it.",
   kind: "write",
   input: z.object({
     about: z.string().trim().max(5000).optional(),
@@ -188,9 +193,20 @@ export const profilesSelf = defineContract({
       reason: z.enum(["approval", "limit"]).nullable(),
       availableAt: Timestamp.nullable(),
     }),
+    /**
+     * What the member lacks to set a signature, when they hold profile.signature but not the
+     * site's signature rule (a sentence such as "Post count: 3 or more"); null otherwise.
+     */
+    signatureNeeds: z.string().nullable(),
     limits: z.object({
       signatureMaxLength: z.number().int(),
       signatureMaxLines: z.number().int(),
+      /** Counts: 0 or -1 means no limit. */
+      signatureMaxLinks: z.number().int(),
+      signatureMaxImages: z.number().int(),
+      signatureMaxSmilies: z.number().int(),
+      signatureMaxTextSize: z.number().int(),
+      signatureFormats: z.array(z.enum(SIGNATURE_FORMATS)),
       customTitleMaxLength: z.number().int(),
     }),
   }),

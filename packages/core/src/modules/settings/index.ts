@@ -11,10 +11,19 @@ import { assertRule } from "../../shared/criteria";
 import { attachUploadedFile, releaseFile } from "../images/attach";
 import { appendModeratorLog } from "../moderation";
 import { assertHomeTab } from "./home-tab";
+import { storedTurnstileSecret, storeTurnstileSecret } from "./turnstile";
 
 export type SiteSettingsValue = z.infer<typeof SiteSettings>;
-type StoredSiteSettingsValue = Omit<SiteSettingsValue, "groupUploadLimitBytes">;
-const StoredSiteSettings = SiteSettings.omit({ groupUploadLimitBytes: true });
+type StoredSiteSettingsValue = Omit<
+  SiteSettingsValue,
+  "groupUploadLimitBytes" | "turnstileSecretSet"
+>;
+const StoredSiteSettings = SiteSettings.omit({
+  groupUploadLimitBytes: true,
+  turnstileSecretSet: true,
+});
+/** What settings.update takes: the settings that can change, and the write-only Turnstile secret. */
+type SettingsChanges = z.infer<typeof settingsUpdate.input>;
 
 const defaults: StoredSiteSettingsValue = {
   maxUploadBytes: 25 * 1024 * 1024,
@@ -66,6 +75,12 @@ const defaults: StoredSiteSettingsValue = {
   ],
   signatureMaxLength: 300,
   signatureMaxLines: 4,
+  signatureMaxLinks: 3,
+  signatureMaxImages: 1,
+  signatureMaxSmilies: 5,
+  signatureMaxTextSize: 4,
+  signatureFormats: ["bold", "italic", "strikethrough", "code", "link"],
+  signatureRule: { match: "all", conditions: [] },
   customTitleMaxLength: 40,
   standingPostPoints: 1,
   standingReactionsPerPoint: 10,
@@ -80,6 +95,9 @@ const defaults: StoredSiteSettingsValue = {
   logoFileId: null,
   iconFileId: null,
   backdropFileId: null,
+  turnstileEnabled: false,
+  turnstileSiteKey: "",
+  turnstileForms: ["register", "login", "passwordReset", "resendConfirmation"],
 };
 
 export function readSiteSettings(ctx: Ctx): StoredSiteSettingsValue {
@@ -138,7 +156,7 @@ function assertCheapRule(ctx: Ctx, key: string, rule: SiteSettingsValue["linksRu
 export function updateSiteSettings(
   ctx: Ctx,
   actor: Actor,
-  changes: Partial<Omit<SiteSettingsValue, "cookiePolicyVersion">>,
+  changes: SettingsChanges,
 ): SiteSettingsValue {
   requirePermission(ctx, actor, "admin.settings");
   const user = requireAuthenticated(actor);
@@ -153,16 +171,33 @@ export function updateSiteSettings(
       if (current[key] !== null) releaseFile(ctx, current[key]);
     }
     // Both rules are decided on every write, so only criteria that read the member's own row.
-    for (const key of ["linksRule", "approvalRule"] as const) {
+    for (const key of ["linksRule", "approvalRule", "signatureRule"] as const) {
       const rule = changes[key];
       if (rule) assertCheapRule(ctx, key, rule);
     }
     if (changes.homeTab) assertHomeTab(ctx, changes.homeTab);
+    // Lists are sets: a kind or a form named twice counts once.
+    const { turnstileSecret, ...settingChanges } = changes;
+    if (settingChanges.signatureFormats)
+      settingChanges.signatureFormats = [...new Set(settingChanges.signatureFormats)];
+    if (settingChanges.turnstileForms)
+      settingChanges.turnstileForms = [...new Set(settingChanges.turnstileForms)];
+    const secretSet =
+      turnstileSecret === undefined
+        ? storedTurnstileSecret(ctx) !== null
+        : turnstileSecret !== null;
     const next = SiteSettings.parse({
       ...current,
       groupUploadLimitBytes: quotaView(rows),
-      ...changes,
+      ...settingChanges,
+      turnstileSecretSet: secretSet,
     });
+    if (next.turnstileEnabled && (next.turnstileSiteKey === "" || !secretSet)) {
+      const message =
+        "Turnstile needs a site key and a secret before it can be turned on, and neither can be removed while it is on.";
+      throw new ValidationError(message, [{ path: ["turnstileEnabled"], message }]);
+    }
+    if (turnstileSecret !== undefined) storeTurnstileSecret(ctx, turnstileSecret);
     if (changes.groupUploadLimitBytes !== undefined) {
       const previous = new Map(rows.map((row) => [row.group_id, row.value]));
       const setQuota = ctx.sqlite.prepare(
@@ -173,7 +208,7 @@ export function updateSiteSettings(
         if (value !== (previous.get(groupId) ?? 0)) setQuota.run(groupId, value);
       }
     }
-    const { groupUploadLimitBytes: _quota, ...stored } = next;
+    const { groupUploadLimitBytes: _quota, turnstileSecretSet: _secret, ...stored } = next;
     storeSiteSettings(ctx, stored);
     appendModeratorLog(ctx, actor, "settings.update", "settings", 1, "", {
       changedKeys: Object.keys(changes),
@@ -185,7 +220,11 @@ export function updateSiteSettings(
 export const operations = [
   implement(settingsGet, (ctx, actor) => {
     requirePermission(ctx, actor, "admin.settings");
-    return { ...readSiteSettings(ctx), groupUploadLimitBytes: quotaView(quotaRows(ctx)) };
+    return {
+      ...readSiteSettings(ctx),
+      groupUploadLimitBytes: quotaView(quotaRows(ctx)),
+      turnstileSecretSet: storedTurnstileSecret(ctx) !== null,
+    };
   }),
   implement(settingsUpdate, updateSiteSettings),
 ];

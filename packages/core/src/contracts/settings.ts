@@ -49,6 +49,40 @@ export const Analytics = z
   ])
   .meta({ id: "Analytics" });
 
+/**
+ * The kinds of formatting a signature may use, as the renderer produces them: a signature is
+ * judged on its rendered HTML, so `bold` is `**x**` and `[B]x[/B]` alike. Quotes, tables, code
+ * blocks, spoilers, media, attachments and indents are never allowed in a signature.
+ */
+export const SIGNATURE_FORMATS = [
+  "bold",
+  "italic",
+  "underline",
+  "strikethrough",
+  "code",
+  "color",
+  "font",
+  "size",
+  "heading",
+  "link",
+  "image",
+  "list",
+  "align",
+] as const;
+export type SignatureFormat = (typeof SIGNATURE_FORMATS)[number];
+
+/**
+ * The guest forms Cloudflare Turnstile can guard. Every other form needs an account or a
+ * single-use link from an email, which is its own proof.
+ */
+export const TURNSTILE_FORMS = [
+  "register",
+  "login",
+  "passwordReset",
+  "resendConfirmation",
+] as const;
+export type TurnstileForm = (typeof TURNSTILE_FORMS)[number];
+
 /** The most rules the site's home tab setting holds. */
 export const MAX_HOME_TAB_RULES = 10;
 
@@ -146,9 +180,32 @@ export const SiteSettings = z
         { level: 2, title: "Member" },
         { level: 4, title: "Senior member" },
       ]),
-    /** Limits of a signature (profile.signature) and of a custom title (profile.customTitle). */
+    /**
+     * Limits of a signature (profile.signature), checked when it is saved and measured on what
+     * the renderer produces. Characters and lines count the source. The next four use the
+     * anti-spam convention for counts: 0 and -1 both mean no limit (to forbid links or pictures,
+     * leave the kind out of `signatureFormats`). `signatureMaxTextSize` is the largest
+     * `[size]` (1 to 7) allowed; a heading counts as 8 minus its level (h1 is 7, h6 is 2).
+     */
     signatureMaxLength: z.number().int().min(1).max(2000).default(300),
     signatureMaxLines: z.number().int().min(1).max(20).default(4),
+    signatureMaxLinks: z.number().int().min(-1).max(50).default(3),
+    signatureMaxImages: z.number().int().min(-1).max(20).default(1),
+    /** Emoji characters; the forum has no text smilies. */
+    signatureMaxSmilies: z.number().int().min(-1).max(100).default(5),
+    signatureMaxTextSize: z.number().int().min(-1).max(7).default(4),
+    /** The kinds of formatting a signature may use; one outside the list is refused when saved. */
+    signatureFormats: z
+      .array(z.enum(SIGNATURE_FORMATS))
+      .max(SIGNATURE_FORMATS.length)
+      .default(["bold", "italic", "strikethrough", "code", "link"]),
+    /**
+     * A member must hold this rule to set a signature, on top of profile.signature (cheap
+     * criteria only: the member's own row). A signature stored by a member who no longer holds it
+     * stays stored but is not shown. An empty rule means everyone who may.
+     */
+    signatureRule: CriteriaRule.default({ match: "all", conditions: [] }),
+    /** Limit of a custom title (profile.customTitle). */
     customTitleMaxLength: z.number().int().min(1).max(100).default(40),
     /**
      * Member of the month: points = posts * standingPostPoints
@@ -198,6 +255,24 @@ export const SiteSettings = z
     logoFileId: Id.nullable().default(null),
     iconFileId: Id.nullable().default(null),
     backdropFileId: Id.nullable().default(null),
+    /**
+     * Cloudflare Turnstile on the guest forms named in `turnstileForms`. The backend verifies
+     * every token with Cloudflare and refuses the form when the token is missing, wrong or
+     * Cloudflare cannot be reached (it fails closed). It can be on only with a site key and a
+     * secret stored.
+     */
+    turnstileEnabled: z.boolean().default(false),
+    /** The public site key of the widget; empty when none is set. */
+    turnstileSiteKey: z.string().trim().max(100).default(""),
+    turnstileForms: z
+      .array(z.enum(TURNSTILE_FORMS))
+      .max(TURNSTILE_FORMS.length)
+      .default([...TURNSTILE_FORMS]),
+    /**
+     * Whether a secret is stored. The secret itself is write-only: it is sent as
+     * `turnstileSecret` to settings.update and no read returns it. Ignored on update.
+     */
+    turnstileSecretSet: z.boolean().default(false),
   })
   .meta({ id: "SiteSettings" });
 
@@ -226,14 +301,25 @@ function withoutDefaults<S extends z.ZodRawShape>(shape: S): WithoutDefaults<S> 
 }
 
 /** What `settings.update` may change: every setting but the ones with an operation of their own. */
-const { cookiePolicyVersion: _askAgainOnly, ...UPDATABLE } = SiteSettings.shape;
+const {
+  cookiePolicyVersion: _askAgainOnly,
+  turnstileSecretSet: _readOnly,
+  ...UPDATABLE
+} = SiteSettings.shape;
 
 export const settingsUpdate = defineContract({
   name: "settings.update",
   summary:
     "Update site configuration: only the keys sent change, every other setting keeps its " +
-    "stored value. Administrators only.",
+    "stored value. `turnstileSecret` stores the Turnstile secret (write-only; null removes it, " +
+    "and Turnstile cannot be on without one). Administrators only.",
   kind: "write",
-  input: z.object(withoutDefaults(UPDATABLE)).partial(),
+  input: z
+    .object(withoutDefaults(UPDATABLE))
+    .extend({
+      /** The Turnstile secret key to store; null removes it. Never returned by any read. */
+      turnstileSecret: z.string().trim().min(1).max(200).nullable(),
+    })
+    .partial(),
   output: SiteSettings,
 });

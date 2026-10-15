@@ -43,6 +43,7 @@ import {
   requireWriteRoom,
   withSpamCheck,
 } from "../moderation";
+import { ruleShortfall } from "../moderation/member-rules";
 import { noticeForOther } from "../moderation/notify";
 import { assertRemovalNotBegun, PURGE_CHUNK, purgeContent } from "../purge/purge";
 import { logIp } from "../security/log";
@@ -67,6 +68,7 @@ import {
   touchProfile,
   WALL_SQL,
 } from "./shared";
+import { requireSignatureRule } from "./signature";
 
 type ProfileRow = PrincipalRow & {
   id: number;
@@ -205,7 +207,10 @@ export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) =>
   requirePermission(ctx, actor, "profile.editOwn");
   const { changes, settingTitle, settingSignature } = profileFieldChanges(ctx, input, {
     customTitle: () => requirePermission(ctx, actor, "profile.customTitle"),
-    signature: () => requirePermission(ctx, actor, "profile.signature"),
+    signature: () => {
+      requirePermission(ctx, actor, "profile.signature");
+      requireSignatureRule(ctx, actor, readSiteSettings(ctx).signatureRule);
+    },
   });
   if (Object.keys(changes).length > 0)
     writeTx(ctx, () => {
@@ -213,7 +218,10 @@ export const profilesUpdateOp = implement(profilesUpdate, (ctx, actor, input) =>
       const current = currentActor(ctx, actor);
       requirePermission(ctx, current, "profile.editOwn");
       if (settingTitle) requirePermission(ctx, current, "profile.customTitle");
-      if (settingSignature) requirePermission(ctx, current, "profile.signature");
+      if (settingSignature) {
+        requirePermission(ctx, current, "profile.signature");
+        requireSignatureRule(ctx, current, readSiteSettings(ctx).signatureRule);
+      }
       storeProfileChanges(ctx, user.userId, changes);
     });
   return readProfile(ctx, actor, user.userId);
@@ -223,22 +231,29 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
   const user = requireAuthenticated(actor);
   const row = readProfileRow(ctx, user.userId);
   const settings = readSiteSettings(ctx);
+  const signatureNeeds = ruleShortfall(ctx, actor, settings.signatureRule)?.needs ?? null;
   return {
     profile: profileValue(ctx, actor, row),
     customTitle: row.custom_title,
     signatureSource: row.signature_source,
     birthYear: row.birth_year,
     may: {
-      setSignature: can(ctx, actor, "profile.signature"),
+      setSignature: can(ctx, actor, "profile.signature") && signatureNeeds === null,
       setCustomTitle: can(ctx, actor, "profile.customTitle"),
     },
     usernameChange: (({ reason, availableAt }) => ({
       reason,
       availableAt: isoOrNull(availableAt),
     }))(renameStanding(ctx, actor, user.userId)),
+    signatureNeeds: can(ctx, actor, "profile.signature") ? signatureNeeds : null,
     limits: {
       signatureMaxLength: settings.signatureMaxLength,
       signatureMaxLines: settings.signatureMaxLines,
+      signatureMaxLinks: settings.signatureMaxLinks,
+      signatureMaxImages: settings.signatureMaxImages,
+      signatureMaxSmilies: settings.signatureMaxSmilies,
+      signatureMaxTextSize: settings.signatureMaxTextSize,
+      signatureFormats: settings.signatureFormats,
       customTitleMaxLength: settings.customTitleMaxLength,
     },
   };

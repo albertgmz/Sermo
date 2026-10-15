@@ -15,6 +15,7 @@ import { levelFor, levelTitle } from "../../shared/levels";
 import { iso } from "../../time";
 import { catalogs } from "../appearance/store";
 import { profileAccessMany, profileModeAllows } from "../profiles/shared";
+import { holdSignatureRule } from "../profiles/signature";
 import { readSiteSettings } from "../settings";
 import { nameIconOf } from "../shop/held";
 import { publicPicture, resolvedFileUrl } from "../storage/url";
@@ -239,6 +240,17 @@ function loadMembers(ctx: Ctx, viewer: Actor, ids: Iterable<number>): LoadedMemb
       restricted: false,
     });
   }
+  // A signature stays stored for a member who no longer holds the site's signature rule, but is
+  // not shown. One lookup for the page, and none while the rule is empty.
+  const signed = [...rows.values()].filter(
+    (row) => row.signature_html !== null && mayShowSignature.get(row.id),
+  );
+  const holders = holdSignatureRule(
+    ctx,
+    signed.map((row) => row.id),
+    settings.signatureRule,
+  );
+  for (const row of signed) if (!holders.has(row.id)) mayShowSignature.set(row.id, false);
   return result;
 }
 
