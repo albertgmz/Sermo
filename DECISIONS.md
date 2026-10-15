@@ -2836,3 +2836,27 @@ keep it deployed a month, then remove the registration and the worker's files. D
 bytes in code because `public/` holds no pictures; LITE mode cannot hide the manifest's icons from
 the install flow because a browser fetches them without cookies, so that gate only answers requests
 that carry the cookie.
+
+**The web editor reads and writes BB code (item 5b, step 2).** The rich editor (Lexical) holds BB
+code as bold, italic, underline, strikethrough, inline code, links, headings 1-3, plain quotes,
+lists (nested too) and code blocks, and writes them back as BB code with tags that always nest;
+every other tag (colour, font, size, alignment, spoilers, tables, media, attachments, quotes of a
+post, unpaired or misplaced tags) is plain text in the rich view and is written back exactly as
+typed, so nothing is dropped or escaped, and a member who wants a literal tag uses `[PLAIN]`. A `[
+]` button switches to a textarea with the BB code and back; what is sent is always BB code, and text
+the member did not touch is sent as it was given. Typed Markdown is text (no shortcuts). Pasted rich
+text is converted to BB code (bold, italic, underline, strike, http(s) links, lists, quotes,
+headings, `[IMG]` for http(s) pictures, the rest as text); pasted plain text is taken as typed. The
+quote button writes `[QUOTE="Name, post: N, member: M"]...[/QUOTE]`, with the unpaired QUOTE tags of
+the quoted body wrapped in `[PLAIN]`. The edit pages and the new conversation page load Lexical on
+first focus like the reply box. `@lexical/markdown`, `react-markdown` and remark are not used any
+more (the client Markdown renderers only served the styleguide); LITE filters `[IMG]` in BB code
+that goes into an editor and the stored HTML of bodies. Code that shows its own closing tag
+(`[CODE]x[/CODE]` as a sample) is written as `[CODE=rich][PLAIN]...[/PLAIN][/CODE]` (inline:
+`[ICODE=rich]`; a `[/PLAIN]` in the text is cut in two PLAIN tags that follow each other), which the
+renderer draws as a code block of exactly that text (its language is not kept in that case), and the
+editor reads that form back as code. Remove formatting keeps a quote that has an attribution. On the
+edit pages the first focus carries the caret and selection of the plain box to the editor, counted
+in characters of the text the editor shows (the editor's own reading of the text before the caret,
+so the tags it shows as text count). The `editor` first-load group fell from 375.3 KB to 270.5 KB
+(ceiling 286000). Known limit: a numbered list always starts at 1.
