@@ -82,6 +82,8 @@ const definitions: readonly [RouteMethod, string, string, (200 | 201)?][] = [
   ["DELETE", "/moderation/word-filters/{filterId}", "wordFilters.remove"],
   ["POST", "/users/{userId}/warnings", "warnings.create", 201],
   ["GET", "/users/{userId}/warnings", "warnings.list"],
+  ["DELETE", "/warnings/{warningId}", "warnings.delete"],
+  ["POST", "/warnings/{warningId}/expire", "warnings.expire"],
   ["GET", "/moderation/warning-types", "warningTypes.list"],
   ["POST", "/moderation/warning-types", "warningTypes.create", 201],
   ["PUT", "/moderation/warning-types/{typeId}", "warningTypes.update"],

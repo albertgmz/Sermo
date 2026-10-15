@@ -35,7 +35,13 @@ async function scenario() {
   })) as { id: number };
   await execute(fixture, op("permissions.set"), founder, {
     groupId: staffGroup.id,
-    entries: entries([...STAFF, "node.view"], "allow"),
+    entries: [
+      ...entries([...STAFF, "node.view"], "allow"),
+      // The limits a warning and a ban are held to: none for this group.
+      { permission: "warning.maxPoints", value: -1 },
+      { permission: "warning.perDay", value: -1 },
+      { permission: "member.banMaxDays", value: -1 },
+    ],
   });
   const staff = insertUser(fixture, { groupId: staffGroup.id });
   const member = insertUser(fixture);

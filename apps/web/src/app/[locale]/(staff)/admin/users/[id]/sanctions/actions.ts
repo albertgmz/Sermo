@@ -8,6 +8,8 @@ import {
   restrictionsLift,
   threadBansLift,
   warningsCreate,
+  warningsDelete,
+  warningsExpire,
 } from "@sermo/core/contracts";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -81,6 +83,40 @@ export async function issueWarning(
     return formFailure(error, ["points", "reason", "message"]);
   }
   redirect(back(userId, "warned"));
+}
+
+// Takes a warning away, or ends it now. Both leave to the backend what the member's points mean
+// for the automatic actions.
+async function endWarning(formData: FormData, how: "deleted" | "expired") {
+  const t = await getTranslations("adminUsers.errors");
+  const userId = memberOf(formData);
+  const warningId = parseId(text(formData, "warningId"));
+  if (userId === null || warningId === null) return { error: t("id") };
+  try {
+    await call(how === "deleted" ? warningsDelete : warningsExpire, {
+      warningId,
+      reason: text(formData, "reason"),
+    });
+  } catch (error) {
+    return formFailure(error, []);
+  }
+  redirect(
+    back(userId, how === "deleted" ? "warningDeleted" : "warningExpired"),
+  );
+}
+
+export async function deleteWarning(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  return endWarning(formData, "deleted");
+}
+
+export async function expireWarning(
+  _previous: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  return endWarning(formData, "expired");
 }
 
 export async function addRestriction(

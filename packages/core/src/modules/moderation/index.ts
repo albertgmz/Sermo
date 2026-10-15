@@ -6,7 +6,13 @@ import { type Ctx, prepared } from "../../context";
 import * as contracts from "../../contracts/moderation";
 import type { ContentStateValue } from "../../db/schema";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  RateLimitedError,
+  ValidationError,
+} from "../../errors";
 import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
@@ -19,6 +25,7 @@ import {
   PRINCIPAL_COLUMNS,
   type PrincipalRow,
   permissionsOf,
+  permissionValue,
   requirePermission,
   viewableNodeIds,
 } from "../../permissions";
@@ -1501,6 +1508,61 @@ export function listPostRevisions(
   };
 }
 
+const DAY_MS = 86_400_000;
+
+/**
+ * Who may warn a member: `member.warn` over them for a warning of its own, or `forum.warn` in the
+ * forum of the post of theirs the warning is about (that permission alone, so a forum can be
+ * taken from a moderator who holds `member.warn`). A post the actor cannot see is not found.
+ */
+function requireWarner(ctx: Ctx, actor: Actor, userId: number, postId: number | undefined): void {
+  const target = principalMember(ctx, userId);
+  if (postId === undefined) {
+    requirePermission(ctx, actor, "member.warn", { target });
+    return;
+  }
+  const post = read<{ user_id: number; node_id: number }>(
+    ctx,
+    "warnedPost",
+    "SELECT p.user_id, t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = ?1",
+    postId,
+  );
+  if (!post || !can(ctx, actor, "node.view", { nodeId: post.node_id })) throw new NotFoundError();
+  if (post.user_id !== userId) throw new ValidationError("That post is not by this member.");
+  requirePermission(ctx, actor, "forum.warn", { nodeId: post.node_id, target });
+}
+
+/** Where a moderator's warnings of the last 24 hours are counted: the log keeps deleted ones. */
+export const warningDaySql =
+  "SELECT created_at FROM moderator_log WHERE actor_id = ?1 AND action = 'warning.add' ORDER BY id DESC LIMIT 1 OFFSET ?2";
+
+/**
+ * The warning fits the moderator's limits: its points (a type's or a custom value) are at most
+ * `warning.maxPoints`, and fewer than `warning.perDay` warnings of theirs are under 24 hours
+ * old. -1 is unlimited; 0, which a group with no entry resolves to, allows none. Inside the
+ * write transaction, as the limits are read from the log it writes to.
+ */
+function requireWarningRoom(ctx: Ctx, actor: Actor, points: number, now: number): void {
+  const most = permissionValue(ctx, actor, "warning.maxPoints");
+  if (most !== -1 && points > most)
+    throw new ForbiddenError(
+      most === 0
+        ? "You may not give warnings."
+        : `You may give at most ${most} point${most === 1 ? "" : "s"} in one warning.`,
+    );
+  const perDay = permissionValue(ctx, actor, "warning.perDay");
+  if (perDay === -1) return;
+  if (perDay === 0) throw new ForbiddenError("You may not give warnings.");
+  const oldest = query<{ created_at: number }>(ctx, "warningDay", warningDaySql).get(
+    requireAuthenticated(actor).userId,
+    perDay - 1,
+  );
+  if (oldest && oldest.created_at >= now - DAY_MS)
+    throw new RateLimitedError(
+      `You have reached your limit of ${perDay} warning${perDay === 1 ? "" : "s"} in 24 hours.`,
+    );
+}
+
 export function addWarning(
   ctx: Ctx,
   actor: Actor,
@@ -1510,9 +1572,10 @@ export function addWarning(
   expiresAt?: number | null,
   notice?: Pick<Notice, "notify" | "message">,
   typeId?: number,
+  postId?: number,
 ) {
   requireAuthenticated(actor);
-  requirePermission(ctx, actor, "member.warn", { target: principalMember(ctx, userId) });
+  requireWarner(ctx, actor, userId, postId);
   if (
     typeId === undefined &&
     (points === undefined || !Number.isInteger(points) || points <= 0 || !reason || !reason.trim())
@@ -1521,11 +1584,11 @@ export function addWarning(
   return writeTx(ctx, () => {
     // The actor was resolved before this transaction: decide with what is committed now.
     const current = currentActor(ctx, actor);
-    const target = principalMember(ctx, userId);
-    requirePermission(ctx, current, "member.warn", { target });
+    requireWarner(ctx, current, userId, postId);
     requireNotErased(ctx, userId);
     const now = ctx.now();
     const given = resolveWarning(ctx, now, { points, reason, expiresAt, typeId });
+    requireWarningRoom(ctx, current, given.points, now);
     // Actions the member's points no longer reach are lifted first, so a new crossing fires.
     reconcileWarningActions(ctx, userId, now);
     const id = Number(
@@ -1547,6 +1610,7 @@ export function addWarning(
       points: given.points,
       expiresAt: given.expiresAt,
       typeId: typeId ?? null,
+      ...(postId === undefined ? {} : { postId }),
     });
     publishEvent(ctx, {
       type: "member.warned",
@@ -1566,6 +1630,19 @@ export function addWarning(
   });
 }
 
+/**
+ * A ban lasts at most `member.banMaxDays` days from now (-1: for good, 0: none at all). Taking
+ * the longest value of the member's groups is the integer rule; the ban permission is separate.
+ */
+function requireBanLength(ctx: Ctx, actor: Actor, expiresAt: number | null): void {
+  const days = permissionValue(ctx, actor, "member.banMaxDays");
+  if (days === -1) return;
+  if (days === 0) throw new ForbiddenError("You may not ban members.");
+  if (expiresAt === null) throw new ForbiddenError("You may not ban for good.");
+  if (expiresAt > ctx.now() + days * DAY_MS)
+    throw new ForbiddenError(`You may ban for at most ${days} day${days === 1 ? "" : "s"}.`);
+}
+
 export function banUser(
   ctx: Ctx,
   actor: Actor,
@@ -1578,10 +1655,12 @@ export function banUser(
   requirePermission(ctx, actor, "member.ban", { target: principalMember(ctx, userId) });
   if (!reason.trim() || (expiresAt != null && expiresAt <= ctx.now()))
     throw new ValidationError("A reason and future expiry are required.");
+  requireBanLength(ctx, actor, expiresAt);
   return writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     const target = principalMember(ctx, userId);
     requirePermission(ctx, current, "member.ban", { target });
+    requireBanLength(ctx, current, expiresAt);
     if (userId === actorUserId(actor)) throw new ForbiddenError();
     requireNotErased(ctx, userId);
     return insertBan(ctx, actor, userId, reason, expiresAt, notice);
@@ -1666,6 +1745,64 @@ function refreshBanState(ctx: Ctx, userId: number, now: number) {
     Number(active != null && active.expires_at == null),
     userId,
   );
+}
+
+type WarningRow = {
+  id: number;
+  user_id: number;
+  moderator_id: number;
+  points: number;
+  reason: string;
+  expires_at: number | null;
+};
+
+/**
+ * Deletes a warning, or ends it now. It stops counting either way, so the automatic actions the
+ * member's points no longer reach are lifted in the same transaction.
+ */
+export function removeWarning(
+  ctx: Ctx,
+  actor: Actor,
+  warningId: number,
+  how: "delete" | "expire",
+  reason: string,
+) {
+  requireAuthenticated(actor);
+  const find = () =>
+    read<WarningRow>(
+      ctx,
+      "warningById",
+      "SELECT id, user_id, moderator_id, points, reason, expires_at FROM warnings WHERE id = ?1",
+      warningId,
+    );
+  const early = find();
+  if (!early) throw new NotFoundError();
+  requirePermission(ctx, actor, "warning.delete", { target: principalMember(ctx, early.user_id) });
+  return writeTx(ctx, () => {
+    const current = currentActor(ctx, actor);
+    const row = find();
+    if (!row) throw new NotFoundError();
+    requirePermission(ctx, current, "warning.delete", {
+      target: principalMember(ctx, row.user_id),
+    });
+    requireNotErased(ctx, row.user_id);
+    const now = ctx.now();
+    if (how === "delete") exec(ctx, "warningDelete", "DELETE FROM warnings WHERE id = ?1", row.id);
+    else {
+      if (row.expires_at !== null && row.expires_at <= now)
+        throw new ConflictError("This warning has already expired.");
+      exec(ctx, "warningExpire", "UPDATE warnings SET expires_at = ?1 WHERE id = ?2", now, row.id);
+    }
+    reconcileWarningActions(ctx, row.user_id, now);
+    appendModeratorLog(ctx, actor, `warning.${how}`, "user", row.user_id, reason, {
+      warningId: row.id,
+      points: row.points,
+      warningReason: row.reason,
+      givenBy: row.moderator_id,
+      expiresAt: row.expires_at,
+    });
+    return { activePoints: activeWarningPoints(ctx, row.user_id, now) };
+  });
 }
 
 export function listWarnings(
@@ -2217,7 +2354,14 @@ export const operations = [
         : Date.parse(input.expiresAt),
       { notify: input.notify, message: input.message },
       input.typeId,
+      input.postId,
     ),
+  ),
+  implement(contracts.warningsDelete, (ctx, actor, input) =>
+    removeWarning(ctx, actor, input.warningId, "delete", input.reason),
+  ),
+  implement(contracts.warningsExpire, (ctx, actor, input) =>
+    removeWarning(ctx, actor, input.warningId, "expire", input.reason),
   ),
   implement(contracts.warningsList, (ctx, actor, input) =>
     contracts.warningsList.output.parse(page(listWarnings(ctx, actor, input.userId, input))),

@@ -235,7 +235,8 @@ export const usersAdminUpdateProfile = defineContract({
     "be set whether or not the member holds the permission to show them), what they wear " +
     "(any active catalog entry, held or not; null takes it off), and `removeAvatar` / " +
     "`removeCover` to delete their uploaded pictures. Only the keys sent change. Requires " +
-    "admin.members over the member.",
+    "admin.members over the member, or member.editProfile over the member for everything but what " +
+    "they wear (`accentId`, `nameColorId`, `frameId`, `coverPresetId`).",
   kind: "write",
   input: z.object({
     userId: Id,

@@ -525,6 +525,8 @@ export const PERMISSIONS = {
   "forum.bypassNodeRules": nodeModerator(),
   /** See the moderator log for this node. */
   "forum.viewLog": nodeModerator(),
+  /** Warn a member about one of their posts in this forum (`warnings.create` with a `postId`). */
+  "forum.warn": { ...nodeModerator(), hierarchy: true },
 
   // Profile posts -----------------------------------------------------------------------
   "profilePost.post": {
@@ -707,7 +709,41 @@ export const PERMISSIONS = {
   /** See and post on profiles regardless of their owners' privacy settings. */
   "profile.bypassPrivacy": globalModerator("profile"),
   "member.warn": { ...globalModerator("moderation"), hierarchy: true },
+  /** Delete a warning, or end it early (it stops counting, the record stays). */
+  "warning.delete": { ...globalModerator("moderation"), hierarchy: true },
+  /** Most points one warning may carry, a type's or a custom value (-1 unlimited, 0 none). */
+  "warning.maxPoints": {
+    scope: "global",
+    category: "moderation",
+    type: "integer",
+    unit: "count",
+    defaults: { moderator: 10, admin: -1 },
+  },
+  /** Most warnings one moderator may give in 24 hours (-1 unlimited, 0 none). */
+  "warning.perDay": {
+    scope: "global",
+    category: "moderation",
+    type: "integer",
+    unit: "count",
+    defaults: { moderator: 20, admin: -1 },
+  },
+  /**
+   * Edit the basic profile of a member who ranks below: about, location, website, birthday, links,
+   * title, signature and removing pictures. What a member wears stays with `admin.members`.
+   */
+  "member.editProfile": { ...globalModerator("moderation"), hierarchy: true },
   "member.ban": { ...globalAdmin("moderation"), hierarchy: true },
+  /**
+   * Longest ban the holder may give, in days (-1 permanent, 0 none). Banning needs `member.ban`
+   * as well, which only administrators hold by default.
+   */
+  "member.banMaxDays": {
+    scope: "global",
+    category: "moderation",
+    type: "integer",
+    unit: "count",
+    defaults: { moderator: 30, admin: -1 },
+  },
   "member.spamCleanup": { ...globalAdmin("moderation"), hierarchy: true },
   /** Held by the warned member: reaching the warning threshold does not ban them. */
   "member.immuneToAutoBan": globalAdmin("moderation"),

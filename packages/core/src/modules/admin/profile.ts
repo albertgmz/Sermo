@@ -1,10 +1,11 @@
-import { requireAuthenticated } from "../../actor";
+import { type Actor, requireAuthenticated } from "../../actor";
+import type { Ctx } from "../../context";
 import { usersAdminUpdateProfile } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
-import { ValidationError } from "../../errors";
+import { ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
-import { currentActor, requirePermission } from "../../permissions";
+import { can, currentActor, requirePermission } from "../../permissions";
 import { catalogs } from "../appearance/store";
 import { clearMemberPicture } from "../images";
 import { appendModeratorLog } from "../moderation";
@@ -60,11 +61,31 @@ function wearing(
   return changes;
 }
 
+/**
+ * Who may edit the member: `admin.members` over them, which covers everything, or
+ * `member.editProfile`, which covers all but what the member wears (an accent, a name colour,
+ * a frame, a cover from the gallery).
+ */
+function requireProfileEditor(
+  ctx: Ctx,
+  actor: Actor,
+  target: Actor,
+  input: { accentId?: unknown; nameColorId?: unknown; frameId?: unknown; coverPresetId?: unknown },
+): void {
+  if (can(ctx, actor, "admin.members", { target })) return;
+  requirePermission(ctx, actor, "member.editProfile", { target });
+  if (
+    input.accentId !== undefined ||
+    input.nameColorId !== undefined ||
+    input.frameId !== undefined ||
+    input.coverPresetId !== undefined
+  )
+    throw new ForbiddenError("What a member wears needs administration of members.");
+}
+
 export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx, actor, input) => {
   requireAuthenticated(actor);
-  requirePermission(ctx, actor, "admin.members", {
-    target: targetMember(ctx, actor, input.userId),
-  });
+  requireProfileEditor(ctx, actor, targetMember(ctx, actor, input.userId), input);
   requireNotErased(ctx, input.userId);
   // A title and a signature are set whether or not the member may show them: no permission asked.
   const { changes } = profileFieldChanges(ctx, input);
@@ -79,9 +100,7 @@ export const usersAdminUpdateProfileOp = implement(usersAdminUpdateProfile, (ctx
   writeTx(ctx, () => {
     // The administrator may have lost the permission since the request began.
     const current = currentActor(ctx, actor);
-    requirePermission(ctx, current, "admin.members", {
-      target: targetMember(ctx, current, input.userId, true),
-    });
+    requireProfileEditor(ctx, current, targetMember(ctx, current, input.userId, true), input);
     requireNotErased(ctx, input.userId);
     storeProfileChanges(ctx, input.userId, { ...changes, ...worn });
     const removed = pictures.filter((slot) => clearMemberPicture(ctx, input.userId, slot));

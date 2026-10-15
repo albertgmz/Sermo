@@ -37,6 +37,8 @@ async function Sanctions({
         searchParams={searchParams}
         shown={[
           "warned",
+          "warningDeleted",
+          "warningExpired",
           "restricted",
           "restrictionLifted",
           "banned",
@@ -50,6 +52,7 @@ async function Sanctions({
           params={query}
           mayList={holds(viewer, "warning.view")}
           mayIssue={holds(viewer, "member.warn")}
+          mayDelete={holds(viewer, "warning.delete")}
           readOnly={readOnly}
         />
       )}

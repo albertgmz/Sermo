@@ -210,7 +210,11 @@ const Warning = z.object({
 export const warningsCreate = defineContract({
   name: "warnings.create",
   summary:
-    "Issue warning points. Requires member.warn over the member. With a `typeId`, points, " +
+    "Issue warning points. Requires member.warn over the member or, when it is about one of their posts " +
+    "(`postId`, which must be theirs and visible to the moderator), forum.warn over the member " +
+    "in that post's forum instead; the post is logged with the warning. The points, a type's or a custom value, may not exceed " +
+    "warning.maxPoints, and a moderator gives at most warning.perDay warnings in 24 hours " +
+    "(administrators have no limit by default). With a `typeId`, points, " +
     "expiry and reason default to the type's (a locked type refuses a different `points` or " +
     "any `expiresAt`); without one the warning is custom and needs `points` and a `reason`. " +
     "`expiresAt` omitted takes the type's expiry, null never expires. Warning actions whose " +
@@ -221,12 +225,34 @@ export const warningsCreate = defineContract({
   input: z.object({
     ...moderationNotice,
     userId: Id,
+    /** The post the warning is about: it must be the member's, and forum.warn applies in its forum. */
+    postId: Id.optional(),
     typeId: Id.optional(),
     points: z.number().int().positive().max(1000).optional(),
     reason: Reason.optional(),
     expiresAt: Timestamp.nullable().optional(),
   }),
   output: z.object({ id: Id, activePoints: z.number().int().nonnegative() }),
+});
+export const warningsDelete = defineContract({
+  name: "warnings.delete",
+  summary:
+    "Delete a warning: it stops counting and disappears from the member's list. The automatic " +
+    "actions the member's points no longer reach are lifted in the same transaction. Requires " +
+    "warning.delete over the member. Logged with the warning's points and reason.",
+  kind: "write",
+  input: z.object({ warningId: Id, reason: z.string().trim().max(1000).default("") }),
+  output: z.object({ activePoints: z.number().int().nonnegative() }),
+});
+export const warningsExpire = defineContract({
+  name: "warnings.expire",
+  summary:
+    "End a warning now: it stops counting but stays in the member's list. Conflict when it " +
+    "has already expired. The automatic actions the member's points no longer reach are lifted " +
+    "in the same transaction. Requires warning.delete over the member.",
+  kind: "write",
+  input: z.object({ warningId: Id, reason: z.string().trim().max(1000).default("") }),
+  output: z.object({ activePoints: z.number().int().nonnegative() }),
 });
 export const warningsList = defineContract({
   name: "warnings.list",
@@ -365,7 +391,10 @@ export const warningActionsDelete = defineContract({
 });
 export const bansCreate = defineContract({
   name: "bans.create",
-  summary: "Temporarily or permanently ban a user. Administrators only.",
+  summary:
+    "Ban a user until `expiresAt`, or for good when it is null. Requires member.ban over the " +
+    "member, and member.banMaxDays: the ban may not last longer than that many days from now " +
+    "(-1 allows a permanent ban; a moderator's default is bounded, an administrator's is not).",
   kind: "write",
   input: z.object({
     ...moderationNotice,
@@ -377,7 +406,7 @@ export const bansCreate = defineContract({
 });
 export const bansLift = defineContract({
   name: "bans.lift",
-  summary: "Lift an active ban. Administrators only.",
+  summary: "Lift an active ban. Requires member.ban over the member.",
   kind: "write",
   input: z.object({ ...moderationNotice, banId: Id, reason: z.string().max(5000).default("") }),
   output: Ok,

@@ -187,16 +187,14 @@ describe("users.adminUpdateProfile", () => {
     expect(w.logOf(w.target.id)).toEqual([]);
   });
 
-  test("who may: administrators over the member only", async () => {
+  test("who may: administrators over the member, and moderators for the basic profile (member.editProfile)", async () => {
     const w = await world();
     const member = await w.register("Plain");
-    const moderator = await w.register("Moderator", 3);
     const peer = await w.register("Peer", 4);
     await expect(w.edit({ about: "x" }, { actor: GUEST })).rejects.toBeInstanceOf(
       UnauthenticatedError,
     );
-    for (const who of [member, moderator])
-      await expect(w.edit({ about: "x" }, who)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(w.edit({ about: "x" }, member)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(
       w.run("users.adminUpdateProfile", peer.actor, { userId: w.founder.id, about: "x" }),
     ).rejects.toBeInstanceOf(ForbiddenError);
@@ -219,8 +217,13 @@ describe("users.adminUpdateProfile", () => {
     try {
       const here = database.open();
       const elsewhere = database.open();
-      // The delegate outranks nobody but is a moderator-ranked member here.
-      here.sqlite.prepare("UPDATE users SET group_id = 3 WHERE id = ?1").run(delegate.id);
+      // The delegate outranks nobody but is a member of a group ranked above the target here.
+      const ranked = here.sqlite
+        .prepare<{ id: number }, []>(
+          "INSERT INTO groups (title, rank) VALUES ('Delegates', 40) RETURNING id",
+        )
+        .get()!.id;
+      here.sqlite.prepare("UPDATE users SET group_id = ?1 WHERE id = ?2").run(ranked, delegate.id);
       const stale = resolvedActor(here, delegate.id);
       resolvedPermissions(here, stale);
       await execute(
@@ -408,5 +411,47 @@ describe("users.adminSessions, users.adminRevokeSessions and users.adminLog", ()
       UnauthenticatedError,
     );
     await w.run("users.adminLog", tokenActor(w.founder), { userId: w.target.id });
+  });
+});
+
+describe("users.adminUpdateProfile with member.editProfile", () => {
+  test("a moderator edits the basic profile of a member who ranks below, and what is worn stays with administrators", async () => {
+    const w = await world();
+    const moderator = await w.register("Moderator", 3);
+    const view = await w.edit({ about: "Cleaned", signature: "", customTitle: null }, moderator);
+    expect(view.card.username).toBe("Target");
+    expect(view.email).toBeNull();
+    expect(view.canEdit).toBe(false);
+    expect(w.stored()).toMatchObject({ about: "Cleaned" });
+    expect(w.logOf(w.target.id).map((entry) => entry.action)).toEqual(["member.profile"]);
+    for (const worn of [
+      { accentId: null },
+      { nameColorId: null },
+      { frameId: null },
+      { coverPresetId: null },
+    ])
+      await expect(w.edit(worn, moderator)).rejects.toBeInstanceOf(ForbiddenError);
+    await w.edit({ removeAvatar: true, removeCover: true }, moderator);
+  });
+
+  test("it needs the permission and a member who ranks below", async () => {
+    const w = await world();
+    const moderator = await w.register("Moderator", 3);
+    const peer = await w.register("PeerModerator", 3);
+    const admin = await w.register("Admin", 4);
+    for (const higher of [peer, admin])
+      await expect(
+        w.run("users.adminUpdateProfile", moderator.actor, { userId: higher.id, about: "x" }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    // Without the entry the moderator group has, a moderator is refused again.
+    w.ctx.sqlite
+      .prepare(
+        "DELETE FROM permission_entries WHERE group_id = 3 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'member.editProfile')",
+      )
+      .run();
+    w.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+    await expect(w.edit({ about: "x" }, moderator)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

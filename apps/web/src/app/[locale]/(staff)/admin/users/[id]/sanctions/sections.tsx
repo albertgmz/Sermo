@@ -21,6 +21,8 @@ import { ifAllowed } from "../../data";
 import {
   addRestriction,
   banMember,
+  deleteWarning,
+  expireWarning,
   issueWarning,
   liftBan,
   liftRestriction,
@@ -79,12 +81,14 @@ export async function Warnings({
   params,
   mayList,
   mayIssue,
+  mayDelete,
   readOnly,
 }: {
   userId: number;
   params: Params;
   mayList: boolean;
   mayIssue: boolean;
+  mayDelete: boolean;
   readOnly: boolean;
 }) {
   const t = await getTranslations("adminUsers.sanctions");
@@ -99,6 +103,8 @@ export async function Warnings({
   const types = mayIssue
     ? ((await ifAllowed(() => call(warningTypesList, {})))?.items ?? [])
     : [];
+  // After the reads above, which settle the request: the clock may be read from here.
+  const now = Date.now();
   return (
     <>
       {page && who && (
@@ -138,6 +144,28 @@ export async function Warnings({
                 · {t("expires")}{" "}
                 <When at={warning.expiresAt} none={t("never")} />
               </p>
+              {mayDelete && !readOnly && (
+                <div className="flex flex-wrap gap-2">
+                  {(warning.expiresAt === null ||
+                    Date.parse(warning.expiresAt) > now) && (
+                    <ConfirmStep
+                      action={expireWarning}
+                      fields={{ id: userId, warningId: warning.id }}
+                      summary={t("expireWarning")}
+                      warning={t("expireWarningHelp")}
+                      reason={t("liftReason")}
+                      danger={false}
+                    />
+                  )}
+                  <ConfirmStep
+                    action={deleteWarning}
+                    fields={{ id: userId, warningId: warning.id }}
+                    summary={t("deleteWarning")}
+                    warning={t("deleteWarningHelp")}
+                    reason={t("liftReason")}
+                  />
+                </div>
+              )}
             </div>
           )}
         />
