@@ -100,6 +100,12 @@ const IDS = [
   "user.groups",
   "user.superAdmin",
   "warning.add",
+  "warning_type.create",
+  "warning_type.update",
+  "warning_type.delete",
+  "warning_action.create",
+  "warning_action.update",
+  "warning_action.delete",
   "word_filter.upsert",
   "word_filter.remove",
 ];

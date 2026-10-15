@@ -84,8 +84,6 @@ export const SETTINGS = {
   groupUploadLimitBytes: {},
   firstPostsToModerate: 0,
   moderateLinksFromNewMembers: false,
-  warningBanThreshold: 0,
-  warningBanDays: 7,
   threadTitleTemplate: "{title}",
   nodeTitleTemplate: "{title}",
   profileTitleTemplate: "{username}",

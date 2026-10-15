@@ -164,18 +164,6 @@ export async function saveAntispam(
   });
 }
 
-const WARNINGS: Spec = { warningBanThreshold: "int", warningBanDays: "int" };
-
-export async function saveWarnings(
-  _previous: StaffFormState,
-  formData: FormData,
-): Promise<StaffFormState> {
-  return saveSettings(await scalars(WARNINGS, formData), {
-    back: "/admin/settings/warnings",
-    known: knownIn(WARNINGS),
-  });
-}
-
 const SEO: Spec = {
   threadTitleTemplate: "text",
   nodeTitleTemplate: "text",

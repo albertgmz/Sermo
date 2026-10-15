@@ -78,10 +78,9 @@
       "askAgainSubmit": "Ask everyone again"
     },
     "warnings": {
-      "metaTitle": "Warnings and automatic bans",
-      "heading": "Warnings and automatic bans",
-      "subtitle": "When warning points turn into a ban without a moderator acting.",
-      "formHeading": "Automatic bans"
+      "metaTitle": "Warnings",
+      "heading": "Warnings",
+      "subtitle": "The warning types moderators pick, and the actions applied automatically when a member's warning points reach a threshold."
     },
     "uploads": {
       "metaTitle": "Upload settings",
@@ -171,11 +170,6 @@
       "help": "Mentions allowed per post or message for members younger than the new-member period. The general mention limit applies as well.",
       "unit": "mentions"
     },
-    "warningBanThreshold": {
-      "label": "Ban at this many points",
-      "help": "Active warning points at which a member is banned automatically. 0 turns automatic bans off.",
-      "unit": "points"
-    },
     "cookieBannerOutsideEu": {
       "label": "Cookie banner outside Europe",
       "help": "On (the default): everyone is asked. Off: only visitors in the EU, the EEA, the United Kingdom and Switzerland, and visitors whose country is not known, are asked. Guests elsewhere who have never answered the banner are treated as having accepted every category until they choose in the cookie settings, so the statistics, referrals and embeds work for them without a banner. Members, and anyone who answered before (under any policy version), are always asked. The country is read only from the location a trusted proxy reports (see the deployment guide); without one every visitor is asked.",
@@ -185,11 +179,6 @@
       "label": "Matomo without cookies",
       "help": "Runs the Matomo tag in its cookieless mode and loads it without asking for consent; the banner then has no statistics choice and the cookie policy page says so. It applies only when the analytics provider in General is Matomo. Whether consent is needed for cookieless statistics varies by country: check the rules that apply to you.",
       "switch": "Matomo runs without cookies and without consent"
-    },
-    "warningBanDays": {
-      "label": "Length of an automatic ban",
-      "help": "How long a ban applied by the threshold lasts.",
-      "unit": "days"
     },
     "maxUploadBytes": {
       "label": "Largest file",
@@ -470,6 +459,77 @@
     "backdropFileId": {
       "label": "Page backdrop",
       "help": "Drawn across the top of every page, fading out downwards. Without one, the drawn pattern is shown."
+    }
+  },
+  "warningTypes": {
+    "heading": "Warning types",
+    "description": "What a moderator picks when warning a member. A type sets the points, the expiry and a reason to start from.",
+    "none": "There are no warning types. Moderators give custom warnings.",
+    "edit": "Edit",
+    "points": "{count, plural, one {# point} other {# points}}",
+    "neverExpires": "Never expires",
+    "expiresAfter": "Expires after {days, plural, one {# day} other {# days}}",
+    "locked": "Fixed",
+    "delete": "Delete",
+    "deleteWarning": "Warnings already given under this type stay as they are, as custom warnings.",
+    "form": {
+      "headingNew": "New warning type",
+      "headingEdit": "Edit warning type",
+      "descriptionNew": "Named in both languages; members read the one they use.",
+      "create": "Add warning type",
+      "nameEn": "Name (English)",
+      "nameEs": "Name (Spanish)",
+      "points": "Points",
+      "pointsHelp": "The points a warning of this type carries.",
+      "expiryDays": "Expires after (days)",
+      "expiryDaysHelp": "Leave empty for warnings that never expire.",
+      "defaultReason": "Default reason",
+      "defaultReasonHelp": "Used when the moderator gives no reason of their own.",
+      "locked": "Fixed points and expiry",
+      "lockedHelp": "Moderators cannot change the points or the expiry of this type."
+    }
+  },
+  "warningActions": {
+    "heading": "Automatic actions",
+    "description": "Applied once when a member's active warning points reach the threshold, and again only after the points have fallen below it and reached it anew. Changes count from the next warning. A group added for a limited time is taken back when the points fall below the threshold or the time ends. Bans and restrictions end on their own date and are never lifted early; permanent group memberships stay.",
+    "none": "There are no automatic actions.",
+    "edit": "Edit",
+    "threshold": "{count, plural, one {At # point} other {At # points}}",
+    "permanently": "permanently",
+    "forDays": "for {days, plural, one {# day} other {# days}}",
+    "summaryBan": "Ban {duration}",
+    "summaryGroup": "Add to {group} {duration}",
+    "summaryRestriction": "Restriction ({restriction}) {duration}",
+    "delete": "Delete",
+    "deleteWarning": "Group memberships it added for a limited time end now. Bans, restrictions and permanent memberships stay.",
+    "form": {
+      "headingNew": "New automatic action",
+      "headingEdit": "Edit automatic action",
+      "descriptionNew": "A member is never banned this way if they hold the permission that exempts them from automatic bans, and the last administrator cannot be banned.",
+      "create": "Add action",
+      "threshold": "Active points",
+      "thresholdHelp": "The action applies when a member's unexpired points reach this number.",
+      "kind": "Action",
+      "kindHelp": "The group or the restriction below is used only when the action asks for it.",
+      "kinds": {
+        "ban": "Ban",
+        "group": "Add to a group",
+        "restriction": "Restrict"
+      },
+      "days": "Length (days)",
+      "daysHelp": "Leave empty for a ban, membership or restriction without an end.",
+      "group": "Group",
+      "groupHelp": "A group ranked below yours that does not administer permissions.",
+      "groupTyped": "Type the number of the group; you may not list the groups.",
+      "chooseGroup": "Choose a group",
+      "restriction": "Restriction",
+      "restrictionHelp": "Used when the action is a restriction.",
+      "chooseRestriction": "Choose a restriction",
+      "restrictions": {
+        "posting": "No posting",
+        "conversations": "No starting conversations",
+        "profile_posts": "No profile posts"
+      }
     }
   }
 }

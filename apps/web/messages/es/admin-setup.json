@@ -78,10 +78,9 @@
       "askAgainSubmit": "Volver a preguntar a todos"
     },
     "warnings": {
-      "metaTitle": "Advertencias y expulsiones automáticas",
-      "heading": "Advertencias y expulsiones automáticas",
-      "subtitle": "Cuándo los puntos de advertencia se convierten en una expulsión sin que actúe un moderador.",
-      "formHeading": "Expulsiones automáticas"
+      "metaTitle": "Advertencias",
+      "heading": "Advertencias",
+      "subtitle": "Los tipos de advertencia que eligen los moderadores y las acciones que se aplican solas cuando los puntos de un miembro llegan a un umbral."
     },
     "uploads": {
       "metaTitle": "Ajustes de subidas",
@@ -171,11 +170,6 @@
       "help": "Menciones permitidas por mensaje para los miembros con menos antigüedad que el periodo de miembro nuevo. También se aplica el límite general de menciones.",
       "unit": "menciones"
     },
-    "warningBanThreshold": {
-      "label": "Expulsar con tantos puntos",
-      "help": "Puntos de advertencia activos con los que se expulsa automáticamente a un miembro. 0 desactiva las expulsiones automáticas.",
-      "unit": "puntos"
-    },
     "cookieBannerOutsideEu": {
       "label": "Aviso de cookies fuera de Europa",
       "help": "Activado (por defecto): se pregunta a todos. Desactivado: solo se pregunta a los visitantes de la UE, del EEE, del Reino Unido y de Suiza, y a los de país desconocido. A los invitados de otros países que nunca han respondido al aviso se les trata como si hubieran aceptado todas las categorías hasta que elijan en la configuración de cookies, así que las estadísticas, las invitaciones y los contenidos incrustados funcionan para ellos sin aviso. A los miembros, y a quien ya respondió antes (con cualquier versión de la política), siempre se les pregunta. El país se lee solo de la ubicación que informa un proxy de confianza (consulta la guía de despliegue); sin ella se pregunta a todos.",
@@ -185,11 +179,6 @@
       "label": "Matomo sin cookies",
       "help": "Ejecuta la etiqueta de Matomo en su modo sin cookies y la carga sin pedir consentimiento; el aviso deja de tener una opción de estadísticas y la página de la política de cookies lo dice. Solo se aplica cuando el proveedor de analítica de General es Matomo. Que las estadísticas sin cookies necesiten consentimiento varía según el país: comprueba las normas que te afectan.",
       "switch": "Matomo funciona sin cookies y sin consentimiento"
-    },
-    "warningBanDays": {
-      "label": "Duración de una expulsión automática",
-      "help": "Cuánto dura una expulsión aplicada por el umbral.",
-      "unit": "días"
     },
     "maxUploadBytes": {
       "label": "Archivo más grande",
@@ -470,6 +459,77 @@
     "backdropFileId": {
       "label": "Fondo de la página",
       "help": "Se dibuja en la parte superior de todas las páginas, desvaneciéndose hacia abajo. Sin él, se muestra el patrón dibujado."
+    }
+  },
+  "warningTypes": {
+    "heading": "Tipos de advertencia",
+    "description": "Lo que elige un moderador al advertir a un miembro. Un tipo fija los puntos, la caducidad y un motivo de partida.",
+    "none": "No hay tipos de advertencia. Los moderadores ponen advertencias personalizadas.",
+    "edit": "Editar",
+    "points": "{count, plural, one {# punto} other {# puntos}}",
+    "neverExpires": "No caduca",
+    "expiresAfter": "Caduca a los {days, plural, one {# día} other {# días}}",
+    "locked": "Fijo",
+    "delete": "Eliminar",
+    "deleteWarning": "Las advertencias ya puestas con este tipo se quedan como están, como advertencias personalizadas.",
+    "form": {
+      "headingNew": "Nuevo tipo de advertencia",
+      "headingEdit": "Editar tipo de advertencia",
+      "descriptionNew": "Con nombre en los dos idiomas; cada miembro lee el que usa.",
+      "create": "Añadir tipo de advertencia",
+      "nameEn": "Nombre (inglés)",
+      "nameEs": "Nombre (español)",
+      "points": "Puntos",
+      "pointsHelp": "Los puntos que lleva una advertencia de este tipo.",
+      "expiryDays": "Caduca a los (días)",
+      "expiryDaysHelp": "Déjalo vacío para advertencias que no caducan.",
+      "defaultReason": "Motivo por defecto",
+      "defaultReasonHelp": "Se usa cuando el moderador no escribe un motivo propio.",
+      "locked": "Puntos y caducidad fijos",
+      "lockedHelp": "Los moderadores no pueden cambiar los puntos ni la caducidad de este tipo."
+    }
+  },
+  "warningActions": {
+    "heading": "Acciones automáticas",
+    "description": "Se aplican una vez cuando los puntos de advertencia activos de un miembro llegan al umbral, y de nuevo solo después de que los puntos bajen del umbral y vuelvan a alcanzarlo. Los cambios cuentan desde la siguiente advertencia. Un grupo añadido por un tiempo se retira cuando los puntos bajan del umbral o se acaba el tiempo. Las expulsiones y las restricciones terminan en su propia fecha y nunca se levantan antes; los grupos permanentes se quedan.",
+    "none": "No hay acciones automáticas.",
+    "edit": "Editar",
+    "threshold": "{count, plural, one {Con # punto} other {Con # puntos}}",
+    "permanently": "de forma permanente",
+    "forDays": "durante {days, plural, one {# día} other {# días}}",
+    "summaryBan": "Expulsar {duration}",
+    "summaryGroup": "Añadir a {group} {duration}",
+    "summaryRestriction": "Restricción ({restriction}) {duration}",
+    "delete": "Eliminar",
+    "deleteWarning": "Las pertenencias a grupos que añadió por un tiempo terminan ahora. Las expulsiones, las restricciones y las pertenencias permanentes se quedan.",
+    "form": {
+      "headingNew": "Nueva acción automática",
+      "headingEdit": "Editar acción automática",
+      "descriptionNew": "Un miembro nunca es expulsado así si tiene el permiso que lo exime de las expulsiones automáticas, y no se puede expulsar al último administrador.",
+      "create": "Añadir acción",
+      "threshold": "Puntos activos",
+      "thresholdHelp": "La acción se aplica cuando los puntos sin caducar de un miembro llegan a este número.",
+      "kind": "Acción",
+      "kindHelp": "El grupo o la restricción de abajo solo se usan cuando la acción lo pide.",
+      "kinds": {
+        "ban": "Expulsar",
+        "group": "Añadir a un grupo",
+        "restriction": "Restringir"
+      },
+      "days": "Duración (días)",
+      "daysHelp": "Déjalo vacío para una expulsión, pertenencia o restricción sin final.",
+      "group": "Grupo",
+      "groupHelp": "Un grupo de rango inferior al tuyo que no administre permisos.",
+      "groupTyped": "Escribe el número del grupo; no puedes ver la lista de grupos.",
+      "chooseGroup": "Elige un grupo",
+      "restriction": "Restricción",
+      "restrictionHelp": "Se usa cuando la acción es una restricción.",
+      "chooseRestriction": "Elige una restricción",
+      "restrictions": {
+        "posting": "Sin publicar",
+        "conversations": "Sin iniciar conversaciones",
+        "profile_posts": "Sin publicaciones en el perfil"
+      }
     }
   }
 }

@@ -588,7 +588,7 @@ test("a ban for days sends an end time; permanent sends null; neither is refused
   ).toEqual({ fields: { days: messages.adminUsers.errors.days } });
 });
 
-test("a warning needs whole points and the days are optional", async () => {
+test("a warning needs whole points or a type, and the days are optional", async () => {
   backend = fakeBackend({
     "warnings.create": () => Response.json({ id: 1, activePoints: 3 }),
   });
@@ -606,6 +606,35 @@ test("a warning needs whole points and the days are optional", async () => {
   expect(
     await sanctions.issueWarning(null, form({ id: "7", points: "many" })),
   ).toEqual({ fields: { points: messages.adminUsers.errors.points } });
+});
+
+test("a warning of a type sends the type and only what was filled in", async () => {
+  backend = fakeBackend({
+    "warnings.create": () => Response.json({ id: 1, activePoints: 2 }),
+  });
+  await redirectedTo(() =>
+    sanctions.issueWarning(
+      null,
+      form({ id: "7", typeId: "4", points: "", reason: " ", days: "" }),
+    ),
+  );
+  expect(lastBody()).toEqual({ typeId: 4, notify: false });
+  await redirectedTo(() =>
+    sanctions.issueWarning(
+      null,
+      form({ id: "7", typeId: "4", points: "5", reason: "worse", days: "0" }),
+    ),
+  );
+  expect(lastBody()).toEqual({
+    typeId: 4,
+    points: 5,
+    reason: "worse",
+    expiresAt: null,
+    notify: false,
+  });
+  expect(
+    await sanctions.issueWarning(null, form({ id: "7", typeId: "x" })),
+  ).toEqual({ error: messages.adminUsers.errors.id });
 });
 
 test("lifting a ban of an erased member shows the backend's refusal", async () => {

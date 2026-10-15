@@ -3,6 +3,7 @@ import {
   Restriction,
   restrictionsList,
   warningsList,
+  warningTypesList,
 } from "@sermo/core/contracts";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { UserLink } from "@/components/forum/user-link";
@@ -95,6 +96,9 @@ export async function Warnings({
   const who = page
     ? await moderators(page.items.map((i) => i.moderatorId))
     : null;
+  const types = mayIssue
+    ? ((await ifAllowed(() => call(warningTypesList, {})))?.items ?? [])
+    : [];
   return (
     <>
       {page && who && (
@@ -118,6 +122,9 @@ export async function Warnings({
                 <Badge variant="secondary">
                   {t("points", { count: warning.points })}
                 </Badge>
+                {warning.typeName !== null && (
+                  <Badge variant="outline">{warning.typeName}</Badge>
+                )}
                 <span className="[overflow-wrap:anywhere]">
                   {warning.reason}
                 </span>
@@ -143,10 +150,41 @@ export async function Warnings({
           disabled={readOnly}
         >
           <input type="hidden" name="id" value={userId} />
+          {types.length > 0 && (
+            <FieldRow
+              name="typeId"
+              label={t("warnType")}
+              htmlFor="warn-type"
+              help={t("warnTypeHelp")}
+            >
+              <select
+                id="warn-type"
+                name="typeId"
+                defaultValue=""
+                className={selectClass}
+              >
+                <option value="">{t("warnCustom")}</option>
+                {types.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {t("typeOption", {
+                      name: type.name,
+                      points: t("points", { count: type.points }),
+                      expiry:
+                        type.expiryDays === null
+                          ? t("never")
+                          : t("days", { count: type.expiryDays }),
+                      fixed: type.locked ? "yes" : "no",
+                    })}
+                  </option>
+                ))}
+              </select>
+            </FieldRow>
+          )}
           <FieldRow
             name="points"
             label={t("pointsLabel")}
             htmlFor="warn-points"
+            help={t("pointsHelp")}
           >
             <Input
               id="warn-points"
@@ -154,11 +192,21 @@ export async function Warnings({
               type="number"
               inputMode="numeric"
               min={1}
-              required
+              required={types.length === 0}
             />
           </FieldRow>
-          <FieldRow name="reason" label={t("reason")} htmlFor="warn-reason">
-            <Textarea id="warn-reason" name="reason" rows={2} required />
+          <FieldRow
+            name="reason"
+            label={t("reason")}
+            htmlFor="warn-reason"
+            help={types.length > 0 ? t("reasonHelp") : undefined}
+          >
+            <Textarea
+              id="warn-reason"
+              name="reason"
+              rows={2}
+              required={types.length === 0}
+            />
           </FieldRow>
           <FieldRow
             name="days"

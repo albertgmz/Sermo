@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { SettingsScreen } from "../settings-screen";
-import { WarningsForm } from "./warnings-form";
+import { WarningActions } from "./warning-actions";
+import { WarningTypes } from "./warning-types";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminSetup.pages.warnings");
@@ -13,7 +14,8 @@ export default function WarningsPage({
 }: PageProps<"/[locale]/admin/settings/warnings">) {
   return (
     <SettingsScreen screen="warnings" searchParams={searchParams}>
-      <WarningsForm />
+      <WarningTypes />
+      <WarningActions />
     </SettingsScreen>
   );
 }

@@ -27,7 +27,6 @@ const {
   saveGeneral,
   saveAntispam,
   saveMembers,
-  saveWarnings,
   saveSeo,
   saveUploads,
   saveLevels,
@@ -57,8 +56,6 @@ const SETTINGS = {
   firstPostsToModerate: 0,
   moderateLinksFromNewMembers: false,
   newMemberDays: 7,
-  warningBanThreshold: 0,
-  warningBanDays: 7,
   threadTitleTemplate: "{title} | {site}",
   nodeTitleTemplate: "{title} | {site}",
   profileTitleTemplate: "{username} | {site}",
@@ -189,23 +186,6 @@ test("the new-member form sends exactly its four keys", async () => {
     newMemberMentionLimit: 1,
   });
   expect(expired).toEqual([]);
-});
-
-test("the warnings form sends exactly its two keys", async () => {
-  backend = fakeBackend({ "settings.update": read });
-  await redirectedTo(() =>
-    saveWarnings(
-      null,
-      form([
-        ["warningBanThreshold", "10"],
-        ["warningBanDays", "3"],
-      ]),
-    ),
-  );
-  expect(sent()?.[0]?.body).toEqual({
-    warningBanThreshold: 10,
-    warningBanDays: 3,
-  });
 });
 
 const POST_COUNT_RULE = {
@@ -606,34 +586,6 @@ test("a refusal naming an entry of the list is shown on the row it came from", a
   });
 });
 
-test("a refusal names the field and nothing is expired", async () => {
-  backend = fakeBackend({
-    "settings.update": () =>
-      Response.json(
-        {
-          error: {
-            code: "validation",
-            message: "Invalid input",
-            issues: [{ path: ["warningBanDays"], message: "Too big." }],
-          },
-        },
-        { status: 422 },
-      ),
-  });
-  const state = await saveWarnings(
-    null,
-    form([
-      ["warningBanThreshold", "10"],
-      ["warningBanDays", "99999"],
-    ]),
-  );
-  expect(state).toEqual({
-    error: undefined,
-    fields: { warningBanDays: "Too big." },
-  });
-  expect(expired).toEqual([]);
-});
-
 test("a refusal without a field is shown at the top", async () => {
   backend = fakeBackend({
     "settings.update": () => refusal(403, "forbidden", "Not allowed."),
@@ -648,22 +600,6 @@ test("a refusal without a field is shown at the top", async () => {
       ]),
     ),
   ).toEqual({ error: "Not allowed." });
-});
-
-test("text in a number field is refused without a call", async () => {
-  backend = fakeBackend({});
-  expect(
-    await saveWarnings(
-      null,
-      form([
-        ["warningBanThreshold", "ten"],
-        ["warningBanDays", "3"],
-      ]),
-    ),
-  ).toEqual({
-    fields: { warningBanThreshold: messages.adminSetup.errors.number },
-  });
-  expect(backend.asked).toEqual([]);
 });
 
 test("a request without the markers of what the form showed is refused and nothing is sent", async () => {
@@ -698,10 +634,10 @@ test("a setting the form did not show is not sent, whatever else it posts", asyn
 test("a setting the form showed but did not post a value for is refused, but for a switch", async () => {
   backend = fakeBackend({ "settings.update": read });
   const data = new FormData();
-  data.append("shown", "warningBanThreshold");
-  data.append("shown", "warningBanDays");
-  data.append("warningBanThreshold", "10");
-  expect(await saveWarnings(null, data)).toEqual({
+  data.append("shown", "newMemberDays");
+  data.append("shown", "firstPostsToModerate");
+  data.append("newMemberDays", "10");
+  expect(await saveMembers(null, data)).toEqual({
     error: messages.lib.errors.generic,
   });
   expect(backend.asked).toEqual([]);

@@ -54,15 +54,26 @@ export async function issueWarning(
   const t = await getTranslations("adminUsers.errors");
   const userId = memberOf(formData);
   if (userId === null) return { error: t("id") };
-  const points = whole(text(formData, "points"));
+  // Everything a type supplies may be left empty; the backend refuses a custom warning for what
+  // it lacks. "0" days is a warning that never expires.
+  const typed = text(formData, "typeId");
+  const typeId = typed === "" ? undefined : parseId(typed);
+  if (typeId === null) return { error: t("id") };
+  const rawPoints = text(formData, "points").trim();
+  const points = rawPoints === "" ? undefined : whole(rawPoints);
   if (points === null) return { fields: { points: t("points") } };
-  const expiresAt = endsAfter(formData, "days");
-  if (expiresAt === null) return { fields: { days: t("days") } };
+  let expiresAt: string | null | undefined = null;
+  if (text(formData, "days").trim() !== "0") {
+    expiresAt = endsAfter(formData, "days");
+    if (expiresAt === null) return { fields: { days: t("days") } };
+  }
+  const reason = text(formData, "reason").trim();
   try {
     await call(warningsCreate, {
       userId,
-      points,
-      reason: text(formData, "reason"),
+      ...(typeId === undefined ? {} : { typeId }),
+      ...(points === undefined ? {} : { points }),
+      ...(reason === "" ? {} : { reason }),
       ...(expiresAt === undefined ? {} : { expiresAt }),
       ...notice(formData),
     });
