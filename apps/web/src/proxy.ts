@@ -247,8 +247,9 @@ function localePrefixRedirect(request: NextRequest) {
   return undefined;
 }
 
-// What a request does to the referral cookie (see `referralStep`), and the canonical address of
-// a page that was reached through a `?ref=` link: the same address without it.
+// What a request does to the referral cookie (see `referralStep`). The canonical address of a
+// page reached through `?ref=` needs nothing here: the pages that have one take it from the
+// backend (`seoMetadata`), which never carries a query, and the others have none.
 function withReferral(
   request: NextRequest,
   response: NextResponse | undefined,
@@ -256,21 +257,16 @@ function withReferral(
   const { pathname } = request.nextUrl;
   if (pathname.startsWith("/api/") || pathname.startsWith("/_next/"))
     return response;
-  const pageLoad = isDocumentRequest(request);
   const step = referralStep(
     request.nextUrl,
     {
       referral: request.cookies.get(REFERRAL_COOKIE)?.value,
       consent: request.cookies.get(CONSENT_COOKIE)?.value,
     },
-    pageLoad,
-    publicUrl(),
+    isDocumentRequest(request),
+    SESSION_COOKIES.some((name) => request.cookies.has(name)),
   );
-  // A redirect has no address of its own to name. A rewrite is answered 200 here even when the
-  // page it reaches turns out to be a 404; the page's own canonical link is the authority.
-  const served = response === undefined || response.status === 200;
-  const canonical = pageLoad && served ? step.canonical : null;
-  if (step.set === null && !step.clear && canonical === null) return response;
+  if (step.set === null && !step.clear) return response;
   const answer = response ?? NextResponse.next();
   if (step.set !== null) {
     answer.cookies.set(REFERRAL_COOKIE, String(step.set), {
@@ -283,8 +279,6 @@ function withReferral(
   } else if (step.clear) {
     answer.cookies.delete(REFERRAL_COOKIE);
   }
-  if (canonical !== null)
-    answer.headers.append("Link", `<${canonical}>; rel="canonical"`);
   return answer;
 }
 

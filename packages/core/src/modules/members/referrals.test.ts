@@ -51,7 +51,14 @@ function site(confirmByMail: boolean) {
     const response = await post("/sign-in/username", { username, password: "Password123!" });
     expect(response.status).toBe(200);
   };
-  return { ctx, register, signIn };
+  // The address is confirmed (without promoting the member), or confirmed the way verification does.
+  const verify = (id: number) =>
+    ctx.sqlite.prepare("UPDATE auth_user SET email_verified = 1 WHERE id = ?1").run(id);
+  const confirm = (id: number) => {
+    verify(id);
+    promoteVerifiedMember(ctx, id);
+  };
+  return { ctx, register, signIn, verify, confirm };
 }
 
 const row = (ctx: Ctx, id: number) =>
@@ -128,14 +135,21 @@ describe("registering with a referrer", () => {
     expect(row(ctx, later).referred_by).toBe(timed);
   });
 
-  test("a site that asks for email confirmation holds the referrer until the first sign-in", async () => {
-    const { ctx, register, signIn } = site(true);
+  test("a site that asks for email confirmation holds the referrer until the address is confirmed", async () => {
+    const { ctx, register, signIn, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
     expect(row(ctx, newcomer)).toEqual({ ...NONE, pending_referrer: referrer });
     expect(row(ctx, referrer).referral_count).toBe(0);
+    // Signing in with an address nobody confirmed credits nothing, however often.
     ctx.clock.advance(DAY);
     await signIn("Newcomer");
+    await signIn("Newcomer");
+    expect(row(ctx, newcomer)).toEqual({ ...NONE, pending_referrer: referrer });
+    expect(row(ctx, referrer).referral_count).toBe(0);
+    // Confirming records it, once.
+    expect(promoteVerifiedMember(ctx, newcomer)).toBe(true);
     expect(row(ctx, newcomer)).toEqual({
       referred_by: referrer,
       referred_at: ctx.now(),
@@ -143,58 +157,81 @@ describe("registering with a referrer", () => {
       referral_count: 0,
     });
     expect(row(ctx, referrer).referral_count).toBe(1);
-    // A second sign-in counts nothing.
     await signIn("Newcomer");
     expect(row(ctx, referrer).referral_count).toBe(1);
   });
 
-  test("confirming the address records it, and the next sign-in does not count it again", async () => {
-    const { ctx, register, signIn } = site(true);
+  test("a member confirmed without being promoted is credited at their next sign-in, once", async () => {
+    const { ctx, register, signIn, confirm, verify } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
-    expect(promoteVerifiedMember(ctx, newcomer)).toBe(true);
+    verify(newcomer);
+    await signIn("Newcomer");
     expect(row(ctx, newcomer)).toMatchObject({ referred_by: referrer, pending_referrer: null });
     expect(row(ctx, referrer).referral_count).toBe(1);
     await signIn("Newcomer");
+    expect(promoteVerifiedMember(ctx, newcomer)).toBe(true);
     expect(row(ctx, referrer).referral_count).toBe(1);
   });
 
-  test("a held referrer is refused after seven days, and the sign-in still works", async () => {
-    const { ctx, register, signIn } = site(true);
+  test("a held referrer is refused if the address is confirmed after seven days", async () => {
+    const { ctx, register, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
     ctx.clock.advance(REFERRAL_WINDOW_MS);
-    await signIn("Newcomer");
+    confirm(newcomer);
     expect(row(ctx, newcomer)).toEqual(NONE);
     expect(row(ctx, referrer).referral_count).toBe(0);
   });
 
   test("the last moment of the window still records", async () => {
-    const { ctx, register, signIn } = site(true);
+    const { ctx, register, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
     ctx.clock.advance(REFERRAL_WINDOW_MS - 1);
-    await signIn("Newcomer");
+    confirm(newcomer);
     expect(row(ctx, newcomer).referred_by).toBe(referrer);
   });
 
-  test("a held referrer who was banned meanwhile is refused, and the sign-in still works", async () => {
-    const { ctx, register, signIn } = site(true);
+  test("a held referrer who was banned meanwhile is refused, and the confirmation still works", async () => {
+    const { ctx, register, signIn, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
     ctx.sqlite.prepare("UPDATE users SET banned_permanently = 1 WHERE id = ?1").run(referrer);
+    expect(promoteVerifiedMember(ctx, newcomer)).toBe(true);
     await signIn("Newcomer");
     expect(row(ctx, newcomer)).toEqual(NONE);
     expect(row(ctx, referrer).referral_count).toBe(0);
   });
 
   test("a held referrer who left meanwhile is refused", async () => {
-    const { ctx, register, signIn } = site(true);
+    const { ctx, register, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
     ctx.sqlite.prepare("UPDATE users SET erased_at = ?1 WHERE id = ?2").run(ctx.now(), referrer);
-    await signIn("Newcomer");
+    confirm(newcomer);
     expect(row(ctx, newcomer)).toEqual(NONE);
+  });
+
+  test("a referrer who has not confirmed their own address credits nobody", async () => {
+    const { ctx, register, confirm } = site(true);
+    const referrer = await register("Referrer");
+    // Not held at registration...
+    const first = await register("First", String(referrer));
+    expect(row(ctx, first)).toEqual(NONE);
+    // ...and refused when the referrer loses the confirmed status while a referral is held.
+    confirm(referrer);
+    const second = await register("Second", String(referrer));
+    expect(row(ctx, second).pending_referrer).toBe(referrer);
+    ctx.sqlite.prepare("UPDATE users SET group_id = 5 WHERE id = ?1").run(referrer);
+    confirm(second);
+    expect(row(ctx, second)).toEqual(NONE);
+    expect(row(ctx, referrer).referral_count).toBe(0);
   });
 
   test("a banned or missing referrer is never held", async () => {
@@ -206,10 +243,11 @@ describe("registering with a referrer", () => {
   });
 
   test("the referrals criteria see the referral once, from either path", async () => {
-    const { ctx, register, signIn } = site(true);
+    const { ctx, register, signIn, confirm } = site(true);
     const referrer = await register("Referrer");
+    confirm(referrer);
     const newcomer = await register("Newcomer", String(referrer));
-    promoteVerifiedMember(ctx, newcomer);
+    confirm(newcomer);
     await signIn("Newcomer");
     await signIn("Newcomer");
     const rule: Rule = {
@@ -264,6 +302,15 @@ describe("recordReferral", () => {
     ctx.clock.advance(REFERRAL_WINDOW_MS);
     expect(recordReferral(ctx, b, a)).toBe(false);
     expect(row(ctx, a).referral_count).toBe(0);
+  });
+
+  test("a referrer still waiting to confirm their address is refused", () => {
+    const ctx = createTestContext();
+    const [a, b] = [insertUser(ctx).id, insertUser(ctx).id];
+    ctx.sqlite.prepare("UPDATE users SET group_id = 5 WHERE id = ?1").run(a);
+    expect(recordReferral(ctx, b, a)).toBe(false);
+    ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(a);
+    expect(recordReferral(ctx, b, a)).toBe(true);
   });
 
   test("a member who does not exist has no referrer", () => {

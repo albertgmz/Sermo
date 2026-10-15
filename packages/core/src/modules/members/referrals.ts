@@ -1,4 +1,5 @@
 import { type Ctx, prepared } from "../../context";
+import { GROUP_IDS } from "../../db/schema";
 import { writeTx } from "../../db/tx";
 import { isBanned } from "./access";
 
@@ -6,6 +7,7 @@ import { isBanned } from "./access";
 export const REFERRAL_WINDOW_MS = 7 * 86_400_000;
 
 interface MemberRow {
+  group_id: number;
   created_at: number;
   referred_by: number | null;
   pending_referrer: number | null;
@@ -17,7 +19,7 @@ interface MemberRow {
 const memberRow = (ctx: Ctx, userId: number) =>
   prepared(ctx, "members.referralRow", () =>
     ctx.sqlite.prepare<MemberRow, [number]>(
-      "SELECT created_at, referred_by, pending_referrer, banned_until, banned_permanently, erased_at FROM users WHERE id = ?1",
+      "SELECT group_id, created_at, referred_by, pending_referrer, banned_until, banned_permanently, erased_at FROM users WHERE id = ?1",
     ),
   ).get(userId);
 
@@ -33,8 +35,8 @@ export function parseReferrer(value: unknown): number | null {
 }
 
 /**
- * Whether `referrerId` may bring `userId`: another member, not banned and not erased, who was not
- * brought by `userId` in turn. Call it inside the write transaction that records the referral.
+ * Whether `referrerId` may bring `userId`: another member, not banned, not erased and not still
+ * waiting to confirm their address, who was not brought by `userId` in turn. Call it inside the write transaction that records the referral.
  */
 function mayRefer(ctx: Ctx, userId: number, referrerId: number): boolean {
   if (referrerId === userId) return false;
@@ -42,6 +44,7 @@ function mayRefer(ctx: Ctx, userId: number, referrerId: number): boolean {
   return (
     !!referrer &&
     referrer.erased_at === null &&
+    referrer.group_id !== GROUP_IDS.unconfirmed &&
     !isBanned(referrer, ctx.now()) &&
     referrer.referred_by !== userId
   );
@@ -57,7 +60,7 @@ export function recordReferral(ctx: Ctx, userId: number, referrerId: number): bo
   if (!member || member.referred_by !== null) return false;
   if (ctx.now() - member.created_at >= REFERRAL_WINDOW_MS) return false;
   if (!mayRefer(ctx, userId, referrerId)) return false;
-  const changed = prepared(ctx, "members.setReferrer", () =>
+  const changed = prepared(ctx, "members.recordReferral", () =>
     ctx.sqlite.prepare<unknown, [number, number, number]>(
       "UPDATE users SET referred_by = ?1, referred_at = ?2 WHERE id = ?3 AND referred_by IS NULL",
     ),
@@ -73,9 +76,9 @@ export function recordReferral(ctx: Ctx, userId: number, referrerId: number): bo
 
 /**
  * A registration that names a referrer. A member who still has to confirm their address is only
- * marked with it (`pending_referrer`): it is recorded when they confirm or sign in again (a
- * sign-in does not need the address confirmed), not at the sign-up. Any other member's referrer
- * is recorded now.
+ * marked with it (`pending_referrer`): it is recorded once the address is confirmed (see
+ * `settlePendingReferral`), so an address nobody confirmed brings no referral. Any other member's
+ * referrer is recorded now.
  * A referrer that cannot be used is dropped; it never fails the registration. Call it inside the
  * write transaction that inserts the member.
  */
@@ -112,14 +115,19 @@ export function settlePendingReferral(ctx: Ctx, userId: number): boolean {
 }
 
 /**
- * At a sign-in: settles a pending referrer. It reads first and opens a write transaction only
- * for a member who has one, so an ordinary sign-in writes nothing here. A failure is logged and
- * never refuses the sign-in.
+ * At a sign-in: settles a pending referrer of a member whose address is confirmed (for one who
+ * confirmed by a way that does not promote them), and leaves it held for one who is not. It reads
+ * first and opens a write transaction only for a member who has one, so an ordinary sign-in
+ * writes nothing here. A failure is logged and never refuses the sign-in.
  */
 export function settleReferralAtSignIn(ctx: Ctx, userId: number): void {
   try {
-    const pending = memberRow(ctx, userId)?.pending_referrer;
-    if (pending === null || pending === undefined) return;
+    const held = prepared(ctx, "members.pendingReferrerRead", () =>
+      ctx.sqlite.prepare<{ pending_referrer: number | null; email_verified: number }, [number]>(
+        "SELECT u.pending_referrer, a.email_verified FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+      ),
+    ).get(userId);
+    if (!held || held.pending_referrer === null || !held.email_verified) return;
     writeTx(ctx, () => settlePendingReferral(ctx, userId));
   } catch (error) {
     console.error("The referral could not be recorded", error);

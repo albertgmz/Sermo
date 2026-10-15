@@ -1033,8 +1033,7 @@ five-minute cookie cache is off), so a password reset signs other devices out at
 A member brings others to the forum through their links. A referral is recorded once, on the
 referred member (`referred_by`, `referred_at`), and counted on the referrer (`referralCount`); the
 `referrals_at_least`, `referrals_this_month` and `was_referred` criteria, the referrals ranking and
-the member of the month points read it. Members cannot name a referrer after registering: the
-operation `users.setReferrer` and the profile fields `referrerId` and `canSetReferrer` are gone.
+the member of the month points read it.
 
 **The link.** In the web app, a signed-in member's Share and Copy link buttons add `?ref=<their member
 id>` to the address (after any query and before any `#`). A guest's copy is the plain address, and
@@ -1045,8 +1044,9 @@ under Invite members in their account settings.
 accepted the Referrals cookies in the cookie banner gets the `forum_ref` cookie: HttpOnly, SameSite
 Lax, Secure when the site is served over https, 30 days. The first referrer wins; a later link never
 replaces it. A visitor who has not accepted it gets no cookie, and a cookie that is no longer
-accepted is removed on their next visit. Pages reached through a `?ref=` link name the address
-without it as their canonical address (a `Link` header), so they are not indexed twice. Without the cookie, a visitor who registers straight from a
+accepted is removed on their next visit. A signed-in member is not given the cookie. Pages
+that state a canonical address take it from the forum, which never includes `ref`, so a `?ref=`
+link is not a second page. Without the cookie, a visitor who registers straight from a
 `/register?ref=<id>` link is still credited, because the register form carries the `ref` of the page.
 
 **Registering.** The web app sends the referrer (the cookie's, else the form's) with the sign-up
@@ -1055,11 +1055,12 @@ cookie is deleted once the account exists.
 
 - On a site without account email, the referrer is recorded at registration.
 - On a site that asks members to confirm their address, the registration only holds the referrer
-  (`users.pending_referrer`). It is recorded when the address is confirmed, or at the member's
-  next sign-in if that comes first (signing in does not require a confirmed address), so the
-  referral is never recorded in the sign-up itself.
+  (`users.pending_referrer`). It is recorded only once the member's address is confirmed: when
+  they follow the confirmation link, or at their next sign-in if the address was confirmed some
+  other way. Signing in with an unconfirmed address records nothing, so made-up addresses bring no
+  referral. A member confirming after the seven days brings none either.
 - A referrer is accepted only within seven days of the registration, and never when it is the
-  member themselves, a member who is banned or erased, a member the new member already referred, or
+  member themselves, a member who is banned, erased or still waiting to confirm their own address, a member the new member already referred, or
   when the member already has a referrer. A refused referrer is dropped without a message: it never
   blocks the registration or the sign-in. A held referrer is tried once.
 

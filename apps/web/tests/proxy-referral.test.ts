@@ -159,46 +159,19 @@ test("a cookie the visitor no longer accepts is removed", async () => {
   expect(referralCookie(await ask("/", ACCEPTED))).toBeUndefined();
 });
 
-test("a page reached through ?ref= names itself without it as the canonical address", async () => {
-  const before = process.env.SERMO_PUBLIC_URL;
-  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
-  try {
-    const link = (response: Response | undefined) =>
-      response?.headers.get("link");
-    expect(link(await ask("/forums?ref=9"))).toBe(
-      '<https://forum.example.test/forums>; rel="canonical"',
-    );
-    // Other parameters stay, and so does the consent state: it makes no difference here.
-    expect(link(await ask("/forums?page=2&ref=9&x=a%20b", ACCEPTED))).toBe(
-      '<https://forum.example.test/forums?page=2&x=a+b>; rel="canonical"',
-    );
-    // An invalid ref still points to the plain address.
-    expect(link(await ask("/forums?ref=abc"))).toBe(
-      '<https://forum.example.test/forums>; rel="canonical"',
-    );
-    // A page without ref, a link followed inside the app and a redirect carry none.
-    expect(link(await ask("/forums"))).toBeNull();
-    expect(
-      link(await ask("/forums?ref=9", "", { "sec-fetch-mode": "cors" })),
-    ).toBeNull();
-    expect(link(await ask("/es/forums?ref=9"))).toBeNull();
-  } finally {
-    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
-    else process.env.SERMO_PUBLIC_URL = before;
+test("a member who is signed in is not given the cookie, but a stale one is still removed", async () => {
+  for (const session of [
+    "sermo.session_token=abc",
+    "__Secure-sermo.session_token=abc",
+  ]) {
+    const response = await ask("/?ref=12", `${ACCEPTED}; ${session}`);
+    expect(referralCookie(response), session).toBeUndefined();
   }
+  const stale = await ask("/", `sermo.session_token=abc; forum_ref=7`);
+  expect(referralCookie(stale)).toContain("forum_ref=;");
 });
 
-test("a path that starts with two slashes cannot name another host as canonical", async () => {
-  const before = process.env.SERMO_PUBLIC_URL;
-  process.env.SERMO_PUBLIC_URL = "https://forum.example.test";
-  try {
-    const response = await ask("//evil.example/x?ref=3");
-    const link = response?.headers.get("link");
-    if (link !== null && link !== undefined) {
-      expect(link.startsWith("<https://forum.example.test/")).toBe(true);
-    }
-  } finally {
-    if (before === undefined) delete process.env.SERMO_PUBLIC_URL;
-    else process.env.SERMO_PUBLIC_URL = before;
-  }
+test("a page reached through ?ref= gets no canonical header of its own", async () => {
+  const response = await ask("/forums?ref=9", ACCEPTED);
+  expect(response?.headers.get("link")).toBeNull();
 });

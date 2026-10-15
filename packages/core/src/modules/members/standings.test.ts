@@ -44,8 +44,8 @@ function content(w: World) {
     const id = thread(userId, at);
     for (let i = 0; i < count; i++) post(userId, id, at);
   };
-  const referral = (referrerId: number, memberId: number, at: number) =>
-    w.set(memberId, { referred_by: referrerId, referred_at: at });
+  const referral = (referrer: number, memberId: number, at: number) =>
+    w.set(memberId, { referred_by: referrer, referred_at: at });
   return { thread, post, posts, reactions, referral };
 }
 
