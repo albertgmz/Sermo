@@ -412,7 +412,8 @@ describe("moderation core", () => {
       body: "Original",
     });
     recordPostRevision(ctx, member, thread.post.id);
-    expect(() => listPostRevisions(ctx, member, thread.post.id)).toThrow(NotFoundError);
+    // The author reads their own post's history (forum.viewOwnHistory); other members do not.
+    expect(listPostRevisions(ctx, member, thread.post.id).items).toHaveLength(1);
     expect(listPostRevisions(ctx, admin, thread.post.id).items).toHaveLength(1);
     expect(() => listPostRevisions(ctx, userActor(insertUser(ctx)), thread.post.id)).toThrow(
       NotFoundError,

@@ -146,10 +146,16 @@ export const profileCommentsUpdateOp = implement(profileCommentsUpdate, (ctx, ac
     if (decision.source !== content.source)
       throw new ConflictError("Moderation rules changed; retry.");
     prepared(ctx, "profiles.updateComment", () =>
-      ctx.sqlite.prepare<unknown, [string, string, number, number]>(
-        "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
+      ctx.sqlite.prepare<unknown, [string, string, number, number, number]>(
+        "UPDATE profile_post_comments SET body_source = ?1, body_html = ?2, edited_at = CASE WHEN ?5 = 1 THEN edited_at ELSE ?3 END WHERE id = ?4",
       ),
-    ).run(refs.source, html, ctx.now(), comment.id);
+    ).run(
+      refs.source,
+      html,
+      ctx.now(),
+      comment.id,
+      Number(can(ctx, fresh, "content.editSilently")),
+    );
     const { newlyMentioned } = storeContentReferences(
       ctx,
       "profile_post_comment",

@@ -340,7 +340,7 @@ export const usersUnfollowOp = implement(
  * each has ignored the viewer (`user_follows_pair` and `user_ignores_pair`, one probe per member).
  */
 export const relationsSql =
-  "SELECT u.id, " +
+  `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS}, ` +
   "EXISTS(SELECT 1 FROM user_follows f WHERE f.user_id = ?1 AND f.followed_id = u.id) AS following, " +
   "EXISTS(SELECT 1 FROM user_ignores i WHERE i.user_id = u.id AND i.ignored_id = ?1) AS ignores_viewer " +
   "FROM users u WHERE u.id IN (SELECT value FROM json_each(?2))";
@@ -356,12 +356,16 @@ export const usersRelationsOp = implement(
     const mayStart =
       permissions.can("conversation.start") &&
       permissions.value("conversation.maxRecipients") !== 0;
-    const ignorable = permissions.can("member.ignorable");
-    const rows = query<{ id: number; following: number; ignores_viewer: number }, [number, string]>(
-      ctx,
-      "relations",
-      relationsSql,
-    ).all(viewerId ?? 0, JSON.stringify([...new Set(input.userIds)]));
+    const ignorable =
+      permissions.can("member.ignorable") && !permissions.can("conversation.alwaysInvite");
+    const versions = requestVersions(ctx, actor);
+    const rows = query<
+      PrincipalRow & { id: number; group_id: number; following: number; ignores_viewer: number },
+      [number, string]
+    >(ctx, "relations", relationsSql).all(
+      viewerId ?? 0,
+      JSON.stringify([...new Set(input.userIds)]),
+    );
     return {
       items: rows.map((row) => {
         const other = viewerId !== null && row.id !== viewerId;
@@ -369,7 +373,11 @@ export const usersRelationsOp = implement(
           userId: row.id,
           following: other && row.following === 1,
           canFollow: other && mayFollow,
-          canMessage: other && mayStart && !(ignorable && row.ignores_viewer === 1),
+          canMessage:
+            other &&
+            mayStart &&
+            !(ignorable && row.ignores_viewer === 1) &&
+            can(ctx, memberActor(row.id, row.group_id, row, versions), "conversation.receive"),
         };
       }),
     };
@@ -386,6 +394,9 @@ function followList(
   mode: "followers" | "following",
 ) {
   requirePermission(ctx, actor, "profile.view");
+  // Whom a member follows is theirs to read; others need member.viewFollowing.
+  if (mode === "following" && actorUserId(actor) !== userId)
+    requirePermission(ctx, actor, "member.viewFollowing");
   requireUser(ctx, userId);
   const { selected, nextCursor } = page(
     query<Follow, [number, number, number]>(ctx, mode, watchSql[mode]).all(

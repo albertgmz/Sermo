@@ -85,7 +85,7 @@ async function scenario() {
   })) as { id: number };
   await execute(fixture, op("permissions.set"), founder, {
     groupId: staffGroup.id,
-    entries: entries([...VIEW, ...ACTIONS], "allow"),
+    entries: entries(["site.view", "profilePost.view", ...VIEW, ...ACTIONS], "allow"),
   });
   const staff = insertUser(fixture, { groupId: staffGroup.id });
   const member = insertUser(fixture);

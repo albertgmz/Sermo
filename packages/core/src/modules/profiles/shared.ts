@@ -8,6 +8,7 @@ import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso, isoOrNull } from "../../time";
 import { loadAttachments } from "../attachments";
+import { requireSiteView } from "../members/site-access";
 import { readSiteSettings } from "../settings";
 
 export type ProfileAccess = {
@@ -102,6 +103,7 @@ function wallRule(
   row: ProfileAccess,
   ignoresViewer: () => boolean,
 ): boolean {
+  if (!can(ctx, actor, "profilePost.view")) return false;
   if (!mayViewProfile(ctx, actor, ownerId, row)) return false;
   // An ignore applies only while the author can be ignored (staff cannot).
   if (viewerId !== ownerId && can(ctx, actor, "member.ignorable") && ignoresViewer()) return false;
@@ -117,7 +119,12 @@ export function mayPostOnWall(
   ownerId: number,
   access?: ProfileAccess,
 ): boolean {
-  return can(ctx, actor, "profilePost.post") && wallAllows(ctx, actor, ownerId, access);
+  // One's own wall and other members' walls are separate permissions.
+  const may =
+    actorUserId(actor) === ownerId
+      ? can(ctx, actor, "profilePost.postOwn")
+      : can(ctx, actor, "profilePost.post");
+  return may && wallAllows(ctx, actor, ownerId, access);
 }
 export function mayCommentOnWall(
   ctx: Ctx,
@@ -144,6 +151,7 @@ export function mayCommentOnWalls(
     owners.length === 0 ||
     viewerId === null ||
     !can(ctx, actor, "profilePost.comment") ||
+    !can(ctx, actor, "profilePost.view") ||
     !readSiteSettings(ctx).profilePostsEnabled
   )
     return result;
@@ -216,7 +224,12 @@ export const LATEST_COMMENTS_SQL =
   "ORDER BY c2.id DESC LIMIT 3)";
 
 export function requireView(ctx: Ctx, actor: Actor) {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+}
+/** Refuses a viewer who cannot read wall posts (`profilePost.view`). */
+export function requireWallView(ctx: Ctx, actor: Actor) {
+  requirePermission(ctx, actor, "profilePost.view");
 }
 export function maySee(ctx: Ctx, state: State, authorId: number, actor: Actor) {
   return (
@@ -233,6 +246,7 @@ export function requirePost(
   ownCommentAuthorId?: number,
 ): PostRow {
   requireView(ctx, actor);
+  requireWallView(ctx, actor);
   const row = prepared(ctx, "profiles.post", () =>
     ctx.sqlite.prepare<PostRow, [number]>("SELECT * FROM profile_posts WHERE id = ?1"),
   ).get(id);

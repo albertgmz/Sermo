@@ -140,7 +140,7 @@ export const usersList = defineContract({
     "The member directory, one sort at a time, highest first (`newest`: most recently " +
     "registered first; `level` sorts by award XP). Ties go to the older account. Banned members " +
     "and members whose profile the viewer may not open are left out, so a page can hold fewer " +
-    "than `limit` items while `nextCursor` is non-null. Requires profile.view.",
+    "than `limit` items while `nextCursor` is non-null. Requires profile.view and member.viewList.",
   kind: "read",
   input: z.object({ sort: z.enum(MEMBER_SORTS).default("newest"), ...pageInput }),
   output: Page(MemberListItem),
@@ -232,7 +232,9 @@ export const usersChangeUsername = defineContract({
     "unit of a `usernameChange` shop item from the inventory (a conflict when there is none). " +
     "The name obeys the registration rules and must be free, compared without regard to case " +
     "(changing only the case of one's own name is allowed). The unit is taken first and given " +
-    "back if the change does not happen.",
+    "back if the change does not happen. Refused (forbidden) for a member who holds " +
+    "profile.renameNeedsApproval, and once profile.renameLimit changes were made within " +
+    "profile.renameWindowDays days.",
   kind: "write",
   input: z.object({ username: z.string().trim().min(1).max(64) }),
   output: z.object({

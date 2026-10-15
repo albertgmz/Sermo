@@ -179,6 +179,15 @@ export const profilesSelf = defineContract({
     signatureSource: z.string().nullable(),
     birthYear: z.number().int().nullable(),
     may: z.object({ setSignature: z.boolean(), setCustomTitle: z.boolean() }),
+    /**
+     * Whether the member may change their username now, by their permissions: `approval` when
+     * profile.renameNeedsApproval holds (staff rename them), `limit` when profile.renameLimit is
+     * used up, with the time a change frees up when the limit has a window.
+     */
+    usernameChange: z.object({
+      reason: z.enum(["approval", "limit"]).nullable(),
+      availableAt: Timestamp.nullable(),
+    }),
     limits: z.object({
       signatureMaxLength: z.number().int(),
       signatureMaxLines: z.number().int(),
@@ -202,7 +211,9 @@ export const usersSearch = defineContract({
 
 export const profilePostsList = defineContract({
   name: "profilePosts.list",
-  summary: "Posts on a user's profile wall, newest first, each with its latest comments.",
+  summary:
+    "Posts on a user's profile wall, newest first, each with its latest comments. Requires " +
+    "`profilePost.view`.",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(ProfilePost),

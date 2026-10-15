@@ -10,14 +10,18 @@ const NodeFileInput = z.object({ nodeId: Id, fileId: Id.nullable() });
 
 export const imagesSetAvatar = defineContract({
   name: "images.setAvatar",
-  summary: "Set your avatar from an unattached image you uploaded.",
+  summary:
+    "Set your avatar from an unattached image you uploaded (`profile.uploadAvatar`); a null " +
+    "file takes it off, which needs nothing.",
   kind: "write",
   input: FileInput,
   output: ImageReference,
 });
 export const imagesSetCover = defineContract({
   name: "images.setCover",
-  summary: "Set your profile cover from an unattached image you uploaded.",
+  summary:
+    "Set your profile cover from an unattached image you uploaded (`profile.uploadCover`); a " +
+    "null file takes it off, which needs nothing.",
   kind: "write",
   input: FileInput,
   output: ImageReference,

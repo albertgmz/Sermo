@@ -356,6 +356,8 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
       const user = requireAuthenticated(actor);
       const catalog = isCatalogPurpose(purpose);
       if (catalog) requireCatalogUpload(ctx, actor, purpose);
+      if (purpose === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
+      if (purpose === "cover") requirePermission(ctx, actor, "profile.uploadCover");
       if (
         !allowedTypes.has(declaredType) ||
         (catalog
@@ -364,7 +366,11 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
             !config.allowedTypesByPurpose[purpose as UploadSettingPurpose]?.includes(declaredType))
       )
         throw new ValidationError("File type is not allowed.");
-      const effectiveLimit = uploadLimit(purpose, maxBytes);
+      // The member's own largest file (0 or -1: none) can only lower the site's limit.
+      const memberLimit = catalog ? -1 : permissionValue(ctx, actor, "attachment.maxFileSize");
+      const siteLimit = uploadLimit(purpose, maxBytes);
+      const groupBinds = memberLimit > 0 && memberLimit < siteLimit;
+      const effectiveLimit = groupBinds ? memberLimit : siteLimit;
       await mkdir(tempDir, { recursive: true });
       const tempPath = join(tempDir, `sermo-${randomUUID()}`);
       const hash = createHash("sha256");
@@ -382,7 +388,13 @@ export function createStorage(ctx: Ctx, config: StorageConfig) {
           transform(chunk: Buffer, _encoding, callback) {
             size += chunk.byteLength;
             if (size > effectiveLimit)
-              return callback(new ValidationError("File exceeds upload limit."));
+              return callback(
+                new ValidationError(
+                  groupBinds
+                    ? `File exceeds your upload limit of ${effectiveLimit} bytes.`
+                    : "File exceeds upload limit.",
+                ),
+              );
             hash.update(chunk);
             callback(null, chunk);
           },

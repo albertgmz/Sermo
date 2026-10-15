@@ -470,6 +470,23 @@ export const sessionActivity = sqliteTable("session_activity", {
   city: text("city"),
 });
 
+/**
+ * One row per username change a member made themselves (`users.changeUsername`), counted against
+ * `profile.renameLimit` within `profile.renameWindowDays`. Changes by staff and erasures are not
+ * recorded.
+ */
+export const usernameChanges = sqliteTable(
+  "username_changes",
+  {
+    id: integer("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    changedAt: integer("changed_at").notNull(),
+  },
+  (t) => [index("username_changes_member").on(t.userId, t.changedAt)],
+);
+
 /** Secondary groups assigned by hand. */
 export const userGroups = sqliteTable(
   "user_groups",

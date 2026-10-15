@@ -22,7 +22,16 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from ".
 import { publishEvent } from "../../events";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
-import { can, currentActor, permissionsOf, requirePermission } from "../../permissions";
+import {
+  can,
+  currentActor,
+  memberActor,
+  PRINCIPAL_COLUMNS,
+  type PrincipalRow,
+  permissionsOf,
+  requestVersions,
+  requirePermission,
+} from "../../permissions";
 import { storeContentReferences, storeSpoilers } from "../../render";
 import { loadViewerReactions, reactionSummary } from "../../shared/reactions";
 import { loadUserSummaries } from "../../shared/users";
@@ -170,13 +179,16 @@ function seesMessage(
 function mayEdit(
   permissions: ReturnType<typeof permissionsOf>,
   row: ConversationRow,
-  message: { user_id: number; state: string },
+  message: { user_id: number; state: string; created_at: number },
 ): boolean {
   return (
     message.state !== "deleted" &&
     (permissions.can("conversation.moderate") ||
       (row.is_locked === 0 &&
-        permissions.can("conversation.editOwn", { ownerId: message.user_id })))
+        permissions.can("conversation.editOwn", {
+          ownerId: message.user_id,
+          createdAt: message.created_at,
+        })))
   );
 }
 
@@ -309,9 +321,43 @@ export const conversationsGetOp = implement(conversationsGet, (ctx, actor, input
   fullConversation(ctx, actor, activeConversation(ctx, actor, input.conversationId)),
 );
 
+/**
+ * Refuses adding a member whose groups lack `conversation.receive`. One query for the page of
+ * recipients; the message does not say who, to match how an ignore refuses.
+ */
+function requireReceivers(ctx: Ctx, actor: Actor, ids: number[]): void {
+  const versions = requestVersions(ctx, actor);
+  const rows = prepared(ctx, "conversations.receivers", () =>
+    ctx.sqlite.prepare<PrincipalRow & { id: number; group_id: number }, [string]>(
+      `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id IN (SELECT value FROM json_each(?1))`,
+    ),
+  ).all(JSON.stringify(ids));
+  for (const row of rows)
+    if (!can(ctx, memberActor(row.id, row.group_id, row, versions), "conversation.receive"))
+      throw new ForbiddenError("A recipient cannot receive conversations.");
+}
+
+/** Attaching files to a message needs `conversation.attach` once a file is added. */
+function requireAttach(ctx: Ctx, actor: Actor, ids: number[] | undefined, messageId?: number) {
+  if (!ids?.length) return;
+  const held = new Set(
+    messageId === undefined
+      ? []
+      : prepared(ctx, "conversations.messageFiles", () =>
+          ctx.sqlite.prepare<{ file_id: number }, [number]>(
+            "SELECT file_id FROM attachments WHERE content_type = 'conversation_message' AND content_id = ?1",
+          ),
+        )
+          .all(messageId)
+          .map((row) => row.file_id),
+  );
+  if (ids.some((id) => !held.has(id))) requirePermission(ctx, actor, "conversation.attach");
+}
+
 function ignoredByRecipient(ctx: Ctx, actor: Actor, starterId: number, ids: number[]): boolean {
   return (
     can(ctx, actor, "member.ignorable") &&
+    !can(ctx, actor, "conversation.alwaysInvite") &&
     !!prepared(ctx, "conversations.ignoredRecipients", () =>
       ctx.sqlite.prepare<{ id: number }, [number, string]>(
         "SELECT id FROM user_ignores WHERE ignored_id = ?1 AND user_id IN (SELECT value FROM json_each(?2)) LIMIT 1",
@@ -346,6 +392,8 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
     const message = `Unknown recipient IDs: ${missing.join(", ")}.`;
     throw new ValidationError(message, [{ path: ["recipientIds"], message }]);
   }
+  requireReceivers(ctx, actor, ids);
+  requireAttach(ctx, actor, input.attachmentIds);
   if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
@@ -453,7 +501,11 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
         messageState,
         loadAttachments(ctx, "conversation_message", [messageId]),
         {
-          canEdit: mayEdit(permissions, row, { user_id: starter.userId, state: messageState }),
+          canEdit: mayEdit(permissions, row, {
+            user_id: starter.userId,
+            state: messageState,
+            created_at: now,
+          }),
           canDelete: mayDelete(
             permissions,
             row,
@@ -472,6 +524,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   const permissions = permissionsOf(ctx, actor);
   requirePermission(ctx, actor, "conversation.reply");
   if (before.is_locked === 1) requirePermission(ctx, actor, "conversation.moderate");
+  requireAttach(ctx, actor, input.attachmentIds);
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content);
@@ -542,7 +595,11 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
       loadAttachments(ctx, "conversation_message", [messageId]),
       // A reply is never the first message.
       {
-        canEdit: mayEdit(permissions, before, { user_id: user.userId, state: messageState }),
+        canEdit: mayEdit(permissions, before, {
+          user_id: user.userId,
+          state: messageState,
+          created_at: now,
+        }),
         canDelete: mayDelete(
           permissions,
           before,
@@ -695,6 +752,7 @@ export const conversationsAddParticipantsOp = implement(
       );
       const added = ids.filter((id) => states.get(id) !== "active");
       if (!added.length) return;
+      requireReceivers(ctx, actor, added);
       if (ignoredByRecipient(ctx, actor, user.userId, added)) throw new ForbiddenError();
       const maxRecipients = permissions.value("conversation.maxRecipients");
       if (maxRecipients !== -1 && row.participant_count - 1 + added.length > maxRecipients) {
@@ -772,9 +830,10 @@ interface TargetMessage {
   conversation_id: number;
   user_id: number;
   state: "visible" | "moderated" | "deleted";
+  created_at: number;
 }
 const targetMessageSql =
-  "SELECT id, conversation_id, user_id, state FROM conversation_messages WHERE id = ?1";
+  "SELECT id, conversation_id, user_id, state, created_at FROM conversation_messages WHERE id = ?1";
 
 /** A message of a conversation the viewer takes part in, as far as the viewer may see it. */
 function visibleTarget(ctx: Ctx, actor: Actor, messageId: number) {
@@ -795,6 +854,7 @@ export const conversationsUpdateMessageOp = implement(
     const { message, conversation } = visibleTarget(ctx, actor, input.messageId);
     if (message.state === "deleted") throw new ConflictError("The message is deleted.");
     if (!mayEdit(permissionsOf(ctx, actor), conversation, message)) throw new ForbiddenError();
+    requireAttach(ctx, actor, input.attachmentIds, message.id);
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content, {
       edit: {
@@ -820,9 +880,15 @@ export const conversationsUpdateMessageOp = implement(
       validateEmbeddedAttachments(ctx, "conversation_message", message.id, html);
       prepared(ctx, "conversations.updateMessage", () =>
         ctx.sqlite.prepare(
-          "UPDATE conversation_messages SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
+          "UPDATE conversation_messages SET body_source = ?1, body_html = ?2, edited_at = CASE WHEN ?5 = 1 THEN edited_at ELSE ?3 END WHERE id = ?4",
         ),
-      ).run(refs.source, html, ctx.now(), message.id);
+      ).run(
+        refs.source,
+        html,
+        ctx.now(),
+        message.id,
+        Number(can(ctx, fresh, "content.editSilently")),
+      );
       const { newlyMentioned } = storeContentReferences(
         ctx,
         "conversation_message",

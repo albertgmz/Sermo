@@ -236,7 +236,8 @@ export const bansLift = defineContract({
 });
 export const postRevisionsList = defineContract({
   name: "postRevisions.list",
-  summary: "Read previous post bodies. Moderators with node access only.",
+  summary:
+    "Read previous post bodies. Moderators with node access, and authors with forum.viewOwnHistory for their own posts.",
   kind: "read",
   input: z.object({ postId: Id, ...pageInput }),
   output: Page(

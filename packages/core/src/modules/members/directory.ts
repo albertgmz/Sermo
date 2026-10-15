@@ -9,6 +9,7 @@ import { iso } from "../../time";
 import { scanKeyset } from "../feed/scan";
 import { isBanned, openableProfiles } from "./access";
 import { loadMemberCards } from "./cards";
+import { requireSiteView } from "./site-access";
 
 type Sort = (typeof MEMBER_SORTS)[number];
 
@@ -60,7 +61,9 @@ const NumericCursor = z.tuple([z.number().int(), z.number().int().positive()]);
 const NewestCursor = z.tuple([z.number().int().positive()]);
 
 export const usersListOp = implement(usersList, (ctx, actor, input) => {
+  requireSiteView(ctx, actor);
   requirePermission(ctx, actor, "profile.view");
+  requirePermission(ctx, actor, "member.viewList");
   const now = ctx.now();
   const sort = input.sort;
   const accept = (rows: ListRow[]) => {

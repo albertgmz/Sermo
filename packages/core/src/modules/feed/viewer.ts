@@ -7,6 +7,7 @@ import {
   requestVersions,
   viewableNodeIds,
 } from "../../permissions";
+import { requireSiteView } from "../members/site-access";
 import { memberIgnorable } from "../social";
 
 /** The most members a "following" feed walks: the ones the viewer followed most recently. */
@@ -25,7 +26,10 @@ export const viewerSql = {
 export const visibleNodes = markPublic(
   "Resolves the node.view permission for the viewer.",
   function visibleNodes(ctx: Ctx, actor: Actor): Set<number> {
-    return new Set(viewableNodeIds(ctx, actor));
+    const nodes = viewableNodeIds(ctx, actor);
+    // A viewer who sees no forum (a banned member) has nothing for the site rule to hide.
+    if (nodes.length > 0) requireSiteView(ctx, actor);
+    return new Set(nodes);
   },
 );
 

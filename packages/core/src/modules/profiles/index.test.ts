@@ -720,6 +720,9 @@ describe("profiles", () => {
         .canEdit,
     ).toBe(false);
     f.ctx.sqlite.run("UPDATE groups SET can_post_profile = 0 WHERE id = 2");
+    f.ctx.sqlite.run(
+      "DELETE FROM permission_entries WHERE group_id = 2 AND permission_id = (SELECT id FROM permission_definitions WHERE key = 'profilePost.postOwn')",
+    );
     invalidate(f.ctx, "permissions");
     expect(
       (await execute(f.ctx, profilesGetOp, f.wallActor, { userId: f.wall.id })).canPostOnWall,

@@ -1447,7 +1447,15 @@ export function listPostRevisions(
   postId: number,
   input: { cursor?: string | null; limit?: number } = {},
 ) {
-  requireContentModerator(ctx, actor, { type: "post", id: postId }, "history");
+  const post = targetRow(ctx, { type: "post", id: postId });
+  // Authors with forum.viewOwnHistory read their own post's history; the rest need a moderator's.
+  if (
+    !(
+      post.node_id !== null &&
+      can(ctx, actor, "forum.viewOwnHistory", { nodeId: post.node_id, ownerId: post.user_id })
+    )
+  )
+    requireContentModerator(ctx, actor, { type: "post", id: postId }, "history", post);
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 100);
   const cursor = input.cursor
     ? decodeCursor(input.cursor, z.tuple([z.number().int().positive()]))[0]

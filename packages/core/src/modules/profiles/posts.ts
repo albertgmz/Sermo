@@ -30,8 +30,9 @@ import {
   requirePermission,
 } from "../../permissions";
 import { storeContentReferences, storeSpoilers } from "../../render";
-import { iso } from "../../time";
+import { iso, isoOrNull } from "../../time";
 import { setAttachments, validateEmbeddedAttachments } from "../attachments";
+import { renameStanding } from "../auth/rename-limit";
 import { loadMemberDetails } from "../members/cards";
 import {
   appendModeratorLog,
@@ -60,6 +61,7 @@ import {
   requirePost,
   requireProfileView,
   requireView,
+  requireWallView,
   touchProfile,
   WALL_SQL,
 } from "./shared";
@@ -228,6 +230,10 @@ export const profilesSelfOp = implement(profilesSelf, (ctx, actor) => {
       setSignature: can(ctx, actor, "profile.signature"),
       setCustomTitle: can(ctx, actor, "profile.customTitle"),
     },
+    usernameChange: (({ reason, availableAt }) => ({
+      reason,
+      availableAt: isoOrNull(availableAt),
+    }))(renameStanding(ctx, actor, user.userId)),
     limits: {
       signatureMaxLength: settings.signatureMaxLength,
       signatureMaxLines: settings.signatureMaxLines,
@@ -265,6 +271,7 @@ export const usersSearchOp = implement(usersSearch, (ctx, actor, input) => {
 });
 export const profilePostsListOp = implement(profilePostsList, (ctx, actor, input) => {
   requireProfileView(ctx, actor, input.userId);
+  requireWallView(ctx, actor);
   if (
     !prepared(ctx, "profiles.userExists", () =>
       ctx.sqlite.prepare<{ id: number }, [number]>("SELECT id FROM users WHERE id = ?1"),
@@ -298,7 +305,6 @@ export const profilePostsGetOp = implement(profilePostsGet, (ctx, actor, input) 
 export const profilePostsCreateOp = implement(profilePostsCreate, (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requireProfileView(ctx, actor, input.userId);
-  requirePermission(ctx, actor, "profilePost.post");
   if (!mayPostOnWall(ctx, actor, input.userId)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
@@ -361,10 +367,10 @@ export const profilePostsUpdateOp = implement(profilePostsUpdate, (ctx, actor, i
     setAttachments(ctx, actorUserId(actor)!, "profile_post", row.id, input.attachmentIds);
     validateEmbeddedAttachments(ctx, "profile_post", row.id, html);
     prepared(ctx, "profiles.updatePost", () =>
-      ctx.sqlite.prepare<unknown, [string, string, number, number]>(
-        "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = ?3 WHERE id = ?4",
+      ctx.sqlite.prepare<unknown, [string, string, number, number, number]>(
+        "UPDATE profile_posts SET body_source = ?1, body_html = ?2, edited_at = CASE WHEN ?5 = 1 THEN edited_at ELSE ?3 END WHERE id = ?4",
       ),
-    ).run(refs.source, html, ctx.now(), row.id);
+    ).run(refs.source, html, ctx.now(), row.id, Number(can(ctx, fresh, "content.editSilently")));
     const { newlyMentioned } = storeContentReferences(ctx, "profile_post", row.id, refs);
     storeSpoilers(ctx, "profile_post", row.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, fresh, { type: "profile_post", id: row.id });

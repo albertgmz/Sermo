@@ -38,6 +38,7 @@ import { requireNotErased } from "../admin/erased";
 import { confirmActorPassword } from "../admin/shared";
 import { loadAttachments, setAttachments, validateEmbeddedAttachments } from "../attachments";
 import { completeRunningJob, enqueueJob, registerJobHandler } from "../jobs";
+import { requireSiteView } from "../members/site-access";
 import {
   appendModeratorLog,
   moderateEditedContent,
@@ -730,12 +731,16 @@ function postValue(ctx: Ctx, actor: Actor, id: number, detail = false) {
 }
 
 export const nodesListOp = implement(contracts.nodesList, (ctx, actor) => {
+  requireSiteView(ctx, actor);
   return {
     items: nodeValues(ctx, actor, viewableNodeIds(ctx, actor)),
   };
 });
 export const nodesGetOp = implement(contracts.nodesGet, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
+  // After the forum check: whoever may not see it, a banned member included, is told only that
+  // it is not found.
+  requireSiteView(ctx, actor);
   const userId = actorUserId(actor);
   // Only forums can be watched: a category needs no lookup.
   const watch =
@@ -924,6 +929,7 @@ export const nodesSetModeratorOp = implement(
 
 export const threadsListOp = implement(contracts.threadsList, (ctx, actor, input) => {
   const { node } = requireNode(ctx, actor, input.nodeId);
+  requireSiteView(ctx, actor);
   if (node.type !== "forum") throw new ValidationError("Threads can only be listed in forums.");
   const userId = actorUserId(actor) ?? -1;
   const permissions = permissionsOf(ctx, actor);
@@ -985,6 +991,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
     targetId = next;
   }
   const { row, node } = requireThread(ctx, actor, targetId);
+  requireSiteView(ctx, actor);
   // Crawlers read threads too: their visits are not views.
   if (input.countView && !isBotAgent(actor.userAgent))
     ctx.views.set(row.id, (ctx.views.get(row.id) ?? 0) + 1);
@@ -1189,6 +1196,7 @@ function mergingPostPage(
 }
 export const postsListOp = implement(contracts.postsList, (ctx, actor, input) => {
   const { row } = requireThread(ctx, actor, input.threadId);
+  requireSiteView(ctx, actor);
   const permissions = permissionsOf(ctx, actor);
   const viewModerated = Number(permissions.can("forum.viewModerated", { nodeId: row.node_id }));
   const viewDeleted = Number(permissions.can("forum.viewDeleted", { nodeId: row.node_id }));
@@ -1239,6 +1247,7 @@ export const postsListOp = implement(contracts.postsList, (ctx, actor, input) =>
 });
 export const postsGetOp = implement(contracts.postsGet, (ctx, actor, input) => {
   const { post, thread } = requirePost(ctx, actor, input.postId, true);
+  requireSiteView(ctx, actor);
   return postValues(
     ctx,
     actor,
@@ -1624,7 +1633,9 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     storeSpoilers(ctx, "post", post.id, refs.spoilers);
     if (decision.moderated) moderateEditedContent(ctx, moderator, { type: "post", id: post.id });
-    forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
+    // A holder of content.editSilently leaves no "edited" note.
+    if (!can(ctx, moderator, "content.editSilently"))
+      forumDb(ctx).prepare("UPDATE posts SET edited_at = ?1 WHERE id = ?2").run(ctx.now(), post.id);
     forumDb(ctx)
       .prepare("UPDATE threads SET content_updated_at = ?1 WHERE id = ?2")
       .run(ctx.now(), now.post.thread_id);

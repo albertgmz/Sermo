@@ -88,6 +88,7 @@ describe("conversations", () => {
     const d = insertUser(ctx);
     setGroupPermission(ctx, groupId, "conversation.start", 1);
     setGroupPermission(ctx, groupId, "conversation.maxRecipients", 2);
+    setGroupPermission(ctx, groupId, "conversation.receive", 1);
     const recipients = [b.kind === "guest" ? 0 : b.userId, c.kind === "guest" ? 0 : c.userId, d.id];
     const error = await execute(ctx, conversationsCreateOp, userActor(a), start(recipients)).catch(
       (caught: unknown) => caught,

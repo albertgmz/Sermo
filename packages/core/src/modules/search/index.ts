@@ -8,6 +8,7 @@ import { getNodeTree, requirePermission, viewableNodeIds } from "../../permissio
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import { threadPresenter } from "../forums/presentation";
+import { requireSiteView } from "../members/site-access";
 import { maskMarkupForExcerpt } from "../seo/excerpt";
 
 const CANDIDATE_CAP = 1000;
@@ -52,6 +53,7 @@ function excerpt(source: string): string {
 
 export const searchQueryOp = implement(searchQuery, (ctx, actor, input) => {
   requirePermission(ctx, actor, "search.use");
+  requireSiteView(ctx, actor);
   const words = input.q.match(/[\p{L}\p{N}]+/gu)?.slice(0, 10) ?? [];
   if (words.length === 0) throw new ValidationError("Search query needs a word.");
   const expression = words.map((word) => `"${word}"`).join(" AND ");

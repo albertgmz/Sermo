@@ -83,7 +83,10 @@ export const conversationsGet = defineContract({
 
 export const conversationsCreate = defineContract({
   name: "conversations.create",
-  summary: "Start a private conversation with one or more users.",
+  summary:
+    "Start a private conversation with one or more users. Each recipient must hold " +
+    "`conversation.receive`; one who ignores the starter refuses unless the starter holds " +
+    "`conversation.alwaysInvite`. Attaching files needs `conversation.attach`.",
   kind: "write",
   input: z.object({
     title: Title,
@@ -146,7 +149,8 @@ export const conversationsAddParticipants = defineContract({
   summary:
     "Add people to a conversation. Only its starter, while an active participant and holding " +
     "`conversation.start`. The rules of starting a conversation apply to the people added " +
-    "(existing members, none who ignore the starter), and `conversation.maxRecipients` limits " +
+    "(existing members holding `conversation.receive`, none who ignore the starter unless the " +
+    "starter holds `conversation.alwaysInvite`), and `conversation.maxRecipients` limits " +
     "the other active participants after the addition. Someone already active is skipped; " +
     "someone who left becomes active again. A new participant sees the conversation as unread, " +
     "and each person added is told so.",

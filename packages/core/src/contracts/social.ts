@@ -134,7 +134,8 @@ export const usersRelations = defineContract({
     "unfollowing needs no permission) and may start a conversation with them (conversation.start, " +
     "a conversation.maxRecipients other than 0, not themselves, and the member has not ignored " +
     "the viewer in the sense conversations.create refuses: that rule applies only to a viewer " +
-    "holding member.ignorable). Unknown ids are left out. Open to " +
+    "holding member.ignorable and not conversation.alwaysInvite; and the member holds " +
+    "conversation.receive). Unknown ids are left out. Open to " +
     "everyone; a guest gets false for all three. The viewer's own follow list is theirs to " +
     "read, and the ignore state shows only as `canMessage` false, which starting a " +
     "conversation already reveals. It does not depend on profile privacy.",
@@ -153,7 +154,8 @@ export const usersListFollowers = defineContract({
 
 export const usersListFollowing = defineContract({
   name: "users.listFollowing",
-  summary: "Members a member follows, newest first. Requires profile.view.",
+  summary:
+    "Members a member follows, newest first. Requires profile.view, and member.viewFollowing for anyone but the member.",
   kind: "read",
   input: z.object({ userId: Id, ...pageInput }),
   output: Page(FollowEntry),

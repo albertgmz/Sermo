@@ -312,3 +312,87 @@ describe("Better Auth's own update endpoint no longer renames", () => {
     expect(w.stored(id).forum.username).toBe("Direct_2");
   });
 });
+
+describe("username change permissions", () => {
+  const DAY = 86_400_000;
+  const entry = (w: Awaited<ReturnType<typeof world>>, key: string, value: number) => {
+    w.ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, 2, 0, ?1 FROM permission_definitions WHERE key = ?2 ON CONFLICT (group_id, user_id, node_id, permission_id) DO UPDATE SET value = excluded.value",
+      )
+      .run(value, key);
+    w.ctx.sqlite
+      .prepare("UPDATE cache_versions SET version = version + 1 WHERE key = 'permissions'")
+      .run();
+  };
+  const recorded = (w: Awaited<ReturnType<typeof world>>) =>
+    w.ctx.sqlite
+      .prepare<{ n: number }, [number]>(
+        "SELECT count(*) AS n FROM username_changes WHERE user_id = ?1",
+      )
+      .get(w.memberRow.id)!.n;
+
+  test("a group that needs approval is told to ask staff and keeps its name and units", async () => {
+    const w = await world();
+    await w.buyUnits(1);
+    entry(w, "profile.renameNeedsApproval", 1);
+    const error = await w.rename("Another").catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect((error as Error).message).toContain("Ask a staff member");
+    expect(w.stored().forum.username).toBe("Member");
+    expect(w.units()).toEqual([{ quantity: 1, state: "unused" }]);
+    expect(recorded(w)).toBe(0);
+    const self = await w.run("profiles.self", w.member);
+    expect(self.usernameChange).toEqual({ reason: "approval", availableAt: null });
+    // Lifting the permission lets the change through.
+    entry(w, "profile.renameNeedsApproval", 0);
+    expect(await w.rename("Another")).toMatchObject({ username: "Another" });
+  });
+
+  test("N changes per X days: counted per change, freed by the window, refused with the date", async () => {
+    const w = await world();
+    await w.buyUnits(5);
+    entry(w, "profile.renameLimit", 2);
+    entry(w, "profile.renameWindowDays", 30);
+    const start = w.ctx.now();
+    await w.rename("First One");
+    w.ctx.clock.advance(DAY);
+    await w.rename("Second One");
+    expect(recorded(w)).toBe(2);
+    w.ctx.clock.advance(DAY);
+    const error = await w.rename("Third One").catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect((error as Error).message).toContain(new Date(start + 30 * DAY).toISOString());
+    expect(w.stored().forum.username).toBe("Second One");
+    expect(w.units()).toEqual([{ quantity: 3, state: "unused" }]);
+    const self = await w.run("profiles.self", w.member);
+    expect(self.usernameChange).toEqual({
+      reason: "limit",
+      availableAt: new Date(start + 30 * DAY).toISOString(),
+    });
+    // The first change leaves the window; one slot is free again, not two.
+    w.ctx.clock.set(start + 30 * DAY + 1);
+    await w.rename("Third One");
+    await expect(w.rename("Fourth One")).rejects.toThrow(ForbiddenError);
+  });
+
+  test("a failed rename is not counted, and 0 or -1 for the window counts every change", async () => {
+    const w = await world();
+    await w.buyUnits(5);
+    entry(w, "profile.renameLimit", 1);
+    entry(w, "profile.renameWindowDays", 0);
+    insertUser(w.ctx, { username: "Taken Name" });
+    await expect(w.rename("Taken Name")).rejects.toThrow(ConflictError);
+    expect(recorded(w)).toBe(0);
+    await w.rename("Free Name");
+    w.ctx.clock.advance(3650 * DAY);
+    const error = await w.rename("Later Name").catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect((error as Error).message).toContain("all the username changes");
+    // No limit: 0 and -1 both mean none.
+    for (const none of [0, -1]) {
+      entry(w, "profile.renameLimit", none);
+      await w.rename(`Name ${none === 0 ? "A" : "B"}`);
+    }
+  });
+});

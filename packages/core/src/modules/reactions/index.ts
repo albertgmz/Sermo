@@ -453,6 +453,12 @@ export const reactionTypesUpdateOp = implement(reactionTypesUpdate, (ctx, actor,
 });
 export const reactionsSetOp = implement(reactionsSet, (ctx, actor, input) => {
   const user = requireReactPermission(ctx, actor);
+  if (
+    (input.contentType === "conversation_message" && !can(ctx, actor, "conversation.react")) ||
+    ((input.contentType === "profile_post" || input.contentType === "profile_post_comment") &&
+      !can(ctx, actor, "profilePost.react"))
+  )
+    throw new ForbiddenError();
   return writeTx(ctx, () => {
     const target = reactables[input.contentType](ctx, actor, input.contentId);
     if (!target.isVisible || target.authorId === user.userId) throw new ForbiddenError();
@@ -534,6 +540,7 @@ export const reactionsRemoveOp = implement(reactionsRemove, (ctx, actor, input) 
 export const reactionsListOp = implement(
   reactionsList,
   (ctx, actor, input) => {
+    requirePermission(ctx, actor, "reaction.viewList");
     reactables[input.contentType](ctx, actor, input.contentId);
     const after = input.cursor
       ? decodeCursor(input.cursor, z.tuple([z.number().int().nonnegative()]))[0]
@@ -555,7 +562,10 @@ export const reactionsListOp = implement(
       nextCursor: rows.length > input.limit ? encodeCursor([page.at(-1)!.user_id]) : null,
     };
   },
-  { public: "Content visibility is checked by the reactable helper." },
+  {
+    public:
+      "Content visibility is checked by the reactable helper; who reacted needs reaction.viewList.",
+  },
 );
 
 export const operations = [

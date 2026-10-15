@@ -4,11 +4,12 @@ import type { Ctx } from "../../context";
 import { usersChangeUsername } from "../../contracts/members";
 import { isReservedUsername, isValidUsername } from "../../db/auth-options";
 import { writeTx } from "../../db/tx";
-import { ConflictError, ValidationError } from "../../errors";
+import { ConflictError, ForbiddenError, ValidationError } from "../../errors";
 import { publishEvent } from "../../events";
 import { implement } from "../../operation";
 import { can, currentActor, requirePermission } from "../../permissions";
 import { getAuth } from "./index";
+import { renameStanding } from "./rename-limit";
 import { asUsernameChange } from "./rename-marker";
 
 /** Better Auth's username bounds (see authPlugins). */
@@ -31,6 +32,17 @@ function giveBack(ctx: Ctx, inventoryId: number): void {
       )
       .run(ctx.now(), inventoryId);
   });
+}
+
+/** What a refused rename says: the permission that refused it, and when a limit frees a change. */
+function refuseRename(standing: ReturnType<typeof renameStanding>): never {
+  if (standing.reason === "approval")
+    throw new ForbiddenError("Your username can only be changed by staff. Ask a staff member.");
+  throw new ForbiddenError(
+    standing.availableAt === null
+      ? "You have used all the username changes you are allowed."
+      : `You have used your username changes for now. You can change it again on ${new Date(standing.availableAt).toISOString()}.`,
+  );
 }
 
 /**
@@ -125,6 +137,8 @@ function refusal(error: unknown): unknown {
 export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, actor, input) => {
   const user = requireAuthenticated(actor);
   requirePermission(ctx, actor, "profile.editOwn");
+  const early = renameStanding(ctx, actor, user.userId);
+  if (early.reason) refuseRename(early);
   const name = input.username;
   const key = checkUsername(name);
   const own = ctx.sqlite
@@ -143,13 +157,24 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
   const spent = writeTx(ctx, () => {
     const current = currentActor(ctx, actor);
     requirePermission(ctx, current, "profile.editOwn");
-    if (can(ctx, current, "profile.renameFree")) return null;
-    requirePermission(ctx, current, "shop.buy");
-    const taken = ctx.sqlite
-      .prepare<{ id: number }, [number, number]>(TAKE_SQL)
-      .get(user.userId, ctx.now());
-    if (!taken) throw new ConflictError("You have no username change to spend.");
-    return taken.id;
+    // Counted here, in the transaction that records the change, so two requests cannot both pass.
+    const standing = renameStanding(ctx, current, user.userId);
+    if (standing.reason) refuseRename(standing);
+    let unit: number | null = null;
+    if (!can(ctx, current, "profile.renameFree")) {
+      requirePermission(ctx, current, "shop.buy");
+      const taken = ctx.sqlite
+        .prepare<{ id: number }, [number, number]>(TAKE_SQL)
+        .get(user.userId, ctx.now());
+      if (!taken) throw new ConflictError("You have no username change to spend.");
+      unit = taken.id;
+    }
+    const change = ctx.sqlite
+      .prepare<{ id: number }, [number, number]>(
+        "INSERT INTO username_changes (user_id, changed_at) VALUES (?1, ?2) RETURNING id",
+      )
+      .get(user.userId, ctx.now())!;
+    return { unit, change: change.id };
   });
 
   try {
@@ -164,7 +189,7 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
           .prepare<{ username: string }, [number]>("SELECT username FROM users WHERE id = ?1")
           .get(user.userId)!.username,
         remaining:
-          spent === null
+          spent.unit === null
             ? null
             : ctx.sqlite.prepare<{ n: number }, [number]>(UNITS_SQL).get(user.userId)!.n,
       };
@@ -172,7 +197,12 @@ export const usersChangeUsernameOp = implement(usersChangeUsername, async (ctx, 
   } catch (error) {
     // The unit comes back only when the member ends up with the name they had: if Better Auth
     // keeps the new one and the forum the old, the unit stays spent and the mismatch is logged.
-    if ((await restoreName(ctx, user.userId, own)) && spent !== null) giveBack(ctx, spent);
+    if (await restoreName(ctx, user.userId, own)) {
+      if (spent.unit !== null) giveBack(ctx, spent.unit);
+      writeTx(ctx, () => {
+        ctx.sqlite.prepare("DELETE FROM username_changes WHERE id = ?1").run(spent.change);
+      });
+    }
     throw error;
   }
 });

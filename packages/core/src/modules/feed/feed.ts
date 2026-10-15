@@ -405,7 +405,7 @@ function latestSources(
     fetch: (before, count) => latestWall.all(before, count),
     accept: acceptWall(ctx, actor),
     ...byId,
-    disabled: !can(ctx, actor, "profile.view"),
+    disabled: !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
   });
   return { posts, walls };
 }
@@ -453,7 +453,7 @@ function followingSources(
       authors.length === 0 ? [] : newest(followedWall.all(authorsJson, before, count), count),
     accept: acceptWall(ctx, actor),
     ...byId,
-    disabled: !can(ctx, actor, "profile.view"),
+    disabled: !can(ctx, actor, "profile.view") || !can(ctx, actor, "profilePost.view"),
   });
   return { posts, walls };
 }

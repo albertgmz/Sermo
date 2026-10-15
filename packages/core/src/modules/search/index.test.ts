@@ -61,6 +61,11 @@ describe("search.query", () => {
         "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) VALUES (?1, 0, ?2, 0, 1)",
       )
       .run(guest, groupId);
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO permission_entries (permission_id, node_id, group_id, user_id, value) SELECT id, 0, ?1, 0, 1 FROM permission_definitions WHERE key = 'site.view'",
+      )
+      .run(groupId);
     expect((await search(ctx, member, "needle")).items).toEqual([]);
     ctx.sqlite
       .prepare(

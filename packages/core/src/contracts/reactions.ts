@@ -199,7 +199,8 @@ export const reactionsSet = defineContract({
   name: "reactions.set",
   summary:
     "React to an item, or change your existing reaction. One reaction per user per item; " +
-    "you cannot react to your own content. A type whose rule you do not meet, or that is limited " +
+    "you cannot react to your own content. Wall posts and their comments also need " +
+    "`profilePost.react`, conversation messages `conversation.react`. A type whose rule you do not meet, or that is limited " +
     "to forums the item is not in, is refused (forbidden) unless it is the reaction you " +
     "already gave.",
   kind: "write",
@@ -217,7 +218,7 @@ export const reactionsRemove = defineContract({
 
 export const reactionsList = defineContract({
   name: "reactions.list",
-  summary: "Who reacted to an item, and with what.",
+  summary: "Who reacted to an item, and with what. Requires `reaction.viewList`.",
   kind: "read",
   input: z.object({ ...ContentRef, ...pageInput }),
   output: Page(z.object({ user: UserSummary, reactionTypeId: Id, createdAt: Timestamp })),

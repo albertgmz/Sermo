@@ -6,6 +6,7 @@ import { writeTx } from "../../db/tx";
 import { NotFoundError } from "../../errors";
 import { implement } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
+import { requirePermission } from "../../permissions";
 import { loadUserSummaries } from "../../shared/users";
 import { iso } from "../../time";
 import {
@@ -117,6 +118,9 @@ export const bookmarksSetOp = implement(
       input.contentType === "thread" ? mergeTarget(ctx, input.contentId) : input.contentId;
     if (input.bookmarked && !canSee(ctx, actor, userId, input.contentType, contentId))
       throw new NotFoundError();
+    // After the visibility check, so an item the viewer cannot see stays not found. Removing a
+    // bookmark needs no permission.
+    if (input.bookmarked) requirePermission(ctx, actor, "bookmark.create");
     // Removing needs no view of the item: a bookmark on something since hidden stays removable.
     writeTx(ctx, () => {
       if (input.bookmarked)
@@ -141,7 +145,7 @@ export const bookmarksSetOp = implement(
   },
   {
     public:
-      "Every member may bookmark; the item must be visible to them by the rule of its own read.",
+      "Adding needs bookmark.create and removing needs nothing; the item must be visible to them by the rule of its own read.",
   },
 );
 

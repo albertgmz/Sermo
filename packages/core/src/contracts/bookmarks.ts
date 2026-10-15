@@ -50,7 +50,8 @@ export const bookmarksSet = defineContract({
   name: "bookmarks.set",
   summary:
     "Bookmark an item the viewer can see (`bookmarked: true`) or remove the bookmark. " +
-    "Repeating either is harmless. An item the viewer cannot see is not found.",
+    "Repeating either is harmless. An item the viewer cannot see is not found. Adding needs " +
+    "`bookmark.create`; removing needs nothing.",
   kind: "write",
   input: z.object({ contentType: BookmarkContentType, contentId: Id, bookmarked: z.boolean() }),
   output: Ok,

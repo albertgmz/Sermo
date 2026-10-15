@@ -175,7 +175,10 @@ describe("locking a conversation", () => {
     })) as { id: number };
     await execute(s.ctx, getOperation("permissions.set"), founder, {
       groupId: group.id,
-      entries: [{ permission: "conversation.moderate", value: "allow" }],
+      entries: [
+        { permission: "conversation.moderate", value: "allow" },
+        { permission: "conversation.receive", value: "allow" },
+      ],
     });
     const staff = insertUser(s.ctx, { groupId: group.id });
     await execute(s.ctx, getOperation("conversations.addParticipants"), s.a, {

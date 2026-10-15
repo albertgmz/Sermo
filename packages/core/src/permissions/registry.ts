@@ -277,6 +277,97 @@ export const PERMISSIONS = {
     },
   },
 
+  /** Open the site: forums, threads, feeds, search, profiles and the member list. */
+  "site.view": { scope: "global", category: "general", type: "flag", defaults: EVERYONE },
+  /** Open the member list. */
+  "member.viewList": { scope: "global", category: "general", type: "flag", defaults: EVERYONE },
+  /** Upload an avatar. */
+  "profile.uploadAvatar": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** Upload a profile cover. */
+  "profile.uploadCover": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** Bookmark content (taking a bookmark off needs nothing). */
+  "bookmark.create": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /**
+   * Own username changes are refused with a message to ask staff, who can rename the member.
+   * Not a queue: nothing is recorded for staff to approve. No built-in group holds it
+   * (administrators are set to Never so that nothing locks them out).
+   */
+  "profile.renameNeedsApproval": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: { admin: "never" },
+    requiresAccount: true,
+  },
+  /**
+   * Most username changes a member may make within `profile.renameWindowDays` (-1 or 0: no
+   * limit). Every change counts, free or bought.
+   */
+  "profile.renameLimit": {
+    scope: "global",
+    category: "profile",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  /** The days `profile.renameLimit` counts back over (-1 or 0: every change ever made). */
+  "profile.renameWindowDays": {
+    scope: "global",
+    category: "profile",
+    type: "integer",
+    unit: "count",
+    defaults: MEMBERS_UNLIMITED,
+  },
+  /**
+   * Edit content without leaving the "edited" note (posts, wall posts, comments and messages).
+   * The earlier text is still kept where revisions are kept.
+   */
+  "content.editSilently": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: ADMINS,
+    requiresAccount: true,
+  },
+  /** Open the list of who reacted to an item. */
+  "reaction.viewList": { scope: "global", category: "general", type: "flag", defaults: EVERYONE },
+  /** Open the list of members another member follows (one's own is always open). */
+  "member.viewFollowing": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: EVERYONE,
+  },
+  /**
+   * The largest single file the member may upload, in bytes, under the site's own limit (-1 or
+   * 0: only the site's limit applies). Covers attachments, avatars and covers.
+   */
+  "attachment.maxFileSize": {
+    scope: "global",
+    category: "general",
+    type: "integer",
+    unit: "bytes",
+    defaults: MEMBERS_UNLIMITED,
+  },
+
   // Forums (node scope) -----------------------------------------------------------------
   "node.view": {
     scope: "node",
@@ -319,6 +410,15 @@ export const PERMISSIONS = {
     type: "integer",
     unit: "minutes",
     defaults: MEMBERS_UNLIMITED,
+  },
+  /** Read the edit history of one's own posts. */
+  "forum.viewOwnHistory": {
+    scope: "node",
+    category: "forum",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+    own: true,
   },
   "forum.editOwnThreadTitle": {
     scope: "node",
@@ -390,6 +490,26 @@ export const PERMISSIONS = {
     restriction: "profile_posts",
     legacy: "can_post_profile",
   },
+
+  /** Post on one's own profile; `profilePost.post` is posting on other members' profiles. */
+  "profilePost.postOwn": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+    restriction: "profile_posts",
+  },
+  /** React to wall posts and their comments (as well as `reaction.react`). */
+  "profilePost.react": {
+    scope: "global",
+    category: "profile",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Read wall posts and their comments. */
+  "profilePost.view": { scope: "global", category: "profile", type: "flag", defaults: EVERYONE },
   "profilePost.editOwn": {
     scope: "global",
     category: "profile",
@@ -446,6 +566,50 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: MEMBERS_UNLIMITED,
   },
+
+  /** Be added to conversations. */
+  "conversation.receive": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** Attach files to conversation messages. */
+  "conversation.attach": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: MEMBERS,
+    requiresAccount: true,
+  },
+  /** React to conversation messages (as well as `reaction.react`). */
+  "conversation.react": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /**
+   * Start a conversation with, or add, members who have ignored the holder. The recipient's
+   * ignore list is the only privacy setting conversations have.
+   */
+  "conversation.alwaysInvite": {
+    scope: "global",
+    category: "conversation",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
+  /** Minutes after sending within which one's own messages can be edited (-1 unlimited). */
+  "conversation.editOwnTimeLimit": {
+    scope: "global",
+    category: "conversation",
+    type: "integer",
+    unit: "minutes",
+    defaults: MEMBERS_UNLIMITED,
+  },
   /** Edit your own messages in conversations you take part in. */
   "conversation.editOwn": {
     scope: "global",
@@ -454,6 +618,7 @@ export const PERMISSIONS = {
     defaults: MEMBERS,
     requiresAccount: true,
     own: true,
+    timeLimit: "conversation.editOwnTimeLimit",
   },
   /** Delete your own messages (not the first one) in conversations you take part in. */
   "conversation.deleteOwn": {

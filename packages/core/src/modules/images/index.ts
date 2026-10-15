@@ -26,6 +26,9 @@ type ImageSlot = "avatar" | "cover" | "node_icon" | "node_cover";
 function setImage(ctx: Ctx, actor: Actor, fileId: number | null, slot: ImageSlot, nodeId?: number) {
   const user = requireAuthenticated(actor);
   if (nodeId !== undefined) requirePermission(ctx, actor, "admin.nodes");
+  // Taking a picture off needs no permission.
+  if (fileId !== null && slot === "avatar") requirePermission(ctx, actor, "profile.uploadAvatar");
+  if (fileId !== null && slot === "cover") requirePermission(ctx, actor, "profile.uploadCover");
   return writeTx(ctx, () => {
     if (fileId !== null) attachUploadedFile(ctx, user.userId, fileId, slot);
     let previous: number | null;
