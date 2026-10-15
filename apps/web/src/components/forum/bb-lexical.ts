@@ -203,6 +203,9 @@ function inlineBb(parent: ElementNode): string {
       }
       out += text;
     } else if ($isLineBreakNode(node)) {
+      // Closed before the break and opened again after it: inline code cannot hold a break, and
+      // the break belongs to the text around the tags.
+      close(0);
       out += "\n";
     } else if ($isListNode(node)) {
       close(0);

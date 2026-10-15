@@ -1,7 +1,7 @@
 import { HtmlContent } from "@/components/forum/html-content";
 import { cn } from "@/lib/utils";
 
-// A signature the backend already turned into HTML, drawn like `Signature`: small, muted and
+// A signature the backend already turned into HTML, drawn small, muted and
 // never taller than its line limit. Headings, links and lists are toned down to plain small text
 // and a picture is held to three lines of height, so it never reads as part of the post. The site
 // decides whether a signature may hold pictures at all; whatever it stored is drawn.

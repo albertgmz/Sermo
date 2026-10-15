@@ -1,4 +1,4 @@
-import { isLinkAddress, isWebAddress } from "@/components/forum/bb-scan";
+import { isWebAddress } from "@/components/forum/bb-scan";
 
 // Rich text pasted from a web page or a word processor, as BB code: bold, italic, underline,
 // strikethrough, inline code, links, lists, quotes, headings and code blocks, and a picture as
@@ -15,9 +15,12 @@ export type DomNode = {
 
 const TEXT = 3;
 const ELEMENT = 1;
-// Where a block begins or ends: a paragraph break, or just a line break.
-const HARD = "";
-const SOFT = "";
+// Where a block begins or ends: a paragraph break, or just a line break. Two private characters
+// stand for them in the text on its way; the text of a page has none of its own.
+const HARD = String.fromCharCode(0xe001);
+const SOFT = String.fromCharCode(0xe000);
+const BOUNDARY = new RegExp(`([${SOFT}${HARD}])`);
+const BOUNDARIES = new RegExp(`[${SOFT}${HARD}]`, "g");
 
 const SKIP = new Set([
   "SCRIPT",
@@ -76,6 +79,7 @@ type Style = {
   italic?: boolean;
   underline?: boolean;
   strike?: boolean;
+  pre?: boolean;
 };
 
 // The formatting a style attribute says (word processors write bold as a style of a span).
@@ -92,14 +96,27 @@ function styleOf(node: DomNode): Style {
     italic: style ? /^(italic|oblique)/.test(style) : undefined,
     underline: decoration.includes("underline") || undefined,
     strike: decoration.includes("line-through") || undefined,
+    pre: value("white-space") === "pre" || undefined,
   };
+}
+
+// The tags an element adds, outermost first. A link is drawn underlined by the page, which says
+// nothing about the text.
+function marksOf(node: DomNode, name: string): string[] {
+  const style = styleOf(node);
+  const marks: string[] = [];
+  if (style.bold ?? BOLD.has(name)) marks.push("B");
+  if (style.italic ?? ITALIC.has(name)) marks.push("I");
+  if (name !== "A" && (style.underline ?? UNDERLINE.has(name))) marks.push("U");
+  if (style.strike ?? STRIKE.has(name)) marks.push("S");
+  return marks;
 }
 
 // Wraps the pieces of `inner` between block boundaries one by one, with the space around them left
 // outside the tags.
 function wrap(tag: string, inner: string): string {
   return inner
-    .split(/([])/)
+    .split(BOUNDARY)
     .map((part, index) => {
       if (index % 2 === 1) return part;
       const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(part) as RegExpExecArray;
@@ -110,14 +127,17 @@ function wrap(tag: string, inner: string): string {
     .join("");
 }
 
-// Text that holds a closing tag would be read as BB code: it is wrapped so that it stays text.
+const CLOSING_TAG = /\[\/[A-Za-z]{1,10}\]/;
+
+// Text that holds a closing tag would be read as BB code: it is put between PLAIN tags to stay
+// text. Between those tags a closing PLAIN tag cannot be written, so it is broken by an invisible
+// character.
 function literal(text: string): string {
-  if (!/\[\/[A-Za-z]{1,10}\]/.test(text)) return text;
-  if (/\[\/plain\]/i.test(text)) return text;
-  return `[PLAIN]${text}[/PLAIN]`;
+  if (!CLOSING_TAG.test(text)) return text;
+  return `[PLAIN]${text.replace(/\[\/(plain)\]/gi, "[/​$1]")}[/PLAIN]`;
 }
 
-type Context = { pre: boolean; link: boolean };
+type Context = { link: boolean; marks: ReadonlySet<string> };
 
 function kidsOf(node: DomNode, context: Context): string {
   let out = "";
@@ -147,7 +167,7 @@ function settle(raw: string): string {
   const out: string[] = [];
   let hard = false;
   let soft = false;
-  raw.split(/([])/).forEach((part, index) => {
+  raw.split(BOUNDARY).forEach((part, index) => {
     if (index % 2 === 1) {
       hard ||= part === HARD;
       soft = true;
@@ -183,17 +203,23 @@ function listOf(node: DomNode, context: Context): string {
   return `${SOFT}[LIST${ordered ? "=1" : ""}]\n${items.join("\n")}\n[/LIST]${SOFT}`;
 }
 
+// The text of a code block as it was written: its spaces, its breaks, one line for each block in it.
+function preText(node: DomNode): string {
+  if (node.nodeType === TEXT) return node.textContent ?? "";
+  if (node.nodeType !== ELEMENT) return "";
+  const name = node.nodeName.toUpperCase();
+  if (name === "BR") return "\n";
+  if (SKIP.has(name)) return "";
+  let out = "";
+  for (let i = 0; i < node.childNodes.length; i++)
+    out += preText(node.childNodes[i]);
+  return PARAGRAPHS.has(name) || LINES.has(name) ? `${out}\n` : out;
+}
+
 function walk(node: DomNode, context: Context): string {
   if (node.nodeType === TEXT) {
-    const text = node.textContent ?? "";
-    if (context.pre) return text;
-    // The two private characters stand for block boundaries below: text has none of its own.
-    return literal(
-      text
-        .replace(/[]/g, "")
-        .replace(/ /g, " ")
-        .replace(/[ \t\r\n\f]+/g, " "),
-    );
+    const text = (node.textContent ?? "").replace(BOUNDARIES, "");
+    return literal(text.replace(/ /g, " ").replace(/[ \t\r\n\f]+/g, " "));
   }
   if (node.nodeType !== ELEMENT) return "";
   const name = node.nodeName.toUpperCase();
@@ -204,13 +230,19 @@ function walk(node: DomNode, context: Context): string {
     const src = node.getAttribute?.("src") ?? "";
     return isWebAddress(src) ? `[IMG]${src}[/IMG]` : "";
   }
-  if (name === "PRE") {
-    const text = (node.textContent ?? "")
-      .replace(/[]/g, "")
+  // A block whose style says its spaces and breaks are its text (code pasted from an editor is).
+  if (
+    name === "PRE" ||
+    ((name === "DIV" || name === "P") && styleOf(node).pre)
+  ) {
+    const text = preText(node)
+      .replace(BOUNDARIES, "")
       .replace(/\r\n?/g, "\n")
       .replace(/^\n+|\n+$/g, "");
     if (!text.trim()) return "";
-    if (/\[\/code\]/i.test(text)) return `${HARD}${text}${HARD}`;
+    if (CLOSING_TAG.test(text) && /\[\/code\]/i.test(text)) {
+      return `${HARD}${literal(text)}${HARD}`;
+    }
     return `${HARD}[CODE]\n${text}\n[/CODE]${HARD}`;
   }
   if (name === "UL" || name === "OL") return listOf(node, context);
@@ -224,40 +256,35 @@ function walk(node: DomNode, context: Context): string {
     return text ? `${HARD}[QUOTE]${text}[/QUOTE]${HARD}` : "";
   }
   if (name === "TD" || name === "TH") return `${kidsOf(node, context)} `;
-  if (name === "A") {
-    const href = (node.getAttribute?.("href") ?? "").trim();
-    if (!context.link && isLinkAddress(href)) {
-      const inner = format(
-        node,
-        kidsOf(node, { ...context, link: true }),
-        name,
-      );
-      return inner.trim() ? `[URL=${href}]${inner}[/URL]` : inner;
-    }
+
+  // Formatting this element adds and its ancestors have not: a tag is written once however many
+  // elements say the same.
+  const own = marksOf(node, name).filter((mark) => !context.marks.has(mark));
+  const href = (node.getAttribute?.("href") ?? "").trim();
+  const asLink = name === "A" && !context.link && isWebAddress(href);
+  const inner = CODE.has(name)
+    ? codeOf(node)
+    : kidsOf(node, {
+        link: context.link || asLink,
+        marks: new Set([...context.marks, ...own]),
+      });
+  let out = inner;
+  if (inner.trim()) {
+    // Inside out: bold ends up outermost, as the editor writes it.
+    for (const mark of [...own].reverse()) out = wrap(mark, out);
+    if (asLink) out = `[URL=${href}]${out}[/URL]`;
   }
-  const inner = kidsOf(node, context);
   const block = PARAGRAPHS.has(name) ? HARD : LINES.has(name) ? SOFT : "";
-  return `${block}${format(node, inner, name)}${block}`;
+  return `${block}${out}${block}`;
 }
 
-// The formatting of an element: its tag and its style.
-function format(node: DomNode, inner: string, name: string): string {
-  if (!inner.trim()) return inner;
-  const style = styleOf(node);
-  const bold = style.bold ?? BOLD.has(name);
-  let out = inner;
-  if (CODE.has(name)) {
-    const text = node.textContent ?? "";
-    if (text.trim() && !/[\n[]/.test(text)) out = `[ICODE]${text}[/ICODE]`;
-  }
-  // Inside out: bold ends up outermost, as the editor writes it.
-  if (style.strike ?? STRIKE.has(name)) out = wrap("S", out);
-  if (style.underline ?? UNDERLINE.has(name)) out = wrap("U", out);
-  if (style.italic ?? ITALIC.has(name)) out = wrap("I", out);
-  if (bold) out = wrap("B", out);
-  return out;
+// Inline code is its text on one line; code with a break or a bracket in it is just its text.
+function codeOf(node: DomNode): string {
+  const text = (node.textContent ?? "").replace(BOUNDARIES, "");
+  if (!text.trim()) return "";
+  return /[\n[]/.test(text) ? literal(text) : `[ICODE]${text}[/ICODE]`;
 }
 
 export function htmlToBb(root: DomNode): string {
-  return settle(kidsOf(root, { pre: false, link: false })).trim();
+  return settle(kidsOf(root, { link: false, marks: new Set() })).trim();
 }

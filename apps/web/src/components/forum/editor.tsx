@@ -30,6 +30,7 @@ import {
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
   CLEAR_EDITOR_COMMAND,
+  CLEAR_HISTORY_COMMAND,
   COMMAND_PRIORITY_HIGH,
   COMMAND_PRIORITY_LOW,
   createEditor,
@@ -109,6 +110,7 @@ import {
   SourceContext,
   type SourceMode,
 } from "@/components/forum/editor-extras";
+import { sentText } from "@/components/forum/editor-value";
 import { FormError } from "@/components/forum/form-error";
 import { htmlToBb } from "@/components/forum/html-to-bb";
 import { mediaTagOf } from "@/components/forum/media-url";
@@ -538,7 +540,7 @@ function FormField({
       if (shown.current.active) return;
       const next = read();
       written.current ??= next;
-      commit(next === written.current ? (original.current ?? next) : next);
+      commit(sentText(next, written.current, original.current));
     };
     // The initial state is set before this listener exists, so read it once.
     sync(() => editor.getEditorState().read($exportBb));
@@ -709,22 +711,30 @@ export function Editor({
     changed.current?.(text);
   }, []);
   // Between the rich text and the source, in both directions without losing a character: the
-  // source is what the rich text is written as, and the rich text is read from the source.
+  // source is what the rich text is written as, and the rich text is read from the source. A
+  // source left as it was found leaves the rich text alone (its caret and its history stay); a
+  // changed one replaces it, and the history of what it replaced goes, as Undo would otherwise
+  // bring back text the member took out in the source.
+  const enteredWith = useRef("");
   const toggle = useCallback(() => {
     const editor = editorRef.current;
     if (!editor) return;
     if (sourceRef.current) {
       sourceRef.current = false;
-      editor.update(
-        () => {
-          $replaceWithBb(valueRef.current);
-          $getRoot().selectEnd();
-        },
-        { discrete: true },
-      );
+      if (valueRef.current !== enteredWith.current) {
+        editor.update(
+          () => {
+            $replaceWithBb(valueRef.current);
+            $getRoot().selectEnd();
+          },
+          { discrete: true },
+        );
+        editor.dispatchCommand(CLEAR_HISTORY_COMMAND, undefined);
+      }
       setSourceShown(false);
     } else {
       sourceRef.current = true;
+      enteredWith.current = valueRef.current;
       setSourceShown(true);
     }
   }, []);
@@ -733,12 +743,10 @@ export function Editor({
     [sourceShown, commit, toggle],
   );
   // The field takes the focus when it appears, and the rich text when it comes back.
-  const started = useRef(false);
+  const wasShown = useRef(sourceShown);
   useEffect(() => {
-    if (!started.current) {
-      started.current = true;
-      return;
-    }
+    if (wasShown.current === sourceShown) return;
+    wasShown.current = sourceShown;
     if (sourceShown) {
       const box = field.current;
       box?.focus();

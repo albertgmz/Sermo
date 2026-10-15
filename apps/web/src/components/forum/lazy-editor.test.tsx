@@ -70,7 +70,7 @@ test("the edit pages and the new conversation page load the editor only on enter
   }
 });
 
-test("a box that edits what was written holds the source and sends it as it is until it is changed", () => {
+test("a box that edits what was written is a field that holds its BB code", () => {
   const html = renderToStaticMarkup(
     <LazyEditor
       name="body"

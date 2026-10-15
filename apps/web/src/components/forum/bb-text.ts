@@ -7,35 +7,49 @@ const PLAIN_NAME = /^[\p{L}\p{N}_][\p{L}\p{N}._-]{1,30}[\p{L}\p{N}_]$/u;
 export const mentionOf = (username: string) =>
   PLAIN_NAME.test(username) ? `@${username}` : `@"${username}"`;
 
-// The tags whose content is read as it is: a QUOTE tag inside them is no tag.
-const LITERAL = new Set(["CODE", "ICODE", "PLAIN"]);
+// The tags whose content is read as it is, up to a closing tag found anywhere after them: a
+// QUOTE tag inside is no tag, and one with no closing tag of its own would take the closing tag of
+// a later tag as its own. (A link, an address and a member's name are such tags without an option.)
+const LITERAL = new Set(["CODE", "ICODE", "PLAIN", "IMG", "MEDIA", "ATTACH"]);
+const LITERAL_WITHOUT_OPTION = new Set(["URL", "EMAIL", "USER"]);
 
 // A tag is made plain text by putting it between PLAIN tags.
 const plain = (tag: string) => `[PLAIN]${tag}[/PLAIN]`;
 
-// The text with the QUOTE tags that have no partner made plain text, so that a quoted body can
-// neither end its own quote early (a closing tag with no opener) nor swallow the closing tag of
-// the quote around it (an opener never closed). Balanced quotes inside it stay quotes.
+type Range = { start: number; end: number };
+
+// The text with the tags that would reach outside the quote made plain text: the QUOTE tags that
+// have no partner, so that a quoted body can neither end its own quote early (a closing tag with no
+// opener) nor swallow the closing tag of the quote around it (an opener never closed), and the
+// tags that read their content as it is and have no closing tag in the body, which would find one
+// in what is written after the quote. Balanced quotes inside the body stay quotes.
 function balanced(source: string) {
   const find = closerFinder(source);
   const re = new RegExp(TAG_SOURCE, "g");
-  const open: { start: number; end: number }[] = [];
-  const stray: { start: number; end: number }[] = [];
+  const open: Range[] = [];
+  const edits: Range[] = [];
   for (let m = re.exec(source); m; m = re.exec(source)) {
     const name = m[2].toUpperCase();
-    const end = m.index + m[0].length;
-    if (m[1] === undefined && LITERAL.has(name)) {
-      const closer = find(name, end);
+    const tag = { start: m.index, end: m.index + m[0].length };
+    const option = m[3] ?? m[4];
+    if (
+      m[1] === undefined &&
+      (LITERAL.has(name) ||
+        (LITERAL_WITHOUT_OPTION.has(name) && option === undefined))
+    ) {
+      const closer = find(name, tag.end);
       if (closer >= 0) re.lastIndex = closer + name.length + 3;
+      else edits.push(tag);
     } else if (name === "QUOTE") {
-      if (m[1] === undefined) open.push({ start: m.index, end });
+      if (m[1] === undefined) open.push(tag);
       else if (open.length) open.pop();
-      else stray.push({ start: m.index, end });
+      else edits.push(tag);
     }
   }
-  const edits = [...stray, ...open].sort((a, b) => b.start - a.start);
   let out = source;
-  for (const { start, end } of edits) {
+  for (const { start, end } of [...edits, ...open].sort(
+    (x, y) => y.start - x.start,
+  )) {
     out = out.slice(0, start) + plain(out.slice(start, end)) + out.slice(end);
   }
   return out;

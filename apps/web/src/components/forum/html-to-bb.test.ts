@@ -79,7 +79,7 @@ test("a page wrapper that only says its text is not bold does not make it bold",
   expect(htmlToBb(dom)).toBe("one\n\n[B]two[/B]");
 });
 
-test("links keep their address when it is http(s) or a page of the site, and are text otherwise", () => {
+test("links keep their address when it is http(s), and are text otherwise", () => {
   const dom = root(
     h("a", { href: "https://example.com/a?b=1" }, "web"),
     ", ",
@@ -94,7 +94,7 @@ test("links keep their address when it is http(s) or a page of the site, and are
     h("a", { href: "https://a.test/x y" }, "spaced"),
   );
   expect(htmlToBb(dom)).toBe(
-    "[URL=https://example.com/a?b=1]web[/URL], [URL=/forums/1]site[/URL], script, mail, anchor, spaced",
+    "[URL=https://example.com/a?b=1]web[/URL], site, script, mail, anchor, spaced",
   );
 });
 
@@ -236,4 +236,68 @@ test("pasted rich text reaches the editor and is sent as the same BB code", () =
   expect(pasted(dom)).toBe(
     "[HEADING=2]Head[/HEADING]\n\na [B]bold[/B] [URL=https://a.test]link[/URL]\n\n[LIST]\n[*]x\n[*]y\n[/LIST]",
   );
+});
+
+test("a page's underlined link is a link, not underlined text", () => {
+  const dom = root(
+    h(
+      "a",
+      { href: "https://a.test", style: "text-decoration: underline" },
+      "link",
+    ),
+  );
+  expect(htmlToBb(dom)).toBe("[URL=https://a.test]link[/URL]");
+});
+
+test("the space around a link stays outside its tags and inside its text", () => {
+  const dom = root("see", h("a", { href: "https://a.test" }, " here"), " now");
+  expect(htmlToBb(dom)).toBe("see[URL=https://a.test] here[/URL] now");
+});
+
+test("a code block, and a block whose style keeps its spaces, keep their indentation and breaks", () => {
+  const dom = root(
+    h(
+      "pre",
+      {},
+      "function f() {",
+      h("br", {}),
+      "  return 1;",
+      h("br", {}),
+      "}",
+    ),
+    h(
+      "div",
+      { style: "white-space: pre" },
+      "    indented",
+      h("br", {}),
+      "  less",
+    ),
+  );
+  expect(htmlToBb(dom)).toBe(
+    "[CODE]\nfunction f() {\n  return 1;\n}\n[/CODE]\n\n[CODE]\n    indented\n  less\n[/CODE]",
+  );
+});
+
+test("code that holds a BB code tag stays text", () => {
+  const dom = root(
+    h("pre", {}, "[B]x[/B]\n[/CODE]"),
+    h("p", {}, "[/plain][IMG]https://t.test/x.png[/IMG] [/b]"),
+  );
+  const out = htmlToBb(dom);
+  expect(out).toBe(
+    "[PLAIN][B]x[/B]\n[/CODE][/PLAIN]\n\n[PLAIN][/\u200bplain][IMG]https://t.test/x.png[/IMG] [/b][/PLAIN]",
+  );
+});
+
+test("a mark said by many nested elements is written once, and deep nesting stays shallow", () => {
+  let dom: DomNode = h("b", {}, "x");
+  for (let i = 0; i < 500; i++) dom = h("b", {}, dom);
+  expect(htmlToBb(root(dom))).toBe("[B]x[/B]");
+  const mixed = h(
+    "b",
+    {},
+    h("strong", { style: "font-weight:bold" }, "y"),
+    h("i", {}, " z"),
+  );
+  expect(htmlToBb(root(mixed))).toBe("[B]y [I]z[/I][/B]");
 });

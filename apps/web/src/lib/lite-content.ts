@@ -156,7 +156,9 @@ export function stripBbCodeImages(
   const edits: Edit[] = [];
   for (let m = tags.exec(source); m; m = tags.exec(source)) {
     const name = m[2].toUpperCase();
-    if (m[1] !== undefined || !LITERAL.has(name)) continue;
+    // Rich code draws the pictures it holds: it is not text.
+    const rich = (m[3] ?? m[4])?.trim().toLowerCase() === "rich";
+    if (m[1] !== undefined || !LITERAL.has(name) || rich) continue;
     const closer = find(name, m.index + m[0].length);
     if (closer < 0) continue;
     const end = closer + name.length + 3;

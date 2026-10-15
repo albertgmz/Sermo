@@ -23,6 +23,21 @@ test("keeps source formatting, links to pictures and code samples that are not p
   assert.equal(stripBbCodeImages(""), "");
 });
 
+test("rich code draws its pictures, so they go too, and a capital letter of another alphabet moves nothing", () => {
+  assert.equal(
+    stripBbCodeImages(
+      "[CODE=rich][IMG]https://pictures.test/a.png[/IMG][/CODE]",
+    ),
+    "[CODE=rich]DATA SAVER[/CODE]",
+  );
+  assert.equal(
+    stripBbCodeImages(
+      "İİ [ICODE]a[/ICODE] [IMG]https://pictures.test/a.png[/IMG]",
+    ),
+    "İİ [ICODE]a[/ICODE] DATA SAVER",
+  );
+});
+
 test("a picture tag is read in any case and with spaces around its address", () => {
   assert.equal(
     stripBbCodeImages("[img] https://pictures.test/a.png [/IMG] x"),

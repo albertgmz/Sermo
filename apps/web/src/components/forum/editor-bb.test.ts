@@ -244,6 +244,8 @@ test("the editor has no Markdown shortcuts and no Markdown import", () => {
 test("pasting into a code block puts in the text as it was copied, not formatting", () => {
   const editor = editorWith("let a;", 6, 6);
   run(editor, () => $setBlock("paragraph", "code"));
-  run(editor, () => $insertBb("[B]bold[/B]\n\n[LIST]\n[*]x\n[/LIST]", false, "bold\n\nx"));
+  run(editor, () =>
+    $insertBb("[B]bold[/B]\n\n[LIST]\n[*]x\n[/LIST]", false, "bold\n\nx"),
+  );
   expect(bbOf(editor)).toBe("[CODE]\nlet a;bold\n\nx\n[/CODE]");
 });

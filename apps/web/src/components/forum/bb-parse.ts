@@ -3,6 +3,7 @@ import {
   isCodeLanguage,
   isLinkAddress,
   isWebAddress,
+  optionFits,
   TAG_SOURCE,
 } from "@/components/forum/bb-scan";
 
@@ -59,6 +60,8 @@ type Frame = {
   option?: string;
   open: string;
   kids: Tree[];
+  // A tag the editor does not show as formatting but the renderer pairs: it is text when it closes.
+  opaque?: true;
 };
 
 // Deeper tags stay text, as the backend refuses a message nested deeper than this.
@@ -77,6 +80,40 @@ const isBlock = (kid: Tree): boolean =>
 // Tags whose content is text up to the closer.
 const RAW = new Set(["PLAIN", "IMG", "MEDIA", "ATTACH"]);
 const RAW_WITHOUT_OPTION = new Set(["EMAIL", "USER"]);
+
+// The tags the renderer pairs that the editor shows as text. They still take part in the pairing:
+// a closing tag leaves the tags opened after its opener as text, so the editor must not pair them.
+// The option checks are the renderer's in short (colour and font names are not listed here).
+function opaqueOption(name: string, option: string | undefined): boolean {
+  switch (name) {
+    case "COLOR":
+      return (
+        option !== undefined &&
+        /^(?:#[0-9a-f]{3}(?:[0-9a-f]{3})?|[a-z]{3,12})$/i.test(option)
+      );
+    case "FONT":
+      return option !== undefined && /^[a-z ]{4,20}$/i.test(option);
+    case "SIZE":
+      return option !== undefined && /^[1-7]$/.test(option);
+    case "EMAIL":
+      return option?.includes("@") === true;
+    case "SPOILER":
+    case "QUOTE":
+      return true;
+    case "INDENT":
+      return option === undefined || /^[1-5]$/.test(option);
+    case "ISPOILER":
+    case "LEFT":
+    case "CENTER":
+    case "RIGHT":
+    case "TABLE":
+    case "TR":
+    case "TH":
+    case "TD":
+      return option === undefined;
+  }
+  return false;
+}
 
 function parseTree(source: string): Tree[] {
   const find = closerFinder(source);
@@ -126,6 +163,10 @@ function parseTree(source: string): Tree[] {
     const closing = m[1] !== undefined;
     const name = m[2].toUpperCase();
     const option = (m[3] ?? m[4])?.trim();
+    if (!optionFits(name, option)) {
+      addText(head);
+      continue;
+    }
 
     if (closing) {
       const at = stack.findLastIndex((frame) => frame.name === name);
@@ -141,16 +182,25 @@ function parseTree(source: string): Tree[] {
           literalize();
         }
       }
-      finish(head);
+      if (top().opaque) {
+        const frame = stack.pop() as Frame;
+        addText(frame.open);
+        addAll(frame.kids);
+        addText(head);
+      } else {
+        finish(head);
+      }
       continue;
     }
 
-    // Tags that read their content as text.
+    // Tags that read their content as text. Rich code reads the tags it holds as formatting, which
+    // the editor does not show: it is text up to its closer like the rest.
+    const rich = option?.toLowerCase() === "rich";
     const wantsCloser =
       name === "ICODE"
-        ? option === undefined
+        ? option === undefined || rich
         : name === "CODE"
-          ? option === undefined || isCodeLanguage(option)
+          ? option === undefined || rich || isCodeLanguage(option)
           : name === "URL"
             ? option === undefined
             : RAW.has(name) ||
@@ -164,10 +214,19 @@ function parseTree(source: string): Tree[] {
       const closeEnd = closer + name.length + 3;
       const inner = source.slice(end, closer);
       const raw = source.slice(m.index, closeEnd);
-      if (name === "CODE") {
+      if (rich) {
+        addText(raw);
+      } else if (name === "CODE") {
         top().kids.push({ k: "code", s: inner, raw, language: option });
       } else if (name === "ICODE") {
         top().kids.push({ k: "icode", s: inner, raw });
+      } else if (
+        (name === "IMG" && !isWebAddress(inner.trim())) ||
+        (name === "ATTACH" && !/^[1-9]\d{0,11}$/.test(inner.trim()))
+      ) {
+        // Not a picture or an attachment: the tag is text and what is inside is read as usual.
+        addText(head);
+        continue;
       } else if (name === "URL") {
         const href = inner.trim();
         if (inner.length > 2100 || !isWebAddress(href)) {
@@ -206,8 +265,13 @@ function parseTree(source: string): Tree[] {
             : name === "LIST"
               ? option === undefined || option === "1"
               : name === "QUOTE" && option === undefined);
-    if (supported) stack.push({ name, option, open: head, kids: [] });
-    else addText(head);
+    if (supported) {
+      stack.push({ name, option, open: head, kids: [] });
+    } else if (stack.length <= MAX_DEPTH && opaqueOption(name, option)) {
+      stack.push({ name, option, open: head, kids: [], opaque: true });
+    } else {
+      addText(head);
+    }
   }
   addText(source.slice(pos));
   while (stack.length > 1) literalize();
@@ -275,10 +339,12 @@ function addText(sink: Sink, text: string, marks: Mark[]) {
   });
 }
 
+// The inline content of a tag. A link keeps the space at its edges, which is part of the text
+// around it; the rest is cut at the edges, as the renderer does.
 function inlineOf(kids: Tree[], marks: Mark[], link: boolean): Inline[] {
   const sink: Sink = { blocks: null, line: [] };
   walk(kids, sink, marks, link);
-  return trimLine(sink.line);
+  return link ? sink.line : trimLine(sink.line);
 }
 
 // A tag that cannot be shown as formatting: its tags stay in the text, its content is read as it
@@ -313,6 +379,9 @@ function listOf(el: El): ListSpec | null {
     }
     items.push({ kids: inlineOf(head, [], false), nested });
   }
+  // A list with nothing in it has nothing to show: its tags stay as they are.
+  if (!items.some((item) => item.kids.length || item.nested.length))
+    return null;
   return { t: "list", ordered: el.option === "1", items };
 }
 
@@ -408,8 +477,12 @@ function element(el: El, sink: Sink, marks: Mark[], link: boolean) {
     return;
   }
   const kids = inlineOf(el.kids, [], false);
+  if (!kids.length) {
+    // Nothing to show: the tags stay as they are.
+    asText(el, sink, marks, link);
+    return;
+  }
   endParagraph(sink);
-  if (!kids.length) return;
   if (el.name === "HEADING") {
     sink.blocks.push({ t: "h", level: Number(el.option) as 1 | 2 | 3, kids });
   } else {

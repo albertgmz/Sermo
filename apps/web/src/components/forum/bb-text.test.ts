@@ -42,6 +42,35 @@ test("quote tags inside code are not tags and are left as written", () => {
   );
 });
 
+test("a tag that reads its content as it is and never closes no longer takes a later closing tag", () => {
+  for (const open of [
+    "[CODE]",
+    "[ICODE]",
+    "[PLAIN]",
+    "[IMG]",
+    "[URL]",
+    "[MEDIA=youtube]",
+    "[ATTACH]",
+    "[EMAIL]",
+    "[USER]",
+  ]) {
+    const out = quoted(`use the ${open} tag`);
+    expect(out, open).toContain(`[PLAIN]${open}[/PLAIN]`);
+    expect(out.endsWith("[/QUOTE]"), open).toBe(true);
+  }
+  // With its closing tag in the body it is left alone, and a link with an option is no such tag.
+  expect(quoted("[URL]https://a.test[/URL] [URL=https://a.test]x")).toBe(
+    '[QUOTE="ember, post: 5, member: 9"][URL]https://a.test[/URL] [URL=https://a.test]x[/QUOTE]',
+  );
+});
+
+test("a capital letter of another alphabet does not move what is found after it", () => {
+  const body = "İİİ [CODE]\n[/QUOTE]\n[/CODE] [QUOTE]";
+  expect(quoted(body)).toBe(
+    '[QUOTE="ember, post: 5, member: 9"]İİİ [CODE]\n[/QUOTE]\n[/CODE] [PLAIN][QUOTE][/PLAIN][/QUOTE]',
+  );
+});
+
 test("a body of unclosed code tags is read in linear time", () => {
   const start = performance.now();
   quoted("[CODE]".repeat(20000));

@@ -51,6 +51,29 @@ const SAME = [
   "[TABLE][TR][TD]a[/TD][/TR][/TABLE]",
   // Unpaired and wrong tags.
   "[B]never closed",
+  // Tags with nothing in them have nothing to show, and stay.
+  "[HEADING=1][/HEADING] x",
+  "[LIST][/LIST]",
+  "[LIST]\n[*]\n[/LIST]",
+  "[QUOTE] [/QUOTE]",
+  // Tags the renderer pairs that the editor shows as text pair there too.
+  "[SPOILER][b]x[/SPOILER] y[/B]",
+  "[COLOR=red][i]x[/COLOR] y[/I]",
+  "[SPOILER][B]x[/B][/SPOILER] [B]y[/B]",
+  // Rich code, and tags whose content is not what they need, are read as text.
+  "[CODE=rich]a\n[LIST][*]x[/LIST]\n[HEADING=1]h[/HEADING][/CODE]",
+  "[ICODE=rich]x[LIST=1]x[/LIST][/ICODE]",
+  "[IMG][B]x[/B][/IMG]",
+  "[ATTACH]not a number[/ATTACH]",
+  '[QUOTE="a]b"]x[/QUOTE]',
+  // Text after a break is not in the tags before it.
+  "[ICODE]x[/ICODE]\ny",
+  "[B]x[/B]\ny",
+  // Capital letters of other alphabets do not shift what is found after them.
+  "İİİ [ICODE]abc[/ICODE] tail",
+  // The space around a link's text stays where it is.
+  "see[URL=https://a.com] here[/URL] now",
+  "[URL=https://a.com]here [/URL]now",
   "[B][I]x[/B][/I]",
   "never opened[/B]",
   "[URL=javascript:alert(1)]x[/URL]",
@@ -75,6 +98,15 @@ const NORMALISED: [string, string][] = [
   ["a\n\n\n\nb", "a\n\nb"],
   ["  padded  \n\n  \n\nnext", "padded\n\nnext"],
   ["[URL=https://a.test]https://a.test[/URL]", "[URL]https://a.test[/URL]"],
+  ["[B]a\nb[/B]", "[B]a[/B]\n[B]b[/B]"],
+  [
+    "İstanbul [CODE]\nlet a;\n[/CODE] end",
+    "İstanbul\n\n[CODE]\nlet a;\n[/CODE]\n\nend",
+  ],
+  [
+    `[URL="https://a.test/${"x".repeat(300)}"]long[/URL]`,
+    `[URL=https://a.test/${"x".repeat(300)}]long[/URL]`,
+  ],
   ["[B]a[QUOTE]q[/QUOTE]b[/B]", "[B]a\n\n[QUOTE]q[/QUOTE]\n\nb[/B]"],
   [
     "text [HEADING=2]head[/HEADING] more",
@@ -84,8 +116,6 @@ const NORMALISED: [string, string][] = [
   ["[LIST]\n[*]a\n\nb\n[*]c\n[/LIST]", "[LIST]\n[*]a\n\nb\n[*]c\n[/LIST]"],
   ["[LIST][*]a[*]b[/LIST]", "[LIST]\n[*]a\n[*]b\n[/LIST]"],
   ["[LIST]\nlead\n[*]a\n[/LIST]", "[LIST]\n[*]lead\n[*]a\n[/LIST]"],
-  ["[LIST][/LIST]", ""],
-  ["[HEADING=1][/HEADING] x", "x"],
 ];
 
 for (const [source, expected] of NORMALISED) {

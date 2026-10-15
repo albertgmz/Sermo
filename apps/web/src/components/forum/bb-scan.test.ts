@@ -75,6 +75,8 @@ const SOURCES = [
   '[QUOTE]a[/QUOTE] [QUOTE="wren, post: 1, member: 2"]b[/QUOTE]',
   "[CODE=ts]x[/CODE] [ICODE]y[/ICODE] [PLAIN][B][/PLAIN]",
   "[B][I]x[/B][/I] [B]never closed [/I]",
+  `[URL="https://a.test/${"x".repeat(300)}"]long[/URL] [QUOTE="a]b"]x[/QUOTE]`,
+  `[QUOTE="${"n".repeat(250)}"]long name[/QUOTE]`,
 ];
 
 test("every tag the renderer pairs is a tag for the editor too", () => {
