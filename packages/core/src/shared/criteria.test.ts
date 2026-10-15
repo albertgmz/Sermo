@@ -49,6 +49,7 @@ const facts = (overrides: Partial<Facts> = {}): Facts => ({
   wasReferred: false,
   awardCount: 0,
   awardXp: 0,
+  tagCount: 0,
   measures: new Map(),
   ...overrides,
 });
@@ -362,6 +363,12 @@ const table: Record<string, Case[]> = {
     ["edge", { value: 3 }, facts({ awardCount: 3 }), true],
     ["below", { value: 3 }, facts({ awardCount: 2 }), false],
     ["none held, none asked", { value: 0 }, facts(), true],
+  ],
+  tags_added_at_least: [
+    ["above", { value: 3 }, facts({ tagCount: 4 }), true],
+    ["edge", { value: 3 }, facts({ tagCount: 3 }), true],
+    ["below", { value: 3 }, facts({ tagCount: 2 }), false],
+    ["none added, none asked", { value: 0 }, facts(), true],
   ],
   award_xp_at_most: [
     ["below", { value: 100 }, facts({ awardXp: 99 }), true],

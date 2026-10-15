@@ -30,4 +30,5 @@ export * from "./site";
 export * from "./social";
 export * from "./spoilers";
 export * from "./storage";
+export * from "./tags";
 export * from "./terms";

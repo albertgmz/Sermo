@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { FEATURE_KINDS, NODE_TYPES, NODE_WATCH_MODES } from "../db/schema";
+import { MAX_THREAD_TAGS } from "../limits";
 import { defineContract } from "../operation";
 import { Attachment, AttachmentIds } from "./attachments";
 import {
@@ -15,6 +16,7 @@ import {
   pageInput,
   ReactionSummary,
   ResolvedPermissions,
+  TagInput,
   Timestamp,
   Title,
   UserSummary,
@@ -378,6 +380,8 @@ export const threadsGet = defineContract({
   input: z.object({ threadId: Id, countView: z.boolean().default(true) }),
   output: z.object({
     thread: Thread,
+    /** The thread's tags (their names), alphabetically. */
+    tags: z.array(z.string()),
     featured: FeatureKind.nullable(),
     seo: SeoMetadata,
     node: z.object({ id: Id, title: z.string() }),
@@ -385,6 +389,8 @@ export const threadsGet = defineContract({
     permissions: z.object({
       canReply: z.boolean(),
       canEditTitle: z.boolean(),
+      /** threads.update would accept a change of the thread's tags. */
+      canEditTags: z.boolean(),
       canModerate: z.boolean(),
       /** threads.delete would accept it. */
       canDelete: z.boolean(),
@@ -406,7 +412,12 @@ export const threadsGet = defineContract({
 
 export const threadsCreate = defineContract({
   name: "threads.create",
-  summary: "Start a thread in a forum, optionally with an active prefix.",
+  summary:
+    "Start a thread in a forum, optionally with an active prefix and up to 10 `tags`. The " +
+    "thread's tags are those, plus the hashtags of the opening post (replies' hashtags only " +
+    "link). Putting tags on a thread needs tag.apply; a tag nobody used before needs " +
+    "tag.create (without it a typed `#word` that is no tag stays plain text, and a listed one " +
+    "is refused). Tags beyond 10 are refused.",
   kind: "write",
   input: z.object({
     nodeId: Id,
@@ -414,6 +425,7 @@ export const threadsCreate = defineContract({
     body: Body,
     attachmentIds: AttachmentIds,
     prefixId: Id.nullable().default(null),
+    tags: z.array(TagInput).max(MAX_THREAD_TAGS).default([]),
   }),
   output: z.object({ thread: Thread, post: PostDetail }),
 });
@@ -421,14 +433,19 @@ export const threadsCreate = defineContract({
 export const threadsUpdate = defineContract({
   name: "threads.update",
   summary:
-    "Change a thread's title, its prefix, or both (`prefixId: null` removes the prefix; a new " +
-    "prefix must be active). Author (while unlocked) or moderator.",
+    "Change a thread's title, its prefix, its tags, or any of them (`prefixId: null` removes " +
+    "the prefix; a new prefix must be active). `tags` replaces the thread's whole tag list " +
+    "(at most 10; an empty list clears it): only the thread's author (while unlocked) or " +
+    "staff may set it, with tag.apply, and a tag nobody used before needs tag.create. A " +
+    "moderator may set the title and prefix (forum.editAny) or the tags (forum.editAny or " +
+    "tag.manage). Author (while unlocked) or moderator.",
   kind: "write",
   input: z.object({
     ...moderationNotice,
     threadId: Id,
     title: Title.optional(),
     prefixId: Id.nullable().optional(),
+    tags: z.array(TagInput).max(MAX_THREAD_TAGS).optional(),
   }),
   output: Thread,
 });

@@ -78,6 +78,12 @@ interface MessageRow {
   attachment_count: number;
 }
 
+/**
+ * A hashtag in a message links to a tag that exists. Conversations are private: they never make a
+ * tag or tag a thread, and the tag page lists threads only.
+ */
+const LINK_HASHTAGS = { hashtags: { create: false, slots: 0 } };
+
 export const inboxSql =
   "SELECT c.*, cp.last_read_message_id FROM conversation_participants cp JOIN conversations c ON c.id = cp.conversation_id WHERE cp.user_id = ?1 AND cp.state = 'active' AND (cp.last_message_at, cp.conversation_id) < (?2, ?3) ORDER BY cp.last_message_at DESC, cp.conversation_id DESC LIMIT ?4";
 export const participantsSql =
@@ -399,7 +405,7 @@ export const conversationsCreateOp = implement(conversationsCreate, (ctx, actor,
   if (ignoredByRecipient(ctx, actor, starter.userId, ids)) throw new ForbiddenError();
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderModeratedContent(ctx, actor, content);
+    const refs = renderModeratedContent(ctx, actor, content, LINK_HASHTAGS);
     const html = refs.html;
     const now = ctx.now();
     const { conversationId, messageId } = writeTx(ctx, () => {
@@ -530,7 +536,7 @@ export const conversationsReplyOp = implement(conversationsReply, (ctx, actor, i
   requireAttach(ctx, actor, input.attachmentIds);
   return withSpamCheck(ctx, actor, input.body, "message", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, false);
-    const refs = renderModeratedContent(ctx, actor, content);
+    const refs = renderModeratedContent(ctx, actor, content, LINK_HASHTAGS);
     const html = refs.html;
     const now = ctx.now();
     const messageId = writeTx(ctx, () => {
@@ -864,6 +870,7 @@ export const conversationsUpdateMessageOp = implement(
     requireAttach(ctx, actor, input.attachmentIds, message.id);
     const content = prepareModeratedContent(ctx, actor, input.body, false);
     const refs = renderModeratedContent(ctx, actor, content, {
+      ...LINK_HASHTAGS,
       edit: {
         contentType: "conversation_message",
         contentId: message.id,

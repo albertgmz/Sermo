@@ -61,6 +61,8 @@ export interface Facts {
   /** Awards held, each grant counting, and the XP of those grants. */
   awardCount: number;
   awardXp: number;
+  /** Tags the member has put on threads that still carry them. */
+  tagCount: number;
   /** The measures of the conditions the loader was asked about, by `measureKey`. */
   measures: Map<string, Measure>;
 }

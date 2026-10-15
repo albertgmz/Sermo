@@ -1,7 +1,7 @@
 import type { Ctx } from "../../context";
 import { prepared } from "../../context";
 import type { DomainEvent } from "../../events";
-import { counted, countOf, listed } from "./build";
+import { counted, countOf, listed, refreshing, withValue } from "./build";
 import type { Spec } from "./types";
 
 /** A new reply changes the replies its thread's author has received. */
@@ -13,6 +13,29 @@ function threadAuthorOfReply(ctx: Ctx, event: DomainEvent): number[] {
     ),
   ).get(event.targetId);
   return row ? [row.user_id] : [];
+}
+
+/**
+ * Whoever put the tags a thread carries, when the thread is made, its tags change or its
+ * opening post (whose hashtags are tags) is edited.
+ */
+function taggers(ctx: Ctx, event: DomainEvent): number[] {
+  if (event.targetType === "thread")
+    return prepared(ctx, "shared.criteriaThreadTaggers", () =>
+      ctx.sqlite.prepare<{ added_by: number }, [number]>(
+        "SELECT DISTINCT added_by FROM thread_tags WHERE thread_id = ?1 AND added_by IS NOT NULL",
+      ),
+    )
+      .all(event.targetId)
+      .map((row) => row.added_by);
+  if (event.targetType !== "post" || event.type !== "content.edited") return [];
+  return prepared(ctx, "shared.criteriaPostTaggers", () =>
+    ctx.sqlite.prepare<{ added_by: number }, [number]>(
+      "SELECT DISTINCT tt.added_by FROM posts p JOIN threads t ON t.id = p.thread_id AND t.first_post_id = p.id JOIN thread_tags tt ON tt.thread_id = t.id WHERE p.id = ?1 AND tt.added_by IS NOT NULL",
+    ),
+  )
+    .all(event.targetId)
+    .map((row) => row.added_by);
 }
 
 /**
@@ -78,6 +101,13 @@ export const contentSpecs: readonly Spec[] = [
       "files_uploader",
       "purpose = 'attachment' AND deleted_at IS NULL AND visibility != 'unattached'",
     ),
+  ),
+  // The tags the member has put on threads that still carry them: a counter on the member's row
+  // that triggers on thread_tags keep, so it is read like the awards held, never counted.
+  refreshing(
+    withValue("tags_added_at_least", "atLeast", "count", "member", (f, v) => f.tagCount >= v),
+    ["content.created", "content.edited"],
+    taggers,
   ),
   counted("bookmarks_at_least", countOf("bookmarks", "user_id", "bookmarks_user")),
   counted("watching_forums_at_least", countOf("node_watches", "user_id", "node_watches_user")),

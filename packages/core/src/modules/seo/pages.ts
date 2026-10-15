@@ -7,7 +7,7 @@ import { can, getNodeTree, permissionsOf } from "../../permissions";
 import { readGates } from "../forums/read-gates";
 import { mayViewProfile, type ProfileAccess, profileAccess } from "../profiles/shared";
 import { excerptFromMarkdown, maskMarkupForExcerpt } from "./excerpt";
-import { canonicalUrl, resolveCanonical } from "./paths";
+import { canonicalUrl, resolveCanonical, tagUrl } from "./paths";
 
 /** What of a post the structured data and the description carry. */
 const SEO_TEXT_LIMIT = 3000;
@@ -297,6 +297,32 @@ export function profileSeo(
     redirect: canonical.redirect,
     robots: indexable ? "index,follow" : "noindex,follow",
     jsonLd: indexable ? [jsonLd] : [],
+  };
+}
+
+/** A tag page is indexed only with at least this many threads open to guests. */
+export const TAG_INDEX_MIN_THREADS = 3;
+
+/**
+ * The metadata of a tag's page. `publicThreads` is how many of its threads guests may open (it
+ * need count no further than `TAG_INDEX_MIN_THREADS`): a page below that is a thin page and is
+ * kept out of the index.
+ */
+export function tagSeo(
+  baseURL: string,
+  name: string,
+  requestedPath: string,
+  publicThreads: number,
+  siteName: string,
+): SeoPage {
+  const canonical = tagUrl(baseURL, name);
+  return {
+    title: `#${name} | ${siteName}`,
+    description: `Threads tagged #${name} on ${siteName}.`,
+    canonical,
+    redirect: requestedPath.length > 0 && new URL(requestedPath, canonical).href !== canonical,
+    robots: publicThreads >= TAG_INDEX_MIN_THREADS ? "index,follow" : "noindex,follow",
+    jsonLd: [],
   };
 }
 

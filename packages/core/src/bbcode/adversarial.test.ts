@@ -34,6 +34,9 @@ function percentile95(times: number[]): number {
   return sorted[Math.ceil(sorted.length * 0.95) - 1]!;
 }
 
+// Tags are looked up and made, up to the cap of a thread.
+const HASHTAGS = { create: true, slots: 10 };
+
 describe("adversarial inputs", () => {
   test("every input finishes in time, with HTML or a refusal that is not the time bound", async () => {
     const { ctx, reader, postId } = await world();
@@ -46,7 +49,7 @@ describe("adversarial inputs", () => {
       // The time bound is not what holds these back: it is lifted for the measurement.
       const run = () =>
         input.withActor
-          ? renderContent(ctx, reader, source, { limitMs: 60_000 })
+          ? renderContent(ctx, reader, source, { limitMs: 60_000, hashtags: HASHTAGS })
           : renderBbCode(source, { limitMs: 60_000 });
       const measure = () => {
         const times: number[] = [];
@@ -67,7 +70,7 @@ describe("adversarial inputs", () => {
       if (p95 > P95_LIMIT_MS && measure() > P95_LIMIT_MS) slow.push(`${input.name}: ${p95}`);
       // And the real bound does not trip on any of them either.
       try {
-        if (input.withActor) renderContent(ctx, reader, source);
+        if (input.withActor) renderContent(ctx, reader, source, { hashtags: HASHTAGS });
         else renderBbCode(source);
       } catch (error) {
         if ((error as ValidationError).message === TOO_COMPLEX) tripped.push(input.name);

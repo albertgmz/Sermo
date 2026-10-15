@@ -14,6 +14,7 @@ import {
   ValidationError,
 } from "../../errors";
 import { publishEvent } from "../../events";
+import { MAX_THREAD_TAGS } from "../../limits";
 import { implement, markPublic } from "../../operation";
 import { decodeCursor, encodeCursor } from "../../pagination";
 import {
@@ -55,6 +56,15 @@ import { logIp } from "../security/log";
 import { seoForNode, seoForThread } from "../seo";
 import { excerptFromMarkdown } from "../seo/excerpt";
 import { resolvedFileUrl } from "../storage/url";
+import { hashtagRules, mayTag, requireTagCreate } from "../tags/policy";
+import {
+  addThreadTags,
+  manualTagCount,
+  replaceThreadTags,
+  syncPostTags,
+  tagKeys,
+  threadTagNames,
+} from "../tags/store";
 import { addFeature, endStaffFeature, featureKinds } from "./features";
 import { forumPrefixOperations, requireActivePrefix } from "./prefixes";
 import { nodeTabs, threadPresenter } from "./presentation";
@@ -1078,6 +1088,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
   const userId = actorUserId(actor);
   return {
     thread: threadValue(ctx, actor, row.id),
+    tags: threadTagNames(ctx, row.id),
     featured: featureKinds(ctx, [row.id], ctx.now()).get(row.id) ?? null,
     seo: { ...seoForThread(ctx, actor, row.id), redirect: targetId !== input.threadId },
     node: { id: node.id, title: node.title },
@@ -1102,6 +1113,7 @@ export const threadsGetOp = implement(contracts.threadsGet, (ctx, actor, input) 
         nodeRows(ctx, node.id).get(node.id),
       ),
       canEditTitle: mayEditTitle(ctx, actor, row),
+      canEditTags: mayTag(ctx, actor, row),
       canModerate: canModerate(ctx, actor, node.id),
       canDelete: row.state !== "deleted" && mayDeleteThread(permissionsOf(ctx, actor), row),
       canLock: mayLockThread(ctx, actor, row, !row.is_locked),
@@ -1454,10 +1466,23 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
   checkNodePostingRules(ctx, actor, input.nodeId);
   if (input.attachmentIds?.length)
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: input.nodeId });
+  // The tags listed, then the hashtags of the opening post as far as the cap leaves room.
+  const listedTags = tagKeys(input.tags);
+  if (listedTags.length > 0) {
+    requirePermission(ctx, actor, "tag.apply");
+    requireTagCreate(ctx, actor, listedTags);
+  }
+  const mayCreateTags = can(ctx, actor, "tag.create");
   return withSpamCheck(ctx, actor, input.body, "forum-post", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
     permissionValue(ctx, actor, "mention.maxPerItem");
-    const refs = renderModeratedContent(ctx, actor, content);
+    const refs = renderModeratedContent(ctx, actor, content, {
+      hashtags: hashtagRules(
+        ctx,
+        actor,
+        can(ctx, actor, "tag.apply") ? MAX_THREAD_TAGS - listedTags.length : 0,
+      ),
+    });
     const html = refs.html;
     const ids = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
@@ -1504,6 +1529,16 @@ export const threadsCreateOp = implement(contracts.threadsCreate, (ctx, actor, i
       forumDb(ctx)
         .prepare("UPDATE threads SET first_post_id = ?1, last_post_id = ?1 WHERE id = ?2")
         .run(post.id, thread.id);
+      addThreadTags(
+        ctx,
+        thread.id,
+        user.userId,
+        [
+          ...listedTags.map((name) => ({ name, fromPost: false })),
+          ...refs.hashtags.map((name) => ({ name, fromPost: true })),
+        ],
+        mayCreateTags,
+      );
       if (state === "visible") {
         forumDb(ctx)
           .prepare(
@@ -1542,7 +1577,10 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
     requirePermission(ctx, actor, "forum.uploadAttachments", { nodeId: row.node_id });
   return withSpamCheck(ctx, actor, input.body, "reply", (spam) => {
     const content = prepareModeratedContent(ctx, actor, input.body, true);
-    const refs = renderModeratedContent(ctx, actor, content);
+    // A reply's hashtags link to tags that exist; they never tag the thread or make a tag.
+    const refs = renderModeratedContent(ctx, actor, content, {
+      hashtags: { create: false, slots: 0 },
+    });
     const html = refs.html;
     const id = writeTx(ctx, () => {
       const decision = prepareModeratedContent(ctx, actor, input.body, true);
@@ -1610,14 +1648,31 @@ export const postsCreateOp = implement(contracts.postsCreate, (ctx, actor, input
 export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, input) => {
   requireAuthenticated(actor);
   const { row } = requireThread(ctx, actor, input.threadId);
-  if (input.title === undefined && input.prefixId === undefined)
-    throw new ValidationError("Send a title, a prefix, or both.");
-  if (!mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
+  if (input.title === undefined && input.prefixId === undefined && input.tags === undefined)
+    throw new ValidationError("Send a title, a prefix, tags, or any of them.");
+  // The title and prefix are the author's while unlocked; tags are the author's or staff's.
+  const editsThread = input.title !== undefined || input.prefixId !== undefined;
+  const wantedTags = input.tags === undefined ? undefined : tagKeys(input.tags);
+  if (editsThread && !mayEditTitle(ctx, actor, row)) throw new ForbiddenError();
+  if (wantedTags) {
+    if (!mayTag(ctx, actor, row)) throw new ForbiddenError();
+    requireTagCreate(ctx, actor, wantedTags);
+  }
   requireTermsAccepted(ctx, actor);
   writeTx(ctx, () => {
     const moderator = currentActor(ctx, actor);
     const current = requireThread(ctx, moderator, row.id).row;
-    if (!mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
+    if (editsThread && !mayEditTitle(ctx, moderator, current)) throw new ForbiddenError();
+    if (wantedTags) {
+      if (!mayTag(ctx, moderator, current)) throw new ForbiddenError();
+      replaceThreadTags(
+        ctx,
+        row.id,
+        actorUserId(actor)!,
+        wantedTags,
+        can(ctx, moderator, "tag.create"),
+      );
+    }
     if (input.prefixId != null && input.prefixId !== current.prefix_id)
       requireActivePrefix(ctx, input.prefixId);
     forumDb(ctx)
@@ -1643,7 +1698,10 @@ export const threadsUpdateOp = implement(contracts.threadsUpdate, (ctx, actor, i
         "thread",
         row.id,
         input.reason,
-        input.prefixId === undefined ? {} : { prefixId: input.prefixId },
+        {
+          ...(input.prefixId === undefined ? {} : { prefixId: input.prefixId }),
+          ...(wantedTags ? { tags: wantedTags } : {}),
+        },
         current.node_id,
       );
   });
@@ -1689,8 +1747,13 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
     throw new ForbiddenError();
   requireTermsAccepted(ctx, actor);
   const content = prepareModeratedContent(ctx, actor, input.body, false);
+  // The opening post's hashtags are its thread's tags, for those who may set them.
+  const tagsFollowPost = post.id === thread.row.first_post_id && mayTag(ctx, actor, thread.row);
   const refs = renderModeratedContent(ctx, actor, content, {
     edit: { contentType: "post", contentId: post.id, authorId: post.user_id },
+    hashtags: tagsFollowPost
+      ? hashtagRules(ctx, actor, MAX_THREAD_TAGS - manualTagCount(ctx, thread.row.id))
+      : { create: false, slots: 0 },
   });
   const html = refs.html;
   writeTx(ctx, () => {
@@ -1733,6 +1796,14 @@ export const postsUpdateOp = implement(contracts.postsUpdate, (ctx, actor, input
       .run(refs.source, html, bbCodeText(refs.source), post.id);
     const { newlyMentioned } = storeContentReferences(ctx, "post", post.id, refs);
     storeSpoilers(ctx, "post", post.id, refs.spoilers);
+    if (tagsFollowPost && mayTag(ctx, moderator, now.thread.row))
+      syncPostTags(
+        ctx,
+        now.thread.row.id,
+        actorUserId(actor)!,
+        refs.hashtags,
+        can(ctx, moderator, "tag.create"),
+      );
     if (decision.moderated) moderateEditedContent(ctx, moderator, { type: "post", id: post.id });
     // A holder of content.editSilently leaves no "edited" note.
     if (!can(ctx, moderator, "content.editSilently"))

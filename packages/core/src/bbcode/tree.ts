@@ -1,5 +1,6 @@
 import { ValidationError } from "../errors";
 import type { Deadline } from "./deadline";
+import { HASHTAG_SOURCE, normalizeTag } from "./hashtag";
 import { ADDRESS_CHAR, type Tok, URL_PATTERN } from "./scan";
 
 const MAX_QUOTE_DEPTH = 10;
@@ -39,16 +40,29 @@ export interface MentionNode {
   displayName?: string;
 }
 
+/** A `#tag` in the text. `link` is the tag it reaches once resolved (null: shown as typed). */
+export interface HashtagNode {
+  t: "hashtag";
+  /** The key of the tag. */
+  tag: string;
+  /** As typed, with the `#`. */
+  text: string;
+  link: string | null;
+}
+
 export type Node =
   | { t: "text"; text: string }
   | { t: "link"; href: string; text: string }
   | MentionNode
+  | HashtagNode
   | { t: "atom"; tok: Tok; inline: boolean }
   | El;
 
 export interface Tree {
   kids: Node[];
   mentions: MentionNode[];
+  /** The hashtags, in source order. */
+  hashtags: HashtagNode[];
   /** The quotes that name a post, in source order. */
   quotes: El[];
 }
@@ -83,10 +97,10 @@ const tooDeep = (limit: number) =>
 
 /**
  * What the text between tags can hold besides text: a bare address (http, https or www) becomes a
- * link and `@name` or `@"two words"` a mention. One pass, every part bounded.
+ * link, `@name` or `@"two words"` a mention and `#tag` a hashtag. One pass, every part bounded.
  */
 const INLINE_MARKS = new RegExp(
-  `(?<![\\p{L}\\p{N}_])(?:https?:\\/\\/|www\\.)${ADDRESS_CHAR}+|(?<=^|[\\s\\p{P}])@(?:"([\\p{L}\\p{N}_][\\p{L}\\p{N} ._-]{1,30}[\\p{L}\\p{N}_])"|([\\p{L}\\p{N}_][\\p{L}\\p{N}._-]{1,30}[\\p{L}\\p{N}_]))(?![\\p{L}\\p{N}_-])`,
+  `(?<![\\p{L}\\p{N}_])(?:https?:\\/\\/|www\\.)${ADDRESS_CHAR}+|(?<=^|[\\s\\p{P}])@(?:"([\\p{L}\\p{N}_][\\p{L}\\p{N} ._-]{1,30}[\\p{L}\\p{N}_])"|([\\p{L}\\p{N}_][\\p{L}\\p{N}._-]{1,30}[\\p{L}\\p{N}_]))(?![\\p{L}\\p{N}_-])|${HASHTAG_SOURCE}`,
   "giu",
 );
 
@@ -124,6 +138,7 @@ interface Frame {
 
 export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
   const mentions: MentionNode[] = [];
+  const hashtags: HashtagNode[] = [];
   const quotes: El[] = [];
   const root: Frame = {
     el: null,
@@ -138,7 +153,7 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
   const stack: Frame[] = [root];
 
   const splitText = (frame: Frame, text: string): void => {
-    if (frame.rich || !/@|http|www\./i.test(text)) {
+    if (frame.rich || !/[@#]|http|www\./i.test(text)) {
       frame.kids.push({ t: "text", text });
       return;
     }
@@ -148,6 +163,16 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
       deadline.tick();
       if (frame.inLink) continue;
       const from = found.index;
+      if (found[0][0] === "#") {
+        const tag = normalizeTag(found[3]!);
+        if (!tag) continue;
+        if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
+        const hashtag: HashtagNode = { t: "hashtag", tag, text: found[0], link: null };
+        hashtags.push(hashtag);
+        frame.kids.push(hashtag);
+        last = from + found[0].length;
+        continue;
+      }
       if (found[0][0] === "@") {
         if (from > last) frame.kids.push({ t: "text", text: text.slice(last, from) });
         const mention: MentionNode = {
@@ -274,5 +299,5 @@ export function build(source: string, toks: Tok[], deadline: Deadline): Tree {
   }
   if (position < source.length) root.pending += source.slice(position);
   flush(root);
-  return { kids: root.kids, mentions, quotes };
+  return { kids: root.kids, mentions, hashtags, quotes };
 }

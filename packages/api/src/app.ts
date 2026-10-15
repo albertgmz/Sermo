@@ -319,9 +319,9 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     c.text(sitemapIndex(ctx, siteURL), 200, { "content-type": "application/xml; charset=utf-8" }),
   );
   app.get("/sitemaps/:name", (c) => {
-    const parsed = /^(node|thread|profile)-(\d+)\.xml$/.exec(c.req.param("name"));
+    const parsed = /^(node|thread|profile|tag)-(\d+)\.xml$/.exec(c.req.param("name"));
     if (!parsed) return c.json(errorBody("not_found", "Unknown sitemap."), 404);
-    const kind = parsed[1] as "node" | "thread" | "profile";
+    const kind = parsed[1] as "node" | "thread" | "profile" | "tag";
     const shard = Number(parsed[2]);
     if (!Number.isSafeInteger(shard) || shard < 1)
       return c.json(errorBody("validation", "Invalid sitemap shard."), 400);

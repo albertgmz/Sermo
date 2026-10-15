@@ -7,6 +7,15 @@ const PREFIX: Record<SeoKind, string> = { node: "forums", thread: "threads", pro
 
 const segment = (name: string) => slugify(name, { decamelize: false }) || "item";
 
+/** A tag's page: the name is the address, there is no id or slug. */
+export function tagPath(name: string): string {
+  return `/tags/${encodeURIComponent(name)}`;
+}
+
+export function tagUrl(baseURL: string, name: string): string {
+  return new URL(tagPath(name), requireBaseURL(baseURL)).href;
+}
+
 export function canonicalPath(kind: SeoKind, id: number, name: string): string {
   if (!Number.isSafeInteger(id) || id < 1) throw new RangeError("Invalid SEO id");
   return `/${PREFIX[kind]}/${id}-${segment(name)}`;

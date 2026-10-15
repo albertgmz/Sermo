@@ -299,6 +299,8 @@ export const users = sqliteTable(
     referralCount: counter("referral_count"),
     /** Awards currently held, counting each grant (the sum of member_award_totals.count). */
     awardCount: counter("award_count"),
+    /** Tags the member has put on threads that still carry them (kept by triggers on thread_tags). */
+    tagCount: counter("tag_count"),
     /**
      * A super admin may act on any member, administrators included, and is the only one who can
      * grant or remove this flag. There is always at least one.
@@ -2277,6 +2279,68 @@ export const forumTabs = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (t) => [index("forum_tabs_position").on(t.position, t.id)],
+);
+
+/**
+ * A tag (hashtag): `name` is the key, NFC and lowercase, 1-50 letters, numbers and `_`.
+ * `thread_count` counts every row of thread_tags of the tag, whatever the thread's state (a
+ * trigger keeps it); it is only a first filter, who may see what is decided at read time.
+ */
+export const tags = sqliteTable(
+  "tags",
+  {
+    id: integer("id").primaryKey(),
+    name: text("name").notNull(),
+    threadCount: counter("thread_count"),
+    createdBy: integer("created_by"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("tags_name").on(t.name),
+    // The sitemap: tags with enough threads.
+    index("tags_thread_count").on(t.threadCount, t.id),
+  ],
+);
+
+/** Old names of a renamed or merged tag: stored links and typed hashtags still reach it. */
+export const tagAliases = sqliteTable(
+  "tag_aliases",
+  {
+    id: integer("id").primaryKey(),
+    name: text("name").notNull(),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("tag_aliases_name").on(t.name), index("tag_aliases_tag").on(t.tagId)],
+);
+
+/**
+ * The tags of a thread. `from_post` marks the ones the opening post's hashtags put there (an
+ * edit of that post takes them off again); `sort_at` copies threads.sort_at (a trigger keeps it)
+ * so a tag page pages by activity without reading every thread. Triggers also keep
+ * tags.thread_count and users.tag_count.
+ */
+export const threadTags = sqliteTable(
+  "thread_tags",
+  {
+    id: integer("id").primaryKey(),
+    threadId: integer("thread_id")
+      .notNull()
+      .references(() => threads.id),
+    tagId: integer("tag_id")
+      .notNull()
+      .references(() => tags.id),
+    addedBy: integer("added_by"),
+    fromPost: bool("from_post").notNull().default(false),
+    sortAt: integer("sort_at").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("thread_tags_thread_tag").on(t.threadId, t.tagId),
+    // The tag page: WHERE tag_id = ? ORDER BY sort_at DESC, thread_id DESC.
+    index("thread_tags_hub").on(t.tagId, t.sortAt, t.threadId),
+  ],
 );
 
 export const RANKING_KINDS = ["mostReplied", "mostReacted", "mostViewed", "hot"] as const;

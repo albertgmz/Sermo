@@ -3,6 +3,7 @@ import { type Ctx, prepared } from "../../context";
 import { ConflictError } from "../../errors";
 import { moveCredits } from "../../shared/credits";
 import { enqueueJob } from "../jobs";
+import { purgeThreadTags } from "../tags/store";
 
 /**
  * Removing content for good: the rows that hang off a post, a profile post or a wall comment,
@@ -262,6 +263,7 @@ function purgeThreadRows(ctx: Ctx, threadId: number): void {
   for (const [key, sql] of bySource) statement(ctx, key, sql).run("thread", json);
   removeAlerts(ctx, "thread", aboutContent, "thread", json);
   removeAlerts(ctx, "inThread", "n.thread_id = ?1", threadId);
+  purgeThreadTags(ctx, threadId);
   for (const [key, sql] of [
     ["features", "DELETE FROM thread_features WHERE thread_id = ?1"],
     ["reads", "DELETE FROM thread_reads WHERE thread_id = ?1"],

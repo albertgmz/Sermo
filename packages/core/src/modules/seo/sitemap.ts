@@ -3,9 +3,11 @@ import { type Ctx, prepared } from "../../context";
 import { permissionsOf } from "../../permissions";
 import { readGates } from "../forums/read-gates";
 import { siteOpenToGuests } from "../members/site-access";
-import { canonicalUrl, requireBaseURL } from "./paths";
+import { hubThreads } from "../tags/hub";
+import { TAG_INDEX_MIN_THREADS } from "./pages";
+import { canonicalUrl, requireBaseURL, tagUrl } from "./paths";
 
-export type SitemapKind = "node" | "thread" | "profile";
+export type SitemapKind = "node" | "thread" | "profile" | "tag";
 export interface SitemapEntry {
   id: number;
   url: string;
@@ -100,6 +102,28 @@ export function* sitemapEntries(
       }
     }
   }
+  if (kind === "tag") {
+    // Only tags with enough threads open to guests: `thread_count` is the cheap first filter.
+    const rows = prepared(ctx, "seo.sitemapTags", () =>
+      ctx.sqlite.prepare<{ id: number; name: string }, [number, number]>(
+        "SELECT id,name FROM tags WHERE id>?1 AND thread_count>=?2 ORDER BY id LIMIT 500",
+      ),
+    );
+    for (;;) {
+      const batch = rows.all(after, TAG_INDEX_MIN_THREADS);
+      if (!batch.length) return;
+      for (const row of batch) {
+        after = row.id;
+        const open = hubThreads(ctx, GUEST, row.id, null, TAG_INDEX_MIN_THREADS);
+        if (open.length >= TAG_INDEX_MIN_THREADS)
+          yield {
+            id: row.id,
+            url: tagUrl(baseURL, row.name),
+            lastmod: new Date(open[0]!.sort_at).toISOString(),
+          };
+      }
+    }
+  }
   if (!guest.can("profile.view")) return;
   const rows = prepared(ctx, "seo.sitemapProfiles", () =>
     ctx.sqlite.prepare<
@@ -156,7 +180,7 @@ export function sitemapIndex(ctx: Ctx, baseURL: string): string {
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
   ];
-  for (const kind of ["node", "thread", "profile"] as const) {
+  for (const kind of ["node", "thread", "profile", "tag"] as const) {
     let count = 0;
     let lastmod = "";
     const append = () => {

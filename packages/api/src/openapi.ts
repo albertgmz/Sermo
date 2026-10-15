@@ -311,9 +311,12 @@ export async function buildOpenApiDocument(ctx: Ctx): Promise<object> {
     [
       "/sitemaps/{name}",
       "seo.sitemapShard",
-      "One sitemap shard, named `node-<n>.xml`, `thread-<n>.xml` or `profile-<n>.xml`.",
+      "One sitemap shard, named `node-<n>.xml`, `thread-<n>.xml`, `profile-<n>.xml` or `tag-<n>.xml`.",
       "application/xml",
-      { name: "name", schema: { type: "string", pattern: "^(node|thread|profile)-[0-9]+\\.xml$" } },
+      {
+        name: "name",
+        schema: { type: "string", pattern: "^(node|thread|profile|tag)-[0-9]+\\.xml$" },
+      },
       [400, 404],
     ],
     ["/feed.atom", "seo.siteFeed", "The Atom feed of the site.", "application/atom+xml", null, []],

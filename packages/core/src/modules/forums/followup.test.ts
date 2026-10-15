@@ -232,6 +232,7 @@ describe("forum follow-up coverage", () => {
     expect((await call(ctx, threadsGetOp, member, { threadId: t.thread.id })).permissions).toEqual({
       canReply: true,
       canEditTitle: true,
+      canEditTags: true,
       canModerate: false,
       canDelete: false,
       canLock: false,
@@ -258,6 +259,7 @@ describe("forum follow-up coverage", () => {
     expect((await call(ctx, threadsGetOp, member, { threadId: t.thread.id })).permissions).toEqual({
       canReply: false,
       canEditTitle: false,
+      canEditTags: false,
       canModerate: false,
       canDelete: false,
       canLock: false,

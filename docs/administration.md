@@ -82,6 +82,7 @@ Registered needs the ones it uses.
 | `profile.deleteAccount`: delete one's own account from **Security** on `/account/security` (`users.deleteOwnAccount`). Turn it off for a group with `never`; the page then leaves the section out. A member under a temporary ban holds no permissions, so cannot use it. | flag | members |
 | `profile.uploadAvatar`, `profile.uploadCover`: upload or set the picture. Taking it off needs nothing. | flags | members |
 | `bookmark.create`: adding a bookmark. Removing one needs nothing. | flag | members |
+| `tag.apply`, `tag.create`: put tags on a thread (its author, and staff on any thread), and make a tag nobody used before. Without `tag.create` a member uses tags that exist and a typed `#word` that is no tag stays plain text. See Tags below. | flags | posters |
 | `profile.renameNeedsApproval`: the member cannot change their own username and is told to ask staff, who can rename them. There is no request queue. | flag | nobody; Administrator `never` |
 | `profile.renameLimit` with `profile.renameWindowDays`: at most that many own username changes within that many days. For the limit -1 is unlimited and 0 allows none, and the highest of a member's groups wins; for the days -1 counts every change ever, 0 is the same as unset (every change, unless one of the member's groups sets days), and when groups differ the longest window applies, so give the groups of one member the same window. Free and bought changes both count. | integers | -1 |
 | `profilePost.postOwn`, `profilePost.post`: post on one's own profile, and on other members' profiles. | flags | posters |
@@ -610,6 +611,7 @@ moderation (deleting, approving, editing posts) is not rank-checked.
 | `member.banMaxDays` | The longest ban the holder may give, in days; −1 allows a permanent one, 0 none; with no entry in any of the member's groups, 30. Banning also needs `member.ban` | Moderator 30, Administrator unlimited |
 | `profile.bypassPrivacy` | Seeing and posting on profiles whatever their privacy settings | Moderator, Administrator |
 | `wordFilter.view` | Listing word filters | Moderator, Administrator |
+| `tag.manage` | Renaming, merging and deleting tags (`tags.list`, `tags.rename`, `tags.merge`, `tags.delete`); setting the tags of any thread | Moderator, Administrator |
 | `moderation.access` | Marks the member as a moderator in `auth.me` (`isModerator`) so clients can show the queues | Moderator, Administrator |
 | `member.ban` | Bans, up to the holder's `member.banMaxDays` | Moderator, Administrator (a site that already exists needs the entry added to the Moderator group once) |
 | `member.spamCleanup` | Spam cleanup, which also bans for good: `member.banMaxDays` does not bound it | Administrator |
@@ -1405,6 +1407,35 @@ Sermo adds:
 
 Quotes and spoilers can be nested inside each other up to 10 levels deep each, and any tags up to
 30 levels deep in total.
+
+## Tags
+
+A hashtag is `#` and 1 to 50 letters, numbers and `_` with at least one letter (accents work),
+not preceded by a letter, number, `&` or `/`; `a#b`, `&#123;` and the fragment of an address are
+not tags. Code, plain text, links, addresses and the attribution of a quote hold none. A name is
+compared in NFC and lowercase. In posts, thread opening posts and conversation messages a
+hashtag that names a tag links to `/tags/<name>`; wall posts, comments, signatures and pages
+show it as typed.
+
+- **A thread's tags** are the ones set when it is started (`tags` of `threads.create`) or later
+  (`tags` of `threads.update`, which replaces the list), and the hashtags of its opening post.
+  Only the thread's author (while it is unlocked) and staff (`forum.editAny` in the forum, or
+  `tag.manage`) may set them, with `tag.apply`; a thread holds at most 10. Editing the opening
+  post takes off the tags its earlier hashtags put there; tags set by hand stay. Hashtags in
+  replies only link, and an unknown one stays plain text; so do those in conversations, which
+  never create a tag or tag a thread.
+- **The tag page** (`tags.get`, `tags.threads`, `/tags/<name>` in the web app) lists the threads
+  carrying the tag, newest activity first, under the rules of a forum's thread list (forums the
+  viewer cannot open, `forum.viewOthers`, moderated and deleted threads, merged threads out).
+  A tag with nothing the viewer may open does not exist for them. It is indexed, and listed in
+  the sitemap (`tag-<n>.xml`), only with at least 3 threads open to guests.
+- **Managing.** Renaming or merging keeps the old name as an alias, so links and hashtags already
+  written keep working; deleting a tag leaves them as links to a page that no longer exists. A tag
+  that no thread carries any more goes away by itself. The screen is `/admin/tags`.
+- **Criterion.** `tags_added_at_least` (tags a member has put on threads that still carry them) is
+  a counter on the member's row, so promotions, awards, notices and the shop can use it.
+- **Search.** Search treats `#rust` as the word `rust`; the web app sends a search for a single
+  hashtag that names a tag to that tag's page.
 
 ## Operations
 

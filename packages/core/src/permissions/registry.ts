@@ -187,6 +187,30 @@ export const PERMISSIONS = {
     unit: "count",
     defaults: { unconfirmed: 10, registered: 10, moderator: -1, admin: -1 },
   },
+  /** Put tags on a thread (its author, and staff on any thread); only tags that already exist. */
+  "tag.apply": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Make a tag nobody used before: by listing it on a thread or typing a new #hashtag in an opening post. */
+  "tag.create": {
+    scope: "global",
+    category: "general",
+    type: "flag",
+    defaults: POSTERS,
+    requiresAccount: true,
+  },
+  /** Rename, merge and delete tags (the tags screen of the staff panel). */
+  "tag.manage": {
+    scope: "global",
+    category: "moderation",
+    type: "flag",
+    defaults: STAFF,
+    requiresAccount: true,
+  },
   // Anti-spam. The daily limits count what the member made in the last 24 hours, whatever became
   // of it afterwards (-1 or 0: no limit; to stop a group writing, take its posting permission). The bypasses are for members whose writes the
   // site's flood interval, word filter or spam check should not hold back.

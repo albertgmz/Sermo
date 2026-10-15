@@ -3,7 +3,7 @@ import type { Deadline } from "./deadline";
 import { escapeHtml } from "./escape";
 import { highlightCode } from "./highlight";
 import { colorValue, FONT_CLASS, type Tok } from "./scan";
-import { type El, isBlock, type MentionNode, type Node } from "./tree";
+import { type El, type HashtagNode, isBlock, type MentionNode, type Node } from "./tree";
 
 /**
  * Longer code, and code with a line longer than `HIGHLIGHT_LINE`, is shown as a plain block:
@@ -248,6 +248,13 @@ function mention(mentionNode: MentionNode): string {
   return escapeHtml(mentionNode.fallback);
 }
 
+/** A hashtag links to its tag's page once resolved; otherwise it stays as typed. */
+function hashtag(hashtagNode: HashtagNode): string {
+  if (hashtagNode.link)
+    return `<a href="/tags/${encodeURIComponent(hashtagNode.link)}" class="hashtag">${escapeHtml(hashtagNode.text)}</a>`;
+  return escapeHtml(hashtagNode.text);
+}
+
 const WRAP: Record<string, string> = { B: "strong", I: "em", U: "u", S: "del" };
 
 function quote(el: El, env: Env, inLink: boolean): string {
@@ -381,6 +388,8 @@ function node(kid: Node, env: Env, inLink: boolean, pre: boolean): string {
       return `<a href="${escapeHtml(kid.href)}">${escapeHtml(kid.text)}</a>`;
     case "mention":
       return mention(kid);
+    case "hashtag":
+      return inLink ? escapeHtml(kid.text) : hashtag(kid);
     case "atom":
       return atom(kid.tok, kid.inline, env, inLink);
     case "el":

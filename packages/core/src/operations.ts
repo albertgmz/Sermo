@@ -31,6 +31,7 @@ import { operations as shop } from "./modules/shop";
 import { operations as social } from "./modules/social";
 import { operations as spoilers } from "./modules/spoilers";
 import { operations as storage } from "./modules/storage";
+import { operations as tags } from "./modules/tags";
 import type { AnyOperation } from "./operation";
 
 /** Every implemented operation. Adapters (REST, MCP) and benchmarks consume this list. */
@@ -67,6 +68,7 @@ export const operations: readonly AnyOperation[] = [
   ...navigation,
   ...pages,
   ...spoilers,
+  ...tags,
   ...admin,
 ];
 

@@ -6,11 +6,12 @@ import { Deadline, RENDER_LIMIT_MS, TOO_COMPLEX } from "./bbcode/deadline";
 import { blockCount, renderTree, type SpoilerSink } from "./bbcode/html";
 import { MEDIA_ALLOW, MEDIA_IFRAME_HOSTS, MEDIA_SANDBOX } from "./bbcode/media";
 import { COLOR_STYLE, lex, pair } from "./bbcode/scan";
-import { build, type El } from "./bbcode/tree";
+import { build, type El, type HashtagNode } from "./bbcode/tree";
 import { type Ctx, prepared } from "./context";
 import { ValidationError } from "./errors";
 import { MAX_BODY_LENGTH } from "./limits";
 import { readGates } from "./modules/forums/read-gates";
+import { resolveTagNames } from "./modules/tags/store";
 import {
   can,
   memberActor,
@@ -88,7 +89,7 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
   allowedClasses: {
     code: ["language-*"],
-    a: ["mention", "bb-*"],
+    a: ["mention", "hashtag", "bb-*"],
     blockquote: ["quote", "bb-quote"],
     details: ["spoiler"],
     summary: ["bb-*"],
@@ -110,10 +111,21 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
 };
 
-/** Test hook: the clock the render deadline reads (milliseconds). */
+/**
+ * What a render may do with the `#tags` of the text. Without it they stay as typed. Tags that
+ * exist become links. `slots` is how many tags the content may put on its thread (0: it only
+ * links); with `create`, a tag nobody used yet takes one of the slots and links too.
+ */
+export interface HashtagRules {
+  create: boolean;
+  slots: number;
+}
+
 interface RenderTiming {
+  /** Test hook: the clock the render deadline reads (milliseconds). */
   clock?: () => number;
   limitMs?: number;
+  hashtags?: HashtagRules;
 }
 
 /**
@@ -144,7 +156,13 @@ export interface ContentReferences {
   quotes: { postId: number; userId: number }[];
 }
 /** What a render returns; `spoilers` is the sanitized HTML of each spoiler by position. */
-type Rendered = ContentReferences & { html: string; source: string; spoilers: string[] };
+type Rendered = ContentReferences & {
+  html: string;
+  source: string;
+  spoilers: string[];
+  /** The tags (names) the text puts on its thread, at most `slots`, in order of appearance. */
+  hashtags: string[];
+};
 
 /** The source with each resolved quote's opening tag naming its author and member. */
 function canonicalSource(source: string, quotes: El[]): string {
@@ -264,6 +282,28 @@ export function warmUpRenderer(): boolean {
   return true;
 }
 
+/**
+ * Decides which hashtags of a text are links, with one query for all of them: a tag that exists
+ * links to its current name, a new one links when the rules let it be made, and every other
+ * stays as typed. Returns the tags the text puts on its thread.
+ */
+function resolveHashtags(ctx: Ctx, nodes: HashtagNode[], rules: HashtagRules): string[] {
+  const known = resolveTagNames(ctx, [...new Set(nodes.map((node) => node.tag))]);
+  const chosen = new Map<string, string | null>();
+  const attach: string[] = [];
+  for (const node of nodes) {
+    if (!chosen.has(node.tag)) {
+      const name = known.get(node.tag);
+      const fits = attach.length < rules.slots;
+      const link = name ?? (rules.create && fits ? node.tag : null);
+      chosen.set(node.tag, link);
+      if (link !== null && fits && !attach.includes(link)) attach.push(link);
+    }
+    node.link = chosen.get(node.tag) ?? null;
+  }
+  return attach;
+}
+
 function renderOnce(
   source: string,
   ctx?: Ctx,
@@ -282,6 +322,7 @@ function renderOnce(
   const { mentions } = tree;
   const mentionedUserIds: number[] = [];
   const quotes: { postId: number; userId: number }[] = [];
+  const hashtags: string[] = [];
   const sink: SpoilerSink | undefined =
     ctx && actor
       ? { html: [], sanitize: (inner) => sanitizeHtml(inner, SANITIZE_OPTIONS).trim() }
@@ -360,6 +401,7 @@ function renderOnce(
       }
     }
     mentionedUserIds.push(...accepted);
+    if (timing.hashtags) hashtags.push(...resolveHashtags(ctx, tree.hashtags, timing.hashtags));
 
     const quoteIds = [...new Set(tree.quotes.map((el) => el.quote!.postId!))];
     const rows = quoteIds.length
@@ -426,7 +468,14 @@ function renderOnce(
   deadline.check();
   const html = sanitizeHtml(unsafe, SANITIZE_OPTIONS).trim();
   deadline.check();
-  return { html, source: storedSource, mentionedUserIds, quotes, spoilers: sink?.html ?? [] };
+  return {
+    html,
+    source: storedSource,
+    mentionedUserIds,
+    quotes,
+    spoilers: sink?.html ?? [],
+    hashtags,
+  };
 }
 
 export function renderContent(
@@ -504,6 +553,7 @@ export function renderPlainText(html: string, maxLength?: number): string {
     selectors: [
       { selector: "a", options: { linkBrackets: [" (", ")"] } },
       { selector: "a.mention", format: "inline" },
+      { selector: "a.hashtag", format: "inline" },
       { selector: "cite > a", format: "inline" },
       { selector: 'a[href^="mailto:"]', format: "mailto" },
       ...["h1", "h2", "h3", "h4", "h5", "h6"].map((selector) => ({

@@ -23,7 +23,8 @@ export const Body = z
   .describe(
     "BB code (XenForo's tags, with [HR]). Anything else, Markdown and raw HTML included, is " +
       "shown as typed; unknown or unclosed tags stay as text. Bare http(s) and www addresses " +
-      "become links and @name a mention. A message that takes over 50 ms to read is refused.",
+      "become links, @name a mention and #tag a hashtag that links to the tag's page (see " +
+      "`tags.get`; code, links and addresses hold none). A message that takes over 50 ms to read is refused.",
   );
 
 export const Title = z.string().trim().min(1).max(150);
@@ -84,3 +85,10 @@ export const pageInput = { cursor: Cursor.optional(), limit: Limit };
 export function Page<T extends z.ZodType>(item: T) {
   return z.object({ items: z.array(item), nextCursor: z.string().nullable() });
 }
+
+/**
+ * A tag as a member types it: `#Tag`, `tag` or `Étiqueta`. The server reads it as a hashtag
+ * (letters, numbers and `_`, at least one letter, at most 50 characters) and keeps it in NFC and
+ * lowercase; anything else is refused.
+ */
+export const TagInput = z.string().trim().min(1).max(120);
