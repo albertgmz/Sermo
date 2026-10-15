@@ -1,14 +1,15 @@
-import { afterAll, expect, mock, test } from "bun:test";
+import { afterAll, beforeEach, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { withIntl } from "@/lib/test-intl";
 
 mock.module("server-only", () => ({}));
-const intl = await import("next-intl/server");
-const headersModule = await import("next/headers");
-const art = await import("@/components/forum/art");
+const intl = { ...(await import("next-intl/server")) };
+const headersModule = { ...(await import("next/headers")) };
+const art = { ...(await import("@/components/forum/art")) };
+let cookie = "";
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
-  cookies: async () => ({ get: () => undefined, toString: () => "" }),
+  cookies: async () => ({ get: () => undefined, toString: () => cookie }),
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
@@ -22,6 +23,10 @@ mock.module("@/components/forum/art", () => ({
   ),
 }));
 const { mediaPage } = await import("./media-page");
+
+beforeEach(() => {
+  cookie = "";
+});
 
 afterAll(() => {
   mock.module("next-intl/server", () => intl);
@@ -95,4 +100,69 @@ test("a page with nothing to show has no rows, and keeps the cursor to go on", a
     rows: [],
     nextCursor: "more",
   });
+});
+
+const items = [
+  {
+    type: "post",
+    id: 30,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    file: file(7, true),
+    postId: 99,
+    position: 0,
+    threadId: 5,
+    threadTitle: "Holiday",
+  },
+  {
+    type: "profilePost",
+    id: 29,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    file: file(6, false),
+    profilePostId: 4,
+    profileUserId: 12,
+  },
+];
+
+// The pictures the page tells the viewer about are the props of its grid.
+async function entriesOf() {
+  const { read } = reader({ nextCursor: null, items });
+  const page = await mediaPage(undefined, read);
+  const grid = page.rows[0]?.node as {
+    props: { entries: { ref: unknown; url: string | null; id: number }[] };
+  };
+  return grid.props.entries;
+}
+
+test("each card names where the picture is, and the viewer is told what each one is", async () => {
+  const { read } = reader({ nextCursor: null, items });
+  const page = await mediaPage(undefined, read);
+  const html = renderToStaticMarkup(withIntl(page.rows[0]?.node));
+  expect(html).toContain(">Holiday<");
+  expect(html).toContain(">wallPost<");
+  expect(await entriesOf()).toEqual([
+    {
+      id: 30,
+      ref: { kind: "post", contentId: 99, fileId: 7 },
+      url: "/api/v1/files/7",
+      width: 10,
+      height: 10,
+      label: "inThread:Holiday",
+    },
+    {
+      id: 29,
+      ref: { kind: "wall", contentId: 4, fileId: 6 },
+      url: "/api/v1/files/6",
+      width: 10,
+      height: 10,
+      label: "onProfile",
+    },
+  ]);
+});
+
+test("with post pictures blocked by LITE the viewer is told no address at all", async () => {
+  cookie = "forum_lite=all";
+  const entries = await entriesOf();
+  expect(entries.map((entry) => entry.url)).toEqual([null, null]);
+  // The original is nowhere in what the browser is sent (the thumbnails go through the art gate).
+  expect(JSON.stringify(entries)).not.toContain("/api/v1/files/");
 });

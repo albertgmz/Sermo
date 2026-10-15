@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { expectNoTableScan } from "@sermo/core/testing";
 import { GUEST } from "../../actor";
 import { invalidate } from "../../context";
-import { ValidationError } from "../../errors";
+import { UnauthenticatedError, ValidationError } from "../../errors";
 import { encodeCursor } from "../../pagination";
+import { setEntry } from "../permissions/group-fixture";
 import { type World, world } from "./fixtures.test";
 import { mediaSql } from "./media";
 
@@ -159,6 +160,38 @@ describe("media.list", () => {
     // Guests are refused the file, so they are not shown it; members still are.
     expect(ids(await w.call("media.list", GUEST, {}))).toEqual([]);
     expect(ids(await w.call("media.list", w.bob, {}))).toEqual([image]);
+  });
+
+  test("a forum whose threads others may not open lists only the viewer's own pictures", async () => {
+    const w = world();
+    const mine = await w.thread(w.alice, w.open.id, "Mine");
+    const theirs = await w.thread(w.bob, w.open.id, "Theirs");
+    const own = attach(w, "post", mine.post.id);
+    const other = attach(w, "post", theirs.post.id);
+    for (const group of [1, 2]) setEntry(w.ctx, group, "forum.viewOthers", -1, w.open.id);
+    expect(ids(await w.call("media.list", w.alice, {}))).toEqual([own]);
+    expect(ids(await w.call("media.list", GUEST, {}))).toEqual([]);
+    expect(ids(await w.call("media.list", w.mod, {}))).toEqual([other, own]);
+  });
+
+  test("a forum whose posts others may not read lists only the pictures the viewer wrote", async () => {
+    const w = world();
+    const t = await w.thread(w.bob, w.open.id, "Theirs");
+    const reply = await w.reply(w.alice, t.thread.id, "Alice reply");
+    const other = attach(w, "post", t.post.id);
+    const own = attach(w, "post", reply.id);
+    for (const group of [1, 2]) setEntry(w.ctx, group, "forum.viewContent", -1, w.open.id);
+    expect(ids(await w.call("media.list", w.alice, {}))).toEqual([own]);
+    expect(ids(await w.call("media.list", GUEST, {}))).toEqual([]);
+    expect(ids(await w.call("media.list", w.mod, {}))).toEqual([own, other]);
+  });
+
+  test("a guest the site is closed to is asked to sign in, and sees no pictures", async () => {
+    const w = world();
+    const t = await w.thread(w.alice, w.open.id, "Photos");
+    attach(w, "post", t.post.id);
+    setEntry(w.ctx, 1, "site.view", -1);
+    await expect(w.call("media.list", GUEST, {})).rejects.toBeInstanceOf(UnauthenticatedError);
   });
 
   test("leaves out the pictures of a thread merged away, moved to a hidden forum, or whose file is deleted", async () => {

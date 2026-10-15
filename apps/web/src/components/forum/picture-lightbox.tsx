@@ -3,6 +3,7 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ChevronLeft, ChevronRight, MapPin, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicture } from "@/app/[locale]/(main)/_feed/media-actions";
@@ -190,7 +191,8 @@ export default function PictureLightbox({
   );
 }
 
-function Panel({
+// What stands beside the picture: the details as they load, or why there are none.
+export function Panel({
   pictureKey,
   result,
   onRetry,
@@ -233,6 +235,9 @@ function Panel({
 function Details({ details }: { details: PictureDetails }) {
   const t = useTranslations("home.pictureViewer");
   const format = useFormatter();
+  const path = usePathname();
+  const search = useSearchParams().toString();
+  const here = search ? `${path}?${search}` : path;
   const { author, where, reply, viewerId } = details;
   // The reaction button is told how old its markup is by its props object: it is built again only
   // when the server sends new details (see `lib/item-state`).
@@ -294,7 +299,7 @@ function Details({ details }: { details: PictureDetails }) {
         />
       ) : viewerId === null ? (
         <Link
-          href={`/login?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`}
+          href={`/login?next=${encodeURIComponent(here)}`}
           className="inline-flex min-h-10 items-center text-sm font-medium text-primary-ink underline-offset-4 hover:underline"
         >
           {t("signIn")}

@@ -40,7 +40,7 @@
     "close": "Cerrar",
     "previous": "Imagen anterior",
     "next": "Imagen siguiente",
-    "blocked": "Las imágenes están desactivadas (modo LITE).",
+    "blocked": "Ahorro de datos activado: las imágenes están desactivadas.",
     "loading": "Cargando los detalles de la imagen…",
     "gone": "Esta imagen ya no está disponible.",
     "failed": "No se pudieron cargar los detalles de esta imagen.",

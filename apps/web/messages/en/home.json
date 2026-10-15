@@ -40,7 +40,7 @@
     "close": "Close",
     "previous": "Previous picture",
     "next": "Next picture",
-    "blocked": "Pictures are off (LITE mode).",
+    "blocked": "Data saver is on: pictures are off.",
     "loading": "Loading the picture details…",
     "gone": "This picture is no longer available.",
     "failed": "Could not load the details of this picture.",
