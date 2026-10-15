@@ -3,62 +3,62 @@
     {
       "name": "home",
       "match": "^/\\[locale\\]/\\(main\\)$",
-      "maxBytes": 366000
+      "maxBytes": 329000
     },
     {
       "name": "thread",
       "match": "^/\\[locale\\]/\\(main\\)/threads/\\[id\\]$",
-      "maxBytes": 363000
+      "maxBytes": 305000
     },
     {
       "name": "editor",
       "match": "^/\\[locale\\]/\\(main\\)/(threads/\\[id\\]/edit/|conversations/new$|conversations/\\[id\\]/edit/)",
-      "maxBytes": 471000
+      "maxBytes": 396000
     },
     {
       "name": "forum",
       "match": "^/\\[locale\\]/\\(main\\)/forums(/|$)",
-      "maxBytes": 348000
+      "maxBytes": 304000
     },
     {
       "name": "profile",
       "match": "^/\\[locale\\]/\\(main\\)/members/\\[id\\]$",
-      "maxBytes": 363000
+      "maxBytes": 325000
     },
     {
       "name": "conversations",
       "match": "^/\\[locale\\]/\\(main\\)/conversations(/|$)",
-      "maxBytes": 352000
+      "maxBytes": 293000
     },
     {
       "name": "account",
       "match": "^/\\[locale\\]/\\(main\\)/account(/|$)",
-      "maxBytes": 346000
+      "maxBytes": 262000
     },
     {
       "name": "search",
       "match": "^/\\[locale\\]/\\(main\\)/search$",
-      "maxBytes": 357000
+      "maxBytes": 293000
     },
     {
       "name": "auth",
       "match": "^/\\[locale\\]/\\(auth\\)/",
-      "maxBytes": 235000
+      "maxBytes": 221000
     },
     {
       "name": "staff",
       "match": "^/\\[locale\\]/\\(staff\\)/",
-      "maxBytes": 353000
+      "maxBytes": 294000
     },
     {
       "name": "styleguide",
       "match": "^/\\[locale\\]/\\(main\\)/ui$",
-      "maxBytes": 511000
+      "maxBytes": 467000
     },
     {
       "name": "other",
       "match": "^/\\[locale\\]/\\(main\\)/",
-      "maxBytes": 358000
+      "maxBytes": 313000
     }
   ]
 }

@@ -2708,3 +2708,32 @@ cascade. An unrelated `users.setGroups` save keeps a timed action group timed; t
 not make it permanent (remove, save, add, save does).  Known limits: a cleanup job that fails five
 times leaves a hidden row marked gone (its group cannot be deleted until the job is queued again by
 hand); the production batch sizes are not pinned by a test.
+
+**Popups on demand, only the text the browser reads (item 30).** Menus, popovers, sheets and
+tooltips no longer ship with the page: the user menu, the search panel, the guest options menu, the
+header headings, the phone menu, the member card (names, avatars and mentions) and the postbit
+tooltips draw a plain trigger with the attributes Base UI would give it (a test renders each plain
+trigger and the real one from the same props and compares them), fetch the real component on the
+first pointer, touch or focus, and mount it already open on the click, key or (for tooltips) 600 ms
+of rest that asked for it, so one gesture is enough (`components/ui/lazy-popup.tsx`, behaviour in
+`lazy-popup-controller.ts`). A press that arrives before the code shows the trigger as busy and is
+withdrawn by a second press, Escape or a press elsewhere; only one press of a kind waits at a time.
+A menu asked for with a key mounts closed and has the key replayed on its real trigger (once), so
+Base UI focuses the first item as it does on every later use; a sheet opened by touch takes focus
+itself. A fetch is tried twice; then the page is reloaded once per address per session (never
+offline), and after that a notice tells the visitor to reload it by hand (the mark is cleared
+whenever a popup's code does load, so a passing network failure does not use it up) (a member name
+or mention goes to its profile instead). The root provider now sends only the `zone.component`
+namespaces that client components read (`i18n/client-messages.ts`; a test walks the client module
+graph and fails both when one is missing and when one is stale): English goes from 188 KB to 55 KB
+in every page's data. The analytics provider's own script loads at `lazyOnload` while its inline
+settings stay queued first, naming the first page's address and title, and later client navigations
+are pushed on whatever `window._paq` is then. The counters poll does not use React Query; after this
+change the provider in the root layout is the layout's only static edge to it. First loads after the
+change (KiB, before -> after): home 325.9 -> 311.3, thread 322.6 -> 288.3, editor 418.6 -> 375.3,
+forum 323.6 -> 288.1, profile 322.9 -> 307.6, conversations 313.1 -> 277.6, account 307.9 -> 247.8,
+search 317.7 -> 277.0, staff 313.7 -> 278.5, other 318.9 -> 296.4; the budget ceilings were lowered
+to 3% above them.  Known limits: finished-string props would not take the ICU parser out of the
+layout, because the phone bar and the avatar button format live unread counts; visits that end
+before the page has loaded are not counted by the analytics provider; the swap and the replay have
+not been seen in a browser.
