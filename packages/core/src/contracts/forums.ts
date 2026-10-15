@@ -621,7 +621,7 @@ export const postsList = defineContract({
 
 export const postsGet = defineContract({
   name: "posts.get",
-  summary: "One post with its Markdown source.",
+  summary: "One post with its BB code source.",
   kind: "read",
   input: z.object({ postId: Id }),
   output: PostDetail,

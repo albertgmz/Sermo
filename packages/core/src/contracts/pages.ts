@@ -4,7 +4,7 @@ import { Empty, Ok, Timestamp } from "./common";
 
 /*
  * Pages of text the site publishes about itself: terms, privacy, a legal notice, contact
- * details, a list of questions. An administrator writes them in Markdown; they are rendered and
+ * details, a list of questions. An administrator writes them in BB code; they are rendered and
  * sanitised when saved, like every other body.
  */
 
@@ -71,7 +71,7 @@ export const pagesList = defineContract({
 
 export const pagesGetSource = defineContract({
   name: "pages.getSource",
-  summary: "One page with its Markdown source, published or not. Requires admin.settings.",
+  summary: "One page with its BB code source, published or not. Requires admin.settings.",
   kind: "read",
   input: z.object({ slug: PageSlug }),
   output: StaticPageDetail,

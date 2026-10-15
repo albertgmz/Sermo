@@ -1857,7 +1857,7 @@ function buildBodies(rng: Rng, word: () => string, n: number): { source: string;
         const words: string[] = [];
         for (let w = rng.int(5, 14); w > 0; w--) {
           const x = word();
-          words.push(rng.chance(0.03) ? `**${x}**` : rng.chance(0.02) ? `_${x}_` : x);
+          words.push(rng.chance(0.03) ? `[B]${x}[/B]` : rng.chance(0.02) ? `[I]${x}[/I]` : x);
         }
         const sentence = words.join(" ");
         sentences.push(`${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`);
@@ -1865,9 +1865,11 @@ function buildBodies(rng: Rng, word: () => string, n: number): { source: string;
       paragraphs.push(sentences.join(" "));
     }
     if (rng.chance(0.1))
-      paragraphs.push(`- ${word()} ${word()}\n- ${word()} ${word()}\n- ${word()}`);
+      paragraphs.push(
+        `[LIST]\n[*]${word()} ${word()}\n[*]${word()} ${word()}\n[*]${word()}\n[/LIST]`,
+      );
     if (rng.chance(0.05))
-      paragraphs.push(`See [${word()}](https://example.com/${word()}) for more.`);
+      paragraphs.push(`See [URL=https://example.com/${word()}]${word()}[/URL] for more.`);
     const source = paragraphs.join("\n\n");
     out.push({ source, html: renderBbCode(source) });
   }

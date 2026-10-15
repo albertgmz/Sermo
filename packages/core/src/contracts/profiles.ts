@@ -144,7 +144,7 @@ export const profilesUpdate = defineContract({
     "needs profile.customTitle and setting `signature` needs profile.signature and the site's " +
     "signature rule, within the site's limits (characters, lines, links, pictures, emoji and " +
     "text size); clearing either (null) is always allowed. A signature is one small block of " +
-    "Markdown or BB code, rendered when saved: only the kinds of formatting the site allows, no " +
+    "BB code, rendered when saved: only the kinds of formatting the site allows, no " +
     "quotes, tables, code blocks, spoilers or media; a refusal says what is over. `website` is " +
     "an http(s) URL or empty. `birthday: null` removes it.",
   kind: "write",
@@ -172,7 +172,7 @@ export const profilesUpdate = defineContract({
 export const profilesSelf = defineContract({
   name: "profiles.self",
   summary:
-    "The signed-in member's own profile as they edit it: the public profile, the Markdown " +
+    "The signed-in member's own profile as they edit it: the public profile, the BB code " +
     "source of the signature, the year of the birthday, what they may currently set, and the " +
     "site's limits. Requires an account.",
   kind: "read",
@@ -237,7 +237,7 @@ export const profilePostsList = defineContract({
 
 export const profilePostsGet = defineContract({
   name: "profilePosts.get",
-  summary: "One profile post with its Markdown source.",
+  summary: "One profile post with its BB code source.",
   kind: "read",
   input: z.object({ profilePostId: Id }),
   output: ProfilePostDetail,
@@ -308,7 +308,7 @@ export const profileCommentsList = defineContract({
 
 export const profileCommentsGet = defineContract({
   name: "profileComments.get",
-  summary: "One comment with its Markdown source.",
+  summary: "One comment with its BB code source.",
   kind: "read",
   input: z.object({ commentId: Id }),
   output: ProfileCommentDetail,

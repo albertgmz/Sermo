@@ -642,7 +642,7 @@ Integers take the highest value across a member's groups and `-1` beats every nu
 
 ### Signatures
 
-Checked when a member saves a signature, on what it renders to, so Markdown and BB code that draw
+Checked when a member saves a signature, on what it renders to, so tags that draw
 the same thing count the same (Settings, Anti-spam). Characters and lines count the source. Links,
 pictures, emoji (each pictograph on its own, also inside a joined sequence; a flag or a keycap
 once; the copyright and trade mark signs and the like only with the emoji selector; arrows, card
@@ -1280,9 +1280,14 @@ subscriptions are kept). Other failures are retried.
 
 ## Formatting for members
 
-Posts, profile posts, comments and conversation messages are Markdown (CommonMark with GitHub
-extensions such as tables and strikethrough), up to 10,000 characters. Raw HTML is shown as text,
-and links get `rel="nofollow ugc noopener"`. Sermo adds:
+Posts, profile posts, comments and conversation messages are BB code (XenForo's tags: `[B] [I]
+[U] [S] [COLOR] [FONT] [SIZE] [URL] [EMAIL] [USER] [IMG] [MEDIA] [ICODE] [PLAIN] [ATTACH]
+[ISPOILER] [LEFT] [CENTER] [RIGHT] [QUOTE] [SPOILER] [CODE] [INDENT] [LIST] [TABLE] [HEADING]`,
+and `[HR]`), up to 10,000 characters. A line break is a line break and a blank line starts a
+paragraph. Markdown and raw HTML are shown as typed, and so is a tag that is unknown, malformed
+or never closed. Bare http(s) and www addresses become links, which get
+`rel="nofollow ugc noopener"`. A message whose reading takes over 50 ms is refused as too complex.
+Sermo adds:
 
 - **Mentions.** `@name`, or `@"name with spaces"`, for a username of 3 to 32 characters. The
   mentioned member is linked and notified. Mentions inside links do not count. Each item may
@@ -1290,31 +1295,29 @@ and links get `rel="nofollow ugc noopener"`. Sermo adds:
   administrators by default); members who joined less than `newMemberDays` ago are also limited to
   `newMemberMentionLimit` (default 3). Names beyond the limit, or unknown names, stay plain text.
   Editing keeps the mentions an item already had and notifies only newly mentioned members.
-- **Quotes.** A block quote of a forum post:
+- **Quotes.** A quote of a forum post, written the way XenForo does:
 
   ```
-  :::quote{post=123}
+  [QUOTE="Name, post: 123, member: 4"]
   The quoted text.
-  :::
+  [/QUOTE]
   ```
 
-  The author's name is filled in when the content is saved (`author="..."` is added to the
-  source). You can quote only posts you can see; a quote already in an item stays valid when it is
-  edited. The quoted author is notified.
-- **Spoilers.** A collapsed block, with an optional title:
+  The author's name and member number are filled in when the content is saved. You can quote only
+  posts you can see; a quote already in an item stays valid when it is edited. The quoted author
+  is notified. `[QUOTE]` and `[QUOTE=Name]` quote nothing in particular.
+- **Spoilers.** A collapsed block, with an optional title, and an inline one for a few words:
 
   ```
-  :::spoiler{title="Ending"}
+  [SPOILER="Ending"]
   Hidden text.
-  :::
+  [/SPOILER]
   ```
 
-  `:::spoiler` without a title shows "Spoiler". For a few words, use `>!hidden text!<` on one
-  line.
+  `[SPOILER]` without a title shows "Spoiler". For a few words, use `[ISPOILER]hidden text[/ISPOILER]`.
 
-`:::quote` and `:::spoiler` blocks can be nested inside each other up to 10 levels deep in
-total. Quotes on their own (`:::quote` blocks plus Markdown `>` quotes) are also limited to 10
-levels.
+Quotes and spoilers can be nested inside each other up to 10 levels deep each, and any tags up to
+30 levels deep in total.
 
 ## Operations
 

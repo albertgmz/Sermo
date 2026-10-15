@@ -125,7 +125,7 @@ and background jobs.
 
 ## Security and configuration
 
-Markdown is rendered and sanitized before storage. Cookie-authenticated REST writes enforce origin based CSRF checks and JSON content type. The HTTP adapter sets secure headers and applies 60-second, in-memory limits: 300 reads (GET/HEAD), 60 writes, 30 searches, and 60 MCP requests. Buckets are per API key, per signed-in user, or per IP for guests. Better Auth limits its own sign-in and sign-up endpoints separately. The adapter discards client-supplied `x-sermo-client-ip` and sets that header from the socket or configured proxy header.
+BB code is rendered and sanitized before storage. Cookie-authenticated REST writes enforce origin based CSRF checks and JSON content type. The HTTP adapter sets secure headers and applies 60-second, in-memory limits: 300 reads (GET/HEAD), 60 writes, 30 searches, and 60 MCP requests. Buckets are per API key, per signed-in user, or per IP for guests. Better Auth limits its own sign-in and sign-up endpoints separately. The adapter discards client-supplied `x-sermo-client-ip` and sets that header from the socket or configured proxy header.
 
 | Variable | Purpose |
 | --- | --- |
