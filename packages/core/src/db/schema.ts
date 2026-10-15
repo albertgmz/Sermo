@@ -237,6 +237,8 @@ export const users = sqliteTable(
     profilePostPrivacy: text("profile_post_privacy", { enum: PROFILE_POST_PRIVACY })
       .notNull()
       .default("members"),
+    /** Whether the keyboard shortcuts of the web interface are on for this member. */
+    keyboardShortcuts: bool("keyboard_shortcuts").notNull().default(true),
     /** Active restriction expiry per kind; null = none, RESTRICTION_PERMANENT = no expiry. */
     restrictedPostingUntil: integer("restricted_posting_until"),
     restrictedConversationsUntil: integer("restricted_conversations_until"),

@@ -51,6 +51,7 @@ type Preferences = {
   language: string | null;
   profile_view_privacy: "everyone" | "members" | "followed" | "self";
   profile_post_privacy: "members" | "followed" | "self";
+  keyboard_shortcuts: number;
 };
 const cursorSchema = z.tuple([z.number().int().positive()]);
 const cursorId = (cursor?: string) =>
@@ -488,7 +489,7 @@ function readPreferences(ctx: Ctx, userId: number) {
   const row = query<Preferences, [number]>(
     ctx,
     "preferences",
-    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy FROM users WHERE id = ?1",
+    "SELECT watch_on_create, watch_on_reply, language, profile_view_privacy, profile_post_privacy, keyboard_shortcuts FROM users WHERE id = ?1",
   ).get(userId)!;
   return {
     watchOnCreate: row.watch_on_create,
@@ -496,6 +497,7 @@ function readPreferences(ctx: Ctx, userId: number) {
     language: row.language,
     profileViewPrivacy: row.profile_view_privacy,
     profilePostPrivacy: row.profile_post_privacy,
+    keyboardShortcuts: row.keyboard_shortcuts === 1,
   };
 }
 export const preferencesGetOp = implement(contracts.preferencesGet, (ctx, actor) => {
@@ -516,13 +518,14 @@ export const preferencesUpdateOp = implement(contracts.preferencesUpdate, (ctx, 
     query(
       ctx,
       "updatePreferences",
-      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5 WHERE id = ?6",
+      "UPDATE users SET watch_on_create = ?1, watch_on_reply = ?2, language = ?3, profile_view_privacy = ?4, profile_post_privacy = ?5, keyboard_shortcuts = ?6 WHERE id = ?7",
     ).run(
       input.watchOnCreate ?? current.watchOnCreate,
       input.watchOnReply ?? current.watchOnReply,
       input.language === undefined ? current.language : input.language,
       input.profileViewPrivacy ?? current.profileViewPrivacy,
       input.profilePostPrivacy ?? current.profilePostPrivacy,
+      (input.keyboardShortcuts ?? current.keyboardShortcuts) ? 1 : 0,
       user.userId,
     );
   });

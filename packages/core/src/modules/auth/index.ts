@@ -1259,10 +1259,11 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
         group_id: number;
         created_at: number;
         language: string | null;
+        keyboard_shortcuts: number;
       },
       [number]
     >(
-      "SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
+      "SELECT u.id, u.username, a.email, u.group_id, u.created_at, u.language, u.keyboard_shortcuts FROM users u JOIN auth_user a ON a.id = u.id WHERE u.id = ?1",
     ),
   ).get(actor.userId);
   if (!row) throw new UnauthenticatedError();
@@ -1276,6 +1277,7 @@ export const authMeOp = implement(authMe, (ctx, actor) => {
       groupId: row.group_id,
       createdAt: iso(row.created_at),
       language: row.language,
+      keyboardShortcuts: row.keyboard_shortcuts === 1,
       displayGroup: display && {
         id: display.groupId,
         title: display.title,

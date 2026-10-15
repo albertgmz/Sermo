@@ -648,6 +648,15 @@ test("auth.me carries the member's language: null without a choice, the stored c
   expect((await execute(ctx, authMeOp, actor, {})).user?.language).toBe("es");
 });
 
+test("auth.me carries the keyboard shortcuts preference: on by default, off once the member turns it off", async () => {
+  const ctx = createTestContext();
+  const user = insertUser(ctx, {});
+  const actor = userActor(user);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.keyboardShortcuts).toBe(true);
+  ctx.sqlite.prepare("UPDATE users SET keyboard_shortcuts = 0 WHERE id = ?1").run(user.id);
+  expect((await execute(ctx, authMeOp, actor, {})).user?.keyboardShortcuts).toBe(false);
+});
+
 test("auth.me summary follows specific permission entries", async () => {
   const ctx = createTestContext();
   const adminPermission = ctx.sqlite

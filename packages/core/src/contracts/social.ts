@@ -200,6 +200,8 @@ export const MemberPreferences = z
     profileViewPrivacy: z.enum(PROFILE_VIEW_PRIVACY),
     /** Who can post on your profile: members, members you follow, only you. */
     profilePostPrivacy: z.enum(PROFILE_POST_PRIVACY),
+    /** Whether the keyboard shortcuts of the web interface are on. */
+    keyboardShortcuts: z.boolean(),
   })
   .meta({ id: "MemberPreferences" });
 

@@ -205,6 +205,22 @@ describe("social", () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
+  test("the keyboard shortcuts preference is on by default and changes alone", async () => {
+    const f = fixture();
+    const actor = userActor(f.owner);
+    const before = await call(f.ctx, preferencesGetOp, actor, {});
+    expect(before.keyboardShortcuts).toBe(true);
+    const off = await call(f.ctx, preferencesUpdateOp, actor, { keyboardShortcuts: false });
+    expect(off).toEqual({ ...before, keyboardShortcuts: false });
+    expect(
+      (await call(f.ctx, preferencesUpdateOp, actor, { language: "es" })).keyboardShortcuts,
+    ).toBe(false);
+    expect(
+      (await call(f.ctx, preferencesUpdateOp, actor, { keyboardShortcuts: true }))
+        .keyboardShortcuts,
+    ).toBe(true);
+  });
+
   test("a hidden watch leaves a short page with a cursor to the next visible watch", async () => {
     const f = fixture();
     const actor = userActor(f.owner);

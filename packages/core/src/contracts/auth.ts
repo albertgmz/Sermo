@@ -29,6 +29,8 @@ export const SelfUser = z
     displayGroup: DisplayGroup.nullable(),
     /** The interface language the member chose (a code of `SUPPORTED_LANGUAGES`); null when they made no choice. */
     language: z.string().nullable(),
+    /** Whether the member keeps the web interface's keyboard shortcuts on (their preference). */
+    keyboardShortcuts: z.boolean(),
   })
   .meta({ id: "SelfUser" });
 
