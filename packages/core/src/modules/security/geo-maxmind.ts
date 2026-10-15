@@ -16,7 +16,7 @@ export async function openGeoDatabase(path: string | null | undefined): Promise<
     const record = reader.get(ip);
     if (!record) return null;
     return {
-      country: record.country?.iso_code ?? record.registered_country?.iso_code ?? null,
+      country: record.country?.iso_code ?? null,
       region: record.subdivisions?.[0]?.names?.en ?? null,
       city: record.city?.names?.en ?? null,
     };

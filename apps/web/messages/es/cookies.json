@@ -59,7 +59,7 @@
     "items": {
       "signIns": {
         "title": "Inicios de sesión y registro",
-        "text": "Por cada inicio de sesión, cada intento fallido en tu cuenta y tu registro: la hora, la dirección desde la que te conectaste, tu navegador, sistema y tipo de dispositivo (leídos del texto de identificación que envía tu navegador, que no se conserva) y el lugar aproximado, como país, región y ciudad. Permite que revises tu propio historial de inicios de sesión, que te avisemos por correo de un inicio de sesión desde un navegador o país nuevo y que el personal investigue abusos."
+        "text": "Por cada inicio de sesión, cada intento fallido en tu cuenta y tu registro: la hora, la dirección desde la que te conectaste, tu navegador, sistema y tipo de dispositivo, y el lugar aproximado, como país, región y ciudad. El registro conserva el navegador, el sistema y el tipo de dispositivo que se leyeron del texto de identificación que envía tu navegador, no el texto en sí. Permite que revises tu propio historial de inicios de sesión, que te avisemos por correo de un inicio de sesión desde un navegador o país nuevo y que el personal investigue abusos."
       },
       "content": {
         "title": "Publicaciones",
@@ -72,7 +72,7 @@
     },
     "sessions": {
       "title": "Navegadores con sesión iniciada",
-      "text": "Por cada navegador con sesión iniciada: cuándo empezó la sesión, cuándo se usó por última vez (con un margen de pocos minutos) y el lugar aproximado desde el que empezó. Se te muestra en tu página de seguridad y se borra cuando la sesión termina."
+      "text": "Por cada navegador con sesión iniciada: la dirección desde la que se conectó y el texto de identificación completo que envió tu navegador, cuándo empezó la sesión, cuándo se usó por última vez (con un margen de pocos minutos) y el lugar aproximado desde el que empezó. Se te muestra en tu página de seguridad y se conserva hasta que la sesión termina: cierras la sesión, la revocas o caduca."
     },
     "retention": {
       "title": "Cuánto tiempo se conserva",

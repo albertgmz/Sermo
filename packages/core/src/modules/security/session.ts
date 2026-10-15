@@ -1,38 +1,60 @@
 import type { ClientLocation } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { writeTx } from "../../db/tx";
-import { queueAccountEmail } from "../email/account";
+import { accountEmailEnabled, queueAccountEmail } from "../email/account";
 import { parseAddress } from "./address";
 import { resolveLocation } from "./config";
-import { deviceOf } from "./device";
+import { type Device, deviceOf } from "./device";
 import { NO_LOCATION } from "./location";
-import { logMemberIp } from "./log";
+import { insertIpRow } from "./log";
 import { signNotMe } from "./not-me-token";
 
+const SIGN_INS = "user_id = ?1 AND action IN ('sign_in', 'sign_in_failed')";
+// The browser as the alert tells browsers apart: its name and system. A crawler, an empty or an
+// unreadable user agent all count as one browser, "unknown", compared like any other: the
+// agent is whatever the signer sends, so exempting it would let anyone with the password skip the
+// alert. The same expression in SQL and in `deviceKey`.
+const DEVICE_KEY =
+  "CASE WHEN is_bot = 1 OR browser IS NULL THEN 'unknown' ELSE browser || '/' || coalesce(os, '') END";
+export function deviceKey(device: Device): string {
+  return device.isBot || device.browser === null
+    ? "unknown"
+    : `${device.browser}/${device.os ?? ""}`;
+}
+
 export const sessionActivitySql = {
-  // What the member's earlier successful sign-ins (retained ones) tell about this one. The
-  // `action IN (...)` term repeats the partial index's condition so the index serves the query.
-  seen: "SELECT count(*) AS total, count(browser) AS with_browser, coalesce(max(browser = ?2 AND os IS ?3), 0) AS same_browser, count(country) AS with_country, coalesce(max(country = ?4), 0) AS same_country FROM ip_log WHERE user_id = ?1 AND action IN ('sign_in', 'sign_in_failed') AND action = 'sign_in'",
+  // What the member's earlier successful sign-ins (retained ones) tell about this one, as four
+  // EXISTS checks that each stop at the first row that answers them (newest first, through the
+  // partial index: the `action IN (...)` term repeats its condition). A match is found at once
+  // for a browser or country the member uses; a scan to the end of their retained sign-ins (at
+  // most the retention age) happens only when nothing matches, which is when an alert follows.
+  // ?2 is the device key (`deviceKey`); ?3 a country or null (null skips both country checks).
+  seen: `SELECT
+    EXISTS (SELECT 1 FROM ip_log WHERE ${SIGN_INS} AND action = 'sign_in') AS any_prior,
+    EXISTS (SELECT 1 FROM ip_log WHERE ${SIGN_INS} AND action = 'sign_in' AND ${DEVICE_KEY} = ?2) AS same_device,
+    CASE WHEN ?3 IS NULL THEN 0 ELSE EXISTS (SELECT 1 FROM ip_log WHERE ${SIGN_INS} AND action = 'sign_in' AND country = ?3) END AS same_country,
+    CASE WHEN ?3 IS NULL THEN 0 ELSE EXISTS (SELECT 1 FROM ip_log WHERE ${SIGN_INS} AND action = 'sign_in' AND country IS NOT NULL) END AS any_country`,
   email: "SELECT email FROM auth_user WHERE id = ?1",
-  open: "INSERT OR REPLACE INTO session_activity (session_id, last_active_at, country, region, city) VALUES (?1, ?2, ?3, ?4, ?5)",
+  // From auth_session, so a session that is already gone leaves no row and no error.
+  open: "INSERT OR REPLACE INTO session_activity (session_id, last_active_at, country, region, city) SELECT id, ?2, ?3, ?4, ?5 FROM auth_session WHERE id = ?1",
   touch:
     "INSERT INTO session_activity (session_id, last_active_at) SELECT id, ?2 FROM auth_session WHERE id = ?1 ON CONFLICT (session_id) DO UPDATE SET last_active_at = excluded.last_active_at WHERE excluded.last_active_at > session_activity.last_active_at",
 };
 
 interface Seen {
-  total: number;
-  with_browser: number;
-  same_browser: number;
-  with_country: number;
+  any_prior: number;
+  same_device: number;
   same_country: number;
+  any_country: number;
 }
 
 /**
  * Records a sign-in: the `ip_log` row, the session's place and last use, and, when the sign-in
  * comes from a browser or a country the member's retained sign-ins do not show, the mail with the
- * "This wasn't me" link. No mail for a crawler, for the member's first sign-in (nothing to compare
- * with), or when the browser or country is unknown or the history holds none to compare. Not
- * written by registration, which logs its own row.
+ * "This wasn't me" link. A crawler or an unreadable user agent is the browser "unknown" like any
+ * other. No mail for the member's first sign-in (nothing to compare with), when this sign-in has
+ * no known country, or when no earlier one has a country to compare with. Not written by
+ * registration, which logs its own row.
  */
 export async function recordSignIn(
   ctx: Ctx,
@@ -46,18 +68,17 @@ export async function recordSignIn(
 ): Promise<void> {
   const address = parseAddress(input.ip);
   const device = deviceOf(input.userAgent);
+  // Looked up once: the row below takes this result as it is.
   const location = address ? resolveLocation(ctx, address.ip, input.location) : NO_LOCATION;
   let alertToken: string | null = null;
-  if (address && !device.isBot) {
+  if (address && accountEmailEnabled(ctx)) {
     try {
       const seen = prepared(ctx, "security.signInSeen", () =>
-        ctx.sqlite.prepare<Seen, [number, string | null, string | null, string | null]>(
-          sessionActivitySql.seen,
-        ),
-      ).get(input.userId, device.browser, device.os, location.country);
-      if (seen && seen.total > 0) {
-        const newBrowser = device.browser !== null && seen.with_browser > 0 && !seen.same_browser;
-        const newCountry = location.country !== null && seen.with_country > 0 && !seen.same_country;
+        ctx.sqlite.prepare<Seen, [number, string, string | null]>(sessionActivitySql.seen),
+      ).get(input.userId, deviceKey(device), location.country);
+      if (seen?.any_prior) {
+        const newBrowser = !seen.same_device;
+        const newCountry = location.country !== null && seen.any_country && !seen.same_country;
         if (newBrowser || newCountry) alertToken = await signNotMe(ctx, input.userId);
       }
     } catch (error) {
@@ -67,7 +88,7 @@ export async function recordSignIn(
   }
   const now = ctx.now();
   writeTx(ctx, () => {
-    logMemberIp(ctx, input.userId, input.ip, input.userAgent, "sign_in", undefined, location);
+    if (address) insertIpRow(ctx, input.userId, address, device, location, "sign_in");
     prepared(ctx, "security.sessionOpen", () => ctx.sqlite.prepare(sessionActivitySql.open)).run(
       input.sessionId,
       now,
@@ -89,7 +110,10 @@ export async function recordSignIn(
         userId: input.userId,
         email: member.email,
         url: `${site}/not-me?token=${encodeURIComponent(alertToken)}`,
-        device: { browser: device.browser, os: device.os },
+        device:
+          deviceKey(device) === "unknown"
+            ? { browser: null, os: null }
+            : { browser: device.browser, os: device.os },
         location,
         at: now,
       });

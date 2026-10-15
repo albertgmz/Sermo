@@ -2,7 +2,7 @@ import type { Actor, ClientLocation } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import type { IpAction, IpContentType } from "../../db/schema";
 import { markPublic } from "../../operation";
-import { parseAddress } from "./address";
+import { type ClientAddress, parseAddress } from "./address";
 import { resolveLocation } from "./config";
 import { type Device, deviceOf } from "./device";
 
@@ -24,19 +24,15 @@ export const ipLogSql = {
  * action it records. The location is the one the trusted proxy reported, else the optional
  * database's, else none.
  */
-export function logMemberIp(
+export function insertIpRow(
   ctx: Ctx,
   userId: number,
-  ip: string | null | undefined,
-  userAgent: string | null | undefined,
+  address: ClientAddress,
+  device: Device,
+  location: ClientLocation,
   action: IpAction,
   content?: IpContent,
-  reported?: ClientLocation | null,
 ): void {
-  const address = parseAddress(ip);
-  if (!address) return;
-  const device: Device = deviceOf(userAgent);
-  const location = resolveLocation(ctx, address.ip, reported);
   prepared(ctx, "security.ipLogInsert", () => ctx.sqlite.prepare(ipLogSql.insert)).run(
     userId,
     address.ip,
@@ -54,6 +50,28 @@ export function logMemberIp(
     location.region,
     location.city,
     ctx.now(),
+  );
+}
+
+export function logMemberIp(
+  ctx: Ctx,
+  userId: number,
+  ip: string | null | undefined,
+  userAgent: string | null | undefined,
+  action: IpAction,
+  content?: IpContent,
+  reported?: ClientLocation | null,
+): void {
+  const address = parseAddress(ip);
+  if (!address) return;
+  insertIpRow(
+    ctx,
+    userId,
+    address,
+    deviceOf(userAgent),
+    resolveLocation(ctx, address.ip, reported),
+    action,
+    content,
   );
 }
 

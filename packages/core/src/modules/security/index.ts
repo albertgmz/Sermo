@@ -50,7 +50,6 @@ export const securitySql = {
     "SELECT user_id, ip, action, created_at, browser, os, device_type, brand, model, is_bot FROM ip_log WHERE content_type = ?1 AND content_id = ?2 ORDER BY id LIMIT 1",
   // One member's addresses: from ip_log_member_ip alone (the partial index needs NOT_FAILED).
   memberIps: `SELECT ip, n, first_at, last_at FROM (SELECT ip, count(*) AS n, min(created_at) AS first_at, max(created_at) AS last_at FROM ip_log WHERE user_id = ?1 AND ${NOT_FAILED} GROUP BY ip) WHERE (last_at, ip) < (?2, ?3) ORDER BY last_at DESC, ip DESC LIMIT ?4`,
-  // The members of one address or /64: from ip_log_net_member alone.
   // A member's own sessions with the place and last use recorded for each.
   sessions:
     "SELECT s.id, s.ip_address, s.user_agent, a.last_active_at, a.country, a.region, a.city FROM auth_session s LEFT JOIN session_activity a ON a.session_id = s.id WHERE s.user_id = ?1 AND s.expires_at > ?2 ORDER BY s.id DESC LIMIT ?3",
@@ -58,6 +57,7 @@ export const securitySql = {
   signIns:
     "SELECT id, action, created_at, browser, os, device_type, brand, model, is_bot, country, region, city FROM ip_log WHERE user_id = ?1 AND action IN ('sign_in', 'sign_in_failed') ORDER BY id DESC LIMIT ?2",
   principals: `SELECT u.id, u.group_id, ${PRINCIPAL_COLUMNS} FROM users u WHERE u.id IN (SELECT value FROM json_each(?1))`,
+  // The members of one address or /64: from ip_log_net_member alone.
   netMembers: `SELECT user_id, n, first_at, last_at FROM (SELECT user_id, count(*) AS n, min(created_at) AS first_at, max(created_at) AS last_at FROM ip_log WHERE ip_net = ?1 AND ${NOT_FAILED} GROUP BY user_id) WHERE (last_at, user_id) < (?2, ?3) ORDER BY last_at DESC, user_id DESC LIMIT ?4`,
 };
 
@@ -328,17 +328,20 @@ export const authNotMeOp = implement(
         ctx.sqlite.prepare<{ n: number }, [number, number]>(sessionSql.count),
       ).get(claim.userId, ctx.now())!.n;
     });
-    // The sessions and keys go first and the link is spent last: if one of these fails the member
-    // can use the link again. Two requests with the same link both reach the end of the deletes
-    // (which are idempotent), and only one passes the check that spends it.
-    const authContext = await getAuth(ctx).$context;
-    await authContext.internalAdapter.deleteUserSessions(String(claim.userId));
+    // The order of `usersAdminRevokeSessions`. The keys go first, so a failure there leaves the
+    // sessions and the link as they were and the member can try again. Then the link is spent and
+    // the cut is marked in one transaction, with no await before it: from here a cached session
+    // cookie is refused too. Two requests with the same link can both pass the keys; only one
+    // passes the check that spends it.
     await revokeApiKeys(ctx, claim.userId);
     writeTx(ctx, () => {
       usable();
-      // Also cuts a session that began while the deletes ran.
       markSessionsRevoked(ctx, claim.userId);
     });
+    const authContext = await getAuth(ctx).$context;
+    await authContext.internalAdapter.deleteUserSessions(String(claim.userId));
+    // A session that began between the mark and the delete is cut too.
+    writeTx(ctx, () => markSessionsRevoked(ctx, claim.userId));
     return { revoked };
   },
   { public: "The signed, expiring, single-use token from the member's mail authorizes this." },

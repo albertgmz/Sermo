@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { type Ctx, closeContext, requestLocation } from "@sermo/core";
 import { createTestContext } from "@sermo/core/testing";
+import { signNotMe } from "../../core/src/modules/security/not-me-token";
 import { createApp } from "./app";
 
 const contexts: Ctx[] = [];
@@ -63,4 +64,128 @@ test("the proxy's headers win over a forged copy, and unusable values are ignore
   expect(await read({ "cf-ipcountry": "CH", "cf-ipcity": "Z%C3%BCrich" })).toMatchObject({
     city: "Zürich",
   });
+});
+
+test("without the proxy's address header the request did not pass the proxy: its location headers count for nothing", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const app = createApp(ctx, { trustedProxyHeader: "x-forwarded-for", trustProxyLocation: true });
+  app.get("/_test/echo", (c) => c.json(requestLocation(c.req.raw.headers)));
+  const response = await app.request("/_test/echo", { headers: PROXY });
+  expect(await response.json()).toBeNull();
+});
+
+let nextAddress = 10;
+// The place the log keeps for a sign-in made through the whole app, with these headers.
+async function signedInFrom(
+  options: Parameters<typeof createApp>[1],
+  headers: Record<string, string>,
+) {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const app = createApp(ctx, options);
+  // A fresh address per case: Better Auth limits sign-in attempts per address.
+  const address = `198.51.100.${(nextAddress += 1)}`;
+  const env = { requestIP: () => ({ address, family: "IPv4" as const, port: 1 }) };
+  const post = (path: string, body: object, extra: Record<string, string> = {}) =>
+    app.request(
+      path,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:3000",
+          "x-forwarded-for": address,
+          ...extra,
+        },
+        body: JSON.stringify(body),
+      },
+      env,
+    );
+  const up = await post("/api/auth/sign-up/email", {
+    name: "ada",
+    username: "ada",
+    email: "ada@example.test",
+    password: "Password123!",
+  });
+  expect(up.status).toBe(200);
+  const response = await post(
+    "/api/auth/sign-in/email",
+    { email: "ada@example.test", password: "Password123!" },
+    headers,
+  );
+  expect(response.status).toBe(200);
+  return ctx.sqlite
+    .prepare<{ country: string | null; region: string | null; city: string | null }, []>(
+      "SELECT country, region, city FROM ip_log WHERE action = 'sign_in'",
+    )
+    .all();
+}
+
+test("a sign-in through the app logs no place a client forged, and the proxy's only when trusted", async () => {
+  const forged = { ...FORGED, "user-agent": "Mozilla/5.0" };
+  // Forged internal headers never reach the services, in any configuration.
+  for (const options of [
+    { trustedProxyHeader: null },
+    { trustedProxyHeader: "x-forwarded-for" },
+    { trustedProxyHeader: "x-forwarded-for", trustProxyLocation: true },
+  ])
+    expect(await signedInFrom(options, forged)).toEqual([
+      { country: null, region: null, city: null },
+    ]);
+  // The proxy's own headers: ignored unless trusted.
+  expect(await signedInFrom({ trustedProxyHeader: "x-forwarded-for" }, PROXY)).toEqual([
+    { country: null, region: null, city: null },
+  ]);
+  expect(
+    await signedInFrom(
+      { trustedProxyHeader: "x-forwarded-for", trustProxyLocation: true },
+      {
+        ...FORGED,
+        ...PROXY,
+      },
+    ),
+  ).toEqual([{ country: "ES", region: "Catalonia", city: "Barcelona" }]);
+});
+
+test("POST /api/v1/not-me works for a guest: a bad link is a 400, a good one signs the member out", async () => {
+  const ctx = createTestContext();
+  contexts.push(ctx);
+  const app = createApp(ctx, { trustedProxyHeader: null });
+  const env = { requestIP: () => ({ address: "198.51.100.8", family: "IPv4" as const, port: 1 }) };
+  const post = (token: string) =>
+    app.request(
+      "/api/v1/not-me",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token }),
+      },
+      env,
+    );
+  const bad = await post("not-a-real-token-at-all");
+  expect(bad.status).toBe(400);
+  expect(((await bad.json()) as { error: { code: string } }).error.code).toBe("validation");
+  const up = await app.request(
+    "/api/auth/sign-up/email",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "http://localhost:3000" },
+      body: JSON.stringify({
+        name: "ada",
+        username: "ada",
+        email: "ada@example.test",
+        password: "Password123!",
+      }),
+    },
+    env,
+  );
+  const userId = Number(((await up.json()) as { user: { id: string } }).user.id);
+  ctx.clock.advance(1000);
+  const token = await signNotMe(ctx, userId);
+  ctx.clock.advance(1000);
+  const good = await post(token);
+  expect(good.status).toBe(200);
+  expect(await good.json()).toEqual({ revoked: 1 });
+  expect((await post(token)).status).toBe(400);
 });

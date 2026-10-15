@@ -136,8 +136,12 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
   );
   app.use("*", async (c, next) => {
     let ip: string | undefined;
+    // Whether the address came from the trusted proxy's header: a request without it did not pass
+    // the proxy, so whatever location headers it carries are nobody's word.
+    let viaProxy = false;
     if (options.trustedProxyHeader) {
       ip = c.req.header(options.trustedProxyHeader)?.split(",").at(-1)?.trim();
+      viaProxy = Boolean(ip);
     } else {
       try {
         ip = getConnInfo(c).remote.address;
@@ -159,7 +163,7 @@ export function createApp(ctx: Ctx, options: AppOptions): Hono<{ Variables: Vari
     // and they are set again only from the proxy's own headers on the trusted proxy path.
     setLocationHeaders(
       headers,
-      options.trustedProxyHeader && options.trustProxyLocation ? proxyLocation(headers) : null,
+      viaProxy && options.trustProxyLocation ? proxyLocation(headers) : null,
     );
     c.req.raw = new Request(c.req.raw, { headers });
     c.set("clientIp", ip);

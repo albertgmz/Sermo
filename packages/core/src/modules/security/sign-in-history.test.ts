@@ -24,6 +24,7 @@ import {
   ACTIVE_STEP_MS,
   flushSessionActivity,
   noteSessionActive,
+  recordSignIn,
   sessionActivitySql,
 } from "./session";
 
@@ -261,7 +262,8 @@ describe("sign-in history", () => {
   test("the history and the new-device check read their partial index", async () => {
     const w = await accounts();
     expectNoTableScan(w.ctx, securitySql.signIns, [1, 20]);
-    expectNoTableScan(w.ctx, sessionActivitySql.seen, [1, "Chrome", "Windows", "ES"]);
+    expectNoTableScan(w.ctx, sessionActivitySql.seen, [1, "Chrome/Windows", "ES"]);
+    expectNoTableScan(w.ctx, sessionActivitySql.seen, [1, "unknown", null]);
     const plan = w.ctx.sqlite
       .prepare<{ detail: string }, [number, number]>(`EXPLAIN QUERY PLAN ${securitySql.signIns}`)
       .all(1, 20)
@@ -269,6 +271,40 @@ describe("sign-in history", () => {
       .join(" ");
     expect(plan).toContain("ip_log_member_sign_in");
     expect(plan).not.toContain("TEMP B-TREE");
+  });
+});
+
+describe("recording a sign-in", () => {
+  test("a session that is already gone leaves the log row and no session record", async () => {
+    const w = await accounts();
+    const ada = await w.register("Ada");
+    await recordSignIn(w.ctx, {
+      userId: ada.id,
+      sessionId: 99_999,
+      ip: "203.0.113.10",
+      userAgent: CHROME,
+      location: SPAIN,
+    });
+    expect(rows(w, ada.id)).toEqual([{ action: "sign_in", ...SPAIN }]);
+    expect(
+      w.ctx.sqlite.prepare<{ n: number }, []>("SELECT count(*) AS n FROM session_activity").get()!
+        .n,
+    ).toBe(0);
+  });
+
+  test("the place is looked up once for the row and the session", async () => {
+    const w = await accounts();
+    const ada = await w.register("Ada");
+    let lookups = 0;
+    configureSecurity(w.ctx, {
+      geoLookup: () => {
+        lookups++;
+        return null;
+      },
+    });
+    await signIn(w, CHROME, null);
+    expect(lookups).toBe(1);
+    expect(rows(w, ada.id)).toHaveLength(1);
   });
 });
 
@@ -417,29 +453,50 @@ describe("the new-sign-in alert", () => {
     );
   });
 
-  test("a crawler never triggers it", async () => {
+  test("a crawler or an empty user agent is the browser unknown: the first one after known ones alerts, a repeat does not", async () => {
     const { w } = await setup();
+    const alerts = async () =>
+      (await mailed(w)).filter((message) => message.subject.includes("sign-in")).length;
     await signIn(w, CHROME, SPAIN);
+    // Someone with the password signs in as a crawler: no exemption.
+    await signIn(w, GOOGLEBOT, SPAIN);
+    expect(await alerts()).toBe(1);
+    expect(w.capture!.messages.at(-1)!.text).toContain("an unknown device");
+    await signIn(w, GOOGLEBOT, SPAIN);
+    // A different crawler string and an empty one are the same unknown browser.
+    await signIn(w, "", SPAIN);
+    await signIn(w, "zzzz", SPAIN);
+    expect(await alerts()).toBe(1);
+    // Only a known browser that was never seen alerts again.
+    await signIn(w, FIREFOX, SPAIN);
+    expect(await alerts()).toBe(2);
+  });
+
+  test("the first sign-in alerts for nothing, whatever the user agent", async () => {
+    const { w } = await setup();
     await signIn(w, GOOGLEBOT, FRANCE);
     expect((await mailed(w)).filter((message) => message.subject.includes("sign-in"))).toHaveLength(
       0,
     );
   });
 
-  test("an unknown browser or country, or history without them, cannot be new", async () => {
+  test("a country is compared only when this sign-in and an earlier one have one", async () => {
     const { w } = await setup();
-    // First sign-ins with no browser and no place on record.
-    await signIn(w, "", null);
-    await signIn(w, "", null);
-    // Now a browser and a country appear: there is nothing recorded to compare them with.
-    await signIn(w, FIREFOX, FRANCE);
+    // No place on record yet.
+    await signIn(w, CHROME, null);
+    // A country appears: nothing recorded to compare it with.
+    await signIn(w, CHROME, FRANCE);
     expect((await mailed(w)).filter((message) => message.subject.includes("sign-in"))).toHaveLength(
       0,
     );
-    // And an unknown place after known ones is not a new country.
-    await signIn(w, FIREFOX, null);
+    // An unknown place after known ones is not a new country either.
+    await signIn(w, CHROME, null);
     expect((await mailed(w)).filter((message) => message.subject.includes("sign-in"))).toHaveLength(
       0,
+    );
+    await signIn(w, CHROME, SPAIN);
+    expect((await mailed(w)).filter((message) => message.subject.includes("sign-in"))).toHaveLength(
+      1,
     );
   });
 
@@ -532,6 +589,53 @@ describe("the This wasn't me link", () => {
     await signIn(w, CHROME, SPAIN);
     await expect(w.run("auth.notMe", GUEST, { token })).rejects.toBeInstanceOf(ValidationError);
     expect(w.sessions(ada.id)).toBe(1);
+  });
+
+  test("a failing key revocation leaves the sessions and the link as they were; the retry works and a cached cookie is refused", async () => {
+    const w = await accounts({ mail: true });
+    const ada = await w.register("Ada");
+    const token = await linkFor(w);
+    const cookie = await signInWithCookie(w, GOOGLEBOT, SPAIN);
+    const headersOf = () => new Headers({ cookie, "x-sermo-client-ip": "203.0.113.10" });
+    await resolveActor(w.ctx, headersOf());
+    const context = await getAuth(w.ctx).$context;
+    const real = context.adapter.deleteMany;
+    context.adapter.deleteMany = (async () => {
+      throw new Error("key store down");
+    }) as typeof real;
+    try {
+      await expect(w.run("auth.notMe", GUEST, { token })).rejects.toThrow("key store down");
+    } finally {
+      context.adapter.deleteMany = real;
+    }
+    expect(w.sessions(ada.id)).toBe(4);
+    await resolveActor(w.ctx, headersOf());
+    expect(await w.run("auth.notMe", GUEST, { token })).toEqual({ revoked: 4 });
+    expect(w.sessions(ada.id)).toBe(0);
+    await expect(resolveActor(w.ctx, headersOf())).rejects.toBeInstanceOf(UnauthenticatedError);
+  });
+
+  test("the cut is marked before the sessions are deleted, so a cached cookie is refused at once", async () => {
+    const w = await accounts({ mail: true });
+    const ada = await w.register("Ada");
+    const token = await linkFor(w);
+    const context = await getAuth(w.ctx).$context;
+    const real = context.internalAdapter.deleteUserSessions;
+    let markedBeforeDelete: number | null = null;
+    context.internalAdapter.deleteUserSessions = (async (...args: Parameters<typeof real>) => {
+      markedBeforeDelete = w.ctx.sqlite
+        .prepare<{ v: number | null }, [number]>(
+          "SELECT sessions_revoked_at AS v FROM users WHERE id = ?1",
+        )
+        .get(ada.id)!.v;
+      return real(...args);
+    }) as typeof real;
+    try {
+      await w.run("auth.notMe", GUEST, { token });
+    } finally {
+      context.internalAdapter.deleteUserSessions = real;
+    }
+    expect(markedBeforeDelete).not.toBeNull();
   });
 
   test("expires after a week", async () => {

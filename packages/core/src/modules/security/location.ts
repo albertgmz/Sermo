@@ -90,12 +90,19 @@ export function setLocationHeaders(headers: Headers, location: ClientLocation | 
   }
 }
 
-/** The location the adapter set on a request; null when it set none. */
+/**
+ * The location the adapter set on a request; null when it set none. The adapter cleaned what it
+ * set, so this only decodes: with no trusted proxy location a request costs three header reads.
+ */
 export function requestLocation(headers: Headers | null | undefined): ClientLocation | null {
   if (!headers) return null;
+  const country = headers.get(LOCATION_HEADERS.country);
+  const region = headers.get(LOCATION_HEADERS.region);
+  const city = headers.get(LOCATION_HEADERS.city);
+  if (!country && !region && !city) return null;
   return located({
-    country: cleanCountry(headers.get(LOCATION_HEADERS.country)),
-    region: cleanPlace(decoded(headers.get(LOCATION_HEADERS.region))),
-    city: cleanPlace(decoded(headers.get(LOCATION_HEADERS.city))),
+    country: decoded(country),
+    region: decoded(region),
+    city: decoded(city),
   });
 }
