@@ -2,29 +2,34 @@
 
 import { Settings } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { DataSaverMenuItem } from "@/components/layout/data-saver-menu-item";
 import { headerIconClass } from "@/components/layout/header-icon-class";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import type { LiteState } from "@/lib/lite-preferences";
 
-// What a visitor who is not signed in gets in place of the account menu.
+const loadPopup = () => import("@/components/layout/guest-menu-popup");
+
+// What a visitor who is not signed in gets in place of the account menu. The menu itself is
+// fetched when the button is first reached for.
 export function GuestMenu({ lite }: { lite: LiteState }) {
   const t = useTranslations("layout.guestMenu");
+  const label = t("aria.menu");
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={t("aria.menu")}
-        className={headerIconClass}
-      >
-        <Settings />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DataSaverMenuItem state={lite} href="/data-saver" />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <LazyPopup
+      load={loadPopup}
+      popup={{ label, lite }}
+      opening="menu"
+      trigger={(lazy) => (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded="false"
+          aria-label={label}
+          className={headerIconClass}
+          {...lazy}
+        >
+          <Settings />
+        </button>
+      )}
+    />
   );
 }

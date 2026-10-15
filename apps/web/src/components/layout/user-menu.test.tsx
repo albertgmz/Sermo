@@ -43,6 +43,7 @@ afterEach(() => {
 
 const { UserMenu } = await import("./user-menu");
 const { UserMenuBody } = await import("./user-menu-body");
+const { default: UserMenuPopup } = await import("./user-menu-popup");
 
 const links = toNavItems(
   [
@@ -102,7 +103,7 @@ const body = (
     />,
   );
 
-test("on a phone the avatar opens a sheet, and its one badge counts alerts and conversations together", () => {
+test("until it is reached for the avatar is a plain button with the one badge, and holds no Base UI part", () => {
   const html = render(
     <UserMenu
       {...base}
@@ -110,8 +111,11 @@ test("on a phone the avatar opens a sheet, and its one badge counts alerts and c
       unread={{ notifications: 3, conversations: 2 }}
     />,
   );
-  expect(html).toContain('data-slot="sheet-trigger"');
-  expect(html).not.toContain('data-slot="popover-trigger"');
+  expect(html).toMatch(
+    /^<button type="button" aria-haspopup="dialog" aria-expanded="false"/,
+  );
+  expect(html).not.toContain("data-slot");
+  expect(html).not.toContain("data-base-ui");
   expect(html).toContain('aria-label="Account menu, 5 unread"');
   expect(html).toMatch(/aria-hidden="true"[^>]*>5<\/span>/);
 });
@@ -170,4 +174,18 @@ test("the status line is there only for a member who may post on their wall", ()
   expect(body("account")).not.toContain("Update your status");
   const html = body("account", { status: { wallHref: "/members/1" } });
   expect(html).toContain('placeholder="Update your status…"');
+});
+
+test("the loaded menu is the real trigger on a phone: a sheet, with the same label", () => {
+  const html = render(
+    <UserMenuPopup
+      {...base}
+      label="Account menu, 5 unread"
+      title="Account menu"
+      trigger={<span>small avatar</span>}
+      unread={{ notifications: 3, conversations: 2 }}
+    />,
+  );
+  expect(html).toContain('data-slot="sheet-trigger"');
+  expect(html).toContain('aria-label="Account menu, 5 unread"');
 });

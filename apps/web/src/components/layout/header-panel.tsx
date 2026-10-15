@@ -1,18 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import type { HeaderPanelPopupProps } from "@/components/layout/header-panel-popup";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import { cn } from "@/lib/utils";
 
+const TRIGGER =
+  "outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:text-foreground";
+
+const loadPopup = () => import("@/components/layout/header-panel-popup");
+
 // A header icon that opens a panel under it, at every width: on a phone the panel is never wider
-// than the screen. Following a link inside the
-// panel closes it. `onOpenChange` runs each time the panel opens or closes, however it closes.
+// than the screen. Following a link inside the panel closes it. `onOpenChange` runs each time the
+// panel opens or closes, however it closes. The panel's code (Base UI) is fetched when the icon is
+// first reached for; until then the icon is a plain button.
 export function HeaderPanel({
   label,
   title,
@@ -34,40 +35,42 @@ export function HeaderPanel({
   children: React.ReactNode;
 }) {
   const t = useTranslations("layout.headerPanel");
-  const [open, setOpen] = useState(false);
-  function change(next: boolean) {
-    setOpen(next);
-    onOpenChange?.(next);
-  }
+  const name = unread ? t("aria.unread", { label, count: unread }) : label;
+  const classes = cn(TRIGGER, className);
+  const trigger = (
+    <>
+      {icon}
+      {unread > 0 && (
+        <span className="absolute top-2 right-2 size-2 rounded-full bg-primary ring-2 ring-background" />
+      )}
+    </>
+  );
+  const popup: HeaderPanelPopupProps = {
+    label: name,
+    title,
+    trigger,
+    className: classes,
+    shortcut,
+    onOpenChange,
+    children,
+  };
   return (
-    <Popover open={open} onOpenChange={change}>
-      <PopoverTrigger
-        data-shortcut={shortcut}
-        aria-label={unread ? t("aria.unread", { label, count: unread }) : label}
-        className={cn(
-          "outline-none focus-visible:ring-2 focus-visible:ring-ring data-popup-open:text-foreground",
-          className,
-        )}
-      >
-        {icon}
-        {unread > 0 && (
-          <span className="absolute top-2 right-2 size-2 rounded-full bg-primary ring-2 ring-background" />
-        )}
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-88 max-w-[calc(100vw-1rem)] gap-0 p-0"
-        onClick={(event) => {
-          if (event.defaultPrevented) return;
-          if ((event.target as Element).closest("a")) change(false);
-        }}
-      >
-        <PopoverTitle className="border-b px-4 py-3 text-sm font-semibold">
-          {title}
-        </PopoverTitle>
-        {children}
-      </PopoverContent>
-    </Popover>
+    <LazyPopup
+      load={loadPopup}
+      popup={popup}
+      trigger={(lazy) => (
+        <button
+          type="button"
+          data-shortcut={shortcut}
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-label={name}
+          className={classes}
+          {...lazy}
+        >
+          {trigger}
+        </button>
+      )}
+    />
   );
 }

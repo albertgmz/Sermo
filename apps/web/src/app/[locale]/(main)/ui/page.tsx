@@ -101,11 +101,8 @@ import { NarrowToggle } from "@/components/layout/narrow-toggle";
 import { toNavItems } from "@/components/layout/nav";
 import { PageHero } from "@/components/layout/page-hero";
 import { PageLayout } from "@/components/layout/page-layout";
-import {
-  HeaderNav,
-  MobileMenu,
-  SearchForm,
-} from "@/components/layout/site-nav";
+import { HeaderNav, MobileMenu } from "@/components/layout/site-nav";
+import { SearchForm } from "@/components/layout/site-search-form";
 import { StaffBar } from "@/components/layout/staff-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

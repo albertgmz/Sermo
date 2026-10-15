@@ -57,3 +57,8 @@ export function listQuery(
     placeholderData: keepPreviousData,
   };
 }
+
+// The avatar button, the same whether it is the plain one drawn first or the real one that
+// replaces it when the menu opens.
+export const MENU_TRIGGER_CLASS =
+  "group relative flex h-10 items-center gap-1.5 rounded-md px-1.5 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:text-foreground";

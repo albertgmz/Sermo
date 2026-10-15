@@ -16,7 +16,7 @@ test("a member's menu and a guest's menu each hold one Data saver entry, to the 
   expect(read("src/app/[locale]/(main)/account/links.ts")).toContain(
     'DATA_SAVER_HREF = "/account/data-saver"',
   );
-  const guest = read("src/components/layout/guest-menu.tsx");
+  const guest = read("src/components/layout/guest-menu-popup.tsx");
   expect(guest.match(ENTRY)).toHaveLength(1);
   expect(guest).toContain('href="/data-saver"');
 });

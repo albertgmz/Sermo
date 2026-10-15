@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDown, Menu, Search } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import type { HeaderMenuPopupProps } from "@/components/layout/header-menu-popup";
+import type { MobileMenuPopupProps } from "@/components/layout/mobile-menu-popup";
 import {
   hasHref,
   isCurrent,
@@ -12,52 +13,22 @@ import {
   type NavItem,
 } from "@/components/layout/nav";
 import { NavLabel } from "@/components/layout/nav-label";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { buttonVariants } from "@/components/ui/button";
+import { LazyPopup } from "@/components/ui/lazy-popup";
 import { cn } from "@/lib/utils";
 
-export function SearchForm({ className }: { className?: string }) {
-  const t = useTranslations("layout.siteNav");
-  return (
-    <search className={className}>
-      <form action="/search" className="relative">
-        <Input
-          type="search"
-          name="q"
-          placeholder={t("placeholder")}
-          aria-label={t("aria.search")}
-          className="bg-card pr-10 md:pr-8 [&::-webkit-search-cancel-button]:hidden"
-        />
-        <Button
-          type="submit"
-          variant="secondary"
-          size="icon-xs"
-          aria-label={t("aria.submit")}
-          className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground md:right-1"
-        >
-          <Search />
-        </Button>
-      </form>
-    </search>
-  );
-}
+// The menus' code (Base UI) is fetched when a heading or the phone's menu button is first reached
+// for; until then each is a plain button.
+const loadHeaderMenu = () => import("@/components/layout/header-menu-popup");
+const loadMobileMenu = () => import("@/components/layout/mobile-menu-popup");
 
 const headerLink =
   "inline-flex h-10 items-center gap-1.5 rounded-md border-b-2 border-transparent px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
+
+const headingLink = cn(
+  headerLink,
+  "group gap-1 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+);
 
 function HeaderEntry({ entry }: { entry: NavItem }) {
   const pathname = usePathname();
@@ -67,30 +38,30 @@ function HeaderEntry({ entry }: { entry: NavItem }) {
     const current =
       isCurrent(pathname, entry) ||
       entry.children.some((child) => isCurrent(pathname, child));
+    const popup: HeaderMenuPopupProps = {
+      entry,
+      current,
+      className: headingLink,
+    };
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-current={current ? "page" : undefined}
-          className={cn(
-            headerLink,
-            "group gap-1 outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          )}
-        >
-          <NavLabel item={entry} />
-          <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {[entry, ...entry.children].filter(hasHref).map((link) => (
-            <DropdownMenuItem
-              key={link.id}
-              className="min-h-10 md:min-h-8"
-              render={<Link {...linkProps(link)} />}
-            >
-              <NavLabel item={link} className="" />
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <LazyPopup
+        load={loadHeaderMenu}
+        popup={popup}
+        opening="menu"
+        trigger={(lazy) => (
+          <button
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-current={current ? "page" : undefined}
+            className={headingLink}
+            {...lazy}
+          >
+            <NavLabel item={entry} />
+            <ChevronDown className="size-3.5 transition-transform group-data-popup-open:rotate-180" />
+          </button>
+        )}
+      />
     );
   }
   if (!hasHref(entry))
@@ -130,35 +101,6 @@ export function HeaderNav({
   );
 }
 
-const menuLink =
-  "flex h-11 items-center gap-2 rounded-md border-l-2 border-transparent px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:bg-muted aria-[current=page]:text-foreground";
-
-function MenuLink({
-  entry,
-  onNavigate,
-}: {
-  entry: NavItem;
-  onNavigate: () => void;
-}) {
-  const pathname = usePathname();
-  if (!hasHref(entry))
-    return (
-      <span className={cn(menuLink, "cursor-default")}>
-        <NavLabel item={entry} />
-      </span>
-    );
-  return (
-    <Link
-      {...linkProps(entry)}
-      onClick={onNavigate}
-      aria-current={isCurrent(pathname, entry) ? "page" : undefined}
-      className={menuLink}
-    >
-      <NavLabel item={entry} />
-    </Link>
-  );
-}
-
 export function MobileMenu({
   links,
   className,
@@ -169,53 +111,36 @@ export function MobileMenu({
   logo: React.ReactNode;
 }) {
   const t = useTranslations("layout.siteNav");
-  const [open, setOpen] = useState(false);
+  const popup: MobileMenuPopupProps = {
+    links,
+    className,
+    logo,
+    labels: {
+      open: t("aria.open"),
+      main: t("aria.main"),
+      description: t("description"),
+    },
+  };
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("aria.open")}
-            className={cn("size-10", className)}
-          />
-        }
-      >
-        <Menu className="size-6" />
-      </SheetTrigger>
-      <SheetContent
-        side="left"
-        className="w-[min(20rem,85vw)] gap-0 [&_[data-slot=sheet-close]]:top-2 [&_[data-slot=sheet-close]]:right-2 [&_[data-slot=sheet-close]]:size-10"
-      >
-        <SheetHeader className="border-b py-2">
-          <SheetTitle render={<div />}>{logo}</SheetTitle>
-          <SheetDescription className="sr-only">
-            {t("description")}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="border-b p-4">
-          <SearchForm />
-        </div>
-        <nav aria-label={t("aria.main")} className="flex flex-col p-2">
-          {links.map((entry) => (
-            <div key={entry.id} className="flex flex-col">
-              <MenuLink entry={entry} onNavigate={() => setOpen(false)} />
-              {entry.children.length > 0 && (
-                <div className="ml-3 flex flex-col border-l">
-                  {entry.children.map((child) => (
-                    <MenuLink
-                      key={child.id}
-                      entry={child}
-                      onNavigate={() => setOpen(false)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </nav>
-      </SheetContent>
-    </Sheet>
+    <LazyPopup
+      load={loadMobileMenu}
+      popup={popup}
+      trigger={(lazy) => (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-label={t("aria.open")}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "icon" }),
+            "size-10",
+            className,
+          )}
+          {...lazy}
+        >
+          <Menu className="size-6" />
+        </button>
+      )}
+    />
   );
 }
