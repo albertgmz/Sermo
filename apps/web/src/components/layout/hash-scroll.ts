@@ -51,7 +51,8 @@ export function scrollToHash(env: ScrollEnv) {
 
 // The element with this id, once it is drawn. A section that streams in is first sent inside a
 // hidden container and moved into place after: until then the id exists but the element has no
-// box, and scrolling to it does nothing.
+// box, and scrolling to it does nothing. A target must therefore draw a box of its own (not
+// `display: contents`), or it is never found.
 export function drawnById<T extends { getClientRects(): { length: number } }>(
   document: { getElementById(id: string): T | null },
   id: string,
