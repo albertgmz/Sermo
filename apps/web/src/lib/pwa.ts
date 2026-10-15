@@ -7,9 +7,9 @@ import type { MetadataRoute } from "next";
 // static file of `public/` that the worker keeps from its first visit.
 export const OFFLINE_URL = "/offline.html";
 
-// Where the worker script is served from (`app/serwist/[path]/route.ts`, which prerenders this file
-// and its source map only), and the scope it controls: the whole site.
-export const WORKER_URL = "/serwist/sw.js";
+// Where the worker script is served from (`public/sw.js`, written by `scripts/build-sw.ts`), and the
+// scope it controls: the whole site.
+export const WORKER_URL = "/sw.js";
 export const WORKER_SCOPE = "/";
 
 export const MANIFEST_URL = "/manifest.webmanifest";
@@ -27,8 +27,7 @@ export function isPwaPath(pathname: string) {
     pathname === MANIFEST_URL ||
     pathname === OFFLINE_URL ||
     pathname.startsWith(ICON_PREFIX) ||
-    pathname === WORKER_URL ||
-    pathname === `${WORKER_URL}.map`
+    pathname === WORKER_URL
   );
 }
 

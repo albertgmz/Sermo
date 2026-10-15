@@ -58,16 +58,15 @@ test("the proxy leaves only the app's own files alone", () => {
   for (const path of [
     "/manifest.webmanifest",
     "/offline.html",
-    "/serwist/sw.js",
-    "/serwist/sw.js.map",
+    "/sw.js",
     "/pwa-icon/192",
   ])
     expect(isPwaPath(path)).toBe(true);
   for (const path of [
     "/",
     "/offline",
-    "/serwist",
-    "/serwist/other.js",
+    "/sw.js.map",
+    "/serwist/sw.js",
     "/threads/1",
     "/es/manifest.webmanifest",
   ])

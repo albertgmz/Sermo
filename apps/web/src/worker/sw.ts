@@ -13,7 +13,7 @@ import {
   STATIC_CACHE,
 } from "../lib/pwa-routes";
 
-// The service worker, bundled for the browser by `app/serwist/[path]/route.ts`. It has no
+// The service worker, bundled for the browser into `public/sw.js` by `scripts/build-sw.ts`. It has no
 // push, no background sync and no offline reading: see `lib/pwa-routes.ts` for what it does.
 declare const self: {
   // The precache list the build injects: the offline page and its revision.

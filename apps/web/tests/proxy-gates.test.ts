@@ -1182,8 +1182,7 @@ test("the manifest, the service worker and the offline page are left alone", asy
   const lite = "forum_lite=all";
   for (const path of [
     "/manifest.webmanifest",
-    "/serwist/sw.js",
-    "/serwist/sw.js.map",
+    "/sw.js",
     "/offline.html",
     "/pwa-icon/192",
     "/pwa-icon/512",
@@ -1201,11 +1200,10 @@ test("the manifest, the service worker and the offline page are left alone", asy
   // Only those addresses: a page that merely starts the same way is still a page.
   const page = await ask("/offline", { headers: { "accept-language": "es" } });
   assert.equal(rewriteOf(page), "http://localhost/es/offline");
-  // Nor is any other file under the worker's folder: the route would build the worker for it.
-  const other = await ask("/serwist/other.js", {
+  const other = await ask("/sw.js.map", {
     headers: { "accept-language": "es" },
   });
-  assert.equal(rewriteOf(other), "http://localhost/es/serwist/other.js");
+  assert.equal(rewriteOf(other), "http://localhost/es/sw.js.map");
 });
 
 test("Next's own picture addresses are not rewritten into a language", async () => {

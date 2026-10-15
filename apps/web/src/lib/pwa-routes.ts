@@ -1,5 +1,5 @@
 // What the service worker does with a request, as plain functions so a test can run them
-// (`src/app/sw.ts` hands them to Serwist). The worker is deliberately small: it keeps nothing
+// (`src/worker/sw.ts` hands them to Serwist). The worker is deliberately small: it keeps nothing
 // that belongs to a member or may be out of date.
 //
 // - `/_next/static/*` (scripts, styles, fonts: every file has its hash in its name and never

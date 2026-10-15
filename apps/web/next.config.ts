@@ -1,4 +1,3 @@
-import { withSerwist } from "@serwist/turbopack";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
@@ -27,7 +26,7 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/serwist/:path*",
+        source: "/sw.js",
         headers: [{ key: "Cache-Control", value: "no-cache" }],
       },
     ];
@@ -50,4 +49,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(withSerwist(nextConfig));
+export default withNextIntl(nextConfig);

@@ -1330,7 +1330,7 @@ mark when there is none (`/manifest.webmanifest`). The site reads them again wit
 change, but a device that already installed it keeps what it had until the system refreshes the
 manifest.
 
-A small service worker (`/serwist/sw.js`) is registered by production builds on `https` and
+A small service worker (`/sw.js`, a file bundled with the app by `bun run build`) is registered by production builds on `https` and
 `localhost`, once a page has loaded. It does two things only:
 
 - It keeps the scripts, styles and fonts of the build (`/_next/static/`, named by their content,

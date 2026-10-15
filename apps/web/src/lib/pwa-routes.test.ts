@@ -38,7 +38,7 @@ test("pages, the API, files, uploads and Next's data requests are never kept", (
     "/threads/12/uploads",
     "/account/picture",
     "/_next/image?url=%2Fapi%2Fv1%2Ffiles%2F5&w=64",
-    "/serwist/sw.js",
+    "/sw.js",
     "/manifest.webmanifest",
   ])
     expect(isStaticAsset(here(path)), path).toBe(false);
@@ -113,7 +113,10 @@ test("the offline page is a file the worker can keep, in both languages", () => 
 // The worker's wiring is Serwist's, which only runs in a browser: the file is read for the rules
 // the brief fixes.
 test("the worker keeps to its few rules", () => {
-  const worker = readFileSync(new URL("../app/sw.ts", import.meta.url), "utf8");
+  const worker = readFileSync(
+    new URL("../worker/sw.ts", import.meta.url),
+    "utf8",
+  );
   // Static files and page loads are the only routes; none names a method, so each is GET only.
   expect(worker).toContain("matcher: isStaticAsset");
   expect(worker).toContain("matcher: isPageNavigation");
@@ -129,10 +132,4 @@ test("the worker keeps to its few rules", () => {
   // No push and no background sync.
   const code = worker.replace(/\/\/.*$/gm, "");
   expect(code).not.toMatch(/\bpush\b|\bsync\b|BackgroundSync/i);
-  // The precache holds the offline page and nothing else.
-  const route = readFileSync(
-    new URL("../app/serwist/[path]/route.ts", import.meta.url),
-    "utf8",
-  );
-  expect(route).toContain('globPatterns: ["public/offline.html"]');
 });

@@ -18,9 +18,7 @@ test("a production build on a secure origin registers the worker for the whole s
   expect(registerWorker({ production: true, secure: true, workers })).toBe(
     true,
   );
-  expect(calls).toEqual([
-    ["/serwist/sw.js", { scope: "/", updateViaCache: "none" }],
-  ]);
+  expect(calls).toEqual([["/sw.js", { scope: "/", updateViaCache: "none" }]]);
 });
 
 test("nothing is registered in development", () => {
