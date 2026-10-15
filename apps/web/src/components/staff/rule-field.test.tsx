@@ -14,9 +14,6 @@ import { viewerBody } from "@/lib/test-viewer";
 import type { Rule } from "./criteria-rule";
 
 mock.module("server-only", () => ({}));
-mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
-  findRecipients: async () => [],
-}));
 mock.module("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ get: () => undefined, toString: () => "" }),

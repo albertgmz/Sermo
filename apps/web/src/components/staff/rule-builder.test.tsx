@@ -4,10 +4,6 @@ import { CRITERIA, LIMITS } from "@/lib/test-criteria";
 import { withIntl } from "@/lib/test-intl";
 import { PLACES, type Place, type Rule } from "./criteria-rule";
 
-mock.module("server-only", () => ({}));
-mock.module("@/app/[locale]/(main)/conversations/actions", () => ({
-  findRecipients: async () => [],
-}));
 const { RuleBuilder } = await import("./rule-builder");
 
 const choices = {
@@ -29,6 +25,7 @@ function draw(place: Place, rule: Rule = nothing, over = {}) {
         rule={rule}
         choices={{ ...choices, ...over }}
         limits={LIMITS}
+        findMembers={async () => []}
       />,
     ),
   );

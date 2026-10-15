@@ -2,8 +2,7 @@
 
 import { Plus, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
-import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
+import { useId, useMemo, useState } from "react";
 import { type Choice, IdPicker } from "@/components/forum/id-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,12 +34,10 @@ export type RuleChoices = {
   members: Choice[];
 };
 
-async function findMembers(prefix: string): Promise<Choice[]> {
-  return (await findRecipients(prefix)).map((member) => ({
-    id: member.id,
-    label: member.username,
-  }));
-}
+// The search of members the builder is given (a server action of the page that draws it).
+export type FindMembers = (
+  prefix: string,
+) => Promise<{ id: number; username: string }[]>;
 
 // RuleBuilder: the one editor of a rule, for every admin form that takes one. "All of these" or
 // "Any of these", and a list of conditions to add and remove; each draws the control its criterion
@@ -57,6 +54,7 @@ async function findMembers(prefix: string): Promise<Choice[]> {
 //   rule      The rule being edited.
 //   choices   The groups, shop items and members that conditions may name.
 //   limits    What the shared schema allows: conditions in a rule, a condition's number and ids.
+//   findMembers  Finds members by the start of their username, for the member criteria.
 //   name      The field the rule is sent in. Default "rule".
 export function RuleBuilder({
   place,
@@ -64,6 +62,7 @@ export function RuleBuilder({
   rule,
   choices,
   limits,
+  findMembers,
   name = "rule",
 }: {
   place: Place;
@@ -71,10 +70,21 @@ export function RuleBuilder({
   rule: Rule;
   choices: RuleChoices;
   limits: RuleLimits;
+  findMembers: FindMembers;
   name?: string;
 }) {
   const t = useTranslations("admin.ruleBuilder");
   const id = useId();
+  // One function for the life of the builder: the picker restarts its search when it changes.
+  const searchMembers = useMemo(
+    () =>
+      async (prefix: string): Promise<Choice[]> =>
+        (await findMembers(prefix)).map((member) => ({
+          id: member.id,
+          label: member.username,
+        })),
+    [findMembers],
+  );
   const [draft, setDraft] = useState<Draft>(() => draftOf(rule));
   const [adding, setAdding] = useState("");
   const available: Available = {
@@ -162,6 +172,7 @@ export function RuleBuilder({
                     labelId={labelId}
                     choices={choices}
                     limits={limits}
+                    searchMembers={searchMembers}
                     onChange={(input) =>
                       setDraft((now) => changeCondition(now, key, input))
                     }
@@ -232,6 +243,7 @@ function Control({
   labelId,
   choices,
   limits,
+  searchMembers,
   onChange,
 }: {
   criterion: Criterion;
@@ -239,6 +251,7 @@ function Control({
   labelId: string;
   choices: RuleChoices;
   limits: RuleLimits;
+  searchMembers: (prefix: string) => Promise<Choice[]>;
   onChange: (input: Change) => void;
 }) {
   const t = useTranslations("admin.ruleBuilder");
@@ -289,7 +302,7 @@ function Control({
         <IdPicker
           ids={condition.ids ?? []}
           known={choices.members}
-          search={findMembers}
+          search={searchMembers}
           limit={limits.ids}
           text={text}
           onChange={(ids) => onChange({ ids })}

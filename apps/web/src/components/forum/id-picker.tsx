@@ -28,8 +28,10 @@ export async function runSearch(
 }
 
 // What the picker offers now: the choices matching what was typed that are neither chosen nor
-// excluded, and whether a list is on show at all (a fixed list always, a search once it has
-// answered for the current text).
+// excluded, whether a list is on show at all, and whether it is settled. A fixed list is always on
+// show and settled. A search is settled once it has answered for the current text; until then the
+// previous answer's choices that still start with the typed text stay on show (so the list does
+// not flicker between keystrokes), but nothing is chosen from an unsettled list by Enter.
 export function offered(input: {
   query: string;
   ids: readonly number[];
@@ -38,21 +40,29 @@ export function offered(input: {
   found: Found;
 }) {
   const typed = input.query.trim();
-  const pool = input.options
-    ? input.options.filter((choice) =>
-        choice.label.toLowerCase().includes(typed.toLowerCase()),
-      )
-    : input.found?.prefix === typed
-      ? input.found.items
-      : [];
+  const lower = typed.toLowerCase();
+  const settled = input.options !== undefined || input.found?.prefix === typed;
+  let pool: readonly Choice[] = [];
+  if (input.options)
+    pool = input.options.filter((choice) =>
+      choice.label.toLowerCase().includes(lower),
+    );
+  else if (settled) pool = input.found?.items ?? [];
+  else if (typed !== "")
+    pool = (input.found?.items ?? []).filter((choice) =>
+      choice.label.toLowerCase().startsWith(lower),
+    );
+  const shown = pool.filter(
+    (choice) =>
+      !input.ids.includes(choice.id) && !input.exclude?.includes(choice.id),
+  );
   return {
-    shown: pool.filter(
-      (choice) =>
-        !input.ids.includes(choice.id) && !input.exclude?.includes(choice.id),
-    ),
+    shown,
+    settled,
+    // An unsettled search shows what it has, and says "No match" only once it has answered.
     listed:
       input.options !== undefined ||
-      (typed !== "" && input.found?.prefix === typed),
+      (typed !== "" && (settled || shown.length > 0)),
   };
 }
 
@@ -135,7 +145,13 @@ export function IdPicker({
   }, [query, search]);
 
   const name = (id: number) => names.get(id) ?? `#${id}`;
-  const { shown, listed } = offered({ query, ids, exclude, options, found });
+  const { shown, listed, settled } = offered({
+    query,
+    ids,
+    exclude,
+    options,
+    found,
+  });
 
   function choose(choice: Choice) {
     setNames((now) => new Map(now).set(choice.id, choice.label));
@@ -179,7 +195,7 @@ export function IdPicker({
             onKeyDown={(event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
-              const choice = enterChoice(query, shown);
+              const choice = settled ? enterChoice(query, shown) : undefined;
               if (choice) choose(choice);
             }}
             className="h-10 md:h-8"

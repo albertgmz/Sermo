@@ -42,11 +42,13 @@ test("a fixed list is filtered by what is typed and always on show", () => {
   const base = { ids: [], found: null, options };
   expect(offered({ ...base, query: "" })).toEqual({
     shown: options,
+    settled: true,
     listed: true,
   });
   expect(offered({ ...base, query: " MOD " }).shown).toEqual([options[0]]);
   expect(offered({ ...base, query: "zzz" })).toEqual({
     shown: [],
+    settled: true,
     listed: true,
   });
 });
@@ -54,10 +56,29 @@ test("a fixed list is filtered by what is typed and always on show", () => {
 test("an answer for older text is never offered or picked for newer text", () => {
   const old = { prefix: "al", items: found };
   const now = offered({ query: "alb", ids: [], found: old });
-  expect(now).toEqual({ shown: [], listed: false });
+  expect(now).toEqual({ shown: [], settled: false, listed: false });
   expect(enterChoice("alb", now.shown)).toBeUndefined();
   // Once it answers for the text held, it is offered.
   expect(offered({ query: "al", ids: [], found: old }).shown).toEqual(found);
+});
+
+test("while the answer for the new text is pending, the earlier choices that still match stay on show", () => {
+  const earlier = { prefix: "e", items: found };
+  const pending = offered({ query: "emi", ids: [], found: earlier });
+  expect(pending.shown).toEqual([emil]);
+  expect(pending.listed).toBe(true);
+  expect(pending.settled).toBe(false);
+  // Nothing matches the new text yet: no list, and no "No match" before the answer.
+  expect(offered({ query: "x", ids: [], found: earlier })).toEqual({
+    shown: [],
+    settled: false,
+    listed: false,
+  });
+  // The chosen are still left out of the earlier choices.
+  expect(offered({ query: "em", ids: [2], found: earlier }).shown).toEqual([
+    ember,
+    emil,
+  ]);
 });
 
 test("Enter on an empty box chooses nothing, on typed text the first match", () => {
@@ -75,6 +96,7 @@ test("a search that fails answers with nothing, which the picker shows as no mat
   expect(answer).toEqual({ prefix: "em", items: [] });
   expect(offered({ query: "em", ids: [], found: answer })).toEqual({
     shown: [],
+    settled: true,
     listed: true,
   });
   expect(await runSearch(async () => found, "e")).toEqual({

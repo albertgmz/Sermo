@@ -1,3 +1,4 @@
+import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import { confirmSample, saveSample } from "@/app/[locale]/(main)/ui/actions";
 import { StaffNavigation } from "@/app/[locale]/(staff)/navigation";
 import type { NavSection } from "@/app/[locale]/(staff)/navigation-data";
@@ -341,6 +342,7 @@ export function StaffDemos() {
                   ],
                 }}
                 limits={{ conditions: 20, value: 1_000_000_000, ids: 500 }}
+                findMembers={findRecipients}
                 choices={{
                   groups: [
                     { id: 3, label: "Moderators" },

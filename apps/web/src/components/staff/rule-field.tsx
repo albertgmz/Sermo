@@ -10,6 +10,7 @@ import {
 } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import { cache } from "react";
+import { findRecipients } from "@/app/[locale]/(main)/conversations/actions";
 import { memberNames } from "@/app/[locale]/(staff)/admin/logs/links";
 import { call, read } from "@/lib/sermo/client";
 import {
@@ -100,6 +101,7 @@ export async function RuleField({
         rule={rule}
         choices={choices}
         limits={limits}
+        findMembers={findRecipients}
       />
     </FieldRow>
   );
