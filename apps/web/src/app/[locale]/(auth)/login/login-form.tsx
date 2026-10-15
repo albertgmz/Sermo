@@ -59,7 +59,9 @@ export function LoginForm({
           {t("rememberLabel")}
         </Label>
       </div>
-      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
+      {turnstileKey && (
+        <TurnstileField siteKey={turnstileKey} action="login" retry={state} />
+      )}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}
       </Button>

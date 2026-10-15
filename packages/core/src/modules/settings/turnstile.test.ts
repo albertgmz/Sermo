@@ -19,7 +19,20 @@ afterEach(() => {
   for (const ctx of opened.splice(0)) closeContext(ctx);
 });
 
-type Verdict = { success: boolean; "error-codes"?: string[] } | Response | Error;
+type Verdict =
+  | { success: boolean; "error-codes"?: string[]; action?: string; hostname?: string }
+  | Response
+  | Error;
+
+/** The form of the request being sent, which the scripted widget names as its action. */
+let formOfRequest = "register";
+const FORM_OF_PATH: Record<string, string> = {
+  "/sign-up/email": "register",
+  "/sign-in/email": "login",
+  "/sign-in/username": "login",
+  "/request-password-reset": "passwordReset",
+  "/send-verification-email": "resendConfirmation",
+};
 
 /** Cloudflare, scripted: each call to siteverify answers the next verdict (the last one repeats). */
 function cloudflare(...verdicts: Verdict[]) {
@@ -36,6 +49,9 @@ function cloudflare(...verdicts: Verdict[]) {
     const verdict = verdicts[Math.min(calls.length, verdicts.length) - 1]!;
     if (verdict instanceof Error) throw verdict;
     if (verdict instanceof Response) return verdict;
+    // A good answer names the form's action and the site's host unless the test says otherwise.
+    if ("success" in verdict && verdict.success && !("action" in verdict))
+      return Response.json({ ...verdict, action: formOfRequest, hostname: "localhost" });
     return Response.json(verdict);
   }) as unknown as typeof fetch);
   return { calls, spy };
@@ -75,8 +91,9 @@ function site(options: { mail?: boolean } = {}) {
     path: string,
     body: unknown,
     options: { token?: string; cookie?: string; ip?: string | null } = {},
-  ) =>
-    auth.handler(
+  ) => {
+    formOfRequest = FORM_OF_PATH[path] ?? formOfRequest;
+    return auth.handler(
       new Request(`${ORIGIN}/api/auth${path}`, {
         method: "POST",
         headers: {
@@ -91,6 +108,7 @@ function site(options: { mail?: boolean } = {}) {
         body: JSON.stringify(body),
       }),
     );
+  };
   const signUp = (name: string, options: Parameters<typeof post>[2] = {}) =>
     post(
       "/sign-up/email",
@@ -293,6 +311,69 @@ describe("registration", () => {
     expect(cf.calls[0]!.body).toEqual({ secret: SECRET, response: "t" });
     expect((await s.signUp("Bob", { token: "t", ip: "2001:db8::7" })).status).toBe(200);
     expect(cf.calls[1]!.body.remoteip).toBe("2001:db8::7");
+  });
+
+  test("a token solved for another form is refused, whichever way the action is wrong", async () => {
+    const s = site();
+    await s.enable({ turnstileForms: ["register", "login"] });
+    cloudflare({ success: true });
+    await s.signUp("Alice", { token: "t" });
+    for (const action of ["login", "passwordReset", "", undefined]) {
+      cloudflare({ success: true, action, hostname: "localhost" });
+      const response = await s.signUp(`User${String(action)}`, { token: "t" });
+      expect(response.status, String(action)).toBe(400);
+      expect(await codeOf(response)).toBe("TURNSTILE_FAILED");
+    }
+    // The same token on the form it was solved for passes.
+    cloudflare({ success: true, action: "login", hostname: "localhost" });
+    const credentials = { email: "alice@example.test", password: PASSWORD };
+    expect((await s.post("/sign-in/email", credentials, { token: "t" })).status).toBe(200);
+  });
+
+  test("a token solved on another host is refused; the site's own hosts pass, in any case", async () => {
+    const s = site();
+    await s.enable();
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    for (const hostname of ["evil.example", undefined, "localhost.evil.example"]) {
+      cloudflare({ success: true, action: "register", hostname });
+      const response = await s.signUp("Alice", { token: "secret-token-value" });
+      expect(response.status, String(hostname)).toBe(400);
+      expect(await codeOf(response)).toBe("TURNSTILE_FAILED");
+    }
+    // The host that was refused is logged to help the administrator; the token and secret are not.
+    expect(JSON.stringify(warn.mock.calls)).toContain("evil.example");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("secret-token-value");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(SECRET);
+    warn.mockRestore();
+    cloudflare({ success: true, action: "register", hostname: "LocalHost" });
+    expect((await s.signUp("Bob", { token: "t" })).status).toBe(200);
+  });
+
+  test("the hosts come from the public address, the site address and the trusted origins; with none the host is not compared", async () => {
+    const s = site();
+    await s.enable();
+    const auth = s.ctx.config.auth!;
+    Object.assign(auth, {
+      baseURL: "https://forum.example.test",
+      trustedOrigins: ["https://www.example.test:8443"],
+    });
+    for (const hostname of ["forum.example.test", "www.example.test"]) {
+      cloudflare({ success: true, action: "register", hostname });
+      expect((await s.signUp(`User${hostname.length}`, { token: "t" })).status).toBe(200);
+    }
+    cloudflare({ success: true, action: "register", hostname: "localhost" });
+    expect((await s.signUp("Mallory", { token: "t" })).status).toBe(400);
+    Object.assign(auth, { baseURL: "", trustedOrigins: [] });
+    cloudflare({ success: true, action: "register", hostname: "anywhere.example" });
+    expect((await s.signUp("Carol", { token: "t" })).status).toBe(200);
+  });
+
+  test("the secret is read with a prepared statement", async () => {
+    const s = site();
+    await s.enable();
+    cloudflare({ success: true });
+    await s.signUp("Alice", { token: "t" });
+    expect(s.ctx.statements.has("settings.turnstileSecret")).toBe(true);
   });
 
   test("the deadline is short", () => {

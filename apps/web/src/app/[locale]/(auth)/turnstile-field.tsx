@@ -1,5 +1,6 @@
 "use client";
 
+import type { TurnstileForm } from "@sermo/core/contracts";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { FormError } from "@/components/forum/form-error";
@@ -33,7 +34,10 @@ function load(): Promise<Api> {
     script.onload = () => {
       const api = window.turnstile;
       if (api) api.ready(() => resolve(api));
-      else reject(new Error("Turnstile did not start"));
+      else {
+        loading = undefined;
+        reject(new Error("Turnstile did not start"));
+      }
     };
     script.onerror = () => {
       loading = undefined;
@@ -44,13 +48,17 @@ function load(): Promise<Api> {
   return loading;
 }
 
+// `action` names the form: Cloudflare returns it with the verdict and the backend requires it to
+// match, so a token solved for one form is not accepted on another.
 // `retry` changes whenever an attempt comes back refused: a token is good for one use, so the
 // widget asks for a new one.
 export function TurnstileField({
   siteKey,
+  action,
   retry,
 }: {
   siteKey: string;
+  action: TurnstileForm;
   retry?: unknown;
 }) {
   const t = useTranslations("auth.turnstile");
@@ -67,6 +75,7 @@ export function TurnstileField({
         if (gone || !box.current) return;
         widget.current = api.render(box.current, {
           sitekey: siteKey,
+          action,
           language: locale,
           theme:
             document.documentElement.getAttribute("data-theme") === "light"
@@ -93,7 +102,7 @@ export function TurnstileField({
       if (widget.current) window.turnstile?.remove(widget.current);
       widget.current = undefined;
     };
-  }, [siteKey, locale]);
+  }, [siteKey, action, locale]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `retry` only says an attempt ended
   useEffect(() => {

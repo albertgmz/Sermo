@@ -639,6 +639,33 @@ held ones count). For an integer, `-1` and `0` both mean no limit, so a group cr
 the limit existed is not shut out; to stop a group writing, take its posting permission away.
 Integers take the highest value across a member's groups and `-1` beats every number, as everywhere: to limit new members, lower the Registered group and do not give `-1` to a group they also belong to. A member whose primary group is a custom one with no entry has no limit.
 
+### Signatures
+
+Checked when a member saves a signature, on what it renders to, so Markdown and BB code that draw
+the same thing count the same (Settings, Anti-spam). Characters and lines count the source. Links,
+pictures, emoji (each pictograph on its own, also inside a joined sequence; a flag or a keycap
+once) and the largest text size (`[size]` 1 to 7; a heading counts as 8 minus its level) are
+counts where `0` and `-1` both mean no limit; to forbid links or pictures leave them out of the
+allowed formatting (`signatureFormats`). A kind that is not allowed is refused, never stripped.
+Quotes, tables, code blocks, spoilers, media and more than one block are never allowed, and a
+signature that draws nothing (only invisible characters) is refused. `signatureRule` (cheap
+criteria) says who may set one on top of `profile.signature`; a stored signature of a member who
+no longer holds it stays stored and is not shown. Saved signatures are not re-checked until saved
+again.
+
+### Cloudflare Turnstile
+
+Settings, Anti-spam. A visitor without an account solves a check before registration, sign-in,
+a password reset request or a request for a new confirmation email (the guest forms you tick);
+signed-in members never see it. The backend verifies every token with Cloudflare (the client
+address as `remoteip`, a 5 second limit) and requires the action to be the form's own and the
+host to be one of the site's (`BETTER_AUTH_URL`, `SERMO_SITE_URL` and `SERMO_TRUSTED_ORIGINS`; with none configured the host is not compared). It fails
+closed: when Cloudflare cannot be reached, or the secret is wrong, the guarded forms are
+refused. Sign-in is not ticked by default so that you can still sign in to correct a wrong secret;
+if you are locked out, delete the `turnstile_secret` row of `site_settings` or turn Turnstile off
+in the database. The secret is write-only (no read returns it) but is stored in plain text in the
+database, so backups carry it.
+
 ### Approval queue
 
 New content waits for approval (state `moderated`) when any of the following holds. Word filters

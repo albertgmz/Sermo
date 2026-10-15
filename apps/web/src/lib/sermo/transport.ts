@@ -11,7 +11,8 @@ export const LOCATION_HEADERS = [
   "cf-ipcity",
 ] as const;
 
-// The header the backend reads the Turnstile token of a guest form from.
+// The header the backend reads the Turnstile token of a guest form from (the same name as
+// `TURNSTILE_HEADER` in the backend's auth module).
 export const TURNSTILE_HEADER = "x-sermo-turnstile";
 
 export type Forward = {

@@ -212,7 +212,7 @@ const TURNSTILE_PATHS: Record<string, TurnstileForm> = {
   "/send-verification-email": "resendConfirmation",
 };
 
-/** The header the web app sends the widget's token in. */
+/** The header the web app sends the widget's token in (the web's `transport.ts` has the same name). */
 export const TURNSTILE_HEADER = "x-sermo-turnstile";
 
 function accountBanned(): APIError {

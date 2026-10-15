@@ -92,7 +92,7 @@ export async function ChecklistRow({
   value,
 }: {
   name: "signatureFormats" | "turnstileForms";
-  options: { kind: string; label: string }[];
+  options: { kind: string; label: string; note?: string }[];
   value: readonly string[];
 }) {
   const t = await getTranslations("adminSetup.fields");
@@ -101,20 +101,28 @@ export async function ChecklistRow({
       <Shown name={name} />
       <fieldset className="grid min-w-0 gap-x-4 sm:grid-cols-2">
         <legend className="sr-only">{t(`${name}.label`)}</legend>
-        {options.map(({ kind, label }) => (
-          <label
-            key={kind}
-            className="flex min-h-10 items-center gap-3 text-sm"
-          >
-            <input
-              type="checkbox"
-              name={name}
-              value={kind}
-              defaultChecked={value.includes(kind)}
-              className="size-5"
-            />
-            {label}
-          </label>
+        {options.map(({ kind, label, note }) => (
+          <div key={kind}>
+            <label className="flex min-h-10 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                name={name}
+                value={kind}
+                defaultChecked={value.includes(kind)}
+                aria-describedby={note ? `${name}-${kind}-note` : undefined}
+                className="size-5"
+              />
+              {label}
+            </label>
+            {note && (
+              <p
+                id={`${name}-${kind}-note`}
+                className="text-xs text-pretty text-muted-foreground"
+              >
+                {note}
+              </p>
+            )}
+          </div>
         ))}
       </fieldset>
     </FieldRow>

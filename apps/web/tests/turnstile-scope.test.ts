@@ -46,3 +46,27 @@ test("the secret never reaches a client component or a shared fixture", () => {
   ]);
   for (const path of holders) expect(read(path)).not.toMatch(/^"use client"/);
 });
+
+test("each guest form names its own action, the one the backend requires back", () => {
+  const forms: [string, string][] = [
+    ["src/app/[locale]/(auth)/login/login-form.tsx", "login"],
+    ["src/app/[locale]/(auth)/register/register-form.tsx", "register"],
+    [
+      "src/app/[locale]/(auth)/forgot-password/forgot-form.tsx",
+      "passwordReset",
+    ],
+    ["src/app/[locale]/(auth)/resend-form.tsx", "resendConfirmation"],
+  ];
+  for (const [path, action] of forms)
+    expect(read(path), path).toMatch(
+      new RegExp(String.raw`<TurnstileField[^>]*action="${action}"`),
+    );
+  expect(read(FIELD)).toMatch(/sitekey: siteKey,\s*action,/);
+});
+
+test("the sign-in checkbox carries the lockout warning", () => {
+  const form = read(
+    "src/app/[locale]/(staff)/admin/settings/antispam/antispam-form.tsx",
+  );
+  expect(form).toMatch(/kind === "login" \? t\("loginWarning"\)/);
+});

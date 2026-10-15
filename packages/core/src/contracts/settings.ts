@@ -191,7 +191,7 @@ export const SiteSettings = z
     signatureMaxLines: z.number().int().min(1).max(20).default(4),
     signatureMaxLinks: z.number().int().min(-1).max(50).default(3),
     signatureMaxImages: z.number().int().min(-1).max(20).default(1),
-    /** Emoji characters; the forum has no text smilies. */
+    /** Emoji, each pictograph on its own (a flag or keycap once); the forum has no text smilies. */
     signatureMaxSmilies: z.number().int().min(-1).max(100).default(5),
     signatureMaxTextSize: z.number().int().min(-1).max(7).default(4),
     /** The kinds of formatting a signature may use; one outside the list is refused when saved. */

@@ -93,9 +93,23 @@ function sizeOf(tag: string, attribs: Record<string, string>): number {
   return Number(SIZE_CLASS.exec(attribs.class ?? "")?.[1] ?? 0);
 }
 
-/** An emoji, or a flag, with its modifiers and joiners; text symbols such as (c) are not. */
-const EMOJI =
-  /\p{Regional_Indicator}{2}|(?=[\u{2190}-\u{1FFFF}])\p{Extended_Pictographic}(?:️|\p{Emoji_Modifier})?(?:‍\p{Extended_Pictographic}(?:️|\p{Emoji_Modifier})?)*/gu;
+/**
+ * What counts as one emoji: each pictograph (with its skin tone or emoji presentation selector),
+ * a flag (a pair of regional indicators) and a keycap. A sequence joined with zero-width joiners
+ * counts every pictograph in it, because a chain of joiners is not a real sequence and draws
+ * separate glyphs. Text symbols such as (c) and (tm) do not count.
+ */
+const EMOJI = new RegExp(
+  [
+    String.raw`\p{Regional_Indicator}{2}`,
+    String.raw`[0-9#*]\uFE0F?\u20E3`,
+    String.raw`(?=[\u{2190}-\u{1FFFF}])\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?`,
+  ].join("|"),
+  "gu",
+);
+
+/** Characters that draw nothing: spaces, zero-width characters, the word joiner, the BOM. */
+const INVISIBLE = /[\s\u200B-\u200D\u2060\uFEFF]/g;
 
 const plural = (count: number, noun: string) =>
   `${count} ${noun}${count === 1 || noun === "emoji" ? "" : "s"}`;
@@ -116,7 +130,6 @@ export function renderSignature(source: string, limits: SignatureLimits): string
   if (blocks.filter((block) => block.type !== "space" && block.type !== "def").length > 1)
     refuse(STRUCTURE_MESSAGE);
   const html = renderMarkdown(source);
-  if (html.trim() === "") refuse("A signature must have something to show.");
   const elements: { kind: Kind; size: number }[] = [];
   let text = "";
   sanitizeHtml(html, {
@@ -138,6 +151,9 @@ export function renderSignature(source: string, limits: SignatureLimits): string
     elements.filter((element) => element.kind === "paragraph").length > 1
   )
     refuse(STRUCTURE_MESSAGE);
+  // Nothing to see: no text but invisible characters, and no picture.
+  if (text.replace(INVISIBLE, "") === "" && !elements.some((element) => element.kind === "image"))
+    refuse("A signature must have something to show.");
   const allowed = new Set<string>(limits.signatureFormats);
   const used = new Set(elements.map((element) => element.kind));
   const refused = (Object.keys(LABEL) as SignatureFormat[]).filter(

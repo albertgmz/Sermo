@@ -62,6 +62,7 @@
       "signatures": "Signatures",
       "signaturesNote": "Checked when a member saves a signature and measured on what it shows, so Markdown and BB code that draw the same thing count the same. For the counts and the text size, 0 and -1 both mean no limit; to forbid links or pictures, leave them out of the allowed formatting. Quotes, tables, code blocks, spoilers, media and more than one paragraph are never allowed. Signatures already saved are not checked again until their owner saves them.",
       "turnstile": "Cloudflare Turnstile",
+      "loginWarning": "Careful: if the secret is wrong, nobody can sign in, you included. Tick this only after registration works with the same keys.",
       "turnstileNote": "Visitors without an account solve a check before the forms below are sent; signed-in members never see it. The backend verifies every answer with Cloudflare and fails closed: if Cloudflare cannot be reached the guarded forms are refused until it can, so nobody can register, sign in or ask for an email in the meantime. A wrong secret makes Cloudflare refuse every answer, which blocks every guarded form, so sign-in is not guarded by default: tick it only once registration works. Create a widget in the Cloudflare dashboard and paste its keys here. It is listed in the cookie policy as strictly necessary for security."
     },
     "cookies": {
@@ -242,7 +243,7 @@
     },
     "signatureMaxSmilies": {
       "label": "Signature smilies",
-      "help": "Most emoji in a signature. The forum has no text smilies, so :) is plain text. 0 or -1: no limit.",
+      "help": "Most emoji in a signature. Every pictograph counts on its own, also inside a joined sequence (a family is three), and a flag or a keycap counts once. The forum has no text smilies, so :) is plain text. 0 or -1: no limit.",
       "unit": "emoji"
     },
     "signatureMaxTextSize": {

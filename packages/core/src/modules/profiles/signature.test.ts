@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { ForbiddenError, ValidationError } from "../../errors";
+import { loadMemberAuthors } from "../members/cards";
 import { type World, world } from "../members/fixtures.test";
 
 const sign = (w: World, signature: string | null, actor = w.moderatorActor) =>
@@ -77,10 +78,55 @@ describe("signature limits, measured on the rendered html", () => {
     expect(await refusal(w, "\u{1F600}\u{1F44D}\u{1F1EA}\u{1F1F8}❤️")).toBe(
       "A signature may hold at most 3 emoji; this one has 4.",
     );
-    // A joined sequence and a skin tone are one emoji each.
-    await sign(w, "\u{1F468}‍\u{1F469}‍\u{1F467} \u{1F44D}\u{1F3FD} ❤️");
+    // A skin tone and a presentation selector belong to their emoji; a flag is one.
+    await sign(w, "\u{1F44D}\u{1F3FD} ❤️ \u{1F1EA}\u{1F1F8}");
     await settings(w, { signatureMaxSmilies: 0 });
     await sign(w, "\u{1F600}".repeat(10));
+  });
+
+  test("a chain of joiners counts every pictograph, so it cannot hide emoji", async () => {
+    const w = world();
+    await settings(w, { signatureMaxSmilies: 2, signatureMaxLength: 2000 });
+    const chain = (glyph: string, times: number) => Array(times).fill(glyph).join("\u200D");
+    // Thirty joined grinning faces, and thirty joined hearts, are thirty emoji each.
+    expect(await refusal(w, chain("\u{1F600}", 30))).toBe(
+      "A signature may hold at most 2 emoji; this one has 30.",
+    );
+    expect(await refusal(w, chain("❤", 30))).toContain("this one has 30");
+    expect(await refusal(w, chain("❤️", 30))).toContain("this one has 30");
+    // A family is three people, a couple with a heart is three pictographs.
+    expect(await refusal(w, "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}")).toContain("this one has 3");
+    await sign(w, chain("\u{1F600}", 2));
+  });
+
+  test("keycaps and flags count once each, skin tones add nothing", async () => {
+    const w = world();
+    await settings(w, { signatureMaxSmilies: 2, signatureMaxLength: 2000 });
+    const keycaps = "1️⃣ 2️⃣ #️⃣";
+    expect(await refusal(w, keycaps)).toContain("this one has 3");
+    expect(await refusal(w, "1⃣".repeat(10))).toContain("this one has 10");
+    // Plain digits, a hash and a star are text.
+    await sign(w, "1 2 3 # * 10");
+    const flags = ["\u{1F1EA}\u{1F1F8}", "\u{1F1EB}\u{1F1F7}", "\u{1F1E9}\u{1F1EA}"];
+    expect(await refusal(w, flags.join(" "))).toContain("this one has 3");
+    await sign(w, flags.slice(0, 2).join(""));
+    const tones = ["\u{1F3FB}", "\u{1F3FC}", "\u{1F3FD}"].map((tone) => "\u{1F44D}" + tone);
+    expect(await refusal(w, tones.join(" "))).toContain("this one has 3");
+    await sign(w, tones.slice(0, 2).join(""));
+  });
+
+  test("a signature of nothing but invisible characters is refused like an empty one", async () => {
+    const w = world();
+    for (const source of ["​​", "‍﻿⁠", " ​  ", "**​**", "[B]​[/B]"])
+      expect(await refusal(w, source), JSON.stringify(source)).toBe(
+        "A signature must have something to show.",
+      );
+    // Whitespace alone is simply no signature, as before.
+    expect((await sign(w, "    ")).signatureHtml).toBeNull();
+    // Invisible characters next to text, or a picture alone, are fine.
+    await sign(w, "hi​");
+    await settings(w, { signatureFormats: ["image"] });
+    await sign(w, "![x](https://i.test/a.png)");
   });
 
   test("text size: the largest [size] and heading allowed", async () => {
@@ -320,6 +366,27 @@ describe("the signature rule", () => {
     await settings(w, { signatureRule: rule });
     await w.call("profiles.get", w.memberActor, { userId: w.moderator.id });
     expect(w.ctx.statements.has("shared.criteriaMembers")).toBe(true);
+  });
+
+  test("a page of cards hides signatures with one facts query, whoever is on it", async () => {
+    const w = world();
+    const members = Array.from({ length: 20 }, (_, i) => {
+      const user = w.user({ groupId: 3 });
+      w.set(user.id, { post_count: i % 2 === 0 ? 5 : 0, signature_html: "<p>sig</p>" });
+      return user.id;
+    });
+    await settings(w, { signatureRule: rule });
+    // The first page prepares the statement; the count starts after it.
+    loadMemberAuthors(w.ctx, w.memberActor, members);
+    const statement = w.ctx.statements.get("shared.criteriaMembers") as {
+      all: (...args: unknown[]) => unknown;
+    };
+    const all = spyOn(statement, "all");
+    const authors = loadMemberAuthors(w.ctx, w.memberActor, members);
+    expect(all).toHaveBeenCalledTimes(1);
+    const shown = members.filter((id) => authors.get(id)?.signatureHtml !== null);
+    expect(shown).toHaveLength(10);
+    all.mockRestore();
   });
 
   test("an expensive criterion is refused in the setting", async () => {

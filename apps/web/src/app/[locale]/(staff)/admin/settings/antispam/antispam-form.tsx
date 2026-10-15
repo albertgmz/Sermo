@@ -79,6 +79,9 @@ export async function AntispamForm() {
         options={TURNSTILE_FORMS.map((kind) => ({
           kind,
           label: forms(kind),
+          // A wrong secret refuses every guarded form, and a signed-out administrator cannot
+          // get past sign-in to correct it.
+          note: kind === "login" ? t("loginWarning") : undefined,
         }))}
         value={settings.turnstileForms}
       />

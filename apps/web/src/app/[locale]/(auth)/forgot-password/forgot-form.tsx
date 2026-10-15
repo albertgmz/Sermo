@@ -30,7 +30,13 @@ export function ForgotForm({ turnstileKey }: { turnstileKey: string | null }) {
         />
         {state && <FormError id="forgot-error">{state.error}</FormError>}
       </div>
-      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
+      {turnstileKey && (
+        <TurnstileField
+          siteKey={turnstileKey}
+          action="passwordReset"
+          retry={state}
+        />
+      )}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {pending ? t("pending") : t("submit")}
       </Button>

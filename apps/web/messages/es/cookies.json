@@ -152,7 +152,7 @@
     },
     "turnstile": {
       "title": "Comprobación de seguridad",
-      "purpose": "Los formularios para visitantes sin sesión (registro, inicio de sesión, restablecer la contraseña) pueden llevar una comprobación de Cloudflare Turnstile que distingue a las personas del abuso automatizado. Es estrictamente necesaria para la seguridad, así que no requiere consentimiento y tus elecciones no la desactivan. Su script se carga desde Cloudflare solo en esas páginas y solo mientras el sitio tenga la comprobación activada; Cloudflare recibe tu dirección y datos del navegador para juzgarla. Consulta la política de Cloudflare.",
+      "purpose": "Los formularios para visitantes sin sesión (registro, inicio de sesión, restablecer la contraseña, un nuevo correo de confirmación) pueden llevar una comprobación de Cloudflare Turnstile que distingue a las personas del abuso automatizado. Es estrictamente necesaria para la seguridad, así que no requiere consentimiento y tus elecciones no la desactivan. Su script se carga desde Cloudflare solo en esas páginas y solo mientras el sitio tenga la comprobación activada; Cloudflare recibe tu dirección y datos del navegador para juzgarla. Consulta la política de Cloudflare.",
       "lifetime": "Este sitio no guarda nada. Lo que se guarde lo fija el proveedor mientras se ejecuta la comprobación."
     },
     "embeds": {

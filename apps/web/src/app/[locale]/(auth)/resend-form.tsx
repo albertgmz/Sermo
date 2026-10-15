@@ -45,7 +45,13 @@ export function ResendForm({
           <FormError id={`resend-error-${from}`}>{state.error}</FormError>
         )}
       </div>
-      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
+      {turnstileKey && (
+        <TurnstileField
+          siteKey={turnstileKey}
+          action="resendConfirmation"
+          retry={state}
+        />
+      )}
       <Button
         type="submit"
         variant="outline"

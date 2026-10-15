@@ -78,7 +78,13 @@ export function RegisterForm({
         />
         <PasswordStrength password={password} />
       </div>
-      {turnstileKey && <TurnstileField siteKey={turnstileKey} retry={state} />}
+      {turnstileKey && (
+        <TurnstileField
+          siteKey={turnstileKey}
+          action="register"
+          retry={state}
+        />
+      )}
       {state.error && <FormError>{state.error}</FormError>}
       <Button type="submit" disabled={pending} className="h-10 w-full md:h-8">
         {t("submit")}

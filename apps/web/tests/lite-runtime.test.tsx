@@ -45,6 +45,7 @@ mock.module("next-intl", () => ({
 }));
 mock.module("next-intl/server", () => ({
   getLocale: async () => "en",
+  getFormatter: async () => ({ dateTime: () => "" }),
   getTranslations: async (namespace: string) => translator(namespace),
 }));
 // The signed-in account comes from the backend; the viewer value is the session token.
@@ -138,6 +139,8 @@ mock.module("@/app/[locale]/(main)/account/data", () => ({
       customTitleMaxLength: 40,
     },
     signatureNeeds: null,
+    profile: { username: "member1" },
+    usernameChange: { reason: null, availableAt: null },
     customTitle: null,
     signatureSource: storedSignature,
   }),

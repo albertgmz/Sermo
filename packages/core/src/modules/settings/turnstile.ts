@@ -1,5 +1,5 @@
 import { isIP } from "node:net";
-import type { Ctx } from "../../context";
+import { type Ctx, prepared } from "../../context";
 import type { TurnstileForm } from "../../contracts/settings";
 import { readSiteSettings } from "./index";
 
@@ -15,9 +15,11 @@ const MAX_TOKEN_LENGTH = 2048;
 export const SITEVERIFY_TIMEOUT_MS = 5_000;
 
 export function storedTurnstileSecret(ctx: Ctx): string | null {
-  const row = ctx.sqlite
-    .prepare<{ value: string }, [string]>("SELECT value FROM site_settings WHERE key = ?1")
-    .get(SECRET_KEY);
+  const row = prepared(ctx, "settings.turnstileSecret", () =>
+    ctx.sqlite.prepare<{ value: string }, [string]>(
+      "SELECT value FROM site_settings WHERE key = ?1",
+    ),
+  ).get(SECRET_KEY);
   return row?.value ? row.value : null;
 }
 
@@ -59,6 +61,27 @@ export class TurnstileRefusal extends Error {
   ) {
     super(message);
   }
+}
+
+/**
+ * The host names the site is served on: the public origin, the site's base address and the
+ * trusted origins of the configuration. Cloudflare reports the host the widget ran on; when the
+ * deployment names no host at all (nothing to compare with) the check is skipped.
+ */
+function siteHosts(ctx: Ctx): Set<string> {
+  const hosts = new Set<string>();
+  for (const origin of [
+    ctx.config.auth?.baseURL,
+    ctx.config.siteBaseURL,
+    ...(ctx.config.auth?.trustedOrigins ?? []),
+  ]) {
+    try {
+      if (origin) hosts.add(new URL(origin).hostname.toLowerCase());
+    } catch {
+      // An origin that is not an address names no host.
+    }
+  }
+  return hosts;
 }
 
 const required = () =>
@@ -125,8 +148,29 @@ export async function checkTurnstile(
     });
     throw unavailable();
   }
-  const result = answer as { success?: unknown; "error-codes"?: unknown } | null;
-  if (result?.success === true) return;
+  const result = answer as {
+    success?: unknown;
+    "error-codes"?: unknown;
+    action?: unknown;
+    hostname?: unknown;
+  } | null;
+  if (result?.success === true) {
+    // The widget names its form as the action, so a token solved for one form is not accepted on
+    // another; and it was solved on one of the site's own hosts.
+    if (result.action !== form) throw failed();
+    const hosts = siteHosts(ctx);
+    if (
+      hosts.size > 0 &&
+      !(typeof result.hostname === "string" && hosts.has(result.hostname.toLowerCase()))
+    ) {
+      console.warn("[turnstile] a token was solved on a host that is not the site's", {
+        hostname: typeof result.hostname === "string" ? result.hostname : null,
+        expected: [...hosts],
+      });
+      throw failed();
+    }
+    return;
+  }
   const codes = Array.isArray(result?.["error-codes"])
     ? (result["error-codes"] as unknown[]).filter(
         (code): code is string => typeof code === "string",

@@ -152,7 +152,7 @@
     },
     "turnstile": {
       "title": "Security check",
-      "purpose": "Forms for visitors who are not signed in (registration, sign-in, password reset) can carry a Cloudflare Turnstile check that tells people from automated abuse. It is strictly necessary for security, so it needs no consent and your choices do not switch it off. Its script is loaded from Cloudflare only on those pages and only while the site has the check turned on; Cloudflare receives your address and browser details to judge it. See Cloudflare's own policy.",
+      "purpose": "Forms for visitors who are not signed in (registration, sign-in, password reset, a new confirmation email) can carry a Cloudflare Turnstile check that tells people from automated abuse. It is strictly necessary for security, so it needs no consent and your choices do not switch it off. Its script is loaded from Cloudflare only on those pages and only while the site has the check turned on; Cloudflare receives your address and browser details to judge it. See Cloudflare's own policy.",
       "lifetime": "Not stored by this site. Any storage is set by the provider while the check runs."
     },
     "embeds": {
