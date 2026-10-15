@@ -1,0 +1,2 @@
+CREATE INDEX `conversations_user_created` ON `conversations` (`user_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `reactions_negative_given` ON `reactions` (`user_id`,`created_at`) WHERE score < 0;

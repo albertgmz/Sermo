@@ -2418,3 +2418,27 @@ to the moderator log; failed sign-in rows keep strangers' addresses under the ta
 and nothing is deleted yet (retention, a `created_at` index and the privacy text are item 8b);
 `ips.members` can return a short page with more behind it; the detector costs about 90 ms and
 57 MB at backend start.
+
+**Anti-spam limits (item 6a).** One flood interval (`floodSeconds`, 0 = off) is shared by threads,
+replies, wall posts, wall comments and conversation messages. A held post starts it too. It is
+checked inside the write transaction and refused with 429 and the seconds left. Daily caps are
+integer permissions: `antispam.postsPerDay`, `threadsPerDay`, `conversationsPerDay` and
+`negativeReactionsPerDay`, each a rolling 24 hours. Deleted and held posts count, and a new thread
+counts as a thread and a post. Both 0 and -1 mean no limit, because an integer with no entry
+resolves to 0 and a strict "0 = none" would lock custom groups out of posting; an admin who types
+0 expecting "none" gets unlimited, as the labels say. A cap reads the date of the member's N-th
+newest row on the existing `(user_id, id)` indexes for posts and threads. Conversations and
+negative reactions get new indexes (migration `0042`), the reactions one partial on `score < 0`.
+The reaction cap counts only negative reactions, so positive ones cost nothing. A reaction that
+turns negative is deleted and inserted again, so ids keep growing with time for the standings
+bisection. Two settings use the criteria engine (cheap criteria only). The links rule is decided
+on the rendered HTML and refuses with what is missing ("You need Post count: 3 or more"; a false
+yes/no condition reads "Not: …"). The approval rule holds new threads and replies, not edits or
+wall posts. `antispam.externalMediaAsLinks` is a restriction nobody holds by default:
+administrators get Never, and Never exempts a group. When it applies, outside pictures and players
+are stored as links at save time, spoilers included; a staff edit follows the author's permission.
+`antispam.bypassFlood` (moderators, administrators), `bypassWordFilter` and `bypassSpamCheck`
+(administrators) lift the checks. The staff page is `/admin/settings/antispam`, and
+`criteria.list` is open to `admin.settings`. Known limits: a thread split inserts a thread with a
+high id and an old date, so `threadsPerDay` can be briefly off; a measured criterion in either rule
+runs inside the write lock.
