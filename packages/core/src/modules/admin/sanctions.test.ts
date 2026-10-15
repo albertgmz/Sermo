@@ -135,7 +135,8 @@ describe("bans.list", () => {
     const w = world();
     await expect(w.run("bans.list", GUEST)).rejects.toBeInstanceOf(UnauthenticatedError);
     await expect(w.run("bans.list", userActor(w.member))).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(w.run("bans.list", userActor(w.moderator))).rejects.toBeInstanceOf(ForbiddenError);
+    // Moderators hold member.ban by default (migration 0052), so they list bans.
+    await w.run("bans.list", userActor(w.moderator));
     await w.run("permissions.set", userActor(w.founder), {
       userId: w.member.id,
       entries: [{ permission: "member.ban", value: "allow" }],

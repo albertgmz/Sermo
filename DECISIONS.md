@@ -2783,3 +2783,30 @@ index reads the source), the empty string means a post with no text (a picture o
 and quote attributions are not searchable words; every writer of `post_bodies` must set it. There is
 no conversion: old posts keep their stored HTML and are indexed by their source until they are
 edited.
+
+**Permissions, part 2 (item 4b).** Own content: `forum.deleteOwn` and `forum.deleteOwnThread` hide;
+`forum.hardDeleteOwn` deletes for good in one step, refused for a locked thread, content staff hid,
+reported content, a post a warning was given about, a thread with other members' posts or over 500
+posts, and never taken by someone holding `forum.hardDelete` (they follow the two-step staff rule);
+`forum.lockOwn` locks, and the author unlocks only a lock whose newest event names no staff member
+(who locked is read from the thread's lock events; a staff lock or relock makes it staff's). Own
+locks, unlocks and deletes are not moderator actions and are not in `moderator_log`. All three are
+Administrator-only by default. `forum.viewOthers` and `forum.viewContent` are `defaultAllow` flags
+(granted unless a group says never; a `no` does not restrict) that close a forum's other-member
+threads, or its posts (titles only), on every path including quotes; a member's own work stays
+readable and a hand-made group keeps reading. `forum.react` gates reactions per forum. Moderation:
+`warning.delete` (`warnings.delete`/`expire`, with `reconcileWarningActions`), `warning.maxPoints`
+(10 when unset), `warning.perDay` (20 when unset, counted from the log), `member.banMaxDays` (30
+when unset; an explicit 0 means none) and `member.editProfile`. Moderators hold `member.ban` by
+default (migration 0052 seeds it), bounded to 30 days; `bans.lift` takes the same reach (a longer or
+permanent ban, or one a higher-ranked member set, is not theirs to lift), and a warning a
+higher-ranked member gave is not deleted or ended from below; a deleted warning no longer holds its
+post; spam cleanup's permanent ban is a separate permission. **`forum.warn`**: a warning that names
+a post (`postId`) needs `forum.warn` in that post's forum instead of `member.warn`; a warning
+without a post needs `member.warn` over the member, wherever the member posts. So `never` on
+`forum.warn` stops only warnings about a forum's posts; with `member.warn` a moderator can still
+warn the same member without `postId`. It is not a "warn per forum" limit on moderators who keep
+`member.warn`. Moderators holding `member.ban` also list all bans (`bans.list`), as they read the
+moderator log. Admin: `admin.prefixes`, `admin.navigation`, `admin.pages`. Known limits: no
+moderator screen for warn-from-post or profile edit (the member pages need `admin.members`); ranked
+lists leave out whole forums where others' threads are closed.

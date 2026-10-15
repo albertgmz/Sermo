@@ -365,6 +365,13 @@
       "when": 1792088289859,
       "tag": "0051_search_plain_text",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "6",
+      "when": 1792093086509,
+      "tag": "0052_moderators_ban",
+      "breakpoints": true
     }
   ]
 }

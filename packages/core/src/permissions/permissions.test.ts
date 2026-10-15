@@ -386,7 +386,7 @@ describe("permission resolution", () => {
  *     SELECT d.id, 0, g.id, 0, 1 FROM permission_definitions d JOIN groups g ON g.builtin = 'moderator'
  *     WHERE d.key = 'member.ban' ON CONFLICT DO NOTHING;
  */
-const PENDING_MIGRATION_DEFAULTS = ["member.ban|moderator"];
+const PENDING_MIGRATION_DEFAULTS: string[] = [];
 
 describe("defaults and migration", () => {
   test("the migrated built-in groups hold exactly the registry defaults", () => {

@@ -390,9 +390,6 @@ describe("member.banMaxDays", () => {
 
   test("a moderator bans up to the days of their value, never for good", async () => {
     const w = world();
-    // The registry gives moderators member.ban; a migration seeds it on a database that exists
-    // already, so here the entry is made by hand.
-    setEntry(w.ctx, MODERATORS, "member.ban", 1);
     await ban(w, w.moderator, 30);
     await expect(ban(w, w.moderator, 31)).rejects.toBeInstanceOf(ForbiddenError);
     await expect(ban(w, w.moderator, null)).rejects.toBeInstanceOf(ForbiddenError);
@@ -520,7 +517,6 @@ describe("lifting a ban", () => {
 
   test("a moderator lifts only a ban they could set, and not one a higher-ranked member set", async () => {
     const w = world();
-    setEntry(w.ctx, MODERATORS, "member.ban", 1);
     const permanent = await input(w, w.admin, null);
     await expect(lift(w, w.moderator, permanent.id)).rejects.toBeInstanceOf(ForbiddenError);
     await lift(w, w.admin, permanent.id);
