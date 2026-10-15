@@ -212,7 +212,11 @@
     "said": "dijo:",
     "spoiler": "Spoiler",
     "spoilerFailed": "No se pudo cargar ese spoiler.",
-    "attachment": "Adjunto"
+    "attachment": "Adjunto",
+    "embedHosted": "Este contenido está alojado en {provider}. ¿Cargarlo?",
+    "embedLoad": "Cargar",
+    "embedAlways": "Cargar siempre el contenido incrustado",
+    "embedOriginal": "Abrir el original"
   },
   "contentActions": {
     "quote": "Citar",

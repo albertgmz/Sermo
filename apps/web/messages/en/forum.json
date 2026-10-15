@@ -212,7 +212,11 @@
     "said": "said:",
     "spoiler": "Spoiler",
     "spoilerFailed": "That spoiler could not be loaded.",
-    "attachment": "Attachment"
+    "attachment": "Attachment",
+    "embedHosted": "This content is hosted by {provider}. Load it?",
+    "embedLoad": "Load",
+    "embedAlways": "Always load embedded content",
+    "embedOriginal": "Open the original"
   },
   "contentActions": {
     "quote": "Quote",

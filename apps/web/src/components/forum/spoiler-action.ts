@@ -1,6 +1,7 @@
 "use server";
 
 import { spoilersGet } from "@sermo/core/contracts";
+import { withEmbedGate } from "@/lib/consent/embed-gate";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
 import { getLiteLabel, getLiteOrigin, getLiteState } from "@/lib/lite-mode";
 import { call } from "@/lib/sermo/client";
@@ -29,7 +30,7 @@ export async function revealSpoiler(
     ]);
     return {
       html: withSpoilerButtons(
-        stripHtmlMedia(html, state, origin, label),
+        await withEmbedGate(stripHtmlMedia(html, state, origin, label)),
         true,
       ),
     };

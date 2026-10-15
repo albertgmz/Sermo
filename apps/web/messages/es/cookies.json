@@ -1,0 +1,125 @@
+{
+  "banner": {
+    "title": "Tus opciones de cookies",
+    "description": "Usamos las cookies que el sitio necesita para funcionar. Con tu permiso también usamos cookies para estadísticas de visitas, para acreditar al miembro que te invitó y para cargar vídeos y música de otros sitios. No se usa nada opcional hasta que elijas.",
+    "policyLink": "Lee la política de cookies",
+    "acceptAll": "Aceptar todas",
+    "rejectAll": "Rechazar todas",
+    "choose": "Elegir",
+    "preferencesTitle": "Ajustes de cookies",
+    "preferencesIntro": "Elige las cookies opcionales que permites. Puedes cambiarlo en cualquier momento desde el pie de página.",
+    "savePreferences": "Guardar mis opciones",
+    "closeLabel": "Cerrar",
+    "revisionMessage": "La política de cookies ha cambiado desde tu última elección, por eso volvemos a preguntarte.",
+    "alwaysOn": "Siempre activas",
+    "moreInformation": "Más información",
+    "categories": {
+      "necessary": {
+        "title": "Estrictamente necesarias",
+        "description": "Mantienen tu sesión iniciada y recuerdan tu idioma, el tema, los ajustes del Ahorro de datos y estas opciones. El sitio no funciona sin ellas, así que no se pueden desactivar."
+      },
+      "analytics": {
+        "title": "Estadísticas",
+        "description": "Cuentan visitas y páginas para que el equipo del sitio vea cómo se usa. Solo si el sitio tiene las estadísticas activadas."
+      },
+      "referrals": {
+        "title": "Invitaciones",
+        "description": "Recuerdan qué miembro te invitó, para acreditarle si te registras."
+      },
+      "embeds": {
+        "title": "Contenido incrustado",
+        "description": "Cargan dentro de los mensajes vídeos y música alojados en otros sitios (YouTube, Vimeo, Spotify y otros). Esos sitios pueden poner sus propias cookies."
+      }
+    }
+  },
+  "policy": {
+    "metaTitle": "Política de cookies",
+    "title": "Política de cookies",
+    "intro": "Esta página enumera todo lo que este sitio guarda en tu navegador, para qué y durante cuánto tiempo. Se tratan por igual las cookies y el almacenamiento similar (almacenamiento local y de sesión). Las estrictamente necesarias se indican a título informativo y no requieren tu consentimiento; el resto de categorías permanece desactivado hasta que las aceptes.",
+    "version": "Versión de la política {version}",
+    "openSettings": "Cambiar tus opciones",
+    "yourChoice": "Para ver o cambiar lo que permitiste, usa «Ajustes de cookies» en el pie de página o el botón de abajo. Al retirar una categoría se borran sus cookies.",
+    "necessaryHeading": "Estrictamente necesarias (sin consentimiento)",
+    "optionalNote": "Requiere tu consentimiento. Desactivada hasta que la aceptes.",
+    "name": "Nombre",
+    "storage": "Guardada en",
+    "purpose": "Finalidad",
+    "lifetime": "Duración",
+    "provider": "Puesta por",
+    "thisSite": "Este sitio",
+    "storages": {
+      "cookie": "Cookie",
+      "localStorage": "Almacenamiento local",
+      "sessionStorage": "Almacenamiento de sesión"
+    },
+    "noNames": "La pone el proveedor, no este sitio",
+    "privacyLink": "Política de privacidad"
+  },
+  "items": {
+    "session": {
+      "title": "Inicio de sesión",
+      "purpose": "Mantiene tu sesión iniciada y guarda una copia breve de la sesión para que las páginas carguen deprisa. Solo se pone al iniciar sesión.",
+      "lifetime": "Hasta que cierres sesión. Si marcas «recordarme», hasta la duración de sesión que fije el sitio (30 días por defecto); si no, hasta que cierres el navegador."
+    },
+    "consent": {
+      "title": "Tus opciones de cookies",
+      "purpose": "Guarda las categorías que aceptaste, la versión de la política y la fecha, para no preguntarte en cada página y poder volver a preguntarte cuando cambie la política.",
+      "lifetime": "6 meses."
+    },
+    "language": {
+      "title": "Idioma",
+      "purpose": "Recuerda el idioma que elegiste.",
+      "lifetime": "1 año."
+    },
+    "dataSaver": {
+      "title": "Ahorro de datos",
+      "purpose": "Recuerda qué imágenes decidiste no cargar.",
+      "lifetime": "1 año."
+    },
+    "dataSaverReloads": {
+      "title": "Pestañas del Ahorro de datos",
+      "purpose": "Evita que una página se recargue una y otra vez cuando cambias el Ahorro de datos en otra pestaña.",
+      "lifetime": "Hasta que cierres la pestaña."
+    },
+    "notices": {
+      "title": "Avisos cerrados",
+      "purpose": "Recuerda qué avisos del sitio ha cerrado un visitante sin cuenta.",
+      "lifetime": "1 año."
+    },
+    "theme": {
+      "title": "Tema",
+      "purpose": "Recuerda si elegiste el tema claro, oscuro o el del sistema.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "width": {
+      "title": "Ancho de página",
+      "purpose": "Recuerda si elegiste el ancho de página estrecho.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "panels": {
+      "title": "Paneles plegados",
+      "purpose": "Recuerda qué categorías de foros y paneles plegaste.",
+      "lifetime": "Hasta que borres los datos del sitio en tu navegador."
+    },
+    "matomo": {
+      "title": "Estadísticas (Matomo)",
+      "purpose": "Distingue visitas y páginas para que el equipo del sitio vea cómo se usa. Los datos van al servidor Matomo del propio sitio.",
+      "lifetime": "De 30 minutos a 13 meses, según la cookie."
+    },
+    "google": {
+      "title": "Estadísticas (Google Analytics)",
+      "purpose": "Distingue visitas y páginas para que el equipo del sitio vea cómo se usa. Los datos van a Google.",
+      "lifetime": "De 1 minuto a 2 años, según la cookie."
+    },
+    "referral": {
+      "title": "Invitaciones",
+      "purpose": "Recuerda el enlace de invitación de qué miembro te trajo aquí, para acreditarle si te registras.",
+      "lifetime": "30 días."
+    },
+    "embeds": {
+      "title": "Contenido incrustado",
+      "purpose": "Un reproductor de vídeo o música de otro sitio solo se carga después de pulsar «Cargar» o de aceptar esta categoría. Una vez cargado, ese sitio puede poner sus propias cookies; este sitio no puede verlas ni borrarlas. Consulta la política de cada proveedor.",
+      "lifetime": "La fija el proveedor."
+    }
+  }
+}

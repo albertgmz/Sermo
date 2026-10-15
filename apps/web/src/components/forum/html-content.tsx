@@ -7,6 +7,7 @@ import {
   SpoilerReveal,
 } from "@/components/forum/spoiler-reveal";
 import { placeAttachments, type TaggedAttachment } from "@/lib/attachment-tags";
+import { withEmbedGate } from "@/lib/consent/embed-gate";
 import { stripHtmlMedia } from "@/lib/lite-markdown";
 import {
   getLiteLabel,
@@ -56,7 +57,7 @@ export async function HtmlContent(props: {
     getTranslations("forum.bbCode"),
   ]);
   let html = withSpoilerButtons(
-    stripHtmlMedia(props.children, state, origin, label),
+    await withEmbedGate(stripHtmlMedia(props.children, state, origin, label)),
     props.content !== undefined,
   );
   if (html.includes("bb-attach")) {

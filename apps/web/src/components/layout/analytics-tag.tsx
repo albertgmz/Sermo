@@ -1,16 +1,18 @@
 import Script from "next/script";
+import { getConsent } from "@/lib/consent/server";
+import { analyticsFor } from "@/lib/consent/state";
 import { getSite } from "@/lib/sermo/site";
-import { analyticsSnippets } from "./analytics-snippets";
 import { MatomoPageViews } from "./matomo-page-views";
 
-// The site's analytics tag for the public pages. The staff panel is a different layout and never
-// renders this.
+// The site's analytics tag for the public pages, only for a visitor who accepted analytics. The
+// staff panel is a different layout and never renders this.
 export async function AnalyticsTag() {
-  const { analytics } = await getSite();
-  if (analytics.provider === "none") return null;
+  const [{ analytics }, consent] = await Promise.all([getSite(), getConsent()]);
+  const snippets = analyticsFor(consent, analytics);
+  if (snippets.length === 0) return null;
   return (
     <>
-      {analyticsSnippets(analytics).map(({ id, src, code }) =>
+      {snippets.map(({ id, src, code }) =>
         src ? (
           <Script key={id} id={id} src={src} strategy="afterInteractive" />
         ) : (

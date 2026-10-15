@@ -445,6 +445,44 @@
 .bb-content .bb-media-audio {
   height: 10.5rem;
 }
+/* An embedded player until the visitor loads it (EmbedLoader), when the embeds category is off. */
+.bb-content .bb-embed {
+  display: flex;
+  max-width: 35rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  padding: 0.75rem;
+}
+.bb-content .bb-embed-text {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.bb-content .bb-embed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.bb-content .bb-embed-button {
+  min-height: 2.5rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.bb-content .bb-embed-button:hover {
+  background: var(--accent);
+}
+.bb-content .bb-embed-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 .bb-content .hljs-comment,
 .bb-content .hljs-quote {
   color: var(--code-comment);

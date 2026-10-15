@@ -193,6 +193,22 @@ async function FooterCopyright() {
         })}
       </p>
       <ThemeControl />
+      <ul className="flex basis-full flex-wrap gap-x-4">
+        <li>
+          <Link href="/cookies" className={FOOTER_LINK}>
+            {t("cookiePolicy")}
+          </Link>
+        </li>
+        <li>
+          <button
+            type="button"
+            data-cc="show-preferencesModal"
+            className={FOOTER_LINK}
+          >
+            {t("cookieSettings")}
+          </button>
+        </li>
+      </ul>
     </div>
   );
 }

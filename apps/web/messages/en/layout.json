@@ -95,6 +95,8 @@
   "siteFooter": {
     "copyright": "© <brand>{site}</brand>. All rights reserved.",
     "loadingLinks": "Loading links…",
+    "cookiePolicy": "Cookie policy",
+    "cookieSettings": "Cookie settings",
     "aria": {
       "more": "More links"
     }

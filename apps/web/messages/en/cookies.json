@@ -1,0 +1,125 @@
+{
+  "banner": {
+    "title": "Your cookie choices",
+    "description": "We use cookies that the site needs to work. With your permission we also use cookies for visit statistics, for crediting the member who invited you, and to load videos and music from other sites. Nothing optional is used until you choose.",
+    "policyLink": "Read the cookie policy",
+    "acceptAll": "Accept all",
+    "rejectAll": "Reject all",
+    "choose": "Choose",
+    "preferencesTitle": "Cookie settings",
+    "preferencesIntro": "Pick the optional cookies you allow. You can change this at any time from the footer.",
+    "savePreferences": "Save my choices",
+    "closeLabel": "Close",
+    "revisionMessage": "The cookie policy has changed since your last choice, so we are asking again.",
+    "alwaysOn": "Always on",
+    "moreInformation": "More information",
+    "categories": {
+      "necessary": {
+        "title": "Strictly necessary",
+        "description": "Keep you signed in and remember your language, theme, Data saver settings and these choices. The site does not work without them, so they cannot be switched off."
+      },
+      "analytics": {
+        "title": "Statistics",
+        "description": "Count visits and pages so the site's team can see how it is used. Only if the site has statistics turned on."
+      },
+      "referrals": {
+        "title": "Referrals",
+        "description": "Remember which member invited you, so they are credited if you register."
+      },
+      "embeds": {
+        "title": "Embedded content",
+        "description": "Load videos and music hosted on other sites (YouTube, Vimeo, Spotify and others) inside posts. Those sites may set their own cookies."
+      }
+    }
+  },
+  "policy": {
+    "metaTitle": "Cookie policy",
+    "title": "Cookie policy",
+    "intro": "This page lists everything this site stores in your browser, why, and for how long. Cookies and similar storage (local storage and session storage) are covered alike. The strictly necessary ones are listed for information and do not need your consent; every other category stays off until you accept it.",
+    "version": "Policy version {version}",
+    "openSettings": "Change your choices",
+    "yourChoice": "To see or change what you allowed, use “Cookie settings” in the page footer, or the button below. Withdrawing a category deletes its cookies.",
+    "necessaryHeading": "Strictly necessary (no consent needed)",
+    "optionalNote": "Needs your consent. Off until you accept it.",
+    "name": "Name",
+    "storage": "Kept in",
+    "purpose": "Purpose",
+    "lifetime": "Lifetime",
+    "provider": "Set by",
+    "thisSite": "This site",
+    "storages": {
+      "cookie": "Cookie",
+      "localStorage": "Local storage",
+      "sessionStorage": "Session storage"
+    },
+    "noNames": "Set by the provider, not by this site",
+    "privacyLink": "Privacy policy"
+  },
+  "items": {
+    "session": {
+      "title": "Sign-in",
+      "purpose": "Keeps you signed in and keeps a short copy of your session so pages load quickly. Set only when you sign in.",
+      "lifetime": "Until you sign out. If you tick “remember me”, up to the length of a session set by the site (30 days by default); otherwise until you close the browser."
+    },
+    "consent": {
+      "title": "Your cookie choices",
+      "purpose": "Records the categories you accepted, the policy version and the date, so you are not asked on every page and can be asked again when the policy changes.",
+      "lifetime": "6 months."
+    },
+    "language": {
+      "title": "Language",
+      "purpose": "Remembers the language you picked.",
+      "lifetime": "1 year."
+    },
+    "dataSaver": {
+      "title": "Data saver",
+      "purpose": "Remembers which pictures you chose not to load.",
+      "lifetime": "1 year."
+    },
+    "dataSaverReloads": {
+      "title": "Data saver tabs",
+      "purpose": "Stops a page from reloading again and again when you change Data saver in another tab.",
+      "lifetime": "Until you close the tab."
+    },
+    "notices": {
+      "title": "Closed notices",
+      "purpose": "Remembers which site notices a visitor without an account has closed.",
+      "lifetime": "1 year."
+    },
+    "theme": {
+      "title": "Theme",
+      "purpose": "Remembers whether you chose the light, dark or system theme.",
+      "lifetime": "Until you clear your browser's site data."
+    },
+    "width": {
+      "title": "Page width",
+      "purpose": "Remembers whether you chose the narrow page width.",
+      "lifetime": "Until you clear your browser's site data."
+    },
+    "panels": {
+      "title": "Collapsed panels",
+      "purpose": "Remembers which forum categories and panels you folded.",
+      "lifetime": "Until you clear your browser's site data."
+    },
+    "matomo": {
+      "title": "Statistics (Matomo)",
+      "purpose": "Tells visits and pages apart so the site's team can see how it is used. The data goes to the site's own Matomo server.",
+      "lifetime": "From 30 minutes to 13 months, depending on the cookie."
+    },
+    "google": {
+      "title": "Statistics (Google Analytics)",
+      "purpose": "Tells visits and pages apart so the site's team can see how it is used. The data goes to Google.",
+      "lifetime": "From 1 minute to 2 years, depending on the cookie."
+    },
+    "referral": {
+      "title": "Referrals",
+      "purpose": "Remembers which member's invitation link brought you here, so they are credited if you register.",
+      "lifetime": "30 days."
+    },
+    "embeds": {
+      "title": "Embedded content",
+      "purpose": "A video or music player from another site is loaded only after you press “Load” or accept this category. Once loaded, that site may set its own cookies; this site cannot see or delete them. See each provider's own policy.",
+      "lifetime": "Set by the provider."
+    }
+  }
+}
