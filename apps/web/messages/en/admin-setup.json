@@ -14,7 +14,8 @@
     "id": "That is not a valid record.",
     "missing": "Choose a value.",
     "permission": "Choose a permission for this audience.",
-    "unknownMembers": "No member is called {names}."
+    "unknownMembers": "No member is called {names}.",
+    "daysOrPermanent": "Enter the number of days, or tick permanent."
   },
   "pages": {
     "general": {
@@ -505,7 +506,7 @@
     "form": {
       "headingNew": "New automatic action",
       "headingEdit": "Edit automatic action",
-      "descriptionNew": "A member is never banned this way if they hold the permission that exempts them from automatic bans, and the last administrator cannot be banned.",
+      "descriptionNew": "A member who holds the permission that exempts them from automatic actions is skipped, and the last administrator cannot be banned. An action that adds a group needs the permission to manage members and your own password.",
       "create": "Add action",
       "threshold": "Active points",
       "thresholdHelp": "The action applies when a member's unexpired points reach this number.",
@@ -517,7 +518,7 @@
         "restriction": "Restrict"
       },
       "days": "Length (days)",
-      "daysHelp": "Leave empty for a ban, membership or restriction without an end.",
+      "daysHelp": "How long the ban, membership or restriction lasts. Or tick permanent.",
       "group": "Group",
       "groupHelp": "A group ranked below yours that does not administer permissions.",
       "groupTyped": "Type the number of the group; you may not list the groups.",
@@ -529,7 +530,11 @@
         "posting": "No posting",
         "conversations": "No starting conversations",
         "profile_posts": "No profile posts"
-      }
+      },
+      "permanent": "Permanent",
+      "permanentHelp": "Without an end.",
+      "password": "Your password",
+      "passwordHelp": "Needed to add, change or delete an action that adds a group; leave it empty for the others."
     }
   }
 }

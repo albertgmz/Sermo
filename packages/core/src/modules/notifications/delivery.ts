@@ -609,7 +609,7 @@ function stages(ctx: Ctx, event: DomainEvent, item: Content | null): Stage[] {
       ),
     );
   // Verification moves a member from Unconfirmed to Member; the welcome email covers it.
-  if (event.type === "member.groups_changed" && p.source !== "verification")
+  if (event.type === "member.groups_changed" && p.source !== "verification" && p.notify !== false)
     result.push(
       source(
         "groups",

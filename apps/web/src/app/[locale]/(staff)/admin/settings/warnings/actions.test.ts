@@ -174,6 +174,7 @@ test("a group action needs a group and a restriction action a kind; an empty len
       null,
       form([
         ["threshold", "5"],
+        ["permanent", "on"],
         ["kind", "group"],
         ["groupId", ""],
       ]),
@@ -184,6 +185,7 @@ test("a group action needs a group and a restriction action a kind; an empty len
       null,
       form([
         ["threshold", "5"],
+        ["permanent", "on"],
         ["kind", "restriction"],
         ["restrictionKind", "everything"],
       ]),
@@ -200,8 +202,10 @@ test("a group action needs a group and a restriction action a kind; an empty len
         ["threshold", "5"],
         ["kind", "group"],
         ["days", ""],
+        ["permanent", "on"],
         ["groupId", "9"],
         ["restrictionKind", "posting"],
+        ["actorPassword", "secret"],
       ]),
     ),
   );
@@ -212,7 +216,23 @@ test("a group action needs a group and a restriction action a kind; an empty len
     days: null,
     groupId: 9,
     restrictionKind: null,
+    actorPassword: "secret",
   });
+});
+
+test("a length is a number of days or permanent, never an empty field", async () => {
+  backend = fakeBackend({});
+  expect(
+    await saveWarningAction(
+      null,
+      form([
+        ["threshold", "5"],
+        ["kind", "ban"],
+        ["days", ""],
+      ]),
+    ),
+  ).toEqual({ fields: { days: messages.adminSetup.errors.daysOrPermanent } });
+  expect(backend.asked).toEqual([]);
 });
 
 test("an action of an unknown kind or with a threshold that is not a number is refused", async () => {
@@ -222,6 +242,7 @@ test("an action of an unknown kind or with a threshold that is not a number is r
       null,
       form([
         ["threshold", "5"],
+        ["permanent", "on"],
         ["kind", "erase"],
       ]),
     ),
@@ -230,6 +251,7 @@ test("an action of an unknown kind or with a threshold that is not a number is r
     await saveWarningAction(
       null,
       form([
+        ["permanent", "on"],
         ["threshold", "x"],
         ["kind", "ban"],
       ]),

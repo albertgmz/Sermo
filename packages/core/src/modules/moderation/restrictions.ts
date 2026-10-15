@@ -21,7 +21,7 @@ import { requireNotErased } from "../admin/erased";
 import { appendModeratorLog } from "./index";
 import type { Notice } from "./notify";
 
-export type Kind = "posting" | "conversations" | "profile_posts";
+type Kind = "posting" | "conversations" | "profile_posts";
 type Row = {
   id: number;
   user_id: number;

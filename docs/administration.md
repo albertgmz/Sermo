@@ -800,12 +800,15 @@ themselves and to holders of `warning.view`, each with the type it was given und
 expiry in days (none = never) and an optional default reason. A moderator sends `typeId` with
 `warnings.create` and may change `points`, `reason` and `expiresAt` unless the type is locked, which
 fixes points and expiry (the reason stays free). Without a type the warning is custom and needs
-`points` and a `reason`. Deleting a type keeps its warnings, as custom ones.
+`points` and a `reason`; the lock binds the type, not moderators in general, so a custom warning
+still takes any points and expiry. Deleting a type keeps its warnings, as custom ones (it forgets
+them a thousand per transaction).
 
 **Automatic actions** (`/moderation/warning-actions`, `admin.settings`) fire when a member's active
 points reach a threshold, in the same transaction as the warning: a ban, adding the member to a
 group (a secondary group ranked below the administrator, never one that decides
-`admin.permissions`) or a restriction, each for a number of days or permanently. An action fires
+`admin.permissions`) or a restriction, each for a number of days or permanently (the length is
+always given: `days: null` is permanent). An action fires
 once per crossing: it fires again only after the member's points have fallen below the threshold
 and reached it anew. Members holding `member.immuneToAutoBan` are skipped. An action that cannot be
 applied (a ban on the last administrator, a group that has come to decide `admin.permissions`)
@@ -814,8 +817,17 @@ group memberships an action added for a limited time are taken back, and so are 
 ends; an hourly job notices both. Bans and restrictions end on their own date and are never lifted
 early; permanent memberships, and memberships the member already had, stay. Changing an action
 counts from the next warning; deleting one ends the timed memberships it added. A newly created action
-applies to a member already over its threshold at their next warning. A member's groups saved by
-hand (`users.setGroups`) make a membership an action added theirs: it is no longer taken back.
+applies to a member already over its threshold at their next warning. A group-adding action is
+configured like `users.setGroups`: besides `admin.settings` it needs `admin.members`, the acting
+administrator's own password (`actorPassword`; an API key is refused) and a rank above the group's,
+to create it, change it or delete it (also when it is a group action that is being changed into a ban);
+ban and restriction actions need only `admin.settings`. The rank is enforced when the action is
+configured; when it fires the system acts, whoever warns. Deleting an action ends its timed
+memberships a hundred members per transaction. Saving a member's groups with `users.setGroups` keeps
+the rows of the groups that stay, so a timed group is still taken back; removing the group and adding it
+again makes it the member's own. A warning given with `notify: false` adds and takes back the group
+without a notification. The removal by the system leaves no moderator-log entry (the log needs an
+acting member); its `member.groups_changed` event names the action (`reason: "warning_action"`).
 
 ### Bans
 

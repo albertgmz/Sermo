@@ -12,8 +12,9 @@ import type { Notice } from "./notify";
 import { insertAuthorizedRestriction } from "./restrictions";
 
 const DAY_MS = 86_400_000;
-/** Fires a sweep transaction settles at most; the job runs again until none is left. */
-const SWEEP_BATCH = 100;
+/** Fires one transaction settles at most (the sweep, an action being deleted). */
+export const WARNING_BATCH = 100;
+const SWEEP_BATCH = WARNING_BATCH;
 
 type ActionRow = {
   id: number;
@@ -29,6 +30,7 @@ type FireRow = {
   action_id: number;
   group_id: number | null;
   group_added_at: number | null;
+  notify: number;
 };
 
 /** The statements of a warning's write, kept as text for the plan tests. */
@@ -37,9 +39,14 @@ export const warningSql = {
     "SELECT coalesce(sum(points), 0) AS n FROM warnings WHERE user_id = ?1 AND (expires_at IS NULL OR expires_at > ?2)",
   due: "SELECT a.id, a.threshold, a.kind, a.days, a.group_id, a.restriction_kind FROM warning_actions a WHERE a.threshold <= ?1 AND NOT EXISTS (SELECT 1 FROM warning_action_fires f WHERE f.user_id = ?2 AND f.action_id = a.id) ORDER BY a.threshold, a.id",
   below:
-    "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE f.user_id = ?1 AND a.threshold > ?2",
+    "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at, f.notify FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE f.user_id = ?1 AND a.threshold > ?2",
   ended:
-    "SELECT id, user_id, action_id, group_id, group_added_at FROM warning_action_fires WHERE group_ends_at <= ?1 LIMIT ?2",
+    "SELECT id, user_id, action_id, group_id, group_added_at, notify FROM warning_action_fires WHERE group_ends_at <= ?1 LIMIT ?2",
+  // The sweep reads every fire (see sweepWarningActions) and seeks warnings_user_expiry for each.
+  sweepBelow:
+    "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at, f.notify FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE a.threshold > (SELECT coalesce(sum(w.points), 0) FROM warnings w WHERE w.user_id = f.user_id AND (w.expires_at IS NULL OR w.expires_at > ?1)) LIMIT ?2",
+  byAction:
+    "SELECT id, user_id, action_id, group_id, group_added_at, notify FROM warning_action_fires WHERE action_id = ?1 LIMIT ?2",
 };
 
 function statement<T>(ctx: Ctx, key: string, sql: string) {
@@ -77,7 +84,17 @@ function removeAddedGroup(ctx: Ctx, fire: FireRow): void {
       type: "member.groups_changed",
       targetType: "user",
       targetId: fire.user_id,
-      payload: { added: [], removed: [fire.group_id], source: "admin", actorId: null },
+      // No member acts here: the payload names the action, and a warning given silently
+      // (notify false) takes the group back silently too.
+      payload: {
+        added: [],
+        removed: [fire.group_id],
+        source: "admin",
+        actorId: null,
+        reason: "warning_action",
+        actionId: fire.action_id,
+        notify: fire.notify !== 0,
+      },
     });
 }
 
@@ -104,16 +121,14 @@ export function reconcileWarningActions(ctx: Ctx, userId: number, now: number): 
 }
 
 /**
- * Lifts every group membership an action added (the action is going away). Inside the caller's
- * write transaction.
+ * Forgets up to `limit` fires of an action and lifts the group memberships they added (the
+ * action is going away). Inside the caller's write transaction; returns how many it settled, so
+ * the caller repeats it, one transaction each, until none is left.
  */
-export function releaseActionGroups(ctx: Ctx, actionId: number): void {
-  const fires = statement<FireRow>(
-    ctx,
-    "fireByAction",
-    "SELECT id, user_id, action_id, group_id, group_added_at FROM warning_action_fires WHERE action_id = ?1",
-  ).all(actionId);
+export function releaseActionGroups(ctx: Ctx, actionId: number, limit: number): number {
+  const fires = statement<FireRow>(ctx, "fireByAction", warningSql.byAction).all(actionId, limit);
   for (const fire of fires) liftFire(ctx, fire);
+  return fires.length;
 }
 
 /** Whether the member belongs to the group through a source other than `user_groups`. */
@@ -136,6 +151,7 @@ function addGroup(
   action: ActionRow,
   now: number,
   details: Record<string, unknown>,
+  notify: boolean,
 ): number | null {
   const groupId = action.group_id!;
   // Administration is never given or taken by an action no one can refuse.
@@ -181,6 +197,9 @@ function addGroup(
       removed: [],
       source: "admin",
       actorId: actorUserId(actor),
+      reason: "warning_action",
+      actionId: action.id,
+      notify,
     },
   });
   return timed ? now : null;
@@ -225,12 +244,12 @@ export function applyWarningActions(
           notice,
           details,
         );
-      else addedAt = addGroup(ctx, actor, userId, action, now, details);
+      else addedAt = addGroup(ctx, actor, userId, action, now, details, notice.notify);
     }
     statement(
       ctx,
       "insertFire",
-      "INSERT INTO warning_action_fires (user_id, action_id, fired_at, group_id, group_added_at, group_ends_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+      "INSERT INTO warning_action_fires (user_id, action_id, fired_at, group_id, group_added_at, group_ends_at, notify) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     ).run(
       userId,
       action.id,
@@ -238,6 +257,7 @@ export function applyWarningActions(
       action.kind === "group" ? action.group_id : null,
       addedAt,
       addedAt === null ? null : expiry,
+      Number(notice.notify),
     );
   }
 }
@@ -259,12 +279,10 @@ export function sweepWarningActions(ctx: Ctx): number {
       ).run(fire.id);
       removeAddedGroup(ctx, fire);
     }
-    // Every fire is looked at: only members currently over a threshold have one, a small table.
-    const below = statement<FireRow>(
-      ctx,
-      "below",
-      "SELECT f.id, f.user_id, f.action_id, f.group_id, f.group_added_at FROM warning_action_fires f JOIN warning_actions a ON a.id = f.action_id WHERE a.threshold > (SELECT coalesce(sum(w.points), 0) FROM warnings w WHERE w.user_id = f.user_id AND (w.expires_at IS NULL OR w.expires_at > ?1)) LIMIT ?2",
-    ).all(now, SWEEP_BATCH);
+    // Every fire is looked at, one seek into warnings each. A fire stays while its member's
+    // points stay over the threshold, so the table grows with the members who ever crossed one
+    // and whose warnings do not expire; the plan test keeps the seek on the index.
+    const below = statement<FireRow>(ctx, "below", warningSql.sweepBelow).all(now, SWEEP_BATCH);
     for (const fire of below) liftFire(ctx, fire);
     return ended.length + below.length;
   });

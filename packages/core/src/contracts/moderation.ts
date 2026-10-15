@@ -1,6 +1,14 @@
 import * as z from "zod";
 import { defineContract } from "../operation";
-import { ContentState, Id, moderationNotice, Ok, pageInput, Timestamp } from "./common";
+import {
+  ActorPassword,
+  ContentState,
+  Id,
+  moderationNotice,
+  Ok,
+  pageInput,
+  Timestamp,
+} from "./common";
 
 export const ReportTarget = z.object({
   type: z.enum(["post", "profile_post", "profile_post_comment", "conversation_message", "user"]),
@@ -299,10 +307,16 @@ const WarningAction = z
     restrictionKind: z.enum(["posting", "conversations", "profile_posts"]).nullable(),
   })
   .meta({ id: "WarningAction" });
+const GROUP_GATE =
+  " An action that adds a group also needs admin.members and the acting administrator's own " +
+  "password in `actorPassword`, like users.setGroups (an API key is refused), for creating, " +
+  "changing or deleting it, and a rank above the group's, so a group-adding action cannot be " +
+  "reached with admin.settings alone. Ban and restriction actions need only admin.settings.";
 const WarningActionFields = {
   threshold: z.number().int().positive().max(100_000),
   kind: WarningAction.shape.kind,
-  days: z.number().int().positive().max(3650).nullable().default(null),
+  /** Required: null is a permanent action, never a default. */
+  days: z.number().int().positive().max(3650).nullable(),
   groupId: Id.nullable().default(null),
   restrictionKind: WarningAction.shape.restrictionKind.default(null),
 };
@@ -319,27 +333,34 @@ export const warningActionsCreate = defineContract({
     "Create an automatic action: when a member's active warning points reach the threshold, " +
     "ban them, add them to a group (one ranked below the actor that does not decide " +
     "admin.permissions) or restrict them, for `days` or permanently. Each action fires once " +
-    "per crossing. Requires admin.settings.",
+    "per crossing. Requires admin.settings." +
+    GROUP_GATE,
   kind: "write",
-  input: z.object(WarningActionFields),
+  input: z.object({ ...WarningActionFields, actorPassword: ActorPassword.optional() }),
   output: WarningAction,
 });
 export const warningActionsUpdate = defineContract({
   name: "warningActions.update",
   summary:
     "Replace an automatic action's settings; members it already acted on keep what it did. " +
-    "Requires admin.settings.",
+    "Requires admin.settings." +
+    GROUP_GATE,
   kind: "write",
-  input: z.object({ actionId: Id, ...WarningActionFields }),
+  input: z.object({
+    actionId: Id,
+    ...WarningActionFields,
+    actorPassword: ActorPassword.optional(),
+  }),
   output: WarningAction,
 });
 export const warningActionsDelete = defineContract({
   name: "warningActions.delete",
   summary:
     "Delete an automatic action. Group memberships it added for a limited time end now; bans, " +
-    "restrictions and permanent memberships stay. Requires admin.settings.",
+    "restrictions and permanent memberships stay. Requires admin.settings." +
+    GROUP_GATE,
   kind: "write",
-  input: z.object({ actionId: Id }),
+  input: z.object({ actionId: Id, actorPassword: ActorPassword.optional() }),
   output: Ok,
 });
 export const bansCreate = defineContract({

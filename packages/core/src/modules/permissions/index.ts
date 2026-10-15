@@ -384,11 +384,18 @@ export const usersSetGroupsOp = implement(usersSetGroups, async (ctx, actor, inp
         .prepare("UPDATE users SET group_id = ?1 WHERE id = ?2")
         .run(input.primaryGroupId, input.userId);
     if (input.secondaryGroupIds !== undefined) {
-      ctx.sqlite.prepare("DELETE FROM user_groups WHERE user_id = ?1").run(input.userId);
+      // Rows for groups that stay are left alone: their creation time is how a timed group a
+      // warning action added is told from one assigned by hand.
+      const keep = [...new Set(input.secondaryGroupIds)];
+      ctx.sqlite
+        .prepare(
+          "DELETE FROM user_groups WHERE user_id = ?1 AND group_id NOT IN (SELECT value FROM json_each(?2))",
+        )
+        .run(input.userId, JSON.stringify(keep));
       const insert = ctx.sqlite.prepare(
-        "INSERT INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, ?3)",
+        "INSERT OR IGNORE INTO user_groups (user_id, group_id, created_at) VALUES (?1, ?2, ?3)",
       );
-      for (const id of new Set(input.secondaryGroupIds)) insert.run(input.userId, id, ctx.now());
+      for (const id of keep) insert.run(input.userId, id, ctx.now());
     }
     assertAdministrator(ctx, { userId: input.userId, wasAdministrator });
     keepSuperAdmin();

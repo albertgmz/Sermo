@@ -1380,6 +1380,8 @@ export const warningActionFires = sqliteTable(
     groupId: integer("group_id"),
     groupAddedAt: integer("group_added_at"),
     groupEndsAt: integer("group_ends_at"),
+    /** The warning that fired the action told the member; the group's removal tells them too. */
+    notify: bool("notify").notNull().default(true),
   },
   (t) => [
     uniqueIndex("warning_action_fires_member").on(t.userId, t.actionId),

@@ -6,13 +6,14 @@ import {
 } from "@sermo/core/contracts";
 import { getTranslations } from "next-intl/server";
 import type * as z from "zod";
+import { PasswordField } from "@/app/[locale]/(auth)/password-field";
 import { ConfirmStep } from "@/components/staff/confirm-step";
 import {
   DeleteBox,
   EditDisclosure,
   EntryList,
 } from "@/components/staff/entity-list";
-import { InputRow } from "@/components/staff/entity-rows";
+import { CheckRow, InputRow } from "@/components/staff/entity-rows";
 import { FieldRow, FormRows } from "@/components/staff/form-rows";
 import { selectClass } from "@/components/staff/rows";
 import { Badge } from "@/components/ui/badge";
@@ -92,6 +93,12 @@ async function ActionForm({
         help={t("daysHelp")}
         defaultValue={action?.days ?? undefined}
       />
+      <CheckRow
+        name="permanent"
+        label={t("permanent")}
+        text={t("permanentHelp")}
+        defaultChecked={action ? action.days === null : false}
+      />
       <FieldRow
         name="groupId"
         label={t("group")}
@@ -142,6 +149,18 @@ async function ActionForm({
             </option>
           ))}
         </select>
+      </FieldRow>
+      <FieldRow
+        name="actorPassword"
+        label={t("password")}
+        htmlFor={`${key}-actorPassword`}
+        help={t("passwordHelp")}
+      >
+        <PasswordField
+          id={`${key}-actorPassword`}
+          name="actorPassword"
+          autoComplete="off"
+        />
       </FieldRow>
     </FormRows>
   );
@@ -204,6 +223,7 @@ export async function WarningActions() {
                 <ConfirmStep
                   action={deleteWarningAction}
                   fields={{ id: action.id }}
+                  password={action.kind === "group"}
                   summary={`${t("delete")}…`}
                   warning={t("deleteWarning")}
                   submit={t("delete")}

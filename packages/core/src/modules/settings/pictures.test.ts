@@ -144,8 +144,6 @@ describe("the site's own pictures", () => {
       firstPostsToModerate: 2,
       moderateLinksFromNewMembers: false,
       newMemberDays: 7,
-      warningBanThreshold: 0,
-      warningBanDays: 7,
       threadTitleTemplate: "{title} | {site}",
       nodeTitleTemplate: "{title} | {site}",
       profileTitleTemplate: "{username} | {site}",

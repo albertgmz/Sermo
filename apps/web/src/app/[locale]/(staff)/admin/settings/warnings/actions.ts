@@ -30,6 +30,7 @@ const ACTION_FIELDS = [
   "days",
   "groupId",
   "restrictionKind",
+  "actorPassword",
 ];
 const KINDS = warningActionsCreate.input.shape.kind.options;
 const RESTRICTIONS = Restriction.shape.kind.options;
@@ -115,6 +116,9 @@ export async function saveWarningAction(
   const threshold = await number(formData, "threshold", fields);
   const days = await number(formData, "days", fields);
   if (threshold === undefined) fields.threshold = t("number");
+  // The length is chosen: a number of days, or permanent ticked. Empty never means permanent.
+  const permanent = formData.get("permanent") !== null;
+  if (!permanent && days === undefined) fields.days = t("daysOrPermanent");
   const groupId = kind === "group" ? parseId(text(formData, "groupId")) : null;
   if (kind === "group" && groupId === null) fields.groupId = t("missing");
   const restrictionKind =
@@ -129,9 +133,13 @@ export async function saveWarningAction(
   const input = {
     threshold: threshold as number,
     kind,
-    days: days ?? null,
+    days: permanent ? null : (days as number),
     groupId,
     restrictionKind,
+    // Only an action that adds a group needs it; the backend says so for the others.
+    ...(text(formData, "actorPassword") === ""
+      ? {}
+      : { actorPassword: text(formData, "actorPassword") }),
   };
   try {
     if (actionId === null) await call(warningActionsCreate, input);
@@ -150,7 +158,11 @@ export async function deleteWarningAction(
   const actionId = parseId(text(formData, "id"));
   if (actionId === null) return { error: t("id") };
   try {
-    await call(warningActionsDelete, { actionId });
+    const actorPassword = text(formData, "actorPassword");
+    await call(warningActionsDelete, {
+      actionId,
+      ...(actorPassword === "" ? {} : { actorPassword }),
+    });
   } catch (error) {
     return formFailure(error, []);
   }

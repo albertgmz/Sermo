@@ -14,7 +14,8 @@
     "id": "Ese registro no es válido.",
     "missing": "Elige un valor.",
     "permission": "Elige un permiso para este público.",
-    "unknownMembers": "No existe ningún miembro con estos nombres: {names}."
+    "unknownMembers": "No existe ningún miembro con estos nombres: {names}.",
+    "daysOrPermanent": "Escribe el número de días o marca permanente."
   },
   "pages": {
     "general": {
@@ -505,7 +506,7 @@
     "form": {
       "headingNew": "Nueva acción automática",
       "headingEdit": "Editar acción automática",
-      "descriptionNew": "Un miembro nunca es expulsado así si tiene el permiso que lo exime de las expulsiones automáticas, y no se puede expulsar al último administrador.",
+      "descriptionNew": "Se omite a los miembros que tienen el permiso que los exime de las acciones automáticas, y no se puede expulsar al último administrador. Una acción que añade un grupo necesita el permiso para gestionar miembros y tu propia contraseña.",
       "create": "Añadir acción",
       "threshold": "Puntos activos",
       "thresholdHelp": "La acción se aplica cuando los puntos sin caducar de un miembro llegan a este número.",
@@ -517,7 +518,7 @@
         "restriction": "Restringir"
       },
       "days": "Duración (días)",
-      "daysHelp": "Déjalo vacío para una expulsión, pertenencia o restricción sin final.",
+      "daysHelp": "Cuánto dura la expulsión, la pertenencia o la restricción. O marca permanente.",
       "group": "Grupo",
       "groupHelp": "Un grupo de rango inferior al tuyo que no administre permisos.",
       "groupTyped": "Escribe el número del grupo; no puedes ver la lista de grupos.",
@@ -529,7 +530,11 @@
         "posting": "Sin publicar",
         "conversations": "Sin iniciar conversaciones",
         "profile_posts": "Sin publicaciones en el perfil"
-      }
+      },
+      "permanent": "Permanente",
+      "permanentHelp": "Sin final.",
+      "password": "Tu contraseña",
+      "passwordHelp": "Hace falta para añadir, cambiar o eliminar una acción que añade un grupo; déjala vacía para las demás."
     }
   }
 }
