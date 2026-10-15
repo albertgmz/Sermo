@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CRITERIA, LIMITS } from "@/lib/test-criteria";
 import { withIntl } from "@/lib/test-intl";
