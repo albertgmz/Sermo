@@ -365,6 +365,8 @@ interface Entry {
   name: string;
   /** Inline entries at the top of the stack down to and including this one. */
   run: number;
+  /** A rich-code opener: how many tags it had skipped when it opened. */
+  skipsAtOpen?: number;
   /**
    * A LIST, TABLE or TR: the tokens of what it holds that become live only with it (its `[*]`
    * items, its rows and cells), so a cell of a table that never closes stays literal.
@@ -383,19 +385,43 @@ const isRich = (tok: Tok): boolean =>
  * what holds it is not paired. In rich code only inline tags pair.
  */
 export function pair(toks: Tok[], deadline: Deadline): void {
+  // Rich code turns block tags inside it into text; if its opener then never pairs (a tag closes
+  // over it), those tags were wrongly skipped: pair again with that opener left as text.
+  const excluded = new Set<number>();
+  for (let round = 0; round < 3; round++) {
+    const wrong = pairOnce(toks, deadline, excluded);
+    if (wrong.size === 0) return;
+    for (const index of wrong) excluded.add(index);
+  }
+  pairOnce(toks, deadline, excluded);
+}
+
+function pairOnce(toks: Tok[], deadline: Deadline, excluded: ReadonlySet<number>): Set<number> {
+  for (const tok of toks) if (tok.kind !== "atom") tok.live = false;
   const stack: Entry[] = [];
   const open = new Map<string, number>();
+  const wrong = new Set<number>();
   let rich = 0;
+  let skipped = 0;
 
-  const drop = (): void => {
+  const drop = (matched = false): void => {
     const entry = stack.pop()!;
     if (entry.name !== "*") open.set(entry.name, open.get(entry.name)! - 1);
-    if (isRich(toks[entry.tok]!)) rich--;
+    if (isRich(toks[entry.tok]!)) {
+      rich--;
+      if (!matched && skipped > entry.skipsAtOpen!) wrong.add(entry.tok);
+    }
   };
   const push = (index: number, name: string): void => {
     const below = stack.length ? stack[stack.length - 1]!.run : 0;
     const deferred = HOLDS.has(name) ? [] : undefined;
-    stack.push({ tok: index, name, run: INLINE_NAMES.has(name) ? below + 1 : 0, deferred });
+    stack.push({
+      tok: index,
+      name,
+      run: INLINE_NAMES.has(name) ? below + 1 : 0,
+      deferred,
+      skipsAtOpen: skipped,
+    });
     if (name !== "*") open.set(name, (open.get(name) ?? 0) + 1);
     if (isRich(toks[index]!)) rich++;
   };
@@ -419,8 +445,11 @@ export function pair(toks: Tok[], deadline: Deadline): void {
     if (tok.kind === "atom") continue;
     const top = stack[stack.length - 1];
     if (tok.kind === "open") {
-      if (isRich(tok) && !closable.has(index)) continue;
-      if (rich > 0 && BLOCK_NAMES.has(tok.name)) continue;
+      if (isRich(tok) && (excluded.has(index) || !closable.has(index))) continue;
+      if (rich > 0 && BLOCK_NAMES.has(tok.name)) {
+        skipped++;
+        continue;
+      }
       if (tok.name === "*") {
         if (!top || !open.get("LIST")) continue;
         const holder = stack.length - 1 - top.run;
@@ -450,6 +479,10 @@ export function pair(toks: Tok[], deadline: Deadline): void {
       toks[entry.tok]!.live = tok.live = true;
       for (const held of entry.deferred ?? []) toks[held]!.live = true;
     }
-    drop();
+    drop(true);
   }
+  // Rich code still open at the end never paired.
+  for (const entry of stack)
+    if (isRich(toks[entry.tok]!) && skipped > entry.skipsAtOpen!) wrong.add(entry.tok);
+  return wrong;
 }

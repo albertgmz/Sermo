@@ -772,6 +772,10 @@ describe("BB code review limits", () => {
       expect(html).toContain("<ul><li>a</li></ul>");
       expect(html).toContain('<a href="https://a.example"');
     }
+    // A tag that closes over it leaves it text too, and what it had skipped is drawn.
+    const crossed = md("[B][CODE=rich]x\n[QUOTE]q[/QUOTE][/B][/CODE]");
+    expect(crossed).toContain("<blockquote");
+    expect(crossed).toContain("[CODE=rich]");
     // Closed, it still turns them into text.
     expect(md("[CODE=rich][QUOTE]q[/QUOTE][/CODE]")).not.toContain("<blockquote");
   });

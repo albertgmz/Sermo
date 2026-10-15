@@ -136,6 +136,10 @@ export const ADVERSARIAL_INPUTS: AdversarialInput[] = [
     name: "unclosed rich code then blocks",
     source: `[CODE=rich]${fill("[QUOTE]x[/QUOTE]", 9000)}`,
   },
+  {
+    name: "rich code crossed by bold, repeated",
+    source: fill("[B][CODE=rich]x[QUOTE]q[/QUOTE][/B][/CODE]"),
+  },
   { name: "quotes of one post, actor", source: fill("[QUOTE=post: 1]x[/QUOTE]"), withActor: true },
   { name: "many attachments", source: fill("[ATTACH]123[/ATTACH]") },
   { name: "many emails", source: fill("[EMAIL]a@b.example[/EMAIL]") },

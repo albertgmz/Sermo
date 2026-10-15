@@ -7,7 +7,11 @@ import { BB_SPOILER_MARK, maskBbCode } from "../../bbcode/mask";
  */
 export function boundSource(source: string, limit: number): { text: string; truncated: boolean } {
   if (source.length <= limit) return { text: source, truncated: false };
-  return { text: source.slice(0, limit), truncated: true };
+  let text = source.slice(0, limit);
+  // A cut inside a tag would leave its start in the text.
+  const at = text.lastIndexOf("[");
+  if (at >= 0 && text.indexOf("]", at) < 0 && text.length - at <= 210) text = text.slice(0, at);
+  return { text, truncated: true };
 }
 
 /** Plain text stored when the first post is written: spoilers hidden, BB code tags dropped. */

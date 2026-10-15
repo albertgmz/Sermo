@@ -289,16 +289,49 @@ describe("search.query", () => {
 });
 
 describe("search.query over BB code", () => {
-  const hasText = (ctx: ReturnType<typeof createTestContext>) =>
-    ctx.sqlite
-      .prepare<{ name: string }, []>("SELECT name FROM pragma_table_info('post_bodies')")
-      .all()
-      .some((column) => column.name === "body_text");
+  test("a post with no text is not found by its tags, however it got that way", async () => {
+    const { ctx, author, member, forum } = fixture();
+    const made = await execute(ctx, threadsCreateOp, author, {
+      nodeId: forum.id,
+      title: "Pictures",
+      body: "[IMG]https://pics.example/cat.png[/IMG]",
+    });
+    const send = (body: string) =>
+      execute(ctx, postsCreateOp, author, { threadId: made.thread.id, body });
+    await send("[HR]");
+    const attached = await send("[ATTACH]12[/ATTACH]");
+    await send("[MEDIA=youtube]kQ0Eo1UccEE[/MEDIA]");
+    const edited = await send("some words here");
+    const ids = async (q: string) => (await search(ctx, member, q)).items.map((r) => r.post.id);
+    for (const word of [
+      "img",
+      "pics",
+      "png",
+      "cat",
+      "hr",
+      "attach",
+      "media",
+      "youtube",
+      "kQ0Eo1UccEE",
+    ])
+      expect(await ids(word), word).toEqual([]);
+    expect(await ids("words")).toEqual([edited.id]);
+    const stored = ctx.sqlite
+      .prepare<{ body_text: string | null }, [number]>(
+        "SELECT body_text FROM post_bodies WHERE post_id = ?1",
+      )
+      .get(attached.id);
+    expect(stored?.body_text).toBe("");
+    // A text post edited to a picture only leaves no word of its text or of the tags.
+    await execute(ctx, postsUpdateOp, author, {
+      postId: edited.id,
+      body: "[IMG]https://x.example/dog.png[/IMG]",
+    });
+    for (const word of ["words", "img", "dog", "png"]) expect(await ids(word), word).toEqual([]);
+  });
 
-  // Needs the plain text column the search index reads (see the migration in the task notes).
   test("tags and quote attributions are not words, the text inside spoilers is", async () => {
     const { ctx, author, member, forum } = fixture();
-    if (!hasText(ctx)) return;
     const made = await execute(ctx, threadsCreateOp, author, {
       nodeId: forum.id,
       title: "Plain topic",

@@ -441,6 +441,17 @@ describe("BB code references", () => {
     expect(maskMarkupForExcerpt("a [SPOILER]s", 5)).not.toContain("s");
   });
 
+  test("an excerpt cut inside a tag does not show the start of it, and U+0001 is no spoiler", () => {
+    const cut = maskMarkupForExcerpt(
+      "hello world [URL=https://example.com/path]link text[/URL] and more",
+      30,
+    );
+    expect(cut).toBe("hello world ");
+    expect(maskMarkupForExcerpt("a [B]b[/B] and arr[i", 100)).toBe("a b and arr[i");
+    expect(excerptFromMarkdown("typed \u0001 mark")).toBe("typed mark");
+    expect(excerptFromMarkdown("typed \u0001 [SPOILER]s[/SPOILER]")).toBe("typed [spoiler]");
+  });
+
   test("the search text keeps the words in spoilers and drops tags and attributions", () => {
     expect(
       bbCodeText(

@@ -924,8 +924,11 @@ export const postBodies = sqliteTable("post_bodies", {
   bodySource: text("body_source").notNull(),
   /** Sanitized HTML rendered from bodySource at write time. */
   bodyHtml: text("body_html").notNull(),
-  /** The source without its tags, for the search index (empty: the index reads the source). */
-  bodyText: text("body_text").notNull().default(""),
+  /**
+   * The source without its tags, for the search index. NULL: not computed, the index reads the
+   * source; '': a post with no text (a picture only), indexed as empty.
+   */
+  bodyText: text("body_text"),
 });
 
 export const threadReads = sqliteTable(

@@ -33,7 +33,8 @@ function atomText(tok: Tok, source: string): string {
  * (the search index finds words inside spoilers).
  */
 function plainText(raw: string, spoilers: "mask" | "keep", truncated: boolean): string {
-  const source = raw.replace(/\r\n?/g, "\n");
+  // A typed U+0001 must not read as the mark of a spoiler.
+  const source = raw.replace(/\r\n?/g, "\n").replaceAll(SPOILER_MARK, "");
   if (!source.includes("[")) return source;
   const deadline = new Deadline(NO_LIMIT);
   const toks = lex(source, deadline);
