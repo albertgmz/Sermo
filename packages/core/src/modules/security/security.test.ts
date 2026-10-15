@@ -96,6 +96,23 @@ describe("device detection", () => {
     });
   });
 
+  test("an enumerable member another library added to a prototype does not break parsing", () => {
+    // drizzle-kit does this to Array.prototype, and the detector walks its patterns with for...in.
+    Object.defineProperty(Array.prototype, "random", {
+      value: () => 0,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+    try {
+      clearDeviceCache();
+      expect(deviceOf(CHROME)).toMatchObject({ browser: "Chrome", os: "Windows" });
+      expect(deviceOf(IPHONE)).toMatchObject({ brand: "Apple" });
+    } finally {
+      Reflect.deleteProperty(Array.prototype, "random");
+    }
+  });
+
   test("a crawler is a bot and an empty user agent has no device", () => {
     expect(deviceOf(GOOGLEBOT)).toMatchObject({ browser: "Googlebot", isBot: true });
     expect(deviceOf(undefined)).toBe(NO_DEVICE);

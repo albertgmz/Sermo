@@ -48,8 +48,33 @@ export function clearDeviceCache(): void {
 
 const blank = (value: string | undefined): string | null => (value ? value : null);
 
+/**
+ * The detector walks its pattern lists with `for...in`, which also visits any enumerable member a
+ * dependency has added to a built-in prototype (drizzle-kit adds `Array.prototype.random`), reads
+ * it as a pattern and throws. Such members are made non-enumerable (nothing else changes) before
+ * every parse.
+ */
+function hideInheritedMembers(): void {
+  for (const prototype of [Array.prototype, Object.prototype] as object[]) {
+    const inherited: string[] = [];
+    for (const key in prototype) inherited.push(key);
+    for (const key of inherited) Object.defineProperty(prototype, key, { enumerable: false });
+  }
+}
+
 function parse(userAgent: string): Device {
   parses += 1;
+  hideInheritedMembers();
+  try {
+    return detect(userAgent);
+  } catch (error) {
+    // A user agent nobody can read must not fail the post or the sign-in that carries it.
+    console.error("A user agent could not be parsed", error);
+    return NO_DEVICE;
+  }
+}
+
+function detect(userAgent: string): Device {
   const bot = detector.parseBot(userAgent);
   if (bot.name) return { ...NO_DEVICE, browser: bot.name, isBot: true };
   const result = detector.detect(userAgent);

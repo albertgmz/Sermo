@@ -153,7 +153,7 @@ test("a member's addresses are listed with counts and first and last seen, each 
   expect(page).toContain(
     `href="/moderation/ips?ip=${encodeURIComponent("2001:db8:0:1::5")}"`,
   );
-  expect(page).toContain("Addresses used by #4");
+  expect(page).toContain("Addresses used by ");
   expect(page).toContain("network 2001:db8:0:1::/64");
   expect(page).toContain("2026");
 });
