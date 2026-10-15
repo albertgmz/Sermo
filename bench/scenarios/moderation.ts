@@ -82,7 +82,8 @@ export const scenarios: Scenario[] = [
       env.ctx.sqlite.run(
         "UPDATE report_groups SET node_id = (SELECT t.node_id FROM posts p JOIN threads t ON t.id = p.thread_id WHERE p.id = report_groups.target_id) WHERE target_type = 'post'",
       );
-      await env.call("nodes.setModerator", env.actors.admin, {
+      // In-process: an API key may not run this operation, and a session needs the password.
+      await env.callInProcess("nodes.setModerator", env.actors.admin, {
         nodeId: env.meta.bigForumIds[0],
         userId: env.meta.memberIds[0],
       });

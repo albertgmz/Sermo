@@ -81,7 +81,8 @@ export const scenarios: Scenario[] = [
           "SELECT state FROM user_promotions WHERE user_id = ?1 AND promotion_id = ?2",
         )
         .get(userId, promotionId)?.state;
-      return env.call("promotions.apply", env.actors.admin, {
+      // In-process: an API key may not run this operation, and a session needs the password.
+      return env.callInProcess("promotions.apply", env.actors.admin, {
         userId,
         promotionId,
         action: state === "exempt" ? "promote" : "exempt",

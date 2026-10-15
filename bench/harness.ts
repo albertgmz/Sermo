@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { createApp, routes } from "@sermo/api";
-import { type Actor, type Ctx, GUEST, getAuth } from "@sermo/core";
+import { type Actor, type Ctx, execute, GUEST, getAuth, getOperation } from "@sermo/core";
 import type { Rng } from "./rng";
 import type { SeedMeta } from "./seed";
 
@@ -26,6 +26,13 @@ export interface BenchEnv {
    * actors authenticate with a Better Auth API key. Throws on a non-2xx response.
    */
   call(operation: string, actor: Actor, input: unknown): Promise<unknown>;
+  /**
+   * Runs one operation in-process as the given hand-built actor (no session mark, no key, no HTTP
+   * layer). For the operations an API key may not run (the ones that take `actorPassword`), so
+   * the scenario measures the operation and not password hashing or its limiter. Returns the
+   * operation's output.
+   */
+  callInProcess(operation: string, actor: Actor, input: unknown): Promise<unknown>;
   /** Sends a raw request through the same app (for cookie-authenticated scenarios). */
   request(path: string, init?: RequestInit): Promise<Response>;
   authHeader(actor: Actor): Promise<string>;
@@ -126,6 +133,7 @@ export async function createEnv(ctx: Ctx, meta: SeedMeta, rng: Rng): Promise<Ben
       if (actor.kind === "guest") throw new Error("A guest has no API key.");
       return `Bearer ${await keyFor(actor.userId)}`;
     },
+    callInProcess: (operation, actor, input) => execute(ctx, getOperation(operation), actor, input),
     async call(operation, actor, input) {
       const route = routeByOperation.get(operation);
       if (!route) throw new Error(`No route for ${operation}`);
