@@ -251,6 +251,10 @@ test("a refused reply from a feed card answers its form with the backend's messa
 test("a reply from a feed card does not follow an address that is not on this site", async () => {
   for (const [referer, host] of [
     ["https://elsewhere.example/?pages=2", "localhost:3105"],
+    // On this site, but a path that a browser would follow to another host.
+    ["http://localhost:3105//evil.example/x?pages=2", "localhost:3105"],
+    ["http://localhost:3105/\\evil.example", "localhost:3105"],
+    ["http://localhost:3105/.//evil.example", "localhost:3105"],
     [undefined, undefined],
   ] as const) {
     onPage(referer, host);

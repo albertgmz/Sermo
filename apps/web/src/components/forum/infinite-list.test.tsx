@@ -264,7 +264,7 @@ function fakeRow(
   } as unknown as Element;
 }
 
-test("a row that holds the focus, typed text, a loaded embed or a player stays mounted", () => {
+test("a row that holds the focus or typed text stays mounted", () => {
   const focused = {} as Element;
   expect(holdsState(fakeRow({ holds: focused }), focused)).toBe(true);
   expect(holdsState(fakeRow({ fields: [{ value: "half a rep" }] }), null)).toBe(
@@ -273,7 +273,12 @@ test("a row that holds the focus, typed text, a loaded embed or a player stays m
   expect(
     holdsState(fakeRow({ fields: [{ textContent: "typed" }] }), null),
   ).toBe(true);
-  expect(holdsState(fakeRow({ media: true }), null)).toBe(true);
+});
+
+// Embeds are on in every row of a long feed for a member who accepts them: keeping those rows
+// would keep a live player per row for the whole scroll.
+test("a row with a player and nothing else is left to the window", () => {
+  expect(holdsState(fakeRow({ media: true }), null)).toBe(false);
 });
 
 test("a row with nothing to lose is left to the window", () => {

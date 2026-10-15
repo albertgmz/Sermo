@@ -77,8 +77,10 @@ export function mergeRefreshed(
 }
 
 // The rows to keep mounted whatever the window says: the one that holds the keyboard focus (a
-// composer or a picker being used), text typed and not sent, or a loaded embed or player. Without
-// them a row that scrolls away takes that state with it.
+// composer or a picker being used) and the ones with text typed and not sent: both are bounded by
+// what the visitor does. Without them a row that scrolls away takes that state with it. A player
+// is not kept: where embeds are on, every row of a long feed has one, and keeping them all would
+// grow with the scroll; a player that restarts on the way back is the lesser evil.
 export function holdsState(row: Element, active: Element | null) {
   if (active && active !== row.ownerDocument.body && row.contains(active)) {
     return true;
@@ -90,7 +92,7 @@ export function holdsState(row: Element, active: Element | null) {
     const text = (field as HTMLInputElement).value ?? field.textContent;
     if (text?.trim()) return true;
   }
-  return row.querySelector("iframe, video, audio") !== null;
+  return false;
 }
 
 // The indexes the window shows plus those of the rows to keep, in order.
@@ -206,9 +208,15 @@ export function InfiniteList({
   useEffect(() => {
     if (drawn.current === stamp) return;
     drawn.current = stamp;
-    client.setQueryData(options.queryKey, (held) =>
-      held ? mergeRefreshed(held, pages, start) : held,
-    );
+    // A page still on its way was asked for before this draw: it is dropped (the sentinel asks
+    // again), or its answer would put the older first pages back.
+    void client
+      .cancelQueries({ queryKey: options.queryKey })
+      .then(() =>
+        client.setQueryData(options.queryKey, (held) =>
+          held ? mergeRefreshed(held, pages, start) : held,
+        ),
+      );
   }, [stamp]);
   // The server draws the rows of the first page as plain markup; the list switches to windowed
   // layout once it is in the browser, over the same elements. Until then it is that page and the

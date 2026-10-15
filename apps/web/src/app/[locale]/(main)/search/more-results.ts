@@ -1,5 +1,6 @@
 "use server";
 
+import { SermoError } from "@/lib/sermo/errors";
 import { endsTheList } from "@/lib/sermo/list-actions";
 import type { Filters } from "./filters";
 import { searchPage } from "./search-page";
@@ -16,5 +17,6 @@ export async function moreResults(
   const answer = await searchPage(filters, authorId, cursor ?? undefined);
   if (!("message" in answer)) return answer.page;
   if (endsTheList(answer.code)) return { rows: [], nextCursor: null };
-  throw new Error(answer.message);
+  // The refusal as it came, so restoring an address on a rate limit keeps the pages it has.
+  throw new SermoError(answer.code, answer.status, answer.message);
 }
