@@ -294,6 +294,35 @@ describe("automatic awards", () => {
     });
   }
 
+  test("gaining a shop group evaluates the member", async () => {
+    const { ctx, member, call } = setup();
+    const rank = ctx.sqlite
+      .prepare<{ id: number }, []>(
+        "INSERT INTO groups (title, rank) VALUES ('Silver', 5) RETURNING id",
+      )
+      .get()!.id;
+    const award = await call("create", {
+      name: "Silver holder",
+      tier: "bronze",
+      rule: { match: "all", conditions: [{ criterion: "in_group", ids: [rank] }] },
+    });
+    ctx.sqlite
+      .prepare(
+        "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, 1, ?2, 0)",
+      )
+      .run(member.id, rank);
+    writeTx(ctx, () =>
+      publishEvent(ctx, {
+        type: "member.groups_changed",
+        targetType: "user",
+        targetId: member.id,
+        payload: { added: [rank], removed: [], source: "shop" },
+      }),
+    );
+    await drainEvents(ctx);
+    expect((await call("holders", { awardId: award.id })).items).toHaveLength(1);
+  });
+
   test("verifying an email evaluates the member", async () => {
     const { ctx, member, call } = setup();
     const award = await call("create", {

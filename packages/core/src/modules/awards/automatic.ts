@@ -112,7 +112,9 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
   if (event.type === "content.edited" && event.targetType === "profile") userId = event.targetId;
   if (
     event.type === "member.groups_changed" &&
-    (event.payload.source === "admin" || event.payload.source === "verification")
+    (event.payload.source === "admin" ||
+      event.payload.source === "verification" ||
+      event.payload.source === "shop")
   )
     userId = event.targetId;
   if (userId !== null) evaluateMember(ctx, userId);

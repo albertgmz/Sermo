@@ -154,11 +154,24 @@ function target(ctx: Ctx, id: number): Actor {
   if (!row) throw new NotFoundError();
   return memberActor(id, row.group_id, row, currentVersions(ctx));
 }
-function validate(ctx: Ctx, actor: Actor, rule: Rule, ids: number[]): void {
+function validate(ctx: Ctx, actor: Actor, rule: Rule, ids: number[], promotionId?: number): void {
   assertRule(ctx, rule, "background");
-  // A rule that reads a group the promotion grants would undo or hold itself.
-  if (groupsReadBy(rule).some((id) => ids.includes(id)))
+  // No promotion reads a group any promotion grants: a rule that did would undo or hold itself,
+  // or loop with another promotion. With no such links no chain or cycle can exist.
+  const reads = groupsReadBy(rule);
+  if (reads.some((id) => ids.includes(id)))
     throw new ValidationError("A promotion's rule cannot depend on a group it grants.");
+  for (const other of rows(ctx)) {
+    if (other.id === promotionId) continue;
+    if (reads.some((id) => groupIds(other).includes(id)))
+      throw new ValidationError(
+        "A promotion's rule cannot depend on a group another promotion grants.",
+      );
+    if (groupsReadBy(planFor(other).rule).some((id) => ids.includes(id)))
+      throw new ValidationError(
+        "A promotion cannot grant a group another promotion's rule depends on.",
+      );
+  }
   assertGrantRanks(ctx, actor, ids);
   if (grantsAdministration(ctx, ids))
     throw new ValidationError("A promotion cannot grant a group that decides admin.permissions.");
@@ -442,7 +455,7 @@ export const operations = [
       const p = promotion(ctx, input.promotionId);
       const rule = input.rule ?? ruleOf(p);
       const ids = input.groupIds ?? groupIds(p);
-      validate(ctx, current, rule, ids);
+      validate(ctx, current, rule, ids, p.id);
       run(
         ctx,
         "update",
@@ -808,7 +821,10 @@ function onEvent(ctx: Ctx, event: DomainEvent): void {
   if (event.type === "member.warned" || event.type === "credits.changed") userId = event.targetId;
   if (event.type === "shop.purchased") userId = Number(event.payload.buyerId) || null;
   if (event.type === "content.edited" && event.targetType === "profile") userId = event.targetId;
-  if (event.type === "member.groups_changed" && event.payload.source === "admin")
+  if (
+    event.type === "member.groups_changed" &&
+    (event.payload.source === "admin" || event.payload.source === "shop")
+  )
     userId = event.targetId;
   if (userId !== null) evaluateMember(ctx, userId);
 }

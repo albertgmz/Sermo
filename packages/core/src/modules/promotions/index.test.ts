@@ -750,3 +750,140 @@ describe("promotions", () => {
     });
   });
 });
+
+describe("promotions never depend on one another", () => {
+  const rule = (criterion: string, id: number) => ({
+    match: "all",
+    conditions: [{ criterion, ids: [id] }],
+  });
+  const setup = () => {
+    const ctx = createTestContext();
+    const admin = userActor(insertUser(ctx, { groupId: 4 }));
+    const [x, y, z] = [group(ctx), group(ctx), group(ctx)];
+    const save = (name: "create" | "update", input: object) =>
+      execute(ctx, op(name), admin, input) as Promise<{ id: number }>;
+    return { ctx, admin, x, y, z, save };
+  };
+
+  test("the oscillating pair is refused when the second is saved", async () => {
+    const { x, y, save } = setup();
+    // A: not in Y -> X. B: in X -> Y.
+    const a = await save("create", { title: "A", rule: rule("not_in_group", y), groupIds: [x] });
+    expect(a.id).toBeGreaterThan(0);
+    await expect(
+      save("create", { title: "B", rule: rule("in_group", x), groupIds: [y] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("the oscillating pair is refused when saved in the other order", async () => {
+    const { x, y, save } = setup();
+    const b = await save("create", { title: "B", rule: rule("in_group", x), groupIds: [y] });
+    await expect(
+      save("create", { title: "A", rule: rule("not_in_group", y), groupIds: [x] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(b.id).toBeGreaterThan(0);
+  });
+
+  test("the self-sustaining pair is refused, whichever is saved second", async () => {
+    const { x, y, save } = setup();
+    // A: in X -> Y. B: in Y -> X.
+    await save("create", { title: "A", rule: rule("in_group", x), groupIds: [y] });
+    await expect(
+      save("create", { title: "B", rule: rule("in_group", y), groupIds: [x] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const second = setup();
+    await second.save("create", {
+      title: "B",
+      rule: rule("in_group", second.y),
+      groupIds: [second.x],
+    });
+    await expect(
+      second.save("create", {
+        title: "A",
+        rule: rule("in_group", second.x),
+        groupIds: [second.y],
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  test("an update that would link two promotions is refused, by its rule or by its groups", async () => {
+    const { x, y, z, save } = setup();
+    const a = await save("create", { title: "A", rule: rule("in_group", x), groupIds: [y] });
+    const c = await save("create", {
+      title: "C",
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
+      groupIds: [z],
+    });
+    // C's rule reading Y, which A grants; C granting X, which A's rule reads.
+    await expect(
+      save("update", { promotionId: c.id, rule: rule("in_group", y) }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(save("update", { promotionId: c.id, groupIds: [x] })).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    // A may still change what it grants to a group nobody reads.
+    await expect(save("update", { promotionId: a.id, groupIds: [z] })).resolves.toBeDefined();
+  });
+
+  test("unrelated promotions, and ones that read hand-assigned groups, still save", async () => {
+    const { x, y, z, save } = setup();
+    await save("create", { title: "A", rule: rule("in_group", z), groupIds: [x] });
+    await save("create", { title: "B", rule: rule("in_group", z), groupIds: [y] });
+    await save("create", {
+      title: "C",
+      rule: { match: "all", conditions: [{ criterion: "post_count", value: 1 }] },
+      groupIds: [x],
+    });
+  });
+});
+
+test("gaining or losing a shop group re-evaluates the member", async () => {
+  const ctx = createTestContext();
+  const admin = userActor(insertUser(ctx, { groupId: 4 }));
+  const member = insertUser(ctx);
+  const [shopRank, badge] = [group(ctx), group(ctx)];
+  registerPromotionJobs(ctx);
+  await execute(ctx, op("create"), admin, {
+    title: "Badge for rank holders",
+    rule: { match: "all", conditions: [{ criterion: "in_group", ids: [shopRank] }] },
+    groupIds: [badge],
+  });
+  const granted = () =>
+    ctx.sqlite
+      .prepare<{ group_id: number }, [number]>(
+        "SELECT group_id FROM user_group_grants WHERE user_id = ?1",
+      )
+      .all(member.id)
+      .map((row) => row.group_id);
+  const shopChange = (source: string) =>
+    writeTx(ctx, () =>
+      publishEvent(ctx, {
+        type: "member.groups_changed",
+        targetType: "user",
+        targetId: member.id,
+        payload: { added: [], removed: [], source },
+      }),
+    );
+  expect(granted()).toEqual([]);
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, 1, ?2, 0)",
+    )
+    .run(member.id, shopRank);
+  shopChange("shop");
+  await dispatchEvents(ctx);
+  expect(granted()).toEqual([badge]);
+  ctx.sqlite.prepare("DELETE FROM shop_group_grants WHERE user_id = ?1").run(member.id);
+  shopChange("shop");
+  await dispatchEvents(ctx);
+  expect(granted()).toEqual([]);
+  // The promotions' own group changes do not start another evaluation.
+  ctx.sqlite
+    .prepare(
+      "INSERT INTO shop_group_grants (user_id, inventory_id, group_id, created_at) VALUES (?1, 1, ?2, 0)",
+    )
+    .run(member.id, shopRank);
+  shopChange("promotion");
+  await dispatchEvents(ctx);
+  expect(granted()).toEqual([]);
+});

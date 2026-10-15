@@ -186,7 +186,7 @@ criterion. Guests satisfy only the audience criteria.
 
 Notices (`rule`) are shown to the members the rule holds for. Shop categories and items (`rule`)
 are listed to, and may be bought by, only the members the rule holds for; an administrator with
-`admin.shop` sees them all. A gift also needs the recipient to match, and the refusal is the same as for a missing item. No conditions means everyone. The rules of shop items and awards are returned only to those who manage them (`admin.shop`, `admin.awards`); everyone else sees an empty rule. A promotion's rule may not read a group the promotion grants.
+`admin.shop` sees them all. A gift also needs the recipient to match, and the refusal is the same as for a missing item. No conditions means everyone. The rules of shop items and awards are returned only to those who manage them (`admin.shop`, `admin.awards`); everyone else sees an empty rule. No promotion's rule may read a group that any promotion grants (a rule can read hand-assigned and shop groups), so promotions never depend on one another.
 
 A promotion needs a rule with at least one condition. Members are evaluated right after relevant activity (a new
 post, thread, profile post or comment, a received reaction, a warning, a profile change such as a
