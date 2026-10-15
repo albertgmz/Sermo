@@ -2,30 +2,48 @@ import { expect, test } from "bun:test";
 import { pictureHistory } from "./picture-history";
 import { arrowStep, closeAnswer, SWIPE_PX, swipeStep } from "./picture-input";
 
+type State = Record<string, unknown> | null;
+
 // A browser's history reduced to what the viewer uses: a stack of entries (address and state) and a
-// place in it. Like a browser, each entry keeps its own state.
+// place in it, with Next's patch of pushState and replaceState on top (next/dist/client/components/
+// app-router.js, Next 16.4). The patch hands the router the new address, which is what
+// `useSearchParams` shows, only for a state that is not already Next's own (`__NA` or `_N` set),
+// and it writes `__NA` onto the object it was given: a state object the caller keeps and passes
+// again is Next's own from the second call on. `routerAddress` is what the router holds.
 function browser(start: string) {
-  const stack: { url: string; state: unknown }[] = [
-    { url: start, state: null },
-  ];
+  const own = (): State => ({ __NA: true });
+  const stack: { url: string; state: State }[] = [{ url: start, state: own() }];
   let at = 0;
+  let routerUrl = start;
   const log: string[] = [];
+  function patched(data: State, url: string | URL | null | undefined): State {
+    if (data?.__NA || data?._N) return data;
+    const given: Record<string, unknown> = data ?? {};
+    if (stack[at].state?.__NA) given.__NA = stack[at].state?.__NA;
+    if (url) routerUrl = String(url);
+    return given;
+  }
   const history = pictureHistory({
     history: () => ({
       get state() {
         return stack[at].state;
       },
       pushState: (state, _t, url) => {
-        stack.splice(at + 1, stack.length, { url: String(url), state });
+        const kept = structuredClone(patched(state, url));
+        stack.splice(at + 1, stack.length, { url: String(url), state: kept });
         at += 1;
         log.push("push");
       },
       replaceState: (state, _t, url) => {
-        stack[at] = { url: String(url), state };
+        stack[at] = {
+          url: String(url),
+          state: structuredClone(patched(state, url)),
+        };
         log.push("replace");
       },
       back: () => {
         at = Math.max(0, at - 1);
+        routerUrl = stack[at].url;
         log.push("back");
       },
     }),
@@ -35,19 +53,23 @@ function browser(start: string) {
     history,
     log,
     address: () => stack[at].url,
+    routerAddress: () => routerUrl,
     // What the browser does on its own Back button.
     back: () => {
       at = Math.max(0, at - 1);
+      routerUrl = stack[at].url;
     },
     // A navigation to another page (the "where" link): a new entry with no mark.
     visit: (url: string) => {
-      stack.splice(at + 1, stack.length, { url, state: null });
+      stack.splice(at + 1, stack.length, { url, state: own() });
       at += 1;
+      routerUrl = url;
     },
     // What the router does to an entry when it rewrites the address (the list's `pages`): the state
     // is not kept.
     rewrite: (url: string) => {
-      stack[at] = { url, state: null };
+      stack[at] = { url, state: own() };
+      routerUrl = url;
     },
     entries: () => stack.length,
   };
@@ -145,4 +167,34 @@ test("only the close button, and Esc with nothing on top, close the viewer", () 
   // A press or focus in a popup drawn outside the viewer never closes it.
   expect(closeAnswer("outside-press", false, false)).toBe("keep");
   expect(closeAnswer("focus-out", false, false)).toBe("keep");
+});
+
+test("open, step, step, close and open again: the router follows every address", () => {
+  const b = browser("/?tab=media&pages=2");
+  const synced = () => expect(b.routerAddress()).toBe(b.address());
+  b.history.open(ref(5));
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2&picture=post-5-7");
+  b.history.change(ref(6));
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2&picture=post-6-7");
+  b.history.change(ref(7));
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2&picture=post-7-7");
+  b.history.close();
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2");
+  b.history.open(ref(8));
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2&picture=post-8-7");
+  b.history.close();
+  synced();
+  expect(b.routerAddress()).toBe("/?tab=media&pages=2");
+});
+
+test("closing an entry a link made is followed by the router too", () => {
+  const b = browser("/?tab=media&picture=post-5-7");
+  b.history.close();
+  expect(b.routerAddress()).toBe("/?tab=media");
+  expect(b.address()).toBe("/?tab=media");
 });

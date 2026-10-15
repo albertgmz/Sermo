@@ -9,8 +9,12 @@ export type HistoryEnv = {
 };
 
 // What the viewer writes into the state of the history entry it adds, so that the entry is told
-// from one a link made, even after the page was left and came back.
-const OWN = { sermoPicture: true } as const;
+// from one a link made, even after the page was left and came back. Always a new object: Next
+// patches pushState and replaceState, writes its own `__NA` onto the state it is given, and
+// treats a state that has it as its own call, for which it does not hand the router the address
+// (`useSearchParams` would stop following). A constant passed twice would be that from the second
+// call on.
+const own = () => ({ sermoPicture: true });
 
 function isOwn(state: unknown) {
   return (
@@ -29,12 +33,12 @@ function isOwn(state: unknown) {
 export function pictureHistory(env: HistoryEnv) {
   return {
     open(ref: PictureRef) {
-      env.history().pushState(OWN, "", withPicture(env.here(), ref));
+      env.history().pushState(own(), "", withPicture(env.here(), ref));
     },
     change(ref: PictureRef) {
       const history = env.history();
       history.replaceState(
-        isOwn(history.state) ? OWN : null,
+        isOwn(history.state) ? own() : null,
         "",
         withPicture(env.here(), ref),
       );
