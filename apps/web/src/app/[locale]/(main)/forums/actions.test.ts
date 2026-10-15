@@ -116,10 +116,29 @@ test("starting a thread names the attached files and refuses them when they are 
     body: "B",
     attachmentIds: [9],
     prefixId: null,
+    tags: [],
   });
   const bad = form({ title: "T", body: "B" });
   bad.append("attachmentIds", "0");
   await assert.rejects(() => actions.createThreadAction(4, {}, bad));
+});
+
+test("the tags field is sent as a list of names, without the # and without repeats", async () => {
+  answer = {
+    status: 403,
+    body: { error: { code: "forbidden", message: "No." } },
+  };
+  await actions.createThreadAction(
+    4,
+    {},
+    form({ title: "T", body: "B", tags: "#Rust, tutorial  #rust;café" }),
+  );
+  assert.deepEqual((asked.at(-1)?.body as { tags: string[] }).tags, [
+    "Rust",
+    "tutorial",
+    "rust",
+    "café",
+  ]);
 });
 
 const forumAnswer = (uploads: boolean) => ({

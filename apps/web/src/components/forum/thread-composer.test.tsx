@@ -60,6 +60,7 @@ test("a thread starts out unsendable: Post is disabled, beside the forum chip, t
         forums={[...FORUMS]}
         prefixes={PREFIXES}
         canAttach
+        canTag
         memberId={1}
       />,
     ),
@@ -85,11 +86,31 @@ test("a forum without prefixes draws no prefix chips", () => {
         forums={[...FORUMS]}
         prefixes={[]}
         canAttach={false}
+        canTag={false}
         memberId={1}
       />,
     ),
   );
   expect(html).not.toContain('name="prefixId"');
+  // A member who may not tag threads gets no field for tags.
+  expect(html).not.toContain('name="tags"');
+});
+
+test("the field for tags is part of the form of a member who may tag threads", () => {
+  const html = renderToStaticMarkup(
+    withIntl(
+      <ThreadComposer
+        forumId={2}
+        forums={[...FORUMS]}
+        prefixes={[]}
+        canAttach={false}
+        canTag
+        memberId={1}
+      />,
+    ),
+  );
+  expect(html).toContain('name="tags"');
+  expect(html).toContain("#rust #tutorial");
 });
 
 test("the address follows the forum", () => {

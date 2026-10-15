@@ -3,7 +3,8 @@
     "id": "Ese registro no es válido.",
     "number": "Introduce un número entero.",
     "file": "No se reconoció esa imagen; elígela de nuevo.",
-    "choice": "Elige uno de los valores ofrecidos."
+    "choice": "Elige uno de los valores ofrecidos.",
+    "tag": "No hay ninguna etiqueta con ese nombre."
   },
   "reactions": {
     "metaTitle": "Reacciones",
@@ -116,6 +117,38 @@
       "replacementHelp": "Se usa cuando la acción es reemplazar la palabra.",
       "active": "Activo",
       "activeSwitch": "Aplicar este filtro"
+    }
+  },
+  "tags": {
+    "metaTitle": "Etiquetas",
+    "heading": "Etiquetas",
+    "subtitle": "Las etiquetas que los miembros ponen a los hilos y los hashtags que escriben en los mensajes iniciales. Aquí se renombran, fusionan y eliminan.",
+    "loading": "Cargando las etiquetas…",
+    "notices": {
+      "renamed": "Etiqueta renombrada.",
+      "merged": "Etiquetas fusionadas.",
+      "deleted": "Etiqueta eliminada."
+    },
+    "list": {
+      "heading": "Etiquetas",
+      "description": "Por nombre. Una etiqueta renombrada o fusionada sigue respondiendo a sus nombres anteriores, así que los enlaces y hashtags ya escritos siguen funcionando.",
+      "searchLabel": "Buscar una etiqueta",
+      "searchPlaceholder": "Empieza por…",
+      "search": "Buscar",
+      "emptyTitle": "Sin etiquetas",
+      "emptyDescription": "Las etiquetas aparecen cuando los miembros las usan.",
+      "threads": "{count, plural, one {# hilo} other {# hilos}}",
+      "aliases": "También responde a {names}",
+      "delete": "Eliminar etiqueta",
+      "deleteWarning": "{count, plural, one {La etiqueta se quita de su hilo.} other {La etiqueta se quita de sus # hilos.}} Los hashtags ya escritos quedan como enlaces a una página que ya no existe.",
+      "next": "Siguientes etiquetas"
+    },
+    "row": {
+      "rename": "Renombrar",
+      "renameSubmit": "Renombrar",
+      "merge": "Fusionar con otra etiqueta",
+      "mergeSubmit": "Fusionar",
+      "saving": "Guardando…"
     }
   },
   "pages": {

@@ -96,5 +96,16 @@
     "optionPosts": "Every new post",
     "email": "Email me",
     "status": "{mode, select, posts {Following every new post} other {Following new threads}}{email, select, true {, by email} other {}}"
+  },
+  "tagPage": {
+    "home": "Home",
+    "description": "Threads tagged #{name}, newest activity first.",
+    "metaDescription": "Threads tagged #{name}",
+    "emptyTitle": "No threads",
+    "emptyDescription": "There is nothing tagged with this yet.",
+    "nextPage": "Next page",
+    "aria": {
+      "loading": "Loading threads…"
+    }
   }
 }

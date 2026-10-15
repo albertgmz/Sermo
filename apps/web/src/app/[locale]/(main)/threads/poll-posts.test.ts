@@ -61,10 +61,12 @@ const threadBody = {
   },
   node: { id: 2, title: "Garden" },
   watching: null,
+  tags: [],
   featured: null,
   permissions: {
     canReply: true,
     canEditTitle: false,
+    canEditTags: false,
     canModerate: false,
     canReport: true,
     canDelete: false,

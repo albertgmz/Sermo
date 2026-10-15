@@ -3,7 +3,8 @@
     "id": "That is not a valid record.",
     "number": "Enter a whole number.",
     "file": "That picture was not recognized; choose it again.",
-    "choice": "Choose one of the offered values."
+    "choice": "Choose one of the offered values.",
+    "tag": "There is no tag with that name."
   },
   "reactions": {
     "metaTitle": "Reactions",
@@ -116,6 +117,38 @@
       "replacementHelp": "Used when the action is to replace the word.",
       "active": "Active",
       "activeSwitch": "Apply this filter"
+    }
+  },
+  "tags": {
+    "metaTitle": "Tags",
+    "heading": "Tags",
+    "subtitle": "The tags members put on threads and the hashtags they type in opening posts. Rename, merge or delete them here.",
+    "loading": "Loading the tags…",
+    "notices": {
+      "renamed": "Tag renamed.",
+      "merged": "Tags merged.",
+      "deleted": "Tag deleted."
+    },
+    "list": {
+      "heading": "Tags",
+      "description": "By name. A renamed or merged tag still answers to its old names, so links and hashtags already written keep working.",
+      "searchLabel": "Find a tag",
+      "searchPlaceholder": "Starts with…",
+      "search": "Find",
+      "emptyTitle": "No tags",
+      "emptyDescription": "Tags appear when members use them.",
+      "threads": "{count, plural, one {# thread} other {# threads}}",
+      "aliases": "Also answers to {names}",
+      "delete": "Delete tag",
+      "deleteWarning": "{count, plural, one {The tag is taken off its thread.} other {The tag is taken off its # threads.}} Hashtags already written stay as links to a page that no longer exists.",
+      "next": "Next tags"
+    },
+    "row": {
+      "rename": "Rename",
+      "renameSubmit": "Rename",
+      "merge": "Merge into another tag",
+      "mergeSubmit": "Merge",
+      "saving": "Saving…"
     }
   },
   "pages": {

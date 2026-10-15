@@ -128,3 +128,14 @@ test("the player is drawn once embeds are accepted", async () => {
   expect(out).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
   expect(out).not.toContain("data-embed-load");
 });
+
+test("a hashtag link in a body is drawn as the link the backend wrote, with data saver on or off", async () => {
+  const body = `<p>See <a href="/tags/caf%C3%A9" class="hashtag" rel="nofollow ugc noopener">#café</a></p>`;
+  for (const setting of [undefined, "all"]) {
+    cookie = setting;
+    const out = await render(body);
+    expect(out).toContain(
+      '<a href="/tags/caf%C3%A9" class="hashtag" rel="nofollow ugc noopener">#café</a>',
+    );
+  }
+});

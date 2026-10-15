@@ -74,6 +74,7 @@ async function ThreadForm({
   const prefixes = prefixItems.flatMap((prefix) =>
     prefix.isActive ? (prefixView(prefix) ?? []) : [],
   );
+  const viewer = await getViewer();
   const forums = nodes.map(({ id, parentId, title, type, permissions }) => ({
     id,
     parentId,
@@ -87,7 +88,8 @@ async function ThreadForm({
       forums={forums}
       prefixes={prefixes}
       canAttach={canAttach}
-      memberId={(await getViewer()).user?.id ?? null}
+      canTag={viewer.resolvedPermissions["tag.apply"] === true}
+      memberId={viewer.user?.id ?? null}
     />
   );
 }

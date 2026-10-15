@@ -32,6 +32,7 @@ import { call } from "@/lib/sermo/client";
 import { SermoError } from "@/lib/sermo/errors";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
+import { tagsFromText } from "@/lib/sermo/tags";
 
 export type ReplyState = {
   error?: string;
@@ -245,6 +246,24 @@ export async function setLockedAction(
   );
   if (!done.ok) return { error: done.error };
   backToThread(threadId);
+}
+
+// Replaces the tags of a thread with the ones the field holds; the page is drawn again with them.
+export async function setThreadTagsAction(
+  threadId: number,
+  _previous: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  requireIds(threadId);
+  const done = await attempt(`/threads/${threadId}`, () =>
+    call(threadsUpdate, {
+      threadId,
+      tags: tagsFromText(textOf(formData, "tags")),
+    }),
+  );
+  if (!done.ok) return { error: done.error };
+  refresh();
+  return { done: true };
 }
 
 export async function removeCoverAction(

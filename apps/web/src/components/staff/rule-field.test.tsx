@@ -141,10 +141,12 @@ const THREAD_ANSWER = {
   },
   node: { id: 2, title: "Forum" },
   watching: null,
+  tags: [],
   featured: null,
   permissions: {
     canReply: false,
     canEditTitle: false,
+    canEditTags: false,
     canModerate: false,
     canReport: false,
     canDelete: false,

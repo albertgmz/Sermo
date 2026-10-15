@@ -24,6 +24,8 @@ import { PageBreadcrumb } from "@/components/forum/page-breadcrumb";
 import { PostFrame, PostNote } from "@/components/forum/post-frame";
 import { PrefixTag } from "@/components/forum/prefix-tag";
 import { LoadingRegion, PostSkeleton } from "@/components/forum/skeletons";
+import { ThreadTags } from "@/components/forum/thread-tags";
+import { ThreadTagsEditor } from "@/components/forum/thread-tags-editor";
 import { PageLayout } from "@/components/layout/page-layout";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -92,7 +94,15 @@ export default async function ThreadPage({
   ]);
   const id = threadIdOf(raw);
   const [
-    { thread, node, permissions, resolvedPermissions, watching, featured },
+    {
+      thread,
+      tags,
+      node,
+      permissions,
+      resolvedPermissions,
+      watching,
+      featured,
+    },
     { user },
     bookmarks,
     t,
@@ -153,6 +163,15 @@ export default async function ThreadPage({
           </h1>
         </div>
       </header>
+
+      {(tags.length > 0 || permissions.canEditTags) && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <ThreadTags tags={tags} />
+          {permissions.canEditTags && (
+            <ThreadTagsEditor threadId={thread.id} tags={tags} />
+          )}
+        </div>
+      )}
 
       {user && (
         <ThreadTools

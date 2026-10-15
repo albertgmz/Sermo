@@ -227,6 +227,16 @@
     "prefixLabel": "Prefix",
     "titleLabel": "Title"
   },
+  "threadTags": {
+    "list": "Tags",
+    "label": "Tags",
+    "placeholder": "#rust #tutorial",
+    "help": "Words separated by spaces. Letters, numbers and _ only.",
+    "edit": "Edit tags",
+    "add": "Add tags",
+    "save": "Save tags",
+    "cancel": "Cancel"
+  },
   "wallComments": {
     "placeholder": "Write a comment…",
     "submit": "Post comment",

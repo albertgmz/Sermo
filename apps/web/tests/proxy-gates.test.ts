@@ -612,6 +612,46 @@ test("an award is a 404 when the backend says it is not found, and only then", a
   assert.equal(list.length, 0);
 });
 
+test("a tag is a 404 when the backend has none for the visitor, and an old name goes to the current one", async () => {
+  const tag = (name: string, redirect: boolean) =>
+    Response.json({
+      name,
+      redirect,
+      seo: {
+        ...NODE.seo,
+        canonical: `http://localhost/tags/${encodeURIComponent(name)}`,
+        redirect: false,
+      },
+    });
+  const asked = backend({
+    "/api/v1/tags/rust": tag("rust", false),
+    "/api/v1/tags/caf%C3%A9": tag("café", false),
+    "/api/v1/tags/colour": tag("color", true),
+  });
+  passes(await ask("/tags/rust"));
+  // The name is asked for as the visitor wrote it, accents included.
+  passes(await ask("/tags/caf%C3%A9"));
+  assert.equal(asked.at(-1)?.url.pathname, "/api/v1/tags/caf%C3%A9");
+  isNotFound(await ask("/tags/nothing"));
+  const moved = await ask("/tags/colour?cursor=abc");
+  assert.equal(moved?.status, 308);
+  assert.equal(
+    moved?.headers.get("location"),
+    "http://localhost/tags/color?cursor=abc",
+  );
+
+  // An outage or another refusal lets the page show its own error.
+  backend({ "/api/v1/tags/rust": refusal(500, "internal") });
+  passes(await ask("/tags/rust"));
+  backend({ "/api/v1/tags/rust": "down" });
+  passes(await ask("/tags/rust"));
+
+  // A prefetch or a soft navigation is answered by the page itself.
+  const soft = backend({});
+  passes(await ask("/tags/rust", { headers: { "sec-fetch-mode": "cors" } }));
+  assert.equal(soft.length, 0);
+});
+
 test("the member list itself is not looked up", async () => {
   const asked = backend({});
   passes(await ask("/members"));

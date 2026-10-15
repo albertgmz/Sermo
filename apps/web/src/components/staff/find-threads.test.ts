@@ -92,10 +92,12 @@ test("a number finds that thread, without counting a view", async () => {
         },
         node: { id: 2, title: "Forum" },
         watching: null,
+        tags: [],
         featured: null,
         permissions: {
           canReply: false,
           canEditTitle: false,
+          canEditTags: false,
           canModerate: false,
           canReport: false,
           canDelete: false,

@@ -220,6 +220,12 @@ export const SECTIONS = [
         built: true,
       },
       {
+        key: "contentTags",
+        path: "/admin/tags",
+        access: ["tag.manage"],
+        built: true,
+      },
+      {
         key: "contentPages",
         path: "/admin/pages",
         access: ["admin.pages"],

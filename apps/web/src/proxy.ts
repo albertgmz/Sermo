@@ -6,6 +6,7 @@ import {
   seoNode,
   seoProfile,
   seoThread,
+  tagsGet,
 } from "@sermo/core/contracts";
 import { type NextRequest, NextResponse } from "next/server";
 import {
@@ -163,6 +164,24 @@ const CONTENT: Record<string, Finder> = {
     callWith(forward, conversationsGet, { conversationId }),
   ),
 };
+
+// A tag is addressed by its name, not by an id. The backend's read says whether the tag exists for
+// this visitor (one with no thread they may open does not) and whether the name asked for is an
+// old name, in which case the address goes to the current one.
+async function tagPage(name: string, request: NextRequest) {
+  try {
+    const tag = await callWith(forwardFromHeaders(request.headers), tagsGet, {
+      name,
+      requestedPath: request.nextUrl.pathname,
+    });
+    if (!tag.redirect) return true;
+    const target = new URL(canonicalPathOf(tag.seo.canonical), request.url);
+    target.search = request.nextUrl.search;
+    return NextResponse.redirect(target, 308);
+  } catch (error) {
+    return !(error instanceof SermoError && error.code === "not_found");
+  }
+}
 
 const STATIC_PAGES = ["terms", "rules", "privacy", "legal", "contact"];
 
@@ -500,6 +519,11 @@ async function handleRequest(request: NextRequest) {
     return notFound(request, locale);
   }
   const isPage = isDocumentRequest(request);
+  if (isPage && section === "tags" && id && action === undefined) {
+    const found = await tagPage(id, request);
+    if (found instanceof NextResponse) return found;
+    if (!found) return notFound(request, locale);
+  }
   const slug = isPage ? staticSlug(section, id, action) : undefined;
   if (slug !== undefined) {
     const parsed = PageSlug.safeParse(slug);

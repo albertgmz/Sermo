@@ -96,5 +96,16 @@
     "optionPosts": "Cada mensaje nuevo",
     "email": "Avisarme por correo",
     "status": "{mode, select, posts {Siguiendo cada mensaje nuevo} other {Siguiendo temas nuevos}}{email, select, true {, por correo} other {}}"
+  },
+  "tagPage": {
+    "home": "Inicio",
+    "description": "Hilos con la etiqueta #{name}, con la actividad más reciente primero.",
+    "metaDescription": "Hilos con la etiqueta #{name}",
+    "emptyTitle": "Sin hilos",
+    "emptyDescription": "Todavía no hay nada con esta etiqueta.",
+    "nextPage": "Página siguiente",
+    "aria": {
+      "loading": "Cargando hilos…"
+    }
   }
 }

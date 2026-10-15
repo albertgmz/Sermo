@@ -18,6 +18,7 @@ import {
   type ThreadDraft,
   writeThreadDraft,
 } from "@/components/forum/thread-draft";
+import { ThreadTagsField } from "@/components/forum/thread-tags-field";
 import { useKeptForm } from "@/components/forum/use-kept-form";
 import type { PrefixView } from "@/lib/sermo/views";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ export function ThreadComposer({
   forums,
   prefixes,
   canAttach,
+  canTag,
   memberId,
 }: {
   forumId: number;
@@ -61,6 +63,8 @@ export function ThreadComposer({
   forums: ForumChoice[];
   prefixes: PrefixView[];
   canAttach: boolean;
+  // The member may put tags on a thread (tag.apply): the field for them is shown.
+  canTag: boolean;
   // Whose draft is kept in the tab; none is kept without one.
   memberId: number | null;
 }) {
@@ -225,6 +229,7 @@ export function ThreadComposer({
           })}
         </fieldset>
       )}
+      {canTag && <ThreadTagsField />}
     </div>
   );
 

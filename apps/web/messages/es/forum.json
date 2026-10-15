@@ -227,6 +227,16 @@
     "prefixLabel": "Prefijo",
     "titleLabel": "Título"
   },
+  "threadTags": {
+    "list": "Etiquetas",
+    "label": "Etiquetas",
+    "placeholder": "#rust #tutorial",
+    "help": "Palabras separadas por espacios. Solo letras, números y _.",
+    "edit": "Editar etiquetas",
+    "add": "Añadir etiquetas",
+    "save": "Guardar etiquetas",
+    "cancel": "Cancelar"
+  },
   "wallComments": {
     "placeholder": "Escribe un comentario…",
     "submit": "Publicar comentario",

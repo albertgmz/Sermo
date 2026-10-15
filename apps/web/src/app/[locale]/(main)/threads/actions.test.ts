@@ -321,10 +321,12 @@ test("the first step of a merge reads the target without counting a view and cha
         jsonLd: [],
       },
       watching: null,
+      tags: [],
       featured: null,
       permissions: {
         canReply: true,
         canEditTitle: false,
+        canEditTags: false,
         canModerate: false,
         canReport: true,
         canDelete: false,
@@ -430,10 +432,12 @@ const readable = {
     jsonLd: [],
   },
   watching: null,
+  tags: [],
   featured: null,
   permissions: {
     canReply: false,
     canEditTitle: false,
+    canEditTags: false,
     canModerate: true,
     canReport: false,
     canDelete: false,
@@ -501,4 +505,31 @@ test("deleting a post for good shows the thread, and a refusal is shown as it is
   assert.deepEqual(await actions.hardDeletePostAction(7, 31, {}, form({})), {
     error: "You may not do that.",
   });
+});
+
+test("setting the tags of a thread sends the whole list, is done on success and shows a refusal", async () => {
+  answer = { status: 200, body: { ...thread } };
+  assert.deepEqual(
+    await actions.setThreadTagsAction(
+      7,
+      {},
+      form({ tags: "#rust, tutorial #rust" }),
+    ),
+    { done: true },
+  );
+  assert.equal(asked[0].method, "PATCH");
+  assert.ok(asked[0].url.endsWith("/threads/7"));
+  assert.deepEqual((asked[0].body as { tags: string[] }).tags, [
+    "rust",
+    "tutorial",
+  ]);
+  // An empty field clears the tags.
+  await actions.setThreadTagsAction(7, {}, form({ tags: " " }));
+  assert.deepEqual((asked[1].body as { tags: string[] }).tags, []);
+  answer = refusal;
+  assert.deepEqual(
+    await actions.setThreadTagsAction(7, {}, form({ tags: "x" })),
+    { error: "You may not do that." },
+  );
+  await assert.rejects(() => actions.setThreadTagsAction(0, {}, form({})));
 });

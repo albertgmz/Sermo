@@ -19,6 +19,7 @@ import {
 import { call } from "@/lib/sermo/client";
 import { formIds, parseId, requireIds } from "@/lib/sermo/ids";
 import { attempt } from "@/lib/sermo/outcome";
+import { tagsFromText } from "@/lib/sermo/tags";
 
 export type NewThreadState = {
   error?: string;
@@ -48,6 +49,7 @@ export async function createThreadAction(
       body,
       attachmentIds: attachmentIds as number[],
       prefixId: prefixId ? (parseId(prefixId) as number) : null,
+      tags: tagsFromText(String(formData.get("tags") ?? "")),
     }),
   );
   if (!created.ok) return { error: created.error, title, prefixId };

@@ -1,10 +1,15 @@
+import { tagsGet } from "@sermo/core/contracts";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { LoadingRegion } from "@/components/forum/skeletons";
 import { PageLayout } from "@/components/layout/page-layout";
 import { pagesParam } from "@/lib/list-pages";
+import { call } from "@/lib/sermo/client";
+import { searchedTag, tagHref } from "@/lib/sermo/tags";
 import { SearchBody } from "./search-body";
+import { refusal } from "./search-page";
 import { FormSkeleton, ResultsSkeleton } from "./skeletons";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,6 +33,13 @@ export default async function SearchPage({
     searchParams,
     getTranslations("search.search"),
   ]);
+  // A search for a hashtag alone (`#rust`) that names a tag goes to the tag's page, which lists
+  // its threads; any other text, or a hashtag that is no tag, is searched for as written.
+  const tag = searchedTag(first(params.q));
+  if (tag !== null) {
+    const found = await refusal(call(tagsGet, { name: tag }));
+    if ("value" in found) redirect(tagHref(found.value.name));
+  }
 
   return (
     <PageLayout mainClassName="space-y-4">
