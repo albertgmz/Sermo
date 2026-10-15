@@ -1,5 +1,6 @@
 import type { AnyOperation } from "../../operation";
 import { usersAdminAcceptancesOp } from "./acceptances";
+import { usersDeleteOwnAccountOp } from "./delete-own-account";
 import { usersAdminEraseOp } from "./erase";
 import { adminActivityOp, adminJobsOp, adminStaffOnlineOp } from "./home";
 import { authVerifyPasswordOp, usersAdminUpdateIdentityOp } from "./identity";
@@ -26,6 +27,7 @@ export const operations: AnyOperation[] = [
   usersAdminLogOp,
   usersAdminAcceptancesOp,
   usersAdminEraseOp,
+  usersDeleteOwnAccountOp,
   usersSetSuperAdminOp,
   bansListOp,
   announcementsListOp,

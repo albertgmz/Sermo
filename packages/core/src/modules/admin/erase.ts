@@ -1,4 +1,4 @@
-import { requireAuthenticated } from "../../actor";
+import { type Actor, requireAuthenticated } from "../../actor";
 import { type Ctx, prepared } from "../../context";
 import { usersAdminErase } from "../../contracts/admin";
 import { writeTx } from "../../db/tx";
@@ -82,49 +82,48 @@ async function renameErased(ctx: Ctx, userId: number): Promise<void> {
 }
 
 /**
- * Closes an account for good. The first transaction marks the member erased, bans them and
- * writes the log entry; every later step takes something away and looks at what is already gone,
- * so running the operation again from any point finishes the job and writes no second entry.
- * What identifies the member goes before the rename, which nothing else waits for.
+ * Closes an account for good, for `users.adminErase` and `users.deleteOwnAccount`. The first
+ * transaction marks the member erased, bans them and writes the log entry; every later step takes
+ * something away and looks at what is already gone, so running the operation again from any point
+ * finishes the job and writes no second entry. What identifies the member goes before the rename,
+ * which nothing else waits for. `guard` is the caller's own permission decision: it runs inside the
+ * first transaction on the actor read again there, so a permission revoked in another process
+ * since the request began stops the erasure before anything is written.
  */
-export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
-  const admin = requireAuthenticated(actor);
-  await verifyActorPassword(ctx, actor, input.actorPassword);
-  if (admin.userId === input.userId) throw new ConflictError("You cannot erase your own account.");
-  const target = targetMember(ctx, actor, input.userId);
-  requirePermission(ctx, actor, "admin.members", { target });
-  requireTakeoverRights(ctx, actor, target);
-
+export async function eraseMember(
+  ctx: Ctx,
+  actor: Actor,
+  userId: number,
+  reason: string,
+  guard: (current: Actor) => void,
+): Promise<void> {
   // 1. Mark, ban for good (refused for the last holder of admin.permissions) and log, together.
   writeTx(ctx, () => {
-    const current = currentActor(ctx, actor);
-    const fresh = targetMember(ctx, current, input.userId, true);
-    requirePermission(ctx, current, "admin.members", { target: fresh });
-    requireTakeoverRights(ctx, current, fresh);
-    const own = readMember(ctx, input.userId);
+    guard(currentActor(ctx, actor));
+    const own = readMember(ctx, userId);
     if (own?.erased_at === null) {
       // The flag goes with the account; the last super admin cannot be erased.
-      if (isSuperAdminRow(ctx, input.userId)) assertOtherSuperAdmin(ctx, input.userId);
-      ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(input.userId);
-      ctx.sqlite.prepare(eraseSql.mark).run(input.userId, ctx.now());
-      appendModeratorLog(ctx, actor, "member.erase", "user", input.userId, input.reason, {});
+      if (isSuperAdminRow(ctx, userId)) assertOtherSuperAdmin(ctx, userId);
+      ctx.sqlite.prepare("UPDATE users SET is_super_admin = 0 WHERE id = ?1").run(userId);
+      ctx.sqlite.prepare(eraseSql.mark).run(userId, ctx.now());
+      appendModeratorLog(ctx, actor, "member.erase", "user", userId, reason, {});
     }
     if (own?.banned_permanently !== 1)
-      insertAuthorizedBan(ctx, actor, input.userId, input.reason, null, { notify: false });
+      insertAuthorizedBan(ctx, actor, userId, reason, null, { notify: false });
   });
   // 2. Sessions and API keys, then the links and queued mail that could still reach the account.
-  await revokeUserCredentials(ctx, input.userId);
-  await deletePendingTokens(ctx, input.userId);
+  await revokeUserCredentials(ctx, userId);
+  await deletePendingTokens(ctx, userId);
   // 3. Identity, through Better Auth.
   const authContext = await getAuth(ctx).$context;
-  const id = String(input.userId);
-  const placeholder = `erased-${input.userId}@invalid`;
-  const now = readMember(ctx, input.userId);
+  const id = String(userId);
+  const placeholder = `erased-${userId}@invalid`;
+  const now = readMember(ctx, userId);
   if (now && now.email !== placeholder)
     // The old address leaves the delivery records before it is replaced; afterwards it is unknown.
     writeTx(ctx, () => {
       ctx.sqlite.prepare(eraseSql.rejectedAddress).run(now.email);
-      ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, now.email);
+      ctx.sqlite.prepare(eraseSql.failedMail).run(userId, now.email);
     });
   await authContext.internalAdapter.updateUser(id, {
     ...(now && now.email !== placeholder ? { email: placeholder, emailVerified: false } : {}),
@@ -132,27 +131,41 @@ export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, i
   });
   await authContext.internalAdapter.deleteAccounts(id);
   // 4. The forum side: follows, then the profile, the pictures and the queued mail.
-  endMemberFollows(ctx, input.userId);
+  endMemberFollows(ctx, userId);
   writeTx(ctx, () => {
-    ctx.sqlite.prepare(eraseSql.clear).run(input.userId, ctx.now());
-    clearMemberPicture(ctx, input.userId, "avatar");
-    clearMemberPicture(ctx, input.userId, "cover");
-    prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(input.userId);
-    ctx.sqlite.prepare(eraseSql.failedMail).run(input.userId, "");
-    ctx.sqlite.prepare(eraseSql.pushDevices).run(input.userId);
-    ctx.sqlite.prepare(ipLogSql.erase).run(input.userId);
-    deleteConsentRecord(ctx, input.userId);
-    ctx.sqlite.prepare(acceptanceSql.erase).run(input.userId);
-    ctx.sqlite.prepare(eraseSql.uncountReferral).run(input.userId);
-    ctx.sqlite.prepare(eraseSql.endReferrals).run(input.userId);
+    ctx.sqlite.prepare(eraseSql.clear).run(userId, ctx.now());
+    clearMemberPicture(ctx, userId, "avatar");
+    clearMemberPicture(ctx, userId, "cover");
+    prepared(ctx, "admin.erase.mail", () => ctx.sqlite.prepare(eraseSql.mail)).run(userId);
+    ctx.sqlite.prepare(eraseSql.failedMail).run(userId, "");
+    ctx.sqlite.prepare(eraseSql.pushDevices).run(userId);
+    ctx.sqlite.prepare(ipLogSql.erase).run(userId);
+    deleteConsentRecord(ctx, userId);
+    ctx.sqlite.prepare(acceptanceSql.erase).run(userId);
+    ctx.sqlite.prepare(eraseSql.uncountReferral).run(userId);
+    ctx.sqlite.prepare(eraseSql.endReferrals).run(userId);
   });
   // 5. The name, last. Credentials created since step 2 would go too.
-  await renameErased(ctx, input.userId);
-  await revokeUserCredentials(ctx, input.userId);
+  await renameErased(ctx, userId);
+  await revokeUserCredentials(ctx, userId);
   writeTx(ctx, () => {
-    ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), input.userId);
-    markSessionsRevoked(ctx, input.userId);
-    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: input.userId });
+    ctx.sqlite.prepare(eraseSql.touch).run(ctx.now(), userId);
+    markSessionsRevoked(ctx, userId);
+    publishEvent(ctx, { type: "content.edited", targetType: "profile", targetId: userId });
+  });
+}
+
+export const usersAdminEraseOp = implement(usersAdminErase, async (ctx, actor, input) => {
+  const admin = requireAuthenticated(actor);
+  await verifyActorPassword(ctx, actor, input.actorPassword);
+  if (admin.userId === input.userId) throw new ConflictError("You cannot erase your own account.");
+  const target = targetMember(ctx, actor, input.userId);
+  requirePermission(ctx, actor, "admin.members", { target });
+  requireTakeoverRights(ctx, actor, target);
+  await eraseMember(ctx, actor, input.userId, input.reason, (current) => {
+    const fresh = targetMember(ctx, current, input.userId, true);
+    requirePermission(ctx, current, "admin.members", { target: fresh });
+    requireTakeoverRights(ctx, current, fresh);
   });
   return { ok: true as const };
 });

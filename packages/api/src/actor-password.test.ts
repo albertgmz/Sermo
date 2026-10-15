@@ -267,3 +267,37 @@ test("every guarded route refuses an API key, with or without the password, and 
     }
   expect(state()).toBe(before);
 });
+
+test("a member deletes their own account with a session and their password, never with an API key", async () => {
+  const { id, ctx, asSession, asKey } = await setup();
+  ctx.sqlite.prepare("UPDATE users SET group_id = 2 WHERE id = ?1").run(id);
+  const erased = () =>
+    ctx.sqlite
+      .prepare<{ n: number }, [number]>(
+        "SELECT erased_at IS NOT NULL AS n FROM users WHERE id = ?1",
+      )
+      .get(id)!.n;
+
+  const keyed = await asKey("POST", "/me/delete-account", { password: PASSWORD });
+  expect(keyed.status).toBe(403);
+  expect(await keyed.json()).toMatchObject({
+    error: {
+      code: "forbidden",
+      message: "This needs a signed-in session; an API key cannot do it.",
+    },
+  });
+  expect(erased()).toBe(0);
+
+  const wrong = await asSession("POST", "/me/delete-account", { password: "nope-nope-1" });
+  expect(wrong.status).toBe(403);
+  expect(await wrong.json()).toMatchObject({
+    error: { code: "forbidden", issues: [{ path: ["password"] }] },
+  });
+  expect(erased()).toBe(0);
+
+  const right = await asSession("POST", "/me/delete-account", { password: PASSWORD });
+  expect(right.status).toBe(200);
+  expect(erased()).toBe(1);
+  // The session that did it is over.
+  expect((await asSession("GET", "/me/counters")).status).toBeGreaterThanOrEqual(401);
+});

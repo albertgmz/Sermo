@@ -363,6 +363,22 @@ export const usersAdminErase = defineContract({
   output: Ok,
 });
 
+export const usersDeleteOwnAccount = defineContract({
+  name: "users.deleteOwnAccount",
+  summary:
+    "Close the signed-in member's own account for good: the same erasure as `users.adminErase` " +
+    "(read its summary for what is removed and what stays), logged as `member.erase` with the " +
+    "member as the actor and banned permanently like any erased account. The member's own " +
+    "password is required (five wrong answers in fifteen minutes from one session, twenty from " +
+    "all their sessions, block further attempts). It cannot be undone. Requires " +
+    "profile.deleteAccount; refused for a super admin (another super admin must first remove the " +
+    "flag) and for the last member holding admin.permissions; session actors only, never an API " +
+    "key. Every session of the member ends, the current one included.",
+  kind: "write",
+  input: z.object({ password: ActorPassword }),
+  output: Ok,
+});
+
 // Sanctions ----------------------------------------------------------------------------------
 
 export const BAN_STATES = ["active", "expired", "lifted"] as const;
